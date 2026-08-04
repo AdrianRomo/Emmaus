@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} | Emmaus{% endblock %}
+{% block content %}
+  {% include "partials/page_header.html" with eyebrow="Path editor" title=title subtitle="Keep the path clear, editable, and suited to the people your church is walking with." %}
+  <section class="mx-auto max-w-3xl">
+    <div class="card p-6 md:p-8">
+      <form method="post">
+        {% csrf_token %}
+        {% include "partials/form_fields.html" %}
+        <div class="mt-2 flex flex-col gap-3 sm:flex-row">
+          <button class="btn btn-primary">Save path</button>
+          <a class="btn btn-secondary" href="{% url 'path_list' %}">Back to paths</a>
+        </div>
+      </form>
+    </div>
+  </section>
+{% endblock %}

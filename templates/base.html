@@ -1,0 +1,91 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Emmaus{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/emmaus.css' %}">
+    {% if theme_church %}
+      <style>
+        :root {
+          --page: {{ theme_church.theme_background_color }};
+          --page-2: {{ theme_church.theme_border_color }};
+          --surface: {{ theme_church.theme_surface_color }};
+          --surface-2: {{ theme_church.theme_surface_color }};
+          --ink: {{ theme_church.theme_text_color }};
+          --ink-soft: {{ theme_church.theme_text_color }};
+          --muted: {{ theme_church.theme_muted_text_color }};
+          --muted-2: {{ theme_church.theme_muted_text_color }};
+          --line: {{ theme_church.theme_border_color }};
+          --line-strong: {{ theme_church.theme_border_color }};
+          --gold: {{ theme_church.theme_accent_color }};
+          --gold-dark: {{ theme_church.theme_primary_color }};
+          --sage: {{ theme_church.theme_secondary_color }};
+          --clay: {{ theme_church.theme_accent_color }};
+          --blue: {{ theme_church.theme_secondary_color }};
+          --primary: {{ theme_church.theme_primary_color }};
+          --primary-2: {{ theme_church.theme_text_color }};
+        }
+      </style>
+    {% endif %}
+  </head>
+  <body>
+    {% if user.is_authenticated %}
+      <div class="min-h-screen lg:grid lg:grid-cols-[17.5rem_1fr]">
+        <aside class="hidden border-r border-stone-200/80 bg-[#efe6d8]/70 px-5 py-6 lg:block">
+          <div class="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
+            <a href="{% url 'dashboard' %}" class="mb-8 block">
+              <span class="text-2xl font-semibold tracking-wide text-stone-950">Emmaus</span>
+              {% if current_church %}<span class="mt-1 block text-sm text-stone-600">{{ current_church.name }}</span>{% endif %}
+            </a>
+            <nav aria-label="Primary" class="space-y-1">
+              {% for item in app_nav_items %}
+                <a class="nav-link {% if active_url_name in item.names %}nav-link-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+              {% endfor %}
+            </nav>
+            <div class="mt-auto rounded-2xl border border-stone-300/70 bg-white/50 p-4 text-sm text-stone-700">
+              <p class="font-semibold text-stone-950">{{ user.get_full_name|default:user.email }}</p>
+              <p class="mt-1">{{ current_role_record.get_role_display }}</p>
+              <form method="post" action="{% url 'logout' %}" class="mt-4">
+                {% csrf_token %}
+                <button class="btn btn-secondary w-full" type="submit">Sign out</button>
+              </form>
+            </div>
+          </div>
+        </aside>
+
+        <div class="min-w-0">
+          <header class="sticky top-0 z-20 border-b border-stone-200/80 bg-[#fbf7f0]/90 backdrop-blur lg:hidden">
+            <div class="flex items-center justify-between px-4 py-4">
+              <a href="{% url 'dashboard' %}" class="text-xl font-semibold text-stone-950">Emmaus</a>
+              <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button class="btn btn-secondary !min-h-0 !px-3 !py-2 text-sm" type="submit">Sign out</button>
+              </form>
+            </div>
+            <nav aria-label="Mobile primary" class="flex gap-2 overflow-x-auto px-4 pb-4">
+              {% for item in app_nav_items %}
+                <a class="shrink-0 rounded-full border border-stone-300 bg-white/80 px-3 py-2 text-sm font-semibold text-stone-700 {% if active_url_name in item.names %}!border-amber-700 !text-stone-950{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+              {% endfor %}
+            </nav>
+          </header>
+          <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+    {% else %}
+      <header class="border-b border-stone-200/80 bg-[#fbf7f0]/88 backdrop-blur">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
+          <a href="{% url 'landing' %}" class="text-2xl font-semibold tracking-wide text-stone-950">Emmaus</a>
+          <a class="btn btn-primary" href="{% url 'login' %}">Sign in</a>
+        </div>
+      </header>
+      <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
+    {% endif %}
+        {% include "partials/messages.html" %}
+        {% block content %}{% endblock %}
+      </main>
+    {% if user.is_authenticated %}
+        </div>
+      </div>
+    {% endif %}
+  </body>
+</html>

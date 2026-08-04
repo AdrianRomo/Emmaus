@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Church settings | Emmaus{% endblock %}
+{% block content %}
+  {% include "partials/page_header.html" with eyebrow="Workspace settings" title="Church settings" subtitle="Keep the public welcome, contact information, consent language, invitation settings, and visual identity clear." %}
+  <form method="post">
+    {% csrf_token %}
+    <section class="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
+      <div class="card p-6 md:p-8">
+        <h2 class="text-xl font-semibold text-stone-950">Church details</h2>
+        <div class="mt-5">
+          {% include "partials/form_field.html" with field=form.name %}
+          {% include "partials/form_field.html" with field=form.public_welcome_text %}
+          {% include "partials/form_field.html" with field=form.contact_email %}
+          {% include "partials/form_field.html" with field=form.basic_disclaimer_text %}
+          {% include "partials/form_field.html" with field=form.self_registration_enabled %}
+          {% include "partials/form_field.html" with field=form.leaders_can_invite_participants %}
+        </div>
+      </div>
+
+      <div class="card-flat p-6 md:p-8">
+        <h2 class="text-xl font-semibold text-stone-950">Theme colors</h2>
+        <p class="mt-2 text-sm leading-6 text-stone-600">Defaults are based on Satélite Iglesia Cristiana: black and white structure, cool gray surfaces, clay accent, and calm olive support.</p>
+        <div class="theme-grid mt-5">
+          {% include "partials/form_field.html" with field=form.theme_primary_color %}
+          {% include "partials/form_field.html" with field=form.theme_accent_color %}
+          {% include "partials/form_field.html" with field=form.theme_secondary_color %}
+          {% include "partials/form_field.html" with field=form.theme_background_color %}
+          {% include "partials/form_field.html" with field=form.theme_surface_color %}
+          {% include "partials/form_field.html" with field=form.theme_text_color %}
+          {% include "partials/form_field.html" with field=form.theme_muted_text_color %}
+          {% include "partials/form_field.html" with field=form.theme_border_color %}
+        </div>
+        <div class="theme-preview mt-4">
+          <div class="theme-preview-card">
+            <p class="text-sm font-bold uppercase tracking-[0.14em] text-amber-800">Preview</p>
+            <h3 class="mt-2 text-2xl font-semibold text-stone-950">Emmaus for your church</h3>
+            <p class="mt-2 text-sm leading-6 text-stone-600">Cards, buttons, badges, and highlights inherit these colors.</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <span class="badge badge-attention">Accent</span>
+              <span class="badge badge-soft">Secondary</span>
+              <button class="btn btn-primary !min-h-0 !py-2" type="button">Primary action</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <button class="btn btn-primary mt-6">Save settings</button>
+  </form>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Discipleship paths | Emmaus{% endblock %}
+{% block content %}
+  {% url 'path_create' as create_url %}
+  {% include "partials/page_header.html" with eyebrow="Discipleship content" title="Discipleship paths" subtitle="Create and edit the journeys participants walk through with mentors and church leaders." action_url=create_url action_label="New path" %}
+  <div class="grid gap-4 lg:grid-cols-2">
+    {% for path in paths %}
+      <a class="human-row" href="{% url 'path_detail' path.id %}">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-semibold text-stone-950">{{ path.title }}</h2>
+            <p class="mt-2 text-sm leading-6 text-stone-600">{{ path.description|default:"No description yet."|truncatewords:28 }}</p>
+          </div>
+          <div class="flex flex-col items-end gap-2">
+            {% if path.is_default %}<span class="badge badge-attention">Default path</span>{% endif %}
+            {% if path.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
+          </div>
+        </div>
+        <p class="mt-4 text-sm font-semibold text-stone-500">{{ path.lesson_count }} lesson{{ path.lesson_count|pluralize }}</p>
+      </a>
+    {% empty %}
+      {% include "partials/empty_state.html" with title="No paths yet" body="Create your first discipleship path so participants have a clear next step." action_url=create_url action_label="Create your first path" %}
+    {% endfor %}
+  </div>
+{% endblock %}

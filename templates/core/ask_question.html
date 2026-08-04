@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Ask a question | Emmaus{% endblock %}
+{% block content %}
+  {% include "partials/page_header.html" with eyebrow="Questions" title="Ask a question" subtitle="Your question will be shared with trusted leaders from your church who can walk with you personally." %}
+  <section class="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+    <div class="card p-6 md:p-8">
+      <form method="post">
+        {% csrf_token %}
+        {% include "partials/form_fields.html" %}
+        <button class="btn btn-primary mt-2">Send question</button>
+      </form>
+    </div>
+    <aside class="card-flat p-6">
+      <h2 class="font-semibold text-stone-950">A gentle safety note</h2>
+      <p class="mt-3 text-sm leading-7 text-stone-700">{{ question_disclaimer }}</p>
+    </aside>
+  </section>
+{% endblock %}

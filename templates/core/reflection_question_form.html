@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Reflection question | Emmaus{% endblock %}
+{% block content %}
+  {% include "partials/page_header.html" with eyebrow=lesson.title title="Add reflection question" subtitle="Write a prompt that invites honest reflection and gives mentors a window into how to encourage the participant." %}
+  <section class="mx-auto max-w-2xl">
+    <div class="card p-6 md:p-8">
+      <form method="post">
+        {% csrf_token %}
+        {% include "partials/form_fields.html" %}
+        <div class="mt-2 flex flex-col gap-3 sm:flex-row">
+          <button class="btn btn-primary">Save question</button>
+          <a class="btn btn-secondary" href="{% url 'path_detail' lesson.path_id %}">Back to path</a>
+        </div>
+      </form>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Users | Emmaus{% endblock %}
+{% block content %}
+  {% url 'create_invitation' as invite_url %}
+  {% include "partials/page_header.html" with eyebrow="Workspace people" title="Users" subtitle="Pastors, mentors, admins, and participants connected to this church workspace." action_url=invite_url action_label="Invite user" %}
+  <div class="card p-5">
+    <div class="divide-y divide-stone-200">
+      {% for account in users %}
+        <div class="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="font-semibold text-stone-950">{{ account.get_full_name|default:account.email }}</p>
+            <p class="mt-1 text-sm text-stone-500">{{ account.email }}</p>
+          </div>
+          <span class="badge badge-soft">{{ account.church_roles.first.get_role_display }}</span>
+        </div>
+      {% empty %}
+        {% include "partials/empty_state.html" with title="No users yet" body="Invite leaders and participants to begin using Emmaus." action_url=invite_url action_label="Invite user" %}
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

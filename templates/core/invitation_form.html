@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}New invitation | Emmaus{% endblock %}
+{% block content %}
+  {% url 'invitations_list' as invitations_url %}
+  {% include "partials/page_header.html" with eyebrow="Invitations" title="Invite someone into Emmaus" subtitle="Send a secure invitation link so the right person can join your church workspace." action_url=invitations_url action_label="View invitations" %}
+  <section class="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+    <div class="card p-6 md:p-8">
+      <form method="post">
+        {% csrf_token %}
+        {% include "partials/form_fields.html" %}
+        <button class="btn btn-primary mt-2">Create invitation</button>
+      </form>
+      {% if manual_link %}
+        <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p class="font-semibold text-amber-950">Manual invitation link</p>
+          <p class="mt-2 break-all text-sm leading-6 text-amber-900">{{ manual_link }}</p>
+        </div>
+      {% endif %}
+    </div>
+    <aside class="card-flat p-6">
+      <h2 class="font-semibold text-stone-950">Invitation notes</h2>
+      <div class="mt-4 space-y-3 text-sm leading-6 text-stone-600">
+        <p>Participants can be assigned a mentor and enrolled in a path when they accept.</p>
+        <p>If SMTP is not configured, copy the manual link and send it directly through your church’s normal communication channel.</p>
+      </div>
+    </aside>
+  </section>
+{% endblock %}

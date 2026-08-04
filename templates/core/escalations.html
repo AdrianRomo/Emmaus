@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Escalations | Emmaus{% endblock %}
+{% block content %}
+  {% include "partials/page_header.html" with eyebrow="Pastoral care" title="Escalated questions" subtitle="Questions that mentors or participants marked for pastoral attention." %}
+  <div class="space-y-3">
+    {% for question in questions %}
+      <a class="human-row" href="{% url 'church_question_detail' question.id %}">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="font-semibold text-stone-950">{{ question.participant.get_full_name|default:question.participant.email }}</p>
+            <p class="mt-2 text-sm leading-6 text-stone-600">{{ question.question_text|truncatewords:30 }}</p>
+          </div>
+          {% include "partials/status_badge.html" with status=question.status label="Escalated" %}
+        </div>
+      </a>
+    {% empty %}
+      {% include "partials/empty_state.html" with title="No escalations right now" body="Questions needing pastoral attention will appear here." %}
+    {% endfor %}
+  </div>
+{% endblock %}

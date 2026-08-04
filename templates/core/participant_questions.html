@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Questions you’ve asked | Emmaus{% endblock %}
+{% block content %}
+  {% url 'ask_question' as ask_url %}
+  {% include "partials/page_header.html" with eyebrow="Your questions" title="Questions you’ve asked" subtitle="Responses from your church leaders will stay here so you can return to them." action_url=ask_url action_label="Ask a question" %}
+  <div class="space-y-3">
+    {% for question in questions %}
+      <a class="human-row" href="{% url 'participant_question_detail' question.id %}">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p class="font-semibold text-stone-950">{{ question.question_text|truncatewords:28 }}</p>
+            <p class="mt-2 text-sm text-stone-500">{{ question.responses.count }} response{{ question.responses.count|pluralize }} · Asked {{ question.created_at|date:"M j, Y" }}</p>
+          </div>
+          {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
+        </div>
+      </a>
+    {% empty %}
+      {% include "partials/empty_state.html" with title="No questions yet" body="When something feels unclear, you can ask a trusted church leader here." action_url=ask_url action_label="Ask your first question" %}
+    {% endfor %}
+  </div>
+{% endblock %}

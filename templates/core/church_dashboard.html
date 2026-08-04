@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Church dashboard | Emmaus{% endblock %}
+{% block content %}
+  {% url 'create_invitation' as invite_url %}
+  {% include "partials/page_header.html" with eyebrow=church.name title="Ministry overview" subtitle="A church-level view of questions, follow-ups, mentor assignment, and recent care activity." action_url=invite_url action_label="Invite someone" %}
+
+  <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    {% include "partials/stat_card.html" with label="Active participants" value=participant_count hint="People currently walking through Emmaus." %}
+    {% include "partials/stat_card.html" with label="New this week" value=new_this_week hint="New participants welcomed recently." %}
+    {% include "partials/stat_card.html" with label="Needs mentor" value=waiting_for_mentor hint="Participants waiting for someone to walk with them." %}
+    {% include "partials/stat_card.html" with label="Follow-up requested" value=open_follow_ups hint="Open requests for conversation or care." %}
+  </section>
+
+  <section class="mt-6 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+    <div class="card p-5 md:p-6">
+      <h2 class="text-xl font-semibold text-stone-950">Needs attention</h2>
+      <div class="mt-5 grid gap-3 md:grid-cols-3">
+        <a class="card-flat p-4 hover:bg-white" href="{% url 'questions_inbox' %}">
+          <p class="text-sm text-stone-500">Waiting for response</p>
+          <p class="mt-2 text-3xl font-semibold text-stone-950">{{ open_questions }}</p>
+        </a>
+        <a class="card-flat p-4 hover:bg-white" href="{% url 'escalations' %}">
+          <p class="text-sm text-stone-500">Escalations</p>
+          <p class="mt-2 text-3xl font-semibold text-stone-950">{{ escalated_questions }}</p>
+        </a>
+        <a class="card-flat p-4 hover:bg-white" href="{% url 'participants_list' %}">
+          <p class="text-sm text-stone-500">Needs mentor</p>
+          <p class="mt-2 text-3xl font-semibold text-stone-950">{{ waiting_for_mentor }}</p>
+        </a>
+      </div>
+      <div class="mt-5 space-y-3">
+        {% for question in escalated_questions_list %}
+          <a class="human-row" href="{% url 'church_question_detail' question.id %}">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="font-semibold text-stone-950">{{ question.participant.get_full_name|default:question.participant.email }}</p>
+                <p class="mt-1 text-sm leading-6 text-stone-600">{{ question.question_text|truncatewords:20 }}</p>
+              </div>
+              {% include "partials/status_badge.html" with status=question.status label="Escalated" %}
+            </div>
+          </a>
+        {% empty %}
+          {% include "partials/empty_state.html" with title="No escalations right now" body="Questions needing pastoral attention will appear here." %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="space-y-5">
+      <div class="card-flat p-5">
+        <h2 class="font-semibold text-stone-950">Participants without mentors</h2>
+        <div class="mt-4 space-y-3">
+          {% for profile in participants_without_mentor %}
+            <a class="human-row" href="{% url 'assign_mentor' profile.id %}">
+              <p class="text-sm font-semibold text-stone-950">{{ profile.user.get_full_name|default:profile.user.email }}</p>
+              <p class="mt-1 text-sm text-stone-600">Assign someone who can walk with them.</p>
+            </a>
+          {% empty %}
+            {% include "partials/empty_state.html" with title="Everyone has a mentor" body="Participants without mentors will appear here." %}
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card-flat p-5">
+        <h2 class="font-semibold text-stone-950">Follow-up requests</h2>
+        <div class="mt-4 space-y-3">
+          {% for follow_up in open_follow_ups_list %}
+            <div class="human-row">
+              <p class="text-sm font-semibold text-stone-950">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+              <p class="mt-1 text-sm leading-6 text-stone-600">{{ follow_up.reason|truncatewords:16 }}</p>
+              <p class="mt-2">{% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}</p>
+            </div>
+          {% empty %}
+            {% include "partials/empty_state.html" with title="No follow-ups right now" body="Requests for conversation or care will appear here." %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mt-6 grid gap-5 lg:grid-cols-2">
+    <div class="card-flat p-5">
+      <h2 class="font-semibold text-stone-950">Recently active participants</h2>
+      <div class="mt-4 space-y-3">
+        {% for profile in recent_active_profiles %}
+          <a class="human-row" href="{% url 'participant_detail' profile.id %}">
+            <p class="text-sm font-semibold text-stone-950">{{ profile.user.get_full_name|default:profile.user.email }}</p>
+            <p class="mt-1 text-sm text-stone-600">Last activity {{ profile.last_activity|date:"M j, Y" }}</p>
+          </a>
+        {% empty %}
+          {% include "partials/empty_state.html" with title="No recent activity yet" body="Recent participant movement will appear here after people begin using Emmaus." %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card-flat p-5">
+      <h2 class="font-semibold text-stone-950">Recent pastoral notes</h2>
+      <div class="mt-4 space-y-3">
+        {% for note in recent_notes %}
+          <div class="human-row">
+            <p class="text-sm font-semibold text-stone-950">{{ note.participant.get_full_name|default:note.participant.email }}</p>
+            <p class="mt-1 text-sm leading-6 text-stone-600">{{ note.body|truncatewords:16 }}</p>
+          </div>
+        {% empty %}
+          {% include "partials/empty_state.html" with title="No pastoral notes yet" body="Private leader notes will appear here when pastors or mentors create them." %}
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+{% endblock %}

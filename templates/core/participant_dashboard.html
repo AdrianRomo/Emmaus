@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}My Journey | Emmaus{% endblock %}
+{% block content %}
+  {% url 'ask_question' as ask_url %}
+  <div class="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+    <div>
+      <p class="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">{{ profile.church.name }}</p>
+      <h1 class="mt-1 text-3xl font-semibold leading-tight text-stone-950 md:text-4xl">Hello, {{ profile.user.get_full_name|default:profile.user.email }}</h1>
+      <p class="mt-3 max-w-3xl text-base leading-7 text-stone-600">Your journey is meant to be walked with others. Move at a faithful pace, ask honest questions, and let your church know when you would like a conversation.</p>
+    </div>
+    <a class="btn btn-primary md:shrink-0" href="{{ ask_url }}">Ask a question</a>
+  </div>
+
+  <section class="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
+    <div class="card p-6 md:p-8">
+      {% if summary.enrollment %}
+        <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">Current path</p>
+            <h2 class="mt-2 text-3xl font-semibold text-stone-950">{{ summary.enrollment.path.title }}</h2>
+            <p class="mt-3 max-w-2xl leading-7 text-stone-600">{{ summary.enrollment.path.description }}</p>
+          </div>
+          <div class="rounded-2xl border border-amber-200 bg-amber-50/80 px-5 py-4 text-center">
+            <p class="text-4xl font-semibold text-amber-900">{{ summary.percent }}%</p>
+            <p class="mt-1 text-xs font-bold uppercase tracking-wide text-amber-800">complete</p>
+          </div>
+        </div>
+        <div class="mt-7">
+          {% include "partials/progress_bar.html" with percent=summary.percent label="Journey progress" %}
+        </div>
+        {% if summary.current_progress %}
+          <div class="mt-8 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
+            <div class="rounded-2xl border border-stone-200 bg-white/70 p-5">
+              <p class="text-sm font-bold uppercase tracking-[0.14em] text-[#51685b]">Your next step</p>
+              <h3 class="mt-2 text-2xl font-semibold text-stone-950">{{ summary.current_progress.lesson.title }}</h3>
+              <p class="mt-2 text-sm text-stone-600">{{ summary.completed_lessons }} of {{ summary.total_lessons }} lessons complete</p>
+            </div>
+            <a class="btn btn-primary" href="{% url 'participant_lesson' summary.current_progress.lesson.id %}">Continue lesson</a>
+          </div>
+        {% endif %}
+      {% else %}
+        {% include "partials/empty_state.html" with title="No path assigned yet" body="A leader from your church can enroll you in a discipleship path when they are ready to walk with you." %}
+      {% endif %}
+    </div>
+
+    <aside class="space-y-5">
+      <div class="card-flat p-5">
+        <h2 class="font-semibold text-stone-950">Someone can walk with you</h2>
+        {% if profile.assigned_mentor %}
+          <p class="mt-3 text-sm leading-6 text-stone-600">Your mentor is <span class="font-semibold text-stone-950">{{ profile.assigned_mentor.get_full_name|default:profile.assigned_mentor.email }}</span>.</p>
+        {% else %}
+          <p class="mt-3 text-sm leading-6 text-stone-600">Your church has not assigned a mentor yet. You can still ask questions or request a conversation.</p>
+        {% endif %}
+        <a class="btn btn-secondary mt-5 w-full" href="{% url 'request_follow_up' %}">Request conversation</a>
+      </div>
+      <div class="card-flat p-5">
+        <h2 class="font-semibold text-stone-950">Questions are welcome</h2>
+        <p class="mt-3 text-sm leading-6 text-stone-600">Your question will be shared with trusted leaders from your church who can walk with you personally.</p>
+        <div class="mt-5 flex flex-col gap-2">
+          <a class="btn btn-primary" href="{% url 'ask_question' %}">Ask a question</a>
+          <a class="btn btn-soft" href="{% url 'participant_questions' %}">Questions you’ve asked</a>
+        </div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="mt-6 grid gap-5 lg:grid-cols-2">
+    <div class="card-flat p-5">
+      <h2 class="font-semibold text-stone-950">Recent reflections</h2>
+      <div class="mt-4 space-y-3">
+        {% for answer in answers %}
+          <div class="rounded-2xl border border-stone-100 bg-white/60 p-4">
+            <p class="text-sm font-semibold text-stone-900">{{ answer.lesson.title }}</p>
+            <p class="mt-2 text-sm leading-6 text-stone-600">{{ answer.answer_text|truncatewords:28 }}</p>
+          </div>
+        {% empty %}
+          {% include "partials/empty_state.html" with title="No reflections yet" body="When you save reflection answers, they will appear here as markers along your journey." %}
+        {% endfor %}
+      </div>
+    </div>
+    <div class="card-flat p-5">
+      <h2 class="font-semibold text-stone-950">Questions and conversations</h2>
+      <div class="mt-4 space-y-3">
+        {% for question in questions %}
+          <a class="human-row" href="{% url 'participant_question_detail' question.id %}">
+            <span class="flex items-start justify-between gap-3">
+              <span class="text-sm font-semibold text-stone-950">{{ question.question_text|truncatewords:18 }}</span>
+              {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
+            </span>
+          </a>
+        {% empty %}
+          {% include "partials/empty_state.html" with title="No questions yet" body="When you ask a question, responses from your church leaders will appear here." action_url=ask_url action_label="Ask a question" %}
+        {% endfor %}
+        {% for follow_up in follow_ups %}
+          <div class="human-row">
+            <div class="flex items-start justify-between gap-3">
+              <p class="text-sm font-semibold text-stone-950">{{ follow_up.reason|truncatewords:18 }}</p>
+              {% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+{% endblock %}
