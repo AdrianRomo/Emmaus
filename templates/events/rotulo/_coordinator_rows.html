@@ -1,0 +1,30 @@
+{% load emmaus %}
+{% comment %}
+  One row per coordinator (Rótulo): who and where, one mark per campero (a ruler above 80), "X de Y" and
+  the percent. A stalled interview is said in words, not in red: red is only for risk.
+  rows: payload["coordinators"]; optional: places (id -> {station, now}), show_team, label (the list's name).
+{% endcomment %}
+<ul class="crew" aria-label="{{ label|default:'Avance por coordinador' }}">
+  {% for c in rows %}
+    {% with place=places|get_item:c.id %}
+    <li class="crew__row">
+      <div class="crew__who">
+        <p class="crew__name"><a class="row__link" href="{% url 'events:coordinator_detail' event.slug c.id %}">{{ c.name }}</a></p>
+        {% if show_team %}<p class="crew__meta">{{ c.team }}</p>{% endif %}
+        {% if places is not None %}<p class="crew__meta">{% if place.now %}En {{ place.station }}{% elif place %}Última vez en {{ place.station }}{% else %}Sin computadora registrada{% endif %}</p>{% endif %}
+        {% if not c.active %}<p class="crew__meta">Sin acceso</p>{% endif %}
+      </div>
+      <div class="crew__marks">
+        {% tally c.completed c.in_progress c.eligible %}
+        {% if c.stale %}<p class="crew__note">{{ c.stale }} entrevista{{ c.stale|pluralize }} sin actividad desde hace 20 minutos o más</p>{% endif %}
+      </div>
+      <p class="crew__figures"><strong>{{ c.completed }} de {{ c.eligible }}</strong> <span>{{ c.percent|pct }}</span></p>
+    </li>
+    {% endwith %}
+  {% endfor %}
+</ul>
+<ul class="key crew__key" aria-hidden="true">
+  <li><span class="key__mark key__mark--done"></span>Completada</li>
+  <li><span class="key__mark key__mark--progress"></span>En curso</li>
+  <li><span class="key__mark"></span>Sin iniciar</li>
+</ul>

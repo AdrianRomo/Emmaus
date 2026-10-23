@@ -820,3 +820,57 @@ ol.promises li::before {
   .sign, .confirm { border: 2px solid #000; background: none; color: #000; }
   body { font-size: 12pt; }
 }
+
+/* ---------- G1 Liderazgo ---------- */
+/* Tutor home ("Mi equipo"): the team's name and the update status share a line; the sign only when something stalled */
+.crew-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-2) var(--s-6); margin-bottom: var(--s-8); }
+.crew-head__title { font-size: var(--t-h2); line-height: 1.1; }
+.crew-sign { margin-bottom: var(--s-10); }
+.crew-board { display: grid; grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); gap: var(--s-12) var(--s-16); align-items: start; }
+.crew-board__main > * + * { margin-top: var(--s-12); }
+.crew-board__side { display: grid; gap: var(--s-12); }
+.crew-board__pace > .chart + .chart { margin-top: var(--s-8); }
+@media (max-width: 900px) { .crew-board { grid-template-columns: 1fr; } }
+
+/* One row per coordinator: who and where | one mark per campero | "X de Y" and the percent */
+.crew { list-style: none; margin-top: var(--s-4); }
+.crew__row {
+  display: grid; grid-template-columns: minmax(9rem, 15rem) minmax(0, 1fr) auto; gap: var(--s-2) var(--s-6);
+  align-items: start; padding: var(--s-5) 0; border-bottom: 1px solid var(--line);
+}
+.crew__name { font-size: var(--t-lead); font-weight: 700; line-height: 1.3; }
+.crew__meta { font-size: var(--t-small); color: var(--ink-2); }
+.crew__who, .crew__marks { min-width: 0; }
+.crew__marks .tally { margin: 0.125rem 0 0; }
+.crew__marks .tally__mark { height: 1.75rem; }
+.crew__marks .ruler { margin-top: var(--s-2); }
+.crew__note { margin-top: var(--s-2); font-size: var(--t-small); font-weight: 700; text-wrap: balance; }
+.crew__figures { text-align: right; white-space: nowrap; font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.crew__figures strong { display: block; font-size: var(--t-lead); color: var(--carbon); }
+.crew__key { margin-top: var(--s-4); }
+.crew-list { max-width: 60rem; }
+@media (max-width: 600px) {
+  .crew__row { grid-template-columns: minmax(0, 1fr) auto; }
+  .crew__marks { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* Interviews: a filter bar of selects */
+.filter-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-4) var(--s-5); margin-bottom: var(--s-10); }
+.filter-form .field { flex: 1 1 10rem; min-width: 0; margin: 0; }
+.filter-form select { font-size: var(--t-body); }
+.filter-form__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); }
+
+/* Team: one block per tutor, two side by side on a wide screen */
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr)); gap: var(--s-12) var(--s-16); align-items: start; }
+
+/* A short note under a name in a table cell ("2 entrevistas detenidas"): words, never red */
+.table .cell-note { display: block; font-weight: 700; color: var(--carbon); }
+/* Tables of people: on a phone they scroll sideways instead of squeezing names into three lines */
+.table--nowrap th, .table--nowrap td { white-space: nowrap; }
+@media (max-width: 600px) {
+  /* ...except the name, so the number, the name and the status fit on the first screen */
+  .table--nowrap .cell-name { white-space: normal; min-width: 8.5rem; }
+}
+.nowrap { white-space: nowrap; }
+/* The update status under a page header, before a report */
+.lead-status { margin: calc(-1 * var(--s-5)) 0 var(--s-8); }

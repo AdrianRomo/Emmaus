@@ -1,25 +1,68 @@
-{% extends "events/shell_rail.html" %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}{{ coordinator.display_name }}{% endblock %}
 {% block content %}
-<header class="page-head">
-  <ol class="crumbs"><li><a href="{% url 'events:coordinators' event.slug %}">Coordinadores</a></li><li>{{ coordinator.display_name }}</li></ol>
-  <div class="person mt-4"><span class="person__initials" aria-hidden="true">{{ coordinator.display_name|initials }}</span><div><h1>{{ coordinator.display_name }}</h1><p class="person__meta">{% if coordinator.tutor_assignment %}{{ coordinator.tutor_assignment.tutor.team_label }}{% else %}Sin tutor{% endif %}{% if not coordinator.is_active %} · sin acceso{% endif %}</p></div></div>
-</header>
-<div class="figure-row">
-  <div class="figure figure--hero"><p class="figure__label">Avance</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }}</p></div>
-  <div class="figure"><p class="figure__label">En curso</p><p class="figure__value">{{ progress.in_progress }}</p></div>
-  <div class="figure"><p class="figure__label">Sin iniciar</p><p class="figure__value">{{ progress.not_started }}</p></div>
-  <div class="figure"><p class="figure__label">Seguimientos abiertos</p><p class="figure__value">{{ payload.follow_ups.open_total }}</p></div>
-</div>
-<div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
-<section class="section" aria-labelledby="camperos">
-  <div class="section__head"><h2 id="camperos">Camperos</h2><p>{{ participants|length }}</p></div>
-  {% if participants %}
-  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table">
-    <thead><tr><th>#</th><th>Nombre</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Entrevista</th></tr></thead>
-    <tbody>{% for p in participants %}<tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{% status_chip p.interview_status %}</td></tr>{% endfor %}</tbody>
-  </table></div>
-  {% else %}{% include "partials/ui/empty.html" with title="Sin camperos asignados" %}{% endif %}
+{% url 'events:coordinators' event.slug as back_url %}
+{% with team=coordinator.tutor_assignment.tutor.team_label|default:"Sin tutor" %}
+  {% if coordinator.is_active %}
+    {% include "events/rotulo/_page_head.html" with title=coordinator.display_name meta=team back_url=back_url back_label="Coordinadores" %}
+  {% else %}
+    {% with meta=team|add:", sin acceso" %}{% include "events/rotulo/_page_head.html" with title=coordinator.display_name meta=meta back_url=back_url back_label="Coordinadores" %}{% endwith %}
+  {% endif %}
+{% endwith %}
+
+<section class="report-section report-section--lead" aria-labelledby="avance">
+  <div class="report-section__q">
+    <h2 id="avance" class="voice report-section__title">¿Cuánto lleva?</h2>
+  </div>
+  <div class="report-section__body">
+    {% if progress.eligible %}
+      <div>
+        <p class="voice coord__count">{{ coordinator.user.first_name|default:coordinator.display_name }} lleva {{ progress.completed }} de {{ progress.eligible }}.</p>
+        <p class="coord__count-note">{{ progress.percent|pct }} de sus camperos.{% if progress.in_progress %} {{ progress.in_progress }} en curso.{% endif %}{% if progress.not_started %} {{ progress.not_started }} sin iniciar.{% endif %}</p>
+        {% tally progress.completed progress.in_progress progress.eligible %}
+        <ul class="key" aria-hidden="true">
+          <li><span class="key__mark key__mark--done"></span>Completada</li>
+          <li><span class="key__mark key__mark--progress"></span>En curso</li>
+          <li><span class="key__mark"></span>Sin iniciar</li>
+        </ul>
+      </div>
+    {% else %}
+      <p class="empty-line">Todavía no tiene camperos asignados.</p>
+    {% endif %}
+    <dl class="figures">
+      <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
+      <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
+      <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.to_evaluate }} por decidir</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="report-section" aria-labelledby="ritmo">
+  <div class="report-section__q">
+    <h2 id="ritmo" class="voice report-section__title">¿A qué ritmo?</h2>
+    <p class="report-section__answer">{% if not progress.pending and progress.eligible %}Ya completó todas.{% elif payload.throughput.eta_minutes %}{{ payload.throughput.per_hour }} por hora en las últimas dos horas. Le faltan unas {{ payload.throughput.eta_minutes|duration }}.{% else %}Todavía no hay suficiente ritmo para estimar cuándo termina.{% endif %}</p>
+  </div>
+  <div class="report-section__body">
+    {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="coordinador-acumulado" as_of=payload.data_as_of %}
+    {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="coordinador-ritmo" %}
+  </div>
+</section>
+
+<section class="report-section" aria-labelledby="camperos">
+  <div class="report-section__q">
+    <h2 id="camperos" class="voice report-section__title">Sus camperos</h2>
+    <p class="report-section__answer">{{ participants|length }} campero{{ participants|length|pluralize }}. Abre un nombre para ver su ficha.</p>
+  </div>
+  <div class="report-section__body">
+    {% if participants %}
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Camperos de {{ coordinator.display_name }}"><table class="table table--nowrap">
+        <thead><tr><th class="num">#</th><th>Nombre</th><th>Entrevista</th><th>Cuarto</th><th>Iglesia o grupo</th></tr></thead>
+        <tbody>{% for p in participants %}<tr><td class="num">{{ p.code }}</td><td class="cell-name"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{% status p.interview_status %}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    {% else %}
+      <p class="empty-line">Sin camperos asignados.</p>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}
