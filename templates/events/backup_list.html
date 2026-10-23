@@ -14,10 +14,12 @@
   {% for coordinator, rows in groups.items %}
     <section class="print-group">
       <h2>{{ coordinator }}, {{ rows|length }} campero{{ rows|length|pluralize }}</h2>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Camperos de {{ coordinator }}">
       <table class="table">
         <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Estado en Emmaus</th><th>Entrevistado</th><th>Notas</th></tr></thead>
         <tbody>{% for p in rows %}<tr><td class="num">{{ p.code }}</td><td>{{ p.full_name }}</td><td class="num">{{ p.age }}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.get_interview_status_display }}</td><td class="print-box">☐</td><td class="print-notes"></td></tr>{% endfor %}</tbody>
       </table>
+      </div>
     </section>
   {% empty %}
     <p class="empty-line">No hay camperos en esta lista.</p>

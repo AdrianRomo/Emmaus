@@ -330,7 +330,7 @@ a.wordmark:hover { color: var(--anil); }
   min-height: 4.5rem; display: flex; align-items: center; gap: var(--s-6);
 }
 .bar__event { color: var(--ink-2); font-size: var(--t-small); max-width: 13rem; line-height: 1.25; }
-.bar__event a { display: block; margin-top: 0.125rem; font-weight: 700; }
+.bar__event a { display: inline-block; min-height: 1.5rem; padding: 0.125rem 0; margin-top: 0.125rem; font-weight: 700; }  /* WCAG 2.5.8: 24px target */
 .bar--leader .bar__event { max-width: 17rem; }
 .bar__event a { white-space: nowrap; }
 .bar__nav { display: flex; gap: var(--s-1); margin-left: auto; align-self: stretch; }
@@ -351,6 +351,7 @@ a.wordmark:hover { color: var(--anil); }
 .bar--stacked .bar__end { margin-left: auto; }
 .bar--stacked .bar__nav { order: 10; flex-basis: 100%; margin-left: calc(-1 * var(--s-3)); min-height: 3rem; }
 .bar__event span { display: block; color: var(--ink-3); }
+.bar--stacked .bar__event { max-width: 24rem; }
 .bar--public .bar__end { margin-left: auto; }
 
 /* "Estás en Computadora 4": the station is a place, so it is marked like one */
@@ -989,6 +990,7 @@ ol.promises li::before {
 .landing__body p { max-width: 65ch; }
 @media (max-width: 900px) {
   .landing__body { grid-template-columns: 1fr; gap: var(--s-10); }
+}
 
 /* ---------- G5a Discipulado gestión ---------- */
 /* Lists that open a page (participants, paths, notes, people): reading width, no extra gap under the head */
@@ -1028,6 +1030,7 @@ ol.promises li::before {
   .participant-data .summary-list__row { grid-template-columns: 1fr auto; }
   .participant-progress .row { flex-wrap: wrap; }
   .participant-progress .row__main { flex-basis: 100%; }
+}
 
 /* ---------- G5b Discipulado acompañamiento ---------- */
 /* The discipleship module as the people in it see it: the participant's path and lessons, the mentor's home,
@@ -1118,6 +1121,7 @@ ol.promises li::before {
   .disc-item > .status { margin-top: 0; }
   .disc-lists .row { flex-wrap: wrap; }
   .disc-next { max-width: none; width: 100%; text-align: left; }
+}
 
 /* ---------- G2 Reportes y presentación ---------- */
 /* Reports: the coordinator's team under the name; the row actions of the cutoff history */

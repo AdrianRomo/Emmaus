@@ -50,6 +50,18 @@ class ProgressMarkTests(SimpleTestCase):
         self.assertIn("En curso", html)
 
 
+class StylesheetTests(SimpleTestCase):
+    def test_rotulo_css_blocks_are_balanced(self):
+        """An unclosed block swallows every rule after it (a merge once dropped three closing braces)."""
+        css = (settings.BASE_DIR / "static" / "css" / "rotulo.css").read_text()
+        body = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+        depth = 0
+        for line_number, line in enumerate(body.split("\n"), 1):
+            depth += line.count("{") - line.count("}")
+            self.assertGreaterEqual(depth, 0, f"extra closing brace near line {line_number}")
+        self.assertEqual(depth, 0, "a block is never closed")
+
+
 class ChartTests(SimpleTestCase):
     points = [{"label": f"{h:02d}:00", "day": "", "count": 10, "cumulative": 10 * (h + 1)} for h in range(10)]
 
