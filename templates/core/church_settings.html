@@ -1,38 +1,37 @@
 {% extends "base.html" %}
-{% block page_title %}Configuración de la iglesia{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Configuración de la iglesia{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio="Configuración" title="Configuración de la iglesia" lede="Mantén claros la bienvenida, los datos de contacto, el aviso para participantes, las invitaciones y los colores." %}
+<div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Configuración de la iglesia" lede="Mantén claros la bienvenida, los datos de contacto, el aviso para participantes, las invitaciones y los colores." %}
   <form method="post">
     {% csrf_token %}
-    <section class="section">
-      <div class="section__head"><h2>Datos de la iglesia</h2></div>
+    <section class="block" aria-labelledby="datos-iglesia">
+      <h2 id="datos-iglesia" class="heading">Datos de la iglesia</h2>
       {% include "partials/ui/field.html" with field=form.name %}
       {% include "partials/ui/field.html" with field=form.public_welcome_text %}
       {% include "partials/ui/field.html" with field=form.contact_email %}
       {% include "partials/ui/field.html" with field=form.basic_disclaimer_text %}
     </section>
 
-    <section class="section">
-      <div class="section__head"><h2>Acceso e invitaciones</h2></div>
+    <section class="block" aria-labelledby="acceso">
+      <h2 id="acceso" class="heading">Acceso e invitaciones</h2>
       {% include "partials/ui/field.html" with field=form.self_registration_enabled %}
       {% include "partials/ui/field.html" with field=form.leaders_can_invite_participants %}
       {% include "partials/ui/field.html" with field=form.discipleship_enabled %}
-      <p class="mt-4"><a href="{% url 'user_list' %}">Ver personas con acceso</a></p>
+      <p class="more"><a href="{% url 'user_list' %}">Ver personas con acceso</a></p>
     </section>
 
-    <section class="section">
-      <div class="section__head">
-        <h2>Colores</h2>
-        <p>Revisa que el texto se lea bien sobre cada fondo.</p>
-      </div>
+    <section class="block" aria-labelledby="colores">
+      <h2 id="colores" class="heading">Colores</h2>
+      <p class="theme-colors__intro">El color principal pinta los botones y los enlaces; el de acento marca dónde estás y lo que sigue. Revisa que el texto se lea bien sobre cada fondo.</p>
       {% include "partials/ui/field.html" with field=form.custom_theme_enabled %}
       {% if not form.instance.custom_theme_enabled %}
         <div class="notice notice--quiet">
           <p>Hoy tu iglesia usa la paleta de Emmaus, revisada para contraste y legibilidad. Estos colores solo se aplican cuando se activan los colores propios de la iglesia.</p>
         </div>
       {% endif %}
-      <div class="grid-auto mt-6">
+      <div class="theme-colors">
         {% include "partials/ui/field.html" with field=form.theme_primary_color %}
         {% include "partials/ui/field.html" with field=form.theme_accent_color %}
         {% include "partials/ui/field.html" with field=form.theme_secondary_color %}
@@ -44,8 +43,9 @@
       </div>
     </section>
 
-    <div class="btn-row mt-8">
+    <div class="step__actions">
       <button class="btn btn--primary" type="submit">Guardar cambios</button>
     </div>
   </form>
+</div>
 {% endblock %}

@@ -1,14 +1,16 @@
 {% extends "base.html" %}
-{% block page_title %}Asignar mentor{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Asignar mentor{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio="Asignar mentor" title="Elige quién acompañará a esta persona" lede=profile.user.get_full_name|default:profile.user.email %}
+<div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  <form method="post" class="sheet prose">
+  {% include "events/rotulo/_page_head.html" with title="Elige quién acompañará a esta persona" lede=profile.user.get_full_name|default:profile.user.email %}
+  <form method="post">
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="btn-row mt-6">
+    <div class="step__actions">
       <button class="btn btn--primary" type="submit">Asignar mentor</button>
-      <a class="btn btn--quiet" href="{% url 'participants_list' %}">Volver a participantes</a>
+      <a class="btn btn--link" href="{% url 'participants_list' %}">Volver a participantes</a>
     </div>
   </form>
+</div>
 {% endblock %}
