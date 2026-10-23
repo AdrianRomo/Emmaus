@@ -344,6 +344,12 @@ a.wordmark:hover { color: var(--anil); }
 .bar__end form { margin: 0; }
 .bar__end .btn { white-space: nowrap; }
 .menu-toggle { display: none; }
+/* Many module links (discipleship): they get their own row under the bar */
+.bar--stacked .bar__inner { flex-wrap: wrap; row-gap: 0; padding-top: var(--s-2); }
+.bar--stacked .bar__end { margin-left: auto; }
+.bar--stacked .bar__nav { order: 10; flex-basis: 100%; margin-left: calc(-1 * var(--s-3)); min-height: 3rem; }
+.bar__event span { display: block; color: var(--ink-3); }
+.bar--public .bar__end { margin-left: auto; }
 
 /* "Estás en Computadora 4": the station is a place, so it is marked like one */
 .here { display: inline-flex; align-items: center; gap: var(--s-2); font-size: var(--t-small); color: var(--carbon); white-space: nowrap; }
@@ -366,7 +372,7 @@ a.wordmark:hover { color: var(--anil); }
 .page--wide { max-width: var(--w-wide); }
 
 @media (max-width: 1180px) {
-  .bar__nav, .bar__logout { display: none; }
+  .bar__nav, .bar__logout, .bar__switch { display: none; }
   .menu-toggle { display: inline-flex; }
   .bar__end { margin-left: auto; }
 }

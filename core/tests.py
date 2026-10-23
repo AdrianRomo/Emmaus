@@ -310,7 +310,9 @@ class WorkflowTests(EmmausFixture):
         # The saved colors reach the page theme once the church opts into its own palette.
         Church.objects.filter(pk=self.church.pk).update(custom_theme_enabled=True)
         themed_page = self.client.get(reverse("church_settings"))
-        self.assertContains(themed_page, "--terracotta:#C0663F")
+        # Rótulo maps the church palette onto its tokens: primary -> añil (action), accent -> maíz (wayfinding)
+        self.assertContains(themed_page, "--anil:#000000")
+        self.assertContains(themed_page, "--maiz:#C0663F")
 
     def test_participant_can_submit_reflection_answer(self):
         self.client.force_login(self.participant)

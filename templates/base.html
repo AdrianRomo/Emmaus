@@ -1,52 +1,51 @@
-{% extends "layout/skeleton.html" %}
+{% extends "layout/rotulo.html" %}
 {% load emmaus %}
+{% comment %}
+  Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: a bar whose
+  module links sit on their own row (a church admin has nine). Signed out: just the wordmark and "Entrar".
+{% endcomment %}
 {% block title %}{% block page_title %}Emmaus{% endblock %} · Emmaus{% endblock %}
 {% block body %}
 {% if user.is_authenticated %}
-<div class="shell-rail">
-  <header class="mobilebar">
-    <a class="brand" href="{% url 'dashboard' %}">{% brand_mark %}<span class="brand__word">Emmaus</span></a>
-    <button class="btn btn--sm menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
-  </header>
-  <nav class="rail" aria-label="Principal">
-    <a class="brand" href="{% url 'dashboard' %}">{% brand_mark %}<span><span class="brand__word">Emmaus</span><span class="brand__sub">{% if current_church %}{{ current_church.name }}{% else %}Discipulado{% endif %}</span></span></a>
+<header class="bar bar--stacked">
+  <div class="bar__inner">
+    <a class="wordmark" href="{% url 'dashboard' %}">Emmaus</a>
+    <p class="bar__event">{% if current_church %}{{ current_church.name }}{% else %}Discipulado{% endif %}{% if current_role_record %}<span>{{ current_role_record.get_role_display }}</span>{% endif %}</p>
+    <div class="bar__end">
+      {% if show_events_link %}<a class="btn btn--small btn--secondary bar__switch" href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
+      <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+      <div class="bar__logout">{% include "partials/ui/logout.html" with css="btn--small btn--link" %}</div>
+    </div>
     {% if app_nav_items %}
-      <p class="nav-group-label">Discipulado</p>
-      <ul class="nav-list">
-        {% for item in app_nav_items %}<li><a class="nav-link" href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a></li>{% endfor %}
-      </ul>
+      <nav class="bar__nav" aria-label="Discipulado">
+        {% for item in app_nav_items %}<a href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+      </nav>
     {% endif %}
-    {% if show_events_link %}
-      <p class="nav-group-label">Eventos</p>
-      <ul class="nav-list"><li><a class="nav-link" href="{% url 'events:list' %}">Campamentos y eventos</a></li></ul>
-    {% endif %}
-    <div class="rail__foot stack-sm">
-      <p><strong>{{ user.get_full_name|default:user.email }}</strong>{{ current_role_record.get_role_display }}</p>
-      {% include "partials/ui/logout.html" %}
-    </div>
-  </nav>
-  <div id="menu-panel" class="menu-panel" hidden>
-    <div class="menu-panel__head">
-      <span class="brand">{% brand_mark %}<span class="brand__word">Emmaus</span></span>
-      <button class="btn btn--sm" type="button" data-menu-close>Cerrar menú</button>
-    </div>
-    <ul class="nav-list">
-      {% for item in app_nav_items %}<li><a class="nav-link" href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a></li>{% endfor %}
-      {% if show_events_link %}<li><a class="nav-link" href="{% url 'events:list' %}">Campamentos y eventos</a></li>{% endif %}
-    </ul>
-    <div class="mt-8">{% include "partials/ui/logout.html" %}</div>
   </div>
-  <main id="contenido" class="main" tabindex="-1">
-{% else %}
-<div class="shell-public">
-  <header class="public-head">
-    <a class="brand" href="{% url 'landing' %}">{% brand_mark %}<span class="brand__word">Emmaus</span></a>
-    {% if request.resolver_match.url_name != "login" %}<a class="btn btn--sm" href="{% url 'login' %}">Entrar</a>{% endif %}
-  </header>
-  <main id="contenido" class="public-main" tabindex="-1">
-{% endif %}
-    {% include "partials/ui/messages.html" %}
-    {% block content %}{% endblock %}
-  </main>
+</header>
+<div id="menu-panel" class="menu-panel" hidden>
+  <div class="menu-panel__head">
+    <span class="wordmark">Emmaus</span>
+    <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
+  </div>
+  <nav class="menu-panel__nav" aria-label="Principal">
+    {% for item in app_nav_items %}<a href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+    {% if show_events_link %}<a href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
+  </nav>
+  <p class="menu-panel__who">{{ user.get_full_name|default:user.email }}{% if current_role_record %}, {{ current_role_record.get_role_display|lower }}{% endif %}</p>
+  {% include "partials/ui/logout.html" with css="btn--secondary" %}
 </div>
+<main id="contenido" class="page page--wide" tabindex="-1">
+{% else %}
+<header class="bar bar--public">
+  <div class="bar__inner">
+    <a class="wordmark" href="{% url 'landing' %}">Emmaus</a>
+    {% if request.resolver_match.url_name != "login" %}<div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>{% endif %}
+  </div>
+</header>
+<main id="contenido" class="page" tabindex="-1">
+{% endif %}
+  {% include "partials/ui/messages.html" %}
+  {% block content %}{% endblock %}
+</main>
 {% endblock %}
