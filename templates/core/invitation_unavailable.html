@@ -1,11 +1,9 @@
 {% extends "base.html" %}
 {% block page_title %}Invitación no disponible{% endblock %}
 {% block content %}
-  <div class="prose stack">
-    <p class="folio">Enlace de invitación</p>
-    <h1>Esta invitación ya no está disponible</h1>
-    <p class="lede">Es posible que el enlace haya vencido o que ya se haya usado. Pide a un líder de tu iglesia una nueva invitación a Emmaus.</p>
-    <p>Si ya creaste tu cuenta, entra con tu correo y tu contraseña.</p>
-    <p><a class="btn btn--primary" href="{% url 'login' %}">Entrar a Emmaus</a></p>
-  </div>
+<div class="narrow stack">
+  {% include "events/rotulo/_page_head.html" with title="Esta invitación ya no está disponible" lede="Es posible que el enlace haya vencido o que ya se haya usado. Pide a un líder de tu iglesia una nueva invitación a Emmaus." %}
+  <p>Si ya creaste tu cuenta, entra con tu correo y tu contraseña.</p>
+  <p><a class="btn btn--primary" href="{% url 'login' %}">Entrar a Emmaus</a></p>
+</div>
 {% endblock %}

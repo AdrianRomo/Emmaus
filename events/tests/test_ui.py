@@ -1,11 +1,14 @@
 """Language, accessibility basics, empty and loading states, live fragments."""
 
 import re
+from datetime import date
 from html.parser import HTMLParser
 
 from django.test import Client
 from django.urls import reverse
 
+from core.models import Church, Role
+from core.services import assign_role
 from events.models import Event, EventMembership, Interview, MembershipRole
 
 from .base import CampFixture, make_user
@@ -145,3 +148,35 @@ class SpanishAndAccessibilityTests(CampFixture):
         response = self.client.get(self.url("admin_home"))
         self.assertEqual(response.status_code, 403)
         self.assertContains(response, "No tienes acceso a esta página", status_code=403)
+
+
+class EventListTests(CampFixture):
+    """The event list (base.html, Rótulo): data as sentences, the first camp as the one sign."""
+
+    def test_dates_and_role_read_as_sentences(self):
+        Event.objects.filter(pk=self.event.pk).update(starts_on=date(2026, 10, 23), ends_on=date(2026, 10, 25), location="Rancho El Encino")
+        Event.objects.filter(pk=self.other_event.pk).update(starts_on=date(2026, 10, 30), ends_on=date(2026, 11, 2), location="")
+        self.login(self.admin)
+        response = self.client.get(reverse("events:list") + "?todos=1")
+        self.assertContains(response, "Campamento del 23 al 25 de octubre de 2026, en Rancho El Encino.")
+        self.assertContains(response, "Campamento del 30 de octubre al 2 de noviembre de 2026.")
+        self.assertContains(response, "Tu rol: administrador.")
+        main = response.content.decode().split("<main", 1)[1].split("</main>", 1)[0]
+        self.assertNotIn("·", main)  # data joined with commas, not dots (the <title> comes from base.html)
+
+    def test_creating_the_first_camp_is_the_sign(self):
+        church = Church.objects.create(name="Iglesia nueva", slug="iglesia-nueva")
+        admin = make_user("admin-nueva@prueba.mx", "Ana", "Nueva")
+        assign_role(admin, church, Role.CHURCH_ADMIN)
+        self.login(admin)
+        response = self.client.get(reverse("events:list") + "?todos=1")
+        self.assertContains(response, 'class="sign"', count=1)
+        self.assertContains(response, "Todavía no hay eventos")
+        self.assertContains(response, f'href="{reverse("events:create")}"', count=1)
+
+    def test_someone_without_events_is_told_who_can_add_them(self):
+        self.login(make_user("sin-evento@prueba.mx", "Sara", "Sola"))
+        response = self.client.get(reverse("events:list") + "?todos=1")
+        self.assertContains(response, "Aún no formas parte de ningún evento")
+        self.assertNotContains(response, 'class="sign"')
+        self.assertNotContains(response, reverse("events:create"))

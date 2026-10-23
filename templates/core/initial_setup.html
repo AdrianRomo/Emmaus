@@ -1,32 +1,28 @@
 {% extends "base.html" %}
-{% block page_title %}Configuración inicial{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Configuración inicial{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio="Configuración inicial" title="Configura el espacio de tu iglesia" lede="Crea el primer espacio de Emmaus y la cuenta de administración. Después podrás invitar a pastores, mentores y participantes." %}
-  {% include "partials/ui/error_summary.html" with form=form %}
-  <div class="split">
-    <form method="post" class="sheet">
-      {% csrf_token %}
-      {% include "partials/ui/fields.html" with form=form %}
-      <div class="btn-row mt-6">
-        <button class="btn btn--primary" type="submit">Crear espacio</button>
-      </div>
-    </form>
-    <aside class="stack">
-      <div class="stack-sm">
-        <h2>Qué sigue</h2>
-        <div class="prose">
-          <ol>
-            <li>Agrega los datos de tu iglesia.</li>
-            <li>Crea la primera cuenta de administración.</li>
-            <li>Lee el aviso de privacidad.</li>
-            <li>Crea el espacio y empieza a invitar a los líderes.</li>
-          </ol>
-        </div>
-      </div>
-      <div class="notice notice--warning">
-        <p class="notice__title">Información delicada</p>
-        <p>Emmaus guarda información sensible de discipulado. Pide consentimiento, escribe solo las notas necesarias y usa una configuración segura de producción antes de invitar a personas reales.</p>
-      </div>
-    </aside>
-  </div>
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Configura el espacio de tu iglesia" lede="Crea el primer espacio de Emmaus y la cuenta de administración. Después podrás invitar a pastores, mentores y participantes." meta="Configuración inicial" %}
+<div class="split">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Crear espacio</button>
+    </div>
+  </form>
+  <aside aria-labelledby="que-sigue">
+    <h2 id="que-sigue" class="heading">Qué sigue</h2>
+    <ol class="promises">
+      <li>Agrega los datos de tu iglesia.</li>
+      <li>Crea la primera cuenta de administración.</li>
+      <li>Lee el aviso de privacidad.</li>
+      <li>Crea el espacio y empieza a invitar a los líderes.</li>
+    </ol>
+    <div class="notice notice--warning">
+      <p class="notice__title">Información delicada</p>
+      <p>Emmaus guarda información sensible de discipulado. Pide consentimiento, escribe solo las notas necesarias y usa una configuración segura de producción antes de invitar a personas reales.</p>
+    </div>
+  </aside>
+</div>
 {% endblock %}
