@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Campamentos y eventos{% endblock %}
+{% block content %}
+{% if can_create %}{% url 'events:create' as create_url %}{% endif %}
+{% include "partials/ui/page_head.html" with title="Campamentos y eventos" lede="Elige el evento en el que vas a trabajar." action_url=create_url action_label="Crear campamento" %}
+{% if rows %}
+  <ul class="ledger">
+    {% for row in rows %}
+      <li><a class="ledger__row" href="{% url 'events:home' row.event.slug %}">
+        <span class="ledger__main"><span class="ledger__title">{{ row.event.name }}</span><span class="ledger__meta ledger__meta--block">{{ row.event.get_kind_display }}{% if row.event.starts_on %} · {{ row.event.starts_on|fecha_corta }}{% endif %}{% if row.event.location %} · {{ row.event.location }}{% endif %}</span></span>
+        <span class="ledger__aside"><span class="chip chip--plain">{{ row.access.role_label }}</span><span class="chip {% if row.event.status == 'activo' %}chip--done{% else %}chip--pending{% endif %}">{{ row.event.get_status_display }}</span></span>
+      </a></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  {% if can_create %}
+    {% include "partials/ui/empty.html" with title="Todavía no hay eventos" body="Crea el primer campamento. Emmaus prepara el cuestionario de conversación espiritual y 10 computadoras de entrevista." action_url=create_url action_label="Crear campamento" primary=True %}
+  {% else %}
+    {% include "partials/ui/empty.html" with title="Aún no formas parte de ningún evento" body="Pide a la administración de tu iglesia que te agregue al equipo del campamento." %}
+  {% endif %}
+{% endif %}
+{% endblock %}

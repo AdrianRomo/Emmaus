@@ -1,0 +1,35 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}Configuración{% endblock %}
+{% block content %}
+<header class="page-head"><div class="page-head__row"><div><h1>Configuración</h1><p class="lede">{{ event.name }}</p></div>
+  <div class="btn-row"><a class="btn" href="{% url 'events:audit' event.slug %}">Registro de actividad</a><a class="btn" href="{% url 'events:sessions' event.slug %}">Sesiones abiertas</a></div></div></header>
+
+<section class="section" id="procedimientos" aria-labelledby="t-proc">
+  <h2 id="t-proc">Procedimientos de la iglesia</h2>
+  {% if event.procedures_approved %}
+    <div class="notice notice--success mt-4"><p class="notice__title">Confirmado</p><p>{{ event.procedures_approved_by.get_full_name|default:"La administración" }} confirmó el {{ event.procedures_approved_at|fecha_larga }} que la iglesia aprobó sus procedimientos de autorización, protección de menores y atención de situaciones de riesgo.</p></div>
+  {% else %}
+    <div class="notice notice--warning mt-4"><p class="notice__title">Antes de entrevistar a menores reales</p><p>La iglesia debe definir y aprobar quién autoriza, cómo se guarda la autorización de padres o tutores, quién atiende las situaciones de riesgo y cuánto tiempo se conservan los datos. Mientras no lo confirmes, no se pueden iniciar entrevistas.</p></div>
+    <form method="post" class="mt-6" novalidate>{% csrf_token %}<input type="hidden" name="form" value="procedures">{% include "partials/ui/error_summary.html" with form=procedures %}{% include "partials/ui/fields.html" with form=procedures %}<button class="btn btn--primary" type="submit">Confirmar</button></form>
+  {% endif %}
+</section>
+
+<section class="section" aria-labelledby="t-basicos">
+  <h2 id="t-basicos">Datos del evento</h2>
+  <form method="post" class="mt-4 form-sheet" novalidate>{% csrf_token %}<input type="hidden" name="form" value="basics">{% include "partials/ui/error_summary.html" with form=basics %}{% include "partials/ui/fields.html" with form=basics %}<button class="btn btn--primary" type="submit">Guardar datos</button></form>
+</section>
+
+<section class="section" aria-labelledby="t-cfg">
+  <h2 id="t-cfg">Cortes, privacidad y cuestionario</h2>
+  <form method="post" class="mt-4 form-sheet" novalidate>{% csrf_token %}<input type="hidden" name="form" value="settings">{% include "partials/ui/error_summary.html" with form=settings_form %}{% include "partials/ui/fields.html" with form=settings_form %}<button class="btn btn--primary" type="submit">Guardar configuración</button></form>
+</section>
+
+<section class="section" id="computadoras" aria-labelledby="t-comp">
+  <div class="section__head"><h2 id="t-comp">Computadoras de entrevista</h2>
+    <form method="post" action="{% url 'events:stations' event.slug %}">{% csrf_token %}<input type="hidden" name="action" value="add"><button class="btn btn--sm" type="submit">Agregar computadora</button></form></div>
+  <p class="text-sm muted">Pega en cada computadora una etiqueta con su número. Los coordinadores la eligen al empezar.</p>
+  <ul class="ledger mt-4">{% for s in stations %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ s.name }}</p></div><div class="ledger__aside"><span class="chip {% if s.is_active %}chip--done{% else %}chip--pending{% endif %}">{% if s.is_active %}Disponible{% else %}Fuera de uso{% endif %}</span>
+    <form method="post" action="{% url 'events:stations' event.slug %}">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="station" value="{{ s.id }}"><button class="btn btn--sm btn--quiet" type="submit">{% if s.is_active %}Poner fuera de uso{% else %}Volver a usar{% endif %}</button></form></div></div></li>{% endfor %}</ul>
+</section>
+{% endblock %}

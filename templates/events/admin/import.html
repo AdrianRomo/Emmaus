@@ -1,0 +1,49 @@
+{% extends "events/shell_rail.html" %}
+{% block page_title %}{% if form.errors or problems %}Error: {% endif %}Importar camperos{% endblock %}
+{% block content %}
+<header class="page-head"><ol class="crumbs"><li><a href="{% url 'events:participants' event.slug %}">Participantes</a></li><li>Importar</li></ol><h1>Importar camperos</h1></header>
+{% if preview %}
+  <section aria-labelledby="revision">
+    <h2 id="revision">Revisa antes de importar</h2>
+    <p class="lede mt-2">Archivo: {{ preview.name }}. Nada se guarda hasta que confirmes.</p>
+    <div class="figure-row mt-6">
+      <div class="figure"><p class="figure__label">Filas</p><p class="figure__value">{{ summary.total }}</p></div>
+      <div class="figure"><p class="figure__label">Listas para importar</p><p class="figure__value">{{ summary.valid }}</p></div>
+      <div class="figure"><p class="figure__label">Con errores</p><p class="figure__value">{{ summary.errors }}</p><p class="figure__note">no se importarán</p></div>
+      <div class="figure"><p class="figure__label">Posibles duplicados</p><p class="figure__value">{{ summary.duplicates }}</p><p class="figure__note">desmarcados; revísalos</p></div>
+    </div>
+    <form method="post" class="mt-8">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="confirm">
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Importar</th><th>Fila</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Revisión</th></tr></thead>
+        <tbody>{% for row in preview.rows %}<tr>
+          <td>{% if not row.errors %}<input type="checkbox" name="include" value="{{ row.line }}" aria-label="Importar fila {{ row.line }}"{% if not row.duplicate_of and not row.duplicate_in_file %} checked{% endif %}>{% endif %}</td>
+          <td class="num">{{ row.line }}</td><td>{{ row.full_name }}</td><td class="num">{{ row.age|default_if_none:"" }}</td><td>{{ row.room }}</td><td>{{ row.church_group }}</td><td>{{ row.coordinator_label|default:"—" }}</td>
+          <td>{% for e in row.errors %}<span class="chip chip--alert chip--plain">{{ e }}</span> {% endfor %}{% for d in row.duplicate_of %}<span class="chip chip--progress chip--plain">Ya existe: {{ d }}</span> {% endfor %}{% if row.duplicate_in_file %}<span class="chip chip--progress chip--plain">Repetido en la fila {{ row.duplicate_in_file }}</span>{% endif %}{% if not row.errors and not row.duplicate_of and not row.duplicate_in_file %}<span class="muted">Bien</span>{% endif %}</td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+      <p class="text-sm muted mt-4">Las personas con el mismo nombre nunca se combinan. Si una fila marcada como posible duplicado es otra persona, márcala para importarla.</p>
+      <div class="btn-row mt-6"><button class="btn btn--primary" type="submit">Importar filas marcadas</button></div>
+    </form>
+    <form method="post" class="mt-4">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn btn--quiet" type="submit">Cancelar y subir otro archivo</button></form>
+  </section>
+{% else %}
+  {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <div class="split">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/field.html" with field=form.file %}
+      <button class="btn btn--primary" type="submit">Revisar archivo</button>
+    </form>
+    <aside class="panel stack-sm">
+      <h2 class="subhead">Cómo preparar el archivo</h2>
+      <p class="text-sm">En Excel o Google Sheets usa una fila de encabezados con estos nombres:</p>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Nombre</th><th>Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Autorización</th></tr></thead>
+        <tbody><tr><td>Mariana López Ruiz</td><td>15</td><td>4</td><td>Iglesia Centro</td><td>ana@correo.mx</td><td>sí</td></tr></tbody></table></div>
+      <p class="text-sm">“Coordinador” y “Autorización” son opcionales. Guarda como <strong>CSV UTF-8</strong>.</p>
+    </aside>
+  </div>
+{% endif %}
+{% endblock %}

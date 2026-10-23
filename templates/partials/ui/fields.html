@@ -1,0 +1,2 @@
+{% for field in form.hidden_fields %}{{ field }}{% endfor %}
+{% for field in form.visible_fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}

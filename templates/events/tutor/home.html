@@ -1,0 +1,16 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}Mi equipo{% endblock %}
+{% block content %}
+<header class="page-head">
+  <p class="folio">{{ access.membership.team_label }} · {{ coordinators|length }} coordinador{{ coordinators|length|pluralize:"es" }}</p>
+  <div class="page-head__row">
+    <h1>Mi equipo</h1>
+    <a class="btn btn--primary" href="{% url 'events:pending' event.slug %}">Ver pendientes</a>
+  </div>
+  {% include "partials/ui/live_status.html" %}
+</header>
+<div id="equipo-vivo" data-live-url="{% url 'events:tutor_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
+  {% include "events/tutor/_home_live.html" %}
+</div>
+{% endblock %}

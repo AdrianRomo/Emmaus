@@ -1,0 +1,41 @@
+{% comment %}q: question context from views.interview.question_context; heading: render as the page h1{% endcomment %}
+{% if q.question.is_choice %}
+  <fieldset class="q-fieldset"{% if q.question.help_text or q.error %} aria-describedby="{% if q.question.help_text %}q{{ q.question.id }}-hint{% endif %}{% if q.error %} q{{ q.question.id }}-error{% endif %}"{% endif %}>
+    {% if heading %}
+      <legend class="q-legend">{% if section_label %}<span class="q-section">{{ section_label }}</span>{% endif %}<h1 class="q-title">{{ q.question.text }}</h1></legend>
+    {% else %}
+      <legend class="label">{{ q.question.text }}</legend>
+    {% endif %}
+    {% if q.question.help_text %}<p class="q-help" id="q{{ q.question.id }}-hint">{{ q.question.help_text }}</p>{% endif %}
+    {% if q.question.sensitivity == "confidencial" %}<p class="privacy-tag mt-4">Confidencial: solo el equipo de cuidado autorizado podrá leerla</p>{% endif %}
+    <div class="q-body{% if q.error %} q-body--error{% endif %}">
+      {% if q.error %}<p class="error-message" id="q{{ q.question.id }}-error">{{ q.error }}</p>{% endif %}
+      <div class="options" id="q{{ q.question.id }}">
+        {% for o in q.options %}{% include "events/interview/_option.html" %}{% endfor %}
+        {% if q.quiet_options %}
+          {% if q.options %}<div class="options__divider" aria-hidden="true">o bien</div>{% endif %}
+          {% for o in q.quiet_options %}{% include "events/interview/_option.html" with quiet=True %}{% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </fieldset>
+{% else %}
+  <div class="field{% if q.error %} field--error{% endif %}">
+    {% if heading %}
+      {% if section_label %}<p class="q-section">{{ section_label }}</p>{% endif %}
+      <h1 class="q-title"><label for="q{{ q.question.id }}">{{ q.question.text }}</label></h1>
+    {% else %}
+      <label class="label" for="q{{ q.question.id }}">{{ q.question.text }}{% if not q.question.required %} <span class="optional">(opcional)</span>{% endif %}</label>
+    {% endif %}
+    {% if q.question.help_text %}<p class="{% if heading %}q-help{% else %}hint{% endif %}" id="q{{ q.question.id }}-hint">{{ q.question.help_text }}</p>{% endif %}
+    {% if q.question.sensitivity == "confidencial" %}<p class="privacy-tag{% if heading %} mt-4{% endif %}">Confidencial: solo el equipo de cuidado autorizado podrá leerla</p>{% endif %}
+    <div class="{% if heading %}q-body{% else %}mt-2{% endif %}">
+      {% if q.error %}<p class="error-message" id="q{{ q.question.id }}-error">{{ q.error }}</p>{% endif %}
+      {% if q.is_long %}
+        <textarea class="textarea input--wide" id="q{{ q.question.id }}" name="{{ q.name }}" rows="6" maxlength="{{ q.question.max_length }}" spellcheck="true"{% if q.question.help_text %} aria-describedby="q{{ q.question.id }}-hint"{% endif %}>{{ q.text }}</textarea>
+      {% else %}
+        <input class="input" type="text" id="q{{ q.question.id }}" name="{{ q.name }}" value="{{ q.text }}" maxlength="{{ q.question.max_length }}" autocomplete="off">
+      {% endif %}
+    </div>
+  </div>
+{% endif %}

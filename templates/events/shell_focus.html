@@ -1,0 +1,17 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus %}
+{% block title %}{% block page_title %}{% endblock %} · Emmaus{% endblock %}
+{% block body %}
+<div class="shell-focus">
+  <header class="focusbar">
+    <div class="focusbar__inner">
+      <div class="focusbar__who">{% block who %}{{ participant.full_name }} <span>· #{{ participant.code }} · {{ participant.room|cuarto }}</span>{% endblock %}</div>
+      <div class="cluster">{% block focus_actions %}{% endblock %}</div>
+    </div>
+  </header>
+  <main id="contenido" class="focus-main" tabindex="-1">
+    {% include "partials/ui/messages.html" %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

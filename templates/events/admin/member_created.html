@@ -1,0 +1,11 @@
+{% extends "events/shell_rail.html" %}
+{% block page_title %}Persona agregada{% endblock %}
+{% block content %}
+<header class="page-head"><h1>{{ membership.display_name }} ya forma parte del equipo</h1><p class="lede">Rol: {{ membership.get_role_display }}. Para entrar, necesita crear su contraseña con este enlace (vence en unos días).</p></header>
+<div class="stack-sm prose">
+  <label class="label" for="enlace">Enlace para crear contraseña</label>
+  <input class="input input--wide" id="enlace" value="{{ link }}" readonly>
+  <div class="btn-row"><button class="btn" type="button" data-copy="enlace">Copiar enlace</button><a class="btn btn--primary" href="{% url 'events:member_add' event.slug %}">Agregar a otra persona</a><a class="btn btn--quiet" href="{% url 'events:team' event.slug %}">Ver equipo</a></div>
+  <p class="text-sm muted">Compártelo solo con esa persona. Si se pierde, puedes generar otro desde su ficha.</p>
+</div>
+{% endblock %}

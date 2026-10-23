@@ -72,9 +72,9 @@ from .services import (
 
 
 QUESTION_DISCLAIMER = (
-    "Emmaus helps connect you with leaders from your church. It is not emergency support, therapy, medical advice, "
-    "legal advice, or a replacement for pastoral care. If you are in immediate danger or considering harming yourself "
-    "or someone else, contact local emergency services immediately."
+    "Emmaus te ayuda a conectar con líderes de tu iglesia. No es un servicio de emergencias, terapia, consejo médico "
+    "ni consejo legal, y no sustituye el cuidado pastoral. Si estás en peligro inmediato o piensas hacerte daño o "
+    "hacerle daño a otra persona, llama de inmediato al 911 o a los servicios de emergencia de tu localidad."
 )
 
 
@@ -84,7 +84,7 @@ def role_required(*roles: str):
         def wrapped(request, *args, **kwargs):
             role_record = get_user_role(request.user)
             if not role_record:
-                messages.error(request, "Your account is not connected to a church workspace yet.")
+                messages.error(request, "Tu cuenta todavía no está vinculada a ninguna iglesia.")
                 return redirect("landing")
             if role_record.role not in roles:
                 raise PermissionDenied
@@ -121,14 +121,23 @@ def initial_setup(request):
             admin_password=form.cleaned_data["admin_password"],
         )
         login(request, user)
-        messages.success(request, f"{church.name} is ready.")
+        messages.success(request, f"{church.name} ya está lista en Emmaus.")
         return redirect("church_dashboard")
     return render(request, "core/initial_setup.html", {"form": form})
 
 
 @login_required
 def dashboard(request):
+    """Send each person to the place where their work is.
+
+    Event roles (campamentos) come first; the discipleship module keeps its own homes.
+    """
+    from events.access import accessible_events
+
     role_record = get_user_role(request.user)
+    has_events = accessible_events(request.user).exists()
+    if has_events or request.user.is_superuser or (role_record and role_record.role == Role.CHURCH_ADMIN):
+        return redirect("events:list")
     if not role_record:
         if not Church.objects.exists():
             return redirect("initial_setup")
@@ -138,6 +147,14 @@ def dashboard(request):
     if role_record.role == Role.MENTOR:
         return redirect("mentor_dashboard")
     return redirect("church_dashboard")
+
+
+def permission_denied(request, exception=None):
+    return render(request, "errors/403.html", status=403)
+
+
+def page_not_found(request, exception=None):
+    return render(request, "errors/404.html", status=404)
 
 
 def accept_invitation(request, token: str):
@@ -172,7 +189,7 @@ def accept_invitation(request, token: str):
             invitation.accepted_at = timezone.now()
             invitation.save(update_fields=["accepted_at"])
         login(request, user)
-        messages.success(request, "Welcome to Emmaus.")
+        messages.success(request, "Te damos la bienvenida a Emmaus.")
         if invitation.role == Role.PARTICIPANT:
             return redirect("participant_dashboard")
         return redirect("dashboard")
@@ -196,9 +213,9 @@ def create_invitation(request):
         manual_link = invite_url(request, invitation)
         email_sent = notify_invitation(request, invitation)
         if email_sent:
-            messages.success(request, "Invitation email sent.")
+            messages.success(request, "La invitación se envió por correo.")
         else:
-            messages.warning(request, "Email was not sent. Copy the invitation link below.")
+            messages.warning(request, "No se pudo enviar el correo. Copia el enlace de invitación que aparece abajo y compártelo directamente.")
     return render(
         request,
         "core/invitation_form.html",
@@ -222,7 +239,7 @@ def church_settings(request):
     form = ChurchSettingsForm(request.POST or None, instance=church)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Church settings saved.")
+        messages.success(request, "Se guardó la configuración de la iglesia.")
         return redirect("church_settings")
     return render(request, "core/church_settings.html", {"form": form})
 
@@ -299,9 +316,9 @@ def participant_lesson(request, lesson_id: int):
             if not summary.enrollment.lesson_progress.filter(completed_at__isnull=True).exists():
                 summary.enrollment.completed_at = timezone.now()
                 summary.enrollment.save(update_fields=["completed_at"])
-            messages.success(request, "Lesson marked complete.")
+            messages.success(request, "Marcaste la lección como terminada.")
             return redirect("participant_dashboard")
-        messages.success(request, "Reflection saved.")
+        messages.success(request, "Se guardó tu reflexión.")
         return redirect("participant_lesson", lesson_id=lesson.id)
     return render(
         request,
@@ -334,7 +351,7 @@ def ask_question(request):
         question.related_enrollment = progress_for_participant(request.user).enrollment
         question.save()
         notify_question_created(question)
-        messages.success(request, "Your question was sent to your church leaders.")
+        messages.success(request, "Tu pregunta se envió a los líderes de tu iglesia.")
         return redirect("participant_questions")
     return render(
         request,
@@ -357,7 +374,7 @@ def request_follow_up(request):
             reason=form.cleaned_data["reason"],
         )
         notify_follow_up_created(follow_up)
-        messages.success(request, "Your conversation request was sent.")
+        messages.success(request, "Tu solicitud para platicar se envió a tu iglesia.")
         return redirect("participant_dashboard")
     return render(request, "core/request_follow_up.html", {"form": form})
 
@@ -377,15 +394,15 @@ def mentor_dashboard(request):
             status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS]
         ).count()
         if profile.open_question_count:
-            profile.suggested_action = "Reply to question"
+            profile.suggested_action = "Responder pregunta"
         elif profile.open_follow_up_count:
-            profile.suggested_action = "Continue follow-up"
+            profile.suggested_action = "Continuar seguimiento"
         elif profile.is_inactive:
-            profile.suggested_action = "Check in this week"
+            profile.suggested_action = "Contactar esta semana"
         elif profile.progress_summary.enrollment:
-            profile.suggested_action = "Review reflections"
+            profile.suggested_action = "Revisar reflexiones"
         else:
-            profile.suggested_action = "No action needed"
+            profile.suggested_action = "Sin pendientes"
     questions = visible_questions(request.user).filter(status__in=[ParticipantQuestion.Status.OPEN, ParticipantQuestion.Status.ESCALATED])
     follow_ups = FollowUpRequest.objects.filter(
         church=get_user_role(request.user).church,
@@ -429,7 +446,7 @@ def participant_detail(request, profile_id: int):
                 note.participant = profile.user
                 note.author = request.user
                 note.save()
-                messages.success(request, "Pastoral note saved.")
+                messages.success(request, "Se guardó la nota pastoral.")
                 return redirect("participant_detail", profile_id=profile.id)
         elif action == "follow":
             follow_up_form = FollowUpRequestForm(request.POST, prefix="follow", church=role_record.church)
@@ -441,7 +458,7 @@ def participant_detail(request, profile_id: int):
                 follow_up.source = FollowUpRequest.Source.MANUAL
                 follow_up.save()
                 notify_follow_up_created(follow_up)
-                messages.success(request, "Follow-up created.")
+                messages.success(request, "Se creó el seguimiento.")
                 return redirect("participant_detail", profile_id=profile.id)
     summary = progress_for_participant(profile.user)
     questions = profile.user.participant_questions.prefetch_related("responses").all()
@@ -481,7 +498,7 @@ def question_detail(request, question_id: int):
                 question.status = ParticipantQuestion.Status.ANSWERED
                 question.save(update_fields=["status", "updated_at"])
                 notify_question_response(response)
-                messages.success(request, "Response sent.")
+                messages.success(request, "Tu respuesta se envió.")
                 return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
         elif action == "escalate":
             if not can_answer_question(request.user, question):
@@ -494,11 +511,11 @@ def question_detail(request, question_id: int):
                 created_by=request.user,
                 assigned_to=question.participant.participant_profile.assigned_mentor,
                 source=FollowUpRequest.Source.QUESTION_ESCALATION,
-                reason=f"Question escalated: {question.question_text[:300]}",
+                reason=f"Pregunta escalada: {question.question_text[:300]}",
             )
             notify_question_escalated(question)
             notify_follow_up_created(follow_up)
-            messages.success(request, "Question escalated to pastoral leaders.")
+            messages.success(request, "La pregunta se escaló a los pastores.")
             return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
         elif action == "generate_ai":
             if not can_answer_question(request.user, question) or not has_leader_access(request.user):
@@ -507,7 +524,7 @@ def question_detail(request, question_id: int):
             if error:
                 messages.warning(request, error)
             else:
-                messages.success(request, "Draft generated. Review it before sending.")
+                messages.success(request, "Se generó un borrador con IA. Revísalo antes de enviarlo.")
             return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
         elif action == "review_ai":
             if not can_answer_question(request.user, question) or not has_leader_access(request.user):
@@ -521,7 +538,7 @@ def question_detail(request, question_id: int):
                 if chosen_action == "reject":
                     draft.status = AIDraft.Status.REJECTED
                     draft.save()
-                    messages.success(request, "Draft rejected.")
+                    messages.success(request, "Se rechazó el borrador.")
                     return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
                 body = draft.edited_final_text.strip() or draft.generated_text
                 draft.status = AIDraft.Status.EDITED if chosen_action == "edit" else AIDraft.Status.APPROVED
@@ -535,7 +552,7 @@ def question_detail(request, question_id: int):
                 question.status = ParticipantQuestion.Status.ANSWERED
                 question.save(update_fields=["status", "updated_at"])
                 notify_question_response(response)
-                messages.success(request, "Reviewed draft sent as a leader response.")
+                messages.success(request, "El borrador revisado se envió como tu respuesta.")
                 return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
     drafts = visible_ai_drafts(request.user).filter(related_question=question) if has_leader_access(request.user) else AIDraft.objects.none()
     draft_forms = [(draft, AIDraftReviewForm(instance=draft, initial={"edited_final_text": draft.generated_text})) for draft in drafts]
@@ -619,7 +636,7 @@ def assign_mentor(request, profile_id: int):
     if request.method == "POST" and form.is_valid():
         profile.assigned_mentor = form.cleaned_data["mentor"]
         profile.save(update_fields=["assigned_mentor"])
-        messages.success(request, "Mentor assignment updated.")
+        messages.success(request, "Se actualizó el mentor asignado.")
         return redirect("participants_list")
     return render(request, "core/assign_mentor.html", {"profile": profile, "form": form})
 
@@ -656,7 +673,7 @@ def follow_up_list(request):
             raise PermissionDenied
         follow_up.save()
         notify_follow_up_created(follow_up)
-        messages.success(request, "Follow-up created.")
+        messages.success(request, "Se creó el seguimiento.")
         return redirect("follow_up_list" if role_record.role == Role.MENTOR else "church_follow_up_list")
     return render(request, "core/follow_up_list.html", {"follow_ups": follow_ups, "form": form})
 
@@ -672,7 +689,7 @@ def complete_follow_up(request, follow_up_id: int):
         follow_up.status = FollowUpRequest.Status.COMPLETED
         follow_up.completed_at = timezone.now()
         follow_up.save(update_fields=["status", "completed_at"])
-        messages.success(request, "Follow-up completed.")
+        messages.success(request, "El seguimiento quedó completado.")
     return redirect("follow_up_list" if role_record.role == Role.MENTOR else "church_follow_up_list")
 
 
@@ -697,9 +714,9 @@ def path_create(request):
         path.church = church
         path.created_by = request.user
         path.save()
-        messages.success(request, "Discipleship path created.")
+        messages.success(request, "Se creó la ruta de discipulado.")
         return redirect("path_detail", path_id=path.id)
-    return render(request, "core/path_form.html", {"form": form, "title": "New path"})
+    return render(request, "core/path_form.html", {"form": form, "title": "Nueva ruta"})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -708,9 +725,9 @@ def path_edit(request, path_id: int):
     form = PathForm(request.POST or None, instance=path)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Discipleship path saved.")
+        messages.success(request, "Se guardó la ruta de discipulado.")
         return redirect("path_detail", path_id=path.id)
-    return render(request, "core/path_form.html", {"form": form, "title": "Edit path", "path": path})
+    return render(request, "core/path_form.html", {"form": form, "title": "Editar ruta", "path": path})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -732,9 +749,9 @@ def lesson_create(request, path_id: int):
         lesson = form.save(commit=False)
         lesson.path = path
         lesson.save()
-        messages.success(request, "Lesson created.")
+        messages.success(request, "Se creó la lección.")
         return redirect("path_detail", path_id=path.id)
-    return render(request, "core/lesson_form.html", {"form": form, "path": path, "title": "New lesson"})
+    return render(request, "core/lesson_form.html", {"form": form, "path": path, "title": "Nueva lección"})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -743,9 +760,9 @@ def lesson_edit(request, lesson_id: int):
     form = LessonForm(request.POST or None, instance=lesson)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Lesson saved.")
+        messages.success(request, "Se guardó la lección.")
         return redirect("path_detail", path_id=lesson.path_id)
-    return render(request, "core/lesson_form.html", {"form": form, "path": lesson.path, "lesson": lesson, "title": "Edit lesson"})
+    return render(request, "core/lesson_form.html", {"form": form, "path": lesson.path, "lesson": lesson, "title": "Editar lección"})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -757,6 +774,6 @@ def reflection_question_create(request, lesson_id: int):
         question = form.save(commit=False)
         question.lesson = lesson
         question.save()
-        messages.success(request, "Reflection question added.")
+        messages.success(request, "Se agregó la pregunta de reflexión.")
         return redirect("path_detail", path_id=lesson.path_id)
     return render(request, "core/reflection_question_form.html", {"form": form, "lesson": lesson})

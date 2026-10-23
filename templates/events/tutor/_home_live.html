@@ -1,0 +1,54 @@
+{% load emmaus %}
+<section aria-labelledby="resumen-equipo">
+  <h2 id="resumen-equipo" class="visually-hidden">Resumen del equipo</h2>
+  <div class="figure-row">
+    <div class="figure figure--hero"><p class="figure__label">Avance del equipo</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }} entrevistas</p></div>
+    <div class="figure"><p class="figure__label">Pendientes</p><p class="figure__value">{{ progress.pending }}</p><p class="figure__note">{{ progress.in_progress }} en curso ahora</p></div>
+    <div class="figure"><p class="figure__label">Camperos</p><p class="figure__value">{{ progress.eligible }}</p><p class="figure__note">en {{ coordinators|length }} coordinador{{ coordinators|length|pluralize:"es" }}</p></div>
+    <div class="figure"><p class="figure__label">Ritmo</p><p class="figure__value">{{ payload.throughput.per_hour }}<small>por hora</small></p><p class="figure__note">{% if payload.throughput.eta_minutes %}Faltan unas {{ payload.throughput.eta_minutes|duration }}{% else %}Últimas 2 horas{% endif %}</p></div>
+  </div>
+  <div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
+</section>
+
+<div class="split section">
+  <section aria-labelledby="por-coordinador">
+    <div class="section__head"><h2 id="por-coordinador">Avance por coordinador</h2><p>Primero los que van más atrás</p></div>
+    {% include "events/partials/team_bars.html" with rows=coordinators link=True empty_title="Aún no tienes coordinadores asignados" empty_body="La administración del evento te los asigna." %}
+  </section>
+  <section aria-labelledby="atencion">
+    <div class="section__head"><h2 id="atencion">Requiere atención</h2></div>
+    <ul class="ledger">
+      <li><a class="ledger__row" href="{% url 'events:pending' event.slug %}#interrumpidas"><span class="ledger__main"><span class="ledger__title">Entrevistas interrumpidas</span><span class="ledger__meta ledger__meta--block">Sin actividad desde hace 20 minutos o más</span></span><span class="ledger__aside"><span class="chip {% if stale %}chip--alert{% else %}chip--pending{% endif %}">{{ stale|length }}</span></span></a></li>
+      <li><a class="ledger__row" href="{% url 'events:pending' event.slug %}#seguimientos"><span class="ledger__main"><span class="ledger__title">Seguimientos abiertos</span><span class="ledger__meta ledger__meta--block">Camperos que pidieron acompañamiento</span></span><span class="ledger__aside"><span class="chip {% if follow_ups_open %}chip--progress{% else %}chip--pending{% endif %}">{{ follow_ups_open }}</span></span></a></li>
+      <li><a class="ledger__row" href="{% url 'events:pending' event.slug %}#por-evaluar"><span class="ledger__main"><span class="ledger__title">Seguimiento por decidir</span><span class="ledger__meta ledger__meta--block">Entrevistas marcadas “pendiente de evaluación”</span></span><span class="ledger__aside"><span class="chip chip--pending">{{ payload.follow_ups.to_evaluate }}</span></span></a></li>
+    </ul>
+    {% if stale %}
+      <h3 class="subhead mt-6">Interrumpidas ahora</h3>
+      <ul class="ledger mt-2">{% for iv in stale %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ iv.participant.full_name }}</p><p class="ledger__meta">{{ iv.conducted_by.get_full_name }} · {{ iv.last_activity_at|since }}</p></div></div></li>{% endfor %}</ul>
+    {% endif %}
+  </section>
+</div>
+
+<div class="split split--even section">
+  {% include "events/partials/chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="equipo-acumulado" as_of=payload.data_as_of %}
+  {% include "events/partials/chart_columns.html" with points=payload.timeline.points chart_id="equipo-ritmo" as_of=payload.data_as_of %}
+</div>
+
+<div class="split section">
+  <section aria-labelledby="actividad">
+    <div class="section__head"><h2 id="actividad">Actividad reciente</h2><a href="{% url 'events:interviews' event.slug %}">Ver todas las entrevistas</a></div>
+    {% if recent %}
+      <ul class="ledger">{% for iv in recent %}
+        <li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ iv.participant.full_name }}</p><p class="ledger__meta">{{ iv.conducted_by.get_full_name|default:"—" }} · {{ iv.last_activity_at|since }}</p></div><div class="ledger__aside">{% status_chip iv.status %}</div></div></li>
+      {% endfor %}</ul>
+    {% else %}<p class="muted">Todavía no hay actividad.</p>{% endif %}
+  </section>
+  <section aria-labelledby="cortes" class="panel">
+    <h2 id="cortes" class="subhead">Cortes de seguimiento</h2>
+    <dl class="summary-list mt-4">
+      <div class="summary-list__row"><dt>Último corte</dt><dd>{% if last_snapshot %}{{ last_snapshot.cutoff_at|date:"H:i" }}{% else %}Aún no hay{% endif %}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Próximo corte</dt><dd>{% if next_cutoff %}{{ next_cutoff|date:"H:i" }}{% else %}Sin programar{% endif %}</dd><span></span></div>
+    </dl>
+    <p class="mt-4"><a href="{% url 'events:reports' event.slug %}">Ver reportes de mi equipo</a></p>
+  </section>
+</div>

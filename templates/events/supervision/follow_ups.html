@@ -1,0 +1,21 @@
+{% extends shell_template %}
+{% load emmaus %}
+{% block page_title %}Seguimiento{% endblock %}
+{% block content %}
+{% include "partials/ui/page_head.html" with title="Seguimiento" lede="Camperos que pidieron o necesitan acompañamiento. Asigna un líder a cada uno." %}
+<nav class="cluster mb-6" aria-label="Estados">
+  <a class="tab-link" href="?estado=abiertos"{% if status == "abiertos" %} aria-current="page"{% endif %}>Abiertos</a>
+  {% for value, label in status_choices %}<a class="tab-link" href="?estado={{ value }}"{% if status == value %} aria-current="page"{% endif %}>{{ label }} <span class="muted">{{ counts|get_item:value|default:0 }}</span></a>{% endfor %}
+  <a class="tab-link" href="?estado=todos"{% if status == "todos" %} aria-current="page"{% endif %}>Todos</a>
+</nav>
+{% if follow_ups %}
+  <ul class="ledger mt-4">{% for f in follow_ups %}
+    <li><a class="ledger__row" href="{% url 'events:follow_up_detail' event.slug f.id %}">
+      <span class="ledger__main"><span class="ledger__title">{{ f.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %} · {{ f.participant.coordinator.display_name|default:"sin coordinador" }} · {{ f.created_at|since }}{% if f.assigned_to %} · responsable: {{ f.assigned_to.get_full_name }}{% endif %}</span></span>
+      <span class="ledger__aside">{% if f.kind == "seguridad" %}<span class="chip chip--alert">Urgente</span>{% endif %}{% follow_up_chip f.status %}</span>
+    </a></li>
+  {% endfor %}</ul>
+{% else %}
+  {% include "partials/ui/empty.html" with title="No hay seguimientos en esta lista" body="Cuando un coordinador marque que un campero necesita seguimiento aparecerá aquí." %}
+{% endif %}
+{% endblock %}

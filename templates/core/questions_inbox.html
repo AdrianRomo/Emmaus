@@ -1,24 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Questions inbox | Emmaus{% endblock %}
+{% block page_title %}Preguntas{% endblock %}
 {% block content %}
   {% url 'escalations' as escalations_url %}
-  {% include "partials/page_header.html" with eyebrow="Questions" title="Questions awaiting care" subtitle="Questions from participants that may need a leader response." action_url=escalations_url action_label="View escalations" %}
-  <div class="space-y-3">
-    {% for question in questions %}
-      <a class="human-row" href="{% url 'church_question_detail' question.id %}">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p class="font-semibold text-stone-950">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-            <p class="mt-2 text-sm leading-6 text-stone-600">{{ question.question_text|truncatewords:30 }}</p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            {% include "partials/status_badge.html" with status=question.sensitivity_level label=question.get_sensitivity_level_display %}
-            {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
-          </div>
-        </div>
-      </a>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No open questions" body="When participants ask questions, they’ll appear here." %}
-    {% endfor %}
-  </div>
+  {% include "partials/ui/page_head.html" with folio="Preguntas" title="Preguntas por atender" lede="Preguntas de participantes que pueden necesitar la respuesta de un líder." action_url=escalations_url action_label="Ver preguntas escaladas" %}
+  {% if questions %}
+    <ul class="ledger">
+      {% for question in questions %}
+        <li>
+          <a class="ledger__row" href="{% url 'church_question_detail' question.id %}">
+            <div class="ledger__main">
+              <p class="ledger__title">{{ question.participant.get_full_name|default:question.participant.email }}</p>
+              <p class="ledger__meta">{{ question.question_text|truncatewords:30 }}</p>
+            </div>
+            <div class="ledger__aside">
+              {% include "partials/status_badge.html" with status=question.sensitivity_level label=question.get_sensitivity_level_display %}
+              {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
+            </div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {% include "partials/ui/empty.html" with title="No hay preguntas abiertas" body="Cuando los participantes hagan preguntas, aparecerán aquí." %}
+  {% endif %}
 {% endblock %}

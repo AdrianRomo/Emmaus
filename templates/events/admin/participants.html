@@ -1,0 +1,25 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}Participantes{% endblock %}
+{% block content %}
+<header class="page-head"><div class="page-head__row"><div><h1>Participantes</h1><p class="lede">{{ total }} camperos participando.</p></div>
+  {% if can_manage %}<div class="btn-row"><a class="btn btn--primary" href="{% url 'events:participant_create' event.slug %}">Registrar campero</a><a class="btn" href="{% url 'events:participant_import' event.slug %}">Importar CSV</a><a class="btn btn--quiet" href="{% url 'events:participant_export' event.slug %}">Descargar lista</a></div>{% endif %}</div></header>
+<form method="get" class="filters" role="search">
+  <div class="field"><label for="q">Buscar</label><input id="q" type="search" name="q" value="{{ query }}" placeholder="Nombre, número, cuarto o iglesia"></div>
+  <div class="field"><label for="f-estado">Entrevista</label><select id="f-estado" name="estado"><option value="">Todas</option>{% for v, l in status_choices %}<option value="{{ v }}"{% if selected.estado == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="f-coord">Coordinador</label><select id="f-coord" name="coordinador"><option value="">Todos</option><option value="ninguno"{% if selected.coordinador == "ninguno" %} selected{% endif %}>Sin coordinador</option>{% for c in coordinators %}<option value="{{ c.id }}"{% if selected.coordinador == c.id|stringformat:"s" %} selected{% endif %}>{{ c.display_name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="f-part">Participación</label><select id="f-part" name="participa"><option value="si"{% if selected.participa == "si" %} selected{% endif %}>Participando</option><option value="no"{% if selected.participa == "no" %} selected{% endif %}>Dados de baja</option><option value="todos"{% if selected.participa == "todos" %} selected{% endif %}>Todos</option></select></div>
+  <button class="btn btn--sm btn--primary" type="submit">Filtrar</button>
+</form>
+<p class="folio">{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}</p>
+{% if page.object_list %}
+<div class="table-wrap mt-4"><table class="table">
+  <thead><tr><th>#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Entrevista</th></tr></thead>
+  <tbody>{% for p in page.object_list %}<tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a>{% if not p.is_active %} <span class="chip chip--pending chip--plain">Baja</span>{% endif %}</td><td class="num">{{ p.age }}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.coordinator.display_name|default:"—" }}</td><td>{% status_chip p.interview_status %}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% include "events/partials/pagination.html" %}
+{% else %}
+  {% url 'events:participant_import' event.slug as import_url %}
+  {% include "partials/ui/empty.html" with title="No se encontraron participantes" body="Cambia los filtros o importa la lista de camperos desde un archivo." action_url=import_url action_label="Importar camperos" %}
+{% endif %}
+{% endblock %}

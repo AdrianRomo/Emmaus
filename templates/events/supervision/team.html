@@ -1,0 +1,31 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}Equipo{% endblock %}
+{% block content %}
+<header class="page-head"><div class="page-head__row"><div><h1>Equipo</h1><p class="lede">Quién supervisa a quién en este evento.</p></div>
+  {% if can_manage %}<div class="btn-row"><a class="btn btn--primary" href="{% url 'events:member_add' event.slug %}">Agregar persona</a><a class="btn" href="{% url 'events:assignments' event.slug %}">Asignar tutores</a></div>{% endif %}</div></header>
+{% for tutor in tutors %}
+  <section class="section" aria-labelledby="tutor-{{ tutor.id }}">
+    <div class="section__head">
+      <div class="person"><span class="person__initials" aria-hidden="true">{{ tutor.display_name|initials }}</span><div><h2 id="tutor-{{ tutor.id }}" class="subhead">{{ tutor.team_label }}</h2><p class="person__meta">Tutor: {{ tutor.display_name }}{% if not tutor.is_active %} · sin acceso{% endif %}{% if tutor.can_view_sensitive %} · acceso confidencial{% endif %}</p></div></div>
+      {% if can_manage %}<a href="{% url 'events:member_edit' event.slug tutor.id %}">Editar</a>{% endif %}
+    </div>
+    {% with assignments=tutor.supervised_assignments.all %}
+    {% if assignments %}
+      <ul class="ledger">{% for a in assignments %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{% if access.sees_whole_event %}<a href="{% url 'events:coordinator_detail' event.slug a.coordinator.id %}">{{ a.coordinator.display_name }}</a>{% else %}{{ a.coordinator.display_name }}{% endif %}</p><p class="ledger__meta">Coordinador · {{ counts|get_item:a.coordinator.id|default:0 }} camperos{% if not a.coordinator.is_active %} · sin acceso{% endif %}</p></div>{% if can_manage %}<div class="ledger__aside"><a class="btn btn--sm" href="{% url 'events:member_edit' event.slug a.coordinator.id %}">Editar</a></div>{% endif %}</div></li>{% endfor %}</ul>
+    {% else %}<p class="muted">Este tutor todavía no tiene coordinadores.</p>{% endif %}
+    {% endwith %}
+  </section>
+{% empty %}
+  {% include "partials/ui/empty.html" with title="Todavía no hay tutores" body="Agrega tutores y asígnales coordinadores para que cada equipo tenga quién lo acompañe." %}
+{% endfor %}
+{% if unassigned %}
+<section class="section" aria-labelledby="sin-tutor"><div class="section__head"><h2 id="sin-tutor">Coordinadores sin tutor</h2><p>{{ unassigned|length }}</p></div>
+  <ul class="ledger">{% for c in unassigned %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ c.display_name }}</p><p class="ledger__meta">{{ counts|get_item:c.id|default:0 }} camperos</p></div>{% if can_manage %}<div class="ledger__aside"><a class="btn btn--sm" href="{% url 'events:member_edit' event.slug c.id %}">Asignar tutor</a></div>{% endif %}</div></li>{% endfor %}</ul>
+</section>
+{% endif %}
+<section class="section" aria-labelledby="liderazgo"><div class="section__head"><h2 id="liderazgo">Pastores y administración</h2></div>
+  {% if others %}<ul class="ledger">{% for m in others %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ m.display_name }}</p><p class="ledger__meta">{{ m.get_role_display }}{% if m.can_view_sensitive %} · acceso confidencial{% endif %}{% if not m.is_active %} · sin acceso{% endif %}</p></div>{% if can_manage %}<div class="ledger__aside"><a class="btn btn--sm" href="{% url 'events:member_edit' event.slug m.id %}">Editar</a></div>{% endif %}</div></li>{% endfor %}</ul>
+  {% else %}<p class="muted">Los pastores y la administración de la iglesia tienen acceso a todo el evento.</p>{% endif %}
+</section>
+{% endblock %}

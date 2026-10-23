@@ -1,0 +1,35 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus %}
+{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
+{% block body_class %}shell-bar{% endblock %}
+{% block body %}
+<header class="topbar">
+  <div class="topbar__inner">
+    <a class="brand" href="{% url 'events:home' event.slug %}">{% brand_mark %}<span><span class="brand__word">Emmaus</span><span class="brand__sub">{{ event.name }}</span></span></a>
+    <nav class="topbar__nav" aria-label="Principal">
+      {% for item in event_nav %}<a class="tab-link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+    </nav>
+    <div class="topbar__actions">
+      <a class="btn btn--primary btn--sm" href="{% url 'events:interview_search' event.slug %}">Iniciar entrevista</a>
+      <button class="btn btn--sm menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+      <div class="topbar__logout">{% include "partials/ui/logout.html" with css="btn--sm btn--quiet" %}</div>
+    </div>
+  </div>
+</header>
+<div id="menu-panel" class="menu-panel" hidden>
+  <div class="menu-panel__head">
+    <span class="brand">{% brand_mark %}<span class="brand__word">Emmaus</span></span>
+    <button class="btn btn--sm" type="button" data-menu-close>Cerrar menú</button>
+  </div>
+  <a class="btn btn--hero btn--block" href="{% url 'events:interview_search' event.slug %}">Iniciar entrevista</a>
+  <div class="mt-6">{% include "events/_nav.html" %}</div>
+  <div class="mt-8 stack-sm">
+    <p class="text-sm"><strong>{{ user.get_full_name|default:user.email }}</strong> · Coordinador{% if station %} · {{ station.name }}{% endif %}</p>
+    {% include "partials/ui/logout.html" %}
+  </div>
+</div>
+<main id="contenido" class="main" tabindex="-1">
+  {% include "partials/ui/messages.html" %}
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}

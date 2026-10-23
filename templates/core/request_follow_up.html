@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Request conversation | Emmaus{% endblock %}
+{% block page_title %}Pedir una conversación{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Conversation" title="Request a conversation" subtitle="Let your church know you would like someone to follow up personally." %}
-  <section class="mx-auto max-w-2xl">
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary mt-2">Send request</button>
-      </form>
+  {% include "partials/ui/page_head.html" with folio="Conversación" title="Pide una conversación" lede="Avísale a tu iglesia que te gustaría que alguien te busque para platicar en persona." %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <form method="post" class="sheet prose">
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="btn-row mt-6">
+      <button class="btn btn--primary" type="submit">Enviar solicitud</button>
+      <a class="btn btn--quiet" href="{% url 'participant_dashboard' %}">Volver a mi camino</a>
     </div>
-  </section>
+  </form>
 {% endblock %}

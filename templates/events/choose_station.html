@@ -1,0 +1,20 @@
+{% extends shell_template %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}¿En qué computadora estás?{% endblock %}
+{% block content %}
+{% include "partials/ui/error_summary.html" with form=form %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="siguiente" value="{{ next_url }}">
+  <fieldset>
+    <legend><h1 class="q-title">¿En qué computadora estás?</h1></legend>
+    <p class="q-help">Busca el número pegado en la computadora. Así sabemos dónde se abrió cada entrevista.</p>
+    {% if form.station.errors %}<p class="error-message">{{ form.station.errors.0 }}</p>{% endif %}
+    <div class="options mt-6 options--grid">
+      {% for radio in form.station %}
+        <div class="option">{{ radio.tag }}<label class="option__face" for="{{ radio.id_for_label }}"><span class="option__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label></div>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="q-actions"><span></span><button class="btn btn--primary" type="submit">Continuar</button></div>
+</form>
+{% endblock %}

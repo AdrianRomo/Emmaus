@@ -1,0 +1,25 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}{{ coordinator.display_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <ol class="crumbs"><li><a href="{% url 'events:coordinators' event.slug %}">Coordinadores</a></li><li>{{ coordinator.display_name }}</li></ol>
+  <div class="person mt-4"><span class="person__initials" aria-hidden="true">{{ coordinator.display_name|initials }}</span><div><h1>{{ coordinator.display_name }}</h1><p class="person__meta">{% if coordinator.tutor_assignment %}{{ coordinator.tutor_assignment.tutor.team_label }}{% else %}Sin tutor{% endif %}{% if not coordinator.is_active %} · sin acceso{% endif %}</p></div></div>
+</header>
+<div class="figure-row">
+  <div class="figure figure--hero"><p class="figure__label">Avance</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }}</p></div>
+  <div class="figure"><p class="figure__label">En curso</p><p class="figure__value">{{ progress.in_progress }}</p></div>
+  <div class="figure"><p class="figure__label">Sin iniciar</p><p class="figure__value">{{ progress.not_started }}</p></div>
+  <div class="figure"><p class="figure__label">Seguimientos abiertos</p><p class="figure__value">{{ payload.follow_ups.open_total }}</p></div>
+</div>
+<div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
+<section class="section" aria-labelledby="camperos">
+  <div class="section__head"><h2 id="camperos">Camperos</h2><p>{{ participants|length }}</p></div>
+  {% if participants %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>#</th><th>Nombre</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Entrevista</th></tr></thead>
+    <tbody>{% for p in participants %}<tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{% status_chip p.interview_status %}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}{% include "partials/ui/empty.html" with title="Sin camperos asignados" %}{% endif %}
+</section>
+{% endblock %}

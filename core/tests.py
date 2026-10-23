@@ -3,7 +3,9 @@ from __future__ import annotations
 from io import StringIO
 
 from django.contrib.auth.models import User
+from django.core import mail
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -26,7 +28,13 @@ from .models import (
     Role,
     UserChurchRole,
 )
-from .services import assign_role, enroll_participant_in_path
+from .forms import EmailAuthenticationForm
+from .services import (
+    assign_role,
+    enroll_participant_in_path,
+    notify_follow_up_created,
+    notify_question_escalated,
+)
 
 
 PASSWORD = "StrongPass12345!"
@@ -135,7 +143,7 @@ class InvitationFlowTests(EmmausFixture):
         self.assertTrue(Invitation.objects.filter(email="created-no-mentor@example.org").exists())
         self.assertEqual(list_response.status_code, 200)
         self.assertContains(list_response, "created-no-mentor@example.org")
-        self.assertContains(list_response, "Not assigned")
+        self.assertContains(list_response, "Sin asignar")
 
     def test_invitation_list_renders_invites_without_assigned_mentor(self):
         Invitation.objects.create(
@@ -152,7 +160,7 @@ class InvitationFlowTests(EmmausFixture):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "nomentor@example.org")
-        self.assertContains(response, "Not assigned")
+        self.assertContains(response, "Sin asignar")
 
     def test_invitation_token_creates_user_with_correct_role(self):
         invitation = Invitation.objects.create(
@@ -297,7 +305,12 @@ class WorkflowTests(EmmausFixture):
 
         settings_page = self.client.get(reverse("church_settings"))
         self.assertContains(settings_page, 'type="color"')
-        self.assertContains(settings_page, "--gold: #C0663F")
+        self.assertContains(settings_page, 'value="#C0663F"')
+
+        # The saved colors reach the page theme once the church opts into its own palette.
+        Church.objects.filter(pk=self.church.pk).update(custom_theme_enabled=True)
+        themed_page = self.client.get(reverse("church_settings"))
+        self.assertContains(themed_page, "--terracotta:#C0663F")
 
     def test_participant_can_submit_reflection_answer(self):
         self.client.force_login(self.participant)
@@ -517,6 +530,84 @@ class RenderFlowSmokeTests(EmmausFixture):
                 ("ask_question", {}),
                 ("request_follow_up", {}),
             ],
+        )
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class NotificationPrivacyTests(EmmausFixture):
+    QUESTION_TEXT = "Tengo una duda muy personal sobre mi familia."
+
+    def assert_email_hides(self, *private_texts):
+        self.assertTrue(mail.outbox, "Se esperaba al menos un correo.")
+        for message in mail.outbox:
+            for text in private_texts:
+                self.assertNotIn(text, message.subject)
+                self.assertNotIn(text, message.body)
+
+    def test_question_created_email_does_not_include_question_text(self):
+        self.client.force_login(self.participant)
+
+        self.client.post(
+            reverse("ask_question"),
+            {"question_text": self.QUESTION_TEXT, "sensitivity_level": ParticipantQuestion.Sensitivity.NORMAL},
+        )
+
+        self.assertEqual(mail.outbox[0].subject, "Emmaus: hay una pregunta nueva")
+        self.assert_email_hides(self.QUESTION_TEXT, "Pat", "Participant", self.participant.email)
+
+    def test_follow_up_and_escalation_emails_do_not_include_participant_content(self):
+        question = ParticipantQuestion.objects.create(
+            church=self.church,
+            participant=self.participant,
+            question_text=self.QUESTION_TEXT,
+        )
+        follow_up = FollowUpRequest.objects.create(
+            church=self.church,
+            participant=self.participant,
+            assigned_to=self.mentor,
+            reason="Quiero platicar sobre algo que me pasó.",
+        )
+
+        notify_question_escalated(question)
+        notify_follow_up_created(follow_up)
+
+        self.assertEqual(len(mail.outbox), 2)
+        self.assert_email_hides(self.QUESTION_TEXT, follow_up.reason, "Pat", "Participant", self.participant.email)
+
+
+class SeedDevDataTests(TestCase):
+    @override_settings(DEBUG=False)
+    def test_seed_dev_data_refuses_when_debug_is_false(self):
+        with self.assertRaises(CommandError):
+            call_command("seed_dev_data", password="DemoPass-12345", stdout=StringIO())
+
+        self.assertFalse(Church.objects.filter(slug="emmaus-demo").exists())
+        self.assertFalse(User.objects.filter(email="admin@example.org").exists())
+
+    @override_settings(DEBUG=True)
+    def test_seed_dev_data_uses_given_password_without_printing_it(self):
+        output = StringIO()
+
+        call_command("seed_dev_data", password="DemoPass-12345", stdout=output)
+
+        admin = User.objects.get(email="admin@example.org")
+        self.assertTrue(admin.check_password("DemoPass-12345"))
+        self.assertNotIn("DemoPass-12345", output.getvalue())
+        self.assertTrue(DiscipleshipPath.objects.filter(church__slug="emmaus-demo", is_default=True).exists())
+
+
+class EmailAuthenticationFormTests(TestCase):
+    def test_login_form_uses_spanish_labels_and_error(self):
+        User.objects.create_user(username="ana@example.org", email="ana@example.org", password=PASSWORD)
+
+        form = EmailAuthenticationForm(data={"username": "ana@example.org", "password": "incorrecta"})
+
+        self.assertEqual(form.fields["username"].label, "Correo electrónico")
+        self.assertEqual(form.fields["password"].label, "Contraseña")
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "Revisa tu correo y contraseña. Si no puedes entrar, pide ayuda a la administración del evento.",
+            form.non_field_errors(),
         )
 
 

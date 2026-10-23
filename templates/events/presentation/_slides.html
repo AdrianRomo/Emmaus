@@ -1,0 +1,73 @@
+{% load emmaus %}
+{% with p=deck.progress %}
+<section class="slide is-active" aria-label="Diapositiva 1 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="slide__title">Así va nuestro {{ deck.kind_label|lower }}</h2>
+  <div class="slide__body">
+    <div class="slide__figures">
+      <div><p class="slide__fig-label">Participantes</p><p class="slide__fig-value">{{ p.eligible }}</p></div>
+      <div><p class="slide__fig-label">Entrevistas completadas</p><p class="slide__fig-value">{{ p.completed }}</p></div>
+      <div><p class="slide__fig-label">Avance</p><p class="slide__fig-value">{% if p.percent is None %}—{% else %}{{ p.percent }}<small>%</small>{% endif %}</p></div>
+    </div>
+    <div class="slide__meter">
+      <div class="deck-track" role="img" aria-label="{{ p.completed }} completadas, {{ p.in_progress }} en curso y {{ p.not_started }} sin iniciar, de {{ p.eligible }}">
+        {% if p.eligible %}<span class="deck-seg--done" style="width:{% widthratio p.completed p.eligible 100 %}%"></span><span class="deck-seg--progress" style="width:{% widthratio p.in_progress p.eligible 100 %}%"></span>{% endif %}
+      </div>
+      <ul class="deck-keys"><li><i style="background:var(--deck-done)"></i>Completadas {{ p.completed }}</li><li><i style="background:var(--deck-progress)"></i>En curso {{ p.in_progress }}</li><li><i style="background:var(--deck-track);box-shadow:inset 0 0 0 1px var(--deck-muted)"></i>Sin iniciar {{ p.not_started }}</li></ul>
+    </div>
+  </div>
+  {% include "events/presentation/_foot.html" with n=1 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 2 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="slide__title">Avance de entrevistas</h2>
+  <div class="slide__body">
+    {% if deck.timeline %}
+      {% cumulative_chart deck.timeline p.eligible "deck-acumulado" "Entrevistas completadas acumuladas" True %}
+      <p class="deck-note">Entrevistas completadas acumuladas. La línea horizontal es el total de participantes ({{ p.eligible }}). Faltan {{ p.pending }}{% if deck.eta %}; al ritmo actual ({{ deck.rate }} por hora), unas {{ deck.eta }}{% endif %}.</p>
+    {% else %}<p class="deck-empty">Aún no hay entrevistas completadas.</p>{% endif %}
+  </div>
+  {% include "events/presentation/_foot.html" with n=2 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 3 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="slide__title">Avance por equipo</h2>
+  <div class="slide__body">
+    {% if deck.teams %}
+      <ol class="deck-bars">{% for t in deck.teams|slice:":8" %}
+        <li class="deck-bar"><span class="deck-bar__label">{{ t.label }}</span>
+          <span class="deck-track" role="img" aria-label="{{ t.label }}: {{ t.completed }} de {{ t.eligible }}">{% if t.eligible %}<span class="deck-seg--done" style="width:{% widthratio t.completed t.eligible 100 %}%"></span><span class="deck-seg--progress" style="width:{% widthratio t.in_progress t.eligible 100 %}%"></span>{% endif %}</span>
+          <span class="deck-bar__value">{% if t.percent is None %}—{% else %}{{ t.percent }} %{% endif %}<small>faltan {{ t.pending }}</small></span></li>
+      {% endfor %}</ol>
+      {% if deck.teams|length > 8 %}<p class="deck-note">Se muestran los 8 equipos con menos avance.</p>{% endif %}
+    {% else %}<p class="deck-empty">Todavía no hay equipos asignados.</p>{% endif %}
+  </div>
+  {% include "events/presentation/_foot.html" with n=3 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 4 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="slide__title">Necesidades de seguimiento</h2>
+  <div class="slide__body">
+    <div class="deck-tiles">
+      <div class="deck-tile"><p class="deck-tile__value">{{ deck.follow_ups.requested.display }}</p><p class="deck-tile__label">seguimientos solicitados</p></div>
+      <div class="deck-tile"><p class="deck-tile__value">{{ deck.follow_ups.open.display }}</p><p class="deck-tile__label">esperan a un líder</p></div>
+      <div class="deck-tile"><p class="deck-tile__value">{{ deck.follow_ups.done.display }}</p><p class="deck-tile__label">ya atendidos</p></div>
+      <div class="deck-tile"><p class="deck-tile__value">{{ deck.follow_ups.to_evaluate.display }}</p><p class="deck-tile__label">por decidir</p></div>
+    </div>
+    <p class="deck-note">Solo totales generales, redondeados a múltiplos de {{ deck.k }}. Las cifras menores a {{ deck.k }} se ocultan para cuidar la privacidad de cada persona. No se muestran nombres, respuestas ni temas personales.</p>
+  </div>
+  {% include "events/presentation/_foot.html" with n=4 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 5 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="slide__title">Próximos pasos</h2>
+  <div class="slide__body">
+    {% if deck.next_steps %}<ol class="deck-list">{% for step in deck.next_steps %}<li>{{ step }}</li>{% endfor %}</ol>{% else %}<p class="deck-empty">Sin pendientes por ahora.</p>{% endif %}
+  </div>
+  {% include "events/presentation/_foot.html" with n=5 %}
+</section>
+{% endwith %}

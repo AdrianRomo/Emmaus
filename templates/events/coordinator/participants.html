@@ -1,0 +1,32 @@
+{% extends shell_template %}
+{% load emmaus %}
+{% block page_title %}Mis camperos{% endblock %}
+{% block content %}
+{% url 'events:participant_create' event.slug as create_url %}
+{% include "partials/ui/page_head.html" with title="Mis camperos" lede="Las personas asignadas a ti en este evento." action_url=create_url action_label="Registrar campero" %}
+<form method="get" class="filters" role="search">
+  <div class="field"><label for="q">Buscar</label><input id="q" type="search" name="q" value="{{ query }}" placeholder="Nombre, número o cuarto"></div>
+  <div class="field"><label for="estado">Entrevista</label>
+    <select id="estado" name="estado"><option value="">Todas</option>{% for value, label in status_choices %}<option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+  </div>
+  <button class="btn btn--sm" type="submit">Filtrar</button>
+  {% if query or status %}<a class="btn btn--sm btn--quiet" href="{{ request.path }}">Quitar filtros</a>{% endif %}
+</form>
+<p class="folio">{{ participants|length }} de {{ total }} camperos</p>
+{% if participants %}
+  <ul class="ledger mt-4">
+    {% for p in participants %}
+      <li><div class="ledger__row">
+        <span class="ledger__code">#{{ p.code }}</span>
+        <div class="ledger__main"><a class="ledger__title" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a><p class="ledger__meta">{{ p.room|cuarto }} · {{ p.age }} años · {{ p.church_group }}</p></div>
+        <div class="ledger__aside">
+          {% status_chip p.interview_status %}
+          {% if p.interview_status != "completada" %}<a class="btn btn--sm" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Continuar{% else %}Entrevistar{% endif %}</a>{% endif %}
+        </div>
+      </div></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  {% include "partials/ui/empty.html" with title="No se encontraron participantes" body="Prueba con otra búsqueda o registra a un campero nuevo." action_url=create_url action_label="Registrar campero" %}
+{% endif %}
+{% endblock %}

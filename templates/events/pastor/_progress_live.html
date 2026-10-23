@@ -1,0 +1,21 @@
+{% load emmaus %}
+<div class="figure-row">
+  <div class="figure figure--hero"><p class="figure__label">Avance</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }}</p></div>
+  <div class="figure"><p class="figure__label">En curso</p><p class="figure__value">{{ progress.in_progress }}</p></div>
+  <div class="figure"><p class="figure__label">Sin iniciar</p><p class="figure__value">{{ progress.not_started }}</p></div>
+  <div class="figure"><p class="figure__label">Ritmo</p><p class="figure__value">{{ payload.throughput.per_hour }}<small>por hora</small></p></div>
+</div>
+<div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
+<div class="split split--even section">
+  {% include "events/partials/chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="avance-acumulado" as_of=payload.data_as_of %}
+  {% include "events/partials/chart_columns.html" with points=payload.timeline.points chart_id="avance-ritmo" as_of=payload.data_as_of %}
+</div>
+<section class="section" aria-labelledby="equipos"><div class="section__head"><h2 id="equipos">Por equipo</h2></div>
+  {% include "events/partials/team_bars.html" with rows=teams %}
+</section>
+<section class="section" aria-labelledby="coordinadores"><div class="section__head"><h2 id="coordinadores">Por coordinador</h2><p>{{ coordinators|length }}</p></div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Coordinador</th><th>Equipo</th><th class="num">Camperos</th><th class="num">Completadas</th><th class="num">En curso</th><th class="num">Avance</th></tr></thead>
+    <tbody>{% for c in coordinators %}<tr><td><a href="{% url 'events:coordinator_detail' event.slug c.id %}">{{ c.name }}</a>{% if c.stale %} <span class="chip chip--alert">{{ c.stale }} detenida{{ c.stale|pluralize }}</span>{% endif %}</td><td>{{ c.team }}</td><td class="num">{{ c.eligible }}</td><td class="num">{{ c.completed }}</td><td class="num">{{ c.in_progress }}</td><td class="num">{{ c.percent|pct }}</td></tr>{% empty %}<tr><td colspan="6">Todavía no hay coordinadores.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>

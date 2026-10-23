@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block page_title %}No encontramos esta página{% endblock %}
+{% block content %}
+<div class="prose stack">
+  <p class="folio">Error 404</p>
+  <h1>No encontramos esta página</h1>
+  <p class="lede">Puede que la dirección esté mal escrita o que ya no exista. También puede ser información que no está asignada a ti.</p>
+  <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Ir a mi inicio</a></p>
+</div>
+{% endblock %}

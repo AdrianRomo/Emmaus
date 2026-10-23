@@ -1,0 +1,40 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus %}
+{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
+{% block body %}
+<div class="shell-rail">
+  <header class="mobilebar">
+    <a class="brand" href="{% url 'events:home' event.slug %}">{% brand_mark %}<span class="brand__word">Emmaus</span></a>
+    <button class="btn btn--sm menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+  </header>
+  <nav class="rail" aria-label="Principal">
+    <a class="brand" href="{% url 'events:home' event.slug %}">{% brand_mark %}<span><span class="brand__word">Emmaus</span><span class="brand__sub">{{ access.role_label }}</span></span></a>
+    {% include "events/_event_block.html" %}
+    {% include "events/_nav.html" %}
+    {% if access.is_admin and theme_church.discipleship_enabled %}
+      <p class="nav-group-label">Otros módulos</p>
+      <ul class="nav-list"><li><a class="nav-link" href="{% url 'church_dashboard' %}">Discipulado</a></li></ul>
+    {% endif %}
+    <div class="rail__foot stack-sm">
+      <p><strong>{{ user.get_full_name|default:user.email }}</strong>{{ access.role_label }}{% if access.can_view_sensitive %} · acceso confidencial{% endif %}</p>
+      {% include "partials/ui/logout.html" %}
+    </div>
+  </nav>
+  <div id="menu-panel" class="menu-panel" hidden>
+    <div class="menu-panel__head">
+      <span class="brand">{% brand_mark %}<span class="brand__word">Emmaus</span></span>
+      <button class="btn btn--sm" type="button" data-menu-close>Cerrar menú</button>
+    </div>
+    {% include "events/_event_block.html" %}
+    <div class="mt-6">{% include "events/_nav.html" %}</div>
+    <div class="mt-8 stack-sm">
+      <p class="text-sm"><strong>{{ user.get_full_name|default:user.email }}</strong> · {{ access.role_label }}</p>
+      {% include "partials/ui/logout.html" %}
+    </div>
+  </div>
+  <main id="contenido" class="main" tabindex="-1">
+    {% include "partials/ui/messages.html" %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

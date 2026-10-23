@@ -1,17 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Assign mentor | Emmaus{% endblock %}
+{% block page_title %}Asignar mentor{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Mentor assignment" title="Assign someone to walk with this participant" subtitle=profile.user.get_full_name|default:profile.user.email %}
-  <section class="mx-auto max-w-xl">
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <div class="mt-2 flex flex-col gap-3 sm:flex-row">
-          <button class="btn btn-primary">Assign mentor</button>
-          <a class="btn btn-secondary" href="{% url 'participants_list' %}">Back to participants</a>
-        </div>
-      </form>
+  {% include "partials/ui/page_head.html" with folio="Asignar mentor" title="Elige quién acompañará a esta persona" lede=profile.user.get_full_name|default:profile.user.email %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <form method="post" class="sheet prose">
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="btn-row mt-6">
+      <button class="btn btn--primary" type="submit">Asignar mentor</button>
+      <a class="btn btn--quiet" href="{% url 'participants_list' %}">Volver a participantes</a>
     </div>
-  </section>
+  </form>
 {% endblock %}

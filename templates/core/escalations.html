@@ -1,20 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Escalations | Emmaus{% endblock %}
+{% block page_title %}Preguntas escaladas{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Pastoral care" title="Escalated questions" subtitle="Questions that mentors or participants marked for pastoral attention." %}
-  <div class="space-y-3">
-    {% for question in questions %}
-      <a class="human-row" href="{% url 'church_question_detail' question.id %}">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="font-semibold text-stone-950">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-            <p class="mt-2 text-sm leading-6 text-stone-600">{{ question.question_text|truncatewords:30 }}</p>
-          </div>
-          {% include "partials/status_badge.html" with status=question.status label="Escalated" %}
-        </div>
-      </a>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No escalations right now" body="Questions needing pastoral attention will appear here." %}
-    {% endfor %}
-  </div>
+  {% include "partials/ui/page_head.html" with folio="Cuidado pastoral" title="Preguntas escaladas" lede="Preguntas que mentores o participantes marcaron para recibir atención pastoral." %}
+  {% if questions %}
+    <ul class="ledger">
+      {% for question in questions %}
+        <li>
+          <a class="ledger__row" href="{% url 'church_question_detail' question.id %}">
+            <div class="ledger__main">
+              <p class="ledger__title">{{ question.participant.get_full_name|default:question.participant.email }}</p>
+              <p class="ledger__meta">{{ question.question_text|truncatewords:30 }}</p>
+            </div>
+            <div class="ledger__aside">{% include "partials/status_badge.html" with status=question.status label="Escalada" %}</div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {% include "partials/ui/empty.html" with title="No hay preguntas escaladas" body="Aquí aparecerán las preguntas que necesiten atención pastoral." %}
+  {% endif %}
 {% endblock %}

@@ -1,0 +1,17 @@
+{% extends "events/shell_kiosk.html" %}
+{% block page_title %}Bienvenido{% endblock %}
+{% block content %}
+<div class="stack-lg">
+  <div class="stack">
+    <p class="q-section">{{ interview.version.title }}</p>
+    <h1 class="kiosk-hello">Hola, {{ participant.first_name }}</h1>
+    <p class="kiosk-note prose">{{ intro|default:"Gracias por darte este tiempo. No hay respuestas correctas o incorrectas." }}</p>
+  </div>
+  <ul class="numbered prose">
+    <li>Nadie más verá tus respuestas en esta pantalla.</li>
+    <li>Puedes elegir “Prefiero no responder” en cualquier pregunta.</li>
+    <li>Si quieres parar, puedes terminar en cualquier momento.</li>
+  </ul>
+  <div><a class="btn btn--hero" href="{% url 'kiosk:step' first_step.number %}">{% if started %}Continuar{% else %}Empezar{% endif %} <span class="btn__arrow" aria-hidden="true">→</span></a></div>
+</div>
+{% endblock %}

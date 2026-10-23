@@ -1,0 +1,30 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus %}
+{% block title %}{% block page_title %}Tu conversación{% endblock %} · Emmaus{% endblock %}
+{% block body_attrs %}{% if kiosk_active %}data-kiosk-idle="300" data-kiosk-timeout-url="{% url 'kiosk:timeout' %}" data-kiosk-heartbeat-url="{% url 'kiosk:heartbeat' %}"{% endif %}{% endblock %}
+{% block body %}
+<div class="shell-focus">
+  <header class="focusbar">
+    <div class="focusbar__inner">
+      <span class="brand">{% brand_mark %}<span class="brand__word">Emmaus</span></span>
+      <div class="cluster">{% block focus_actions %}{% endblock %}</div>
+    </div>
+  </header>
+  <main id="contenido" class="focus-main" tabindex="-1">
+    {% block content %}{% endblock %}
+    <footer class="kiosk-footer">
+      <span>Tus respuestas se guardan cada vez que avanzas.</span>
+      <span>Si necesitas ayuda, levanta la mano.</span>
+    </footer>
+  </main>
+</div>
+{% if kiosk_active %}
+<dialog class="dialog" id="idle-warning" aria-labelledby="idle-title">
+  <div class="dialog__body">
+    <h2 id="idle-title">¿Sigues aquí?</h2>
+    <p>Por tu privacidad, la pantalla se cerrará en un minuto si no hay actividad. Lo que ya respondiste está guardado.</p>
+  </div>
+  <div class="dialog__actions"><button class="btn btn--primary" type="button" data-idle-continue>Sí, sigo aquí</button></div>
+</dialog>
+{% endif %}
+{% endblock %}

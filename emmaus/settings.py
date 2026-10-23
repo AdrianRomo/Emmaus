@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -40,15 +41,21 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "core",
+    "events",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "events.middleware.PrivateResponseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "events.middleware.KioskConfinementMiddleware",
+    "events.middleware.StaffIdleLogoutMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -66,6 +73,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.current_role",
+                "events.context_processors.event_context",
             ],
         },
     },
@@ -91,6 +99,10 @@ def database_config() -> dict:
             "PASSWORD": parsed.password or "",
             "HOST": parsed.hostname or "",
             "PORT": parsed.port or "",
+            # Small deployments often sit behind free-tier Postgres with ~20 connections:
+            # reuse connections for a minute instead of opening one per request.
+            "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+            "CONN_HEALTH_CHECKS": True,
         }
     if parsed.scheme == "sqlite":
         return {
@@ -109,8 +121,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = "es-mx"
+LANGUAGES = [("es-mx", "Español (México)")]
+TIME_ZONE = os.environ.get("TIME_ZONE", "America/Mexico_City")
 USE_I18N = True
 USE_TZ = True
 
@@ -118,11 +131,44 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
 
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            if not DEBUG and "test" not in sys.argv
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        )
+    },
+}
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
-LOGOUT_REDIRECT_URL = "landing"
+LOGOUT_REDIRECT_URL = "login"
+
+# Shared interview computers: sessions end with the browser, after 12 hours at most,
+# and after EMMAUS_IDLE_LOGOUT_SECONDS without activity (see events.middleware).
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_COOKIE_AGE = 12 * 60 * 60
+SESSION_COOKIE_SAMESITE = "Lax"
+EMMAUS_IDLE_LOGOUT_SECONDS = int(os.environ.get("EMMAUS_IDLE_LOGOUT_SECONDS", "1800"))
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "same-origin"
+SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))
+
+if "test" in sys.argv or "pytest" in sys.modules:
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
+    # Request bodies (questionnaire answers) are never logged: no handler here prints POST data.
+    "loggers": {"django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False}},
+}
 
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")

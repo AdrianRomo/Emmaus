@@ -1,0 +1,5 @@
+<ul class="nav-list">
+  {% for item in event_nav %}
+    <li><a class="nav-link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a></li>
+  {% endfor %}
+</ul>

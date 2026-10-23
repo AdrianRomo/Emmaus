@@ -1,28 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Initial setup | Emmaus{% endblock %}
+{% block page_title %}Configuración inicial{% endblock %}
 {% block content %}
-  <section class="mx-auto max-w-5xl py-6">
-    {% include "partials/page_header.html" with eyebrow="First church setup" title="Set up your church workspace" subtitle="Create the first Emmaus workspace and admin account. You can invite pastors, mentors, and participants after this step." %}
-    <div class="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-      <aside class="card-flat p-6">
-        <h2 class="font-semibold text-stone-950">What happens next</h2>
-        <ol class="mt-5 space-y-4 text-sm leading-6 text-stone-700">
-          <li><span class="font-bold text-amber-800">1.</span> Add church details.</li>
-          <li><span class="font-bold text-amber-800">2.</span> Create the first admin account.</li>
-          <li><span class="font-bold text-amber-800">3.</span> Review the privacy reminder.</li>
-          <li><span class="font-bold text-amber-800">4.</span> Create the workspace and begin inviting leaders.</li>
-        </ol>
-        <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm leading-6 text-amber-950">
-          Emmaus stores sensitive discipleship information. Get consent, keep notes limited, and use secure production settings before inviting real participants.
-        </div>
-      </aside>
-      <div class="card p-6 md:p-8">
-        <form method="post">
-          {% csrf_token %}
-          {% include "partials/form_fields.html" %}
-          <button class="btn btn-primary mt-2 w-full sm:w-auto">Create workspace</button>
-        </form>
+  {% include "partials/ui/page_head.html" with folio="Configuración inicial" title="Configura el espacio de tu iglesia" lede="Crea el primer espacio de Emmaus y la cuenta de administración. Después podrás invitar a pastores, mentores y participantes." %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <div class="split">
+    <form method="post" class="sheet">
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="btn-row mt-6">
+        <button class="btn btn--primary" type="submit">Crear espacio</button>
       </div>
-    </div>
-  </section>
+    </form>
+    <aside class="stack">
+      <div class="stack-sm">
+        <h2>Qué sigue</h2>
+        <div class="prose">
+          <ol>
+            <li>Agrega los datos de tu iglesia.</li>
+            <li>Crea la primera cuenta de administración.</li>
+            <li>Lee el aviso de privacidad.</li>
+            <li>Crea el espacio y empieza a invitar a los líderes.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="notice notice--warning">
+        <p class="notice__title">Información delicada</p>
+        <p>Emmaus guarda información sensible de discipulado. Pide consentimiento, escribe solo las notas necesarias y usa una configuración segura de producción antes de invitar a personas reales.</p>
+      </div>
+    </aside>
+  </div>
 {% endblock %}

@@ -1,0 +1,13 @@
+{% extends "events/shell_focus.html" %}
+{% block page_title %}{% if error_list %}Error: {% endif %}{{ step.question.text }}{% endblock %}
+{% block focus_actions %}
+  {% if mode == "correction" %}
+    <a class="btn btn--sm btn--quiet" href="{{ exit_url }}">Cancelar corrección</a>
+  {% else %}
+    {% if station %}<span class="folio">{{ station.name }}</span>{% endif %}
+    <button class="btn btn--sm" type="submit" form="step-form" name="direction" value="exit">Guardar y salir</button>
+  {% endif %}
+{% endblock %}
+{% block content %}
+  {% include "events/interview/_step_form.html" %}
+{% endblock %}

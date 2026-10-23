@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block page_title %}No tienes acceso{% endblock %}
+{% block content %}
+<div class="prose stack">
+  <p class="folio">Error 403</p>
+  <h1>No tienes acceso a esta página</h1>
+  <p class="lede">Tu cuenta no tiene permiso para ver esta información. Si crees que es un error, pide a la administración del evento que revise tu rol.</p>
+  <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Ir a mi inicio</a></p>
+</div>
+{% endblock %}

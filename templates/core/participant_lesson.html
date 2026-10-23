@@ -1,72 +1,70 @@
 {% extends "base.html" %}
 {% load core_extras %}
-{% block title %}{{ lesson.title }} | Emmaus{% endblock %}
+{% block page_title %}{{ lesson.title }}{% endblock %}
 {% block content %}
-  <article class="mx-auto max-w-4xl">
-    <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-      <div>
-        <p class="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">{{ summary.enrollment.path.title }}</p>
-        <h1 class="mt-2 text-4xl font-semibold leading-tight text-stone-950">{{ lesson.title }}</h1>
-        <p class="mt-3 text-stone-600">Lesson {{ lesson.order }} · {{ summary.completed_lessons }} of {{ summary.total_lessons }} complete</p>
+  <article>
+    <header class="page-head">
+      <p class="folio">{{ summary.enrollment.path.title }}</p>
+      <div class="page-head__row">
+        <div>
+          <h1>{{ lesson.title }}</h1>
+          <p class="lede">Lección {{ lesson.order }} · Llevas {{ summary.completed_lessons }} de {{ summary.total_lessons }} terminadas</p>
+        </div>
       </div>
-      <div class="min-w-48">
-        {% include "partials/progress_bar.html" with percent=summary.percent label="Path progress" %}
-      </div>
-    </div>
+      {% include "partials/progress_bar.html" with percent=summary.percent label="Avance de la ruta" %}
+    </header>
 
-    <section class="card p-6 md:p-8">
-      {% if lesson.scripture_references %}
-        <div class="rounded-2xl border border-[#d3ddd7] bg-[#eef3f0] p-4">
-          <p class="text-sm font-bold uppercase tracking-[0.14em] text-[#51685b]">Scripture to read</p>
-          <p class="mt-2 text-lg font-semibold text-stone-950">{{ lesson.scripture_references }}</p>
-        </div>
-      {% endif %}
-      <div class="mt-8 max-w-none whitespace-pre-line text-lg leading-9 text-stone-700">{{ lesson.body }}</div>
-      {% if lesson.practical_step %}
-        <div class="mt-8 rounded-2xl border border-amber-200 bg-amber-50/90 p-5">
-          <p class="text-sm font-bold uppercase tracking-[0.14em] text-amber-800">A simple practice</p>
-          <p class="mt-2 leading-7 text-amber-950">{{ lesson.practical_step }}</p>
-        </div>
-      {% endif %}
-    </section>
-
-    <form method="post" class="mt-6">
-      {% csrf_token %}
-      <section class="card p-6 md:p-8">
-        <div class="mb-6">
-          <h2 class="text-2xl font-semibold text-stone-950">Reflection</h2>
-          <p class="mt-2 text-sm leading-6 text-stone-600">Use this like a journal. Honest, simple answers are enough.</p>
-        </div>
-        <div class="space-y-5">
-          {% for question in lesson.reflection_questions.all %}
-            {% with answer=existing_answers|get_item:question.id %}
-              <div class="rounded-2xl border border-stone-200 bg-white/70 p-5">
-                <label for="question_{{ question.id }}" class="text-base">{{ question.question_text }}</label>
-                <textarea id="question_{{ question.id }}" name="question_{{ question.id }}" rows="5" placeholder="Write a few honest thoughts here.">{{ answer.answer_text }}</textarea>
-              </div>
-            {% endwith %}
-          {% empty %}
-            {% include "partials/empty_state.html" with title="No reflection questions" body="This lesson does not have reflection prompts yet." %}
-          {% endfor %}
-        </div>
-        <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button class="btn btn-secondary" type="submit">Save reflection</button>
-          <button class="btn btn-primary" type="submit" name="mark_complete" value="1">Mark lesson complete</button>
-        </div>
+    <div class="stack-lg">
+      <section class="prose stack" aria-label="Contenido de la lección">
+        {% if lesson.scripture_references %}
+          <div class="notice notice--quiet">
+            <p class="notice__title">Para leer en la Biblia</p>
+            <p>{{ lesson.scripture_references }}</p>
+          </div>
+        {% endif %}
+        <div class="prose">{{ lesson.body|linebreaks }}</div>
+        {% if lesson.practical_step %}
+          <div class="notice">
+            <p class="notice__title">Una práctica sencilla</p>
+            <p>{{ lesson.practical_step|linebreaksbr }}</p>
+          </div>
+        {% endif %}
       </section>
-    </form>
 
-    <nav class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" aria-label="Lesson navigation">
-      {% if previous_lesson %}
-        <a class="btn btn-soft" href="{% url 'participant_lesson' previous_lesson.id %}">Previous lesson</a>
-      {% else %}
-        <span></span>
-      {% endif %}
-      {% if next_lesson %}
-        <a class="btn btn-secondary" href="{% url 'participant_lesson' next_lesson.id %}">Continue to next lesson</a>
-      {% else %}
-        <a class="btn btn-secondary" href="{% url 'participant_dashboard' %}">Back to your journey</a>
-      {% endif %}
-    </nav>
+      <form method="post" class="section">
+        {% csrf_token %}
+        <div class="section__head">
+          <h2>Reflexión</h2>
+          <p>Úsala como un diario. Basta con respuestas sencillas y honestas.</p>
+        </div>
+        {% for question in lesson.reflection_questions.all %}
+          {% with answer=existing_answers|get_item:question.id %}
+            <div class="field">
+              <label class="label" for="question_{{ question.id }}">{{ question.question_text }}</label>
+              <textarea id="question_{{ question.id }}" name="question_{{ question.id }}" rows="5" placeholder="Escribe aquí algunas ideas honestas.">{{ answer.answer_text }}</textarea>
+            </div>
+          {% endwith %}
+        {% empty %}
+          {% include "partials/ui/empty.html" with title="Esta lección no tiene preguntas de reflexión" body="Todavía no hay preguntas para esta lección. Puedes marcarla como terminada cuando la leas." %}
+        {% endfor %}
+        <div class="btn-row mt-6">
+          <button class="btn btn--primary" type="submit" name="mark_complete" value="1">Marcar lección como terminada</button>
+          <button class="btn" type="submit">Guardar reflexión</button>
+        </div>
+      </form>
+
+      <nav class="btn-row btn-row--split" aria-label="Navegación entre lecciones">
+        {% if previous_lesson %}
+          <a class="btn btn--quiet" href="{% url 'participant_lesson' previous_lesson.id %}">Lección anterior</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+        {% if next_lesson %}
+          <a class="btn" href="{% url 'participant_lesson' next_lesson.id %}">Siguiente lección</a>
+        {% else %}
+          <a class="btn" href="{% url 'participant_dashboard' %}">Volver a mi camino</a>
+        {% endif %}
+      </nav>
+    </div>
   </article>
 {% endblock %}

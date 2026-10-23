@@ -1,0 +1,15 @@
+{% extends "events/shell_kiosk.html" %}
+{% block page_title %}Gracias{% endblock %}
+{% block content %}
+<section class="confirm-panel" aria-labelledby="gracias">
+  <svg class="confirm-panel__check" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="27" fill="none" stroke="#e2b356" stroke-width="2"/><path d="M17 29l7 7 15-16" fill="none" stroke="#fffdf8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  {% if ps.end_reason == "expirada" %}
+    <h1 id="gracias">La pantalla se cerró</h1>
+    <p>Para cuidar tu privacidad cerramos la pantalla después de un rato sin actividad. Lo que respondiste está guardado.</p>
+  {% else %}
+    <h1 id="gracias">¡Gracias, {{ participant.first_name }}!</h1>
+    <p>Ya terminaste. Avisa a tu coordinador para que recupere la computadora.</p>
+  {% endif %}
+</section>
+<p class="mt-8"><a class="btn btn--block" href="{% url 'kiosk:unlock' %}">Soy coordinador: recuperar la computadora</a></p>
+{% endblock %}

@@ -1,25 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Discipleship paths | Emmaus{% endblock %}
+{% block page_title %}Rutas de discipulado{% endblock %}
 {% block content %}
   {% url 'path_create' as create_url %}
-  {% include "partials/page_header.html" with eyebrow="Discipleship content" title="Discipleship paths" subtitle="Create and edit the journeys participants walk through with mentors and church leaders." action_url=create_url action_label="New path" %}
-  <div class="grid gap-4 lg:grid-cols-2">
-    {% for path in paths %}
-      <a class="human-row" href="{% url 'path_detail' path.id %}">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h2 class="text-xl font-semibold text-stone-950">{{ path.title }}</h2>
-            <p class="mt-2 text-sm leading-6 text-stone-600">{{ path.description|default:"No description yet."|truncatewords:28 }}</p>
-          </div>
-          <div class="flex flex-col items-end gap-2">
-            {% if path.is_default %}<span class="badge badge-attention">Default path</span>{% endif %}
-            {% if path.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
-          </div>
-        </div>
-        <p class="mt-4 text-sm font-semibold text-stone-500">{{ path.lesson_count }} lesson{{ path.lesson_count|pluralize }}</p>
-      </a>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No paths yet" body="Create your first discipleship path so participants have a clear next step." action_url=create_url action_label="Create your first path" %}
-    {% endfor %}
-  </div>
+  {% include "partials/ui/page_head.html" with folio="Contenido de discipulado" title="Rutas de discipulado" lede="Crea y edita los caminos que recorren los participantes junto con sus mentores y líderes." action_url=create_url action_label="Nueva ruta" %}
+  {% if paths %}
+    <ul class="ledger">
+      {% for path in paths %}
+        <li>
+          <a class="ledger__row" href="{% url 'path_detail' path.id %}">
+            <div class="ledger__main">
+              <p class="ledger__title">{{ path.title }}</p>
+              <p class="ledger__meta">{{ path.description|default:"Todavía no tiene descripción."|truncatewords:28 }}</p>
+              <p class="ledger__meta">{% if path.lesson_count == 1 %}1 lección{% else %}{{ path.lesson_count }} lecciones{% endif %}</p>
+            </div>
+            <div class="ledger__aside">
+              {% if path.is_default %}<span class="chip chip--info">Predeterminada</span>{% endif %}
+              {% if path.is_active %}<span class="chip chip--done">Activa</span>{% else %}<span class="chip chip--pending">Inactiva</span>{% endif %}
+            </div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {% include "partials/ui/empty.html" with title="Todavía no hay rutas" body="Crea tu primera ruta de discipulado para que los participantes tengan un siguiente paso claro." %}
+  {% endif %}
 {% endblock %}

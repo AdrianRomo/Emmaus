@@ -1,0 +1,17 @@
+{% extends "events/shell_focus.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Descartar entrevista{% endblock %}
+{% block content %}
+{% include "partials/ui/error_summary.html" with form=form %}
+<header class="page-head">
+  <h1>¿Descartar la entrevista de {{ participant.first_name }}?</h1>
+  <p class="lede">Se borrarán todas las respuestas guardadas. {{ participant.first_name }} quedará como “sin entrevista” y se podrá empezar de nuevo.</p>
+</header>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/field.html" with field=form.reason %}
+  <div class="q-actions">
+    <a class="btn" href="{% url 'events:interview_resume' event.slug interview.public_id %}">No, volver a la entrevista</a>
+    <button class="btn btn--danger" type="submit">Sí, descartar y borrar respuestas</button>
+  </div>
+</form>
+{% endblock %}

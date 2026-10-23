@@ -1,0 +1,86 @@
+{% load emmaus %}
+<section class="section mt-6" aria-labelledby="mi-avance">
+  <div class="section__head">
+    <h2 id="mi-avance">Mi avance</h2>
+    <a href="{% url 'events:coord_progress' event.slug %}">Ver detalle</a>
+  </div>
+  <div class="figure-row">
+    <div class="figure figure--hero">
+      <p class="figure__label">Entrevistas completadas</p>
+      <p class="figure__value">{{ progress.completed }}<small>de {{ progress.eligible }}</small></p>
+      <p class="figure__note">{% if progress.percent is None %}Sin camperos asignados{% else %}{{ progress.percent }} % de tus camperos{% endif %}</p>
+    </div>
+    <div class="figure"><p class="figure__label">En curso</p><p class="figure__value">{{ progress.in_progress }}</p></div>
+    <div class="figure"><p class="figure__label">Sin iniciar</p><p class="figure__value">{{ progress.not_started }}</p></div>
+  </div>
+  <div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
+  <ul class="legend-keys mt-2">
+    <li><span class="key key--done" aria-hidden="true"></span>Completadas</li>
+    <li><span class="key key--progress" aria-hidden="true"></span>En curso</li>
+    <li><span class="key key--track" aria-hidden="true"></span>Sin iniciar</li>
+  </ul>
+</section>
+
+{% if in_progress %}
+<section class="section" aria-labelledby="en-curso">
+  <div class="section__head"><h2 id="en-curso">Continúa donde te quedaste</h2></div>
+  <ul class="ledger">
+    {% for iv in in_progress %}
+      <li><a class="ledger__row" href="{% url 'events:interview_resume' event.slug iv.public_id %}">
+        <span class="ledger__main"><span class="ledger__title">{{ iv.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ iv.participant.room|cuarto }} · última actividad {{ iv.last_activity_at|since }}{% if iv.station %} · {{ iv.station.name }}{% endif %}</span></span>
+        <span class="ledger__aside">{% status_chip "en_curso" %}<span class="btn btn--sm">Continuar</span></span>
+      </a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div class="split split--even section">
+  <section aria-labelledby="siguientes">
+    <div class="section__head"><h2 id="siguientes">Siguientes por entrevistar</h2><a href="{% url 'events:coord_pending' event.slug %}">Ver todas</a></div>
+    {% if next_up %}
+      <ul class="ledger">
+        {% for p in next_up %}
+          <li><a class="ledger__row" href="{% url 'events:interview_start' event.slug p.public_id %}">
+            <span class="ledger__main"><span class="ledger__title">{{ p.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ p.room|cuarto }} · {{ p.age }} años</span></span>
+            <span class="ledger__aside"><span class="btn btn--sm">Entrevistar</span></span>
+          </a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      {% include "partials/ui/empty.html" with title="No hay entrevistas por iniciar" body="Cuando registres o te asignen camperos aparecerán aquí." %}
+    {% endif %}
+  </section>
+  <section aria-labelledby="recientes">
+    <div class="section__head"><h2 id="recientes">Completadas hace poco</h2></div>
+    {% if recent %}
+      <ul class="ledger">
+        {% for iv in recent %}
+          <li><a class="ledger__row" href="{% url 'events:interview_detail' event.slug iv.public_id %}">
+            <span class="ledger__main"><span class="ledger__title">{{ iv.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ iv.completed_at|since }}</span></span>
+            <span class="ledger__aside">{% status_chip "completada" %}</span>
+          </a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      {% include "partials/ui/empty.html" with title="Aún no completas entrevistas" body="Tus entrevistas terminadas aparecerán aquí." %}
+    {% endif %}
+  </section>
+</div>
+
+<section class="section" aria-labelledby="seguimientos">
+  <div class="section__head"><h2 id="seguimientos">Seguimientos que requieren atención</h2>{% if follow_ups %}<a href="{% url 'events:follow_ups' event.slug %}">Ver todos</a>{% endif %}</div>
+  {% if follow_ups or to_evaluate %}
+    {% if to_evaluate %}<p class="notice notice--warning"><a href="{% url 'events:coord_pending' event.slug %}#por-evaluar">{{ to_evaluate }} entrevista{{ to_evaluate|pluralize }} espera{{ to_evaluate|pluralize:"n" }} que decidas si necesita{{ to_evaluate|pluralize:"n" }} seguimiento.</a></p>{% endif %}
+    <ul class="ledger mt-4">
+      {% for f in follow_ups %}
+        <li><a class="ledger__row" href="{% url 'events:follow_up_detail' event.slug f.id %}">
+          <span class="ledger__main"><span class="ledger__title">{{ f.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ f.get_reason_display }} · {{ f.created_at|since }}</span></span>
+          <span class="ledger__aside">{% follow_up_chip f.status %}</span>
+        </a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {% include "partials/ui/empty.html" with title="No hay seguimientos abiertos" body="Cuando marques que un campero necesita seguimiento aparecerá aquí." %}
+  {% endif %}
+</section>

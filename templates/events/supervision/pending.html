@@ -1,0 +1,32 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}Pendientes{% endblock %}
+{% block content %}
+{% include "partials/ui/page_head.html" with title="Pendientes" lede="Lo que necesita una decisión o un empujón, en orden de urgencia." %}
+<section class="section" id="interrumpidas" aria-labelledby="t-interrumpidas">
+  <div class="section__head"><h2 id="t-interrumpidas">Entrevistas interrumpidas</h2><p>Sin actividad desde hace 20 minutos o más</p></div>
+  {% if stale %}
+    <ul class="ledger">{% for iv in stale %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ iv.participant.full_name }}</p><p class="ledger__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }} · {{ iv.station.name|default:"computadora sin registrar" }} · última actividad {{ iv.last_activity_at|since }}</p></div><div class="ledger__aside">{% status_chip "en_curso" "Detenida" %}</div></div></li>{% endfor %}</ul>
+    <p class="text-sm muted mt-2">Pide al coordinador que la retome desde “Mi inicio”. Si no puede, la administración la puede liberar.</p>
+  {% else %}<p class="muted">No hay entrevistas interrumpidas.</p>{% endif %}
+</section>
+<section class="section" id="seguimientos" aria-labelledby="t-seg">
+  <div class="section__head"><h2 id="t-seg">Seguimientos abiertos</h2><a href="{% url 'events:follow_ups' event.slug %}">Ver todos</a></div>
+  {% if follow_ups %}
+    <ul class="ledger">{% for f in follow_ups %}<li><a class="ledger__row" href="{% url 'events:follow_up_detail' event.slug f.id %}"><span class="ledger__main"><span class="ledger__title">{{ f.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %} · {{ f.created_at|since }}{% if f.assigned_to %} · {{ f.assigned_to.get_full_name }}{% else %} · sin asignar{% endif %}</span></span><span class="ledger__aside">{% if f.kind == "seguridad" %}<span class="chip chip--alert">Urgente</span>{% endif %}{% follow_up_chip f.status %}</span></a></li>{% endfor %}</ul>
+  {% else %}<p class="muted">No hay seguimientos abiertos.</p>{% endif %}
+</section>
+<section class="section" id="por-evaluar" aria-labelledby="t-eval">
+  <div class="section__head"><h2 id="t-eval">Seguimiento por decidir</h2><p>{{ to_evaluate|length }}</p></div>
+  {% if to_evaluate %}
+    <ul class="ledger">{% for iv in to_evaluate %}<li><a class="ledger__row" href="{% url 'events:interview_detail' event.slug iv.public_id %}"><span class="ledger__main"><span class="ledger__title">{{ iv.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ iv.participant.coordinator.display_name }} · completada {{ iv.completed_at|since }}</span></span></a></li>{% endfor %}</ul>
+  {% else %}<p class="muted">Nada por decidir.</p>{% endif %}
+</section>
+<section class="section" aria-labelledby="t-sin">
+  <div class="section__head"><h2 id="t-sin">Sin iniciar, por coordinador</h2></div>
+  {% if not_started_by_coordinator %}
+    <div class="table-wrap"><table class="table"><thead><tr><th>Coordinador</th><th class="num">Sin iniciar</th></tr></thead>
+      <tbody>{% for row in not_started_by_coordinator %}<tr><td>{% if row.coordinator__id %}<a href="{% url 'events:coordinator_detail' event.slug row.coordinator__id %}">{{ row.coordinator__user__first_name }} {{ row.coordinator__user__last_name }}</a>{% else %}Sin coordinador{% endif %}</td><td class="num">{{ row.n }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">Todas las entrevistas ya se iniciaron.</p>{% endif %}
+</section>
+{% endblock %}

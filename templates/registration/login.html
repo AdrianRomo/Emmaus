@@ -1,21 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Sign in | Emmaus{% endblock %}
+{% block page_title %}Entrar{% endblock %}
 {% block content %}
-  <section class="mx-auto grid max-w-5xl gap-6 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-    <div>
-      <p class="text-sm font-bold uppercase tracking-[0.18em] text-amber-800">Welcome back</p>
-      <h1 class="mt-3 text-4xl font-semibold leading-tight text-stone-950">Sign in to your church workspace.</h1>
-      <p class="mt-4 text-base leading-7 text-stone-600">
-        Use the account connected to your church invitation. Emmaus keeps participant care within your church community.
-      </p>
+  <div class="auth-card stack">
+    <header class="stack-sm">
+      <h1>Entrar a Emmaus</h1>
+      <p class="lede">Escribe el correo y la contraseña de tu cuenta.</p>
+    </header>
+    {% include "partials/ui/error_summary.html" with form=form %}
+    <form method="post" class="sheet">
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <div class="btn-row mt-6">
+        <button class="btn btn--primary btn--block" type="submit">Entrar</button>
+      </div>
+    </form>
+    <div class="notice notice--quiet">
+      <p>Si usas una computadora compartida, cierra sesión al terminar.</p>
     </div>
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary mt-2 w-full">Sign in</button>
-      </form>
-      <p class="mt-5 text-center text-sm leading-6 text-stone-600">Need access? Ask your church leader for an Emmaus invitation.</p>
-    </div>
-  </section>
+    <p class="muted">¿Todavía no tienes cuenta? Pide una invitación a los líderes de tu iglesia o a la administración del evento.</p>
+  </div>
 {% endblock %}

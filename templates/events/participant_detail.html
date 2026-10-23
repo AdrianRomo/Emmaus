@@ -1,0 +1,53 @@
+{% extends shell_template %}
+{% load emmaus %}
+{% block page_title %}{{ participant.full_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <p class="folio">Campero #{{ participant.code }}{% if not participant.is_active %} · dado de baja{% endif %}</p>
+  <div class="page-head__row">
+    <h1>{{ participant.full_name }}</h1>
+    <div class="btn-row">
+      {% if can_interview and interview.status != "completada" %}<a class="btn btn--primary" href="{% url 'events:interview_start' event.slug participant.public_id %}">{% if interview %}Continuar entrevista{% else %}Iniciar entrevista{% endif %}</a>{% endif %}
+      {% if can_edit %}<a class="btn" href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos</a>{% endif %}
+    </div>
+  </div>
+</header>
+<div class="split">
+  <section aria-labelledby="datos">
+    <h2 id="datos" class="subhead">Datos del campero</h2>
+    <dl class="summary-list mt-4">
+      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años</dd><span></span></div>
+      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Coordinador</dt><dd>{{ participant.coordinator.display_name|default:"Sin asignar" }}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Registro</dt><dd>{{ participant.created_at|fecha_corta }}</dd><span></span></div>
+      {% if participant.is_minor and event.requires_guardian_authorization %}
+      <div class="summary-list__row"><dt>Autorización de padre, madre o tutor legal</dt><dd>{% if guardian_ok %}Registrada{% else %}<strong>Falta</strong>{% endif %}</dd>
+        <span class="summary-list__action">{% if not guardian_ok and can_edit %}<form method="post" action="{% url 'events:guardian_authorization' event.slug participant.public_id %}">{% csrf_token %}<button class="link-button" type="submit">Marcar como recibida</button></form>{% endif %}</span></div>
+      {% endif %}
+    </dl>
+  </section>
+  <section aria-labelledby="entrevista">
+    <h2 id="entrevista" class="subhead">Entrevista</h2>
+    <div class="mt-4 stack-sm">
+      {% if interview %}
+        <p>{% status_chip interview.status %}</p>
+        <p class="text-sm muted">{{ interview.get_mode_display }} · iniciada {{ interview.started_at|fecha_corta }}{% if interview.completed_at %} · completada {{ interview.completed_at|fecha_corta }}{% endif %}</p>
+        <p><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">Ver respuestas</a></p>
+      {% else %}
+        <p>{% status_chip "pendiente" %}</p>
+      {% endif %}
+    </div>
+    {% if follow_ups %}
+      <h2 class="subhead mt-8">Seguimiento</h2>
+      <ul class="ledger mt-4">{% for f in follow_ups %}
+        <li><a class="ledger__row" href="{% url 'events:follow_up_detail' event.slug f.id %}"><span class="ledger__main"><span class="ledger__title">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</span><span class="ledger__meta ledger__meta--block">{{ f.created_at|since }}</span></span><span class="ledger__aside">{% follow_up_chip f.status %}</span></a></li>
+      {% endfor %}</ul>
+    {% endif %}
+    <p class="mt-8 text-sm"><a href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p>
+    {% if access.is_admin %}
+      <p class="mt-2 text-sm">{% if access.can_view_sensitive %}<a href="{% url 'events:participant_data_export' event.slug participant.public_id %}">Descargar todos sus datos</a> · {% endif %}<a href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}{{ version.title }} · versión {{ version.number }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <ol class="crumbs"><li><a href="{% url 'events:questionnaires' event.slug %}">Cuestionarios</a></li><li>Versión {{ version.number }}</li></ol>
+  <div class="page-head__row">
+    <div><h1>{{ version.title }}</h1><p class="cluster mt-2"><span class="chip {% if version.is_editable %}chip--progress{% else %}chip--pending{% endif %}">{{ version.get_status_display }}</span>{% if in_use %}<span class="chip chip--done">En uso en este evento</span>{% endif %}<span class="text-sm muted">{{ steps|length }} pasos</span></p></div>
+    <form method="post" class="btn-row">
+      {% csrf_token %}
+      {% if version.is_editable %}
+        <button class="btn btn--primary" name="action" value="publish" data-confirm="Al publicar ya no podrás cambiar esta versión. ¿Continuar?">Publicar versión</button>
+      {% else %}
+        {% if not in_use and version.status == "publicada" %}<button class="btn btn--primary" name="action" value="use">Usar en entrevistas nuevas</button>{% endif %}
+        <button class="btn" name="action" value="duplicate">Crear versión nueva a partir de esta</button>
+      {% endif %}
+    </form>
+  </div>
+</header>
+{% if not version.is_editable %}<div class="notice notice--quiet"><p>Esta versión está publicada y no se puede modificar. Las entrevistas que la usaron conservan exactamente estas preguntas.</p></div>{% endif %}
+{% for section in sections %}
+  <section class="section" aria-labelledby="s-{{ section.id }}">
+    <div class="section__head"><h2 id="s-{{ section.id }}"><span class="q-section">{{ section.order }}.</span> {{ section.title }}</h2>
+      {% if version.is_editable %}<a class="btn btn--sm" href="{% url 'events:question_add' event.slug version.id section.id %}">Agregar pregunta</a>{% endif %}</div>
+    {% if section.description %}<p class="muted">{{ section.description }}</p>{% endif %}
+    <ol class="ledger mt-4">
+      {% for q in section.questions.all %}
+        <li><div class="ledger__row">
+          <div class="ledger__main">
+            <p class="ledger__title">{{ q.text }}</p>
+            <p class="ledger__meta">{{ q.get_kind_display }} · {{ q.get_sensitivity_display }}{% if q.required %} · obligatoria{% else %} · opcional{% endif %}{% if q.condition_question %} · solo si “{{ q.condition_question.text|truncatechars:40 }}” = {{ q.condition_option_codes|join:", " }}{% endif %} · clave <code>{{ q.code }}</code></p>
+            {% if q.options.all %}<p class="cluster mt-2">{% for o in q.options.all %}<span class="chip chip--plain{% if o.is_decline %} chip--pending{% endif %}">{{ o.label }}{% if o.suggests_follow_up %} · sugiere seguimiento{% endif %}</span>{% if version.is_editable %}<form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="action" value="delete_option"><input type="hidden" name="option" value="{{ o.id }}"><button class="link-button text-sm" data-confirm="¿Quitar la opción “{{ o.label }}”?">Quitar<span class="visually-hidden"> {{ o.label }}</span></button></form>{% endif %}{% endfor %}</p>{% endif %}
+          </div>
+          {% if version.is_editable %}<div class="ledger__aside">
+            <a class="btn btn--sm" href="{% url 'events:question_edit' event.slug version.id q.id %}">Editar</a>
+            {% if q.is_choice %}<a class="btn btn--sm btn--quiet" href="{% url 'events:option_add' event.slug version.id q.id %}">Agregar opción</a>{% endif %}
+            <form method="post" class="inline-form">{% csrf_token %}<input type="hidden" name="action" value="delete_question"><input type="hidden" name="question" value="{{ q.id }}"><button class="btn btn--sm btn--quiet" data-confirm="¿Quitar esta pregunta del borrador?">Quitar</button></form>
+          </div>{% endif %}
+        </div></li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endfor %}
+{% if version.is_editable %}<p class="mt-8"><a class="btn" href="{% url 'events:section_add' event.slug version.id %}">Agregar sección</a></p>{% endif %}
+{% endblock %}

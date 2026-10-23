@@ -12,81 +12,91 @@ from django.utils import timezone
 
 hex_color_validator = RegexValidator(
     regex=r"^#[0-9A-Fa-f]{6}$",
-    message="Use a hex color in the format #RRGGBB.",
+    message="Usa un color hexadecimal con el formato #RRGGBB.",
 )
 
 
 class Role(models.TextChoices):
-    CHURCH_ADMIN = "church_admin", "Church admin"
+    CHURCH_ADMIN = "church_admin", "Administración de la iglesia"
     PASTOR = "pastor", "Pastor"
     MENTOR = "mentor", "Mentor"
-    PARTICIPANT = "participant", "Participant"
+    PARTICIPANT = "participant", "Participante"
 
 
 class Church(models.Model):
-    name = models.CharField(max_length=180)
-    slug = models.SlugField(unique=True)
-    public_welcome_text = models.TextField(blank=True)
-    contact_email = models.EmailField(blank=True)
-    time_zone = models.CharField(max_length=80, default="UTC")
-    active = models.BooleanField(default=True)
+    name = models.CharField("Nombre de la iglesia", max_length=180)
+    slug = models.SlugField("Identificador", unique=True)
+    public_welcome_text = models.TextField("Mensaje de bienvenida", blank=True)
+    contact_email = models.EmailField("Correo de contacto", blank=True)
+    time_zone = models.CharField("Zona horaria", max_length=80, default="America/Mexico_City")
+    active = models.BooleanField("Activa", default=True)
     basic_disclaimer_text = models.TextField(
+        "Aviso para participantes",
         blank=True,
         default=(
-            "Emmaus supports discipleship follow-up through your church. It is not "
-            "emergency support, therapy, medical advice, legal advice, or a replacement "
-            "for pastoral care."
+            "Emmaus apoya el acompañamiento de discipulado de tu iglesia. No es un servicio de "
+            "emergencias, terapia, consejo médico o legal, ni sustituye el cuidado pastoral."
         ),
     )
-    self_registration_enabled = models.BooleanField(default=False)
-    leaders_can_invite_participants = models.BooleanField(default=True)
+    self_registration_enabled = models.BooleanField("Permitir registro propio", default=False)
+    leaders_can_invite_participants = models.BooleanField("Los líderes pueden invitar participantes", default=True)
+    discipleship_enabled = models.BooleanField(
+        "Usar el módulo de discipulado",
+        default=False,
+        help_text="Rutas, lecciones y preguntas de participantes con cuenta propia.",
+    )
+    custom_theme_enabled = models.BooleanField(
+        "Usar colores propios de la iglesia",
+        default=False,
+        help_text="Si está apagado se usa la paleta de Emmaus, revisada para contraste y legibilidad.",
+    )
     theme_primary_color = models.CharField(
         max_length=7,
         default="#111111",
         validators=[hex_color_validator],
-        help_text="Main brand color used for primary actions and strong contrast.",
+        help_text="Color principal para botones y acciones.",
     )
     theme_accent_color = models.CharField(
         max_length=7,
         default="#B85C38",
         validators=[hex_color_validator],
-        help_text="Warm accent color used for highlights and important calls to action.",
+        help_text="Color de acento para resaltar elementos activos.",
     )
     theme_secondary_color = models.CharField(
         max_length=7,
         default="#596B54",
         validators=[hex_color_validator],
-        help_text="Secondary support color for calm labels and subtle emphasis.",
+        help_text="Color secundario de apoyo.",
     )
     theme_background_color = models.CharField(
         max_length=7,
         default="#F0F0EE",
         validators=[hex_color_validator],
-        help_text="Page background color.",
+        help_text="Color de fondo de la página.",
     )
     theme_surface_color = models.CharField(
         max_length=7,
         default="#FFFFFF",
         validators=[hex_color_validator],
-        help_text="Card and form surface color.",
+        help_text="Color de superficies y formularios.",
     )
     theme_text_color = models.CharField(
         max_length=7,
         default="#111111",
         validators=[hex_color_validator],
-        help_text="Primary text color.",
+        help_text="Color del texto principal.",
     )
     theme_muted_text_color = models.CharField(
         max_length=7,
         default="#6D6A64",
         validators=[hex_color_validator],
-        help_text="Secondary text color.",
+        help_text="Color del texto secundario.",
     )
     theme_border_color = models.CharField(
         max_length=7,
         default="#D9D9D6",
         validators=[hex_color_validator],
-        help_text="Subtle border color.",
+        help_text="Color de bordes.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -170,11 +180,11 @@ class Invitation(models.Model):
 
 class ParticipantProfile(models.Model):
     class ContactMethod(models.TextChoices):
-        EMAIL = "email", "Email"
-        PHONE = "phone", "Phone"
+        EMAIL = "email", "Correo electrónico"
+        PHONE = "phone", "Teléfono"
         WHATSAPP = "whatsapp", "WhatsApp"
-        IN_PERSON = "in_person", "In person"
-        UNSPECIFIED = "unspecified", "Unspecified"
+        IN_PERSON = "in_person", "En persona"
+        UNSPECIFIED = "unspecified", "Sin preferencia"
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="participant_profile")
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="participants")
@@ -310,14 +320,14 @@ class ReflectionAnswer(models.Model):
 class ParticipantQuestion(models.Model):
     class Sensitivity(models.TextChoices):
         NORMAL = "normal", "Normal"
-        SENSITIVE = "sensitive", "Sensitive"
-        PASTORAL_CARE_REQUIRED = "pastoral_care_required", "Pastoral care required"
+        SENSITIVE = "sensitive", "Delicada"
+        PASTORAL_CARE_REQUIRED = "pastoral_care_required", "Requiere cuidado pastoral"
 
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
-        ANSWERED = "answered", "Answered"
-        ESCALATED = "escalated", "Escalated"
-        CLOSED = "closed", "Closed"
+        OPEN = "open", "Abierta"
+        ANSWERED = "answered", "Respondida"
+        ESCALATED = "escalated", "Escalada"
+        CLOSED = "closed", "Cerrada"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="participant_questions")
     participant = models.ForeignKey(
@@ -365,16 +375,16 @@ class QuestionResponse(models.Model):
 
 class FollowUpRequest(models.Model):
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
-        IN_PROGRESS = "in_progress", "In progress"
-        COMPLETED = "completed", "Completed"
-        CANCELLED = "cancelled", "Cancelled"
+        OPEN = "open", "Abierto"
+        IN_PROGRESS = "in_progress", "En proceso"
+        COMPLETED = "completed", "Completado"
+        CANCELLED = "cancelled", "Cancelado"
 
     class Source(models.TextChoices):
         MANUAL = "manual", "Manual"
-        PARTICIPANT_REQUEST = "participant_request", "Participant request"
-        QUESTION_ESCALATION = "question_escalation", "Question escalation"
-        INACTIVITY = "inactivity", "Inactivity"
+        PARTICIPANT_REQUEST = "participant_request", "Solicitud del participante"
+        QUESTION_ESCALATION = "question_escalation", "Pregunta escalada"
+        INACTIVITY = "inactivity", "Inactividad"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="follow_ups")
     participant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="follow_ups")
@@ -408,9 +418,9 @@ class FollowUpRequest(models.Model):
 
 class PastoralNote(models.Model):
     class Visibility(models.TextChoices):
-        MENTOR_ONLY = "mentor_only", "Mentor only"
-        PASTOR_ONLY = "pastor_only", "Pastor only"
-        PASTOR_AND_MENTOR = "pastor_and_mentor", "Pastor and mentor"
+        MENTOR_ONLY = "mentor_only", "Solo el mentor"
+        PASTOR_ONLY = "pastor_only", "Solo pastores"
+        PASTOR_AND_MENTOR = "pastor_and_mentor", "Pastores y mentor"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="pastoral_notes")
     participant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pastoral_notes")
@@ -432,10 +442,10 @@ class PastoralNote(models.Model):
 
 class AIDraft(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        APPROVED = "approved", "Approved"
-        REJECTED = "rejected", "Rejected"
-        EDITED = "edited", "Edited"
+        DRAFT = "draft", "Borrador"
+        APPROVED = "approved", "Aprobado"
+        REJECTED = "rejected", "Rechazado"
+        EDITED = "edited", "Editado"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="ai_drafts")
     related_question = models.ForeignKey(ParticipantQuestion, on_delete=models.CASCADE, related_name="ai_drafts")

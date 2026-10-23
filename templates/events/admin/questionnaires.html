@@ -1,0 +1,16 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}Cuestionarios{% endblock %}
+{% block content %}
+{% include "partials/ui/page_head.html" with title="Cuestionarios" lede="Una versión publicada ya no se modifica, para que las respuestas anteriores conserven su significado. Para cambiar preguntas, crea una versión nueva." %}
+<ul class="ledger">
+  {% for v in versions %}
+    <li><a class="ledger__row" href="{% url 'events:version_detail' event.slug v.id %}">
+      <span class="ledger__main"><span class="ledger__title">{{ v.title }} · versión {{ v.number }}</span><span class="ledger__meta ledger__meta--block">{{ v.questionnaire.name }} · {{ v.uses }} entrevista{{ v.uses|pluralize }}{% if v.published_at %} · publicada {{ v.published_at|fecha_corta }}{% endif %}</span></span>
+      <span class="ledger__aside">{% if event.questionnaire_version_id == v.id %}<span class="chip chip--done">En uso</span>{% endif %}<span class="chip {% if v.status == 'borrador' %}chip--progress{% else %}chip--pending{% endif %}">{{ v.get_status_display }}</span></span>
+    </a></li>
+  {% empty %}
+    <li>{% include "partials/ui/empty.html" with title="No hay cuestionarios" body="Al crear un campamento se prepara el cuestionario de conversación espiritual." %}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

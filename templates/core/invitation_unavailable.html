@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Invitation unavailable | Emmaus{% endblock %}
+{% block page_title %}Invitación no disponible{% endblock %}
 {% block content %}
-  <section class="mx-auto max-w-xl py-12">
-    <div class="card p-8 text-center">
-      <p class="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">Invitation link</p>
-      <h1 class="mt-3 text-3xl font-semibold text-stone-950">This invitation is unavailable.</h1>
-      <p class="mt-4 leading-7 text-stone-600">The link may have expired or already been accepted. Ask your church leader for a new Emmaus invitation.</p>
-    </div>
-  </section>
+  <div class="prose stack">
+    <p class="folio">Enlace de invitación</p>
+    <h1>Esta invitación ya no está disponible</h1>
+    <p class="lede">Es posible que el enlace haya vencido o que ya se haya usado. Pide a un líder de tu iglesia una nueva invitación a Emmaus.</p>
+    <p>Si ya creaste tu cuenta, entra con tu correo y tu contraseña.</p>
+    <p><a class="btn btn--primary" href="{% url 'login' %}">Entrar a Emmaus</a></p>
+  </div>
 {% endblock %}

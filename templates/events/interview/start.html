@@ -1,0 +1,68 @@
+{% extends "events/shell_focus.html" %}
+{% load emmaus %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Antes de empezar{% endblock %}
+{% block focus_actions %}<a class="btn btn--sm btn--quiet" href="{% url 'events:interview_search' event.slug %}">Cancelar</a>{% endblock %}
+{% block content %}
+{% include "partials/ui/error_summary.html" with form=form %}
+<header class="page-head">
+  <p class="folio">{% if station %}{{ station.name }} · {% endif %}Entrevista de {{ participant.first_name }}</p>
+  <h1>Antes de empezar</h1>
+  <p class="lede">Confirma tres cosas. Toma menos de un minuto.</p>
+</header>
+
+{% if blockers %}
+  <div class="notice notice--warning"><p class="notice__title">Todavía no se puede iniciar</p>{% for b in blockers %}<p>{{ b }}</p>{% endfor %}</div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <section class="section" aria-labelledby="paso-1">
+    <h2 id="paso-1"><span class="q-section">1.</span> ¿Es la persona correcta?</h2>
+    <dl class="summary-list mt-4">
+      <div class="summary-list__row"><dt>Nombre</dt><dd>{{ participant.full_name }}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años{% if participant.is_minor %} · menor de edad{% endif %}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd><span></span></div>
+    </dl>
+    <p class="mt-4"><a href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>
+  </section>
+
+  <section class="section" aria-labelledby="paso-2">
+    <h2 id="paso-2"><span class="q-section">2.</span> Autorización</h2>
+    <details class="mt-4">
+      <summary>Leer el aviso de privacidad para explicárselo</summary>
+      <p class="prose mt-2">{{ privacy_notice|linebreaksbr }}</p>
+    </details>
+    <div class="mt-4">
+      {% for r in requirements %}
+        {% if r.satisfied %}
+          <p class="notice notice--success mt-2"><span class="notice__title">Autorización de padre, madre o tutor legal: registrada.</span></p>
+        {% endif %}
+      {% endfor %}
+      {% for field in form %}{% if field.name != "mode" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="paso-3">
+    <fieldset{% if form.mode.errors %} aria-describedby="modo-error"{% endif %}>
+      <legend><h2 id="paso-3"><span class="q-section">3.</span> ¿Cómo se va a responder?</h2></legend>
+      {% if form.mode.errors %}<p class="error-message" id="modo-error">{{ form.mode.errors.0 }}</p>{% endif %}
+      <div class="options mt-4" id="id_mode_0">
+        {% for radio in form.mode %}
+          <div class="option">
+            {{ radio.tag }}
+            <label class="option__face" for="{{ radio.id_for_label }}"><span class="option__mark" aria-hidden="true"></span>
+              <span>{% if radio.data.value == "asistida" %}Entrevista asistida<small class="option__sub">Tú haces las preguntas y anotas las respuestas.</small>{% else %}Captura supervisada<small class="option__sub">El campero responde solo. Necesitarás tu contraseña para recuperar la computadora.</small>{% endif %}</span>
+            </label>
+          </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </section>
+
+  <div class="q-actions">
+    <a class="btn btn--quiet" href="{% url 'events:interview_search' event.slug %}">Elegir a otro campero</a>
+    <button class="btn btn--primary" type="submit"{% if blockers %} disabled{% endif %}>Comenzar entrevista</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,9 +1,4 @@
-<div>
-  <div class="flex items-center justify-between gap-4 text-sm">
-    <span class="font-semibold text-stone-700">{{ label|default:"Progress" }}</span>
-    <span class="font-bold text-amber-800">{{ percent|default:0 }}%</span>
-  </div>
-  <div class="mt-2 h-2.5 overflow-hidden rounded-full bg-stone-200/70">
-    <div class="h-full rounded-full bg-[#9a6b24]" style="width: {{ percent|default:0 }}%"></div>
-  </div>
+<div class="meter">
+  <div class="meter__head"><strong>{{ label|default:"Avance" }}</strong><span class="num">{{ percent|default:0 }} %</span></div>
+  <div class="meter__track" role="img" aria-label="{{ label|default:'Avance' }}: {{ percent|default:0 }} %"><span class="meter__seg meter__seg--done" style="width: {{ percent|default:0 }}%"></span></div>
 </div>

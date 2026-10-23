@@ -1,0 +1,23 @@
+{% extends "events/shell_rail.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if membership %}Editar acceso{% else %}Agregar persona{% endif %}{% endblock %}
+{% block content %}
+{% include "partials/ui/error_summary.html" with form=form %}
+<header class="page-head"><ol class="crumbs"><li><a href="{% url 'events:team' event.slug %}">Equipo</a></li><li>{% if membership %}{{ membership.display_name }}{% else %}Agregar persona{% endif %}</li></ol>
+  <h1>{% if membership %}{{ membership.display_name }}{% else %}Agregar persona al equipo{% endif %}</h1>
+  {% if membership %}<p class="lede">{{ membership.user.email }}</p>{% else %}<p class="lede">Si la persona no tiene cuenta, recibirá un enlace para crear su contraseña.</p>{% endif %}</header>
+<div class="split">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="btn-row mt-6"><button class="btn btn--primary" type="submit">{% if membership %}Guardar cambios{% else %}Agregar al equipo{% endif %}</button><a class="btn btn--quiet" href="{% url 'events:team' event.slug %}">Cancelar</a></div>
+  </form>
+  {% if membership %}
+  <aside class="panel stack-sm">
+    <h2 class="subhead">Acceso</h2>
+    <p class="text-sm">Si olvidó su contraseña, genera un enlace nuevo y compártelo en persona o por un mensaje privado.</p>
+    {% if link %}<label class="label" for="enlace">Enlace para crear contraseña</label><input class="input input--wide" id="enlace" value="{{ link }}" readonly><button class="btn btn--sm" type="button" data-copy="enlace">Copiar enlace</button>{% else %}
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="link"><button class="btn btn--sm" type="submit">Generar enlace</button></form>{% endif %}
+  </aside>
+  {% endif %}
+</div>
+{% endblock %}

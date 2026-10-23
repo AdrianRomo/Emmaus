@@ -1,0 +1,30 @@
+{% extends shell_template %}
+{% load emmaus %}
+{% block page_title %}Seguimiento de {{ follow_up.participant.full_name }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <ol class="crumbs"><li><a href="{% url 'events:follow_ups' event.slug %}">Seguimiento</a></li><li>{{ follow_up.participant.full_name }}</li></ol>
+  <h1>{% if follow_up.kind == "seguridad" %}Situación de riesgo{% else %}Seguimiento{% endif %}: {{ follow_up.participant.full_name }}</h1>
+  <p class="cluster">{% follow_up_chip follow_up.status %}<span class="text-sm muted">{{ follow_up.get_reason_display }} · registrado {{ follow_up.created_at|fecha_corta }} por {{ follow_up.created_by.get_full_name|default:"—" }}</span></p>
+</header>
+{% if follow_up.kind == "seguridad" %}
+  <div class="notice notice--danger"><p class="notice__title">Sigue el procedimiento de protección</p><p>{{ event.safeguarding_instructions|linebreaksbr }}</p></div>
+{% endif %}
+<section class="section">
+  <h2 class="subhead">Detalles</h2>
+  {% if can_read %}
+    {% if follow_up.details %}<p class="prose mt-2">{{ follow_up.details|linebreaksbr }}</p>{% else %}<p class="muted mt-2">Sin detalles escritos.</p>{% endif %}
+    {% if follow_up.resolution_note %}<h3 class="subhead mt-6">Nota de cierre</h3><p class="prose mt-2">{{ follow_up.resolution_note|linebreaksbr }}</p>{% endif %}
+  {% else %}
+    <p class="privacy-tag mt-2">Los detalles son confidenciales. Solo el equipo de cuidado autorizado puede leerlos.</p>
+  {% endif %}
+</section>
+{% if form %}
+<form method="post" class="section" novalidate>
+  {% csrf_token %}
+  <h2 class="subhead">Actualizar</h2>
+  <div class="mt-4">{% include "partials/ui/fields.html" with form=form %}</div>
+  <div class="btn-row"><button class="btn btn--primary" type="submit">Guardar</button><a class="btn btn--quiet" href="{% url 'events:participant_detail' event.slug follow_up.participant.public_id %}">Ver campero</a></div>
+</form>
+{% endif %}
+{% endblock %}

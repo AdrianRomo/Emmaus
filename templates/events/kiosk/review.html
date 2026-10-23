@@ -1,0 +1,27 @@
+{% extends "events/shell_kiosk.html" %}
+{% block page_title %}Revisa tus respuestas{% endblock %}
+{% block body_attrs %}data-kiosk-idle="300" data-kiosk-timeout-url="{% url 'kiosk:timeout' %}" data-kiosk-heartbeat-url="{% url 'kiosk:heartbeat' %}"{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>Revisa tus respuestas</h1>
+  <p class="lede">Si quieres cambiar algo, toca “Cambiar”. Cuando estés listo, toca “Terminar”.</p>
+</header>
+<dl class="summary-list">
+  {% for row in rows %}
+    <div class="summary-list__row">
+      <dt>{{ row.question.text }}</dt>
+      <dd>{% if row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
+      <span class="summary-list__action"><a href="{% url 'kiosk:step' row.step.number %}">Cambiar<span class="visually-hidden"> “{{ row.question.text }}”</span></a></span>
+    </div>
+  {% endfor %}
+</dl>
+<form method="post" action="{% url 'kiosk:finish' %}" class="q-actions">
+  {% csrf_token %}
+  <span></span>
+  <button class="btn btn--primary" type="submit">Terminar</button>
+</form>
+<dialog class="dialog" id="idle-warning" aria-labelledby="idle-title">
+  <div class="dialog__body"><h2 id="idle-title">¿Sigues aquí?</h2><p>Por tu privacidad, la pantalla se cerrará en un minuto si no hay actividad.</p></div>
+  <div class="dialog__actions"><button class="btn btn--primary" type="button" data-idle-continue>Sí, sigo aquí</button></div>
+</dialog>
+{% endblock %}

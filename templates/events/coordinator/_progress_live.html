@@ -1,0 +1,12 @@
+{% load emmaus %}
+<div class="figure-row">
+  <div class="figure figure--hero"><p class="figure__label">Avance</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }} completadas</p></div>
+  <div class="figure"><p class="figure__label">Pendientes</p><p class="figure__value">{{ progress.pending }}</p><p class="figure__note">{{ progress.in_progress }} en curso</p></div>
+  <div class="figure"><p class="figure__label">Ritmo</p><p class="figure__value">{{ payload.throughput.per_hour }}<small>por hora</small></p><p class="figure__note">Promedio de las últimas 2 horas</p></div>
+  <div class="figure"><p class="figure__label">Seguimientos abiertos</p><p class="figure__value">{{ payload.follow_ups.open_total }}</p><p class="figure__note">{{ payload.follow_ups.to_evaluate }} por decidir</p></div>
+</div>
+<div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
+<div class="split split--even section">
+  {% include "events/partials/chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="mi-acumulado" %}
+  {% include "events/partials/chart_columns.html" with points=payload.timeline.points chart_id="mi-ritmo" %}
+</div>

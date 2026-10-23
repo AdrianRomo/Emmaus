@@ -10,7 +10,7 @@ from django.contrib.auth.models import Group, User
 from django.core.mail import send_mail
 from django.db import transaction
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import dateformat, timezone
 
 from .models import (
     AIDraft,
@@ -29,15 +29,16 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-AI_SYSTEM_PROMPT = """You are assisting a Christian church leader.
-You are not God, Jesus, the Holy Spirit, a pastor, a therapist, a doctor, or a counselor.
-Do not claim spiritual authority.
-Do not provide emergency, medical, legal, or mental health advice.
-Encourage the leader to respond personally.
-Be gentle, biblical, humble, and concise.
-Suggest Scripture references, but do not quote long Bible passages.
-For sensitive issues, recommend escalation to a pastor or qualified professional.
-The output is only a draft and must be reviewed by a human leader before sending."""
+AI_SYSTEM_PROMPT = """Estás ayudando a un líder de una iglesia cristiana.
+No eres Dios, ni Jesús, ni el Espíritu Santo, ni pastor, terapeuta, médico o consejero.
+No te atribuyas autoridad espiritual.
+No des consejos de emergencia, médicos, legales ni de salud mental.
+Anima al líder a responder de forma personal.
+Sé amable, bíblico, humilde y breve.
+Sugiere pasajes bíblicos, pero no cites pasajes largos.
+En temas delicados, recomienda escalar el caso a un pastor o a un profesional calificado.
+Escribe en español de México y dirígete a la persona de tú.
+Lo que escribas es solo un borrador y un líder debe revisarlo antes de enviarlo."""
 
 
 @dataclass
@@ -90,7 +91,7 @@ def create_initial_church(
         name=church_name,
         slug=church_slug,
         contact_email=admin_email,
-        public_welcome_text=f"Welcome to {church_name}.",
+        public_welcome_text=f"Te damos la bienvenida a {church_name}.",
     )
     user = User.objects.create_user(
         username=admin_email.lower(),
@@ -119,12 +120,12 @@ def send_email_safely(subject: str, message: str, recipients: list[str]) -> bool
 
 def notify_invitation(request, invitation: Invitation) -> bool:
     link = invite_url(request, invitation)
-    subject = f"You have been invited to Emmaus for {invitation.church.name}"
+    expires = dateformat.format(timezone.localtime(invitation.expires_at), r"j \d\e F \d\e Y, H:i").lower()
+    subject = f"Tu invitación a Emmaus de {invitation.church.name}"
     message = (
-        f"You have been invited to join {invitation.church.name} on Emmaus as "
-        f"{invitation.get_role_display()}.\n\nAccept your invitation here:\n{link}\n\n"
-        "This link expires on "
-        f"{timezone.localtime(invitation.expires_at).strftime('%Y-%m-%d %H:%M')}."
+        f"Te invitaron a unirte a {invitation.church.name} en Emmaus con el rol de "
+        f"{invitation.get_role_display()}.\n\nAcepta tu invitación aquí:\n{link}\n\n"
+        f"Este enlace vence el {expires}. Si no esperabas esta invitación, puedes ignorar este correo."
     )
     return send_email_safely(subject, message, [invitation.email])
 
@@ -143,8 +144,9 @@ def notify_question_created(question: ParticipantQuestion) -> None:
     )
     if recipients:
         send_email_safely(
-            f"New Emmaus question from {question.participant.get_full_name() or question.participant.email}",
-            question.question_text,
+            "Emmaus: hay una pregunta nueva",
+            "Una persona de tu iglesia envió una pregunta en Emmaus. Ingresa con tu cuenta para leerla.\n\n"
+            "Por privacidad, este correo no incluye el nombre de la persona ni lo que escribió.",
             sorted(set(recipients)),
         )
 
@@ -153,8 +155,8 @@ def notify_question_response(response: QuestionResponse) -> None:
     participant = response.question.participant
     if participant.email:
         send_email_safely(
-            "A church leader responded to your Emmaus question",
-            "A leader from your church has responded to your Emmaus question. Please sign in to read it.",
+            "Emmaus: respondieron tu pregunta",
+            "Un líder de tu iglesia respondió tu pregunta en Emmaus. Ingresa con tu cuenta para leer la respuesta.",
             [participant.email],
         )
 
@@ -172,8 +174,9 @@ def notify_follow_up_created(follow_up: FollowUpRequest) -> None:
     )
     if recipients:
         send_email_safely(
-            "Emmaus follow-up requested",
-            follow_up.reason,
+            "Emmaus: hay un seguimiento nuevo",
+            "Se registró una solicitud de seguimiento en Emmaus. Ingresa con tu cuenta para ver los detalles.\n\n"
+            "Por privacidad, este correo no incluye el nombre de la persona ni el motivo.",
             sorted(set(recipients)),
         )
 
@@ -188,8 +191,9 @@ def notify_question_escalated(question: ParticipantQuestion) -> None:
     )
     if recipients:
         send_email_safely(
-            "Emmaus question escalated",
-            question.question_text,
+            "Emmaus: una pregunta necesita atención pastoral",
+            "Una pregunta en Emmaus se escaló para recibir atención pastoral. Ingresa con tu cuenta para leerla.\n\n"
+            "Por privacidad, este correo no incluye el nombre de la persona ni lo que escribió.",
             sorted(set(recipients)),
         )
 
@@ -268,15 +272,18 @@ def create_inactivity_follow_up(profile: ParticipantProfile, days: int = 7) -> F
         participant=profile.user,
         assigned_to=profile.assigned_mentor,
         source=FollowUpRequest.Source.INACTIVITY,
-        reason=f"No recorded Emmaus activity for at least {days} days.",
+        reason=f"Sin actividad registrada en Emmaus durante al menos {days} días.",
     )
 
 
 def generate_ai_draft(question: ParticipantQuestion, generated_by: User) -> tuple[AIDraft | None, str | None]:
     if not settings.LLM_ENABLED:
-        return None, "AI drafting is disabled. Set LLM_ENABLED=true and configure LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL."
+        return None, (
+            "Los borradores con IA están desactivados. Para usarlos, configura LLM_ENABLED=true, "
+            "LLM_BASE_URL, LLM_API_KEY y LLM_MODEL."
+        )
     if not settings.LLM_BASE_URL or not settings.LLM_API_KEY or not settings.LLM_MODEL:
-        return None, "AI drafting is enabled but not fully configured."
+        return None, "Los borradores con IA están activados, pero falta completar su configuración."
 
     endpoint = settings.LLM_BASE_URL
     if not endpoint.endswith("/chat/completions"):
@@ -288,9 +295,9 @@ def generate_ai_draft(question: ParticipantQuestion, generated_by: User) -> tupl
             {
                 "role": "user",
                 "content": (
-                    "Draft a gentle response a church leader could review before sending.\n\n"
-                    f"Participant question:\n{question.question_text}\n\n"
-                    f"Sensitivity: {question.get_sensitivity_level_display()}"
+                    "Redacta una respuesta amable que un líder de la iglesia pueda revisar antes de enviarla.\n\n"
+                    f"Pregunta del participante:\n{question.question_text}\n\n"
+                    f"Nivel de cuidado: {question.get_sensitivity_level_display()}"
                 ),
             },
         ],
@@ -312,7 +319,7 @@ def generate_ai_draft(question: ParticipantQuestion, generated_by: User) -> tupl
         content = data["choices"][0]["message"]["content"].strip()
     except (error.URLError, KeyError, IndexError, json.JSONDecodeError) as exc:
         logger.exception("LLM draft generation failed")
-        return None, f"AI draft generation failed: {exc}"
+        return None, f"No se pudo generar el borrador con IA: {exc}"
 
     draft = AIDraft.objects.create(
         church=question.church,

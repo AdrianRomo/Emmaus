@@ -1,0 +1,48 @@
+{% extends "events/shell_rail.html" %}
+{% load emmaus %}
+{% block page_title %}Corte de las {{ snapshot.cutoff_at|date:"H:i" }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <ol class="crumbs"><li><a href="{% url 'events:reports' event.slug %}?alcance={{ snapshot.scope_key }}">Reportes</a></li><li>{{ snapshot.cutoff_at|fecha_corta }}</li></ol>
+  <div class="page-head__row">
+    <div><h1>Corte de las {{ snapshot.cutoff_at|date:"H:i" }}</h1><p class="lede">{{ snapshot.scope_label }} · {{ snapshot.cutoff_at|fecha_larga }}</p></div>
+    <div class="btn-row"><a class="btn btn--primary" href="{% url 'events:report_presentation' event.slug snapshot.public_id %}">Ver presentación</a><a class="btn" href="{% url 'events:report_pdf' event.slug snapshot.public_id %}">Descargar PDF</a></div>
+  </div>
+  <p class="folio">Datos al {{ payload.data_as_of|as_datetime|fecha_corta }} · generado de forma {{ snapshot.get_trigger_display|lower }} · métricas versión {{ snapshot.metrics_version }}</p>
+</header>
+<div class="figure-row">
+  <div class="figure figure--hero"><p class="figure__label">Avance</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }}</p></div>
+  <div class="figure"><p class="figure__label">Pendientes</p><p class="figure__value">{{ progress.pending }}</p><p class="figure__note">{{ progress.in_progress }} en curso</p></div>
+  <div class="figure"><p class="figure__label">Ritmo</p><p class="figure__value">{{ payload.throughput.per_hour }}<small>por hora</small></p></div>
+  <div class="figure"><p class="figure__label">Seguimientos abiertos</p><p class="figure__value">{{ payload.follow_ups.open_total }}</p></div>
+</div>
+<div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
+
+<section class="section" id="comparacion" aria-labelledby="t-comp">
+  <h2 id="t-comp">Comparado con el corte anterior</h2>
+  {% if previous %}
+    <div class="table-wrap mt-4"><table class="table">
+      <thead><tr><th></th><th class="num">{{ previous.cutoff_at|date:"H:i" }}</th><th class="num">{{ snapshot.cutoff_at|date:"H:i" }}</th><th class="num">Cambio</th></tr></thead>
+      <tbody>
+        <tr><td>Completadas</td><td class="num">{{ previous.data.progress.completed }}</td><td class="num">{{ progress.completed }}</td><td class="num">{{ delta.completed|signed }}</td></tr>
+        <tr><td>En curso</td><td class="num">{{ previous.data.progress.in_progress }}</td><td class="num">{{ progress.in_progress }}</td><td class="num">{{ delta.in_progress|signed }}</td></tr>
+        <tr><td>Pendientes</td><td class="num">{{ previous.data.progress.pending }}</td><td class="num">{{ progress.pending }}</td><td class="num">{{ delta.pending|signed }}</td></tr>
+        <tr><td>Avance (puntos)</td><td class="num">{{ previous.data.progress.percent|pct }}</td><td class="num">{{ progress.percent|pct }}</td><td class="num">{{ delta.percent|signed }}</td></tr>
+        <tr><td>Seguimientos abiertos</td><td class="num">{{ previous.data.follow_ups.open_total }}</td><td class="num">{{ payload.follow_ups.open_total }}</td><td class="num">{{ delta.follow_ups_open|signed }}</td></tr>
+      </tbody></table></div>
+  {% else %}<p class="muted mt-4">Es el primer corte de este alcance.</p>{% endif %}
+</section>
+
+<div class="split split--even section">
+  {% include "events/partials/chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="corte-acumulado" as_of=payload.data_as_of %}
+  {% include "events/partials/chart_columns.html" with points=payload.timeline.points chart_id="corte-ritmo" as_of=payload.data_as_of %}
+</div>
+{% if payload.teams %}<section class="section"><h2>Por equipo</h2><div class="mt-4">{% include "events/partials/team_bars.html" with rows=payload.teams %}</div></section>{% endif %}
+{% if payload.coordinators %}<section class="section"><h2>Por coordinador</h2><div class="mt-4">{% include "events/partials/team_bars.html" with rows=payload.coordinators show_team=True %}</div></section>{% endif %}
+{% if payload.outcomes %}
+<section class="section"><h2>Resumen de respuestas</h2><p class="text-sm muted mt-2">Totales redondeados a múltiplos de {{ payload.min_group_size }}; cifras menores se ocultan.</p>
+  <div class="split split--even mt-4">{% for o in payload.outcomes %}<div><p class="chart__title">{{ o.title }}</p><p class="chart__sub">respondieron {{ o.respondents.display }}</p>{% if o.withheld %}<p class="chart__empty">Aún no hay suficientes respuestas.</p>{% else %}<dl class="summary-list mt-2">{% for r in o.rows %}<div class="summary-list__row"><dt>{{ r.label }}</dt><dd class="num">{{ r.display }}</dd><span></span></div>{% endfor %}</dl>{% endif %}</div>{% endfor %}</div>
+</section>
+{% endif %}
+{% if payload.recommendations %}<section class="section"><h2>Próximos pasos</h2><ol class="ledger mt-4">{% for r in payload.recommendations %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ r.text }}</p><p class="ledger__meta">{{ r.evidence }}</p></div></div></li>{% endfor %}</ol></section>{% endif %}
+{% endblock %}

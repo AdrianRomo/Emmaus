@@ -1,0 +1,23 @@
+{% extends "events/shell_focus.html" %}
+{% block page_title %}Entregar la computadora{% endblock %}
+{% block focus_actions %}<a class="btn btn--sm btn--quiet" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Cancelar</a>{% endblock %}
+{% block content %}
+<header class="page-head">
+  <p class="folio">Captura supervisada</p>
+  <h1>Entrega la computadora a {{ participant.first_name }}</h1>
+</header>
+<ol class="numbered prose">
+  <li>Dile que puede responder con calma y que puede elegir “Prefiero no responder”.</li>
+  <li>Explícale que nadie más verá sus respuestas en la pantalla.</li>
+  <li>Pídele que te avise cuando termine.</li>
+</ol>
+<div class="notice notice--quiet mt-8">
+  <p class="notice__title">Tu sesión se cerrará en esta computadora</p>
+  <p>Así el campero no puede ver nada más. Para recuperar la computadora necesitarás tu contraseña.</p>
+</div>
+<form method="post" class="q-actions">
+  {% csrf_token %}
+  <a class="btn btn--quiet" href="{% url 'events:interview_review' event.slug interview.public_id %}">Mejor la hago yo</a>
+  <button class="btn btn--primary" type="submit">Entregar la computadora</button>
+</form>
+{% endblock %}

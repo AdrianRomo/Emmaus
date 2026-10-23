@@ -1,0 +1,14 @@
+{% extends "events/shell_kiosk.html" %}
+{% block page_title %}{% if error_list %}Error: {% endif %}{{ step.question.text }}{% endblock %}
+{% block body_attrs %}data-kiosk-idle="300" data-kiosk-timeout-url="{% url 'kiosk:timeout' %}" data-kiosk-heartbeat-url="{% url 'kiosk:heartbeat' %}"{% endblock %}
+{% block focus_actions %}<a class="btn btn--sm btn--quiet" href="{% url 'kiosk:review' %}">Terminar por ahora</a>{% endblock %}
+{% block content %}
+  {% include "events/interview/_step_form.html" %}
+  <dialog class="dialog" id="idle-warning" aria-labelledby="idle-title">
+    <div class="dialog__body">
+      <h2 id="idle-title">¿Sigues aquí?</h2>
+      <p>Por tu privacidad, la pantalla se cerrará en un minuto si no hay actividad. Lo que ya respondiste está guardado.</p>
+    </div>
+    <div class="dialog__actions"><button class="btn btn--primary" type="button" data-idle-continue>Sí, sigo aquí</button></div>
+  </dialog>
+{% endblock %}

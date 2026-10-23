@@ -1,43 +1,50 @@
 {% extends "base.html" %}
 {% load core_extras %}
-{% block title %}Follow-ups | Emmaus{% endblock %}
+{% block page_title %}Seguimientos{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Care requests" title="Follow-ups" subtitle="Requests for conversation, care, check-ins, or next steps." %}
-  <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-    <div class="card p-5 md:p-6">
-      <div class="space-y-3">
-        {% for follow_up in follow_ups %}
-          <div class="human-row">
-            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p class="font-semibold text-stone-950">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
-                <p class="mt-2 text-sm leading-6 text-stone-600">{{ follow_up.reason }}</p>
-                <p class="mt-2 text-xs text-stone-500">Assigned to {{ follow_up.assigned_to|display_name:"Not assigned" }}</p>
+  {% include "partials/ui/page_head.html" with folio="Solicitudes de cuidado" title="Seguimientos" lede="Solicitudes para platicar, acompañar, saludar o acordar un siguiente paso." %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <div class="split">
+    <section class="stack-sm">
+      <h2>Lista de seguimientos</h2>
+      {% if follow_ups %}
+        <ul class="ledger">
+          {% for follow_up in follow_ups %}
+            <li class="ledger__row">
+              <div class="ledger__main stack-sm">
+                <p class="ledger__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+                <p>{{ follow_up.reason|linebreaksbr }}</p>
+                <p class="ledger__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}{% if follow_up.due_date %} · Fecha límite: {{ follow_up.due_date|date:"j b Y" }}{% endif %}</p>
               </div>
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="ledger__aside">
                 {% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}
                 {% if follow_up.status != "completed" %}
                   <form method="post" action="{% url 'complete_follow_up' follow_up.id %}">
                     {% csrf_token %}
-                    <button class="btn btn-secondary !min-h-0 !py-2">Complete follow-up</button>
+                    <button class="btn btn--sm" type="submit">Marcar como completado</button>
                   </form>
                 {% endif %}
               </div>
-            </div>
-          </div>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No follow-ups right now" body="Requests for conversation or care will appear here." %}
-        {% endfor %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {% include "partials/ui/empty.html" with title="No hay seguimientos" body="Aquí aparecerán las solicitudes para platicar o recibir cuidado." %}
+      {% endif %}
+    </section>
+
+    <section class="stack">
+      <div class="stack-sm">
+        <h2>Crear seguimiento</h2>
+        <p class="muted">Crea una solicitud cuando alguien necesite que lo busquen en persona o acordar un siguiente paso.</p>
       </div>
-    </div>
-    <div class="card-flat p-5 md:p-6">
-      <h2 class="font-semibold text-stone-950">Create follow-up</h2>
-      <p class="mt-2 text-sm leading-6 text-stone-600">Create a request when someone needs a personal check-in or next step.</p>
-      <form method="post" class="mt-5">
+      <form method="post" class="sheet">
         {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary">Create follow-up</button>
+        {% include "partials/ui/fields.html" with form=form %}
+        <div class="btn-row mt-6">
+          <button class="btn btn--primary" type="submit">Crear seguimiento</button>
+        </div>
       </form>
-    </div>
-  </section>
+    </section>
+  </div>
 {% endblock %}

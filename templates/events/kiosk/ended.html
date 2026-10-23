@@ -1,0 +1,9 @@
+{% extends "events/shell_kiosk.html" %}
+{% block page_title %}Computadora disponible{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>No hay una entrevista abierta en esta computadora</h1>
+  <p class="lede">Si eres campero, avisa a tu coordinador. Si eres coordinador, entra con tu cuenta para continuar.</p>
+</header>
+<a class="btn btn--primary" href="{% url 'login' %}">Entrar a Emmaus</a>
+{% endblock %}

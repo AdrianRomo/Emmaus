@@ -1,0 +1,77 @@
+{% load emmaus %}
+<section class="section" aria-labelledby="como-va">
+  <h2 id="como-va" class="brief-q"><span class="brief-q__n">1</span>¿Cómo va el {{ event.kind_noun|lower }}?</h2>
+  <div class="split mt-4">
+    <div>
+      <p class="figure__value figure__value--display">{{ progress.percent|pct }}</p>
+      <p class="lede mt-2">Se han completado <strong>{{ progress.completed }}</strong> de {{ progress.eligible }} entrevistas{% if progress.in_progress %}, y hay {{ progress.in_progress }} en curso en este momento{% endif %}.</p>
+      {% if delta %}<p class="mt-2 text-sm">{% if delta.completed %}<span class="delta delta--up">{{ delta.completed|signed }} entrevistas</span>{% if delta.percent %} y <span class="delta delta--up">{{ delta.percent|signed }} puntos</span>{% endif %} desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Sin cambios desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% endif %}</p>{% endif %}
+    </div>
+    <div class="stack-sm">
+      {% meter progress.completed progress.in_progress progress.eligible "lg" %}
+      <ul class="legend-keys">
+        <li><span class="key key--done" aria-hidden="true"></span>Completadas {{ progress.completed }}</li>
+        <li><span class="key key--progress" aria-hidden="true"></span>En curso {{ progress.in_progress }}</li>
+        <li><span class="key key--track" aria-hidden="true"></span>Sin iniciar {{ progress.not_started }}</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="faltan">
+  <h2 id="faltan" class="brief-q"><span class="brief-q__n">2</span>¿Cuántas entrevistas nos faltan?</h2>
+  <div class="figure-row mt-4">
+    <div class="figure"><p class="figure__label">Pendientes</p><p class="figure__value">{{ progress.pending }}</p><p class="figure__note">incluye {{ progress.in_progress }} en curso</p></div>
+    <div class="figure"><p class="figure__label">Ritmo</p><p class="figure__value">{{ payload.throughput.per_hour }}<small>por hora</small></p><p class="figure__note">promedio de las últimas 2 horas</p></div>
+    <div class="figure"><p class="figure__label">Tiempo estimado</p><p class="figure__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration }}{% else %}—{% endif %}</p><p class="figure__note">si se mantiene el ritmo</p></div>
+    <div class="figure"><p class="figure__label">Última hora</p><p class="figure__value">{{ payload.throughput.last_hour }}</p><p class="figure__note">entrevistas completadas</p></div>
+  </div>
+  <div class="split split--even mt-8">
+    {% include "events/partials/chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="pastor-acumulado" as_of=payload.data_as_of %}
+    {% include "events/partials/chart_columns.html" with points=payload.timeline.points chart_id="pastor-ritmo" as_of=payload.data_as_of %}
+  </div>
+</section>
+
+<section class="section" aria-labelledby="grupos">
+  <div class="section__head"><h2 id="grupos" class="brief-q"><span class="brief-q__n">3</span>¿Qué grupos necesitan apoyo?</h2><a href="{% url 'events:progress' event.slug %}">Ver avance completo</a></div>
+  <p class="text-sm muted">Ordenados del que va más atrás al que va más adelante.</p>
+  <div class="mt-4">{% include "events/partials/team_bars.html" with rows=teams empty_title="Todavía no hay equipos" empty_body="Cuando la administración asigne tutores y coordinadores verás el avance de cada equipo." %}</div>
+</section>
+
+<section class="section" aria-labelledby="necesidades">
+  <h2 id="necesidades" class="brief-q"><span class="brief-q__n">4</span>¿Qué necesidades generales debemos atender?</h2>
+  <div class="figure-row mt-4">
+    <div class="figure"><p class="figure__label">Seguimientos abiertos</p><p class="figure__value">{{ payload.follow_ups.open_total }}</p><p class="figure__note">{{ payload.follow_ups.pending }} sin atender · {{ payload.follow_ups.in_progress }} en proceso</p></div>
+    <div class="figure"><p class="figure__label">Atendidos</p><p class="figure__value">{{ payload.follow_ups.done }}</p></div>
+    <div class="figure"><p class="figure__label">Por decidir</p><p class="figure__value">{{ payload.follow_ups.to_evaluate }}</p><p class="figure__note">entrevistas sin decisión de seguimiento</p></div>
+    {% if payload.follow_ups.safety_open is not None %}<div class="figure"><p class="figure__label">Situaciones de riesgo abiertas</p><p class="figure__value">{{ payload.follow_ups.safety_open }}</p><p class="figure__note"><a href="{% url 'events:follow_ups' event.slug %}">Atender</a></p></div>{% endif %}
+  </div>
+  {% if outcomes %}
+    <div class="notice notice--quiet mt-8"><p>Estos resúmenes muestran solo totales del {{ event.kind_noun|lower }}, redondeados a múltiplos de {{ payload.min_group_size }}. Las cifras menores a {{ payload.min_group_size }} se ocultan para que nadie pueda ser identificado. No son diagnósticos: son lo que cada campero quiso compartir.</p></div>
+    <div class="split split--even mt-6">
+      {% for outcome in outcomes %}
+        <figure class="chart">
+          <figcaption><p class="chart__title">{{ outcome.title }}</p><p class="chart__sub">Personas · respondieron {{ outcome.respondents.display }}</p></figcaption>
+          {% if outcome.withheld %}
+            <p class="chart__empty">Aún no hay suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
+          {% else %}
+            <ul class="bars mt-4">{% for row in outcome.rows %}
+              <li class="bar-row"><span class="bar-row__label">{{ row.label }}</span><span class="bar-row__value">{{ row.display }}</span>
+                {% if row.value %}<div class="meter"><div class="meter__track"><span class="meter__seg meter__seg--measure" style="width:{% widthratio row.value outcome.respondents.value|default:1 100 %}%"></span></div></div>{% else %}<div class="meter"><div class="meter__track"></div></div>{% endif %}
+              </li>{% endfor %}</ul>
+          {% endif %}
+        </figure>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+<section class="section" aria-labelledby="acciones">
+  <h2 id="acciones" class="brief-q"><span class="brief-q__n">5</span>¿Qué acciones requieren coordinación?</h2>
+  {% if payload.recommendations %}
+    <ol class="ledger mt-4">{% for rec in payload.recommendations %}
+      <li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ rec.text }}</p><p class="ledger__meta">{{ rec.evidence }}</p></div></div></li>
+    {% endfor %}</ol>
+    <p class="text-sm muted mt-4">Estas acciones salen de reglas fijas sobre los números de arriba. No hay inteligencia artificial ni juicios sobre las personas.</p>
+  {% else %}<p class="muted mt-4">No hay acciones pendientes.</p>{% endif %}
+</section>
