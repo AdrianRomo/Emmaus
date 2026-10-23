@@ -1,50 +1,79 @@
-{% extends "events/shell_rail.html" %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Reportes{% endblock %}
 {% block content %}
-<header class="page-head">
-  <p class="folio">Cortes de seguimiento · cada {{ event.report_interval_minutes }} minutos, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}</p>
-  <h1>Reportes {{ event.of_kind }}</h1>
-</header>
-{% if scopes|length > 1 %}
-<nav class="cluster mb-6" aria-label="Alcance del reporte">{% for s in scopes %}<a class="tab-link" href="?alcance={{ s.key }}"{% if s.key == scope_key %} aria-current="page"{% endif %}>{{ s.label }}</a>{% endfor %}</nav>
-{% endif %}
-<section class="cutoff-head" aria-label="Resumen de cortes">
-  <div><p class="figure__label">Último corte</p><p class="cutoff-head__time">{% if latest %}{{ latest.cutoff_at|date:"H:i" }}{% else %}—{% endif %}</p><p class="figure__note">{% if latest %}{{ latest.cutoff_at|fecha_larga }}{% else %}Todavía no hay cortes{% endif %}</p></div>
-  <div><p class="figure__label">Próximo corte</p><p class="cutoff-head__time">{% if next_cutoff %}{{ next_cutoff|date:"H:i" }}{% else %}—{% endif %}</p><p class="figure__note">{% if next_cutoff %}{{ next_cutoff|fecha_larga }}{% else %}Sin programar{% endif %}</p></div>
-  <div class="btn-row">
+<header class="report-head">
+  <div class="report-head__text">
+    <h1 class="voice report-head__title">Reportes {{ event.of_kind }}</h1>
+    <p class="report-head__meta">Cortes de seguimiento cada {{ event.report_interval_minutes }} minutos, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}. {% if next_cutoff %}Próximo corte a las {{ next_cutoff|date:"H:i" }} del {{ next_cutoff|fecha_larga|lower }}.{% else %}No hay cortes programados.{% endif %}</p>
+  </div>
+  <div class="report-head__actions">
     <form method="post" action="{% url 'events:report_generate' event.slug %}">{% csrf_token %}<input type="hidden" name="scope" value="{{ scope_key }}"><button class="btn btn--primary" type="submit">Generar corte ahora</button></form>
-    <a class="btn" href="{% url 'events:presentation_live' event.slug %}">Ver presentación</a>
-    {% if latest %}<a class="btn" href="{% url 'events:report_pdf' event.slug latest.public_id %}">Descargar PDF</a>{% endif %}
-    {% if latest and previous %}<a class="btn btn--quiet" href="{% url 'events:report_detail' event.slug latest.public_id %}#comparacion">Comparar con el corte anterior</a>{% endif %}
+    <a class="btn btn--secondary" href="{% url 'events:presentation_live' event.slug %}">Ver presentación</a>
   </div>
-</section>
-{% if latest %}
-<section class="section" aria-labelledby="ultimo">
-  <div class="section__head"><h2 id="ultimo">Corte de las {{ latest.cutoff_at|date:"H:i" }} · {{ scope_label }}</h2><a href="{% url 'events:report_detail' event.slug latest.public_id %}">Ver corte completo</a></div>
-  <div class="figure-row">
-    <div class="figure"><p class="figure__label">Completadas</p><p class="figure__value">{{ latest.data.progress.completed }}</p>{% if delta %}<p class="delta {% if delta.completed > 0 %}delta--up{% else %}delta--flat{% endif %}">{{ delta.completed|signed }} desde el anterior</p>{% endif %}</div>
-    <div class="figure"><p class="figure__label">Avance</p><p class="figure__value">{{ latest.data.progress.percent|pct }}</p>{% if delta and delta.percent is not None %}<p class="delta {% if delta.percent > 0 %}delta--up{% else %}delta--flat{% endif %}">{{ delta.percent|signed }} puntos</p>{% endif %}</div>
-    <div class="figure"><p class="figure__label">Pendientes</p><p class="figure__value">{{ latest.data.progress.pending }}</p></div>
-    <div class="figure"><p class="figure__label">Seguimientos abiertos</p><p class="figure__value">{{ latest.data.follow_ups.open_total }}</p></div>
-  </div>
-</section>
+</header>
+
+{% if scopes|length > 1 %}
+<nav aria-label="Alcance del reporte">
+  <ul class="filters">{% for s in scopes %}<li><a href="?alcance={{ s.key }}"{% if s.key == scope_key %} aria-current="page"{% endif %}>{{ s.label }}</a></li>{% endfor %}</ul>
+</nav>
 {% endif %}
-<section class="section" aria-labelledby="historial">
-  <div class="section__head"><h2 id="historial">Historial</h2><p>{{ history|length }} corte{{ history|length|pluralize }}</p></div>
-  {% if history %}
-  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table">
-    <thead><tr><th>Corte</th><th>Tipo</th><th class="num">Completadas</th><th class="num">Avance</th><th class="num">Pendientes</th><th></th></tr></thead>
-    <tbody>{% for s in history %}<tr>
-      <td><strong>{{ s.cutoff_at|date:"H:i" }}</strong> <span class="muted">{{ s.cutoff_at|fecha_corta }}</span></td>
-      <td>{{ s.get_trigger_display }}{% if s.status == "fallido" %} <span class="chip chip--alert">No se generó</span>{% endif %}</td>
-      {% if s.status == "listo" %}<td class="num">{{ s.data.progress.completed }}</td><td class="num">{{ s.data.progress.percent|pct }}</td><td class="num">{{ s.data.progress.pending }}</td>
-      <td class="cluster"><a href="{% url 'events:report_detail' event.slug s.public_id %}">Ver</a><a href="{% url 'events:report_pdf' event.slug s.public_id %}">PDF</a><a href="{% url 'events:report_presentation' event.slug s.public_id %}">Presentación</a></td>
-      {% else %}<td colspan="4" class="muted">{% if access.is_admin %}{{ s.error|truncatechars:80 }}{% else %}Intenta generarlo de nuevo.{% endif %}</td>{% endif %}
-    </tr>{% endfor %}</tbody>
-  </table></div>
-  {% else %}
-    {% include "partials/ui/empty.html" with title="Todavía no hay cortes" body="Los cortes se generan solos durante el horario configurado. También puedes generar uno ahora." %}
-  {% endif %}
+
+{% if latest %}
+{% with p=latest.data.progress %}
+<section class="report-section report-section--lead" aria-labelledby="ultimo">
+  <div class="report-section__q">
+    <h2 id="ultimo" class="voice report-section__title">Corte de las {{ latest.cutoff_at|date:"H:i" }}</h2>
+    <p class="report-section__answer">{{ scope_label }}, {{ latest.cutoff_at|fecha_larga|lower }}.</p>
+    <p class="more"><a href="{% url 'events:report_detail' event.slug latest.public_id %}">Ver corte completo</a></p>
+    {% if previous %}<p class="more"><a href="{% url 'events:report_detail' event.slug latest.public_id %}#comparacion">Comparar con el corte anterior</a></p>{% endif %}
+    <p class="more"><a href="{% url 'events:report_pdf' event.slug latest.public_id %}">Descargar PDF</a></p>
+  </div>
+  <div class="report-section__body">
+    {% if p.eligible %}
+      <p class="voice headline">Llevábamos {{ p.completed }} de {{ p.eligible }} entrevistas.</p>
+    {% else %}
+      <p class="voice headline">Todavía no había participantes registrados.</p>
+    {% endif %}
+    {% if delta %}<p class="headline__sub">{% if delta.completed %}{{ delta.completed|signed }} entrevistas{% if delta.percent %} y {{ delta.percent|signed }} puntos{% endif %} desde el corte de las {{ previous.cutoff_at|date:"H:i" }}.{% else %}Sin cambios desde el corte de las {{ previous.cutoff_at|date:"H:i" }}.{% endif %}</p>{% endif %}
+    {% if p.eligible %}
+      <div class="headline__ruler">{% ruler p.completed p.in_progress p.eligible %}</div>
+      <ul class="key">
+        <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ p.completed }} completadas ({{ p.percent|pct }})</li>
+        <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ p.in_progress }} en curso</li>
+        <li><span class="key__mark" aria-hidden="true"></span>{{ p.not_started }} sin iniciar</li>
+      </ul>
+    {% endif %}
+    <dl class="figures">
+      <div><dt>Avance</dt><dd class="figures__value">{{ p.percent|pct }}</dd>{% if delta and delta.percent is not None %}<dd class="figures__note">{{ delta.percent|signed }} puntos</dd>{% endif %}</div>
+      <div><dt>Pendientes</dt><dd class="figures__value">{{ p.pending }}</dd><dd class="figures__note">incluye {{ p.in_progress }} en curso</dd></div>
+      <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ latest.data.follow_ups.open_total }}</dd></div>
+    </dl>
+  </div>
+</section>
+{% endwith %}
+{% endif %}
+
+<section class="report-section" aria-labelledby="historial">
+  <div class="report-section__q">
+    <h2 id="historial" class="voice report-section__title">Historial</h2>
+    <p class="report-section__answer">{% if history %}{{ history|length }} corte{{ history|length|pluralize }}, del más reciente al más antiguo.{% else %}Todavía no hay cortes.{% endif %}</p>
+  </div>
+  <div class="report-section__body">
+    {% if history %}
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Historial de cortes"><table class="table">
+        <thead><tr><th scope="col">Corte</th><th scope="col">Tipo</th><th scope="col" class="num">Completadas</th><th scope="col" class="num">Avance</th><th scope="col" class="num">Pendientes</th><th scope="col" class="table__actions"><span class="visually-hidden">Acciones</span></th></tr></thead>
+        <tbody>{% for s in history %}<tr>
+          <td class="keep-together">{{ s.cutoff_at|fecha_corta }}</td>
+          <td>{{ s.get_trigger_display }}{% if s.status == "fallido" %} <span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>No se generó</span>{% endif %}</td>
+          {% if s.status == "listo" %}<td class="num">{{ s.data.progress.completed }}</td><td class="num">{{ s.data.progress.percent|pct }}</td><td class="num">{{ s.data.progress.pending }}</td>
+          <td class="table__actions"><a href="{% url 'events:report_detail' event.slug s.public_id %}">Ver<span class="visually-hidden"> el corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_pdf' event.slug s.public_id %}">PDF<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_presentation' event.slug s.public_id %}">Presentación<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a></td>
+          {% else %}<td colspan="4" class="muted">{% if access.is_admin %}{{ s.error|truncatechars:80 }}{% else %}Intenta generarlo de nuevo.{% endif %}</td>{% endif %}
+        </tr>{% endfor %}</tbody>
+      </table></div>
+    {% else %}
+      <p class="empty-line">Los cortes se generan solos durante el horario configurado. También puedes generar uno ahora.</p>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}
