@@ -86,7 +86,7 @@ The containers do not run migrations on start. Run `migrate` before `up -d` on e
 | `EMMAUS_DEMO_PASSWORD` | empty | Development only |
 | `TEST_DATABASE_NAME` | Django default | Tests only |
 
-Without SMTP, safety alerts and invitation e-mails are only printed to the container log; the new-member screen still shows the link to copy.
+Without SMTP, safety alerts, invitations and "¿Olvidaste tu contraseña?" e-mails are only printed to the container log. The new-member screen still shows the link to copy, but administrators can generate a password link only for accounts that never set a password, so anyone who forgets an existing password depends on SMTP (or on a superuser using `manage.py changepassword`).
 
 ## First-time setup
 
@@ -109,7 +109,7 @@ Put a TLS-terminating reverse proxy (Caddy, nginx, Traefik) in front of `web:800
 * `CSRF_TRUSTED_ORIGINS` must list the public `https://` origin, otherwise every form fails CSRF checks.
 * **HTTP → HTTPS redirect:** prefer doing it in the proxy and keep `SECURE_SSL_REDIRECT=false`. With `SECURE_SSL_REDIRECT=true`, the image's healthcheck (plain HTTP, no forwarded header) gets a redirect to `https://127.0.0.1:8000` and the container is reported unhealthy.
 * **HSTS:** `SECURE_HSTS_SECONDS` sets the header. Start low (for example `3600`), then raise to `31536000` once HTTPS is stable. There are no settings for `includeSubDomains` or preload.
-* The login page has no attempt limit (only the kiosk unlock has one). Consider rate limiting `/cuenta/entrar/` in the proxy.
+* The login limits attempts per typed e-mail (8 in 15 minutes, then 5 minutes blocked, stored in the `AuthThrottle` table) but not per IP address, and the password-reset form has no limit. Consider rate limiting `/cuenta/entrar/` and `/cuenta/olvide-mi-contrasena/` per IP in the proxy.
 * Remember that search terms (campero names) appear in URLs and therefore in proxy access logs.
 
 ## Static files
@@ -167,10 +167,20 @@ docker compose -f docker-compose.prod.yml run --rm web python manage.py check --
 DATABASE_URL=postgres://user:password@localhost:5432/emmaus python manage.py test
 ```
 
+* 168 tests: `core/tests.py` and `events/tests/` (access, interviews, questionnaire, reporting, UI, concurrency and `test_security_review.py`, the regression tests for the adversarial security review).
 * `make test` runs the same inside the dev compose stack, against its PostgreSQL.
 * The four threaded tests in `events/tests/test_concurrency.py` run only on PostgreSQL; on SQLite they are skipped.
 * Django creates a test database; the database user needs permission to create it. `TEST_DATABASE_NAME` sets its name.
 * `pytest` also works (`pytest.ini` points at `emmaus.settings`).
+
+Browser check of the station flow (Playwright, synthetic data, server running with the demo seed):
+
+```bash
+cd e2e && npm install && npx playwright install chromium
+EMMAUS_URL=http://127.0.0.1:8000 EMMAUS_USER=jorge.pineda@demo.invalid EMMAUS_PASSWORD=<demo password> npm test
+```
+
+`SHOTS_DIR=/some/dir` also saves a screenshot of every step.
 
 ## Load test
 
@@ -199,6 +209,7 @@ To roll back the code, point the services at the saved image (or check out the p
 
 About the database:
 
-* The camp redesign's migrations are additive: `core/0003` adds two `Church` columns, `core/0004` is a data migration with a no-op reverse, and `events/0001` adds new tables. Older code keeps reading the database, but creating a new church (for example through `/setup/`) fails because the new non-null columns have no database default.
+* The camp redesign's migrations are additive: `core/0003` adds two `Church` columns, `core/0004` is a data migration with a no-op reverse, `core/0005` only changes model options, `events/0001` adds new tables and `events/0002` adds `AuthThrottle` and `FollowUp.confidential`. Older code keeps reading the database, but writes can fail where a new non-null column has no database default: creating a church (for example through `/setup/`) with code older than `core/0003`, and creating any follow-up (finalizing with "Se requiere seguimiento", safety reports) with code older than `events/0002`.
+* Reversing `events/0002` restores the old one-care-follow-up-per-interview constraint, which fails as soon as an interview has both an ordinary and a confidential referral.
 * Do **not** reverse with `python manage.py migrate events zero`: it drops every camp table (camperos, interviews, answers, follow-ups, cutoffs, activity log). Reversing `core` to `0002` needs that first and drops the two church columns.
 * To really go back, stop `web` and `scheduler`, restore the dump taken before the upgrade, and start the previous image.

@@ -90,8 +90,8 @@ Detalle en `docs/design-direction.md` y `docs/design-system.md`. En resumen: dir
 | 7. Datos en vivo | Hecha | Consulta periódica de fragmentos, indicador de datos viejos |
 | 8. Presentación y PDF | Hecha | `services/presentation.py`, `services/pdf.py` |
 | 9. Cortes automáticos | Hecha | `run_report_cutoffs --loop 300`, servicio `scheduler` |
-| 10. Endurecimiento | Hecha, con revisión adversarial | `docs/privacy-and-safeguarding.md`, encabezados, límites de intentos |
-| 11. Pulido visual | Hecha (3 rondas) | `docs/ux-review.md` |
+| 10. Endurecimiento | Hecha: revisión adversarial con 13 hallazgos confirmados, todos corregidos y cubiertos por pruebas | `events/tests/test_security_review.py`, `docs/privacy-and-safeguarding.md` |
+| 11. Pulido visual | Hecha (4 rondas) | `docs/ux-review.md` |
 | 12. Documentación | Hecha | Carpeta `docs/` |
 
 ## 8. Pendiente antes de usarlo con el campamento real

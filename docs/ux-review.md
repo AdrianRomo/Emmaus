@@ -2,7 +2,7 @@
 
 Las capturas se tomaron con Playwright 1.63 (Chromium), en `es-MX`, zona horaria America/Mexico_City, a 1440 px (escritorio), 834 px (tableta) y 390 px (móvil, densidad 2×). Los datos son **sintéticos**: el campamento lo genera `seed_camp_demo` y los nombres son combinaciones aleatorias de nombres y apellidos comunes. Ninguna persona real aparece.
 
-Hubo tres rondas: captura → crítica → cambios → nueva captura. Al final se incluyen los problemas que siguen abiertos.
+Hubo cuatro rondas: captura → crítica → cambios → nueva captura. La cuarta repitió todas las capturas después de la revisión de seguridad, contra el código final. Al final se incluyen los problemas que siguen abiertos.
 
 ## Pantallas actuales
 
@@ -100,6 +100,21 @@ Hubo tres rondas: captura → crítica → cambios → nueva captura. Al final s
 | Filtros de "Mis camperos" en una lista desplegable | Pestañas Todos / Sin entrevista / En curso / Completada con conteos |
 | Sin respaldo si falla la red | "Imprimir lista de respaldo" por coordinador, sin respuestas |
 | Cortes y datos en vivo se veían iguales | "Corte guardado: no cambia" y "En vivo" en la presentación |
+
+### Ronda 4: después de la revisión de seguridad
+
+Una revisión adversarial (ver `docs/privacy-and-safeguarding.md`) cambió lo que algunas pantallas pueden mostrar. Se volvieron a tomar todas las capturas contra el código final, en las tres medidas, sin desbordes ni errores de JavaScript.
+
+| Cambio visible | Por qué |
+|---|---|
+| La pantalla de devolución dice "¡Gracias!" sin el nombre del campero | La siguiente persona que se sienta no debe saber quién estuvo antes |
+| En revisión y detalle, las respuestas ocultas dicen solo "Confidencial"; las preguntas que dependen de una respuesta oculta no se listan | La sola presencia de una fila revelaba la respuesta oculta |
+| La sugerencia de seguimiento del coordinador solo usa respuestas que puede ver; la nota general explica que el equipo de cuidado recibirá lo confidencial | "Pidió apoyo en un área de su vida" revelaba una respuesta confidencial |
+| Los resúmenes de respuestas del pastor vienen del último corte y lo dicen ("Resumen del corte de las 02:00") | Las cifras en vivo permitían comparar antes y después de una persona |
+| La diapositiva de seguimiento indica de qué corte salen sus cifras, o "—" antes del primer corte | Mismo motivo, en el proyector |
+| La ficha de un integrante solo ofrece "Generar enlace" a cuentas que nunca crearon contraseña; las demás ven "¿Olvidaste tu contraseña?" | Evita tomar cuentas ajenas |
+| "¿Olvidaste tu contraseña?" en la pantalla de entrada | El enlace llega al correo de la persona, no a la administración |
+| Conteos de las pestañas separados de su etiqueta ("Todos 34") | En la captura se veía "Todos34" |
 
 ## Problemas abiertos
 

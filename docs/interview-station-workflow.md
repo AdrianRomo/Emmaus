@@ -56,9 +56,9 @@ On start, each newly confirmed item becomes a `ConsentRecord`: guardian authoriz
 3. `hand_over_to_participant` verifies the claim, closes any older capture session, creates a `ParticipantSession` (random token, only its hash stored; expires in 60 minutes), sets a 60-minute claim whose raw token is kept only in the kiosk session, sets mode `supervisada`, audits `captura_iniciada`, then **calls `logout()`**. The browser keeps only `session["kiosk"]`.
 4. The campero sees "Hola, {nombre}", three reassurances and "Empezar". Steps look like the coordinador's, with "Terminar por ahora" in the top bar and "Tus respuestas se guardan cada vez que avanzas." Answers are stored with `answered_by_participant=True`.
 5. "Revisa tus respuestas" (all their answers, with "Cambiar") → "Terminar". The session moves to `por_desbloquear`.
-6. The campero sees "¡Gracias, {nombre}! Ya terminaste. Avisa a tu coordinador para que recupere la computadora." and the button "Soy coordinador: recuperar la computadora".
+6. The campero sees "¡Gracias!" and "Ya terminaste. Avisa a tu coordinador para que recupere la computadora." (no name, so the next person to sit down does not see who was there), and the button "Soy coordinador: recuperar la computadora".
 7. "Recuperar la computadora": the coordinador types their password (or "Soy otro coordinador" to use another account's e-mail). On success the browser is logged in again, the claim is handed back, and the coordinador lands on the review screen: "Recuperaste la computadora. Revisa y finaliza la entrevista."
-8. On review, confidential rows show "Respuesta confidencial registrada" and cannot be changed. The coordinador chooses the follow-up decision and finalizes.
+8. On review, confidential rows show only "Confidencial" and cannot be changed; conditional questions that depend on a confidential answer are not listed. The coordinador chooses the follow-up decision and finalizes.
 
 ```mermaid
 sequenceDiagram
@@ -88,7 +88,8 @@ sequenceDiagram
     S-->>B: Gracias screen
     C->>B: Soy coordinador, password
     B->>S: POST /estacion/desbloquear/
-    S->>S: authenticate, resolve_access, can_interview (5 failures then 60 s wait)
+    S->>DB: count the attempt in AuthThrottle under a row lock (6th attempt in 15 min blocks 60 s)
+    S->>S: authenticate, resolve_access, can_interview
     S->>DB: close ParticipantSession (desbloqueada), hand claim to coordinador
     S->>S: login() rotates the session key
     S-->>B: redirect to entrevistas/{id}/revision/
@@ -123,19 +124,25 @@ sequenceDiagram
 
 ## Unlock
 
-`kiosk_unlock` authenticates the password of the coordinador who handed over the computer, or of the e-mail typed after "Soy otro coordinador". The account must resolve to a role that `can_interview` this campero: the assigned coordinador or an administrador. Failed attempts are counted in the kiosk session: after 5 failures there is a 60-second wait ("Demasiados intentos. Espera N segundos e inténtalo otra vez."), then the counter resets. The counter is per browser session and is not protected against parallel requests.
+`kiosk_unlock` authenticates the password of the coordinador who handed over the computer, or of the e-mail typed after "Soy otro coordinador". The account must resolve to a role that `can_interview` this campero: the assigned coordinador or an administrador.
+
+* A capture session that was already closed (revoked from "Sesiones abiertas", taken over, or unlocked) cannot be unlocked: the browser is released to "No hay una entrevista abierta en esta computadora" and the original end reason is kept.
+* Attempts are limited in the database (`events/services/throttle.py`, key `unlock:<ParticipantSession id>`), not in the browser session, so clearing cookies or sending requests in parallel does not give more tries. Each attempt is counted under a row lock before the password is checked. Five attempts are allowed within 15 minutes; the sixth is refused and starts a 60-second block ("Demasiados intentos. Espera N segundos e inténtalo otra vez."). After the block the count starts again. A successful unlock clears the counter.
+* The staff login page has its own limit: 8 attempts per typed e-mail within 15 minutes, then 5 minutes blocked. There is no per-IP limit.
 
 ## Review, finalize and the follow-up decision
 
-* "Sugerencia según sus respuestas" lists deterministic hints from options marked `suggests_follow_up` ("Pidió hablar con un líder", "Pidió apoyo en un área de su vida", "Tomó una decisión espiritual"), with "Tú decides. Emmaus solo te recuerda lo que el campero pidió." If there are hints, "Se requiere seguimiento" is preselected.
+* "Sugerencia según sus respuestas" lists deterministic hints from options marked `suggests_follow_up` in **non-confidential questions the coordinador can read**: "Pidió hablar con un líder", "Tomó una decisión espiritual". It says "Tú decides. Emmaus solo te recuerda lo que el campero pidió." If there are hints, "Se requiere seguimiento" is preselected.
 * Choices: "Se requiere seguimiento", "No se requiere seguimiento", "Seguimiento pendiente de evaluación". One is mandatory.
-* `finalize` is idempotent, checks claim and revision, refuses if a visible required question is empty, marks the interview and campero "Completada", clears the claim, closes capture sessions and creates one care `FollowUp` when the decision is "required" (reason taken from the first hint, else "A criterio del coordinador").
+* `finalize` is idempotent, checks claim and revision, refuses if a visible required question is empty, marks the interview and campero "Completada", clears the claim and closes capture sessions. Then:
+  * if the decision is "required", it creates one ordinary care `FollowUp` (reason from the first hint, else "A criterio del coordinador");
+  * independently of the decision, if the campero chose a support option in a confidential question, it creates one **confidential** care referral ("Pidió apoyo en un área de su vida", `confidential=True`, no creator) that only members with confidential access can see.
 * "Entrevista completada" offers "Continuar con otro campero" and shows how many are left.
-* An interview left "pendiente de evaluación" can be resolved later on its detail page with "Sí requiere seguimiento" / "No requiere seguimiento".
+* An interview left "pendiente de evaluación" can be resolved later, once, on its detail page with "Sí requiere seguimiento" / "No requiere seguimiento". After that the decision cannot be changed ("El seguimiento de esta entrevista ya se decidió.").
 
 ## Corrections
 
-On a completed interview, the assigned coordinador or an administrador sees "Corregir" next to each answer they can read. The correction screen asks "¿Por qué corriges esta respuesta?" (required). `correct_step` checks permission and revision, then for every value that actually changed stores an `AnswerRevision` with the previous option codes or text, the reason, who and when. It increments `correction_count` and audits `entrevista_corregida` (count only, no content). A correction never creates a second interview, so the metrics do not double count. The "Historial de correcciones" list is shown to administrators and `can_view_sensitive` users.
+On a completed interview, the assigned coordinador or an administrador sees "Corregir" next to each answer they can read. The correction screen asks "¿Por qué corriges esta respuesta?" (required). `correct_step` checks permission and revision, then for every value that actually changed stores an `AnswerRevision` with the previous option codes or text, the reason, who and when. It increments `correction_count` and audits `entrevista_corregida` (count only, no content). A correction never creates a second interview, so the metrics do not double count. The "Historial de correcciones" list (question, date, who, reason; previous values are stored but not shown) is visible only to members with confidential access.
 
 ## Discard
 
@@ -146,6 +153,8 @@ On a completed interview, the assigned coordinador or an administrador sees "Cor
 "Reportar una situación de riesgo" (review screen, campero page) first shows "Primero, actúa" with the event's safeguarding instructions, then "¿Qué pasó?" and "Enviar reporte". See `privacy-and-safeguarding.md`.
 
 ## Load and concurrency testing
+
+The Python suite has 168 tests (`core/tests.py` and `events/tests/`), including `events/tests/test_security_review.py`, which keeps every finding of the adversarial security review fixed (kiosk confinement, unlock limits, take-over killing the kiosk, hidden-row inference, released aggregates and others). `e2e/station-flow.mjs` is a Playwright browser check of the assisted and supervised flows against a running server with demo data.
 
 **Threaded PostgreSQL tests** (`events/tests/test_concurrency.py`, skipped on SQLite):
 
@@ -175,6 +184,7 @@ How to repeat it is in `deployment.md`.
 
 ## Known limitations
 
+* The "Entrevista completada" screen shows "Se registró un seguimiento: ..." for the first non-cancelled care follow-up of the interview, without excluding the confidential referral (`interview_done` in `events/views/interview.py`). After a supervised capture in which the campero asked for support in a confidential question, the coordinador can therefore read "pidió apoyo en un área de su vida" there, even if they chose "No se requiere seguimiento".
 * After recovering the computer the coordinador must pick the station again.
 * An interview started in "Captura supervisada" but never handed over (for example after "Cancelar" then "No, volver a la entrevista") continues in coordinador screens with mode `supervisada`; confidential steps then bounce to the review with "Esa pregunta es confidencial y la respondió el campero." There is no link back to the hand-over screen.
 * The review screen's "Guardar y salir" always links to the coordinador home, which administrators cannot open.

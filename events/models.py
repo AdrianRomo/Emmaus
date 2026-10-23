@@ -757,6 +757,7 @@ class FollowUp(models.Model):
     confidential = models.BooleanField(
         "Solo para el equipo de cuidado",
         default=False,
+        db_default=False,  # older code (rolling deploys) can still insert follow-ups
         help_text="Se creó a partir de respuestas confidenciales: solo lo ve el equipo con acceso confidencial.",
     )
     assigned_to = models.ForeignKey(

@@ -42,6 +42,8 @@ Camperos are `EventParticipant` rows, not users. In supervised capture the brows
 | Create an event ("Crear campamento") | Only superusers and church admins | No | No | No | No |
 | Event settings, confirm procedures, computers | Yes | No | No | No | No |
 | Add or edit team members, assign tutors | Yes | No | No | No | No |
+| "Generar enlace" (password-set link for someone else) | Only for accounts that never set a password, are not staff or superuser, and have no role in another church; audited | No | No | No | No |
+| Grant "Puede leer información confidencial" | To other people only | No | No | No | No |
 | "Equipo" page | Yes | Read only | No | No | No |
 | Register a campero | Yes (any coordinador) | No | No | Own (assigned to self) | No |
 | Import CSV, download the campero list | Yes | No | No | No | No |
@@ -55,10 +57,13 @@ Camperos are `EventParticipant` rows, not users. In supervised capture the brows
 | Finalize, choose follow-up decision | Yes | No | No | Own | No |
 | Discard an interview in progress | Yes | No | No | Own | No |
 | Correct a completed interview | Yes | No | No | Own | No |
+| Decide a "pendiente de evaluación" follow-up (once) | Yes | No | No | Own | No |
+| "Historial de correcciones" | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | No |
 | Read answers | Field rules below | Field rules below | Field rules below | Field rules below | Own answers while capturing |
 | Follow-up list | Whole event | Whole event | Team | Own | No |
 | Update a care follow-up (status, leader) | Yes | Yes | Team | Own | No |
 | Read follow-up details and closing notes | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | No |
+| Confidential support referrals (created from confidential answers) | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | No |
 | Report a safety concern | Yes | Yes | Team | Own | No |
 | See and update safety reports | Yes (details only with `can_view_sensitive`) | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | No |
 | Live home | "Inicio" | "Resumen general" | "Mi equipo" | "Mi inicio" | No |
@@ -86,8 +91,10 @@ Each question has a sensitivity level (`Question.sensitivity`). `EventAccess.can
 
 Consequences:
 
-* In supervised capture the coordinador never sees confidential answers, not even on the review screen ("Respuesta confidencial registrada").
+* In supervised capture the coordinador never sees confidential answers, not even on the review screen.
 * After an assisted interview is finalized, the coordinador can no longer read the confidential answers they typed.
+* Hidden values do not leak through the layout (`review_rows`). A row the viewer cannot read shows only "Confidencial", the same whether or not it was answered. A conditional question whose controlling answer the viewer cannot read is not listed at all, because its presence would reveal that answer. The page then says "Algunas respuestas solo las puede leer el equipo de cuidado autorizado." (detail) or, on the coordinador's review, that the campero answered some confidential questions on their own and that the care team will learn of any request for support.
+* Follow-up hints on the review screen ("Sugerencia según sus respuestas") are computed only from non-confidential questions the coordinador can read.
 * In the default questionnaire every question is `sensible` or `confidencial`. Tutors and pastors without `can_view_sensitive` therefore see no individual answers, only that a row exists.
 * A correction is allowed only for questions the corrector can read now, so a coordinador cannot correct a confidential answer.
 * The kiosk review screen shows the campero all of their own answers.
@@ -97,9 +104,11 @@ Consequences:
 
 `EventAccess.can_view_sensitive` is true only when the user has an **active** `EventMembership` in this event with `can_view_sensitive=True`. Being an administrador or a pastor is not enough. A church admin or pastor who needs it must be added to the event team ("Agregar persona al equipo") with "Puede leer información confidencial" checked.
 
-Administrators grant and remove the flag (including on their own membership). Every change is audited as `acceso_confidencial`. It grants:
+Administrators grant and remove the flag. Nobody can grant it to themselves: checking it on your own membership, or adding yourself with it, fails with "Otra persona de la administración debe otorgarte este acceso." Every change is audited as `acceso_confidencial`. It grants:
 
 * `sensible` and `confidencial` answers of every campero the user can see;
+* the correction history of interviews;
+* confidential support referrals and the "Solicitudes de apoyo confidenciales abiertas" count;
 * follow-up details and closing notes ("Nota de cierre (confidencial)");
 * reading and managing safety reports;
 * the "Situaciones de riesgo abiertas" figure in dashboards and PDFs (administrators also see this figure without the flag);
@@ -110,6 +119,7 @@ Administrators grant and remove the flag (including on their own membership). Ev
 `EventAccess.follow_ups()` is scoped through the camperos the user can see. Then:
 
 * **Care follow-ups** (`kind=seguimiento`) are listed for everyone in scope. Administrators, pastors, tutors, the assigned coordinador and anyone with `can_view_sensitive` can change status and leader. The closing note field is shown only to users with `can_view_sensitive`.
+* **Confidential support referrals** (`kind=seguimiento`, `confidential=True`) are created by `finalize` when the campero selected a support option (one marked "Sugiere seguimiento") in a confidential question, whatever follow-up decision the coordinador chose. The reason is always "Pidió apoyo en un área de su vida", never which area. They are visible only to users with `can_view_sensitive`, administrators included, and they are left out of the ordinary follow-up counts.
 * **Safety reports** (`kind=seguridad`) are listed only for users with `can_view_sensitive`, for administrators, and for the person who created the report. Only `can_view_sensitive` users and administrators can update them. Only `can_view_sensitive` users can read the details. An administrator without the flag sees that a report exists and can assign it, but not what it says.
 * E-mail alerts for a new safety report go to active members with `can_view_sensitive`, active members with role `administrador` and the church's `church_admin` users. The message has no names or details.
 
@@ -117,8 +127,7 @@ Administrators grant and remove the flag (including on their own membership). Ev
 
 * `report_scopes()`: administrators and pastors get `evento` plus one `equipo:<tutor id>` per tutor; a tutor gets only their own `equipo:<id>`; coordinadores get none.
 * **Access to a saved cutoff uses the viewer's current scope.** `can_view_snapshot` checks the snapshot's `scope_key` against `report_scopes()` at the time of the request. A tutor removed from the event, or moved to another team, loses access to the old team's cutoffs. Having been able to see a report once grants nothing later.
-* The scope check is on the key only. A team cutoff still shows the coordinadores who were on the team when it was generated, even if they have since moved.
-* The stored payload is trimmed per viewer (`visible_payload`): the safety figure is removed unless the viewer is an administrador or has `can_view_sensitive`, and outcome aggregates are removed unless the viewer is an administrador or pastor. The PDF is built from the trimmed payload.
+* The stored payload is trimmed per viewer (`visible_payload`): the safety and confidential-referral figures are removed unless the viewer is an administrador or has `can_view_sensitive`; answer aggregates are shown only to administradores and pastores, and only as released values; a tutor sees only the rows of coordinadores currently assigned to them, even in an older cutoff. The PDF is built from the trimmed payload.
 
 ## Revoking access
 
@@ -130,6 +139,8 @@ Administrators grant and remove the flag (including on their own membership). Ev
 | An interview held by another computer | "Sesiones abiertas" → "Liberar", or the coordinador's own "Tomar el control aquí" | The claim is cleared or replaced; the old computer can no longer save |
 | A person everywhere | Deactivate the Django user (Django admin) | Inactive users are anonymous on their next request |
 
+Passwords: a person who already has a password uses "¿Olvidaste tu contraseña?" on the login page; the link goes only to their own e-mail. "Generar enlace" on the member page is offered only for accounts created from an event team that never set a password, are not staff or superuser, and have no role or membership in another church. Generating it is audited.
+
 Limits of membership deactivation:
 
 * It does not remove access that comes from `core`. A church `pastor` whose membership is deactivated still resolves as **Pastor** through the church role, and a church admin or superuser is always Administrador. The "Sesiones abiertas" page says "quítale el acceso desde Equipo. Su sesión deja de funcionar de inmediato", which is not true for those users. Remove their `UserChurchRole` or deactivate the user instead.
@@ -137,6 +148,6 @@ Limits of membership deactivation:
 
 ## Known gaps
 
-* Administrators can add any existing user to the event by e-mail and then generate a password-set link for that user ("Generar enlace" on the member page). This is not limited to users they created. See the issues list delivered with these docs.
-* Field visibility hides values but not structure. A viewer who cannot read a confidential answer can still tell whether it was answered, and whether a conditional follow-up question exists, because rows are listed. Follow-up suggestions on the review screen ("Pidió apoyo en un área de su vida") come from confidential answers.
-* Changes made in the Django admin (for example to `EventMembership.can_view_sensitive`) are not written to the activity log.
+* Administrators without confidential access still see that a safety report exists (and can assign it), though not what it says.
+* Administrators can add any existing account to their event by e-mail. That account does not get a password link from them (see above), but it does get the role.
+* Changes made in the Django admin (for example to `EventMembership.can_view_sensitive`) are not written to the activity log. `/admin/` is a technical back office for superusers.

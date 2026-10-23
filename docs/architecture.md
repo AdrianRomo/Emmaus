@@ -21,7 +21,7 @@ Emmaus is a single Django 5.2 project (`emmaus/`) with two apps, server-rendered
 
 * `Church` and `UserChurchRole` (one role per user per church: `church_admin`, `pastor`, `mentor`, `participant`).
 * The discipleship module: `Invitation`, `ParticipantProfile`, `DiscipleshipPath`, `Lesson`, `ReflectionQuestion`, `Enrollment`, `LessonProgress`, `ReflectionAnswer`, `ParticipantQuestion`, `QuestionResponse`, `FollowUpRequest`, `PastoralNote`, `AIDraft`.
-* First-run setup (`/setup/`, only while no `Church` exists), login by email (`/cuenta/entrar/`), `/health/`.
+* First-run setup (`/setup/`, only while no `Church` exists), `/health/`, and the account pages wired in `emmaus/urls.py`: login by e-mail with an attempt limit (`core.views.ThrottledLoginView`, `/cuenta/entrar/`), "¿Olvidaste tu contraseña?" (`/cuenta/olvide-mi-contrasena/`, Django's password reset, e-mail to the account owner) and the password-set page (`/cuenta/contrasena/<uidb64>/<token>/`).
 
 `Church.discipleship_enabled` only controls whether administrators see a "Discipulado" link in the event sidebar (`templates/events/shell_rail.html`). The core views do not check it, so the discipleship URLs stay reachable for users with a church role.
 
@@ -35,7 +35,7 @@ Layout:
 
 * `events/models.py`: all tables (below).
 * `events/access.py`: `EventAccess`, `resolve_access`, `accessible_events`. Every authorization decision lives here.
-* `events/services/`: `interviews.py` (lifecycle, claims, kiosk), `questionnaire.py` (steps, conditions, versions), `metrics.py` (payload builder), `reports.py` (cutoffs), `presentation.py` (privacy serializer), `pdf.py`, `participants.py` (registration, CSV import, erasure), `audit.py`, `notifications.py`.
+* `events/services/`: `interviews.py` (lifecycle, claims, kiosk), `questionnaire.py` (steps, conditions, versions), `metrics.py` (payload builder), `reports.py` (cutoffs and released aggregates), `presentation.py` (privacy serializer), `pdf.py`, `participants.py` (registration, CSV import, erasure), `throttle.py` (database-backed attempt limits), `audit.py`, `notifications.py`.
 * `events/views/`: thin views per area (`home`, `coordinator`, `interview`, `kiosk`, `dashboards`, `reports`, `admin`).
 * `events/urls.py` is mounted at `/eventos/`; `events/kiosk_urls.py` at `/estacion/`.
 * `events/middleware.py`: shared-computer protections.
@@ -127,6 +127,14 @@ erDiagram
         string state
         datetime expires_at
     }
+    FOLLOW_UP {
+        string kind
+        string status
+        string reason
+        bool confidential
+        text details
+        text resolution_note
+    }
     REPORT_SNAPSHOT {
         uuid public_id UK
         string scope_key
@@ -135,13 +143,23 @@ erDiagram
         datetime cutoff_at
         json data
     }
+    AUTH_THROTTLE {
+        string key UK
+        int attempts
+        datetime window_started_at
+        datetime blocked_until
+    }
 ```
+
+`AUTH_THROTTLE` has no foreign keys: its `key` is `login:<e-mail typed>` or `unlock:<ParticipantSession public_id>`.
 
 Notes on the model:
 
 * `EventParticipant.interview_status` (`pendiente`, `en_curso`, `completada`) is a denormalized copy of the live interview state. It is updated inside the same transaction as the interview and is what the metrics count.
 * `QuestionnaireVersion` is immutable once published: `Section`, `Question` and `QuestionOption` raise `ImmutableRecordError` on save or delete unless the version is a draft. Each `Interview` points at the version it was started with, so editing means "duplicate as a new draft, publish, then use it for new interviews".
 * `ReportSnapshot` refuses `save()` and `delete()` once its status is `listo`. Queryset deletes and cascades (deleting the `Event`) bypass this guard.
+* `FollowUp.confidential` marks a care referral created automatically from a confidential answer; only members with confidential access see it (see `roles-and-permissions.md`).
+* A snapshot's `data` holds the full metrics payload plus a `released` block: the follow-up counts and per-option answer counts as last released (they only change when a count moves by at least the minimum group size; see `reporting.md`).
 * `AuditEvent` never stores answer contents.
 
 ## Request flow
@@ -163,7 +181,8 @@ Nothing in a URL, form or query string can widen what a user sees:
 * `interviews()` and `follow_ups()` are filtered through `participants(include_inactive=True)`. Object lookups use these querysets, so an ID from another team or another event returns 404 or 403.
 * Filters (`?coordinador=`, `?cuarto=`, `?estado=`) are applied after scoping, so they can only narrow results.
 * Answer visibility is per field (`can_view_answer`, see `roles-and-permissions.md`).
-* Report snapshots are filtered by the scope keys the viewer may read today (`report_scopes()`), and the stored payload is trimmed per viewer (`visible_payload`).
+* Report snapshots are filtered by the scope keys the viewer may read today (`report_scopes()`), and the stored payload is trimmed per viewer (`visible_payload`): a tutor sees only the coordinadores currently assigned to them, even in an older team cutoff.
+* Redirect targets taken from the request (`?siguiente=`) go through `safe_next()` (`url_has_allowed_host_and_scheme`), so only same-site paths are followed.
 
 ## Concurrency model
 
@@ -173,9 +192,10 @@ Ten interview computers can work at once on the same event. The guarantees rely 
 * **Row locks on every write.** `save_step`, `finalize`, `discard`, `claim`, `correct_step`, `update_follow_up_decision`, hand-over, unlock and revocation all run in `transaction.atomic()` with `select_for_update()` on the interview row.
 * **Claims.** The editing browser holds a claim: `secrets.token_urlsafe(32)`. Only its SHA-256 (`lock_token_hash`) is stored on the row, with `lock_holder` and `lock_expires_at`. The raw token lives in the server-side (database-backed) Django session under `interview_claims` (the last 8 claims). Writes compare with `secrets.compare_digest`. A claim lasts 15 minutes (`CLAIM_MINUTES`) and is extended by each staff save; a kiosk claim lasts 60 minutes. Taking over an active claim is explicit and audited.
 * **Optimistic revision.** Each form posts the interview's `revision`. A mismatch raises `StaleRevision` and the page reloads with the newest data. Every save, finalize, correction and follow-up decision increments it.
-* **Idempotent finalize.** `finalize` returns a completed interview unchanged before any other check, so a double click or a browser retry changes nothing. The care follow-up is protected by the partial unique constraint `one_open_care_follow_up_per_interview` (`kind='seguimiento'` and `status <> 'cancelado'`).
+* **Idempotent finalize.** `finalize` returns a completed interview unchanged before any other check, so a double click or a browser retry changes nothing. Care follow-ups are protected by the partial unique constraint `one_open_care_follow_up_per_interview` on `(interview, confidential)` where `kind='seguimiento'` and `status <> 'cancelado'`: at most one ordinary and one confidential referral per interview.
 * **Participant numbers.** `_next_number` locks the `Event` row before computing `max(number) + 1`; `participant_number_per_event` is unique.
-* **Cutoffs.** The unique constraint `one_snapshot_per_cutoff` makes concurrent scheduler runs harmless.
+* **Cutoffs.** The unique constraint `one_snapshot_per_cutoff` makes concurrent scheduler runs harmless. Manual cutoffs lock the `Event` row and return a manual cutoff of the same scope created in the last 60 seconds instead of making a new one.
+* **Attempt limits.** `throttle.consume()` counts an attempt in `AuthThrottle` under `SELECT ... FOR UPDATE` **before** the password is checked, so parallel requests and several gunicorn workers share one counter. Used for login (8 attempts, then 5 minutes blocked) and kiosk unlock (5 attempts, then 60 seconds blocked); see `interview-station-workflow.md`.
 * **Front end.** `emmaus.js` ignores a second submit of the same form for 8 seconds.
 
 `events/tests/test_concurrency.py` runs four threaded tests against real PostgreSQL row locks: ten stations starting and finishing in parallel, five threads racing for the same campero (exactly one wins), four simultaneous finalizes (one follow-up, one completion), and ten parallel registrations (unique numbers). See `interview-station-workflow.md` for the HTTP load test.
@@ -194,6 +214,8 @@ Polling pauses while the tab is hidden or while focus is inside the region. Each
 
 Each poll counts as activity for `StaffIdleLogoutMiddleware`, so a visible dashboard left open is not logged out by the idle timer.
 
+Live payloads contain operational counts only. Answer aggregates are never computed for a live view: the pastor home shows those of the latest saved event cutoff, and the presentation's follow-up tiles use the latest cutoff of its scope.
+
 ## PDF, static files and fonts
 
 * **PDF:** `events/services/pdf.py` builds the cutoff PDF with ReportLab (pure Python, no system packages), using `events/fonts/Atkinson-*.ttf` and `Literata-*.ttf`. The PDF is built from the viewer-trimmed payload.
@@ -209,9 +231,11 @@ Each poll counts as activity for `StaffIdleLogoutMiddleware`, so a visible dashb
 | `core/0002_church_theme_accent_color_and_more` | Church theme colour fields |
 | `core/0003_church_custom_theme_enabled_and_more` | Adds `Church.custom_theme_enabled` and `Church.discipleship_enabled` (both default `False`); label/help-text changes |
 | `core/0004_preserve_existing_churches` | Data migration: sets `discipleship_enabled=True` for every church that already has a `DiscipleshipPath`, and sets `is_active=False` on `participant@example.org`. Reverse is a no-op |
+| `core/0005_alter_aidraft_options_alter_church_options_and_more` | Spanish `verbose_name` options only; no schema change |
 | `events/0001_initial` | All camp tables, constraints and indexes. Depends on `core/0003` |
+| `events/0002_security_review` | Adds `AuthThrottle`, adds `FollowUp.confidential` (default `False`) and widens the care follow-up constraint to `(interview, confidential)` |
 
-Existing churches and discipleship data are not modified apart from `0004`. The camp module adds new tables only. `makemigrations --check` reports no pending changes.
+Existing churches and discipleship data are not modified apart from `0004`. The camp module adds new tables and columns only. `makemigrations --check` reports no pending changes.
 
 ## Indexes and constraints
 
@@ -226,9 +250,10 @@ Existing churches and discipleship data are not modified apart from `0004`. The 
 | `Interview` | partial `(participant)` where not discarded, `public_id` | `(event, status)`, `(event, completed_at)`, `(conducted_by, status)` |
 | `Answer` | `(interview, question)` | |
 | `ParticipantSession` | `public_id` | `(state, expires_at)` |
-| `FollowUp` | partial `(interview)` for non-cancelled care follow-ups | `(event, kind, status)` |
+| `FollowUp` | partial `(interview, confidential)` for non-cancelled care follow-ups | `(event, kind, status)` |
 | `ReportSnapshot` | `(event, scope_key, cutoff_at, trigger)`, `public_id` | `(event, scope_key, -cutoff_at)` |
 | `AuditEvent` | | `created_at`, `(event, -created_at)`, `(action, -created_at)` |
+| `AuthThrottle` | `key` | |
 
 Name search uses `normalized_name LIKE '%...%'`, which cannot use the B-tree index. That is fine at camp sizes (the CSV import accepts up to 1500 rows per file).
 

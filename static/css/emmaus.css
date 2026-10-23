@@ -757,3 +757,4 @@ details > summary { cursor: pointer; color: var(--pine); font-weight: 650; min-h
 .print-notes { min-width: 10rem; }
 @media print { .print-sheet { padding: 0; } .print-group { break-inside: auto; } .table th, .table td { padding: 4px 6px; } }
 .mt-0.mb-6 { margin-bottom: var(--s-6); }
+.tab-link { gap: 0.4em; }

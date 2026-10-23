@@ -10,12 +10,13 @@ Emmaus Campamentos records spiritual and personal conversations with camperos, m
 | `ConsentRecord` | Kind (guardian authorization, consent, assent), status, method (paper, verbal, digital), who recorded it, when, notes | Same as the campero (latest records on the campero page) |
 | `Interview` | Mode, status, who conducted it, station, timestamps, follow-up decision, correction count, discard reason | Same as the campero |
 | `Answer` | The answers: selected options and free text | Per field, by sensitivity (below) |
-| `AnswerRevision` | Previous value of a corrected answer, reason, who | Previous values are stored but not displayed; the history list (question, date, who, reason) is visible to administradores and `can_view_sensitive` users |
-| `FollowUp` | Reason, status, assigned leader, confidential details (safety reports), confidential closing note | Care follow-ups: everyone in scope; details and notes: only `can_view_sensitive`. Safety reports: see below |
+| `AnswerRevision` | Previous value of a corrected answer, reason, who | Previous values are stored but not displayed; the history list (question, date, who, reason) is visible only to `can_view_sensitive` users |
+| `FollowUp` | Reason, status, assigned leader, confidential details (safety reports), confidential closing note, `confidential` flag | Ordinary care follow-ups: everyone in scope; confidential support referrals: only `can_view_sensitive`; details and notes: only `can_view_sensitive`. Safety reports: see below |
 | `ParticipantSession` | Which interview and station, who handed over, token hashes, timestamps | Administradores ("Sesiones abiertas") |
 | `EventMembership`, `TutorAssignment` | Staff name and e-mail (from `User`), role, team name, confidential-access flag | Administradores; pastores see the "Equipo" page |
 | `ReportSnapshot` | Aggregate counts, team labels, coordinador names; no campero names, no answers | Administradores, pastores, tutores (own team) |
 | `AuditEvent` | Who did what and when; campero numbers (for example "#0042"), staff names; never answer contents | Administradores ("Registro de actividad") |
+| `AuthThrottle` | The e-mail typed at login (as part of the key) and attempt counts; kiosk unlock counters keyed by capture session | Server operators only |
 | Django sessions (database) | Login, current station, interview claim tokens, kiosk token, and during a CSV import the preview rows (names, ages, rooms) until confirmed or cancelled | Server operators only |
 
 Camperos have no accounts and no e-mail or phone fields.
@@ -32,7 +33,11 @@ Each question has a level, set in the questionnaire editor ("Nivel de privacidad
 
 In the default questionnaire, "¿Te consideras salvo?", "¿Tienes dudas acerca de tu fe?", "¿Tomaste alguna decisión espiritual...?" and the orientation question are `sensible`. The doubts detail, "¿Hay alguna situación en tu vida en la que te gustaría recibir apoyo?", its detail, and "¿Hay algo que te impida dar el siguiente paso en tu fe?" are `confidencial`. No question is `general`.
 
-Confidential access (`can_view_sensitive`) is never automatic: administradores and pastores do not get it by role. It is granted per event, per person, and each grant or removal is audited. Each time someone opens an interview showing answered confidential questions, or a follow-up with details, an audit row `consulta_confidencial` is written.
+Confidential access (`can_view_sensitive`) is never automatic: administradores and pastores do not get it by role. It is granted per event, per person, by another administrador (nobody can grant it to themselves), and each grant or removal is audited. Each time someone opens an interview showing answered confidential questions, or a follow-up with details, an audit row `consulta_confidencial` is written.
+
+Hidden answers are also hidden in the page structure: a row the viewer cannot read shows only "Confidencial" (answered or not), conditional questions that depend on a hidden answer are not listed, and the coordinador's follow-up hints use only questions they can read.
+
+When a campero selects a support area in a confidential question (in the default questionnaire, "¿Hay alguna situación en tu vida en la que te gustaría recibir apoyo?"), finalizing the interview creates a confidential care referral, "Pidió apoyo en un área de su vida", visible only to the care team. It is created whatever the coordinador decided, so a request made in private does not depend on someone who could not read it.
 
 The interview screens show "Confidencial: solo el equipo de cuidado autorizado podrá leerla" on confidential questions, and every question offers "Prefiero no responder".
 
@@ -63,7 +68,7 @@ On the campero page, administradores see:
 * "Descargar todos sus datos" (only with confidential access): a JSON file with the registry data, the interview status and version, every answer as question and text, and the authorization records. Audited as `exportacion`.
 * "Eliminar sus datos": requires typing the full name, then deletes the campero with their interview, answers, authorizations and follow-ups. Audited as `campero_eliminado` with the number only. Cutoffs are not changed.
 
-"Descargar lista de camperos" exports registry data only (no answers), as CSV, and is audited.
+"Descargar lista de camperos" exports registry data only (no answers), as CSV, and is audited. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return are prefixed with `'` so a spreadsheet does not run them as formulas.
 
 ## Activity log
 
@@ -73,6 +78,7 @@ On the campero page, administradores see:
 
 * New safety report: sent to the event's care team (members with confidential access, administradores and church administrators). Subject "Emmaus: reporte urgente en {evento}". The body says a report exists and asks them to log in; it has no names and no details.
 * New team member: a link to create their password. It contains the staff member's first name and the event name.
+* "¿Olvidaste tu contraseña?": Django's password reset e-mail ("Emmaus: crea una nueva contraseña"), sent only to the address of an existing active account that already has a password, with the person's first name and the link. Administrators cannot generate this link for accounts that already have a password.
 * No e-mail ever contains answers or campero names. A sending failure is logged (subject and error) and does not block the action; the new-member screen always shows the link to copy.
 
 ## No external AI in the camp module
@@ -97,15 +103,16 @@ Set on every non-static response by `PrivateResponseMiddleware` and Django setti
 
 ## Shared-computer protections
 
-* Supervised capture logs the coordinador out before the campero touches the computer. The browser is confined to `/estacion/` and holds only a random token for one interview. Recovering it needs a password, with a pause after 5 wrong attempts.
-* The campero sees only their own answers; the screen locks after 5 minutes idle in the browser, 10 minutes on the server, 60 minutes at most.
+* Supervised capture logs the coordinador out before the campero touches the computer. The browser is confined to `/estacion/` and holds only a random token for one interview. Recovering it needs a password; attempts are counted in the database (5 in 15 minutes, then a 60-second block), so clearing cookies or parallel requests do not help. A capture session closed by an administrador cannot be unlocked.
+* The campero sees only their own answers; the screen locks after 5 minutes idle in the browser, 10 minutes on the server, 60 minutes at most. The final screen says "¡Gracias!" without the campero's name.
+* The staff login allows 8 attempts per e-mail in 15 minutes, then blocks that e-mail for 5 minutes.
 * Staff logins end when the browser closes and after 30 minutes idle (`EMMAUS_IDLE_LOGOUT_SECONDS`). The stored session also expires 12 hours after its last change (`SESSION_COOKIE_AGE`), which in practice only matters for abandoned sessions. A dashboard left open keeps refreshing, and each refresh counts as activity, so close the session with "Cerrar sesión".
 * Only one computer can edit an interview at a time; "Tomar el control aquí" is explicit and audited.
 * The printable "Lista de respaldo" contains registry data only (no answers) and warns to keep it out of sight and destroy it afterwards.
 
 ## Small-group suppression
 
-Spiritual and support results are shown only as event-level totals, to administradores and pastores, rounded to multiples of the minimum group size and hidden below it; projected presentations never show them and suppress follow-up counts. Details and limits are in `reporting.md` ("Small-group suppression"). In short, rounding lowers but does not eliminate re-identification risk, and a result where everyone answered the same way is visible as such.
+Spiritual and support results are shown only as event-level totals, to administradores and pastores, and only from saved cutoffs, never live. Each cutoff stores a "released" value per cell that changes only when the underlying count moved by at least the minimum group size (k) since the previous release; the display then rounds to multiples of k and shows "Menos de k" for small counts and for zero. Projected presentations never show answer totals, and their follow-up tiles come from the latest cutoff's released values. Details are in `reporting.md` ("Small-group suppression"). The remaining risk: once k or more answers change, a new value is released at the next cutoff, so a group of k people can still be described.
 
 ## Safety escalation workflow
 
@@ -115,14 +122,44 @@ Spiritual and support results are shown only as event-level totals, to administr
 4. The report appears with an "Urgente" tag in "Seguimiento" for the care team (confidential access) and administradores, who assign a leader and update the status. Only confidential-access members read the details and the closing note.
 5. The reporter sees that the report exists but not its content.
 
+Confidential support referrals (created automatically, see above) are not urgent alerts and send no e-mail. The care team finds them in "Seguimiento" and as "Solicitudes de apoyo confidenciales abiertas" on "Resumen general".
+
 Emmaus is a record and a notification, not an emergency service. The app does not call anyone and does not check that the e-mail was read; the church's procedure must cover the human steps.
 
 ## Known limitations
 
-* Visibility rules hide values, not structure: someone without confidential access can see that a confidential question was answered, and the presence of a conditional follow-up question reveals the parent answer. Review-screen suggestions such as "Pidió apoyo en un área de su vida" come from confidential answers.
+* The "Entrevista completada" screen can show the coordinador "Se registró un seguimiento: pidió apoyo en un área de su vida." when the only (or newest) follow-up is the confidential referral, which after a supervised capture reveals that the campero asked for support in a confidential question. See `interview-station-workflow.md`.
 * Expired Django sessions stay in the database until `python manage.py clearsessions` is run; schedule it.
-* The Django admin (for superusers) can change memberships without writing to the activity log, and can delete activity-log rows.
+* The Django admin (`/admin/`) is a technical back office for superusers: it can change memberships without writing to the activity log and can delete activity-log rows.
 * Backups contain everything, including answers.
+
+## Revisión de seguridad
+
+El 23 de octubre de 2026 una revisión adversarial (alguien intentando romper las reglas a propósito) encontró y corrigió:
+
+* Toma de cuentas ajenas con enlaces para crear contraseña: ahora la administración solo puede generarlos para cuentas creadas en el evento que nunca han tenido contraseña; las demás usan "¿Olvidaste tu contraseña?", que llega al correo de la persona.
+* Deducir respuestas ocultas por las filas que aparecían (preguntas condicionales y "sin responder"); ahora esas filas no se listan o dicen solo "Confidencial".
+* Comparar cifras redondeadas entre cortes para aislar a una persona; ahora las cifras solo cambian cuando se mueven al menos k respuestas y solo salen de cortes guardados.
+* Sugerencias de seguimiento que revelaban respuestas confidenciales al coordinador.
+* Administradores que podían darse a sí mismos acceso confidencial.
+* Límite de intentos de desbloqueo que se podía saltar con solicitudes en paralelo o borrando cookies; ahora está en la base de datos.
+* Redirecciones a sitios externos (parámetro `siguiente`).
+* Fórmulas peligrosas en la lista de camperos descargada (CSV).
+* Asignaciones de tutor que se perdían al guardar un formulario incompleto o desactualizado.
+* Cortes antiguos que seguían mostrando a un tutor coordinadores que ya no son suyos.
+* Desbloqueo de una sesión de captura que la administración ya había cerrado.
+* Doble clic en "Generar corte ahora" que creaba dos cortes.
+* Un error 500 con un identificador inválido.
+
+`events/tests/test_security_review.py` comprueba cada uno de estos casos.
+
+Riesgos que siguen, dichos con honestidad:
+
+* No hay límite de intentos por dirección IP. El límite por correo también permite que alguien bloquee la cuenta de otra persona por 5 minutos.
+* Los resúmenes de respuestas se vuelven a publicar en cada corte en cuanto cambian al menos k respuestas.
+* La administración ve que existe un reporte de riesgo aunque no pueda leerlo.
+* `/admin/` de Django es una oficina técnica: quien es superusuario puede ver y cambiar datos sin pasar por las reglas de la aplicación.
+* El aviso de seguimiento en "Entrevista completada" descrito arriba.
 
 ## Antes de usar Emmaus con menores reales
 
