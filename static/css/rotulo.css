@@ -652,6 +652,8 @@ ol.promises li::before {
 .list-search .input { flex: 1; }
 .list-count { color: var(--ink-2); font-size: var(--t-small); margin-bottom: var(--s-2); }
 
+.pager { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); margin-top: var(--s-6); max-width: 52rem; }
+.pager__where { color: var(--ink-2); font-size: var(--t-small); }
 .choices--grid { grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); max-width: 52rem; }
 .narrow { max-width: var(--w-focus); }
 .heading .count { color: var(--ink-2); font-weight: 400; margin-left: var(--s-2); font-variant-numeric: tabular-nums; }

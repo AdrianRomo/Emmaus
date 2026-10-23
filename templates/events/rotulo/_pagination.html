@@ -1,0 +1,8 @@
+{% comment %}Pagination (Rótulo): previous / where you are / next. page = a Django Page; keeps the other query parameters.{% endcomment %}
+{% if page.has_other_pages %}
+<nav class="pager" aria-label="Páginas">
+  {% if page.has_previous %}<a class="btn btn--secondary btn--small" href="?{% for k, v in request.GET.items %}{% if k != 'pagina' %}{{ k }}={{ v|urlencode }}&amp;{% endif %}{% endfor %}pagina={{ page.previous_page_number }}">Anterior</a>{% else %}<span></span>{% endif %}
+  <p class="pager__where">Página {{ page.number }} de {{ page.paginator.num_pages }}</p>
+  {% if page.has_next %}<a class="btn btn--secondary btn--small" href="?{% for k, v in request.GET.items %}{% if k != 'pagina' %}{{ k }}={{ v|urlencode }}&amp;{% endif %}{% endfor %}pagina={{ page.next_page_number }}">Siguiente</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
