@@ -878,7 +878,7 @@ class AuthThrottle(models.Model):
 
     key = models.CharField(max_length=200, unique=True)
     attempts = models.PositiveIntegerField(default=0)
-    strikes = models.PositiveSmallIntegerField(default=0)
+    strikes = models.PositiveSmallIntegerField(default=0, db_default=0)
     window_started_at = models.DateTimeField(default=timezone.now)
     blocked_until = models.DateTimeField(null=True, blank=True)
 

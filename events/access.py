@@ -267,10 +267,13 @@ def accessible_events(user: User | AnonymousUser) -> QuerySet[Event]:
     church_ids = UserChurchRole.objects.filter(user=user, role__in=[Role.CHURCH_ADMIN, Role.PASTOR]).values_list(
         "church_id", flat=True
     )
+    admin_church_ids = UserChurchRole.objects.filter(user=user, role=Role.CHURCH_ADMIN).values_list("church_id", flat=True)
+    removed = EventMembership.objects.filter(user=user, is_active=False).values_list("event_id", flat=True)
     return (
         Event.objects.filter(
             Q(church_id__in=church_ids) | Q(memberships__user=user, memberships__is_active=True)
         )
+        .exclude(Q(id__in=removed) & ~Q(church_id__in=admin_church_ids))  # same rule as resolve_access
         .exclude(status=Event.Status.ARCHIVED)
         .distinct()
         .select_related("church")

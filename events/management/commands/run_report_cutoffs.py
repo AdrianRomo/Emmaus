@@ -24,6 +24,13 @@ class Command(BaseCommand):
         expired = ParticipantSession.objects.filter(
             state=ParticipantSession.State.ACTIVE, last_activity_at__lt=now - timezone.timedelta(minutes=KIOSK_IDLE_MINUTES)
         ).update(state=ParticipantSession.State.AWAITING_UNLOCK, end_reason=ParticipantSession.EndReason.EXPIRED)
+        # A computer left waiting for its coordinator stops accepting unlock attempts after 3 hours;
+        # the interview stays in progress and is resumed after a normal login.
+        expired += ParticipantSession.objects.filter(
+            created_at__lt=now - timezone.timedelta(hours=3)
+        ).exclude(state=ParticipantSession.State.CLOSED).update(
+            state=ParticipantSession.State.CLOSED, ended_at=now, end_reason=ParticipantSession.EndReason.EXPIRED
+        )
         snapshots = run_due_cutoffs(now)
         from importlib import import_module
 

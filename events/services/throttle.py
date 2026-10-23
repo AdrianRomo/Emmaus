@@ -46,7 +46,7 @@ def consume(key: str, *, limit: int, window_seconds: int, block_seconds: int, ma
                 return 0
         except IntegrityError:  # two first attempts raced to create the row; retry once
             continue
-    return 0
+    return block_seconds  # fail closed: if the counter cannot be written, do not check the password
 
 
 def reset(key: str) -> None:

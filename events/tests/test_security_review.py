@@ -599,3 +599,41 @@ class SecondReviewTests(RefuterBase):
         response = self.client.get(self.url("pastor_home"), HTTP_X_REQUESTED_WITH="fetch")
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("login"), response["Location"])
+
+
+class ThirdReviewTests(RefuterBase):
+    def test_removed_pastor_is_not_sent_to_the_event(self):
+        from core.models import Role
+        from core.services import assign_role
+        from events.access import accessible_events
+
+        assign_role(self.pastor, self.church, Role.PASTOR)
+        self.m_pastor.is_active = False
+        self.m_pastor.save()
+        self.assertNotIn(self.event, accessible_events(self.pastor))
+        self.assertIn(self.other_event, accessible_events(self.pastor))
+
+    def test_throttle_fails_closed_when_the_counter_cannot_be_written(self):
+        from unittest import mock
+
+        from django.db import IntegrityError
+        from events.services import throttle
+
+        with mock.patch("events.models.AuthThrottle.objects.select_for_update", side_effect=IntegrityError):
+            self.assertEqual(throttle.consume("x", limit=5, window_seconds=60, block_seconds=60), 60)
+
+    def test_old_waiting_kiosk_stops_accepting_unlocks(self):
+        from django.core.management import call_command
+        from events.models import ParticipantSession
+
+        self.login(self.coord1)
+        self.choose_station()
+        self.start(self.p1, mode="supervisada")
+        interview = Interview.objects.get(participant=self.p1)
+        self.client.post(self.url("interview_handoff", interview.public_id))
+        self.client.post(reverse("kiosk:finish"))
+        ParticipantSession.objects.filter(interview=interview).update(created_at=timezone.now() - timedelta(hours=4))
+        call_command("run_report_cutoffs", verbosity=0)
+        response = self.client.post(reverse("kiosk:unlock"), {"password": PASSWORD})
+        self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertContains(self.client.get(reverse("kiosk:home")), "No hay una entrevista abierta")

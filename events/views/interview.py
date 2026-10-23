@@ -211,7 +211,7 @@ def interview_resume(request, event, access, public_id):
     if response:
         return response
     interview.refresh_from_db()
-    if interview.mode == Interview.Mode.SUPERVISED and not interview.answers.filter(answered_by_participant=True).exists():
+    if interview.mode == Interview.Mode.SUPERVISED and not interview.participant_sessions.exists():
         return redirect("events:interview_handoff", slug=event.slug, public_id=interview.public_id)
     answers = load_answers(interview)
     for step in visible_steps(interview.version, answers):

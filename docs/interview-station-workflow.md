@@ -26,7 +26,7 @@ Registering camperos does not need these; interviewing does.
 * "Crear campamento" creates ten stations, "Computadora 1" to "Computadora 10". Administrators add more or take one out of use in "Configuración" → "Computadoras de entrevista".
 * The first time a browser opens "Iniciar entrevista" while active stations exist, it is sent to "¿En qué computadora estás?". The choice is stored in the browser's session (`session["stations"][event_id]`) and can be changed with "Cambiar" on the search page.
 * The station is recorded on the interview (and updated on take-over) so supervisors see where it was opened. It is informational; it does not restrict anything.
-* Hand-over to a campero flushes the session, so after recovering the computer the coordinador is asked to choose the station again on the next "Iniciar entrevista".
+* The station choice survives the hand-over to a campero and the unlock: `hand_over_to_participant` copies it into the new anonymous session (it is not a secret), and `login()` keeps it. A new login (after "Cerrar sesión" or an idle logout) asks again.
 
 ## Consent and assent
 
@@ -52,7 +52,7 @@ On start, each newly confirmed item becomes a `ConsentRecord`: guardian authoriz
 ## Supervised capture, step by step
 
 1. Same search and "Antes de empezar", choosing "Captura supervisada". The coordinador still confirms the authorizations.
-2. "Entrega la computadora a {nombre}" (`interview/handoff.html`): three reminders, then "Entregar la computadora". "Mejor hago yo las preguntas" switches to assisted mode, allowed only while no answer was typed by the campero (`switch_to_assisted`). "Cancelar" in the top bar opens the discard screen.
+2. "Entrega la computadora a {nombre}" (`interview/handoff.html`): three reminders, then "Entregar la computadora". "Mejor hago yo las preguntas" switches to assisted mode, allowed only while no answer was typed by the campero (`switch_to_assisted`). "Cancelar" in the top bar opens the discard screen. If the coordinador leaves this screen, "Continuar" on that interview brings them back here as long as the campero has not typed any answer (`interview_resume`).
 3. `hand_over_to_participant` verifies the claim, closes any older capture session, creates a `ParticipantSession` (random token, only its hash stored; expires in 60 minutes), sets a 60-minute claim whose raw token is kept only in the kiosk session, sets mode `supervisada`, audits `captura_iniciada`, then **calls `logout()`**. The browser keeps only `session["kiosk"]`.
 4. The campero sees "Hola, {nombre}", three reassurances and "Empezar". Steps look like the coordinador's, with "Terminar por ahora" in the top bar and "Tus respuestas se guardan cada vez que avanzas." Answers are stored with `answered_by_participant=True`.
 5. "Revisa tus respuestas" (all their answers, with "Cambiar") → "Terminar". The session moves to `por_desbloquear`.
@@ -75,7 +75,7 @@ sequenceDiagram
     C->>B: Entregar la computadora
     B->>S: POST entrevistas/{id}/entregar/
     S->>DB: lock Interview, check claim, new 60 min claim, insert ParticipantSession
-    S->>S: logout() flushes the session, store kiosk token and claim only
+    S->>S: logout() flushes the session, store kiosk token, claim and station only
     S-->>B: redirect to /estacion/
     loop each step
         P->>B: answer, Continuar
@@ -111,13 +111,13 @@ sequenceDiagram
 * Nothing is lost: every step is saved when the coordinador or campero moves on.
 * "Interrumpidas" are interviews in progress with no saved activity for 20 minutes or more (`STALE_MINUTES`). They appear on the tutor's "Mi equipo" and "Pendientes" screens, in the recommendations ("Próximos pasos") of dashboards and cutoffs, and in the presentation. The coordinador sees open interviews under "Continúa donde te quedaste" on "Mi inicio" and in "Entrevistas pendientes".
 * "Continuar" goes to the first visible step whose main question has no stored answer, otherwise to the review. A text question left blank is not stored, so resuming can land on that blank question again.
-* The scheduler clears expired claims and moves capture sessions idle for 10 minutes to `por_desbloquear` on every pass (`run_report_cutoffs`).
+* The scheduler clears expired claims, moves capture sessions idle for 10 minutes to `por_desbloquear` and deletes expired Django sessions on every pass (`run_report_cutoffs`).
 
 ## Kiosk confinement and timeouts
 
 * `KioskConfinementMiddleware`: while the session holds `kiosk`, every path outside `/estacion/` (and `/static/`, `/health/`) redirects to the kiosk home. The login page, the back button and typed URLs all land there. There is no coordinador privilege left in the browser to abuse.
 * Every kiosk request validates the token against the `ParticipantSession` (hash comparison), its state, the interview state, the 10-minute idle limit (`KIOSK_IDLE_MINUTES`) and the 60-minute absolute limit (`KIOSK_MAX_MINUTES`).
-* In the browser, the step and review screens use a 5-minute idle timer (`data-kiosk-idle="300"`). One minute before, a dialog asks "¿Sigues aquí?" with "Sí, sigo aquí". When it runs out, the page goes to `/estacion/tiempo/`, which locks the session if the server saw no activity for over 60 seconds. Any key press, tap, click or scroll sends a heartbeat to the server at most every 2 minutes, so a campero writing a long answer is not locked out.
+* In the browser, the welcome, step and review screens use a 5-minute idle timer (`data-kiosk-idle="300"`). One minute before, a dialog asks "¿Sigues aquí?" with "Sí, sigo aquí". When it runs out, the page goes to `/estacion/tiempo/`, which locks the session if the server saw no activity for over 60 seconds. Any key press, tap, click or scroll sends a heartbeat to the server at most every 2 minutes, so a campero writing a long answer is not locked out.
 * A locked session shows "La pantalla se cerró... Lo que respondiste está guardado." and needs the coordinador's password.
 * Closing the browser normally ends the kiosk session, because the session cookie expires with the browser (`SESSION_EXPIRE_AT_BROWSER_CLOSE`). Some browsers restore such cookies when they reopen previous tabs, so do not rely on this alone. The interview stays in progress; the coordinador continues it or takes control from any computer.
 * If the session was revoked or taken over, the kiosk shows "No hay una entrevista abierta en esta computadora" with "Entrar a Emmaus".
@@ -127,8 +127,8 @@ sequenceDiagram
 `kiosk_unlock` authenticates the password of the coordinador who handed over the computer, or of the e-mail typed after "Soy otro coordinador". The account must resolve to a role that `can_interview` this campero: the assigned coordinador or an administrador.
 
 * A capture session that was already closed (revoked from "Sesiones abiertas", taken over, or unlocked) cannot be unlocked: the browser is released to "No hay una entrevista abierta en esta computadora" and the original end reason is kept.
-* Attempts are limited in the database (`events/services/throttle.py`, key `unlock:<ParticipantSession id>`), not in the browser session, so clearing cookies or sending requests in parallel does not give more tries. Each attempt is counted under a row lock before the password is checked. Five attempts are allowed within 15 minutes; the sixth is refused and starts a 60-second block ("Demasiados intentos. Espera N segundos e inténtalo otra vez."). After the block the count starts again. A successful unlock clears the counter.
-* The staff login page has its own limit: 8 attempts per typed e-mail within 15 minutes, then 5 minutes blocked. There is no per-IP limit.
+* Attempts are limited in the database (`events/services/throttle.py`, key `unlock:<ParticipantSession id>`), not in the browser session, so clearing cookies or sending requests in parallel does not give more tries. Each attempt is counted under a row lock before the password is checked. Five attempts are checked within a 60-minute window; the sixth is refused and starts a 60-second block ("Demasiados intentos. Espera N segundos e inténtalo otra vez."). After each block one more attempt is checked, and the next refusal starts a block twice as long (2, 4, 8 minutes...), up to 15 minutes. The counter is forgotten 60 minutes after the last block started, or when the unlock succeeds. Since blocks never reach 60 minutes, that means about a dozen checked guesses in the first hour and about four per hour after that. The unlock screen stays available after the 60-minute capture limit (the session then just waits for its coordinador).
+* The staff login page has its own limit: 8 checked attempts per typed e-mail, then blocks of 5, 10, 20, 40 and 60 minutes with 3 checked attempts after each. There is no per-IP limit.
 
 ## Review, finalize and the follow-up decision
 
@@ -154,7 +154,7 @@ On a completed interview, the assigned coordinador or an administrador sees "Cor
 
 ## Load and concurrency testing
 
-The Python suite has 168 tests (`core/tests.py` and `events/tests/`), including `events/tests/test_security_review.py`, which keeps every finding of the adversarial security review fixed (kiosk confinement, unlock limits, take-over killing the kiosk, hidden-row inference, released aggregates and others). `e2e/station-flow.mjs` is a Playwright browser check of the assisted and supervised flows against a running server with demo data.
+The Python suite has 175 tests (`core/tests.py` and `events/tests/`), including `events/tests/test_security_review.py`, which keeps every finding of the adversarial security review fixed (kiosk confinement, unlock limits, take-over killing the kiosk, hidden-row inference, released aggregates and others). `e2e/station-flow.mjs` is a Playwright browser check of the assisted and supervised flows against a running server with demo data.
 
 **Threaded PostgreSQL tests** (`events/tests/test_concurrency.py`, skipped on SQLite):
 
@@ -165,27 +165,28 @@ The Python suite has 168 tests (`core/tests.py` and `events/tests/`), including 
 
 **HTTP load test** (`scripts/simulate_camp_day.py`): each station logs in as a different coordinador, chooses its computer and completes the assisted interview of every pending campero assigned to it through the real forms, while two pastor pollers fetch the live dashboard fragment every 2 seconds. The script then checks the database for duplicates and prints latency percentiles. It exits non-zero on any HTTP error or duplicate.
 
-Result recorded on 2026-10-23, gunicorn (3 workers x 4 threads) on local PostgreSQL 16:
+Result recorded on 2026-10-23 after the security fixes, gunicorn (3 workers x 4 threads) on local PostgreSQL 16:
 
 | Measure | Result |
 |---|---|
 | Stations | 10 |
-| Interviews completed | 321 in 30.4 s |
+| Interviews completed | 321 in 31.8 s |
 | HTTP errors | 0 |
 | Duplicate interviews | 0 |
-| p95 step save | 165 ms |
-| p95 start | 153 ms |
-| p95 finalize | 147 ms |
-| p95 live pastor fragment | 194 ms |
-| Dashboard payload for 400 camperos | 50 ms, 32 queries |
-| 5 cutoff scopes generated | 133 ms |
+| p95 step save | 169 ms |
+| p95 start | 151 ms |
+| p95 finalize | 156 ms |
+| p95 live pastor fragment | 122 ms |
 
-How to repeat it is in `deployment.md`.
+Measured in the first run the same day, before the security fixes, and not re-measured: building the dashboard payload for 400 camperos took 50 ms with 32 queries, and generating the 5 cutoff scopes took 133 ms.
+
+Accessibility: axe-core 4.10 reported 0 WCAG A/AA violations on 33 screens.
+
+How to repeat the load test is in `deployment.md`.
 
 ## Known limitations
 
-* The "Entrevista completada" screen shows "Se registró un seguimiento: ..." for the first non-cancelled care follow-up of the interview, without excluding the confidential referral (`interview_done` in `events/views/interview.py`). After a supervised capture in which the campero asked for support in a confidential question, the coordinador can therefore read "pidió apoyo en un área de su vida" there, even if they chose "No se requiere seguimiento".
-* After recovering the computer the coordinador must pick the station again.
-* An interview started in "Captura supervisada" but never handed over (for example after "Cancelar" then "No, volver a la entrevista") continues in coordinador screens with mode `supervisada`; confidential steps then bounce to the review with "Esa pregunta es confidencial y la respondió el campero." There is no link back to the hand-over screen.
-* The review screen's "Guardar y salir" always links to the coordinador home, which administrators cannot open.
-* The kiosk welcome screen has no browser idle timer; the server's 10-minute limit still applies.
+* A computer left waiting for its coordinador stops accepting the unlock after 3 hours (the scheduler closes the capture). The interview stays in progress and the coordinador continues it after a normal login.
+
+* A text question left blank is not stored, so "Continuar" can land on that blank question again instead of the review.
+* Confidential steps cannot be opened by the coordinador once the campero has answered on their own; opening one by URL redirects to the review with "Esa pregunta es confidencial y la respondió el campero."

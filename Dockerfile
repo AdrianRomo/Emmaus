@@ -23,6 +23,6 @@ EXPOSE 8000
 # Health check: ask with an allowed Host header and as if behind the HTTPS proxy, so it works
 # with real ALLOWED_HOSTS and SECURE_SSL_REDIRECT=true (/health/ is also exempt from the redirect).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD python -c "import http.client,os; h=(os.environ.get('ALLOWED_HOSTS') or 'localhost').split(',')[0].strip().lstrip('.') or 'localhost'; c=http.client.HTTPConnection('127.0.0.1', 8000, timeout=4); c.request('GET', '/health/', headers={'Host': h, 'X-Forwarded-Proto': 'https'}); raise SystemExit(0 if c.getresponse().status == 200 else 1)"
+  CMD python -c "import http.client,os; h=(os.environ.get('ALLOWED_HOSTS') or 'localhost').split(',')[0].strip().lstrip('.'); h='localhost' if h in ('', '*') else h; c=http.client.HTTPConnection('127.0.0.1', 8000, timeout=4); c.request('GET', '/health/', headers={'Host': h, 'X-Forwarded-Proto': 'https'}); raise SystemExit(0 if c.getresponse().status == 200 else 1)"
 
 CMD ["gunicorn", "emmaus.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--threads", "4", "--timeout", "60"]

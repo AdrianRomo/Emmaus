@@ -16,8 +16,8 @@ Emmaus Campamentos records spiritual and personal conversations with camperos, m
 | `EventMembership`, `TutorAssignment` | Staff name and e-mail (from `User`), role, team name, confidential-access flag | Administradores; pastores see the "Equipo" page |
 | `ReportSnapshot` | Aggregate counts, team labels, coordinador names; no campero names, no answers | Administradores, pastores, tutores (own team) |
 | `AuditEvent` | Who did what and when; campero numbers (for example "#0042"), staff names; never answer contents | Administradores ("Registro de actividad") |
-| `AuthThrottle` | The e-mail typed at login (as part of the key) and attempt counts; kiosk unlock counters keyed by capture session | Server operators only |
-| Django sessions (database) | Login, current station, interview claim tokens, kiosk token, and during a CSV import the preview rows (names, ages, rooms) until confirmed or cancelled | Server operators only |
+| `AuthThrottle` | The e-mail typed at login or in "¿Olvidaste tu contraseña?" (as part of the key) and attempt counts; kiosk unlock counters keyed by capture session | Server operators only |
+| Django sessions (database) | Login, current station, interview claim tokens, kiosk token, and during a CSV import the preview rows (names, ages, rooms) until confirmed or cancelled. Expired sessions are deleted by the scheduler on every pass | Server operators only |
 
 Camperos have no accounts and no e-mail or phone fields.
 
@@ -78,7 +78,7 @@ On the campero page, administradores see:
 
 * New safety report: sent to the event's care team (members with confidential access, administradores and church administrators). Subject "Emmaus: reporte urgente en {evento}". The body says a report exists and asks them to log in; it has no names and no details.
 * New team member: a link to create their password. It contains the staff member's first name and the event name.
-* "¿Olvidaste tu contraseña?": Django's password reset e-mail ("Emmaus: crea una nueva contraseña"), sent only to the address of an existing active account that already has a password, with the person's first name and the link. Administrators cannot generate this link for accounts that already have a password.
+* "¿Olvidaste tu contraseña?": Django's password reset e-mail ("Emmaus: crea una nueva contraseña"), sent only to the address of an existing active account that already has a password, with the person's first name and the link. At most 3 such e-mails per address per hour; extra requests show the same "Revisa tu correo" page without sending anything. Administrators cannot generate this link for accounts that already have a password.
 * No e-mail ever contains answers or campero names. A sending failure is logged (subject and error) and does not block the action; the new-member screen always shows the link to copy.
 
 ## No external AI in the camp module
@@ -103,10 +103,10 @@ Set on every non-static response by `PrivateResponseMiddleware` and Django setti
 
 ## Shared-computer protections
 
-* Supervised capture logs the coordinador out before the campero touches the computer. The browser is confined to `/estacion/` and holds only a random token for one interview. Recovering it needs a password; attempts are counted in the database (5 in 15 minutes, then a 60-second block), so clearing cookies or parallel requests do not help. A capture session closed by an administrador cannot be unlocked.
+* Supervised capture logs the coordinador out before the campero touches the computer. The browser is confined to `/estacion/` and holds only a random token for one interview. Recovering it needs a password; attempts are counted in the database (5, then a 60-second block that doubles each time up to 15 minutes), so clearing cookies or parallel requests do not help. A capture session closed by an administrador cannot be unlocked.
 * The campero sees only their own answers; the screen locks after 5 minutes idle in the browser, 10 minutes on the server, 60 minutes at most. The final screen says "¡Gracias!" without the campero's name.
-* The staff login allows 8 attempts per e-mail in 15 minutes, then blocks that e-mail for 5 minutes.
-* Staff logins end when the browser closes and after 30 minutes idle (`EMMAUS_IDLE_LOGOUT_SECONDS`). The stored session also expires 12 hours after its last change (`SESSION_COOKIE_AGE`), which in practice only matters for abandoned sessions. A dashboard left open keeps refreshing, and each refresh counts as activity, so close the session with "Cerrar sesión".
+* The staff login allows 8 attempts per e-mail, then blocks that e-mail for 5 minutes, doubling up to 60 minutes if the failures continue.
+* Staff logins end when the browser closes and after 30 minutes idle (`EMMAUS_IDLE_LOGOUT_SECONDS`). A dashboard's automatic refresh does not count as activity, so an unattended dashboard or live presentation is logged out too and then says "Tu sesión terminó...". The stored session also expires 12 hours after its last change (`SESSION_COOKIE_AGE`). Still, close the session with "Cerrar sesión" when you leave.
 * Only one computer can edit an interview at a time; "Tomar el control aquí" is explicit and audited.
 * The printable "Lista de respaldo" contains registry data only (no answers) and warns to keep it out of sight and destroy it afterwards.
 
@@ -128,8 +128,7 @@ Emmaus is a record and a notification, not an emergency service. The app does no
 
 ## Known limitations
 
-* The "Entrevista completada" screen can show the coordinador "Se registró un seguimiento: pidió apoyo en un área de su vida." when the only (or newest) follow-up is the confidential referral, which after a supervised capture reveals that the campero asked for support in a confidential question. See `interview-station-workflow.md`.
-* Expired Django sessions stay in the database until `python manage.py clearsessions` is run; schedule it.
+* Expired Django sessions are deleted only while the `scheduler` service (or its cron replacement) runs.
 * The Django admin (`/admin/`) is a technical back office for superusers: it can change memberships without writing to the activity log and can delete activity-log rows.
 * Backups contain everything, including answers.
 
@@ -151,15 +150,23 @@ El 23 de octubre de 2026 una revisión adversarial (alguien intentando romper la
 * Doble clic en "Generar corte ahora" que creaba dos cortes.
 * Un error 500 con un identificador inválido.
 
-`events/tests/test_security_review.py` comprueba cada uno de estos casos.
+Una segunda revisión, hecha al escribir esta documentación, corrigió también:
+
+* La pantalla "Entrevista completada", que podía mostrar al coordinador la solicitud de apoyo confidencial.
+* El PDF, que fallaba con nombres que parecían etiquetas (por ejemplo `<A>`).
+* Una membresía desactivada que no quitaba el acceso a quien también era pastor de la iglesia.
+* Límites de intentos que se reiniciaban después de cada bloqueo; ahora cada bloqueo dura el doble.
+* Paneles que se actualizaban solos y nunca cerraban la sesión por inactividad.
+* `DEBUG` encendido si no se configuraba, y la revisión de salud del contenedor que fallaba con HTTPS.
+
+`events/tests/test_security_review.py` comprueba estos casos, salvo los dos de configuración del último punto.
 
 Riesgos que siguen, dichos con honestidad:
 
-* No hay límite de intentos por dirección IP. El límite por correo también permite que alguien bloquee la cuenta de otra persona por 5 minutos.
+* No hay límite de intentos por dirección IP. Como el límite es por correo, alguien que conozca el correo de otra persona puede bloquear su entrada por 5 minutos y, si insiste, hasta por 60.
 * Los resúmenes de respuestas se vuelven a publicar en cada corte en cuanto cambian al menos k respuestas.
 * La administración ve que existe un reporte de riesgo aunque no pueda leerlo.
 * `/admin/` de Django es una oficina técnica: quien es superusuario puede ver y cambiar datos sin pasar por las reglas de la aplicación.
-* El aviso de seguimiento en "Entrevista completada" descrito arriba.
 
 ## Antes de usar Emmaus con menores reales
 
@@ -171,6 +178,6 @@ Riesgos que siguen, dichos con honestidad:
 - [ ] Solo las personas del equipo de cuidado tienen "Puede leer información confidencial", y cada una sabe que sus consultas quedan registradas.
 - [ ] Cada coordinador tiene su propia cuenta y contraseña, y sabe recuperar la computadora en la captura supervisada.
 - [ ] El servidor usa HTTPS, `DEBUG=false`, respaldos cifrados y `manage.py check --deploy` sin la advertencia `emmaus.W001` (cuentas de demostración).
-- [ ] Hay una persona encargada de ejecutar `purge_expired_event_data --apply` y `clearsessions` cuando corresponda.
+- [ ] Hay una persona encargada de ejecutar `purge_expired_event_data --apply` cuando termine el periodo de conservación, y el servicio `scheduler` está corriendo.
 - [ ] Hiciste una prueba completa con datos ficticios antes del campamento.
 - [ ] Solo entonces marcaste la casilla de procedimientos y pulsaste "Confirmar".

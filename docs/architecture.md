@@ -21,7 +21,7 @@ Emmaus is a single Django 5.2 project (`emmaus/`) with two apps, server-rendered
 
 * `Church` and `UserChurchRole` (one role per user per church: `church_admin`, `pastor`, `mentor`, `participant`).
 * The discipleship module: `Invitation`, `ParticipantProfile`, `DiscipleshipPath`, `Lesson`, `ReflectionQuestion`, `Enrollment`, `LessonProgress`, `ReflectionAnswer`, `ParticipantQuestion`, `QuestionResponse`, `FollowUpRequest`, `PastoralNote`, `AIDraft`.
-* First-run setup (`/setup/`, only while no `Church` exists), `/health/`, and the account pages wired in `emmaus/urls.py`: login by e-mail with an attempt limit (`core.views.ThrottledLoginView`, `/cuenta/entrar/`), "¿Olvidaste tu contraseña?" (`/cuenta/olvide-mi-contrasena/`, Django's password reset, e-mail to the account owner) and the password-set page (`/cuenta/contrasena/<uidb64>/<token>/`).
+* First-run setup (`/setup/`, only while no `Church` exists), `/health/`, and the account pages wired in `emmaus/urls.py`: login by e-mail with an attempt limit (`core.views.ThrottledLoginView`, `/cuenta/entrar/`), "¿Olvidaste tu contraseña?" (`core.views.ThrottledPasswordResetView`, `/cuenta/olvide-mi-contrasena/`: Django's password reset, e-mail to the account owner, at most 3 e-mails per address per hour) and the password-set page (`/cuenta/contrasena/<uidb64>/<token>/`).
 
 `Church.discipleship_enabled` only controls whether administrators see a "Discipulado" link in the event sidebar (`templates/events/shell_rail.html`). The core views do not check it, so the discipleship URLs stay reachable for users with a church role.
 
@@ -146,12 +146,13 @@ erDiagram
     AUTH_THROTTLE {
         string key UK
         int attempts
+        int strikes
         datetime window_started_at
         datetime blocked_until
     }
 ```
 
-`AUTH_THROTTLE` has no foreign keys: its `key` is `login:<e-mail typed>` or `unlock:<ParticipantSession public_id>`.
+`AUTH_THROTTLE` has no foreign keys: its `key` is `login:<e-mail typed>`, `reset:<e-mail typed>` or `unlock:<ParticipantSession public_id>`.
 
 Notes on the model:
 
@@ -168,7 +169,7 @@ Middleware order (`emmaus/settings.py`): `SecurityMiddleware` → `WhiteNoiseMid
 
 1. `PrivateResponseMiddleware` sets `Cache-Control: no-store`, `Pragma: no-cache`, a Content-Security-Policy and a Permissions-Policy on every response outside `/static/`.
 2. `KioskConfinementMiddleware`: if the session holds the `kiosk` key, any path outside `/estacion/`, `/static/` and `/health/` is redirected to the kiosk home.
-3. `StaffIdleLogoutMiddleware`: logs out an authenticated user idle for more than `EMMAUS_IDLE_LOGOUT_SECONDS` (default 1800). `last_seen` is refreshed at most every 30 s.
+3. `StaffIdleLogoutMiddleware`: logs out an authenticated user idle for more than `EMMAUS_IDLE_LOGOUT_SECONDS` (default 1800). `last_seen` is refreshed at most every 30 s, and never by background requests (`X-Requested-With: fetch`, the dashboards' auto-refresh), so an unattended dashboard is logged out too.
 4. Every event view is wrapped by `event_view(*roles)` (`events/views/common.py`). It loads the `Event` by slug, calls `resolve_access(user, event)`, raises 403 if there is no access or the role is not allowed, activates the event's time zone and stores the slug in the session.
 5. The view asks `request.access` for querysets (`participants()`, `interviews()`, `follow_ups()`, `snapshots()`) and object checks (`can_view_answer`, `can_correct`, ...). Services receive the `EventAccess` and re-check inside their transactions.
 6. `events.context_processors.event_context` adds the role navigation, the shell template (top bar for coordinators, side rail for everyone else) and the current station.
@@ -195,7 +196,17 @@ Ten interview computers can work at once on the same event. The guarantees rely 
 * **Idempotent finalize.** `finalize` returns a completed interview unchanged before any other check, so a double click or a browser retry changes nothing. Care follow-ups are protected by the partial unique constraint `one_open_care_follow_up_per_interview` on `(interview, confidential)` where `kind='seguimiento'` and `status <> 'cancelado'`: at most one ordinary and one confidential referral per interview.
 * **Participant numbers.** `_next_number` locks the `Event` row before computing `max(number) + 1`; `participant_number_per_event` is unique.
 * **Cutoffs.** The unique constraint `one_snapshot_per_cutoff` makes concurrent scheduler runs harmless. Manual cutoffs lock the `Event` row and return a manual cutoff of the same scope created in the last 60 seconds instead of making a new one.
-* **Attempt limits.** `throttle.consume()` counts an attempt in `AuthThrottle` under `SELECT ... FOR UPDATE` **before** the password is checked, so parallel requests and several gunicorn workers share one counter. Used for login (8 attempts, then 5 minutes blocked) and kiosk unlock (5 attempts, then 60 seconds blocked); see `interview-station-workflow.md`.
+* **Attempt limits.** `throttle.consume()` counts an attempt in `AuthThrottle` under `SELECT ... FOR UPDATE` **before** the password is checked, so parallel requests and several gunicorn workers share one counter. The attempt that goes over the allowance is refused (its password is not checked) and starts a block. When a block ends, the count drops by half the allowance (rounded down) instead of to zero, and the next block is twice as long, up to a cap. Everything is forgotten once a full window passes after the last block started, and on a successful login or unlock.
+
+  | Key | Allowance | Window | First block | Longest block | Checked attempts after each block |
+  |---|---|---|---|---|---|
+  | Login (`login:<e-mail>`) | 8 | 60 min | 5 min | 60 min | 3 |
+  | Kiosk unlock (`unlock:<session>`) | 5 | 60 min | 60 s | 15 min | 1 |
+  | Password-reset e-mail (`reset:<e-mail>`) | 3 | 60 min | 60 min | 60 min in practice (the window has passed when the block ends) | — |
+
+  A blocked reset request shows the same "Revisa tu correo" page as a successful one.
+
+  There is no per-IP limit.
 * **Front end.** `emmaus.js` ignores a second submit of the same form for 8 seconds.
 
 `events/tests/test_concurrency.py` runs four threaded tests against real PostgreSQL row locks: ten stations starting and finishing in parallel, five threads racing for the same campero (exactly one wins), four simultaneous finalizes (one follow-up, one completion), and ten parallel registrations (unique numbers). See `interview-station-workflow.md` for the HTTP load test.
@@ -212,7 +223,7 @@ There are no WebSockets. A region marked `data-live-url` is refreshed by `emmaus
 
 Polling pauses while the tab is hidden or while focus is inside the region. Each region has a status line: "Última actualización: HH:MM:SS"; on a network error it switches to "Sin conexión. Los datos pueden estar desactualizados (...)"; on a redirect, 401 or 403 it stops and shows "Tu sesión terminó. Vuelve a entrar para ver datos actuales." Every page also works without JavaScript; only the automatic refresh is lost.
 
-Each poll counts as activity for `StaffIdleLogoutMiddleware`, so a visible dashboard left open is not logged out by the idle timer.
+Polls do not count as activity for `StaffIdleLogoutMiddleware`. After 30 minutes without a real click, the next poll ends the session, the region stops refreshing and shows "Tu sesión terminó...". The live presentation shows the same status in its control bar (`#deck-estado`, "En vivo" at first).
 
 Live payloads contain operational counts only. Answer aggregates are never computed for a live view: the pastor home shows those of the latest saved event cutoff, and the presentation's follow-up tiles use the latest cutoff of its scope.
 
@@ -235,6 +246,8 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 | `events/0001_initial` | All camp tables, constraints and indexes. Depends on `core/0003` |
 | `events/0002_security_review` | Adds `AuthThrottle`, adds `FollowUp.confidential` (default `False`) and widens the care follow-up constraint to `(interview, confidential)` |
 | `events/0003_followup_confidential_db_default` | Gives `FollowUp.confidential` a database default (`db_default=False`), so code from before `0002` can still insert follow-ups during a rolling deploy |
+| `events/0004_labels_and_throttle_strikes` | Adds `AuthThrottle.strikes` (escalating blocks) and Spanish labels on `FollowUp.kind`, `status`, `assigned_to` ("Tipo", "Estado", "Líder responsable") |
+| `events/0005_throttle_strikes_db_default` | Gives `AuthThrottle.strikes` a database default, so older code can still create throttle rows; `throttle.consume()` also fails closed if a row cannot be written |
 
 Existing churches and discipleship data are not modified apart from `0004`. The camp module adds new tables and columns only. `makemigrations --check` reports no pending changes.
 
@@ -271,6 +284,6 @@ Connection budget: 3 workers x 4 threads gives at most 12 persistent connections
 ## Known limitations
 
 * No WebSockets: dashboards are up to 20 to 60 seconds behind.
-* `Event.time_zone` is not in any event form; it defaults to `America/Mexico_City` and can only be changed in the Django admin.
+* `Event.time_zone` (default `America/Mexico_City`) is chosen in "Configuración" from a fixed list of Mexican zones (`MEXICO_TIME_ZONES` in `events/forms.py`); other zones need the Django admin.
 * The questionnaire structure cache (`_structure_cache` in `questionnaire.py`) is per process and never invalidated. That is safe because published versions are immutable, but a published version changed with `save(allow_published=True)` would need a restart.
 * Archived events are hidden from lists for non-superusers but remain reachable by URL for anyone who still has access.

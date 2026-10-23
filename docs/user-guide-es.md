@@ -23,10 +23,10 @@ Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y 
 2. Toca **"Entrar"**.
 3. Si es tu primera vez, la administración te mandó un correo o te dio un enlace para crear tu contraseña.
 4. Si olvidaste tu contraseña, toca **"¿Olvidaste tu contraseña?"**, escribe tu correo y toca **"Enviar enlace"**. Te llegará un correo para crear una nueva. Si no llega, revisa el correo no deseado o pide ayuda a la administración.
-5. Si te equivocas muchas veces, Emmaus te pide esperar unos minutos antes de intentar otra vez. Es para proteger tu cuenta.
+5. Si te equivocas muchas veces, Emmaus te pide esperar unos minutos antes de intentar otra vez, y cada vez un poco más si sigues fallando. Es para proteger tu cuenta.
 6. Cuando termines, toca **"Cerrar sesión"**. En computadoras compartidas esto es muy importante.
 
-Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y tienes que volver a entrar.
+Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y tienes que volver a entrar. Esto pasa aunque la pantalla se esté actualizando sola: cuando ocurre, verás "Tu sesión terminó. Vuelve a entrar para ver datos actuales."
 
 En una computadora o celular pequeño, el menú está en el botón **"Menú"**.
 
@@ -57,7 +57,7 @@ Antes de entrevistar a cualquier campero, la iglesia debe definir y aprobar qui�
 1. Ve a **"Configuración"**.
 2. En **"Procedimientos de la iglesia"** marca la casilla "Confirmo que la iglesia definió y aprobó sus procedimientos..." y toca **"Confirmar"**.
 
-Mientras no lo confirmes, nadie puede iniciar entrevistas. En la misma pantalla revisa también el **"Aviso de privacidad"** y **"Qué hacer ante una situación de riesgo"** (pon nombres y teléfonos reales), la edad de mayoría y si se pide autorización de padres para menores. Toca **"Guardar configuración"**.
+Mientras no lo confirmes, nadie puede iniciar entrevistas. En la misma pantalla revisa también el **"Aviso de privacidad"** y **"Qué hacer ante una situación de riesgo"** (pon nombres y teléfonos reales), la zona horaria, la edad de mayoría y si se pide autorización de padres para menores. Toca **"Guardar configuración"**.
 
 ### 3. Agregar al equipo
 
@@ -70,7 +70,7 @@ Mientras no lo confirmes, nadie puede iniciar entrevistas. En la misma pantalla 
 
 Si la persona es nueva, Emmaus le manda un correo para crear su contraseña. También verás el enlace en pantalla con el botón **"Copiar enlace"**: compártelo solo con esa persona. Si alguien ya tiene contraseña y la olvidó, debe usar "¿Olvidaste tu contraseña?" en la pantalla de entrada.
 
-Para cambiar el rol de alguien o quitarle el acceso, en **"Equipo"** toca **"Editar"**. Si desmarcas **"Puede entrar y trabajar en este evento"**, deja de poder trabajar en este campamento desde su siguiente clic. (Si esa persona también es pastor o administradora de la iglesia, conserva ese acceso; pide que se lo quiten en la configuración de la iglesia.)
+Para cambiar el rol de alguien o quitarle el acceso, en **"Equipo"** toca **"Editar"**. Si desmarcas **"Puede entrar y trabajar en este evento"**, deja de poder trabajar en este campamento desde su siguiente clic, aunque sea pastor de la iglesia. (Si es administradora de la iglesia, conserva su acceso; eso se cambia en la configuración de la iglesia.)
 
 ### 4. Asignar tutores
 
@@ -207,7 +207,7 @@ Si marcaste "pendiente de evaluación", después ve a **"Entrevistas pendientes"
 
 1. En "Antes de empezar" elige **"Captura supervisada"** y toca **"Comenzar entrevista"**.
 2. Lee la pantalla **"Entrega la computadora a ..."**: dile que puede responder con calma, que puede elegir "Prefiero no responder", que nadie más verá sus respuestas en la pantalla y que te avise al terminar.
-3. Toca **"Entregar la computadora"**. Si cambias de idea antes de entregarla, toca **"Mejor hago yo las preguntas"**.
+3. Toca **"Entregar la computadora"**. Si cambias de idea antes de entregarla, toca **"Mejor hago yo las preguntas"**. Si sales de esta pantalla sin entregarla, cuando toques "Continuar" en esa entrevista Emmaus te regresa aquí. Si una computadora se queda esperando a su coordinador más de 3 horas, ya no se puede recuperar con la contraseña: entra normalmente y continúa la entrevista desde "Mi inicio".
 
 **Lo que ve el campero**
 
@@ -229,13 +229,13 @@ Mientras el campero responde, esa computadora no puede abrir ninguna otra págin
 
 1. Toca **"Soy coordinador: recuperar la computadora"**.
 2. Escribe tu **contraseña** y toca **"Recuperar la computadora"**. Si otra persona autorizada va a recuperarla (por ejemplo la administración), toca **"Soy otro coordinador"** y escribe su correo y contraseña.
-3. Si la contraseña se escribe mal varias veces, Emmaus pide esperar un minuto.
+3. Si la contraseña se escribe mal varias veces, Emmaus pide esperar un minuto, y más tiempo si se sigue equivocando.
 
 ![Recuperar la computadora](img/estacion-desbloquear.png)
 
 Al recuperarla, Emmaus te lleva a la revisión. Las respuestas confidenciales aparecen solo como **"Confidencial"**: es normal, tú no las puedes leer. Elige si necesita seguimiento y toca **"Finalizar entrevista"**.
 
-Después de recuperar la computadora, es posible que Emmaus te pregunte otra vez en qué computadora estás. Es normal.
+Emmaus recuerda en qué computadora estás, así que no tienes que elegirla otra vez.
 
 **Cerrar sesión:** cuando dejes la computadora para otra persona, toca siempre **"Cerrar sesión"**.
 
@@ -341,7 +341,7 @@ Toca **"Descargar PDF"** (en el último corte o en el historial, botón **"PDF"*
 
 Sirve para proyectar el avance en una reunión del equipo.
 
-1. Toca **"Mostrar presentación"** (en "Resumen general") o **"Ver presentación"** (en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto. Para mostrar un corte guardado, toca **"Presentación"** en el historial.
+1. Toca **"Mostrar presentación"** (en "Resumen general") o **"Ver presentación"** (en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial.
 2. Toca **"Pantalla completa"** (o la tecla **F**).
 3. Avanza con la **flecha derecha** o **"Siguiente"**; regresa con la **flecha izquierda** o **"Anterior"**.
 4. Toca **"Salir"** al terminar.
@@ -406,10 +406,10 @@ Por privacidad. Los tutores y pastores ven avances y totales. Las respuestas esp
 Para que nadie pueda adivinar lo que respondió una persona. Los números pequeños se ocultan y los demás se redondean.
 
 **Me pide otra vez elegir la computadora.**
-Pasa después de una captura supervisada o al volver a entrar. Elige el número pegado en la computadora.
+Pasa cada vez que vuelves a entrar a Emmaus. Elige el número pegado en la computadora.
 
 **Se cerró mi sesión sola.**
-Pasa si no usas Emmaus unos 30 minutos o si cerraste el navegador. Vuelve a entrar.
+Pasa si no usas Emmaus unos 30 minutos (aunque la pantalla se actualice sola) o si cerraste el navegador. Vuelve a entrar.
 
 **Olvidé mi contraseña.**
 En la pantalla de entrada toca "¿Olvidaste tu contraseña?". Si nunca creaste tu contraseña, pide a la administración un enlace nuevo.

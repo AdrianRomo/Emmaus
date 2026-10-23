@@ -19,11 +19,12 @@ Camperos are `EventParticipant` rows, not users. In supervised capture the brows
 `resolve_access(user, event)` returns `None` (403 on every event page) for anonymous or inactive users. Otherwise, in this order:
 
 1. **Superuser, or `church_admin` of the event's church** (`core.UserChurchRole`) → **Administrador**, whatever their membership says. If they also have an active `EventMembership`, it is kept, so its `can_view_sensitive` flag still applies.
-2. **Active `EventMembership`** for this event → that membership's role (which can itself be `administrador`).
-3. **`pastor` of the event's church** in `core` → **Pastor**, with no membership.
-4. Otherwise no access.
+2. **Deactivated `EventMembership`** for this event → **no access**. A deactivated membership overrides a church-wide `pastor` role for that event.
+3. **Active `EventMembership`** for this event → that membership's role (which can itself be `administrador`).
+4. **`pastor` of the event's church** in `core`, with no membership in this event → **Pastor**.
+5. Otherwise no access.
 
-`accessible_events(user)` lists events of churches where the user is church admin or pastor, plus events with an active membership, excluding archived events (superusers see every event, archived included).
+`accessible_events(user)` lists events of churches where the user is church admin or pastor, plus events with an active membership, excluding archived events (superusers see every event, archived included). It applies the same rule 2: an event where the user has a deactivated membership is left out (unless they are a church admin), so nobody is sent to an event that would answer 403.
 
 ## One role per user per event
 
@@ -143,7 +144,7 @@ Passwords: a person who already has a password uses "¿Olvidaste tu contraseña?
 
 Limits of membership deactivation:
 
-* It does not remove access that comes from `core`. A church `pastor` whose membership is deactivated still resolves as **Pastor** through the church role, and a church admin or superuser is always Administrador. The "Sesiones abiertas" page says "quítale el acceso desde Equipo. Su sesión deja de funcionar de inmediato", which is not true for those users. Remove their `UserChurchRole` or deactivate the user instead.
+* A church `pastor` loses access to the event as soon as their membership in it is deactivated. A church pastor who has no membership can be kept out of one event by adding them to its team and then deactivating that membership. A church admin or superuser is always Administrador, whatever their membership says; remove their `UserChurchRole` (church settings) or deactivate the user instead. The "Sesiones abiertas" page says the same.
 * Claims expire on their own after 15 minutes without saves; kiosk sessions after 10 minutes idle or 60 minutes in total.
 
 ## Known gaps

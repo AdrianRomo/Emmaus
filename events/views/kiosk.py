@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from ..models import Interview, ParticipantSession
 from ..services import interviews as svc
-from ..services.questionnaire import build_steps, load_answers, neighbor_steps, visible_steps
+from ..services.questionnaire import build_steps, first_unanswered_step, load_answers, neighbor_steps, visible_steps
 from .interview import step_context
 
 
@@ -40,7 +40,7 @@ def kiosk_home(request):
         return render(request, "events/kiosk/handback.html", context)
     answers = load_answers(interview)
     started = bool(answers)
-    first = visible_steps(interview.version, answers)[0]
+    first = first_unanswered_step(interview.version, answers) or visible_steps(interview.version, answers)[0]
     context.update({"first_step": first, "started": started, "intro": interview.version.intro_text})
     return render(request, "events/kiosk/welcome.html", context)
 

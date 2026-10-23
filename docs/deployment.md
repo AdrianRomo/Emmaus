@@ -11,11 +11,12 @@ Emmaus runs as three containers in production: `web` (gunicorn), `scheduler` (cu
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+export DEBUG=true
 .venv/bin/python manage.py migrate
 .venv/bin/python manage.py runserver
 ```
 
-* `DEBUG` defaults to `true` and `SECRET_KEY` then falls back to a development key.
+* `DEBUG` defaults to `false`. Turn it on explicitly in development: with `DEBUG=true`, `SECRET_KEY` falls back to a development key; with `DEBUG=false` and no `SECRET_KEY`, every `manage.py` command stops with "SECRET_KEY must be set when DEBUG=false." Test runs (`manage.py test`, `pytest`) get a test key automatically.
 * Without `DATABASE_URL` the project uses SQLite (`db.sqlite3`). Row locks are no-ops on SQLite, so use PostgreSQL to try concurrent stations: `export DATABASE_URL=postgres://user:password@localhost:5432/emmaus`.
 
 ### With Docker Compose
@@ -27,7 +28,7 @@ make up           # runserver on :8000 with the source mounted
 make migrate      # in another terminal
 ```
 
-`docker-compose.yml` starts `web` (runserver, source mounted at `/app`) and `db` (`postgres:16`, user, password and database `emmaus`). `DATABASE_URL` is set by the compose file.
+`docker-compose.yml` starts `web` (runserver, source mounted at `/app`) and `db` (`postgres:16`, user, password and database `emmaus`). The compose file sets `DATABASE_URL` and `DEBUG: "true"`.
 
 Other targets: `make createsuperuser`, `make test`, `make logs`, `make cutoffs` (one cutoff pass), `make seed-demo`, `make create-starter-path` (discipleship module), `make down`.
 
@@ -38,7 +39,7 @@ Other targets: `make createsuperuser`, `make test`, `make logs`, `make cutoffs` 
 * It refuses to run unless `DEBUG=true`.
 * All demo accounts end in `@demo.invalid` and share one password: `--password`, else `EMMAUS_DEMO_PASSWORD`, else a random one printed at the end with the account list.
 * Options: `--participants 400`, `--completed 0.62`, `--hours 9`, `--seed 2026`, `--slug jovenes-2026`, `--reset`.
-* It uses the first church in the database (creating "Iglesia de demostración" if there is none) and makes the demo administrator a church admin of it. Do not run it on a copy of real data.
+* It uses its own church (identifier `iglesia-demo`, "Iglesia de demostración", created if missing) and makes the demo administrator a church admin of that church only. It still creates accounts with a shared password, so do not run it on a server with real data.
 
 `seed_dev_data` (discipleship module) is also DEBUG-only and uses the same password rules.
 
@@ -46,7 +47,7 @@ Other targets: `make createsuperuser`, `make test`, `make logs`, `make cutoffs` 
 
 | Service | Command | Notes |
 |---|---|---|
-| `web` | `gunicorn emmaus.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 4 --timeout 60` | `DEBUG=false`; `DATABASE_URL` built from `POSTGRES_PASSWORD`; publishes `8000:8000` |
+| `web` | `gunicorn emmaus.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 4 --timeout 60` | `DEBUG=false`; `DATABASE_URL` built from `POSTGRES_PASSWORD`; publishes `127.0.0.1:8000:8000` (only a proxy on the same host can reach it) |
 | `scheduler` | `python manage.py run_report_cutoffs --loop 300` | Same image; image healthcheck disabled |
 | `db` | `postgres:16` | Volume `postgres_data`; `pg_isready` healthcheck |
 
@@ -67,8 +68,8 @@ The containers do not run migrations on start. Run `migrate` before `up -d` on e
 | Variable | Default in code | Production value |
 |---|---|---|
 | `SECRET_KEY` | none; startup fails if missing with `DEBUG=false` | Long random string |
-| `DEBUG` | `true` if unset | `false` (the prod compose file forces it) |
-| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Your domain **and** `127.0.0.1` (the container healthcheck calls `http://127.0.0.1:8000/health/`) |
+| `DEBUG` | `false` if unset | `false` (the prod compose file also forces it; `.env.example` has `true` for development) |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Your domain, **first** in the list: the container healthcheck sends the first entry as its `Host` header (`*` makes it use `localhost`) |
 | `CSRF_TRUSTED_ORIGINS` | empty | `https://your-domain` |
 | `POSTGRES_PASSWORD` | none | Strong password; used by `db` and to build `DATABASE_URL` |
 | `DATABASE_URL` | SQLite | Set by the prod compose file (overrides `.env`) |
@@ -93,23 +94,23 @@ Without SMTP, safety alerts, invitations and "¿Olvidaste tu contraseña?" e-mai
 1. Run `migrate`.
 2. Open the site. With no church in the database, `/` redirects to `/setup/`: church name and identifier, first administrator's name, e-mail and password. That user becomes the church admin (Administrador of every event of that church). `createsuperuser` also works, but a superuser cannot create an event until a church exists, so `/setup/` (or the Django admin) is still needed.
 3. "Campamentos y eventos" → "Crear campamento": name, kind, identifier for the URL, place, dates, status. This also attaches the church's newest published questionnaire, or creates and publishes the default "Conversación espiritual del campamento" if the church has none, and creates "Computadora 1" to "Computadora 10".
-4. "Configuración": adapt the privacy notice, the safeguarding instructions, adult age, guardian authorization, minimum group size, retention and the cutoff schedule. When the church has approved its procedures, tick the box under "Procedimientos de la iglesia" and press "Confirmar". Interviews stay blocked until then.
+4. "Configuración": adapt the time zone, the privacy notice, the safeguarding instructions, adult age, guardian authorization, minimum group size, retention and the cutoff schedule. When the church has approved its procedures, tick the box under "Procedimientos de la iglesia" and press "Confirmar". Interviews stay blocked until then.
 5. "Equipo" → "Agregar persona": coordinadores, tutores (with a team name), pastores, administración; check "Puede leer información confidencial" only for the care team. New people get an e-mail or a link to copy to create their password.
 6. "Asignar tutores": one tutor per coordinador.
 7. "Participantes" → "Importar CSV" (with duplicate review) or "Registrar campero".
 8. Label each computer with its number.
 
-The event's time zone is not in these forms. It defaults to `America/Mexico_City` and can only be changed by a superuser in the Django admin (`/admin/`); church admins created through `/setup/` have staff status but no Django-admin model permissions.
+The event's time zone ("Zona horaria", default `America/Mexico_City`) is chosen in "Configuración" from the Mexican zones; it decides when cutoffs fall and how times are shown.
 
 ## HTTPS and the reverse proxy
 
 Put a TLS-terminating reverse proxy (Caddy, nginx, Traefik) in front of `web:8000`.
 
-* `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` is always on. The proxy must set (and overwrite) `X-Forwarded-Proto`. Do not expose gunicorn directly: the prod compose file publishes `8000:8000` on every interface, so firewall it or change the binding to `127.0.0.1:8000:8000`.
+* `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` is always on. The proxy must set (and overwrite) `X-Forwarded-Proto`. Do not expose gunicorn directly: the prod compose file binds it to `127.0.0.1:8000`, so the proxy must run on the same host (change the binding only if the proxy runs elsewhere, and then firewall the port).
 * `CSRF_TRUSTED_ORIGINS` must list the public `https://` origin, otherwise every form fails CSRF checks.
-* **HTTP → HTTPS redirect:** prefer doing it in the proxy and keep `SECURE_SSL_REDIRECT=false`. With `SECURE_SSL_REDIRECT=true`, the image's healthcheck (plain HTTP, no forwarded header) gets a redirect to `https://127.0.0.1:8000` and the container is reported unhealthy.
+* **HTTP → HTTPS redirect:** do it in the proxy, in Django (`SECURE_SSL_REDIRECT=true`), or both. `/health/` is exempt from Django's redirect (`SECURE_REDIRECT_EXEMPT`), and the image's healthcheck sends `X-Forwarded-Proto: https` and the first `ALLOWED_HOSTS` entry as `Host`, so it keeps working.
 * **HSTS:** `SECURE_HSTS_SECONDS` sets the header. Start low (for example `3600`), then raise to `31536000` once HTTPS is stable. There are no settings for `includeSubDomains` or preload.
-* The login limits attempts per typed e-mail (8 in 15 minutes, then 5 minutes blocked, stored in the `AuthThrottle` table) but not per IP address, and the password-reset form has no limit. Consider rate limiting `/cuenta/entrar/` and `/cuenta/olvide-mi-contrasena/` per IP in the proxy.
+* Attempt limits live in the `AuthThrottle` table and are per typed e-mail, not per IP address: login allows 8 attempts, then blocks of 5 minutes that double up to 60; "¿Olvidaste tu contraseña?" sends at most 3 e-mails per address per hour. Consider rate limiting `/cuenta/entrar/` and `/cuenta/olvide-mi-contrasena/` per IP in the proxy.
 * Remember that search terms (campero names) appear in URLs and therefore in proxy access logs.
 
 ## Static files
@@ -126,9 +127,8 @@ Each gunicorn thread keeps one connection for `DB_CONN_MAX_AGE` seconds (`CONN_H
 
 | Job | How |
 |---|---|
-| Cutoffs, expired claims, idle capture sessions | `scheduler` service, every 300 s. Or cron every 5 minutes: `python manage.py run_report_cutoffs` |
+| Cutoffs, expired claims, idle capture sessions, expired Django sessions | `scheduler` service, every 300 s. Or cron every 5 minutes: `python manage.py run_report_cutoffs` |
 | Retention purge | Not scheduled. `python manage.py purge_expired_event_data` (dry run), then `--apply` |
-| Expired Django sessions | Not scheduled. `python manage.py clearsessions`, for example daily |
 
 With compose: `docker compose -f docker-compose.prod.yml run --rm web python manage.py <command>`.
 
@@ -167,7 +167,7 @@ docker compose -f docker-compose.prod.yml run --rm web python manage.py check --
 DATABASE_URL=postgres://user:password@localhost:5432/emmaus python manage.py test
 ```
 
-* 168 tests: `core/tests.py` and `events/tests/` (access, interviews, questionnaire, reporting, UI, concurrency and `test_security_review.py`, the regression tests for the adversarial security review).
+* 175 tests: `core/tests.py` and `events/tests/` (access, interviews, questionnaire, reporting, UI, concurrency and `test_security_review.py`, the regression tests for the adversarial security review).
 * `make test` runs the same inside the dev compose stack, against its PostgreSQL.
 * The four threaded tests in `events/tests/test_concurrency.py` run only on PostgreSQL; on SQLite they are skipped.
 * Django creates a test database; the database user needs permission to create it. `TEST_DATABASE_NAME` sets its name.
@@ -194,7 +194,7 @@ gunicorn emmaus.wsgi:application --bind 127.0.0.1:8000 --workers 3 --threads 4  
 python scripts/simulate_camp_day.py --base http://127.0.0.1:8000 --event carga-2026 --password Carga-2026
 ```
 
-If you run the server with `DEBUG=false` over plain HTTP, also set `SESSION_COOKIE_SECURE=false` and `CSRF_COOKIE_SECURE=false` (the script cannot send Secure cookies over HTTP) and run `collectstatic` first. The script exits with code 1 on any HTTP error or duplicate. The 2026-10-23 result is in `interview-station-workflow.md`. (`Makefile` lists a `load-test` target in `.PHONY`, but the target is not defined.)
+If you run the server with `DEBUG=false` over plain HTTP, also set `SESSION_COOKIE_SECURE=false` and `CSRF_COOKIE_SECURE=false` (the script cannot send Secure cookies over HTTP) and run `collectstatic` first. The script exits with code 1 on any HTTP error or duplicate. The 2026-10-23 result is in `interview-station-workflow.md`.
 
 ## Upgrades and rollback
 
@@ -209,7 +209,7 @@ To roll back the code, point the services at the saved image (or check out the p
 
 About the database:
 
-* The camp redesign's migrations are additive: `core/0003` adds two `Church` columns, `core/0004` is a data migration with a no-op reverse, `core/0005` only changes model options, `events/0001` adds new tables, `events/0002` adds `AuthThrottle` and `FollowUp.confidential`, and `events/0003` gives that column a database default. Older code keeps reading and writing the database, with one exception: creating a church (for example through `/setup/`) with code older than `core/0003` fails, because those two new `Church` columns are non-null without a database default. Code from before `events/0002` can still insert follow-ups thanks to `events/0003`.
+* The camp redesign's migrations are additive: `core/0003` adds two `Church` columns, `core/0004` is a data migration with a no-op reverse, `core/0005` only changes model options, `events/0001` adds new tables, `events/0002` adds `AuthThrottle` and `FollowUp.confidential`, `events/0003` gives that column a database default, `events/0004` adds `AuthThrottle.strikes` and Spanish field labels, and `events/0005` gives `strikes` a database default. Older code keeps reading and writing the database. The one exception is a new non-null column without a database default: creating a church (for example through `/setup/`) fails with code older than `core/0003`. Code from before `events/0002` can still insert follow-ups (`events/0003`) and throttle rows (`events/0005`); and the throttle fails closed: if its counter cannot be written, the password is not checked.
 * Reversing `events/0002` restores the old one-care-follow-up-per-interview constraint, which fails as soon as an interview has both an ordinary and a confidential referral.
 * Do **not** reverse with `python manage.py migrate events zero`: it drops every camp table (camperos, interviews, answers, follow-ups, cutoffs, activity log). Reversing `core` to `0002` needs that first and drops the two church columns.
 * To really go back, stop `web` and `scheduler`, restore the dump taken before the upgrade, and start the previous image.
