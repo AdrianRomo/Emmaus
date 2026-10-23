@@ -743,3 +743,9 @@ details > summary { cursor: pointer; color: var(--pine); font-weight: 650; min-h
 .privacy-tag { border-left: 3px solid var(--info); padding-left: var(--s-2); }
 .notice ul { padding-left: 1.2em; }
 .notice li + li { margin-top: var(--s-1); }
+/* Deck tracks are shared by slide 1 (overall) and slide 3 (teams). */
+.deck .deck-track { display: flex; height: 2.4cqw; background: var(--deck-track); border-radius: 4px; overflow: hidden; }
+.deck .deck-bar .deck-track { height: 1.8cqw; }
+.deck .deck-seg--done { display: block; height: 100%; background: var(--deck-done); }
+.deck .deck-seg--progress { display: block; height: 100%; background: var(--deck-progress); border-left: 0.25cqw solid var(--deck-bg); }
+.panel--aside { align-self: start; }

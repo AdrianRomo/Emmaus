@@ -61,7 +61,7 @@ def build_deck(payload: dict, *, event_name: str, kind_label: str, k: int, team_
     if overall is not None:
         for row in team_rows:
             if row["label"] != "Sin equipo asignado" and row["percent"] is not None and row["percent"] <= overall - 15 and row["pending"] >= 5:
-                steps.append(f"Apoyar a {row['label']}: lleva {row['percent']} % y le faltan {row['pending']} entrevistas.")
+                steps.append(f"{row['label']} necesita apoyo: lleva {row['percent']} % y le faltan {row['pending']} entrevistas.")
     stale = payload["attention"]["stale_interviews"]
     if stale:
         steps.append(f"Retomar {stale} {'entrevista detenida' if stale == 1 else 'entrevistas detenidas'} hace más de {STALE_MINUTES} minutos.")

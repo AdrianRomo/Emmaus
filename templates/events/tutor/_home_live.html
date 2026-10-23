@@ -43,7 +43,7 @@
       {% endfor %}</ul>
     {% else %}<p class="muted">Todavía no hay actividad.</p>{% endif %}
   </section>
-  <section aria-labelledby="cortes" class="panel">
+  <section aria-labelledby="cortes" class="panel panel--aside">
     <h2 id="cortes" class="subhead">Cortes de seguimiento</h2>
     <dl class="summary-list mt-4">
       <div class="summary-list__row"><dt>Último corte</dt><dd>{% if last_snapshot %}{{ last_snapshot.cutoff_at|date:"H:i" }}{% else %}Aún no hay{% endif %}</dd><span></span></div>

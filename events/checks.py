@@ -11,7 +11,10 @@ def demo_accounts_inactive(app_configs, **kwargs):
     if settings.DEBUG:
         return []
     try:
-        active = list(User.objects.filter(is_active=True, email__iendswith="@example.org").values_list("email", flat=True)[:5])
+        from django.db.models import Q
+
+        demo = Q(email__iendswith="@example.org") | Q(email__iendswith="@demo.invalid")
+        active = list(User.objects.filter(demo, is_active=True).values_list("email", flat=True)[:5])
     except DatabaseError:
         return []
     if not active:

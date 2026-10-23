@@ -103,6 +103,7 @@ def database_config() -> dict:
             # reuse connections for a minute instead of opening one per request.
             "CONN_MAX_AGE": int(os.environ.get("DB_CONN_MAX_AGE", "60")),
             "CONN_HEALTH_CHECKS": True,
+            "TEST": {"NAME": os.environ.get("TEST_DATABASE_NAME") or None},
         }
     if parsed.scheme == "sqlite":
         return {
@@ -184,6 +185,6 @@ LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", False)
