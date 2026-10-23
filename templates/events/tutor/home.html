@@ -1,14 +1,10 @@
-{% extends "events/shell_rail.html" %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Mi equipo{% endblock %}
 {% block content %}
-<header class="page-head">
-  <p class="folio">{{ access.membership.team_label }} · {{ coordinators|length }} coordinador{{ coordinators|length|pluralize:"es" }}</p>
-  <div class="page-head__row">
-    <h1>Mi equipo</h1>
-    <a class="btn btn--primary" href="{% url 'events:pending' event.slug %}">Ver pendientes</a>
-  </div>
-  <div class="cluster">{% include "partials/ui/live_status.html" %}{% if next_cutoff %}<span class="folio">Próximo corte: {{ next_cutoff|date:"H:i" }}</span>{% endif %}</div>
+<header class="crew-head">
+  <h1 class="voice crew-head__title">{% if access.membership.team_name %}{{ access.membership.team_name }}, con {{ user.first_name|default:user.get_full_name }}.{% else %}Hola, {{ user.first_name|default:user.get_full_name }}.{% endif %}</h1>
+  <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
 </header>
 <div id="equipo-vivo" data-live-url="{% url 'events:tutor_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
   {% include "events/tutor/_home_live.html" %}

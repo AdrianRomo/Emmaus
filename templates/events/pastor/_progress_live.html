@@ -1,21 +1,86 @@
 {% load emmaus %}
-<div class="figure-row">
-  <div class="figure figure--hero"><p class="figure__label">Avance</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }}</p></div>
-  <div class="figure"><p class="figure__label">En curso</p><p class="figure__value">{{ progress.in_progress }}</p></div>
-  <div class="figure"><p class="figure__label">Sin iniciar</p><p class="figure__value">{{ progress.not_started }}</p></div>
-  <div class="figure"><p class="figure__label">Ritmo</p><p class="figure__value">{{ payload.throughput.per_hour }}<small>por hora</small></p></div>
-</div>
-<div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
-<div class="split split--even section">
-  {% include "events/partials/chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="avance-acumulado" as_of=payload.data_as_of %}
-  {% include "events/partials/chart_columns.html" with points=payload.timeline.points chart_id="avance-ritmo" as_of=payload.data_as_of %}
-</div>
-<section class="section" aria-labelledby="equipos"><div class="section__head"><h2 id="equipos">Por equipo</h2></div>
-  {% include "events/partials/team_bars.html" with rows=teams %}
+{% comment %}
+  The detail behind the pastor's summary, in the same language: a question on the left with its answer
+  in one sentence, the evidence on the right (headline, ruler, figures, charts, teams, every coordinator).
+{% endcomment %}
+<section class="report-section report-section--lead" aria-labelledby="cuanto">
+  <div class="report-section__q">
+    <h2 id="cuanto" class="voice report-section__title">¿Cuánto llevamos?</h2>
+  </div>
+  <div class="report-section__body">
+    {% if progress.eligible %}
+      <p class="voice headline">Llevamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</p>
+      <p class="headline__sub">
+        {% if not progress.pending %}Ya se completaron todas.
+        {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, faltan unas <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
+        {% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}
+      </p>
+      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
+      <ul class="key">
+        <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
+        <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
+        <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
+      </ul>
+      <dl class="figures">
+        <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
+        <div><dt>Sin iniciar</dt><dd class="figures__value">{{ progress.not_started }}</dd></div>
+        <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
+        <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>
+      </dl>
+    {% else %}
+      <p class="voice headline">Todavía no hay participantes registrados.</p>
+    {% endif %}
+  </div>
 </section>
-<section class="section" aria-labelledby="coordinadores"><div class="section__head"><h2 id="coordinadores">Por coordinador</h2><p>{{ coordinators|length }}</p></div>
-  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table">
-    <thead><tr><th>Coordinador</th><th>Equipo</th><th class="num">Camperos</th><th class="num">Completadas</th><th class="num">En curso</th><th class="num">Avance</th></tr></thead>
-    <tbody>{% for c in coordinators %}<tr><td><a href="{% url 'events:coordinator_detail' event.slug c.id %}">{{ c.name }}</a>{% if c.stale %} <span class="chip chip--alert">{{ c.stale }} detenida{{ c.stale|pluralize }}</span>{% endif %}</td><td>{{ c.team }}</td><td class="num">{{ c.eligible }}</td><td class="num">{{ c.completed }}</td><td class="num">{{ c.in_progress }}</td><td class="num">{{ c.percent|pct }}</td></tr>{% empty %}<tr><td colspan="6">Todavía no hay coordinadores.</td></tr>{% endfor %}</tbody>
-  </table></div>
+
+<section class="report-section" aria-labelledby="ritmo">
+  <div class="report-section__q">
+    <h2 id="ritmo" class="voice report-section__title">¿A qué ritmo vamos?</h2>
+    <p class="report-section__answer">{{ payload.throughput.per_hour }} entrevista{{ payload.throughput.per_hour|pluralize }} por hora en las últimas dos horas.</p>
+  </div>
+  <div class="report-section__body">
+    {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="avance-acumulado" as_of=payload.data_as_of %}
+    {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="avance-ritmo" %}
+  </div>
+</section>
+
+<section class="report-section" aria-labelledby="equipos">
+  <div class="report-section__q">
+    <h2 id="equipos" class="voice report-section__title">¿Cómo va cada equipo?</h2>
+    {% if teams|length > 1 %}{% with first=teams.0 %}<p class="report-section__answer">{{ first.label }} va más atrás, con {{ first.percent|pct }}. El promedio es {{ progress.percent|pct }}.</p>{% endwith %}{% endif %}
+  </div>
+  <div class="report-section__body">
+    {% if teams %}
+      <ul class="key">
+        <li><span class="key__mark key__mark--done" aria-hidden="true"></span>Completadas</li>
+        <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>En curso</li>
+        <li><span class="key__mark" aria-hidden="true"></span>Sin iniciar</li>
+        <li><span class="key__mark key__mark--marker" aria-hidden="true"></span>Promedio {{ event.of_kind }}</li>
+      </ul>
+      <ol class="teams">
+        {% for row in teams %}
+          <li class="teams__row">
+            <span class="teams__name">{{ row.label }}</span>
+            <span class="teams__value"><strong>{{ row.percent|pct }}</strong> {{ row.completed }} de {{ row.eligible }}</span>
+            {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="empty-line">Todavía no hay equipos. Cuando la administración asigne tutores y coordinadores verás el avance de cada equipo.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="report-section" aria-labelledby="coordinadores">
+  <div class="report-section__q">
+    <h2 id="coordinadores" class="voice report-section__title">¿Cómo va cada coordinador?</h2>
+    <p class="report-section__answer">{{ coordinators|length }} coordinador{{ coordinators|length|pluralize:"es" }}, del que va más atrás al que va más adelante.</p>
+  </div>
+  <div class="report-section__body">
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Avance por coordinador"><table class="table table--nowrap">
+      <thead><tr><th>Coordinador</th><th class="num">Avance</th><th class="num">Completadas</th><th class="num">Camperos</th><th class="num">En curso</th><th>Equipo</th></tr></thead>
+      <tbody>{% for c in coordinators %}<tr><td class="cell-name"><a href="{% url 'events:coordinator_detail' event.slug c.id %}">{{ c.name }}</a>{% if c.stale %}<span class="cell-note">{{ c.stale }} entrevista{{ c.stale|pluralize }} detenida{{ c.stale|pluralize }}</span>{% endif %}</td><td class="num">{{ c.percent|pct }}</td><td class="num">{{ c.completed }}</td><td class="num">{{ c.eligible }}</td><td class="num">{{ c.in_progress }}</td><td>{{ c.team }}</td></tr>{% empty %}<tr><td colspan="6">Todavía no hay coordinadores.</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
 </section>

@@ -1,7 +1,12 @@
-{% extends "events/shell_rail.html" %}
+{% extends rotulo_shell %}
+{% load emmaus %}
 {% block page_title %}Avance {{ event.of_kind }}{% endblock %}
 {% block content %}
-<header class="page-head"><p class="folio">{{ event.name }}</p><div class="page-head__row"><h1>Avance {{ event.of_kind }}</h1><a class="btn" href="{% url 'events:interviews' event.slug %}">Ver entrevistas</a></div>{% include "partials/ui/live_status.html" %}</header>
+{% url 'events:interviews' event.slug as interviews_url %}
+{% with title="Avance "|add:event.of_kind %}
+  {% include "events/rotulo/_page_head.html" with title=title meta=event.name secondary_url=interviews_url secondary_label="Ver entrevistas" %}
+{% endwith %}
+<p class="live-status lead-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
 <div id="avance-vivo" data-live-url="{% url 'events:progress' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/pastor/_progress_live.html" %}
 </div>

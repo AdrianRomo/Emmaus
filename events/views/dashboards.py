@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -39,19 +39,38 @@ def _recent_activity(access, limit=8):
     )
 
 
+def _last_station(access):
+    """Where each coordinator was last seen: the computer of the latest interview they conducted
+    with one of their own camperos. `now` is true while that interview is still in progress."""
+    places = {}
+    rows = (
+        access.interviews()
+        .filter(station__isnull=False, conducted_by=F("participant__coordinator__user"))
+        .order_by("-last_activity_at")
+        .values_list("participant__coordinator", "station__name", "status")
+    )
+    for coordinator_id, station, status in rows:
+        places.setdefault(coordinator_id, {"station": station, "now": status == Interview.Status.IN_PROGRESS})
+    return places
+
+
 # ---- Tutor -----------------------------------------------------------------------------------
 
 
 @event_view(TUTOR)
 def tutor_home(request, event, access):
     payload = build_payload(scope_for_access(access))
+    open_care = access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES)
     context = {
         "payload": payload,
         "progress": payload["progress"],
         "coordinators": payload["coordinators"],
         "recent": _recent_activity(access),
-        "stale": stale_interviews(access.participants()).select_related("participant", "conducted_by")[:6],
-        "follow_ups_open": access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).count(),
+        # The sign names whose interviews stalled; the rows say where each coordinator is.
+        "stalled": [row for row in payload["coordinators"] if row["stale"]],
+        "places": _last_station(access),
+        "follow_ups": open_care.order_by("created_at")[:5],
+        "follow_ups_open": open_care.count(),
         "last_snapshot": _last_snapshot(access),
         "next_cutoff": next_slot(event),
     }
@@ -63,7 +82,11 @@ def tutor_home(request, event, access):
 @event_view(*LEADERS)
 def coordinators(request, event, access):
     payload = build_payload(scope_for_access(access))
-    return render(request, "events/supervision/coordinators.html", {"rows": payload["coordinators"], "progress": payload["progress"]})
+    return render(
+        request,
+        "events/supervision/coordinators.html",
+        {"rows": payload["coordinators"], "progress": payload["progress"], "places": _last_station(access)},
+    )
 
 
 @event_view(*LEADERS)
