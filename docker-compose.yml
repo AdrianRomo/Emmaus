@@ -10,6 +10,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgres://emmaus:emmaus@db:5432/emmaus
+      DEBUG: "true"
       EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
     depends_on:
       db:

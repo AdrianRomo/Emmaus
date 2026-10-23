@@ -617,12 +617,14 @@ def hand_over_to_participant(request, access, interview: Interview, station: Int
             locked,
             station=locked.station.name if locked.station else "",
         )
+    stations = request.session.get("stations", {})
     logout(request)  # flushes the session: no coordinator privileges remain in this browser
     request.session[KIOSK_KEY] = {
         "session": str(participant_session.public_id),
         "token": kiosk_token,
         "claim": lock_token,
     }
+    request.session["stations"] = stations  # which computer this is (not a secret)
     return participant_session
 
 
@@ -707,8 +709,9 @@ def kiosk_unlock(request, password: str, *, username: str | None = None):
     wait = throttle.consume(
         f"unlock:{participant_session.public_id}",
         limit=UNLOCK_MAX_ATTEMPTS,
-        window_seconds=15 * 60,
+        window_seconds=60 * 60,
         block_seconds=UNLOCK_COOLDOWN_SECONDS,
+        max_block_seconds=15 * 60,
     )
     if wait:
         raise InterviewError(throttle.wait_message(wait))
@@ -731,7 +734,7 @@ def kiosk_unlock(request, password: str, *, username: str | None = None):
         locked_session.save(update_fields=["state", "ended_at", "end_reason"])
     throttle.reset(f"unlock:{participant_session.public_id}")
     request.session.pop(KIOSK_KEY, None)
-    login(request, user)  # rotates the session key
+    login(request, user)  # rotates the session key (session data such as the station is kept)
     with transaction.atomic():
         locked = Interview.objects.select_for_update().get(pk=interview.pk)
         token = None

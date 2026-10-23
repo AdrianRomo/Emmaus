@@ -25,6 +25,11 @@ class Command(BaseCommand):
             state=ParticipantSession.State.ACTIVE, last_activity_at__lt=now - timezone.timedelta(minutes=KIOSK_IDLE_MINUTES)
         ).update(state=ParticipantSession.State.AWAITING_UNLOCK, end_reason=ParticipantSession.EndReason.EXPIRED)
         snapshots = run_due_cutoffs(now)
+        from importlib import import_module
+
+        from django.conf import settings
+
+        import_module(settings.SESSION_ENGINE).SessionStore.clear_expired()
         ready = sum(1 for s in snapshots if s.status == "listo")
         failed = len(snapshots) - ready
         self.stdout.write(f"{timezone.localtime(now):%Y-%m-%d %H:%M} · cortes: {ready} listos, {failed} con error · entrevistas liberadas: {released} · capturas vencidas: {expired}")

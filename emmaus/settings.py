@@ -22,10 +22,11 @@ def env_list(name: str, default: str = "") -> list[str]:
     return [item.strip() for item in raw.split(",") if item.strip()]
 
 
-DEBUG = env_bool("DEBUG", True)
+DEBUG = env_bool("DEBUG", False)  # production-safe default; development sets DEBUG=true explicitly
+TESTING = "test" in sys.argv or "pytest" in sys.modules
 SECRET_KEY = os.environ.get("SECRET_KEY")
 if not SECRET_KEY:
-    if DEBUG:
+    if DEBUG or TESTING:
         SECRET_KEY = "unsafe-dev-secret-key-change-me"
     else:
         raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG=false.")
@@ -188,3 +189,4 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", False)
+SECURE_REDIRECT_EXEMPT = [r"^health/$"]  # the container healthcheck speaks plain HTTP

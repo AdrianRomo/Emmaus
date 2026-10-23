@@ -7,6 +7,7 @@ the person downloading it may see on screen.
 from __future__ import annotations
 
 import io
+from xml.sax.saxutils import escape
 from datetime import datetime
 from pathlib import Path
 
@@ -166,7 +167,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None) ->
     width = doc.width
     progress = payload["progress"]
     story = [
-        Paragraph(f"{snapshot.event.name} · {payload['scope']['label']}", styles["folio"]),
+        Paragraph(escape(f"{snapshot.event.name} · {payload['scope']['label']}"), styles["folio"]),
         Paragraph(f"Corte de seguimiento de las {timezone.localtime(snapshot.cutoff_at).strftime('%H:%M')}", styles["title"]),
         Paragraph(
             f"Datos al {_fmt(payload['data_as_of'])}. Generado de forma {snapshot.get_trigger_display().lower()}. "
@@ -202,7 +203,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None) ->
     rate_text = f"Ritmo: {rate['per_hour']:g} entrevistas por hora (promedio de las últimas 2 horas)."
     if rate.get("eta_minutes"):
         rate_text += f" Al ritmo actual faltan unas {format_duration(rate['eta_minutes'])}."
-    story += [Spacer(1, 6), Paragraph(rate_text, styles["body"])]
+    story += [Spacer(1, 6), Paragraph(escape(rate_text), styles["body"])]
 
     points = payload["timeline"]["points"]
     story.append(Paragraph("Avance de entrevistas", styles["h2"]))
@@ -270,7 +271,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None) ->
             )
         )
         for outcome in outcomes:
-            block = [Paragraph(f"<b>{outcome['title']}</b> — respondieron {outcome['respondents']['display']}", styles["body"])]
+            block = [Paragraph(f"<b>{escape(outcome['title'])}</b> — respondieron {escape(outcome['respondents']['display'])}", styles["body"])]
             if outcome["withheld"]:
                 block.append(Paragraph("Aún no hay suficientes respuestas para mostrar este resumen.", styles["small"]))
             else:
@@ -290,12 +291,12 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None) ->
     if recs:
         story.append(Paragraph("Próximos pasos", styles["h2"]))
         for index, rec in enumerate(recs, start=1):
-            story.append(Paragraph(f"{index}. {rec['text']} <font color='#5d645e'>({rec['evidence']})</font>", styles["body"]))
+            story.append(Paragraph(f"{index}. {escape(rec['text'])} <font color='#5d645e'>({escape(rec['evidence'])})</font>", styles["body"]))
             story.append(Spacer(1, 3))
 
     story.append(Paragraph("Cómo se calcula", styles["h2"]))
     for name, text in DEFINITIONS:
-        story.append(Paragraph(f"<b>{name}:</b> {text}", styles["small"]))
+        story.append(Paragraph(f"<b>{escape(name)}:</b> {escape(text)}", styles["small"]))
 
     def footer(canvas, document):
         canvas.saveState()

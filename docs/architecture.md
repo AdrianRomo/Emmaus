@@ -234,6 +234,7 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 | `core/0005_alter_aidraft_options_alter_church_options_and_more` | Spanish `verbose_name` options only; no schema change |
 | `events/0001_initial` | All camp tables, constraints and indexes. Depends on `core/0003` |
 | `events/0002_security_review` | Adds `AuthThrottle`, adds `FollowUp.confidential` (default `False`) and widens the care follow-up constraint to `(interview, confidential)` |
+| `events/0003_followup_confidential_db_default` | Gives `FollowUp.confidential` a database default (`db_default=False`), so code from before `0002` can still insert follow-ups during a rolling deploy |
 
 Existing churches and discipleship data are not modified apart from `0004`. The camp module adds new tables and columns only. `makemigrations --check` reports no pending changes.
 

@@ -750,8 +750,8 @@ class FollowUp(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="follow_ups")
     participant = models.ForeignKey(EventParticipant, on_delete=models.CASCADE, related_name="follow_ups")
     interview = models.ForeignKey(Interview, on_delete=models.SET_NULL, null=True, blank=True, related_name="follow_ups")
-    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.CARE)
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    kind = models.CharField("Tipo", max_length=16, choices=Kind.choices, default=Kind.CARE)
+    status = models.CharField("Estado", max_length=16, choices=Status.choices, default=Status.PENDING)
     reason = models.CharField("Motivo", max_length=32, choices=Reason.choices, default=Reason.COORDINATOR)
     details = models.TextField("Detalles confidenciales", blank=True)
     confidential = models.BooleanField(
@@ -761,7 +761,7 @@ class FollowUp(models.Model):
         help_text="Se creó a partir de respuestas confidenciales: solo lo ve el equipo con acceso confidencial.",
     )
     assigned_to = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+        settings.AUTH_USER_MODEL, verbose_name="Líder responsable", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     resolution_note = models.TextField("Nota de cierre (confidencial)", blank=True)
     created_by = models.ForeignKey(
@@ -878,6 +878,7 @@ class AuthThrottle(models.Model):
 
     key = models.CharField(max_length=200, unique=True)
     attempts = models.PositiveIntegerField(default=0)
+    strikes = models.PositiveSmallIntegerField(default=0)
     window_started_at = models.DateTimeField(default=timezone.now)
     blocked_until = models.DateTimeField(null=True, blank=True)
 

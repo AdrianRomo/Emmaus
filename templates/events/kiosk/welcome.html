@@ -1,5 +1,6 @@
 {% extends "events/shell_kiosk.html" %}
 {% block page_title %}Bienvenido{% endblock %}
+{% block body_attrs %}data-kiosk-idle="300" data-kiosk-timeout-url="{% url 'kiosk:timeout' %}" data-kiosk-heartbeat-url="{% url 'kiosk:heartbeat' %}"{% endblock %}
 {% block content %}
 <div class="stack-lg">
   <div class="stack">
@@ -14,4 +15,10 @@
   </ul>
   <div><a class="btn btn--hero" href="{% url 'kiosk:step' first_step.number %}">{% if started %}Continuar{% else %}Empezar{% endif %} <span class="btn__arrow" aria-hidden="true">→</span></a></div>
 </div>
+{% endblock %}
+{% block idle_dialog %}
+<dialog class="dialog" id="idle-warning" aria-labelledby="idle-title">
+  <div class="dialog__body"><h2 id="idle-title">¿Sigues aquí?</h2><p>Por tu privacidad, la pantalla se cerrará en un minuto si no hay actividad.</p></div>
+  <div class="dialog__actions"><button class="btn btn--primary" type="button" data-idle-continue>Sí, sigo aquí</button></div>
+</dialog>
 {% endblock %}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth import login
-from django.contrib.auth.views import LoginView
+from django.contrib.auth.views import LoginView, PasswordResetView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
@@ -789,7 +789,7 @@ class ThrottledLoginView(LoginView):
 
         username = (request.POST.get("username") or "").strip().lower()
         key = f"login:{username}"
-        wait = throttle.consume(key, limit=8, window_seconds=15 * 60, block_seconds=5 * 60) if username else 0
+        wait = throttle.consume(key, limit=8, window_seconds=60 * 60, block_seconds=5 * 60, max_block_seconds=60 * 60) if username else 0
         if wait:
             form = self.get_form()
             form.is_valid()
@@ -800,3 +800,20 @@ class ThrottledLoginView(LoginView):
         if request.user.is_authenticated:
             throttle.reset(key)
         return response
+
+
+class ThrottledPasswordResetView(PasswordResetView):
+    """At most 3 reset e-mails per address per hour (prevents mail flooding)."""
+
+    template_name = "registration/password_reset_form.html"
+    email_template_name = "registration/password_reset_email.txt"
+    subject_template_name = "registration/password_reset_subject.txt"
+    success_url = "/cuenta/olvide-mi-contrasena/enviado/"
+
+    def form_valid(self, form):
+        from events.services import throttle
+
+        email = form.cleaned_data["email"].strip().lower()
+        if throttle.consume(f"reset:{email}", limit=3, window_seconds=60 * 60, block_seconds=60 * 60):
+            return redirect(self.get_success_url())  # same page as success: no hint either way
+        return super().form_valid(form)

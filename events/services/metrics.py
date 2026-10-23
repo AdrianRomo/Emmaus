@@ -503,7 +503,7 @@ def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
         items.append({"kind": "sin_tutor", "text": f"{n} {'coordinador no tiene' if n == 1 else 'coordinadores no tienen'} tutor.", "evidence": "Nadie revisa su avance."})
     if att["missing_guardian"]:
         n = att["missing_guardian"]
-        items.append({"kind": "autorizaciones", "text": f"{n} {'campero menor no tiene' if n == 1 else 'camperos menores no tienen'} autorización registrada y no {'podrá' if n == 1 else 'podrán'} entrevistarse hasta tenerla.", "evidence": "Autorización de padre, madre o tutor legal."})
+        items.append({"kind": "autorizaciones", "text": f"{n} {'campero menor no tiene' if n == 1 else 'camperos menores no tienen'} autorización registrada. Su coordinador deberá confirmar el formato firmado antes de la entrevista.", "evidence": "Autorización de padre, madre o tutor legal."})
     fu = payload["follow_ups"]
     if fu["to_evaluate"]:
         n = fu["to_evaluate"]

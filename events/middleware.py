@@ -45,7 +45,8 @@ class StaffIdleLogoutMiddleware:
                 logout(request)
                 messages.info(request, "Por seguridad cerramos tu sesión después de un tiempo sin actividad. Vuelve a entrar.")
                 return redirect(f"{resolve_url(settings.LOGIN_URL)}?next={request.path}")
-            if now - last > 30 or "last_seen" not in request.session:
+            background = request.headers.get("X-Requested-With") == "fetch"  # dashboard auto-refresh
+            if not background and (now - last > 30 or "last_seen" not in request.session):
                 request.session["last_seen"] = now
         return self.get_response(request)
 

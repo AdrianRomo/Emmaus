@@ -116,7 +116,7 @@ class Command(BaseCommand):
         return user
 
     def _build(self, rng, password, opts):
-        church = Church.objects.order_by("created_at").first() or Church.objects.create(name="Iglesia de demostración", slug="iglesia-demo")
+        church, _ = Church.objects.get_or_create(slug="iglesia-demo", defaults={"name": "Iglesia de demostración"})
         version = create_questionnaire_from_definition(church, DEFAULT_CAMP_QUESTIONNAIRE)
         today = timezone.localdate()
         event = Event.objects.create(

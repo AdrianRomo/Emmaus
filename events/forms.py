@@ -58,10 +58,24 @@ class EventForm(SpanishErrorsMixin, forms.ModelForm):
         return slug
 
 
+MEXICO_TIME_ZONES = [
+    ("America/Mexico_City", "Centro (Ciudad de México, Guadalajara, Monterrey)"),
+    ("America/Cancun", "Sureste (Quintana Roo)"),
+    ("America/Chihuahua", "Chihuahua"),
+    ("America/Ciudad_Juarez", "Ciudad Juárez"),
+    ("America/Mazatlan", "Pacífico (Sinaloa, Nayarit, Baja California Sur)"),
+    ("America/Hermosillo", "Sonora"),
+    ("America/Tijuana", "Noroeste (Baja California)"),
+]
+
+
 class EventSettingsForm(forms.ModelForm):
+    time_zone = forms.ChoiceField(label="Zona horaria", choices=MEXICO_TIME_ZONES, help_text="Define a qué hora caen los cortes y cómo se muestran las horas.")
+
     class Meta:
         model = Event
         fields = [
+            "time_zone",
             "questionnaire_version",
             "reports_enabled",
             "report_interval_minutes",

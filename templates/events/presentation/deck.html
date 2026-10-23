@@ -3,7 +3,7 @@
 {% block title %}Modo presentación · {{ deck.event_name }}{% endblock %}
 {% block body %}
 <main id="contenido" class="deck" aria-roledescription="presentación" aria-label="Modo presentación de {{ deck.event_name }}">
-  <div class="deck__frame"{% if live %} data-live-url="{% url 'events:presentation_live' event.slug %}" data-live-interval="60" id="diapositivas"{% endif %}>
+  <div class="deck__frame"{% if live %} data-live-url="{% url 'events:presentation_live' event.slug %}" data-live-interval="60" data-live-status="deck-estado" id="diapositivas"{% endif %}>
     {% include "events/presentation/_slides.html" %}
   </div>
   <nav class="deck-controls" aria-label="Controles de la presentación">
@@ -12,6 +12,7 @@
     <span class="deck-controls__count" data-deck-count aria-live="polite">1 de 5</span>
     <button class="btn" type="button" data-deck-next>Siguiente</button>
     <button class="btn" type="button" data-deck-full>Pantalla completa</button>
+    {% if live %}<span class="deck-controls__count live-status" id="deck-estado" data-state="ok" aria-live="polite">En vivo</span>{% endif %}
   </nav>
 </main>
 {% endblock %}

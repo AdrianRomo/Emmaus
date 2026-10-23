@@ -219,7 +219,9 @@ def visible_payload(payload: dict, access) -> dict:
     released = data.pop("released", None) or {}
     data.pop("outcome_counts", None)
     if not (access.is_admin or access.can_view_sensitive):
-        data["follow_ups"] = {**data.get("follow_ups", {}), "safety_open": None, "confidential_open": None}
+        data["follow_ups"] = {**data.get("follow_ups", {}), "safety_open": None}
+    if not access.can_view_sensitive:
+        data["follow_ups"] = {**data.get("follow_ups", {}), "confidential_open": None}
     data["outcomes"] = present_outcomes(access.event, released.get("outcomes")) if access.can_see_aggregate_outcomes else []
     if access.is_tutor:
         allowed = set(access.coordinators().values_list("id", flat=True))

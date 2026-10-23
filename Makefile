@@ -1,4 +1,4 @@
-.PHONY: up down build migrate createsuperuser create-starter-path test collectstatic logs seed-demo cutoffs load-test
+.PHONY: up down build migrate createsuperuser create-starter-path test collectstatic logs seed-demo cutoffs
 
 up:
 	docker compose up

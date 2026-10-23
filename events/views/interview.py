@@ -211,6 +211,8 @@ def interview_resume(request, event, access, public_id):
     if response:
         return response
     interview.refresh_from_db()
+    if interview.mode == Interview.Mode.SUPERVISED and not interview.answers.filter(answered_by_participant=True).exists():
+        return redirect("events:interview_handoff", slug=event.slug, public_id=interview.public_id)
     answers = load_answers(interview)
     for step in visible_steps(interview.version, answers):
         if step.question.id not in answers:
@@ -359,7 +361,7 @@ def interview_done(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if interview.status != Interview.Status.COMPLETED:
         return redirect("events:interview_resume", slug=event.slug, public_id=public_id)
-    follow_up = interview.follow_ups.filter(kind=FollowUp.Kind.CARE).exclude(status=FollowUp.Status.CANCELLED).first()
+    follow_up = interview.follow_ups.filter(kind=FollowUp.Kind.CARE, confidential=False).exclude(status=FollowUp.Status.CANCELLED).first()
     remaining = access.participants().exclude(interview_status=InterviewStatus.COMPLETED).count()
     return render(
         request,

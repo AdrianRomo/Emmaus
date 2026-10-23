@@ -4,21 +4,12 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 from core.forms import EmailAuthenticationForm
-from core.views import ThrottledLoginView
+from core.views import ThrottledLoginView, ThrottledPasswordResetView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("cuenta/entrar/", ThrottledLoginView.as_view(authentication_form=EmailAuthenticationForm), name="login"),
-    path(
-        "cuenta/olvide-mi-contrasena/",
-        auth_views.PasswordResetView.as_view(
-            template_name="registration/password_reset_form.html",
-            email_template_name="registration/password_reset_email.txt",
-            subject_template_name="registration/password_reset_subject.txt",
-            success_url="/cuenta/olvide-mi-contrasena/enviado/",
-        ),
-        name="password_reset",
-    ),
+    path("cuenta/olvide-mi-contrasena/", ThrottledPasswordResetView.as_view(), name="password_reset"),
     path(
         "cuenta/olvide-mi-contrasena/enviado/",
         auth_views.PasswordResetDoneView.as_view(template_name="registration/password_reset_done.html"),

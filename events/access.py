@@ -245,12 +245,13 @@ class EventAccess:
 def resolve_access(user: User | AnonymousUser, event: Event) -> EventAccess | None:
     if not getattr(user, "is_authenticated", False) or not user.is_active:
         return None
-    membership = (
-        EventMembership.objects.filter(event=event, user=user, is_active=True).select_related("user").first()
-    )
+    any_membership = EventMembership.objects.filter(event=event, user=user).select_related("user").first()
+    membership = any_membership if any_membership and any_membership.is_active else None
     church_role = UserChurchRole.objects.filter(church_id=event.church_id, user=user).values_list("role", flat=True).first()
     if user.is_superuser or church_role == Role.CHURCH_ADMIN:
         return EventAccess(event, user, MembershipRole.ADMIN, membership, via_church_role=membership is None)
+    if any_membership is not None and not any_membership.is_active:
+        return None  # access removed for this event: a church-wide pastor role does not bring it back
     if membership:
         return EventAccess(event, user, membership.role, membership)
     if church_role == Role.PASTOR:

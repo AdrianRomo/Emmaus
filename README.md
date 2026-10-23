@@ -25,6 +25,7 @@ Cutoffs ("cortes de seguimiento") are immutable snapshots generated every two ho
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 export DATABASE_URL=postgres://emmaus:emmaus@localhost:5432/emmaus   # or omit for SQLite
+export DEBUG=true   # DEBUG is off unless you turn it on; production needs SECRET_KEY instead
 .venv/bin/python manage.py migrate
 DEBUG=true .venv/bin/python manage.py seed_camp_demo --password "una-contraseña-de-prueba"
 DEBUG=true .venv/bin/python manage.py runserver
@@ -39,7 +40,7 @@ For a real deployment, start at `/setup/` (first church and administrator), then
 ## Tests
 
 ```bash
-DATABASE_URL=postgres://… .venv/bin/python manage.py test          # 130+ tests, use PostgreSQL
+DATABASE_URL=postgres://… .venv/bin/python manage.py test          # 170+ tests, use PostgreSQL
 python scripts/simulate_camp_day.py --base http://127.0.0.1:8000 --event carga-2026 --password …   # 10-station load test
 cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… npm test              # browser check
 ```

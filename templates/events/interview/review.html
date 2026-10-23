@@ -1,7 +1,7 @@
 {% extends "events/shell_focus.html" %}
 {% load emmaus %}
 {% block page_title %}{% if error %}Error: {% endif %}Revisa y finaliza{% endblock %}
-{% block focus_actions %}<a class="btn btn--sm" href="{% url 'events:coord_home' event.slug %}">Guardar y salir</a>{% endblock %}
+{% block focus_actions %}<a class="btn btn--sm" href="{% if access.is_coordinator %}{% url 'events:coord_home' event.slug %}{% else %}{% url 'events:admin_home' event.slug %}{% endif %}">Guardar y salir</a>{% endblock %}
 {% block content %}
 {% if error %}
   <div class="error-summary" role="alert"><h2>Hay un problema</h2><ul><li><a href="#decision">{{ error }}</a></li></ul></div>

@@ -511,3 +511,91 @@ class FollowUpPrivacyAndThrottleTests(RefuterBase):
         self.client.post(self.url("interview_handoff", interview.public_id))
         self.client.post(reverse("kiosk:finish"))
         self.assertNotContains(self.client.get(reverse("kiosk:home")), self.p1.first_name)
+
+
+class SecondReviewTests(RefuterBase):
+    """Findings from the documentation pass (code read against the docs)."""
+
+    def _supervised_with_support(self):
+        self.login(self.coord1)
+        self.choose_station(number=6)
+        self.start(self.p1, mode="supervisada")
+        interview = Interview.objects.get(participant=self.p1)
+        self.client.post(self.url("interview_handoff", interview.public_id))
+        self.answer(interview, "apoyo", ["relaciones"], url_name="kiosk")
+        self.client.post(reverse("kiosk:finish"))
+        self.client.post(reverse("kiosk:unlock"), {"password": PASSWORD})
+        interview.refresh_from_db()
+        return interview
+
+    def test_done_page_does_not_mention_the_confidential_referral(self):
+        interview = self._supervised_with_support()
+        response = self.client.post(
+            self.url("interview_review", interview.public_id), {"revision": interview.revision, "follow_up_decision": "no_requerido"}, follow=True
+        )
+        self.assertContains(response, "Entrevista completada")
+        self.assertNotContains(response, "Se registró un seguimiento")
+        self.assertNotContains(response, "apoyo en un área")
+
+    def test_station_is_remembered_after_recovering_the_computer(self):
+        self._supervised_with_support()
+        self.assertEqual(self.client.session.get("stations", {}).get(str(self.event.id)), self.event.stations.get(number=6).id)
+
+    def test_resuming_a_never_handed_over_supervised_interview_goes_to_hand_over(self):
+        self.login(self.coord1)
+        self.choose_station()
+        self.start(self.p2, mode="supervisada")
+        interview = Interview.objects.get(participant=self.p2)
+        response = self.client.get(self.url("interview_resume", interview.public_id))
+        self.assertRedirects(response, self.url("interview_handoff", interview.public_id), fetch_redirect_response=False)
+
+    def test_pdf_survives_markup_like_text(self):
+        from events.services.metrics import event_scope
+
+        self.m_tutor1.team_name = "Equipo <A> & <b>"
+        self.m_tutor1.save()
+        self.event.name = "Campamento <Jóvenes>"
+        self.event.save()
+        snap = generate_snapshot(self.event, event_scope(self.event), trigger="manual", cutoff_at=timezone.now())
+        self.login(self.pastor)
+        response = self.client.get(self.url("report_pdf", snap.public_id))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_deactivated_membership_overrides_church_pastor_role(self):
+        from core.models import Role
+        from core.services import assign_role
+        from events.access import resolve_access
+
+        assign_role(self.pastor, self.church, Role.PASTOR)
+        self.assertIsNotNone(resolve_access(self.pastor, self.event))
+        self.m_pastor.is_active = False
+        self.m_pastor.save()
+        self.assertIsNone(resolve_access(self.pastor, self.event))
+        self.assertIsNotNone(resolve_access(self.pastor, self.other_event))  # other events of the church still work
+
+    def test_lockouts_escalate_instead_of_resetting(self):
+        from unittest import mock
+
+        from events.services import throttle
+
+        now = timezone.now()
+        with mock.patch("events.services.throttle.timezone.now", return_value=now):
+            results = [throttle.consume("k", limit=3, window_seconds=3600, block_seconds=60) for _ in range(4)]
+        self.assertEqual(results, [0, 0, 0, 60])
+        later = now + timedelta(seconds=61)
+        with mock.patch("events.services.throttle.timezone.now", return_value=later):
+            second = [throttle.consume("k", limit=3, window_seconds=3600, block_seconds=60) for _ in range(3)]
+        self.assertEqual(second[-1], 120, second)  # fewer tries after a block, and a longer block
+
+    def test_dashboard_auto_refresh_does_not_keep_a_session_alive(self):
+        import time
+
+        self.login(self.pastor)
+        self.client.get(self.url("pastor_home"))
+        session = self.client.session
+        session["last_seen"] = int(time.time()) - 3600
+        session.save()
+        response = self.client.get(self.url("pastor_home"), HTTP_X_REQUESTED_WITH="fetch")
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
