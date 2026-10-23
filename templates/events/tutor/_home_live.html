@@ -7,9 +7,9 @@
 {% if stalled %}
   <section class="sign crew-sign" aria-labelledby="que-hago">
     {% if stalled|length == 1 %}
-      {% with c=stalled.0 %}{% with place=places|get_item:c.id %}
+      {% with c=stalled.0 %}{% with place=stalled_places|get_item:c.id %}
         <h2 id="que-hago" class="sign__title">{{ c.name }} lleva {{ c.stale }} entrevista{{ c.stale|pluralize }} sin movimiento</h2>
-        <p class="sign__text">{% if c.stale == 1 %}Lleva{% else %}Llevan{% endif %} 20 minutos o más sin actividad{% if place.now %} en {{ place.station }}{% endif %}. Pregúntale si necesita ayuda o si hay que retomarla{{ c.stale|pluralize }}.</p>
+        <p class="sign__text">{% if c.stale == 1 %}Lleva{% else %}Llevan{% endif %} 20 minutos o más sin actividad{% if place %} en {{ place }}{% endif %}. Pregúntale si necesita ayuda o si hay que retomarla{{ c.stale|pluralize }}.</p>
       {% endwith %}{% endwith %}
     {% else %}
       <h2 id="que-hago" class="sign__title">{{ payload.attention.stale_interviews }} entrevistas sin movimiento</h2>

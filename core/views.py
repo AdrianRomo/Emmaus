@@ -422,6 +422,8 @@ def mentor_dashboard(request):
             "participants": participants,
             "priority_participants": priority_participants,
             "questions": questions,
+            # Oldest first, and only those still waiting on the mentor: escalated ones already reached a pastor.
+            "awaiting": questions.filter(status=ParticipantQuestion.Status.OPEN).order_by("created_at"),
             "follow_ups": follow_ups,
         },
     )

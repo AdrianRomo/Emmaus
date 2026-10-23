@@ -51,6 +51,17 @@ class LeaderScreensTests(CampFixture):
         self.assertContains(response, "1 entrevista sin actividad desde hace 20 minutos o más")
         self.assertNotContains(response, "chip--alert")
 
+    def test_tutor_sign_names_the_computer_of_the_stalled_interview(self):
+        """Not where the coordinator went next: the stalled interview was left at Computadora 8."""
+        self.stall(self.p1, station_number=8)
+        self.login(self.coord1)
+        self.choose_station(number=3)
+        self.start(self.p2)  # a newer, active interview at another computer
+        self.login(self.tutor1)
+        response = self.client.get(self.url("tutor_home"))
+        self.assertContains(response, "sin actividad en Computadora 8")
+        self.assertNotContains(response, "sin actividad en Computadora 3")
+
     def test_tutor_sign_counts_every_stalled_coordinator(self):
         self.stall(self.p1)
         self.login(self.coord2)

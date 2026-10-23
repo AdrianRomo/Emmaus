@@ -78,6 +78,17 @@ class AdminScreensTests(CampFixture):
         fragment = self.client.get(self.url("admin_home"), HTTP_X_REQUESTED_WITH="fetch")
         self.assertContains(fragment, "1 corte no se pudo generar.")
 
+    def test_every_failed_cut_is_counted(self):
+        for _ in range(5):
+            ReportSnapshot.objects.create(
+                event=self.event, scope_key="evento", scope_label="Todo el campamento", trigger=ReportSnapshot.Trigger.AUTOMATIC,
+                status=ReportSnapshot.Status.FAILED, cutoff_at=timezone.now(), interval_minutes=120, metrics_version="1",
+            )
+        self.login(self.admin)
+        response = self.client.get(self.url("admin_home"))
+        self.assertContains(response, "5 cortes no se pudieron generar.")
+        self.assertNotContains(response, "3 cortes no se pudieron generar.")
+
     def test_import_review_marks_duplicates_and_errors(self):
         self.login(self.admin)
         upload = io.BytesIO(IMPORT_CSV.encode("utf-8"))

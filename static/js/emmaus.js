@@ -222,7 +222,7 @@
     var fromHash = parseInt((location.hash || "#1").slice(1), 10);
     show(isNaN(fromHash) ? 0 : fromHash - 1);
     doc.addEventListener("keydown", function (e) {
-      if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+      if (e.target && e.target.closest && e.target.closest("button, a, input, textarea, select, summary, [contenteditable]")) return;
       if (["ArrowRight", "PageDown", " "].indexOf(e.key) !== -1) { e.preventDefault(); show(index + 1); }
       if (["ArrowLeft", "PageUp"].indexOf(e.key) !== -1) { e.preventDefault(); show(index - 1); }
       if (e.key === "Home") show(0);

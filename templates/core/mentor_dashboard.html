@@ -2,18 +2,18 @@
 {% load core_extras emmaus %}
 {% block page_title %}Mentoría{% endblock %}
 {% block content %}
-{% with people=participants|length waiting=questions.count open_follow_ups=follow_ups.count %}
+{% with people=participants|length waiting=awaiting.count open_follow_ups=follow_ups.count %}
 {% include "events/rotulo/_page_head.html" with title="¿Quién necesita atención hoy?" lede="Las personas que acompañas, las preguntas que han hecho y los seguimientos que necesitan cuidado personal." %}
 
 {% comment %}
-  The sign: who has waited longest for a reply. questions is newest first; reversed it is oldest first, and the stable
-  sort by status puts "open" before "escalated" (those already reached a pastor). Yellow appears nowhere else here.
+  The sign: who has waited longest for the mentor's reply (awaiting: open questions, oldest first; escalated ones
+  already reached a pastor). Yellow appears nowhere else here.
 {% endcomment %}
 {% if waiting %}
-  {% with question=questions.reverse|dictsortreversed:"status"|first %}
+  {% with question=awaiting.first %}
     <section class="sign" aria-labelledby="que-hago">
       <h2 id="que-hago" class="sign__title">{{ question.participant.get_full_name|default:question.participant.email }} espera tu respuesta</h2>
-      <p class="sign__text">Preguntó el {{ question.created_at|fecha_larga|lower }}.{% if waiting > 1 %} En total hay {{ waiting }} preguntas abiertas.{% endif %}</p>
+      <p class="sign__text">Preguntó el {{ question.created_at|fecha_larga|lower }}.{% if waiting > 1 %} En total {{ waiting }} preguntas esperan tu respuesta.{% endif %}</p>
       <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'question_detail' question.id %}">Responder</a></div>
     </section>
   {% endwith %}
@@ -75,7 +75,7 @@
 
   <div class="coord__side">
     <section id="open-questions" aria-labelledby="abiertas">
-      <h2 id="abiertas" class="heading">Preguntas abiertas{% if waiting %} <span class="count">{{ waiting }}</span>{% endif %}</h2>
+      <h2 id="abiertas" class="heading">Preguntas abiertas{% if questions %} <span class="count">{{ questions.count }}</span>{% endif %}</h2>
       {% if questions %}
         <ul class="rows">
           {% for question in questions %}

@@ -54,6 +54,20 @@ def _last_station(access):
     return places
 
 
+def _stalled_stations(access):
+    """The computer where each coordinator's oldest stalled interview was left: where to go and help."""
+    places = {}
+    rows = (
+        stale_interviews(access.participants())
+        .filter(station__isnull=False)
+        .order_by("last_activity_at")
+        .values_list("participant__coordinator", "station__name")
+    )
+    for coordinator_id, station in rows:
+        places.setdefault(coordinator_id, station)
+    return places
+
+
 # ---- Tutor -----------------------------------------------------------------------------------
 
 
@@ -69,6 +83,7 @@ def tutor_home(request, event, access):
         # The sign names whose interviews stalled; the rows say where each coordinator is.
         "stalled": [row for row in payload["coordinators"] if row["stale"]],
         "places": _last_station(access),
+        "stalled_places": _stalled_stations(access),
         "follow_ups": open_care.order_by("created_at")[:5],
         "follow_ups_open": open_care.count(),
         "last_snapshot": _last_snapshot(access),
@@ -293,14 +308,16 @@ def admin_home(request, event, access):
     now = timezone.now()
     open_claims = Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS, lock_expires_at__gt=now).count()
     failed = access.snapshots().filter(status=ReportSnapshot.Status.FAILED).order_by("-created_at")[:3]
+    failed_count = access.snapshots().filter(status=ReportSnapshot.Status.FAILED).count()
     exports = AuditEvent.objects.filter(event=event, action="exportacion").order_by("-created_at")[:5]
     problems = []
     if not event.procedures_approved:
         problems.append(("Falta confirmar los procedimientos de autorización y protección. Sin eso no se pueden iniciar entrevistas.", "events:settings"))
     if not event.questionnaire_version_id:
         problems.append(("El evento no tiene un cuestionario publicado.", "events:questionnaires"))
-    if failed:
-        problems.append((f"{len(failed)} corte(s) no se pudieron generar.", "events:reports"))
+    if failed_count:
+        text = "1 corte no se pudo generar." if failed_count == 1 else f"{failed_count} cortes no se pudieron generar."
+        problems.append((text, "events:reports"))
     if payload["attention"]["unassigned_participants"]:
         problems.append((f"{payload['attention']['unassigned_participants']} camperos sin coordinador.", "events:participants"))
     if payload["attention"]["coordinators_without_tutor"]:
@@ -313,7 +330,7 @@ def admin_home(request, event, access):
         "active_sessions": active_sessions,
         "open_claims": open_claims,
         "problems": problems,
-        "failed_reports": len(failed),
+        "failed_reports": failed_count,
         "exports": exports,
         "recent": AuditEvent.objects.filter(event=event).select_related("actor")[:8],
         "last_snapshot": _last_snapshot(access),

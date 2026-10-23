@@ -103,6 +103,19 @@ class AcompanamientoRotuloTests(EmmausFixture):
         self.assertIn(reverse("question_detail", args=[oldest_open.id]), sign.group(0))
         self.assertIn("Pat Participant espera tu respuesta", sign.group(0))
 
+    def test_no_sign_when_every_question_is_already_with_a_pastor(self):
+        ParticipantQuestion.objects.all().delete()
+        ParticipantQuestion.objects.create(
+            church=self.church, participant=self.participant, question_text="Escalada", status=ParticipantQuestion.Status.ESCALATED
+        )
+        self.client.force_login(self.mentor)
+
+        main = main_of(self.client.get(reverse("mentor_dashboard")))
+
+        self.assertNotIn('class="sign"', main)
+        self.assertIn("Ninguna pregunta espera respuesta", main)
+        self.assertIn("Escalada", main)  # still listed with the open questions
+
     def test_no_sign_for_the_mentor_when_nobody_waits_for_a_reply(self):
         ParticipantQuestion.objects.all().update(status=ParticipantQuestion.Status.ANSWERED)
         self.client.force_login(self.mentor)
