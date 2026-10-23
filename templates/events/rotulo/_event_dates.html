@@ -1,0 +1,5 @@
+{% comment %}
+  An event's dates as part of a sentence, Mexican style with lowercase months:
+  "del 23 al 25 de octubre de 2026", "del 30 de octubre al 2 de noviembre de 2026", "el 23 de octubre de 2026".
+  Pass `event`. Renders nothing without a start date. Kept on one line per case so no stray spaces reach the sentence.
+{% endcomment %}{% with s=event.starts_on e=event.ends_on %}{% if s %}{% if e and e != s %}{% if s.year == e.year and s.month == e.month %}del {{ s.day }} al {{ e.day }} de {{ e|date:"F"|lower }} de {{ e.year }}{% elif s.year == e.year %}del {{ s.day }} de {{ s|date:"F"|lower }} al {{ e.day }} de {{ e|date:"F"|lower }} de {{ e.year }}{% else %}del {{ s.day }} de {{ s|date:"F"|lower }} de {{ s.year }} al {{ e.day }} de {{ e|date:"F"|lower }} de {{ e.year }}{% endif %}{% else %}el {{ s.day }} de {{ s|date:"F"|lower }} de {{ s.year }}{% endif %}{% endif %}{% endwith %}

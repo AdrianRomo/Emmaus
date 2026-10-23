@@ -1,34 +1,25 @@
 {% extends "base.html" %}
-{% block page_title %}Aceptar invitación{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Aceptar invitación{% endblock %}
 {% block content %}
-  <header class="page-head">
-    <p class="folio">{{ invitation.church.name }}</p>
-    <div class="page-head__row">
-      <div>
-        <h1>Acepta tu invitación a Emmaus</h1>
-        <p class="lede">Vas a entrar con el rol de <strong>{{ invitation.get_role_display }}</strong>. Cuando crees tu contraseña, Emmaus te llevará a tu espacio.</p>
-      </div>
-    </div>
-  </header>
+<div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  <div class="split">
-    <form method="post" class="sheet">
-      {% csrf_token %}
-      {% include "partials/ui/fields.html" with form=form %}
-      <div class="btn-row mt-6">
-        <button class="btn btn--primary" type="submit">Crear mi cuenta</button>
-      </div>
-    </form>
-    <aside class="stack">
-      <div class="panel stack-sm">
-        <h2>Tu cuenta</h2>
-        <p>Vas a entrar con el correo <strong>{{ invitation.email }}</strong> y la contraseña que elijas aquí.</p>
-      </div>
-      {% if invitation.role == "participant" %}
-        <div class="notice">
-          <p>Tu iglesia puede usar Emmaus para guiarte en las lecciones, recibir tus preguntas y coordinar un acompañamiento personal con líderes de confianza.</p>
-        </div>
-      {% endif %}
-    </aside>
-  </div>
+  <header class="page-head">
+    <h1 class="voice page-head__title">Acepta tu invitación a Emmaus</h1>
+    <p class="lede">Vas a entrar con el rol de <strong>{{ invitation.get_role_display }}</strong>. Cuando crees tu contraseña, Emmaus te llevará a tu espacio.</p>
+    <p class="page-head__meta">Invitación de {{ invitation.church.name }}.</p>
+  </header>
+  <p>Vas a entrar con el correo <strong>{{ invitation.email }}</strong> y la contraseña que elijas aquí.</p>
+  {% if invitation.role == "participant" %}
+    <div class="notice">
+      <p>Tu iglesia puede usar Emmaus para guiarte en las lecciones, recibir tus preguntas y coordinar un acompañamiento personal con líderes de confianza.</p>
+    </div>
+  {% endif %}
+  <form method="post" novalidate class="mt-8">
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Crear mi cuenta</button>
+    </div>
+  </form>
+</div>
 {% endblock %}

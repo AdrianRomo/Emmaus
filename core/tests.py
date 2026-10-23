@@ -577,6 +577,27 @@ class NotificationPrivacyTests(EmmausFixture):
         self.assert_email_hides(self.QUESTION_TEXT, follow_up.reason, "Pat", "Participant", self.participant.email)
 
 
+class LandingTests(TestCase):
+    """The public front door says what Emmaus is for *this* church, with one way in."""
+
+    def test_camp_only_church_landing_does_not_promise_discipleship(self):
+        Church.objects.create(name="Iglesia del Campamento", slug="campamento")  # discipleship is off by default
+        response = self.client.get(reverse("landing"))
+        self.assertContains(response, "Iglesia del Campamento usa Emmaus en sus campamentos.")
+        self.assertContains(response, "En el campamento")
+        self.assertNotContains(response, "En el discipulado")
+        self.assertNotContains(response, "borradores con IA")
+        self.assertNotContains(response, "asignar mentores")
+        self.assertContains(response, f'href="{reverse("login")}"')
+
+    def test_landing_adds_discipleship_when_the_church_turns_it_on(self):
+        Church.objects.create(name="Iglesia con Discipulado", slug="discipulado", discipleship_enabled=True)
+        response = self.client.get(reverse("landing"))
+        self.assertContains(response, "Iglesia con Discipulado usa Emmaus en sus campamentos y en su discipulado.")
+        self.assertContains(response, "En el discipulado")
+        self.assertContains(response, "borradores con IA")
+
+
 class SeedDevDataTests(TestCase):
     @override_settings(DEBUG=False)
     def test_seed_dev_data_refuses_when_debug_is_false(self):

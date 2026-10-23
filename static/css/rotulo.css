@@ -964,3 +964,26 @@ ol.promises li::before {
 }
 .admin-assign__unit { display: none; }
 @media (max-width: 600px) { .admin-assign__unit { display: inline; } }
+
+/* ---------- G4 Público ---------- */
+/* Sign-in, password and invitation pages, errors, the landing and the event list (all on base.html). */
+
+/* Sign-in: the shared-computer reminder stands apart from the button it follows */
+.auth-card > .notice { margin-top: var(--s-10); }
+
+/* Django sends the password rules as a list inside the field hint: keep the bullets inside the column */
+.field .hint ul { padding-left: 1.25rem; list-style: disc; }
+.field .hint li + li { margin-top: var(--s-1); }
+
+/* Create camp: a date is short, so its field is too (as number fields already are) */
+.event-create input[type="date"] { max-width: 16rem; }
+
+/* Landing: the painted headline, one way in, then plain reading text; two columns only on wide screens */
+.landing__head { margin-bottom: var(--s-8); }
+.landing__in { margin-bottom: var(--s-16); }
+.landing__in .aside-note { margin-top: var(--s-3); }
+.landing__body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-12) var(--s-16); align-items: start; }
+.landing__body p { max-width: 65ch; }
+@media (max-width: 900px) {
+  .landing__body { grid-template-columns: 1fr; gap: var(--s-10); }
+}

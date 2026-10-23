@@ -1,24 +1,26 @@
 {% extends "base.html" %}
-{% block page_title %}Entrar{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Entrar{% endblock %}
 {% block content %}
-  <div class="auth-card stack">
-    <header class="stack-sm">
-      <h1>Entrar a Emmaus</h1>
-      <p class="lede">Escribe el correo y la contraseña de tu cuenta.</p>
-    </header>
-    {% include "partials/ui/error_summary.html" with form=form %}
-    <form method="post" class="sheet">
-      {% csrf_token %}
-      {% include "partials/ui/fields.html" with form=form %}
-      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
-      <div class="btn-row mt-6">
-        <button class="btn btn--primary btn--block" type="submit">Entrar</button>
-        <p class="mt-4 text-sm"><a href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a></p>
-      </div>
-    </form>
-    <div class="notice notice--quiet">
-      <p>Si usas una computadora compartida, cierra sesión al terminar.</p>
+{% comment %}
+  The first screen every volunteer sees, often on a shared computer: one column, big fields, one button.
+  Wrong-password, inactive-account and too-many-attempts messages arrive as non-field errors and are
+  shown verbatim by the error summary.
+{% endcomment %}
+<div class="auth-card">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Entrar a Emmaus" lede="Escribe el correo y la contraseña de tu cuenta." %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Entrar</button>
+      <a href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a>
     </div>
-    <p class="muted">¿Todavía no tienes cuenta? Pide una invitación a los líderes de tu iglesia o a la administración del evento.</p>
+  </form>
+  <div class="notice notice--quiet">
+    <p>Si usas una computadora compartida, cierra sesión al terminar.</p>
   </div>
+  <p class="aside-note">¿Todavía no tienes cuenta? Pide una invitación a los líderes de tu iglesia o a la administración del evento.</p>
+</div>
 {% endblock %}

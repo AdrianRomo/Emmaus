@@ -1,79 +1,63 @@
 {% extends "base.html" %}
-{% block page_title %}Discipulado con acompañamiento{% endblock %}
+{% block page_title %}{% if church.discipleship_enabled %}Discipulado con acompañamiento{% else %}Acompañar bien a las personas{% endif %}{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio=church.name|default:"Discipulado en tu iglesia" title="Un lugar tranquilo para acompañar bien a las personas" lede="Emmaus ayuda a las iglesias a guiar a visitantes, personas que buscan a Dios, nuevos creyentes y cristianos que regresan a la fe, con un acompañamiento personal de verdad." %}
+{% comment %}
+  The public front door. Plain and honest: what Emmaus is for this church and one way in.
+  Camps are always on; the discipleship text only shows when the church has turned that module on.
+{% endcomment %}
+<div class="landing">
+  <header class="landing__head">
+    <h1 class="voice headline">Un lugar tranquilo para acompañar bien a las personas</h1>
+    {% if church.discipleship_enabled %}
+      <p class="lede">Emmaus ayuda a las iglesias a guiar a visitantes, personas que buscan a Dios, nuevos creyentes y cristianos que regresan a la fe, con un acompañamiento personal de verdad.</p>
+    {% else %}
+      <p class="lede">Emmaus ayuda al equipo de un campamento a platicar con cada campero sobre su fe y a no perder de vista a quien necesita seguimiento.</p>
+    {% endif %}
+    {% if church %}<p class="page-head__meta">{{ church.name }} usa Emmaus{% if church.discipleship_enabled %} en sus campamentos y en su discipulado{% else %} en sus campamentos{% endif %}.</p>{% endif %}
+  </header>
 
-  <div class="stack-sm">
-    <div class="btn-row">
-      <a class="btn btn--primary" href="{% url 'login' %}">Entrar</a>
-      <a class="btn btn--quiet" href="#como-funciona">Ver cómo funciona</a>
-    </div>
-    <p class="muted">La mayoría de las personas entra a Emmaus con una invitación de su iglesia.</p>
+  <div class="landing__in">
+    <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar</a>
+    <p class="aside-note">La mayoría de las personas entra a Emmaus con una invitación de su iglesia.</p>
   </div>
 
-  <section class="section">
-    <div class="prose stack">
-      <h2>Por qué existe</h2>
-      <p class="lede">Nadie debería quedar en el olvido después de visitar la iglesia, hacer preguntas o empezar a seguir a Jesús.</p>
-      <p>Emmaus da a los líderes un lugar compartido para notar las preguntas, asignar mentores, dar seguimiento personal y mantener claras las rutas de discipulado.</p>
-      <p>Aquí la tecnología no reemplaza el cuidado. Lo hace visible, para que sea menos probable que alguien se quede fuera.</p>
-    </div>
-  </section>
+  <div class="landing__body">
+    <section aria-labelledby="por-que">
+      <h2 id="por-que" class="heading">Por qué existe</h2>
+      <div class="stack">
+        <p>Nadie debería quedar en el olvido después de visitar la iglesia, hacer preguntas o empezar a seguir a Jesús.</p>
+        {% if church.discipleship_enabled %}<p>Emmaus da a los líderes un lugar compartido para notar las preguntas, asignar mentores, dar seguimiento personal y mantener claras las rutas de discipulado.</p>{% endif %}
+        <p>Aquí la tecnología no reemplaza el cuidado. Lo hace visible, para que sea menos probable que alguien se quede fuera.</p>
+      </div>
+    </section>
 
-  <section class="section">
-    <div class="section__head"><h2>Para quién es</h2></div>
-    <div class="grid-auto">
-      <div class="stack-sm">
-        <h3>Participantes</h3>
-        <p>Un camino tranquilo con lecciones, reflexión, preguntas e invitaciones a platicar con líderes de confianza.</p>
+    <section aria-labelledby="campamentos">
+      <h2 id="campamentos" class="heading">En el campamento</h2>
+      <div class="stack">
+        <p>Cada campero tiene una conversación sobre su fe con alguien del equipo, en una de las computadoras del campamento. En cualquier pregunta puede elegir “Prefiero no responder”.</p>
+        <p>Si alguien necesita que lo acompañen después, queda anotado para que una persona del equipo lo busque.</p>
       </div>
-      <div class="stack-sm">
-        <h3>Mentores</h3>
-        <p>Una vista enfocada en las personas que acompañas, sus preguntas abiertas y los seguimientos que necesitan atención personal.</p>
-      </div>
-      <div class="stack-sm">
-        <h3>Pastores y administración</h3>
-        <p>Claridad sobre toda la iglesia sin convertir a las personas en números, casos o tareas.</p>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <section class="section" id="como-funciona">
-    <div class="section__head">
-      <h2>Cómo funciona</h2>
-      <p>Rutas sencillas, cuidado personal.</p>
-    </div>
-    <ol class="ledger">
-      <li class="ledger__row">
-        <span class="ledger__code">1</span>
-        <div class="ledger__main"><p class="ledger__title">Invitar</p><p class="ledger__meta">La iglesia invita a participantes, mentores, pastores y administración.</p></div>
-      </li>
-      <li class="ledger__row">
-        <span class="ledger__code">2</span>
-        <div class="ledger__main"><p class="ledger__title">Caminar</p><p class="ledger__meta">Cada participante avanza por las lecciones y reflexiona a su propio ritmo.</p></div>
-      </li>
-      <li class="ledger__row">
-        <span class="ledger__code">3</span>
-        <div class="ledger__main"><p class="ledger__title">Responder</p><p class="ledger__meta">Las preguntas y los seguimientos llegan a los líderes indicados de la iglesia.</p></div>
-      </li>
-      <li class="ledger__row">
-        <span class="ledger__code">4</span>
-        <div class="ledger__main"><p class="ledger__title">Acompañar</p><p class="ledger__meta">Mentores y pastores responden en persona. La IA es solo una herramienta opcional para preparar borradores.</p></div>
-      </li>
-    </ol>
-  </section>
+    {% if church.discipleship_enabled %}
+      <section aria-labelledby="discipulado">
+        <h2 id="discipulado" class="heading">En el discipulado</h2>
+        <div class="stack">
+          <p><strong>Participantes:</strong> un camino tranquilo con lecciones, reflexión, preguntas e invitaciones a platicar con líderes de confianza.</p>
+          <p><strong>Mentores:</strong> una vista enfocada en las personas que acompañas, sus preguntas abiertas y los seguimientos que necesitan atención personal.</p>
+          <p><strong>Pastores y administración:</strong> claridad sobre toda la iglesia sin convertir a las personas en números, casos o tareas.</p>
+          <p>La iglesia invita a participantes, mentores, pastores y administración. Cada participante avanza por las lecciones y reflexiona a su propio ritmo. Las preguntas y los seguimientos llegan a los líderes indicados de la iglesia, y mentores y pastores responden en persona.</p>
+        </div>
+      </section>
+    {% endif %}
 
-  <section class="section">
-    <div class="split split--even">
-      <div class="stack-sm">
-        <h2>La seguridad y la privacidad importan</h2>
-        <p>Emmaus maneja información espiritual y personal delicada. Los participantes nunca ven las notas pastorales, cada persona solo ve lo que le corresponde según su rol y las emergencias se atienden con los servicios de emergencia locales.</p>
+    <section aria-labelledby="privacidad">
+      <h2 id="privacidad" class="heading">La seguridad y la privacidad importan</h2>
+      <div class="stack">
+        <p>Emmaus maneja información espiritual y personal delicada. {% if church.discipleship_enabled %}Los participantes nunca ven las notas pastorales, cada{% else %}Cada{% endif %} persona solo ve lo que le corresponde según su rol y las emergencias se atienden con los servicios de emergencia locales.</p>
+        {% if church.discipleship_enabled %}<p>La IA nunca reemplaza a los líderes. Los borradores con IA son opcionales y solo los ven los líderes. Una persona debe revisar, editar, aprobar o rechazar cada borrador antes de que se convierta en una respuesta real.</p>{% endif %}
       </div>
-      <div class="stack-sm">
-        <h2>La IA nunca reemplaza a los líderes</h2>
-        <p>Los borradores con IA son opcionales y solo los ven los líderes. Una persona debe revisar, editar, aprobar o rechazar cada borrador antes de que se convierta en una respuesta real.</p>
-        <p><a class="btn" href="{% url 'login' %}">Entrar a Emmaus</a></p>
-      </div>
-    </div>
-  </section>
+    </section>
+  </div>
+</div>
 {% endblock %}
