@@ -18,6 +18,7 @@ urlpatterns = [
     path(E + "camperos/nuevo/", coordinator.participant_create, name="participant_create"),
     path(E + "pendientes/mias/", coordinator.coord_pending, name="coord_pending"),
     path(E + "mi-avance/", coordinator.coord_progress, name="coord_progress"),
+    path(E + "lista-de-respaldo/", coordinator.backup_list, name="backup_list"),
     path(E + "camperos/" + I, coordinator.participant_detail, name="participant_detail"),
     path(E + "camperos/" + I + "editar/", coordinator.participant_edit, name="participant_edit"),
     path(E + "camperos/" + I + "autorizacion/", coordinator.guardian_authorization, name="guardian_authorization"),

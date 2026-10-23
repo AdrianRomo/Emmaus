@@ -10,8 +10,8 @@
   {% csrf_token %}
   {% include "partials/ui/field.html" with field=form.reason %}
   <div class="q-actions">
-    <a class="btn" href="{% url 'events:interview_resume' event.slug interview.public_id %}">No, volver a la entrevista</a>
     <button class="btn btn--danger" type="submit">Sí, descartar y borrar respuestas</button>
+    <a class="btn" href="{% url 'events:interview_resume' event.slug interview.public_id %}">No, volver a la entrevista</a>
   </div>
 </form>
 {% endblock %}

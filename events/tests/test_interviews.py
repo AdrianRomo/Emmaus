@@ -328,3 +328,32 @@ class ServiceLevelConcurrencyTests(CampFixture):
         svc.start_interview(access, self.p1, mode="asistida", station=None, confirmed_consents={"assent"}, session=session_a)
         with self.assertRaises(svc.AlreadyInProgress):
             svc.start_interview(access, self.p1, mode="asistida", station=None, confirmed_consents={"assent"}, session=session_b)
+
+
+class HandoffAndBackupListTests(CampFixture):
+    def test_coordinator_can_switch_to_assisted_before_handing_over(self):
+        self.login(self.coord1)
+        self.choose_station()
+        self.start(self.p2, mode="supervisada")
+        interview = Interview.objects.get(participant=self.p2)
+        response = self.client.post(self.url("interview_handoff", interview.public_id), {"action": "asistida"})
+        self.assertRedirects(response, self.url("interview_step", interview.public_id, 1), fetch_redirect_response=False)
+        interview.refresh_from_db()
+        self.assertEqual(interview.mode, Interview.Mode.ASSISTED)
+        self.assertIn("_auth_user_id", self.client.session)  # still logged in: nothing was handed over
+        self.assertFalse(ParticipantSession.objects.filter(interview=interview).exists())
+
+    def test_backup_list_is_scoped_and_has_no_answers(self):
+        self.login(self.coord1)
+        self.choose_station()
+        self.start(self.p2)
+        interview = Interview.objects.get(participant=self.p2)
+        self.answer(interview, "dudas", "si", extra={f"q_{self.question('dudas_detalle').id}": "RESPUESTA-PRIVADA"})
+        response = self.client.get(self.url("backup_list"))
+        self.assertContains(response, self.p1.full_name)
+        self.assertNotContains(response, self.p3.full_name)  # another coordinator's camper
+        self.assertNotContains(response, "RESPUESTA-PRIVADA")
+        self.login(self.tutor2)
+        response = self.client.get(self.url("backup_list"))
+        self.assertContains(response, self.p4.full_name)
+        self.assertNotContains(response, self.p1.full_name)

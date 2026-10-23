@@ -567,10 +567,10 @@ dialog.dialog::backdrop { background: rgba(16, 32, 26, 0.55); }
 .q-title { font-family: var(--font-display); font-weight: 560; font-size: clamp(1.75rem, 1.35rem + 1.8vw, 2.5rem); line-height: 1.15; letter-spacing: -0.015em; text-wrap: balance; }
 .q-help { color: var(--ink-2); font-size: var(--text-md); margin-top: var(--s-3); }
 .q-body { margin-top: var(--s-7); }
-.q-actions { margin-top: var(--s-8); display: flex; gap: var(--s-3); justify-content: space-between; align-items: center; flex-wrap: wrap-reverse; }
+.q-actions { margin-top: var(--s-8); display: flex; gap: var(--s-3); justify-content: flex-start; align-items: center; flex-wrap: wrap; }
 .q-actions .btn--primary { min-width: 12rem; min-height: 3.5rem; font-size: var(--text-md); }
 @media (max-width: 559px) {
-  .q-actions { position: sticky; bottom: 0; margin-inline: calc(var(--s-4) * -1); padding: var(--s-3) var(--s-4); background: var(--paper); border-top: 1px solid var(--line); }
+  .q-actions--sticky { position: sticky; bottom: 0; margin-inline: calc(var(--s-4) * -1); padding: var(--s-3) var(--s-4); background: var(--paper); border-top: 1px solid var(--line); }
   .q-actions .btn--primary { flex: 1; }
 }
 .q-reassure { margin-top: var(--s-6); font-size: var(--text-sm); color: var(--ink-3); }
@@ -749,3 +749,11 @@ details > summary { cursor: pointer; color: var(--pine); font-weight: 650; min-h
 .deck .deck-seg--done { display: block; height: 100%; background: var(--deck-done); }
 .deck .deck-seg--progress { display: block; height: 100%; background: var(--deck-progress); border-left: 0.25cqw solid var(--deck-bg); }
 .panel--aside { align-self: start; }
+/* Printable backup list */
+.print-sheet { max-width: 72rem; margin: 0 auto; padding: var(--s-6) var(--s-4); }
+.print-group { margin-top: var(--s-7); break-inside: avoid-page; }
+.print-group h2 { font-size: var(--text-lg); margin-bottom: var(--s-3); }
+.print-box { text-align: center; font-size: 1.2rem; }
+.print-notes { min-width: 10rem; }
+@media print { .print-sheet { padding: 0; } .print-group { break-inside: auto; } .table th, .table td { padding: 4px 6px; } }
+.mt-0.mb-6 { margin-bottom: var(--s-6); }

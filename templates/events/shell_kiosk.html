@@ -7,7 +7,7 @@
   <header class="focusbar">
     <div class="focusbar__inner">
       <span class="brand">{% brand_mark %}<span class="brand__word">Emmaus</span></span>
-      <div class="cluster">{% block focus_actions %}{% endblock %}</div>
+      <div class="cluster">{% if ps.station %}<span class="folio">{{ ps.station.name }} · Modo campero</span>{% endif %}{% block focus_actions %}{% endblock %}</div>
     </div>
   </header>
   <main id="contenido" class="focus-main" tabindex="-1">

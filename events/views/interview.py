@@ -375,6 +375,14 @@ def interview_handoff(request, event, access, public_id):
     response = _claim_or_conflict(request, access, interview) if request.method == "GET" else None
     if response:
         return response
+    if request.method == "POST" and request.POST.get("action") == "asistida":
+        try:
+            svc.switch_to_assisted(access, interview, session=request.session)
+        except svc.InterviewError as exc:
+            messages.error(request, exc.message)
+            return redirect("events:interview_handoff", slug=event.slug, public_id=public_id)
+        first = build_steps(interview.version)[0]
+        return redirect("events:interview_step", slug=event.slug, public_id=public_id, number=first.number)
     if request.method == "POST":
         try:
             svc.hand_over_to_participant(request, access, interview, current_station(request, event))

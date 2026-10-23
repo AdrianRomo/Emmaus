@@ -61,8 +61,8 @@
   </section>
 
   <div class="q-actions">
-    <a class="btn btn--quiet" href="{% url 'events:interview_search' event.slug %}">Elegir a otro campero</a>
     <button class="btn btn--primary" type="submit"{% if blockers %} disabled{% endif %}>Comenzar entrevista</button>
+    <a class="btn btn--quiet" href="{% url 'events:interview_search' event.slug %}">Elegir a otro campero</a>
   </div>
 </form>
 {% endblock %}

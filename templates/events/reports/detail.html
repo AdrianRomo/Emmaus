@@ -8,7 +8,7 @@
     <div><h1>Corte de las {{ snapshot.cutoff_at|date:"H:i" }}</h1><p class="lede">{{ snapshot.scope_label }} · {{ snapshot.cutoff_at|fecha_larga }}</p></div>
     <div class="btn-row"><a class="btn btn--primary" href="{% url 'events:report_presentation' event.slug snapshot.public_id %}">Ver presentación</a><a class="btn" href="{% url 'events:report_pdf' event.slug snapshot.public_id %}">Descargar PDF</a></div>
   </div>
-  <p class="folio">Datos al {{ payload.data_as_of|as_datetime|fecha_corta }} · generado de forma {{ snapshot.get_trigger_display|lower }} · métricas versión {{ snapshot.metrics_version }}</p>
+  <p class="folio"><span class="chip chip--info chip--plain">Corte guardado: no cambia</span> Datos al {{ payload.data_as_of|as_datetime|fecha_corta }} · generado de forma {{ snapshot.get_trigger_display|lower }} · métricas versión {{ snapshot.metrics_version }}</p>
 </header>
 <div class="figure-row">
   <div class="figure figure--hero"><p class="figure__label">Avance</p><p class="figure__value">{{ progress.percent|pct }}</p><p class="figure__note">{{ progress.completed }} de {{ progress.eligible }}</p></div>

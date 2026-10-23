@@ -17,7 +17,7 @@
 </div>
 <form method="post" class="q-actions">
   {% csrf_token %}
-  <a class="btn btn--quiet" href="{% url 'events:interview_review' event.slug interview.public_id %}">Mejor la hago yo</a>
   <button class="btn btn--primary" type="submit">Entregar la computadora</button>
+    <button class="btn btn--quiet" type="submit" name="action" value="asistida">Mejor hago yo las preguntas</button>
 </form>
 {% endblock %}

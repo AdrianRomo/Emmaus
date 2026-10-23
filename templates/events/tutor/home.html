@@ -8,7 +8,7 @@
     <h1>Mi equipo</h1>
     <a class="btn btn--primary" href="{% url 'events:pending' event.slug %}">Ver pendientes</a>
   </div>
-  {% include "partials/ui/live_status.html" %}
+  <div class="cluster">{% include "partials/ui/live_status.html" %}{% if next_cutoff %}<span class="folio">Próximo corte: {{ next_cutoff|date:"H:i" }}</span>{% endif %}</div>
 </header>
 <div id="equipo-vivo" data-live-url="{% url 'events:tutor_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
   {% include "events/tutor/_home_live.html" %}

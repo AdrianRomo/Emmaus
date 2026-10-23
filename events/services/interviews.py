@@ -598,6 +598,20 @@ def hand_over_to_participant(request, access, interview: Interview, station: Int
     return participant_session
 
 
+def switch_to_assisted(access, interview: Interview, *, session) -> Interview:
+    """Before any self-capture happened, the coordinator may decide to ask the questions."""
+    token = session_claim_token(session, interview)
+    with transaction.atomic():
+        locked = Interview.objects.select_for_update().get(pk=interview.pk)
+        if locked.status != Interview.Status.IN_PROGRESS or not locked.lock_matches(token):
+            raise ClaimLost("Esta pantalla ya no tiene el control de la entrevista.", interview=locked)
+        if locked.answers.filter(answered_by_participant=True).exists():
+            raise InterviewError("El campero ya respondió algunas preguntas por su cuenta; termina en captura supervisada.")
+        locked.mode = Interview.Mode.ASSISTED
+        locked.save(update_fields=["mode"])
+    return locked
+
+
 def kiosk_state(session) -> dict | None:
     return session.get(KIOSK_KEY)
 

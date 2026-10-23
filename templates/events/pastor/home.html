@@ -11,7 +11,7 @@
       <a class="btn" href="{% url 'events:reports' event.slug %}">Reportes</a>
     </div>
   </div>
-  {% include "partials/ui/live_status.html" %}
+  <div class="cluster">{% include "partials/ui/live_status.html" %}{% if next_cutoff %}<span class="folio">Próximo corte: {{ next_cutoff|date:"H:i" }}</span>{% endif %}</div>
 </header>
 <div id="resumen-vivo" data-live-url="{% url 'events:pastor_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/pastor/_home_live.html" %}

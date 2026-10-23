@@ -18,7 +18,7 @@
 </div>
 <form method="post" class="q-actions">
   {% csrf_token %}
-  <a class="btn btn--quiet" href="{% url 'events:home' event.slug %}">Volver</a>
   <button class="btn btn--primary" type="submit">Tomar el control aquí</button>
+    <a class="btn btn--quiet" href="{% url 'events:home' event.slug %}">Volver</a>
 </form>
 {% endblock %}

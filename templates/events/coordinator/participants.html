@@ -4,13 +4,15 @@
 {% block content %}
 {% url 'events:participant_create' event.slug as create_url %}
 {% include "partials/ui/page_head.html" with title="Mis camperos" lede="Las personas asignadas a ti en este evento." action_url=create_url action_label="Registrar campero" %}
-<form method="get" class="filters" role="search">
-  <div class="field"><label for="q">Buscar</label><input id="q" type="search" name="q" value="{{ query }}" placeholder="Nombre, número o cuarto"></div>
-  <div class="field"><label for="estado">Entrevista</label>
-    <select id="estado" name="estado"><option value="">Todas</option>{% for value, label in status_choices %}<option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
-  </div>
-  <button class="btn btn--sm" type="submit">Filtrar</button>
-  {% if query or status %}<a class="btn btn--sm btn--quiet" href="{{ request.path }}">Quitar filtros</a>{% endif %}
+<p class="mt-0 mb-6 text-sm"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a> · por si falla la red o una computadora</p>
+<nav class="cluster mb-6" aria-label="Estado de la entrevista">
+  {% for tab in tabs %}<a class="tab-link" href="?estado={{ tab.value }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}"{% if status == tab.value %} aria-current="page"{% endif %}>{{ tab.label }} <span class="muted">{{ tab.count }}</span></a>{% endfor %}
+</nav>
+<form method="get" class="search-box mb-6" role="search">
+  <input type="hidden" name="estado" value="{{ status }}">
+  <label class="visually-hidden" for="q">Buscar campero</label>
+  <input id="q" type="search" name="q" value="{{ query }}" placeholder="Nombre, número o cuarto">
+  <button class="btn" type="submit">Buscar</button>
 </form>
 <p class="folio">{{ participants|length }} de {{ total }} camperos</p>
 {% if participants %}

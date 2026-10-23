@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from ..forms import ParticipantForm
@@ -57,12 +57,31 @@ def my_participants(request, event, access):
     if status in InterviewStatus.values:
         participants = participants.filter(interview_status=status)
     participants = participants.order_by("room", "full_name")
+    counts = dict(access.participants().values_list("interview_status").annotate(n=Count("id")))
+    tabs = [{"value": "", "label": "Todos", "count": sum(counts.values())}] + [
+        {"value": value, "label": label, "count": counts.get(value, 0)} for value, label in InterviewStatus.choices
+    ]
     return render(
         request,
         "events/coordinator/participants.html",
-        {"participants": participants, "query": query, "status": status, "status_choices": InterviewStatus.choices,
-         "total": access.participants().count()},
+        {"participants": participants, "query": query, "status": status, "tabs": tabs, "total": access.participants().count()},
     )
+
+
+@event_view()
+def backup_list(request, event, access):
+    """Printable paper fallback: registry data only, never answers."""
+    participants = access.participants().select_related("coordinator__user").order_by(
+        "coordinator__user__first_name", "coordinator__user__last_name", "room", "full_name"
+    )
+    coordinator_id = request.GET.get("coordinador", "")
+    if coordinator_id.isdigit():
+        participants = participants.filter(coordinator_id=int(coordinator_id))
+    groups = {}
+    for p in participants:
+        key = p.coordinator.display_name if p.coordinator else "Sin coordinador"
+        groups.setdefault(key, []).append(p)
+    return render(request, "events/backup_list.html", {"groups": groups})
 
 
 @event_view(COORDINATOR, ADMIN)

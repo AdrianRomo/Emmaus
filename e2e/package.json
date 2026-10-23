@@ -1,0 +1,11 @@
+{
+  "name": "emmaus-e2e",
+  "private": true,
+  "description": "Browser end-to-end checks for the shared-station interview flow (synthetic data only).",
+  "scripts": {
+    "test": "node station-flow.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
