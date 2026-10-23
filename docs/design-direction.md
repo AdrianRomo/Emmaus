@@ -138,27 +138,45 @@ Informe de cinco preguntas, sin barra lateral (más ancho para la evidencia). A 
 
 ![Pastor](img/rotulo/pastor-escritorio.png)
 
-### Tutor (propuesta, sin implementar)
+### Tutor (implementado)
 
-El mismo letrero, ahora para la persona que supervisa: "Andrea lleva 2 entrevistas sin movimiento", con el botón para verlas. Debajo, cada coordinador con su propia tira de marcas y un aviso en rojo solo cuando hay entrevistas detenidas. A la derecha, los seguimientos del equipo. Todo con componentes que ya existen (letrero, conteo, renglones, estado).
+El mismo letrero, ahora para la persona que supervisa, y solo cuando hay algo detenido: "Ana López Ferrer lleva 2 entrevistas sin movimiento", con la computadora y el botón "Ver las entrevistas detenidas". Debajo, "Tu equipo lleva X de Y." y cada coordinador con su propia tira de marcas; las entrevistas detenidas se dicen con palabras, no en rojo (el rojo es solo para riesgo). A la derecha, los seguimientos del equipo. Todo con componentes que ya existían (letrero, conteo, renglones, estado).
 
-![Propuesta para el tutor](img/rotulo/propuestas/tutor.png)
+| Propuesta | Implementado |
+|---|---|
+| ![Propuesta para el tutor](img/rotulo/propuestas/tutor.png) | ![Mi equipo del tutor](img/rotulo/tutor.png) |
 
-### Modo presentación (propuesta, sin implementar)
+### Modo presentación (implementado)
 
 Diapositivas de 16:9 para leerse desde el fondo de un salón: titular pintado de 120 px, regla de avance de 56 px, equipos con el promedio marcado, y al pie siempre "Solo totales del campamento. Sin nombres ni respuestas." Dos versiones con la misma escala de datos validada: **Cal** para salones con luz y **Noche** (`#141B33`, datos `#8FA6E8` y `#4B63A8`) para salones oscuros.
 
 | Cal | Noche |
 |---|---|
-| ![Presentación, versión clara](img/rotulo/propuestas/presentacion-claro.png) | ![Presentación, versión oscura](img/rotulo/propuestas/presentacion-noche.png) |
+| ![Presentación, versión clara](img/rotulo/presentacion-cal.png) | ![Presentación, versión oscura](img/rotulo/presentacion-noche.png) |
 
-### Administración (después)
+En la versión final "Modo noche" es un botón de la barra de control y se recuerda en esa computadora. Las propuestas originales:
 
-Será la pantalla más densa: aquí entran las tablas tabulares tomadas de *Bitácora*, con el mismo letrero para lo único urgente (por ejemplo, "Faltan 7 camperos sin coordinador").
+| Propuesta Cal | Propuesta Noche |
+|---|---|
+| ![Propuesta de la presentación, versión clara](img/rotulo/propuestas/presentacion-claro.png) | ![Propuesta de la presentación, versión oscura](img/rotulo/propuestas/presentacion-noche.png) |
+
+### Administración (implementado)
+
+La pantalla más densa: las tablas tabulares tomadas de *Bitácora*, con el mismo letrero solo para lo que impide entrevistar ("Asigna coordinador a 7 camperos") y una lista "Preparación" con el estado de cada paso.
+
+![Inicio de la administración](img/rotulo/admin-inicio.png)
+
+### Discipulado, inicio de sesión y errores (implementado)
+
+El módulo de discipulado usa el mismo sistema: el panorama de la iglesia se lee como el resumen del pastor, el participante ve su siguiente lección en un letrero y cada lección se lee como una pregunta de la entrevista. Entrar a Emmaus es una sola columna con un solo botón.
+
+| Panorama de la iglesia | El camino del participante (teléfono) | Entrar |
+|---|---|---|
+| ![Panorama del discipulado](img/rotulo/discipulado-panorama.png) | ![Camino del participante](img/rotulo/discipulado-camino-movil.png) | ![Entrar a Emmaus](img/rotulo/entrar.png) |
 
 ## Lo que sigue
 
-1. ~~Migrar el resto de las pantallas del coordinador~~ Hecho: el coordinador ya no cambia de sistema en ninguna pantalla.
-2. Implementar el tutor y el modo presentación según las propuestas.
-3. Migrar administración y el módulo de discipulado; después, retirar `emmaus.css` y Literata.
-4. Probar con voluntarios reales en una computadora compartida y con un proyector real.
+Hecho el 23 de octubre de 2026: todas las pantallas, de todos los roles y de los dos módulos, usan Rótulo, y se retiraron `emmaus.css` y Literata (salvo en el PDF). Lo que sigue:
+
+1. Llevar el PDF de los cortes al mismo sistema (hoy usa Literata y la paleta anterior).
+2. Probar con voluntarios reales en una computadora compartida y con un proyector real.

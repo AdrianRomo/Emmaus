@@ -23,7 +23,7 @@ Emmaus is a single Django 5.2 project (`emmaus/`) with two apps, server-rendered
 * The discipleship module: `Invitation`, `ParticipantProfile`, `DiscipleshipPath`, `Lesson`, `ReflectionQuestion`, `Enrollment`, `LessonProgress`, `ReflectionAnswer`, `ParticipantQuestion`, `QuestionResponse`, `FollowUpRequest`, `PastoralNote`, `AIDraft`.
 * First-run setup (`/setup/`, only while no `Church` exists), `/health/`, and the account pages wired in `emmaus/urls.py`: login by e-mail with an attempt limit (`core.views.ThrottledLoginView`, `/cuenta/entrar/`), "¿Olvidaste tu contraseña?" (`core.views.ThrottledPasswordResetView`, `/cuenta/olvide-mi-contrasena/`: Django's password reset, e-mail to the account owner, at most 3 e-mails per address per hour) and the password-set page (`/cuenta/contrasena/<uidb64>/<token>/`).
 
-`Church.discipleship_enabled` only controls whether administrators see a "Discipulado" link in the event sidebar (`templates/events/shell_rail.html`). The core views do not check it, so the discipleship URLs stay reachable for users with a church role.
+`Church.discipleship_enabled` only controls whether administrators see a "Discipulado" link in the event bar (`templates/events/rotulo/shell_leader.html`). The core views do not check it, so the discipleship URLs stay reachable for users with a church role.
 
 The optional LLM drafting feature (`core.services.generate_ai_draft`) lives only here and is off unless `LLM_ENABLED=true`.
 
@@ -231,8 +231,8 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 
 * **PDF:** `events/services/pdf.py` builds the cutoff PDF with ReportLab (pure Python, no system packages), using `events/fonts/Atkinson-*.ttf` and `Literata-*.ttf`. The PDF is built from the viewer-trimmed payload.
 * **Static:** `STORAGES["staticfiles"]` is WhiteNoise's `CompressedManifestStaticFilesStorage` when `DEBUG=false` (and not under `manage.py test`). The Docker image runs `collectstatic` at build time. Do not mount a volume over `staticfiles/`.
-* **Fonts:** Atkinson Hyperlegible Next, Recursive (Casual axis, wght 500–900) and Literata are self-hosted WOFF2 files in `static/fonts/` (OFL licences included), declared with `@font-face` in `static/css/rotulo.css` (Atkinson, Recursive) and `static/css/emmaus.css` (Atkinson, Literata). No CDN.
-* **Two stylesheets during the migration:** screens on the "Rótulo" system extend `templates/layout/rotulo.html`, which swaps the stylesheet block of `layout/skeleton.html`; everything else still loads `emmaus.css`. A test (`events/tests/test_rotulo.py`) pins which screens load which file.
+* **Fonts:** Atkinson Hyperlegible Next and Recursive (Casual axis, wght 500–900) are self-hosted WOFF2 files in `static/fonts/` (OFL licences included), declared with `@font-face` in `static/css/rotulo.css`. The PDF keeps its own TTF copies in `events/fonts/`. No CDN.
+* **One stylesheet:** every screen extends `templates/layout/skeleton.html`, which loads `static/css/rotulo.css` (the "Rótulo" design system, `docs/design-system.md`). `events/tests/test_rotulo.py` checks every role's screens and that the stylesheet's blocks are balanced.
 * **CSP:** `script-src 'self'` (no inline scripts), `style-src 'self' 'unsafe-inline'` (inline `style` attributes are used by meters and the optional church theme).
 
 ## Migrations and existing data

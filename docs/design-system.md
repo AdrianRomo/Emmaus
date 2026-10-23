@@ -1,14 +1,15 @@
 # Sistema de diseño · "Rótulo"
 
-Emmaus tiene dos hojas de estilo mientras dura la migración:
+Todas las pantallas de Emmaus usan este sistema: el coordinador y la entrevista, el modo campero, tutores, pastores, administración, reportes y presentación, inicio de sesión y errores, y el módulo de discipulado. El sistema anterior ("Cuaderno de campo", `emmaus.css`) se retiró el 23 de octubre de 2026.
 
-| | Rótulo (nuevo) | Cuaderno de campo (anterior) |
-|---|---|---|
-| Hoja de estilo | `static/css/rotulo.css` | `static/css/emmaus.css` |
-| Base de plantilla | `templates/layout/rotulo.html` | `templates/layout/skeleton.html` |
-| Pantallas | **Todo lo que ve un coordinador**: elegir computadora, inicio, búsqueda, Mis camperos, entrevistas pendientes, Mi avance, registrar y corregir campero, ficha del campero, ficha de la entrevista, reportar una situación de riesgo, seguimientos y su detalle, lista de respaldo; toda la entrevista y todo el modo campero; resumen del pastor. Las fichas, los seguimientos y el reporte de riesgo también se ven así para tutores, pastores y administración | Las demás pantallas de tutor, pastor y administración, y el módulo de discipulado |
+| | |
+|---|---|
+| Hoja de estilo | `static/css/rotulo.css`: tokens y componentes compartidos, y al final una sección por área (liderazgo, administración, público, discipulado, reportes y presentación) con lo que solo esa área necesita |
+| Base de plantilla | `templates/layout/skeleton.html` (fuentes, hoja, colores propios de la iglesia) |
+| Marcos | `events/rotulo/shell_coordinator.html` y `shell_leader.html` para el evento (la variable `rotulo_shell` elige por rol), `events/shell_focus.html` y `shell_kiosk.html` para la entrevista y el campero, `base.html` para discipulado, inicio de sesión y errores |
+| Comportamiento | `static/js/emmaus.js`, sin dependencias; depende de atributos `data-*`, no de clases |
 
-`layout/rotulo.html` reemplaza el bloque `stylesheets` de `skeleton.html`, así que una pantalla se migra cambiando su `extends`. La prueba `test_migrated_screens_use_rotulo_and_the_rest_keep_the_old_stylesheet` fija qué pantalla carga qué hoja. Sin compilación, sin CDN, sin dependencias de JavaScript: `static/js/emmaus.js` funciona igual con los dos sistemas porque depende de atributos `data-*`, no de clases.
+La prueba `test_every_screen_of_every_role_is_on_rotulo` recorre las pantallas de cada rol, y `test_rotulo_css_blocks_are_balanced` revisa que ningún bloque de la hoja quede abierto (una fusión dejó tres sin cerrar y todo lo que seguía dejó de aplicarse).
 
 ## 1. Tokens
 
@@ -34,7 +35,7 @@ Reglas:
 - **Maíz nunca es dato** (1.67:1 contra blanco) y nunca decora. Si en una pantalla aparecen dos letreros amarillos, uno sobra.
 - **Chile nunca es estado normal.** Un seguimiento "pendiente" es la primera etapa (contorno), no un error.
 - El color nunca es la única señal: toda marca lleva palabra, cifra o leyenda.
-- Si la iglesia activa sus colores propios, `layout/rotulo.html` los asigna a `--anil` (principal), `--maiz` (acento), `--page`, `--cal`, `--carbon`, `--ink-3` y `--line`.
+- Si la iglesia activa sus colores propios, `layout/skeleton.html` los asigna a `--anil` (principal), `--maiz` (acento), `--page`, `--cal`, `--carbon`, `--ink-3` y `--line`.
 
 ### Datos
 
@@ -144,7 +145,8 @@ Nombre a 20 px en negrita, dato debajo a 16 px, la acción a la derecha. Separad
 Para datos de una persona ("¿Es la persona correcta?") y, con `.summary-list--answers`, para revisar respuestas: la pregunta arriba en gris, la respuesta abajo en negrita, "Cambiar" a la derecha con texto oculto que dice qué se cambia.
 
 ### Mensajes
-- `.error-summary`: "Hay un problema" con enlaces a cada campo; recibe el foco al cargar.
+- `.error-summary`: "Hay un problema" con enlaces a cada campo, cada uno con el nombre del campo ("Correo electrónico: Escribe un correo válido…"); recibe el foco al cargar.
+- Campos: `partials/ui/field.html` dibuja el control con `{{ field|described }}`, que le pone `aria-describedby` con su pista y su error, y `aria-invalid` cuando hay error. Los formularios propios de Django (contraseña) usan subclases en tú (`core/forms.py`).
 - `.error-message` junto al campo, y `.field--error` / `.question--error` con barra chile de 5 px.
 - `.notice` con variantes `--info` (añil), `--warning` (maíz claro), `--danger`, `--quiet`.
 - `.live-status`: "Última actualización: 10:44:14"; en rojo si se perdió la conexión.
@@ -173,8 +175,16 @@ Lista corta con marcas de sendero (o números dentro de un cuadro, si es `ol`). 
 ### Agenda (`.agenda`)
 Asuntos numerados para la reunión (sí es una secuencia: es el orden de la reunión), con la evidencia debajo.
 
-### Barras
-`.bar` (coordinador y líderes): "Emmaus", el evento, "Estás en", los enlaces del rol con la marca maíz en la página actual, y "Cerrar sesión". Bajo 1180 px los enlaces pasan a "Menú" (`.menu-panel`, pantalla completa). `.focusbar` (entrevista y campero): quién o qué computadora, y una salida. Mismo ancho que la columna de contenido.
+### Tablas (`.table` dentro de `.table-wrap`)
+Siempre dentro de `<div class="table-wrap" tabindex="0" role="region" aria-label="…">`, que desplaza la tabla en teléfono sin ensanchar la página. Números con `.num` (cifras tabulares, a la derecha). Un `th scope="row"` no lleva la regla gruesa de los encabezados de columna. En administración, la fila que pide una decisión lleva una orilla de tinta y la que tiene un error, una orilla chile.
+
+### Paginación (`events/rotulo/_pagination.html`)
+"Anterior", "Página 2 de 7", "Siguiente"; conserva los demás parámetros de la dirección.
+
+### Presentación (`.deck`)
+Diapositivas de 16:9 para proyector: titular pintado de más de 100 px a 1920 × 1080 y nada por debajo de unos 26 px. "Cal" (claro) por omisión y "Noche" (`.deck--noche`, fondo `#141B33`, datos `#8FA6E8` y `#4B63A8`, contornos `#6B74A0` a 3.8:1) con el botón "Modo noche", que se recuerda en esa computadora. Al pie de cada diapositiva: "Solo totales. Sin nombres ni respuestas." Teclado: flechas, Inicio, Fin y F.
+
+### Barras "Emmaus", el evento, "Estás en", los enlaces del rol con la marca maíz en la página actual, y "Cerrar sesión". Bajo 1180 px los enlaces pasan a "Menú" (`.menu-panel`, pantalla completa). `.focusbar` (entrevista y campero): quién o qué computadora, y una salida. Mismo ancho que la columna de contenido.
 
 ## 3. Gráficas
 
@@ -198,6 +208,11 @@ Asuntos numerados para la reunión (sí es una secuencia: es el orden de la reun
 | `events/coordinator/home.html` + `_home_live.html` | `events/rotulo/shell_coordinator.html` | Letrero de búsqueda o de entrevista abierta; conteo; dos columnas de renglones |
 | `events/interview/*.html`, `events/kiosk/*.html` | `events/shell_focus.html`, `events/shell_kiosk.html` (ya en Rótulo) | Sin navegación; camino; una pregunta; revisión; confirmación |
 | `events/pastor/home.html` + `_home_live.html` | `events/rotulo/shell_leader.html` | Informe de cinco preguntas: pregunta y respuesta a la izquierda, evidencia a la derecha |
+| `events/tutor/home.html` + `_home_live.html` | `rotulo_shell` (líder) | Letrero solo si hay entrevistas detenidas; "Tu equipo lleva X de Y."; una fila por coordinador con su conteo (`events/rotulo/_coordinator_rows.html`) |
+| `events/admin/*.html` | `rotulo_shell` (líder, barra de dos renglones) | Letrero solo si algo impide entrevistar; "Preparación" con estado por paso; tablas densas |
+| `events/reports/*.html`, `events/presentation/*.html` | `rotulo_shell`; la presentación usa `layout/skeleton.html` | El corte se lee como el resumen del pastor; diapositivas de 16:9 en Cal y Noche |
+| `templates/core/*.html` | `base.html` (barra de dos renglones) | Discipulado: el panorama de la iglesia como el resumen del pastor; el participante con su siguiente lección en un letrero; las lecciones como las preguntas de la entrevista |
+| `registration/*.html`, `errors/*.html`, `events/events_list.html` | `base.html` | Una columna, el título pintado, un solo botón principal |
 
 Las partes vivas (`_home_live.html`) se recargan cada 20 o 30 s con `data-live-url`; el indicador `.live-status` queda fuera de la región que se reemplaza.
 
@@ -217,13 +232,10 @@ Las partes vivas (`_home_live.html`) se recargan cada 20 o 30 s con `data-live-u
 - Las marcas de avance son imágenes con texto alternativo completo; nada depende solo del color.
 - `prefers-reduced-motion` quita transiciones y el hundido del botón; `forced-colors` agrega bordes a todas las marcas; impresión sin barras ni botones.
 
-## 7. Cómo migrar una pantalla
+## 7. Cómo hacer una pantalla nueva
 
-1. Cambia el `extends` a `events/rotulo/shell_coordinator.html`, `events/rotulo/shell_leader.html` o, si no lleva navegación, `events/shell_focus.html`.
-2. Reemplaza las clases del sistema anterior: `ledger` → `rows`/`row`, `figure-row` → `figures`, `chip` → `{% status %}`, `meter` → `{% ruler %}`, `option` → `choice`, `q-actions` → `step__actions`, `btn--quiet` → `btn--link`, `btn--sm` → `btn--small`, `btn--hero` → `btn--primary btn--large`.
-3. Quita los "·", las flechas de los botones y las etiquetas encima de los títulos.
-4. ¿Hay algo que hacer ahora? Ponlo en un letrero. ¿Hay más de uno? Elige.
-5. Agrega la pantalla a `e2e/design-review.mjs`, revisa las capturas en los tres anchos y corre axe.
-6. Actualiza la prueba de alcance en `events/tests/test_rotulo.py`.
-
-Cuando todas las pantallas estén migradas: borrar `emmaus.css`, los archivos de Literata (salvo los que usa el PDF) y los bloques de compatibilidad de `skeleton.html`.
+1. Extiende el marco que corresponde: `{% extends rotulo_shell %}` dentro de un evento, `events/shell_focus.html` si no lleva navegación, `base.html` en discipulado.
+2. Empieza con `events/rotulo/_page_head.html`. Si hay algo que hacer ahora, ponlo en un letrero; si hay dos, elige.
+3. Usa los componentes de arriba antes de escribir CSS. Si de verdad hace falta CSS nuevo, va en la sección del área al final de `rotulo.css`.
+4. Nada de "·", flechas en los botones, etiquetas encima de los títulos, tarjetas, píldoras o íconos. Maíz solo para orientar; chile solo para errores y riesgo.
+5. Agrega la pantalla a `e2e/design-review.mjs` y a la prueba de alcance de `events/tests/test_rotulo.py`; revisa las capturas en los tres anchos y corre axe.

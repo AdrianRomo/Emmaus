@@ -4,7 +4,8 @@
   "description": "Browser checks with synthetic data only: the shared-station interview flow and the design review captures.",
   "scripts": {
     "test": "node station-flow.mjs",
-    "review": "node design-review.mjs"
+    "review": "node design-review.mjs",
+    "review-all": "node review-all.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0",

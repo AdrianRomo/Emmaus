@@ -36,11 +36,11 @@ En una computadora o celular pequeño, el menú está en el botón **"Menú"**.
 
 ### Tu pantalla de inicio
 
-En **"Inicio"** ves cuántos camperos hay, cuántas entrevistas van completadas, cuántas están en curso y cuántas capturas supervisadas están abiertas. Arriba aparece un recuadro **"Requiere tu atención"** cuando falta algo importante, por ejemplo confirmar los procedimientos o asignar coordinadores.
+En **"Inicio"**, si algo impide entrevistar, arriba aparece un letrero amarillo con lo único que hay que hacer primero: **"Confirma los procedimientos de la iglesia"**, **"Elige el cuestionario de las entrevistas"** o **"Asigna coordinador a N camperos"**, con el botón para hacerlo. Debajo dice cuántas entrevistas van ("Llevamos 247 de 400 entrevistas."), con una barra de avance y las cifras de participantes, capturas supervisadas, seguimientos y situaciones de riesgo.
 
 ![Inicio de la administración](img/admin-inicio.png)
 
-Debajo están las **Herramientas**: "Importar camperos", "Agregar persona al equipo", "Asignar tutores", "Cuestionario", "Cortes, privacidad y computadoras" y "Registro de actividad".
+Luego, **"Preparación"** lista cada paso (procedimientos de la iglesia, cuestionario, camperos, equipo, computadoras y cortes) con su estado, **Listo**, **Falta** o **Revisar**, y el enlace para resolverlo. Al final están la actividad reciente y las descargas recientes. El resto de las herramientas está en la barra de arriba: "Participantes", "Equipo", "Cuestionarios", "Reportes" y "Configuración".
 
 ### 1. Crear el campamento
 
@@ -276,13 +276,11 @@ En **"Mis camperos"**, toca **"Imprimir lista de respaldo"** y luego **"Imprimir
 
 ## Para tutores
 
-En **"Mi equipo"** ves cómo va tu equipo: el avance, las entrevistas pendientes, el ritmo por hora y cuánto falta. La pantalla se actualiza sola.
+En **"Mi equipo"** ves cómo va tu equipo. Si un coordinador tiene entrevistas detenidas (20 minutos o más sin actividad), arriba aparece un letrero amarillo que dice quién y en qué computadora, con **"Ver las entrevistas detenidas"**. Debajo, **"Tu equipo lleva X de Y."** y una fila por coordinador con una marca por cada campero (completada, en curso o sin iniciar). A la derecha están los seguimientos del equipo, lo que espera una decisión y la actividad reciente. La pantalla se actualiza sola.
 
 ![Mi equipo del tutor](img/tutor-equipo.png)
 
-* **"Avance por coordinador"**: primero aparecen los que van más atrás.
-* **"Requiere atención"**: entrevistas interrumpidas (20 minutos o más sin actividad), seguimientos abiertos y entrevistas con seguimiento por decidir.
-* **"Ver pendientes"** junta todo lo que necesita una decisión o un empujón.
+* **"Pendientes"** junta todo lo que necesita una decisión o un empujón: entrevistas interrumpidas, seguimientos abiertos y entrevistas con seguimiento por decidir.
 * **"Coordinadores"** y **"Entrevistas"** (con filtros) te ayudan a buscar.
 * **"Ver reportes de mi equipo"** te lleva a los cortes de tu equipo.
 
@@ -342,13 +340,13 @@ Toca **"Descargar PDF"** (en el último corte o en el historial, botón **"PDF"*
 Sirve para proyectar el avance en una reunión del equipo.
 
 1. Toca **"Mostrar presentación"** (en "Resumen general") o **"Ver presentación"** (en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial.
-2. Toca **"Pantalla completa"** (o la tecla **F**).
+2. Toca **"Pantalla completa"** (o la tecla **F**). Si el salón está oscuro, toca **"Modo noche"**: fondo azul oscuro y letra clara. Emmaus recuerda tu elección en esa computadora.
 3. Avanza con la **flecha derecha** o **"Siguiente"**; regresa con la **flecha izquierda** o **"Anterior"**.
 4. Toca **"Salir"** al terminar.
 
 ![Modo presentación](img/presentacion.png)
 
-Son 5 diapositivas: cómo va el campamento, avance de entrevistas, avance por equipo, necesidades de seguimiento y próximos pasos. **No muestra nombres de camperos, coordinadores ni tutores, ni respuestas.** Las cifras de seguimiento vienen del último corte y están redondeadas; antes del primer corte aparecen como "—".
+Son 5 diapositivas: portada, cómo va el campamento con el avance de cada equipo, la gráfica del avance de entrevistas, necesidades de seguimiento y próximos pasos. La letra está hecha para leerse desde el fondo del salón. **No muestra nombres de camperos, coordinadores ni tutores, ni respuestas.** Las cifras de seguimiento vienen del último corte y están redondeadas; antes del primer corte aparecen como "—".
 
 ---
 

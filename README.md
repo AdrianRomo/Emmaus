@@ -5,7 +5,7 @@ Emmaus is a Spanish-language (es-MX) Django platform that helps a church care fo
 - **Emmaus Campamentos** runs a camp's interview operation: 350–400 camperos without accounts, ten shared interview computers, volunteer coordinadores, tutores who supervise them, pastors who need an honest overview, and leadership meetings that need a privacy-safe projector view.
 - **Discipulado**, the original module, is still supported: discipleship paths, lessons, reflections, participant questions and pastoral follow-up for participants who have accounts. It is shown only to churches that turn it on.
 
-The interface is Mexican Spanish throughout. Its design system, "Rótulo" (`docs/design-system.md`), is being rolled out screen by screen: every coordinator screen, the whole interview and campero flow, the participant, interview and follow-up records and the pastor summary use it; the remaining tutor, pastor and administration screens keep the previous system, "Cuaderno de campo" (`static/css/emmaus.css`), until they are migrated.
+The interface is Mexican Spanish throughout and every screen uses one design system, "Rótulo" (`docs/design-system.md`): hand-painted camp signs for what a person says, a hyperlegible sans for everything else, and one yellow sign per screen for the thing to do next.
 
 ## What a camp gets
 
