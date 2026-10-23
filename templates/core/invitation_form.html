@@ -1,31 +1,32 @@
 {% extends "base.html" %}
-{% block page_title %}Nueva invitación{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Nueva invitación{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio="Invitaciones" title="Invitar a una persona" lede="Envía un enlace seguro para que la persona indicada se una al espacio de tu iglesia." %}
-  {% include "partials/ui/error_summary.html" with form=form %}
-  {% if manual_link %}
-    <div class="notice stack-sm">
-      <p class="notice__title">Enlace de invitación</p>
-      <p>Si el correo no llega, copia este enlace y envíalo por el medio que tu iglesia usa normalmente.</p>
-      <div class="field">
-        <label class="label" for="enlace-invitacion">Enlace para {{ invitation.email }}</label>
-        <input class="input input--wide" id="enlace-invitacion" type="text" value="{{ manual_link }}" readonly>
-      </div>
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Invitar a una persona" lede="Envía un enlace seguro para que la persona indicada se una al espacio de tu iglesia." %}
+{% if manual_link %}
+  <div class="notice notice--info invitation-link">
+    <p class="notice__title">Enlace de invitación</p>
+    <p>Si el correo no llega, copia este enlace y envíalo por el medio que tu iglesia usa normalmente.</p>
+    <div class="field">
+      <label class="label" for="enlace-invitacion">Enlace para {{ invitation.email }}</label>
+      <input class="input" id="enlace-invitacion" type="text" value="{{ manual_link }}" readonly>
     </div>
-  {% endif %}
-  <div class="split{% if manual_link %} mt-8{% endif %}">
-    <form method="post" class="sheet">
-      {% csrf_token %}
-      {% include "partials/ui/fields.html" with form=form %}
-      <div class="btn-row mt-6">
-        <button class="btn btn--primary" type="submit">Crear invitación</button>
-        <a class="btn btn--quiet" href="{% url 'invitations_list' %}">Ver invitaciones</a>
-      </div>
-    </form>
-    <aside class="panel stack-sm">
-      <h2>Sobre las invitaciones</h2>
-      <p>Al invitar a un participante puedes asignarle un mentor e inscribirlo en una ruta; ambas cosas se aplican cuando acepta.</p>
-      <p>Si el correo no está configurado, copia el enlace que aparece después de crear la invitación y envíalo directamente por el medio habitual de tu iglesia.</p>
-    </aside>
+    <button class="btn btn--secondary btn--small" type="button" data-copy="enlace-invitacion">Copiar enlace</button>
   </div>
+{% endif %}
+<div class="split">
+  <form method="post">
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Crear invitación</button>
+      <a class="btn btn--link" href="{% url 'invitations_list' %}">Ver invitaciones</a>
+    </div>
+  </form>
+  <aside class="invitation-about" aria-labelledby="sobre-invitaciones">
+    <h2 id="sobre-invitaciones" class="heading">Sobre las invitaciones</h2>
+    <p>Al invitar a un participante puedes asignarle un mentor e inscribirlo en una ruta; ambas cosas se aplican cuando acepta.</p>
+    <p>Si el correo no está configurado, copia el enlace que aparece después de crear la invitación y envíalo directamente por el medio habitual de tu iglesia.</p>
+  </aside>
+</div>
 {% endblock %}

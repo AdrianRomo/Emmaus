@@ -1,46 +1,47 @@
 {% extends "base.html" %}
-{% load core_extras %}
+{% load emmaus core_extras %}
 {% block page_title %}Invitaciones{% endblock %}
 {% block content %}
-  {% url 'create_invitation' as create_url %}
-  {% include "partials/ui/page_head.html" with folio="Acceso" title="Invitaciones" lede="Revisa las invitaciones pendientes, aceptadas y vencidas de tu iglesia." action_url=create_url action_label="Nueva invitación" %}
-  {% if rows %}
-    <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla">
-      <table class="table">
-        <thead>
+{% url 'create_invitation' as create_url %}
+{% include "events/rotulo/_page_head.html" with title="Invitaciones" lede="Revisa las invitaciones pendientes, aceptadas y vencidas de tu iglesia." action_url=create_url action_label="Nueva invitación" %}
+{% if rows %}
+  <p class="list-count">{{ rows|length }} invitaci{{ rows|length|pluralize:"ón,ones" }}</p>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Invitaciones">
+    <table class="table invitations-table">
+      <thead>
+        <tr>
+          <th scope="col">Persona</th>
+          <th scope="col">Rol</th>
+          <th scope="col">Mentor</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Enlace de respaldo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
           <tr>
-            <th scope="col">Persona</th>
-            <th scope="col">Rol</th>
-            <th scope="col">Mentor</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Enlace de respaldo</th>
+            <td>
+              <strong>{{ row.invitation.email }}</strong><br>
+              <span class="muted">Vence el {{ row.invitation.expires_at|date:"j b Y" }}</span>
+            </td>
+            <td>{{ row.invitation.get_role_display }}</td>
+            <td>{{ row.invitation.assigned_mentor|display_name:"Sin asignar" }}</td>
+            <td>
+              {% if row.invitation.accepted_at %}
+                {% status "completada" "Aceptada" %}
+              {% elif row.invitation.is_expired %}
+                {% status "descartada" "Vencida" %}
+              {% else %}
+                {% status "en_curso" "Pendiente" %}
+              {% endif %}
+            </td>
+            <td><span class="invitations-table__link">{{ row.link }}</span></td>
           </tr>
-        </thead>
-        <tbody>
-          {% for row in rows %}
-            <tr>
-              <td>
-                <strong>{{ row.invitation.email }}</strong><br>
-                <span class="muted">Vence el {{ row.invitation.expires_at|date:"j b Y" }}</span>
-              </td>
-              <td>{{ row.invitation.get_role_display }}</td>
-              <td>{{ row.invitation.assigned_mentor|display_name:"Sin asignar" }}</td>
-              <td>
-                {% if row.invitation.accepted_at %}
-                  {% include "partials/status_badge.html" with status="accepted" label="Aceptada" %}
-                {% elif row.invitation.is_expired %}
-                  {% include "partials/status_badge.html" with status="expired" label="Vencida" %}
-                {% else %}
-                  {% include "partials/status_badge.html" with status="pending" label="Pendiente" %}
-                {% endif %}
-              </td>
-              <td><span class="muted">{{ row.link }}</span></td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    {% include "partials/ui/empty.html" with title="Todavía no hay invitaciones" body="Invita a pastores, mentores o participantes cuando estés listo para empezar a usar Emmaus con personas reales." %}
-  {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="empty-line">Todavía no hay invitaciones. Invita a pastores, mentores o participantes cuando estés listo para empezar a usar Emmaus con personas reales.</p>
+{% endif %}
 {% endblock %}

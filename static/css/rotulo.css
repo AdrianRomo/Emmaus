@@ -820,3 +820,43 @@ ol.promises li::before {
   .sign, .confirm { border: 2px solid #000; background: none; color: #000; }
   body { font-size: 12pt; }
 }
+
+/* ---------- G5a Discipulado gestión ---------- */
+/* Lists that open a page (participants, paths, notes, people): reading width, no extra gap under the head */
+.disc-list { max-width: 52rem; }
+/* Church dashboard: the sign sits between the page head and the first question */
+.church-sign { margin-bottom: var(--s-10); }
+.church-report .row > .btn { white-space: nowrap; }
+/* Four figures fit in one line down to tablets instead of leaving one alone on a second line */
+.church-report .figures { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+/* Participants: the path's progress as a ruler with its figure beside it (single series, no key) */
+.participant-progress .row__main { flex: 1 1 auto; }
+.participant-progress__line { display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-2); }
+.participant-progress__line .ruler { flex: 0 1 16rem; height: 0.75rem; }
+.participant-progress__text { flex: none; font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+/* A fixed label column, so the values line up whether or not a row has "Cambiar mentor" */
+.participant-data .summary-list__row { grid-template-columns: 12rem minmax(0, 1fr) auto; }
+.participant-detail__ruler { margin-top: var(--s-2); max-width: 20rem; }
+.participant-detail__ruler .ruler { height: 0.75rem; }
+.participant-detail__form { margin-top: var(--s-6); }
+/* Church settings: theme colours side by side; the swatches line up whatever the hint length */
+.theme-colors__intro { color: var(--ink-2); margin-bottom: var(--s-4); max-width: 60ch; }
+.theme-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0 var(--s-6); margin-top: var(--s-6); }
+.theme-colors .field { display: flex; flex-direction: column; }
+.theme-colors .field input { margin-top: auto; }
+/* Invitations: the backup link wraps instead of stretching the table */
+.invitations-table__link { display: block; min-width: 16rem; overflow-wrap: anywhere; color: var(--ink-2); }
+.invitation-link .field { margin-bottom: var(--s-3); }
+.invitation-about p + p { margin-top: var(--s-3); }
+/* A path: its lessons in order, each with its reflection questions and actions */
+.path-lessons .row { align-items: flex-start; padding: var(--s-5) 0; }
+.path-lessons .row__main { flex: 1 1 auto; }
+.path-lessons__label { margin-top: var(--s-3); font-size: var(--t-small); font-weight: 700; }
+.path-lessons__questions { padding-left: 1.5rem; font-size: var(--t-small); color: var(--ink-2); max-width: 65ch; }
+.path-lessons__questions li + li { margin-top: var(--s-1); }
+.path-lessons__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin-top: var(--s-4); }
+@media (max-width: 600px) {
+  .participant-data .summary-list__row { grid-template-columns: 1fr auto; }
+  .participant-progress .row { flex-wrap: wrap; }
+  .participant-progress .row__main { flex-basis: 100%; }
+}

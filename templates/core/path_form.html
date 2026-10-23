@@ -1,14 +1,22 @@
 {% extends "base.html" %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{{ title }}{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio="Rutas de discipulado" title=title lede="Mantén la ruta clara, fácil de editar y adecuada para las personas que tu iglesia acompaña." %}
+<div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  <form method="post" class="sheet prose">
+  {% if path %}
+    {% url 'path_detail' path.id as back_url %}
+    {% include "events/rotulo/_page_head.html" with title=title lede="Mantén la ruta clara, fácil de editar y adecuada para las personas que tu iglesia acompaña." back_url=back_url back_label=path.title %}
+  {% else %}
+    {% url 'path_list' as back_url %}
+    {% include "events/rotulo/_page_head.html" with title=title lede="Mantén la ruta clara, fácil de editar y adecuada para las personas que tu iglesia acompaña." back_url=back_url back_label="Rutas de discipulado" %}
+  {% endif %}
+  <form method="post">
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="btn-row mt-6">
+    <div class="step__actions">
       <button class="btn btn--primary" type="submit">Guardar ruta</button>
-      <a class="btn btn--quiet" href="{% url 'path_list' %}">Volver a las rutas</a>
+      <a class="btn btn--link" href="{% url 'path_list' %}">Volver a las rutas</a>
     </div>
   </form>
+</div>
 {% endblock %}

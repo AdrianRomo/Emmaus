@@ -1,14 +1,19 @@
 {% extends "base.html" %}
-{% block page_title %}Pregunta de reflexión{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Pregunta de reflexión{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio=lesson.title title="Agregar pregunta de reflexión" lede="Escribe una pregunta que invite a reflexionar con honestidad y que ayude a los mentores a saber cómo animar a la persona." %}
+<div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  <form method="post" class="sheet prose">
+  {% url 'path_detail' lesson.path_id as back_url %}
+  {% with meta="Lección: "|add:lesson.title %}
+    {% include "events/rotulo/_page_head.html" with title="Agregar pregunta de reflexión" lede="Escribe una pregunta que invite a reflexionar con honestidad y que ayude a los mentores a saber cómo animar a la persona." meta=meta back_url=back_url back_label=lesson.path.title %}
+  {% endwith %}
+  <form method="post">
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="btn-row mt-6">
+    <div class="step__actions">
       <button class="btn btn--primary" type="submit">Guardar pregunta</button>
-      <a class="btn btn--quiet" href="{% url 'path_detail' lesson.path_id %}">Volver a la ruta</a>
+      <a class="btn btn--link" href="{% url 'path_detail' lesson.path_id %}">Volver a la ruta</a>
     </div>
   </form>
+</div>
 {% endblock %}

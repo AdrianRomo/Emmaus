@@ -1,14 +1,17 @@
 {% extends "base.html" %}
-{% block page_title %}{{ title }}{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{{ title }}{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio=path.title title=title lede="Arma la lección con una enseñanza fácil de leer, pasajes bíblicos y un paso práctico." %}
+<div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  <form method="post" class="sheet">
+  {% url 'path_detail' path.id as back_url %}
+  {% include "events/rotulo/_page_head.html" with title=title lede="Arma la lección con una enseñanza fácil de leer, pasajes bíblicos y un paso práctico." back_url=back_url back_label=path.title %}
+  <form method="post">
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="btn-row mt-6">
+    <div class="step__actions">
       <button class="btn btn--primary" type="submit">Guardar lección</button>
-      <a class="btn btn--quiet" href="{% url 'path_detail' path.id %}">Volver a la ruta</a>
+      <a class="btn btn--link" href="{% url 'path_detail' path.id %}">Volver a la ruta</a>
     </div>
   </form>
+</div>
 {% endblock %}

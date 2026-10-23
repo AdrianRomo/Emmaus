@@ -1,27 +1,26 @@
 {% extends "base.html" %}
+{% load emmaus %}
 {% block page_title %}Rutas de discipulado{% endblock %}
 {% block content %}
-  {% url 'path_create' as create_url %}
-  {% include "partials/ui/page_head.html" with folio="Contenido de discipulado" title="Rutas de discipulado" lede="Crea y edita los caminos que recorren los participantes junto con sus mentores y líderes." action_url=create_url action_label="Nueva ruta" %}
+{% url 'path_create' as create_url %}
+{% include "events/rotulo/_page_head.html" with title="Rutas de discipulado" lede="Crea y edita los caminos que recorren los participantes junto con sus mentores y líderes." action_url=create_url action_label="Nueva ruta" %}
+<section class="disc-list" aria-labelledby="rutas">
+  <h2 id="rutas" class="heading">{{ paths|length }} ruta{{ paths|length|pluralize }}</h2>
   {% if paths %}
-    <ul class="ledger">
+    <ul class="rows">
       {% for path in paths %}
-        <li>
-          <a class="ledger__row" href="{% url 'path_detail' path.id %}">
-            <div class="ledger__main">
-              <p class="ledger__title">{{ path.title }}</p>
-              <p class="ledger__meta">{{ path.description|default:"Todavía no tiene descripción."|truncatewords:28 }}</p>
-              <p class="ledger__meta">{% if path.lesson_count == 1 %}1 lección{% else %}{{ path.lesson_count }} lecciones{% endif %}</p>
-            </div>
-            <div class="ledger__aside">
-              {% if path.is_default %}<span class="chip chip--info">Predeterminada</span>{% endif %}
-              {% if path.is_active %}<span class="chip chip--done">Activa</span>{% else %}<span class="chip chip--pending">Inactiva</span>{% endif %}
-            </div>
-          </a>
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'path_detail' path.id %}">{{ path.title }}</a></p>
+            <p class="row__meta">{{ path.description|default:"Todavía no tiene descripción."|truncatewords:28 }}</p>
+            <p class="row__meta">{% if path.lesson_count == 1 %}1 lección{% else %}{{ path.lesson_count }} lecciones{% endif %}{% if path.is_default %}, ruta predeterminada{% endif %}</p>
+          </div>
+          {% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "pendiente" "Inactiva" %}{% endif %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    {% include "partials/ui/empty.html" with title="Todavía no hay rutas" body="Crea tu primera ruta de discipulado para que los participantes tengan un siguiente paso claro." %}
+    <p class="empty-line">Todavía no hay rutas. Crea tu primera ruta de discipulado para que los participantes tengan un siguiente paso claro.</p>
   {% endif %}
+</section>
 {% endblock %}

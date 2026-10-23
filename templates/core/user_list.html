@@ -1,21 +1,33 @@
 {% extends "base.html" %}
 {% block page_title %}Personas con acceso{% endblock %}
 {% block content %}
-  {% url 'create_invitation' as invite_url %}
-  {% include "partials/ui/page_head.html" with folio="Personas de la iglesia" title="Personas con acceso" lede="Pastores, mentores, administración y participantes vinculados a tu iglesia." action_url=invite_url action_label="Invitar a una persona" %}
-  {% if users %}
-    <ul class="ledger">
-      {% for account in users %}
-        <li class="ledger__row">
-          <div class="ledger__main">
-            <p class="ledger__title">{{ account.get_full_name|default:account.email }}</p>
-            <p class="ledger__meta">{{ account.email }}</p>
-          </div>
-          <div class="ledger__aside"><span class="chip chip--info">{{ account.church_roles.first.get_role_display }}</span></div>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    {% include "partials/ui/empty.html" with title="Todavía no hay personas" body="Invita a líderes y participantes para empezar a usar Emmaus." %}
-  {% endif %}
+{% url 'create_invitation' as invite_url %}
+{% if is_church_admin %}
+  {% url 'church_settings' as back_url %}
+  {% include "events/rotulo/_page_head.html" with title="Personas con acceso" lede="Pastores, mentores, administración y participantes vinculados a tu iglesia." back_url=back_url back_label="Configuración" action_url=invite_url action_label="Invitar a una persona" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Personas con acceso" lede="Pastores, mentores, administración y participantes vinculados a tu iglesia." action_url=invite_url action_label="Invitar a una persona" %}
+{% endif %}
+{% if users %}
+  {% regroup users by church_roles.first.get_role_display as groups %}
+  <div class="disc-list">
+    {% for group in groups %}
+      <section class="block" aria-labelledby="rol-{{ forloop.counter }}">
+        <h2 id="rol-{{ forloop.counter }}" class="heading">{{ group.grouper }} <span class="count">{{ group.list|length }}</span></h2>
+        <ul class="rows">
+          {% for account in group.list %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ account.get_full_name|default:account.email }}</p>
+                <p class="row__meta">{{ account.email }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="empty-line">Todavía no hay personas. Invita a líderes y participantes para empezar a usar Emmaus.</p>
+{% endif %}
 {% endblock %}
