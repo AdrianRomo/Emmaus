@@ -19,10 +19,10 @@
   <section class="section" aria-labelledby="paso-1">
     <h2 id="paso-1"><span class="q-section">1.</span> ¿Es la persona correcta?</h2>
     <dl class="summary-list mt-4">
-      <div class="summary-list__row"><dt>Nombre</dt><dd>{{ participant.full_name }}</dd><span></span></div>
-      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años{% if participant.is_minor %} · menor de edad{% endif %}</dd><span></span></div>
-      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd><span></span></div>
-      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Nombre</dt><dd>{{ participant.full_name }}</dd></div>
+      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años{% if participant.is_minor %} · menor de edad{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
+      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
     </dl>
     <p class="mt-4"><a href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>
   </section>

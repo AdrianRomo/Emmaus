@@ -33,7 +33,7 @@
 <section class="section" aria-labelledby="historial">
   <div class="section__head"><h2 id="historial">Historial</h2><p>{{ history|length }} corte{{ history|length|pluralize }}</p></div>
   {% if history %}
-  <div class="table-wrap"><table class="table">
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table">
     <thead><tr><th>Corte</th><th>Tipo</th><th class="num">Completadas</th><th class="num">Avance</th><th class="num">Pendientes</th><th></th></tr></thead>
     <tbody>{% for s in history %}<tr>
       <td><strong>{{ s.cutoff_at|date:"H:i" }}</strong> <span class="muted">{{ s.cutoff_at|fecha_corta }}</span></td>

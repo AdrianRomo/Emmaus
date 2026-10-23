@@ -20,7 +20,7 @@
         <div class="summary-list__row">
           <dt>Mentor</dt>
           <dd>{{ profile.assigned_mentor|display_name:"Sin asignar" }}</dd>
-          {% if is_pastoral_leader %}<span class="summary-list__action"><a href="{% url 'assign_mentor' profile.id %}">Cambiar mentor</a></span>{% endif %}
+          {% if is_pastoral_leader %}<dd class="summary-list__action"><a href="{% url 'assign_mentor' profile.id %}">Cambiar mentor</a></dd>{% endif %}
         </div>
         <div class="summary-list__row">
           <dt>Contacto preferido</dt>

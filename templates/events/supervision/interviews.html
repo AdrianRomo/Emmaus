@@ -14,7 +14,7 @@
 </form>
 <p class="folio">{{ page.paginator.count }} campero{{ page.paginator.count|pluralize }}</p>
 {% if page.object_list %}
-  <div class="table-wrap mt-4"><table class="table">
+  <div class="table-wrap mt-4" tabindex="0" role="region" aria-label="Tabla"><table class="table">
     <thead><tr><th>#</th><th>Nombre</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Entrevista</th></tr></thead>
     <tbody>{% for p in page.object_list %}<tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.coordinator.display_name|default:"Sin asignar" }}</td><td>{% status_chip p.interview_status %}</td></tr>{% endfor %}</tbody>
   </table></div>

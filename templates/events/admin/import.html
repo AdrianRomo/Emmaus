@@ -15,7 +15,7 @@
     <form method="post" class="mt-8">
       {% csrf_token %}
       <input type="hidden" name="action" value="confirm">
-      <div class="table-wrap"><table class="table">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table">
         <thead><tr><th>Importar</th><th>Fila</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Revisión</th></tr></thead>
         <tbody>{% for row in preview.rows %}<tr>
           <td>{% if not row.errors %}<input type="checkbox" name="include" value="{{ row.line }}" aria-label="Importar fila {{ row.line }}"{% if not row.duplicate_of and not row.duplicate_in_file %} checked{% endif %}>{% endif %}</td>
@@ -40,7 +40,7 @@
     <aside class="panel stack-sm">
       <h2 class="subhead">Cómo preparar el archivo</h2>
       <p class="text-sm">En Excel o Google Sheets usa una fila de encabezados con estos nombres:</p>
-      <div class="table-wrap"><table class="table"><thead><tr><th>Nombre</th><th>Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Autorización</th></tr></thead>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table"><thead><tr><th>Nombre</th><th>Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Autorización</th></tr></thead>
         <tbody><tr><td>Mariana López Ruiz</td><td>15</td><td>4</td><td>Iglesia Centro</td><td>ana@correo.mx</td><td>sí</td></tr></tbody></table></div>
       <p class="text-sm">“Coordinador” y “Autorización” son opcionales. Guarda como <strong>CSV UTF-8</strong>.</p>
     </aside>

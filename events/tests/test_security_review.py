@@ -10,7 +10,6 @@ import csv
 import io
 from datetime import timedelta
 from importlib import import_module
-from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib.auth.models import User

@@ -5,7 +5,7 @@
   {% url 'create_invitation' as create_url %}
   {% include "partials/ui/page_head.html" with folio="Acceso" title="Invitaciones" lede="Revisa las invitaciones pendientes, aceptadas y vencidas de tu iglesia." action_url=create_url action_label="Nueva invitación" %}
   {% if rows %}
-    <div class="table-wrap">
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla">
       <table class="table">
         <thead>
           <tr>

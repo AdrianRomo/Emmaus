@@ -8,7 +8,7 @@
     {% cumulative_chart points total chart_id "Entrevistas completadas acumuladas" %}
     <details>
       <summary>Ver los datos en una tabla</summary>
-      <div class="table-wrap mt-2"><table class="table"><thead><tr><th>Hora</th><th class="num">En esa hora</th><th class="num">Acumuladas</th></tr></thead>
+      <div class="table-wrap mt-2" tabindex="0" role="region" aria-label="Tabla"><table class="table"><thead><tr><th>Hora</th><th class="num">En esa hora</th><th class="num">Acumuladas</th></tr></thead>
         <tbody>{% for p in points %}<tr><td>{% if p.day %}{{ p.day }} {% endif %}{{ p.label }}</td><td class="num">{{ p.count }}</td><td class="num">{{ p.cumulative }}</td></tr>{% endfor %}</tbody></table></div>
     </details>
   {% else %}

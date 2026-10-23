@@ -31,14 +31,14 @@
   <section aria-labelledby="equipo-roles">
     <h2 id="equipo-roles">Equipo</h2>
     <dl class="summary-list mt-4">
-      {% for value, label in role_labels %}<div class="summary-list__row"><dt>{{ label }}{{ roles|get_item:value|default:0|pluralize:"es" }}</dt><dd class="num">{{ roles|get_item:value|default:0 }}</dd><span></span></div>{% endfor %}
-      <div class="summary-list__row"><dt>Coordinadores sin tutor</dt><dd class="num">{{ payload.attention.coordinators_without_tutor }}</dd><span class="summary-list__action"><a href="{% url 'events:assignments' event.slug %}">Asignar</a></span></div>
+      {% for value, label in role_labels %}<div class="summary-list__row"><dt>{{ label }}{{ roles|get_item:value|default:0|pluralize:"es" }}</dt><dd class="num">{{ roles|get_item:value|default:0 }}</dd></div>{% endfor %}
+      <div class="summary-list__row"><dt>Coordinadores sin tutor</dt><dd class="num">{{ payload.attention.coordinators_without_tutor }}</dd><dd class="summary-list__action"><a href="{% url 'events:assignments' event.slug %}">Asignar</a></dd></div>
     </dl>
     <h2 class="mt-8" id="cortes-admin">Cortes</h2>
     <dl class="summary-list mt-4">
-      <div class="summary-list__row"><dt>Último corte</dt><dd>{% if last_snapshot %}{{ last_snapshot.cutoff_at|fecha_corta }}{% else %}Aún no hay{% endif %}</dd><span></span></div>
-      <div class="summary-list__row"><dt>Próximo corte</dt><dd>{% if next_cutoff %}{{ next_cutoff|fecha_corta }}{% else %}Sin programar{% endif %}</dd><span class="summary-list__action"><a href="{% url 'events:reports' event.slug %}">Reportes</a></span></div>
-      <div class="summary-list__row"><dt>Seguimientos abiertos</dt><dd>{{ payload.follow_ups.open_total }}{% if payload.follow_ups.safety_open %} · <strong>{{ payload.follow_ups.safety_open }} de riesgo</strong>{% endif %}</dd><span class="summary-list__action"><a href="{% url 'events:follow_ups' event.slug %}">Ver</a></span></div>
+      <div class="summary-list__row"><dt>Último corte</dt><dd>{% if last_snapshot %}{{ last_snapshot.cutoff_at|fecha_corta }}{% else %}Aún no hay{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Próximo corte</dt><dd>{% if next_cutoff %}{{ next_cutoff|fecha_corta }}{% else %}Sin programar{% endif %}</dd><dd class="summary-list__action"><a href="{% url 'events:reports' event.slug %}">Reportes</a></dd></div>
+      <div class="summary-list__row"><dt>Seguimientos abiertos</dt><dd>{{ payload.follow_ups.open_total }}{% if payload.follow_ups.safety_open %} · <strong>{{ payload.follow_ups.safety_open }} de riesgo</strong>{% endif %}</dd><dd class="summary-list__action"><a href="{% url 'events:follow_ups' event.slug %}">Ver</a></dd></div>
     </dl>
   </section>
 </div>

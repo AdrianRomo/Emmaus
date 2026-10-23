@@ -16,14 +16,14 @@
   <section aria-labelledby="datos">
     <h2 id="datos" class="subhead">Datos del campero</h2>
     <dl class="summary-list mt-4">
-      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años</dd><span></span></div>
-      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd><span></span></div>
-      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd><span></span></div>
-      <div class="summary-list__row"><dt>Coordinador</dt><dd>{{ participant.coordinator.display_name|default:"Sin asignar" }}</dd><span></span></div>
-      <div class="summary-list__row"><dt>Registro</dt><dd>{{ participant.created_at|fecha_corta }}</dd><span></span></div>
+      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años</dd></div>
+      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
+      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
+      <div class="summary-list__row"><dt>Coordinador</dt><dd>{{ participant.coordinator.display_name|default:"Sin asignar" }}</dd></div>
+      <div class="summary-list__row"><dt>Registro</dt><dd>{{ participant.created_at|fecha_corta }}</dd></div>
       {% if participant.is_minor and event.requires_guardian_authorization %}
       <div class="summary-list__row"><dt>Autorización de padre, madre o tutor legal</dt><dd>{% if guardian_ok %}Registrada{% else %}<strong>Falta</strong>{% endif %}</dd>
-        <span class="summary-list__action">{% if not guardian_ok and can_edit %}<form method="post" action="{% url 'events:guardian_authorization' event.slug participant.public_id %}">{% csrf_token %}<button class="link-button" type="submit">Marcar como recibida</button></form>{% endif %}</span></div>
+        <dd class="summary-list__action">{% if not guardian_ok and can_edit %}<form method="post" action="{% url 'events:guardian_authorization' event.slug participant.public_id %}">{% csrf_token %}<button class="link-button" type="submit">Marcar como recibida</button></form>{% endif %}</dd></div>
       {% endif %}
     </dl>
   </section>

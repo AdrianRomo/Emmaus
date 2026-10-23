@@ -21,7 +21,7 @@
 <section class="section" id="comparacion" aria-labelledby="t-comp">
   <h2 id="t-comp">Comparado con el corte anterior</h2>
   {% if previous %}
-    <div class="table-wrap mt-4"><table class="table">
+    <div class="table-wrap mt-4" tabindex="0" role="region" aria-label="Tabla"><table class="table">
       <thead><tr><th></th><th class="num">{{ previous.cutoff_at|date:"H:i" }}</th><th class="num">{{ snapshot.cutoff_at|date:"H:i" }}</th><th class="num">Cambio</th></tr></thead>
       <tbody>
         <tr><td>Completadas</td><td class="num">{{ previous.data.progress.completed }}</td><td class="num">{{ progress.completed }}</td><td class="num">{{ delta.completed|signed }}</td></tr>
@@ -41,7 +41,7 @@
 {% if payload.coordinators %}<section class="section"><h2>Por coordinador</h2><div class="mt-4">{% include "events/partials/team_bars.html" with rows=payload.coordinators show_team=True %}</div></section>{% endif %}
 {% if payload.outcomes %}
 <section class="section"><h2>Resumen de respuestas</h2><p class="text-sm muted mt-2">Totales redondeados a múltiplos de {{ payload.min_group_size }}; cifras menores se ocultan.</p>
-  <div class="split split--even mt-4">{% for o in payload.outcomes %}<div><p class="chart__title">{{ o.title }}</p><p class="chart__sub">respondieron {{ o.respondents.display }}</p>{% if o.withheld %}<p class="chart__empty">Aún no hay suficientes respuestas.</p>{% else %}<dl class="summary-list mt-2">{% for r in o.rows %}<div class="summary-list__row"><dt>{{ r.label }}</dt><dd class="num">{{ r.display }}</dd><span></span></div>{% endfor %}</dl>{% endif %}</div>{% endfor %}</div>
+  <div class="split split--even mt-4">{% for o in payload.outcomes %}<div><p class="chart__title">{{ o.title }}</p><p class="chart__sub">respondieron {{ o.respondents.display }}</p>{% if o.withheld %}<p class="chart__empty">Aún no hay suficientes respuestas.</p>{% else %}<dl class="summary-list mt-2">{% for r in o.rows %}<div class="summary-list__row"><dt>{{ r.label }}</dt><dd class="num">{{ r.display }}</dd></div>{% endfor %}</dl>{% endif %}</div>{% endfor %}</div>
 </section>
 {% endif %}
 {% if payload.recommendations %}<section class="section"><h2>Próximos pasos</h2><ol class="ledger mt-4">{% for r in payload.recommendations %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ r.text }}</p><p class="ledger__meta">{{ r.evidence }}</p></div></div></li>{% endfor %}</ol></section>{% endif %}

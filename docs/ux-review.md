@@ -48,7 +48,7 @@ Hubo cuatro rondas: captura → crítica → cambios → nueva captura. La cuart
 | **Densidad** | El coordinador ve como máximo 4 cifras y listas cortas (5–6 renglones). El administrador tiene más, agrupado en herramientas y equipo. | Mi inicio frente a Inicio de administración |
 | **Originalidad** | Papel cálido, tinta pino, numeración en itálica terracota, barras tipo regla, símbolo propio del camino a Emaús. Sin degradados, vidrio esmerilado, íconos decorativos ni imágenes religiosas trilladas. | Todas las capturas |
 | **Consistencia** | Los mismos componentes en el módulo de campamentos y en el de discipulado, que también se tradujo y rediseñó. | `templates/core/*` |
-| **Accesibilidad** | Etiquetas en todos los controles (verificado por prueba), resumen de errores, "Saltar al contenido", texto alternativo y tabla en cada gráfica, objetivos de ≥ 48 px. | `events/tests/test_ui.py` |
+| **Accesibilidad** | Etiquetas en todos los controles (verificado por prueba), resumen de errores, "Saltar al contenido", texto alternativo y tabla en cada gráfica, objetivos de ≥ 48 px. **axe-core 4.10 (reglas WCAG 2.0/2.1/2.2 A y AA): 0 violaciones en 33 pantallas** (20 de tableros y listas por rol, 13 del flujo de entrevista y modo campero). La primera pasada encontró 3: filas de `<dl>` con `<span>` y una tabla desplazable sin foco; se corrigieron en todas las plantillas. | `events/tests/test_ui.py`; axe vía Playwright |
 | **Facilidad de uso** | La entrevista asistida completa toma 5 pantallas de pregunta + revisión. La captura supervisada no deja al campero salir de su pantalla (verificado en el navegador). | `e2e/station-flow.mjs` |
 
 ### Comparación con las referencias
@@ -119,7 +119,7 @@ Una revisión adversarial (ver `docs/privacy-and-safeguarding.md`) cambió lo qu
 ## Problemas abiertos
 
 - **Sin pruebas con personas reales.** Todo se validó con datos sintéticos y navegadores automatizados. Antes del campamento conviene una prueba de 30 minutos con 2–3 coordinadores reales en una de las computadoras del lugar.
-- **Lector de pantalla.** Se cuidaron estructura, etiquetas y textos alternativos, pero no se probó con NVDA ni VoiceOver.
+- **Lector de pantalla.** axe-core no encuentra violaciones automáticas, pero eso cubre solo una parte de WCAG. No se probó con NVDA ni VoiceOver.
 - **El editor de cuestionarios es básico.** Edita textos, tipo, privacidad, condiciones y opciones de un borrador, pero no reordena arrastrando ni muestra una vista previa en vivo.
 - **El panel técnico `/admin/` de Django** usa la traducción de Django y nombres de modelo en español, pero algunos nombres de campo internos del módulo de discipulado siguen en inglés. No es una pantalla para voluntarios.
 - **La presentación muestra hasta 8 equipos.** Con más equipos se ven los 8 con menos avance, con una nota.

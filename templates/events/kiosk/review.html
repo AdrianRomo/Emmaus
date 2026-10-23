@@ -11,7 +11,7 @@
     <div class="summary-list__row">
       <dt>{{ row.question.text }}</dt>
       <dd>{% if row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
-      <span class="summary-list__action"><a href="{% url 'kiosk:step' row.step.number %}">Cambiar<span class="visually-hidden"> “{{ row.question.text }}”</span></a></span>
+      <dd class="summary-list__action"><a href="{% url 'kiosk:step' row.step.number %}">Cambiar<span class="visually-hidden"> “{{ row.question.text }}”</span></a></dd>
     </div>
   {% endfor %}
 </dl>

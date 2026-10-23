@@ -5,7 +5,7 @@
 {% if rows and tutors %}
 <form method="post">
   {% csrf_token %}
-  <div class="table-wrap"><table class="table">
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table">
     <thead><tr><th>Coordinador</th><th class="num">Camperos</th><th>Tutor</th></tr></thead>
     <tbody>{% for row in rows %}<tr><td><label for="t-{{ row.coordinator.id }}">{{ row.coordinator.display_name }}</label>{% if not row.coordinator.is_active %} <span class="muted">(sin acceso)</span>{% endif %}</td><td class="num">{{ row.count }}</td>
       <td><select class="select" id="t-{{ row.coordinator.id }}" name="tutor_{{ row.coordinator.id }}"><option value="">Sin tutor</option>{% for t in row.options %}<option value="{{ t.id }}"{% if row.current and row.current.tutor_id == t.id %} selected{% endif %}>{{ t.team_label }} · {{ t.display_name }}{% if not t.is_active %} (sin acceso){% endif %}</option>{% endfor %}</select></td></tr>{% endfor %}</tbody>

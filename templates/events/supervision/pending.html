@@ -25,7 +25,7 @@
 <section class="section" aria-labelledby="t-sin">
   <div class="section__head"><h2 id="t-sin">Sin iniciar, por coordinador</h2></div>
   {% if not_started_by_coordinator %}
-    <div class="table-wrap"><table class="table"><thead><tr><th>Coordinador</th><th class="num">Sin iniciar</th></tr></thead>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table"><thead><tr><th>Coordinador</th><th class="num">Sin iniciar</th></tr></thead>
       <tbody>{% for row in not_started_by_coordinator %}<tr><td>{% if row.coordinator__id %}<a href="{% url 'events:coordinator_detail' event.slug row.coordinator__id %}">{{ row.coordinator__user__first_name }} {{ row.coordinator__user__last_name }}</a>{% else %}Sin coordinador{% endif %}</td><td class="num">{{ row.n }}</td></tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="muted">Todas las entrevistas ya se iniciaron.</p>{% endif %}
 </section>

@@ -8,9 +8,9 @@
   <p class="lede">Para que no se pierdan respuestas, solo una computadora puede editarla a la vez.</p>
 </header>
 <dl class="summary-list">
-  <div class="summary-list__row"><dt>Computadora</dt><dd>{{ interview.station.name|default:"Sin registrar" }}</dd><span></span></div>
-  <div class="summary-list__row"><dt>Abierta por</dt><dd>{{ interview.lock_holder.get_full_name|default:"Otro coordinador" }}</dd><span></span></div>
-  <div class="summary-list__row"><dt>Última actividad</dt><dd>{{ interview.last_activity_at|since }}</dd><span></span></div>
+  <div class="summary-list__row"><dt>Computadora</dt><dd>{{ interview.station.name|default:"Sin registrar" }}</dd></div>
+  <div class="summary-list__row"><dt>Abierta por</dt><dd>{{ interview.lock_holder.get_full_name|default:"Otro coordinador" }}</dd></div>
+  <div class="summary-list__row"><dt>Última actividad</dt><dd>{{ interview.last_activity_at|since }}</dd></div>
 </dl>
 <div class="notice notice--warning mt-8">
   <p class="notice__title">Si tomas el control aquí</p>

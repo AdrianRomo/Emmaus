@@ -4,13 +4,13 @@
 {% block content %}
 <header class="page-head"><ol class="crumbs"><li><a href="{% url 'events:settings' event.slug %}">Configuración</a></li><li>Sesiones abiertas</li></ol><h1>Sesiones abiertas</h1><p class="lede">Si una computadora se quedó con una entrevista abierta, puedes liberarla aquí. Las respuestas guardadas no se pierden.</p></header>
 <section class="section" aria-labelledby="t-capturas"><div class="section__head"><h2 id="t-capturas">Capturas supervisadas</h2><p>{{ captures|length }}</p></div>
-  {% if captures %}<div class="table-wrap"><table class="table"><thead><tr><th>Campero</th><th>Computadora</th><th>Coordinador</th><th>Estado</th><th>Última actividad</th><th></th></tr></thead>
+  {% if captures %}<div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table"><thead><tr><th>Campero</th><th>Computadora</th><th>Coordinador</th><th>Estado</th><th>Última actividad</th><th></th></tr></thead>
     <tbody>{% for ps in captures %}<tr><td>{{ ps.interview.participant.full_name }}</td><td>{{ ps.station.name|default:"—" }}</td><td>{{ ps.started_by.get_full_name }}</td><td>{{ ps.get_state_display }}</td><td>{{ ps.last_activity_at|since }}</td>
       <td><form method="post">{% csrf_token %}<input type="hidden" name="participant_session" value="{{ ps.public_id }}"><button class="btn btn--sm" data-confirm="¿Cerrar esta sesión? El campero ya no podrá seguir respondiendo en esa computadora.">Cerrar</button></form></td></tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="muted">No hay capturas supervisadas abiertas.</p>{% endif %}
 </section>
 <section class="section" aria-labelledby="t-claims"><div class="section__head"><h2 id="t-claims">Entrevistas en curso</h2><p>{{ claims|length }}</p></div>
-  {% if claims %}<div class="table-wrap"><table class="table"><thead><tr><th>Campero</th><th>Abierta en</th><th>Por</th><th>Última actividad</th><th></th></tr></thead>
+  {% if claims %}<div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table"><thead><tr><th>Campero</th><th>Abierta en</th><th>Por</th><th>Última actividad</th><th></th></tr></thead>
     <tbody>{% for iv in claims %}<tr><td>{{ iv.participant.full_name }}</td><td>{% if iv.lock_expires_at and iv.lock_expires_at > now %}{{ iv.station.name|default:"una computadora" }}{% else %}<span class="muted">Libre</span>{% endif %}</td><td>{{ iv.lock_holder.get_full_name|default:"—" }}</td><td>{{ iv.last_activity_at|since }}</td>
       <td>{% if iv.lock_expires_at and iv.lock_expires_at > now %}<form method="post">{% csrf_token %}<input type="hidden" name="interview" value="{{ iv.public_id }}"><button class="btn btn--sm" data-confirm="¿Liberar esta entrevista? La computadora donde está abierta ya no podrá guardar.">Liberar</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
   {% else %}<p class="muted">No hay entrevistas en curso.</p>{% endif %}

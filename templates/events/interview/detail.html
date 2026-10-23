@@ -33,7 +33,7 @@
       <div class="summary-list__row">
         <dt>{{ row.question.text }}</dt>
         <dd>{% if not row.visible %}<span class="privacy-tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
-        <span class="summary-list__action">{% if can_correct and row.visible %}<a href="{% url 'events:interview_correct' event.slug interview.public_id row.step.number %}">Corregir<span class="visually-hidden"> “{{ row.question.text }}”</span></a>{% endif %}</span>
+        <dd class="summary-list__action">{% if can_correct and row.visible %}<a href="{% url 'events:interview_correct' event.slug interview.public_id row.step.number %}">Corregir<span class="visually-hidden"> “{{ row.question.text }}”</span></a>{% endif %}</dd>
       </div>
     {% empty %}
       <p class="muted">Todavía no hay respuestas.</p>

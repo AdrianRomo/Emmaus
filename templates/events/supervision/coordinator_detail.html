@@ -16,7 +16,7 @@
 <section class="section" aria-labelledby="camperos">
   <div class="section__head"><h2 id="camperos">Camperos</h2><p>{{ participants|length }}</p></div>
   {% if participants %}
-  <div class="table-wrap"><table class="table">
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table class="table">
     <thead><tr><th>#</th><th>Nombre</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Entrevista</th></tr></thead>
     <tbody>{% for p in participants %}<tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{% status_chip p.interview_status %}</td></tr>{% endfor %}</tbody>
   </table></div>
