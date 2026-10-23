@@ -634,6 +634,6 @@ class ThirdReviewTests(RefuterBase):
         self.client.post(reverse("kiosk:finish"))
         ParticipantSession.objects.filter(interview=interview).update(created_at=timezone.now() - timedelta(hours=4))
         call_command("run_report_cutoffs", verbosity=0)
-        response = self.client.post(reverse("kiosk:unlock"), {"password": PASSWORD})
+        self.client.post(reverse("kiosk:unlock"), {"password": PASSWORD})
         self.assertNotIn("_auth_user_id", self.client.session)
         self.assertContains(self.client.get(reverse("kiosk:home")), "No hay una entrevista abierta")
