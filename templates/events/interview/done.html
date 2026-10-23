@@ -1,18 +1,14 @@
 {% extends "events/shell_focus.html" %}
 {% block page_title %}Entrevista completada{% endblock %}
-{% block who %}{{ event.name }}{% endblock %}
+{% block who %}<strong>{{ event.name }}</strong>{% endblock %}
 {% block content %}
-<section class="confirm-panel" aria-labelledby="listo">
-  <svg class="confirm-panel__check" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="27" fill="none" stroke="#e2b356" stroke-width="2"/><path d="M17 29l7 7 15-16" fill="none" stroke="#fffdf8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  <h1 id="listo">Entrevista completada</h1>
-  <p>Las respuestas de {{ participant.first_name }} quedaron guardadas.</p>
-  {% if follow_up %}<p>Se registró un seguimiento: {{ follow_up.get_reason_display|lower }}.</p>{% endif %}
+<section class="confirm" aria-labelledby="listo">
+  <h1 id="listo" class="voice confirm__title">Entrevista completada</h1>
+  <p class="confirm__text">Las respuestas de {{ participant.first_name }} quedaron guardadas.{% if follow_up %} Se registró un seguimiento: {{ follow_up.get_reason_display|lower }}.{% endif %}</p>
 </section>
-<div class="stack mt-8">
-  <a class="btn btn--hero btn--block" href="{% url 'events:interview_search' event.slug %}">Continuar con otro campero <span class="btn__arrow" aria-hidden="true">→</span></a>
-  <p class="cluster cluster--between">
-    <span class="muted">{% if remaining %}Te faltan {{ remaining }} entrevista{{ remaining|pluralize }}.{% else %}Ya no tienes entrevistas pendientes.{% endif %}</span>
-    <a href="{% if access.is_coordinator %}{% url 'events:coord_home' event.slug %}{% else %}{% url 'events:home' event.slug %}{% endif %}">Volver a mi inicio</a>
-  </p>
+<p class="lede">{% if remaining %}Te falta{{ remaining|pluralize:"n" }} {{ remaining }} entrevista{{ remaining|pluralize }}.{% else %}Ya no tienes entrevistas pendientes.{% endif %}</p>
+<div class="step__actions">
+  <a class="btn btn--primary btn--large" href="{% url 'events:interview_search' event.slug %}">Entrevistar a otro campero</a>
+  <a class="btn btn--link" href="{% if access.is_coordinator %}{% url 'events:coord_home' event.slug %}{% else %}{% url 'events:home' event.slug %}{% endif %}">Volver a mi inicio</a>
 </div>
 {% endblock %}

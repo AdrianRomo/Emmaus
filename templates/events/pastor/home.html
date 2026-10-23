@@ -1,17 +1,17 @@
-{% extends "events/shell_rail.html" %}
+{% extends "events/rotulo/shell_leader.html" %}
 {% load emmaus %}
 {% block page_title %}Resumen general{% endblock %}
 {% block content %}
-<header class="page-head">
-  <p class="folio">{{ event.name }} · {{ today|fecha_larga }}</p>
-  <div class="page-head__row">
-    <h1>Resumen general</h1>
-    <div class="btn-row">
-      <a class="btn btn--primary" href="{% url 'events:presentation_live' event.slug %}">Mostrar presentación</a>
-      <a class="btn" href="{% url 'events:reports' event.slug %}">Reportes</a>
-    </div>
+<header class="report-head">
+  <div class="report-head__text">
+    <h1 class="voice report-head__title">Resumen general</h1>
+    <p class="report-head__meta">{{ today|fecha_larga }}.{% if next_cutoff %} Próximo corte a las {{ next_cutoff|date:"H:i" }}.{% endif %}</p>
+    <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
   </div>
-  <div class="cluster">{% include "partials/ui/live_status.html" %}{% if next_cutoff %}<span class="folio">Próximo corte: {{ next_cutoff|date:"H:i" }}</span>{% endif %}</div>
+  <div class="report-head__actions">
+    <a class="btn btn--primary" href="{% url 'events:presentation_live' event.slug %}">Mostrar presentación</a>
+    <a class="btn btn--secondary" href="{% url 'events:reports' event.slug %}">Reportes y cortes</a>
+  </div>
 </header>
 <div id="resumen-vivo" data-live-url="{% url 'events:pastor_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/pastor/_home_live.html" %}

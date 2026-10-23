@@ -165,7 +165,13 @@ def pastor_home(request, event, access):
     delta = compare(payload, last.data) if last else {}
     outcome_snapshot = latest_snapshot(event, "evento")
     outcomes = visible_payload(outcome_snapshot.data, access)["outcomes"] if outcome_snapshot else []
+    eta = payload["throughput"]["eta_minutes"]
+    # Only promise a clock time when it is within reach; beyond 12 h the pace says more than a time.
+    finish_at = timezone.localtime() + timedelta(minutes=eta) if eta and eta <= 12 * 60 else None
     context = {
+        "finish_at": finish_at,
+        "projection_label": f"Hacia las {finish_at:%H:%M}" if finish_at else "",
+        "chart_eta": eta if finish_at else None,  # beyond 12 h a projection would squash the real data
         "payload": payload,
         "progress": payload["progress"],
         "teams": payload["teams"],

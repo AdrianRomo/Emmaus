@@ -40,7 +40,7 @@ if (page.url().includes("/computadora/")) {
 await shot(page, "buscar");
 
 // Assisted interview
-await go(page, page.click("a.btn--primary:has-text('Entrevistar') >> nth=0"));
+await go(page, page.click(".results a:has-text('Entrevistar') >> nth=0"));
 await go(page, page.click("button:has-text('Comenzar entrevista')"));
 assert.match(await page.title(), /^Error: /, "missing consent shows the error summary");
 for (const box of await page.$$("input[type=checkbox][name^=consent_]")) await box.check();
@@ -48,17 +48,17 @@ await page.check("input[name=mode][value=asistida]");
 await go(page, page.click("button:has-text('Comenzar entrevista')"));
 assert.match(page.url(), /\/paso\/1\/$/);
 await page.click("label:has-text('No estoy seguro/a')");
-await go(page, page.click(".q-actions button.btn--primary"));
+await go(page, page.click(".step__actions button.btn--primary"));
 await page.click("label:has-text('Sí') >> nth=0");
 assert.ok(await page.isVisible("textarea"), "conditional question is revealed");
 await page.fill("textarea", "Texto sintético de prueba.");
-await go(page, page.click(".q-actions button.btn--primary"));
+await go(page, page.click(".step__actions button.btn--primary"));
 await page.click("label:has-text('Familia')");
 await page.click("label:has-text('Prefiero no responder')");
 assert.equal(await page.isChecked("input[value=familia]"), false, "exclusive option clears the others");
-await go(page, page.click(".q-actions button.btn--primary"));
-await go(page, page.click(".q-actions button.btn--primary"));
-await go(page, page.click(".q-actions button.btn--primary"));
+await go(page, page.click(".step__actions button.btn--primary"));
+await go(page, page.click(".step__actions button.btn--primary"));
+await go(page, page.click(".step__actions button.btn--primary"));
 assert.match(page.url(), /\/revision\/$/);
 await shot(page, "revision");
 await go(page, page.click("button:has-text('Finalizar entrevista')"));
@@ -69,8 +69,8 @@ assert.ok(await page.isVisible("text=Entrevista completada"));
 await shot(page, "completada");
 
 // Supervised capture with the next camper
-await go(page, page.click("a:has-text('Continuar con otro campero')"));
-await go(page, page.click("a.btn--primary:has-text('Entrevistar') >> nth=0"));
+await go(page, page.click("a:has-text('Entrevistar a otro campero')"));
+await go(page, page.click(".results a:has-text('Entrevistar') >> nth=0"));
 for (const box of await page.$$("input[type=checkbox][name^=consent_]")) await box.check();
 await page.check("input[name=mode][value=supervisada]");
 await go(page, page.click("button:has-text('Comenzar entrevista')"));
@@ -84,9 +84,9 @@ assert.match(page.url(), /\/estacion\/$/, "kiosk confinement");
 await page.goto(`${BASE}/admin/`);
 assert.match(page.url(), /\/estacion\/$/, "kiosk confinement (admin)");
 
-await go(page, page.click("a.btn--hero"));
+await go(page, page.click(".welcome a.btn--primary"));
 await page.click("label:has-text('Sí') >> nth=0");
-await go(page, page.click(".q-actions button.btn--primary"));
+await go(page, page.click(".step__actions button.btn--primary"));
 await go(page, page.click("a:has-text('Terminar por ahora')"));
 await go(page, page.click("button:has-text('Terminar')"));
 const handback = await page.textContent("main");

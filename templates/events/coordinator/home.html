@@ -1,38 +1,41 @@
-{% extends "events/shell_bar.html" %}
+{% extends "events/rotulo/shell_coordinator.html" %}
 {% load emmaus %}
 {% block page_title %}Mi inicio{% endblock %}
 {% block content %}
-<header class="page-head">
-  <p class="folio">{{ today|fecha_larga }}{% if station %} · {{ station.name }}{% endif %}</p>
-  <h1>Hola, {{ user.first_name|default:user.get_full_name }}</h1>
-</header>
+<div class="coord">
+  <h1 class="voice coord__hello">Hola, {{ user.first_name|default:user.get_full_name }}.</h1>
 
-<section class="next-action" aria-labelledby="que-hago">
-  <div>
-    <h2 id="que-hago" class="next-action__q">¿Qué tengo que hacer ahora?</h2>
+  {% comment %}The sign: the one thing to do now. Yellow appears nowhere else on this screen.{% endcomment %}
+  <section class="sign" aria-labelledby="que-hago">
     {% if in_progress %}
-      <p class="next-action__a">Termina la entrevista de <strong>{{ in_progress.0.participant.full_name }}</strong>. Sus respuestas están guardadas hasta donde se quedó.</p>
+      {% with iv=in_progress.0 %}
+        <h2 id="que-hago" class="sign__title">Termina la entrevista de {{ iv.participant.full_name }}</h2>
+        <p class="sign__text">Sus respuestas están guardadas hasta donde se quedó{% if iv.station %}, en {{ iv.station.name }}{% endif %}.</p>
+        <div class="sign__actions">
+          <a class="btn btn--primary btn--large" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Continuar entrevista</a>
+          <a class="sign__link" href="{% url 'events:interview_search' event.slug %}">Mejor entrevistar a otro campero</a>
+        </div>
+      {% endwith %}
     {% elif progress.pending %}
-      <p class="next-action__a">Te {{ progress.pending|pluralize:"falta,faltan" }} <strong>{{ progress.pending }} entrevista{{ progress.pending|pluralize }}</strong>. Inicia la siguiente cuando tengas a un campero contigo.</p>
+      <h2 id="que-hago" class="sign__title"><label for="buscar">¿A quién vas a entrevistar?</label></h2>
+      <p class="sign__text" id="buscar-ayuda">Escribe su número o las primeras letras de su nombre y apellido, por ejemplo “mat jim”.</p>
+      <form class="search" method="get" action="{% url 'events:interview_search' event.slug %}" role="search">
+        <input class="input search__input" id="buscar" type="search" name="q" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+        <button class="btn btn--primary btn--large" type="submit">Buscar</button>
+      </form>
     {% elif progress.eligible %}
-      <p class="next-action__a">¡Terminaste! Las {{ progress.completed }} entrevistas de tus camperos están completas.</p>
+      <h2 id="que-hago" class="sign__title">¡Terminaste!</h2>
+      <p class="sign__text">Las {{ progress.completed }} entrevistas de tus camperos están completas. Gracias por tu tiempo.</p>
     {% else %}
-      <p class="next-action__a">Todavía no tienes camperos asignados. Registra al primero o pide a la administración que te los asigne.</p>
+      <h2 id="que-hago" class="sign__title">Todavía no tienes camperos asignados</h2>
+      <p class="sign__text">Registra al primero o pide a la administración que te los asigne.</p>
+      <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></div>
     {% endif %}
-  </div>
-  <div>
-    {% if in_progress %}
-      <a class="btn btn--hero" href="{% url 'events:interview_resume' event.slug in_progress.0.public_id %}">Continuar entrevista <span class="btn__arrow" aria-hidden="true">→</span></a>
-    {% elif progress.pending %}
-      <a class="btn btn--hero" href="{% url 'events:interview_search' event.slug %}">Iniciar entrevista <span class="btn__arrow" aria-hidden="true">→</span></a>
-    {% elif not progress.eligible %}
-      <a class="btn btn--hero" href="{% url 'events:participant_create' event.slug %}">Registrar campero <span class="btn__arrow" aria-hidden="true">→</span></a>
-    {% endif %}
-  </div>
-</section>
+  </section>
 
-<div class="cluster cluster--end mt-6">{% include "partials/ui/live_status.html" %}</div>
-<div id="inicio-vivo" data-live-url="{% url 'events:coord_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
-  {% include "events/coordinator/_home_live.html" %}
+  <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
+  <div id="inicio-vivo" data-live-url="{% url 'events:coord_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
+    {% include "events/coordinator/_home_live.html" %}
+  </div>
 </div>
 {% endblock %}

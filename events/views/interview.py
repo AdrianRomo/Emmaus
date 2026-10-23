@@ -132,8 +132,11 @@ def interview_search(request, event, access):
     if query:
         from ..models import normalize_name
 
-        normalized = normalize_name(query)
-        filters = Q(normalized_name__contains=normalized)
+        # Every word must appear somewhere in the name, so "mar rui" finds "Mariana López Ruiz"
+        # (first letters of first name and surname, the fastest search at a busy station).
+        filters = Q()
+        for word in normalize_name(query).split():
+            filters &= Q(normalized_name__contains=word)
         digits = query.lstrip("#").strip()
         if digits.isdigit():
             filters |= Q(number=int(digits))

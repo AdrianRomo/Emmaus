@@ -40,8 +40,9 @@ def kiosk_home(request):
         return render(request, "events/kiosk/handback.html", context)
     answers = load_answers(interview)
     started = bool(answers)
-    first = first_unanswered_step(interview.version, answers) or visible_steps(interview.version, answers)[0]
-    context.update({"first_step": first, "started": started, "intro": interview.version.intro_text})
+    steps = visible_steps(interview.version, answers)
+    first = first_unanswered_step(interview.version, answers) or steps[0]
+    context.update({"first_step": first, "started": started, "intro": interview.version.intro_text, "total_steps": len(steps)})
     return render(request, "events/kiosk/welcome.html", context)
 
 

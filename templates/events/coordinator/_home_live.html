@@ -1,86 +1,104 @@
 {% load emmaus %}
-<section class="section mt-6" aria-labelledby="mi-avance">
-  <div class="section__head">
-    <h2 id="mi-avance">Mi avance</h2>
-    <a href="{% url 'events:coord_progress' event.slug %}">Ver detalle</a>
-  </div>
-  <div class="figure-row">
-    <div class="figure figure--hero">
-      <p class="figure__label">Entrevistas completadas</p>
-      <p class="figure__value">{{ progress.completed }}<small>de {{ progress.eligible }}</small></p>
-      <p class="figure__note">{% if progress.percent is None %}Sin camperos asignados{% else %}{{ progress.percent }} % de tus camperos{% endif %}</p>
-    </div>
-    <div class="figure"><p class="figure__label">En curso</p><p class="figure__value">{{ progress.in_progress }}</p></div>
-    <div class="figure"><p class="figure__label">Sin iniciar</p><p class="figure__value">{{ progress.not_started }}</p></div>
-  </div>
-  <div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
-  <ul class="legend-keys mt-2">
-    <li><span class="key key--done" aria-hidden="true"></span>Completadas</li>
-    <li><span class="key key--progress" aria-hidden="true"></span>En curso</li>
-    <li><span class="key key--track" aria-hidden="true"></span>Sin iniciar</li>
-  </ul>
-</section>
-
-{% if in_progress %}
-<section class="section" aria-labelledby="en-curso">
-  <div class="section__head"><h2 id="en-curso">Continúa donde te quedaste</h2></div>
-  <ul class="ledger">
-    {% for iv in in_progress %}
-      <li><a class="ledger__row" href="{% url 'events:interview_resume' event.slug iv.public_id %}">
-        <span class="ledger__main"><span class="ledger__title">{{ iv.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ iv.participant.room|cuarto }} · última actividad {{ iv.last_activity_at|since }}{% if iv.station %} · {{ iv.station.name }}{% endif %}</span></span>
-        <span class="ledger__aside">{% status_chip "en_curso" %}<span class="btn btn--sm">Continuar</span></span>
-      </a></li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
-
-<div class="split split--even section">
-  <section aria-labelledby="siguientes">
-    <div class="section__head"><h2 id="siguientes">Siguientes por entrevistar</h2><a href="{% url 'events:coord_pending' event.slug %}">Ver todas</a></div>
-    {% if next_up %}
-      <ul class="ledger">
-        {% for p in next_up %}
-          <li><a class="ledger__row" href="{% url 'events:interview_start' event.slug p.public_id %}">
-            <span class="ledger__main"><span class="ledger__title">{{ p.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ p.room|cuarto }} · {{ p.age }} años</span></span>
-            <span class="ledger__aside"><span class="btn btn--sm">Entrevistar</span></span>
-          </a></li>
-        {% endfor %}
+<div class="coord__lists">
+  <div class="coord__main">
+    {% if progress.eligible %}
+    <section class="coord__progress" aria-labelledby="mi-avance">
+      <h2 id="mi-avance" class="voice coord__count">Llevas {{ progress.completed }} de {{ progress.eligible }}.</h2>
+      <p class="coord__count-note">{% if progress.in_progress %}{{ progress.in_progress }} en curso y {% endif %}{{ progress.not_started }} sin iniciar. <a href="{% url 'events:coord_progress' event.slug %}">Ver mi avance</a></p>
+      {% tally progress.completed progress.in_progress progress.eligible %}
+      <ul class="key" aria-hidden="true">
+        <li><span class="key__mark key__mark--done"></span>Completada</li>
+        <li><span class="key__mark key__mark--progress"></span>En curso</li>
+        <li><span class="key__mark"></span>Sin iniciar</li>
       </ul>
-    {% else %}
-      {% include "partials/ui/empty.html" with title="No hay entrevistas por iniciar" body="Cuando registres o te asignen camperos aparecerán aquí." %}
+    </section>
     {% endif %}
-  </section>
-  <section aria-labelledby="recientes">
-    <div class="section__head"><h2 id="recientes">Completadas hace poco</h2></div>
-    {% if recent %}
-      <ul class="ledger">
-        {% for iv in recent %}
-          <li><a class="ledger__row" href="{% url 'events:interview_detail' event.slug iv.public_id %}">
-            <span class="ledger__main"><span class="ledger__title">{{ iv.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ iv.completed_at|since }}</span></span>
-            <span class="ledger__aside">{% status_chip "completada" %}</span>
-          </a></li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      {% include "partials/ui/empty.html" with title="Aún no completas entrevistas" body="Tus entrevistas terminadas aparecerán aquí." %}
+    <section class="coord__queue" aria-labelledby="siguientes">
+      <h2 id="siguientes" class="heading">Por entrevistar</h2>
+      {% if next_up %}
+        <ul class="rows">
+          {% for p in next_up %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ p.full_name }}</p>
+                <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años</p>
+              </div>
+              <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if progress.not_started > next_up|length %}<p class="more"><a href="{% url 'events:coord_pending' event.slug %}">Ver los {{ progress.not_started }} sin iniciar</a></p>{% endif %}
+      {% else %}
+        <p class="empty-line">No hay entrevistas por iniciar. Cuando registres o te asignen camperos aparecerán aquí.</p>
+      {% endif %}
+      <p class="more"><a href="{% url 'events:participant_create' event.slug %}">Registrar a un campero nuevo</a></p>
+    </section>
+  </div>
+
+  <div class="coord__side">
+    {% if in_progress|length > 1 %}
+      <section aria-labelledby="sin-terminar">
+        <h2 id="sin-terminar" class="heading">También sin terminar</h2>
+        <ul class="rows">
+          {% for iv in in_progress|slice:"1:" %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ iv.participant.full_name }}</p>
+                <p class="row__meta">Última actividad {{ iv.last_activity_at|since }}{% if iv.station %}, en {{ iv.station.name }}{% endif %}</p>
+              </div>
+              <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Continuar<span class="visually-hidden"> con {{ iv.participant.full_name }}</span></a>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
     {% endif %}
-  </section>
+
+    <section aria-labelledby="seguimientos">
+      <h2 id="seguimientos" class="heading">Seguimiento</h2>
+      {% if to_evaluate %}
+        <div class="row row--attention">
+          <div class="row__main">
+            <p class="row__title">{{ to_evaluate }} entrevista{{ to_evaluate|pluralize }} espera{{ to_evaluate|pluralize:"n" }} tu decisión</p>
+            <p class="row__meta">Decide si necesita{{ to_evaluate|pluralize:"n" }} seguimiento.</p>
+          </div>
+          <a class="btn btn--secondary btn--small" href="{% url 'events:coord_pending' event.slug %}#por-evaluar">Decidir</a>
+        </div>
+      {% endif %}
+      {% if follow_ups %}
+        <ul class="rows">
+          {% for f in follow_ups %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
+                <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>
+              </div>
+              {% follow_up_status f.status %}
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver todos los seguimientos</a></p>
+      {% elif not to_evaluate %}
+        <p class="empty-line">No hay seguimientos abiertos. Cuando marques que un campero necesita seguimiento aparecerá aquí.</p>
+      {% endif %}
+    </section>
+
+    <section aria-labelledby="recientes">
+      <h2 id="recientes" class="heading">Completadas hace poco</h2>
+      {% if recent %}
+        <ul class="rows">
+          {% for iv in recent %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
+                <p class="row__meta">{{ iv.completed_at|since|capfirst }}</p>
+              </div>
+              {% status "completada" %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Aún no completas entrevistas. Las que termines aparecerán aquí.</p>
+      {% endif %}
+    </section>
+  </div>
 </div>
-
-<section class="section" aria-labelledby="seguimientos">
-  <div class="section__head"><h2 id="seguimientos">Seguimientos que requieren atención</h2>{% if follow_ups %}<a href="{% url 'events:follow_ups' event.slug %}">Ver todos</a>{% endif %}</div>
-  {% if follow_ups or to_evaluate %}
-    {% if to_evaluate %}<p class="notice notice--warning"><a href="{% url 'events:coord_pending' event.slug %}#por-evaluar">{{ to_evaluate }} entrevista{{ to_evaluate|pluralize }} espera{{ to_evaluate|pluralize:"n" }} que decidas si necesita{{ to_evaluate|pluralize:"n" }} seguimiento.</a></p>{% endif %}
-    <ul class="ledger mt-4">
-      {% for f in follow_ups %}
-        <li><a class="ledger__row" href="{% url 'events:follow_up_detail' event.slug f.id %}">
-          <span class="ledger__main"><span class="ledger__title">{{ f.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ f.get_reason_display }} · {{ f.created_at|since }}</span></span>
-          <span class="ledger__aside">{% follow_up_chip f.status %}</span>
-        </a></li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    {% include "partials/ui/empty.html" with title="No hay seguimientos abiertos" body="Cuando marques que un campero necesita seguimiento aparecerá aquí." %}
-  {% endif %}
-</section>

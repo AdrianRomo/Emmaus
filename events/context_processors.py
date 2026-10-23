@@ -20,6 +20,8 @@ def event_context(request):
         "access": access,
         "event_nav": items,
         "shell_template": "events/shell_bar.html" if access.is_coordinator else "events/shell_rail.html",
+        # Screens already on the "Rótulo" design system (docs/design-system.md) pick their shell by role.
+        "rotulo_shell": "events/rotulo/shell_coordinator.html" if access.is_coordinator else "events/rotulo/shell_leader.html",
         "current_url_name": url_name,
         "today": timezone.localdate(),
         "station": current_station(request, event) if access.can_conduct_interviews else None,

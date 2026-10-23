@@ -3,10 +3,10 @@
 {% block body_attrs %}data-kiosk-idle="300" data-kiosk-timeout-url="{% url 'kiosk:timeout' %}" data-kiosk-heartbeat-url="{% url 'kiosk:heartbeat' %}"{% endblock %}
 {% block content %}
 <header class="page-head">
-  <h1>Revisa tus respuestas</h1>
+  <h1 class="voice page-head__title">Revisa tus respuestas</h1>
   <p class="lede">Si quieres cambiar algo, toca “Cambiar”. Cuando estés listo, toca “Terminar”.</p>
 </header>
-<dl class="summary-list">
+<dl class="summary-list summary-list--answers">
   {% for row in rows %}
     <div class="summary-list__row">
       <dt>{{ row.question.text }}</dt>
@@ -15,12 +15,12 @@
     </div>
   {% endfor %}
 </dl>
-<form method="post" action="{% url 'kiosk:finish' %}" class="q-actions">
+<form method="post" action="{% url 'kiosk:finish' %}" class="step__actions">
   {% csrf_token %}
-  <button class="btn btn--primary" type="submit">Terminar</button>
+  <button class="btn btn--primary btn--large" type="submit">Terminar</button>
 </form>
 <dialog class="dialog" id="idle-warning" aria-labelledby="idle-title">
-  <div class="dialog__body"><h2 id="idle-title">¿Sigues aquí?</h2><p>Por tu privacidad, la pantalla se cerrará en un minuto si no hay actividad.</p></div>
+  <div class="dialog__body"><h2 id="idle-title" class="voice">¿Sigues aquí?</h2><p>Por tu privacidad, la pantalla se cerrará en un minuto si no hay actividad.</p></div>
   <div class="dialog__actions"><button class="btn btn--primary" type="button" data-idle-continue>Sí, sigo aquí</button></div>
 </dialog>
 {% endblock %}

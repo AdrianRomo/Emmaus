@@ -1,0 +1,36 @@
+{% extends "layout/rotulo.html" %}
+{% comment %}Leader shell (Rótulo): pastors and administration. A top bar keeps the full width for the report.{% endcomment %}
+{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
+{% block body %}
+<header class="bar bar--leader">
+  <div class="bar__inner">
+    <a class="wordmark" href="{% url 'events:home' event.slug %}">Emmaus</a>
+    <p class="bar__event">{{ event.name }}<a href="{% url 'events:list' %}?todos=1">Cambiar de evento</a></p>
+    <nav class="bar__nav" aria-label="Principal">
+      {% for item in event_nav %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+      {% if access.is_admin and theme_church.discipleship_enabled %}<a href="{% url 'church_dashboard' %}">Discipulado</a>{% endif %}
+    </nav>
+    <div class="bar__end">
+      <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+      <div class="bar__logout">{% include "partials/ui/logout.html" with css="btn--small btn--link" %}</div>
+    </div>
+  </div>
+</header>
+<div id="menu-panel" class="menu-panel" hidden>
+  <div class="menu-panel__head">
+    <span class="wordmark">Emmaus</span>
+    <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
+  </div>
+  <nav class="menu-panel__nav" aria-label="Principal">
+    {% for item in event_nav %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+    {% if access.is_admin and theme_church.discipleship_enabled %}<a href="{% url 'church_dashboard' %}">Discipulado</a>{% endif %}
+    <a href="{% url 'events:list' %}?todos=1">Cambiar de evento</a>
+  </nav>
+  <p class="menu-panel__who">{{ user.get_full_name|default:user.email }}, {{ access.role_label|lower }}{% if access.can_view_sensitive %}, con acceso confidencial{% endif %}</p>
+  {% include "partials/ui/logout.html" with css="btn--secondary" %}
+</div>
+<main id="contenido" class="page page--wide" tabindex="-1">
+  {% include "partials/ui/messages.html" %}
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}

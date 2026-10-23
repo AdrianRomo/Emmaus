@@ -5,13 +5,13 @@ Emmaus is a Spanish-language (es-MX) Django platform that helps a church care fo
 - **Emmaus Campamentos** runs a camp's interview operation: 350–400 camperos without accounts, ten shared interview computers, volunteer coordinadores, tutores who supervise them, pastors who need an honest overview, and leadership meetings that need a privacy-safe projector view.
 - **Discipulado**, the original module, is still supported: discipleship paths, lessons, reflections, participant questions and pastoral follow-up for participants who have accounts. It is shown only to churches that turn it on.
 
-The interface is Mexican Spanish throughout and uses its own design system, "Cuaderno de campo" (`docs/design-system.md`).
+The interface is Mexican Spanish throughout. Its design system, "Rótulo" (`docs/design-system.md`), is being rolled out screen by screen: the coordinator home, the whole interview and campero flow and the pastor summary use it; the other screens keep the previous system, "Cuaderno de campo" (`static/css/emmaus.css`), until they are migrated.
 
 ## What a camp gets
 
 | Role | Main screen | Highlights |
 |---|---|---|
-| Coordinador | **Mi inicio**: "¿Qué tengo que hacer ahora?" | Register camperos, search, assisted interview or supervised capture on a shared computer, resume interrupted interviews, decide follow-up, print a paper backup list |
+| Coordinador | **Mi inicio**: one yellow sign with the thing to do now ("¿A quién vas a entrevistar?") | Register camperos, search, assisted interview or supervised capture on a shared computer, resume interrupted interviews, decide follow-up, print a paper backup list |
 | Campero | No account, no navigation | One question per screen, "Prefiero no responder" everywhere, answers saved at every step, screen locks when idle, returns the computer to the coordinador |
 | Tutor | **Mi equipo** | Progress per assigned coordinador, interrupted interviews, follow-ups, filters, team cutoffs |
 | Pastor | **Resumen general** | Five questions answered in order, team progress, privacy-suppressed answer totals, deterministic next steps, **Modo presentación** |
@@ -52,10 +52,10 @@ cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… 
 | Document | Contents |
 |---|---|
 | `docs/ux-redesign-plan.md` | Audit of the original app, information architecture, data-model changes, migration strategy, phases |
-| `docs/design-research.md` | What we learned from Planning Center, GOV.UK, Tally, kiosk survey tools and dashboard guidance (and what we could not access) |
-| `docs/design-direction.md` | Three visual concepts and why "Cuaderno de campo" won |
-| `docs/design-system.md` | Tokens, components, patterns, language and accessibility rules |
-| `docs/ux-review.md` | Screenshot-based review rounds, critique and what changed |
+| `docs/design-research.md` | Real screens from Planning Center, Tally, Airtable, GOV.UK, Mobbin and Refero: what to adapt, what not to copy, and what we could not access |
+| `docs/design-direction.md` | Why the previous look read as generated, three concepts (Rótulo, Bitácora, Sobremesa) and why "Rótulo" won; per-role experiences, including tutor and presentation proposals |
+| `docs/design-system.md` | "Rótulo" tokens, components, layouts, chart rules, accessibility and how to migrate a screen |
+| `docs/ux-review.md` | Six screenshot review rounds at three widths, axe results and what is still open |
 | `docs/architecture.md` | Apps, models, concurrency model, live updates, PDF, static files |
 | `docs/roles-and-permissions.md` | Role resolution, permission matrix, field-level visibility |
 | `docs/interview-station-workflow.md` | Assisted and supervised flows on shared computers, locking, recovery, load test |

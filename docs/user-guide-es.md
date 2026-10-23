@@ -128,11 +128,11 @@ En **"Participantes"**, **"Descargar lista"** baja la lista de camperos sin resp
 
 ### Tu pantalla de inicio
 
-**"Mi inicio"** te dice qué hacer ahora: terminar una entrevista que dejaste a medias, iniciar la siguiente o registrar a tu primer campero. También ves tu avance, los siguientes por entrevistar, las que completaste hace poco y los seguimientos que requieren atención. La pantalla se actualiza sola.
+**"Mi inicio"** te dice qué hacer ahora en un letrero amarillo: terminar la entrevista que dejaste a medias, buscar al campero que vas a entrevistar o registrar a tu primer campero. Debajo ves cuántas llevas (una marca por cada uno de tus camperos), los siguientes por entrevistar, los seguimientos y las que completaste hace poco. Arriba dice en qué computadora estás. La pantalla se actualiza sola.
 
 ![Mi inicio del coordinador](img/coordinador-inicio.png)
 
-Arriba siempre está el botón **"Iniciar entrevista"**.
+En las demás pantallas, arriba está el botón **"Iniciar entrevista"**.
 
 ### Registrar a un campero
 
@@ -144,12 +144,12 @@ Arriba siempre está el botón **"Iniciar entrevista"**.
 
 ### Elegir tu computadora
 
-La primera vez que tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Continuar"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambiar"**.
+La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Continuar"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambiar"**.
 
 ### Iniciar una entrevista
 
-1. Toca **"Iniciar entrevista"**.
-2. Escribe el nombre o el número del campero y toca **"Buscar"**. Toca **"Entrevistar"** (o **"Continuar"** si ya la habías empezado).
+1. En el letrero amarillo de **"Mi inicio"** escribe el número del campero o las primeras letras de su nombre y de su apellido (por ejemplo, "mat jim" para Mateo Jiménez) y toca **"Buscar"**. Desde otras pantallas, toca **"Iniciar entrevista"**.
+2. Toca **"Entrevistar"** (o **"Continuar"** si ya la habías empezado). También puedes tocar "Entrevistar" junto a un nombre en "Por entrevistar".
 3. Se abre **"Antes de empezar"**:
    * **¿Es la persona correcta?** Revisa nombre, edad, cuarto y grupo. Si algo está mal, toca "Corregir datos del campero".
    * **Autorización.** Toca "Leer el aviso de privacidad para explicárselo" y léeselo con calma. Después marca las casillas:
@@ -171,7 +171,7 @@ Si aparece "Todavía no se puede iniciar", la administración aún no termina de
 * Debajo de las opciones, después de "o bien", está **"Prefiero no responder"**. Siempre se puede elegir.
 * Las preguntas marcadas "Confidencial: solo el equipo de cuidado autorizado podrá leerla" son privadas: después de terminar ya no podrás ver esa respuesta.
 * **"Continuar"** guarda y pasa a la siguiente. En la última pregunta el botón dice **"Revisar respuestas"**.
-* **"Atrás"** guarda y regresa a la anterior.
+* **"Atrás"** (arriba, a la izquierda) guarda y regresa a la anterior.
 * **"Guardar y salir"** (arriba) guarda y te regresa a tu inicio. Puedes continuar después.
 
 ![Una pregunta de la entrevista](img/entrevista-pregunta.png)
@@ -191,7 +191,7 @@ Las respuestas se guardan cada vez que avanzas. Lo único que se pierde es lo qu
 
 ![Revisión de la entrevista](img/entrevista-revision.png)
 
-Verás **"Entrevista completada"**. Toca **"Continuar con otro campero"** o **"Volver a mi inicio"**.
+Verás **"Entrevista completada"**. Toca **"Entrevistar a otro campero"** o **"Volver a mi inicio"**.
 
 ![Entrevista completada](img/entrevista-completada.png)
 
@@ -296,13 +296,13 @@ Como tutor no ves las respuestas de los camperos (salvo que te hayan dado acceso
 
 ### Resumen general
 
-**"Resumen general"** responde cinco preguntas y se actualiza solo:
+**"Resumen general"** responde cinco preguntas y se actualiza solo. En la columna izquierda cada pregunta tiene su respuesta en una frase: si solo lees esa columna, ya tienes el resumen para la reunión.
 
-1. **¿Cómo va el campamento?** Porcentaje de avance y cuántas entrevistas van.
-2. **¿Cuántas entrevistas nos faltan?** Pendientes, ritmo por hora, tiempo estimado y gráficas.
-3. **¿Qué grupos necesitan apoyo?** Equipos del que va más atrás al que va más adelante.
-4. **¿Qué necesidades generales debemos atender?** Seguimientos abiertos, atendidos y por decidir. Si tienes acceso confidencial, también las situaciones de riesgo y las solicitudes de apoyo confidenciales. Aquí aparecen además los **resúmenes de respuestas** del último corte guardado.
-5. **¿Qué acciones requieren coordinación?** Próximos pasos sugeridos. Salen de reglas fijas sobre los números; no hay inteligencia artificial ni juicios sobre las personas.
+1. **¿Cómo va el campamento?** Cuántas entrevistas van y, al ritmo de las últimas dos horas, a qué hora terminaríamos.
+2. **¿Cuánto falta?** Pendientes, ritmo por hora, tiempo estimado y gráficas. La línea punteada es la proyección al ritmo actual; la última columna es la hora en curso.
+3. **¿Qué equipos necesitan apoyo?** Equipos del que va más atrás al que va más adelante, con una raya que marca el promedio del campamento.
+4. **¿Qué necesidades hay?** Seguimientos abiertos, atendidos y por decidir. Si tienes acceso confidencial, también las situaciones de riesgo y las solicitudes de apoyo confidenciales. Aquí aparecen además los **resúmenes de respuestas** del último corte guardado.
+5. **¿Qué hay que coordinar?** Asuntos sugeridos para la próxima reunión. Salen de reglas fijas sobre los números; no hay inteligencia artificial ni juicios sobre las personas.
 
 ![Resumen general del pastor](img/pastor-resumen.png)
 

@@ -1,141 +1,215 @@
-# Sistema de diseño · "Cuaderno de campo"
+# Sistema de diseño · "Rótulo"
 
-Todo vive en un solo archivo sin compilación: `static/css/emmaus.css`. Los componentes de plantilla están en `templates/partials/ui/` y `templates/events/partials/`; el comportamiento opcional, en `static/js/emmaus.js` (JavaScript sin dependencias: todo funciona también sin él). Las fuentes se sirven desde el propio servidor (`static/fonts/`, licencia OFL incluida), así que no hay dependencia de CDN.
+Emmaus tiene dos hojas de estilo mientras dura la migración:
+
+| | Rótulo (nuevo) | Cuaderno de campo (anterior) |
+|---|---|---|
+| Hoja de estilo | `static/css/rotulo.css` | `static/css/emmaus.css` |
+| Base de plantilla | `templates/layout/rotulo.html` | `templates/layout/skeleton.html` |
+| Pantallas | Inicio del coordinador; toda la entrevista (antes de empezar, preguntas, revisión, completada, entrega, descartar, otra computadora); todo el modo campero (bienvenida, preguntas, revisión, gracias, recuperar, sin entrevista); resumen del pastor | Todas las demás |
+
+`layout/rotulo.html` reemplaza el bloque `stylesheets` de `skeleton.html`, así que una pantalla se migra cambiando su `extends`. La prueba `test_migrated_screens_use_rotulo_and_the_rest_keep_the_old_stylesheet` fija qué pantalla carga qué hoja. Sin compilación, sin CDN, sin dependencias de JavaScript: `static/js/emmaus.js` funciona igual con los dos sistemas porque depende de atributos `data-*`, no de clases.
 
 ## 1. Tokens
+
+Todos viven en `:root`, al inicio de `rotulo.css`.
 
 ### Color
 
 | Token | Valor | Uso | Contraste |
 |---|---|---|---|
-| `--paper` | `#F5F0E6` | Fondo de página | — |
-| `--paper-2` | `#EDE6D8` | Columna lateral, paneles, filtros | — |
-| `--sheet` | `#FFFDF8` | Superficies elevadas, campos | — |
-| `--sunken` | `#ECE4D4` | Zonas hundidas | — |
-| `--ink` | `#1C2420` | Texto principal | 13.98:1 sobre papel |
-| `--ink-2` | `#48524C` | Texto secundario | 7.15:1 |
-| `--ink-3` | `#5D645E` | Texto tenue (el más claro permitido) | 5.36:1 |
-| `--line` | `#DDD3C1` | Separadores decorativos | — |
-| `--line-strong` | `#8F8673` | Bordes de controles | 3.17:1 (WCAG 1.4.11) |
-| `--pine` | `#1F4A3A` | Acción principal, selección | 9.84:1 con texto hoja |
-| `--terracotta` | `#A3461E` | Marca, elemento activo, numeración | 5.36:1 |
-| `--ochre` | `#C98321` | Solo datos ("en curso") | — |
-| `--ok` / `--ok-tint` | `#1D6142` / `#E3EFE6` | Estado correcto | 6.25:1 sobre su tinte |
-| `--warn` / `--warn-tint` | `#7A5200` / `#FBEFD3` | Atención | 6.06:1 |
-| `--danger` / `--danger-tint` | `#A12A1E` / `#F9E3DE` | Error, riesgo | 5.96:1 |
-| `--info` / `--info-tint` | `#2E5573` / `#E3EBF2` | Información, privacidad | 6.55:1 |
+| `--page`, `--cal` | `#FFFFFF` | Página y superficies (campos, opciones) | — |
+| `--cal-2` | `#F3F2EE` | Zonas hundidas: hover, renglón que pide acción, avisos | — |
+| `--carbon` | `#1C1B19` | Texto, bordes de control, la tinta del letrero | 17.2:1 sobre blanco, 10.3:1 sobre maíz |
+| `--ink-2` | `#4D4A44` | Texto secundario | 8.8:1 (7.9:1 sobre cal-2) |
+| `--ink-3` | `#68645C` | El texto más claro permitido | 5.9:1 (5.3:1 sobre cal-2) |
+| `--line` | `#DEDBD3` | Separadores decorativos, nunca el único borde de un control | — |
+| `--line-strong` | `#8B877E` | Bordes discretos de control ("Prefiero no responder") | 3.6:1, cumple WCAG 1.4.11 |
+| `--anil` / `--anil-hover` / `--anil-tint` | `#1F3C8F` / `#16306F` / `#E8ECF7` | Acción principal, opción elegida, enlaces, confirmación, información | 10:1 con blanco |
+| `--maiz` / `--maiz-tint` | `#F4C20D` / `#FDF3CC` | **Solo orientación:** el letrero, "estás aquí", la marca de la pregunta actual, el foco, avisos de atención | carbón sobre maíz 10.3:1 |
+| `--chile` / `--chile-tint` | `#B8321C` / `#FBE6E1` | **Solo error y riesgo** | 6:1 sobre blanco |
 
-Los colores de iglesia propios (modelo `Church`) solo se aplican si la iglesia activa "Usar colores propios de la iglesia"; si no, rige esta paleta.
+Reglas:
 
-### Datos (validada con la prueba de seis criterios del skill de visualización)
+- **Maíz nunca es dato** (1.67:1 contra blanco) y nunca decora. Si en una pantalla aparecen dos letreros amarillos, uno sobra.
+- **Chile nunca es estado normal.** Un seguimiento "pendiente" es la primera etapa (contorno), no un error.
+- El color nunca es la única señal: toda marca lleva palabra, cifra o leyenda.
+- Si la iglesia activa sus colores propios, `layout/rotulo.html` los asigna a `--anil` (principal), `--maiz` (acento), `--page`, `--cal`, `--carbon`, `--ink-3` y `--line`.
 
-| Rol | Claro (sobre `#FFFDF8`) | Oscuro, presentación (sobre `#13241C`) |
+### Datos
+
+El avance es **ordinal** (sin iniciar → en curso → completada), así que usa una sola tinta en escalones de claridad. Validado con `validate_palette.js --ordinal` (monótona, saltos de claridad de 0.06 o más, el extremo claro a 3.02:1 sobre blanco, un solo tono):
+
+| Token | Claro (sobre `#FFFFFF`) | Proyector oscuro (sobre `#141B33`, propuesta) |
 |---|---|---|
-| Completadas | `--viz-done` `#1E7A50` | `--deck-done` `#3FA673` |
-| En curso | `--viz-progress` `#C98321` | `--deck-progress` `#C4842A` |
-| Sin iniciar (pista) | `--viz-track` `#E7DECD` | `--deck-track` `#24392F` |
-| Medida neutra (resúmenes) | `#5B6F66` | — |
-| Cuadrícula / eje | `#E4DCCD` / `#B7AD99` | `#2B4237` |
+| `--data-done` | `#1F3C8F` | `#8FA6E8` |
+| `--data-progress` | `#7D93CF` | `#4B63A8` (2.96:1) |
+| `--data-track` ("sin iniciar") | `#E7E5DF` con contorno `#8B877E` | `#222B4D` |
+| `--data-grid` / `--data-axis` | `#ECEAE4` / `#8B877E` | — |
 
-Resultados del validador: claro, ΔE CVD 11.1 (protan), visión normal 22.9, ambos ≥ 3:1 contra la superficie; oscuro, ΔE CVD 8.6, visión normal 17.4, ambos dentro de la banda de luminosidad. El color nunca es la única señal: toda barra lleva su cifra escrita y toda gráfica tiene leyenda o título que nombra la serie.
+Una sola serie (respuestas, columnas por hora) usa `--data-done`. Las gráficas de una sola serie no llevan cuadro de leyenda: el título dice qué se mide.
 
 ### Tipografía
 
+| Token | Familia | Para qué |
+|---|---|---|
+| `--font-voice` | **Recursive**, eje `CASL` 1, peso 700 (500 a 900 disponibles) | Lo que dice una persona: preguntas, saludos, titulares que son frases, el letrero, la marca "Emmaus". Clase `.voice` |
+| `--font-ui` | **Atkinson Hyperlegible Next**, 400 a 700 | Todo lo demás, incluidas todas las cifras de datos |
+
 | Token | Tamaño | Uso |
 |---|---|---|
-| `--font-display` | Literata 400–600 | Títulos, preguntas, cifras grandes (figuras de altura uniforme) |
-| `--font-ui` | Atkinson Hyperlegible Next 400–700 | Todo lo demás; cifras tabulares en tablas |
-| `--text-xs` | 14 px | Solo leyendas de gráficas; nunca cuerpo |
-| `--text-sm` | 15 px | Metadatos |
-| `--text-base` | 17 px | Cuerpo |
-| `--text-md` | 19 px | Opciones de respuesta, lead |
-| `--text-lg` | 22 px | Subtítulos |
-| `--text-xl` | 28 px | h2 |
-| `--text-2xl` | 36 px | h1 (fluido desde 28 px en móvil) |
-| `--text-3xl` | 48 px | Cifras de tablero (hasta 72 px en la cifra principal) |
+| `--t-caption` | 15 px | Solo texto dentro de gráficas y notas al pie |
+| `--t-small` | 16 px | Metadatos, etiquetas de cifras, estado |
+| `--t-body` | 18 px | Cuerpo (interlineado 1.5) |
+| `--t-lead` | 20 px | Opciones, nombres en renglones, respuestas, entradilla |
+| `--t-h3` | 22 px | Encabezado de lista (`.heading`) |
+| `--t-h2` | 28 px | Pregunta del informe, saludo |
+| `--t-h1` | 40 px | Título de página |
+| `--t-display` | 56 px | Confirmación, bienvenida; el titular del pastor llega a 64 px y la pregunta a 48 px con `clamp()` |
 
-Interlineado 1.55 en cuerpo, 1.18 en títulos. Los meses van en minúscula ("23 de octubre"); los filtros `fecha_larga` y `fecha_corta` lo resuelven sin depender de la traducción de Django.
+- Títulos con `text-wrap: balance`; párrafos de entrada con `text-wrap: pretty`.
+- Cifras en columnas con `tabular-nums`; cifras sueltas grandes, proporcionales.
+- Atkinson dibuja el cero con diagonal para no confundirlo con la O. Es intencional y se queda; los titulares pintados usan el cero de Recursive, que no la tiene.
+- Fuentes propias en `static/fonts/` con su licencia OFL. Recursive se sirve solo con los ejes `wght` (500–900) y `CASL`, 109 KB para latín.
 
-### Espacio, forma, sombra, foco
+### Espacio, forma, bordes
 
-- Espacio en múltiplos de 4 px: `--s-1` (4) … `--s-10` (64).
-- Radios distintos según el elemento: `--r-1` 3 px (etiquetas), `--r-2` 6 px (controles, opciones), `--r-3` 10 px (hojas).
-- Sombras mínimas: `--shadow-1` (una línea) y `--shadow-2` (diálogos).
-- Foco: contorno de 3 px en tinta **más** halo amarillo de 7 px (`--focus-halo #F2C14E`). Se ve sobre papel, hoja y botones pino (WCAG 2.4.7 y 2.4.13).
-- Controles: altura mínima de 48 px (`--control-h`); opciones de respuesta de 64 px; botón principal de entrevista de 56 px; botón héroe de 68 px.
-- Cortes de pantalla: 560 px (móvil), 860 px (dos columnas), 1024 px (columna lateral fija), 1180 px (ancho amplio).
+- Escalones de 4 px: `--s-1` (4) a `--s-20` (80).
+- Radios: `--r-mark` 2 px (marcas, etiquetas) y `--r-control` 4 px (todo lo que se toca y el letrero). Nada en píldora, nada de 8 a 24 px.
+- Bordes: `--b-control` 2 px (campos, opciones, botones secundarios), `--b-sign` 3 px (letrero, búsqueda dentro del letrero, diálogo).
+- Sin sombras de profundidad. La única sombra es la de "tecla": `0 3px 0` de tinta bajo el botón principal.
+- Anchos: `--w-wide` 80 rem (páginas y barras), `--w-focus` 46 rem (entrevista y campero).
+- Puntos de quiebre (literales en las consultas): 600 px (teléfono), 900 px (una columna), 1180 px (la barra pasa a "Menú").
 
-## 2. Estructuras de página (una por tipo de usuario)
+### Foco
 
-| Estructura | Plantilla | Para | Rasgos |
-|---|---|---|---|
-| Barra | `events/shell_bar.html` | Coordinador | Barra superior con cuatro pestañas, "Iniciar entrevista" siempre visible y "Cerrar sesión" a la vista; en móvil, menú de pantalla completa |
-| Columna | `events/shell_rail.html` | Tutor, pastor, administración | Columna lateral con el evento activo y como máximo 7 entradas; en móvil, barra con "Menú" |
-| Enfoque | `events/shell_focus.html` | Entrevista asistida | Sin navegación; barra con el nombre del campero, la computadora y "Guardar y salir" |
-| Estación | `events/shell_kiosk.html` | Campero | Sin navegación ni datos de otros; "Computadora N · Modo campero" |
-| Escenario | `events/presentation/deck.html` | Proyector | Fondo pino oscuro, cuadro 16:9 que escala con unidades de contenedor, controles que se ocultan |
-| Pública | `base.html` sin sesión | Entrar, invitaciones | Columna angosta centrada |
+Adaptado de GOV.UK, porque se ve en cualquier fondo:
 
-## 3. Componentes
+| Elemento | Foco |
+|---|---|
+| Enlaces, "Atrás", `summary` | Fondo maíz, texto carbón, subrayado de tinta de 4 px |
+| Botones | Fondo maíz, borde carbón, sombra de tecla |
+| Botones y enlaces dentro del letrero | El negativo del rotulista: fondo carbón, letra maíz, anillo blanco y anillo carbón |
+| Campos | Contorno maíz de 4 px y borde carbón engrosado |
+| Opciones | El mismo contorno sobre toda la tabla de la opción |
 
-| Componente | Clases / plantilla | Notas |
+| Campo | Botón en el letrero | Opción elegida |
 |---|---|---|
-| Botones | `.btn`, `--primary`, `--quiet`, `--danger`, `--sm`, `--block`, `--hero` | Un solo `--primary` por pantalla. `--hero` solo para la siguiente acción del coordinador y el final de entrevista |
-| Campo de formulario | `partials/ui/field.html`, `fields.html` | Orden GOV.UK: etiqueta, ayuda, error, control. "(opcional)" en lugar de asteriscos. Radios en `fieldset` + `legend` |
-| Resumen de errores | `partials/ui/error_summary.html` | "Hay un problema" con enlaces a cada campo; el título de la página empieza con "Error: "; JS mueve el foco al resumen |
-| Encabezado de página | `partials/ui/page_head.html` | Línea de folio (contexto), h1, lead, acción opcional |
-| Migas | `.crumbs` | Solo cuando hay jerarquía real |
-| Navegación | `events/_nav.html`, `.nav-link`, `.tab-link` | `aria-current="page"` marca la sección actual con borde terracota |
-| Cifras | `.figure-row`, `.figure`, `--hero` | Etiqueta arriba, cifra en Literata, nota abajo. Máximo cuatro por fila |
-| Avance | etiqueta `{% meter %}` | Barra tipo regla: completadas / en curso / resto, con separación de 2 px y texto equivalente en `aria-label` |
-| Barras por grupo | `events/partials/team_bars.html` | Etiqueta, porcentaje y "n de N" escritos; leyenda única |
-| Gráficas | `events/charts.py`, `partials/chart_*.html` | SVG del servidor con `<title>`/`<desc>`, unidades en el subtítulo, hora de los datos, tabla alternativa y estado vacío |
-| Renglones | `.ledger`, `.ledger__row` | Reemplaza las tarjetas para personas y pendientes; la fila completa es el enlace |
-| Lista de resumen | `.summary-list` | Revisión de respuestas y fichas, con "Cambiar"/"Corregir" |
-| Etiquetas de estado | `{% status_chip %}`, `{% follow_up_chip %}` | Siempre con texto; la forma del punto cambia (lleno o hueco) además del color |
-| Avisos | `.notice`, `--success/--warning/--danger/--quiet` | Barra lateral de color + título en negritas |
-| Estado vacío | `partials/ui/empty.html` | Dice qué falta y cuál es el siguiente paso |
-| Diálogo modal | `<dialog class="dialog">` | Solo para "¿Sigues aquí?"; las confirmaciones destructivas son páginas propias (funcionan sin JS) |
-| Confirmación | `.confirm-panel` | Panel pino con palomita: "Entrevista completada", "¡Gracias!" |
-| Opciones de cuestionario | `events/interview/_question.html`, `_option.html` | Tarjetas de opción; exclusivas tras "o bien"; condicionales en `.reveal` |
-| Siguiente acción | `.next-action` | "¿Qué tengo que hacer ahora?" con una respuesta y un botón |
-| Persona | `.person` | Iniciales en círculo pino claro + nombre + metadato |
-| Diapositivas | `.deck`, `.slide`, `.deck-*` | Ver presentación |
-| Estado en vivo y carga | `partials/ui/live_status.html`, `.spinner` | "Última actualización: 14:03:21"; en rojo si falla: "Sin conexión. Los datos pueden estar desactualizados…" |
-| Lista de respaldo | `events/backup_list.html` | Hoja imprimible por coordinador, sin respuestas |
+| ![Foco en la búsqueda](img/rotulo/foco/foco-busqueda.png) | ![Foco en el botón del letrero](img/rotulo/foco/foco-boton.png) | ![Foco en una opción](img/rotulo/foco/foco-opcion.png) |
 
-## 4. Patrones
+## 2. Componentes
 
-**Cuestionario.** Una pregunta por pantalla con la pregunta como h1 dentro del `legend`. Progreso "Pregunta 2 de 5" y un segmento por paso visible. Sección en itálica terracota. Las preguntas que dependen de una respuesta aparecen debajo de ella. Sin JS se muestran todas, con una nota, y el servidor descarta lo que no aplica. "Continuar" a la izquierda y "Atrás" junto a él; los dos guardan. Enter siempre continúa. En móvil, los botones quedan fijos abajo para no tener que desplazarse.
+### Letrero (`.sign`)
+Fondo maíz, borde carbón de 3 px, título pintado (`.sign__title`), una frase (`.sign__text`) y **una** acción (`.sign__actions`, `.search`). Es lo siguiente que hay que hacer. **Uno por pantalla, a lo mucho.** Si el contenido no es una acción inmediata, no es un letrero.
 
-**Errores.** Validación en el servidor al enviar; nunca se borra lo escrito. Los mensajes son instrucciones: "Escribe la edad del campero", "Elige una respuesta para continuar".
+### Estás aquí (`.here`)
+Una marca maíz con borde carbón (`.here__blaze`) y el nombre del lugar: "Estás en Computadora 4". Va en la barra del coordinador y en la de la entrevista.
 
-**Confirmaciones.** Las acciones irreversibles (descartar entrevista, eliminar datos) van en páginas propias y explican la consecuencia. Eliminar datos pide escribir el nombre completo.
+### Botones (`.btn`)
 
-**Tiempo real.** `data-live-url` vuelve a pedir un fragmento HTML cada 20 a 60 s. No refresca mientras el foco está dentro de la región, así que los filtros, que viven fuera de ella, nunca se reinician. Si una petición falla, la línea de estado avisa en rojo con la hora de la última actualización buena.
+| Variante | Uso |
+|---|---|
+| `.btn--primary` | La acción principal. Añil con sombra de tecla. Una por pantalla |
+| `.btn` / `.btn--secondary` | Acciones de renglón ("Entrevistar", "Decidir") y salidas ("Guardar y salir") |
+| `.btn--link` | Alternativas de menor peso ("Mejor hago yo las preguntas", "Volver a mi inicio") |
+| `.btn--danger` | Solo para borrar ("Sí, descartar y borrar respuestas") |
+| `.btn--large` / `.btn--small` | 60 px / 44 px de alto (normal: 48 px) |
 
-**Computadoras compartidas.** Sin caché del navegador (`Cache-Control: no-store`). Sin datos en `localStorage`. Al salir por inactividad se cierra la sesión. El modo campero queda confinado por el servidor.
+El texto del botón dice lo que pasa: "Comenzar entrevista", "Finalizar entrevista", "Entregar la computadora". Sin flechas.
+
+### Opciones (`.choices`, `.choice`)
+Tablas de 64 px a todo el ancho, borde carbón de 2 px, marca redonda (o cuadrada en `.choice--multi`) de 28 px. Elegida: fondo añil y texto blanco. `.choice--quiet` para "Prefiero no responder" y opciones de salida, después de "o bien" (`.choices__or`). El `input` real queda transparente, de 44 × 44 px, exactamente encima de la marca pintada (técnica de GOV.UK): recibe clics, teclado y lectores de pantalla. `.choice__sub` agrega una línea de explicación.
+
+### Pregunta (`.question`)
+La pregunta es el `h1` (dentro de la `legend` en opciones, o envolviendo la `label` en texto libre), pintada a mano y a lo mucho de 22 caracteres por línea. Pista (`.question__help`) a 20 px. Las preguntas que se revelan (`.reveal`) llevan una línea de 4 px a la izquierda. Confidencial: `.privacy` con la etiqueta `.privacy__tag`.
+
+**Enter avanza.** El navegador envía con Enter el primer botón de envío del formulario en el orden de la página. Por eso `step.html` y `kiosk/step.html` ponen un "Continuar" oculto en el bloque `default_submit`, antes de la barra ("Guardar y salir") y de "Atrás". Cualquier pantalla nueva con botones fuera del formulario debe hacer lo mismo.
+
+### Camino (`.trail`)
+"Atrás" arriba a la izquierda (botón de envío que guarda), "Pregunta 2 de 5", la sección a la derecha y una marca por pregunta: añil respondidas, maíz con borde la actual, contorno las que faltan. Las marcas son decorativas (`aria-hidden`); el texto da la posición.
+
+### Conteo (`{% tally completados en_curso total %}`)
+Una marca por campero, en la escala de datos. Con más de 80 personas se dibuja como regla. Siempre con `role="img"` y la frase completa en `aria-label`. Va con su clave (`.key`).
+
+### Regla (`{% ruler completados en_curso total marcador etiqueta %}`)
+Barra apilada con 2 px de separación entre segmentos y, si se pide, una raya de tinta en el promedio. Para avance de equipos y del campamento.
+
+### Estado (`{% status "en_curso" %}`, `{% follow_up_status f.status %}`)
+Una marca pequeña más la palabra. Completada / atendido: añil. En curso / en proceso: añil claro. Sin iniciar / pendiente: contorno.
+
+### Renglones (`.rows`, `.row`)
+Nombre a 20 px en negrita, dato debajo a 16 px, la acción a la derecha. Separados por líneas de 1 px. `.row--attention` (fondo hundido y barra de tinta) para lo que espera una decisión. El encabezado de una lista es `.heading`: texto de 22 px con una regla de tinta de 2 px debajo.
+
+### Lista resumen (`.summary-list`)
+Para datos de una persona ("¿Es la persona correcta?") y, con `.summary-list--answers`, para revisar respuestas: la pregunta arriba en gris, la respuesta abajo en negrita, "Cambiar" a la derecha con texto oculto que dice qué se cambia.
+
+### Mensajes
+- `.error-summary`: "Hay un problema" con enlaces a cada campo; recibe el foco al cargar.
+- `.error-message` junto al campo, y `.field--error` / `.question--error` con barra chile de 5 px.
+- `.notice` con variantes `--info` (añil), `--warning` (maíz claro), `--danger`, `--quiet`.
+- `.live-status`: "Última actualización: 10:44:14"; en rojo si se perdió la conexión.
+
+### Cifras (`.figures`)
+Lista de definiciones: etiqueta de 16 px, valor de 36 px en Atkinson, nota de 16 px. Una regla fina arriba de cada una, sin tarjetas. Dos por renglón en teléfono. `.figures__alert` solo para situaciones de riesgo.
+
+### Confirmación (`.confirm`)
+Panel añil con título pintado en blanco. Después, el siguiente paso como botón.
+
+### Promesas (`.promises`)
+Lista corta con marcas de sendero (o números dentro de un cuadro, si es `ol`). Para lo que la pantalla le asegura a la persona.
+
+### Agenda (`.agenda`)
+Asuntos numerados para la reunión (sí es una secuencia: es el orden de la reunión), con la evidencia debajo.
+
+### Barras
+`.bar` (coordinador y líderes): "Emmaus", el evento, "Estás en", los enlaces del rol con la marca maíz en la página actual, y "Cerrar sesión". Bajo 1180 px los enlaces pasan a "Menú" (`.menu-panel`, pantalla completa). `.focusbar` (entrevista y campero): quién o qué computadora, y una salida. Mismo ancho que la columna de contenido.
+
+## 3. Gráficas
+
+`events/charts.py` dibuja SVG en el servidor; `rotulo.css` les da estilo.
+
+- Línea de 2.5 px, sin área rellena, punto final con anillo blanco y la cifra junto a él.
+- Columnas de 24 px como máximo, punta redondeada de 4 px y base recta.
+- Cuadrícula de 1 px muy tenue y eje de 1 px; sin segundo eje.
+- `eta_minutes`: proyección punteada desde el último punto hasta la meta, con "Hacia las 16:43". Solo si el término cae dentro de 12 horas.
+- `partial_last`: la última columna (la hora en curso) en añil claro, explicado en el subtítulo.
+- `compact`: el mismo dibujo en un lienzo de 360 px para teléfonos, con a lo mucho cuatro etiquetas de hora. La plantilla incluye los dos y CSS muestra uno (`.chart__wide`, `.chart__narrow`), así el texto se lee a su tamaño real.
+- Las etiquetas de hora nunca chocan (`_label_indexes`): siempre está la primera y la última, y ninguna queda a menos de tres cuartos del espaciado normal. Esto aplica a **todas** las gráficas, también a las de pantallas no migradas (avance, reportes, presentación): cuando la penúltima etiqueta quedaba pegada a la última, ahora se omite.
+- Toda gráfica tiene `<title>`, `<desc>` y, si importa el detalle, "Ver los datos en una tabla".
+
+## 4. Pantallas
+
+| Plantilla | Base | Qué la distingue |
+|---|---|---|
+| `events/coordinator/home.html` + `_home_live.html` | `events/rotulo/shell_coordinator.html` | Letrero de búsqueda o de entrevista abierta; conteo; dos columnas de renglones |
+| `events/interview/*.html`, `events/kiosk/*.html` | `events/shell_focus.html`, `events/shell_kiosk.html` (ya en Rótulo) | Sin navegación; camino; una pregunta; revisión; confirmación |
+| `events/pastor/home.html` + `_home_live.html` | `events/rotulo/shell_leader.html` | Informe de cinco preguntas: pregunta y respuesta a la izquierda, evidencia a la derecha |
+
+Las partes vivas (`_home_live.html`) se recargan cada 20 o 30 s con `data-live-url`; el indicador `.live-status` queda fuera de la región que se reemplaza.
 
 ## 5. Lenguaje
 
-- Español de México, tuteando a todos.
-- Verbos claros en los botones: "Iniciar entrevista", "Continuar", "Guardar y salir", "Finalizar entrevista", "Continuar con otro campero", "Generar corte ahora", "Mostrar presentación", "Descargar PDF".
-- Oraciones cortas, una idea cada una; nada de "por favor", "inválido" ni "ups".
-- Palabras del campamento: campero, coordinador, tutor, cuarto, iglesia o grupo, corte de seguimiento.
-- Nunca se califica a las personas: "lo que el campero quiso compartir", nunca "diagnóstico" ni "riesgo espiritual".
+- Español de México, tuteando, frases completas y cortas. "Llevas 18 de 31." "Te faltan 2 entrevistas."
+- Los datos se escriben como frase, con comas, nunca con "·": "Cabaña 11, 17 años", "#0102, Cabaña 19".
+- El nombre de una acción es el mismo en todo el flujo: "Entregar la computadora" → "Recuperar la computadora".
+- Los errores dicen qué pasó y cómo arreglarlo; no se disculpan.
+- Lo privado se dice en voz alta: "Confidencial. Solo el equipo de cuidado autorizado podrá leer esta respuesta."
 
-## 6. Accesibilidad (objetivo WCAG 2.2 AA)
+## 6. Accesibilidad
 
-- Enlace "Saltar al contenido" en todas las páginas; un solo h1; regiones con `aria-labelledby`.
-- Todo control tiene etiqueta visible; la prueba `events/tests/test_ui.py` lo verifica en las pantallas principales y que no quede texto en inglés.
-- Contraste verificado (ver tabla); foco visible y grueso; objetivos de 48 px o más (2.5.8).
-- Las gráficas tienen texto alternativo y tabla; el color nunca es la única señal.
-- `prefers-reduced-motion` anula transiciones; `forced-colors` mantiene barras y selección visibles.
-- Formato de fecha y hora de México, con hora de 24 h.
+- axe-core 4.10 (WCAG 2.0, 2.1 y 2.2 A y AA): 0 problemas en 17 pantallas × 3 anchos (`e2e/design-review.mjs`, ver `ux-review.md`).
+- Objetivos de 44 px como mínimo; opciones de 64 px; botón principal de 60 px en el flujo.
+- Un solo `h1` por página; títulos en orden; regiones con nombre; "Saltar al contenido".
+- Las marcas de avance son imágenes con texto alternativo completo; nada depende solo del color.
+- `prefers-reduced-motion` quita transiciones y el hundido del botón; `forced-colors` agrega bordes a todas las marcas; impresión sin barras ni botones.
 
-## 7. Cómo extenderlo
+## 7. Cómo migrar una pantalla
 
-1. Usa los tokens; si necesitas un color nuevo, agrégalo a `:root` con su contraste documentado aquí.
-2. Antes de crear un componente, busca uno en esta tabla. Si una pantalla necesita tarjetas dentro de tarjetas, probablemente necesita renglones.
-3. Toda gráfica nueva va en `events/charts.py`: una serie, un eje, título en español, unidad, hora de los datos, `<title>`/`<desc>`, tabla y estado vacío.
-4. Todo texto nuevo pasa la prueba de inglés de `test_ui.py`.
+1. Cambia el `extends` a `events/rotulo/shell_coordinator.html`, `events/rotulo/shell_leader.html` o, si no lleva navegación, `events/shell_focus.html`.
+2. Reemplaza las clases del sistema anterior: `ledger` → `rows`/`row`, `figure-row` → `figures`, `chip` → `{% status %}`, `meter` → `{% ruler %}`, `option` → `choice`, `q-actions` → `step__actions`, `btn--quiet` → `btn--link`, `btn--sm` → `btn--small`, `btn--hero` → `btn--primary btn--large`.
+3. Quita los "·", las flechas de los botones y las etiquetas encima de los títulos.
+4. ¿Hay algo que hacer ahora? Ponlo en un letrero. ¿Hay más de uno? Elige.
+5. Agrega la pantalla a `e2e/design-review.mjs`, revisa las capturas en los tres anchos y corre axe.
+6. Actualiza la prueba de alcance en `events/tests/test_rotulo.py`.
+
+Cuando todas las pantallas estén migradas: borrar `emmaus.css`, los archivos de Literata (salvo los que usa el PDF) y los bloques de compatibilidad de `skeleton.html`.

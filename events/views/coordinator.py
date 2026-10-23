@@ -50,8 +50,10 @@ def my_participants(request, event, access):
     status = request.GET.get("estado", "")
     participants = access.participants()
     if query:
-        normalized = normalize_name(query)
-        filters = Q(normalized_name__contains=normalized) | Q(room__iexact=query)
+        words = Q()
+        for word in normalize_name(query).split():  # same rule as the interview search: every word, in any order
+            words &= Q(normalized_name__contains=word)
+        filters = words | Q(room__iexact=query)
         if query.lstrip("#").isdigit():
             filters |= Q(number=int(query.lstrip("#")))
         participants = participants.filter(filters)

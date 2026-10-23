@@ -1,20 +1,24 @@
-{% extends "layout/skeleton.html" %}
+{% extends "layout/rotulo.html" %}
 {% load emmaus %}
+{% comment %}Campero shell (Rótulo): a shared computer that belongs to the campero for a while.{% endcomment %}
 {% block title %}{% block page_title %}Tu conversación{% endblock %} · Emmaus{% endblock %}
+{% block body_class %}is-kiosk{% endblock %}
 {% block body_attrs %}{% endblock %}
 {% block body %}
-<div class="shell-focus">
+{% comment %}Enter submits the first submit button of a form in tree order, so a step's "next" button goes here, before "Guardar y salir" and "Atrás".{% endcomment %}
+{% block default_submit %}{% endblock %}
+<div class="focus">
   <header class="focusbar">
     <div class="focusbar__inner">
-      <span class="brand">{% brand_mark %}<span class="brand__word">Emmaus</span></span>
-      <div class="cluster">{% if ps.station %}<span class="folio">{{ ps.station.name }} · Modo campero</span>{% endif %}{% block focus_actions %}{% endblock %}</div>
+      <p class="focusbar__who"><span class="wordmark">Emmaus</span>{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}</p>
+      <div class="focusbar__actions">{% block focus_actions %}{% endblock %}</div>
     </div>
   </header>
-  <main id="contenido" class="focus-main" tabindex="-1">
+  <main id="contenido" class="focus__main" tabindex="-1">
     {% block content %}{% endblock %}
     <footer class="kiosk-footer">
-      <span>Tus respuestas se guardan cada vez que avanzas.</span>
-      <span>Si necesitas ayuda, levanta la mano.</span>
+      <p>Tus respuestas se guardan cada vez que avanzas.</p>
+      <p>Si necesitas ayuda, levanta la mano.</p>
     </footer>
   </main>
 </div>

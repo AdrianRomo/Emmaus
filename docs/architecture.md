@@ -231,7 +231,8 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 
 * **PDF:** `events/services/pdf.py` builds the cutoff PDF with ReportLab (pure Python, no system packages), using `events/fonts/Atkinson-*.ttf` and `Literata-*.ttf`. The PDF is built from the viewer-trimmed payload.
 * **Static:** `STORAGES["staticfiles"]` is WhiteNoise's `CompressedManifestStaticFilesStorage` when `DEBUG=false` (and not under `manage.py test`). The Docker image runs `collectstatic` at build time. Do not mount a volume over `staticfiles/`.
-* **Fonts:** Atkinson Hyperlegible Next and Literata are self-hosted WOFF2 files in `static/fonts/` (OFL licences included), declared with `@font-face` in `static/css/emmaus.css`. No CDN.
+* **Fonts:** Atkinson Hyperlegible Next, Recursive (Casual axis, wght 500–900) and Literata are self-hosted WOFF2 files in `static/fonts/` (OFL licences included), declared with `@font-face` in `static/css/rotulo.css` (Atkinson, Recursive) and `static/css/emmaus.css` (Atkinson, Literata). No CDN.
+* **Two stylesheets during the migration:** screens on the "Rótulo" system extend `templates/layout/rotulo.html`, which swaps the stylesheet block of `layout/skeleton.html`; everything else still loads `emmaus.css`. A test (`events/tests/test_rotulo.py`) pins which screens load which file.
 * **CSP:** `script-src 'self'` (no inline scripts), `style-src 'self' 'unsafe-inline'` (inline `style` attributes are used by meters and the optional church theme).
 
 ## Migrations and existing data

@@ -1,78 +1,150 @@
 {% load emmaus %}
-<section class="section" aria-labelledby="como-va">
-  <h2 id="como-va" class="brief-q"><span class="brief-q__n">1</span>¿Cómo va el {{ event.kind_noun|lower }}?</h2>
-  <div class="split mt-4">
-    <div>
-      <p class="figure__value figure__value--display">{{ progress.percent|pct }}</p>
-      <p class="lede mt-2">Se han completado <strong>{{ progress.completed }}</strong> de {{ progress.eligible }} entrevistas{% if progress.in_progress %}, y hay {{ progress.in_progress }} en curso en este momento{% endif %}.</p>
-      {% if delta %}<p class="mt-2 text-sm">{% if delta.completed %}<span class="delta delta--up">{{ delta.completed|signed }} entrevistas</span>{% if delta.percent %} y <span class="delta delta--up">{{ delta.percent|signed }} puntos</span>{% endif %} desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Sin cambios desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% endif %}</p>{% endif %}
-    </div>
-    <div class="stack-sm">
-      {% meter progress.completed progress.in_progress progress.eligible "lg" %}
-      <ul class="legend-keys">
-        <li><span class="key key--done" aria-hidden="true"></span>Completadas {{ progress.completed }}</li>
-        <li><span class="key key--progress" aria-hidden="true"></span>En curso {{ progress.in_progress }}</li>
-        <li><span class="key key--track" aria-hidden="true"></span>Sin iniciar {{ progress.not_started }}</li>
+{% comment %}
+  The report reads as five questions. Left column: the question and a one-line answer, so reading
+  only the left column is the executive summary. Right column: the evidence.
+{% endcomment %}
+<section class="report-section report-section--lead" aria-labelledby="como-va">
+  <div class="report-section__q">
+    <h2 id="como-va" class="voice report-section__title">¿Cómo va {% if event.kind in event.FEMININE_KINDS %}la{% else %}el{% endif %} {{ event.kind_noun|lower }}?</h2>
+  </div>
+  <div class="report-section__body">
+    {% if progress.eligible %}
+      <p class="voice headline">Llevamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</p>
+      <p class="headline__sub">
+        {% if not progress.pending %}Ya se completaron todas.
+        {% elif finish_at %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, terminaríamos hacia las {{ finish_at|date:"H:i" }}.
+        {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, faltan más de 12 horas.
+        {% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}
+      </p>
+      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
+      <ul class="key">
+        <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
+        <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
+        <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
       </ul>
-    </div>
+      {% if delta %}<p class="headline__delta">{% if delta.completed %}{{ delta.completed|signed }} entrevistas{% if delta.percent %} y {{ delta.percent|signed }} puntos{% endif %} desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Sin cambios desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% endif %}</p>{% endif %}
+    {% else %}
+      <p class="voice headline">Todavía no hay participantes registrados.</p>
+    {% endif %}
   </div>
 </section>
 
-<section class="section" aria-labelledby="faltan">
-  <h2 id="faltan" class="brief-q"><span class="brief-q__n">2</span>¿Cuántas entrevistas nos faltan?</h2>
-  <div class="figure-row mt-4">
-    <div class="figure"><p class="figure__label">Pendientes</p><p class="figure__value">{{ progress.pending }}</p><p class="figure__note">incluye {{ progress.in_progress }} en curso</p></div>
-    <div class="figure"><p class="figure__label">Ritmo</p><p class="figure__value">{{ payload.throughput.per_hour }}<small>por hora</small></p><p class="figure__note">promedio de las últimas 2 horas</p></div>
-    <div class="figure"><p class="figure__label">Tiempo estimado</p><p class="figure__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration }}{% else %}—{% endif %}</p><p class="figure__note">si se mantiene el ritmo</p></div>
-    <div class="figure"><p class="figure__label">Última hora</p><p class="figure__value">{{ payload.throughput.last_hour }}</p><p class="figure__note">entrevistas completadas</p></div>
+<section class="report-section" aria-labelledby="faltan">
+  <div class="report-section__q">
+    <h2 id="faltan" class="voice report-section__title">¿Cuánto falta?</h2>
+    <p class="report-section__answer">{% if progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, unas {{ payload.throughput.eta_minutes|duration }} al ritmo actual{% endif %}.{% else %}Nada: ya terminamos.{% endif %}</p>
   </div>
-  <div class="split split--even mt-8">
-    {% include "events/partials/chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="pastor-acumulado" as_of=payload.data_as_of %}
-    {% include "events/partials/chart_columns.html" with points=payload.timeline.points chart_id="pastor-ritmo" as_of=payload.data_as_of %}
+  <div class="report-section__body">
+    <dl class="figures">
+      <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
+      <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
+      <div><dt>Tiempo estimado</dt><dd class="figures__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration }}{% else %}—{% endif %}</dd><dd class="figures__note">si se mantiene el ritmo</dd></div>
+      <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>
+    </dl>
+    <figure class="chart">
+      <figcaption><p class="chart__title">Entrevistas completadas, acumuladas</p><p class="chart__sub">La línea horizontal es la meta ({{ progress.eligible }}).{% if finish_at %} La línea punteada es la proyección al ritmo actual.{% endif %}{% if payload.data_as_of %} Datos al {{ payload.data_as_of|as_datetime|date:"H:i" }}.{% endif %}</p></figcaption>
+      {% if payload.timeline.points %}
+        {% comment %}Two drawings of the same chart: the compact one keeps its text readable on a phone.{% endcomment %}
+        <div class="chart__wide">{% cumulative_chart payload.timeline.points progress.eligible "pastor-acumulado" "Entrevistas completadas acumuladas" False chart_eta payload.timeline.bucket_minutes projection_label %}</div>
+        <div class="chart__narrow">{% cumulative_chart payload.timeline.points progress.eligible "pastor-acumulado-movil" "Entrevistas completadas acumuladas" False chart_eta payload.timeline.bucket_minutes projection_label True %}</div>
+        <details class="details">
+          <summary>Ver los datos en una tabla</summary>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas por hora"><table class="table"><thead><tr><th>Hora</th><th class="num">En esa hora</th><th class="num">Acumuladas</th></tr></thead>
+            <tbody>{% for p in payload.timeline.points %}<tr><td>{% if p.day %}{{ p.day }} {% endif %}{{ p.label }}</td><td class="num">{{ p.count }}</td><td class="num">{{ p.cumulative }}</td></tr>{% endfor %}</tbody></table></div>
+        </details>
+      {% else %}
+        <p class="chart__empty">Aún no hay entrevistas completadas. La gráfica aparecerá con la primera.</p>
+      {% endif %}
+    </figure>
+    {% if payload.timeline.points %}
+      <figure class="chart">
+        <figcaption><p class="chart__title">Entrevistas por hora</p><p class="chart__sub">La última columna es la hora en curso.</p></figcaption>
+        <div class="chart__wide">{% columns_chart payload.timeline.points "pastor-ritmo" "Entrevistas completadas por hora" False True %}</div>
+        <div class="chart__narrow">{% columns_chart payload.timeline.points "pastor-ritmo-movil" "Entrevistas completadas por hora" False True True %}</div>
+      </figure>
+    {% endif %}
   </div>
 </section>
 
-<section class="section" aria-labelledby="grupos">
-  <div class="section__head"><h2 id="grupos" class="brief-q"><span class="brief-q__n">3</span>¿Qué grupos necesitan apoyo?</h2><a href="{% url 'events:progress' event.slug %}">Ver avance completo</a></div>
-  <p class="text-sm muted">Ordenados del que va más atrás al que va más adelante.</p>
-  <div class="mt-4">{% include "events/partials/team_bars.html" with rows=teams empty_title="Todavía no hay equipos" empty_body="Cuando la administración asigne tutores y coordinadores verás el avance de cada equipo." %}</div>
-</section>
-
-<section class="section" aria-labelledby="necesidades">
-  <h2 id="necesidades" class="brief-q"><span class="brief-q__n">4</span>¿Qué necesidades generales debemos atender?</h2>
-  <div class="figure-row mt-4">
-    <div class="figure"><p class="figure__label">Seguimientos abiertos</p><p class="figure__value">{{ payload.follow_ups.open_total }}</p><p class="figure__note">{{ payload.follow_ups.pending }} sin atender · {{ payload.follow_ups.in_progress }} en proceso</p></div>
-    <div class="figure"><p class="figure__label">Atendidos</p><p class="figure__value">{{ payload.follow_ups.done }}</p></div>
-    <div class="figure"><p class="figure__label">Por decidir</p><p class="figure__value">{{ payload.follow_ups.to_evaluate }}</p><p class="figure__note">entrevistas sin decisión de seguimiento</p></div>
-    {% if payload.follow_ups.safety_open is not None %}<div class="figure"><p class="figure__label">Situaciones de riesgo abiertas</p><p class="figure__value">{{ payload.follow_ups.safety_open }}</p><p class="figure__note"><a href="{% url 'events:follow_ups' event.slug %}">Atender</a></p></div>{% endif %}
+<section class="report-section" aria-labelledby="grupos">
+  <div class="report-section__q">
+    <h2 id="grupos" class="voice report-section__title">¿Qué equipos necesitan apoyo?</h2>
+    {% if teams|length > 1 %}{% with first=teams.0 %}<p class="report-section__answer">{{ first.label }} va más atrás, con {{ first.percent|pct }}. El promedio es {{ progress.percent|pct }}.</p>{% endwith %}{% endif %}
   </div>
-  {% if payload.follow_ups.confidential_open is not None %}<p class="mt-4 text-sm">Solicitudes de apoyo confidenciales abiertas (solo equipo de cuidado): <strong>{{ payload.follow_ups.confidential_open }}</strong></p>{% endif %}
-  {% if outcomes %}
-    <div class="notice notice--quiet mt-8"><p>Resumen del corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}: solo totales del {{ event.kind_noun|lower }}, redondeados a múltiplos de {{ payload.min_group_size }}. Las cifras menores a {{ payload.min_group_size }} se ocultan, y cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas, para que nadie pueda ser identificado. No son diagnósticos: son lo que cada campero quiso compartir.</p></div>
-    <div class="split split--even mt-6">
-      {% for outcome in outcomes %}
-        <figure class="chart">
-          <figcaption><p class="chart__title">{{ outcome.title }}</p><p class="chart__sub">Personas · respondieron {{ outcome.respondents.display }}</p></figcaption>
-          {% if outcome.withheld %}
-            <p class="chart__empty">Aún no hay suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
-          {% else %}
-            <ul class="bars mt-4">{% for row in outcome.rows %}
-              <li class="bar-row"><span class="bar-row__label">{{ row.label }}</span><span class="bar-row__value">{{ row.display }}</span>
-                {% if row.value %}<div class="meter"><div class="meter__track"><span class="meter__seg meter__seg--measure" style="width:{% widthratio row.value outcome.respondents.value|default:1 100 %}%"></span></div></div>{% else %}<div class="meter"><div class="meter__track"></div></div>{% endif %}
-              </li>{% endfor %}</ul>
-          {% endif %}
-        </figure>
-      {% endfor %}
-    </div>
-  {% endif %}
+  <div class="report-section__body">
+    {% if teams %}
+      <ul class="key">
+        <li><span class="key__mark key__mark--done" aria-hidden="true"></span>Completadas</li>
+        <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>En curso</li>
+        <li><span class="key__mark" aria-hidden="true"></span>Sin iniciar</li>
+        <li><span class="key__mark key__mark--marker" aria-hidden="true"></span>Promedio {{ event.of_kind }}</li>
+      </ul>
+      <ol class="teams">
+        {% for row in teams %}
+          <li class="teams__row">
+            <span class="teams__name">{{ row.label }}</span>
+            <span class="teams__value"><strong>{{ row.percent|pct }}</strong> {{ row.completed }} de {{ row.eligible }}</span>
+            {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" %}
+          </li>
+        {% endfor %}
+      </ol>
+      <p class="more"><a href="{% url 'events:progress' event.slug %}">Ver el avance de cada coordinador</a></p>
+    {% else %}
+      <p class="empty-line">Todavía no hay equipos. Cuando la administración asigne tutores y coordinadores verás el avance de cada equipo.</p>
+    {% endif %}
+  </div>
 </section>
 
-<section class="section" aria-labelledby="acciones">
-  <h2 id="acciones" class="brief-q"><span class="brief-q__n">5</span>¿Qué acciones requieren coordinación?</h2>
-  {% if payload.recommendations %}
-    <ol class="ledger mt-4">{% for rec in payload.recommendations %}
-      <li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ rec.text }}</p><p class="ledger__meta">{{ rec.evidence }}</p></div></div></li>
-    {% endfor %}</ol>
-    <p class="text-sm muted mt-4">Estas acciones salen de reglas fijas sobre los números de arriba. No hay inteligencia artificial ni juicios sobre las personas.</p>
-  {% else %}<p class="muted mt-4">No hay acciones pendientes.</p>{% endif %}
+<section class="report-section" aria-labelledby="necesidades">
+  <div class="report-section__q">
+    <h2 id="necesidades" class="voice report-section__title">¿Qué necesidades hay?</h2>
+    <p class="report-section__answer">{{ payload.follow_ups.open_total }} seguimiento{{ payload.follow_ups.open_total|pluralize }} abierto{{ payload.follow_ups.open_total|pluralize }}{% if payload.follow_ups.pending %}, {{ payload.follow_ups.pending }} sin atender{% endif %}.</p>
+  </div>
+  <div class="report-section__body">
+    <dl class="figures">
+      <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.pending }} sin atender, {{ payload.follow_ups.in_progress }} en proceso</dd></div>
+      <div><dt>Atendidos</dt><dd class="figures__value">{{ payload.follow_ups.done }}</dd></div>
+      <div><dt>Por decidir</dt><dd class="figures__value">{{ payload.follow_ups.to_evaluate }}</dd><dd class="figures__note">entrevistas sin decisión de seguimiento</dd></div>
+      {% if payload.follow_ups.safety_open is not None %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Atender</a></dd></div>{% endif %}
+    </dl>
+    {% if payload.follow_ups.confidential_open is not None %}<p class="aside-note">Solicitudes de apoyo confidenciales abiertas (solo equipo de cuidado): <strong>{{ payload.follow_ups.confidential_open }}</strong></p>{% endif %}
+    {% if outcomes %}
+      <div class="notice notice--info">
+        <p class="notice__title">Lo que los camperos quisieron compartir, en totales</p>
+        <p>Corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}. Solo totales {{ event.of_kind }}, redondeados a múltiplos de {{ payload.min_group_size }}. Las cifras menores a {{ payload.min_group_size }} se ocultan y cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas, para que nadie pueda ser identificado. No son diagnósticos.</p>
+      </div>
+      <div class="outcomes">
+        {% for outcome in outcomes %}
+          <figure class="outcome">
+            <figcaption><p class="outcome__title">{{ outcome.title }}</p><p class="outcome__sub">Personas. Respondieron {{ outcome.respondents.display }}.</p></figcaption>
+            {% if outcome.withheld %}
+              <p class="chart__empty">Aún no hay suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
+            {% else %}
+              <ul class="outcome__rows">{% for row in outcome.rows %}
+                <li><span class="outcome__label">{{ row.label }}</span><span class="outcome__value">{{ row.display }}</span>
+                  <span class="outcome__track">{% if row.value %}<span class="outcome__bar" style="width:{% widthratio row.value outcome.respondents.value|default:1 100 %}%"></span>{% endif %}</span>
+                </li>{% endfor %}</ul>
+            {% endif %}
+          </figure>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="report-section" aria-labelledby="acciones">
+  <div class="report-section__q">
+    <h2 id="acciones" class="voice report-section__title">¿Qué hay que coordinar?</h2>
+    <p class="report-section__answer">{% if payload.recommendations %}{{ payload.recommendations|length }} asunto{{ payload.recommendations|length|pluralize }} para la próxima reunión.{% else %}Nada por ahora.{% endif %}</p>
+  </div>
+  <div class="report-section__body">
+    {% if payload.recommendations %}
+      <ol class="agenda">{% for rec in payload.recommendations %}
+        <li><p class="agenda__text">{{ rec.text }}</p><p class="agenda__evidence">{{ rec.evidence }}</p></li>
+      {% endfor %}</ol>
+      <p class="aside-note">Estas acciones salen de reglas fijas sobre los números de arriba. No hay inteligencia artificial ni juicios sobre las personas.</p>
+    {% else %}
+      <p class="empty-line">No hay acciones pendientes.</p>
+    {% endif %}
+  </div>
 </section>

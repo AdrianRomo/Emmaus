@@ -1,11 +1,13 @@
 {
   "name": "emmaus-e2e",
   "private": true,
-  "description": "Browser end-to-end checks for the shared-station interview flow (synthetic data only).",
+  "description": "Browser checks with synthetic data only: the shared-station interview flow and the design review captures.",
   "scripts": {
-    "test": "node station-flow.mjs"
+    "test": "node station-flow.mjs",
+    "review": "node design-review.mjs"
   },
   "devDependencies": {
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "axe-core": "4.10.2"
   }
 }

@@ -3,9 +3,8 @@
 {% block content %}
 {% if error %}<div class="error-summary" role="alert"><h2>Hay un problema</h2><ul><li><a href="#password">{{ error }}</a></li></ul></div>{% endif %}
 <header class="page-head">
-  <p class="folio">Solo para coordinadores</p>
-  <h1>Recuperar la computadora</h1>
-  {% if not other %}<p class="lede">{{ coordinator.get_full_name|default:coordinator.email }}, escribe tu contraseña para volver a la entrevista.</p>{% endif %}
+  <h1 class="voice page-head__title">Recuperar la computadora</h1>
+  <p class="lede">Solo para coordinadores.{% if not other %} {{ coordinator.get_full_name|default:coordinator.email }}, escribe tu contraseña para volver a la entrevista.{% endif %}</p>
 </header>
 <form method="post" class="auth-card auth-card--left" novalidate autocomplete="off">
   {% csrf_token %}
@@ -20,7 +19,7 @@
   </div>
   <div class="btn-row">
     <button class="btn btn--primary" type="submit">Recuperar la computadora</button>
-    <a class="btn btn--quiet" href="{% url 'kiosk:home' %}">Volver</a>
+    <a class="btn btn--link" href="{% url 'kiosk:home' %}">Volver</a>
   </div>
   {% if not other %}<p class="mt-6 text-sm"><a href="{% url 'kiosk:unlock' %}?otra=1">Soy otro coordinador</a></p>{% endif %}
 </form>

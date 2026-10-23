@@ -3,8 +3,7 @@
 {% block page_title %}La entrevista está abierta en otra computadora{% endblock %}
 {% block content %}
 <header class="page-head">
-  <p class="folio">Entrevista en curso</p>
-  <h1>Esta entrevista está abierta en otra computadora</h1>
+  <h1 class="voice page-head__title">Esta entrevista está abierta en otra computadora</h1>
   <p class="lede">Para que no se pierdan respuestas, solo una computadora puede editarla a la vez.</p>
 </header>
 <dl class="summary-list">
@@ -16,9 +15,9 @@
   <p class="notice__title">Si tomas el control aquí</p>
   <p>La otra computadora ya no podrá guardar cambios. Las respuestas guardadas hasta ahora se conservan.</p>
 </div>
-<form method="post" class="q-actions">
+<form method="post" class="step__actions">
   {% csrf_token %}
   <button class="btn btn--primary" type="submit">Tomar el control aquí</button>
-    <a class="btn btn--quiet" href="{% url 'events:home' event.slug %}">Volver</a>
+    <a class="btn btn--link" href="{% url 'events:home' event.slug %}">Volver</a>
 </form>
 {% endblock %}

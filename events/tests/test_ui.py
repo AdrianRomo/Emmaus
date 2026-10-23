@@ -136,8 +136,9 @@ class SpanishAndAccessibilityTests(CampFixture):
         self.login(self.coord1)
         response = self.client.get(self.url("coord_home"))
         self.assertContains(response, "Cerrar sesión")
-        self.assertContains(response, "¿Qué tengo que hacer ahora?")
-        self.assertContains(response, "Iniciar entrevista")
+        # The sign: one action, the search every interview starts from
+        self.assertContains(response, "¿A quién vas a entrevistar?")
+        self.assertContains(response, f'action="{self.url("interview_search")}"')
 
     def test_error_pages_are_spanish(self):
         self.login(self.coord1)

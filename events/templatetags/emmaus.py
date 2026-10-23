@@ -4,7 +4,7 @@ from datetime import datetime
 
 from django import template
 from django.utils import timezone
-from django.utils.html import format_html
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 
 from .. import charts
@@ -30,7 +30,7 @@ FOLLOW_UP_CHIPS = {
 def pct(value):
     if value is None or value == "":
         return "—"
-    return f"{value} %"
+    return f"{value}\u00a0%"  # never split "45 %" across lines
 
 
 @register.simple_tag
@@ -43,6 +43,69 @@ def status_chip(status, label=None):
 def follow_up_chip(status):
     css, label = FOLLOW_UP_CHIPS.get(status, ("chip--pending", status))
     return format_html('<span class="chip {}">{}</span>', css, label)
+
+
+@register.simple_tag
+def status(status, label=None):
+    """Rótulo status: a small painted mark plus the word (colour is never the only signal)."""
+    css, default = STATUS_CHIPS.get(status, ("chip--pending", status))
+    return format_html(
+        '<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>',
+        css.removeprefix("chip--"),
+        label or default,
+    )
+
+
+@register.simple_tag
+def follow_up_status(status):
+    css, label = FOLLOW_UP_CHIPS.get(status, ("chip--pending", status))
+    return format_html(
+        '<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>',
+        css.removeprefix("chip--"),
+        label,
+    )
+
+
+def _progress_text(completed, in_progress, total):
+    remaining = max(total - completed - in_progress, 0)
+    if not total:
+        return "Sin camperos todavía"
+    return f"{completed} de {total} completadas, {in_progress} en curso, {remaining} sin iniciar"
+
+
+@register.simple_tag
+def tally(completed, in_progress, total, limit=80):
+    """One mark per campero (completed, in progress, not started). Above `limit` people a ruler reads better."""
+    completed, in_progress, total = int(completed or 0), int(in_progress or 0), int(total or 0)
+    if total > limit:
+        return ruler(completed, in_progress, total)
+    remaining = max(total - completed - in_progress, 0)
+    marks = (
+        '<span class="tally__mark tally__mark--done"></span>' * completed
+        + '<span class="tally__mark tally__mark--progress"></span>' * in_progress
+        + '<span class="tally__mark"></span>' * remaining
+    )
+    return format_html('<div class="tally" role="img" aria-label="{}">{}</div>', _progress_text(completed, in_progress, total), mark_safe(marks))
+
+
+@register.simple_tag
+def ruler(completed, in_progress, total, marker=None, marker_label=""):
+    """Stacked bar: completed, in progress, remaining track. Optional marker (a percent) such as the event average."""
+    completed, in_progress, total = int(completed or 0), int(in_progress or 0), int(total or 0)
+    segs = []
+    if total and completed:
+        segs.append(f'<span class="ruler__seg ruler__seg--done" style="width:{100 * completed / total:.2f}%"></span>')
+    if total and in_progress:
+        segs.append(f'<span class="ruler__seg ruler__seg--progress" style="width:{100 * in_progress / total:.2f}%"></span>')
+    tick = ""
+    if marker is not None and marker != "":
+        tick = f'<span class="ruler__marker" style="left:{float(marker):.2f}%" title="{escape(marker_label)}"></span>'
+    return format_html(
+        '<div class="ruler" role="img" aria-label="{}">{}{}</div>',
+        _progress_text(completed, in_progress, total),
+        mark_safe("".join(segs)),
+        mark_safe(tick),
+    )
 
 
 @register.filter
@@ -126,13 +189,23 @@ def meter(completed, in_progress, total, size=""):
 
 
 @register.simple_tag
-def cumulative_chart(points, total, chart_id, title, deck=False):
-    return charts.cumulative_chart(points, int(total or 0), chart_id=chart_id, title=title, deck=bool(deck))
+def cumulative_chart(points, total, chart_id, title, deck=False, eta_minutes=None, bucket_minutes=60, projection_label="", compact=False):
+    return charts.cumulative_chart(
+        points,
+        int(total or 0),
+        chart_id=chart_id,
+        title=title,
+        deck=bool(deck),
+        compact=bool(compact),
+        eta_minutes=eta_minutes,
+        bucket_minutes=int(bucket_minutes or 60),
+        projection_label=projection_label,
+    )
 
 
 @register.simple_tag
-def columns_chart(points, chart_id, title, deck=False):
-    return charts.columns_chart(points, chart_id=chart_id, title=title, deck=bool(deck))
+def columns_chart(points, chart_id, title, deck=False, partial_last=False, compact=False):
+    return charts.columns_chart(points, chart_id=chart_id, title=title, deck=bool(deck), partial_last=bool(partial_last), compact=bool(compact))
 
 
 @register.inclusion_tag("partials/ui/brand_mark.html")

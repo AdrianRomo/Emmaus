@@ -1,0 +1,16 @@
+{% extends "layout/skeleton.html" %}
+{% load static %}
+{% comment %}
+  Base for screens already on the "Rótulo" design system (docs/design-system.md).
+  Screens not migrated yet keep extending layout/skeleton.html and emmaus.css.
+{% endcomment %}
+{% block stylesheets %}
+  <link rel="preload" href="{% static 'fonts/atkinson-next-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{% static 'fonts/recursive-casual-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/rotulo.css' %}">
+{% endblock %}
+{% block theme %}
+  {% if theme_church and theme_church.custom_theme_enabled %}
+    <style>:root{--anil:{{ theme_church.theme_primary_color }};--anil-hover:{{ theme_church.theme_primary_color }};--maiz:{{ theme_church.theme_accent_color }};--page:{{ theme_church.theme_background_color }};--cal:{{ theme_church.theme_surface_color }};--carbon:{{ theme_church.theme_text_color }};--ink-3:{{ theme_church.theme_muted_text_color }};--line:{{ theme_church.theme_border_color }};}</style>
+  {% endif %}
+{% endblock %}

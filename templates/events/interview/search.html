@@ -1,65 +1,55 @@
-{% extends shell_template %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Iniciar entrevista{% endblock %}
 {% block content %}
-<header class="page-head">
-  <p class="folio">{% if station %}Estás en <strong>{{ station.name }}</strong> · <a href="{% url 'events:choose_station' event.slug %}?siguiente={{ request.path|urlencode }}">Cambiar</a>{% else %}{{ event.name }}{% endif %}</p>
-  <h1>Iniciar entrevista</h1>
-  <p class="lede">Busca al campero que tienes enfrente. Puedes escribir su nombre o su número.</p>
-</header>
+<div class="coord">
+  <section class="sign" aria-labelledby="buscar-titulo">
+    <h1 id="buscar-titulo" class="sign__title"><label for="buscar">¿A quién vas a entrevistar?</label></h1>
+    <p class="sign__text" id="buscar-ayuda">Escribe su número o las primeras letras de su nombre y apellido, por ejemplo “mat jim”.</p>
+    <form class="search" method="get" role="search">
+      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" autofocus spellcheck="false" aria-describedby="buscar-ayuda">
+      <button class="btn btn--primary btn--large" type="submit">Buscar</button>
+    </form>
+    {% if station %}<p class="sign__text"><a class="sign__link" href="{% url 'events:choose_station' event.slug %}?siguiente={{ request.path|urlencode }}">¿No estás en {{ station.name }}? Cambia de computadora</a></p>{% endif %}
+  </section>
 
-{% if blockers %}
-  <div class="notice notice--warning mt-0">
-    <p class="notice__title">Todavía no se pueden iniciar entrevistas</p>
-    <p>{{ blockers.0 }}</p>
-  </div>
-{% endif %}
+  {% if blockers %}
+    <div class="notice notice--warning">
+      <p class="notice__title">Todavía no se pueden iniciar entrevistas</p>
+      <p>{{ blockers.0 }}</p>
+    </div>
+  {% endif %}
 
-<form method="get" class="mt-6" role="search">
-  <label class="label" for="buscar">Buscar campero</label>
-  <div class="search-box">
-    <input id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" autofocus spellcheck="false">
-    <button class="btn btn--primary" type="submit">Buscar</button>
-  </div>
-</form>
-
-<section class="section mt-8" aria-labelledby="resultados">
-  <div class="section__head">
-    <h2 id="resultados">{% if query %}Resultados para “{{ query }}”{% else %}Siguientes en tu lista{% endif %}</h2>
-    {% if query %}<a href="{% url 'events:interview_search' event.slug %}">Borrar búsqueda</a>{% endif %}
-  </div>
-  {% if results %}
-    <ul class="ledger">
-      {% for p in results %}
-        <li>
-          <div class="ledger__row">
-            <span class="ledger__code">#{{ p.code }}</span>
-            <div class="ledger__main">
-              <p class="ledger__title">{{ p.full_name }}</p>
-              <p class="ledger__meta">{{ p.room|cuarto }} · {{ p.age }} años · {{ p.church_group }}</p>
+  <section class="results" aria-labelledby="resultados">
+    <h2 id="resultados" class="heading">{% if query %}Resultados para “{{ query }}”{% else %}Siguientes en tu lista{% endif %}</h2>
+    {% if results %}
+      <ul class="rows">
+        {% for p in results %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ p.full_name }}</p>
+              <p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p>
             </div>
-            <div class="ledger__aside">
-              {% status_chip p.interview_status %}
+            <div class="row__end">
+              {% status p.interview_status %}
               {% if p.interview_status == "completada" %}
-                <a class="btn btn--sm" href="{% url 'events:participant_detail' event.slug p.public_id %}">Ver</a>
+                <a class="btn btn--secondary btn--small" href="{% url 'events:participant_detail' event.slug p.public_id %}">Ver<span class="visually-hidden"> a {{ p.full_name }}</span></a>
               {% elif p.interview_status == "en_curso" %}
-                <a class="btn btn--sm btn--primary" href="{% url 'events:interview_start' event.slug p.public_id %}">Continuar</a>
+                <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Continuar<span class="visually-hidden"> con {{ p.full_name }}</span></a>
               {% else %}
-                <a class="btn btn--sm btn--primary" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar</a>
+                <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>
               {% endif %}
             </div>
-          </div>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    {% if query %}
-      {% url 'events:participant_create' event.slug as create_url %}
-      {% include "partials/ui/empty.html" with title="No se encontraron participantes" body="Revisa cómo se escribe el nombre o busca por número. Si el campero no está registrado, puedes registrarlo ahora." action_url=create_url action_label="Registrar campero" %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% if query %}<p class="more"><a href="{% url 'events:interview_search' event.slug %}">Borrar búsqueda</a></p>{% endif %}
+    {% elif query %}
+      <p class="empty-line">No encontramos a nadie con “{{ query }}”. Prueba con su número o con menos letras. Si no está registrado, regístralo ahora.</p>
     {% else %}
-      {% include "partials/ui/empty.html" with title="No tienes entrevistas pendientes" body="Todos tus camperos ya tienen su entrevista completada." %}
+      <p class="empty-line">No tienes entrevistas pendientes: todos tus camperos ya tienen su entrevista completada.</p>
     {% endif %}
-  {% endif %}
-  <p class="mt-6"><a href="{% url 'events:participant_create' event.slug %}">¿No está en la lista? Registrar un campero nuevo</a></p>
-</section>
+    <p class="more"><a href="{% url 'events:participant_create' event.slug %}">¿No está en la lista? Registrar a un campero nuevo</a></p>
+  </section>
+</div>
 {% endblock %}
