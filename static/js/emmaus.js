@@ -249,5 +249,23 @@
     doc.addEventListener("keydown", wake);
     wake();
     deck.addEventListener("emmaus:updated", function () { show(index); });
+
+    // "Cal" (light) by default; "Noche" for a dim room. The class sits on .deck, outside the
+    // region the live refresh replaces, and the choice is remembered for the next deck.
+    var THEME_KEY = "emmaus:deck-theme";
+    var themeButtons = $all("[data-deck-theme]");
+    function rememberedTheme() {
+      try { return window.localStorage.getItem(THEME_KEY); } catch (err) { return null; }  // storage blocked: start in "Cal"
+    }
+    function setNight(night, remember) {
+      deck.classList.toggle("deck--noche", night);
+      themeButtons.forEach(function (b) { b.setAttribute("aria-pressed", night ? "true" : "false"); });
+      if (!remember) return;
+      try { window.localStorage.setItem(THEME_KEY, night ? "noche" : "cal"); } catch (err) { return; }  // storage blocked: the choice lasts until the page closes
+    }
+    setNight(rememberedTheme() === "noche", false);
+    themeButtons.forEach(function (b) {
+      b.addEventListener("click", function () { setNight(!deck.classList.contains("deck--noche"), true); });
+    });
   }
 })();

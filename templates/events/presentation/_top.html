@@ -1,2 +1,2 @@
 {% load emmaus %}
-<div class="slide__top"><strong>{{ deck.event_name }}</strong><span>{% if live %}En vivo{% else %}Corte guardado{% endif %} · {{ deck.scope_label }} · datos al {{ deck.as_of|fecha_larga|lower }}, {{ deck.as_of|date:"H:i" }}</span></div>
+<div class="slide__top"><span class="wordmark">Emmaus</span>{% if not cover %}<span>{{ deck.event_name }}{% if deck.scope_label == "Equipo" %}, un equipo{% endif %}, {% if live %}en vivo, datos de las {{ deck.as_of|date:"H:i" }}{% else %}corte de las {{ deck.as_of|date:"H:i" }}{% endif %}</span>{% endif %}</div>
