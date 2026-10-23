@@ -1,18 +1,30 @@
-{% extends "events/shell_rail.html" %}
+{% extends rotulo_shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if question.pk %}Editar pregunta{% else %}Nueva pregunta{% endif %}{% endblock %}
 {% block content %}
 {% include "partials/ui/error_summary.html" with form=form %}
-<header class="page-head"><ol class="crumbs"><li><a href="{% url 'events:version_detail' event.slug version.id %}">{{ version.title }} · versión {{ version.number }}</a></li><li>{% if question.pk %}Editar pregunta{% else %}Nueva pregunta{% endif %}</li></ol>
-  <h1>{% if question.pk %}Editar pregunta{% else %}Nueva pregunta{% endif %}</h1></header>
-<div class="split">
+{% url 'events:version_detail' event.slug version.id as back_url %}
+{% with n=version.number|stringformat:"s" %}{% with back_label=version.title|add:", versión "|add:n %}
+  {% if question.pk %}
+    {% include "events/rotulo/_page_head.html" with title="Editar pregunta" back_url=back_url back_label=back_label %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Nueva pregunta" back_url=back_url back_label=back_label %}
+  {% endif %}
+{% endwith %}{% endwith %}
+<div class="split admin-split">
   <form method="post" novalidate>{% csrf_token %}{% include "partials/ui/fields.html" with form=form %}
-    <div class="btn-row mt-6"><button class="btn btn--primary" type="submit">Guardar pregunta</button><a class="btn btn--quiet" href="{% url 'events:version_detail' event.slug version.id %}">Cancelar</a></div></form>
-  <aside class="panel stack-sm">
-    <h2 class="subhead">Niveles de privacidad</h2>
-    <p class="text-sm"><strong>General:</strong> la ve quien puede ver al campero.</p>
-    <p class="text-sm"><strong>Sensible:</strong> la ve su coordinador y el equipo con acceso confidencial. En resúmenes solo aparece en totales.</p>
-    <p class="text-sm"><strong>Confidencial:</strong> solo el equipo de cuidado con acceso confidencial. Úsala para temas íntimos y textos libres.</p>
-    <p class="text-sm">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar pregunta</button>
+      <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+    </div>
+  </form>
+  <aside aria-labelledby="niveles">
+    <h2 id="niveles" class="heading">Niveles de privacidad</h2>
+    <dl class="summary-list admin-levels">
+      <div class="summary-list__row"><dt>General</dt><dd>La ve quien puede ver al campero.</dd></div>
+      <div class="summary-list__row"><dt>Sensible</dt><dd>La ve su coordinador y el equipo con acceso confidencial. En resúmenes solo aparece en totales.</dd></div>
+      <div class="summary-list__row"><dt>Confidencial</dt><dd>Solo el equipo de cuidado con acceso confidencial. Úsala para temas íntimos y textos libres.</dd></div>
+    </dl>
+    <p class="aside-note">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
   </aside>
 </div>
 {% endblock %}

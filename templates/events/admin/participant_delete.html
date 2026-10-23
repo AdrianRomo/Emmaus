@@ -1,11 +1,19 @@
-{% extends "events/shell_rail.html" %}
+{% extends rotulo_shell %}
 {% block page_title %}Eliminar datos del campero{% endblock %}
 {% block content %}
-<header class="page-head"><ol class="crumbs"><li><a href="{% url 'events:participant_detail' event.slug participant.public_id %}">{{ participant.full_name }}</a></li><li>Eliminar datos</li></ol><h1>Eliminar los datos de {{ participant.full_name }}</h1></header>
+<div class="narrow">
+{% url 'events:participant_detail' event.slug participant.public_id as back_url %}
+{% with title="Eliminar los datos de "|add:participant.full_name %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name %}
+{% endwith %}
 <div class="notice notice--danger"><p class="notice__title">Esto no se puede deshacer</p><p>Se borran su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Los reportes guardados solo tienen totales y no cambian.</p></div>
 <form method="post" class="mt-8" novalidate>
   {% csrf_token %}
-  <div class="field"><label class="label" for="confirm_name">Para confirmar, escribe su nombre completo</label><span class="hint">{{ participant.full_name }}</span><input class="input" id="confirm_name" name="confirm_name" autocomplete="off"></div>
-  <div class="btn-row"><button class="btn btn--danger" type="submit">Eliminar definitivamente</button><a class="btn btn--quiet" href="{% url 'events:participant_detail' event.slug participant.public_id %}">Cancelar</a></div>
+  <div class="field"><label class="label" for="confirm_name">Para confirmar, escribe su nombre completo</label><span class="hint" id="confirm_name-hint">{{ participant.full_name }}</span><input class="input" id="confirm_name" name="confirm_name" autocomplete="off" aria-describedby="confirm_name-hint"></div>
+  <div class="step__actions">
+    <button class="btn btn--danger" type="submit">Eliminar definitivamente</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
 </form>
+</div>
 {% endblock %}

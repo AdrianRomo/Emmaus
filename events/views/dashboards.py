@@ -290,6 +290,7 @@ def admin_home(request, event, access):
         "active_sessions": active_sessions,
         "open_claims": open_claims,
         "problems": problems,
+        "failed_reports": len(failed),
         "exports": exports,
         "recent": AuditEvent.objects.filter(event=event).select_related("actor")[:8],
         "last_snapshot": _last_snapshot(access),
