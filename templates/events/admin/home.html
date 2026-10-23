@@ -1,10 +1,16 @@
-{% extends "events/shell_rail.html" %}
+{% extends rotulo_shell %}
+{% load emmaus %}
 {% block page_title %}Inicio{% endblock %}
 {% block content %}
-<header class="page-head">
-  <p class="folio">{{ event.get_kind_display }} · {{ event.get_status_display }}{% if event.location %} · {{ event.location }}{% endif %}</p>
-  <div class="page-head__row"><h1>{{ event.name }}</h1><a class="btn btn--primary" href="{% url 'events:participants' event.slug %}">Ver participantes</a></div>
-  <div class="cluster">{% include "partials/ui/live_status.html" %}{% if next_cutoff %}<span class="folio">Próximo corte: {{ next_cutoff|date:"H:i" }}</span>{% endif %}</div>
+<header class="report-head">
+  <div class="report-head__text">
+    <h1 class="voice report-head__title">{{ event.name }}</h1>
+    <p class="report-head__meta">{{ event.get_kind_display }} {{ event.get_status_display|lower }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if next_cutoff %} Próximo corte a las {{ next_cutoff|date:"H:i" }}.{% endif %}</p>
+    <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
+  </div>
+  <div class="report-head__actions">
+    <a class="btn btn--secondary" href="{% url 'events:participants' event.slug %}">Ver participantes</a>
+  </div>
 </header>
 <div id="admin-vivo" data-live-url="{% url 'events:admin_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/admin/_home_live.html" %}

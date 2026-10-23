@@ -874,3 +874,93 @@ ol.promises li::before {
 .nowrap { white-space: nowrap; }
 /* The update status under a page header, before a report */
 .lead-status { margin: calc(-1 * var(--s-5)) 0 var(--s-8); }
+
+/* ---------- G3 Administración ---------- */
+/* Administration is the one denser place: tables with tabular numbers, filter bars, and the row that
+   needs action marked like a highlighter (borrowed from "Bitácora"). Still no cards, no pills. */
+
+/* Home: the sign (only when something blocks), the state in a sentence, the checklist */
+.admin-sign { margin-bottom: var(--s-10); }
+.admin-state { margin-bottom: var(--s-12); }
+.admin-state__title { font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem); line-height: 1.1; max-width: 40ch; }
+.admin-state__sub { margin-top: var(--s-2); font-size: var(--t-lead); color: var(--ink-2); max-width: 60ch; }
+.admin-state__ruler { margin: var(--s-5) 0 var(--s-3); }
+.admin-state__ruler .ruler { height: 1.5rem; }
+.admin-state__figures { margin-top: var(--s-8); }
+.admin-side { display: grid; gap: var(--s-12); align-content: start; }
+.admin-rows .row__meta { max-width: 52ch; }
+.admin-log .row { min-height: 0; padding: var(--s-2) 0; }
+.admin-log .row__title { font-size: var(--t-body); font-weight: 400; }
+
+/* Filter bar: a GET form of labelled controls, aligned on their bottom edge */
+.filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-4); margin-bottom: var(--s-8); }
+.filter-bar .field { margin: 0; flex: 1 1 13rem; max-width: 20rem; }
+.filter-bar .filter-bar__search { flex: 2 1 18rem; max-width: 28rem; }
+.filter-bar .btn { flex: none; min-height: 3.25rem; }
+
+/* Tables. In a --marked table a 5px edge on the first cell marks the row (ink: needs a decision; chile: has an error) */
+.admin-table th, .admin-table td.num, .table__nowrap { white-space: nowrap; }
+.admin-table--marked th:first-child, .admin-table--marked td:first-child { padding-left: var(--s-4); }
+.admin-table--marked tr.is-attention td { background: var(--cal-2); }
+.admin-table--marked tr.is-attention td:first-child { box-shadow: inset 5px 0 0 var(--carbon); }
+.admin-table--marked tr.is-error td:first-child { box-shadow: inset 5px 0 0 var(--chile); }
+.admin-table td form { margin: 0; }
+.admin-table input[type="checkbox"] { display: block; width: 1.75rem; height: 1.75rem; margin: 0; accent-color: var(--anil); cursor: pointer; }
+.admin-table select { min-width: 15rem; min-height: 2.75rem; padding-block: 0.375rem; font-size: var(--t-body); }
+.table__note { display: block; color: var(--ink-2); }
+.table__error, .table__flag { display: block; font-weight: 700; }
+.table__error { color: var(--chile); }
+.table__action { text-align: right; white-space: nowrap; }
+.table__date { width: 1%; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table__review { min-width: 16rem; }
+.admin-import .admin-table td { vertical-align: top; }
+.admin-figures { margin: var(--s-6) 0 var(--s-8); }
+.admin-import__cancel { margin-top: var(--s-3); }
+
+/* Two columns whose content may be wider than the column (tables, long links) must not widen the page */
+.admin-split > * { min-width: 0; }
+.admin-split > .admin-stack > * + * { margin-top: var(--s-12); }
+
+/* A link to copy (activation link) */
+.admin-link { margin: var(--s-6) 0 var(--s-3); }
+.admin-link .input { font-size: var(--t-body); }
+
+/* Questionnaire editor */
+.admin-narrow { max-width: 52rem; }
+.admin-section { margin-top: var(--s-12); }
+.admin-section__desc { margin-top: var(--s-2); color: var(--ink-2); max-width: 65ch; }
+.admin-section__add { margin-top: var(--s-12); }
+.admin-questions .row { align-items: flex-start; }
+.admin-questions__actions { flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2) var(--s-3); }
+.admin-questions__actions form { margin: 0; }
+.admin-answers { list-style: none; display: flex; flex-wrap: wrap; gap: 0 var(--s-6); margin-top: var(--s-2); font-size: var(--t-small); }
+.admin-answers li { display: inline-flex; align-items: center; gap: var(--s-2); }
+.admin-answers__label { font-weight: 700; }
+.admin-answers__label--decline { font-weight: 400; color: var(--ink-2); }
+.admin-answers__note { font-weight: 400; color: var(--ink-2); }
+.admin-answers__remove { margin: 0; }
+.link-button--danger { color: var(--chile); }
+.admin-levels .summary-list__row { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); }
+
+@media (max-width: 600px) {
+  .filter-bar { gap: var(--s-3); }
+  .filter-bar .field, .filter-bar .btn { flex: 1 1 calc(50% - var(--s-3)); max-width: none; }
+  .filter-bar .filter-bar__search { flex-basis: 100%; max-width: none; }
+  .admin-rows .row, .admin-questions .row { flex-wrap: wrap; }
+  .admin-rows .row__end, .admin-questions__actions { width: 100%; justify-content: space-between; }
+  .admin-questions__actions { justify-content: flex-start; }
+  .admin-table select { min-width: 8rem; width: 100%; }
+  /* Assignments on a phone: each coordinator on one line, the tutor select full width below */
+  .admin-assign .table-wrap { overflow: visible; }
+  .admin-assign .admin-table, .admin-assign .admin-table tbody { display: block; }
+  .admin-assign .admin-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .admin-assign .admin-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-4); padding: var(--s-3) 0; border-bottom: 1px solid var(--line); }
+  .admin-assign .admin-table td { border: 0; padding: 0; }
+  .admin-assign .admin-table td:first-child { padding-left: var(--s-3); font-weight: 700; font-size: var(--t-body); }
+  .admin-assign .admin-table td:last-child { grid-column: 1 / -1; padding-left: var(--s-3); }
+  .admin-assign .admin-table td.num { color: var(--ink-2); }
+  .admin-assign .admin-table tr.is-attention { padding-right: var(--s-3); background: var(--cal-2); box-shadow: inset 5px 0 0 var(--carbon); }
+  .admin-assign .admin-table tr.is-attention td { background: none; box-shadow: none; }
+}
+.admin-assign__unit { display: none; }
+@media (max-width: 600px) { .admin-assign__unit { display: inline; } }

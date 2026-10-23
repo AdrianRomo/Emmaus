@@ -1,55 +1,146 @@
 {% load emmaus %}
-{% if problems %}
-  <section class="notice notice--warning" aria-labelledby="atencion-admin">
-    <p class="notice__title" id="atencion-admin">Requiere tu atención</p>
-    <ul class="prose">{% for text, url_name in problems %}<li><a href="{% url url_name event.slug %}">{{ text }}</a></li>{% endfor %}</ul>
+{% comment %}
+  Administration home (Rótulo). A sign only when something blocks the interviews, and only the first
+  of them (procedures, then questionnaire, then camperos without a coordinator); then how the event is
+  going, in a sentence, a ruler and a few figures; then the setup checklist, where a row that needs
+  action is marked (borrowed from "Bitácora"); then recent activity and downloads.
+{% endcomment %}
+{% with unassigned=payload.attention.unassigned_participants without_tutor=payload.attention.coordinators_without_tutor %}
+{% if not event.procedures_approved %}
+  <section class="sign admin-sign" aria-labelledby="que-sigue">
+    <h2 id="que-sigue" class="sign__title">Confirma los procedimientos de la iglesia</h2>
+    <p class="sign__text">Falta confirmar los procedimientos de autorización y protección. Sin eso no se pueden iniciar entrevistas.</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:settings' event.slug %}#procedimientos">Confirmar los procedimientos</a></div>
+  </section>
+{% elif not event.questionnaire_version_id %}
+  <section class="sign admin-sign" aria-labelledby="que-sigue">
+    <h2 id="que-sigue" class="sign__title">Elige el cuestionario de las entrevistas</h2>
+    <p class="sign__text">El evento no tiene un cuestionario publicado. Sin él no se pueden iniciar entrevistas.</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:questionnaires' event.slug %}">Ver cuestionarios</a></div>
+  </section>
+{% elif unassigned %}
+  <section class="sign admin-sign" aria-labelledby="que-sigue">
+    <h2 id="que-sigue" class="sign__title">Asigna coordinador a {{ unassigned }} campero{{ unassigned|pluralize }}</h2>
+    <p class="sign__text">Sin coordinador nadie {{ unassigned|pluralize:"lo,los" }} puede entrevistar.</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:participants' event.slug %}?coordinador=ninguno">Ver camperos sin coordinador</a></div>
   </section>
 {% endif %}
-<section class="section mt-8" aria-labelledby="registro">
-  <h2 id="registro" class="visually-hidden">Registro y entrevistas</h2>
-  <div class="figure-row">
-    <div class="figure figure--hero"><p class="figure__label">Participantes</p><p class="figure__value">{{ progress.eligible }}</p><p class="figure__note">{{ payload.attention.unassigned_participants }} sin coordinador</p></div>
-    <div class="figure"><p class="figure__label">Completadas</p><p class="figure__value">{{ progress.completed }}</p><p class="figure__note">{{ progress.percent|pct }}</p></div>
-    <div class="figure"><p class="figure__label">En curso</p><p class="figure__value">{{ progress.in_progress }}</p><p class="figure__note">{{ open_claims }} abiertas en una computadora</p></div>
-    <div class="figure"><p class="figure__label">Capturas supervisadas</p><p class="figure__value">{{ active_sessions }}</p><p class="figure__note"><a href="{% url 'events:sessions' event.slug %}">Ver sesiones</a></p></div>
-  </div>
-  <div class="mt-6">{% meter progress.completed progress.in_progress progress.eligible "lg" %}</div>
+
+<section class="admin-state" aria-labelledby="estado-evento">
+  {% if progress.eligible %}
+    <h2 id="estado-evento" class="voice admin-state__title">Llevamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</h2>
+    <p class="admin-state__sub">{% if not progress.pending %}Ya se completaron todas.{% else %}{{ progress.in_progress }} en curso, {% if open_claims %}{{ open_claims }} abierta{{ open_claims|pluralize }} ahora en una computadora{% else %}ninguna abierta ahora en una computadora{% endif %}.{% endif %}</p>
+    <div class="admin-state__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
+    <ul class="key">
+      <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
+      <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
+      <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
+    </ul>
+  {% else %}
+    <h2 id="estado-evento" class="voice admin-state__title">Todavía no hay participantes registrados.</h2>
+  {% endif %}
+  <dl class="figures admin-state__figures">
+    <div><dt>Participantes</dt><dd class="figures__value">{{ progress.eligible }}</dd><dd class="figures__note">{{ unassigned }} sin coordinador</dd></div>
+    <div><dt>Capturas supervisadas</dt><dd class="figures__value">{{ active_sessions }}</dd><dd class="figures__note"><a href="{% url 'events:sessions' event.slug %}">Ver sesiones</a></dd></div>
+    <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver seguimientos</a></dd></div>
+    {% if payload.follow_ups.safety_open %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Atender</a></dd></div>{% endif %}
+  </dl>
 </section>
 
-<div class="split section">
-  <section aria-labelledby="herramientas">
-    <h2 id="herramientas">Herramientas</h2>
-    <ul class="ledger mt-4">
-      <li><a class="ledger__row" href="{% url 'events:participant_import' event.slug %}"><span class="ledger__main"><span class="ledger__title">Importar camperos</span><span class="ledger__meta ledger__meta--block">Desde un archivo CSV, con revisión de duplicados</span></span></a></li>
-      <li><a class="ledger__row" href="{% url 'events:member_add' event.slug %}"><span class="ledger__main"><span class="ledger__title">Agregar persona al equipo</span><span class="ledger__meta ledger__meta--block">Coordinadores, tutores, pastores o administración</span></span></a></li>
-      <li><a class="ledger__row" href="{% url 'events:assignments' event.slug %}"><span class="ledger__main"><span class="ledger__title">Asignar tutores</span><span class="ledger__meta ledger__meta--block">Qué tutor supervisa a cada coordinador</span></span></a></li>
-      <li><a class="ledger__row" href="{% url 'events:questionnaires' event.slug %}"><span class="ledger__main"><span class="ledger__title">Cuestionario</span><span class="ledger__meta ledger__meta--block">{% if event.questionnaire_version %}{{ event.questionnaire_version.title }} · versión {{ event.questionnaire_version.number }}{% else %}Sin cuestionario publicado{% endif %}</span></span></a></li>
-      <li><a class="ledger__row" href="{% url 'events:settings' event.slug %}"><span class="ledger__main"><span class="ledger__title">Cortes, privacidad y computadoras</span><span class="ledger__meta ledger__meta--block">Cada {{ event.report_interval_minutes }} min de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }} · {{ stations }} computadoras</span></span></a></li>
-      <li><a class="ledger__row" href="{% url 'events:audit' event.slug %}"><span class="ledger__main"><span class="ledger__title">Registro de actividad</span><span class="ledger__meta ledger__meta--block">Quién hizo qué y cuándo</span></span></a></li>
+<div class="split admin-split">
+  <section aria-labelledby="preparacion">
+    <h2 id="preparacion" class="heading">Preparación</h2>
+    <ul class="rows admin-rows">
+      <li class="row{% if not event.procedures_approved %} row--attention{% endif %}">
+        <div class="row__main">
+          <p class="row__title">Procedimientos de la iglesia</p>
+          <p class="row__meta">{% if event.procedures_approved %}Confirmados el {{ event.procedures_approved_at|fecha_corta }}.{% else %}Sin confirmar. Sin eso no se pueden iniciar entrevistas.{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% if event.procedures_approved %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
+          <a class="btn btn--secondary btn--small" href="{% url 'events:settings' event.slug %}#procedimientos">{% if event.procedures_approved %}Ver{% else %}Confirmar{% endif %}<span class="visually-hidden"> los procedimientos</span></a>
+        </div>
+      </li>
+      <li class="row{% if not event.questionnaire_version_id %} row--attention{% endif %}">
+        <div class="row__main">
+          <p class="row__title">Cuestionario</p>
+          <p class="row__meta">{% if event.questionnaire_version %}{{ event.questionnaire_version.title }}, versión {{ event.questionnaire_version.number }}.{% else %}Sin cuestionario publicado.{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% if event.questionnaire_version_id %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
+          <a class="btn btn--secondary btn--small" href="{% url 'events:questionnaires' event.slug %}">Ver<span class="visually-hidden"> los cuestionarios</span></a>
+        </div>
+      </li>
+      <li class="row{% if unassigned %} row--attention{% endif %}">
+        <div class="row__main">
+          <p class="row__title">Camperos</p>
+          <p class="row__meta">{{ progress.eligible }} participando{% if unassigned %}, {{ unassigned }} sin coordinador{% endif %}.</p>
+        </div>
+        <div class="row__end">
+          {% if not progress.eligible %}{% status "pendiente" "Falta" %}{% elif unassigned %}{% status "pendiente" "Revisar" %}{% else %}{% status "completada" "Listo" %}{% endif %}
+          {% if unassigned %}<a class="btn btn--secondary btn--small" href="{% url 'events:participants' event.slug %}?coordinador=ninguno">Asignar<span class="visually-hidden"> coordinador a los camperos que no tienen</span></a>
+          {% else %}<a class="btn btn--secondary btn--small" href="{% url 'events:participant_import' event.slug %}">Importar<span class="visually-hidden"> camperos</span></a>{% endif %}
+        </div>
+      </li>
+      <li class="row{% if without_tutor %} row--attention{% endif %}">
+        <div class="row__main">
+          <p class="row__title">Equipo</p>
+          <p class="row__meta">{% for value, label in role_labels %}{% with n=roles|get_item:value|default:0 %}{{ n }} {{ label|lower }}{{ n|pluralize:"es" }}{% endwith %}{% if not forloop.last %}{% if forloop.revcounter == 2 %} y {% else %}, {% endif %}{% endif %}{% endfor %}. {% if without_tutor %}{{ without_tutor }} coordinador{{ without_tutor|pluralize:"es" }} sin tutor.{% else %}Cada coordinador tiene tutor.{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% if without_tutor %}{% status "pendiente" "Revisar" %}
+            <a class="btn btn--secondary btn--small" href="{% url 'events:assignments' event.slug %}">Asignar tutores</a>
+          {% else %}{% status "completada" "Listo" %}
+            <a class="btn btn--secondary btn--small" href="{% url 'events:member_add' event.slug %}">Agregar persona<span class="visually-hidden"> al equipo</span></a>
+          {% endif %}
+        </div>
+      </li>
+      <li class="row{% if not stations %} row--attention{% endif %}">
+        <div class="row__main">
+          <p class="row__title">Computadoras</p>
+          <p class="row__meta">{% if stations %}{{ stations }} disponible{{ stations|pluralize }} para entrevistar.{% else %}Ninguna disponible para entrevistar.{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% if stations %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
+          <a class="btn btn--secondary btn--small" href="{% url 'events:settings' event.slug %}#computadoras">Configurar<span class="visually-hidden"> las computadoras</span></a>
+        </div>
+      </li>
+      <li class="row{% if failed_reports %} row--attention{% endif %}">
+        <div class="row__main">
+          <p class="row__title">Cortes</p>
+          <p class="row__meta">{% if event.reports_enabled %}{{ event.get_report_interval_minutes_display }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}.{% else %}Los cortes automáticos están apagados.{% endif %} {% if last_snapshot %}Último corte: {{ last_snapshot.cutoff_at|fecha_corta }}.{% else %}Aún no hay cortes.{% endif %}{% if failed_reports %} <strong>{{ failed_reports }} corte{{ failed_reports|pluralize }} no se {{ failed_reports|pluralize:"pudo,pudieron" }} generar.</strong>{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% if failed_reports %}{% status "pendiente" "Revisar" %}{% elif event.reports_enabled %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Apagados" %}{% endif %}
+          <a class="btn btn--secondary btn--small" href="{% url 'events:reports' event.slug %}">Ver reportes</a>
+        </div>
+      </li>
     </ul>
   </section>
-  <section aria-labelledby="equipo-roles">
-    <h2 id="equipo-roles">Equipo</h2>
-    <dl class="summary-list mt-4">
-      {% for value, label in role_labels %}<div class="summary-list__row"><dt>{{ label }}{{ roles|get_item:value|default:0|pluralize:"es" }}</dt><dd class="num">{{ roles|get_item:value|default:0 }}</dd></div>{% endfor %}
-      <div class="summary-list__row"><dt>Coordinadores sin tutor</dt><dd class="num">{{ payload.attention.coordinators_without_tutor }}</dd><dd class="summary-list__action"><a href="{% url 'events:assignments' event.slug %}">Asignar</a></dd></div>
-    </dl>
-    <h2 class="mt-8" id="cortes-admin">Cortes</h2>
-    <dl class="summary-list mt-4">
-      <div class="summary-list__row"><dt>Último corte</dt><dd>{% if last_snapshot %}{{ last_snapshot.cutoff_at|fecha_corta }}{% else %}Aún no hay{% endif %}</dd></div>
-      <div class="summary-list__row"><dt>Próximo corte</dt><dd>{% if next_cutoff %}{{ next_cutoff|fecha_corta }}{% else %}Sin programar{% endif %}</dd><dd class="summary-list__action"><a href="{% url 'events:reports' event.slug %}">Reportes</a></dd></div>
-      <div class="summary-list__row"><dt>Seguimientos abiertos</dt><dd>{{ payload.follow_ups.open_total }}{% if payload.follow_ups.safety_open %} · <strong>{{ payload.follow_ups.safety_open }} de riesgo</strong>{% endif %}</dd><dd class="summary-list__action"><a href="{% url 'events:follow_ups' event.slug %}">Ver</a></dd></div>
-    </dl>
-  </section>
-</div>
 
-<div class="split split--even section">
-  <section aria-labelledby="actividad-admin">
-    <div class="section__head"><h2 id="actividad-admin">Actividad reciente</h2><a href="{% url 'events:audit' event.slug %}">Ver todo</a></div>
-    <ul class="ledger">{% for a in recent %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ a.summary }}</p><p class="ledger__meta">{{ a.actor_label }} · {{ a.created_at|since }}</p></div></div></li>{% empty %}<li class="muted">Sin actividad todavía.</li>{% endfor %}</ul>
-  </section>
-  <section aria-labelledby="descargas">
-    <div class="section__head"><h2 id="descargas">Descargas recientes</h2><a href="{% url 'events:participant_export' event.slug %}">Descargar lista de camperos</a></div>
-    <ul class="ledger">{% for a in exports %}<li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ a.summary }}</p><p class="ledger__meta">{{ a.actor_label }} · {{ a.created_at|since }}</p></div></div></li>{% empty %}<li class="muted">Nadie ha descargado datos.</li>{% endfor %}</ul>
-  </section>
+  <div class="admin-side">
+    <section aria-labelledby="actividad-admin">
+      <h2 id="actividad-admin" class="heading">Actividad reciente</h2>
+      {% if recent %}
+        <ul class="rows admin-log">{% for a in recent %}
+          <li class="row"><div class="row__main"><p class="row__title">{{ a.summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
+        {% endfor %}</ul>
+      {% else %}
+        <p class="empty-line">Sin actividad todavía.</p>
+      {% endif %}
+      <p class="more"><a href="{% url 'events:audit' event.slug %}">Ver todo el registro de actividad</a></p>
+    </section>
+    <section aria-labelledby="descargas">
+      <h2 id="descargas" class="heading">Descargas recientes</h2>
+      {% if exports %}
+        <ul class="rows admin-log">{% for a in exports %}
+          <li class="row"><div class="row__main"><p class="row__title">{{ a.summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
+        {% endfor %}</ul>
+      {% else %}
+        <p class="empty-line">Nadie ha descargado datos.</p>
+      {% endif %}
+      <p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar lista de camperos</a></p>
+    </section>
+  </div>
 </div>
+{% endwith %}
