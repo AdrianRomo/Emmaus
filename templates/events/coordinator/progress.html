@@ -1,7 +1,8 @@
-{% extends "events/shell_bar.html" %}
+{% extends rotulo_shell %}
 {% block page_title %}Mi avance{% endblock %}
 {% block content %}
-<header class="page-head"><p class="folio">{{ event.name }}</p><div class="page-head__row"><h1>Mi avance</h1>{% include "partials/ui/live_status.html" %}</div></header>
+{% include "events/rotulo/_page_head.html" with title="Mi avance" %}
+<p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
 <div id="avance-vivo" data-live-url="{% url 'events:coord_progress' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/coordinator/_progress_live.html" %}
 </div>

@@ -1,34 +1,41 @@
-{% extends shell_template %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Mis camperos{% endblock %}
 {% block content %}
 {% url 'events:participant_create' event.slug as create_url %}
-{% include "partials/ui/page_head.html" with title="Mis camperos" lede="Las personas asignadas a ti en este evento." action_url=create_url action_label="Registrar campero" %}
-<p class="mt-0 mb-6 text-sm"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a> · por si falla la red o una computadora</p>
-<nav class="cluster mb-6" aria-label="Estado de la entrevista">
-  {% for tab in tabs %}<a class="tab-link" href="?estado={{ tab.value }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}"{% if status == tab.value %} aria-current="page"{% endif %}>{{ tab.label }} <span class="muted">{{ tab.count }}</span></a>{% endfor %}
-</nav>
-<form method="get" class="search-box mb-6" role="search">
+{% include "events/rotulo/_page_head.html" with title="Mis camperos" lede="Las personas asignadas a ti en este evento." action_url=create_url action_label="Registrar campero" %}
+
+<ul class="filters" aria-label="Estado de la entrevista">
+  {% for tab in tabs %}<li><a href="?estado={{ tab.value }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}"{% if status == tab.value %} aria-current="page"{% endif %}>{{ tab.label }} <span class="count">{{ tab.count }}</span></a></li>{% endfor %}
+</ul>
+<form method="get" class="list-search" role="search">
   <input type="hidden" name="estado" value="{{ status }}">
   <label class="visually-hidden" for="q">Buscar campero</label>
-  <input id="q" type="search" name="q" value="{{ query }}" placeholder="Nombre, número o cuarto">
-  <button class="btn" type="submit">Buscar</button>
+  <input class="input" id="q" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="q-ayuda">
+  <button class="btn btn--secondary" type="submit">Buscar</button>
 </form>
-<p class="folio">{{ participants|length }} de {{ total }} camperos</p>
-{% if participants %}
-  <ul class="ledger mt-4">
-    {% for p in participants %}
-      <li><div class="ledger__row">
-        <span class="ledger__code">#{{ p.code }}</span>
-        <div class="ledger__main"><a class="ledger__title" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a><p class="ledger__meta">{{ p.room|cuarto }} · {{ p.age }} años · {{ p.church_group }}</p></div>
-        <div class="ledger__aside">
-          {% status_chip p.interview_status %}
-          {% if p.interview_status != "completada" %}<a class="btn btn--sm" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Continuar{% else %}Entrevistar{% endif %}</a>{% endif %}
-        </div>
-      </div></li>
-    {% endfor %}
-  </ul>
-{% else %}
-  {% include "partials/ui/empty.html" with title="No se encontraron participantes" body="Prueba con otra búsqueda o registra a un campero nuevo." action_url=create_url action_label="Registrar campero" %}
-{% endif %}
+<p class="hint" id="q-ayuda">Número, cuarto o las primeras letras del nombre y apellido.</p>
+
+<section class="results" aria-labelledby="lista">
+  <h2 id="lista" class="heading">{{ participants|length }} de {{ total }} camperos</h2>
+  {% if participants %}
+    <ul class="rows">
+      {% for p in participants %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
+            <p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p>
+          </div>
+          <div class="row__end">
+            {% status p.interview_status %}
+            {% if p.interview_status != "completada" %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Continuar{% else %}Entrevistar{% endif %}<span class="visually-hidden"> a {{ p.full_name }}</span></a>{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras, o <a href="{{ create_url }}">registra a un campero nuevo</a>.</p>
+  {% endif %}
+  <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a>, por si falla la red o una computadora.</p>
+</section>
 {% endblock %}

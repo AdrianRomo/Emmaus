@@ -142,7 +142,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* Focus, after GOV.UK: yellow you cannot miss, with an ink edge so it also shows on the sign */
 :focus { outline: none; }
-a:focus-visible, .btn--link:focus-visible, summary:focus-visible, .trail__back:focus-visible {
+a:focus-visible, .btn--link:focus-visible, .link-button:focus-visible, summary:focus-visible, .trail__back:focus-visible {
   background: var(--maiz);
   color: var(--carbon);
   box-shadow: 0 -2px var(--maiz), 0 4px var(--carbon);
@@ -156,7 +156,8 @@ a:focus-visible, .btn--link:focus-visible, summary:focus-visible, .trail__back:f
   border-color: var(--carbon);
   box-shadow: 0 3px 0 var(--carbon);
 }
-.input:focus-visible, .textarea:focus-visible, select:focus-visible, .check input:focus-visible {
+.input:focus-visible, .textarea:focus-visible, select:focus-visible, .check input:focus-visible,
+.field input:focus-visible, .field textarea:focus-visible {
   outline: 4px solid var(--maiz);
   outline-offset: 0;
   box-shadow: inset 0 0 0 2px var(--carbon);
@@ -239,7 +240,9 @@ form.is-submitting .btn--primary { opacity: 0.7; }
 .label, .legend { display: block; font-weight: 700; font-size: var(--t-body); margin-bottom: var(--s-1); }
 .hint { display: block; color: var(--ink-2); font-size: var(--t-small); margin-bottom: var(--s-2); }
 .error-message { display: block; color: var(--chile); font-weight: 700; margin: var(--s-1) 0 var(--s-2); }
-.input, .textarea, select {
+/* Form widgets from Django carry no class: inside a .field they look like .input */
+.input, .textarea, select,
+.field input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), .field textarea {
   display: block; width: 100%;
   min-height: 3.25rem;
   padding: 0.625rem 0.875rem;
@@ -248,8 +251,9 @@ form.is-submitting .btn--primary { opacity: 0.7; }
   background: var(--cal);
   font-size: var(--t-lead);
 }
-.textarea { min-height: 9rem; line-height: 1.45; resize: vertical; }
-.field--error .input, .field--error .textarea { border-color: var(--chile); }
+.textarea, .field textarea { min-height: 9rem; line-height: 1.45; resize: vertical; }
+.field input[type="number"] { max-width: 8rem; }
+.field--error .input, .field--error .textarea, .field--error input:not([type="checkbox"]):not([type="radio"]), .field--error textarea, .field--error select { border-color: var(--chile); }
 
 /* Checkbox rows from partials/ui/field.html */
 .check { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-2) 0; cursor: pointer; }
@@ -467,13 +471,14 @@ a.wordmark:hover { color: var(--anil); }
   display: grid; grid-template-columns: auto 1fr; align-items: baseline;
   gap: var(--s-1) var(--s-4); margin-bottom: var(--s-10);
 }
-.trail__back {
-  grid-column: 1 / -1; justify-self: start; margin: 0 0 var(--s-3);
+.trail__back { grid-column: 1 / -1; justify-self: start; margin: 0 0 var(--s-3); }
+.trail__back, .back-link {
   display: inline-flex; align-items: center; gap: var(--s-2);
-  border: 0; background: none; padding: var(--s-1) 0; cursor: pointer;
+  border: 0; background: none; padding: var(--s-1) 0; cursor: pointer; font-size: var(--t-body);
   color: var(--carbon); font-weight: 700; text-decoration: underline; text-underline-offset: 0.18em;
 }
-.trail__back::before {
+.back-link { margin-bottom: var(--s-5); }
+.trail__back::before, .back-link::before {
   content: ""; width: 0.5rem; height: 0.5rem; border: solid currentColor; border-width: 0 0 3px 3px;
   transform: rotate(45deg); margin-right: 0.125rem;
 }
@@ -571,6 +576,8 @@ a.wordmark:hover { color: var(--anil); }
 }
 
 .page-head { margin-bottom: var(--s-8); }
+.page-head--actions { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-8); }
+.page-head__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
 .page-head__title { font-size: clamp(2rem, 1.5rem + 1.6vw, var(--t-h1)); line-height: 1.08; max-width: 24ch; }
 .page-head__meta, .folio { font-size: var(--t-small); color: var(--ink-2); margin-top: var(--s-3); }
 .folio { margin: 0 0 var(--s-2); font-weight: 700; }
@@ -624,6 +631,57 @@ ol.promises li::before {
 .dialog__body { padding: var(--s-6) var(--s-6) var(--s-4); }
 .dialog__body h2 { font-size: var(--t-h2); margin-bottom: var(--s-2); }
 .dialog__actions { padding: 0 var(--s-6) var(--s-6); }
+
+/* Filters: views of the same list. The current one is "estás aquí", so it gets the maíz mark. */
+.filters { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); list-style: none; margin-bottom: var(--s-6); border-bottom: 1px solid var(--line); }
+.filters a {
+  display: inline-flex; align-items: center; gap: var(--s-2); min-height: 2.75rem; padding: 0 var(--s-3);
+  color: var(--carbon); font-weight: 600; text-decoration: none; box-shadow: inset 0 -5px 0 transparent;
+}
+.filters a:hover { box-shadow: inset 0 -5px 0 var(--line); }
+.filters a[aria-current="page"] { font-weight: 700; box-shadow: inset 0 -5px 0 var(--maiz); }
+.filters a:focus-visible { box-shadow: inset 0 -5px 0 var(--carbon); }
+.filters .count { color: var(--ink-2); font-weight: 400; font-variant-numeric: tabular-nums; }
+.list-search { display: flex; gap: var(--s-3); max-width: 36rem; margin-bottom: var(--s-4); }
+.list-search .input { flex: 1; }
+.list-count { color: var(--ink-2); font-size: var(--t-small); margin-bottom: var(--s-2); }
+
+.choices--grid { grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); max-width: 52rem; }
+.narrow { max-width: var(--w-focus); }
+.heading .count { color: var(--ink-2); font-weight: 400; margin-left: var(--s-2); font-variant-numeric: tabular-nums; }
+.interview-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-4); margin: calc(-1 * var(--s-4)) 0 var(--s-8); color: var(--ink-2); font-size: var(--t-small); }
+
+/* Two columns on a record page (datos | entrevista) */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-10) var(--s-16); align-items: start; }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+.block + .block { margin-top: var(--s-10); }
+.heading + * { margin-top: var(--s-3); }
+
+/* A form button that reads as a link ("Marcar como recibida") */
+.link-button { border: 0; background: none; padding: 0; color: var(--anil); font-weight: 700; text-decoration: underline; text-underline-offset: 0.18em; cursor: pointer; min-height: 2.75rem; }
+.status--risk .status__mark { background: var(--chile); border-color: var(--chile); }
+.prose-block { max-width: 65ch; white-space: normal; }
+
+/* Fold: long, secondary blocks that start closed on phones (emmaus.js, data-fold-below) */
+.fold > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: var(--s-3);
+  font-weight: 700; font-size: var(--t-body); padding: var(--s-3) 0; border-top: 1px solid var(--line);
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before {
+  content: ""; width: 0.5rem; height: 0.5rem; border: solid currentColor; border-width: 0 3px 3px 0;
+  transform: rotate(-45deg); transition: transform 120ms ease; flex: none;
+}
+.fold[open] > summary::before { transform: rotate(45deg); }
+.fold > summary .fold__hint { font-weight: 400; color: var(--ink-2); font-size: var(--t-small); }
+.fold > * + * { margin-top: var(--s-6); }
+
+/* Printable backup list */
+.print-sheet { max-width: var(--w-wide); margin: 0 auto; padding: var(--s-8) var(--s-8) var(--s-12); }
+.print-group { margin-top: var(--s-10); break-inside: avoid-page; }
+.print-group h2 { font-size: var(--t-h3); margin-bottom: var(--s-2); }
+.print-box { text-align: center; font-size: 1.25rem; }
+.print-notes { min-width: 10rem; }
 
 /* ---------- 11. Coordinator home ----------------------------------------- */
 .coord__hello { font-size: var(--t-h2); line-height: 1.1; margin-bottom: var(--s-5); }
@@ -747,7 +805,10 @@ ol.promises li::before {
   .sign, .confirm { border: 3px solid CanvasText; }
 }
 @media print {
-  .bar, .focusbar, .menu-panel, .btn, .skip-link, .live-status, .kiosk-footer { display: none !important; }
+  .bar, .focusbar, .menu-panel, .btn, .skip-link, .live-status, .kiosk-footer, .back-link { display: none !important; }
+  .print-sheet { padding: 0; max-width: none; }
+  .table { font-size: 10pt; }
+  .table td, .table th { border-bottom: 1px solid #999; }
   .sign, .confirm { border: 2px solid #000; background: none; color: #000; }
   body { font-size: 12pt; }
 }

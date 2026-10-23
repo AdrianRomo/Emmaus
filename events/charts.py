@@ -24,6 +24,27 @@ def nice_max(value: int) -> int:
     return int(10 * magnitude)
 
 
+def _round_step(step: float) -> bool:
+    """1, 2 or 5 times a power of ten."""
+    if step < 1 or step != int(step):
+        return False
+    step = int(step)
+    while step % 10 == 0:
+        step //= 10
+    return step in (1, 2, 5)
+
+
+def _grid_steps(y_max: int, choices: tuple[int, ...]) -> int:
+    """Gridline intervals with round ticks: 0, 100, 200 rather than 0, 125, 250 or 0, 12, 25, 37."""
+    for steps in choices:
+        if _round_step(y_max / steps):
+            return steps
+    for steps in choices:
+        if y_max % steps == 0:
+            return steps
+    return 1
+
+
 def _label_every(count: int, max_labels: int = 7) -> int:
     return max(1, math.ceil(count / max_labels))
 
@@ -92,8 +113,9 @@ def cumulative_chart(
         f'<desc id="{chart_id}-d">De {escape(points[0]["label"])} a {escape(points[-1]["label"])} se completaron '
         f'{points[-1]["cumulative"]} entrevistas de {total} participantes.</desc>',
     ]
-    for i in range(5):
-        value = y_max * i / 4
+    steps = _grid_steps(y_max, (4, 5))
+    for i in range(steps + 1):
+        value = y_max * i / steps
         y = y_for(value)
         parts.append(f'<line class="grid" x1="{left}" x2="{left + plot_w}" y1="{y:.1f}" y2="{y:.1f}"/>')
         parts.append(f'<text x="{left - 10}" y="{y + font / 3:.1f}" text-anchor="end" font-size="{font}">{int(value)}</text>')
@@ -121,8 +143,12 @@ def cumulative_chart(
             )
     parts.append(f'<circle class="dot" cx="{lx:.1f}" cy="{ly:.1f}" r="{7 if deck else 5}"/>')
     label_x, anchor_last = (lx - 10, "end") if project else (lx + 12, "start")
+    label_y = ly - 10
+    # Near the goal the value would sit on top of the "Total" label: put it under the point instead.
+    if total and not project and abs(ly - y_for(total)) < font * 1.8:
+        label_x, anchor_last, label_y = lx - 10, "end", ly + font + 8
     parts.append(
-        f'<text class="label-strong" x="{label_x:.1f}" y="{ly - 10:.1f}" text-anchor="{anchor_last}" font-size="{font + 2}">{points[-1]["cumulative"]}</text>'
+        f'<text class="label-strong" x="{label_x:.1f}" y="{label_y:.1f}" text-anchor="{anchor_last}" font-size="{font + 2}">{points[-1]["cumulative"]}</text>'
     )
     labelled = _label_indexes(n, 4 if compact else 7)
     for i, point in enumerate(points):
@@ -167,8 +193,9 @@ def columns_chart(
         f'<title id="{chart_id}-t">{escape(title)}</title>',
         f'<desc id="{chart_id}-d">Máximo: {peak} entrevistas {escape(unit_label)}.</desc>',
     ]
-    for i in range(3):
-        value = y_max * i / 2
+    steps = _grid_steps(y_max, (2, 5, 4))
+    for i in range(steps + 1):
+        value = y_max * i / steps
         y = top + plot_h - plot_h * value / y_max
         parts.append(f'<line class="grid" x1="{left}" x2="{left + plot_w}" y1="{y:.1f}" y2="{y:.1f}"/>')
         parts.append(f'<text x="{left - 8}" y="{y + font / 3:.1f}" text-anchor="end" font-size="{font}">{int(value)}</text>')

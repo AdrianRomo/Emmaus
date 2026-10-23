@@ -1,19 +1,27 @@
-{% extends shell_template %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if creating %}Registrar campero{% else %}Corregir datos{% endif %}{% endblock %}
 {% block content %}
+<div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
-<header class="page-head">
-  {% if not creating %}<ol class="crumbs"><li><a href="{% url 'events:participant_detail' event.slug participant.public_id %}">{{ participant.full_name }}</a></li><li>Corregir datos</li></ol>{% endif %}
-  <h1>{% if creating %}Registrar campero{% else %}Corregir datos de {{ participant.first_name }}{% endif %}</h1>
-  {% if creating %}<p class="lede">{% if access.is_coordinator %}Quedará asignado a ti.{% else %}Puedes asignarlo a un coordinador ahora o después.{% endif %} Solo pedimos lo necesario.</p>{% endif %}
-</header>
-<form method="post" novalidate class="stack">
+{% if creating %}
+  {% if access.is_coordinator %}
+    {% include "events/rotulo/_page_head.html" with title="Registrar campero" lede="Quedará asignado a ti. Solo pedimos lo necesario." %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Registrar campero" lede="Puedes asignarlo a un coordinador ahora o después. Solo pedimos lo necesario." %}
+  {% endif %}
+{% else %}
+  {% url 'events:participant_detail' event.slug participant.public_id as back_url %}
+  {% with title="Corregir datos de "|add:participant.first_name %}
+    {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name %}
+  {% endwith %}
+{% endif %}
+<form method="post" novalidate>
   {% csrf_token %}
   {% if form.duplicates %}
     <div class="notice notice--warning" id="campo-not_duplicate">
       <p class="notice__title">Ya hay {{ form.duplicates|length }} campero{{ form.duplicates|length|pluralize }} con este nombre</p>
-      <ul class="prose">{% for d in form.duplicates %}<li>#{{ d.code }} {{ d.full_name }} · {{ d.age }} años · cuarto {{ d.room }} · {{ d.church_group }}{% if d.coordinator %} · {{ d.coordinator.display_name }}{% endif %}</li>{% endfor %}</ul>
+      <ul>{% for d in form.duplicates %}<li>#{{ d.code }} {{ d.full_name }}, {{ d.age }} años, cuarto {{ d.room }}, {{ d.church_group }}{% if d.coordinator %}, con {{ d.coordinator.display_name }}{% endif %}</li>{% endfor %}</ul>
       <p>Si es la misma persona, no la registres otra vez. Si es otra persona, confírmalo abajo.</p>
       {% include "partials/ui/field.html" with field=form.not_duplicate %}
     </div>
@@ -26,19 +34,20 @@
   {% if form.coordinator %}{% include "partials/ui/field.html" with field=form.coordinator %}{% endif %}
   {% if form.guardian_authorization %}{% include "partials/ui/field.html" with field=form.guardian_authorization %}{% endif %}
   {% if form.is_active %}{% include "partials/ui/field.html" with field=form.is_active %}{% include "partials/ui/field.html" with field=form.withdrawn_reason %}{% endif %}
-  <div class="btn-row btn-row--stack-mobile mt-6">
+  <div class="step__actions">
     {% if creating %}
       {% if access.is_coordinator %}
-        <button class="btn btn--primary" type="submit" name="then" value="entrevistar">Guardar y empezar la entrevista</button>
-        <button class="btn" type="submit" name="then" value="otro">Guardar y registrar otro</button>
+        <button class="btn btn--primary btn--large" type="submit" name="then" value="entrevistar">Guardar y empezar la entrevista</button>
+        <button class="btn btn--secondary" type="submit" name="then" value="otro">Guardar y registrar otro</button>
       {% else %}
-        <button class="btn btn--primary" type="submit" name="then" value="lista">Guardar</button>
-        <button class="btn" type="submit" name="then" value="otro">Guardar y registrar otro</button>
+        <button class="btn btn--primary btn--large" type="submit" name="then" value="lista">Guardar</button>
+        <button class="btn btn--secondary" type="submit" name="then" value="otro">Guardar y registrar otro</button>
       {% endif %}
     {% else %}
-      <button class="btn btn--primary" type="submit">Guardar cambios</button>
-      <a class="btn btn--quiet" href="{% url 'events:participant_detail' event.slug participant.public_id %}">Cancelar</a>
+      <button class="btn btn--primary btn--large" type="submit">Guardar cambios</button>
+      <a class="btn btn--link" href="{% url 'events:participant_detail' event.slug participant.public_id %}">Cancelar</a>
     {% endif %}
   </div>
 </form>
+</div>
 {% endblock %}

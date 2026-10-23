@@ -158,7 +158,7 @@ Será la pantalla más densa: aquí entran las tablas tabulares tomadas de *Bit�
 
 ## Lo que sigue
 
-1. Migrar el resto de las pantallas del coordinador (Mis camperos, búsqueda, registro, avance), para que no haya salto visual al navegar.
+1. ~~Migrar el resto de las pantallas del coordinador~~ Hecho: el coordinador ya no cambia de sistema en ninguna pantalla.
 2. Implementar el tutor y el modo presentación según las propuestas.
 3. Migrar administración y el módulo de discipulado; después, retirar `emmaus.css` y Literata.
 4. Probar con voluntarios reales en una computadora compartida y con un proyector real.

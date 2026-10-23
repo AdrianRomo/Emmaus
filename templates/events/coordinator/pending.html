@@ -1,38 +1,45 @@
-{% extends "events/shell_bar.html" %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Entrevistas pendientes{% endblock %}
 {% block content %}
 {% url 'events:interview_search' event.slug as search_url %}
-{% include "partials/ui/page_head.html" with title="Entrevistas pendientes" lede="Primero termina las que están en curso; después sigue con las que no has iniciado." action_url=search_url action_label="Iniciar entrevista" %}
-<section class="section" aria-labelledby="en-curso">
-  <div class="section__head"><h2 id="en-curso">En curso</h2><p>{{ in_progress|length }}</p></div>
-  {% if in_progress %}
-    <ul class="ledger">{% for iv in in_progress %}
-      <li><a class="ledger__row" href="{% url 'events:interview_resume' event.slug iv.public_id %}">
-        <span class="ledger__main"><span class="ledger__title">{{ iv.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ iv.participant.room|cuarto }} · última actividad {{ iv.last_activity_at|since }}</span></span>
-        <span class="ledger__aside"><span class="btn btn--sm btn--primary">Continuar</span></span></a></li>
-    {% endfor %}</ul>
-  {% else %}<p class="muted">No tienes entrevistas en curso.</p>{% endif %}
-</section>
-<section class="section" aria-labelledby="sin-iniciar">
-  <div class="section__head"><h2 id="sin-iniciar">Sin iniciar</h2><p>{{ not_started|length }}</p></div>
-  {% if not_started %}
-    <ul class="ledger">{% for p in not_started %}
-      <li><a class="ledger__row" href="{% url 'events:interview_start' event.slug p.public_id %}">
-        <span class="ledger__code">#{{ p.code }}</span>
-        <span class="ledger__main"><span class="ledger__title">{{ p.full_name }}</span><span class="ledger__meta ledger__meta--block">{{ p.room|cuarto }} · {{ p.age }} años · {{ p.church_group }}</span></span>
-        <span class="ledger__aside"><span class="btn btn--sm">Entrevistar</span></span></a></li>
-    {% endfor %}</ul>
-  {% else %}{% include "partials/ui/empty.html" with title="No quedan entrevistas por iniciar" body="¡Buen trabajo!" %}{% endif %}
-</section>
-<section class="section" aria-labelledby="por-evaluar" id="por-evaluar">
-  <div class="section__head"><h2>Seguimiento por decidir</h2><p>{{ to_evaluate|length }}</p></div>
-  {% if to_evaluate %}
-    <ul class="ledger">{% for iv in to_evaluate %}
-      <li><a class="ledger__row" href="{% url 'events:interview_detail' event.slug iv.public_id %}#seguimiento">
-        <span class="ledger__main"><span class="ledger__title">{{ iv.participant.full_name }}</span><span class="ledger__meta ledger__meta--block">Completada {{ iv.completed_at|since }}</span></span>
-        <span class="ledger__aside"><span class="btn btn--sm">Decidir</span></span></a></li>
-    {% endfor %}</ul>
-  {% else %}<p class="muted">No hay entrevistas esperando esa decisión.</p>{% endif %}
-</section>
+{% include "events/rotulo/_page_head.html" with title="Entrevistas pendientes" lede="Primero termina las que están en curso; después sigue con las que no has iniciado." action_url=search_url action_label="Iniciar entrevista" %}
+
+<div class="results">
+  <section class="block" aria-labelledby="en-curso">
+    <h2 id="en-curso" class="heading">En curso <span class="count">{{ in_progress|length }}</span></h2>
+    {% if in_progress %}
+      <ul class="rows">{% for iv in in_progress %}
+        <li class="row">
+          <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">{{ iv.participant.room|cuarto }}, última actividad {{ iv.last_activity_at|since }}</p></div>
+          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Continuar<span class="visually-hidden"> con {{ iv.participant.full_name }}</span></a>
+        </li>
+      {% endfor %}</ul>
+    {% else %}<p class="empty-line">No tienes entrevistas en curso.</p>{% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="sin-iniciar">
+    <h2 id="sin-iniciar" class="heading">Sin iniciar <span class="count">{{ not_started|length }}</span></h2>
+    {% if not_started %}
+      <ul class="rows">{% for p in not_started %}
+        <li class="row">
+          <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p></div>
+          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>
+        </li>
+      {% endfor %}</ul>
+    {% else %}<p class="empty-line">No quedan entrevistas por iniciar. ¡Buen trabajo!</p>{% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="por-evaluar-titulo" id="por-evaluar">
+    <h2 id="por-evaluar-titulo" class="heading">Seguimiento por decidir <span class="count">{{ to_evaluate|length }}</span></h2>
+    {% if to_evaluate %}
+      <ul class="rows">{% for iv in to_evaluate %}
+        <li class="row">
+          <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">Completada {{ iv.completed_at|since }}</p></div>
+          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}#seguimiento">Decidir<span class="visually-hidden"> sobre {{ iv.participant.full_name }}</span></a>
+        </li>
+      {% endfor %}</ul>
+    {% else %}<p class="empty-line">No hay entrevistas esperando esa decisión.</p>{% endif %}
+  </section>
+</div>
 {% endblock %}

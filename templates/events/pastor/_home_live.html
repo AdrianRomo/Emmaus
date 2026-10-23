@@ -41,28 +41,8 @@
       <div><dt>Tiempo estimado</dt><dd class="figures__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration }}{% else %}—{% endif %}</dd><dd class="figures__note">si se mantiene el ritmo</dd></div>
       <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>
     </dl>
-    <figure class="chart">
-      <figcaption><p class="chart__title">Entrevistas completadas, acumuladas</p><p class="chart__sub">La línea horizontal es la meta ({{ progress.eligible }}).{% if finish_at %} La línea punteada es la proyección al ritmo actual.{% endif %}{% if payload.data_as_of %} Datos al {{ payload.data_as_of|as_datetime|date:"H:i" }}.{% endif %}</p></figcaption>
-      {% if payload.timeline.points %}
-        {% comment %}Two drawings of the same chart: the compact one keeps its text readable on a phone.{% endcomment %}
-        <div class="chart__wide">{% cumulative_chart payload.timeline.points progress.eligible "pastor-acumulado" "Entrevistas completadas acumuladas" False chart_eta payload.timeline.bucket_minutes projection_label %}</div>
-        <div class="chart__narrow">{% cumulative_chart payload.timeline.points progress.eligible "pastor-acumulado-movil" "Entrevistas completadas acumuladas" False chart_eta payload.timeline.bucket_minutes projection_label True %}</div>
-        <details class="details">
-          <summary>Ver los datos en una tabla</summary>
-          <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas por hora"><table class="table"><thead><tr><th>Hora</th><th class="num">En esa hora</th><th class="num">Acumuladas</th></tr></thead>
-            <tbody>{% for p in payload.timeline.points %}<tr><td>{% if p.day %}{{ p.day }} {% endif %}{{ p.label }}</td><td class="num">{{ p.count }}</td><td class="num">{{ p.cumulative }}</td></tr>{% endfor %}</tbody></table></div>
-        </details>
-      {% else %}
-        <p class="chart__empty">Aún no hay entrevistas completadas. La gráfica aparecerá con la primera.</p>
-      {% endif %}
-    </figure>
-    {% if payload.timeline.points %}
-      <figure class="chart">
-        <figcaption><p class="chart__title">Entrevistas por hora</p><p class="chart__sub">La última columna es la hora en curso.</p></figcaption>
-        <div class="chart__wide">{% columns_chart payload.timeline.points "pastor-ritmo" "Entrevistas completadas por hora" False True %}</div>
-        <div class="chart__narrow">{% columns_chart payload.timeline.points "pastor-ritmo-movil" "Entrevistas completadas por hora" False True True %}</div>
-      </figure>
-    {% endif %}
+    {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="pastor-acumulado" eta=chart_eta bucket=payload.timeline.bucket_minutes projection_label=projection_label as_of=payload.data_as_of %}
+    {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="pastor-ritmo" %}
   </div>
 </section>
 
@@ -109,8 +89,11 @@
     </dl>
     {% if payload.follow_ups.confidential_open is not None %}<p class="aside-note">Solicitudes de apoyo confidenciales abiertas (solo equipo de cuidado): <strong>{{ payload.follow_ups.confidential_open }}</strong></p>{% endif %}
     {% if outcomes %}
+      {% comment %}The longest block on a phone: it starts closed there (emmaus.js, data-fold-below) and stays as the reader left it across refreshes.{% endcomment %}
+      <details class="fold" id="pastor-totales" open data-fold-below="600">
+      <summary>Lo que los camperos quisieron compartir <span class="fold__hint">{{ outcomes|length }} pregunta{{ outcomes|length|pluralize }}, corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}</span></summary>
       <div class="notice notice--info">
-        <p class="notice__title">Lo que los camperos quisieron compartir, en totales</p>
+        <p class="notice__title">Solo totales</p>
         <p>Corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}. Solo totales {{ event.of_kind }}, redondeados a múltiplos de {{ payload.min_group_size }}. Las cifras menores a {{ payload.min_group_size }} se ocultan y cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas, para que nadie pueda ser identificado. No son diagnósticos.</p>
       </div>
       <div class="outcomes">
@@ -128,6 +111,7 @@
           </figure>
         {% endfor %}
       </div>
+      </details>
     {% endif %}
   </div>
 </section>

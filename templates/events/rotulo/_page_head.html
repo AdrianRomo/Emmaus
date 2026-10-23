@@ -1,0 +1,18 @@
+{% comment %}
+  Page header (Rótulo). title; optional: lede, meta, back_url + back_label (GOV.UK back link),
+  action_url + action_label (the primary action), secondary_url + secondary_label.
+{% endcomment %}
+{% if back_url %}<a class="back-link" href="{{ back_url }}">{{ back_label|default:"Volver" }}</a>{% endif %}
+<header class="page-head{% if action_url or secondary_url %} page-head--actions{% endif %}">
+  <div class="page-head__text">
+    <h1 class="voice page-head__title">{{ title }}</h1>
+    {% if lede %}<p class="lede">{{ lede }}</p>{% endif %}
+    {% if meta %}<p class="page-head__meta">{{ meta }}</p>{% endif %}
+  </div>
+  {% if action_url or secondary_url %}
+    <div class="page-head__actions">
+      {% if action_url %}<a class="btn btn--primary" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+      {% if secondary_url %}<a class="btn btn--secondary" href="{{ secondary_url }}">{{ secondary_label }}</a>{% endif %}
+    </div>
+  {% endif %}
+</header>

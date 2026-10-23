@@ -6,7 +6,7 @@ Emmaus tiene dos hojas de estilo mientras dura la migración:
 |---|---|---|
 | Hoja de estilo | `static/css/rotulo.css` | `static/css/emmaus.css` |
 | Base de plantilla | `templates/layout/rotulo.html` | `templates/layout/skeleton.html` |
-| Pantallas | Inicio del coordinador; toda la entrevista (antes de empezar, preguntas, revisión, completada, entrega, descartar, otra computadora); todo el modo campero (bienvenida, preguntas, revisión, gracias, recuperar, sin entrevista); resumen del pastor | Todas las demás |
+| Pantallas | **Todo lo que ve un coordinador**: elegir computadora, inicio, búsqueda, Mis camperos, entrevistas pendientes, Mi avance, registrar y corregir campero, ficha del campero, ficha de la entrevista, reportar una situación de riesgo, seguimientos y su detalle, lista de respaldo; toda la entrevista y todo el modo campero; resumen del pastor. Las fichas, los seguimientos y el reporte de riesgo también se ven así para tutores, pastores y administración | Las demás pantallas de tutor, pastor y administración, y el módulo de discipulado |
 
 `layout/rotulo.html` reemplaza el bloque `stylesheets` de `skeleton.html`, así que una pantalla se migra cambiando su `extends`. La prueba `test_migrated_screens_use_rotulo_and_the_rest_keep_the_old_stylesheet` fija qué pantalla carga qué hoja. Sin compilación, sin CDN, sin dependencias de JavaScript: `static/js/emmaus.js` funciona igual con los dos sistemas porque depende de atributos `data-*`, no de clases.
 
@@ -149,6 +149,18 @@ Para datos de una persona ("¿Es la persona correcta?") y, con `.summary-list--a
 - `.notice` con variantes `--info` (añil), `--warning` (maíz claro), `--danger`, `--quiet`.
 - `.live-status`: "Última actualización: 10:44:14"; en rojo si se perdió la conexión.
 
+### Encabezado de página (`events/rotulo/_page_head.html`)
+Título pintado, entradilla opcional, una línea de datos, el enlace "Volver" de GOV.UK arriba (`back_url`, `back_label`) y, a la derecha, la acción principal y una secundaria. Úsalo en vez de escribir el encabezado a mano.
+
+### Filtros (`.filters`)
+Vistas de la misma lista ("Todos", "Sin entrevista", "En curso"…), con su cuenta. La vista actual es "estás aquí": subrayado maíz y `aria-current`. Para buscar dentro de la lista, `.list-search` con una pista visible debajo.
+
+### Ficha (`.split`, `.block`)
+Dos columnas en escritorio (datos | lo que pasó con la persona), una en teléfono. `.narrow` limita formularios y fichas al ancho de lectura. `.link-button` es un botón de formulario que se lee como enlace ("Marcar como recibida"). `.status--risk` (marca chile) solo para "Urgente" en situaciones de riesgo.
+
+### Plegable (`.fold`)
+`<details class="fold" id="…" open data-fold-below="600">` para bloques largos y secundarios: abierto en escritorio, cerrado al cargar en teléfono. En las regiones que se actualizan solas, todo `<details>` con `id` conserva el estado que dejó la persona (antes, una actualización cerraba la tabla de datos que alguien había abierto).
+
 ### Cifras (`.figures`)
 Lista de definiciones: etiqueta de 16 px, valor de 36 px en Atkinson, nota de 16 px. Una regla fina arriba de cada una, sin tarjetas. Dos por renglón en teléfono. `.figures__alert` solo para situaciones de riesgo.
 
@@ -174,6 +186,8 @@ Asuntos numerados para la reunión (sí es una secuencia: es el orden de la reun
 - `eta_minutes`: proyección punteada desde el último punto hasta la meta, con "Hacia las 16:43". Solo si el término cae dentro de 12 horas.
 - `partial_last`: la última columna (la hora en curso) en añil claro, explicado en el subtítulo.
 - `compact`: el mismo dibujo en un lienzo de 360 px para teléfonos, con a lo mucho cuatro etiquetas de hora. La plantilla incluye los dos y CSS muestra uno (`.chart__wide`, `.chart__narrow`), así el texto se lee a su tamaño real.
+- Gráficas compartidas: `events/rotulo/_chart_cumulative.html` y `_chart_columns.html` (dibujo ancho, dibujo compacto y tabla de datos). Úsalas en vez de llamar a las etiquetas de plantilla directamente.
+- Las líneas de la cuadrícula caen en números redondos (0, 10, 20 o 0, 100, 200; nunca 0, 12, 25, 37 ni 0, 125, 250). Cuando el último punto queda junto a la meta, su cifra va debajo para no tapar "Total".
 - Las etiquetas de hora nunca chocan (`_label_indexes`): siempre está la primera y la última, y ninguna queda a menos de tres cuartos del espaciado normal. Esto aplica a **todas** las gráficas, también a las de pantallas no migradas (avance, reportes, presentación): cuando la penúltima etiqueta quedaba pegada a la última, ahora se omite.
 - Toda gráfica tiene `<title>`, `<desc>` y, si importa el detalle, "Ver los datos en una tabla".
 

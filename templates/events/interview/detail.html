@@ -1,53 +1,55 @@
-{% extends shell_template %}
+{% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Entrevista de {{ participant.full_name }}{% endblock %}
 {% block content %}
-<header class="page-head">
-  <ol class="crumbs"><li><a href="{% url 'events:participant_detail' event.slug participant.public_id %}">{{ participant.full_name }}</a></li><li>Entrevista</li></ol>
-  <div class="page-head__row">
-    <h1>Entrevista de {{ participant.first_name }}</h1>
-    {% if can_continue %}<a class="btn btn--primary" href="{% url 'events:interview_resume' event.slug interview.public_id %}">Continuar entrevista</a>{% endif %}
-  </div>
-  <p class="cluster">{% status_chip interview.status %}<span class="text-sm muted">{{ interview.get_mode_display }} · versión {{ interview.version.number }} del cuestionario · por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %} · {{ interview.station.name }}{% endif %}{% if interview.correction_count %} · corregida {{ interview.correction_count }} vez{{ interview.correction_count|pluralize:"es" }}{% endif %}</span></p>
-</header>
+{% url 'events:participant_detail' event.slug participant.public_id as back_url %}
+{% if can_continue %}{% url 'events:interview_resume' event.slug interview.public_id as continue_url %}{% endif %}
+{% with title="Entrevista de "|add:participant.first_name %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Continuar entrevista" %}
+{% endwith %}
+<p class="interview-meta">{% status interview.status %} <span>{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} vez{{ interview.correction_count|pluralize:"es" }}{% endif %}.</span></p>
 
+<div class="narrow">
 {% if interview.status == "completada" %}
-<section class="section" id="seguimiento" aria-labelledby="seg-titulo">
-  <h2 id="seg-titulo" class="subhead">Seguimiento</h2>
-  <p class="mt-2">{{ interview.get_follow_up_decision_display|default:"Sin decisión" }}</p>
+<section class="block" id="seguimiento" aria-labelledby="seg-titulo">
+  <h2 id="seg-titulo" class="heading">Seguimiento</h2>
+  <p>{{ interview.get_follow_up_decision_display|default:"Sin decisión" }}</p>
   {% if can_correct and interview.follow_up_decision == "por_evaluar" %}
-    <form method="post" class="cluster mt-4">
+    <form method="post" class="step__actions">
       {% csrf_token %}
       <input type="hidden" name="action" value="decision">
-      <button class="btn btn--sm btn--primary" name="decision" value="requerido">Sí requiere seguimiento</button>
-      <button class="btn btn--sm" name="decision" value="no_requerido">No requiere seguimiento</button>
+      <button class="btn btn--primary" name="decision" value="requerido">Sí requiere seguimiento</button>
+      <button class="btn btn--secondary" name="decision" value="no_requerido">No requiere seguimiento</button>
     </form>
   {% endif %}
 </section>
 {% endif %}
 
-<section class="section" aria-labelledby="respuestas">
-  <h2 id="respuestas" class="subhead">Respuestas</h2>
-  <dl class="summary-list mt-4">
-    {% for row in rows %}
-      <div class="summary-list__row">
-        <dt>{{ row.question.text }}</dt>
-        <dd>{% if not row.visible %}<span class="privacy-tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
-        <dd class="summary-list__action">{% if can_correct and row.visible %}<a href="{% url 'events:interview_correct' event.slug interview.public_id row.step.number %}">Corregir<span class="visually-hidden"> “{{ row.question.text }}”</span></a>{% endif %}</dd>
-      </div>
-    {% empty %}
-      <p class="muted">Todavía no hay respuestas.</p>
-    {% endfor %}
-  </dl>
-  {% if has_hidden %}<p class="text-sm muted mt-4">Algunas respuestas solo las puede leer el equipo de cuidado autorizado.</p>{% endif %}
+<section class="block" aria-labelledby="respuestas">
+  <h2 id="respuestas" class="heading">Respuestas</h2>
+  {% if rows %}
+    <dl class="summary-list summary-list--answers">
+      {% for row in rows %}
+        <div class="summary-list__row">
+          <dt>{{ row.question.text }}</dt>
+          <dd>{% if not row.visible %}<span class="privacy__tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
+          <dd class="summary-list__action">{% if can_correct and row.visible %}<a href="{% url 'events:interview_correct' event.slug interview.public_id row.step.number %}">Corregir<span class="visually-hidden"> “{{ row.question.text }}”</span></a>{% endif %}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+  {% else %}
+    <p class="empty-line">Todavía no hay respuestas.</p>
+  {% endif %}
+  {% if has_hidden %}<p class="aside-note">Algunas respuestas solo las puede leer el equipo de cuidado autorizado.</p>{% endif %}
 </section>
 
 {% if revisions %}
-<section class="section" aria-labelledby="historial">
-  <h2 id="historial" class="subhead">Historial de correcciones</h2>
-  <ul class="ledger mt-4">{% for r in revisions %}
-    <li><div class="ledger__row"><div class="ledger__main"><p class="ledger__title">{{ r.question.text }}</p><p class="ledger__meta">{{ r.changed_at|fecha_corta }} · {{ r.changed_by.get_full_name }} · motivo: {{ r.reason }}</p></div></div></li>
+<section class="block" aria-labelledby="historial">
+  <h2 id="historial" class="heading">Historial de correcciones</h2>
+  <ul class="rows">{% for r in revisions %}
+    <li class="row"><div class="row__main"><p class="row__title">{{ r.question.text }}</p><p class="row__meta">{{ r.changed_at|fecha_corta }}, {{ r.changed_by.get_full_name }}. Motivo: {{ r.reason }}</p></div></li>
   {% endfor %}</ul>
 </section>
 {% endif %}
+</div>
 {% endblock %}

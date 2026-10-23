@@ -5,7 +5,7 @@
 - **Herramienta:** Playwright 1.63 (Chromium), `es-MX`, zona horaria America/Mexico_City. El guion está en el repositorio: `e2e/design-review.mjs` recorre todo el flujo (inicio del coordinador, búsqueda, antes de empezar con y sin error, preguntas, opción múltiple, revisión, completada, entrega, modo campero completo, recuperar la computadora, inicio con una entrevista abierta y resumen del pastor) y, si se le da `AXE`, corre axe-core en cada pantalla y cada ancho.
 - **Anchos:** escritorio 1440 × 900, tableta 820 × 1180, teléfono 390 × 844.
 - **Datos:** solo sintéticos. `seed_camp_demo` crea un campamento de 400 camperos ficticios; los nombres son combinaciones aleatorias de nombres y apellidos comunes. Antes de cada ronda se volvió a sembrar la base, porque el recorrido abre y termina entrevistas y los tableros cambian.
-- **Rondas:** 11 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código y la 11 es el código final.
+- **Rondas:** 13 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código y la 13 es el código final.
 
 ## Rondas
 
@@ -21,7 +21,9 @@
 | 7–8 | La búsqueda del letrero llevaba a la página de resultados **del sistema anterior**: cada entrevista pasaba por nuevo → anterior → nuevo | La búsqueda se migró: mismo letrero con lo escrito, resultados en renglones con estado y acción |
 | 9 | **axe: 0 problemas en 51 combinaciones** (17 pantallas × 3 anchos). Prueba de navegador completa | — |
 | 10 | **Revisión independiente** (otro agente intentó refutar que no cambiaron permisos, exposición de datos, inyección ni comportamiento). Permisos, datos e inyección: sin hallazgos. Encontró dos errores reales: (1) al poner "Atrás" antes del formulario, **Enter regresaba a la pregunta anterior** en el modo campero, porque el navegador usa como botón por omisión el primer botón de envío del formulario en el orden de la página; en la entrevista asistida Enter ya mandaba "Guardar y salir" desde antes del rediseño. (2) Con un ritmo muy lento (más de 12 horas para terminar) la proyección aplastaba la gráfica contra la orilla izquierda. Además: "Cambiar de evento" y "Discipulado" (administración) no se alcanzaban en la barra del pastor en escritorio | El botón "Continuar" oculto ahora es el primero del documento (bloque `default_submit` antes de la barra): Enter siempre avanza, comprobado en Chromium y con pruebas que fallan si se quita. La proyección solo se dibuja si el término cae dentro de 12 horas. La barra del pastor muestra "Cambiar de evento" y, para administración, "Discipulado" |
-| 11 | Código final: 0 problemas de axe en 51 combinaciones, prueba de navegador completa, 196 pruebas en PostgreSQL | — |
+| 11 | 0 problemas de axe en 51 combinaciones, prueba de navegador completa, 196 pruebas en PostgreSQL | — |
+| 12 | Se migraron las pantallas que quedaban del coordinador (elegir computadora, Mis camperos, pendientes, Mi avance, registrar, ficha del campero, ficha de la entrevista, riesgo, seguimientos, lista de respaldo). En la revisión: "Computadora 10" se partía en dos líneas; los campos del formulario salían angostos (los controles de Django no traen clase); en Mi avance la cifra final tapaba "Total 31" y la cuadrícula decía 12, 25, 37 | Cuadrícula de computadoras más ancha. Los controles dentro de `.field` se ven como `.input`. La cifra final va debajo del punto cerca de la meta; la cuadrícula elige pasos redondos |
+| 13 | El resumen del pastor en teléfono medía 6,600 px | Los totales de respuestas van en un plegable que arranca cerrado en teléfono (4,575 px, 31 % menos) y conserva lo que la persona abrió aunque la página se actualice sola, comprobado con una actualización real. **axe: 0 problemas en 84 combinaciones** (28 pantallas × 3 anchos); 198 pruebas |
 
 ### Antes y después de algunos hallazgos
 
@@ -85,6 +87,26 @@ Página completa en escritorio: ![Coordinador, página completa](img/rotulo/coor
 
 Páginas completas: ![Pastor, escritorio completo](img/rotulo/pastor-escritorio-completa.png) ![Pastor, tableta completa](img/rotulo/pastor-tableta-completa.png)
 
+En teléfono, con los totales plegados: ![Pastor, teléfono completo](img/rotulo/pastor-movil-plegado.png)
+
+### El resto del coordinador
+
+| Elegir computadora | Mis camperos | Entrevistas pendientes |
+|---|---|---|
+| ![Elegir computadora](img/rotulo/computadora.png) | ![Mis camperos](img/rotulo/mis-camperos.png) | ![Entrevistas pendientes](img/rotulo/pendientes.png) |
+
+| Mi avance | Registrar campero (teléfono) | Ficha del campero |
+|---|---|---|
+| ![Mi avance](img/rotulo/mi-avance.png) | ![Registrar campero](img/rotulo/registrar-movil.png) | ![Ficha del campero](img/rotulo/ficha.png) |
+
+| Ficha de la entrevista | Reportar riesgo (teléfono) | Seguimiento |
+|---|---|---|
+| ![Ficha de la entrevista](img/rotulo/entrevista-detalle.png) | ![Reportar riesgo](img/rotulo/riesgo-movil.png) | ![Seguimiento](img/rotulo/seguimiento-detalle.png) |
+
+| Seguimientos | Lista de respaldo |
+|---|---|
+| ![Seguimientos](img/rotulo/seguimientos.png) | ![Lista de respaldo](img/rotulo/respaldo.png) |
+
 ## Comparación con las referencias
 
 | Referencia | Qué se buscaba | Cómo quedó |
@@ -121,9 +143,7 @@ Páginas completas: ![Pastor, escritorio completo](img/rotulo/pastor-escritorio-
 
 ## Pendientes
 
-- **Dos sistemas a la vez.** Al ir de "Mi inicio" a "Mis camperos", o de la entrevista a la ficha del campero, la apariencia cambia. Es lo más urgente. Orden propuesto: elegir computadora, Mis camperos, registro, pendientes y avance del coordinador; después tutor y presentación (según las propuestas de `design-direction.md`), administración y discipulado.
-- **Elegir computadora** aparece una vez por sesión antes de la primera búsqueda y sigue con el sistema anterior.
-- **Resumen del pastor en teléfono:** mide unos 6,500 px, sobre todo por los totales de respuestas. Podrían plegarse.
+- **Dos sistemas a la vez, ahora solo para líderes.** El coordinador ya no cambia de sistema en ninguna pantalla. Tutores, pastores y administración todavía pasan de pantallas nuevas (fichas, seguimientos, resumen del pastor) a pantallas anteriores (inicio del tutor, avance, reportes, presentación, administración). Siguiente: tutor y presentación según las propuestas de `design-direction.md`, después administración y discipulado.
 - **Conteo en teléfono:** con más de 40 camperos ocupa dos renglones de marcas; funciona, pero conviene revisar con equipos grandes. Arriba de 80 se cambia solo a una regla.
 - **Proyector y voluntarios reales:** no se ha probado en un proyector ni con personas. Las propuestas de presentación están validadas en color, no en sala.
 - **Peso:** Recursive agrega 109 KB (latín), una vez por dispositivo gracias al caché de WhiteNoise.
@@ -132,9 +152,9 @@ Páginas completas: ![Pastor, escritorio completo](img/rotulo/pastor-escritorio-
 
 | Prueba | Resultado |
 |---|---|
-| `manage.py test` en PostgreSQL 16 | 196 pruebas, todas correctas (incluye `events/tests/test_rotulo.py`: alcance de hojas de estilo, conteo y regla, proyección y su límite de 12 horas, etiquetas de gráficas sin choques, búsqueda por palabras en los dos buscadores, Enter avanza en la entrevista y en el modo campero, búsqueda de administración) |
+| `manage.py test` en PostgreSQL 16 | 198 pruebas, todas correctas (incluye `events/tests/test_rotulo.py`: alcance de hojas de estilo, conteo y regla, proyección y su límite de 12 horas, etiquetas de gráficas sin choques, búsqueda por palabras en los dos buscadores, Enter avanza en la entrevista y en el modo campero, búsqueda de administración) |
 | `manage.py test` en SQLite | Las mismas, con 4 omitidas (las de concurrencia necesitan PostgreSQL) |
 | Revisión independiente | Permisos, exposición de datos e inyección sin hallazgos; los dos errores que encontró están corregidos y cubiertos por pruebas (ronda 10) |
 | `e2e/station-flow.mjs` | Correcto: asistida, supervisada, confinamiento del campero, opción exclusiva, desbloqueo |
-| axe-core 4.10.2 (WCAG 2.0, 2.1, 2.2, A y AA) | 0 problemas en 17 pantallas × 3 anchos |
+| axe-core 4.10.2 (WCAG 2.0, 2.1, 2.2, A y AA) | 0 problemas en 28 pantallas × 3 anchos |
 | `manage.py check` y `collectstatic` con `DEBUG=false` | Sin problemas; la hoja y las fuentes nuevas pasan por el manifiesto de WhiteNoise |

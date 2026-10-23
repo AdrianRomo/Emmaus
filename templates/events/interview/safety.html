@@ -1,22 +1,23 @@
-{% extends shell_template %}
+{% extends rotulo_shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Reportar una situación de riesgo{% endblock %}
 {% block content %}
+<div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
-<header class="page-head">
-  <p class="folio">{{ participant.full_name }} · #{{ participant.code }}</p>
-  <h1>Reportar una situación de riesgo</h1>
-</header>
+{% with lede="Sobre "|add:participant.full_name|add:", #"|add:participant.code|add:"." %}
+  {% include "events/rotulo/_page_head.html" with title="Reportar una situación de riesgo" lede=lede %}
+{% endwith %}
 <div class="notice notice--danger">
   <p class="notice__title">Primero, actúa</p>
   <p>{{ instructions|linebreaksbr }}</p>
 </div>
-<form method="post" class="mt-8" novalidate>
+<form method="post" class="block" novalidate>
   {% csrf_token %}
   {% include "partials/ui/field.html" with field=form.details %}
-  <p class="text-sm muted">Solo el equipo de cuidado autorizado y la administración podrán leer este reporte. Les avisaremos por correo sin incluir nombres ni detalles.</p>
-  <div class="btn-row mt-6">
-    <button class="btn btn--danger" type="submit">Enviar reporte</button>
-    <a class="btn btn--quiet" href="{% if interview and interview.status == 'en_curso' %}{% url 'events:interview_review' event.slug interview.public_id %}{% else %}{% url 'events:participant_detail' event.slug participant.public_id %}{% endif %}">Cancelar</a>
+  <p class="aside-note">Solo el equipo de cuidado autorizado y la administración podrán leer este reporte. Les avisaremos por correo sin incluir nombres ni detalles.</p>
+  <div class="step__actions">
+    <button class="btn btn--danger btn--large" type="submit">Enviar reporte</button>
+    <a class="btn btn--link" href="{% if interview and interview.status == 'en_curso' %}{% url 'events:interview_review' event.slug interview.public_id %}{% else %}{% url 'events:participant_detail' event.slug participant.public_id %}{% endif %}">Cancelar</a>
   </div>
 </form>
+</div>
 {% endblock %}

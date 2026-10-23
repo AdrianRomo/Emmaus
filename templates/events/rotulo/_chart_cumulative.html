@@ -1,0 +1,22 @@
+{% load emmaus %}
+{% comment %}
+  points, total, chart_id; optional eta (minutes, only when a projection should be drawn), bucket,
+  projection_label, as_of. Two drawings of the same chart: the compact one keeps its text readable on a phone.
+{% endcomment %}
+<figure class="chart">
+  <figcaption>
+    <p class="chart__title">Entrevistas completadas, acumuladas</p>
+    <p class="chart__sub">La línea horizontal es la meta ({{ total }}).{% if eta %} La línea punteada es la proyección al ritmo actual.{% endif %}{% if as_of %} Datos al {{ as_of|as_datetime|date:"H:i" }}.{% endif %}</p>
+  </figcaption>
+  {% if points %}
+    <div class="chart__wide">{% cumulative_chart points total chart_id "Entrevistas completadas acumuladas" False eta bucket|default:60 projection_label %}</div>
+    <div class="chart__narrow">{% cumulative_chart points total chart_id|add:"-movil" "Entrevistas completadas acumuladas" False eta bucket|default:60 projection_label True %}</div>
+    <details class="details" id="{{ chart_id }}-tabla">
+      <summary>Ver los datos en una tabla</summary>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas por hora"><table class="table"><thead><tr><th>Hora</th><th class="num">En esa hora</th><th class="num">Acumuladas</th></tr></thead>
+        <tbody>{% for p in points %}<tr><td>{% if p.day %}{{ p.day }} {% endif %}{{ p.label }}</td><td class="num">{{ p.count }}</td><td class="num">{{ p.cumulative }}</td></tr>{% endfor %}</tbody></table></div>
+    </details>
+  {% else %}
+    <p class="chart__empty">Aún no hay entrevistas completadas. La gráfica aparecerá con la primera.</p>
+  {% endif %}
+</figure>

@@ -63,6 +63,23 @@ class ChartTests(SimpleTestCase):
                 self.assertTrue(all(g >= every * 0.75 for g in gaps), (count, indexes))
                 self.assertLessEqual(len(indexes), max_labels + 1)
 
+    def test_gridlines_land_on_round_numbers(self):
+        from events.charts import _round_step
+
+        for total in (3, 7, 12, 31, 96, 180, 253, 400, 1200):
+            html = cumulative_chart(self.points, total, chart_id="c", title="t")
+            ticks = [int(t) for t in re.findall(r'text-anchor="end" font-size="13">(\d+)</text>', html)]
+            gaps = {b - a for a, b in zip(ticks, ticks[1:])}
+            self.assertEqual(len(gaps), 1, (total, ticks))
+            self.assertTrue(_round_step(gaps.pop()), (total, ticks))
+
+    def test_last_value_never_sits_on_the_total_label(self):
+        points = [{"label": f"{h:02d}:00", "day": "", "count": 2, "cumulative": 2 * (h + 1) + 6} for h in range(10)]  # ends at 26
+        html = cumulative_chart(points, 31, chart_id="c", title="t")
+        value_y = float(re.search(r'class="label-strong" x="[\d.]+" y="([\d.]+)"', html).group(1))
+        total_y = float(re.search(r'y="([\d.]+)" font-size="13">Total 31<', html).group(1))
+        self.assertGreater(abs(value_y - total_y), 13 * 1.2)
+
     def test_projection_runs_to_the_total_only_when_asked(self):
         plain = cumulative_chart(self.points, 200, chart_id="c", title="t")
         self.assertNotIn("projection", plain)
@@ -82,16 +99,27 @@ class ChartTests(SimpleTestCase):
 
 class RedesignedScreenTests(CampFixture):
     def test_migrated_screens_use_rotulo_and_the_rest_keep_the_old_stylesheet(self):
+        # Every screen a coordinador reaches is on Rótulo, so the coordinator never jumps between systems.
         self.login(self.coord1)
-        self.assertContains(self.client.get(self.url("coord_home")), "css/rotulo.css")
+        self.assertContains(self.client.get(self.url("choose_station")), "css/rotulo.css")
         self.choose_station()
-        self.assertContains(self.client.get(self.url("interview_search")), "css/rotulo.css")
-        response = self.client.get(self.url("my_participants"))
-        self.assertContains(response, "css/emmaus.css")
-        self.assertNotContains(response, "css/rotulo.css")
+        coordinator_pages = [
+            self.url("coord_home"), self.url("interview_search"), self.url("my_participants"), self.url("coord_pending"),
+            self.url("coord_progress"), self.url("participant_create"), self.url("participant_detail", self.p1.public_id),
+            self.url("participant_edit", self.p1.public_id), self.url("safety_report", self.p1.public_id),
+            self.url("follow_ups"), self.url("backup_list"),
+        ]
+        for url in coordinator_pages:
+            response = self.client.get(url)
+            self.assertContains(response, "css/rotulo.css", msg_prefix=url)
+            self.assertNotContains(response, "css/emmaus.css", msg_prefix=url)
         self.login(self.pastor)
         self.assertContains(self.client.get(self.url("pastor_home")), "css/rotulo.css")
-        self.assertContains(self.client.get(self.url("follow_ups")), "css/emmaus.css")
+        self.assertContains(self.client.get(self.url("progress")), "css/emmaus.css")
+        self.login(self.tutor1)
+        self.assertContains(self.client.get(self.url("tutor_home")), "css/emmaus.css")
+        self.login(self.admin)
+        self.assertContains(self.client.get(self.url("admin_home")), "css/emmaus.css")
 
     def test_coordinator_sign_switches_to_the_open_interview(self):
         self.login(self.coord1)

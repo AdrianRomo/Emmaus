@@ -32,6 +32,16 @@
     panel.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
   });
 
+  /* ---- Folds that start closed on small screens ------------------------- */
+  function applyFolds(root, skip) {
+    $all("details[data-fold-below]", root).forEach(function (d) {
+      if (skip && d.id && d.id in skip) return;
+      var px = parseInt(d.getAttribute("data-fold-below"), 10);
+      if (window.matchMedia && window.matchMedia("(max-width: " + px + "px)").matches) d.open = false;
+    });
+  }
+  applyFolds(doc);
+
   /* ---- Live regions: polling with "last update" and stale warnings ------- */
   $all("[data-live-url]").forEach(function (region) {
     var url = region.getAttribute("data-live-url");
@@ -66,7 +76,12 @@
         return response.text();
       }).then(function (html) {
         if (html === null || html === undefined) return;
+        // A refresh must not close a table or fold the reader opened (or reopen one they closed).
+        var openState = {};
+        $all("details[id]", region).forEach(function (d) { openState[d.id] = d.open; });
         region.innerHTML = html;
+        $all("details[id]", region).forEach(function (d) { if (d.id in openState) d.open = openState[d.id]; });
+        applyFolds(region, openState);
         lastOk = new Date();
         setStatus("ok", "Última actualización: " + timeLabel(lastOk));
         region.dispatchEvent(new CustomEvent("emmaus:updated", { bubbles: true }));

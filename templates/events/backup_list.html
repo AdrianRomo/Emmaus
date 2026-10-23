@@ -1,24 +1,26 @@
-{% extends "layout/skeleton.html" %}
+{% extends "layout/rotulo.html" %}
 {% load emmaus %}
 {% block title %}Lista de respaldo · {{ event.name }}{% endblock %}
-{% block body_class %}print-page{% endblock %}
 {% block body %}
 <main id="contenido" class="print-sheet">
-  <header class="cluster cluster--between">
-    <div><p class="folio">{{ event.name }} · impresa {% now "d/m/Y H:i" %}</p><h1>Lista de respaldo</h1></div>
-    <div class="btn-row"><button class="btn btn--primary" type="button" data-print>Imprimir</button><a class="btn btn--quiet" href="{% url 'events:home' event.slug %}">Volver</a></div>
+  <header class="page-head page-head--actions">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">Lista de respaldo</h1>
+      <p class="page-head__meta">{{ event.name }}, impresa el {% now "d/m/Y" %} a las {% now "H:i" %}.</p>
+    </div>
+    <div class="page-head__actions"><button class="btn btn--primary" type="button" data-print>Imprimir</button><a class="btn btn--link" href="{% url 'events:home' event.slug %}">Volver</a></div>
   </header>
-  <p class="text-sm mt-2">Úsala solo si falla la red o una computadora. Marca a quién entrevistaste y captura sus respuestas en Emmaus en cuanto se pueda. Contiene datos personales: no la dejes a la vista y destrúyela al terminar.</p>
+  <p class="notice notice--warning">Úsala solo si falla la red o una computadora. Marca a quién entrevistaste y captura sus respuestas en Emmaus en cuanto se pueda. Contiene datos personales: no la dejes a la vista y destrúyela al terminar.</p>
   {% for coordinator, rows in groups.items %}
     <section class="print-group">
-      <h2>{{ coordinator }} <span class="muted text-sm">· {{ rows|length }} camperos</span></h2>
+      <h2>{{ coordinator }}, {{ rows|length }} campero{{ rows|length|pluralize }}</h2>
       <table class="table">
         <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Estado en Emmaus</th><th>Entrevistado</th><th>Notas</th></tr></thead>
         <tbody>{% for p in rows %}<tr><td class="num">{{ p.code }}</td><td>{{ p.full_name }}</td><td class="num">{{ p.age }}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.get_interview_status_display }}</td><td class="print-box">☐</td><td class="print-notes"></td></tr>{% endfor %}</tbody>
       </table>
     </section>
   {% empty %}
-    <p class="mt-6">No hay camperos en esta lista.</p>
+    <p class="empty-line">No hay camperos en esta lista.</p>
   {% endfor %}
 </main>
 {% endblock %}

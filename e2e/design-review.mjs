@@ -67,6 +67,7 @@ try {
   // Register the station first, as a coordinator does at the start of the day
   await page.goto(BASE + S + "/entrevistas/iniciar/");
   if (page.url().includes("/computadora/")) {
+    await everyWidth(page, "computadora", { full: false });
     await page.check("input[name=station] >> nth=3");
     await go(page, page.click("form button:has-text('Continuar')"));
   }
@@ -74,6 +75,23 @@ try {
   await everyWidth(page, "coordinador");
   await page.goto(BASE + S + "/entrevistas/iniciar/?q=" + encodeURIComponent("mat"));
   await everyWidth(page, "busqueda");
+  // The rest of the coordinator's screens
+  for (const [name, path] of [["mis-camperos", "/mis-camperos/"], ["pendientes", "/pendientes/mias/"], ["mi-avance", "/mi-avance/"],
+                              ["registrar", "/camperos/nuevo/"], ["seguimientos", "/seguimiento/"], ["respaldo", "/lista-de-respaldo/"]]) {
+    await page.goto(BASE + S + path);
+    await everyWidth(page, name);
+  }
+  await page.goto(BASE + S + "/mis-camperos/?estado=completada");
+  await go(page, page.click(".results .row__link >> nth=0"));
+  await everyWidth(page, "ficha");
+  await go(page, page.click("a:has-text('Ver respuestas')"));
+  await everyWidth(page, "entrevista-detalle");
+  await page.goBack();
+  await go(page, page.click("a:has-text('Reportar una situación de riesgo')"));
+  await everyWidth(page, "riesgo", { full: false });
+  await page.goto(BASE + S + "/seguimiento/");
+  await go(page, page.click(".results .row__link >> nth=0"));
+  await everyWidth(page, "seguimiento-detalle", { full: false });
 
   // Interview: start (and its error state) -> questions -> review -> done
   await startFromHome(page);
