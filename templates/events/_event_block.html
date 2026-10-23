@@ -1,6 +1,0 @@
-{% load emmaus %}
-<div class="rail__event">
-  <p class="rail__event-name">{{ event.name }}</p>
-  <p class="folio">{{ event.get_kind_display }}{% if event.starts_on %} · {{ event.starts_on|fecha_corta }}{% if event.ends_on and event.ends_on != event.starts_on %} – {{ event.ends_on|fecha_corta }}{% endif %}{% endif %}</p>
-  <a href="{% url 'events:list' %}?todos=1">Cambiar de evento</a>
-</div>

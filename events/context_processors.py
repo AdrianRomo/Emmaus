@@ -19,8 +19,7 @@ def event_context(request):
         "event": event,
         "access": access,
         "event_nav": items,
-        "shell_template": "events/shell_bar.html" if access.is_coordinator else "events/shell_rail.html",
-        # Screens already on the "Rótulo" design system (docs/design-system.md) pick their shell by role.
+        # The shell each event screen extends, by role: coordinators get the action-first bar, leaders the report bar.
         "rotulo_shell": "events/rotulo/shell_coordinator.html" if access.is_coordinator else "events/rotulo/shell_leader.html",
         "current_url_name": url_name,
         "today": timezone.localdate(),

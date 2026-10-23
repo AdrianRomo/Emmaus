@@ -33,7 +33,7 @@
     </div>
     {% include "events/rotulo/_pagination.html" with page=page %}
   {% else %}
-    <p class="empty-line">No se encontraron participantes. Cambia los filtros o <a href="{{ import_url }}">importa la lista de camperos</a> desde un archivo.</p>
+    <p class="empty-line">No se encontraron participantes. Cambia los filtros{% if access.is_admin %} o <a href="{{ import_url }}">importa la lista de camperos</a> desde un archivo{% endif %}.</p>
   {% endif %}
   {% if can_manage %}<p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a> (CSV, sin respuestas).</p>{% endif %}
 </section>

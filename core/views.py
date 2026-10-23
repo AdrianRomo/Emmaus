@@ -37,6 +37,7 @@ from .forms import (
     PathForm,
     QuestionResponseForm,
     ReflectionQuestionForm,
+    TuPasswordResetForm,
 )
 from .models import (
     AIDraft,
@@ -806,6 +807,7 @@ class ThrottledPasswordResetView(PasswordResetView):
     """At most 3 reset e-mails per address per hour (prevents mail flooding)."""
 
     template_name = "registration/password_reset_form.html"
+    form_class = TuPasswordResetForm
     email_template_name = "registration/password_reset_email.txt"
     subject_template_name = "registration/password_reset_subject.txt"
     success_url = "/cuenta/olvide-mi-contrasena/enviado/"

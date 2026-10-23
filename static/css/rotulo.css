@@ -6,8 +6,8 @@
    (Atkinson Hyperlegible Next). Yellow is wayfinding only ("estás aquí",
    "lo que sigue"); añil is action and data ink; chile is error and risk.
 
-   One stylesheet, no build step. Loaded by templates/layout/rotulo.html.
-   Screens not migrated yet still use emmaus.css ("Cuaderno de campo").
+   One stylesheet, no build step, for every screen (templates/layout/skeleton.html).
+   The per-area sections at the end were added when the last screens moved over.
    Breakpoints (literal in media queries): 600px, 900px, 1100px.
    See docs/design-system.md.
    ========================================================================== */
@@ -253,7 +253,8 @@ form.is-submitting .btn--primary { opacity: 0.7; }
 }
 .textarea, .field textarea { min-height: 9rem; line-height: 1.45; resize: vertical; }
 .field input[type="number"] { max-width: 8rem; }
-.field--error .input, .field--error .textarea, .field--error input:not([type="checkbox"]):not([type="radio"]), .field--error textarea, .field--error select { border-color: var(--chile); }
+.field--error .input, .field--error .textarea, .field--error textarea, .field--error select,
+.field.field--error input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { border-color: var(--chile); }
 
 /* Checkbox rows from partials/ui/field.html */
 .check { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-2) 0; cursor: pointer; }
@@ -331,6 +332,7 @@ a.wordmark:hover { color: var(--anil); }
 .bar__event { color: var(--ink-2); font-size: var(--t-small); max-width: 13rem; line-height: 1.25; }
 .bar__event a { display: block; margin-top: 0.125rem; font-weight: 700; }
 .bar--leader .bar__event { max-width: 17rem; }
+.bar__event a { white-space: nowrap; }
 .bar__nav { display: flex; gap: var(--s-1); margin-left: auto; align-self: stretch; }
 .bar__nav a {
   display: flex; align-items: center; padding: 0 var(--s-3);
@@ -434,6 +436,7 @@ a.wordmark:hover { color: var(--anil); }
 .summary-list dt { font-weight: 700; }
 .summary-list dd { margin: 0; }
 .summary-list__action { text-align: right; font-weight: 700; }
+.summary-list:has(.summary-list__action) .summary-list__row { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 10rem; }
 .summary-list--answers .summary-list__row { grid-template-columns: minmax(0, 1fr) auto; padding: var(--s-4) 0; }
 .summary-list--answers dt { grid-column: 1; font-weight: 400; color: var(--ink-2); font-size: var(--t-small); }
 .summary-list--answers dd:not(.summary-list__action) { grid-column: 1; font-weight: 700; font-size: var(--t-lead); }
@@ -585,8 +588,7 @@ a.wordmark:hover { color: var(--anil); }
 .page-head--actions { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-8); }
 .page-head__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
 .page-head__title { font-size: clamp(2rem, 1.5rem + 1.6vw, var(--t-h1)); line-height: 1.08; max-width: 24ch; }
-.page-head__meta, .folio { font-size: var(--t-small); color: var(--ink-2); margin-top: var(--s-3); }
-.folio { margin: 0 0 var(--s-2); font-weight: 700; }
+.page-head__meta { font-size: var(--t-small); color: var(--ink-2); margin-top: var(--s-3); }
 .lede { margin-top: var(--s-3); font-size: var(--t-lead); color: var(--ink-2); max-width: 60ch; }
 
 .checks__step { padding: var(--s-8) 0; border-top: 1px solid var(--line); }
@@ -661,7 +663,7 @@ ol.promises li::before {
 
 /* Two columns on a record page (datos | entrevista) */
 .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-10) var(--s-16); align-items: start; }
-@media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
 .block + .block { margin-top: var(--s-10); }
 .heading + * { margin-top: var(--s-3); }
 
@@ -736,7 +738,7 @@ ol.promises li::before {
 .report-section__body > .key { margin-top: var(--s-3); }
 .headline__delta { font-size: var(--t-small); color: var(--ink-2); }
 
-.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--s-4) var(--s-6); }
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--s-4) var(--s-6); }
 .figures > div { border-top: 1px solid var(--line); padding-top: var(--s-3); }
 .figures dt { font-size: var(--t-small); font-weight: 700; color: var(--ink-2); }
 .figures__value { font-size: 2.25rem; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; white-space: nowrap; }
@@ -767,10 +769,11 @@ ol.promises li::before {
   .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .figures__value { font-size: 1.75rem; }
 }
-.table-wrap { overflow-x: auto; margin-top: var(--s-3); }
+.table-wrap { position: relative; overflow-x: auto; margin-top: var(--s-3); }  /* keeps visually hidden text inside the scroller */
 .table { border-collapse: collapse; width: 100%; font-size: var(--t-small); }
 .table th { text-align: left; font-weight: 700; border-bottom: var(--b-control) solid var(--carbon); padding: var(--s-2) var(--s-3) var(--s-2) 0; }
 .table td { border-bottom: 1px solid var(--line); padding: var(--s-2) var(--s-3) var(--s-2) 0; }
+.table th[scope="row"] { border-bottom: 1px solid var(--line); }  /* a row header is not a column header */
 .table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .teams { list-style: none; }
@@ -1052,7 +1055,6 @@ ol.promises li::before {
 .disc-path__note { margin-top: var(--s-2); font-size: var(--t-small); color: var(--ink-2); }
 .disc-side { display: grid; gap: var(--s-10); }
 .disc-actions { margin-top: var(--s-4); }
-.disc-list { max-width: 52rem; }
 
 /* A lesson reads like a question page: painted title, a reading measure, the reflection as a large field */
 .disc-lesson__refs { margin-top: var(--s-4); }

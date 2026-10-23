@@ -4,8 +4,9 @@ import math
 import re
 from unittest import mock
 
+from django.conf import settings
 from django.template import Context, Template
-from django.test import SimpleTestCase
+from django.test import Client, SimpleTestCase
 from django.urls import reverse
 
 from events.charts import _label_indexes, columns_chart, cumulative_chart
@@ -98,28 +99,30 @@ class ChartTests(SimpleTestCase):
 
 
 class RedesignedScreenTests(CampFixture):
-    def test_migrated_screens_use_rotulo_and_the_rest_keep_the_old_stylesheet(self):
-        # Every screen a coordinador reaches is on Rótulo, so the coordinator never jumps between systems.
-        self.login(self.coord1)
-        self.assertContains(self.client.get(self.url("choose_station")), "css/rotulo.css")
-        self.choose_station()
-        coordinator_pages = [
-            self.url("coord_home"), self.url("interview_search"), self.url("my_participants"), self.url("coord_pending"),
-            self.url("coord_progress"), self.url("participant_create"), self.url("participant_detail", self.p1.public_id),
-            self.url("participant_edit", self.p1.public_id), self.url("safety_report", self.p1.public_id),
-            self.url("follow_ups"), self.url("backup_list"),
-        ]
-        for url in coordinator_pages:
-            response = self.client.get(url)
+    def test_every_screen_of_every_role_is_on_rotulo(self):
+        """One design system: no role ever crosses into the old stylesheet, which no longer exists."""
+        self.assertFalse((settings.BASE_DIR / "static" / "css" / "emmaus.css").exists())
+        pages = {
+            self.coord1: ["coord_home", "my_participants", "coord_pending", "coord_progress", "participant_create",
+                          ("participant_detail", self.p1.public_id), "follow_ups", "backup_list", "interview_search"],
+            self.tutor1: ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups"],
+            self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live"],
+            self.admin: ["admin_home", "participants", "participant_import", "team", "assignments", "questionnaires",
+                         "settings", "audit", "sessions", "reports", "member_add"],
+        }
+        for user, names in pages.items():
+            client = Client()
+            self.login(user, client)
+            self.choose_station(client)
+            for name in names:
+                url = self.url(*name) if isinstance(name, tuple) else self.url(name)
+                response = client.get(url)
+                self.assertEqual(response.status_code, 200, url)
+                self.assertContains(response, "css/rotulo.css", msg_prefix=url)
+                self.assertNotContains(response, "emmaus.css", msg_prefix=url)
+        for url in (reverse("login"), reverse("landing"), reverse("password_reset"), reverse("events:list")):
+            response = (self.client if url != reverse("events:list") else self.login(self.admin, Client())).get(url)
             self.assertContains(response, "css/rotulo.css", msg_prefix=url)
-            self.assertNotContains(response, "css/emmaus.css", msg_prefix=url)
-        self.login(self.pastor)
-        self.assertContains(self.client.get(self.url("pastor_home")), "css/rotulo.css")
-        self.assertContains(self.client.get(self.url("progress")), "css/emmaus.css")
-        self.login(self.tutor1)
-        self.assertContains(self.client.get(self.url("tutor_home")), "css/emmaus.css")
-        self.login(self.admin)
-        self.assertContains(self.client.get(self.url("admin_home")), "css/emmaus.css")
 
     def test_coordinator_sign_switches_to_the_open_interview(self):
         self.login(self.coord1)

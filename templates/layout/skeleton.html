@@ -5,17 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <title>{% block title %}Emmaus{% endblock %}</title>
-    {% block stylesheets %}
-      <link rel="preload" href="{% static 'fonts/atkinson-next-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
-      <link rel="preload" href="{% static 'fonts/literata-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
-      <link rel="stylesheet" href="{% static 'css/emmaus.css' %}">
-    {% endblock %}
+    {# One design system, "Rótulo": docs/design-system.md #}
+    <link rel="preload" href="{% static 'fonts/atkinson-next-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{% static 'fonts/recursive-casual-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="{% static 'css/rotulo.css' %}">
     <link rel="icon" href="{% static 'img/emmaus-mark.svg' %}" type="image/svg+xml">
-    {% block theme %}
-      {% if theme_church and theme_church.custom_theme_enabled %}
-        <style>:root{--pine:{{ theme_church.theme_primary_color }};--pine-strong:{{ theme_church.theme_primary_color }};--terracotta:{{ theme_church.theme_accent_color }};--paper:{{ theme_church.theme_background_color }};--sheet:{{ theme_church.theme_surface_color }};--ink:{{ theme_church.theme_text_color }};--ink-3:{{ theme_church.theme_muted_text_color }};--line:{{ theme_church.theme_border_color }};}</style>
-      {% endif %}
-    {% endblock %}
+    {% if theme_church and theme_church.custom_theme_enabled %}
+      <style>:root{--anil:{{ theme_church.theme_primary_color }};--anil-hover:{{ theme_church.theme_primary_color }};--maiz:{{ theme_church.theme_accent_color }};--page:{{ theme_church.theme_background_color }};--cal:{{ theme_church.theme_surface_color }};--carbon:{{ theme_church.theme_text_color }};--ink-3:{{ theme_church.theme_muted_text_color }};--line:{{ theme_church.theme_border_color }};}</style>
+    {% endif %}
     {% block head %}{% endblock %}
     <script src="{% static 'js/emmaus.js' %}" defer></script>
   </head>

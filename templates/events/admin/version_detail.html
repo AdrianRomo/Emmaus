@@ -43,7 +43,7 @@
             <div class="row__end admin-questions__actions">
               <a class="btn btn--secondary btn--small" href="{% url 'events:question_edit' event.slug version.id q.id %}">Editar<span class="visually-hidden"> “{{ q.text|truncatechars:40 }}”</span></a>
               {% if q.is_choice %}<a class="btn btn--link btn--small" href="{% url 'events:option_add' event.slug version.id q.id %}">Agregar opción<span class="visually-hidden"> a “{{ q.text|truncatechars:40 }}”</span></a>{% endif %}
-              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete_question"><input type="hidden" name="question" value="{{ q.id }}"><button class="btn btn--danger btn--small" data-confirm="¿Quitar esta pregunta del borrador?">Quitar<span class="visually-hidden"> “{{ q.text|truncatechars:40 }}”</span></button></form>
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete_question"><input type="hidden" name="question" value="{{ q.id }}"><button class="link-button link-button--danger" data-confirm="¿Quitar esta pregunta del borrador?">Quitar<span class="visually-hidden"> “{{ q.text|truncatechars:40 }}”</span></button></form>
             </div>
           {% endif %}
         </li>

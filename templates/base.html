@@ -1,4 +1,4 @@
-{% extends "layout/rotulo.html" %}
+{% extends "layout/skeleton.html" %}
 {% load emmaus %}
 {% comment %}
   Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: a bar whose
@@ -10,7 +10,7 @@
 <header class="bar bar--stacked">
   <div class="bar__inner">
     <a class="wordmark" href="{% url 'dashboard' %}">Emmaus</a>
-    <p class="bar__event">{% if current_church %}{{ current_church.name }}{% else %}Discipulado{% endif %}{% if current_role_record %}<span>{{ current_role_record.get_role_display }}</span>{% endif %}</p>
+    {% if current_church %}<p class="bar__event">{{ current_church.name }}{% if current_role_record %}<span>{{ current_role_record.get_role_display }}</span>{% endif %}</p>{% endif %}
     <div class="bar__end">
       {% if show_events_link %}<a class="btn btn--small btn--secondary bar__switch" href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
       <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
@@ -40,7 +40,7 @@
 <header class="bar bar--public">
   <div class="bar__inner">
     <a class="wordmark" href="{% url 'landing' %}">Emmaus</a>
-    {% if request.resolver_match.url_name != "login" %}<div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>{% endif %}
+    {% if request.resolver_match.url_name != "login" and request.resolver_match.url_name != "landing" %}<div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>{% endif %}
   </div>
 </header>
 <main id="contenido" class="page" tabindex="-1">

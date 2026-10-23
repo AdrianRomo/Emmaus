@@ -12,17 +12,18 @@ from ..views.common import initials as _initials
 
 register = template.Library()
 
-STATUS_CHIPS = {
-    "pendiente": ("chip--pending", "Sin entrevista"),
-    "en_curso": ("chip--progress", "En curso"),
-    "completada": ("chip--done", "Completada"),
-    "descartada": ("chip--pending", "Descartada"),
+# Status words and their mark (an ordinal stage: not started, in progress, done). Colour is never the only signal.
+STATUS_MARKS = {
+    "pendiente": ("pending", "Sin entrevista"),
+    "en_curso": ("progress", "En curso"),
+    "completada": ("done", "Completada"),
+    "descartada": ("pending", "Descartada"),
 }
-FOLLOW_UP_CHIPS = {
-    "pendiente": ("chip--alert", "Pendiente"),
-    "en_proceso": ("chip--progress", "En proceso"),
-    "atendido": ("chip--done", "Atendido"),
-    "cancelado": ("chip--pending", "Cancelado"),
+FOLLOW_UP_MARKS = {
+    "pendiente": ("alert", "Pendiente"),
+    "en_proceso": ("progress", "En proceso"),
+    "atendido": ("done", "Atendido"),
+    "cancelado": ("pending", "Cancelado"),
 }
 
 
@@ -34,42 +35,24 @@ def pct(value):
 
 
 @register.simple_tag
-def status_chip(status, label=None):
-    css, default = STATUS_CHIPS.get(status, ("chip--pending", status))
-    return format_html('<span class="chip {}">{}</span>', css, label or default)
-
-
-@register.simple_tag
-def follow_up_chip(status):
-    css, label = FOLLOW_UP_CHIPS.get(status, ("chip--pending", status))
-    return format_html('<span class="chip {}">{}</span>', css, label)
-
-
-@register.simple_tag
 def status(status, label=None):
     """Rótulo status: a small painted mark plus the word (colour is never the only signal)."""
-    css, default = STATUS_CHIPS.get(status, ("chip--pending", status))
+    kind, default = STATUS_MARKS.get(status, ("pending", status))
     return format_html(
-        '<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>',
-        css.removeprefix("chip--"),
-        label or default,
+        '<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>', kind, label or default
     )
 
 
 @register.simple_tag
 def follow_up_status(status):
-    css, label = FOLLOW_UP_CHIPS.get(status, ("chip--pending", status))
-    return format_html(
-        '<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>',
-        css.removeprefix("chip--"),
-        label,
-    )
+    kind, label = FOLLOW_UP_MARKS.get(status, ("pending", status))
+    return format_html('<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>', kind, label)
 
 
 def _progress_text(completed, in_progress, total):
     remaining = max(total - completed - in_progress, 0)
     if not total:
-        return "Sin camperos todavía"
+        return "Sin datos todavía"
     return f"{completed} de {total} completadas, {in_progress} en curso, {remaining} sin iniciar"
 
 
@@ -106,6 +89,20 @@ def ruler(completed, in_progress, total, marker=None, marker_label=""):
         mark_safe("".join(segs)),
         mark_safe(tick),
     )
+
+
+@register.filter
+def described(field):
+    """The widget with aria-describedby naming its hint and its error, so screen readers announce both."""
+    ids = []
+    if field.help_text:
+        ids.append(f"{field.auto_id}_helptext")
+    if field.errors:
+        ids.append(f"{field.auto_id}-error")
+    attrs = {"aria-describedby": " ".join(ids)} if ids else {}
+    if field.errors:
+        attrs["aria-invalid"] = "true"
+    return field.as_widget(attrs=attrs)
 
 
 @register.filter
@@ -163,32 +160,6 @@ def signed(value):
 
 
 @register.simple_tag
-def meter(completed, in_progress, total, size=""):
-    """Completed / in progress / remaining, with a visually hidden text equivalent."""
-    completed, in_progress, total = int(completed or 0), int(in_progress or 0), int(total or 0)
-    if total:
-        done_w = 100 * completed / total
-        prog_w = 100 * in_progress / total
-    else:
-        done_w = prog_w = 0
-    remaining = max(total - completed - in_progress, 0)
-    segs = []
-    if done_w:
-        segs.append(f'<span class="meter__seg meter__seg--done" style="width:{done_w:.2f}%"></span>')
-    if prog_w:
-        segs.append(f'<span class="meter__seg meter__seg--progress" style="width:{prog_w:.2f}%"></span>')
-    text = (
-        f"{completed} de {total} completadas, {in_progress} en curso, {remaining} sin iniciar"
-        if total
-        else "Sin participantes todavía"
-    )
-    return mark_safe(
-        f'<div class="meter {"meter--lg" if size == "lg" else ""}">'
-        f'<div class="meter__track" role="img" aria-label="{text}">{"".join(segs)}</div></div>'
-    )
-
-
-@register.simple_tag
 def cumulative_chart(points, total, chart_id, title, deck=False, eta_minutes=None, bucket_minutes=60, projection_label="", compact=False):
     return charts.cumulative_chart(
         points,
@@ -206,11 +177,6 @@ def cumulative_chart(points, total, chart_id, title, deck=False, eta_minutes=Non
 @register.simple_tag
 def columns_chart(points, chart_id, title, deck=False, partial_last=False, compact=False):
     return charts.columns_chart(points, chart_id=chart_id, title=title, deck=bool(deck), partial_last=bool(partial_last), compact=bool(compact))
-
-
-@register.inclusion_tag("partials/ui/brand_mark.html")
-def brand_mark(size="1.75rem"):
-    return {"size": size}
 
 
 @register.filter

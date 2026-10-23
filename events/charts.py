@@ -17,7 +17,7 @@ def nice_max(value: int) -> int:
     if value <= 4:
         return 4
     magnitude = 10 ** int(math.floor(math.log10(value)))
-    for step in (1, 2, 2.5, 5, 10):
+    for step in (1, 2, 2.5, 4, 5, 10):  # 4: a goal of 400 tops out at 400, not 500
         candidate = step * magnitude
         if candidate >= value:
             return int(math.ceil(candidate))
@@ -144,8 +144,8 @@ def cumulative_chart(
     parts.append(f'<circle class="dot" cx="{lx:.1f}" cy="{ly:.1f}" r="{7 if deck else 5}"/>')
     label_x, anchor_last = (lx - 10, "end") if project else (lx + 12, "start")
     label_y = ly - 10
-    # Near the goal the value would sit on top of the "Total" label: put it under the point instead.
-    if total and not project and abs(ly - y_for(total)) < font * 1.8:
+    # Near the goal the value would sit on top of the "Total" label (same right edge): put it under the point.
+    if total and not project and abs(label_y - (y_for(total) + font / 3)) < font * 1.4:
         label_x, anchor_last, label_y = lx - 10, "end", ly + font + 8
     parts.append(
         f'<text class="label-strong" x="{label_x:.1f}" y="{label_y:.1f}" text-anchor="{anchor_last}" font-size="{font + 2}">{points[-1]["cumulative"]}</text>'

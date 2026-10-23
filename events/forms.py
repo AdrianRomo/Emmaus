@@ -291,7 +291,7 @@ class MemberForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.event = event
         self.fields["tutor"].queryset = EventMembership.objects.filter(event=event, role=MembershipRole.TUTOR, is_active=True).select_related("user")
-        self.fields["tutor"].label_from_instance = lambda m: f"{m.display_name} · {m.team_label}"
+        self.fields["tutor"].label_from_instance = lambda m: f"{m.display_name}, {m.team_label}"
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower().strip()
@@ -313,9 +313,10 @@ class MembershipEditForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["role"].choices = MembershipRole.choices  # a membership always has a role: no blank choice
         event = self.instance.event
         self.fields["tutor"].queryset = EventMembership.objects.filter(event=event, role=MembershipRole.TUTOR, is_active=True).exclude(pk=self.instance.pk).select_related("user")
-        self.fields["tutor"].label_from_instance = lambda m: f"{m.display_name} · {m.team_label}"
+        self.fields["tutor"].label_from_instance = lambda m: f"{m.display_name}, {m.team_label}"
         assignment = getattr(self.instance, "tutor_assignment", None)
         if assignment:
             self.initial["tutor"] = assignment.tutor_id

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -47,6 +47,32 @@ class TuErrorMessagesMixin:
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             use_tu_error_messages(field)
+
+
+class TuPasswordResetForm(TuErrorMessagesMixin, PasswordResetForm):
+    """Django's reset form, labelled and worded in tú-voice Spanish (its own translation uses "usted")."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].label = "Correo electrónico"
+        self.fields["email"].error_messages["required"] = "Escribe el correo con el que entras a Emmaus."
+
+
+class TuSetPasswordForm(TuErrorMessagesMixin, SetPasswordForm):
+    """New password, in tú-voice Spanish. The rules mirror AUTH_PASSWORD_VALIDATORS in settings."""
+
+    error_messages = {"password_mismatch": "Las dos contraseñas no coinciden. Escríbelas otra vez."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["new_password1"].label = "Contraseña nueva"
+        self.fields["new_password1"].help_text = (
+            "Usa al menos 8 caracteres. Que no sea solo números, ni una contraseña muy común, ni parecida a tu nombre o tu correo."
+        )
+        self.fields["new_password1"].error_messages["required"] = "Escribe tu contraseña nueva."
+        self.fields["new_password2"].label = "Escríbela otra vez"
+        self.fields["new_password2"].help_text = ""
+        self.fields["new_password2"].error_messages["required"] = "Escribe otra vez tu contraseña nueva."
 
 
 class EmailAuthenticationForm(TuErrorMessagesMixin, AuthenticationForm):

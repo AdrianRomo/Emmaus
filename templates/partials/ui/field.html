@@ -1,16 +1,17 @@
-{% comment %}One form field: label, hint, error (GOV.UK order), control.{% endcomment %}
+{% load emmaus %}
+{% comment %}One form field: label, hint, error (GOV.UK order), control. The control is described by its hint and error.{% endcomment %}
 {% with widget=field.field.widget %}
 <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
   {% if widget.input_type == "checkbox" %}
     {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
     <label class="check" for="{{ field.id_for_label }}">
-      {{ field }}
-      <span class="check__text">{{ field.label }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</span>
+      {{ field|described }}
+      <span class="check__text">{{ field.label }}{% if field.help_text %}<small id="{{ field.auto_id }}_helptext">{{ field.help_text }}</small>{% endif %}</span>
     </label>
   {% elif widget.input_type == "radio" %}
-    <fieldset {% if field.help_text or field.errors %}aria-describedby="{% if field.help_text %}{{ field.auto_id }}-hint{% endif %}{% if field.errors %} {{ field.auto_id }}-error{% endif %}"{% endif %}>
+    <fieldset {% if field.help_text or field.errors %}aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.errors %} {{ field.auto_id }}-error{% endif %}"{% endif %}>
       <legend class="legend">{{ field.label }}</legend>
-      {% if field.help_text %}<span class="hint" id="{{ field.auto_id }}-hint">{{ field.help_text }}</span>{% endif %}
+      {% if field.help_text %}<span class="hint" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</span>{% endif %}
       {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
       <div class="radio-list">
         {% for radio in field %}
@@ -20,9 +21,9 @@
     </fieldset>
   {% else %}
     <label class="label" for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="optional">(opcional)</span>{% endif %}</label>
-    {% if field.help_text %}<span class="hint" id="{{ field.auto_id }}-hint">{{ field.help_text }}</span>{% endif %}
+    {% if field.help_text %}<span class="hint" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</span>{% endif %}
     {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
-    {{ field }}
+    {{ field|described }}
   {% endif %}
 </div>
 {% endwith %}

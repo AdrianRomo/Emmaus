@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from django.views.generic import RedirectView
 
-from core.forms import EmailAuthenticationForm
+from core.forms import EmailAuthenticationForm, TuSetPasswordForm
 from core.views import ThrottledLoginView, ThrottledPasswordResetView
 
 urlpatterns = [
@@ -18,7 +18,9 @@ urlpatterns = [
     path("cuenta/salir/", auth_views.LogoutView.as_view(), name="logout"),
     path(
         "cuenta/contrasena/<uidb64>/<token>/",
-        auth_views.PasswordResetConfirmView.as_view(template_name="registration/password_set.html", success_url="/cuenta/contrasena/lista/"),
+        auth_views.PasswordResetConfirmView.as_view(
+            template_name="registration/password_set.html", success_url="/cuenta/contrasena/lista/", form_class=TuSetPasswordForm
+        ),
         name="password_reset_confirm",
     ),
     path(
