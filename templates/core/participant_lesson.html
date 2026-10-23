@@ -2,69 +2,73 @@
 {% load core_extras %}
 {% block page_title %}{{ lesson.title }}{% endblock %}
 {% block content %}
-  <article>
-    <header class="page-head">
-      <p class="folio">{{ summary.enrollment.path.title }}</p>
-      <div class="page-head__row">
-        <div>
-          <h1>{{ lesson.title }}</h1>
-          <p class="lede">Lección {{ lesson.order }} · Llevas {{ summary.completed_lessons }} de {{ summary.total_lessons }} terminadas</p>
-        </div>
-      </div>
-      {% include "partials/progress_bar.html" with percent=summary.percent label="Avance de la ruta" %}
-    </header>
+<div class="disc-focus">
+<article class="disc-lesson" aria-labelledby="leccion-titulo">
+  {% comment %}The path as a trail, like the interview: añil the lessons already finished, maíz where you are.{% endcomment %}
+  <div class="trail">
+    <a class="trail__back" href="{% url 'participant_dashboard' %}">Mi camino</a>
+    <p class="trail__count">Lección <strong>{{ lesson.order }}</strong> de {{ summary.total_lessons }}. Llevas {{ summary.completed_lessons }} terminada{{ summary.completed_lessons|pluralize }}.</p>
+    <p class="trail__section">{{ summary.enrollment.path.title }}</p>
+    <ol class="trail__blazes" aria-hidden="true">
+      {% for step in summary.enrollment.lesson_progress.all %}<li{% if step.lesson_id == lesson.id %} class="is-here"{% elif step.completed_at %} class="is-done"{% endif %}></li>{% endfor %}
+    </ol>
+  </div>
 
-    <div class="stack-lg">
-      <section class="prose stack" aria-label="Contenido de la lección">
-        {% if lesson.scripture_references %}
-          <div class="notice notice--quiet">
-            <p class="notice__title">Para leer en la Biblia</p>
-            <p>{{ lesson.scripture_references }}</p>
-          </div>
-        {% endif %}
-        <div class="prose">{{ lesson.body|linebreaks }}</div>
-        {% if lesson.practical_step %}
-          <div class="notice">
-            <p class="notice__title">Una práctica sencilla</p>
-            <p>{{ lesson.practical_step|linebreaksbr }}</p>
-          </div>
-        {% endif %}
-      </section>
+  <h1 id="leccion-titulo" class="question__text">{{ lesson.title }}</h1>
+  {% if lesson.scripture_references %}
+    <p class="question__help disc-lesson__refs"><strong>Para leer en la Biblia:</strong> {{ lesson.scripture_references }}</p>
+  {% endif %}
 
-      <form method="post" class="section">
-        {% csrf_token %}
-        <div class="section__head">
-          <h2>Reflexión</h2>
-          <p>Úsala como un diario. Basta con respuestas sencillas y honestas.</p>
-        </div>
-        {% for question in lesson.reflection_questions.all %}
-          {% with answer=existing_answers|get_item:question.id %}
-            <div class="field">
-              <label class="label" for="question_{{ question.id }}">{{ question.question_text }}</label>
-              <textarea id="question_{{ question.id }}" name="question_{{ question.id }}" rows="5" placeholder="Escribe aquí algunas ideas honestas.">{{ answer.answer_text }}</textarea>
-            </div>
-          {% endwith %}
-        {% empty %}
-          {% include "partials/ui/empty.html" with title="Esta lección no tiene preguntas de reflexión" body="Todavía no hay preguntas para esta lección. Puedes marcarla como terminada cuando la leas." %}
-        {% endfor %}
-        <div class="btn-row mt-6">
-          <button class="btn btn--primary" type="submit" name="mark_complete" value="1">Marcar lección como terminada</button>
-          <button class="btn" type="submit">Guardar reflexión</button>
-        </div>
-      </form>
-
-      <nav class="btn-row btn-row--split" aria-label="Navegación entre lecciones">
-        {% if previous_lesson %}
-          <a class="btn btn--quiet" href="{% url 'participant_lesson' previous_lesson.id %}">Lección anterior</a>
-        {% else %}
-          <span></span>
-        {% endif %}
-        {% if next_lesson %}
-          <a class="btn" href="{% url 'participant_lesson' next_lesson.id %}">Siguiente lección</a>
-        {% else %}
-          <a class="btn" href="{% url 'participant_dashboard' %}">Volver a mi camino</a>
-        {% endif %}
-      </nav>
+  <section class="disc-reading" aria-label="Contenido de la lección">
+    {{ lesson.body|linebreaks }}
+  </section>
+  {% if lesson.practical_step %}
+    <div class="notice disc-lesson__step">
+      <p class="notice__title">Una práctica sencilla</p>
+      <p>{{ lesson.practical_step|linebreaksbr }}</p>
     </div>
-  </article>
+  {% endif %}
+
+  <form method="post" class="disc-reflect" aria-labelledby="reflexion">
+    {% csrf_token %}
+    <h2 id="reflexion" class="heading">Reflexión</h2>
+    <p class="disc-reflect__intro">Úsala como un diario. Basta con respuestas sencillas y honestas.</p>
+    {% for question in lesson.reflection_questions.all %}
+      {% with answer=existing_answers|get_item:question.id %}
+        <div class="question disc-reflect__q">
+          <label class="voice disc-reflect__label" for="question_{{ question.id }}">{{ question.question_text }}</label>
+          <textarea class="textarea disc-reflect__answer" id="question_{{ question.id }}" name="question_{{ question.id }}" rows="7" spellcheck="true" placeholder="Escribe aquí algunas ideas honestas.">{{ answer.answer_text }}</textarea>
+        </div>
+      {% endwith %}
+    {% empty %}
+      <p class="empty-line">Esta lección no tiene preguntas de reflexión. Puedes marcarla como terminada cuando la leas.</p>
+    {% endfor %}
+    {% if lesson.reflection_questions.all %}
+      <p class="step__reassure">No tienes que responder todas. Si prefieres no contestar alguna, déjala en blanco; puedes volver cuando quieras.</p>
+    {% endif %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit" name="mark_complete" value="1">Marcar lección como terminada</button>
+      <button class="btn btn--secondary" type="submit">Guardar reflexión</button>
+    </div>
+  </form>
+
+  <nav class="cluster cluster--between disc-lesson__nav" aria-label="Navegación entre lecciones">
+    {% if previous_lesson %}
+      <a class="btn btn--link" href="{% url 'participant_lesson' previous_lesson.id %}">Lección anterior</a>
+    {% else %}
+      <span></span>
+    {% endif %}
+    {% if next_lesson %}
+      <a class="btn btn--secondary" href="{% url 'participant_lesson' next_lesson.id %}">Siguiente lección</a>
+    {% else %}
+      <a class="btn btn--secondary" href="{% url 'participant_dashboard' %}">Volver a mi camino</a>
+    {% endif %}
+  </nav>
+</article>
+<aside class="disc-focus__aside" aria-labelledby="dudas">
+  <h2 id="dudas" class="heading">Tus preguntas son bienvenidas</h2>
+  <p>Tu pregunta la leerán líderes de confianza de tu iglesia que pueden acompañarte en persona.</p>
+  <p class="more"><a href="{% url 'ask_question' %}">Haz una pregunta</a></p>
+</aside>
+</div>
 {% endblock %}

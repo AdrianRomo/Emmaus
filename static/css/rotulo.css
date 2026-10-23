@@ -820,3 +820,95 @@ ol.promises li::before {
   .sign, .confirm { border: 2px solid #000; background: none; color: #000; }
   body { font-size: 12pt; }
 }
+
+/* ---------- G5b Discipulado acompañamiento ---------- */
+/* The discipleship module as the people in it see it: the participant's path and lessons, the mentor's home,
+   questions and follow-ups (templates/core). Classes start with disc-. */
+
+/* A reading or writing column at the interview's measure, with a quiet aside on wide screens */
+.disc-focus {
+  display: grid; grid-template-columns: minmax(0, var(--w-focus)) minmax(15rem, 20rem);
+  gap: var(--s-12) var(--s-16); align-items: start; justify-content: space-between;
+}
+.disc-focus__aside { position: sticky; top: var(--s-8); }
+.disc-focus__aside.notice { margin: 0; }
+@media (max-width: 900px) {
+  .disc-focus { grid-template-columns: minmax(0, 1fr); }
+  .disc-focus__aside { position: static; }
+}
+
+/* Participant home: the next lesson on the sign, then the path, who walks with you and your questions */
+.page-head + .disc-camino { margin-top: 0; }
+.disc-camino { margin-top: var(--s-12); }
+.disc-path { font-size: var(--t-lead); font-weight: 700; line-height: 1.3; }
+.disc-path + .prose { margin-top: var(--s-1); }
+.disc-path__progress { margin-top: var(--s-5); }
+.disc-path__progress .ruler { max-width: 30rem; }
+.disc-path__note { margin-top: var(--s-2); font-size: var(--t-small); color: var(--ink-2); }
+.disc-side { display: grid; gap: var(--s-10); }
+.disc-actions { margin-top: var(--s-4); }
+.disc-list { max-width: 52rem; }
+
+/* A lesson reads like a question page: painted title, a reading measure, the reflection as a large field */
+.disc-lesson__refs { margin-top: var(--s-4); }
+.disc-reading { margin-top: var(--s-8); max-width: 65ch; font-size: var(--t-lead); line-height: 1.6; }
+.disc-reading p + p { margin-top: var(--s-4); }
+.disc-lesson__step { margin-top: var(--s-8); max-width: 65ch; }
+.disc-reflect { margin-top: var(--s-16); }
+.disc-reflect__intro { margin-top: var(--s-3); max-width: 55ch; font-size: var(--t-lead); color: var(--ink-2); }
+.disc-reflect__q { margin-top: var(--s-10); }
+.disc-reflect__label { display: block; max-width: 30ch; font-size: clamp(1.5rem, 1.25rem + 0.8vw, var(--t-h2)); line-height: 1.15; cursor: text; }
+.disc-reflect__answer.textarea, .disc-ask__answer.textarea { min-height: 13rem; }
+.disc-lesson__nav { margin-top: var(--s-12); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+
+/* Asking a question or for a conversation: the campero's interview, one question at a time */
+.disc-ask > .error-summary, .disc-ask > div > .error-summary { max-width: var(--w-focus); }
+.disc-ask .question + .question { margin-top: var(--s-10); }
+.disc-ask__hint { margin: var(--s-3) 0 0; }
+.disc-ask__aside { margin-top: var(--s-10); }
+@media (min-width: 901px) {
+  /* The safety notice moves beside the question; in the source it stays before the button */
+  .disc-ask__form {
+    display: grid; grid-template-columns: minmax(0, var(--w-focus)) minmax(15rem, 20rem);
+    column-gap: var(--s-16); align-items: start; justify-content: space-between;
+  }
+  .disc-ask__form > * { grid-column: 1; }
+  .disc-ask__form > .disc-ask__aside { grid-column: 2; grid-row: 1 / span 3; margin: 0; position: sticky; top: var(--s-8); }
+}
+
+/* A question as a thread: who said it and when as a sentence, then the words */
+.disc-question + .block { margin-top: var(--s-10); }
+.disc-thread .row { align-items: flex-start; padding: var(--s-5) 0; }
+.disc-thread__text { margin-top: var(--s-2); max-width: 65ch; }
+.disc-thread__text p + p { margin-top: var(--s-3); }
+.disc-thread__text--question { font-size: var(--t-lead); }
+.disc-answer { margin-top: var(--s-16); }
+.disc-section__intro { max-width: 60ch; margin-bottom: var(--s-5); color: var(--ink-2); }
+.disc-escalate { margin-top: var(--s-10); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+.disc-escalate .btn-row { margin-top: var(--s-3); }
+.disc-draft { margin-top: var(--s-8); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+.disc-draft .disc-draft__meta { margin: 0 0 var(--s-3); }
+.disc-draft .notice { margin: 0 0 var(--s-4); }
+.disc-draft .disc-thread__text { margin-bottom: var(--s-6); }
+
+/* Mentor home: who needs a reply, then the people with their path */
+.disc-summary { margin: var(--s-10) 0 var(--s-12); }
+.page-head + .disc-summary { margin-top: 0; }
+.disc-next { flex: none; max-width: 11rem; text-align: right; font-size: var(--t-small); font-weight: 700; }
+.disc-person .row__main { flex: 1; }
+.disc-person .ruler { margin-top: var(--s-2); max-width: 24rem; }
+
+/* Questions and follow-ups in a list: the words, the status beside the name, the action under the words */
+.disc-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+  gap: var(--s-3) var(--s-4); padding: var(--s-4) 0;
+}
+.disc-item > .status { margin-top: 0.3125rem; }
+.disc-item__text { margin-top: var(--s-1); max-width: 65ch; }
+.disc-item__action { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .disc-item { grid-template-columns: minmax(0, 1fr); }
+  .disc-item > .status { margin-top: 0; }
+  .disc-lists .row { flex-wrap: wrap; }
+  .disc-next { max-width: none; width: 100%; text-align: left; }
+}

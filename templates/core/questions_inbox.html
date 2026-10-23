@@ -1,26 +1,27 @@
 {% extends "base.html" %}
+{% load emmaus %}
 {% block page_title %}Preguntas{% endblock %}
 {% block content %}
-  {% url 'escalations' as escalations_url %}
-  {% include "partials/ui/page_head.html" with folio="Preguntas" title="Preguntas por atender" lede="Preguntas de participantes que pueden necesitar la respuesta de un líder." action_url=escalations_url action_label="Ver preguntas escaladas" %}
+<div class="disc-list">
+{% url 'escalations' as escalations_url %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas por atender" lede="Preguntas de participantes que pueden necesitar la respuesta de un líder." secondary_url=escalations_url secondary_label="Ver preguntas escaladas" %}
+<section aria-label="Preguntas">
   {% if questions %}
-    <ul class="ledger">
+    <ul class="rows">
       {% for question in questions %}
-        <li>
-          <a class="ledger__row" href="{% url 'church_question_detail' question.id %}">
-            <div class="ledger__main">
-              <p class="ledger__title">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-              <p class="ledger__meta">{{ question.question_text|truncatewords:30 }}</p>
-            </div>
-            <div class="ledger__aside">
-              {% include "partials/status_badge.html" with status=question.sensitivity_level label=question.get_sensitivity_level_display %}
-              {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
-            </div>
-          </a>
+        <li class="row disc-item">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'church_question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
+            <p class="disc-item__text">{{ question.question_text|truncatewords:30 }}</p>
+            <p class="row__meta">{% if question.sensitivity_level != "normal" %}<span class="privacy__tag">{{ question.get_sensitivity_level_display }}</span>{% endif %}Enviada el {{ question.created_at|fecha_corta }}.</p>
+          </div>
+          {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    {% include "partials/ui/empty.html" with title="No hay preguntas abiertas" body="Cuando los participantes hagan preguntas, aparecerán aquí." %}
+    <p class="empty-line">No hay preguntas abiertas. Cuando los participantes hagan preguntas, aparecerán aquí.</p>
   {% endif %}
+</section>
+</div>
 {% endblock %}

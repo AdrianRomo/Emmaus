@@ -1,112 +1,118 @@
 {% extends "base.html" %}
-{% load core_extras %}
+{% load core_extras emmaus %}
 {% block page_title %}Mentoría{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio="Mentoría" title="¿Quién necesita atención hoy?" lede="Las personas que acompañas, las preguntas que han hecho y los seguimientos que necesitan cuidado personal." %}
+{% with people=participants|length waiting=questions.count open_follow_ups=follow_ups.count %}
+{% include "events/rotulo/_page_head.html" with title="¿Quién necesita atención hoy?" lede="Las personas que acompañas, las preguntas que han hecho y los seguimientos que necesitan cuidado personal." %}
 
-  <div class="stack-lg">
-    <section aria-label="Resumen">
-      <div class="figure-row">
-        {% include "partials/stat_card.html" with label="Participantes asignados" value=participants|length hint="Personas que hoy están a tu cuidado." %}
-        {% include "partials/stat_card.html" with label="Esperan respuesta" value=questions.count hint="Preguntas abiertas de tus participantes." %}
-        {% include "partials/stat_card.html" with label="Seguimientos pendientes" value=follow_ups.count hint="Conversaciones o solicitudes de cuidado abiertas." %}
-      </div>
+{% comment %}
+  The sign: who has waited longest for a reply. questions is newest first; reversed it is oldest first, and the stable
+  sort by status puts "open" before "escalated" (those already reached a pastor). Yellow appears nowhere else here.
+{% endcomment %}
+{% if waiting %}
+  {% with question=questions.reverse|dictsortreversed:"status"|first %}
+    <section class="sign" aria-labelledby="que-hago">
+      <h2 id="que-hago" class="sign__title">{{ question.participant.get_full_name|default:question.participant.email }} espera tu respuesta</h2>
+      <p class="sign__text">Preguntó el {{ question.created_at|fecha_larga|lower }}.{% if waiting > 1 %} En total hay {{ waiting }} preguntas abiertas.{% endif %}</p>
+      <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'question_detail' question.id %}">Responder</a></div>
     </section>
+  {% endwith %}
+{% endif %}
 
-    <div class="split">
-      <section class="stack-sm">
-        <h2>Prioridades de hoy</h2>
-        <p class="muted">Empieza por las preguntas, los seguimientos abiertos y las personas a las que les vendría bien que las busques.</p>
-        {% if priority_participants %}
-          <ul class="ledger">
-            {% for profile in priority_participants %}
-              <li>
-                <a class="ledger__row" href="{% url 'participant_detail' profile.id %}">
-                  <div class="ledger__main">
-                    <p class="ledger__title">{{ profile.user.get_full_name|default:profile.user.email }}</p>
-                    <p class="ledger__meta">{{ profile.progress_summary|path_title:"Sin ruta asignada" }} · {{ profile.progress_summary.percent }} % completado</p>
-                    <p class="ledger__meta">Última actividad: {{ profile.last_activity|date:"j b Y"|default:"sin registro" }}</p>
-                  </div>
-                  <div class="ledger__aside">
-                    {% if profile.open_question_count %}<span class="chip chip--progress">{{ profile.open_question_count }} pregunta{{ profile.open_question_count|pluralize }}</span>{% endif %}
-                    {% if profile.open_follow_up_count %}<span class="chip chip--info">{{ profile.open_follow_up_count }} seguimiento{{ profile.open_follow_up_count|pluralize }}</span>{% endif %}
-                    {% if profile.is_inactive %}<span class="chip chip--alert">Sin actividad reciente</span>{% endif %}
-                    <strong>{{ profile.suggested_action }}</strong>
-                  </div>
-                </a>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          {% include "partials/ui/empty.html" with title="No hay prioridades urgentes hoy" body="Aquí aparecerán las preguntas abiertas, las solicitudes de seguimiento y las personas que podrían necesitar que las busques." %}
-        {% endif %}
-      </section>
+<section class="disc-summary" aria-labelledby="acompanas">
+  <h2 id="acompanas" class="voice coord__count">{% if people %}Acompañas a {{ people }} persona{{ people|pluralize }}.{% else %}Todavía no acompañas a nadie.{% endif %}</h2>
+  <p class="coord__count-note">{% if waiting %}{{ waiting }} pregunta{{ waiting|pluralize }} espera{{ waiting|pluralize:"n" }} respuesta{% else %}Ninguna pregunta espera respuesta{% endif %} y {% if open_follow_ups %}{{ open_follow_ups }} seguimiento{{ open_follow_ups|pluralize }} sigue{{ open_follow_ups|pluralize:"n" }} pendiente{{ open_follow_ups|pluralize }}{% else %}no hay seguimientos pendientes{% endif %}.</p>
+</section>
 
-      <div class="stack-lg">
-        <section id="open-questions" class="stack-sm">
-          <h2>Preguntas abiertas</h2>
-          {% if questions %}
-            <ul class="ledger">
-              {% for question in questions %}
-                <li>
-                  <a class="ledger__row" href="{% url 'question_detail' question.id %}">
-                    <div class="ledger__main">
-                      <p class="ledger__title">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-                      <p class="ledger__meta">{{ question.question_text|truncatewords:18 }}</p>
-                    </div>
-                    <div class="ledger__aside">{% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}</div>
-                  </a>
-                </li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            {% include "partials/ui/empty.html" with title="No hay preguntas abiertas" body="Cuando tus participantes hagan preguntas, aparecerán aquí." %}
-          {% endif %}
-        </section>
-
-        <section class="stack-sm">
-          <h2>Seguimientos pendientes</h2>
-          {% if follow_ups %}
-            <ul class="ledger">
-              {% for follow_up in follow_ups %}
-                <li class="ledger__row">
-                  <div class="ledger__main">
-                    <p class="ledger__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
-                    <p class="ledger__meta">{{ follow_up.reason|truncatewords:18 }}</p>
-                  </div>
-                  <div class="ledger__aside">{% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}</div>
-                </li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            {% include "partials/ui/empty.html" with title="No hay seguimientos pendientes" body="Aquí aparecerán las solicitudes para platicar o recibir cuidado." %}
-          {% endif %}
-        </section>
-      </div>
-    </div>
-
-    <section id="assigned-participants" class="section">
-      <div class="section__head"><h2>Participantes asignados</h2></div>
-      {% if participants %}
-        <ul class="ledger">
-          {% for profile in participants %}
-            <li>
-              <a class="ledger__row" href="{% url 'participant_detail' profile.id %}">
-                <div class="ledger__main stack-sm">
-                  <div>
-                    <p class="ledger__title">{{ profile.user.get_full_name|default:profile.user.email }}</p>
-                    <p class="ledger__meta">{{ profile.progress_summary|path_title:"Sin ruta asignada" }}</p>
-                  </div>
-                  {% include "partials/progress_bar.html" with percent=profile.progress_summary.percent label="Avance de la ruta" %}
-                </div>
-                <div class="ledger__aside"><span class="text-sm">{{ profile.suggested_action }}</span></div>
-              </a>
+<div class="coord__lists disc-lists">
+  <div class="coord__side">
+    <section aria-labelledby="prioridades">
+      <h2 id="prioridades" class="heading">Prioridades de hoy</h2>
+      {% if priority_participants %}
+        <p class="disc-section__intro">Empieza por las preguntas, los seguimientos abiertos y las personas a las que les vendría bien que las busques.</p>
+        <ul class="rows">
+          {% for profile in priority_participants %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ profile.user.get_full_name|default:profile.user.email }}</a></p>
+                <p class="row__meta">{% filter capfirst %}{% if profile.open_question_count %}{{ profile.open_question_count }} pregunta{{ profile.open_question_count|pluralize }} abierta{{ profile.open_question_count|pluralize }}, {% endif %}{% if profile.open_follow_up_count %}{{ profile.open_follow_up_count }} seguimiento{{ profile.open_follow_up_count|pluralize }} abierto{{ profile.open_follow_up_count|pluralize }}, {% endif %}{% if profile.is_inactive %}sin actividad reciente, {% endif %}última actividad: {{ profile.last_activity|date:"j b Y"|default:"sin registro" }}.{% endfilter %}</p>
+              </div>
+              <p class="disc-next">{{ profile.suggested_action }}</p>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        {% include "partials/ui/empty.html" with title="Todavía no tienes participantes asignados" body="Cuando la administración o un pastor te asigne participantes, aparecerán aquí." %}
+        <p class="empty-line">No hay prioridades urgentes hoy. Aquí aparecerán las preguntas abiertas, las solicitudes de seguimiento y las personas que podrían necesitar que las busques.</p>
+      {% endif %}
+    </section>
+
+    <section id="assigned-participants" aria-labelledby="asignados">
+      <h2 id="asignados" class="heading">Participantes asignados{% if people %} <span class="count">{{ people }}</span>{% endif %}</h2>
+      {% if participants %}
+        <ul class="rows">
+          {% for profile in participants %}
+            {% with progress=profile.progress_summary %}
+              <li class="row disc-person">
+                <div class="row__main">
+                  <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ profile.user.get_full_name|default:profile.user.email }}</a></p>
+                  {% if progress.enrollment %}
+                    <p class="row__meta">{{ progress|path_title:"Sin ruta asignada" }}, {{ progress.completed_lessons }} de {{ progress.total_lessons }} lección{{ progress.total_lessons|pluralize:"es" }}.</p>
+                    {% ruler progress.completed_lessons 0 progress.total_lessons %}
+                  {% else %}
+                    <p class="row__meta">Sin ruta asignada.</p>
+                  {% endif %}
+                </div>
+                <p class="disc-next">{{ profile.suggested_action }}</p>
+              </li>
+            {% endwith %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Todavía no tienes participantes asignados. Cuando la administración o un pastor te asigne participantes, aparecerán aquí.</p>
       {% endif %}
     </section>
   </div>
+
+  <div class="coord__side">
+    <section id="open-questions" aria-labelledby="abiertas">
+      <h2 id="abiertas" class="heading">Preguntas abiertas{% if waiting %} <span class="count">{{ waiting }}</span>{% endif %}</h2>
+      {% if questions %}
+        <ul class="rows">
+          {% for question in questions %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
+                <p class="row__meta">{{ question.question_text|truncatewords:18 }}</p>
+              </div>
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">No hay preguntas abiertas. Cuando tus participantes hagan preguntas, aparecerán aquí.</p>
+      {% endif %}
+    </section>
+
+    <section aria-labelledby="pendientes">
+      <h2 id="pendientes" class="heading">Seguimientos pendientes{% if open_follow_ups %} <span class="count">{{ open_follow_ups }}</span>{% endif %}</h2>
+      {% if follow_ups %}
+        <ul class="rows">
+          {% for follow_up in follow_ups %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+                <p class="row__meta">{{ follow_up.reason|truncatewords:18 }}</p>
+              </div>
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="more"><a href="{% url 'follow_up_list' %}">Ver todos los seguimientos</a></p>
+      {% else %}
+        <p class="empty-line">No hay seguimientos pendientes. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endwith %}
 {% endblock %}
