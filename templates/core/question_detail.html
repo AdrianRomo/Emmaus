@@ -1,109 +1,96 @@
 {% extends "base.html" %}
-{% block page_title %}Pregunta{% endblock %}
+{% load emmaus %}
+{% block page_title %}{% if can_answer and response_form.errors %}Error: {% endif %}Pregunta{% endblock %}
 {% block content %}
-  <header class="page-head">
-    <p class="folio">Enviada el {{ question.created_at|date:"j \d\e F \d\e Y, H:i"|lower }}</p>
-    <div class="page-head__row">
-      <div>
-        <h1>Pregunta de {{ question.participant.get_full_name|default:question.participant.email }}</h1>
-      </div>
-    </div>
-    <div class="cluster">
-      {% include "partials/status_badge.html" with status=question.sensitivity_level label=question.get_sensitivity_level_display %}
-      {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
-    </div>
-  </header>
+{% with asker=question.participant.get_full_name|default:question.participant.email %}
+{% if is_participant %}{% url 'participant_questions' as back_url %}{% elif is_mentor %}{% url 'mentor_dashboard' as back_url %}{% else %}{% url 'questions_inbox' as back_url %}{% endif %}
+{% if can_answer %}{% include "partials/ui/error_summary.html" with form=response_form %}{% endif %}
+{% with title="Pregunta de "|add:asker %}
+  {% if is_participant %}
+    {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label="Tus preguntas" %}
+  {% elif is_mentor %}
+    {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label="Inicio" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label="Preguntas" %}
+  {% endif %}
+{% endwith %}
+<p class="interview-meta">{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}{% if question.sensitivity_level != "normal" %} <span class="privacy__tag">{{ question.get_sensitivity_level_display }}</span>{% endif %}</p>
 
-  {% if can_answer %}{% include "partials/ui/error_summary.html" with form=response_form %}{% endif %}
-
-  <div class="stack-lg">
-    <div class="stack">
-      <div class="sheet prose">{{ question.question_text|linebreaks }}</div>
-      <div class="notice notice--warning prose">
-        <p>{{ question_disclaimer }}</p>
-      </div>
+<div class="disc-focus">
+  <div>
+    <div class="disc-question">
+      <p class="row__meta">{{ asker }} preguntó el {{ question.created_at|fecha_larga|lower }}, a las {{ question.created_at|time:"H:i" }}.</p>
+      <div class="disc-thread__text disc-thread__text--question">{{ question.question_text|linebreaks }}</div>
     </div>
-
-    <section class="section">
-      <div class="section__head"><h2>Respuestas de los líderes</h2></div>
+    <section class="block" aria-labelledby="respuestas">
+      <h2 id="respuestas" class="heading">Respuestas de los líderes</h2>
       {% if question.responses.all %}
-        <ul class="ledger">
+        <ol class="rows disc-thread">
           {% for response in question.responses.all %}
-            <li class="ledger__row">
-              <div class="ledger__main stack-sm">
-                <p>{{ response.response_body|linebreaksbr }}</p>
-                <p class="ledger__meta">{{ response.responder.get_full_name|default:response.responder.email }} · {{ response.created_at|date:"j b Y, H:i" }}</p>
+            <li class="row">
+              <div class="row__main">
+                <p class="row__meta">{{ response.responder.get_full_name|default:response.responder.email }} respondió el {{ response.created_at|fecha_larga|lower }}, a las {{ response.created_at|time:"H:i" }}.</p>
+                <div class="disc-thread__text">{{ response.response_body|linebreaks }}</div>
               </div>
             </li>
           {% endfor %}
-        </ul>
+        </ol>
       {% else %}
-        {% include "partials/ui/empty.html" with title="Todavía no hay respuesta" body="La respuesta aparecerá aquí cuando alguien de la iglesia conteste." %}
+        <p class="empty-line">Todavía no hay respuesta. La respuesta aparecerá aquí cuando alguien de la iglesia conteste.</p>
       {% endif %}
     </section>
-
-    {% if can_answer %}
-      <div class="section">
-        <div class="split">
-          <section class="stack">
-            <div class="stack-sm">
-              <h2>Responde personalmente</h2>
-              <p class="muted">Escribe como un líder de confianza de la iglesia. Que tu respuesta sea amable, clara y personal.</p>
-            </div>
-            <form method="post">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="respond">
-              {% include "partials/ui/fields.html" with form=response_form %}
-              <div class="btn-row mt-6">
-                <button class="btn btn--primary" type="submit">Enviar respuesta</button>
-              </div>
-            </form>
-            <form method="post" class="panel stack-sm">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="escalate">
-              <p>Si esta pregunta necesita atención pastoral, escálala para que la vean los pastores.</p>
-              <div class="btn-row">
-                <button class="btn btn--danger" type="submit">Escalar a un pastor</button>
-              </div>
-            </form>
-          </section>
-
-          <section class="stack">
-            <div class="stack-sm">
-              <h2>Borrador con IA</h2>
-              <p class="muted">Úsalo solo como punto de partida. Tu cuidado personal importa más que el borrador.</p>
-            </div>
-            <form method="post">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="generate_ai">
-              <button class="btn" type="submit">Generar borrador con IA</button>
-            </form>
-            {% for draft, form in draft_forms %}
-              <form method="post" class="panel stack">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="review_ai">
-                <input type="hidden" name="draft_id" value="{{ draft.id }}">
-                <div class="cluster">
-                  <span class="chip chip--info">Borrador con IA</span>
-                  {% include "partials/status_badge.html" with status=draft.status label=draft.get_status_display %}
-                </div>
-                <div class="notice notice--warning">
-                  <p>Revísalo con cuidado antes de enviarlo. Este borrador no tiene autoridad espiritual y una persona del equipo de líderes debe editarlo o aprobarlo.</p>
-                </div>
-                <div class="prose">{{ draft.generated_text|linebreaks }}</div>
-                <div>
-                  {% include "partials/ui/fields.html" with form=form %}
-                </div>
-                <div class="btn-row">
-                  <button class="btn" type="submit">Confirmar revisión</button>
-                </div>
-              </form>
-            {% empty %}
-              {% include "partials/ui/empty.html" with title="Todavía no hay borradores con IA" body="Genera un borrador solo si te ayuda a preparar una respuesta humana y cuidadosa." %}
-            {% endfor %}
-          </section>
-        </div>
-      </div>
-    {% endif %}
   </div>
+  <aside class="disc-focus__aside notice notice--info" aria-label="Aviso de seguridad">
+    <p class="notice__title">Un aviso importante</p>
+    <p>{{ question_disclaimer }}</p>
+  </aside>
+</div>
+
+{% if can_answer %}
+  <div class="split disc-answer">
+    <section aria-labelledby="responder">
+      <h2 id="responder" class="heading">Responde personalmente</h2>
+      <p class="disc-section__intro">Escribe como un líder de confianza de la iglesia. Que tu respuesta sea amable, clara y personal.</p>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="respond">
+        {% include "partials/ui/fields.html" with form=response_form %}
+        <div class="btn-row"><button class="btn btn--primary" type="submit">Enviar respuesta</button></div>
+      </form>
+      <form method="post" class="disc-escalate">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="escalate">
+        <p>Si esta pregunta necesita atención pastoral, escálala para que la vean los pastores.</p>
+        <div class="btn-row"><button class="btn btn--secondary" type="submit">Escalar a un pastor</button></div>
+      </form>
+    </section>
+
+    <section aria-labelledby="borrador">
+      <h2 id="borrador" class="heading">Borrador con IA</h2>
+      <p class="disc-section__intro">Úsalo solo como punto de partida. Tu cuidado personal importa más que el borrador.</p>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="generate_ai">
+        <button class="btn btn--secondary" type="submit">Generar borrador con IA</button>
+      </form>
+      {% for draft, form in draft_forms %}
+        <form method="post" class="disc-draft">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="review_ai">
+          <input type="hidden" name="draft_id" value="{{ draft.id }}">
+          <p class="interview-meta disc-draft__meta">{% include "core/rotulo/_acompanamiento_estado.html" with value=draft.status label=draft.get_status_display %} <span>Generado con IA el {{ draft.created_at|fecha_corta }}.</span></p>
+          <div class="notice notice--warning">
+            <p>Revísalo con cuidado antes de enviarlo. Este borrador no tiene autoridad espiritual y una persona del equipo de líderes debe editarlo o aprobarlo.</p>
+          </div>
+          <div class="disc-thread__text">{{ draft.generated_text|linebreaks }}</div>
+          {% include "partials/ui/fields.html" with form=form %}
+          <div class="btn-row"><button class="btn btn--secondary" type="submit">Confirmar revisión</button></div>
+        </form>
+      {% empty %}
+        <p class="empty-line">Todavía no hay borradores con IA. Genera un borrador solo si te ayuda a preparar una respuesta humana y cuidadosa.</p>
+      {% endfor %}
+    </section>
+  </div>
+{% endif %}
+{% endwith %}
 {% endblock %}

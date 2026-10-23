@@ -1,22 +1,28 @@
 {% extends "base.html" %}
+{% load emmaus %}
 {% block page_title %}Preguntas escaladas{% endblock %}
 {% block content %}
-  {% include "partials/ui/page_head.html" with folio="Cuidado pastoral" title="Preguntas escaladas" lede="Preguntas que mentores o participantes marcaron para recibir atención pastoral." %}
+<div class="disc-list">
+{% url 'questions_inbox' as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas escaladas" lede="Preguntas que mentores o participantes marcaron para recibir atención pastoral." back_url=back_url back_label="Todas las preguntas" %}
+{% comment %}Escalated means "a pastor should look at this", not an error: the in-progress mark, never chile.{% endcomment %}
+<section aria-label="Preguntas escaladas">
   {% if questions %}
-    <ul class="ledger">
+    <ul class="rows">
       {% for question in questions %}
-        <li>
-          <a class="ledger__row" href="{% url 'church_question_detail' question.id %}">
-            <div class="ledger__main">
-              <p class="ledger__title">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-              <p class="ledger__meta">{{ question.question_text|truncatewords:30 }}</p>
-            </div>
-            <div class="ledger__aside">{% include "partials/status_badge.html" with status=question.status label="Escalada" %}</div>
-          </a>
+        <li class="row disc-item">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'church_question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
+            <p class="disc-item__text">{{ question.question_text|truncatewords:30 }}</p>
+            <p class="row__meta">{% if question.sensitivity_level != "normal" %}<span class="privacy__tag">{{ question.get_sensitivity_level_display }}</span>{% endif %}Enviada el {{ question.created_at|fecha_corta }}.</p>
+          </div>
+          {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label="Escalada" %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    {% include "partials/ui/empty.html" with title="No hay preguntas escaladas" body="Aquí aparecerán las preguntas que necesiten atención pastoral." %}
+    <p class="empty-line">No hay preguntas escaladas. Aquí aparecerán las preguntas que necesiten atención pastoral.</p>
   {% endif %}
+</section>
+</div>
 {% endblock %}

@@ -1,23 +1,28 @@
 {% extends "base.html" %}
+{% load emmaus %}
 {% block page_title %}Mis preguntas{% endblock %}
 {% block content %}
-  {% url 'ask_question' as ask_url %}
-  {% include "partials/ui/page_head.html" with folio="Tus preguntas" title="Preguntas que has hecho" lede="Aquí se quedan las respuestas de los líderes de tu iglesia para que puedas volver a leerlas." action_url=ask_url action_label="Haz una pregunta" %}
+<div class="disc-list">
+{% url 'ask_question' as ask_url %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas que has hecho" lede="Aquí se quedan las respuestas de los líderes de tu iglesia para que puedas volver a leerlas." action_url=ask_url action_label="Haz una pregunta" %}
+<section aria-label="Tus preguntas">
   {% if questions %}
-    <ul class="ledger">
+    <ul class="rows">
       {% for question in questions %}
-        <li>
-          <a class="ledger__row" href="{% url 'participant_question_detail' question.id %}">
-            <div class="ledger__main">
-              <p class="ledger__title">{{ question.question_text|truncatewords:28 }}</p>
-              <p class="ledger__meta">{{ question.responses.count }} respuesta{{ question.responses.count|pluralize }} · Enviada el {{ question.created_at|date:"j b Y" }}</p>
+        {% with count=question.responses.count %}
+          <li class="row disc-item">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'participant_question_detail' question.id %}">{{ question.question_text|truncatewords:28 }}</a></p>
+              <p class="row__meta">Enviada el {{ question.created_at|fecha_corta }}, {% if count %}{{ count }} respuesta{{ count|pluralize }}{% else %}sin respuesta todavía{% endif %}.</p>
             </div>
-            <div class="ledger__aside">{% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}</div>
-          </a>
-        </li>
+            {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
+          </li>
+        {% endwith %}
       {% endfor %}
     </ul>
   {% else %}
-    {% include "partials/ui/empty.html" with title="Todavía no has hecho preguntas" body="Cuando algo no te quede claro, puedes preguntarle aquí a un líder de confianza de tu iglesia." action_url=ask_url action_label="Haz tu primera pregunta" %}
+    <p class="empty-line">Todavía no has hecho preguntas. Cuando algo no te quede claro, puedes preguntarle aquí a un líder de confianza de tu iglesia. <a href="{{ ask_url }}">Haz tu primera pregunta</a></p>
   {% endif %}
+</section>
+</div>
 {% endblock %}
