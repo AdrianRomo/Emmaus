@@ -214,14 +214,21 @@ class Command(BaseCommand):
             decision = weighted(rng, [("requerido", 70), ("por_evaluar", 15), ("no_requerido", 15)]) if wants else weighted(rng, [("no_requerido", 88), ("por_evaluar", 12)])
             interview.follow_up_decision = decision
             interview.save(update_fields=["follow_up_decision"])
+            created = []
             if decision == "requerido":
-                reason = FollowUp.Reason.TALK_TO_LEADER if "hablar_lider" in values.get("decision", []) else FollowUp.Reason.SUPPORT_REQUESTED
-                follow_up = FollowUp.objects.create(
+                reason = FollowUp.Reason.TALK_TO_LEADER if "hablar_lider" in values.get("decision", []) else FollowUp.Reason.COORDINATOR
+                created.append(FollowUp.objects.create(
                     event=event, participant=participant, interview=interview, reason=reason, created_by=coordinator_user,
                     status=weighted(rng, [("pendiente", 35), ("en_proceso", 30), ("atendido", 35)]),
                     assigned_to=rng.choice(users["tutors"]).user if rng.random() < 0.7 else None,
-                )
-                FollowUp.objects.filter(pk=follow_up.pk).update(created_at=completed_at + timedelta(minutes=1))
+                ))
+            if values.get("apoyo", ["ninguna"])[0] not in ("ninguna", "prefiero_no"):
+                # Mirrors finalize(): support requested in a confidential question goes to the care team only.
+                created.append(FollowUp.objects.create(
+                    event=event, participant=participant, interview=interview, reason=FollowUp.Reason.SUPPORT_REQUESTED,
+                    confidential=True, status=weighted(rng, [("pendiente", 50), ("en_proceso", 30), ("atendido", 20)]),
+                ))
+            FollowUp.objects.filter(pk__in=[f.pk for f in created]).update(created_at=completed_at + timedelta(minutes=1))
         participant.interview_status = InterviewStatus.COMPLETED if status == Interview.Status.COMPLETED else InterviewStatus.IN_PROGRESS
         participant.save(update_fields=["interview_status"])
         return interview

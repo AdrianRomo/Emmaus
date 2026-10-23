@@ -310,15 +310,13 @@ class SupervisedCaptureTests(CampFixture):
         self.assertNotContains(response, "Mariana")
         self.assertEqual(ParticipantSession.objects.filter(state=ParticipantSession.State.ACTIVE).count(), 1)
 
-    def test_kiosk_session_scoped_to_its_own_interview(self):
-        # The kiosk browser cannot save answers into another camper's interview.
+    def test_kiosk_cannot_save_after_the_interview_is_taken_over_elsewhere(self):
         other = Client()
         self.login(self.coord1, other)
-        self.start(self.p2, client=other)
-        second = Interview.objects.get(participant=self.p2)
-        step = self.step("salvo")
-        self.client.post(reverse("kiosk:step", args=[step.number]), {"revision": second.revision, f"q_{step.question.id}": "no"})
-        self.assertFalse(second.answers.exists())
+        other.post(self.url("interview_conflict", self.interview.public_id))
+        self.answer(self.interview, "salvo", "si", url_name="kiosk")
+        self.assertFalse(self.interview.answers.exists())
+        self.assertEqual(ParticipantSession.objects.get(interview=self.interview).state, ParticipantSession.State.CLOSED)
 
 
 class ServiceLevelConcurrencyTests(CampFixture):

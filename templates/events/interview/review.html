@@ -16,13 +16,13 @@
   {% for row in rows %}
     <div class="summary-list__row">
       <dt>{{ row.question.text }}</dt>
-      <dd>{% if not row.visible %}<span class="privacy-tag">Respuesta confidencial{% if row.answered %} registrada{% else %}: sin responder{% endif %}</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
+      <dd>{% if not row.visible %}<span class="privacy-tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
       <span class="summary-list__action">{% if row.visible %}<a href="{% url 'events:interview_step' event.slug interview.public_id row.step.number %}">Cambiar<span class="visually-hidden"> la respuesta a “{{ row.question.text }}”</span></a>{% endif %}</span>
     </div>
   {% endfor %}
 </dl>
-{% if hidden_count %}
-  <p class="text-sm muted mt-4">{{ participant.first_name }} respondió {{ hidden_count }} pregunta{{ hidden_count|pluralize }} confidencial{{ hidden_count|pluralize:"es" }} por su cuenta. Solo el equipo de cuidado autorizado puede leerla{{ hidden_count|pluralize }}.</p>
+{% if has_hidden %}
+  <p class="text-sm muted mt-4">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado lo sabrá sin que tengas que hacer nada.</p>
 {% endif %}
 
 <form method="post" class="section mt-8" novalidate>

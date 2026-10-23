@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.views import LoginView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
@@ -41,7 +42,6 @@ from .models import (
     AIDraft,
     Church,
     DiscipleshipPath,
-    Enrollment,
     FollowUpRequest,
     Invitation,
     Lesson,
@@ -777,3 +777,26 @@ def reflection_question_create(request, lesson_id: int):
         messages.success(request, "Se agregó la pregunta de reflexión.")
         return redirect("path_detail", path_id=lesson.path_id)
     return render(request, "core/reflection_question_form.html", {"form": form, "lesson": lesson})
+
+
+class ThrottledLoginView(LoginView):
+    """Login with a per-account attempt limit shared by all workers (8 tries per 15 minutes)."""
+
+    template_name = "registration/login.html"
+
+    def post(self, request, *args, **kwargs):
+        from events.services import throttle
+
+        username = (request.POST.get("username") or "").strip().lower()
+        key = f"login:{username}"
+        wait = throttle.consume(key, limit=8, window_seconds=15 * 60, block_seconds=5 * 60) if username else 0
+        if wait:
+            form = self.get_form()
+            form.is_valid()
+            form.errors.clear()
+            form.add_error(None, throttle.wait_message(wait))
+            return self.form_invalid(form)
+        response = super().post(request, *args, **kwargs)
+        if request.user.is_authenticated:
+            throttle.reset(key)
+        return response

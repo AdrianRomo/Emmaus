@@ -3,11 +3,9 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.contrib import messages
-from django.contrib.sessions.models import Session  # noqa: F401  (documented: staff sessions are revoked by deactivating users)
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -157,11 +155,16 @@ def pending(request, event, access):
 
 @event_view(PASTOR, ADMIN)
 def pastor_home(request, event, access):
-    payload = build_payload(scope_for_access(access), include_safety=access.can_view_sensitive or access.is_admin, include_outcomes=True)
+    payload = build_payload(scope_for_access(access), include_safety=access.can_view_sensitive or access.is_admin)
+    if not access.can_view_sensitive:
+        payload["follow_ups"]["confidential_open"] = None
     last = _last_snapshot(access)
     from ..services.metrics import compare
+    from ..services.reports import latest_snapshot, visible_payload
 
     delta = compare(payload, last.data) if last else {}
+    outcome_snapshot = latest_snapshot(event, "evento")
+    outcomes = visible_payload(outcome_snapshot.data, access)["outcomes"] if outcome_snapshot else []
     context = {
         "payload": payload,
         "progress": payload["progress"],
@@ -169,7 +172,8 @@ def pastor_home(request, event, access):
         "delta": delta,
         "last_snapshot": last,
         "next_cutoff": next_slot(event),
-        "outcomes": payload["outcomes"],
+        "outcomes": outcomes,
+        "outcomes_snapshot": outcome_snapshot,
     }
     if is_fragment(request):
         return render(request, "events/pastor/_home_live.html", context)
@@ -251,6 +255,8 @@ def team(request, event, access):
 @event_view(ADMIN)
 def admin_home(request, event, access):
     payload = build_payload(scope_for_access(access), include_safety=True)
+    if not access.can_view_sensitive:
+        payload["follow_ups"]["confidential_open"] = None
     roles = dict(EventMembership.objects.filter(event=event, is_active=True).values_list("role").annotate(n=Count("id")))
     active_sessions = ParticipantSession.objects.filter(
         interview__event=event, state__in=[ParticipantSession.State.ACTIVE, ParticipantSession.State.AWAITING_UNLOCK]
@@ -288,6 +294,3 @@ def admin_home(request, event, access):
         return render(request, "events/admin/_home_live.html", context)
     return render(request, "events/admin/home.html", context)
 
-
-def not_found(*_args, **_kwargs):  # pragma: no cover - placeholder used by url tests
-    raise Http404

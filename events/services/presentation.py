@@ -36,17 +36,30 @@ def _team_rows(teams: list[dict]) -> list[dict]:
     return rows
 
 
-def build_deck(payload: dict, *, event_name: str, kind_label: str, k: int, team_names: dict[str, str] | None = None) -> dict:
+def build_deck(
+    payload: dict,
+    *,
+    event_name: str,
+    kind_label: str,
+    k: int,
+    team_names: dict[str, str] | None = None,
+    released_follow_ups: dict | None = None,
+    released_at=None,
+) -> dict:
+    """``released_follow_ups`` comes from the latest saved cutoff (see reports.release_cells):
+    follow-up counts on a projector never change because of a single person."""
     team_names = team_names or {}
     progress = payload["progress"]
     teams = [{**team, "team_name_public": team_names.get(team["key"], "")} for team in payload.get("teams", [])]
     team_rows = _team_rows(teams)
-    fu = payload["follow_ups"]
+    fu = released_follow_ups or {}
+    has = released_follow_ups is not None
     follow = {
-        "requested": suppress(fu.get("requested_total", 0), k),
-        "done": suppress(fu.get("done", 0), k),
-        "open": suppress(fu.get("open_total", 0), k),
-        "to_evaluate": suppress(fu.get("to_evaluate", 0), k),
+        "requested": suppress(fu.get("requested_total") if has else None, k),
+        "done": suppress(fu.get("done") if has else None, k),
+        "open": suppress(fu.get("open_total") if has else None, k),
+        "to_evaluate": suppress(fu.get("to_evaluate") if has else None, k),
+        "as_of": released_at,
     }
     rate = payload["throughput"]["per_hour"]
     eta = eta_minutes(progress["pending"], rate)
@@ -68,9 +81,9 @@ def build_deck(payload: dict, *, event_name: str, kind_label: str, k: int, team_
     unassigned = payload["attention"]["unassigned_participants"]
     if unassigned:
         steps.append(f"Asignar coordinador a {unassigned} {'campero' if unassigned == 1 else 'camperos'}.")
-    if follow["to_evaluate"]["display"] != "0":
+    if has and follow["to_evaluate"]["display"] != "0":
         steps.append(f"Decidir el seguimiento de {follow['to_evaluate']['display'].lower()} entrevistas por evaluar.")
-    if follow["open"]["display"] != "0":
+    if has and follow["open"]["display"] != "0":
         steps.append(f"Asignar líderes a {follow['open']['display'].lower()} seguimientos abiertos.")
     if not steps and progress["eligible"]:
         steps.append("Todas las entrevistas están completas. Gracias, equipo.")

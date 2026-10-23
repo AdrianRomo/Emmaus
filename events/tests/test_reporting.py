@@ -121,12 +121,33 @@ class SuppressionTests(CampFixture):
         self.assertEqual(suppress(13, 5)["value"], 15)
 
     def test_outcomes_withheld_for_small_groups(self):
+        from events.services.reports import visible_payload
+
         questions = {q.code: q for step in self.steps for q in step.questions}
         complete(self.event, self.p1, {"salvo": ["si"]}, questions=questions)
-        outcome = next(o for o in build_payload(event_scope(self.event), include_outcomes=True)["outcomes"] if o["code"] == "salvo")
+        snap = generate_snapshot(self.event, event_scope(self.event), trigger="manual", cutoff_at=timezone.now())
+        outcomes = visible_payload(snap.data, resolve_access(self.pastor, self.event))["outcomes"]
+        outcome = next(o for o in outcomes if o["code"] == "salvo")
         self.assertTrue(outcome["withheld"])
         self.assertEqual(outcome["rows"], [])
         self.assertEqual(outcome["respondents"]["display"], "Menos de 5")
+
+    def test_zero_is_hidden_like_small_counts_in_outcomes(self):
+        self.assertEqual(suppress(0, 5, hide_zero=True)["display"], "Menos de 5")
+
+    def test_release_rule_moves_cells_only_in_steps_of_k(self):
+        from events.services.reports import release_cells
+
+        self.assertEqual(release_cells({"a": 7, "b": 2}, None, 5), {"a": 7, "b": 2})
+        self.assertEqual(release_cells({"a": 8, "b": 2}, {"a": 7, "b": 2}, 5), {"a": 7, "b": 2})
+        self.assertEqual(release_cells({"a": 12, "b": 3}, {"a": 7, "b": 2}, 5), {"a": 12, "b": 2})
+
+    def test_tutor_and_pastor_without_sensitive_access_get_no_outcomes(self):
+        from events.services.reports import visible_payload
+
+        snap = generate_snapshot(self.event, event_scope(self.event), trigger="manual", cutoff_at=timezone.now())
+        self.assertEqual(visible_payload(snap.data, resolve_access(self.tutor1, self.event))["outcomes"], [])
+        self.assertNotIn("released", visible_payload(snap.data, resolve_access(self.pastor, self.event)))
 
 
 class SnapshotTests(CampFixture):
@@ -172,7 +193,7 @@ class SnapshotTests(CampFixture):
         self.assertEqual(delta["completed"], 2)
         self.assertEqual(delta["percent"], 40)
 
-    def test_manual_cutoff_double_click_returns_same_snapshot(self):
+    def test_manual_cutoff_double_click_returns_same_snapshot(self):  # see also the minute-boundary test
         self.login(self.pastor)
         self.client.post(self.url("report_generate"), {"scope": "evento"})
         self.client.post(self.url("report_generate"), {"scope": "evento"})
@@ -197,11 +218,14 @@ class PresentationPrivacyTests(CampFixture):
         self.assertIn("Equipo Norte", html)  # explicit team names are allowed
 
     def test_small_follow_up_counts_are_suppressed_in_deck(self):
-        interview = complete(self.event, self.p1, decision="requerido")
-        FollowUp.objects.create(event=self.event, participant=self.p1, interview=interview)
-        deck = build_deck(build_payload(event_scope(self.event)), event_name="X", kind_label="Campamento", k=5)
+        deck = build_deck(
+            build_payload(event_scope(self.event)), event_name="X", kind_label="Campamento", k=5,
+            released_follow_ups={"requested_total": 1, "open_total": 1, "done": 0, "to_evaluate": 0},
+        )
         self.assertEqual(deck["follow_ups"]["open"]["display"], "Menos de 5")
         self.assertIsNone(deck["follow_ups"]["open"]["value"])
+        without_cutoff = build_deck(build_payload(event_scope(self.event)), event_name="X", kind_label="Campamento", k=5)
+        self.assertEqual(without_cutoff["follow_ups"]["requested"]["display"], "—")
 
     def test_team_numbering_is_stable(self):
         complete(self.event, self.p4)  # changes the sort order of teams

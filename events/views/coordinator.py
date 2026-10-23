@@ -4,12 +4,13 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from ..forms import ParticipantForm
 from ..models import FollowUp, Interview, InterviewStatus, normalize_name
 from ..services import participants as participant_svc
 from ..services.metrics import build_payload, coordinator_scope, progress_for, stale_interviews
-from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment
+from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, safe_next
 
 
 def _my_context(event, access):
@@ -186,7 +187,5 @@ def guardian_authorization(request, event, access, public_id):
         raise PermissionDenied
     participant_svc.record_guardian_authorization(participant, actor=request.user, granted=True)
     messages.success(request, "Autorización registrada.")
-    next_url = request.POST.get("siguiente", "")
-    if next_url.startswith("/") and not next_url.startswith("//"):
-        return redirect(next_url)
-    return redirect("events:participant_detail", slug=event.slug, public_id=participant.public_id)
+    fallback = reverse("events:participant_detail", args=[event.slug, participant.public_id])
+    return redirect(safe_next(request, request.POST.get("siguiente"), fallback))

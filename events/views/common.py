@@ -7,6 +7,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from ..access import resolve_access
 from ..models import Event, InterviewStation, MembershipRole
@@ -115,3 +116,10 @@ def initials(name: str) -> str:
     if len(parts) == 1:
         return parts[0][:2].upper()
     return (parts[0][0] + parts[-1][0]).upper()
+
+
+def safe_next(request, candidate: str | None, fallback: str) -> str:
+    """Only same-site redirects (rejects //evil.example, /\\evil.example, absolute URLs)."""
+    if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return candidate
+    return fallback

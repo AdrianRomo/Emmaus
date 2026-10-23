@@ -754,6 +754,11 @@ class FollowUp(models.Model):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     reason = models.CharField("Motivo", max_length=32, choices=Reason.choices, default=Reason.COORDINATOR)
     details = models.TextField("Detalles confidenciales", blank=True)
+    confidential = models.BooleanField(
+        "Solo para el equipo de cuidado",
+        default=False,
+        help_text="Se creó a partir de respuestas confidenciales: solo lo ve el equipo con acceso confidencial.",
+    )
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
@@ -769,7 +774,7 @@ class FollowUp(models.Model):
         ordering = ["status", "-created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["interview"],
+                fields=["interview", "confidential"],
                 condition=Q(kind="seguimiento") & ~Q(status="cancelado"),
                 name="one_open_care_follow_up_per_interview",
             ),
@@ -861,3 +866,20 @@ class AuditEvent(models.Model):
         ]
         verbose_name = "registro de actividad"
         verbose_name_plural = "registro de actividad"
+
+
+class AuthThrottle(models.Model):
+    """Attempt counter for logins and kiosk unlocks, shared by every worker process.
+
+    Attempts are counted *before* the password is checked and under a row lock, so
+    parallel requests cannot test more passwords than the limit allows.
+    """
+
+    key = models.CharField(max_length=200, unique=True)
+    attempts = models.PositiveIntegerField(default=0)
+    window_started_at = models.DateTimeField(default=timezone.now)
+    blocked_until = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "límite de intentos"
+        verbose_name_plural = "límites de intentos"

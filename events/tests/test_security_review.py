@@ -1,4 +1,8 @@
-"""Adversarial proof tests. Every test here encodes the SECURE expectation; a failure is a finding."""
+"""Adversarial security review (2026-10-23). Every test encodes the SECURE expectation.
+
+Written by a refuter pass that first proved each issue with a failing test; the fixes
+live in the code and these tests keep them fixed.
+"""
 
 from __future__ import annotations
 
@@ -73,20 +77,25 @@ class AccountTakeoverTests(RefuterBase):
     def test_event_admin_cannot_take_over_an_existing_superuser_account(self):
         root = User.objects.create_superuser("root@prueba.mx", "root@prueba.mx", PASSWORD)
         self.login(self.admin)
-        # Any church admin can enrol ANY existing account by e-mail, without its owner's consent...
+        # Enrolling an existing account in the event is allowed (it keeps its own password)...
         self.client.post(self.url("member_add"), {"full_name": "Quien Sea", "email": "root@prueba.mx", "role": "coordinador"})
         membership = EventMembership.objects.get(event=self.event, user=root)
-        # ...then mint a password-set link for it.
+        # ...but no password-set link can be minted for an account that already has one.
         response = self.client.post(self.url("member_edit", membership.id), {"action": "link"})
-        link = response.context["link"]
-        attacker = Client()
-        set_url = attacker.get(urlparse(link).path)["Location"]
-        new = "Toma-de-cuenta-9431"
-        attacker.post(set_url, {"new_password1": new, "new_password2": new})
-        self.assertFalse(
-            Client().login(username="root@prueba.mx", password=new),
-            "a church admin set a new password on a pre-existing SUPERUSER account (full takeover)",
-        )
+        self.assertEqual(response.status_code, 403)
+        page = self.client.get(self.url("member_edit", membership.id))
+        self.assertIsNone(page.context["link"])
+        self.assertContains(page, "¿Olvidaste tu contraseña?")
+        self.assertTrue(Client().login(username="root@prueba.mx", password=PASSWORD))
+
+    def test_link_is_allowed_only_for_accounts_created_here_without_password(self):
+        self.login(self.admin)
+        self.client.post(self.url("member_add"), {"full_name": "Nueva Persona", "email": "nueva@prueba.mx", "role": "coordinador"})
+        membership = EventMembership.objects.get(event=self.event, user__email="nueva@prueba.mx")
+        response = self.client.post(self.url("member_edit", membership.id), {"action": "link"})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["link"])
+        self.assertTrue(self.event.audit_events.filter(summary__startswith="Generó un enlace").exists())
 
     def test_admin_status_alone_is_not_enough_to_read_confidential_text(self):
         interview = self.complete(self.p1, {"dudas": ["si"]}, texts={"dudas_detalle": "SECRETO-XYZ-789"})
@@ -158,41 +167,56 @@ class SupervisedReviewLeakTests(RefuterBase):
 
 
 class DifferencingTests(RefuterBase):
-    def _dudas(self, response):
-        outcome = next(o for o in response.context["outcomes"] if o["code"] == "dudas")
+    """Aggregates come from released cutoff values: a cell moves only when >= k answers moved."""
+
+    def _snapshot_dudas(self):
+        from events.services.metrics import event_scope
+        from events.services.reports import visible_payload
+        from events.access import resolve_access
+
+        snap = generate_snapshot(self.event, event_scope(self.event), trigger="automatico", cutoff_at=timezone.now())
+        outcomes = visible_payload(snap.data, resolve_access(self.pastor, self.event))["outcomes"]
+        outcome = next(o for o in outcomes if o["code"] == "dudas")
         return [(r["code"], r["display"]) for r in outcome["rows"]]
 
-    def test_one_campers_answer_does_not_change_the_pastor_dashboard(self):
+    def test_one_campers_answer_does_not_change_released_aggregates(self):
         others = self.extra_campers(7)
         pool = [self.p2, self.p3, self.p4, self.p_minor_no_auth, *others]  # 11 people, X = p1
         for index, person in enumerate(pool):
             self.complete(person, {"dudas": ["si" if index < 7 else "no"]})
         x = self.complete(self.p1, {"dudas": ["si"]})
-        self.login(self.pastor)
-        world_si = self._dudas(self.client.get(self.url("pastor_home")))
+        world_si = self._snapshot_dudas()
         answer = x.answers.get(question=self.q("dudas"))
         answer.options.set([self.q("dudas").options.get(code="no")])
-        world_no = self._dudas(self.client.get(self.url("pastor_home")))
-        self.assertEqual(world_si, world_no, "pastor without sensitive access can read camper X's 'dudas' answer by differencing")
+        world_no = self._snapshot_dudas()
+        self.assertEqual(world_si, world_no, "camper X's 'dudas' answer can be read by comparing two cutoffs")
+
+    def test_pastor_dashboard_shows_only_released_aggregates(self):
+        for person in (self.p1, self.p2):
+            self.complete(person, {"dudas": ["si"]})
+        self.login(self.pastor)
+        response = self.client.get(self.url("pastor_home"))
+        self.assertEqual(response.context["outcomes"], [])  # nothing live, only cutoffs
 
     def test_deck_follow_up_count_does_not_reveal_one_camper(self):
+        from events.services.metrics import event_scope
+
         for person in (self.p2, self.p3, self.p4, self.p_minor_no_auth):
             interview = self.complete(person, decision="requerido")
             FollowUp.objects.create(event=self.event, participant=person, interview=interview)
+        generate_snapshot(self.event, event_scope(self.event), trigger="automatico", cutoff_at=timezone.now() - timedelta(minutes=5))
         x = self.complete(self.p1, decision="requerido")
-        x_follow_up = FollowUp.objects.create(event=self.event, participant=self.p1, interview=x)
+        FollowUp.objects.create(event=self.event, participant=self.p1, interview=x)
+        generate_snapshot(self.event, event_scope(self.event), trigger="automatico", cutoff_at=timezone.now())
         self.login(self.pastor)
-        with_x = self.client.get(self.url("presentation_live")).context["deck"]["follow_ups"]["requested"]["display"]
-        x_follow_up.delete()
-        without_x = self.client.get(self.url("presentation_live")).context["deck"]["follow_ups"]["requested"]["display"]
-        self.assertEqual(with_x, without_x, "projected deck reveals whether the 5th interviewee asked for follow-up")
+        deck = self.client.get(self.url("presentation_live")).context["deck"]
+        self.assertEqual(deck["follow_ups"]["requested"]["display"], "Menos de 5", "the 5th request must not be visible on the projector")
 
     def test_homogeneous_answers_are_not_disclosed(self):
         others = self.extra_campers(5)
         for person in (self.p1, self.p2, self.p3, self.p4, self.p_minor_no_auth, *others):
             self.complete(person, {"dudas": ["si"]})
-        self.login(self.pastor)
-        rows = dict(self._dudas(self.client.get(self.url("pastor_home"))))
+        rows = dict(self._snapshot_dudas())
         self.assertFalse(
             all(display == "0" for code, display in rows.items() if code != "si"),
             f"every respondent's answer is determined: {rows}",
@@ -395,7 +419,7 @@ class HeldIdorTests(RefuterBase):
         self.assertEqual(self.client.post(self.url("stations"), {"action": "toggle", "station": other_station.id}).status_code, 404)
         other_tutor = EventMembership.objects.get(event=self.other_event, role="tutor")
         self.client.post(self.url("assignments"), {f"tutor_{self.m_coord1.id}": other_tutor.id})
-        self.assertEqual(TutorAssignment.objects.get(coordinator=self.m_coord1).tutor_id, self.m_tutor1.id)
+        self.assertFalse(TutorAssignment.objects.filter(tutor=other_tutor, coordinator__event=self.event).exists())
         other_interview = Interview.objects.create(event=self.other_event, participant=self.p_other_event, version=self.version)
         ps = ParticipantSession.objects.create(
             interview=other_interview, token_hash="x", lock_token_hash="y", started_by=self.other_coord,
@@ -424,3 +448,67 @@ class HeldIdorTests(RefuterBase):
         self.assertIsNone(detail.context["payload"]["follow_ups"]["safety_open"])
         self.assertNotContains(detail, "riesgo abiertas")
         self.assertNotContains(self.client.get(self.url("pastor_home")), "riesgo abiertas")
+
+
+class AssignmentLostUpdateTests(RefuterBase):
+    def test_saving_one_row_does_not_drop_other_coordinators_tutor(self):
+        self.login(self.admin)
+        # A stale or partial form: only coord1's row, with its CURRENT value (no change intended).
+        self.client.post(self.url("assignments"), {f"tutor_{self.m_coord1.id}": self.m_tutor1.id})
+        remaining = set(TutorAssignment.objects.filter(event=self.event).values_list("coordinator_id", flat=True))
+        self.assertEqual(remaining, {self.m_coord1.id, self.m_coord2.id, self.m_coord3.id})
+
+
+class FollowUpPrivacyAndThrottleTests(RefuterBase):
+    def test_login_is_throttled_per_account(self):
+        url = reverse("login")
+        for _ in range(8):
+            self.client.post(url, {"username": self.coord1.username, "password": "equivocada"})
+        response = self.client.post(url, {"username": self.coord1.username, "password": PASSWORD})
+        self.assertContains(response, "Demasiados intentos")
+        self.assertNotIn("_auth_user_id", self.client.session)
+        # Another account is not affected.
+        self.assertTrue(Client().login(username=self.coord2.username, password=PASSWORD))
+
+    def test_confidential_support_request_reaches_only_the_care_team(self):
+        self.login(self.coord1)
+        self.choose_station(number=5)
+        self.start(self.p1, mode="supervisada")
+        interview = Interview.objects.get(participant=self.p1)
+        self.client.post(self.url("interview_handoff", interview.public_id))
+        self.answer(interview, "apoyo", ["familia"], url_name="kiosk")
+        self.client.post(reverse("kiosk:finish"))
+        self.client.post(reverse("kiosk:unlock"), {"password": PASSWORD})
+        interview.refresh_from_db()
+        self.client.post(self.url("interview_review", interview.public_id), {"revision": interview.revision, "follow_up_decision": "no_requerido"})
+        referral = FollowUp.objects.get(interview=interview)
+        self.assertTrue(referral.confidential)
+        self.assertEqual(referral.reason, FollowUp.Reason.SUPPORT_REQUESTED)
+        for user in (self.coord1, self.tutor1, self.pastor, self.admin):
+            self.login(user)
+            self.assertEqual(self.client.get(self.url("follow_up_detail", referral.id)).status_code, 404, user.email)
+            self.assertNotContains(self.client.get(self.url("follow_ups")), self.p1.full_name)
+        self.login(self.care)
+        self.assertEqual(self.client.get(self.url("follow_up_detail", referral.id)).status_code, 200)
+
+    def test_follow_up_decision_cannot_be_flipped_once_decided(self):
+        interview = self.complete(self.p1, decision="no_requerido")
+        self.login(self.coord1)
+        self.client.post(self.url("interview_detail", interview.public_id), {"action": "decision", "decision": "requerido"})
+        interview.refresh_from_db()
+        self.assertEqual(interview.follow_up_decision, "no_requerido")
+        self.assertFalse(FollowUp.objects.filter(interview=interview).exists())
+
+    def test_malformed_ids_are_404_not_500(self):
+        self.login(self.admin)
+        self.assertEqual(self.client.post(self.url("sessions"), {"participant_session": "no-es-uuid"}).status_code, 404)
+        self.assertEqual(self.client.post(self.url("sessions"), {"interview": "x"}).status_code, 404)
+
+    def test_handback_screen_does_not_name_the_previous_camper(self):
+        self.login(self.coord1)
+        self.choose_station(number=5)
+        self.start(self.p1, mode="supervisada")
+        interview = Interview.objects.get(participant=self.p1)
+        self.client.post(self.url("interview_handoff", interview.public_id))
+        self.client.post(reverse("kiosk:finish"))
+        self.assertNotContains(self.client.get(reverse("kiosk:home")), self.p1.first_name)

@@ -4,7 +4,6 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
@@ -101,6 +100,8 @@ class Church(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "iglesia"
+        verbose_name_plural = "iglesias"
         ordering = ["name"]
 
     def __str__(self) -> str:
@@ -114,6 +115,8 @@ class UserChurchRole(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "rol en la iglesia"
+        verbose_name_plural = "roles en la iglesia"
         unique_together = ("church", "user")
         ordering = ["church__name", "role", "user__last_name", "user__first_name"]
 
@@ -160,10 +163,12 @@ class Invitation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "invitación"
+        verbose_name_plural = "invitaciones"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.email} invited as {self.role}"
+        return f"{self.email} invitado como {self.get_role_display()}"
 
     @property
     def is_expired(self) -> bool:
@@ -206,6 +211,8 @@ class ParticipantProfile(models.Model):
     emergency_disclaimer_accepted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "perfil de participante"
+        verbose_name_plural = "perfiles de participante"
         ordering = ["user__last_name", "user__first_name", "user__email"]
 
     def __str__(self) -> str:
@@ -229,6 +236,8 @@ class DiscipleshipPath(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "ruta de discipulado"
+        verbose_name_plural = "rutas de discipulado"
         ordering = ["church__name", "-is_default", "title"]
 
     def __str__(self) -> str:
@@ -252,6 +261,8 @@ class Lesson(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
+        verbose_name = "lección"
+        verbose_name_plural = "lecciones"
         unique_together = ("path", "order")
         ordering = ["path", "order"]
 
@@ -265,6 +276,8 @@ class ReflectionQuestion(models.Model):
     order = models.PositiveIntegerField()
 
     class Meta:
+        verbose_name = "pregunta de reflexión"
+        verbose_name_plural = "preguntas de reflexión"
         unique_together = ("lesson", "order")
         ordering = ["lesson", "order"]
 
@@ -279,11 +292,13 @@ class Enrollment(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "inscripción"
+        verbose_name_plural = "inscripciones"
         unique_together = ("participant", "path")
         ordering = ["-started_at"]
 
     def __str__(self) -> str:
-        return f"{self.participant.email} in {self.path.title}"
+        return f"{self.participant.email} en {self.path.title}"
 
 
 class LessonProgress(models.Model):
@@ -293,6 +308,8 @@ class LessonProgress(models.Model):
     last_viewed_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "avance de lección"
+        verbose_name_plural = "avances de lección"
         unique_together = ("enrollment", "lesson")
         ordering = ["lesson__order"]
 
@@ -310,6 +327,8 @@ class ReflectionAnswer(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "respuesta de reflexión"
+        verbose_name_plural = "respuestas de reflexión"
         unique_together = ("enrollment", "question")
         ordering = ["lesson__order", "question__order"]
 
@@ -353,6 +372,8 @@ class ParticipantQuestion(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "pregunta de participante"
+        verbose_name_plural = "preguntas de participantes"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
@@ -367,6 +388,8 @@ class QuestionResponse(models.Model):
     edited_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "respuesta de líder"
+        verbose_name_plural = "respuestas de líderes"
         ordering = ["created_at"]
 
     def __str__(self) -> str:
@@ -410,6 +433,8 @@ class FollowUpRequest(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "solicitud de seguimiento"
+        verbose_name_plural = "solicitudes de seguimiento"
         ordering = ["status", "due_date", "-created_at"]
 
     def __str__(self) -> str:
@@ -434,6 +459,8 @@ class PastoralNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "nota pastoral"
+        verbose_name_plural = "notas pastorales"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
@@ -457,7 +484,9 @@ class AIDraft(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "borrador con IA"
+        verbose_name_plural = "borradores con IA"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"Draft for question {self.related_question_id}"
+        return f"Borrador para la pregunta {self.related_question_id}"

@@ -32,14 +32,14 @@
     {% for row in rows %}
       <div class="summary-list__row">
         <dt>{{ row.question.text }}</dt>
-        <dd>{% if not row.visible %}<span class="privacy-tag">Confidencial{% if row.answered %}: solo el equipo de cuidado autorizado{% else %}: sin responder{% endif %}</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
+        <dd>{% if not row.visible %}<span class="privacy-tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
         <span class="summary-list__action">{% if can_correct and row.visible %}<a href="{% url 'events:interview_correct' event.slug interview.public_id row.step.number %}">Corregir<span class="visually-hidden"> “{{ row.question.text }}”</span></a>{% endif %}</span>
       </div>
     {% empty %}
       <p class="muted">Todavía no hay respuestas.</p>
     {% endfor %}
   </dl>
-  {% if hidden_count %}<p class="text-sm muted mt-4">Hay {{ hidden_count }} respuesta{{ hidden_count|pluralize }} que no puedes ver por privacidad.</p>{% endif %}
+  {% if has_hidden %}<p class="text-sm muted mt-4">Algunas respuestas solo las puede leer el equipo de cuidado autorizado.</p>{% endif %}
 </section>
 
 {% if revisions %}

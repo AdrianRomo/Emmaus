@@ -57,7 +57,7 @@
       <div class="deck-tile"><p class="deck-tile__value">{{ deck.follow_ups.done.display }}</p><p class="deck-tile__label">ya atendidos</p></div>
       <div class="deck-tile"><p class="deck-tile__value">{{ deck.follow_ups.to_evaluate.display }}</p><p class="deck-tile__label">por decidir</p></div>
     </div>
-    <p class="deck-note">Solo totales generales, redondeados a múltiplos de {{ deck.k }}. Las cifras menores a {{ deck.k }} se ocultan para cuidar la privacidad de cada persona. No se muestran nombres, respuestas ni temas personales.</p>
+    <p class="deck-note">{% if deck.follow_ups.as_of %}Según el corte de las {{ deck.follow_ups.as_of|date:"H:i" }}. {% else %}Estas cifras aparecerán con el primer corte de seguimiento. {% endif %}Solo totales generales, redondeados a múltiplos de {{ deck.k }}; las cifras menores a {{ deck.k }} se ocultan. No se muestran nombres, respuestas ni temas personales.</p>
   </div>
   {% include "events/presentation/_foot.html" with n=4 %}
 </section>

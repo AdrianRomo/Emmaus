@@ -51,6 +51,7 @@
       if (doc.hidden) { schedule(); return; }
       if (region.contains(doc.activeElement) && doc.activeElement !== doc.body) { schedule(); return; }
       region.setAttribute("aria-busy", "true");
+      if (status && status.getAttribute("data-state") !== "stale") status.setAttribute("data-state", "loading");
       fetch(url + (url.indexOf("?") === -1 ? "?" : "&") + "_=" + Date.now(), {
         credentials: "same-origin",
         headers: { "X-Requested-With": "fetch" },

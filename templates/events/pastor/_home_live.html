@@ -46,8 +46,9 @@
     <div class="figure"><p class="figure__label">Por decidir</p><p class="figure__value">{{ payload.follow_ups.to_evaluate }}</p><p class="figure__note">entrevistas sin decisión de seguimiento</p></div>
     {% if payload.follow_ups.safety_open is not None %}<div class="figure"><p class="figure__label">Situaciones de riesgo abiertas</p><p class="figure__value">{{ payload.follow_ups.safety_open }}</p><p class="figure__note"><a href="{% url 'events:follow_ups' event.slug %}">Atender</a></p></div>{% endif %}
   </div>
+  {% if payload.follow_ups.confidential_open is not None %}<p class="mt-4 text-sm">Solicitudes de apoyo confidenciales abiertas (solo equipo de cuidado): <strong>{{ payload.follow_ups.confidential_open }}</strong></p>{% endif %}
   {% if outcomes %}
-    <div class="notice notice--quiet mt-8"><p>Estos resúmenes muestran solo totales del {{ event.kind_noun|lower }}, redondeados a múltiplos de {{ payload.min_group_size }}. Las cifras menores a {{ payload.min_group_size }} se ocultan para que nadie pueda ser identificado. No son diagnósticos: son lo que cada campero quiso compartir.</p></div>
+    <div class="notice notice--quiet mt-8"><p>Resumen del corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}: solo totales del {{ event.kind_noun|lower }}, redondeados a múltiplos de {{ payload.min_group_size }}. Las cifras menores a {{ payload.min_group_size }} se ocultan, y cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas, para que nadie pueda ser identificado. No son diagnósticos: son lo que cada campero quiso compartir.</p></div>
     <div class="split split--even mt-6">
       {% for outcome in outcomes %}
         <figure class="chart">

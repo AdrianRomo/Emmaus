@@ -313,7 +313,7 @@ def coordinators(scope: Scope, *, now: datetime | None = None) -> list[dict]:
 
 def follow_up_summary(scope: Scope, *, include_safety: bool) -> dict:
     participants = EventParticipant.objects.filter(pk__in=scope.participants().values("pk"))
-    care = FollowUp.objects.filter(event=scope.event, kind=FollowUp.Kind.CARE, participant__in=participants)
+    care = FollowUp.objects.filter(event=scope.event, kind=FollowUp.Kind.CARE, participant__in=participants, confidential=False)
     counts = dict(care.values_list("status").annotate(n=Count("id")))
     to_evaluate = completed_interviews(participants).filter(follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
     summary = {
@@ -327,6 +327,13 @@ def follow_up_summary(scope: Scope, *, include_safety: bool) -> dict:
     summary["safety_open"] = (
         FollowUp.objects.filter(
             event=scope.event, kind=FollowUp.Kind.SAFETY, participant__in=participants, status__in=FollowUp.OPEN_STATUSES
+        ).count()
+        if include_safety
+        else None
+    )
+    summary["confidential_open"] = (
+        FollowUp.objects.filter(
+            event=scope.event, kind=FollowUp.Kind.CARE, confidential=True, participant__in=participants, status__in=FollowUp.OPEN_STATUSES
         ).count()
         if include_safety
         else None
@@ -372,38 +379,62 @@ def attention(scope: Scope, *, now=None) -> dict:
 # ---- privacy-preserving outcome aggregates -----------------------------------------------------------
 
 
-def suppress(value: int, k: int) -> dict:
+def suppress(value: int | None, k: int, *, hide_zero: bool = False) -> dict:
     """Small counts are hidden; larger ones are rounded to a multiple of k.
 
-    Rounding stops someone from comparing two cutoffs (or a total and its parts) to
-    work out the answer of one specific person.
+    With ``hide_zero`` an empty cell looks the same as a small one, so a column of
+    zeros cannot reveal that everyone gave the same answer.
     """
-    if value <= 0:
+    if value is None:
+        return {"value": None, "display": "—", "suppressed": True}
+    if value <= 0 and not hide_zero:
         return {"value": 0, "display": "0", "suppressed": False}
     if value < k:
         return {"value": None, "display": f"Menos de {k}", "suppressed": True}
     rounded = int(k * round(value / k))
-    return {"value": rounded, "display": f"≈ {rounded}", "suppressed": False}
+    return {"value": rounded, "display": f"\u2248 {rounded}", "suppressed": False}
 
 
-def outcome_aggregates(event: Event, *, k: int | None = None) -> list[dict]:
-    """Event-level counts for choice questions, from completed interviews only."""
-    k = k or event.min_group_size
+def outcome_counts(event: Event) -> dict:
+    """Raw counts per choice question (event level, completed interviews only).
+
+    Never rendered directly: snapshots store a *released* copy (see reports.release_cells)
+    and templates show it through ``present_outcomes``.
+    """
     version = event.questionnaire_version
     if version is None:
-        return []
+        return {}
     completed = Interview.objects.filter(event=event, status=Interview.Status.COMPLETED, participant__is_active=True)
-    results = []
+    result = {}
     for question in all_questions(version):
         if not question.is_choice or question.sensitivity == Question.Sensitivity.GENERAL:
             continue
         answers = Answer.objects.filter(interview__in=completed, question=question)
-        respondents = answers.count()
         option_counts = dict(answers.values_list("options__code").annotate(n=Count("id", distinct=True)))
-        rows = []
-        for option in question.options.all():
-            cell = suppress(option_counts.get(option.code, 0), k)
-            rows.append({"label": option.label, "code": option.code, "decline": option.is_decline, **cell})
+        result[question.code] = {
+            "respondents": answers.count(),
+            "options": {option.code: option_counts.get(option.code, 0) for option in question.options.all()},
+        }
+    return result
+
+
+def present_outcomes(event: Event, released: dict | None, *, k: int | None = None) -> list[dict]:
+    """Suppressed, rounded rows for display, from released counts."""
+    k = k or event.min_group_size
+    version = event.questionnaire_version
+    if not released or version is None:
+        return []
+    results = []
+    for question in all_questions(version):
+        counts = released.get(question.code)
+        if counts is None:
+            continue
+        respondents = counts.get("respondents", 0)
+        rows = [
+            {"label": option.label, "code": option.code, "decline": option.is_decline,
+             **suppress(counts["options"].get(option.code, 0), k, hide_zero=True)}
+            for option in question.options.all()
+        ]
         enough = respondents >= 2 * k
         results.append(
             {
@@ -411,7 +442,7 @@ def outcome_aggregates(event: Event, *, k: int | None = None) -> list[dict]:
                 "title": question.text,
                 "kind": question.kind,
                 "sensitivity": question.sensitivity,
-                "respondents": suppress(respondents, k),
+                "respondents": suppress(respondents, k, hide_zero=True),
                 "rows": rows if enough else [],
                 "withheld": not enough,
             }
@@ -503,7 +534,7 @@ def build_payload(scope: Scope, *, include_safety: bool = False, include_outcome
         "coordinators": coordinators(scope, now=now) if not scope.coordinator else [],
         "follow_ups": follow_up_summary(scope, include_safety=include_safety),
         "attention": attention(scope, now=now),
-        "outcomes": outcome_aggregates(scope.event) if include_outcomes and scope.is_event else [],
+        "outcome_counts": outcome_counts(scope.event) if include_outcomes and scope.is_event else {},
         "min_group_size": scope.event.min_group_size,
     }
     payload["recommendations"] = recommendations(payload)

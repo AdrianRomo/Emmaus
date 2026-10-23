@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 from ..models import Interview, ParticipantSession
 from ..services import interviews as svc
 from ..services.questionnaire import build_steps, load_answers, neighbor_steps, visible_steps
-from .interview import question_context, step_context
+from .interview import step_context
 
 
 def _session_or_screen(request):

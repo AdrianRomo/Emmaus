@@ -12,7 +12,7 @@ from ..forms import EventForm, StationChoiceForm
 from ..models import Event, InterviewStation
 from ..services import audit
 from ..services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, create_questionnaire_from_definition
-from .common import COORDINATOR, EVERYONE, event_view, remember_station, role_home_url
+from .common import COORDINATOR, EVERYONE, event_view, remember_station, role_home_url, safe_next
 
 
 @login_required
@@ -73,9 +73,9 @@ def choose_station(request, event, access):
     if not access.can_conduct_interviews:
         raise PermissionDenied
     form = StationChoiceForm(request.POST or None, event=event)
-    next_url = request.GET.get("siguiente") or request.POST.get("siguiente") or ""
-    if not next_url.startswith("/"):
-        next_url = reverse("events:interview_search", args=[event.slug])
+    next_url = safe_next(
+        request, request.GET.get("siguiente") or request.POST.get("siguiente"), reverse("events:interview_search", args=[event.slug])
+    )
     if request.method == "POST" and form.is_valid():
         remember_station(request, event, form.cleaned_data["station"])
         messages.success(request, f"Esta computadora quedó registrada como {form.cleaned_data['station'].name}.")

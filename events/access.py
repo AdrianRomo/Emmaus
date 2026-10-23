@@ -148,6 +148,9 @@ class EventAccess:
         qs = FollowUp.objects.filter(
             event=self.event, participant__in=self.participants(include_inactive=True)
         ).select_related("participant", "assigned_to", "created_by")
+        if not self.can_view_sensitive:
+            # Referrals created from confidential answers belong to the care team only.
+            qs = qs.filter(Q(confidential=False) | Q(created_by=self.user))
         if not (self.can_view_sensitive or self.is_admin):
             # Safety reports are visible to the authorized care team and administrators only.
             # Their reporter still sees that a report exists (see can_view_follow_up).

@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from ..forms import DiscardForm, InterviewStartForm, SafetyReportForm
-from ..models import EventParticipant, FollowUp, Interview, InterviewStatus, Question
+from ..models import FollowUp, Interview, InterviewStatus, Question
 from ..services import audit
 from ..services import interviews as svc
 from ..services.questionnaire import (
@@ -335,7 +335,8 @@ def interview_review(request, event, access, public_id):
         else:
             return redirect("events:interview_done", slug=event.slug, public_id=public_id)
     answers = load_answers(interview)
-    suggestions = svc.follow_up_suggestions(interview, answers)
+    visible_ids = svc.visible_question_ids(access, interview, during_capture=True)
+    suggestions = svc.follow_up_suggestions(interview, answers, visible_ids=visible_ids)
     rows = svc.review_rows(access, interview, during_capture=True)
     return render(
         request,
@@ -348,7 +349,7 @@ def interview_review(request, event, access, public_id):
             "decision_choices": Interview.FollowUpDecision.choices,
             "selected_decision": request.POST.get("follow_up_decision") or (Interview.FollowUpDecision.REQUIRED if suggestions else ""),
             "error": error,
-            "hidden_count": sum(1 for r in rows if not r["visible"]),
+            "has_hidden": any(not r["visible"] for r in rows),
         },
     )
 
@@ -436,8 +437,8 @@ def interview_detail(request, event, access, public_id):
             "rows": rows,
             "can_correct": access.can_correct(interview),
             "can_continue": interview.status == Interview.Status.IN_PROGRESS and access.can_interview(interview.participant),
-            "revisions": interview.answer_revisions.select_related("question", "changed_by")[:20] if access.can_view_sensitive or access.is_admin else [],
-            "hidden_count": sum(1 for r in rows if not r["visible"]),
+            "revisions": interview.answer_revisions.select_related("question", "changed_by")[:20] if access.can_view_sensitive else [],
+            "has_hidden": any(not r["visible"] for r in rows),
         },
     )
 

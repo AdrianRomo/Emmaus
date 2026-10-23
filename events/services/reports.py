@@ -17,7 +17,32 @@ from django.utils import timezone
 
 from ..models import Event, EventMembership, MembershipRole, ReportSnapshot
 from . import audit
-from .metrics import METRICS_VERSION, Scope, build_payload, event_scope, local_tz, scope_from_key, team_scope
+from .metrics import METRICS_VERSION, Scope, build_payload, event_scope, local_tz, present_outcomes, scope_from_key, team_scope
+
+RELEASED_FOLLOW_UP_KEYS = ("requested_total", "open_total", "done", "to_evaluate")
+
+
+def release_cells(current, previous, k: int):
+    """Release a new value for a cell only if it moved by at least k since the last release.
+
+    Applied cell by cell to nested dicts of counts. Comparing two consecutive releases can
+    then never isolate fewer than k people, which is what plain rounding cannot promise.
+    """
+    if isinstance(current, dict):
+        previous = previous if isinstance(previous, dict) else {}
+        return {key: release_cells(value, previous.get(key), k) for key, value in current.items()}
+    if previous is None or abs(current - previous) >= k:
+        return current
+    return previous
+
+
+def _previous_released(event: Event, scope_key: str):
+    previous = (
+        ReportSnapshot.objects.filter(event=event, scope_key=scope_key, status=ReportSnapshot.Status.READY)
+        .order_by("-cutoff_at", "-id")
+        .first()
+    )
+    return (previous.data or {}).get("released") if previous else None
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +113,12 @@ def generate_snapshot(event: Event, scope: Scope, *, trigger: str, cutoff_at: da
         return existing
     try:
         payload = build_payload(scope, include_safety=True, include_outcomes=scope.is_event, now=now)
+        k = event.min_group_size
+        previous = _previous_released(event, scope.key) or {}
+        payload["released"] = {
+            "follow_ups": release_cells({key: payload["follow_ups"][key] for key in RELEASED_FOLLOW_UP_KEYS}, previous.get("follow_ups"), k),
+            "outcomes": release_cells(payload.pop("outcome_counts", {}), previous.get("outcomes"), k),
+        }
     except Exception as exc:  # recorded so administrators see it; never includes answers
         logger.exception("Snapshot generation failed for event %s scope %s", event.pk, scope.key)
         if existing:
@@ -148,8 +179,23 @@ def manual_cutoff(access, scope_key: str) -> ReportSnapshot:
     scope = scope_from_key(access.event, scope_key)
     if scope is None:
         raise PermissionError("Ese alcance ya no existe.")
-    cutoff = timezone.now().replace(second=0, microsecond=0)  # double clicks land on the same minute
-    snapshot = generate_snapshot(access.event, scope, trigger=ReportSnapshot.Trigger.MANUAL, cutoff_at=cutoff, user=access.user)
+    now = timezone.now()
+    with transaction.atomic():
+        # Serialize manual cutoffs per event so a double click returns the first one.
+        Event.objects.select_for_update().filter(pk=access.event.pk).first()
+        recent = (
+            ReportSnapshot.objects.filter(
+                event=access.event, scope_key=scope.key, trigger=ReportSnapshot.Trigger.MANUAL,
+                status=ReportSnapshot.Status.READY, created_at__gte=now - timedelta(seconds=60),
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if recent:
+            return recent
+        snapshot = generate_snapshot(
+            access.event, scope, trigger=ReportSnapshot.Trigger.MANUAL, cutoff_at=now.replace(microsecond=0), user=access.user
+        )
     audit.record(access.user, access.event, "corte_generado", f"Generó un corte manual: {scope.label}", snapshot)
     return snapshot
 
@@ -168,10 +214,30 @@ def previous_snapshot(snapshot: ReportSnapshot) -> ReportSnapshot | None:
 
 
 def visible_payload(payload: dict, access) -> dict:
-    """Trim a stored payload to what the *current* viewer may see."""
+    """Trim a stored payload to what the *current* viewer may see (never what they saw before)."""
     data = dict(payload)
+    released = data.pop("released", None) or {}
+    data.pop("outcome_counts", None)
     if not (access.is_admin or access.can_view_sensitive):
-        data["follow_ups"] = {**data.get("follow_ups", {}), "safety_open": None}
-    if not access.can_see_aggregate_outcomes:
-        data["outcomes"] = []
+        data["follow_ups"] = {**data.get("follow_ups", {}), "safety_open": None, "confidential_open": None}
+    data["outcomes"] = present_outcomes(access.event, released.get("outcomes")) if access.can_see_aggregate_outcomes else []
+    if access.is_tutor:
+        allowed = set(access.coordinators().values_list("id", flat=True))
+        before = data.get("coordinators", [])
+        data["coordinators"] = [row for row in before if row.get("id") in allowed]
+        data["coordinators_hidden"] = len(before) - len(data["coordinators"])
     return data
+
+
+def released_follow_ups(snapshot: ReportSnapshot | None) -> dict | None:
+    if snapshot is None:
+        return None
+    return (snapshot.data or {}).get("released", {}).get("follow_ups")
+
+
+def latest_snapshot(event: Event, scope_key: str) -> ReportSnapshot | None:
+    return (
+        ReportSnapshot.objects.filter(event=event, scope_key=scope_key, status=ReportSnapshot.Status.READY)
+        .order_by("-cutoff_at", "-id")
+        .first()
+    )

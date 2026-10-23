@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from django.contrib.auth.models import User
-from django.db.models import Q
 
 from core.models import Role
 from core.services import send_email_safely

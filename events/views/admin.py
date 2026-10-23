@@ -16,6 +16,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+
+from core.models import UserChurchRole
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
@@ -138,6 +140,12 @@ def participant_import(request, event, access):
     )
 
 
+def _safe_cell(value):
+    """Spreadsheets run cells that start with = + - @ as formulas; neutralize them."""
+    text = str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
 @event_view(ADMIN)
 def participant_export(request, event, access):
     response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -147,12 +155,12 @@ def participant_export(request, event, access):
     writer = csv.writer(response)
     writer.writerow(["Número", "Nombre", "Edad", "Cuarto", "Iglesia o grupo", "Coordinador", "Entrevista", "Participa", "Registro"])
     for p in access.participants(include_inactive=True).select_related("coordinator__user").order_by("number"):
-        writer.writerow([
+        writer.writerow([_safe_cell(value) for value in [
             p.code, p.full_name, p.age, p.room, p.church_group,
             p.coordinator.display_name if p.coordinator else "",
             p.get_interview_status_display(), "Sí" if p.is_active else "No",
             timezone.localtime(p.created_at).strftime("%d/%m/%Y %H:%M"),
-        ])
+        ]])
     audit.record(request.user, event, "exportacion", "Descargó la lista de camperos (sin respuestas)", None, kind="lista")
     return response
 
@@ -211,6 +219,21 @@ def participant_delete(request, event, access, public_id):
 # ---- team -----------------------------------------------------------------------------------
 
 
+def _can_issue_activation_link(event, user) -> bool:
+    """Only for accounts created here that never set a password.
+
+    An account that already has a password, a staff/superuser account, or one that also
+    belongs to another church must use "¿Olvidaste tu contraseña?" (e-mail to its owner).
+    """
+    if user.has_usable_password() or user.is_superuser or user.is_staff:
+        return False
+    if UserChurchRole.objects.filter(user=user).exclude(church_id=event.church_id).exists():
+        return False
+    if EventMembership.objects.filter(user=user).exclude(event__church_id=event.church_id).exists():
+        return False
+    return True
+
+
 def _activation_link(request, user) -> str:
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
@@ -221,6 +244,8 @@ def _activation_link(request, user) -> str:
 def member_add(request, event, access):
     form = MemberForm(request.POST or None, event=event)
     created_link = None
+    if request.method == "POST" and form.is_valid() and form.cleaned_data["can_view_sensitive"] and form.cleaned_data["email"] == (request.user.email or "").lower():
+        form.add_error("can_view_sensitive", "Otra persona de la administración debe otorgarte este acceso.")
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         with transaction.atomic():
@@ -268,11 +293,17 @@ def member_edit(request, event, access, membership_id):
     before = {"role": membership.role, "sensitive": membership.can_view_sensitive, "active": membership.is_active}
     form = MembershipEditForm(request.POST or None, instance=membership)
     link = None
+    can_link = _can_issue_activation_link(event, membership.user)
     if request.method == "POST" and request.POST.get("action") == "link":
+        if not can_link:
+            raise PermissionDenied
         link = _activation_link(request, membership.user)
+        audit.record(request.user, event, "integrante_modificado", f"Generó un enlace para crear contraseña de {membership.display_name}", membership)
     elif request.method == "POST" and form.is_valid():
         if membership.user_id == request.user.id and not form.cleaned_data["is_active"]:
             form.add_error("is_active", "No puedes desactivar tu propio acceso.")
+        elif membership.user_id == request.user.id and form.cleaned_data["can_view_sensitive"] and not before["sensitive"]:
+            form.add_error("can_view_sensitive", "Otra persona de la administración debe otorgarte este acceso.")
         else:
             with transaction.atomic():
                 saved = form.save()
@@ -293,7 +324,7 @@ def member_edit(request, event, access, membership_id):
                     )
             messages.success(request, "Cambios guardados.")
             return redirect("events:team", slug=event.slug)
-    return render(request, "events/admin/member_form.html", {"form": form, "membership": membership, "link": link})
+    return render(request, "events/admin/member_form.html", {"form": form, "membership": membership, "link": link, "can_link": can_link})
 
 
 @event_view(ADMIN)
@@ -301,11 +332,14 @@ def assignments(request, event, access):
     coordinators = EventMembership.objects.filter(event=event, role=MembershipRole.COORDINATOR).select_related("user", "tutor_assignment")
     tutors = EventMembership.objects.filter(event=event, role=MembershipRole.TUTOR, is_active=True).select_related("user")
     if request.method == "POST":
-        tutor_by_id = {t.id: t for t in tutors}
+        tutor_by_id = {t.id: t for t in EventMembership.objects.filter(event=event, role=MembershipRole.TUTOR)}
         changed = 0
         with transaction.atomic():
             for coordinator in coordinators:
-                raw = request.POST.get(f"tutor_{coordinator.id}", "")
+                field = f"tutor_{coordinator.id}"
+                if field not in request.POST:
+                    continue  # a stale or partial form never clears assignments it did not show
+                raw = request.POST.get(field, "")
                 current = getattr(coordinator, "tutor_assignment", None)
                 target = tutor_by_id.get(int(raw)) if raw.isdigit() else None
                 if (current.tutor_id if current else None) == (target.id if target else None):
@@ -319,7 +353,13 @@ def assignments(request, event, access):
         messages.success(request, "Asignaciones guardadas." if changed else "No hubo cambios.")
         return redirect("events:assignments", slug=event.slug)
     counts = dict(event.participants.filter(is_active=True).values_list("coordinator").annotate(n=Count("id")))
-    rows = [{"coordinator": c, "current": getattr(c, "tutor_assignment", None), "count": counts.get(c.id, 0)} for c in coordinators]
+    rows = []
+    for c in coordinators:
+        current = getattr(c, "tutor_assignment", None)
+        options = list(tutors)
+        if current and current.tutor not in options:
+            options.append(current.tutor)  # keep an inactive tutor selectable so saving does not unassign
+        rows.append({"coordinator": c, "current": current, "count": counts.get(c.id, 0), "options": options})
     return render(request, "events/admin/assignments.html", {"rows": rows, "tutors": tutors})
 
 
@@ -364,10 +404,13 @@ def version_detail(request, event, access, version_id):
             messages.success(request, "Las entrevistas nuevas usarán esta versión. Las anteriores conservan la suya.")
             return redirect("events:version_detail", slug=event.slug, version_id=version.id)
         if action == "delete_question" and version.is_editable:
-            Question.objects.filter(pk=request.POST.get("question"), section__version=version).first().delete()
+            question = Question.objects.filter(pk=request.POST.get("question") or 0, section__version=version).first()
+            if question is None:
+                raise Http404
+            question.delete()
             return redirect("events:version_detail", slug=event.slug, version_id=version.id)
         if action == "delete_option" and version.is_editable:
-            option = QuestionOption.objects.filter(pk=request.POST.get("option"), question__section__version=version).first()
+            option = QuestionOption.objects.filter(pk=request.POST.get("option") or 0, question__section__version=version).first()
             if option:
                 option.delete()
             return redirect("events:version_detail", slug=event.slug, version_id=version.id)
@@ -499,12 +542,20 @@ def audit_log(request, event, access):
 @event_view(ADMIN)
 def sessions(request, event, access):
     if request.method == "POST":
+        import uuid
+
+        def valid_uuid(raw):
+            try:
+                return uuid.UUID(raw)
+            except (TypeError, ValueError):
+                raise Http404
+
         if request.POST.get("participant_session"):
-            ps = get_object_or_404(ParticipantSession, public_id=request.POST["participant_session"], interview__event=event)
+            ps = get_object_or_404(ParticipantSession, public_id=valid_uuid(request.POST["participant_session"]), interview__event=event)
             interview_svc.revoke_participant_session(ps, actor=request.user)
             messages.success(request, "Sesión de captura cerrada. La entrevista quedó en curso para retomarla.")
         elif request.POST.get("interview"):
-            interview = get_object_or_404(Interview, public_id=request.POST["interview"], event=event)
+            interview = get_object_or_404(Interview, public_id=valid_uuid(request.POST["interview"]), event=event)
             interview_svc.revoke_claim(interview, actor=request.user)
             messages.success(request, "La entrevista quedó libre para abrirse en otra computadora.")
         else:

@@ -13,7 +13,7 @@ from ..services import audit
 from ..services.metrics import build_payload, compare, scope_for_access
 from ..services.pdf import build_snapshot_pdf
 from ..services.presentation import build_deck
-from ..services.reports import manual_cutoff, next_slot, previous_snapshot, visible_payload
+from ..services.reports import latest_snapshot, manual_cutoff, next_slot, previous_snapshot, released_follow_ups, visible_payload
 from .common import LEADERS, event_view, is_fragment
 
 
@@ -108,13 +108,15 @@ def report_pdf(request, event, access, public_id):
     return response
 
 
-def _deck_context(event, payload):
+def _deck_context(event, payload, snapshot):
     deck = build_deck(
         payload,
         event_name=event.name,
         kind_label=event.kind_noun,
         k=event.min_group_size,
         team_names=_team_public_names(event),
+        released_follow_ups=released_follow_ups(snapshot),
+        released_at=snapshot.cutoff_at if snapshot else None,
     )
     return {"deck": deck}
 
@@ -122,7 +124,7 @@ def _deck_context(event, payload):
 @event_view(*LEADERS)
 def report_presentation(request, event, access, public_id):
     snapshot = _snapshot_or_404(access, public_id)
-    context = _deck_context(event, snapshot.data)
+    context = _deck_context(event, snapshot.data, snapshot)
     context.update({"snapshot": snapshot, "live": False})
     return render(request, "events/presentation/deck.html", context)
 
@@ -131,7 +133,7 @@ def report_presentation(request, event, access, public_id):
 def presentation_live(request, event, access):
     scope = scope_for_access(access)
     payload = build_payload(scope)
-    context = _deck_context(event, payload)
+    context = _deck_context(event, payload, latest_snapshot(event, scope.key))
     context["live"] = True
     if is_fragment(request):
         return render(request, "events/presentation/_slides.html", context)

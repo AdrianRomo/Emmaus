@@ -364,26 +364,43 @@ def save_step(interview: Interview, step: Step, data, *, token: str | None, acto
     return locked, {}
 
 
-def follow_up_suggestions(interview: Interview, answers: dict[int, AnswerValue] | None = None) -> list[tuple[str, str]]:
-    """Deterministic hints for the coordinator. They never decide anything on their own."""
+def follow_up_suggestions(
+    interview: Interview, answers: dict[int, AnswerValue] | None = None, *, visible_ids: set[int] | None = None
+) -> list[tuple[str, str]]:
+    """Deterministic hints for the coordinator. They never decide anything on their own.
+
+    Only questions the viewer may see contribute (``visible_ids``), so a hint can never
+    reveal a confidential answer. Confidential requests for support are routed to the
+    care team separately (see ``_confidential_support_requested``).
+    """
     answers = answers if answers is not None else load_answers(interview)
     reasons: list[str] = []
     for question in all_questions(interview.version):
+        if question.sensitivity == question.Sensitivity.CONFIDENTIAL:
+            continue
+        if visible_ids is not None and question.id not in visible_ids:
+            continue
         value = answers.get(question.id)
         if not value:
             continue
         flagged = [code for code, option in options_by_code(question).items() if code in value.codes and option.suggests_follow_up]
-        if not flagged:
-            continue
         if "hablar_lider" in flagged:
             reasons.append(FollowUp.Reason.TALK_TO_LEADER)
-        if question.sensitivity == question.Sensitivity.CONFIDENTIAL:
-            reasons.append(FollowUp.Reason.SUPPORT_REQUESTED)
-        elif any(code != "hablar_lider" for code in flagged):
+        if any(code != "hablar_lider" for code in flagged):
             reasons.append(FollowUp.Reason.SPIRITUAL_DECISION)
-    ordered = [r for r in (FollowUp.Reason.TALK_TO_LEADER, FollowUp.Reason.SUPPORT_REQUESTED, FollowUp.Reason.SPIRITUAL_DECISION) if r in reasons]
+    ordered = [r for r in (FollowUp.Reason.TALK_TO_LEADER, FollowUp.Reason.SPIRITUAL_DECISION) if r in reasons]
     labels = dict(FollowUp.Reason.choices)
     return [(code, labels[code]) for code in ordered]
+
+
+def _confidential_support_requested(interview: Interview, answers: dict[int, AnswerValue]) -> bool:
+    for question in all_questions(interview.version):
+        if question.sensitivity != question.Sensitivity.CONFIDENTIAL:
+            continue
+        value = answers.get(question.id)
+        if value and any(option.suggests_follow_up for code, option in options_by_code(question).items() if code in value.codes):
+            return True
+    return False
 
 
 def finalize(interview: Interview, *, token: str | None, revision, decision: str, actor, session=None) -> Interview:
@@ -417,18 +434,29 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
         participant.updated_by = actor
         participant.save(update_fields=["interview_status", "updated_by", "updated_at"])
         _close_participant_sessions(locked, ParticipantSession.EndReason.UNLOCKED)
-        if decision == Interview.FollowUpDecision.REQUIRED:
+        open_care = FollowUp.objects.filter(interview=locked, kind=FollowUp.Kind.CARE).exclude(status=FollowUp.Status.CANCELLED)
+        if decision == Interview.FollowUpDecision.REQUIRED and not open_care.filter(confidential=False).exists():
             suggestions = follow_up_suggestions(locked, answers)
-            reason = suggestions[0][0] if suggestions else FollowUp.Reason.COORDINATOR
-            if not FollowUp.objects.filter(interview=locked, kind=FollowUp.Kind.CARE).exclude(status=FollowUp.Status.CANCELLED).exists():
-                FollowUp.objects.create(
-                    event=locked.event,
-                    participant=participant,
-                    interview=locked,
-                    kind=FollowUp.Kind.CARE,
-                    reason=reason,
-                    created_by=actor,
-                )
+            FollowUp.objects.create(
+                event=locked.event,
+                participant=participant,
+                interview=locked,
+                kind=FollowUp.Kind.CARE,
+                reason=suggestions[0][0] if suggestions else FollowUp.Reason.COORDINATOR,
+                created_by=actor,
+            )
+        if _confidential_support_requested(locked, answers) and not open_care.filter(confidential=True).exists():
+            # The campero asked for support in a confidential area: only the care team sees this,
+            # whatever the coordinator decided, and without saying which area.
+            FollowUp.objects.create(
+                event=locked.event,
+                participant=participant,
+                interview=locked,
+                kind=FollowUp.Kind.CARE,
+                reason=FollowUp.Reason.SUPPORT_REQUESTED,
+                confidential=True,
+                created_by=None,
+            )
         audit.record(actor, locked.event, "entrevista_completada", f"Completó la entrevista del campero #{participant.code}", locked)
     if session is not None:
         _forget_claim(session, locked)
@@ -474,11 +502,13 @@ def update_follow_up_decision(access, interview: Interview, decision: str) -> In
         locked = Interview.objects.select_for_update().select_related("participant").get(pk=interview.pk)
         if not access.can_correct(locked):
             raise NotAllowed("No tienes permiso para cambiar esta entrevista.")
+        if locked.follow_up_decision != Interview.FollowUpDecision.TO_EVALUATE:
+            raise InterviewError("El seguimiento de esta entrevista ya se decidió.")
         locked.follow_up_decision = decision
         locked.revision += 1
         locked.save(update_fields=["follow_up_decision", "revision"])
         if decision == Interview.FollowUpDecision.REQUIRED and not FollowUp.objects.filter(
-            interview=locked, kind=FollowUp.Kind.CARE
+            interview=locked, kind=FollowUp.Kind.CARE, confidential=False
         ).exclude(status=FollowUp.Status.CANCELLED).exists():
             suggestions = follow_up_suggestions(locked)
             FollowUp.objects.create(
@@ -592,8 +622,6 @@ def hand_over_to_participant(request, access, interview: Interview, station: Int
         "session": str(participant_session.public_id),
         "token": kiosk_token,
         "claim": lock_token,
-        "failed_unlocks": 0,
-        "cooldown_until": 0,
     }
     return participant_session
 
@@ -670,12 +698,20 @@ def kiosk_finish(session) -> ParticipantSession:
 
 def kiosk_unlock(request, password: str, *, username: str | None = None):
     """Return (user, interview) on success; raise InterviewError otherwise."""
-    state = kiosk_state(request.session)
+    from . import throttle
+
     participant_session = current_kiosk_session(request.session)
-    now_ts = int(timezone.now().timestamp())
-    if state.get("cooldown_until", 0) > now_ts:
-        wait = state["cooldown_until"] - now_ts
-        raise InterviewError(f"Demasiados intentos. Espera {wait} segundos e inténtalo otra vez.")
+    if participant_session.state == ParticipantSession.State.CLOSED:
+        request.session.pop(KIOSK_KEY, None)
+        raise KioskEnded("Esta sesión ya se cerró.")
+    wait = throttle.consume(
+        f"unlock:{participant_session.public_id}",
+        limit=UNLOCK_MAX_ATTEMPTS,
+        window_seconds=15 * 60,
+        block_seconds=UNLOCK_COOLDOWN_SECONDS,
+    )
+    if wait:
+        raise InterviewError(throttle.wait_message(wait))
     target = participant_session.started_by
     login_name = username or target.get_username()
     user = authenticate(request, username=login_name, password=password)
@@ -684,19 +720,16 @@ def kiosk_unlock(request, password: str, *, username: str | None = None):
     interview = participant_session.interview
     access = resolve_access(user, interview.event) if user else None
     if user is None or access is None or not access.can_interview(interview.participant):
-        failed = state.get("failed_unlocks", 0) + 1
-        state["failed_unlocks"] = failed
-        if failed >= UNLOCK_MAX_ATTEMPTS:
-            state["failed_unlocks"] = 0
-            state["cooldown_until"] = now_ts + UNLOCK_COOLDOWN_SECONDS
-        request.session[KIOSK_KEY] = state
         raise InterviewError("La contraseña no es correcta.")
     with transaction.atomic():
         locked_session = ParticipantSession.objects.select_for_update().get(pk=participant_session.pk)
+        if locked_session.state == ParticipantSession.State.CLOSED:
+            raise KioskEnded("Esta sesión ya se cerró.")
         locked_session.state = ParticipantSession.State.CLOSED
         locked_session.ended_at = timezone.now()
         locked_session.end_reason = ParticipantSession.EndReason.UNLOCKED
         locked_session.save(update_fields=["state", "ended_at", "end_reason"])
+    throttle.reset(f"unlock:{participant_session.public_id}")
     request.session.pop(KIOSK_KEY, None)
     login(request, user)  # rotates the session key
     with transaction.atomic():
@@ -761,23 +794,38 @@ def report_safety_concern(access, participant: EventParticipant, *, details: str
 
 
 def review_rows(access, interview: Interview, *, during_capture: bool = False, for_participant: bool = False):
-    """Rows for a check-your-answers page, with per-field visibility applied."""
+    """Rows for a check-your-answers page, with per-field visibility applied.
+
+    A conditional question is listed only if the viewer may see the answer that
+    controls it; otherwise its mere presence would reveal that hidden answer.
+    Hidden rows look the same whether or not they were answered.
+    """
     answers = load_answers(interview)
     by_id = {q.id: q for q in all_questions(interview.version)}
     rows = []
+    hidden: set[int] = set()
     for step in build_steps(interview.version):
         for question in step.questions:
+            visible = for_participant or (access is not None and access.can_view_answer(interview, question, during_capture=during_capture))
+            if not visible:
+                hidden.add(question.id)
+            if question.condition_question_id and question.condition_question_id in hidden:
+                hidden.add(question.id)
+                continue
             if not is_visible(question, answers, by_id):
                 continue
-            visible = for_participant or (access is not None and access.can_view_answer(interview, question, during_capture=during_capture))
             value = answers.get(question.id)
             rows.append(
                 {
                     "step": step,
                     "question": question,
                     "visible": visible,
-                    "answered": value is not None and not value.is_empty,
+                    "answered": (value is not None and not value.is_empty) if visible else None,
                     "display": describe_answer(question, value) if visible else "",
                 }
             )
     return rows
+
+
+def visible_question_ids(access, interview: Interview, *, during_capture: bool = False) -> set[int]:
+    return {q.id for q in all_questions(interview.version) if access.can_view_answer(interview, q, during_capture=during_capture)}

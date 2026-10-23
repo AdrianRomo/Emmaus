@@ -189,12 +189,16 @@ class ReportAccessTests(CampFixture):
         self.assertFalse(ReportSnapshot.objects.filter(event=self.event, scope_key="evento", created_by=self.tutor1).exists())
 
     def test_admin_export_is_audited_and_has_no_answers(self):
+        from events.models import Answer, Interview
+
+        interview = Interview.objects.create(event=self.event, participant=self.p1, version=self.version, status="completada", completed_at=timezone.now())
+        Answer.objects.create(interview=interview, question=self.question("dudas_detalle"), text_value="RESPUESTA-QUE-NO-DEBE-SALIR")
         self.login(self.admin)
         response = self.client.get(self.url("participant_export"))
         self.assertEqual(response.status_code, 200)
         body = response.content.decode("utf-8")
         self.assertIn("Mariana López Ruiz", body)
-        self.assertNotIn("salvo", body.lower())
+        self.assertNotIn("RESPUESTA-QUE-NO-DEBE-SALIR", body)
         self.assertTrue(self.event.audit_events.filter(action="exportacion").exists())
 
     def test_individual_data_export_requires_sensitive_access(self):
