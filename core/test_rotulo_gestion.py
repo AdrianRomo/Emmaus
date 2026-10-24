@@ -5,10 +5,12 @@ from __future__ import annotations
 import re
 
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from .models import FollowUpRequest, ParticipantProfile, ParticipantQuestion, PastoralNote
+from .models import Church, FollowUpRequest, ParticipantProfile, ParticipantQuestion, PastoralNote, Role, UserChurchRole
 from .tests import EmmausFixture
 
 # Classes of the previous design system ("Cuaderno de campo") that a migrated screen must not use.
@@ -116,3 +118,22 @@ class DiscipleshipManagementRotuloTests(EmmausFixture):
         headings = re.findall(r'class="heading">([^<]+?) <span class="count">(\d+)</span>', html)
         self.assertEqual(headings, [("Administración de la iglesia", "1"), ("Mentor", "2"), ("Participante", "2"), ("Pastor", "1")])
         self.assertIn(f'class="back-link" href="{reverse("church_settings")}"', html)
+
+    def test_user_list_uses_this_churchs_role(self):
+        """A mentor here who is a participant in another church is listed as a mentor, not by whichever role came first."""
+        other = Church.objects.create(name="Otra iglesia", slug="otra")
+        UserChurchRole.objects.filter(user=self.mentor).delete()
+        UserChurchRole.objects.create(user=self.mentor, church=other, role=Role.PARTICIPANT)
+        UserChurchRole.objects.create(user=self.mentor, church=self.church, role=Role.MENTOR)
+        self.client.force_login(self.admin)
+        self.client.get(reverse("user_list"))  # warm-up: the first request also saves the session
+        with CaptureQueriesContext(connection) as before:
+            html = self.client.get(reverse("user_list")).content.decode()
+        for n in range(3):
+            self.make_user(f"extra{n}@example.org", "Extra", str(n), Role.PARTICIPANT)
+        with CaptureQueriesContext(connection) as after:
+            self.client.get(reverse("user_list"))
+        self.assertEqual(len(after), len(before))  # no query per person
+        mentors = html.split('Mentor <span class="count">', 1)[1].split("</section>", 1)[0]
+        self.assertIn(self.mentor.email, mentors)
+        self.assertNotIn("Otra iglesia", html)

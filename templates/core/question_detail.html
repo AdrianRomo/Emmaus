@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% load emmaus %}
-{% block page_title %}{% if can_answer and response_form.errors %}Error: {% endif %}Pregunta{% endblock %}
+{% block page_title %}{% if can_answer and response_form.errors or draft_form.errors %}Error: {% endif %}Pregunta{% endblock %}
 {% block content %}
 {% with asker=question.participant.get_full_name|default:question.participant.email %}
 {% if is_participant %}{% url 'participant_questions' as back_url %}{% elif is_mentor %}{% url 'mentor_dashboard' as back_url %}{% else %}{% url 'questions_inbox' as back_url %}{% endif %}
 {% if can_answer %}{% include "partials/ui/error_summary.html" with form=response_form %}{% endif %}
+{% if draft_form.errors %}{% include "partials/ui/error_summary.html" with form=draft_form %}{% endif %}
 {% with title="Pregunta de "|add:asker %}
   {% if is_participant %}
     {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label="Tus preguntas" %}
@@ -74,7 +75,7 @@
         <button class="btn btn--secondary" type="submit">Generar borrador con IA</button>
       </form>
       {% for draft, form in draft_forms %}
-        <form method="post" class="disc-draft">
+        <form method="post" class="disc-draft" novalidate>
           {% csrf_token %}
           <input type="hidden" name="action" value="review_ai">
           <input type="hidden" name="draft_id" value="{{ draft.id }}">

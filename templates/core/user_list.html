@@ -8,21 +8,21 @@
 {% else %}
   {% include "events/rotulo/_page_head.html" with title="Personas con acceso" lede="Pastores, mentores, administración y participantes vinculados a tu iglesia." action_url=invite_url action_label="Invitar a una persona" %}
 {% endif %}
-{% if users %}
-  {% regroup users by church_roles.first.get_role_display as groups %}
+{% if roles %}
+  {% regroup roles by get_role_display as groups %}
   <div class="disc-list">
     {% for group in groups %}
       <section class="block" aria-labelledby="rol-{{ forloop.counter }}">
         <h2 id="rol-{{ forloop.counter }}" class="heading">{{ group.grouper }} <span class="count">{{ group.list|length }}</span></h2>
         <ul class="rows">
-          {% for account in group.list %}
+          {% for role in group.list %}{% with account=role.user %}
             <li class="row">
               <div class="row__main">
                 <p class="row__title">{{ account.get_full_name|default:account.email }}</p>
                 <p class="row__meta">{{ account.email }}</p>
               </div>
             </li>
-          {% endfor %}
+          {% endwith %}{% endfor %}
         </ul>
       </section>
     {% endfor %}

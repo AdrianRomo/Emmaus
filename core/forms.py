@@ -440,9 +440,12 @@ class AssignMentorForm(TuErrorMessagesMixin, forms.Form):
 
 
 class AIDraftReviewForm(TuErrorMessagesMixin, forms.ModelForm):
+    # No default: sending an AI draft to a participant must be a choice someone makes, never the preselected option.
     review_action = forms.ChoiceField(
         label="¿Qué quieres hacer con este borrador?",
+        error_messages={"required": "Elige qué hacer con este borrador: enviarlo, guardar tus cambios y enviarlo, o rechazarlo."},
         choices=[
+            ("", "Elige una opción"),
             ("approve", "Aprobar y enviar"),
             ("edit", "Guardar cambios y enviar"),
             ("reject", "Rechazar borrador"),

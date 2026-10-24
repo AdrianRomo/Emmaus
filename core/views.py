@@ -53,6 +53,7 @@ from .models import (
     QuestionResponse,
     ReflectionAnswer,
     Role,
+    UserChurchRole,
 )
 from .services import (
     assign_role,
@@ -124,7 +125,9 @@ def initial_setup(request):
         login(request, user)
         messages.success(request, f"{church.name} ya está lista en Emmaus.")
         return redirect("church_dashboard")
-    return render(request, "core/initial_setup.html", {"form": form})
+    # The notice every new church starts with; "Qué sigue" asks to read it before inviting anyone.
+    notice = Church._meta.get_field("basic_disclaimer_text").default
+    return render(request, "core/initial_setup.html", {"form": form, "participant_notice": notice})
 
 
 @login_required
@@ -142,7 +145,8 @@ def dashboard(request):
     if not role_record:
         if not Church.objects.exists():
             return redirect("initial_setup")
-        raise PermissionDenied
+        # No role yet: the event list says so and who can add them (it only lists events they can open).
+        return redirect("events:list")
     if role_record.role == Role.PARTICIPANT:
         return redirect("participant_dashboard")
     if role_record.role == Role.MENTOR:
@@ -482,6 +486,11 @@ def participant_detail(request, profile_id: int):
     )
 
 
+def _draft_prefix(draft) -> str:
+    """Each AI draft gets its own form prefix, so several drafts on one page never share element ids."""
+    return f"borrador-{draft.pk}"
+
+
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR, Role.PARTICIPANT)
 def question_detail(request, question_id: int):
     question = get_object_or_404(visible_questions(request.user).prefetch_related("responses"), pk=question_id)
@@ -533,7 +542,7 @@ def question_detail(request, question_id: int):
             if not can_answer_question(request.user, question) or not has_leader_access(request.user):
                 raise PermissionDenied
             draft = get_object_or_404(visible_ai_drafts(request.user), pk=request.POST.get("draft_id"), related_question=question)
-            draft_form = AIDraftReviewForm(request.POST, instance=draft)
+            draft_form = AIDraftReviewForm(request.POST, instance=draft, prefix=_draft_prefix(draft))
             if draft_form.is_valid():
                 chosen_action = draft_form.cleaned_data["review_action"]
                 draft = draft_form.save(commit=False)
@@ -558,7 +567,13 @@ def question_detail(request, question_id: int):
                 messages.success(request, "El borrador revisado se envió como tu respuesta.")
                 return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
     drafts = visible_ai_drafts(request.user).filter(related_question=question) if has_leader_access(request.user) else AIDraft.objects.none()
-    draft_forms = [(draft, AIDraftReviewForm(instance=draft, initial={"edited_final_text": draft.generated_text})) for draft in drafts]
+    # A review that did not validate keeps its bound form, so the person sees what to fix.
+    draft_forms = [
+        (draft, draft_form)
+        if draft_form is not None and draft_form.instance.pk == draft.pk
+        else (draft, AIDraftReviewForm(instance=draft, initial={"edited_final_text": draft.generated_text}, prefix=_draft_prefix(draft)))
+        for draft in drafts
+    ]
     return render(
         request,
         "core/question_detail.html",
@@ -566,6 +581,7 @@ def question_detail(request, question_id: int):
             "question": question,
             "response_form": response_form,
             "draft_forms": draft_forms,
+            "draft_form": draft_form,
             "can_answer": can_answer_question(request.user, question),
             "question_disclaimer": QUESTION_DISCLAIMER,
         },
@@ -628,8 +644,9 @@ def participants_list(request):
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def user_list(request):
     church = get_user_role(request.user).church
-    users = User.objects.filter(church_roles__church=church).select_related().order_by("church_roles__role", "email")
-    return render(request, "core/user_list.html", {"users": users})
+    # This church's role of each person (someone can belong to several churches), in one query.
+    roles = UserChurchRole.objects.filter(church=church).select_related("user").order_by("role", "user__email")
+    return render(request, "core/user_list.html", {"roles": roles})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)

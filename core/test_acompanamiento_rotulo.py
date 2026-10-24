@@ -7,7 +7,7 @@ from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import FollowUpRequest, ParticipantQuestion
+from .models import AIDraft, FollowUpRequest, ParticipantQuestion, QuestionResponse
 from .tests import EmmausFixture
 
 # Classes and partials of the old "Cuaderno de campo" system that must not survive the migration
@@ -172,3 +172,57 @@ class AcompanamientoRotuloTests(EmmausFixture):
 
         self.assertIn(f'action="{reverse("complete_follow_up", args=[self.follow_up.id])}"', main)
         self.assertNotIn(f'action="{reverse("complete_follow_up", args=[done.id])}"', main)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class AIDraftReviewTests(EmmausFixture):
+    """Several AI drafts on one question: one form each, its own ids, its own errors."""
+
+    def setUp(self):
+        super().setUp()
+        self.question = ParticipantQuestion.objects.create(church=self.church, participant=self.participant, question_text="¿Cómo perdono?")
+        self.first = AIDraft.objects.create(church=self.church, related_question=self.question, generated_by=self.pastor, generated_text="Primer borrador")
+        self.second = AIDraft.objects.create(church=self.church, related_question=self.question, generated_by=self.pastor, generated_text="Segundo borrador")
+        self.url = reverse("church_question_detail", args=[self.question.id])
+        self.client.force_login(self.pastor)
+
+    def test_several_drafts_never_share_element_ids(self):
+        html = self.client.get(self.url).content.decode()
+        ids = re.findall(r'\bid="([^"]+)"', html)
+        self.assertEqual([i for i in set(ids) if ids.count(i) > 1], [])
+        for draft in (self.first, self.second):
+            self.assertIn(f'name="borrador-{draft.pk}-review_action"', html)
+            self.assertIn(f'id="id_borrador-{draft.pk}-edited_final_text"', html)
+
+    def test_reviewing_one_draft_sends_it_and_leaves_the_other(self):
+        response = self.client.post(self.url, {
+            "action": "review_ai", "draft_id": self.first.pk,
+            f"borrador-{self.first.pk}-review_action": "edit", f"borrador-{self.first.pk}-edited_final_text": "Texto revisado por el pastor",
+        })
+        self.assertRedirects(response, self.url, fetch_redirect_response=False)
+        self.assertTrue(QuestionResponse.objects.filter(question=self.question, response_body="Texto revisado por el pastor").exists())
+        self.first.refresh_from_db(); self.second.refresh_from_db()
+        self.assertEqual((self.first.status, self.second.status), (AIDraft.Status.EDITED, AIDraft.Status.DRAFT))
+
+    def test_a_review_without_a_choice_shows_the_error_on_that_draft(self):
+        response = self.client.post(self.url, {
+            "action": "review_ai", "draft_id": self.second.pk, f"borrador-{self.second.pk}-edited_final_text": "Lo que ya escribí",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "<title>Error: ", html=False)
+        self.assertContains(response, "Hay un problema")
+        self.assertContains(response, f'href="#id_borrador-{self.second.pk}-review_action"')
+        self.assertContains(response, "Lo que ya escribí")  # what the person wrote is still there
+        self.assertFalse(QuestionResponse.objects.filter(question=self.question).exists())
+
+    def test_nothing_is_sent_unless_someone_chooses_to(self):
+        """The choice starts empty: pressing "Confirmar revisión" untouched must not send the draft."""
+        html = self.client.get(self.url).content.decode()
+        select = re.search(rf'<select name="borrador-{self.first.pk}-review_action".*?</select>', html, re.S).group(0)
+        self.assertRegex(select, r'<option value="" selected>Elige una opción</option>')
+        response = self.client.post(self.url, {
+            "action": "review_ai", "draft_id": self.first.pk, f"borrador-{self.first.pk}-review_action": "",
+            f"borrador-{self.first.pk}-edited_final_text": "Primer borrador",
+        })
+        self.assertContains(response, "¿Qué quieres hacer con este borrador? Elige qué hacer con este borrador")  # no "?:"
+        self.assertFalse(QuestionResponse.objects.filter(question=self.question).exists())

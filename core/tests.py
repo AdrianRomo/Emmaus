@@ -62,6 +62,18 @@ class InitialSetupTests(TestCase):
         self.assertEqual(church.theme_accent_color, "#B85C38")
         self.assertEqual(UserChurchRole.objects.get(user=admin, church=church).role, Role.CHURCH_ADMIN)
 
+    def test_setup_shows_the_notice_it_asks_to_read(self):
+        response = self.client.get(reverse("initial_setup"))
+        self.assertContains(response, "Lee el aviso para participantes, aquí abajo.")
+        self.assertContains(response, Church._meta.get_field("basic_disclaimer_text").default)
+
+    def test_someone_without_a_role_lands_on_the_event_list_not_a_403(self):
+        Church.objects.create(name="Iglesia", slug="iglesia")
+        self.client.force_login(User.objects.create_user("sin-rol@example.org", "sin-rol@example.org", PASSWORD))
+        response = self.client.get(reverse("dashboard"), follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Aún no formas parte de ningún evento")
+
 
 class EmmausFixture(TestCase):
     def setUp(self):

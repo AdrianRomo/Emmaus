@@ -133,3 +133,32 @@ class LeaderScreensTests(CampFixture):
         team = self.client.get(self.url("team"))
         self.assertContains(team, "Agregar persona")
         self.assertContains(team, self.url("member_edit", self.m_coord3.id))
+
+
+class CutoffPdfTests(CampFixture):
+    """The PDF reads like the cutoff page: Recursive Casual for the voice, Atkinson Hyperlegible Next for the rest."""
+
+    def test_pdf_uses_the_rotulo_fonts(self):
+        from events.services.metrics import event_scope
+        from events.services.reports import generate_snapshot
+
+        snap = generate_snapshot(self.event, event_scope(self.event), trigger="automatico", cutoff_at=timezone.now())
+        self.login(self.pastor)
+        pdf = self.client.get(self.url("report_pdf", snap.public_id)).content
+        self.assertTrue(pdf.startswith(b"%PDF"))
+        self.assertIn(b"RecursiveCasual-Bold", pdf)
+        self.assertIn(b"AtkinsonHyperlegibleNext-Regular", pdf)
+        self.assertIn(b"AtkinsonHyperlegibleNext-Bold", pdf)
+        self.assertNotIn(b"Literata", pdf)
+
+    def test_the_change_since_the_last_cutoff_keeps_the_points(self):
+        from events.services.pdf import delta_sentence
+
+        self.assertEqual(delta_sentence({"completed": 11, "percent": 3}), "Desde el corte anterior: +11 entrevistas y +3 puntos.")
+        self.assertEqual(delta_sentence({"completed": 4, "percent": 0}), "Desde el corte anterior: +4 entrevistas.")
+        # New campers registered and nobody finished: the percentage still moved
+        self.assertEqual(
+            delta_sentence({"completed": 0, "percent": -5}),
+            "Desde el corte anterior no se completaron entrevistas, y el avance cambió -5 puntos.",
+        )
+        self.assertEqual(delta_sentence({"completed": 0, "percent": None}), "Desde el corte anterior no se completaron entrevistas.")

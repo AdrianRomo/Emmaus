@@ -9,7 +9,7 @@ Definitions (metrics version 1)
 * En curso: participantes whose interview was started and not yet finalized.
 * Pendientes: participantes without a completed interview (includes "en curso").
 * Sin iniciar: pendientes that have not started.
-* Avance: completadas / participantes. With 0 participantes it is "sin datos", never 0 %.
+* Avance: completadas / participantes. With 0 participantes it is None, shown as "—", never 0 %.
 * Ritmo: interviews completed per hour, averaged over the last 2 hours.
 * Seguimientos abiertos: care follow-ups with status pendiente or en proceso.
 * Por evaluar: completed interviews marked "Seguimiento pendiente de evaluación".
@@ -49,7 +49,7 @@ DEFINITIONS = [
     ("Completadas", "Camperos con entrevista finalizada. Las correcciones no cuentan como una entrevista nueva."),
     ("En curso", "Entrevistas iniciadas que todavía no se finalizan."),
     ("Pendientes", "Camperos sin entrevista completada (incluye las que están en curso)."),
-    ("Avance", "Completadas entre participantes. Si no hay participantes se muestra “sin datos”."),
+    ("Avance", "Completadas entre participantes. Si no hay participantes no se calcula y se muestra “—”, nunca 0 %."),
     ("Ritmo", "Entrevistas completadas por hora, en promedio, durante las últimas 2 horas."),
     ("Seguimientos abiertos", "Seguimientos en estado pendiente o en proceso."),
     ("Por evaluar", "Entrevistas completadas que esperan decidir si necesitan seguimiento."),

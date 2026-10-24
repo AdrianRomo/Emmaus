@@ -125,6 +125,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "es-mx"
 LANGUAGES = [("es-mx", "Español (México)")]
+# Tú-voice overrides of Django's own messages (its Spanish catalogs use "usted"): locale/es_MX/LC_MESSAGES/django.po.
+LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = os.environ.get("TIME_ZONE", "America/Mexico_City")
 USE_I18N = True
 USE_TZ = True
