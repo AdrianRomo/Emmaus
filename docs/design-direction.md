@@ -176,7 +176,4 @@ El módulo de discipulado usa el mismo sistema: el panorama de la iglesia se lee
 
 ## Lo que sigue
 
-Hecho el 23 de octubre de 2026: todas las pantallas, de todos los roles y de los dos módulos, usan Rótulo, y se retiraron `emmaus.css` y Literata (salvo en el PDF). Lo que sigue:
-
-1. Llevar el PDF de los cortes al mismo sistema (hoy usa Literata y la paleta anterior).
-2. Probar con voluntarios reales en una computadora compartida y con un proyector real.
+Hecho el 23 de octubre de 2026: todas las pantallas, de todos los roles y de los dos módulos, usan Rótulo, y se retiraron `emmaus.css` y Literata. El PDF de los cortes se lee como la pantalla del corte, con las mismas letras y colores. Lo que sigue: probar con voluntarios reales en una computadora compartida y con un proyector real.

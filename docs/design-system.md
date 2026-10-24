@@ -223,6 +223,8 @@ Las partes vivas (`_home_live.html`) se recargan cada 20 o 30 s con `data-live-u
 - El nombre de una acción es el mismo en todo el flujo: "Entregar la computadora" → "Recuperar la computadora".
 - Los errores dicen qué pasó y cómo arreglarlo; no se disculpan.
 - Lo privado se dice en voz alta: "Confidencial. Solo el equipo de cuidado autorizado podrá leer esta respuesta."
+- Los mensajes propios de Django también tutean: `locale/es_MX/LC_MESSAGES/django.po` reemplaza los de validación, archivos y contraseñas (ver `docs/architecture.md`).
+- El PDF del corte usa el mismo sistema: Recursive Casual para el título, las preguntas y la frase principal; Atkinson Next para lo demás; añil para datos, chile solo para riesgo y nada de maíz (en un documento no hay "lo siguiente que hay que hacer").
 
 ## 6. Accesibilidad
 

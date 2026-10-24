@@ -12,7 +12,7 @@ These are the `DEFINITIONS` printed at the end of every PDF ("Cómo se calcula")
 | Completadas | Camperos con entrevista finalizada. Las correcciones no cuentan como una entrevista nueva. |
 | En curso | Entrevistas iniciadas que todavía no se finalizan. |
 | Pendientes | Camperos sin entrevista completada (incluye las que están en curso). |
-| Avance | Completadas entre participantes. Si no hay participantes se muestra "sin datos". |
+| Avance | Completadas entre participantes. Si no hay participantes no se calcula y se muestra "—", nunca 0 %. |
 | Ritmo | Entrevistas completadas por hora, en promedio, durante las últimas 2 horas. |
 | Seguimientos abiertos | Seguimientos en estado pendiente o en proceso. |
 | Por evaluar | Entrevistas completadas que esperan decidir si necesitan seguimiento. |
@@ -22,7 +22,7 @@ How they are computed:
 
 * Counts come from `EventParticipant` rows with `is_active=True` in the scope, using `interview_status`. Withdrawn camperos drop out of every figure.
 * "Sin iniciar" (meters, PDF legend) is participantes minus completadas minus en curso.
-* "Avance" is `round(100 * completadas / participantes)`. With zero participantes it is `None`, shown as "sin datos" or "—", never 0 %.
+* "Avance" is `round(100 * completadas / participantes)`. With zero participantes it is `None`, shown as "—", never 0 %.
 * "Ritmo" (`per_hour`) is completions in the last 2 hours divided by 2; `last_hour` is also stored. The ETA is `ceil(pendientes / ritmo * 60)` minutes, empty when the rate is 0.
 * The timeline groups completions in the event's time zone into 60-minute buckets (120 above 30 hours of span, 240 above 60 hours), at most 96, with a cumulative line.
 * Follow-up counts cover **ordinary** care follow-ups only (`kind=seguimiento`, `confidential=False`): pendiente, en proceso, atendido. `open_total = pendiente + en proceso`; `requested_total = open_total + atendido`. Confidential support referrals (`confidential_open`) and safety reports (`safety_open`) are counted separately, and only in payloads meant for viewers allowed to see them.

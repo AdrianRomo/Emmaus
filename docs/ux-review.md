@@ -6,7 +6,7 @@
 - **Toda la aplicación:** `e2e/all_urls.py` arma la lista de pantallas de cada cuenta (coordinador, tutor, pastor, administración, y en discipulado administración, mentor y participante, más las páginas sin sesión) y `e2e/review-all.mjs` visita cada una en tres anchos con axe, y revisa que no haya desborde horizontal, que haya un solo `h1` y que cargue `rotulo.css`.
 - **Anchos:** escritorio 1440 × 900, tableta 820 × 1180, teléfono 390 × 844.
 - **Datos:** solo sintéticos. `seed_camp_demo` crea un campamento de 400 camperos ficticios; los nombres son combinaciones aleatorias de nombres y apellidos comunes. Antes de cada ronda se volvió a sembrar la base, porque el recorrido abre y termina entrevistas y los tableros cambian.
-- **Rondas:** 14 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador y la 14 llevó el resto de la aplicación al sistema.
+- **Rondas:** 15 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador, la 14 llevó el resto de la aplicación al sistema y la 15 cerró sus pendientes.
 
 ## Rondas
 
@@ -26,12 +26,17 @@
 | 12 | Se migraron las pantallas que quedaban del coordinador (elegir computadora, Mis camperos, pendientes, Mi avance, registrar, ficha del campero, ficha de la entrevista, riesgo, seguimientos, lista de respaldo). En la revisión: "Computadora 10" se partía en dos líneas; los campos del formulario salían angostos (los controles de Django no traen clase); en Mi avance la cifra final tapaba "Total 31" y la cuadrícula decía 12, 25, 37 | Cuadrícula de computadoras más ancha. Los controles dentro de `.field` se ven como `.input`. La cifra final va debajo del punto cerca de la meta; la cuadrícula elige pasos redondos |
 | 13 | El resumen del pastor en teléfono medía 6,600 px | Los totales de respuestas van en un plegable que arranca cerrado en teléfono (4,575 px, 31 % menos) y conserva lo que la persona abrió aunque la página se actualice sola, comprobado con una actualización real. **axe: 0 problemas en 84 combinaciones** (28 pantallas × 3 anchos); 198 pruebas |
 | 14 | **Toda la aplicación.** Seis implementadores en paralelo, cada uno en su propia rama y con sus propias capturas en tres anchos y axe: liderazgo (tutor, coordinadores, entrevistas, pendientes, equipo, avance), reportes y presentación, administración, público (entrar, contraseñas, errores, eventos, inicio), y discipulado (gestión y acompañamiento). Luego se integró todo, se retiró el sistema anterior y se revisó de nuevo. Hallazgos al integrar: la fusión de las secciones de CSS perdió tres llaves de cierre y todo lo que seguía (discipulado y la presentación) dejó de aplicarse; el borde rojo de error perdía contra la regla de los campos; la ayuda de los campos no llegaba a los lectores de pantalla; el resumen de errores repetía "Este campo es obligatorio." sin decir cuál; los formularios de contraseña de Django hablaban de usted; la barra de administración apretaba el nombre del evento en cuatro renglones; el enlace "Cambiar de evento" era un objetivo de menos de 24 px; la lista de respaldo desbordaba en teléfono | La hoja se reconstruyó sección por sección y una prueba revisa que no quede ningún bloque abierto. Error en rojo con la regla correcta. Cada control nombra su pista y su error (`aria-describedby`, `aria-invalid`) y el resumen nombra el campo. Formularios de contraseña en tú. Barra de dos renglones con más de cinco enlaces. Objetivo de 24 px. La tabla de respaldo se desplaza dentro de su región. **Revisión final: 0 problemas de axe, sin desbordes y un solo `h1` en 57 pantallas de 8 cuentas × 3 anchos**; la presentación, revisada a 1920 × 1080 en Cal y Noche |
+| 15 | **Pendientes de la ronda 14.** El PDF de los cortes seguía con Literata y la paleta anterior, unía datos con "·" y decía "de forma automático"; Django respondía en usted ("Seleccione una opción válida", "Su contraseña…", "fichero"); con varios borradores con IA en una pregunta los campos repetían `id`, y si la revisión no era válida el error no se mostraba; quien entraba sin rol veía un 403; la configuración inicial pedía leer un aviso que no aparecía; la lista de personas agrupaba a quien está en dos iglesias por su primer rol de cualquiera de ellas | PDF con Recursive Casual y Atkinson Next, añil para datos, chile solo para riesgo, frases como en la pantalla del corte. Catálogo `locale/es_MX` con 59 mensajes de Django en tú y una prueba que impide que el `.mo` se quede atrás. Cada borrador con su propio prefijo y su error a la vista. Sin rol, la lista de eventos explica quién puede agregarte. El aviso para participantes aparece en la configuración inicial. La lista de personas usa el rol de esta iglesia, en una sola consulta |
 
 ### Ronda 14 en capturas
 
 | Reportes | Un corte | Importar camperos | Mentoría |
 |---|---|---|---|
 | ![Reportes](img/rotulo/reportes.png) | ![Un corte completo](img/rotulo/corte.png) | ![Revisión de la importación](img/rotulo/admin-importar.png) | ![Inicio del mentor](img/rotulo/mentor.png) |
+
+| El PDF del corte (ronda 15) |
+|---|
+| ![Primera página del PDF de un corte](img/rotulo/pdf-corte.png) |
 
 ### Antes y después de algunos hallazgos
 
@@ -151,8 +156,6 @@ En teléfono, con los totales plegados: ![Pastor, teléfono completo](img/rotulo
 
 ## Pendientes
 
-- **El PDF de los cortes** sigue con Literata y la paleta anterior (lo genera ReportLab aparte).
-- **Mensajes propios de Django** que no pasan por nuestros formularios pueden seguir hablando de usted; los de contraseña ya se cambiaron.
 - **Conteo en teléfono:** con más de 40 camperos ocupa dos renglones de marcas; funciona, pero conviene revisar con equipos grandes. Arriba de 80 se cambia solo a una regla.
 - **Proyector y voluntarios reales:** no se ha probado en un proyector ni con personas. Las propuestas de presentación están validadas en color, no en sala.
 - **Peso:** Recursive agrega 109 KB (latín), una vez por dispositivo gracias al caché de WhiteNoise.
