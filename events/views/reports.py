@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib import messages
+from django.core.paginator import Paginator
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,7 +15,15 @@ from ..services import audit
 from ..services.metrics import build_payload, compare, scope_for_access
 from ..services.pdf import build_snapshot_pdf
 from ..services.presentation import build_deck
-from ..services.reports import latest_snapshot, manual_cutoff, next_slot, previous_snapshot, released_follow_ups, visible_payload
+from ..services.reports import (
+    group_history,
+    latest_snapshot,
+    manual_cutoff,
+    next_slot,
+    previous_snapshot,
+    released_follow_ups,
+    visible_payload,
+)
 from .common import LEADERS, event_view, is_fragment, safe_next
 
 
@@ -23,6 +32,10 @@ def _team_public_names(event) -> dict[str, str]:
         f"equipo:{m.id}": m.team_name
         for m in EventMembership.objects.filter(event=event, role=MembershipRole.TUTOR).exclude(team_name="")
     }
+
+
+HISTORY_PER_PAGE = 12  # about a day and a half of two-hour cutoffs: one screen, no long scroll
+HISTORY_MAX = 400  # fifty days of cutoffs; beyond that the oldest fall off the list (the count line still says how many exist)
 
 
 @event_view(*LEADERS)
@@ -34,6 +47,8 @@ def reports(request, event, access):
     history = access.snapshots().filter(scope_key=scope_key).order_by("-cutoff_at")
     latest = history.filter(status=ReportSnapshot.Status.READY).first()
     previous = previous_snapshot(latest) if latest else None
+    # Quiet stretches fold into one row (group_history), then twelve rows a page: ?pagina=, scope kept by the pager.
+    history_page = Paginator(group_history(history[:HISTORY_MAX]), HISTORY_PER_PAGE).get_page(request.GET.get("pagina"))
     return render(
         request,
         "events/reports/home.html",
@@ -41,7 +56,8 @@ def reports(request, event, access):
             "scopes": scopes,
             "scope_key": scope_key,
             "scope_label": next((s["label"] for s in scopes if s["key"] == scope_key), ""),
-            "history": history[:60],
+            "history_page": history_page,
+            "history_total": history.count(),
             "latest": latest,
             "previous": previous,
             "delta": compare(latest.data, previous.data) if latest and previous else {},

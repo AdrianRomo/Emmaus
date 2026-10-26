@@ -453,6 +453,16 @@
     }
   }
 
+  /* ---- Folded rows ("Mostrar los N cortes", the reports history) ---------- */
+  $all("[data-run-toggle]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var open = b.getAttribute("aria-expanded") !== "true";
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+      b.textContent = b.getAttribute(open ? "data-hide-label" : "data-show-label") || b.textContent;
+      $all('[data-run="' + b.getAttribute("data-run-toggle") + '"]').forEach(function (row) { row.hidden = !open; });
+    });
+  });
+
   /* ---- Presentation deck ------------------------------------------------- */
   var deck = $(".deck");
   if (deck) {

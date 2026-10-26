@@ -408,7 +408,7 @@ Los pastores y la administración ven los cortes de todo el campamento y de cada
 
 ### La pantalla de Reportes
 
-En **"Reportes"** ves el último corte, la hora del próximo y el historial.
+En **"Reportes"** ves el último corte, la hora del próximo y el historial. El historial muestra doce cortes por página (**"Anterior"** y **"Siguiente"** abajo). Cuando tres o más cortes seguidos tienen las mismas cifras (por ejemplo durante la noche), se agrupan en una sola línea **"Sin cambios"** con sus horas y sus cifras: toca **"Mostrar los N cortes"** para verlos uno por uno. El corte más reciente siempre va solo.
 
 ![Reportes](img/reportes.png)
 

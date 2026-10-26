@@ -243,3 +243,40 @@ def latest_snapshot(event: Event, scope_key: str) -> ReportSnapshot | None:
         .order_by("-cutoff_at", "-id")
         .first()
     )
+
+
+# ---- the history list ------------------------------------------------------------------------------------
+MIN_RUN = 3  # consecutive unchanged cutoffs before they fold into one row
+
+
+def _run_key(snapshot):
+    """What makes two cutoffs "the same" in the history: both ready, with the same completed and pending counts."""
+    if snapshot.status != ReportSnapshot.Status.READY:
+        return None
+    progress = (snapshot.data or {}).get("progress") or {}
+    return (progress.get("completed"), progress.get("pending"))
+
+
+def group_history(snapshots, *, min_run: int = MIN_RUN) -> list[dict]:
+    """The history (newest first) with its quiet stretches folded: ``min_run`` or more consecutive ready cutoffs whose
+    completed and pending counts did not change become one row, so a night of identical cutoffs does not push the ones
+    that matter off the screen. The newest cutoff always stands on its own (it is the current state), and a failed
+    cutoff keeps its own row and ends a run. Rows are ``{"kind": "corte", "snapshot": s}`` or
+    ``{"kind": "run", "snapshots": [newest, ...], "count": n, "newest": s, "oldest": s}``."""
+    items = list(snapshots)
+    rows: list[dict] = []
+    i = 0
+    while i < len(items):
+        key = _run_key(items[i])
+        j = i
+        if key is not None and i > 0:
+            while j + 1 < len(items) and _run_key(items[j + 1]) == key:
+                j += 1
+        if j - i + 1 >= min_run:
+            run = items[i : j + 1]
+            rows.append({"kind": "run", "snapshots": run, "count": len(run), "newest": run[0], "oldest": run[-1]})
+            i = j + 1
+        else:
+            rows.append({"kind": "corte", "snapshot": items[i]})
+            i += 1
+    return rows

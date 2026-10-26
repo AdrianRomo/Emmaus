@@ -1,0 +1,6 @@
+{% load emmaus %}{% comment %}One cutoff of the reports history (reports/home.html): its cells only, so a folded run and a plain row draw the same.{% endcomment %}
+          <td class="keep-together">{{ s.cutoff_at|fecha_corta }}</td>
+          <td>{{ s.get_trigger_display }}{% if s.status == "fallido" %} <span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>No se generó</span>{% endif %}</td>
+          {% if s.status == "listo" %}<td class="num">{{ s.data.progress.completed }}</td><td class="num">{{ s.data.progress.percent|pct }}</td><td class="num">{{ s.data.progress.pending }}</td>
+          <td class="table__actions"><a href="{% url 'events:report_detail' event.slug s.public_id %}">Ver<span class="visually-hidden"> el corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_pdf' event.slug s.public_id %}">PDF<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_presentation' event.slug s.public_id %}">Presentación<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a></td>
+          {% else %}<td colspan="4" class="muted">{% if access.is_admin %}{{ s.error|truncatechars:80 }}{% else %}Genera uno nuevo con “Generar corte ahora”.{% endif %}</td>{% endif %}
