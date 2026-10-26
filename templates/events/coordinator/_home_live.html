@@ -56,8 +56,9 @@
       </section>
     {% endif %}
 
+    {% comment %}What waits for my decision, then my open follow-ups. "Completadas hace poco" lives in Mi avance.{% endcomment %}
     <section aria-labelledby="seguimientos">
-      <h2 id="seguimientos" class="heading">Seguimiento</h2>
+      <h2 id="seguimientos" class="heading">Esperan algo de ti</h2>
       {% if to_evaluate %}
         <div class="row row--attention">
           <div class="row__main">
@@ -68,11 +69,13 @@
         </div>
       {% endif %}
       {% if follow_ups %}
+        {% comment %}The way back is this page, not the fragment's own request: the fragment is fetched from the same URL.{% endcomment %}
+        {% url 'events:coord_home' event.slug as home_url %}
         <ul class="rows">
           {% for f in follow_ups %}
             <li class="row">
               <div class="row__main">
-                <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
+                <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ home_url|urlencode }}">{{ f.participant.full_name }}</a></p>
                 <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>
               </div>
               {% follow_up_status f.status %}
@@ -81,26 +84,7 @@
         </ul>
         <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver todos los seguimientos</a></p>
       {% elif not to_evaluate %}
-        <p class="empty-line">No hay seguimientos abiertos. Cuando marques que un campero necesita seguimiento aparecerá aquí.</p>
-      {% endif %}
-    </section>
-
-    <section aria-labelledby="recientes">
-      <h2 id="recientes" class="heading">Completadas hace poco</h2>
-      {% if recent %}
-        <ul class="rows">
-          {% for iv in recent %}
-            <li class="row">
-              <div class="row__main">
-                <p class="row__title"><a class="row__link" href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
-                <p class="row__meta">{{ iv.completed_at|since|capfirst }}</p>
-              </div>
-              {% status "completada" %}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="empty-line">Aún no completas entrevistas. Las que termines aparecerán aquí.</p>
+        <p class="empty-line">Nada espera tu decisión por ahora.</p>
       {% endif %}
     </section>
   </div>

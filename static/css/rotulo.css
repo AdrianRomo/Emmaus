@@ -665,6 +665,10 @@ ol.promises li::before {
 }
 .auth-card { max-width: 30rem; margin-inline: auto; }  /* the public one-column pages sit in the middle of a wide screen */
 .auth-card--left { margin-inline: 0; }  /* under a left-aligned page head ("Recuperar la computadora"): one left edge (UI-21) */
+/* "¿Quién lee tus respuestas?": its own block under the promises, as wide as they are, set apart by a hairline */
+.welcome__who { margin-top: var(--s-6); padding-top: var(--s-4); border-top: 1px solid var(--line); max-width: 46ch; }
+.welcome__who-title { font-size: var(--t-h3); font-weight: 700; margin-bottom: var(--s-2); }
+.who-reads { color: var(--ink-2); }
 
 .dialog { border: var(--b-control) solid var(--line); border-radius: var(--r-control); padding: 0; max-width: min(30rem, calc(100% - 2rem)); color: var(--ink); }
 .dialog::backdrop { background: rgba(22, 34, 43, 0.6); }
@@ -744,6 +748,9 @@ ol.promises li::before {
   .results .row { flex-wrap: wrap; }
   .results .row__end { width: 100%; justify-content: space-between; }
 }
+/* "Todavía no eliges computadora. Elegir computadora": one quiet line under the greeting, only while none is chosen */
+.coord__station { margin-bottom: var(--s-5); color: var(--ink-2); }
+.coord__station a { font-weight: 700; padding-block: max(0px, calc((1.5rem - 1.2em) / 2)); }
 
 /* ---------- 12. Report (pastor) ------------------------------------------ */
 .report-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-8); margin-bottom: var(--s-10); }

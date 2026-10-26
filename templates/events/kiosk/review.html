@@ -10,7 +10,7 @@
     <p class="lede">Si quieres cambiar algo, toca “Cambiar”. Cuando termines, toca “Ya terminé”.</p>
   {% endif %}
 </header>
-<p class="aside-note">Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado.</p>
+{% include "events/kiosk/_who_reads.html" with css="aside-note" %}
 <dl class="summary-list summary-list--answers">
   {% for row in rows %}
     <div class="summary-list__row">

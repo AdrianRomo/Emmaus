@@ -3,7 +3,7 @@ from __future__ import annotations
 from django import forms
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -12,9 +12,14 @@ from django.utils.http import urlencode
 from ..forms import ParticipantForm
 from ..models import FollowUp, Interview, InterviewStatus, QuestionnaireVersion, normalize_name
 from ..services import participants as participant_svc
-from ..services.metrics import build_payload, coordinator_scope, progress_for, stale_interviews
+from ..services.metrics import build_payload, coordinator_scope, progress_for
 from ..services.questionnaire import build_steps
 from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, safe_next
+
+
+def _recent_completed(access) -> list:
+    """The coordinator's last five completed interviews ("Completadas hace poco", on Mi avance)."""
+    return list(access.interviews().filter(status=Interview.Status.COMPLETED).order_by("-completed_at")[:5])
 
 
 def _my_context(event, access):
@@ -22,7 +27,6 @@ def _my_context(event, access):
     progress = progress_for(participants)
     mine = access.interviews()
     in_progress = list(mine.filter(status=Interview.Status.IN_PROGRESS).order_by("-last_activity_at")[:5])
-    recent = list(mine.filter(status=Interview.Status.COMPLETED).order_by("-completed_at")[:5])
     next_up = list(participants.filter(interview_status=InterviewStatus.PENDING).order_by("room", "full_name")[:6])
     follow_ups = list(
         access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5]
@@ -31,11 +35,9 @@ def _my_context(event, access):
     return {
         "progress": progress,
         "in_progress": in_progress,
-        "recent": recent,
         "next_up": next_up,
         "follow_ups": follow_ups,
         "to_evaluate": to_evaluate,
-        "stale": stale_interviews(participants).count(),
     }
 
 
@@ -46,6 +48,9 @@ def coord_home(request, event, access):
     context["procedures_pending"] = not event.procedures_approved
     if is_fragment(request):
         return render(request, "events/coordinator/_home_live.html", context)
+    # Outside the live region, so only the full page needs it. Same rule as interview_search: an event
+    # without active computers is legitimate and needs no choice.
+    context["needs_station"] = context["station"] is None and event.stations.filter(is_active=True).exists()
     return render(request, "events/coordinator/home.html", context)
 
 
@@ -65,15 +70,42 @@ def my_participants(request, event, access):
         participants = participants.filter(filters)
     if status in InterviewStatus.values:
         participants = participants.filter(interview_status=status)
-    participants = participants.select_related("sede").order_by("room", "full_name")
+    # What needs action first: an interview left half done, then the ones not started, then the finished ones
+    # (the same rank as interview_search); room and name inside each.
+    participants = list(
+        participants.select_related("sede")
+        .annotate(
+            rank=Case(
+                When(interview_status=InterviewStatus.IN_PROGRESS, then=Value(0)),
+                When(interview_status=InterviewStatus.PENDING, then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField(),
+            )
+        )
+        .order_by("rank", "room", "full_name")
+    )
     counts = dict(access.participants().values_list("interview_status").annotate(n=Count("id")))
     tabs = [{"value": "", "label": "Todos", "count": sum(counts.values())}] + [
         {"value": value, "label": label, "count": counts.get(value, 0)} for value, label in InterviewStatus.choices
     ]
+    total = access.participants().count()
+    if total == 0:
+        empty_reason = "sin_camperos"
+    elif query:
+        empty_reason = "busqueda" if not participants else ""
+    else:
+        empty_reason = "filtro" if not participants else ""
     return render(
         request,
         "events/coordinator/participants.html",
-        {"participants": participants, "query": query, "status": status, "tabs": tabs, "total": access.participants().count()},
+        {
+            "participants": participants,
+            "query": query,
+            "status": status,
+            "tabs": tabs,
+            "total": total,
+            "empty_reason": empty_reason,
+        },
     )
 
 
@@ -162,7 +194,8 @@ def coord_pending(request, event, access):
 @event_view(COORDINATOR)
 def coord_progress(request, event, access):
     payload = build_payload(coordinator_scope(event, access.membership))
-    context = {"payload": payload, "progress": payload["progress"]}
+    # "recent" stays out of build_payload: that payload is also stored in report snapshots.
+    context = {"payload": payload, "progress": payload["progress"], "recent": _recent_completed(access)}
     if is_fragment(request):
         return render(request, "events/coordinator/_progress_live.html", context)
     return render(request, "events/coordinator/progress.html", context)

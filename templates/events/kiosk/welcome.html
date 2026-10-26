@@ -7,11 +7,14 @@
   <p class="welcome__intro">{{ intro|default:"Gracias por darte este tiempo. No hay respuestas correctas o incorrectas." }}</p>
   <ul class="promises">
     {% if total_steps %}<li>Son {{ total_steps }} pregunta{{ total_steps|pluralize }}, una por pantalla. Tómate tu tiempo.</li>{% endif %}
-    <li>Nadie más verá tus respuestas en esta pantalla.</li>
-    <li>Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado.</li>
     {% if "Prefiero no responder" not in intro %}<li>Puedes elegir “Prefiero no responder” en cualquier pregunta.</li>{% endif %}
     <li>Si quieres parar, toca “Parar por ahora” en cualquier momento.</li>
   </ul>
+  {% comment %}Who reads the answers: one source (kiosk/_who_reads.html), the same three sentences as the review.{% endcomment %}
+  <section class="welcome__who" aria-labelledby="quien-lee">
+    <h2 id="quien-lee" class="welcome__who-title">¿Quién lee tus respuestas?</h2>
+    {% include "events/kiosk/_who_reads.html" %}
+  </section>
   <div class="step__actions"><a class="btn btn--primary btn--large" href="{% url 'kiosk:step' first_step.number %}">{% if started %}Retomar{% else %}Empezar{% endif %}</a></div>
 </div>
 {% endblock %}

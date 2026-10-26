@@ -120,7 +120,7 @@ def initials(name: str) -> str:
 
 
 def safe_next(request, candidate: str | None, fallback: str) -> str:
-    """Only same-site redirects (rejects //evil.example, /\\evil.example, absolute URLs)."""
+    """Only same-site redirects (rejects //evil.example, /\\evil.example and absolute URLs to another host)."""
     if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         return candidate
     return fallback

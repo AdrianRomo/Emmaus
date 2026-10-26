@@ -37,7 +37,7 @@
       <ul class="rows">{% for iv in to_evaluate %}
         <li class="row">
           <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">Completada {{ iv.completed_at|since }}</p></div>
-          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}#seguimiento">Decidir<span class="visually-hidden"> sobre {{ iv.participant.full_name }}</span></a>
+          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={% url 'events:coord_pending' event.slug %}#seguimiento">Decidir<span class="visually-hidden"> sobre {{ iv.participant.full_name }}</span></a>
         </li>
       {% endfor %}</ul>
     {% else %}<p class="empty-line">No hay entrevistas esperando esa decisión.</p>{% endif %}
