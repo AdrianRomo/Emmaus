@@ -262,7 +262,7 @@ class PresentationExitTests(CampFixture):
 
     def salir(self, url: str) -> str:
         html = self.client.get(url).content.decode()
-        return re.search(r'<a class="btn" href="([^"]+)">Salir</a>', html).group(1)
+        return re.search(r'<a class="btn" data-deck-exit href="([^"]+)">Salir</a>', html).group(1)  # data-deck-exit: Escape follows it
 
     def test_the_live_deck_returns_to_reports_by_default(self):
         self.login(self.pastor)
@@ -309,3 +309,4 @@ class BackupListWayBackTests(CampFixture):
         response = self.client.get(self.url("backup_list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'href="{self.url("home")}">Volver</a>')
+
