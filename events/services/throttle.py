@@ -12,6 +12,7 @@ import math
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from ..models import AuthThrottle
@@ -51,6 +52,30 @@ def consume(key: str, *, limit: int, window_seconds: int, block_seconds: int, ma
 
 def reset(key: str) -> None:
     AuthThrottle.objects.filter(key=key).delete()
+
+
+def blocked_for(key: str) -> int:
+    """Seconds left on a block, without counting an attempt (0 when not blocked)."""
+    blocked_until = AuthThrottle.objects.filter(key=key).values_list("blocked_until", flat=True).first()
+    now = timezone.now()
+    if blocked_until and blocked_until > now:
+        return math.ceil((blocked_until - now).total_seconds())
+    return 0
+
+
+# The longest ``window_seconds`` any caller passes (login, password reset, kiosk unlock, join request: 1 hour).
+# A row whose window ended that long ago and whose block is over is reset by consume() anyway, so deleting it
+# changes nothing. A caller with a longer window must raise this.
+LONGEST_WINDOW_SECONDS = 60 * 60
+
+
+def purge_expired(now=None) -> int:
+    """Delete counters whose window and block are both in the past (anonymous searches leave one per session)."""
+    now = now or timezone.now()
+    window_over = Q(window_started_at__lt=now - timedelta(seconds=LONGEST_WINDOW_SECONDS))
+    block_over = Q(blocked_until__isnull=True) | Q(blocked_until__lte=now)
+    deleted, _ = AuthThrottle.objects.filter(window_over & block_over).delete()
+    return deleted
 
 
 def wait_message(seconds: int) -> str:

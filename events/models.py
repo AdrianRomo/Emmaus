@@ -15,7 +15,7 @@ from datetime import time
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -53,6 +53,16 @@ class ImmutableRecordError(Exception):
     """Raised when code tries to modify a record that must stay as it was published."""
 
 
+# Read off a printed sign by people who type it on a phone: no 0/O, no 1/I/L.
+JOIN_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+JOIN_CODE_LENGTH = 6
+JOIN_CODE_ATTEMPTS = 20
+
+
+def new_join_code() -> str:
+    return "".join(secrets.choice(JOIN_CODE_ALPHABET) for _ in range(JOIN_CODE_LENGTH))
+
+
 # --------------------------------------------------------------------------------------
 # Event and organizational hierarchy
 # --------------------------------------------------------------------------------------
@@ -88,6 +98,11 @@ class Event(models.Model):
     ends_on = models.DateField("Fecha de término", null=True, blank=True)
     location = models.CharField("Lugar", max_length=160, blank=True)
     time_zone = models.CharField("Zona horaria", max_length=64, default="America/Mexico_City")
+    # The code on the printed sign ("Entra a /unirme/ y escribe ABC234"). Generated on save, never typed by
+    # an administrator (not in EventForm). Blank only for rows written by code older than this field.
+    join_code = models.CharField("Código para unirse", max_length=8, blank=True, default="", db_default="")
+    # The sheet also says the event's name. A new code turns this off, so a sheet that leaked stops working whole.
+    join_by_name = models.BooleanField("Se puede entrar con el nombre del evento", default=True, db_default=True)
 
     questionnaire_version = models.ForeignKey(
         "QuestionnaireVersion",
@@ -142,11 +157,59 @@ class Event(models.Model):
 
     class Meta:
         ordering = ["-starts_on", "name"]
+        constraints = [
+            models.UniqueConstraint(fields=["join_code"], condition=~Q(join_code=""), name="event_join_code_unique"),
+        ]
         verbose_name = "evento"
         verbose_name_plural = "eventos"
 
     def __str__(self) -> str:
         return self.name
+
+    def save(self, *args, **kwargs):
+        if self.join_code:
+            return super().save(*args, **kwargs)
+        return self._save_with_new_join_code(*args, **kwargs)
+
+    def regenerate_join_code(self) -> str:
+        """A new code for the sign. The old code and the event's name stop working at once."""
+        old_code, old_by_name = self.join_code, self.join_by_name
+        self.join_by_name = False
+        try:
+            self._save_with_new_join_code(avoid=old_code, update_fields=["join_code", "join_by_name", "updated_at"])
+        except Exception:
+            self.join_code, self.join_by_name = old_code, old_by_name
+            raise
+        return self.join_code
+
+    def ensure_join_code(self) -> str:
+        """Rows written by code older than the field have no code yet: give them one before building a link."""
+        if not self.join_code:
+            self.save(update_fields=["join_code"])
+        return self.join_code
+
+    def _save_with_new_join_code(self, *args, avoid: str = "", **kwargs):
+        """Save with a fresh code, retrying on a clash (a callable default could not retry)."""
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "join_code" not in update_fields:
+            kwargs["update_fields"] = [*update_fields, "join_code"]
+        for _ in range(JOIN_CODE_ATTEMPTS):
+            code = new_join_code()
+            if code == avoid or self._join_code_taken(code):
+                continue
+            self.join_code = code
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                if not self._join_code_taken(code):
+                    raise  # another constraint (the slug, ...): not ours to retry
+                # another worker saved the same code between the check and the insert: draw again
+        raise RuntimeError(f"No se encontró un código libre en {JOIN_CODE_ATTEMPTS} intentos.")
+
+    def _join_code_taken(self, code: str) -> bool:
+        others = Event.objects.exclude(pk=self.pk) if self.pk else Event.objects.all()
+        return others.filter(join_code=code).exists()
 
     def clean(self):
         if self.starts_on and self.ends_on and self.ends_on < self.starts_on:
@@ -259,6 +322,58 @@ class TutorAssignment(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean(exclude=["created_by"])
+        super().save(*args, **kwargs)
+
+
+# Pastors and administrators are added by hand on "Equipo": a public request can only ask for these two.
+REQUESTABLE_ROLES = [(MembershipRole.TUTOR.value, "Tutor"), (MembershipRole.COORDINATOR.value, "Coordinador")]
+
+
+class AccessRequest(models.Model):
+    """Someone asked, on the event's public page, to join its team. Only a name and an e-mail: no account.
+
+    Approving it runs the same path as "Agregar persona" (an account without a password plus a link to
+    create one), so a request can never sign anybody in by itself.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pendiente", "Pendiente"
+        APPROVED = "aprobada", "Aprobada"
+        REJECTED = "rechazada", "Rechazada"
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="access_requests")
+    full_name = models.CharField("Nombre completo", max_length=160)
+    email = models.EmailField("Correo")
+    requested_role = models.CharField("Qué va a hacer en el evento", max_length=16, choices=REQUESTABLE_ROLES)
+    note = models.CharField("Algo que la administración deba saber", max_length=300, blank=True)
+    decision_note = models.CharField("Motivo de la decisión", max_length=200, blank=True)
+    status = models.CharField("Estado", max_length=16, choices=Status.choices, default=Status.PENDING, db_default=Status.PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    membership = models.ForeignKey(
+        EventMembership, on_delete=models.SET_NULL, null=True, blank=True, related_name="access_requests"
+    )
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            # Sending the form twice (or two tabs at once) leaves one request to decide, not two.
+            models.UniqueConstraint(
+                fields=["event", "email"], condition=Q(status="pendiente"), name="access_request_one_pending"
+            ),
+        ]
+        indexes = [models.Index(fields=["event", "status"], name="access_request_status_idx")]
+        verbose_name = "solicitud de acceso"
+        verbose_name_plural = "solicitudes de acceso"
+
+    def __str__(self) -> str:
+        return f"{self.full_name}, {self.get_requested_role_display().lower()}"
+
+    def save(self, *args, **kwargs):
+        self.email = (self.email or "").strip().lower()
         super().save(*args, **kwargs)
 
 

@@ -992,6 +992,33 @@ ol.promises li::before {
   .landing__body { grid-template-columns: 1fr; gap: var(--s-10); }
 }
 
+/* Joining a team with the printed code: /unirme/ and the event's page (one column, like sign-in), the code
+   and the requests on "Equipo", and the sheet the church prints (the code at 96px in the voice font) */
+.join-search .search { margin-top: 0; }
+.join-choices { margin-top: var(--s-2); }
+.join-code { margin: 0 0 var(--s-10); max-width: 52rem; }
+.join-code__text { font-size: var(--t-lead); overflow-wrap: anywhere; }
+.join-code__note { margin-top: var(--s-1); font-size: var(--t-small); color: var(--ink-2); }
+.join-code__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.join-requests { margin-bottom: var(--s-10); max-width: 52rem; }
+.join-requests .row { flex-wrap: wrap; }
+.join-requests .row__end { flex: 0 1 auto; flex-wrap: wrap; min-width: 0; }  /* a role, two buttons: they wrap on a phone */
+.join-requests .row__main { overflow-wrap: anywhere; }
+.join-requests__approve { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.join-requests__approve select { width: auto; min-height: 2.75rem; }
+.join-sheet { max-width: var(--w-focus); }
+.join-sheet__label { margin-top: var(--s-6); font-size: var(--t-h3); font-weight: 700; }
+.join-sheet__code { font-size: 6rem; line-height: 1; letter-spacing: 0.08em; margin-top: var(--s-2); }
+.join-sheet__url { margin-top: var(--s-4); font-size: var(--t-h2); font-weight: 700; overflow-wrap: anywhere; }
+.join-sheet__steps { margin-top: var(--s-8); padding-left: 1.5rem; list-style: decimal; font-size: var(--t-lead); }
+.join-sheet__steps li + li { margin-top: var(--s-2); }
+@media (max-width: 600px) {
+  .join-sheet__code { font-size: 3.5rem; }
+}
+@media print {
+  .join-sheet { max-width: none; }  /* the code keeps its 96px: one inch on paper */
+}
+
 /* ---------- G5a Discipulado gestión ---------- */
 /* Lists that open a page (participants, paths, notes, people): reading width, no extra gap under the head */
 .disc-list { max-width: 52rem; }

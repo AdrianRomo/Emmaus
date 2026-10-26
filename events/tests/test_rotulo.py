@@ -120,7 +120,7 @@ class RedesignedScreenTests(CampFixture):
             self.tutor1: ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups"],
             self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live"],
             self.admin: ["admin_home", "participants", "participant_import", "team", "assignments", "questionnaires",
-                         "settings", "audit", "sessions", "reports", "member_add"],
+                         "settings", "audit", "sessions", "reports", "member_add", "join_code_sign"],
         }
         for user, names in pages.items():
             client = Client()
@@ -132,7 +132,8 @@ class RedesignedScreenTests(CampFixture):
                 self.assertEqual(response.status_code, 200, url)
                 self.assertContains(response, "css/rotulo.css", msg_prefix=url)
                 self.assertNotContains(response, "emmaus.css", msg_prefix=url)
-        for url in (reverse("login"), reverse("landing"), reverse("password_reset"), reverse("events:list")):
+        for url in (reverse("login"), reverse("landing"), reverse("password_reset"), reverse("events:list"),
+                    reverse("join"), reverse("event_entry", args=[self.event.join_code])):
             response = (self.client if url != reverse("events:list") else self.login(self.admin, Client())).get(url)
             self.assertContains(response, "css/rotulo.css", msg_prefix=url)
 

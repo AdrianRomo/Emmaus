@@ -16,6 +16,7 @@ Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y 
 | **Corte de seguimiento** | Una "foto" del avance que Emmaus guarda a ciertas horas. No cambia después. |
 | **Seguimiento** | Un campero que pidió o necesita que un líder lo acompañe después. |
 | **Equipo de cuidado** | Las pocas personas autorizadas para leer las respuestas confidenciales. |
+| **Código del evento** | Seis letras y números, por ejemplo `K7M3QX`, que la administración imprime en una hoja. Sirve para pedir acceso al equipo en `/unirme/`. No sirve para entrar ni para ver nada. |
 
 ## Entrar y salir
 
@@ -29,6 +30,17 @@ Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y 
 Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y tienes que volver a entrar. Esto pasa aunque la pantalla se esté actualizando sola: cuando ocurre, verás "Tu sesión terminó. Vuelve a entrar para ver datos actuales."
 
 En una computadora o celular pequeño, el menú está en el botón **"Menú"**.
+
+### Unirte al equipo con el código
+
+Si vas a ayudar en un campamento y todavía no tienes acceso, busca la hoja con el código del evento.
+
+1. Abre la dirección de la hoja, que termina en `/unirme/`. También la encuentras en la pantalla de entrada: **"Únete con el código del evento"**.
+2. Escribe el código (por ejemplo `K7M3QX`) o el nombre del evento que dice la hoja, y toca **"Buscar el evento"**. Da igual si usas mayúsculas, minúsculas o acentos.
+3. Escribe tu nombre completo y tu correo, elige qué vas a hacer (**Tutor** o **Coordinador**) y, si quieres, deja una nota para la administración. Toca **"Pedir acceso"**.
+4. La administración revisa tu solicitud. Cuando te dé acceso, podrás entrar con tu correo; si es tu primera vez, te darán un enlace para crear tu contraseña.
+
+Si ya tienes cuenta, entra primero y vuelve a la página del evento: tu nombre y tu correo ya aparecen escritos. Se pueden mandar hasta 5 solicitudes por hora desde un mismo navegador, y buscar 10 veces en 10 minutos; después Emmaus pide esperar. Si Emmaus dice **"No encontramos ese evento"**, revisa lo que escribiste o pregunta a quien organiza. Si dice **"Este evento ya terminó"**, ya no recibe solicitudes. Pastores y administración no se piden así: la administración los agrega a mano.
 
 ---
 
@@ -69,6 +81,10 @@ Mientras no lo confirmes, nadie puede iniciar entrevistas. En la misma pantalla 
 6. Toca **"Agregar al equipo"**.
 
 Si la persona es nueva, Emmaus le manda un correo para crear su contraseña. También verás el enlace en pantalla con el botón **"Copiar enlace"**: compártelo solo con esa persona. Si alguien ya tiene contraseña y la olvidó, debe usar "¿Olvidaste tu contraseña?" en la pantalla de entrada.
+
+**La hoja con el código.** En **"Equipo"**, arriba, dice "Para unirse al equipo: entra a ... y escribe el código ... o el nombre ...". Toca **"Ver la hoja para imprimir"** y luego **"Imprimir"**: sale una hoja con el nombre del evento, el código en letras grandes, la dirección y tres pasos. Pégala donde llega el equipo. **"Copiar enlace"** copia la dirección directa del evento para mandarla por mensaje. Si el código se compartió con quien no debía, toca **"Generar otro código"**: el código anterior y el nombre del evento dejan de funcionar al instante, y solo entra el código nuevo. Imprime la hoja otra vez (ya no trae el nombre). Si quieres que el nombre vuelva a servir, toca **"Volver a permitir el nombre"**.
+
+**Solicitudes de acceso.** Quien usó el código aparece en **"Equipo"**, en **"Solicitudes de acceso"**, con su correo, lo que pidió ser y hace cuánto. Si ese correo ya tiene cuenta en Emmaus, abajo dice de quién es, qué acceso tiene hoy en este evento y de qué iglesia es ("Ya tiene cuenta: ...; acceso actual en este evento: pastor; iglesia: ..."). Si hay solicitudes y nada más impide entrevistar, el letrero de **"Inicio"** te lo recuerda ("2 personas piden acceso al equipo"). Revisa que conozcas a la persona: el correo lo escribió ella y nadie lo comprobó. Elige su rol (puede ser otro del que pidió) y toca **"Agregar al equipo"**: pasa lo mismo que con "Agregar persona", incluido el correo o el enlace para crear su contraseña (también si ya tenía cuenta pero nunca creó su contraseña). Si la cuenta ya tiene acceso a este evento (por ejemplo, es pastor o administradora de la iglesia), Emmaus no cambia nada y cierra la solicitud: un rol se cambia solo en **"Editar"**. Si a alguien se le había quitado el acceso, recupera el mismo lugar en el equipo (sin acceso confidencial; eso se da aparte en "Editar"). **"Rechazar"** cierra la solicitud; no se le avisa a la persona. Caben 50 solicitudes sin decidir; con la lista llena, la página del evento pide a quien llega que te busque directamente. Las solicitudes ya decididas se borran solas después de 30 días. Solo la administración ve y decide las solicitudes.
 
 Para cambiar el rol de alguien o quitarle el acceso, en **"Equipo"** toca **"Editar"**. Si desmarcas **"Puede entrar y trabajar en este evento"**, deja de poder trabajar en este campamento desde su siguiente clic, aunque sea pastor de la iglesia. (Si es administradora de la iglesia, conserva su acceso; eso se cambia en la configuración de la iglesia.)
 

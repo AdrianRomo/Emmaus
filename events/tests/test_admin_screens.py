@@ -32,7 +32,7 @@ class AdminScreensTests(CampFixture):
             self.url("admin_home"), self.url("participants"), self.url("participant_import"), self.url("member_add"),
             self.url("member_edit", self.m_coord1.id), self.url("assignments"), self.url("questionnaires"),
             self.url("version_detail", self.version.id), self.url("settings"), self.url("sessions"), self.url("audit"),
-            self.url("participant_delete", self.p1.public_id),
+            self.url("participant_delete", self.p1.public_id), self.url("join_code_sign"),
         ]
         for url in urls:
             response = self.client.get(url)
