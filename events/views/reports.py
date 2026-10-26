@@ -100,7 +100,11 @@ def report_pdf(request, event, access, public_id):
     snapshot = _snapshot_or_404(access, public_id)
     previous = previous_snapshot(snapshot)
     payload = visible_payload(snapshot.data, access)
-    pdf = build_snapshot_pdf(snapshot, payload, delta=compare(snapshot.data, previous.data) if previous else None)
+    pdf = build_snapshot_pdf(
+        snapshot, payload,
+        delta=compare(snapshot.data, previous.data) if previous else None,
+        previous_cutoff=previous.cutoff_at if previous else None,
+    )
     audit.record(request.user, event, "exportacion", f"Descargó el PDF del corte de las {timezone.localtime(snapshot.cutoff_at):%H:%M} ({snapshot.scope_label})", snapshot)
     stamp = timezone.localtime(snapshot.cutoff_at).strftime("%Y%m%d-%H%M")
     response = HttpResponse(pdf, content_type="application/pdf")

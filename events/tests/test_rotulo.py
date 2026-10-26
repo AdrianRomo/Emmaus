@@ -6,7 +6,7 @@ from unittest import mock
 
 from django.conf import settings
 from django.template import Context, Template
-from django.test import Client, SimpleTestCase
+from django.test import Client, SimpleTestCase, override_settings
 from django.urls import reverse
 
 from events.charts import _label_indexes, columns_chart, cumulative_chart
@@ -135,6 +135,30 @@ class RedesignedScreenTests(CampFixture):
         for url in (reverse("login"), reverse("landing"), reverse("password_reset"), reverse("events:list")):
             response = (self.client if url != reverse("events:list") else self.login(self.admin, Client())).get(url)
             self.assertContains(response, "css/rotulo.css", msg_prefix=url)
+
+    @override_settings(ROOT_URLCONF="core.test_camp_flow")  # the project's routes plus two that fail on purpose
+    def test_error_pages_are_on_rotulo(self):
+        """400, 403, 404, 500 and an expired form: Rótulo, one heading, never Django's own page."""
+        client = Client(raise_request_exception=False)
+        self.login(self.coord1, client)
+        expired = Client(enforce_csrf_checks=True)
+        self.login(self.coord1, expired)
+        with self.assertLogs("django", "WARNING"):  # each failure is still logged
+            responses = {
+                400: client.get("/prueba/sospechosa/"),
+                403: client.get(self.url("admin_home")),
+                404: client.get("/no-existe/"),
+                500: client.get("/prueba/falla/"),
+                "csrf": expired.post(reverse("logout")),
+            }
+        for name, response in responses.items():
+            status = 403 if name == "csrf" else name
+            self.assertEqual(response.status_code, status, name)
+            html = response.content.decode()
+            self.assertIn("css/rotulo.css", html, name)
+            self.assertNotIn("emmaus.css", html, name)
+            self.assertEqual(len(re.findall(r"<h1\b", html)), 1, name)
+            self.assertIn('href="#contenido"', html, name)
 
     def test_coordinator_sign_switches_to_the_open_interview(self):
         self.login(self.coord1)

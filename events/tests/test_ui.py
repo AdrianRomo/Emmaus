@@ -132,8 +132,11 @@ class SpanishAndAccessibilityTests(CampFixture):
         self.assertEqual(response.status_code, 200)
         self.login(self.admin)
         response = self.client.get(reverse("events:pastor_home", args=[event.slug]))
-        self.assertContains(response, "Aún no hay entrevistas completadas")
+        self.assertContains(response, "Aún no hay camperos registrados.")  # no camperos: no charts either
         self.assertContains(response, "¿Cómo va el retiro?")
+        # Camperos registered and none interviewed yet: the chart is there and says why it is empty.
+        response = self.client.get(self.url("pastor_home"))
+        self.assertContains(response, "Aún no hay entrevistas completadas")
 
     def test_coordinator_has_obvious_logout_and_primary_action(self):
         self.login(self.coord1)

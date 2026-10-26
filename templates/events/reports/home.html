@@ -35,7 +35,7 @@
     {% else %}
       <p class="voice headline">Todavía no había participantes registrados.</p>
     {% endif %}
-    {% if delta %}<p class="headline__sub">{% if delta.completed %}{{ delta.completed|signed }} entrevistas{% if delta.percent %} y {{ delta.percent|signed }} puntos{% endif %} desde el corte de las {{ previous.cutoff_at|date:"H:i" }}.{% else %}Sin cambios desde el corte de las {{ previous.cutoff_at|date:"H:i" }}.{% endif %}</p>{% endif %}
+    {% if delta %}<p class="headline__sub">{% delta_sentence delta previous.cutoff_at %}</p>{% endif %}
     {% if p.eligible %}
       <div class="headline__ruler">{% ruler p.completed p.in_progress p.eligible %}</div>
       <ul class="key">
@@ -45,7 +45,7 @@
       </ul>
     {% endif %}
     <dl class="figures">
-      <div><dt>Avance</dt><dd class="figures__value">{{ p.percent|pct }}</dd>{% if delta and delta.percent is not None %}<dd class="figures__note">{{ delta.percent|signed }} puntos</dd>{% endif %}</div>
+      <div><dt>Avance</dt><dd class="figures__value">{{ p.percent|pct }}</dd>{% if delta and delta.percent is not None %}<dd class="figures__note">{% if delta.percent %}{{ delta.percent|signed }}&nbsp;% desde el corte anterior{% else %}Igual que en el corte anterior{% endif %}</dd>{% endif %}</div>
       <div><dt>Pendientes</dt><dd class="figures__value">{{ p.pending }}</dd><dd class="figures__note">incluye {{ p.in_progress }} en curso</dd></div>
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ latest.data.follow_ups.open_total }}</dd></div>
     </dl>

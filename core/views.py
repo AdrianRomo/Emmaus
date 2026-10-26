@@ -2,14 +2,20 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth import login
-from django.contrib.auth.views import LoginView, PasswordResetView
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.auth.views import LoginView, PasswordResetView
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Max, Q
-from django.http import Http404, HttpResponse
+from django.http import (
+    Http404,
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseServerError,
+)
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template import loader
 from django.utils import timezone
 
 from .access import (
@@ -23,8 +29,8 @@ from .access import (
     visible_questions,
 )
 from .forms import (
-    AIDraftReviewForm,
     AcceptInvitationForm,
+    AIDraftReviewForm,
     AssignMentorForm,
     ChurchSettingsForm,
     FollowUpRequestForm,
@@ -72,12 +78,32 @@ from .services import (
     progress_for_participant,
 )
 
-
-QUESTION_DISCLAIMER = (
+QUESTION_DISCLAIMER_INTRO = (
     "Emmaus te ayuda a conectar con líderes de tu iglesia. No es un servicio de emergencias, terapia, consejo médico "
-    "ni consejo legal, y no sustituye el cuidado pastoral. Si estás en peligro inmediato o piensas hacerte daño o "
-    "hacerle daño a otra persona, llama de inmediato al 911 o a los servicios de emergencia de tu localidad."
+    "ni consejo legal, y no sustituye el cuidado pastoral."
 )
+EMERGENCY_NOTICE = (
+    "Si estás en peligro inmediato o piensas hacerte daño o hacerle daño a otra persona, llama de inmediato al 911 "
+    "o a los servicios de emergencia de tu localidad."
+)
+# The English default of core migration 0001. Churches created before 0003 still hold it (0006 clears it);
+# read as "no notice of their own" so no participant reads English.
+LEGACY_ENGLISH_NOTICE = (
+    "Emmaus supports discipleship follow-up through your church. It is not emergency support, therapy, "
+    "medical advice, legal advice, or a replacement for pastoral care."
+)
+
+
+def participant_notice(church_text: str) -> list[str]:
+    """The notice a participant reads before writing to their church, as paragraphs.
+
+    The church's own notice (church settings) when it has one, Emmaus's otherwise; the emergency
+    sentence always follows, so no church text can leave a participant without it.
+    """
+    text = (church_text or "").strip()
+    if text == LEGACY_ENGLISH_NOTICE:
+        text = ""
+    return [text or QUESTION_DISCLAIMER_INTRO, EMERGENCY_NOTICE]
 
 
 def role_required(*roles: str):
@@ -125,8 +151,8 @@ def initial_setup(request):
         login(request, user)
         messages.success(request, f"{church.name} ya está lista en Emmaus.")
         return redirect("church_dashboard")
-    # The notice every new church starts with; "Qué sigue" asks to read it before inviting anyone.
-    notice = Church._meta.get_field("basic_disclaimer_text").default
+    # What participants of a new church will read (its notice starts as the default); "Qué sigue" asks to read it.
+    notice = participant_notice(Church._meta.get_field("basic_disclaimer_text").default)
     return render(request, "core/initial_setup.html", {"form": form, "participant_notice": notice})
 
 
@@ -160,6 +186,23 @@ def permission_denied(request, exception=None):
 
 def page_not_found(request, exception=None):
     return render(request, "errors/404.html", status=404)
+
+
+def bad_request(request, exception=None):
+    if not hasattr(request, "user"):
+        # Refused before authentication ran (a host not in ALLOWED_HOSTS): the context processors need the user.
+        return HttpResponseBadRequest(loader.render_to_string("errors/400.html"))
+    return render(request, "errors/400.html", status=400)
+
+
+def server_error(request):
+    """No request context: whatever failed (often the database) must not fail again while drawing this page."""
+    return HttpResponseServerError(loader.render_to_string("errors/500.html"))
+
+
+def csrf_failure(request, reason=""):
+    """settings.CSRF_FAILURE_VIEW: a form sent from a page that was open too long, or from another session."""
+    return render(request, "errors/csrf.html", status=403)
 
 
 def accept_invitation(request, token: str):
@@ -361,7 +404,7 @@ def ask_question(request):
     return render(
         request,
         "core/ask_question.html",
-        {"form": form, "question_disclaimer": QUESTION_DISCLAIMER},
+        {"form": form, "question_disclaimer": participant_notice(profile.church.basic_disclaimer_text)},
     )
 
 
@@ -486,6 +529,11 @@ def participant_detail(request, profile_id: int):
     )
 
 
+def _plain_text(text: str) -> str:
+    """Browsers send a textarea's line breaks as CRLF: compare and store text with LF, without outer spaces."""
+    return (text or "").replace("\r\n", "\n").strip()
+
+
 def _draft_prefix(draft) -> str:
     """Each AI draft gets its own form prefix, so several drafts on one page never share element ids."""
     return f"borrador-{draft.pk}"
@@ -542,30 +590,43 @@ def question_detail(request, question_id: int):
             if not can_answer_question(request.user, question) or not has_leader_access(request.user):
                 raise PermissionDenied
             draft = get_object_or_404(visible_ai_drafts(request.user), pk=request.POST.get("draft_id"), related_question=question)
+            question_url = "church_question_detail" if has_pastoral_access(request.user) else "question_detail"
+            if draft.status != AIDraft.Status.DRAFT:
+                # A draft is reviewed once: a second click, or a second leader, must not send it again.
+                messages.warning(request, "Este borrador ya se revisó.")
+                return redirect(question_url, question_id=question.id)
             draft_form = AIDraftReviewForm(request.POST, instance=draft, prefix=_draft_prefix(draft))
             if draft_form.is_valid():
                 chosen_action = draft_form.cleaned_data["review_action"]
-                draft = draft_form.save(commit=False)
-                draft.reviewed_at = timezone.now()
+                generated = _plain_text(draft.generated_text)
                 if chosen_action == "reject":
-                    draft.status = AIDraft.Status.REJECTED
-                    draft.save()
-                    messages.success(request, "Se rechazó el borrador.")
-                    return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
-                body = draft.edited_final_text.strip() or draft.generated_text
-                draft.status = AIDraft.Status.EDITED if chosen_action == "edit" else AIDraft.Status.APPROVED
-                draft.edited_final_text = body
-                draft.save()
-                response = QuestionResponse.objects.create(
-                    question=question,
-                    responder=request.user,
-                    response_body=body,
-                )
-                question.status = ParticipantQuestion.Status.ANSWERED
-                question.save(update_fields=["status", "updated_at"])
+                    status, body = AIDraft.Status.REJECTED, _plain_text(draft.edited_final_text)
+                else:
+                    body = _plain_text(draft.edited_final_text) or generated
+                    # The label says what reached the participant, whichever button was used: "Editado" only
+                    # when the text differs from the generated one, "Aprobado" when it went out as generated.
+                    status = AIDraft.Status.EDITED if body != generated else AIDraft.Status.APPROVED
+                with transaction.atomic():
+                    # Claim the draft only while it is still a draft, so two reviews at the same time send one answer.
+                    claimed = AIDraft.objects.filter(pk=draft.pk, status=AIDraft.Status.DRAFT).update(
+                        status=status, edited_final_text=body, reviewed_at=timezone.now()
+                    )
+                    if not claimed:
+                        messages.warning(request, "Este borrador ya se revisó.")
+                        return redirect(question_url, question_id=question.id)
+                    if status == AIDraft.Status.REJECTED:
+                        messages.success(request, "Se rechazó el borrador.")
+                        return redirect(question_url, question_id=question.id)
+                    response = QuestionResponse.objects.create(
+                        question=question,
+                        responder=request.user,
+                        response_body=body,
+                    )
+                    question.status = ParticipantQuestion.Status.ANSWERED
+                    question.save(update_fields=["status", "updated_at"])
                 notify_question_response(response)
                 messages.success(request, "El borrador revisado se envió como tu respuesta.")
-                return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
+                return redirect(question_url, question_id=question.id)
     drafts = visible_ai_drafts(request.user).filter(related_question=question) if has_leader_access(request.user) else AIDraft.objects.none()
     # A review that did not validate keeps its bound form, so the person sees what to fix.
     draft_forms = [
@@ -583,7 +644,8 @@ def question_detail(request, question_id: int):
             "draft_forms": draft_forms,
             "draft_form": draft_form,
             "can_answer": can_answer_question(request.user, question),
-            "question_disclaimer": QUESTION_DISCLAIMER,
+            # The notice of the church the question was asked in, wherever a leader opens it from.
+            "question_disclaimer": participant_notice(question.church.basic_disclaimer_text),
         },
     )
 

@@ -58,7 +58,7 @@
 <section class="report-section" id="comparacion" aria-labelledby="t-comp">
   <div class="report-section__q">
     <h2 id="t-comp" class="voice report-section__title">Comparado con el corte anterior</h2>
-    <p class="report-section__answer">{% if previous %}{% if delta.completed %}{{ delta.completed|signed }} entrevistas{% if delta.percent %} y {{ delta.percent|signed }} puntos{% endif %} desde el corte de las {{ previous.cutoff_at|date:"H:i" }}.{% else %}Sin cambios desde el corte de las {{ previous.cutoff_at|date:"H:i" }}.{% endif %}{% else %}Es el primer corte de este alcance.{% endif %}</p>
+    <p class="report-section__answer">{% if previous %}{% delta_sentence delta previous.cutoff_at %}{% else %}Es el primer corte de este alcance.{% endif %}</p>
   </div>
   {% if previous %}
   <div class="report-section__body">
@@ -68,7 +68,7 @@
         <tr><th scope="row">Completadas</th><td class="num">{{ previous.data.progress.completed }}</td><td class="num">{{ progress.completed }}</td><td class="num">{{ delta.completed|signed }}</td></tr>
         <tr><th scope="row">En curso</th><td class="num">{{ previous.data.progress.in_progress }}</td><td class="num">{{ progress.in_progress }}</td><td class="num">{{ delta.in_progress|signed }}</td></tr>
         <tr><th scope="row">Pendientes</th><td class="num">{{ previous.data.progress.pending }}</td><td class="num">{{ progress.pending }}</td><td class="num">{{ delta.pending|signed }}</td></tr>
-        <tr><th scope="row">Avance (puntos)</th><td class="num">{{ previous.data.progress.percent|pct }}</td><td class="num">{{ progress.percent|pct }}</td><td class="num">{{ delta.percent|signed }}</td></tr>
+        <tr><th scope="row">Avance</th><td class="num">{{ previous.data.progress.percent|pct }}</td><td class="num">{{ progress.percent|pct }}</td><td class="num">{{ delta.percent|signed }}{% if delta.percent %}&nbsp;%{% endif %}</td></tr>
         <tr><th scope="row">Seguimientos abiertos</th><td class="num">{{ previous.data.follow_ups.open_total }}</td><td class="num">{{ payload.follow_ups.open_total }}</td><td class="num">{{ delta.follow_ups_open|signed }}</td></tr>
       </tbody>
     </table></div>

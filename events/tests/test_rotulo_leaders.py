@@ -151,14 +151,14 @@ class CutoffPdfTests(CampFixture):
         self.assertIn(b"AtkinsonHyperlegibleNext-Bold", pdf)
         self.assertNotIn(b"Literata", pdf)
 
-    def test_the_change_since_the_last_cutoff_keeps_the_points(self):
+    def test_the_change_since_the_last_cutoff_keeps_the_percentage(self):
         from events.services.pdf import delta_sentence
 
-        self.assertEqual(delta_sentence({"completed": 11, "percent": 3}), "Desde el corte anterior: +11 entrevistas y +3 puntos.")
-        self.assertEqual(delta_sentence({"completed": 4, "percent": 0}), "Desde el corte anterior: +4 entrevistas.")
+        self.assertEqual(delta_sentence({"completed": 11, "percent": 3}), "+11 entrevistas y +3\u00a0% de avance desde el corte anterior.")
+        self.assertEqual(delta_sentence({"completed": 4, "percent": 0}), "+4 entrevistas desde el corte anterior.")
         # New campers registered and nobody finished: the percentage still moved
         self.assertEqual(
             delta_sentence({"completed": 0, "percent": -5}),
-            "Desde el corte anterior no se completaron entrevistas, y el avance cambió -5 puntos.",
+            "Ninguna entrevista nueva, pero el avance cambió \u22125\u00a0% desde el corte anterior.",
         )
-        self.assertEqual(delta_sentence({"completed": 0, "percent": None}), "Desde el corte anterior no se completaron entrevistas.")
+        self.assertEqual(delta_sentence({"completed": 0, "percent": None}), "Sin cambios desde el corte anterior.")

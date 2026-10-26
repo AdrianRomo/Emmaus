@@ -2,7 +2,7 @@
 {% block page_title %}No tienes acceso{% endblock %}
 {% block content %}
 <div class="narrow">
-  {% include "events/rotulo/_page_head.html" with title="No tienes acceso a esta página" lede="Tu cuenta no tiene permiso para ver esta información. Si crees que es un error, pide a la administración del evento que revise tu rol." meta="Error 403" %}
-  <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Ir a mi inicio</a></p>
+  {% include "events/rotulo/_page_head.html" with title="No tienes acceso a esta página" lede="Tu cuenta no tiene permiso para ver esta información. Si crees que es un error, pide a la administración del evento que te dé acceso." %}
+  <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Volver a mi inicio</a></p>
 </div>
 {% endblock %}

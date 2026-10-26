@@ -66,7 +66,7 @@ def build_deck(
 
     steps = []
     if progress["eligible"] and progress["pending"]:
-        text = f"Completar {progress['pending']} entrevistas pendientes."
+        text = "Completar 1 entrevista pendiente." if progress["pending"] == 1 else f"Completar {progress['pending']} entrevistas pendientes."
         if eta:
             text += f" Al ritmo actual, unas {format_duration(eta)}."
         steps.append(text)

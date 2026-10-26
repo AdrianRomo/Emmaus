@@ -293,5 +293,6 @@ def apply_import(event: Event, rows: list[dict], *, actor, include_lines: set[in
             log=False,
         )
         created += 1
-    audit.record(actor, event, "importacion", f"Importó {created} camperos desde un archivo", None, count=created)
+    summary = "Importó 1 campero desde un archivo" if created == 1 else f"Importó {created} camperos desde un archivo"
+    audit.record(actor, event, "importacion", summary, None, count=created)
     return created
