@@ -547,6 +547,41 @@ class StatusMarkTests(CampFixture):
         self.assertIn('<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Publicada</span>', html)
 
 
+# ---- Admin home "Actividad reciente": confidential rows are neutral without confidential access ----------------
+
+
+class RecentActivityTests(CampFixture):
+    """The admin home's last 8 activity rows go through audit.with_shown_summaries, like the activity log page."""
+
+    def setUp(self):
+        from events.models import AuditEvent
+
+        self.summary = f"Consultó respuestas confidenciales del campero #{self.p1.code}"
+        AuditEvent.objects.create(event=self.event, action="consulta_confidencial", summary=self.summary, object_type="Interview", object_id="1")
+        AuditEvent.objects.create(event=self.event, action="reporte_riesgo", summary=f"Reportó una situación de riesgo del campero #{self.p2.code}", object_type="FollowUp", object_id="1")
+
+    def recent(self, user):
+        self.login(user)
+        html = self.client.get(self.url("admin_home")).content.decode()
+        return re.search(r'<section aria-labelledby="actividad-admin">.*?</section>', html, flags=re.S).group(0)
+
+    def test_an_administrador_without_the_flag_reads_no_campero(self):
+        section = self.recent(self.admin)
+        self.assertEqual(section.count('<p class="row__title">Movimiento confidencial</p>'), 2)
+        self.assertNotIn(self.summary, section)
+        self.assertNotIn(f"#{self.p1.code}", section)
+        self.assertNotIn(f"#{self.p2.code}", section)
+
+    def test_an_administrador_with_the_flag_reads_the_summary(self):
+        from .base import make_user
+
+        care_admin = make_user("admin.cuidado2@prueba.mx", "Alma", "Cuidado")
+        EventMembership.objects.create(event=self.event, user=care_admin, role=MembershipRole.ADMIN, can_view_sensitive=True)
+        section = self.recent(care_admin)
+        self.assertIn(self.summary, section)
+        self.assertNotIn("Movimiento confidencial", section)
+
+
 # ---- UI-21: "auth-card--left" has a rule ------------------------------------------------------------------------
 
 

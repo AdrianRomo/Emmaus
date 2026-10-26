@@ -157,7 +157,7 @@
       <h2 id="actividad-admin" class="heading">Actividad reciente</h2>
       {% if recent %}
         <ul class="rows admin-log">{% for a in recent %}
-          <li class="row"><div class="row__main"><p class="row__title">{{ a.summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
+          <li class="row"><div class="row__main"><p class="row__title">{{ a.shown_summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
         {% endfor %}</ul>
       {% else %}
         <p class="empty-line">Sin actividad todavía.</p>

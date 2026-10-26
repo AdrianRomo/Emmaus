@@ -421,7 +421,9 @@ def admin_home(request, event, access):
         "problems": problems,
         "failed_reports": failed_count,
         "exports": exports,
-        "recent": AuditEvent.objects.filter(event=event).select_related("actor")[:8],
+        # Without confidential access, rows about confidential follow-ups and safety reports say only
+        # "Movimiento confidencial", as on the activity log page: their summaries name the campero.
+        "recent": audit.with_shown_summaries(AuditEvent.objects.filter(event=event).select_related("actor")[:8], access),
         "last_snapshot": _last_snapshot(access),
         "next_cutoff": next_slot(event),
         "auto_cutoffs": _automatic_cutoffs(event, now),
