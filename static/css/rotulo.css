@@ -187,6 +187,11 @@ html:not(.no-js) .no-js-only { display: none; }
 .btn--primary:hover { background: var(--petroleo-hover); border-color: var(--petroleo-hover); }
 .btn--danger { background: var(--chile); border-color: var(--chile); color: #fff; }
 .btn--danger:hover { background: #962812; border-color: #962812; }
+/* A risk action that is not the screen's main action ("Reportar una situación de riesgo", audit UI-02): a secondary
+   button drawn in chile (6.0:1; 5.0:1 on its tint), so it is found at once and never reads like a quiet link such as
+   "Descartar esta entrevista". Chile is for risk, and this is risk. */
+.btn--danger-outline { color: var(--chile); border-color: var(--chile); }
+.btn--danger-outline:hover { background: var(--chile-tint); }
 .btn--secondary { background: var(--surface); }
 .btn--link {
   border-color: transparent; background: none; color: var(--petroleo);
@@ -276,6 +281,10 @@ form.is-submitting .btn--primary { opacity: 0.7; }
 .status--done .status__mark { background: var(--data-done); border-color: var(--data-done); }
 .status--progress .status__mark { background: var(--data-progress); border-color: var(--data-progress); }
 /* "alert" (a follow-up nobody has taken) is the first stage, drawn like "sin iniciar": chile is kept for risk */
+/* Not a stage, so not a stage mark (audit UI-07): what ended without being done (descartada, cancelado, vencida,
+   retirada) is filled grey; what waits for someone to look or decide ("Revisar", "Por decidir") is half grey. */
+.status--closed .status__mark { background: var(--line-strong); border-color: var(--line-strong); }
+.status--review .status__mark { background: linear-gradient(to top, var(--line-strong) 50%, var(--data-track) 50%); }
 
 .privacy { margin-top: var(--s-4); font-size: var(--t-small); color: var(--ink-2); }
 .privacy__tag {
@@ -586,11 +595,22 @@ a.wordmark:hover { color: var(--petroleo); }
 .step__reassure { margin-top: var(--s-8); color: var(--ink-2); font-size: var(--t-small); max-width: 60ch; }
 @media (max-width: 600px) {
   .step .step__actions {
-    position: sticky; bottom: 0; z-index: 5; margin: var(--s-8) calc(-1 * var(--s-4)) 0;
+    margin: var(--s-8) calc(-1 * var(--s-4)) 0;
     padding: var(--s-3) var(--s-4) var(--s-4); background: var(--surface); border-top: 1px solid var(--line);
   }
   .step__actions .btn--large { width: 100%; }
   .choice__label { padding: var(--s-3) var(--s-4); }  /* still 64px: options keep their height on a phone */
+  /* Keyboard focus scrolls a control clear of the bar below, with room for its label and its focus ring */
+  .step .choice > input { scroll-margin-block: var(--s-6); }   /* the 44px input sits inside a 64px label */
+  .step textarea, .step .input { scroll-margin-block: var(--s-3); }
+}
+/* On a phone the step's button stays in reach, stuck to the bottom of the window: 12 + 60 + 16 px and a 1px rule.
+   The browser only scrolls a focused control into the window, not clear of the bar, so the page reserves the bar's
+   height at the bottom (WCAG 2.4.11 Focus not obscured, audit A11Y-01). In a short window (a phone on its side, 400 %
+   zoom) the bar would cover a third of it: there it stays in the flow, after the last option. */
+@media (max-width: 600px) and (min-height: 480px) {
+  html:has(.step .step__actions) { scroll-padding-bottom: calc(5.5rem + 1px); }
+  .step .step__actions { position: sticky; bottom: 0; z-index: 5; }
 }
 
 .page-head { margin-bottom: var(--s-8); }
@@ -642,6 +662,7 @@ ol.promises li::before {
   color: var(--ink-2); font-size: var(--t-small);
 }
 .auth-card { max-width: 30rem; margin-inline: auto; }  /* the public one-column pages sit in the middle of a wide screen */
+.auth-card--left { margin-inline: 0; }  /* under a left-aligned page head ("Recuperar la computadora"): one left edge (UI-21) */
 
 .dialog { border: var(--b-control) solid var(--line); border-radius: var(--r-control); padding: 0; max-width: min(30rem, calc(100% - 2rem)); color: var(--ink); }
 .dialog::backdrop { background: rgba(22, 34, 43, 0.6); }
@@ -750,9 +771,11 @@ ol.promises li::before {
 .headline__delta { font-size: var(--t-small); color: var(--ink-2); }
 
 .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--s-4) var(--s-6); }
-.figures > div { border-top: 1px solid var(--line); padding-top: var(--s-3); }
+/* A value wraps inside its tile rather than run under the next one ("6 h 15 min", audit UI-01): the tile may shrink
+   below its content (min-width: 0) and the value may break (overflow-wrap) */
+.figures > div { border-top: 1px solid var(--line); padding-top: var(--s-3); min-width: 0; }
 .figures dt { font-size: var(--t-small); font-weight: 500; color: var(--ink-2); }
-.figures__value { font-size: 2.25rem; font-weight: 800; line-height: 1.15; color: var(--ink); white-space: nowrap; }
+.figures__value { font-size: 2.25rem; font-weight: 800; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
 .figures__note { font-size: var(--t-small); color: var(--ink-3); }
 .figures__alert { border-top-color: var(--chile) !important; border-top-width: 4px !important; }
 .figures__alert .figures__value { color: var(--chile); }

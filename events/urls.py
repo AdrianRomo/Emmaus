@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import admin, coordinator, dashboards, home, interview, reports
+from .views import admin, coordinator, dashboards, home, interview, reports, session
 
 app_name = "events"
 
@@ -9,6 +9,8 @@ I = "<uuid:public_id>/"
 
 urlpatterns = [
     path("", home.events_home, name="list"),
+    # "Seguir aquí" (emmaus.js): keeps a staff session open. Before the event URLs, so no slug can shadow it.
+    path("cuenta/sigo-aqui/", session.still_here, name="still_here"),
     path("nuevo/", home.event_create, name="create"),
     path(E, home.event_home, name="home"),
     path(E + "computadora/", home.choose_station, name="choose_station"),

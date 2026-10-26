@@ -2,5 +2,6 @@
   Status of a discipleship question, follow-up or AI draft: the shared status mark with the model's own word.
   value: the stored status; label: its display text (get_status_display).
   Answered, completed, approved or edited: done. Escalated or in progress: in progress (escalating
-  is care, not an error, so never chile). Open, draft, closed, cancelled or rejected: outline.
-{% endcomment %}{% load emmaus %}{% if value == "answered" or value == "completed" or value == "approved" or value == "edited" %}{% status "completada" label %}{% elif value == "escalated" or value == "in_progress" %}{% status "en_curso" label %}{% else %}{% status "pendiente" label %}{% endif %}
+  is care, not an error, so never chile). Closed, cancelled or rejected ended without being done: the filled grey
+  "closed" mark (audit UI-07). Open or draft: not started yet, the outline.
+{% endcomment %}{% load emmaus %}{% if value == "answered" or value == "completed" or value == "approved" or value == "edited" %}{% status "completada" label %}{% elif value == "escalated" or value == "in_progress" %}{% status "en_curso" label %}{% elif value == "closed" or value == "cancelled" or value == "rejected" %}{% status "descartada" label %}{% else %}{% status "pendiente" label %}{% endif %}

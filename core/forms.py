@@ -9,6 +9,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 
+from .colors import contrast_ratio, contrast_with_white, parse_hex
 from .logos import UPLOAD_HELP, inspect_logo_upload
 from .models import (
     AIDraft,
@@ -147,8 +148,25 @@ LOGO_FIELDS = (("logo", "logo_clear"), ("logo_dark", "logo_dark_clear"))
 LOGO_ACCEPT = {"accept": "image/png"}
 
 
+# The church's own colours paint every screen of the church (audit A11Y-06). The primary colour carries white text on
+# buttons, so it needs 4.5:1 against white; the accent is a mark beside text, a graphical object, so 3:1 (WCAG 1.4.3,
+# 1.4.11). The primary colour is also link text, and the text colours are text, on the page background and on the
+# surfaces (fields, bars, panels): 4.5:1 against each.
+THEME_MIN_CONTRAST = {"theme_primary_color": 4.5, "theme_accent_color": 3.0}
+THEME_CONTRAST_ERROR = "Elige un color más oscuro: necesita un contraste de al menos {} a 1 sobre blanco."
+THEME_ON_BACKGROUNDS = ("theme_primary_color", "theme_text_color", "theme_muted_text_color")
+THEME_BACKGROUNDS = ("theme_background_color", "theme_surface_color")
+THEME_TEXT_MIN_CONTRAST = 4.5
+THEME_BACKGROUND_ERROR = (
+    "Elige un color que se lea sobre el fondo y las superficies: necesita un contraste de al menos 4.5 a 1 con cada uno."
+)
+
+
 class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
-    """The church's data, access, logo and colours. The logo is a PNG checked by core.logos (its bytes, not its name)."""
+    """The church's data, access, logo and colours. The logo is a PNG checked by core.logos (its bytes, not its name).
+
+    With the church's own colours on, the primary and accent colours must read on white (THEME_MIN_CONTRAST).
+    """
 
     logo_clear = forms.BooleanField(required=False, label="Quitar el logotipo")
     logo_dark_clear = forms.BooleanField(required=False, label="Quitar el logotipo para fondo oscuro")
@@ -188,6 +206,10 @@ class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
             "theme_border_color": "Bordes",
         }
         help_texts = {
+            "theme_primary_color": "Pinta los botones, con letra blanca encima, y los enlaces. Necesita un contraste de al menos 4.5 a 1 sobre blanco.",
+            "theme_accent_color": "Marca dónde estás. Necesita un contraste de al menos 3 a 1 sobre blanco.",
+            "theme_text_color": "Necesita un contraste de al menos 4.5 a 1 sobre el fondo y sobre las superficies.",
+            "theme_muted_text_color": "Necesita un contraste de al menos 4.5 a 1 sobre el fondo y sobre las superficies.",
             "logo": f"{UPLOAD_HELP} Negro sobre transparente se ve bien en todas las pantallas.",
             "logo_dark": (
                 f"{UPLOAD_HELP} La versión en blanco, para la presentación en modo noche. Sin ella, "
@@ -237,7 +259,23 @@ class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
                 self.add_error(field, "Elige una sola cosa: sube un logotipo nuevo o marca “Quitar el logotipo”.")
             else:
                 self._cleared_logos.append(field)
+        if cleaned.get("custom_theme_enabled"):
+            self._check_theme_contrast(cleaned)
         return cleaned
+
+    def _check_theme_contrast(self, cleaned):
+        # A colour that failed its own validation (not #RRGGBB) is missing from cleaned: parse_hex gives None, no check
+        for field, minimum in THEME_MIN_CONTRAST.items():
+            ratio = contrast_with_white(cleaned.get(field))
+            if ratio is not None and ratio < minimum:
+                self.add_error(field, THEME_CONTRAST_ERROR.format(f"{minimum:g}"))
+        backgrounds = [parse_hex(cleaned.get(name)) for name in THEME_BACKGROUNDS]
+        for field in THEME_ON_BACKGROUNDS:
+            colour = parse_hex(cleaned.get(field))
+            if colour is None or field in self.errors:
+                continue  # one message per field: "más oscuro sobre blanco" already says what to do
+            if any(bg is not None and contrast_ratio(colour, bg) < THEME_TEXT_MIN_CONTRAST for bg in backgrounds):
+                self.add_error(field, THEME_BACKGROUND_ERROR)
 
     def save(self, commit=True):
         # Set here: a file field with nothing uploaded is left out of construct_instance (it has a default).

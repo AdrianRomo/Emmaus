@@ -17,7 +17,7 @@
             <p class="row__meta">Tu rol: {{ row.access.role_label|lower }}.</p>
           </div>
           <div class="row__end">
-            {% if row.event.status == "activo" %}{% status "en_curso" row.event.get_status_display %}{% elif row.event.status == "cerrado" %}{% status "completada" row.event.get_status_display %}{% else %}{% status "pendiente" row.event.get_status_display %}{% endif %}
+            {% if row.event.status == "activo" %}{% status "en_curso" row.event.get_status_display %}{% elif row.event.status == "cerrado" %}{% status "completada" row.event.get_status_display %}{% elif row.event.status == "archivado" %}{% status "archivado" row.event.get_status_display %}{% else %}{% status "pendiente" row.event.get_status_display %}{% endif %}
             <a class="btn btn--secondary btn--small" href="{% url 'events:home' row.event.slug %}">Abrir<span class="visually-hidden"> {{ row.event.name }}</span></a>
           </div>
         </li>

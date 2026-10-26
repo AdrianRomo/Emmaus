@@ -120,6 +120,7 @@ Un punto petróleo (`.here__blaze`) y el nombre del lugar: "Estás en Computador
 | `.btn` / `.btn--secondary` | Blanco con borde de control de 1.5 px. Acciones de renglón ("Entrevistar", "Decidir") y salidas ("Guardar y salir") |
 | `.btn--link` | Alternativas de menor peso ("Mejor hago yo las preguntas", "Volver a mi inicio") |
 | `.btn--danger` | Solo para borrar ("Sí, descartar y borrar respuestas"), en chile |
+| `.btn--danger-outline` | Con `.btn--secondary`: letra y borde chile sobre blanco. Solo para la acción de riesgo ("Reportar una situación de riesgo", en la ficha del campero y en la revisión) |
 | `.btn--large` / `.btn--small` | 60 px / 44 px de alto (normal: 48 px) |
 
 El texto del botón dice lo que pasa: "Comenzar entrevista", "Finalizar entrevista", "Entregar la computadora". Sin flechas.
@@ -142,7 +143,7 @@ Una marca por campero, en la escala de datos. Con más de 80 personas se dibuja 
 Barra apilada con 2 px de separación entre segmentos y, si se pide, una raya de tinta en el promedio. Para avance de equipos y del campamento.
 
 ### Estado (`{% status "en_curso" %}`, `{% follow_up_status f.status %}`)
-Una marca pequeña más la palabra. Completada / atendido: petróleo. En curso / en proceso: petróleo medio. Sin iniciar / pendiente: contorno.
+Una marca pequeña más la palabra. Las tres marcas de etapa significan solo etapa: completada / atendido / publicada, petróleo; en curso / en proceso, petróleo medio; sin iniciar / pendiente, contorno. Lo que terminó sin hacerse (descartada, cancelado, vencida, retirada, archivado, rechazado, cerrada) va en gris relleno (`status--closed`, `--line-strong`) y lo que espera que alguien revise o decida (revisar, por decidir, pasada al pastor) en medio gris (`status--review`): ningún estado que terminó sin hacerse usa el contorno de "sin iniciar".
 
 ### Renglones (`.rows`, `.row`)
 Nombre a 20 px en 700, dato debajo a 16 px, la acción a la derecha. Separados por líneas de 1 px en `--line`. `.row--attention` (fondo hundido y una orilla petróleo de 4 px) para lo que espera una decisión. El encabezado de una lista es `.heading`: texto de 22 px en 700 con una línea `--line` de 1.5 px debajo. La portada usa renglones sin acción para sus tres promesas.
@@ -191,7 +192,7 @@ Siempre dentro de `<div class="table-wrap" tabindex="0" role="region" aria-label
 Diapositivas de 16:9 para proyector: titular en Figtree 800 de más de 100 px a 1920 × 1080 y nada por debajo de unos 26 px. "Cal" (claro) por omisión y "Noche" (`.deck--noche`: fondo `#141B33`, texto `#F3F5F6`, datos `#8FC1CA` y `#4C95A2`, ver §1 "Datos") con el botón "Modo noche", que se recuerda en esa computadora. Al pie de cada diapositiva: "Solo totales. Sin nombres ni respuestas." Teclado: flechas, Inicio, Fin y F.
 
 ### Barras (`.bar`, `.focusbar`)
-`.bar`: "Emmaus" (o el logotipo de la iglesia), el evento, "Estás en", los enlaces del rol con un subrayado de 3 px en `--mark` bajo la página actual (en "Menú", una orilla a la izquierda), y "Cerrar sesión". Bajo 1180 px los enlaces pasan a "Menú" (`.menu-panel`, pantalla completa). `.focusbar` (entrevista y campero): quién o qué computadora, y una salida. Mismo ancho que la columna de contenido.
+`.bar`: "Emmaus" (o el logotipo de la iglesia), el evento, "Estás en", los enlaces del rol con un subrayado de 3 px en `--mark` bajo la página actual (en "Menú", una orilla a la izquierda), y "Cerrar sesión". Bajo 1180 px los enlaces pasan a "Menú" (`.menu-panel`, pantalla completa). El panel es modal: un diálogo (`role="dialog"`, `aria-modal="true"`) con la página detrás inerte; Tab no sale de él, Esc o "Cerrar menú" lo cierran y el foco vuelve a "Menú". `.focusbar` (entrevista y campero): quién o qué computadora, y una salida. Mismo ancho que la columna de contenido.
 
 ### Marca de la iglesia (`{% church_brand iglesia variant="claro" size="bar" %}`)
 La iglesia sube su logotipo en "Configuración de la iglesia" (solo PNG, con fondo transparente, de hasta 512 KB y con el lado mayor de 32 a 2000 px; `core/logos.py` lo revisa por su contenido, no por su nombre; negro sobre transparente es lo recomendado, y una versión en blanco, opcional, para la presentación en Noche) y ocupa el lugar de la palabra "Emmaus". Sin logotipo, la etiqueta dibuja la palabra "Emmaus" (`.wordmark`, Figtree 700 de 24 px) en el mismo lugar. "Emmaus" sigue siendo el nombre del producto en el `<title>` de cada página y en el PDF.

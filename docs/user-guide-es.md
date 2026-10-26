@@ -48,7 +48,7 @@ Emmaus entra con tu cuenta y te lleva a **"Campamentos y eventos"**, donde lo ú
 5. Si te equivocas muchas veces, Emmaus te pide esperar unos minutos antes de intentar otra vez, y cada vez un poco más si sigues fallando. Es para proteger tu cuenta.
 6. Cuando termines, toca **"Cerrar sesión"**. En computadoras compartidas esto es muy importante.
 
-Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y tienes que volver a entrar. Esto pasa aunque la pantalla se esté actualizando sola: cuando ocurre, verás "Tu sesión terminó. Vuelve a entrar para ver datos actuales."
+Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y tienes que volver a entrar. Esto pasa aunque la pantalla se esté actualizando sola: cuando ocurre, verás "Tu sesión terminó. Vuelve a entrar para ver datos actuales." Dos minutos antes aparece el aviso **"¿Sigues aquí?"**: toca **"Seguir aquí"** para seguir trabajando (escribir o elegir en un formulario también cuenta, y lo que hagas en otra pestaña de Emmaus también).
 
 En una computadora o celular pequeño, el menú está en el botón **"Menú"**.
 

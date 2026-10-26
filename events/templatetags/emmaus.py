@@ -4,27 +4,44 @@ import re
 from datetime import datetime
 
 from django import template
+from django.conf import settings
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 
+from core.colors import hover_shade
+
 from .. import charts
+from ..services.interviews import KIOSK_KEY
 from ..views.common import initials as _initials
+from ..views.session import idle_seconds_left
 
 register = template.Library()
 
-# Status words and their mark (an ordinal stage: not started, in progress, done). Colour is never the only signal.
+# Status words and their mark. The three stage marks mean only a stage: not started (outline), in progress (medium
+# petróleo), done or in use (petróleo). A state that is not a stage has a mark of its own (audit UI-07): "closed" (filled
+# grey) for what ended without being done (descartada, cancelado, vencida, retirada) and "review" (half grey) for what
+# waits for someone to look at it or decide. Colour is never the only signal: the word always goes with the mark.
 STATUS_MARKS = {
     "pendiente": ("pending", "Sin entrevista"),
     "en_curso": ("progress", "En curso"),
     "completada": ("done", "Completada"),
-    "descartada": ("pending", "Descartada"),
+    "descartada": ("closed", "Descartada"),  # also "Vencida" (invitations) and the discipleship "Cancelado", "Rechazado", "Cerrada"
+    "revisar": ("review", "Revisar"),
+    "por_evaluar": ("review", "Por decidir"),  # Interview.follow_up_decision
+    "pasada_al_pastor": ("review", "Pasada al pastor"),  # a discipleship question waiting for the pastor
+    # Questionnaire versions (QuestionnaireVersion.Status)
+    "borrador": ("progress", "Borrador"),
+    "publicada": ("done", "Publicada"),
+    "retirada": ("closed", "Retirada"),
+    "archivado": ("closed", "Archivado"),  # Event.Status
 }
 FOLLOW_UP_MARKS = {
     "pendiente": ("alert", "Pendiente"),
     "en_proceso": ("progress", "En proceso"),
     "atendido": ("done", "Atendido"),
-    "cancelado": ("pending", "Cancelado"),
+    "cancelado": ("closed", "Cancelado"),
 }
 
 
@@ -228,6 +245,48 @@ def duration(minutes):
     from ..services.metrics import format_duration
 
     return format_duration(minutes)
+
+
+@register.filter
+def duration_short(minutes):
+    """'6 h 15 min', '2 h', '45 min': the compact form, only for a big figure (.figures__value), where "6 horas 15
+    minutos" at 36 px overflowed its tile (audit UI-01). Sentences keep the words (duration). A no-break space joins
+    each number to its unit, so a narrow tile wraps between "6 h" and "15 min", never inside them."""
+    if minutes is None or minutes == "":
+        return ""
+    hours, mins = divmod(int(minutes), 60)
+    if hours and mins:
+        return f"{hours}\u00a0h {mins}\u00a0min"
+    if hours:
+        return f"{hours}\u00a0h"
+    return f"{mins}\u00a0min"
+
+
+@register.simple_tag(takes_context=True)
+def staff_idle_attrs(context):
+    """The <body> attributes emmaus.js reads for the "¿Sigues aquí?" notice before the staff idle logout (audit A11Y-04):
+    the idle limit events.middleware.StaffIdleLogoutMiddleware applies, the seconds really left (from the session's
+    last touch, which can be up to 30 s older than this page), and the URL that touches the session. Nothing for
+    someone signed out, for a browser confined to the campero's screens (its 404 and CSRF pages use base.html), or
+    when the idle logout is off."""
+    user = context.get("user")
+    request = context.get("request")
+    seconds = int(getattr(settings, "EMMAUS_IDLE_LOGOUT_SECONDS", 0) or 0)
+    if seconds <= 0 or not getattr(user, "is_authenticated", False):
+        return ""
+    session = getattr(request, "session", None)
+    if session is not None and KIOSK_KEY in session:
+        return ""
+    left = idle_seconds_left(request) if session is not None else seconds
+    return format_html(
+        'data-idle-seconds="{}" data-idle-remaining="{}" data-idle-ping-url="{}"', seconds, left, reverse("events:still_here")
+    )
+
+
+@register.filter
+def theme_hover(color):
+    """The church's own primary colour, about 12 % darker, for --petroleo-hover (audit UI-18: it was the same colour)."""
+    return hover_shade(color)
 
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
