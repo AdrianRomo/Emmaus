@@ -618,14 +618,14 @@ class ChurchSettingsLogoTests(MediaRootMixin, EmmausFixture):
         self.assertFalse(self.church.logo)
         self.assertFalse(os.path.exists(path))
 
-    def test_the_white_version_is_previewed_on_carbon(self):
+    def test_the_white_version_is_previewed_on_a_dark_background(self):
         self.post(logo=upload("a.png", png_bytes()), logo_dark=upload("b.png", png_bytes(240, 80)))
         self.church.refresh_from_db()
         self.assertEqual(self.church.logo_dark.name, "church-logos/logotipo-oscuro-emmaus.png")
         page = self.client.get(self.url)
         dark = page.content.decode().split('class="logo-preview logo-preview--dark"', 1)[1].split("</figure>", 1)[0]
         self.assertIn("/iglesia/emmaus/logotipo/oscuro/", dark)
-        self.assertIn("Tu versión para fondo oscuro, sobre carbón.", dark)
+        self.assertIn("Tu versión en blanco, sobre fondo oscuro.", dark)
         self.assertContains(page, "Quitar el logotipo para fondo oscuro")
 
     def test_replacing_the_logo_removes_the_old_file(self):

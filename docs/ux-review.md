@@ -1,4 +1,4 @@
-# Revisión UX con capturas · "Rótulo"
+# Revisión UX con capturas · "Rótulo" y "Atrio"
 
 ## Método
 
@@ -6,9 +6,45 @@
 - **Toda la aplicación:** `e2e/all_urls.py` arma la lista de pantallas de cada cuenta (coordinador, tutor, pastor, administración, y en discipulado administración, mentor y participante, más las páginas sin sesión) y `e2e/review-all.mjs` visita cada una en tres anchos con axe, y revisa que no haya desborde horizontal, que haya un solo `h1` y que cargue `rotulo.css`.
 - **Anchos:** escritorio 1440 × 900, tableta 820 × 1180, teléfono 390 × 844.
 - **Datos:** solo sintéticos. `seed_camp_demo` crea un campamento de 400 camperos ficticios; los nombres son combinaciones aleatorias de nombres y apellidos comunes. Antes de cada ronda se volvió a sembrar la base, porque el recorrido abre y termina entrevistas y los tableros cambian.
-- **Rondas:** 15 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador, la 14 llevó el resto de la aplicación al sistema y la 15 cerró sus pendientes.
+- **Rondas:** 16 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador, la 14 llevó el resto de la aplicación al sistema, la 15 cerró sus pendientes y la 16 pasó toda la aplicación de Rótulo a Atrio.
 
 ## Rondas
+
+### Ronda 16 · Atrio
+
+El 26 de octubre de 2026 toda la aplicación pasó de Rótulo a Atrio (`design-direction.md`): Figtree en vez de Recursive y Atkinson, petróleo en vez de añil, ningún amarillo, el panel tinte de lo que sigue en vez del letrero, bordes de 1.5 px, radios de 10 px (controles) y 4 px (marcas), sin sombras, el anillo de foco de tinta, movimiento con propósito (`design-system.md`, §Movimiento), las páginas públicas de una columna centradas y una portada nueva.
+
+**Método.** El mismo de la ronda 14: `e2e/all_urls.py` arma la lista de pantallas de cada cuenta (las del evento, las de discipulado y las páginas sin sesión, entre ellas la portada) y `e2e/review-all.mjs` visita cada una en tres anchos (1440 × 900, 820 × 1180 y 390 × 844) con axe-core (WCAG 2.0, 2.1 y 2.2, A y AA), y revisa que no haya desborde horizontal, que haya un solo `h1` y que cargue `rotulo.css`. `e2e/design-review.mjs` recorre el flujo de la entrevista asistida y del campero. La presentación se revisa a 1920 × 1080 en Cal y Noche. Solo datos sintéticos de `seed_camp_demo`, sembrados de nuevo antes de la ronda.
+
+**Resultado.**
+
+| Prueba | Resultado |
+|---|---|
+| `e2e/review-all.mjs` | **195 comprobaciones de pantalla y ancho (65 pantallas × 3 anchos): 0 problemas de axe, 0 desbordes horizontales y un solo `h1` en todas.** Lo único que marca son las pruebas intencionales de 403 (una cuenta de la iglesia que abre la administración de un evento), que deben responder 403 |
+| `e2e/station-flow.mjs` | Correcto: asistida, supervisada, confinamiento del campero, opción exclusiva, desbloqueo |
+| Movimiento | Revisado con el movimiento normal y con "reducir movimiento" (`prefers-reduced-motion: reduce`), que lo apaga todo |
+| Capturas y videos | Las capturas de abajo, en `docs/img/atrio/`. Los videos de la revisión quedan fuera del repositorio |
+
+**Capturas.** Están en `docs/img/atrio/`. El número del nombre es el ancho de la ventana en píxeles; las de la presentación son de 1920 × 1080.
+
+| Captura | Qué muestra |
+|---|---|
+| ![Portada en teléfono](img/atrio/portada-390.png) | `portada-390.png`: La portada (`/`) en teléfono: el titular, "Entrar a Emmaus" y, justo debajo, el enlace para quien trae el código del evento. |
+| ![Portada en escritorio](img/atrio/portada-1440.png) | `portada-1440.png`: La portada en escritorio: una sola columna sin fotos, con las tres promesas y quién usa Emmaus. |
+| ![Entrar en teléfono](img/atrio/entrar-390.png) | `entrar-390.png`: Entrar en teléfono: la misma columna que la portada y un solo botón. |
+| ![Inicio del coordinador en teléfono](img/atrio/coordinador-inicio-390.png) | `coordinador-inicio-390.png`: El inicio del coordinador en teléfono, con el panel de lo que sigue: "¿A quién vas a entrevistar?" y la búsqueda. |
+| ![Inicio del coordinador en escritorio](img/atrio/coordinador-inicio-1440.png) | `coordinador-inicio-1440.png`: El inicio del coordinador en escritorio: el panel, "Estás en Computadora 4", el conteo y las dos columnas de renglones. |
+| ![Una pregunta de la entrevista en teléfono](img/atrio/pregunta-390.png) | `pregunta-390.png`: Una pregunta de la entrevista asistida en teléfono: el camino, la pregunta como título y las opciones de 64 px. |
+| ![Una pregunta del campero en teléfono](img/atrio/campero-pregunta-390.png) | `campero-pregunta-390.png`: La misma clase de pregunta cuando el campero responde solo, sin navegación. |
+| ![Revisión de respuestas en teléfono](img/atrio/revision-390.png) | `revision-390.png`: Revisar las respuestas en teléfono: la pregunta arriba, la respuesta abajo y "Cambiar" a la derecha. |
+| ![Resumen del pastor en escritorio](img/atrio/pastor-resumen-1440.png) | `pastor-resumen-1440.png`: El resumen del pastor: cada pregunta con su respuesta en una frase y la evidencia (gráficas y equipos) a la derecha. |
+| ![Mi equipo del tutor en escritorio](img/atrio/tutor-equipo-1440.png) | `tutor-equipo-1440.png`: Mi equipo del tutor: "Tu equipo lleva X de Y." y una fila por coordinador con su conteo. |
+| ![Inicio de administración en escritorio](img/atrio/admin-inicio-1440.png) | `admin-inicio-1440.png`: El inicio de administración: "Preparación" con el estado de cada paso. |
+| ![Camperos de administración en escritorio](img/atrio/admin-camperos-1440.png) | `admin-camperos-1440.png`: La lista de camperos de administración, la pantalla más densa, con cifras tabulares. |
+| ![Presentación en Cal](img/atrio/presentacion-cal.png) | `presentacion-cal.png`: La presentación a 1920 × 1080 en Cal, para salones con luz. |
+| ![Presentación en Noche](img/atrio/presentacion-noche.png) | `presentacion-noche.png`: La misma diapositiva en Noche, para salones oscuros. |
+
+### Rondas 0 a 15 · Rótulo
 
 | Ronda | Lo que vimos | Lo que cambió |
 |---|---|---|

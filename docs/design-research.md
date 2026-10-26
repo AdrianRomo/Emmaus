@@ -123,3 +123,75 @@ El foco con teclado: fondo amarillo `#ffdd00` y subrayado negro grueso en enlace
 | Foco amarillo con borde de tinta | GOV.UK | sección "Foco" de `rotulo.css` |
 | Informe en orden: respuesta → cifras → gráficas → datos | Airtable (solo el orden) | `templates/events/pastor/_home_live.html` |
 | Sin tarjetas de cifras iguales, sin donas, sin tema oscuro por defecto | Airtable, Square, Fingerprint, Midday, Better Stack (como contraejemplo) | todo el sistema |
+
+## Investigación v3 (octubre de 2026)
+
+Fecha: 26 de octubre de 2026. El dueño rechazó dos direcciones seguidas ("Cuaderno de campo" y "Rótulo") y pidió algo "profesional, tranquilo y muy fácil para personas no técnicas", mirando herramientas parecidas y cristianas. Esta ronda estudió 32 herramientas y llevó a **Atrio** (`design-direction.md`, `design-system.md`).
+
+### Cómo se hizo
+
+- Páginas públicas abiertas con Playwright 1.63 (Chromium, 1440 y 390 px), las capturas oficiales de cada ficha de App Store (bajadas con la API pública de iTunes) y centros de ayuda. **No se inició sesión, no se creó ninguna cuenta y no se envió ningún formulario.** Tipos, tamaños y colores salen de los estilos calculados de cada página, no de una estimación a ojo.
+- Las capturas (67 archivos), las notas largas por herramienta y la muestra de las tres direcciones con sus fuentes reales están **fuera del repositorio**, en `~/sandbox-docs/emmaus/design-v3/`. El repositorio es público: aquí solo se describe lo que se vio, sin reproducir imágenes de otros productos.
+- No se repitieron Typeform, Tally, GOV.UK, Udemy, IKEA, Airtable, Square, Fingerprint, Midday ni Better Stack (secciones anteriores). Sus conclusiones (una pregunta por pantalla, los errores de GOV.UK) se conservan.
+
+### Lo que se estudió
+
+| Grupo | Herramientas |
+|---|---|
+| Administración de iglesias y sus apps (10) | Planning Center (People, Check-Ins y Church Center), Breeze (hoy Tithely Church Management), Tithely, Pushpay, Subsplash, Realm, Rock RMS, Faithlife (Proclaim), Text In Church, Nucleus |
+| Campamentos y jóvenes (7) | CampDoc, UltraCamp, CampMinder, Regpack, Grow Curriculum, Orange, Download Youth Ministry |
+| Biblia y discipulado (6) | YouVersion, BibleProject, RightNow Media, Dwell, Hallow, Lectio 365 |
+| Controles tranquilos, no de iglesia (9) | Linear, Notion, Stripe, Basecamp, HEY, Cal.com, Mercury, Headspace, Apple Health |
+
+Lo que más pesó, por grupo:
+
+- **Iglesias.** Planning Center usa Gilroy 700 en su sitio, pero Church Center, en la página de una iglesia, usa la letra del sistema, deja elegir **un** color principal y todo lo demás es blanco y gris: el logotipo de la iglesia es lo único con identidad. Rock RMS usa Figtree 700 (de ahí la elección de Figtree como letra "de iglesia"), con una densidad de administrador. Tithely y Breeze, Pushpay y Subsplash son el sitio genérico de software: píldoras, degradados, estrellas, muros de logotipos. Realm y Faithlife se ven datados: foto oscura con velo, fondo oscuro con brillos. Text In Church pone en su titular el mismo propósito de Emmaus: "Make sure no one slips through the cracks".
+- **Campamentos y jóvenes.** El pase de lista del staff (CampDoc) y el aviso que primero tranquiliza (CampMinder: "Nothing here requires setup. It's already working for you.") sirven. Casi todo lo demás es lo que hay que evitar: cuatro familias tipográficas y palabras con degradado (CampDoc, Regpack), fotos de menores con velo (UltraCamp, CampDoc), reconocimiento de rostros de niños (Campanion, de CampMinder: lo contrario de lo que Emmaus promete), mayúsculas espaciadas de 11 px y fondo crema (Orange), letra a mano y tono de videojuego o de tienda (Grow, Download Youth Ministry).
+- **Biblia y discipulado.** YouVersion usa serifa solo en el texto de la Escritura y una sans en la interfaz. BibleProject: hojas blancas, chips grises y una línea de avance fina; su guía de marca dice "if you can't use color use black on white". Hallow: una tarjeta, un título de una frase y botones apilados con el verbo completo. Lectio 365 nombra los momentos del día (mañana, mediodía, noche). Dwell es casi exactamente "Cuaderno de campo" (serifa sobre crema): está bien hecha y aun así es la combinación que el dueño rechazó.
+- **Controles tranquilos.** Linear explica su rediseño de 2026 con "Don't compete for attention you haven't earned" y "Structure should be felt not seen". Stripe usa su violeta solo en acciones y enlaces y pone las etiquetas encima de los campos. Basecamp: títulos 800, cuerpo llano, enlaces subrayados que se ven enlaces. HEY ("The Screener"): una frase que dice qué se decide y, en cada renglón, Sí y No. Cal.com: opciones a todo el ancho, el elegido en negro. Mercury pone las tareas antes que cualquier número. Headspace es tranquilo por sus ilustraciones y su tamaño de letra, no por sus colores.
+
+### Lo que no se pudo ver
+
+| Herramienta | No se vio | Se usó en su lugar |
+|---|---|---|
+| Pushpay ChMS | La interfaz web (pide cuenta) | El sitio y la app de donaciones |
+| Realm, Subsplash, Tithely y Breeze ChMS, Planning Center People (web) | La interfaz de administración | Maquetas del sitio y fichas de App Store |
+| Rock RMS | La interfaz completa | Una captura real del perfil de una persona en su página de funciones |
+| Planning Center Check-Ins | La estación en vivo | La ficha de App Store y la investigación anterior de su centro de ayuda |
+| CampDoc, UltraCamp, Regpack | Cualquier interfaz que no sea una maqueta de marketing | El sitio y, para CampDoc, la app de padres |
+| Faithlife | La portada (salió vacía) | Proclaim y Proclaim Remote |
+| Nucleus, Text In Church | La interfaz de la herramienta | El sitio (y la app de Text In Church) |
+| Apple Health | La app (no está en App Store; la guía es solo texto) | La página de producto y la guía de ayuda |
+| BibleProject, RightNow Media, Dwell, Hallow, YouVersion, Linear, Notion, Mercury, Headspace, Basecamp, HEY | La app dentro de una cuenta | Sitios, el lector público de YouVersion y fichas de App Store |
+
+### Cinco patrones de lo "profesional y tranquilo"
+
+1. **Un estado en una frase y un solo botón.** Church Center, en la página de una iglesia: "Registration is open. Already registered? Log in" y un botón, "Register". Check-Ins: "Check out 2 people". HEY: "You get to decide…" con Sí y No. Hallow: una tarjeta, tres botones con el verbo completo.
+2. **Marco neutro, un color y el logotipo de la iglesia como único adorno.** Church Center deja elegir un color principal y todo lo demás es blanco y gris; en la página vista, el logotipo y el color del botón son toda su identidad. Cal.com y Stripe hacen lo mismo con su marca.
+3. **Jerarquía por peso y espacio, no por cajas.** Linear (2026): "Don't compete for attention you haven't earned". Basecamp: títulos 800 y cuerpo llano. BibleProject: hoja blanca, chips grises, una línea de avance.
+4. **El color hace tres trabajos y nada más.** Stripe: violeta para acción y enlaces, palomita verde para lo hecho, el resto gris. Church Center: enlaces y estados. Mercury pone "Tasks" antes que cualquier número.
+5. **La calidez está en las palabras y en la hora, no en el adorno.** "Hello, Ashley!" y "We're so happy you're here" (Church Center); mañana, mediodía y noche (Lectio 365); "que nadie se escape" (Text In Church). La calidez por ilustración (Headspace, Hallow) pide un presupuesto que Emmaus no tiene y no debe fingir.
+
+### Cinco antipatrones
+
+1. **Degradados y brillos como identidad** (Subsplash, RightNow Media, Mercury, CampMinder, HEY): es el rasgo "hecho con IA".
+2. **Foto de stock con velo oscuro y "Book a demo"** (UltraCamp, Realm, Orange, Pushpay). En Emmaus serían menores.
+3. **Todo en píldora, más prueba social** (Tithely, Breeze, Text In Church): si todo pesa igual, nada dice "esto sigue".
+4. **Personalidad prestada por la tipografía:** letra a mano (HEY, Download Youth Ministry), mayúsculas espaciadas (Orange, Subsplash), serifa sobre crema (Dwell). Es el error de las dos direcciones rechazadas: "Cuaderno" (crema, Literata, terracota) y "Rótulo" (Recursive Casual, letrero amarillo, bordes de tinta de 2 a 3 px). Las dos ponen primero una metáfora que el voluntario debe descifrar antes de hacer su tarea.
+5. **Densidad de administrador:** texto diminuto (CampDoc, Rock RMS, People en la web) y paneles de muchas cifras.
+
+### Tres direcciones
+
+Las tres compartían esqueleto (los componentes de `design-system.md` §2) y cambiaban de tokens; se compararon en una muestra con las fuentes reales. Riesgo en las tres: chile `#B8321C` (6.0:1).
+
+**A. Atrio, la puerta abierta del templo.** Lo que hacen Church Center (iglesias, personas no técnicas) y Basecamp y Cal.com (trabajo diario): blanco, un solo color, frases como títulos. Figtree variable (400 para el texto de 18 px, 500 para etiquetas, 700 para botones, 800 para títulos de 26 a 44 px), unos 20 KB. Tinta `#16222B` (16.2:1), tinta suave `#44525D` (8.0:1), tinta tenue `#5A6872` (5.7:1), acción petróleo `#0B6270` (7.0:1, letra blanca encima a 7.0:1; hover `#084E5A`, 9.3:1), tinte `#E4F1F3`, bordes `#DCE1E4` y de control `#7B8A94` (3.6:1). Densidad generosa, radios de 10 px, bordes de 1.5 px, sin sombras. Lo que sigue es un panel tinte con una pregunta como título y una acción rellena. Datos en petróleo, petróleo medio `#4C95A2` (3.4:1) y contorno, con la frase "Llevas 18 de 31." Portada: "Platicar con cada joven, sin perder a nadie."
+
+**B. Paloma, la iglesia en blanco y negro.** Parte de la identidad monocroma de la iglesia: titular pesado y redondeado en Nunito 800 y 900 (lo más cercano a la letra de su logotipo) con Open Sans para el texto, la misma de la iglesia; unos 85 KB las dos. Acción negra `#111111` (letra blanca a 18.9:1). Lo que sigue es un panel invertido, negro con botón blanco: el único bloque oscuro de la pantalla. Datos en negro, gris `#8C8C8C` (3.4:1) y contorno; tres estados en gris se distinguen peor. Portada: "Una conversación a la vez."
+
+**C. Quietud, el producto tranquilo.** De Linear, de la app de Stripe y de la herencia de GOV.UK: página gris muy suave `#F5F7FA` con superficies blancas, sin cajas, un azul acero `#2B5A9E` (6.9:1). Public Sans en una sola familia, unos 26 KB; radios de 6 px y bordes de 1 px, la más compacta. Lo que sigue no tiene caja: es el primer bloque, con letra más grande y el único botón relleno. Portada: "El campamento, en orden y en calma."
+
+### Decisión
+
+**Atrio**, aprobada por el dueño el 26 de octubre de 2026. Es lo que pidió (Church Center es exactamente un marco neutro más un color), evita las dos objeciones (sin crema ni serif, sin voz pintada, sin amarillo, sin bordes de tinta), tiene la señal de "lo que sigue" más tranquila que no falla, es la más ligera y se lee en proyector (7:1 en la acción, 16:1 en la tinta). Paloma era el concepto más propio, pero con dos familias, un bloque negro en cada inicio y tres estados en gris; Quietud era la más genérica y la más cercana al añil de Rótulo. El riesgo de Atrio es verse como el software de iglesia común; si el dueño lo siente así, la salida es Paloma sobre el mismo esqueleto.
+
+Lo que esta ronda cambia de las decisiones anteriores: el foco amarillo de GOV.UK pasa a un anillo de tinta de 3 px con 2 px de blanco; el panel de confirmación pasa de añil a petróleo; el letrero amarillo pasa a un panel tinte. Los patrones de interacción (una pregunta por pantalla, el resumen de errores, "Cambiar", "o bien") se quedan.
