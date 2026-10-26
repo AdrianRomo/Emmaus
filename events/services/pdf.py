@@ -4,12 +4,16 @@ The PDF is generated from the *viewer-trimmed* payload, so it never shows more t
 the person downloading it may see on screen. It reads like the cutoff page ("Rótulo",
 docs/design-system.md): Recursive Casual for what a person would say (the title, the
 section questions, the headline sentence), Atkinson Hyperlegible Next for everything
-else, añil for data, chile only for risk, no yellow (nothing in a PDF is a next action).
+else, añil for data, chile only for risk, no yellow (nothing in a PDF is a next action). The header is the
+church's PNG logo when it has one (core.logos), otherwise the wordmark.
 """
 
 from __future__ import annotations
 
+import functools
 import io
+import logging
+import os
 from xml.sax.saxutils import escape
 from datetime import datetime
 from pathlib import Path
@@ -19,11 +23,13 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import mm
+from reportlab.lib.units import inch, mm
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     Flowable,
+    Image,
     KeepTogether,
     Paragraph,
     SimpleDocTemplate,
@@ -31,6 +37,8 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+
+from core.logos import logo_meta
 
 from ..charts import _grid_steps, nice_max
 from ..templatetags.emmaus import fecha_corta, fecha_larga
@@ -52,6 +60,13 @@ PROGRESS = colors.HexColor("#7D93CF")
 TRACK = colors.HexColor("#E7E5DF")
 CHILE = colors.HexColor("#B8321C")
 
+# The church's logo in the header: within 2.2 x 0.72 in (the proportions of the sign-in slot), never stretched.
+LOGO_MAX_WIDTH = 2.2 * inch
+LOGO_MAX_HEIGHT = 0.72 * inch
+# Embedded at most this size: 300 dpi at 2.2 x 0.73 in. A 2000 px upload is not decoded into every PDF.
+LOGO_EMBED_MAX_PX = (660, 220)
+
+logger = logging.getLogger(__name__)
 _registered = False
 
 
@@ -212,6 +227,54 @@ class Timeline(Flowable):
                 c.drawCentredString(xs[i], 4, point["label"])
 
 
+@functools.lru_cache(maxsize=8)
+def _embeddable_logo(path: str, size: int, mtime_ns: int) -> bytes:
+    """The stored PNG, at most LOGO_EMBED_MAX_PX, as a small RGBA PNG; decoded once per process and file version.
+
+    One-channel images become L (LA with a transparent palette entry) before resizing, never RGBA: a 2000 x 2000
+    1-bit or palette logo then costs one 4 MB grey copy, not 16 MB of RGBA. 16-bit grey (I;16) is scaled into
+    L (convert("L") would clip it at 255, turning the logo white). Only the resized image becomes RGBA.
+    """
+    from PIL import Image as PILImage
+
+    image = PILImage.open(path)
+    image.load()
+    if image.mode == "P":
+        image = image.convert("LA" if "transparency" in image.info else "L")
+    elif image.mode == "1":
+        image = image.convert("L")
+    elif image.mode.startswith("I"):
+        image = image.point(lambda value: value / 256).convert("L")
+    elif image.mode not in ("L", "LA", "RGB", "RGBA"):
+        image = image.convert("RGBA")
+    max_width, max_height = LOGO_EMBED_MAX_PX
+    scale = min(1, max_width / image.width, max_height / image.height)
+    if scale < 1:
+        target = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+        image = image.resize(target, PILImage.LANCZOS, reducing_gap=2.0)
+    out = io.BytesIO()
+    image.convert("RGBA").save(out, "PNG")
+    return out.getvalue()
+
+
+def _brand(church, styles):
+    """The church's PNG logo, or the painted "Emmaus" (no logo, or a stored file that cannot be read)."""
+    wordmark = Paragraph("Emmaus", styles["wordmark"])
+    meta = logo_meta(church.logo) if church is not None else None
+    if meta is None:
+        return wordmark
+    try:
+        scale = min(LOGO_MAX_WIDTH / meta.width, LOGO_MAX_HEIGHT / meta.height)
+        path = church.logo.path
+        stat = os.stat(path)
+        data = _embeddable_logo(path, stat.st_size, stat.st_mtime_ns)
+        ImageReader(io.BytesIO(data)).getSize()  # ReportLab reads it now, not halfway through building the PDF
+    except Exception:  # whatever the stored file does, the cutoff PDF is still delivered (with the wordmark)
+        logger.warning("The church logo %s could not be drawn in a PDF; drawing the wordmark.", church.logo.name, exc_info=True)
+        return wordmark
+    return Image(io.BytesIO(data), width=meta.width * scale, height=meta.height * scale, hAlign="LEFT")
+
+
 def _as_datetime(value):
     return datetime.fromisoformat(value) if isinstance(value, str) else value
 
@@ -265,7 +328,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
     rate = payload["throughput"]
     hora = timezone.localtime(snapshot.cutoff_at).strftime("%H:%M")
     story = [
-        Paragraph("Emmaus", styles["wordmark"]),
+        _brand(snapshot.event.church, styles),
         Paragraph(f"Corte de las {hora}", styles["title"]),
         Paragraph(escape(f"{snapshot.event.name}, {payload['scope']['label']}, {_day(snapshot.cutoff_at)}."), styles["lede"]),
         Paragraph(

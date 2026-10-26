@@ -1,15 +1,17 @@
 {% extends "layout/skeleton.html" %}
-{% load emmaus %}
+{% load emmaus brand %}
 {% comment %}
   Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: a bar whose
   module links sit on their own row (a church admin has nine). Signed out: just the wordmark and "Entrar".
+  The wordmark's slot shows the church's logo when it has one (brand_church, core.context_processors); the
+  sign-in page leads with the logo above its title instead, so its bar keeps the painted "Emmaus".
 {% endcomment %}
 {% block title %}{% block page_title %}Emmaus{% endblock %} · Emmaus{% endblock %}
 {% block body %}
 {% if user.is_authenticated %}
 <header class="bar bar--stacked">
   <div class="bar__inner">
-    <a class="wordmark" href="{% url 'dashboard' %}">Emmaus</a>
+    {% url 'dashboard' as home_url %}{% church_brand brand_church size="bar" href=home_url %}
     {% if current_church %}<p class="bar__event">{{ current_church.name }}{% if current_role_record %}<span>{{ current_role_record.get_role_display }}</span>{% endif %}</p>{% endif %}
     <div class="bar__end">
       {% if show_events_link %}<a class="btn btn--small btn--secondary bar__switch" href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
@@ -25,7 +27,7 @@
 </header>
 <div id="menu-panel" class="menu-panel" hidden>
   <div class="menu-panel__head">
-    <span class="wordmark">Emmaus</span>
+    {% church_brand brand_church size="bar" %}
     <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
   </div>
   <nav class="menu-panel__nav" aria-label="Principal">
@@ -39,7 +41,7 @@
 {% else %}
 <header class="bar bar--public">
   <div class="bar__inner">
-    <a class="wordmark" href="{% url 'landing' %}">Emmaus</a>
+    {% if request.resolver_match.url_name == "login" %}<a class="wordmark" href="{% url 'landing' %}">Emmaus</a>{% else %}{% url 'landing' as landing_url %}{% church_brand brand_church size="bar" href=landing_url %}{% endif %}
     {% if request.resolver_match.url_name != "login" and request.resolver_match.url_name != "landing" %}<div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>{% endif %}
   </div>
 </header>

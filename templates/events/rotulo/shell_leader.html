@@ -1,10 +1,11 @@
 {% extends "layout/skeleton.html" %}
+{% load brand %}
 {% comment %}Leader shell (Rótulo): pastors and administration. A top bar keeps the full width for the report.{% endcomment %}
 {% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
 {% block body %}
 <header class="bar bar--leader{% if event_nav|length > 5 %} bar--stacked{% endif %}">
   <div class="bar__inner">
-    <a class="wordmark" href="{% url 'events:home' event.slug %}">Emmaus</a>
+    {% url 'events:home' event.slug as event_home %}{% church_brand event.church size="bar" href=event_home %}
     <p class="bar__event">{{ event.name }} <a href="{% url 'events:list' %}?todos=1">Cambiar de evento</a></p>
     <nav class="bar__nav" aria-label="Principal">
       {% for item in event_nav %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
@@ -18,7 +19,7 @@
 </header>
 <div id="menu-panel" class="menu-panel" hidden>
   <div class="menu-panel__head">
-    <span class="wordmark">Emmaus</span>
+    {% church_brand event.church size="bar" %}
     <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
   </div>
   <nav class="menu-panel__nav" aria-label="Principal">

@@ -175,6 +175,22 @@ Con sedes, en **"Participantes"** aparece el filtro **"Sede"** con cuántos camp
 
 La sede no es confidencial, pero es un dato personal del campero (muchas veces menor de edad): se borra junto con su registro, igual que su nombre y su cuarto, cuando termina el tiempo de conservación del evento o cuando eliminas sus datos.
 
+### El logotipo de tu iglesia
+
+Si tu iglesia tiene logotipo, súbelo y aparece donde hoy dice "Emmaus": en la barra de arriba, en la pantalla para entrar (sobre el título), en la pantalla del campero desde "Hola, …", en la portada de la presentación y en el encabezado del PDF de los cortes. Solo puede subirlo la administración de la iglesia.
+
+1. En **"Campamentos y eventos"**, toca **"Configuración"** en la barra de arriba (es la configuración de la iglesia; la de cada campamento está dentro del campamento). Se abre **"Configuración de la iglesia"**.
+2. En **"Logotipo"**, elige el archivo: **un PNG con fondo transparente, de hasta 512 KB, con el lado mayor de 32 a 2000 píxeles**. Lo que mejor funciona es el logotipo en **negro sobre transparente**; uno de al menos 640 píxeles de ancho se ve nítido en el proyector. Emmaus no acepta SVG, JPG ni otros formatos: desde tu programa de diseño, exporta o guarda como PNG.
+3. Si tienes una versión en **blanco** (también en PNG, sobre transparente), súbela en **"Logotipo para fondo oscuro"** (es opcional). Se usa en la presentación con **"Modo noche"**. Si no la subes, Emmaus pone tu logotipo de siempre sobre una placa blanca pequeña para que no desaparezca en el fondo oscuro.
+4. Toca **"Guardar cambios"**. Arriba del campo ves cómo quedó: el logotipo sobre blanco y, si subiste la versión en blanco, esa sobre fondo oscuro.
+
+Para cambiarlo, sube otro archivo; para quitarlo, marca **"Quitar el logotipo"** y guarda. Sin logotipo, todo vuelve a decir "Emmaus".
+
+* Emmaus no cambia los colores de tu logotipo, y los colores de Emmaus tampoco cambian por él.
+* Si Emmaus no acepta el archivo, te dice por qué y qué hacer. Un PNG animado no se acepta, y el logotipo no puede ser más de 10 veces más ancho que alto (ni más alto que ancho).
+* El mismo PNG aparece en el encabezado del PDF de los cortes.
+* El archivo se guarda en el servidor de tu iglesia, no en el código de Emmaus. Quien administra el servidor debe incluirlo en los respaldos.
+
 ---
 
 ## Para coordinadores

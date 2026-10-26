@@ -1,6 +1,9 @@
 {% extends "layout/skeleton.html" %}
-{% load emmaus %}
-{% comment %}Campero shell (Rótulo): a shared computer that belongs to the campero for a while.{% endcomment %}
+{% load emmaus brand %}
+{% comment %}
+  Campero shell (Rótulo): a shared computer that belongs to the campero for a while. The bar leads with the
+  church's mark from the welcome ("Hola, …") on; without a logo, the painted "Emmaus".
+{% endcomment %}
 {% block title %}{% block page_title %}Tu conversación{% endblock %} · Emmaus{% endblock %}
 {% block body_class %}is-kiosk{% endblock %}
 {% block body_attrs %}{% endblock %}
@@ -10,7 +13,7 @@
 <div class="focus">
   <header class="focusbar">
     <div class="focusbar__inner">
-      <p class="focusbar__who"><span class="wordmark">Emmaus</span>{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}</p>
+      <p class="focusbar__who">{% church_brand ps.interview.participant.event.church size="mark" %}{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}</p>
       <div class="focusbar__actions">{% block focus_actions %}{% endblock %}</div>
     </div>
   </header>

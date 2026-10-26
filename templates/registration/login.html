@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load brand %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Entrar{% endblock %}
 {% block content %}
 {% comment %}
@@ -7,7 +8,8 @@
   shown verbatim by the error summary.
 {% endcomment %}
 <div class="auth-card">
-  {% include "partials/ui/error_summary.html" with form=form %}
+  {% if brand_church|has_logo %}<div class="auth-card__brand">{% church_brand brand_church size="auth" %}</div>
+  {% endif %}{% include "partials/ui/error_summary.html" with form=form %}
   {% include "events/rotulo/_page_head.html" with title="Entrar a Emmaus" lede="Escribe el correo y la contraseña de tu cuenta." %}
   <form method="post" novalidate>
     {% csrf_token %}

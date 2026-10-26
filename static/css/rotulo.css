@@ -325,6 +325,20 @@ form.is-submitting .btn--primary { opacity: 0.7; }
   font-size: 1.625rem; line-height: 1; color: var(--carbon); text-decoration: none; letter-spacing: -0.01em;
 }
 a.wordmark:hover { color: var(--anil); }
+/* The church's logo in the wordmark's slot (docs/design-system.md, "Marca de la iglesia"; core/templatetags/brand.py).
+   Its width and height come from the file, fitted to the slot: CSS only lets it shrink, never stretch it. */
+.brand { display: inline-flex; align-items: center; flex-shrink: 0; text-decoration: none; }
+.brand__logo { display: block; max-width: 100%; height: auto; object-fit: contain; }
+/* Each slot's height as a ceiling too: whatever the file claims, the logo never grows past its slot */
+.brand__logo--bar { max-height: 32px; }
+.brand__logo--auth { max-height: 72px; }
+.brand__logo--mark { max-height: 40px; }
+.brand__logo--deck { max-height: 6.25cqw; }
+/* No white version on a dark background: the usual logo on a small Cal plate, so black on dark does not vanish */
+.brand__plate { display: inline-flex; padding: 0.375rem 0.5rem; background: #ffffff; border-radius: var(--r-control); }
+@media (forced-colors: active) {
+  .brand__plate { forced-color-adjust: none; }
+}
 
 .bar { border-bottom: 1px solid var(--line); background: var(--cal); }
 .bar__inner {
@@ -529,6 +543,7 @@ a.wordmark:hover { color: var(--anil); }
 .focusbar__who strong { font-size: var(--t-body); }
 .focusbar__who span { color: var(--ink-2); font-size: var(--t-small); }
 .focusbar__who .wordmark { font-size: 1.5rem; color: var(--carbon); }
+.focusbar__who .brand__logo { align-self: center; }
 .focusbar__actions { display: flex; align-items: center; gap: var(--s-4); }
 .focus__main { width: 100%; max-width: var(--w-focus); margin: 0 auto; padding: var(--s-8) var(--s-6) var(--s-16); flex: 1; }
 @media (max-width: 600px) {
@@ -1013,6 +1028,8 @@ ol.promises li::before {
 
 /* Sign-in: the shared-computer reminder stands apart from the button it follows */
 .auth-card > .notice { margin-top: var(--s-10); }
+/* Sign-in: the church's logo leads, centred above the title */
+.auth-card__brand { display: flex; justify-content: center; margin-bottom: var(--s-8); }
 /* "¿Olvidaste tu contraseña?": 44px to tap (§6); the margins take back exactly what the padding adds */
 .auth-card__link { display: inline-flex; align-items: center; padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); }
 
@@ -1079,7 +1096,15 @@ ol.promises li::before {
 .participant-detail__ruler .ruler { height: 0.75rem; }
 .participant-detail__form { margin-top: var(--s-6); }
 /* Church settings: theme colours side by side; the swatches line up whatever the hint length */
-.theme-colors__intro { color: var(--ink-2); margin-bottom: var(--s-4); max-width: 60ch; }
+.theme-colors__intro, .logo-settings__intro { color: var(--ink-2); margin-bottom: var(--s-4); max-width: 60ch; }
+/* The logo as it is now: on Cal and, the white version, on carbón */
+.logo-preview { margin: var(--s-4) 0 var(--s-5); }
+.logo-preview__plate {
+  display: inline-flex; padding: var(--s-4) var(--s-6);
+  background: var(--cal); border: 1px solid var(--line); border-radius: var(--r-control);
+}
+.logo-preview--dark .logo-preview__plate { background: var(--carbon); border-color: var(--carbon); }
+.logo-preview figcaption { margin-top: var(--s-2); font-size: var(--t-small); color: var(--ink-2); }
 .theme-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0 var(--s-6); margin-top: var(--s-6); }
 .theme-colors .field { display: flex; flex-direction: column; }
 .theme-colors .field input { margin-top: auto; }
@@ -1243,6 +1268,12 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .no-js .slide { position: relative; display: flex; aspect-ratio: 16 / 9; border-bottom: 2px solid var(--line); }
 .slide__top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqw; font-size: 1.46cqw; line-height: 1.3; color: var(--ink-2); }
 .slide__top .wordmark { font-size: 2.3cqw; }
+/* The title slide leads with the church's logo: the usual one in Cal; in Noche its white one, or the usual one on
+   a plate. The logo's width is set in cqw on the image, so it scales with the slide */
+.deck-brand { display: inline-flex; }
+.deck-brand--noche, .deck--noche .deck-brand--cal { display: none; }
+.deck--noche .deck-brand--noche { display: inline-flex; }
+.deck .brand__plate { padding: 0.6cqw 0.8cqw; }
 .slide__title { margin-top: 3.5cqw; font-size: 5.5cqw; line-height: 1.04; letter-spacing: -0.015em; }
 .slide__body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
 .slide__top + .slide__body { margin-top: 3cqw; }
