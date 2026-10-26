@@ -68,7 +68,7 @@
         <tr><th scope="row">Completadas</th><td class="num">{{ previous.data.progress.completed }}</td><td class="num">{{ progress.completed }}</td><td class="num">{{ delta.completed|signed }}</td></tr>
         <tr><th scope="row">En curso</th><td class="num">{{ previous.data.progress.in_progress }}</td><td class="num">{{ progress.in_progress }}</td><td class="num">{{ delta.in_progress|signed }}</td></tr>
         <tr><th scope="row">Pendientes</th><td class="num">{{ previous.data.progress.pending }}</td><td class="num">{{ progress.pending }}</td><td class="num">{{ delta.pending|signed }}</td></tr>
-        <tr><th scope="row">Avance</th><td class="num">{{ previous.data.progress.percent|pct }}</td><td class="num">{{ progress.percent|pct }}</td><td class="num">{{ delta.percent|signed }}{% if delta.percent %}&nbsp;%{% endif %}</td></tr>
+        <tr><th scope="row">Avance</th><td class="num">{{ previous.data.progress.percent|pct }}</td><td class="num">{{ progress.percent|pct }}</td><td class="num">{% if delta.percent %}de {{ previous.data.progress.percent|pct }} a {{ progress.percent|pct }}{% else %}{{ delta.percent|signed }}{% endif %}</td></tr>
         <tr><th scope="row">Seguimientos abiertos</th><td class="num">{{ previous.data.follow_ups.open_total }}</td><td class="num">{{ payload.follow_ups.open_total }}</td><td class="num">{{ delta.follow_ups_open|signed }}</td></tr>
       </tbody>
     </table></div>

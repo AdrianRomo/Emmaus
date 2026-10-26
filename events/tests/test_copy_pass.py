@@ -238,9 +238,10 @@ class OldDefaultPrivacyNoticeMigrationTests(CampFixture):
         self.assertEqual(Event.objects.get(pk=self.other_event.pk).privacy_notice, edited)
 
     def test_the_frozen_texts_are_the_old_and_the_current_defaults(self):
-        from events.models import DEFAULT_PRIVACY_NOTICE
+        # 0010 replaced this default in turn: what 0009 wrote is what 0010 looks for (events/tests/test_audit_lenguaje.py).
+        next_migration = import_module("events.migrations.0010_privacy_notice_who_reads")
 
-        self.assertEqual(self.migration.NEW_DEFAULT_PRIVACY_NOTICE, DEFAULT_PRIVACY_NOTICE)
+        self.assertEqual(self.migration.NEW_DEFAULT_PRIVACY_NOTICE, next_migration.OLD_DEFAULT_PRIVACY_NOTICE)
         self.assertIn("equipo pastoral", self.migration.OLD_DEFAULT_PRIVACY_NOTICE)
         self.assertIn("terceros", self.migration.OLD_DEFAULT_PRIVACY_NOTICE)
 

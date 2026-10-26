@@ -84,7 +84,7 @@ Every event has a `join_code` (6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ2345678
 | Reports, cutoffs, PDF, presentation | Event and every team | Event and every team | Own team | No ("Mi avance" only) | No |
 | Aggregate answer summaries | Yes | Yes | No | No | No |
 | Printable backup list | Whole event | Whole event | Team | Own | No |
-| Activity log, "Computadoras en uso" | Yes | No | No | No | No |
+| Activity log, "Computadoras en uso" (without `can_view_sensitive`, rows about confidential information and safety reports read "Movimiento confidencial") | Yes | No | No | No | No |
 | Download one campero's full data (JSON) | Only with `can_view_sensitive` | No | No | No | No |
 | Delete one campero's data (the page counts the open follow-ups, open safety reports and interviews that go with it, never their content, and only what the viewer's `follow_ups()` shows: without `can_view_sensitive`, confidential referrals are not counted, and the constant sentence "Si existieran seguimientos confidenciales, también se borrarían." makes the page identical whether or not one exists; an open safety report needs an extra box) | Yes | No | No | No | No |
 | Questionnaires (edit draft, publish, use) | Yes | No | No | No | No |
@@ -111,8 +111,9 @@ Consequences:
 * Follow-up hints on the review screen ("Lo que {nombre} pidió") are computed only from non-confidential questions the coordinador can read.
 * In the default questionnaire every question is `sensible` or `confidencial`. Tutors and pastors without `can_view_sensitive` therefore see no individual answers, only that a row exists.
 * A correction is allowed only for questions the corrector can read now, so a coordinador cannot correct a confidential answer.
-* The kiosk review screen shows the campero all of their own answers, and the welcome and review screens tell them who reads them: "El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: esas solo las lee el equipo de cuidado autorizado."
+* The kiosk review screen shows the campero all of their own answers, and the welcome and review screens tell them who reads them, in the same words as the default privacy notice: “Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado.”
 * Opening an interview that displays at least one answered confidential question is audited (`consulta_confidencial`), and so is opening a follow-up with details.
+* On the activity log page (`audit`, Administrador only), an administrador without `can_view_sensitive` does not read which campero a confidential view, a safety report, or an update of a confidential referral or a safety report was about: `consulta_confidencial` and `reporte_riesgo` rows, and `seguimiento` rows about a confidential referral, a safety report or a deleted follow-up, show "Movimiento confidencial" instead of their summary (`audit.with_shown_summaries`). With the flag, the summaries are shown whole. (Safety reports themselves stay listed in "Seguimiento" for administradores; see "Known gaps".)
 
 ### `can_view_sensitive`: explicit, per event
 
@@ -163,6 +164,7 @@ Limits of membership deactivation:
 ## Known gaps
 
 * Administrators without confidential access still see that a safety report exists (and can assign it), though not what it says.
+* The "Actividad reciente" list on the administrador's home (its last 8 activity rows) does not go through `audit.with_shown_summaries` yet: there, an administrador without `can_view_sensitive` still reads summaries such as "Consultó respuestas confidenciales del campero #0333". The full activity log page does.
 * Administrators can add any existing account to their event by e-mail. That account does not get a password link from them (see above), but it does get the role.
 * An access request's e-mail is whatever the person typed; nothing verifies it before an Administrador approves. The password link still goes only to that address (or is handed over in person), so a wrong e-mail gives the requester nothing, but the Administrador must know who they are approving. The per-session limits (searches and requests) slow down one browser; a client that drops its cookies starts a new session each time, so the bound that holds against a script is the cap of 50 pending requests per event. Each anonymous search or request leaves a session row (deleted by the scheduler when it expires: `SESSION_COOKIE_AGE` is 12 hours, and `SESSION_EXPIRE_AT_BROWSER_CLOSE` drops the cookie, not the row) and an `AuthThrottle` row (deleted by the scheduler once its window and any block are over, `throttle.purge_expired`).
 * Changes made in the Django admin (for example to `EventMembership.can_view_sensitive`) are not written to the activity log. `/admin/` is a technical back office for superusers.

@@ -56,7 +56,7 @@
                 <div class="row__main">
                   <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ profile.user.get_full_name|default:profile.user.email }}</a></p>
                   {% if progress.enrollment %}
-                    <p class="row__meta">{{ progress|path_title:"Sin ruta asignada" }}, {{ progress.completed_lessons }} de {{ progress.total_lessons }} lección{{ progress.total_lessons|pluralize:"es" }}.</p>
+                    <p class="row__meta">{{ progress|path_title:"Sin ruta asignada" }}, {{ progress.completed_lessons }} de {{ progress.total_lessons }} lecci{{ progress.total_lessons|pluralize:"ón,ones" }}.</p>
                     {% ruler progress.completed_lessons 0 progress.total_lessons %}
                   {% else %}
                     <p class="row__meta">Sin ruta asignada.</p>

@@ -59,6 +59,8 @@ from ..services import participants as participant_svc
 from ..services import team as team_svc
 from ..services.audit import ACTION_LABELS
 from ..services.questionnaire import all_questions, build_steps, describe_answer, duplicate_version, load_answers, publish_version
+from ..services.metrics import local_tz
+from ..templatetags.emmaus import MESES
 from .common import ADMIN, event_view
 
 IMPORT_SESSION_KEY = "import_preview"
@@ -177,9 +179,40 @@ def participant_export(request, event, access):
     return response
 
 
+# The place a family recognises in "hora de ...", for the zones an event can choose (forms.MEXICO_TIME_ZONES).
+TIME_ZONE_PLACES = {
+    "America/Mexico_City": "Ciudad de México",
+    "America/Cancun": "Cancún",
+    "America/Chihuahua": "Chihuahua",
+    "America/Ciudad_Juarez": "Ciudad Juárez",
+    "America/Mazatlan": "Mazatlán",
+    "America/Hermosillo": "Hermosillo",
+    "America/Tijuana": "Tijuana",
+}
+
+
+def _family_date(value, event) -> str:
+    """'26 de octubre de 2026, 11:00:30 (hora de Ciudad de México)', in the event's time zone.
+
+    The export is read by a family, not parsed by a program; the seconds and the zone keep it exact.
+    A zone outside the list (set through the Django admin) is named by its own key, never left out.
+    """
+    if value is None:
+        return ""
+    zone = local_tz(event)
+    value = timezone.localtime(value, zone)
+    place = TIME_ZONE_PLACES.get(zone.key) or zone.key.rsplit("/", 1)[-1].replace("_", " ")
+    return f"{value.day} de {MESES[value.month - 1]} de {value.year}, {value:%H:%M:%S} (hora de {place})"
+
+
 @event_view(ADMIN)
 def participant_data_export(request, event, access, public_id):
-    """Authorized export of one person's record (e.g. a request from the family)."""
+    """Authorized export of one person's record (e.g. a request from the family).
+
+    Keys are Spanish words a family can read ("iglesia o grupo", not "iglesia_o_grupo"), and dates are
+    written out. The content is the record itself: registry data, the interview and every answer, and the
+    authorization records with their notes.
+    """
     participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
     if not access.can_view_sensitive:
         raise PermissionDenied
@@ -187,26 +220,31 @@ def participant_data_export(request, event, access, public_id):
     answers = []
     if interview:
         values = load_answers(interview)
+        answered_at = dict(interview.answers.values_list("question_id", "updated_at"))
         for question in all_questions(interview.version):
             if question.id in values:
-                answers.append({"pregunta": question.text, "respuesta": describe_answer(question, values[question.id])})
+                answers.append({
+                    "pregunta": question.text,
+                    "respuesta": describe_answer(question, values[question.id]),
+                    "fecha": _family_date(answered_at.get(question.id), event),
+                })
     data = {
         "evento": event.name,
-        "numero": participant.code,
+        "número de campero": participant.code,
         "nombre": participant.full_name,
         "edad": participant.age,
         "cuarto": participant.room,
-        "iglesia_o_grupo": participant.church_group,
-        "registro": participant.created_at.isoformat(),
+        "iglesia o grupo": participant.church_group,
+        "fecha de registro": _family_date(participant.created_at, event),
         "entrevista": {
             "estado": interview.get_status_display() if interview else "Sin entrevista",
-            "version_cuestionario": interview.version.number if interview else None,
-            "completada": interview.completed_at.isoformat() if interview and interview.completed_at else None,
+            "versión del cuestionario": interview.version.number if interview else None,
+            "fecha en que se completó": _family_date(interview.completed_at, event) if interview else "",
             "respuestas": answers,
         },
         # The notes are the campero's own data: for a withdrawn authorization, the reason it was withdrawn.
         "autorizaciones": [
-            {"tipo": c.get_kind_display(), "estado": c.get_status_display(), "fecha": c.recorded_at.isoformat(), "notas": c.notes}
+            {"tipo": c.get_kind_display(), "estado": c.get_status_display(), "fecha": _family_date(c.recorded_at, event), "notas": c.notes}
             for c in participant.consents.all()
         ],
     }
@@ -703,7 +741,14 @@ def audit_log(request, event, access):
     if action in ACTION_LABELS:
         qs = qs.filter(action=action)
     page = Paginator(qs, 50).get_page(request.GET.get("pagina"))
-    return render(request, "events/admin/audit.html", {"page": page, "actions": sorted(ACTION_LABELS.items(), key=lambda kv: kv[1]), "selected": action})
+    # Without confidential access, rows about confidential follow-ups and safety reports say only
+    # "Movimiento confidencial": their summaries name the campero.
+    rows = audit.with_shown_summaries(page.object_list, access)
+    return render(
+        request,
+        "events/admin/audit.html",
+        {"page": page, "rows": rows, "actions": sorted(ACTION_LABELS.items(), key=lambda kv: kv[1]), "selected": action},
+    )
 
 
 @event_view(ADMIN)

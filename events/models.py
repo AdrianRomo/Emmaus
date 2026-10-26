@@ -20,10 +20,15 @@ from django.db.models import Q
 from django.utils import timezone
 
 
+# The notice says who reads each level exactly as EventAccess.can_view_answer (events/access.py) allows it: general
+# answers, anyone who can see the campero; "Sensible" ones, their coordinator, an administrador who conducted the
+# interview, and the care team; "Confidencial" ones, the care team. A new default needs a migration like events/0010, which moves events still holding the old text.
 DEFAULT_PRIVACY_NOTICE = (
     "La iglesia organizadora registra tus respuestas para acompañarte durante y después del "
-    "campamento. El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: "
-    "esas solo las lee el equipo de cuidado autorizado. Puedes elegir “Prefiero no responder” en cualquier pregunta. "
+    "campamento. Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. "
+    "Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. "
+    "Las marcadas “Confidencial”, solo el equipo de cuidado autorizado. "
+    "Puedes elegir “Prefiero no responder” en cualquier pregunta. "
     "No compartimos tus respuestas con nadie fuera de la iglesia, y ninguna inteligencia artificial las analiza."
 )
 
@@ -112,7 +117,7 @@ class Event(models.Model):
 
     church = models.ForeignKey("core.Church", on_delete=models.CASCADE, related_name="events")
     name = models.CharField("Nombre", max_length=160)
-    slug = models.SlugField("Identificador en la dirección web", max_length=80, unique=True)
+    slug = models.SlugField("Nombre corto para la dirección", max_length=80, unique=True)
     kind = models.CharField("Tipo de actividad", max_length=24, choices=Kind.choices, default=Kind.CAMP)
     status = models.CharField("Estado", max_length=16, choices=Status.choices, default=Status.ACTIVE)
     starts_on = models.DateField("Fecha de inicio", null=True, blank=True)
@@ -694,6 +699,20 @@ class Question(_DraftOnlyMixin, models.Model):
     @property
     def is_text(self) -> bool:
         return not self.is_choice
+
+    @property
+    def condition_option_labels(self) -> list[str]:
+        """The answers that show this question as the person editing reads them ("Sí", "No"), in option order.
+
+        A code that no option of the controlling question has any more is listed as it is, not dropped: the
+        condition can never be met with it, and the editor has to see that.
+        """
+        if not self.condition_question_id:
+            return []
+        wanted = list(self.condition_option_codes or [])
+        options = list(self.condition_question.options.all())
+        known = {o.code for o in options}
+        return [o.label for o in options if o.code in wanted] + [code for code in wanted if code not in known]
 
 
 class QuestionOption(_DraftOnlyMixin, models.Model):

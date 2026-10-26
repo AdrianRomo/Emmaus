@@ -549,8 +549,11 @@ def safety_report(request, event, access, participant_id):
     )
     form = SafetyReportForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        svc.report_safety_concern(access, participant, details=form.cleaned_data["details"], interview=interview)
-        messages.success(request, "El reporte llegó al equipo de cuidado autorizado. Sigue las indicaciones de protección de tu iglesia.")
+        report = svc.report_safety_concern(access, participant, details=form.cleaned_data["details"], interview=interview)
+        saved, nobody_can_read = svc.safety_report_result(event, notified=report.notified)
+        messages.success(request, saved)
+        if nobody_can_read:
+            messages.warning(request, nobody_can_read)
         return redirect(back_url)
     return render(
         request,
