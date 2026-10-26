@@ -35,7 +35,12 @@ from events.templatetags.emmaus import chart_day, cumulative_chart, since
 
 from .base import CampFixture
 
-CAMPER_IS_TOLD = "El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: esas solo las lee el equipo de cuidado autorizado."
+# LANG-01: the rule of events/access.py can_view_answer (see test_audit_flows.WhoReadsTheAnswersTests).
+CAMPER_IS_TOLD = (
+    "Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. "
+    "Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. "
+    "Las marcadas “Confidencial”, solo el equipo de cuidado autorizado."
+)
 
 SUPERSCRIPT_TWO = "²"  # "²".isdigit() is True, and int("²") raises ValueError
 

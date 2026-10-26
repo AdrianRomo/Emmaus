@@ -227,7 +227,11 @@
     var fromHash = parseInt((location.hash || "#1").slice(1), 10);
     show(isNaN(fromHash) ? 0 : fromHash - 1);
     doc.addEventListener("keydown", function (e) {
-      if (e.target && e.target.closest && e.target.closest("button, a, input, textarea, select, summary, [contenteditable]")) return;
+      // Typing stays in a field. On a focused button or link, Space and Enter only press it (Space on "Modo noche"
+      // must not also advance); the arrows, Av Pág/Re Pág, Inicio/Fin and "F" move the deck from there too.
+      var target = e.target && e.target.closest ? e.target : null;
+      if (target && target.closest("input, textarea, select, [contenteditable]")) return;
+      if (target && (e.key === " " || e.key === "Enter") && target.closest("button, a, summary")) return;
       if (["ArrowRight", "PageDown", " "].indexOf(e.key) !== -1) { e.preventDefault(); show(index + 1); }
       if (["ArrowLeft", "PageUp"].indexOf(e.key) !== -1) { e.preventDefault(); show(index - 1); }
       if (e.key === "Home") show(0);
@@ -241,6 +245,15 @@
       else if (doc.exitFullscreen) doc.exitFullscreen();
     }
     $all("[data-deck-full]").forEach(function (b) { b.addEventListener("click", toggleFull); });
+    // A pointer click on a toolbar button leaves the focus there: the deck (tabindex -1) takes it back, so a clicker's
+    // keys (Space included) reach the slides. A button pressed from the keyboard (detail 0) keeps the focus, so
+    // Enter can be pressed again on "Siguiente".
+    $all("[data-deck-prev], [data-deck-next], [data-deck-full], [data-deck-theme]").forEach(function (b) {
+      b.addEventListener("click", function (e) {
+        if (e.detail === 0) return;
+        deck.focus({ preventScroll: true });
+      });
+    });
     doc.addEventListener("fullscreenchange", function () {
       $all("[data-deck-full]").forEach(function (b) { b.textContent = doc.fullscreenElement ? "Salir de pantalla completa" : "Pantalla completa"; });
     });
@@ -254,6 +267,20 @@
     doc.addEventListener("keydown", wake);
     wake();
     deck.addEventListener("emmaus:updated", function () { show(index); });
+
+    // When the staff session ends, the live refresh stops and says so in the bar ("Live regions" above), but the
+    // bar hides itself after 3 s. The slides then stop claiming "en vivo": every [data-deck-live] label gives way
+    // to its [data-deck-ended] twin. The bar's message is the signal: state "stale" and a text about the session
+    // (a dropped network is also "stale", but keeps polling and must not say the session ended).
+    var liveStatus = doc.getElementById("deck-estado");
+    if (liveStatus && window.MutationObserver) {
+      new MutationObserver(function (records, observer) {
+        if (liveStatus.getAttribute("data-state") !== "stale" || !/sesi[oó]n/i.test(liveStatus.textContent)) return;
+        observer.disconnect();
+        $all("[data-deck-live]", deck).forEach(function (el) { el.hidden = true; });
+        $all("[data-deck-ended]", deck).forEach(function (el) { el.hidden = false; });
+      }).observe(liveStatus, { attributes: true, childList: true, characterData: true, subtree: true });
+    }
 
     // "Cal" (light) by default; "Noche" for a dim room. The class sits on .deck, outside the
     // region the live refresh replaces, and the choice is remembered for the next deck.
@@ -271,6 +298,25 @@
     setNight(rememberedTheme() === "noche", false);
     themeButtons.forEach(function (b) {
       b.addEventListener("click", function () { setNight(!deck.classList.contains("deck--noche"), true); });
+    });
+  }
+
+  /* ---- Offline guard for step forms ---------------------------------------- */
+  // Without a network, "Continuar" lands on the browser's error page and the choice on screen is gone when the
+  // person comes back. A form with a [data-offline-notice] inside is not sent while the browser knows it is
+  // offline: the notice says so and the form stays as it is. Capture phase on the document, so this runs before
+  // the double-submit guard above: a refused submit must not make the next tap look like a repeat.
+  if ($("[data-offline-notice]")) {
+    doc.addEventListener("submit", function (e) {
+      if (navigator.onLine !== false) return;
+      var notice = e.target && e.target.querySelector && e.target.querySelector("[data-offline-notice]");
+      if (!notice) return;
+      e.preventDefault();
+      e.stopPropagation();
+      notice.hidden = false;
+    }, true);
+    window.addEventListener("online", function () {
+      $all("[data-offline-notice]").forEach(function (notice) { notice.hidden = true; });
     });
   }
 })();

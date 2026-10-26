@@ -131,7 +131,7 @@ try {
   await page.click("label:has-text('No lo tengo claro')");
   await everyWidth(page, "campero-pregunta", { full: false });
   await next(page);
-  await go(page, page.click("a:has-text('Parar por ahora')"));
+  await go(page, page.click("button:has-text('Parar por ahora')"));
   await everyWidth(page, "campero-revision", { full: false });
   await go(page, page.click("button:has-text('Ya terminé')"));
   await everyWidth(page, "campero-gracias", { full: false });

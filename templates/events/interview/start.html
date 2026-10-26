@@ -45,7 +45,8 @@
     <fieldset{% if form.mode.errors %} class="question--error" aria-describedby="modo-error"{% endif %}>
       <legend><h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Cómo se va a responder?</h2></legend>
       {% if form.mode.errors %}<p class="error-message" id="modo-error">{{ form.mode.errors.0 }}</p>{% endif %}
-      <div class="choices" id="id_mode_0">
+      {% comment %}The group takes the field id (the error summary links here), never the first radio's "id_mode_0".{% endcomment %}
+      <div class="choices" id="{{ form.mode.auto_id }}">
         {% for radio in form.mode %}
           <div class="choice">
             {{ radio.tag }}

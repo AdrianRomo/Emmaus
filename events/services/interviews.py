@@ -40,6 +40,7 @@ from ..models import (
     InterviewStation,
     InterviewStatus,
     ParticipantSession,
+    Question,
     hash_token,
     new_token,
 )
@@ -397,12 +398,40 @@ def _check_writable(locked: Interview, token: str | None, revision) -> None:
         )
 
 
-def save_step(interview: Interview, step: Step, data, *, token: str | None, actor, by_participant: bool) -> tuple[Interview, dict]:
+def _left_blank(question: Question, data) -> bool:
+    """Nothing chosen or written for ``question`` in the posted form."""
+    field_name = f"q_{question.id}"
+    if question.is_choice:
+        return not any(data.getlist(field_name))
+    return not (data.get(field_name) or "").strip()
+
+
+def save_step(
+    interview: Interview, step: Step, data, *, token: str | None, actor, by_participant: bool, partial: bool = False
+) -> tuple[Interview, dict]:
+    """Validate and save one screen; return the interview and {question_id: error}.
+
+    ``partial`` is "Parar por ahora": the same checks as "Continuar", except that a blank required
+    question is not an error. Two cases save nothing from the screen: nothing chosen where nothing
+    was stored, and a choice whose required follow-up is still blank. The second one stays
+    unanswered on purpose: the camper's review sends them back to it, while a saved choice with a
+    blank confidential follow-up could not be finalized (a coordinator may not open that screen).
+    Erasing a stored answer and pausing erases it, as "Continuar" would.
+    """
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("version", "participant").get(pk=interview.pk)
         _check_writable(locked, token, data.get("revision"))
         answers = load_answers(locked)
         cleaned, errors = validate_step(step, data, answers)
+        if partial:
+            # Only "required" can fail on a blank answer: a wrong code, a clash or a long text is never blank.
+            blank = {q.id for q in step.questions if q.required and _left_blank(q, data)}
+            if _left_blank(step.question, data) and step.question.id not in answers:
+                return locked, {}
+            # validate_step only checks the follow-ups the posted choice shows.
+            if any(child.id in errors and child.id in blank for child in step.children):
+                return locked, {}
+            errors = {question_id: message for question_id, message in errors.items() if question_id not in blank}
         if errors:
             return locked, errors
         write_answers(locked, cleaned, actor=actor, by_participant=by_participant)
@@ -791,7 +820,7 @@ def require_active_kiosk(session) -> ParticipantSession:
     return participant_session
 
 
-def kiosk_save_step(session, step: Step, data) -> tuple[Interview, dict]:
+def kiosk_save_step(session, step: Step, data, *, partial: bool = False) -> tuple[Interview, dict]:
     participant_session = require_active_kiosk(session)
     return save_step(
         participant_session.interview,
@@ -800,6 +829,7 @@ def kiosk_save_step(session, step: Step, data) -> tuple[Interview, dict]:
         token=kiosk_state(session).get("claim"),
         actor=None,
         by_participant=True,
+        partial=partial,
     )
 
 
