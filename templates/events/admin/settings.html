@@ -17,7 +17,23 @@
   </div>
 </header>
 
-<section class="block admin-section" id="procedimientos" aria-labelledby="t-proc">
+{% comment %}
+  One column in the order of the work, under an index (audit UX-14, UI-23). The two forms that edit the event warn
+  before leaving with unsaved changes (data-guard, emmaus.js), also when another form on the page is sent. Cortes,
+  privacidad and cuestionario are one form (EventSettingsForm, "settings"): three sections, saved together.
+{% endcomment %}
+<nav class="page-toc" aria-label="Secciones">
+  <ul>
+    <li><a href="#procedimientos">Procedimientos</a></li>
+    <li><a href="#datos">Datos del evento</a></li>
+    <li><a href="#cortes">Cortes</a></li>
+    <li><a href="#privacidad">Privacidad y protección</a></li>
+    <li><a href="#cuestionario">Cuestionario</a></li>
+    <li><a href="#computadoras">Computadoras</a></li>
+  </ul>
+</nav>
+
+<section class="admin-section" id="procedimientos" aria-labelledby="t-proc">
   <h2 id="t-proc" class="heading">Procedimientos de la iglesia</h2>
   <div class="narrow">
   {% if event.procedures_approved %}
@@ -29,30 +45,56 @@
   </div>
 </section>
 
-<div class="split admin-split admin-section">
-  <div class="admin-stack">
-    <section aria-labelledby="t-basicos">
-      <h2 id="t-basicos" class="heading">Datos del evento</h2>
-      <form method="post" class="mt-4" novalidate>{% csrf_token %}<input type="hidden" name="form" value="basics">{% include "partials/ui/error_summary.html" with form=basics %}{% include "partials/ui/fields.html" with form=basics %}<button class="btn btn--secondary" type="submit">Guardar datos</button></form>
-    </section>
-    <section id="computadoras" aria-labelledby="t-comp">
-      <h2 id="t-comp" class="heading">Computadoras de entrevista</h2>
-      <p class="hint mt-4">Pega en cada computadora una etiqueta con su número. Los coordinadores la eligen al empezar.</p>
-      <ul class="rows admin-rows">{% for s in stations %}
-        <li class="row">
-          <div class="row__main"><p class="row__title">{{ s.name }}</p></div>
-          <div class="row__end">
-            {% if s.is_active %}{% status "completada" "Disponible" %}{% else %}{% status "pendiente" "Fuera de uso" %}{% endif %}
-            <form method="post" action="{% url 'events:stations' event.slug %}">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="station" value="{{ s.id }}"><button class="btn btn--secondary btn--small" type="submit">{% if s.is_active %}Poner fuera de uso{% else %}Volver a usar{% endif %}<span class="visually-hidden"> {{ s.name }}</span></button></form>
-          </div>
-        </li>
-      {% endfor %}</ul>
-      <form method="post" action="{% url 'events:stations' event.slug %}" class="mt-6">{% csrf_token %}<input type="hidden" name="action" value="add"><button class="btn btn--secondary" type="submit">Agregar computadora</button></form>
-    </section>
-  </div>
-  <section aria-labelledby="t-cfg">
-    <h2 id="t-cfg" class="heading">Cortes, privacidad y cuestionario</h2>
-    <form method="post" class="mt-4" novalidate>{% csrf_token %}<input type="hidden" name="form" value="settings">{% include "partials/ui/error_summary.html" with form=settings_form %}{% include "partials/ui/fields.html" with form=settings_form %}<button class="btn btn--secondary" type="submit">Guardar configuración</button></form>
+<section class="admin-section admin-section--ruled" id="datos" aria-labelledby="t-basicos">
+  <h2 id="t-basicos" class="heading">Datos del evento</h2>
+  <form method="post" class="narrow" novalidate data-guard>{% csrf_token %}<input type="hidden" name="form" value="basics">{% include "partials/ui/error_summary.html" with form=basics %}{% include "partials/ui/fields.html" with form=basics %}<button class="btn btn--primary" type="submit">Guardar datos del evento</button></form>
+</section>
+
+<form method="post" novalidate data-guard>
+  {% csrf_token %}<input type="hidden" name="form" value="settings">
+  {% include "partials/ui/error_summary.html" with form=settings_form %}
+  <section class="admin-section admin-section--ruled" id="cortes" aria-labelledby="t-cortes">
+    <h2 id="t-cortes" class="heading">Cortes</h2>
+    <fieldset class="narrow" aria-labelledby="t-cortes">
+      {% include "partials/ui/field.html" with field=settings_form.time_zone %}
+      {% include "partials/ui/field.html" with field=settings_form.reports_enabled %}
+      {% include "partials/ui/field.html" with field=settings_form.report_interval_minutes %}
+      {% include "partials/ui/field.html" with field=settings_form.report_window_start %}
+      {% include "partials/ui/field.html" with field=settings_form.report_window_end %}
+    </fieldset>
   </section>
-</div>
+  <section class="admin-section admin-section--ruled" id="privacidad" aria-labelledby="t-privacidad">
+    <h2 id="t-privacidad" class="heading">Privacidad y protección</h2>
+    <fieldset class="narrow" aria-labelledby="t-privacidad">
+      {% include "partials/ui/field.html" with field=settings_form.adult_age %}
+      {% include "partials/ui/field.html" with field=settings_form.requires_guardian_authorization %}
+      {% include "partials/ui/field.html" with field=settings_form.min_group_size %}
+      {% include "partials/ui/field.html" with field=settings_form.retention_days %}
+      {% include "partials/ui/field.html" with field=settings_form.privacy_notice %}
+      {% include "partials/ui/field.html" with field=settings_form.safeguarding_instructions %}
+    </fieldset>
+  </section>
+  <section class="admin-section admin-section--ruled" id="cuestionario" aria-labelledby="t-cuestionario">
+    <h2 id="t-cuestionario" class="heading">Cuestionario</h2>
+    <fieldset class="narrow" aria-labelledby="t-cuestionario">
+      {% include "partials/ui/field.html" with field=settings_form.questionnaire_version %}
+    </fieldset>
+  </section>
+  <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar cortes, privacidad y cuestionario</button></div>
+</form>
+
+<section class="admin-section admin-section--ruled" id="computadoras" aria-labelledby="t-comp">
+  <h2 id="t-comp" class="heading">Computadoras de entrevista</h2>
+  <p class="hint mt-4">Pega en cada computadora una etiqueta con su número. Los coordinadores la eligen al empezar.</p>
+  <ul class="rows admin-rows">{% for s in stations %}
+    <li class="row">
+      <div class="row__main"><p class="row__title">{{ s.name }}</p></div>
+      <div class="row__end">
+        {% if s.is_active %}{% status "completada" "Disponible" %}{% else %}{% status "pendiente" "Fuera de uso" %}{% endif %}
+        <form method="post" action="{% url 'events:stations' event.slug %}">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="station" value="{{ s.id }}"><button class="btn btn--secondary btn--small" type="submit">{% if s.is_active %}Poner fuera de uso{% else %}Volver a usar{% endif %}<span class="visually-hidden"> {{ s.name }}</span></button></form>
+      </div>
+    </li>
+  {% endfor %}</ul>
+  <form method="post" action="{% url 'events:stations' event.slug %}" class="mt-6">{% csrf_token %}<input type="hidden" name="action" value="add"><button class="btn btn--secondary" type="submit">Agregar computadora</button></form>
+</section>
 {% endblock %}
