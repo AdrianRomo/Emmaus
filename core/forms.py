@@ -133,7 +133,7 @@ class InitialSetupForm(TuErrorMessagesMixin, forms.Form):
     church_name = forms.CharField(max_length=180, label="Nombre de la iglesia")
     church_slug = forms.SlugField(
         max_length=80,
-        label="Identificador de la iglesia",
+        label="Nombre corto de la iglesia para la dirección",
         help_text="Un nombre corto en minúsculas, sin espacios ni acentos, por ejemplo: iglesia-gracia.",
     )
     admin_name = forms.CharField(max_length=150, label="Nombre de la primera persona administradora")

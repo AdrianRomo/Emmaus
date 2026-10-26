@@ -512,10 +512,11 @@ class CoordinatorEmptyStatesTests(CampFixture):
         for name in ("coord_pending", "coord_home"):
             response = self.client.get(self.url(name))
             self.assertEqual(response.status_code, 200, name)
-            self.assertContains(response, NO_CAMPEROS, msg_prefix=name)
+            # "Mi inicio": the sign says what to do, the list under it only that it is empty (fix/audit-followup).
+            self.assertContains(response, NO_CAMPEROS if name == "coord_pending" else "Sin camperos por entrevistar.", msg_prefix=name)
             self.assertNotContains(response, "Buen trabajo", msg_prefix=name)
         live = self.client.get(self.url("coord_home"), HTTP_X_REQUESTED_WITH="fetch")
-        self.assertContains(live, NO_CAMPEROS)
+        self.assertContains(live, "Sin camperos por entrevistar.")
 
     def test_with_every_campero_started_the_praise_stays(self):
         EventParticipant.objects.filter(pk=self.p3.pk).update(interview_status=InterviewStatus.COMPLETED)

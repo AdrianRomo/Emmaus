@@ -8,7 +8,7 @@ Esto se hace una sola vez, cuando Emmaus está recién instalado y todavía no t
 
 1. Abre en el navegador la dirección de Emmaus que te dio quien lo instaló.
 2. Como todavía no hay ninguna iglesia, Emmaus te lleva solo a **"Configura el espacio de tu iglesia"** (la dirección termina en `/setup/`).
-3. Escribe el **"Nombre de la iglesia"** y un **"Identificador de la iglesia"**: un nombre corto en minúsculas, sin espacios ni acentos, por ejemplo `iglesia-gracia`.
+3. Escribe el **"Nombre de la iglesia"** y el **"Nombre corto de la iglesia para la dirección"**: en minúsculas, sin espacios ni acentos, por ejemplo `iglesia-gracia`.
 4. Escribe tu nombre en **"Nombre de la primera persona administradora"**, tu correo en **"Correo de la primera persona administradora"** y crea tu contraseña. Con ese correo y esa contraseña vas a entrar a Emmaus.
 5. Lee el **"Aviso para participantes"**, a la derecha. Lo puedes cambiar después en la configuración de la iglesia; la indicación de llamar al 911 siempre aparece.
 6. Toca **"Crear espacio"**.
@@ -110,7 +110,7 @@ Revisa también los **"Días que se conservan las respuestas después del evento
 
 Si la persona es nueva, o ya tenía cuenta pero nunca creó su contraseña, verás en pantalla el enlace para que la cree, con el botón **"Copiar enlace"**: compártelo solo con esa persona. Si el servidor tiene correo configurado, Emmaus además se lo manda y te dice "Le enviamos un correo para crear su contraseña". Si no lo tiene, te dice **"No hay correo configurado: comparte este enlace con la persona."**: ese enlace es la única forma de que le llegue. Si el enlace se pierde o vence, en **"Equipo"** toca **"Editar"** junto a la persona y luego **"Generar enlace"** (solo aparece mientras no haya creado su contraseña). Si alguien ya tiene contraseña y la olvidó, debe usar "¿Olvidaste tu contraseña?" en la pantalla de entrada.
 
-**La hoja con el código.** En **"Equipo"**, arriba, dice "Para unirse al equipo: entra a ... y escribe el código ... o el nombre ...". Toca **"Ver la hoja para imprimir"** y luego **"Imprimir"**: sale una hoja con el nombre del evento, el código en letras grandes, la dirección y tres pasos. Pégala donde llega el equipo. **"Copiar enlace"** copia la dirección directa del evento para mandarla por mensaje. Si el código se compartió con quien no debía, toca **"Generar otro código"**: el código anterior y el nombre del evento dejan de funcionar al instante, y solo entra el código nuevo. Imprime la hoja otra vez (ya no trae el nombre corto). Si quieres que el nombre vuelva a servir, toca **"Volver a permitir el nombre"**.
+**La hoja con el código.** En **"Equipo"**, arriba, dice "Para unirse al equipo: entra a ... y escribe el código ... o el nombre corto ...". Toca **"Ver la hoja para imprimir"** y luego **"Imprimir"**: sale una hoja con el nombre del evento, el código en letras grandes, la dirección y tres pasos. Pégala donde llega el equipo. **"Copiar enlace"** copia la dirección directa del evento para mandarla por mensaje. Si el código se compartió con quien no debía, toca **"Generar otro código"**: el código anterior y el nombre corto dejan de funcionar al instante, y solo entra el código nuevo. Imprime la hoja otra vez (ya no trae el nombre corto). Si quieres que el nombre corto vuelva a servir, toca **"Volver a permitir el nombre corto"**.
 
 **Solicitudes de acceso.** Quien usó el código aparece en **"Equipo"**, en **"Solicitudes de acceso"**, con su correo, lo que pidió ser y hace cuánto. Si ese correo ya tiene cuenta en Emmaus, abajo dice de quién es, qué acceso tiene hoy en este evento y de qué iglesia es ("Ya tiene cuenta: ...; acceso actual en este evento: pastor; iglesia: ..."). Si hay solicitudes y nada más impide entrevistar, el letrero de **"Inicio"** te lo recuerda ("2 personas piden acceso al equipo"). Revisa que conozcas a la persona: el correo lo escribió ella y nadie lo comprobó. Elige su rol (puede ser otro del que pidió) y toca **"Agregar al equipo"**: pasa lo mismo que con "Agregar persona", incluido el correo o el enlace para crear su contraseña (también si ya tenía cuenta pero nunca creó su contraseña). Si la cuenta ya tiene acceso a este evento (por ejemplo, es pastor o administradora de la iglesia), Emmaus no cambia nada y cierra la solicitud: un rol se cambia solo en **"Editar"**. Si a alguien se le había quitado el acceso, recupera el mismo lugar en el equipo (sin acceso confidencial; eso se da aparte en "Editar"). **"Rechazar"** cierra la solicitud; no se le avisa a la persona. Caben 50 solicitudes sin decidir; con la lista llena, la página del evento pide a quien llega que te busque directamente. Las solicitudes ya decididas se borran solas después de 30 días. Solo la administración ve y decide las solicitudes.
 
@@ -177,7 +177,7 @@ Si la iglesia tiene varias sedes (por ejemplo Satélite, Zona Esmeralda, Lomas V
 Las sedes las agrega y las cambia quien administra la iglesia. Si solo administras este evento, ves la lista ("Las sedes las administra la iglesia.") y eliges cuáles participan (paso 3).
 
 1. En **"Camperos"**, abajo, toca **"Sedes de la iglesia"**.
-2. Toca **"Agregar sede"**. Escribe el nombre y, si quieres, la ciudad. El identificador se forma solo con el nombre (por ejemplo `zona-esmeralda`); puedes cambiarlo. Toca **"Agregar sede"**. Dos sedes no pueden llamarse igual (sin contar mayúsculas ni acentos), ni puede el nombre de una ser el identificador de otra: el archivo de importación no sabría cuál es.
+2. Toca **"Agregar sede"**. Escribe el nombre y, si quieres, la ciudad. El **"Nombre corto"** se genera del nombre (por ejemplo `zona-esmeralda`); puedes cambiarlo. Toca **"Agregar sede"**. Dos sedes no pueden llamarse igual (sin contar mayúsculas ni acentos), ni puede el nombre de una ser el nombre corto de otra: el archivo de importación no sabría cuál es.
 3. Si el campamento es solo para algunas sedes, márcalas en **"Sedes que participan"** y toca **"Guardar sedes del evento"**. Si no marcas ninguna, participan todas. Una sede marcada que está inactiva no se ofrece, y la página lo avisa; si desactivas o borras todas las que marcaste, al registrar y al importar se ofrecen todas las sedes activas de la iglesia.
 
 Las sedes son de la iglesia: valen para todos sus eventos y un cambio se ve en todos. Una sede que ya tiene camperos no se puede borrar: en **"Editar"** desmarca **"Activa"** y ya no aparece al registrar ni al importar; los camperos que ya la tienen la conservan.
@@ -293,7 +293,7 @@ Si marcaste "Por decidir", después ve a **"Entrevistas pendientes"** → **"Seg
 
 **Lo que ve el campero**
 
-* Una bienvenida con su nombre, quién podrá leer sus respuestas ("Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado.") y el botón **"Empezar"**.
+* Una bienvenida con su nombre, quién podrá leer sus respuestas ("Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado.") y el botón **"Empezar"**. Si ya contestó algo, el botón dice **"Retomar"** y abre la misma pregunta que "Seguir contestando" en la revisión.
 
   ![Bienvenida en la computadora](img/estacion-bienvenida.png)
 
@@ -355,6 +355,8 @@ Se borran todas sus respuestas y el campero queda "sin entrevista", así que se 
 ### Lista de respaldo en papel
 
 En **"Mis camperos"**, toca **"Imprimir lista de respaldo"** y luego **"Imprimir"**. Úsala solo si falla la red o una computadora. Tiene nombres, edades y cuartos, pero ninguna respuesta. No la dejes a la vista y destrúyela al terminar.
+
+Después de la lista viene el **"Cuestionario para entrevistar en papel"**: las preguntas del cuestionario del evento en el orden de la entrevista, una por bloque, con un cuadro por cada opción (también "Prefiero no responder") y espacio para escribir en las de texto. Las que dependen de otra respuesta van debajo de su pregunta, con sangría y la condición escrita ("Si contestó “Sí”:"), y las confidenciales dicen "Confidencial". Usa una copia por campero: escribe su nombre y su número, marca lo de "Antes de empezar" y lo que elija. En cuanto vuelva la red, captura sus respuestas en Emmaus como entrevista asistida. Una hoja con respuestas es tan privada como la entrevista: guárdala tú y destrúyela en cuanto las captures. Si el evento todavía no tiene un cuestionario publicado, la hoja lo dice.
 
 ---
 

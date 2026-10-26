@@ -10,9 +10,10 @@ from django.utils import timezone
 from django.utils.http import urlencode
 
 from ..forms import ParticipantForm
-from ..models import FollowUp, Interview, InterviewStatus, normalize_name
+from ..models import FollowUp, Interview, InterviewStatus, QuestionnaireVersion, normalize_name
 from ..services import participants as participant_svc
 from ..services.metrics import build_payload, coordinator_scope, progress_for, stale_interviews
+from ..services.questionnaire import build_steps
 from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, safe_next
 
 
@@ -78,7 +79,7 @@ def my_participants(request, event, access):
 
 @event_view()
 def backup_list(request, event, access):
-    """Printable paper fallback: registry data only, never answers."""
+    """Printable paper fallback: registry data and the questionnaire (UX-05), never answers."""
     participants = access.participants().select_related("coordinator__user").order_by(
         "coordinator__user__first_name", "coordinator__user__last_name", "room", "full_name"
     )
@@ -89,7 +90,28 @@ def backup_list(request, event, access):
     for p in participants:
         key = p.coordinator.display_name if p.coordinator else "Sin coordinador"
         groups.setdefault(key, []).append(p)
-    return render(request, "events/backup_list.html", {"groups": groups, "printed_at": timezone.now()})
+    # The questions new interviews ask, screen by screen: the structure only, no interview is read.
+    version = event.questionnaire_version
+    paper_steps = build_steps(version) if version and version.status != QuestionnaireVersion.Status.DRAFT else []
+    # Options in the order the screen shows them (interview.question_context): "Prefiero no responder" and other
+    # exclusive options last. A dict, not attributes: build_steps caches its Question objects for every request.
+    paper_options = {}
+    for step in paper_steps:
+        for question in step.questions:
+            listed = list(question.options.all())
+            quiet = [o for o in listed if o.is_decline or o.is_exclusive]
+            paper_options[question.id] = [o for o in listed if o not in quiet] + quiet
+    return render(
+        request,
+        "events/backup_list.html",
+        {
+            "groups": groups,
+            "printed_at": timezone.now(),
+            "paper_version": version if paper_steps else None,
+            "paper_steps": paper_steps,
+            "paper_options": paper_options,
+        },
+    )
 
 
 @event_view(COORDINATOR, ADMIN)

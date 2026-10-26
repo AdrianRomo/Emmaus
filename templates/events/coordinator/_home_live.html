@@ -31,7 +31,8 @@
       {% elif progress.eligible %}
         <p class="empty-line">No hay entrevistas por iniciar. Cuando registres o te asignen camperos aparecerán aquí.</p>
       {% else %}
-        <p class="empty-line">Todavía no tienes camperos. Registra al primero o pide a la administración que te los asigne.</p>
+        {% comment %}The sign above already says what to do without camperos: here only that the list is empty.{% endcomment %}
+        <p class="empty-line">Sin camperos por entrevistar.</p>
       {% endif %}
       <p class="more"><a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></p>
     </section>
