@@ -48,7 +48,7 @@ ACTION_LABELS = {
     "entrevista_descartada": "Descartó una entrevista",
     "captura_iniciada": "Entregó la computadora a un campero",
     "captura_desbloqueada": "Recuperó la computadora",
-    "sesion_revocada": "Cerró una sesión de captura",
+    "sesion_revocada": "Cerró la pantalla de un campero o liberó una entrevista",
     "consulta_confidencial": "Consultó información confidencial",
     "seguimiento": "Actualizó un seguimiento",
     "reporte_riesgo": "Reportó una situación de riesgo",

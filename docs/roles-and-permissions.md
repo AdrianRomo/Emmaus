@@ -64,14 +64,14 @@ Every event has a `join_code` (6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ2345678
 | Record guardian authorization ("Marcar como recibida": a confirmation page names the campero and who attests; audited `autorizacion_registrada`) | Yes | No | No | Own | No |
 | Remove it ("Quitar la autorización", reason required and kept on the `ConsentRecord` and in the campero's export, not in the log; audited `autorizacion_retirada`, with `interview` metadata when one is in progress, which can still be finished; completed interviews unchanged) | Yes | No | No | Own | No |
 | Campero list / detail | Whole event | Whole event | Team | Own | No |
-| "Sede" filter on "Participantes", with counts | Whole event | Whole event | Team (counts too) | No (sede shown in "Mis camperos") | No |
+| "Sede" filter on "Camperos", with counts | Whole event | Whole event | Team (counts too) | No (sede shown in "Mis camperos") | No |
 | Start, continue, take over an interview | Any active campero | No | No | Own | No |
-| Answer questions on a supervised computer | No | No | No | No | Own interview only |
+| Answer questions on a computer handed over ("Entrevista a solas") | No | No | No | No | Own interview only |
 | Recover the computer (unlock) | Yes | No | No | Own camperos | No |
 | Finalize, choose follow-up decision | Yes | No | No | Own | No |
 | Discard an interview in progress | Yes | No | No | Own | No |
 | Correct a completed interview | Yes | No | No | Own | No |
-| Decide a "pendiente de evaluación" follow-up (once) | Yes | No | No | Own | No |
+| Decide a "Por decidir" follow-up (once) | Yes | No | No | Own | No |
 | "Historial de correcciones" | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | Only with `can_view_sensitive` | No |
 | Read answers | Field rules below | Field rules below | Field rules below | Field rules below | Own answers while capturing |
 | Follow-up list | Whole event | Whole event | Team | Own | No |
@@ -84,7 +84,7 @@ Every event has a `join_code` (6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ2345678
 | Reports, cutoffs, PDF, presentation | Event and every team | Event and every team | Own team | No ("Mi avance" only) | No |
 | Aggregate answer summaries | Yes | Yes | No | No | No |
 | Printable backup list | Whole event | Whole event | Team | Own | No |
-| Activity log, "Sesiones abiertas" | Yes | No | No | No | No |
+| Activity log, "Computadoras en uso" | Yes | No | No | No | No |
 | Download one campero's full data (JSON) | Only with `can_view_sensitive` | No | No | No | No |
 | Delete one campero's data (the page counts the open follow-ups, open safety reports and interviews that go with it, never their content, and only what the viewer's `follow_ups()` shows: without `can_view_sensitive`, confidential referrals are not counted, and the constant sentence "Si existieran seguimientos confidenciales, también se borrarían." makes the page identical whether or not one exists; an open safety report needs an extra box) | Yes | No | No | No | No |
 | Questionnaires (edit draft, publish, use) | Yes | No | No | No | No |
@@ -105,13 +105,13 @@ Each question has a sensitivity level (`Question.sensitivity`). `EventAccess.can
 
 Consequences:
 
-* In supervised capture the coordinador never sees confidential answers, not even on the review screen.
+* In an "Entrevista a solas" the coordinador never sees confidential answers, not even on the review screen.
 * After an assisted interview is finalized, the coordinador can no longer read the confidential answers they typed.
 * Hidden values do not leak through the layout (`review_rows`). A row the viewer cannot read shows only "Confidencial", the same whether or not it was answered. A conditional question whose controlling answer the viewer cannot read is not listed at all, because its presence would reveal that answer. The page then says "Algunas respuestas solo las puede leer el equipo de cuidado autorizado." (detail) or, on the coordinador's review, that the campero answered some confidential questions on their own and that the care team will learn of any request for support.
-* Follow-up hints on the review screen ("Sugerencia según sus respuestas") are computed only from non-confidential questions the coordinador can read.
+* Follow-up hints on the review screen ("Lo que {nombre} pidió") are computed only from non-confidential questions the coordinador can read.
 * In the default questionnaire every question is `sensible` or `confidencial`. Tutors and pastors without `can_view_sensitive` therefore see no individual answers, only that a row exists.
 * A correction is allowed only for questions the corrector can read now, so a coordinador cannot correct a confidential answer.
-* The kiosk review screen shows the campero all of their own answers.
+* The kiosk review screen shows the campero all of their own answers, and the welcome and review screens tell them who reads them: "El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: esas solo las lee el equipo de cuidado autorizado."
 * Opening an interview that displays at least one answered confidential question is audited (`consulta_confidencial`), and so is opening a follow-up with details.
 
 ### `can_view_sensitive`: explicit, per event
@@ -149,15 +149,15 @@ Administrators grant and remove the flag. Nobody can grant it to themselves: che
 |---|---|---|
 | A team member working in one event | "Equipo" → "Editar" → uncheck "Puede entrar y trabajar en este evento" | `resolve_access` ignores inactive memberships, so the next request gets 403. No session needs to be killed. |
 | Confidential access | Uncheck "Puede leer información confidencial" | Takes effect on the next request; audited |
-| A campero still answering on some computer | "Configuración" → "Sesiones abiertas" → "Cerrar" | `ParticipantSession` closes (`revocada`); the kiosk shows "No hay una entrevista abierta en esta computadora"; the interview stays in progress |
-| An interview held by another computer | "Sesiones abiertas" → "Liberar", or the coordinador's own "Tomar el control aquí" | The claim is cleared or replaced; the old computer can no longer save |
+| A campero still answering on some computer | "Configuración" → "Computadoras en uso" → "Cerrar la pantalla" | `ParticipantSession` closes (`revocada`); the kiosk shows "No hay una entrevista abierta en esta computadora"; the interview stays in progress |
+| An interview held by another computer | "Computadoras en uso" → "Liberar", or the coordinador's own "Tomar el control aquí" | The claim is cleared or replaced; the old computer can no longer save |
 | A person everywhere | Deactivate the Django user (Django admin) | Inactive users are anonymous on their next request |
 
 Passwords: a person who already has a password uses "¿Olvidaste tu contraseña?" on the login page; the link goes only to their own e-mail. An active account that never set a password gets, from the same page, the link to create one (Django's own reset form skips such accounts), under the same limit of 3 per address per hour and with the same answer whether or not the address has an account. "Generar enlace" on the member page is offered only for accounts created from an event team that never set a password, are not staff or superuser, and have no role or membership in another church. Generating it is audited.
 
 Limits of membership deactivation:
 
-* A church `pastor` loses access to the event as soon as their membership in it is deactivated. A church pastor who has no membership can be kept out of one event by adding them to its team and then deactivating that membership. A church admin or superuser is always Administrador, whatever their membership says; remove their `UserChurchRole` (church settings) or deactivate the user instead. The "Sesiones abiertas" page says the same.
+* A church `pastor` loses access to the event as soon as their membership in it is deactivated. A church pastor who has no membership can be kept out of one event by adding them to its team and then deactivating that membership. A church admin or superuser is always Administrador, whatever their membership says; remove their `UserChurchRole` (church settings) or deactivate the user instead. The "Computadoras en uso" page says the same.
 * Claims expire on their own after 15 minutes without saves; kiosk sessions after 10 minutes idle or 60 minutes in total.
 
 ## Known gaps

@@ -2,7 +2,7 @@
 {% block page_title %}{% if error_list %}Error: {% endif %}{{ step.question.text }}{% endblock %}
 {% block body_attrs %}data-kiosk-idle="300" data-kiosk-timeout-url="{% url 'kiosk:timeout' %}" data-kiosk-heartbeat-url="{% url 'kiosk:heartbeat' %}"{% endblock %}
 {% block default_submit %}<button type="submit" form="step-form" name="direction" value="next" class="visually-hidden" tabindex="-1" aria-hidden="true">Continuar</button>{% endblock %}
-{% block focus_actions %}<a class="btn btn--small btn--secondary" href="{% url 'kiosk:review' %}">Terminar por ahora</a>{% endblock %}
+{% block focus_actions %}<a class="btn btn--small btn--secondary" href="{% url 'kiosk:review' %}">Parar por ahora</a>{% endblock %}
 {% block content %}
   {% include "events/interview/_step_form.html" %}
   <dialog class="dialog" id="idle-warning" aria-labelledby="idle-title">

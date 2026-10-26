@@ -5,11 +5,11 @@
 <header class="report-head">
   <div class="report-head__text">
     <h1 class="voice report-head__title">Reportes {{ event.of_kind }}</h1>
-    <p class="report-head__meta">Cortes de seguimiento cada {{ event.report_interval_minutes }} minutos, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}. {% if next_cutoff %}Próximo corte a las {{ next_cutoff|date:"H:i" }} del {{ next_cutoff|fecha_larga|lower }}.{% else %}No hay cortes programados.{% endif %}</p>
+    <p class="report-head__meta">Cortes {{ event.get_report_interval_minutes_display|lower }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}. {% if next_cutoff %}Próximo corte a las {{ next_cutoff|date:"H:i" }} del {{ next_cutoff|fecha_larga|lower }}.{% else %}No hay cortes programados.{% endif %}</p>
   </div>
   <div class="report-head__actions">
     <form method="post" action="{% url 'events:report_generate' event.slug %}">{% csrf_token %}<input type="hidden" name="scope" value="{{ scope_key }}"><button class="btn btn--primary" type="submit">Generar corte ahora</button></form>
-    <a class="btn btn--secondary" href="{% url 'events:presentation_live' event.slug %}">Ver presentación</a>
+    <a class="btn btn--secondary" href="{% url 'events:presentation_live' event.slug %}">Mostrar presentación</a>
   </div>
 </header>
 
@@ -33,7 +33,7 @@
     {% if p.eligible %}
       <p class="voice headline">Llevábamos {{ p.completed }} de {{ p.eligible }} entrevistas.</p>
     {% else %}
-      <p class="voice headline">Todavía no había participantes registrados.</p>
+      <p class="voice headline">Todavía no había camperos registrados.</p>
     {% endif %}
     {% if delta %}<p class="headline__sub">{% delta_sentence delta previous.cutoff_at %}</p>{% endif %}
     {% if p.eligible %}
@@ -68,7 +68,7 @@
           <td>{{ s.get_trigger_display }}{% if s.status == "fallido" %} <span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>No se generó</span>{% endif %}</td>
           {% if s.status == "listo" %}<td class="num">{{ s.data.progress.completed }}</td><td class="num">{{ s.data.progress.percent|pct }}</td><td class="num">{{ s.data.progress.pending }}</td>
           <td class="table__actions"><a href="{% url 'events:report_detail' event.slug s.public_id %}">Ver<span class="visually-hidden"> el corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_pdf' event.slug s.public_id %}">PDF<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_presentation' event.slug s.public_id %}">Presentación<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a></td>
-          {% else %}<td colspan="4" class="muted">{% if access.is_admin %}{{ s.error|truncatechars:80 }}{% else %}Intenta generarlo de nuevo.{% endif %}</td>{% endif %}
+          {% else %}<td colspan="4" class="muted">{% if access.is_admin %}{{ s.error|truncatechars:80 }}{% else %}Genera uno nuevo con “Generar corte ahora”.{% endif %}</td>{% endif %}
         </tr>{% endfor %}</tbody>
       </table></div>
     {% else %}

@@ -1,4 +1,4 @@
-"""Cortes de seguimiento: persisted, immutable metric snapshots.
+"""Cortes: persisted, immutable metric snapshots.
 
 Scheduling: ``python manage.py run_report_cutoffs`` runs every few minutes (cron or the
 ``scheduler`` compose service). For each active event it finds the most recent slot

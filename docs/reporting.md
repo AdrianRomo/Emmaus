@@ -1,6 +1,6 @@
 # Reporting
 
-One function, `build_payload(scope)` in `events/services/metrics.py`, produces the operational numbers Emmaus shows: live dashboards, saved cutoffs ("cortes de seguimiento"), PDFs and presentations. A cutoff is that payload frozen at a point in time, plus a "released" block (below). The definitions are metrics version `1` (`METRICS_VERSION`), stored on every snapshot.
+One function, `build_payload(scope)` in `events/services/metrics.py`, produces the operational numbers Emmaus shows: live dashboards, saved cutoffs ("cortes"), PDFs and presentations. A cutoff is that payload frozen at a point in time, plus a "released" block (below). The definitions are metrics version `1` (`METRICS_VERSION`), stored on every snapshot.
 
 ## Metric definitions
 
@@ -8,21 +8,21 @@ These are the `DEFINITIONS` printed at the end of every PDF ("Cómo se calcula")
 
 | Metric | Definition (as shown to users) |
 |---|---|
-| Participantes | Camperos registrados que siguen participando en el evento. |
+| Camperos | Camperos registrados que siguen participando en el evento. |
 | Completadas | Camperos con entrevista finalizada. Las correcciones no cuentan como una entrevista nueva. |
 | En curso | Entrevistas iniciadas que todavía no se finalizan. |
-| Pendientes | Camperos sin entrevista completada (incluye las que están en curso). |
-| Avance | Completadas entre participantes. Si no hay participantes no se calcula y se muestra "—", nunca 0 %. |
+| Pendientes | Camperos sin entrevista completada, incluidos los que la tienen en curso. |
+| Avance | Completadas entre camperos. Si no hay camperos no se calcula y se muestra "—", nunca 0 %. |
 | Ritmo | Entrevistas completadas por hora, en promedio, durante las últimas 2 horas. |
 | Seguimientos abiertos | Seguimientos en estado pendiente o en proceso. |
-| Por evaluar | Entrevistas completadas que esperan decidir si necesitan seguimiento. |
-| Interrumpidas | Entrevistas en curso sin actividad desde hace 20 minutos o más. |
+| Por decidir | Entrevistas completadas que esperan decidir si necesitan seguimiento. |
+| Interrumpidas | Entrevistas en curso sin cambios desde hace 20 minutos o más. |
 
 How they are computed:
 
 * Counts come from `EventParticipant` rows with `is_active=True` in the scope, using `interview_status`. Withdrawn camperos drop out of every figure.
-* "Sin iniciar" (meters, PDF legend) is participantes minus completadas minus en curso.
-* "Avance" is `round(100 * completadas / participantes)`. With zero participantes it is `None`, shown as "—", never 0 %.
+* "Sin iniciar" (meters, PDF legend) is camperos minus completadas minus en curso.
+* "Avance" is `round(100 * completadas / camperos)`. With zero camperos it is `None`, shown as "—", never 0 %.
 * "Ritmo" (`per_hour`) is completions in the last 2 hours divided by 2; `last_hour` is also stored. The ETA is `ceil(pendientes / ritmo * 60)` minutes, empty when the rate is 0.
 * The timeline groups completions in the event's time zone into 60-minute buckets (120 above 30 hours of span, 240 above 60 hours), at most 96, with a cumulative line.
 * Follow-up counts cover **ordinary** care follow-ups only (`kind=seguimiento`, `confidential=False`): pendiente, en proceso, atendido. `open_total = pendiente + en proceso`; `requested_total = open_total + atendido`. Confidential support referrals (`confidential_open`) and safety reports (`safety_open`) are counted separately, and only in payloads meant for viewers allowed to see them.
@@ -52,7 +52,7 @@ Slot rules:
 * **Grace window.** A slot is generated only if a pass runs within `max(10, min(30, interval / 2))` minutes after it, which is 30 minutes for every interval the UI offers. With a pass every 5 minutes, each slot gets about six chances.
 * **Missed slots.** These are not back-filled, so later data is never labelled with an earlier time.
 * **Idempotency.** The unique constraint `(event, scope_key, cutoff_at, trigger)` makes reruns and concurrent runs no-ops.
-* **Failures.** If building the payload raises, a "Falló" snapshot with the error text (max 500 characters, never answers) is stored, and a later pass within the grace window replaces it with a good one. Administrators see "N corte(s) no se pudieron generar" on "Inicio" and the error in the history; others see "Intenta generarlo de nuevo."
+* **Failures.** If building the payload raises, a "Falló" snapshot with the error text (max 500 characters, never answers) is stored, and a later pass within the grace window replaces it with a good one. Administrators see "1 corte no se pudo generar." / "N cortes no se pudieron generar." on "Inicio" and the error in the history; others see "Genera uno nuevo con “Generar corte ahora”." A failed "Generar corte ahora" says "No se pudo generar el corte. Inténtalo otra vez; si sigue igual, avisa a la administración."
 
 `next_slot(event)` ("Próximo corte") looks up to 7 days ahead. It is empty when cutoffs are off or the event is not in progress.
 
@@ -63,9 +63,9 @@ Each snapshot stores `data["released"]` with two groups of raw counts:
 * `follow_ups`: `requested_total`, `open_total`, `done`, `to_evaluate`;
 * `outcomes`: for each choice question that is not `general`, the number of respondents and the count per option, from completed interviews of active camperos (event scope only).
 
-`release_cells(current, previous, k)` works cell by cell against the previous ready snapshot of the same scope. A cell takes the new value only if it moved by at least `k` (the event's "Tamaño mínimo de grupo", default 5) since the last released value; otherwise the old released value is repeated. The first cutoff releases the current values. Comparing two consecutive releases can therefore never isolate fewer than `k` people. Raw outcome counts are not kept anywhere else in the snapshot.
+`release_cells(current, previous, k)` works cell by cell against the previous ready snapshot of the same scope. A cell takes the new value only if it moved by at least `k` (the event's "Mínimo de personas para mostrar un total", default 5) since the last released value; otherwise the old released value is repeated. The first cutoff releases the current values. Comparing two consecutive releases can therefore never isolate fewer than `k` people. Raw outcome counts are not kept anywhere else in the snapshot.
 
-Answer aggregates are **never computed live**. The pastor home shows those of the latest saved event cutoff ("Resumen del corte de las HH:MM"), and the presentation's follow-up tiles use the latest cutoff of its scope.
+Answer aggregates are **never computed live**. The pastor home shows those of the latest saved event cutoff (under "Lo que los camperos quisieron compartir", marked "corte de las HH:MM"; a cutoff's own page lists them under "Resumen de respuestas"), and the presentation's follow-up tiles use the latest cutoff of its scope.
 
 ## Manual cutoffs
 
@@ -78,7 +78,7 @@ Answer aggregates are **never computed live**. The pastor home shows those of th
 
 ## Comparison
 
-`previous_snapshot` is the most recent "Listo" snapshot of the same event and scope with an earlier `cutoff_at` (automatic or manual). `compare(current, previous)` gives the change in participantes, completadas, en curso, pendientes, avance (percentage points), open follow-ups, and per-team avance. The report page shows it as "Comparado con el corte anterior". The pastor home compares the live numbers with the latest cutoff ("desde el corte de las HH:MM").
+`previous_snapshot` is the most recent "Listo" snapshot of the same event and scope with an earlier `cutoff_at` (automatic or manual). `compare(current, previous)` gives the change in camperos, completadas, en curso, pendientes, avance (percentage points), open follow-ups, and per-team avance. The report page shows it as "Comparado con el corte anterior". The pastor home compares the live numbers with the latest cutoff ("desde el corte de las HH:MM").
 
 ## Who sees what in a cutoff
 
@@ -94,11 +94,11 @@ Built with ReportLab from the trimmed payload (`events/services/pdf.py`), US Let
 
 1. Folio "{event} · {scope}", title "Corte de seguimiento de las HH:MM", "Datos al …", trigger and metrics version.
 2. Participantes, Completadas, Pendientes, Avance; a completed / in-progress / remaining bar and the legend "Completadas · En curso · Sin iniciar".
-3. "Desde el corte anterior: +N completadas, avance +N puntos" when there is a previous cutoff.
+3. The change since the previous cutoff, when there is one, in the same sentence as every screen (`delta_sentence`): "+11 entrevistas y +3 % de avance desde el corte de las 20:00." When nobody finished an interview it still says what moved ("Ninguna entrevista nueva, pero se registraron +2 camperos y el avance cambió −1 % desde …"), or "Sin cambios desde …".
 4. Rate sentence and ETA.
 5. "Avance de entrevistas": cumulative line against the total of participants.
 6. "Avance por equipo" (or "Avance por coordinador" for a team cutoff).
-7. "Seguimiento": pendientes, en proceso, atendidos, por evaluar, and "Situaciones de riesgo abiertas" when allowed.
+7. "Seguimiento": pendientes, en proceso, atendidos, por decidir, and "Situaciones de riesgo abiertas" when allowed.
 8. "Resumen de respuestas (sin datos individuales)" for event cutoffs viewed by administradores and pastores, from the released values, with the suppression note.
 9. "Próximos pasos" (the recommendations stored with the cutoff).
 10. "Cómo se calcula" (the definitions above).
@@ -108,7 +108,7 @@ The PDF shows team labels and, for team cutoffs, coordinador names. It never sho
 
 ## Presentation ("Modo presentación")
 
-"Mostrar presentación" (pastor home) or "Ver presentación" (reports) opens the **live** deck for the viewer's own scope, refreshed every 60 seconds. "Presentación" / "Ver presentación" on a cutoff opens that **saved** cutoff. Keyboard: arrows, PageUp/PageDown or space, Home/End, and F for full screen. Buttons: "Anterior", "Siguiente", "Pantalla completa", "Salir".
+"Mostrar presentación" (pastor home and reports) opens the **live** deck for the viewer's own scope, refreshed every 60 seconds. "Presentación" in the history, or "Mostrar presentación" on a cutoff, opens that **saved** cutoff. Keyboard: arrows, PageUp/PageDown or space, Home/End, and F for full screen. Buttons: "Anterior", "Siguiente", "Pantalla completa", "Salir".
 
 The template renders only the dict returned by `build_deck()` in `events/services/presentation.py`. It contains no campero, coordinador or tutor names, no answers or free text, no safety reports and no answer aggregates.
 
@@ -146,7 +146,7 @@ Participation counts on slides 1 to 3 are exact: they are operational, not perso
 
 1. `pendientes`: "Faltan N entrevistas de M." plus the ETA; or `completo`: "Todas las entrevistas están completas."
 2. `equipo`: up to 3 teams at least 15 points below the overall avance with 5 or more pending: "… Podría necesitar otra computadora o más apoyo."
-3. `interrumpidas`: interviews over 20 minutes without activity: "Hay que retomarlas o descartarlas."
+3. `interrumpidas`: interviews over 20 minutes without changes: "1 entrevista está interrumpida: … Hay que retomarla o descartarla." / "N entrevistas están interrumpidas: … Hay que retomarlas o descartarlas."
 4. `sin_coordinador`: camperos without coordinador (event scope).
 5. `sin_tutor`: coordinadores without tutor (event scope).
 6. `autorizaciones`: minors without a registered guardian authorization.

@@ -16,7 +16,7 @@
       </div>
       <div class="crew__marks">
         {% tally c.completed c.in_progress c.eligible %}
-        {% if c.stale %}<p class="crew__note">{{ c.stale }} entrevista{{ c.stale|pluralize }} sin actividad desde hace 20 minutos o más</p>{% endif %}
+        {% if c.stale %}<p class="crew__note">{{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}: {% stale_minutes %} minutos o más sin cambios</p>{% endif %}
       </div>
       <p class="crew__figures"><strong>{{ c.completed }} de {{ c.eligible }}</strong> <span>{{ c.percent|pct }}</span></p>
     </li>

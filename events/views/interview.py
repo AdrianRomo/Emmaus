@@ -142,7 +142,7 @@ def interview_search(request, event, access):
         for word in normalize_name(query).split():
             filters &= Q(normalized_name__contains=word)
         digits = query.lstrip("#").strip()
-        if digits.isdigit():
+        if digits.isascii() and digits.isdigit():  # "²".isdigit() is True and int("²") raises
             filters |= Q(number=int(digits))
         participants = participants.filter(filters)
     results = list(participants.order_by("rank", "room", "full_name")[: 30 if query else 12])
@@ -302,7 +302,7 @@ def interview_step(request, event, access, public_id, number):
             direction = request.POST.get("direction", "next")
             previous, following = neighbor_steps(interview.version, answers, step.number)
             if direction == "exit":
-                messages.success(request, f"Guardamos las respuestas de {interview.participant.first_name}. Puedes continuar después.")
+                messages.success(request, f"Guardamos las respuestas de {interview.participant.first_name}. Puedes retomar la entrevista después.")
                 return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
             if direction == "back" and previous:
                 return redirect("events:interview_step", slug=event.slug, public_id=public_id, number=previous.number)
@@ -381,7 +381,7 @@ def interview_review(request, event, access, public_id):
 def interview_done(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if interview.status != Interview.Status.COMPLETED:
-        # Not a deliberate "Continuar": a stale "done" tab must not re-open a released claim.
+        # Not a deliberate "Retomar": a stale "done" tab must not re-open a released claim.
         return _resume(request, event, access, interview, reopen=False)
     follow_up = interview.follow_ups.filter(kind=FollowUp.Kind.CARE, confidential=False).exclude(status=FollowUp.Status.CANCELLED).first()
     remaining = access.participants().exclude(interview_status=InterviewStatus.COMPLETED).count()
@@ -543,7 +543,7 @@ def safety_report(request, event, access, participant_id):
     form = SafetyReportForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         svc.report_safety_concern(access, participant, details=form.cleaned_data["details"], interview=interview)
-        messages.success(request, "El reporte se envió al equipo responsable. Sigue las indicaciones de protección de tu iglesia.")
+        messages.success(request, "El reporte llegó al equipo de cuidado autorizado. Sigue las indicaciones de protección de tu iglesia.")
         return redirect(back_url)
     return render(
         request,

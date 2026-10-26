@@ -300,9 +300,9 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
         try:
             row.age = int(age_raw)
             if not 5 <= row.age <= 99:
-                row.errors.append("La edad debe estar entre 5 y 99.")
+                row.errors.append(f"La edad debe estar entre 5 y 99, y aquí dice {row.age}.")
         except ValueError:
-            row.errors.append("La edad debe ser un número." if age_raw else "Falta la edad.")
+            row.errors.append(f"La edad debe ser un número, y aquí dice “{age_raw}”." if age_raw else "Falta la edad.")
         row.room = values.get("room", "")[:40]
         if not row.room:
             row.errors.append("Falta el cuarto.")

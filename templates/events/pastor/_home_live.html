@@ -33,7 +33,7 @@
 <section class="report-section" aria-labelledby="faltan">
   <div class="report-section__q">
     <h2 id="faltan" class="voice report-section__title">¿Cuánto falta?</h2>
-    <p class="report-section__answer">{% if not progress.eligible %}Aún no hay camperos registrados.{% elif progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, unas {{ payload.throughput.eta_minutes|duration }} al ritmo actual{% endif %}.{% else %}Nada: ya terminamos.{% endif %}</p>
+    <p class="report-section__answer">{% if not progress.eligible %}Aún no hay camperos registrados.{% elif progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, alrededor de {{ payload.throughput.eta_minutes|duration }} al ritmo actual{% endif %}.{% else %}Nada: ya terminamos.{% endif %}</p>
   </div>
   {% if progress.eligible %}
   <div class="report-section__body">
@@ -92,16 +92,16 @@
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.pending }} sin atender, {{ payload.follow_ups.in_progress }} en proceso</dd></div>
       <div><dt>Atendidos</dt><dd class="figures__value">{{ payload.follow_ups.done }}</dd></div>
       <div><dt>Por decidir</dt><dd class="figures__value">{{ payload.follow_ups.to_evaluate }}</dd><dd class="figures__note">entrevistas sin decisión de seguimiento</dd></div>
-      {% if payload.follow_ups.safety_open is not None %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Atender</a></dd></div>{% endif %}
+      {% if payload.follow_ups.safety_open is not None %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver y atender<span class="visually-hidden"> las situaciones de riesgo</span></a></dd></div>{% endif %}
     </dl>
-    {% if payload.follow_ups.confidential_open is not None %}<p class="aside-note">Solicitudes de apoyo confidenciales abiertas (solo equipo de cuidado): <strong>{{ payload.follow_ups.confidential_open }}</strong></p>{% endif %}
+    {% if payload.follow_ups.confidential_open is not None %}<p class="aside-note">Solicitudes de apoyo confidenciales abiertas (solo las ve el equipo de cuidado autorizado): <strong>{{ payload.follow_ups.confidential_open }}</strong></p>{% endif %}
     {% if outcomes %}
       {% comment %}The longest block on a phone: it starts closed there (emmaus.js, data-fold-below) and stays as the reader left it across refreshes.{% endcomment %}
       <details class="fold" id="pastor-totales" open data-fold-below="600">
       <summary>Lo que los camperos quisieron compartir <span class="fold__hint">{{ outcomes|length }} pregunta{{ outcomes|length|pluralize }}, corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}</span></summary>
       <div class="notice notice--info">
         <p class="notice__title">Solo totales</p>
-        <p>Corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}. Solo totales {{ event.of_kind }}, redondeados a múltiplos de {{ payload.min_group_size }}. Las cifras menores a {{ payload.min_group_size }} se ocultan y cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas, para que nadie pueda ser identificado. No son diagnósticos.</p>
+        <p>Corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}. Solo totales {{ event.of_kind }}. Los totales se redondean de {{ payload.min_group_size }} en {{ payload.min_group_size }} y las cantidades menores a {{ payload.min_group_size }} no se muestran, para que nadie pueda ser identificado. Cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas. No son diagnósticos.</p>
       </div>
       <div class="outcomes">
         {% for outcome in outcomes %}

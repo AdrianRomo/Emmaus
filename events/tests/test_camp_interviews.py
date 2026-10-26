@@ -311,7 +311,7 @@ class ReleaseStopsTheOldComputerTests(CampFixture):
     def test_old_computer_reopens_from_mi_inicio_with_a_fresh_claim(self):
         self.release()
         released_hash = self.interview.lock_token_hash
-        self.assertContains(self.a.get(self.url("coord_home")), f'href="{self.resume_url}">Continuar entrevista</a>')
+        self.assertContains(self.a.get(self.url("coord_home")), f'href="{self.resume_url}">Retomar entrevista</a>')
         self.assertRedirects(self.a.get(self.resume_url), self.step_url("dudas"), fetch_redirect_response=False)
         self.interview.refresh_from_db()
         self.assertTrue(self.interview.lock_is_active())

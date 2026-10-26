@@ -44,13 +44,13 @@
       <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
     </ul>
   {% else %}
-    <h2 id="estado-evento" class="voice admin-state__title">Todavía no hay participantes registrados.</h2>
+    <h2 id="estado-evento" class="voice admin-state__title">Todavía no hay camperos registrados.</h2>
   {% endif %}
   <dl class="figures admin-state__figures">
-    <div><dt>Participantes</dt><dd class="figures__value">{{ progress.eligible }}</dd><dd class="figures__note">{{ unassigned }} sin coordinador</dd></div>
-    <div><dt>Capturas supervisadas</dt><dd class="figures__value">{{ active_sessions }}</dd><dd class="figures__note"><a href="{% url 'events:sessions' event.slug %}">Ver sesiones</a></dd></div>
+    <div><dt>Camperos</dt><dd class="figures__value">{{ progress.eligible }}</dd><dd class="figures__note">{{ unassigned }} sin coordinador</dd></div>
+    <div><dt>Entrevistas a solas</dt><dd class="figures__value">{{ active_sessions }}</dd><dd class="figures__note"><a href="{% url 'events:sessions' event.slug %}">Ver computadoras en uso</a></dd></div>
     <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver seguimientos</a></dd></div>
-    {% if payload.follow_ups.safety_open %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Atender</a></dd></div>{% endif %}
+    {% if payload.follow_ups.safety_open %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver y atender<span class="visually-hidden"> las situaciones de riesgo</span></a></dd></div>{% endif %}
   </dl>
 </section>
 

@@ -7,10 +7,10 @@
 {% url 'events:report_pdf' event.slug snapshot.public_id as pdf_url %}
 {% with hora=snapshot.cutoff_at|date:"H:i" dia=snapshot.cutoff_at|fecha_larga|lower datos=payload.data_as_of|as_datetime|fecha_corta %}
 {% with back_url=reports_url|add:"?alcance="|add:snapshot.scope_key title="Corte de las "|add:hora lede=snapshot.scope_label|add:", "|add:dia|add:"." %}
-{% if snapshot.trigger == "manual" %}{% with meta="Corte guardado: no cambia. Datos al "|add:datos|add:", generado de forma manual, métricas versión "|add:snapshot.metrics_version|add:"." %}
-  {% include "events/rotulo/_page_head.html" with title=title lede=lede meta=meta back_url=back_url back_label="Reportes" action_url=presentation_url action_label="Ver presentación" secondary_url=pdf_url secondary_label="Descargar PDF" %}
-{% endwith %}{% else %}{% with meta="Corte guardado: no cambia. Datos al "|add:datos|add:", generado de forma automática, métricas versión "|add:snapshot.metrics_version|add:"." %}
-  {% include "events/rotulo/_page_head.html" with title=title lede=lede meta=meta back_url=back_url back_label="Reportes" action_url=presentation_url action_label="Ver presentación" secondary_url=pdf_url secondary_label="Descargar PDF" %}
+{% if snapshot.trigger == "manual" %}{% with meta="Corte guardado: no cambia. Datos al "|add:datos|add:", generado de forma manual." %}
+  {% include "events/rotulo/_page_head.html" with title=title lede=lede meta=meta back_url=back_url back_label="Reportes" action_url=presentation_url action_label="Mostrar presentación" secondary_url=pdf_url secondary_label="Descargar PDF" %}
+{% endwith %}{% else %}{% with meta="Corte guardado: no cambia. Datos al "|add:datos|add:", generado de forma automática." %}
+  {% include "events/rotulo/_page_head.html" with title=title lede=lede meta=meta back_url=back_url back_label="Reportes" action_url=presentation_url action_label="Mostrar presentación" secondary_url=pdf_url secondary_label="Descargar PDF" %}
 {% endwith %}{% endif %}
 {% endwith %}
 {% endwith %}
@@ -24,7 +24,7 @@
       <p class="voice headline">Llevábamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</p>
       <p class="headline__sub">
         {% if not progress.pending %}Ya se habían completado todas.
-        {% elif payload.throughput.eta_minutes %}Al ritmo de ese momento, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltaban <span class="keep-together">unas {{ payload.throughput.eta_minutes|duration }}</span>.
+        {% elif payload.throughput.eta_minutes %}Al ritmo de ese momento, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltaban alrededor de <span class="keep-together">{{ payload.throughput.eta_minutes|duration }}</span>.
         {% else %}Todavía no había suficiente ritmo para estimar cuándo terminaríamos.{% endif %}
       </p>
       <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
@@ -34,7 +34,7 @@
         <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
       </ul>
     {% else %}
-      <p class="voice headline">Todavía no había participantes registrados.</p>
+      <p class="voice headline">Todavía no había camperos registrados.</p>
     {% endif %}
   </div>
 </section>
@@ -42,7 +42,7 @@
 <section class="report-section" aria-labelledby="faltaba">
   <div class="report-section__q">
     <h2 id="faltaba" class="voice report-section__title">¿Cuánto faltaba?</h2>
-    <p class="report-section__answer">{% if progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, unas {{ payload.throughput.eta_minutes|duration }} al ritmo de ese momento{% endif %}.{% else %}Nada: ya habíamos terminado.{% endif %}</p>
+    <p class="report-section__answer">{% if progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, alrededor de {{ payload.throughput.eta_minutes|duration }} al ritmo de ese momento{% endif %}.{% else %}Nada: ya habíamos terminado.{% endif %}</p>
   </div>
   <div class="report-section__body">
     <dl class="figures">
@@ -121,7 +121,7 @@
           <span class="teams__name">{{ row.name }}{% if row.team %}<span class="teams__meta">{{ row.team }}</span>{% endif %}</span>
           <span class="teams__value"><strong>{{ row.percent|pct }}</strong> {{ row.completed }} de {{ row.eligible }}</span>
           {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" %}
-          {% if row.stale %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>{{ row.stale }} entrevista{{ row.stale|pluralize }} sin actividad reciente</span>{% endif %}
+          {% if row.stale %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>{{ row.stale }} entrevista{{ row.stale|pluralize }} interrumpida{{ row.stale|pluralize }}</span>{% endif %}
         </li>
       {% endfor %}
     </ol>
@@ -133,7 +133,7 @@
 <section class="report-section" aria-labelledby="t-respuestas">
   <div class="report-section__q">
     <h2 id="t-respuestas" class="voice report-section__title">Resumen de respuestas</h2>
-    <p class="report-section__answer">Totales redondeados a múltiplos de {{ payload.min_group_size }}; las cifras menores se ocultan.</p>
+    <p class="report-section__answer">Los totales se redondean de {{ payload.min_group_size }} en {{ payload.min_group_size }} y las cantidades menores a {{ payload.min_group_size }} no se muestran, para que nadie pueda ser identificado.</p>
   </div>
   <div class="report-section__body">
     <div class="outcomes">
@@ -141,7 +141,7 @@
         <figure class="outcome">
           <figcaption><p class="outcome__title">{{ o.title }}</p><p class="outcome__sub">Personas. Respondieron {{ o.respondents.display }}.</p></figcaption>
           {% if o.withheld %}
-            <p class="chart__empty">Aún no hay suficientes respuestas.</p>
+            <p class="chart__empty">No había suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
           {% else %}
             <ul class="outcome__rows">{% for r in o.rows %}
               <li><span class="outcome__label">{{ r.label }}</span><span class="outcome__value">{{ r.display }}</span>

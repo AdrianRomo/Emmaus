@@ -32,10 +32,10 @@
         <li class="row">
           <div class="row__main">
             <p class="row__title">{{ q.text }}</p>
-            <p class="row__meta">{{ q.get_kind_display }}, {{ q.get_sensitivity_display|lower }}, {% if q.required %}obligatoria{% else %}opcional{% endif %}{% if q.condition_question %}, solo si “{{ q.condition_question.text|truncatechars:40 }}” = {{ q.condition_option_codes|join:", " }}{% endif %}. Clave <code>{{ q.code }}</code>.</p>
+            <p class="row__meta">{{ q.get_kind_display }}, {{ q.get_sensitivity_display|lower }}, {% if q.required %}obligatoria{% else %}opcional{% endif %}{% if q.condition_question %}, se muestra solo si en “{{ q.condition_question.text|truncatechars:40 }}” se responde {{ q.condition_option_codes|join:", " }}{% endif %}. Identificador interno: <code>{{ q.code }}</code>.</p>
             {% if q.options.all %}
               <ul class="admin-answers" aria-label="Opciones">{% for o in q.options.all %}
-                <li><span class="admin-answers__label{% if o.is_decline %} admin-answers__label--decline{% endif %}">{{ o.label }}{% if o.suggests_follow_up %}<span class="admin-answers__note">, sugiere seguimiento</span>{% endif %}</span>{% if version.is_editable %}<form method="post" class="admin-answers__remove">{% csrf_token %}<input type="hidden" name="action" value="delete_option"><input type="hidden" name="option" value="{{ o.id }}"><button class="link-button link-button--danger" data-confirm="¿Quitar la opción “{{ o.label }}”?">Quitar<span class="visually-hidden"> {{ o.label }}</span></button></form>{% endif %}</li>
+                <li><span class="admin-answers__label{% if o.is_decline %} admin-answers__label--decline{% endif %}">{{ o.label }}<span class="admin-answers__note">, identificador <code>{{ o.code }}</code>{% if o.suggests_follow_up %}, sugiere seguimiento{% endif %}</span></span>{% if version.is_editable %}<form method="post" class="admin-answers__remove">{% csrf_token %}<input type="hidden" name="action" value="delete_option"><input type="hidden" name="option" value="{{ o.id }}"><button class="link-button link-button--danger" data-confirm="¿Quitar la opción “{{ o.label }}”?">Quitar<span class="visually-hidden"> {{ o.label }}</span></button></form>{% endif %}</li>
               {% endfor %}</ul>
             {% endif %}
           </div>

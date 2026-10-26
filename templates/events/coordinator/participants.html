@@ -28,13 +28,13 @@
           </div>
           <div class="row__end">
             {% status p.interview_status %}
-            {% if p.interview_status != "completada" %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Continuar{% else %}Entrevistar{% endif %}<span class="visually-hidden"> a {{ p.full_name }}</span></a>{% endif %}
+            {% if p.interview_status != "completada" %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Retomar<span class="visually-hidden"> la entrevista de {{ p.full_name }}</span>{% else %}Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span>{% endif %}</a>{% endif %}
           </div>
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras, o <a href="{{ create_url }}">registra a un campero nuevo</a>.</p>
+    <p class="empty-line">No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras, o <a href="{{ create_url }}">registra al campero</a>.</p>
   {% endif %}
   <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a>, por si falla la red o una computadora.</p>
 </section>

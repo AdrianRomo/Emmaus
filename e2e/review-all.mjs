@@ -51,7 +51,7 @@ for (const [email, list] of Object.entries(pages)) {
     if (name === "c-computadora") {
       await page.setViewportSize(WIDTHS.desktop);
       await page.check("input[name=station] >> nth=3");
-      await Promise.all([page.waitForNavigation(), page.click("form button:has-text('Continuar')")]);
+      await Promise.all([page.waitForNavigation(), page.click("form button:has-text('Usar esta computadora')")]);
     }
   }
   if (jsErrors.length) results.push({ email, jsErrors });

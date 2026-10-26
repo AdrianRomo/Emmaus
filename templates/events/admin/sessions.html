@@ -1,23 +1,23 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
-{% block page_title %}Sesiones abiertas{% endblock %}
+{% block page_title %}Computadoras en uso{% endblock %}
 {% block content %}
 {% url 'events:settings' event.slug as back_url %}
-{% include "events/rotulo/_page_head.html" with title="Sesiones abiertas" lede="Si una computadora se quedó con una entrevista abierta, puedes liberarla aquí. Las respuestas guardadas no se pierden." back_url=back_url back_label="Configuración" %}
+{% include "events/rotulo/_page_head.html" with title="Computadoras en uso" lede="Si una computadora se quedó con una entrevista abierta, puedes liberarla aquí. Las respuestas guardadas no se pierden." back_url=back_url back_label="Configuración" %}
 <section class="block" aria-labelledby="t-capturas">
-  <h2 id="t-capturas" class="heading">Capturas supervisadas <span class="count">{{ captures|length }}</span></h2>
+  <h2 id="t-capturas" class="heading">Entrevistas a solas <span class="count">{{ captures|length }}</span></h2>
   {% if captures %}
-    <div class="table-wrap" tabindex="0" role="region" aria-label="Capturas supervisadas">
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas a solas">
       <table class="table admin-table">
         <thead><tr><th>Campero</th><th>Computadora</th><th>Coordinador</th><th>Estado</th><th>Última actividad</th><th><span class="visually-hidden">Acción</span></th></tr></thead>
         <tbody>{% for ps in captures %}
           <tr><td>{{ ps.interview.participant.full_name }}</td><td>{{ ps.station.name|default:"—" }}</td><td>{{ ps.started_by.get_full_name }}</td><td>{{ ps.get_state_display }}</td><td>{{ ps.last_activity_at|since }}</td>
-            <td class="table__action"><form method="post">{% csrf_token %}<input type="hidden" name="participant_session" value="{{ ps.public_id }}"><button class="btn btn--danger btn--small" data-confirm="¿Cerrar esta sesión? El campero ya no podrá seguir respondiendo en esa computadora.">Cerrar<span class="visually-hidden"> la sesión de {{ ps.interview.participant.full_name }}</span></button></form></td></tr>
+            <td class="table__action"><form method="post">{% csrf_token %}<input type="hidden" name="participant_session" value="{{ ps.public_id }}"><button class="btn btn--danger btn--small" data-confirm="¿Cerrar la pantalla del campero? Ya no podrá seguir respondiendo en esa computadora. La entrevista sigue en curso.">Cerrar la pantalla<span class="visually-hidden"> de {{ ps.interview.participant.full_name }}</span></button></form></td></tr>
         {% endfor %}</tbody>
       </table>
     </div>
   {% else %}
-    <p class="empty-line">No hay capturas supervisadas abiertas.</p>
+    <p class="empty-line">Ningún campero está respondiendo a solas.</p>
   {% endif %}
 </section>
 <section class="block" aria-labelledby="t-claims">
@@ -36,5 +36,5 @@
     <p class="empty-line">No hay entrevistas en curso.</p>
   {% endif %}
 </section>
-<p class="aside-note mt-8">Para que una persona del equipo deje de trabajar en este evento, quítale el acceso desde Equipo: su siguiente clic ya no entra. Las cuentas de administración de la iglesia se manejan desde la configuración de la iglesia.</p>
+<p class="aside-note mt-8">Para que una persona del equipo deje de trabajar en este evento, quítale el acceso desde Equipo: desde su siguiente clic ya no podrá entrar. Las cuentas de administración de la iglesia se manejan desde la configuración de la iglesia.</p>
 {% endblock %}

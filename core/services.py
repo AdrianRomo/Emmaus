@@ -145,7 +145,7 @@ def notify_question_created(question: ParticipantQuestion) -> None:
     if recipients:
         send_email_safely(
             "Emmaus: hay una pregunta nueva",
-            "Una persona de tu iglesia envió una pregunta en Emmaus. Ingresa con tu cuenta para leerla.\n\n"
+            "Una persona de tu iglesia envió una pregunta en Emmaus. Entra a Emmaus para leerla.\n\n"
             "Por privacidad, este correo no incluye el nombre de la persona ni lo que escribió.",
             sorted(set(recipients)),
         )
@@ -156,7 +156,7 @@ def notify_question_response(response: QuestionResponse) -> None:
     if participant.email:
         send_email_safely(
             "Emmaus: respondieron tu pregunta",
-            "Un líder de tu iglesia respondió tu pregunta en Emmaus. Ingresa con tu cuenta para leer la respuesta.",
+            "Un líder de tu iglesia respondió tu pregunta en Emmaus. Entra a Emmaus para leer la respuesta.",
             [participant.email],
         )
 
@@ -175,7 +175,7 @@ def notify_follow_up_created(follow_up: FollowUpRequest) -> None:
     if recipients:
         send_email_safely(
             "Emmaus: hay un seguimiento nuevo",
-            "Se registró una solicitud de seguimiento en Emmaus. Ingresa con tu cuenta para ver los detalles.\n\n"
+            "Se registró una solicitud de seguimiento en Emmaus. Entra a Emmaus para ver los detalles.\n\n"
             "Por privacidad, este correo no incluye el nombre de la persona ni el motivo.",
             sorted(set(recipients)),
         )
@@ -192,7 +192,7 @@ def notify_question_escalated(question: ParticipantQuestion) -> None:
     if recipients:
         send_email_safely(
             "Emmaus: una pregunta necesita atención pastoral",
-            "Una pregunta en Emmaus se escaló para recibir atención pastoral. Ingresa con tu cuenta para leerla.\n\n"
+            "Una pregunta en Emmaus se pasó al pastor para recibir atención pastoral. Entra a Emmaus para leerla.\n\n"
             "Por privacidad, este correo no incluye el nombre de la persona ni lo que escribió.",
             sorted(set(recipients)),
         )
@@ -278,12 +278,10 @@ def create_inactivity_follow_up(profile: ParticipantProfile, days: int = 7) -> F
 
 def generate_ai_draft(question: ParticipantQuestion, generated_by: User) -> tuple[AIDraft | None, str | None]:
     if not settings.LLM_ENABLED:
-        return None, (
-            "Los borradores con IA están desactivados. Para usarlos, configura LLM_ENABLED=true, "
-            "LLM_BASE_URL, LLM_API_KEY y LLM_MODEL."
-        )
+        # Church leaders read this: no setting names (docs/deployment.md has them for the server's administrator).
+        return None, "Los borradores con IA no están activados. Pide a quien administra el servidor que los active."
     if not settings.LLM_BASE_URL or not settings.LLM_API_KEY or not settings.LLM_MODEL:
-        return None, "Los borradores con IA están activados, pero falta completar su configuración."
+        return None, "Los borradores con IA no están listos todavía. Pide a quien administra el servidor que termine de configurarlos."
 
     endpoint = settings.LLM_BASE_URL
     if not endpoint.endswith("/chat/completions"):
@@ -318,8 +316,8 @@ def generate_ai_draft(question: ParticipantQuestion, generated_by: User) -> tupl
             data = json.loads(response.read().decode("utf-8"))
         content = data["choices"][0]["message"]["content"].strip()
     except (error.URLError, KeyError, IndexError, json.JSONDecodeError) as exc:
-        logger.exception("LLM draft generation failed")
-        return None, f"No se pudo generar el borrador con IA: {exc}"
+        logger.exception("LLM draft generation failed")  # the detail goes to the log, never to the screen
+        return None, "No se pudo generar el borrador. Inténtalo otra vez."
 
     draft = AIDraft.objects.create(
         church=question.church,

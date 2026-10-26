@@ -173,7 +173,7 @@ class ParticipantNoticeTests(EmmausFixture):
         self.set_notice(Church._meta.get_field("basic_disclaimer_text").default)
         for response in self.pages():
             self.assertContains(response, Church._meta.get_field("basic_disclaimer_text").default)
-            self.assertContains(response, "llama de inmediato al 911")
+            self.assertContains(response, "llama al 911")
 
     def test_the_legacy_english_notice_reads_as_no_notice(self):
         """Churches created under migration 0001 kept its English default."""

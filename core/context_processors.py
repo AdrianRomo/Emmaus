@@ -50,7 +50,7 @@ def current_role(request):
             {"label": "Inicio", "url": reverse("church_dashboard"), "names": ["church_dashboard"]},
             {"label": "Participantes", "url": reverse("participants_list"), "names": ["participants_list", "participant_detail", "assign_mentor"]},
             {"label": "Preguntas", "url": reverse("questions_inbox"), "names": ["questions_inbox", "church_question_detail"]},
-            {"label": "Preguntas escaladas", "url": reverse("escalations"), "names": ["escalations"]},
+            {"label": "Preguntas para el pastor", "url": reverse("escalations"), "names": ["escalations"]},
             {"label": "Seguimientos", "url": reverse("church_follow_up_list"), "names": ["church_follow_up_list"]},
             {"label": "Notas pastorales", "url": reverse("notes_list"), "names": ["notes_list"]},
         ]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 
 from django import template
@@ -122,7 +123,7 @@ def as_datetime(value):
 
 @register.filter
 def since(value):
-    """'hace 5 min', 'hace 2 h', or a date."""
+    """'hace 5 minutos', 'hace 2 horas', or after a day the date: '23 oct, 14:05'."""
     value = as_datetime(value)
     if not value:
         return ""
@@ -131,11 +132,11 @@ def since(value):
     if minutes < 1:
         return "hace un momento"
     if minutes < 60:
-        return f"hace {minutes} min"
+        return f"hace {minutes} {'minuto' if minutes == 1 else 'minutos'}"
     hours = minutes // 60
     if hours < 24:
-        return f"hace {hours} h"
-    return timezone.localtime(value).strftime("%d/%m %H:%M")
+        return f"hace {hours} {'hora' if hours == 1 else 'horas'}"
+    return fecha_corta(value)
 
 
 @register.filter
@@ -167,8 +168,35 @@ def delta_sentence(delta, since):
     return sentence(delta or {}, as_datetime(since))
 
 
+_OLD_DAY = re.compile(r"^(\d{1,2})/(\d{1,2})$")  # "25/10", what cutoffs saved before the copy pass hold
+
+
+@register.filter
+def chart_day(point):
+    """'25 oct' for a point of a timeline that spans days, '' otherwise.
+
+    Read from the bucket's time ("t") rather than the stored text, so saved cutoffs that hold "25/10" read
+    like new ones; the presentation's timeline has no "t", so there the old text is converted.
+    """
+    day = (point or {}).get("day") or ""
+    if not day:
+        return ""
+    from ..services.metrics import SHORT_MONTHS, short_day
+
+    stamp = as_datetime(point.get("t"))
+    if isinstance(stamp, datetime):
+        return short_day(stamp)  # no localtime(): "t" carries the event's offset, like the hour next to it
+    old = _OLD_DAY.match(day)
+    if old and 1 <= int(old.group(2)) <= 12:
+        return f"{int(old.group(1))} {SHORT_MONTHS[int(old.group(2)) - 1]}"
+    return day
+
+
 @register.simple_tag
 def cumulative_chart(points, total, chart_id, title, deck=False, eta_minutes=None, bucket_minutes=60, projection_label="", compact=False):
+    # charts.py writes "{day} {label}" under the first point: "25 oct 18:00". No comma there, unlike fecha_corta and
+    # the data table: the axis has no room for it (measured on the pastor's chart, where a projection squeezes the axis).
+    points = [{**point, "day": chart_day(point)} for point in points or []]
     return charts.cumulative_chart(
         points,
         int(total or 0),
@@ -185,6 +213,14 @@ def cumulative_chart(points, total, chart_id, title, deck=False, eta_minutes=Non
 @register.simple_tag
 def columns_chart(points, chart_id, title, deck=False, partial_last=False, compact=False):
     return charts.columns_chart(points, chart_id=chart_id, title=title, deck=bool(deck), partial_last=bool(partial_last), compact=bool(compact))
+
+
+@register.simple_tag
+def stale_minutes():
+    """The minutes after which an interview counts as "interrumpida" (metrics.STALE_MINUTES), so no page says another number."""
+    from ..services.metrics import STALE_MINUTES
+
+    return STALE_MINUTES
 
 
 @register.filter

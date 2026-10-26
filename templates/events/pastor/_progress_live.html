@@ -12,7 +12,7 @@
       <p class="voice headline">Llevamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</p>
       <p class="headline__sub">
         {% if not progress.pending %}Ya se completaron todas.
-        {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, faltan unas <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
+        {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, faltan alrededor de <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
         {% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}
       </p>
       <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
@@ -28,7 +28,7 @@
         <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>
       </dl>
     {% else %}
-      <p class="voice headline">Todavía no hay participantes registrados.</p>
+      <p class="voice headline">Todavía no hay camperos registrados.</p>
     {% endif %}
   </div>
 </section>
@@ -80,7 +80,7 @@
   <div class="report-section__body">
     <div class="table-wrap" tabindex="0" role="region" aria-label="Avance por coordinador"><table class="table table--nowrap">
       <thead><tr><th>Coordinador</th><th class="num">Avance</th><th class="num">Completadas</th><th class="num">Camperos</th><th class="num">En curso</th><th>Equipo</th></tr></thead>
-      <tbody>{% for c in coordinators %}<tr><td class="cell-name"><a href="{% url 'events:coordinator_detail' event.slug c.id %}">{{ c.name }}</a>{% if c.stale %}<span class="cell-note">{{ c.stale }} entrevista{{ c.stale|pluralize }} detenida{{ c.stale|pluralize }}</span>{% endif %}</td><td class="num">{{ c.percent|pct }}</td><td class="num">{{ c.completed }}</td><td class="num">{{ c.eligible }}</td><td class="num">{{ c.in_progress }}</td><td>{{ c.team }}</td></tr>{% empty %}<tr><td colspan="6">Todavía no hay coordinadores.</td></tr>{% endfor %}</tbody>
+      <tbody>{% for c in coordinators %}<tr><td class="cell-name"><a href="{% url 'events:coordinator_detail' event.slug c.id %}">{{ c.name }}</a>{% if c.stale %}<span class="cell-note">{{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}</span>{% endif %}</td><td class="num">{{ c.percent|pct }}</td><td class="num">{{ c.completed }}</td><td class="num">{{ c.eligible }}</td><td class="num">{{ c.in_progress }}</td><td>{{ c.team }}</td></tr>{% empty %}<tr><td colspan="6">Todavía no hay coordinadores.</td></tr>{% endfor %}</tbody>
     </table></div>
   </div>
 </section>

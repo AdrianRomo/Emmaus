@@ -13,7 +13,7 @@ Concurrency model
   it back on its next save. Other browsers may open it; the same browser may too, on purpose,
   by opening it again (``claim(reopen=True)``) or with "Tomar el control aquí".
 
-Supervised capture (Captura supervisada)
+Supervised capture ("Entrevista a solas")
 ----------------------------------------
 The coordinator's login is *ended* before the campero touches the computer. The browser
 then holds only an anonymous session bound to one ``ParticipantSession`` (one interview,
@@ -67,6 +67,13 @@ UNLOCK_COOLDOWN_SECONDS = 60
 HIDDEN_BY_CORRECTION = "ocultada por corrección"  # AnswerRevision.reason of an answer a correction hid
 SESSION_LOCKS_KEY = "interview_claims"
 KIOSK_KEY = "kiosk"
+# What happened and what to do, the same on every screen that loses the interview.
+CLAIM_LOST_MESSAGE = (
+    "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Vuelve a abrirla desde tu inicio."
+)
+NOT_IN_PROGRESS_MESSAGE = "Esta entrevista ya no está en curso. En la ficha del campero ves cómo quedó."
+KIOSK_CLOSED_MESSAGE = "Esta pantalla ya se cerró. Avisa a tu coordinador."
+WRONG_PASSWORD_MESSAGE = "La contraseña no es correcta. Revísala e inténtalo otra vez."
 
 
 class InterviewError(Exception):
@@ -93,7 +100,7 @@ class ClaimConflict(InterviewError):
 
 
 class ClaimReleased(ClaimConflict):
-    """This browser's claim was released by an administrator ("Sesiones abiertas" → "Liberar")."""
+    """This browser's claim was released by an administrator ("Computadoras en uso" → "Liberar")."""
 
     code = "liberada"
 
@@ -256,14 +263,17 @@ def _record_consents(participant, interview, confirmed: set[str], actor) -> None
 
 
 def event_blockers(event: Event) -> list[str]:
+    """Why interviews cannot start yet, each with what to do (a coordinator reads them)."""
     problems = []
-    if event.status != Event.Status.ACTIVE:
-        problems.append("El evento no está en curso.")
+    if event.status == Event.Status.DRAFT:
+        problems.append("El evento todavía no está en curso. Avisa a la administración.")
+    elif event.status != Event.Status.ACTIVE:
+        problems.append("El evento ya terminó. Si falta alguna entrevista, avisa a la administración.")
     if not event.questionnaire_version_id:
-        problems.append("Todavía no hay un cuestionario publicado para este evento.")
+        problems.append("Todavía no hay un cuestionario publicado para este evento. Avisa a la administración.")
     if not event.procedures_approved:
         problems.append(
-            "La administración aún no confirma que la iglesia aprobó sus procedimientos de autorización y protección."
+            "La administración todavía no confirma los procedimientos de autorización y protección de la iglesia. Avísale."
         )
     return problems
 
@@ -329,7 +339,7 @@ def start_interview(
 def claim(access, interview: Interview, session, *, take_over: bool = False, station=None, reopen: bool = False) -> Interview:
     """Make this browser the editor of an in-progress interview.
 
-    ``reopen`` means the person opened the interview on purpose ("Continuar entrevista" on
+    ``reopen`` means the person opened the interview on purpose ("Retomar entrevista" on
     "Mi inicio", a list, the camper page). Only then may a browser whose claim an administrator
     released pick the interview up again without "Tomar el control aquí"; a save, the review
     or the hand-over from that browser raise ``ClaimReleased``.
@@ -337,7 +347,7 @@ def claim(access, interview: Interview, session, *, take_over: bool = False, sta
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("participant").get(pk=interview.pk)
         if locked.status != Interview.Status.IN_PROGRESS:
-            raise AlreadyCompleted("Esta entrevista ya no está en curso.", interview=locked)
+            raise AlreadyCompleted(NOT_IN_PROGRESS_MESSAGE, interview=locked)
         if not access.can_interview(locked.participant):
             raise NotAllowed("Este campero no está asignado a ti.")
         token = session_claim_token(session, locked)
@@ -375,18 +385,14 @@ def _check_writable(locked: Interview, token: str | None, revision) -> None:
     if locked.status == Interview.Status.DISCARDED:
         raise InterviewError("Esta entrevista se descartó.", interview=locked)
     if not locked.lock_matches(token):
-        raise ClaimLost(
-            "Esta pantalla ya no tiene el control de la entrevista. Puede que se haya abierto en otra computadora "
-            "o que haya pasado mucho tiempo sin actividad.",
-            interview=locked,
-        )
+        raise ClaimLost(CLAIM_LOST_MESSAGE, interview=locked)
     try:
         posted = int(revision)
     except (TypeError, ValueError):
         posted = -1
     if posted != locked.revision:
         raise StaleRevision(
-            "Las respuestas cambiaron desde que abriste esta pantalla. Te mostramos la versión más reciente.",
+            "Las respuestas cambiaron desde que abriste esta pantalla. Te mostramos la versión más reciente: revísala y guarda otra vez.",
             interview=locked,
         )
 
@@ -459,13 +465,14 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
         answers = load_answers(locked)
         by_id = {q.id: q for q in all_questions(locked.version)}
         missing = [
-            step.number
+            q
             for step in visible_steps(locked.version, answers)
             for q in step.questions
             if q.required and is_visible(q, answers, by_id) and (answers.get(q.id) is None or answers[q.id].is_empty)
         ]
         if missing:
-            raise InterviewError("Falta responder una pregunta obligatoria.", interview=locked)
+            # Name the question: the review lists them all, and "Cambiar" sits next to each one.
+            raise InterviewError(f"Falta responder “{missing[0].text}”. Toca “Cambiar” junto a ella.", interview=locked)
         now = timezone.now()
         locked.status = Interview.Status.COMPLETED
         locked.completed_at = now
@@ -520,7 +527,7 @@ def discard(interview: Interview, *, actor, reason: str, session=None, check_cla
         if locked.status != Interview.Status.IN_PROGRESS:
             raise InterviewError("Solo se puede descartar una entrevista en curso.", interview=locked)
         if check_claim and not locked.lock_matches(token):
-            raise ClaimLost("Esta pantalla ya no tiene el control de la entrevista.", interview=locked)
+            raise ClaimLost(CLAIM_LOST_MESSAGE, interview=locked)
         # Data minimization: a discarded interview keeps no answers.
         locked.answers.all().delete()
         locked.status = Interview.Status.DISCARDED
@@ -551,7 +558,7 @@ def release_stale_claims(event: Event | None = None) -> int:
 
 
 def update_follow_up_decision(access, interview: Interview, decision: str) -> Interview:
-    """Resolve a 'pendiente de evaluación' decision after the interview was completed."""
+    """Resolve a "Por decidir" follow-up decision after the interview was completed."""
     if decision not in (Interview.FollowUpDecision.REQUIRED, Interview.FollowUpDecision.NOT_REQUIRED):
         raise InterviewError("Elige si requiere seguimiento o no.")
     with transaction.atomic():
@@ -591,7 +598,7 @@ def correctable_step(access, interview: Interview, step: Step) -> Step:
     access. A screen whose main question the person cannot read is refused.
     """
     if not access.can_view_answer(interview, step.question):
-        raise NotAllowed("Esta respuesta es confidencial. Solo el equipo autorizado puede corregirla.")
+        raise NotAllowed("Esta respuesta es confidencial. Solo el equipo de cuidado autorizado puede corregirla.")
     children = [child for child in step.children if access.can_view_answer(interview, child)]
     if len(children) == len(step.children):
         return step
@@ -680,14 +687,14 @@ def correct_step(access, interview: Interview, step: Step, data, *, reason: str)
             access.user,
             locked.event,
             "entrevista_corregida",
-            f"Corrigió {corrected} respuesta(s) de la entrevista del campero #{locked.participant.code}",
+            f"Corrigió {corrected} {'respuesta' if corrected == 1 else 'respuestas'} de la entrevista del campero #{locked.participant.code}",
             locked,
             questions=corrected,
         )
     return locked, {}
 
 
-# ---- supervised capture (kiosk) -----------------------------------------------------------------
+# ---- "Entrevista a solas": the campero answers on the computer (kiosk) ----------------------------
 
 
 def hand_over_to_participant(request, access, interview: Interview, station: InterviewStation | None) -> ParticipantSession:
@@ -696,9 +703,9 @@ def hand_over_to_participant(request, access, interview: Interview, station: Int
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("participant").get(pk=interview.pk)
         if locked.status != Interview.Status.IN_PROGRESS:
-            raise AlreadyCompleted("Esta entrevista ya no está en curso.", interview=locked)
+            raise AlreadyCompleted(NOT_IN_PROGRESS_MESSAGE, interview=locked)
         if not locked.lock_matches(token):
-            raise ClaimLost("Esta pantalla ya no tiene el control de la entrevista.", interview=locked)
+            raise ClaimLost(CLAIM_LOST_MESSAGE, interview=locked)
         _close_participant_sessions(locked, ParticipantSession.EndReason.TAKEN_OVER)
         kiosk_token = new_token()
         now = timezone.now()
@@ -739,9 +746,9 @@ def switch_to_assisted(access, interview: Interview, *, session) -> Interview:
     with transaction.atomic():
         locked = Interview.objects.select_for_update().get(pk=interview.pk)
         if locked.status != Interview.Status.IN_PROGRESS or not locked.lock_matches(token):
-            raise ClaimLost("Esta pantalla ya no tiene el control de la entrevista.", interview=locked)
+            raise ClaimLost(CLAIM_LOST_MESSAGE, interview=locked)
         if locked.answers.filter(answered_by_participant=True).exists():
-            raise InterviewError("El campero ya respondió algunas preguntas por su cuenta; termina en captura supervisada.")
+            raise InterviewError("El campero ya respondió algunas preguntas a solas, así que la entrevista sigue a solas. Entrégale la computadora.")
         locked.mode = Interview.Mode.ASSISTED
         locked.save(update_fields=["mode"])
     return locked
@@ -761,7 +768,7 @@ def current_kiosk_session(session, *, touch: bool = False) -> ParticipantSession
         .first()
     )
     if participant_session is None or not participant_session.token_matches(state.get("token")):
-        raise KioskEnded("Esta sesión ya no es válida.")
+        raise KioskEnded(KIOSK_CLOSED_MESSAGE)
     now = timezone.now()
     if participant_session.state == ParticipantSession.State.ACTIVE:
         idle_limit = participant_session.last_activity_at + timedelta(minutes=KIOSK_IDLE_MINUTES)
@@ -778,7 +785,7 @@ def current_kiosk_session(session, *, touch: bool = False) -> ParticipantSession
 def require_active_kiosk(session) -> ParticipantSession:
     participant_session = current_kiosk_session(session, touch=True)
     if participant_session.state != ParticipantSession.State.ACTIVE:
-        raise KioskEnded("Esta sesión terminó. Avisa a tu coordinador.")
+        raise KioskEnded(KIOSK_CLOSED_MESSAGE)
     if participant_session.interview.status != Interview.Status.IN_PROGRESS:
         raise KioskEnded("Esta entrevista ya terminó.")
     return participant_session
@@ -810,7 +817,7 @@ def kiosk_unlock(request, password: str, *, username: str | None = None):
     participant_session = current_kiosk_session(request.session)
     if participant_session.state == ParticipantSession.State.CLOSED:
         request.session.pop(KIOSK_KEY, None)
-        raise KioskEnded("Esta sesión ya se cerró.")
+        raise KioskEnded(KIOSK_CLOSED_MESSAGE)
     wait = throttle.consume(
         f"unlock:{participant_session.public_id}",
         limit=UNLOCK_MAX_ATTEMPTS,
@@ -828,11 +835,11 @@ def kiosk_unlock(request, password: str, *, username: str | None = None):
     interview = participant_session.interview
     access = resolve_access(user, interview.event) if user else None
     if user is None or access is None or not access.can_interview(interview.participant):
-        raise InterviewError("La contraseña no es correcta.")
+        raise InterviewError(WRONG_PASSWORD_MESSAGE)
     with transaction.atomic():
         locked_session = ParticipantSession.objects.select_for_update().get(pk=participant_session.pk)
         if locked_session.state == ParticipantSession.State.CLOSED:
-            raise KioskEnded("Esta sesión ya se cerró.")
+            raise KioskEnded(KIOSK_CLOSED_MESSAGE)
         locked_session.state = ParticipantSession.State.CLOSED
         locked_session.ended_at = timezone.now()
         locked_session.end_reason = ParticipantSession.EndReason.UNLOCKED
@@ -866,7 +873,7 @@ def revoke_participant_session(participant_session: ParticipantSession, *, actor
         if interview.lock_token_hash == locked.lock_token_hash:
             _clear_claim(interview)
             interview.save(update_fields=["lock_token_hash", "lock_holder", "lock_expires_at"])
-        audit.record(actor, interview.event, "sesion_revocada", "Cerró una sesión de captura supervisada", interview)
+        audit.record(actor, interview.event, "sesion_revocada", "Cerró la pantalla del campero en una entrevista a solas", interview)
 
 
 def revoke_claim(interview: Interview, *, actor) -> None:

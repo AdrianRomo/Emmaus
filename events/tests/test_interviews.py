@@ -68,7 +68,7 @@ class AssistedInterviewTests(CampFixture):
     def test_start_requires_consent_and_records_it(self):
         response = self.client.post(self.url("interview_start", self.p2.public_id), {"mode": "asistida"})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Confirma esta autorización para poder comenzar.")
+        self.assertContains(response, "Para comenzar, confirma esta autorización.")
         self.assertFalse(Interview.objects.filter(participant=self.p2).exists())
         response = self.start(self.p2)
         interview = Interview.objects.get(participant=self.p2)

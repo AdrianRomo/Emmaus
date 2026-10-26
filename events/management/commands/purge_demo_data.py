@@ -67,7 +67,7 @@ SUMMARY = (
     ("Sedes", (Sede,)),
     ("Entrevistas", (Interview,)),
     ("Respuestas", (Answer,)),
-    ("Cortes de seguimiento", (ReportSnapshot,)),
+    ("Cortes", (ReportSnapshot,)),
     ("Seguimientos", (FollowUp,)),
     ("Usuarios", (User,)),
     # Paths, lessons, enrollments, participant questions, pastoral notes, AI drafts… (seed_dev_data).

@@ -82,8 +82,8 @@ class DiscipleshipManagementRotuloTests(EmmausFixture):
             church=self.church, participant=self.other_participant, question_text="Also needs a pastor.", status=ParticipantQuestion.Status.ESCALATED,
         )
         response = self.client.get(url)
-        self.assertContains(response, "2 preguntas escaladas esperan respuesta")
-        self.assertContains(response, f'href="{reverse("escalations")}">Ver preguntas escaladas')
+        self.assertContains(response, "2 preguntas pasadas al pastor esperan respuesta")
+        self.assertContains(response, f'href="{reverse("escalations")}">Ver preguntas para el pastor')
 
     def test_participant_record_keeps_pastoral_guards(self):
         url = reverse("participant_detail", kwargs={"profile_id": self.profile.id})

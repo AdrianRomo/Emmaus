@@ -8,15 +8,15 @@
   <section class="sign crew-sign" aria-labelledby="que-hago">
     {% if stalled|length == 1 %}
       {% with c=stalled.0 %}{% with place=stalled_places|get_item:c.id %}
-        <h2 id="que-hago" class="sign__title">{{ c.name }} lleva {{ c.stale }} entrevista{{ c.stale|pluralize }} sin movimiento</h2>
-        <p class="sign__text">{% if c.stale == 1 %}Lleva{% else %}Llevan{% endif %} 20 minutos o más sin actividad{% if place %} en {{ place }}{% endif %}. Pregúntale si necesita ayuda o si hay que retomarla{{ c.stale|pluralize }}.</p>
+        <h2 id="que-hago" class="sign__title">{{ c.name }} tiene {{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}</h2>
+        <p class="sign__text">{% if c.stale == 1 %}Lleva{% else %}Llevan{% endif %} {% stale_minutes %} minutos o más sin cambios{% if place %} en {{ place }}{% endif %}. Pregúntale si necesita ayuda o si hay que retomarla{{ c.stale|pluralize }}.</p>
       {% endwith %}{% endwith %}
     {% else %}
-      <h2 id="que-hago" class="sign__title">{{ payload.attention.stale_interviews }} entrevistas sin movimiento</h2>
-      <p class="sign__text">{% for c in stalled %}{{ c.name }} lleva {{ c.stale }}{% if forloop.revcounter == 2 %} y {% elif not forloop.last %}, {% endif %}{% endfor %}. Llevan 20 minutos o más sin actividad. Pregúntales si necesitan ayuda o si hay que retomarlas.</p>
+      <h2 id="que-hago" class="sign__title">{{ payload.attention.stale_interviews }} entrevistas interrumpidas</h2>
+      <p class="sign__text">{% for c in stalled %}{{ c.name }} tiene {{ c.stale }}{% if forloop.revcounter == 2 %} y {% elif not forloop.last %}, {% endif %}{% endfor %}. Llevan {% stale_minutes %} minutos o más sin cambios. Pregúntales si necesitan ayuda o si hay que retomarlas.</p>
     {% endif %}
     <div class="sign__actions">
-      <a class="btn btn--primary btn--large" href="{% url 'events:pending' event.slug %}#interrumpidas">Ver las entrevistas detenidas</a>
+      <a class="btn btn--primary btn--large" href="{% url 'events:pending' event.slug %}#interrumpidas">Ver las entrevistas interrumpidas</a>
     </div>
   </section>
 {% endif %}
@@ -29,7 +29,7 @@
         <p class="coord__count-note">
           {{ progress.percent|pct }} de sus camperos{% if progress.in_progress %}, {{ progress.in_progress }} en curso{% endif %}.
           {% if not progress.pending %}Ya completaron todas.
-          {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, faltan unas <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
+          {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, faltan alrededor de <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
           {% endif %}
           Cada marca es un campero.
         </p>
@@ -104,7 +104,7 @@
     </section>
 
     <section aria-labelledby="cortes">
-      <h2 id="cortes" class="heading">Cortes de seguimiento</h2>
+      <h2 id="cortes" class="heading">Cortes</h2>
       <p>{% if last_snapshot %}El último corte fue a las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Aún no hay cortes.{% endif %}
         {% if next_cutoff %}El próximo será a las {{ next_cutoff|date:"H:i" }}.{% else %}No hay otro programado.{% endif %}</p>
       <p class="more"><a href="{% url 'events:reports' event.slug %}">Ver reportes de mi equipo</a></p>

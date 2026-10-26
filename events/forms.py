@@ -217,8 +217,8 @@ class InterviewStartForm(forms.Form):
     mode = forms.ChoiceField(
         label="¿Cómo se va a responder?",
         choices=[
-            ("asistida", "Yo hago las preguntas y anoto las respuestas"),
-            ("supervisada", "El campero responde solo en esta computadora"),
+            ("asistida", "Entrevista asistida: yo hago las preguntas y anoto las respuestas"),
+            ("supervisada", "Entrevista a solas: el campero responde solo en esta computadora"),
         ],
         widget=forms.RadioSelect,
         initial="asistida",
@@ -234,7 +234,7 @@ class InterviewStartForm(forms.Form):
                     label=requirement.label,
                     help_text=requirement.help,
                     required=True,
-                    error_messages={"required": "Confirma esta autorización para poder comenzar."},
+                    error_messages={"required": "Para comenzar, confirma esta autorización."},
                 )
 
     def confirmed(self) -> set[str]:
@@ -258,7 +258,7 @@ class DiscardForm(forms.Form):
 class SafetyReportForm(forms.Form):
     details = forms.CharField(
         label="¿Qué pasó?",
-        help_text="Escribe solo lo necesario para que el equipo responsable pueda actuar. Esto es confidencial.",
+        help_text="Escribe solo lo necesario para que el equipo de cuidado autorizado pueda actuar. Es confidencial: solo ese equipo podrá leerlo.",
         widget=forms.Textarea(attrs={"rows": 6}),
         max_length=4000,
         error_messages={"required": "Describe brevemente la situación."},
@@ -300,7 +300,7 @@ class MemberForm(forms.Form):
     tutor = forms.ModelChoiceField(queryset=EventMembership.objects.none(), required=False, label="Tutor que lo supervisa",
                                    empty_label="Sin tutor por ahora", help_text="Solo para coordinadores.")
     can_view_sensitive = forms.BooleanField(required=False, label="Puede leer información confidencial",
-                                            help_text="Solo para el equipo de cuidado. Cada consulta queda registrada.")
+                                            help_text="Solo para el equipo de cuidado autorizado. Cada consulta queda registrada.")
 
     def __init__(self, *args, event: Event, **kwargs):
         super().__init__(*args, **kwargs)
@@ -312,7 +312,7 @@ class MemberForm(forms.Form):
         email = self.cleaned_data["email"].lower().strip()
         user = User.objects.filter(email__iexact=email).first()
         if user and EventMembership.objects.filter(event=self.event, user=user).exists():
-            raise ValidationError("Esta persona ya forma parte del equipo de este evento.")
+            raise ValidationError("Esta persona ya forma parte del equipo de este evento. Para cambiar su rol, toca “Editar” junto a su nombre en Equipo.")
         return email
 
 
@@ -402,7 +402,7 @@ class ImportForm(forms.Form):
         if upload.size > 2 * 1024 * 1024:
             raise ValidationError("El archivo es muy grande. El máximo es 2 MB.")
         if not upload.name.lower().endswith((".csv", ".txt")):
-            raise ValidationError("El archivo debe ser .csv. En Excel usa Archivo > Guardar como > CSV UTF-8.")
+            raise ValidationError("El archivo debe ser .csv. Guarda la hoja de cálculo como CSV (UTF-8) y súbela otra vez.")
         return upload
 
 
@@ -417,7 +417,7 @@ class QuestionForm(forms.ModelForm):
     condition_codes = forms.CharField(
         required=False,
         label="Respuestas que la muestran",
-        help_text="Claves de opción separadas por coma. Por ejemplo: si",
+        help_text="Los identificadores internos de esas respuestas, separados por comas. Están junto a cada opción en el cuestionario. Por ejemplo: si",
     )
 
     class Meta:
@@ -443,9 +443,12 @@ class QuestionForm(forms.ModelForm):
             valid = set(parent.options.values_list("code", flat=True))
             unknown = [c for c in codes if c not in valid]
             if not codes:
-                self.add_error("condition_codes", "Escribe al menos una clave de opción de la pregunta elegida.")
+                self.add_error("condition_codes", "Escribe el identificador interno de al menos una respuesta de la pregunta elegida.")
             elif unknown:
-                self.add_error("condition_codes", f"Estas claves no existen en esa pregunta: {', '.join(unknown)}.")
+                self.add_error(
+                    "condition_codes",
+                    f"Esa pregunta no tiene respuestas con estos identificadores: {', '.join(unknown)}. Usa uno de estos: {', '.join(sorted(valid))}.",
+                )
         cleaned["condition_codes_list"] = codes if parent else []
         return cleaned
 

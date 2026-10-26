@@ -5,7 +5,7 @@
 {% if can_interview and interview.status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}
 {% if can_edit %}{% url 'events:participant_edit' event.slug participant.public_id as edit_url %}{% endif %}
 {% if interview %}
-  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Continuar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
 {% else %}
   {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
 {% endif %}

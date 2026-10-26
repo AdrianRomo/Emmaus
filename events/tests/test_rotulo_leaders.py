@@ -43,12 +43,12 @@ class LeaderScreensTests(CampFixture):
         response = self.client.get(self.url("tutor_home"))
         html = response.content.decode()
         self.assertEqual(len(re.findall(r'class="sign[ "]', html)), 1)  # one sign, never two
-        self.assertContains(response, "Carla Uno lleva 1 entrevista sin movimiento")
-        self.assertContains(response, "sin actividad en Computadora 4")
+        self.assertContains(response, "Carla Uno tiene 1 entrevista interrumpida")
+        self.assertContains(response, "sin cambios en Computadora 4")
         self.assertContains(response, self.url("pending") + "#interrumpidas")
         # The row for Carla says where she is and that one interview stalled, in words (not in red)
         self.assertContains(response, "En Computadora 4")
-        self.assertContains(response, "1 entrevista sin actividad desde hace 20 minutos o más")
+        self.assertContains(response, "1 entrevista interrumpida: 20 minutos o más sin cambios")
         self.assertNotContains(response, "chip--alert")
 
     def test_tutor_sign_names_the_computer_of_the_stalled_interview(self):
@@ -59,8 +59,8 @@ class LeaderScreensTests(CampFixture):
         self.start(self.p2)  # a newer, active interview at another computer
         self.login(self.tutor1)
         response = self.client.get(self.url("tutor_home"))
-        self.assertContains(response, "sin actividad en Computadora 8")
-        self.assertNotContains(response, "sin actividad en Computadora 3")
+        self.assertContains(response, "sin cambios en Computadora 8")
+        self.assertNotContains(response, "sin cambios en Computadora 3")
 
     def test_tutor_sign_counts_every_stalled_coordinator(self):
         self.stall(self.p1)
@@ -70,8 +70,8 @@ class LeaderScreensTests(CampFixture):
         Interview.objects.filter(participant=self.p3).update(last_activity_at=timezone.now() - timedelta(minutes=45))
         self.login(self.tutor1)
         response = self.client.get(self.url("tutor_home"))
-        self.assertContains(response, "2 entrevistas sin movimiento")
-        self.assertContains(response, "Carla Uno lleva 1 y César Dos lleva 1.")
+        self.assertContains(response, "2 entrevistas interrumpidas")
+        self.assertContains(response, "Carla Uno tiene 1 y César Dos tiene 1.")
 
     def test_tutor_home_has_no_sign_while_nothing_is_stalled(self):
         self.login(self.tutor1)

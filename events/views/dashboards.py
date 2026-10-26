@@ -138,7 +138,7 @@ def interviews(request, event, access):
     group = request.GET.get("grupo", "")
     status = request.GET.get("estado", "")
     period = request.GET.get("periodo", "")
-    if coordinator_id.isdigit():
+    if coordinator_id.isascii() and coordinator_id.isdigit():  # "²".isdigit() is True and int("²") raises
         participants = participants.filter(coordinator_id=int(coordinator_id))
     if room:
         participants = participants.filter(room=room)

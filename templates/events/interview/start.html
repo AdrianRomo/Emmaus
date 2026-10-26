@@ -3,7 +3,7 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}Antes de empezar{% endblock %}
 {% block focus_actions %}
   {% if station %}<p class="here"><span class="here__blaze" aria-hidden="true"></span>{{ station.name }}</p>{% endif %}
-  <a class="btn btn--small btn--secondary" href="{% url 'events:interview_search' event.slug %}">Cancelar</a>
+  <a class="btn btn--small btn--secondary" href="{% url 'events:interview_search' event.slug %}">Volver</a>
 {% endblock %}
 {% block content %}
 {% include "partials/ui/error_summary.html" with form=form %}
@@ -50,7 +50,7 @@
           <div class="choice">
             {{ radio.tag }}
             <label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span>
-              <span>{% if radio.data.value == "asistida" %}Entrevista asistida<small class="choice__sub">Tú haces las preguntas y anotas las respuestas.</small>{% else %}Captura supervisada<small class="choice__sub">El campero responde solo. Necesitarás tu contraseña para recuperar la computadora.</small>{% endif %}</span>
+              <span>{% if radio.data.value == "asistida" %}Entrevista asistida<small class="choice__sub">Tú haces las preguntas y anotas las respuestas.</small>{% else %}Entrevista a solas<small class="choice__sub">El campero responde solo en la computadora. Necesitarás tu contraseña para recuperarla.</small>{% endif %}</span>
             </label>
           </div>
         {% endfor %}

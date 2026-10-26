@@ -120,7 +120,7 @@ def participant_import(request, event, access):
     if preview and preview.get("event") != event.id:
         preview = None
     if request.method == "POST" and request.POST.get("action") == "confirm" and preview:
-        include = {int(line) for line in request.POST.getlist("include") if line.isdigit()}
+        include = {int(line) for line in request.POST.getlist("include") if line.isascii() and line.isdigit()}
         result = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
         request.session.pop(IMPORT_SESSION_KEY, None)
         messages.success(request, result.message)
@@ -508,7 +508,7 @@ def assignments(request, event, access):
                     continue  # a stale or partial form never clears assignments it did not show
                 raw = request.POST.get(field, "")
                 current = getattr(coordinator, "tutor_assignment", None)
-                target = tutor_by_id.get(int(raw)) if raw.isdigit() else None
+                target = tutor_by_id.get(int(raw)) if raw.isascii() and raw.isdigit() else None
                 if (current.tutor_id if current else None) == (target.id if target else None):
                     continue
                 TutorAssignment.objects.filter(coordinator=coordinator).delete()
@@ -516,7 +516,7 @@ def assignments(request, event, access):
                     TutorAssignment.objects.create(event=event, tutor=target, coordinator=coordinator, created_by=request.user)
                 changed += 1
             if changed:
-                audit.record(request.user, event, "asignacion_tutor", f"Cambió {changed} asignación(es) de tutor", None, count=changed)
+                audit.record(request.user, event, "asignacion_tutor", f"Cambió {changed} {'asignación' if changed == 1 else 'asignaciones'} de tutor", None, count=changed)
         messages.success(request, "Asignaciones guardadas." if changed else "No hubo cambios.")
         return redirect("events:assignments", slug=event.slug)
     counts = dict(event.participants.filter(is_active=True).values_list("coordinator").annotate(n=Count("id")))
@@ -600,7 +600,7 @@ def section_add(request, event, access, version_id):
         section.version = version
         section.save()
         return redirect("events:version_detail", slug=event.slug, version_id=version.id)
-    return render(request, "events/admin/simple_form.html", {"form": form, "title": "Nueva sección", "back": reverse("events:version_detail", args=[event.slug, version.id])})
+    return render(request, "events/admin/simple_form.html", {"form": form, "title": "Nueva sección", "submit_label": "Guardar sección", "back": reverse("events:version_detail", args=[event.slug, version.id])})
 
 
 @event_view(ADMIN)
@@ -648,7 +648,7 @@ def option_add(request, event, access, version_id, question_id):
         option.code = code
         option.save()
         return redirect("events:version_detail", slug=event.slug, version_id=version.id)
-    return render(request, "events/admin/simple_form.html", {"form": form, "title": f"Nueva opción para “{question.text}”", "back": reverse("events:version_detail", args=[event.slug, version.id])})
+    return render(request, "events/admin/simple_form.html", {"form": form, "title": f"Nueva opción para “{question.text}”", "submit_label": "Guardar opción", "back": reverse("events:version_detail", args=[event.slug, version.id])})
 
 
 # ---- settings, stations, audit, sessions ------------------------------------------------------
@@ -720,7 +720,7 @@ def sessions(request, event, access):
         if request.POST.get("participant_session"):
             ps = get_object_or_404(ParticipantSession, public_id=valid_uuid(request.POST["participant_session"]), interview__event=event)
             interview_svc.revoke_participant_session(ps, actor=request.user)
-            messages.success(request, "Sesión de captura cerrada. La entrevista quedó en curso para retomarla.")
+            messages.success(request, "Se cerró la pantalla del campero. La entrevista sigue en curso para retomarla.")
         elif request.POST.get("interview"):
             interview = get_object_or_404(Interview, public_id=valid_uuid(request.POST["interview"]), event=event)
             interview_svc.revoke_claim(interview, actor=request.user)

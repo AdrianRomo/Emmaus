@@ -9,7 +9,7 @@
     <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
   </div>
   <div class="report-head__actions">
-    <a class="btn btn--secondary" href="{% url 'events:participants' event.slug %}">Ver participantes</a>
+    <a class="btn btn--secondary" href="{% url 'events:participants' event.slug %}">Ver camperos</a>
   </div>
 </header>
 <div id="admin-vivo" data-live-url="{% url 'events:admin_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">

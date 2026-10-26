@@ -12,7 +12,7 @@ Emmaus Campamentos records spiritual and personal conversations with camperos, m
 | `Answer` | The answers: selected options and free text | Per field, by sensitivity (below) |
 | `AnswerRevision` | Previous value of a corrected answer, reason, who | Previous values are stored but not displayed; the history list (question, date, who, reason) is visible only to `can_view_sensitive` users |
 | `FollowUp` | Reason, status, assigned leader, confidential details (safety reports), confidential closing note, `confidential` flag | Ordinary care follow-ups: everyone in scope; confidential support referrals: only `can_view_sensitive`; details and notes: only `can_view_sensitive`. Safety reports: see below |
-| `ParticipantSession` | Which interview and station, who handed over, token hashes, timestamps | Administradores ("Sesiones abiertas") |
+| `ParticipantSession` | Which interview and station, who handed over, token hashes, timestamps | Administradores ("Computadoras en uso") |
 | `EventMembership`, `TutorAssignment` | Staff name and e-mail (from `User`), role, team name, confidential-access flag | Administradores; pastores see the "Equipo" page |
 | `AccessRequest` | Name, e-mail, requested role (tutor or coordinador) and an optional note typed on the event's public page; status, who decided and when, and why when the account already had access. At most 50 pending per event. Approved and rejected requests are deleted by the scheduler 30 days after the decision (the activity log keeps who decided); all are deleted with the event | Administradores ("Equipo" → "Solicitudes de acceso"); the note never goes to the activity log |
 | `ReportSnapshot` | Aggregate counts, team labels, coordinador names; no campero names, no answers | Administradores, pastores, tutores (own team) |
@@ -38,9 +38,9 @@ Confidential access (`can_view_sensitive`) is never automatic: administradores a
 
 Hidden answers are also hidden in the page structure: a row the viewer cannot read shows only "Confidencial" (answered or not), conditional questions that depend on a hidden answer are not listed, and the coordinador's follow-up hints use only questions they can read.
 
-When a campero selects a support area in a confidential question (in the default questionnaire, "¿Hay alguna situación en tu vida en la que te gustaría recibir apoyo?"), finalizing the interview creates a confidential care referral, "Pidió apoyo en un área de su vida", visible only to the care team. It is created whatever the coordinador decided, so a request made in private does not depend on someone who could not read it.
+When a campero selects a support area in a confidential question (in the default questionnaire, "¿Hay alguna situación en tu vida en la que te gustaría recibir apoyo?"), finalizing the interview creates a confidential care referral, "Pidió apoyo en un área de su vida", visible only to the care team ("equipo de cuidado autorizado"). It is created whatever the coordinador decided, so a request made in private does not depend on someone who could not read it.
 
-The interview screens show "Confidencial: solo el equipo de cuidado autorizado podrá leerla" on confidential questions, and every question offers "Prefiero no responder".
+The interview screens show the "Confidencial" tag and "Solo el equipo de cuidado autorizado podrá leer esta respuesta." on confidential questions, and every question offers "Prefiero no responder".
 
 ## Consent records
 
@@ -51,7 +51,7 @@ The interview screens show "Confidencial: solo el equipo de cuidado autorizado p
 
 ## The church approves its procedures first
 
-Interviews are blocked until an administrador ticks, in "Configuración" → "Procedimientos de la iglesia": "Confirmo que la iglesia definió y aprobó sus procedimientos de autorización, protección de menores y atención de situaciones de riesgo." The app records who confirmed and when. Until then every interview start shows "La administración aún no confirma que la iglesia aprobó sus procedimientos de autorización y protección." The app cannot check that the procedures exist; the confirmation is the church's responsibility. There is no button to undo it.
+Interviews are blocked until an administrador ticks, in "Configuración" → "Procedimientos de la iglesia": "Confirmo que la iglesia definió y aprobó sus procedimientos de autorización, protección de menores y atención de situaciones de riesgo." The app records who confirmed and when. Until then every interview start shows "La administración todavía no confirma los procedimientos de autorización y protección de la iglesia. Avísale." The app cannot check that the procedures exist; the confirmation is the church's responsibility. There is no button to undo it.
 
 Each event also stores its own "Aviso de privacidad" (read to the campero before starting) and "Qué hacer ante una situación de riesgo" (shown on every safety report). Both have defaults and should be adapted by the church.
 
@@ -69,7 +69,7 @@ On the campero page, administradores see:
 * "Descargar todos sus datos" (only with confidential access): a JSON file with the registry data, the interview status and version, every answer as question and text, and the authorization records with their notes (for a withdrawal, its reason). Audited as `exportacion`.
 * "Eliminar sus datos": requires typing the full name, then deletes the campero with their interview, answers, authorizations and follow-ups. Audited as `campero_eliminado` with the number only. Cutoffs are not changed.
 
-"Descargar lista de camperos" exports registry data only (no answers), as CSV, and is audited. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return are prefixed with `'` so a spreadsheet does not run them as formulas.
+"Descargar la lista de camperos" exports registry data only (no answers), as CSV, and is audited. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return are prefixed with `'` so a spreadsheet does not run them as formulas.
 
 ## Activity log
 
@@ -104,8 +104,8 @@ Set on every non-static response by `PrivateResponseMiddleware` and Django setti
 
 ## Shared-computer protections
 
-* Supervised capture logs the coordinador out before the campero touches the computer. The browser is confined to `/estacion/` and holds only a random token for one interview. Recovering it needs a password; attempts are counted in the database (5, then a 60-second block that doubles each time up to 15 minutes), so clearing cookies or parallel requests do not help. A capture session closed by an administrador cannot be unlocked.
-* The campero sees only their own answers; the screen locks after 5 minutes idle in the browser, 10 minutes on the server, 60 minutes at most. The final screen says "¡Gracias!" without the campero's name.
+* An "Entrevista a solas" logs the coordinador out before the campero touches the computer. The browser is confined to `/estacion/` and holds only a random token for one interview. Recovering it needs a password; attempts are counted in the database (5, then a 60-second block that doubles each time up to 15 minutes), so clearing cookies or parallel requests do not help. A capture session closed by an administrador cannot be unlocked.
+* The campero sees only their own answers, and is told who reads them ("El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: esas solo las lee el equipo de cuidado autorizado."); the screen locks after 5 minutes idle in the browser, 10 minutes on the server, 60 minutes at most. The final screen says "¡Gracias!" without the campero's name.
 * The staff login allows 8 attempts per e-mail, then blocks that e-mail for 5 minutes, doubling up to 60 minutes if the failures continue.
 * Staff logins end when the browser closes and after 30 minutes idle (`EMMAUS_IDLE_LOGOUT_SECONDS`). A dashboard's automatic refresh does not count as activity, so an unattended dashboard or live presentation is logged out too and then says "Tu sesión terminó...". The stored session also expires 12 hours after its last change (`SESSION_COOKIE_AGE`). Still, close the session with "Cerrar sesión" when you leave.
 * Only one computer can edit an interview at a time; "Tomar el control aquí" is explicit and audited.
@@ -147,7 +147,7 @@ El 23 de octubre de 2026 una revisión adversarial (alguien intentando romper la
 * Fórmulas peligrosas en la lista de camperos descargada (CSV).
 * Asignaciones de tutor que se perdían al guardar un formulario incompleto o desactualizado.
 * Cortes antiguos que seguían mostrando a un tutor coordinadores que ya no son suyos.
-* Desbloqueo de una sesión de captura que la administración ya había cerrado.
+* Desbloqueo de una pantalla de entrevista a solas que la administración ya había cerrado.
 * Doble clic en "Generar corte ahora" que creaba dos cortes.
 * Un error 500 con un identificador inválido.
 
@@ -169,15 +169,15 @@ Riesgos que siguen, dichos con honestidad:
 * La administración ve que existe un reporte de riesgo aunque no pueda leerlo.
 * `/admin/` de Django es una oficina técnica: quien es superusuario puede ver y cambiar datos sin pasar por las reglas de la aplicación.
 
-## Antes de usar Emmaus con menores reales
+## Antes de usar Emmaus con menores de edad
 
 - [ ] La iglesia definió y aprobó por escrito quién autoriza las entrevistas, cómo se recaban y guardan las autorizaciones firmadas de padres, madres o tutores legales, quién atiende las situaciones de riesgo y cuánto tiempo se conservan los datos.
 - [ ] La iglesia revisó con asesoría legal sus obligaciones conforme a la LFPDPPP y su aviso de privacidad.
 - [ ] Adaptaste en "Configuración" el "Aviso de privacidad" y "Qué hacer ante una situación de riesgo" con los nombres y teléfonos reales del equipo de protección.
-- [ ] Revisaste la "Edad de mayoría", "Pedir autorización de padre, madre o tutor legal para menores", el "Tamaño mínimo de grupo" y los "Días que se conservan las respuestas".
+- [ ] Revisaste la "Edad de mayoría", "Pedir autorización de padre, madre o tutor legal para menores", el "Mínimo de personas para mostrar un total" y los "Días que se conservan las respuestas".
 - [ ] Revisaste el cuestionario y el nivel de privacidad de cada pregunta.
-- [ ] Solo las personas del equipo de cuidado tienen "Puede leer información confidencial", y cada una sabe que sus consultas quedan registradas.
-- [ ] Cada coordinador tiene su propia cuenta y contraseña, y sabe recuperar la computadora en la captura supervisada.
+- [ ] Solo las personas del equipo de cuidado autorizado tienen "Puede leer información confidencial", y cada una sabe que sus consultas quedan registradas.
+- [ ] Cada coordinador tiene su propia cuenta y contraseña, y sabe recuperar la computadora en una entrevista a solas.
 - [ ] El servidor usa HTTPS, `DEBUG=false`, respaldos cifrados y `manage.py check --deploy` sin la advertencia `emmaus.W001` (cuentas de demostración).
 - [ ] El servicio `scheduler` está corriendo (borra los datos vencidos de los eventos terminados o archivados, una vez al día), y al acabar el campamento alguien lo marca como "Terminado".
 - [ ] Hiciste una prueba completa con datos ficticios antes del campamento.

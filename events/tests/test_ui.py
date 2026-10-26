@@ -174,7 +174,7 @@ class EventListTests(CampFixture):
         self.login(admin)
         response = self.client.get(reverse("events:list") + "?todos=1")
         self.assertContains(response, 'class="sign"', count=1)
-        self.assertContains(response, "Todavía no hay eventos")
+        self.assertContains(response, "Todavía no hay campamentos")
         self.assertContains(response, f'href="{reverse("events:create")}"', count=1)
 
     def test_someone_without_events_is_told_who_can_add_them(self):

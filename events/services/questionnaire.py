@@ -334,7 +334,7 @@ DEFAULT_CAMP_QUESTIONNAIRE = {
                     "options": [
                         {"code": "si", "label": "Sí"},
                         {"code": "no", "label": "No"},
-                        {"code": "no_seguro", "label": "No estoy seguro/a"},
+                        {"code": "no_seguro", "label": "No lo tengo claro"},
                         DECLINE,
                     ],
                 },

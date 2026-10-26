@@ -501,7 +501,7 @@ class SedeAdminPageTests(SedeFixture):
 
     def test_the_participants_tab_stays_marked_on_the_sedes_pages(self):
         self.login(self.admin)
-        marked = f'<a href="{self.url("participants")}" aria-current="page">Participantes</a>'
+        marked = f'<a href="{self.url("participants")}" aria-current="page">Camperos</a>'
         for url in (self.url("sedes"), self.url("sede_add"), self.url("sede_edit", self.merida.pk)):
             self.assertContains(self.client.get(url), marked, msg_prefix=url)
 

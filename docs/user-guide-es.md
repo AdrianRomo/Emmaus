@@ -25,10 +25,17 @@ Emmaus entra con tu cuenta y te lleva a **"Campamentos y eventos"**, donde lo ú
 | **Pastor** | Ve el avance de todo el campamento y los reportes. |
 | **Administración** | Prepara el campamento: equipo, camperos, computadoras y configuración. |
 | **Entrevista** | La conversación espiritual con cada campero. Hay una sola por campero. |
-| **Computadora de entrevistas** | Una computadora compartida con un número pegado, por ejemplo "Computadora 3". |
-| **Corte de seguimiento** | Una "foto" del avance que Emmaus guarda a ciertas horas. No cambia después. |
+| **Cuarto** | Donde duerme el campero durante el campamento, por ejemplo "Cuarto 12". |
+| **Computadora de entrevista** | Una computadora compartida con un número pegado, por ejemplo "Computadora 3". |
+| **Computadoras en uso** | La página de la administración donde se libera una entrevista o se cierra la pantalla de un campero que se quedó abierta. |
+| **Entrevista asistida** | Tú haces las preguntas y anotas las respuestas. |
+| **Entrevista a solas** | El campero responde solo en la computadora. Tú se la entregas y la recuperas con tu contraseña. |
+| **Retomar** | Seguir una entrevista que quedó a medias, desde donde se quedó. |
+| **Interrumpida** | Una entrevista en curso que lleva 20 minutos o más sin cambios. Tu tutor la ve para ayudarte a retomarla. |
+| **Corte** | Una "foto" del avance que Emmaus guarda a ciertas horas. No cambia después. |
 | **Seguimiento** | Un campero que pidió o necesita que un líder lo acompañe después. |
-| **Equipo de cuidado** | Las pocas personas autorizadas para leer las respuestas confidenciales. |
+| **Por decidir** | Una entrevista completada en la que todavía no se decide si el campero necesita seguimiento. |
+| **Equipo de cuidado autorizado** | Las pocas personas autorizadas para leer las respuestas confidenciales y los reportes de riesgo. |
 | **Sede** | El lugar de la iglesia de donde viene el campero, por ejemplo "Satélite" o "Mérida". Se elige al registrarlo. |
 | **Código del evento** | Seis letras y números, por ejemplo `K7M3QX`, que la administración imprime en una hoja. Sirve para pedir acceso al equipo en `/unirme/`. No sirve para entrar ni para ver nada. |
 
@@ -62,11 +69,11 @@ Si ya tienes cuenta, entra primero y vuelve a la página del evento: tu nombre y
 
 ### Tu pantalla de inicio
 
-En **"Inicio"**, si algo impide entrevistar, arriba aparece un letrero amarillo con lo único que hay que hacer primero: **"Confirma los procedimientos de la iglesia"**, **"Elige el cuestionario de las entrevistas"** o **"Asigna coordinador a N camperos"**, con el botón para hacerlo. Debajo dice cuántas entrevistas van ("Llevamos 247 de 400 entrevistas."), con una barra de avance y las cifras de participantes, capturas supervisadas, seguimientos y situaciones de riesgo.
+En **"Inicio"**, si algo impide entrevistar, arriba aparece un letrero amarillo con lo único que hay que hacer primero: **"Confirma los procedimientos de la iglesia"**, **"Elige el cuestionario de las entrevistas"** o **"Asigna coordinador a N camperos"**, con el botón para hacerlo. Debajo dice cuántas entrevistas van ("Llevamos 247 de 400 entrevistas."), con una barra de avance y las cifras de camperos, entrevistas a solas, seguimientos y situaciones de riesgo.
 
 ![Inicio de la administración](img/admin-inicio.png)
 
-Luego, **"Preparación"** lista cada paso (procedimientos de la iglesia, cuestionario, camperos, equipo, computadoras y cortes) con su estado, **Listo**, **Falta** o **Revisar**, y el enlace para resolverlo. Mientras el campamento está **"En curso"** y genera cortes automáticos, el renglón **"Cortes automáticos"** dice cuándo fue el último ("Último corte automático: hoy 14:00"). Si un corte que tocaba no se generó en 15 minutos, el renglón pide **Revisar** (los cortes de antes de abrir el campamento o de encender los cortes no cuentan): "El programador de cortes no ha corrido desde las 12:00. Puedes generar un corte a mano en Reportes." Genera el corte en **"Reportes"** y avisa a quien administra el servidor. Al final están la actividad reciente y las descargas recientes. El resto de las herramientas está en la barra de arriba: "Participantes", "Equipo", "Cuestionarios", "Reportes" y "Configuración".
+Luego, **"Preparación"** lista cada paso (procedimientos de la iglesia, cuestionario, camperos, equipo, computadoras y cortes) con su estado, **Listo**, **Falta** o **Revisar**, y el enlace para resolverlo. Mientras el campamento está **"En curso"** y genera cortes automáticos, el renglón **"Cortes automáticos"** dice cuándo fue el último ("Último corte automático: hoy 14:00"). Si un corte que tocaba no se generó en 15 minutos, el renglón pide **Revisar** (los cortes de antes de abrir el campamento o de encender los cortes no cuentan): "El programador de cortes no ha corrido desde las 12:00. Puedes generar un corte a mano en Reportes." Genera el corte en **"Reportes"** y avisa a quien administra el servidor. Al final están la actividad reciente y las descargas recientes. El resto de las herramientas está en la barra de arriba: "Camperos", "Equipo", "Cuestionarios", "Reportes" y "Configuración".
 
 ### 1. Crear el campamento
 
@@ -94,7 +101,7 @@ Revisa también los **"Días que se conservan las respuestas después del evento
 2. Escribe su nombre completo y su correo, y elige su **rol en este evento**: Administrador, Pastor, Tutor o Coordinador.
 3. Si es tutor, escribe el **nombre del equipo** (por ejemplo "Equipo Monte Sion"). Ese nombre aparece en la presentación, así que no uses nombres de personas.
 4. Si es coordinador, puedes elegir de una vez al **tutor que lo supervisa**.
-5. Marca **"Puede leer información confidencial"** solo para el equipo de cuidado. Cada consulta que hagan queda registrada. Nadie puede darse este permiso a sí mismo: otra persona de la administración tiene que dártelo.
+5. Marca **"Puede leer información confidencial"** solo para el equipo de cuidado autorizado. Cada consulta que hagan queda registrada. Nadie puede darse este permiso a sí mismo: otra persona de la administración tiene que dártelo.
 6. Toca **"Agregar al equipo"**.
 
 Si la persona es nueva, o ya tenía cuenta pero nunca creó su contraseña, verás en pantalla el enlace para que la cree, con el botón **"Copiar enlace"**: compártelo solo con esa persona. Si el servidor tiene correo configurado, Emmaus además se lo manda y te dice "Le enviamos un correo para crear su contraseña". Si no lo tiene, te dice **"No hay correo configurado: comparte este enlace con la persona."**: ese enlace es la única forma de que le llegue. Si el enlace se pierde o vence, en **"Equipo"** toca **"Editar"** junto a la persona y luego **"Generar enlace"** (solo aparece mientras no haya creado su contraseña). Si alguien ya tiene contraseña y la olvidó, debe usar "¿Olvidaste tu contraseña?" en la pantalla de entrada.
@@ -117,17 +124,17 @@ Cada coordinador tiene un solo tutor. Un tutor solo ve a sus coordinadores y a l
 
 Si tu iglesia tiene varias sedes, agrégalas antes de registrar (ver [9. Sedes de la iglesia](#9-sedes-de-la-iglesia)): la sede de cada campero se elige al registrarlo y después ya no hay forma de saberla.
 
-**Uno por uno:** en **"Participantes"**, toca **"Registrar campero"**. Escribe nombre y apellido, edad, cuarto e iglesia o grupo, elige su **"Sede"** (o déjala en "Sin sede"; el campo solo aparece si la iglesia tiene sedes) y su coordinador (o déjalo "Sin coordinador por ahora"). Si es menor y ya entregó la autorización firmada, marca **"Ya entregó la autorización firmada de su padre, madre o tutor legal"**. Toca **"Guardar"** o **"Guardar y registrar otro"**.
+**Uno por uno:** en **"Camperos"**, toca **"Registrar campero"**. Escribe nombre y apellido, edad, cuarto e iglesia o grupo, elige su **"Sede"** (o déjala en "Sin sede"; el campo solo aparece si la iglesia tiene sedes) y su coordinador (o déjalo "Sin coordinador por ahora"). Si es menor y ya entregó la autorización firmada, marca **"Ya entregó la autorización firmada de su padre, madre o tutor legal"**. Toca **"Guardar"** o **"Guardar y registrar otro"**.
 
 **La autorización que llega después:** en la ficha del campero, junto a "Autorización de padre, madre o tutor legal", toca **"Marcar como recibida"**. Emmaus te muestra lo que vas a confirmar ("Confirmas que la autorización firmada del padre, la madre o el tutor legal de ... está en manos de la iglesia") y que quedará a tu nombre. Toca **"Sí, la iglesia la tiene"** solo si viste el formato firmado. Si te equivocaste, o la familia retira su permiso, toca **"Quitar la autorización"** en la misma ficha, escribe por qué y toca **"Quitar la autorización"**. Las dos cosas quedan en el registro de actividad. Quitarla no cambia una entrevista ya completada. Si hay una entrevista en curso, Emmaus te avisa ("Hay una entrevista en curso; se podrá terminar. Las siguientes necesitarán una autorización nueva."): no se detiene, porque el campero ya está conversando, y el registro de actividad dice que se quitó con esa entrevista en curso. Si la entrevista no ha empezado, quien la haga tendrá que confirmar la autorización otra vez.
 
 **Desde un archivo (CSV):**
 
 1. En Excel o Google Sheets haz una tabla con estos encabezados en la primera fila: **Nombre**, **Edad**, **Cuarto**, **Iglesia o grupo**. Puedes agregar **Coordinador** (su correo o su nombre), **Autorización** (sí o no) y **Sede** (el nombre o el identificador de la sede, con o sin mayúsculas y acentos: "Mérida", "MERIDA" y "merida" sirven igual). Para empezar más rápido, en **"Importar CSV"** toca **"Descargar archivo de ejemplo"**: trae los encabezados y dos filas que puedes reemplazar.
-2. Guárdala como **CSV UTF-8** (máximo 2 MB).
-3. En **"Participantes"**, toca **"Importar CSV"**, elige el archivo y toca **"Revisar archivo"**.
-4. Emmaus te muestra todo antes de guardar: cuántas filas están listas, cuáles tienen errores y cuáles podrían estar repetidas ("Ya existe..." o "Repetido en la fila..."). Nada se guarda todavía.
-5. Las filas con errores no se importan. Una sede que no es de este evento es un error: "Sede desconocida: «Guadalajara». Usa una de: Satélite, Zona Esmeralda, Lomas Verdes, CDMX, Mérida." También lo es una que coincide con dos sedes ("Sede ambigua: «Merida»."). Corrige el archivo y súbelo otra vez. Las posibles repetidas aparecen **desmarcadas**: revísalas. Si es otra persona con el mismo nombre, márcala.
+2. Guarda la hoja de cálculo como **CSV (UTF-8)** (máximo 2 MB).
+3. En **"Camperos"**, toca **"Importar CSV"**, elige el archivo y toca **"Revisar archivo"**.
+4. Emmaus te muestra todo antes de guardar: cuántas filas están listas, cuáles tienen errores y cuáles son **"Posibles repetidos"** ("Ya existe..." o "Repetido en la fila..."). Nada se guarda todavía.
+5. Las filas con errores no se importan. Una sede que no es de este evento es un error: "Sede desconocida: «Guadalajara». Usa una de: Satélite, Zona Esmeralda, Lomas Verdes, CDMX, Mérida." También lo es una que coincide con dos sedes ("Sede ambigua: «Merida»."). Corrige el archivo y súbelo otra vez. Los posibles repetidos aparecen **desmarcados**: revísalos. Si es otra persona con el mismo nombre, márcala.
 6. Toca **"Importar filas marcadas"**. Si mientras revisabas alguien desactivó o quitó una sede del archivo, esos camperos se importan sin sede y el mensaje dice cuántos ("2 camperos quedaron sin sede porque la sede ya no estaba disponible."): corrígelos en su ficha. Si te equivocaste de archivo, toca **"Cancelar y subir otro archivo"**.
 
 ![Importar camperos](img/admin-importar.png)
@@ -143,11 +150,11 @@ En **"Configuración"**, sección **"Computadoras de entrevista"**:
 
 Pega en cada computadora una etiqueta con su número.
 
-### 7. Sesiones abiertas
+### 7. Computadoras en uso
 
-Si una computadora se quedó con una entrevista abierta, ve a **"Configuración"** → **"Sesiones abiertas"**:
+Si una computadora se quedó con una entrevista abierta, ve a **"Configuración"** → **"Computadoras en uso"**:
 
-* En **"Capturas supervisadas"**, **"Cerrar"** termina la pantalla del campero en esa computadora. La entrevista sigue en curso para retomarla.
+* En **"Entrevistas a solas"**, **"Cerrar la pantalla"** cierra la pantalla del campero en esa computadora. La entrevista sigue en curso para retomarla.
 * En **"Entrevistas en curso"**, **"Liberar"** deja la entrevista libre para abrirla en otra computadora. Emmaus pregunta primero: "¿Liberar esta entrevista? La computadora donde está abierta ya no podrá guardar." Las respuestas que ya se guardaron no se pierden.
 
 ### 8. Datos de un campero
@@ -155,9 +162,9 @@ Si una computadora se quedó con una entrevista abierta, ve a **"Configuración"
 En la ficha de un campero, la administración ve:
 
 * **"Descargar todos sus datos"** (solo con acceso confidencial): por ejemplo, si la familia lo pide.
-* **"Eliminar sus datos"**: borra su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Antes de borrar, Emmaus te dice cuánto se va, solo en números ("1 seguimiento abierto, 1 reporte de riesgo abierto, 1 entrevista"), nunca lo que dicen. Cuenta lo mismo que tú ves en **"Seguimiento"**: si no tienes acceso confidencial, los seguimientos confidenciales no aparecen en la cuenta, pero también se borran ("Si existieran seguimientos confidenciales, también se borrarían."). Tienes que escribir su nombre completo para confirmar. Si tiene un reporte de riesgo abierto, además marca **"Entiendo que se borrará un reporte de riesgo abierto"**; antes, asegúrate de que el equipo de cuidado ya lo atendió. No se puede deshacer.
+* **"Eliminar sus datos"**: borra su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Antes de borrar, Emmaus te dice cuánto se va, solo en números ("1 seguimiento abierto, 1 reporte de riesgo abierto, 1 entrevista"), nunca lo que dicen. Cuenta lo mismo que tú ves en **"Seguimiento"**: si no tienes acceso confidencial, los seguimientos confidenciales no aparecen en la cuenta, pero también se borran ("Si existieran seguimientos confidenciales, también se borrarían."). Tienes que escribir su nombre completo para confirmar. Si tiene un reporte de riesgo abierto, además marca **"Entiendo que se borrará un reporte de riesgo abierto"**; antes, asegúrate de que el equipo de cuidado autorizado ya lo atendió. No se puede deshacer.
 
-En **"Participantes"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"). Cada descarga queda registrada.
+En **"Camperos"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"). Cada descarga queda registrada.
 
 ### 9. Sedes de la iglesia
 
@@ -165,13 +172,13 @@ Si la iglesia tiene varias sedes (por ejemplo Satélite, Zona Esmeralda, Lomas V
 
 Las sedes las agrega y las cambia quien administra la iglesia. Si solo administras este evento, ves la lista ("Las sedes las administra la iglesia.") y eliges cuáles participan (paso 3).
 
-1. En **"Participantes"**, abajo, toca **"Sedes de la iglesia"**.
+1. En **"Camperos"**, abajo, toca **"Sedes de la iglesia"**.
 2. Toca **"Agregar sede"**. Escribe el nombre y, si quieres, la ciudad. El identificador se forma solo con el nombre (por ejemplo `zona-esmeralda`); puedes cambiarlo. Toca **"Agregar sede"**. Dos sedes no pueden llamarse igual (sin contar mayúsculas ni acentos), ni puede el nombre de una ser el identificador de otra: el archivo de importación no sabría cuál es.
 3. Si el campamento es solo para algunas sedes, márcalas en **"Sedes que participan"** y toca **"Guardar sedes del evento"**. Si no marcas ninguna, participan todas. Una sede marcada que está inactiva no se ofrece, y la página lo avisa; si desactivas o borras todas las que marcaste, al registrar y al importar se ofrecen todas las sedes activas de la iglesia.
 
 Las sedes son de la iglesia: valen para todos sus eventos y un cambio se ve en todos. Una sede que ya tiene camperos no se puede borrar: en **"Editar"** desmarca **"Activa"** y ya no aparece al registrar ni al importar; los camperos que ya la tienen la conservan.
 
-Con sedes, en **"Participantes"** aparece el filtro **"Sede"** con cuántos camperos hay de cada una ("Mérida (80)", contando con los demás filtros que elegiste), la sede sale en la lista después del cuarto ("Cuarto 2, Mérida, 17 años") y en la lista descargada. Si la iglesia no tiene sedes, nada de esto aparece.
+Con sedes, en **"Camperos"** aparece el filtro **"Sede"** con cuántos camperos hay de cada una ("Mérida (80)", contando con los demás filtros que elegiste), la sede sale en la lista después del cuarto ("Cuarto 2, Mérida, 17 años") y en la lista descargada. Si la iglesia no tiene sedes, nada de esto aparece.
 
 La sede no es confidencial, pero es un dato personal del campero (muchas veces menor de edad): se borra junto con su registro, igual que su nombre y su cuarto, cuando termina el tiempo de conservación del evento o cuando eliminas sus datos.
 
@@ -213,12 +220,12 @@ En **"Entrevistas pendientes"** y en la ficha de cada campero, arriba está el b
 
 ### Elegir tu computadora
 
-La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Continuar"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambia de computadora"** ("¿No estás en Computadora 3? Cambia de computadora").
+La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Usar esta computadora"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambia de computadora"** ("¿No estás en Computadora 3? Cambia de computadora").
 
 ### Iniciar una entrevista
 
 1. En el letrero amarillo de **"Mi inicio"** escribe el número del campero o las primeras letras de su nombre y de su apellido (por ejemplo, "mat jim" para Mateo Jiménez) y toca **"Buscar"**. Desde **"Entrevistas pendientes"**, toca **"Iniciar entrevista"**.
-2. Toca **"Entrevistar"** (o **"Continuar"** si ya la habías empezado). También puedes tocar "Entrevistar" junto a un nombre en "Por entrevistar".
+2. Toca **"Entrevistar"** (o **"Retomar"** si ya la habías empezado). También puedes tocar "Entrevistar" junto a un nombre en "Por entrevistar".
 3. Se abre **"Antes de empezar"**:
    * **¿Es la persona correcta?** Revisa nombre, edad, cuarto y grupo. Si algo está mal, toca "Corregir datos del campero".
    * **Autorización.** Toca "Leer el aviso de privacidad para explicárselo" y léeselo con calma. Después marca las casillas:
@@ -226,7 +233,7 @@ La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te p
      * Si es **menor**: "Le expliqué el aviso de privacidad a ... y está de acuerdo en conversar".
      * Si es **adulto**: "Le expliqué el aviso de privacidad a ... y acepta participar".
      * Si no quiere conversar, no inicies. Puede decidirlo en otro momento.
-   * **¿Cómo se va a responder?** Elige **"Entrevista asistida"** (tú haces las preguntas y anotas) o **"Captura supervisada"** (el campero responde solo en la computadora).
+   * **¿Cómo se va a responder?** Elige **"Entrevista asistida"** (tú haces las preguntas y anotas) o **"Entrevista a solas"** (el campero responde solo en la computadora).
 4. Toca **"Comenzar entrevista"**.
 
 ![Antes de empezar](img/entrevista-antes.png)
@@ -238,10 +245,10 @@ Si aparece "Todavía no se pueden iniciar entrevistas" (en la búsqueda) o "Toda
 * Aparece **una pregunta por pantalla**. Arriba dice en qué pregunta vas (por ejemplo, "Pregunta 3 de 9") y el nombre de la sección.
 * A veces, según la respuesta, aparece una pregunta más en la misma pantalla (por ejemplo, si dice que sí tiene dudas, se abre un espacio para contarlas).
 * Debajo de las opciones, después de "o bien", está **"Prefiero no responder"**. Siempre se puede elegir.
-* Las preguntas marcadas "Confidencial: solo el equipo de cuidado autorizado podrá leerla" son privadas: después de terminar ya no podrás ver esa respuesta.
+* Las preguntas marcadas **"Confidencial"**, con la frase "Solo el equipo de cuidado autorizado podrá leer esta respuesta.", son privadas: después de terminar ya no podrás ver esa respuesta.
 * **"Continuar"** guarda y pasa a la siguiente. En la última pregunta el botón dice **"Revisar respuestas"**.
 * **"Atrás"** (arriba, a la izquierda) guarda y regresa a la anterior.
-* **"Guardar y salir"** (arriba) guarda y te regresa a tu inicio. Puedes continuar después.
+* **"Guardar y salir"** (arriba) guarda y te regresa a tu inicio. Puedes retomarla después.
 
 ![Una pregunta de la entrevista](img/entrevista-pregunta.png)
 
@@ -253,7 +260,7 @@ Las respuestas se guardan cada vez que avanzas. Lo único que se pierde es lo qu
 2. En **"¿Necesita seguimiento?"** elige:
    * **"Se requiere seguimiento"**,
    * **"No se requiere seguimiento"**, o
-   * **"Seguimiento pendiente de evaluación"** (si quieres pensarlo o consultarlo).
+   * **"Por decidir"** (si quieres pensarlo o consultarlo).
 
    Si el campero pidió hablar con un líder o tomó una decisión, Emmaus te lo recuerda en **"Lo que ... pidió"**. Tú decides.
 3. Toca **"Finalizar entrevista"**.
@@ -264,28 +271,28 @@ Verás **"Entrevista completada"**. Toca **"Entrevistar a otro campero"** o **"V
 
 ![Entrevista completada](img/entrevista-completada.png)
 
-Si el campero pidió apoyo en una pregunta confidencial, el equipo de cuidado se entera solo, sin que tengas que hacer nada.
+Si el campero pidió apoyo en una pregunta confidencial, el equipo de cuidado autorizado se entera solo, sin que tengas que hacer nada.
 
-Si marcaste "pendiente de evaluación", después ve a **"Entrevistas pendientes"** → **"Seguimiento por decidir"** → **"Decidir"**, y toca **"Sí requiere seguimiento"** o **"No requiere seguimiento"**. Esta decisión solo se puede tomar una vez.
+Si marcaste "Por decidir", después ve a **"Entrevistas pendientes"** → **"Seguimiento por decidir"** → **"Decidir"**, y toca **"Sí requiere seguimiento"** o **"No requiere seguimiento"**. Esta decisión solo se puede tomar una vez.
 
-### Usar las computadoras compartidas (captura supervisada)
+### Entrevista a solas: el campero responde en la computadora
 
 Úsala cuando el campero prefiere responder solo. Tu sesión se cierra en esa computadora para que el campero no pueda ver nada más.
 
 **Entregar la computadora**
 
-1. En "Antes de empezar" elige **"Captura supervisada"** y toca **"Comenzar entrevista"**.
-2. Lee la pantalla **"Entrega la computadora a ..."**: dile que puede responder con calma, que puede elegir "Prefiero no responder", que nadie más verá sus respuestas en la pantalla y que te avise al terminar.
-3. Toca **"Entregar la computadora"**. Si cambias de idea antes de entregarla, toca **"Mejor hago yo las preguntas"**. Si sales de esta pantalla sin entregarla, cuando toques "Continuar" en esa entrevista Emmaus te regresa aquí. Si una computadora se queda esperando a su coordinador más de 3 horas, ya no se puede recuperar con la contraseña: entra normalmente y continúa la entrevista desde "Mi inicio".
+1. En "Antes de empezar" elige **"Entrevista a solas"** y toca **"Comenzar entrevista"**.
+2. Lee la pantalla **"Entrega la computadora a ..."**: dile que puede responder con calma, que puede elegir "Prefiero no responder", que nadie más verá sus respuestas en la pantalla, que las marcadas "Confidencial" solo las lee el equipo de cuidado autorizado y que te avise al terminar.
+3. Toca **"Entregar la computadora"**. Si cambias de idea antes de entregarla, toca **"Mejor hago yo las preguntas"**. Si sales de esta pantalla sin entregarla, cuando toques "Retomar" en esa entrevista Emmaus te regresa aquí. Si una computadora se queda esperando a su coordinador más de 3 horas, ya no se puede recuperar con la contraseña: entra normalmente y retoma la entrevista desde "Mi inicio".
 
 **Lo que ve el campero**
 
-* Una bienvenida con su nombre y el botón **"Empezar"**.
+* Una bienvenida con su nombre, quién podrá leer sus respuestas ("El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: esas solo las lee el equipo de cuidado autorizado.") y el botón **"Empezar"**.
 
   ![Bienvenida en la computadora](img/estacion-bienvenida.png)
 
-* Las mismas preguntas, con **"Continuar"**, **"Atrás"** y arriba **"Terminar por ahora"**.
-* Al final, **"Revisa tus respuestas"**, donde puede tocar **"Cambiar"**, y el botón **"Terminar"**.
+* Las mismas preguntas, con **"Continuar"**, **"Atrás"** y arriba **"Parar por ahora"**, que lo lleva a revisar sus respuestas.
+* Al final, **"Revisa tus respuestas"**, donde puede tocar **"Cambiar"**, y el botón **"Ya terminé"**.
 * Luego la pantalla **"¡Gracias!"**, que le pide avisarte.
 
   ![Pantalla de gracias](img/estacion-gracias.png)
@@ -312,10 +319,10 @@ Emmaus recuerda en qué computadora estás, así que no tienes que elegirla otra
 
 No se pierde nada de lo que ya se guardó.
 
-* **Para continuarla:** en "Mi inicio" el letrero amarillo dice **"Termina la entrevista de ..."**; toca **"Continuar entrevista"**. Si tienes otras a medias, están en **"También sin terminar"**, con **"Continuar"**. También están en **"Entrevistas pendientes"**.
+* **Para retomarla:** en "Mi inicio" el letrero amarillo dice **"Termina la entrevista de ..."**; toca **"Retomar entrevista"**. Si tienes otras a medias, están en **"También sin terminar"**, con **"Retomar"**. También están en **"Entrevistas pendientes"**.
 * **Si dice "Esta entrevista está abierta en otra computadora":** solo una computadora puede editarla a la vez. Si la otra ya no se usa, toca **"Tomar el control aquí"**. La otra computadora ya no podrá guardar cambios. Si no, toca **"Volver"**.
-* **Si la computadora se trabó o se apagó:** abre Emmaus en otra computadora, busca al campero y toca "Continuar". Si te lo pide, toma el control.
-* **Si nada de esto funciona:** pide a la administración que la libere en **"Sesiones abiertas"**. La computadora donde estaba abierta ya no podrá guardar: si alguien intenta seguir ahí, Emmaus le dice **"La administración liberó esta entrevista"**. Para seguir en esa misma computadora, toca **"Tomar el control aquí"**; para seguir en otra, ábrela desde "Mi inicio" con **"Continuar entrevista"**.
+* **Si la computadora se trabó o se apagó:** abre Emmaus en otra computadora, busca al campero y toca "Retomar". Si te lo pide, toma el control.
+* **Si nada de esto funciona:** pide a la administración que la libere en **"Computadoras en uso"**. La computadora donde estaba abierta ya no podrá guardar: si alguien intenta seguir ahí, Emmaus le dice **"La administración liberó esta entrevista"**. Para seguir en esa misma computadora, toca **"Tomar el control aquí"**; para seguir en otra, ábrela desde "Mi inicio" con **"Retomar entrevista"**.
 
 Una entrevista que lleva 20 minutos o más sin cambios aparece como **interrumpida** para tu tutor.
 
@@ -347,7 +354,7 @@ En **"Mis camperos"**, toca **"Imprimir lista de respaldo"** y luego **"Imprimir
 
 ## Para tutores
 
-En **"Mi equipo"** ves cómo va tu equipo. Si un coordinador tiene entrevistas detenidas (20 minutos o más sin actividad), arriba aparece un letrero amarillo que dice quién y en qué computadora, con **"Ver las entrevistas detenidas"**. Debajo, **"Tu equipo lleva X de Y."** y una fila por coordinador con una marca por cada campero (completada, en curso o sin iniciar). A la derecha están los seguimientos del equipo, lo que espera una decisión y la actividad reciente. La pantalla se actualiza sola.
+En **"Mi equipo"** ves cómo va tu equipo. Si un coordinador tiene entrevistas interrumpidas (20 minutos o más sin cambios), arriba aparece un letrero amarillo que dice quién y en qué computadora, con **"Ver las entrevistas interrumpidas"**. Debajo, **"Tu equipo lleva X de Y."** y una fila por coordinador con una marca por cada campero (completada, en curso o sin iniciar). A la derecha están los seguimientos del equipo, lo que espera una decisión y la actividad reciente. La pantalla se actualiza sola.
 
 ![Mi equipo del tutor](img/tutor-equipo.png)
 
@@ -379,11 +386,11 @@ Los resúmenes de respuestas solo muestran totales de todo el campamento, redond
 
 ### Seguimiento
 
-En **"Seguimiento"** ves a los camperos que pidieron o necesitan acompañamiento. Las situaciones de riesgo aparecen con la etiqueta "Urgente" solo para quien tiene acceso confidencial. Abre uno, elige el estado y el **"Líder responsable"**, y toca **"Guardar"**. Los detalles y la nota de cierre solo los ve el equipo de cuidado.
+En **"Seguimiento"** ves a los camperos que pidieron o necesitan acompañamiento. Las situaciones de riesgo aparecen con la etiqueta "Urgente" solo para quien tiene acceso confidencial. Abre uno, elige el estado y el **"Líder responsable"**, y toca **"Guardar"**. Los detalles y la nota de cierre solo los ve el equipo de cuidado autorizado.
 
 ---
 
-## Reportes y cortes de seguimiento
+## Reportes y cortes
 
 ### Qué es un corte
 
@@ -410,7 +417,7 @@ Toca **"Descargar PDF"** (en el último corte o en el historial, botón **"PDF"*
 
 Sirve para proyectar el avance en una reunión del equipo.
 
-1. Toca **"Mostrar presentación"** (en "Resumen general") o **"Ver presentación"** (en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial.
+1. Toca **"Mostrar presentación"** (en "Resumen general" o en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial o **"Mostrar presentación"** en el corte.
 2. Toca **"Pantalla completa"** (o la tecla **F**). Si el salón está oscuro, toca **"Modo noche"**: fondo azul oscuro y letra clara. Emmaus recuerda tu elección en esa computadora.
 3. Avanza con la **flecha derecha** o **"Siguiente"**; regresa con la **flecha izquierda** o **"Anterior"**.
 4. Toca **"Salir"** al terminar.
@@ -427,18 +434,18 @@ Si un campero cuenta algo que pone en riesgo su seguridad o la de otra persona:
 
 1. **Primero actúa.** Si alguien está en peligro inmediato, llama al **911**. Después avisa en persona a la persona responsable de protección del campamento. No investigues por tu cuenta ni prometas guardar un secreto que ponga en riesgo a alguien.
 2. Después regístralo en Emmaus: en la revisión de la entrevista o en la ficha del campero toca **"Reportar una situación de riesgo"**.
-3. En **"¿Qué pasó?"** escribe solo lo necesario para que el equipo responsable pueda actuar.
+3. En **"¿Qué pasó?"** escribe solo lo necesario para que el equipo de cuidado autorizado pueda actuar.
 4. Toca **"Enviar reporte"**.
 
 Al enviarlo, o si tocas **"Cancelar"**, Emmaus te regresa a la revisión si venías de la entrevista y la sigues teniendo abierta en esta computadora; si no, a la ficha del campero.
 
-Solo el equipo de cuidado autorizado puede leer el reporte. Emmaus les avisa por correo sin nombres ni detalles. Emmaus no llama a nadie: el paso 1 siempre lo haces tú.
+Solo el equipo de cuidado autorizado puede leer el reporte. La administración sabe que existe, pero no lo que dice. Emmaus les avisa por correo, sin nombres ni detalles. Emmaus no llama a nadie: el paso 1 siempre lo haces tú.
 
 ---
 
 ## Quién ve qué
 
-| | Coordinador | Tutor | Pastor | Administración | Equipo de cuidado |
+| | Coordinador | Tutor | Pastor | Administración | Equipo de cuidado autorizado |
 |---|---|---|---|---|---|
 | Datos de sus camperos (nombre, edad, cuarto, sede) | Los suyos | Su equipo | Todos | Todos | Según su rol |
 | Respuestas espirituales | De sus camperos | No | No | Solo si hizo la entrevista | Sí |
@@ -446,7 +453,7 @@ Solo el equipo de cuidado autorizado puede leer el reporte. Emmaus les avisa por
 | Reportes y presentación | No (solo "Mi avance") | Su equipo | Todo | Todo | Según su rol |
 | Detalles de situaciones de riesgo | No | No | No | No (solo sabe que existe) | Sí |
 
-El "equipo de cuidado" son las personas con **"Puede leer información confidencial"**, sea cual sea su rol.
+El "equipo de cuidado autorizado" son las personas con **"Puede leer información confidencial"**, sea cual sea su rol.
 
 ---
 
@@ -471,7 +478,7 @@ Toca "Descartar esta entrevista" y elige "Se abrió la entrevista de otro camper
 No. Cada campero tiene una sola. Si hay un error después de finalizar, se corrige con "Corregir".
 
 **Soy tutor o pastor: ¿por qué no veo las respuestas?**
-Por privacidad. Los tutores y pastores ven avances y totales. Las respuestas espirituales las ve el coordinador del campero, y las confidenciales solo el equipo de cuidado.
+Por privacidad. Los tutores y pastores ven avances y totales. Las respuestas espirituales las ve el coordinador del campero, y las confidenciales solo el equipo de cuidado autorizado.
 
 **¿Por qué dice "Menos de 5" o "≈ 10"?**
 Para que nadie pueda adivinar lo que respondió una persona. Los números pequeños se ocultan y los demás se redondean.
@@ -492,4 +499,4 @@ Espera unos minutos y vuelve a intentar.
 La administración puede crear una versión nueva. Las entrevistas ya hechas conservan la versión con la que se hicieron.
 
 **¿Emmaus usa inteligencia artificial?**
-No. En los campamentos Emmaus no usa inteligencia artificial y no envía respuestas por correo ni a otros servicios.
+En los campamentos, no: Emmaus no usa inteligencia artificial con las entrevistas y no envía respuestas por correo ni a otros servicios. En el discipulado hay un **"Borrador con IA"** opcional para responder preguntas: solo funciona si quien administra el servidor lo activa, y un líder lo revisa antes de enviarlo.

@@ -4,7 +4,7 @@
 {% url 'events:participants' event.slug as back_url %}
 {% if manages_sedes %}{% url 'events:sede_add' event.slug as add_url %}{% endif %}
 {% include "partials/ui/error_summary.html" with form=form %}
-{% include "events/rotulo/_page_head.html" with title="Sedes de la iglesia" lede="De qué sede viene cada campero. Se elige al registrarlo: después ya no hay forma de saberlo." back_url=back_url back_label="Participantes" action_url=add_url action_label="Agregar sede" %}
+{% include "events/rotulo/_page_head.html" with title="Sedes de la iglesia" lede="De qué sede viene cada campero. Se elige al registrarlo: después ya no hay forma de saberlo." back_url=back_url back_label="Camperos" action_url=add_url action_label="Agregar sede" %}
 
 <section aria-labelledby="t-sedes">
   <h2 id="t-sedes" class="heading">{{ sedes|length }} sede{{ sedes|length|pluralize }}</h2>

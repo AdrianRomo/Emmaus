@@ -61,8 +61,8 @@
       <form method="post" class="disc-escalate">
         {% csrf_token %}
         <input type="hidden" name="action" value="escalate">
-        <p>Si esta pregunta necesita atención pastoral, escálala para que la vean los pastores.</p>
-        <div class="btn-row"><button class="btn btn--secondary" type="submit">Escalar a un pastor</button></div>
+        <p>Si esta pregunta necesita atención pastoral, pásala al pastor: la verán los pastores de tu iglesia.</p>
+        <div class="btn-row"><button class="btn btn--secondary" type="submit">Pasar al pastor</button></div>
       </form>
     </section>
 
@@ -92,7 +92,7 @@
           </div>
           <div class="disc-thread__text">{{ draft.generated_text|linebreaks }}</div>
           {% include "partials/ui/fields.html" with form=form %}
-          <div class="btn-row"><button class="btn btn--secondary" type="submit">Confirmar revisión</button></div>
+          <div class="btn-row"><button class="btn btn--secondary" type="submit">Enviar mi decisión</button></div>
         </form>
         {% endif %}
       {% empty %}

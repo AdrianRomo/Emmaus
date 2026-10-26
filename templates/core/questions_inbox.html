@@ -4,7 +4,7 @@
 {% block content %}
 <div class="disc-list">
 {% url 'escalations' as escalations_url %}
-{% include "events/rotulo/_page_head.html" with title="Preguntas por atender" lede="Preguntas de participantes que pueden necesitar la respuesta de un líder." secondary_url=escalations_url secondary_label="Ver preguntas escaladas" %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas por atender" lede="Preguntas de participantes que pueden necesitar la respuesta de un líder." secondary_url=escalations_url secondary_label="Ver preguntas para el pastor" %}
 <section aria-label="Preguntas">
   {% if questions %}
     <ul class="rows">
