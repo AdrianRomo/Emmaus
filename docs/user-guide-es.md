@@ -148,7 +148,7 @@ En **"Participantes"**, **"Descargar lista"** baja la lista de camperos sin resp
 
 ![Mi inicio del coordinador](img/coordinador-inicio.png)
 
-En las demás pantallas, arriba está el botón **"Iniciar entrevista"**.
+En **"Entrevistas pendientes"** y en la ficha de cada campero, arriba está el botón **"Iniciar entrevista"**.
 
 ### Registrar a un campero
 
@@ -160,11 +160,11 @@ En las demás pantallas, arriba está el botón **"Iniciar entrevista"**.
 
 ### Elegir tu computadora
 
-La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Continuar"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambiar"**.
+La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Continuar"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambia de computadora"**.
 
 ### Iniciar una entrevista
 
-1. En el letrero amarillo de **"Mi inicio"** escribe el número del campero o las primeras letras de su nombre y de su apellido (por ejemplo, "mat jim" para Mateo Jiménez) y toca **"Buscar"**. Desde otras pantallas, toca **"Iniciar entrevista"**.
+1. En el letrero amarillo de **"Mi inicio"** escribe el número del campero o las primeras letras de su nombre y de su apellido (por ejemplo, "mat jim" para Mateo Jiménez) y toca **"Buscar"**. Desde **"Entrevistas pendientes"**, toca **"Iniciar entrevista"**.
 2. Toca **"Entrevistar"** (o **"Continuar"** si ya la habías empezado). También puedes tocar "Entrevistar" junto a un nombre en "Por entrevistar".
 3. Se abre **"Antes de empezar"**:
    * **¿Es la persona correcta?** Revisa nombre, edad, cuarto y grupo. Si algo está mal, toca "Corregir datos del campero".
@@ -178,11 +178,11 @@ La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te p
 
 ![Antes de empezar](img/entrevista-antes.png)
 
-Si aparece "Todavía no se puede iniciar", la administración aún no termina de preparar el campamento. Avísale.
+Si aparece "Todavía no se pueden iniciar entrevistas" (en la búsqueda) o "Todavía no se puede iniciar" (en "Antes de empezar"), la administración aún no termina de preparar el campamento. Avísale.
 
 ### Completar el cuestionario
 
-* Aparece **una pregunta por pantalla**. Arriba dice en qué pregunta y sección vas.
+* Aparece **una pregunta por pantalla**. Arriba dice en qué pregunta vas (por ejemplo, "Pregunta 3 de 9") y el nombre de la sección.
 * A veces, según la respuesta, aparece una pregunta más en la misma pantalla (por ejemplo, si dice que sí tiene dudas, se abre un espacio para contarlas).
 * Debajo de las opciones, después de "o bien", está **"Prefiero no responder"**. Siempre se puede elegir.
 * Las preguntas marcadas "Confidencial: solo el equipo de cuidado autorizado podrá leerla" son privadas: después de terminar ya no podrás ver esa respuesta.
@@ -202,7 +202,7 @@ Las respuestas se guardan cada vez que avanzas. Lo único que se pierde es lo qu
    * **"No se requiere seguimiento"**, o
    * **"Seguimiento pendiente de evaluación"** (si quieres pensarlo o consultarlo).
 
-   Si el campero pidió hablar con un líder o tomó una decisión, Emmaus te lo recuerda en **"Sugerencia según sus respuestas"**. Tú decides.
+   Si el campero pidió hablar con un líder o tomó una decisión, Emmaus te lo recuerda en **"Lo que ... pidió"**. Tú decides.
 3. Toca **"Finalizar entrevista"**.
 
 ![Revisión de la entrevista](img/entrevista-revision.png)
@@ -259,10 +259,10 @@ Emmaus recuerda en qué computadora estás, así que no tienes que elegirla otra
 
 No se pierde nada de lo que ya se guardó.
 
-* **Para continuarla:** en "Mi inicio" aparece en **"Continúa donde te quedaste"**; toca **"Continuar"**. También está en **"Entrevistas pendientes"**.
+* **Para continuarla:** en "Mi inicio" el letrero amarillo dice **"Termina la entrevista de ..."**; toca **"Continuar entrevista"**. Si tienes otras a medias, están en **"También sin terminar"**, con **"Continuar"**. También están en **"Entrevistas pendientes"**.
 * **Si dice "Esta entrevista está abierta en otra computadora":** solo una computadora puede editarla a la vez. Si la otra ya no se usa, toca **"Tomar el control aquí"**. La otra computadora ya no podrá guardar cambios. Si no, toca **"Volver"**.
 * **Si la computadora se trabó o se apagó:** abre Emmaus en otra computadora, busca al campero y toca "Continuar". Si te lo pide, toma el control.
-* **Si nada de esto funciona:** pide a la administración que la libere en **"Sesiones abiertas"**.
+* **Si nada de esto funciona:** pide a la administración que la libere en **"Sesiones abiertas"**. La computadora donde estaba abierta ya no podrá guardar: si alguien intenta seguir ahí, Emmaus le dice **"La administración liberó esta entrevista"**. Para seguir en esa misma computadora, toca **"Tomar el control aquí"**; para seguir en otra, ábrela desde "Mi inicio" con **"Continuar entrevista"**.
 
 Una entrevista que lleva 20 minutos o más sin cambios aparece como **interrumpida** para tu tutor.
 
@@ -273,7 +273,9 @@ Una entrevista que lleva 20 minutos o más sin cambios aparece como **interrumpi
 3. Cambia la respuesta y escribe **por qué la corriges** (por ejemplo: "Se marcó una opción por error").
 4. Toca **"Guardar corrección"**.
 
-La corrección queda registrada con tu nombre y la respuesta anterior. No cuenta como una entrevista nueva. Las respuestas confidenciales no las puedes corregir.
+La corrección queda registrada con tu nombre y la respuesta anterior. No cuenta como una entrevista nueva.
+
+Las respuestas confidenciales no tienen "Corregir": solo las corrige la administración o el coordinador asignado, si tiene acceso confidencial. Si una pregunta comparte pantalla con una confidencial (por ejemplo, "¿Tienes dudas acerca de tu fe?"), al corregirla solo ves la tuya. Si tu corrección hace que otra pregunta ya no aplique (por ejemplo, cambias "Sí" por "No"), esa respuesta se quita y queda registrado que se quitó y cuándo.
 
 ### Descartar una entrevista
 
@@ -374,6 +376,8 @@ Si un campero cuenta algo que pone en riesgo su seguridad o la de otra persona:
 2. Después regístralo en Emmaus: en la revisión de la entrevista o en la ficha del campero toca **"Reportar una situación de riesgo"**.
 3. En **"¿Qué pasó?"** escribe solo lo necesario para que el equipo responsable pueda actuar.
 4. Toca **"Enviar reporte"**.
+
+Al enviarlo, o si tocas **"Cancelar"**, Emmaus te regresa a la revisión si venías de la entrevista y la sigues teniendo abierta en esta computadora; si no, a la ficha del campero.
 
 Solo el equipo de cuidado autorizado puede leer el reporte. Emmaus les avisa por correo sin nombres ni detalles. Emmaus no llama a nadie: el paso 1 siempre lo haces tú.
 

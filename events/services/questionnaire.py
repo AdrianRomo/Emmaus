@@ -195,8 +195,12 @@ def validate_step(step: Step, data, existing: dict[int, AnswerValue]) -> tuple[d
     return cleaned, errors
 
 
-def write_answers(interview: Interview, cleaned: dict[int, AnswerValue | None], *, actor, by_participant: bool) -> None:
-    """Persist validated values. Caller holds the interview row lock."""
+def write_answers(interview: Interview, cleaned: dict[int, AnswerValue | None], *, actor, by_participant: bool) -> dict[int, AnswerValue]:
+    """Persist validated values. Caller holds the interview row lock.
+
+    Returns the answers ``_prune_hidden`` removed because they are no longer visible, so a
+    correction can record them.
+    """
     questions = {q.id: q for q in all_questions(interview.version)}
     for question_id, value in cleaned.items():
         question = questions[question_id]
@@ -215,16 +219,17 @@ def write_answers(interview: Interview, cleaned: dict[int, AnswerValue | None], 
         if question.is_choice:
             option_map = options_by_code(question)
             answer.options.set([option_map[code] for code in value.codes])
-    _prune_hidden(interview)
+    return _prune_hidden(interview)
 
 
-def _prune_hidden(interview: Interview) -> None:
-    """Delete answers whose questions are no longer visible (e.g. the parent changed)."""
+def _prune_hidden(interview: Interview) -> dict[int, AnswerValue]:
+    """Delete answers whose questions are no longer visible (e.g. the parent changed); return them."""
     answers = load_answers(interview)
     by_id = {q.id: q for q in all_questions(interview.version)}
-    hidden = [qid for qid in answers if qid in by_id and not is_visible(by_id[qid], answers, by_id)]
+    hidden = {qid: value for qid, value in answers.items() if qid in by_id and not is_visible(by_id[qid], answers, by_id)}
     if hidden:
-        Answer.objects.filter(interview=interview, question_id__in=hidden).delete()
+        Answer.objects.filter(interview=interview, question_id__in=list(hidden)).delete()
+    return hidden
 
 
 def describe_answer(question: Question, value: AnswerValue | None) -> str:
