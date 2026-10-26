@@ -188,7 +188,7 @@ La sede no es confidencial, pero es un dato personal del campero (muchas veces m
 
 ### El logotipo de tu iglesia
 
-Si tu iglesia tiene logotipo, súbelo y aparece donde hoy dice "Emmaus": en la barra de arriba, en la pantalla para entrar (sobre el título), en la pantalla del campero desde "Hola, …", en la portada de la presentación y en el encabezado del PDF de los cortes. Solo puede subirlo la administración de la iglesia.
+Si tu iglesia tiene logotipo, súbelo y aparece donde hoy dice "Emmaus": en la barra de arriba, en la pantalla para entrar (sobre el título), en la pantalla del campero desde "Hola, …", en cada diapositiva de la presentación y en el encabezado del PDF de los cortes. El título de la pestaña del navegador y el autor del PDF pasan a ser el nombre de tu iglesia. Solo puede subirlo la administración de la iglesia.
 
 1. En **"Campamentos y eventos"**, toca **"Configuración"** en la barra de arriba (es la configuración de la iglesia; la de cada campamento está dentro del campamento). Se abre **"Configuración de la iglesia"**.
 2. En **"Logotipo"**, elige el archivo: **un PNG con fondo transparente, de hasta 512 KB, con el lado mayor de 32 a 2000 píxeles**. Lo que mejor funciona es el logotipo en **negro sobre transparente**; uno de al menos 640 píxeles de ancho se ve nítido en el proyector. Emmaus no acepta SVG, JPG ni otros formatos: desde tu programa de diseño, exporta o guarda como PNG.

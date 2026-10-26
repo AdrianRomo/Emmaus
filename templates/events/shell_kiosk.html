@@ -2,9 +2,10 @@
 {% load emmaus brand %}
 {% comment %}
   Campero shell (Rótulo): a shared computer that belongs to the campero for a while. The bar leads with the
-  church's mark from the welcome ("Hola, …") on; without a logo, the painted "Emmaus".
+  church's mark from the welcome ("Hola, …") on, and the <title> ends with the church's name; without a logo, "Emmaus" in both.
+  With no session left (the "ended" page) the church is the public pages' one (brand_church, core.context_processors).
 {% endcomment %}
-{% block title %}{% block page_title %}Tu conversación{% endblock %} · Emmaus{% endblock %}
+{% block title %}{% block page_title %}Tu conversación{% endblock %} · {% brand_name ps.interview.participant.event.church|default:brand_church %}{% endblock %}
 {% block body_class %}is-kiosk{% endblock %}
 {% block body_attrs %}{% endblock %}
 {% block body %}
@@ -13,7 +14,7 @@
 <div class="focus">
   <header class="focusbar">
     <div class="focusbar__inner">
-      <p class="focusbar__who">{% church_brand ps.interview.participant.event.church size="mark" %}{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}</p>
+      <p class="focusbar__who">{% church_brand ps.interview.participant.event.church|default:brand_church size="mark" %}{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}</p>
       <div class="focusbar__actions">{% block focus_actions %}{% endblock %}</div>
     </div>
   </header>

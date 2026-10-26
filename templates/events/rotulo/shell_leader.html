@@ -1,7 +1,7 @@
 {% extends "layout/skeleton.html" %}
 {% load brand emmaus %}
 {% comment %}Leader shell (Rótulo): pastors and administration. A top bar keeps the full width for the report.{% endcomment %}
-{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
+{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · {% brand_name event.church %}{% endblock %}
 {% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
 {% block body %}
 <header class="bar bar--leader{% if event_nav|length > 5 %} bar--stacked{% endif %}">

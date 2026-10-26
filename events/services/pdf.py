@@ -5,7 +5,7 @@ the person downloading it may see on screen. It reads like the cutoff page ("Atr
 docs/design-system.md): Figtree ExtraBold for what a person would say (the title, the
 section questions, the headline sentence), Regular for reading, Bold for emphasis; petróleo
 for data, chile only for risk. The header is the church's PNG logo when it has one (core.logos),
-otherwise the wordmark.
+otherwise the wordmark; the document's author follows the same rule (the church's name, or "Emmaus").
 """
 
 from __future__ import annotations
@@ -41,6 +41,8 @@ from reportlab.platypus import (
 from core.logos import logo_meta
 
 from ..charts import _grid_steps, nice_max
+from core.templatetags.brand import brand_name
+
 from ..templatetags.emmaus import fecha_corta, fecha_larga
 from .metrics import DEFINITIONS, delta_sentence, format_duration
 
@@ -356,7 +358,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         topMargin=16 * mm,
         bottomMargin=18 * mm,
         title=f"Corte de las {timezone.localtime(snapshot.cutoff_at):%H:%M}, {snapshot.event.name}",
-        author="Emmaus",
+        author=brand_name(snapshot.event.church),
     )
     width = doc.width - 12  # the frame pads 6 pt on each side; tables and rules line up with the text
     progress = payload["progress"]

@@ -4,7 +4,7 @@
 {% block content %}
 {% comment %}
   The public front door (Atrio, docs/design-direction.md): one column like the sign-in page, no photos, no icons.
-  The church's logo leads when it has one (the bar then keeps the painted "Emmaus", so it is never drawn twice);
+  The church's logo leads when it has one (base.html then draws no bar, so it is never drawn twice and nothing says "Emmaus");
   then the promise as the one heading, one way in, the way in for a volunteer who has an event's code, three
   promises in one sentence each, and who uses it. Signed-in visitors never see it: core.views.landing sends
   them to their dashboard.
