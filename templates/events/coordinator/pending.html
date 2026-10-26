@@ -27,7 +27,8 @@
           <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>
         </li>
       {% endfor %}</ul>
-    {% else %}<p class="empty-line">No quedan entrevistas por iniciar. ¡Buen trabajo!</p>{% endif %}
+    {% elif has_participants %}<p class="empty-line">No quedan entrevistas por iniciar. ¡Buen trabajo!</p>
+    {% else %}<p class="empty-line">Todavía no tienes camperos. Registra al primero o pide a la administración que te los asigne. <a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></p>{% endif %}
   </section>
 
   <section class="block" aria-labelledby="por-evaluar-titulo" id="por-evaluar">

@@ -35,7 +35,7 @@ class SpanishErrorsMixin:
 
 
 class EventForm(SpanishErrorsMixin, forms.ModelForm):
-    required_messages = {"name": "Escribe el nombre del evento.", "slug": "Escribe un identificador corto."}
+    required_messages = {"name": "Escribe el nombre del evento.", "slug": "Escribe un nombre corto."}
 
     class Meta:
         model = Event
@@ -56,7 +56,7 @@ class EventForm(SpanishErrorsMixin, forms.ModelForm):
         if self.instance.pk:
             clash = clash.exclude(pk=self.instance.pk)
         if clash.exists():
-            raise ValidationError("Ya existe un evento con ese identificador. Prueba con otro.")
+            raise ValidationError("Ya existe un evento con ese nombre corto. Prueba con otro.")
         return slug
 
 
@@ -417,7 +417,7 @@ class QuestionForm(forms.ModelForm):
     condition_codes = forms.CharField(
         required=False,
         label="Respuestas que la muestran",
-        help_text="Los identificadores internos de esas respuestas, separados por comas. Están junto a cada opción en el cuestionario. Por ejemplo: si",
+        help_text="Los identificadores internos de esas respuestas, separados por comas. Están en “Identificador interno (para quien edita el cuestionario)”, en esta página y debajo de cada pregunta del cuestionario. Por ejemplo: si",
     )
 
     class Meta:

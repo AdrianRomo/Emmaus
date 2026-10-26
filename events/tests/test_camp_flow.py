@@ -46,18 +46,18 @@ class DeltaSentenceTests(SimpleTestCase):
 
     def test_interviews_and_percentage(self):
         self.assertEqual(
-            delta_sentence({"completed": 11, "percent": 3}, self.since),
-            f"+11 entrevistas y +3\u00a0% de avance desde el corte de las {self.at}.",
+            delta_sentence({"completed": 11, "percent": 3, "percent_before": 40, "percent_now": 43}, self.since),
+            f"11 entrevistas más que en el corte de las {self.at}. El avance pasó de 40\u00a0% a 43\u00a0%.",
         )
 
     def test_interviews_only(self):
-        self.assertEqual(delta_sentence({"completed": 11, "percent": 0}, self.since), f"+11 entrevistas desde el corte de las {self.at}.")
-        self.assertEqual(delta_sentence({"completed": 1, "percent": None}, self.since), f"+1 entrevista desde el corte de las {self.at}.")
+        self.assertEqual(delta_sentence({"completed": 11, "percent": 0}, self.since), f"11 entrevistas más que en el corte de las {self.at}.")
+        self.assertEqual(delta_sentence({"completed": 1, "percent": None}, self.since), f"1 entrevista más que en el corte de las {self.at}.")
 
     def test_percentage_only_when_new_camperos_registered(self):
         self.assertEqual(
-            delta_sentence({"completed": 0, "percent": -5}, self.since),
-            f"Ninguna entrevista nueva, pero el avance cambió \u22125\u00a0% desde el corte de las {self.at}.",
+            delta_sentence({"completed": 0, "percent": -5, "percent_before": 25, "percent_now": 20}, self.since),
+            f"Ninguna entrevista nueva desde el corte de las {self.at}; el avance pasó de 25\u00a0% a 20\u00a0%.",
         )
 
     def test_nothing_changed(self):
@@ -69,34 +69,40 @@ class DeltaSentenceTests(SimpleTestCase):
         at = self.at
         self.assertEqual(
             delta_sentence({"completed": 0, "percent": None, "eligible": 5}, self.since),
-            f"Ninguna entrevista nueva, pero se registraron +5 camperos desde el corte de las {at}.",
+            f"Ninguna entrevista nueva desde el corte de las {at}, pero se registraron 5 camperos más.",
         )
         self.assertEqual(
             delta_sentence({"completed": 0, "percent": 0, "eligible": 1}, self.since),
-            f"Ninguna entrevista nueva, pero se registró +1 campero desde el corte de las {at}.",
+            f"Ninguna entrevista nueva desde el corte de las {at}, pero se registró 1 campero más.",
         )
         self.assertEqual(
-            delta_sentence({"completed": 0, "percent": -5, "eligible": 1}, self.since),
-            f"Ninguna entrevista nueva, pero se registró +1 campero y el avance cambió \u22125\u00a0% desde el corte de las {at}.",
+            delta_sentence({"completed": 0, "percent": -5, "eligible": 1, "percent_before": 25, "percent_now": 20}, self.since),
+            f"Ninguna entrevista nueva desde el corte de las {at}; el avance pasó de 25\u00a0% a 20\u00a0% porque se registró 1 campero más.",
         )
         self.assertEqual(
             delta_sentence({"completed": 0, "percent": None, "eligible": -5}, self.since),
-            f"Ninguna entrevista nueva, pero hay 5 camperos menos desde el corte de las {at}.",
+            f"Ninguna entrevista nueva desde el corte de las {at}, pero hay 5 camperos menos.",
         )
         self.assertEqual(
-            delta_sentence({"completed": 0, "percent": 4, "eligible": -1}),
-            "Ninguna entrevista nueva, pero hay 1 campero menos y el avance cambió +4\u00a0% desde el corte anterior.",
+            delta_sentence({"completed": 0, "percent": 4, "eligible": -1, "percent_before": 20, "percent_now": 24}),
+            "Ninguna entrevista nueva desde el corte anterior; el avance pasó de 20\u00a0% a 24\u00a0% porque hay 1 campero menos.",
         )
         # Interviews finished: the interviews lead, as before.
         self.assertEqual(
-            delta_sentence({"completed": 2, "percent": 10, "eligible": 3}, self.since),
-            f"+2 entrevistas y +10\u00a0% de avance desde el corte de las {at}.",
+            delta_sentence({"completed": 2, "percent": 10, "eligible": 3, "percent_before": 30, "percent_now": 40}, self.since),
+            f"2 entrevistas más que en el corte de las {at}. El avance pasó de 30\u00a0% a 40\u00a0%.",
         )
 
     def test_without_a_time_it_says_the_previous_cutoff(self):
         """The PDF's framing: the same facts, anchored to "el corte anterior"."""
-        self.assertEqual(delta_sentence({"completed": -2, "percent": -55}), "\u22122 entrevistas y \u221255\u00a0% de avance desde el corte anterior.")
-        self.assertEqual(delta_sentence({"completed": 0, "percent": 4}), "Ninguna entrevista nueva, pero el avance cambió +4\u00a0% desde el corte anterior.")
+        self.assertEqual(
+            delta_sentence({"completed": -2, "percent": -55, "percent_before": 80, "percent_now": 25}),
+            "2 entrevistas menos que en el corte anterior. El avance pasó de 80\u00a0% a 25\u00a0%.",
+        )
+        self.assertEqual(
+            delta_sentence({"completed": 0, "percent": 4, "percent_before": 20, "percent_now": 24}),
+            "Ninguna entrevista nueva desde el corte anterior; el avance pasó de 20\u00a0% a 24\u00a0%.",
+        )
 
     def test_the_pdf_uses_the_same_sentence(self):
         from events.services import pdf
@@ -129,8 +135,8 @@ class HeadlineBaselineTests(CampFlowFixture):
         self.login(self.pastor)
         response = self.client.get(self.url("pastor_home"))
         self.assertEqual(response.context["last_snapshot"], self.event_cut)
-        self.assertContains(response, f"+1 entrevista y +20\u00a0% de avance desde el corte de las {hhmm(self.event_cut.cutoff_at)}.")
-        self.assertNotContains(response, "\u22122 entrevistas")  # the team's numbers
+        self.assertContains(response, f"1 entrevista más que en el corte de las {hhmm(self.event_cut.cutoff_at)}. El avance pasó de 0\u00a0% a 20\u00a0%.")
+        self.assertNotContains(response, "2 entrevistas menos")  # the team's numbers
         self.assertNotContains(response, f"desde el corte de las {hhmm(self.team_cut.cutoff_at)}")
 
     def test_admin_home_uses_the_whole_event_cutoff(self):
@@ -147,7 +153,7 @@ class HeadlineBaselineTests(CampFlowFixture):
 class PercentOnlyChangeTests(CampFlowFixture):
     """A2: new camperos registered and nobody finished: the screens say the percentage moved, like the PDF."""
 
-    SENTENCE = "Ninguna entrevista nueva, pero se registró +1 campero y el avance cambió \u22125\u00a0% desde el corte de las {}."
+    SENTENCE = "Ninguna entrevista nueva desde el corte de las {}; el avance pasó de 25\u00a0% a 20\u00a0% porque se registró 1 campero más."
 
     def setUp(self):
         self.now = timezone.now().replace(microsecond=0)
@@ -162,7 +168,7 @@ class PercentOnlyChangeTests(CampFlowFixture):
 
     def assert_says_the_percentage_moved(self, response):
         self.assertNotContains(response, "Sin cambios")
-        self.assertContains(response, "\u22125")
+        self.assertContains(response, "de 25\u00a0% a 20\u00a0%")
         self.assertContains(response, self.SENTENCE.format(hhmm(self.previous.cutoff_at)))
         self.assertNotContains(response, "puntos desde")
 
@@ -184,7 +190,8 @@ class PercentOnlyChangeTests(CampFlowFixture):
         latest = self.cut_now()
         delta = compare(latest.data, self.previous.data)
         self.assertEqual(
-            delta_sentence(delta), "Ninguna entrevista nueva, pero se registró +1 campero y el avance cambió \u22125\u00a0% desde el corte anterior."
+            delta_sentence(delta),
+            "Ninguna entrevista nueva desde el corte anterior; el avance pasó de 25\u00a0% a 20\u00a0% porque se registró 1 campero más.",
         )
         pdf = self.client.get(self.url("report_pdf", latest.public_id))
         self.assertEqual(pdf.status_code, 200)
@@ -203,18 +210,20 @@ class PercentOnlyChangeTests(CampFlowFixture):
     def test_avance_figures_say_percent_not_points(self):
         latest = self.cut_now()
         reports = self.client.get(self.url("reports"))
-        self.assertContains(reports, "\u22125&nbsp;% desde el corte anterior")
+        self.assertContains(reports, "De 25\u00a0% a 20\u00a0% desde el corte anterior")  # from-to, never a signed percentage
+        self.assertNotContains(reports, "\u22125&nbsp;%")
         self.assertNotContains(reports, "puntos")
         detail = self.client.get(self.url("report_detail", latest.public_id))
         self.assertContains(detail, '<th scope="row">Avance</th>')
-        self.assertContains(detail, "\u22125&nbsp;%</td>")
+        self.assertContains(detail, "de 25\u00a0% a 20\u00a0%</td>")
+        self.assertNotContains(detail, "\u22125&nbsp;%")
         self.assertNotContains(detail, "puntos")
 
 
 class CamperosRegisteredTests(CampFlowFixture):
     """A2: the cutoff had no camperos; five registered since and nobody finished. Never "Sin cambios"."""
 
-    SENTENCE = "Ninguna entrevista nueva, pero se registraron +5 camperos desde el corte de las {}."
+    SENTENCE = "Ninguna entrevista nueva desde el corte de las {}, pero se registraron 5 camperos más."
 
     def setUp(self):
         self.now = timezone.now().replace(microsecond=0)

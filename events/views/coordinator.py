@@ -42,6 +42,7 @@ def _my_context(event, access):
 def coord_home(request, event, access):
     context = _my_context(event, access)
     context["station"] = current_station(request, event)
+    context["procedures_pending"] = not event.procedures_approved
     if is_fragment(request):
         return render(request, "events/coordinator/_home_live.html", context)
     return render(request, "events/coordinator/home.html", context)
@@ -132,7 +133,7 @@ def coord_pending(request, event, access):
     return render(
         request,
         "events/coordinator/pending.html",
-        {"in_progress": in_progress, "not_started": not_started, "to_evaluate": to_evaluate},
+        {"in_progress": in_progress, "not_started": not_started, "to_evaluate": to_evaluate, "has_participants": participants.exists()},
     )
 
 

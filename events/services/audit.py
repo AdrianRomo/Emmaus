@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from ..models import AuditEvent
+from collections.abc import Iterable
+
+from ..models import AuditEvent, FollowUp
 
 
 def record(actor, event, action: str, summary: str, obj=None, **metadata) -> AuditEvent:
@@ -56,3 +58,36 @@ ACTION_LABELS = {
     "exportacion": "Descargó datos",
     "cuestionario": "Cambió un cuestionario",
 }
+
+
+# Rows whose summary ties a campero to something only the authorized care team may know: that they have
+# confidential answers or a confidential follow-up, or that somebody reported a risk about them. The
+# activity log is read by administrators who may not hold confidential access.
+CONFIDENTIAL_ACTIONS = frozenset({"consulta_confidencial", "reporte_riesgo"})
+CONFIDENTIAL_SUMMARY = "Movimiento confidencial"
+
+
+def with_shown_summaries(rows: Iterable[AuditEvent], access) -> list[AuditEvent]:
+    """Give each row a ``shown_summary``: its summary, or "Movimiento confidencial" for a viewer without
+    confidential access when the row concerns confidential follow-ups or safety reports.
+
+    "seguimiento" rows are also written for ordinary follow-ups, which administrators see anyway; they are
+    neutralised only when the follow-up is confidential or a safety report, or no longer exists (then nothing
+    says which it was). The stored rows are never changed.
+    """
+    rows = list(rows)
+    sensitive = getattr(access, "can_view_sensitive", False)
+    ordinary = set()
+    if not sensitive:
+        ids = [r.object_id for r in rows if r.action == "seguimiento" and r.object_type == "FollowUp" and r.object_id.isdigit()]
+        ordinary = {
+            str(pk)
+            for pk in FollowUp.objects.filter(pk__in=ids, kind=FollowUp.Kind.CARE, confidential=False).values_list("pk", flat=True)
+        }
+    for row in rows:
+        hide = not sensitive and (
+            row.action in CONFIDENTIAL_ACTIONS
+            or (row.action == "seguimiento" and row.object_type == "FollowUp" and row.object_id not in ordinary)
+        )
+        row.shown_summary = CONFIDENTIAL_SUMMARY if hide else row.summary
+    return rows

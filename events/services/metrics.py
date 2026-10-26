@@ -568,6 +568,8 @@ def compare(current: dict, previous: dict | None) -> dict:
     delta = {key: current["progress"][key] - previous["progress"].get(key, 0) for key in keys}
     cur_pct, prev_pct = current["progress"]["percent"], previous["progress"].get("percent")
     delta["percent"] = None if cur_pct is None or prev_pct is None else cur_pct - prev_pct
+    # Both ends, so the sentence says "pasó de 51 % a 77 %": a bare "+26 %" reads as 26 % more.
+    delta["percent_before"], delta["percent_now"] = prev_pct, cur_pct
     delta["follow_ups_open"] = current["follow_ups"]["open_total"] - previous["follow_ups"].get("open_total", 0)
     prev_teams = {t["key"]: t for t in previous.get("teams", [])}
     delta["teams"] = {}
@@ -579,34 +581,47 @@ def compare(current: dict, previous: dict | None) -> dict:
     return delta
 
 
-def _signed(value: int) -> str:
-    """'+11' or '-5' written with a real minus sign (U+2212), like the `signed` template filter."""
-    return f"+{value}" if value > 0 else f"\u2212{abs(value)}"
+def _avance_moved(delta: dict) -> str:
+    """'el avance pasó de 51 % a 77 %'. The difference is percentage points, so it is never said alone
+    as "+26 %"; a delta without both ends (written by hand, not by ``compare``) says the points."""
+    before, now = delta.get("percent_before"), delta.get("percent_now")
+    if before is not None and now is not None:
+        return f"el avance pasó de {before}\u00a0% a {now}\u00a0%"
+    points = delta.get("percent") or 0
+    unit = "punto porcentual" if abs(points) == 1 else "puntos porcentuales"
+    return f"el avance {'subió' if points > 0 else 'bajó'} {abs(points)} {unit}"
+
+
+def _camperos_moved(camperos: int) -> str:
+    if camperos > 0:
+        return "se registró 1 campero más" if camperos == 1 else f"se registraron {camperos} camperos más"
+    return "hay 1 campero menos" if camperos == -1 else f"hay {-camperos} camperos menos"
 
 
 def delta_sentence(delta: dict, since: datetime | None = None) -> str:
     """The change since the previous cutoff, said the same way on every screen and in the PDF.
 
-    ``delta`` is what ``compare`` returns. When nobody finished an interview, camperos registered (or
-    removed) and the percentage they move are still said, never "Sin cambios". With ``since`` (the
-    previous cutoff) the sentence names its time; without it, it says "el corte anterior".
+    ``delta`` is what ``compare`` returns. Counts are said as words ("25 entrevistas más", never "+25") and
+    the progress as both ends ("pasó de 51 % a 77 %"), never as a signed percentage. When nobody finished
+    an interview, camperos registered (or removed) and the percentage they move are still said, never
+    "Sin cambios". With ``since`` (the previous cutoff) the sentence names its time; without it, it says
+    "el corte anterior".
     """
     anchor = f"el corte de las {timezone.localtime(since):%H:%M}" if since else "el corte anterior"
     completed = delta.get("completed") or 0
     percent = delta.get("percent") or 0
     camperos = delta.get("eligible") or 0
     if completed:
-        change = f"{_signed(completed)} entrevista{'' if abs(completed) == 1 else 's'}"
+        noun = "entrevista" if abs(completed) == 1 else "entrevistas"
+        sentence = f"{abs(completed)} {noun} {'más' if completed > 0 else 'menos'} que en {anchor}."
         if percent:
-            change += f" y {_signed(percent)}\u00a0% de avance"
-        return f"{change} desde {anchor}."
-    changes = []
-    if camperos > 0:
-        changes.append("se registró +1 campero" if camperos == 1 else f"se registraron +{camperos} camperos")
-    elif camperos < 0:
-        changes.append("hay 1 campero menos" if camperos == -1 else f"hay {-camperos} camperos menos")
+            moved = _avance_moved(delta)
+            sentence += f" {moved[0].upper()}{moved[1:]}."
+        return sentence
+    if percent and camperos:
+        return f"Ninguna entrevista nueva desde {anchor}; {_avance_moved(delta)} porque {_camperos_moved(camperos)}."
     if percent:
-        changes.append(f"el avance cambió {_signed(percent)}\u00a0%")
-    if changes:
-        return f"Ninguna entrevista nueva, pero {' y '.join(changes)} desde {anchor}."
+        return f"Ninguna entrevista nueva desde {anchor}; {_avance_moved(delta)}."
+    if camperos:
+        return f"Ninguna entrevista nueva desde {anchor}, pero {_camperos_moved(camperos)}."
     return f"Sin cambios desde {anchor}."

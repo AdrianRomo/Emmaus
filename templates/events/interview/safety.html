@@ -14,7 +14,7 @@
   {% csrf_token %}
   <input type="hidden" name="siguiente" value="{{ back_url }}">
   {% include "partials/ui/field.html" with field=form.details %}
-  <p class="aside-note">Solo el equipo de cuidado autorizado podrá leer lo que escribas. La administración sabrá que el reporte existe, pero no lo que dice. Emmaus les avisa por correo a los dos, sin nombres ni detalles.</p>
+  <p class="aside-note">Solo el equipo de cuidado autorizado podrá leer lo que escribas. La administración verá que existe un reporte, pero no lo que dice.</p>
   <div class="step__actions">
     <button class="btn btn--danger btn--large" type="submit">Enviar reporte</button>
     <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>

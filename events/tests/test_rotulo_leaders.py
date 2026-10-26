@@ -275,11 +275,14 @@ class CutoffPdfTests(CampFixture):
     def test_the_change_since_the_last_cutoff_keeps_the_percentage(self):
         from events.services.pdf import delta_sentence
 
-        self.assertEqual(delta_sentence({"completed": 11, "percent": 3}), "+11 entrevistas y +3\u00a0% de avance desde el corte anterior.")
-        self.assertEqual(delta_sentence({"completed": 4, "percent": 0}), "+4 entrevistas desde el corte anterior.")
+        self.assertEqual(
+            delta_sentence({"completed": 11, "percent": 3, "percent_before": 40, "percent_now": 43}),
+            "11 entrevistas más que en el corte anterior. El avance pasó de 40\u00a0% a 43\u00a0%.",
+        )
+        self.assertEqual(delta_sentence({"completed": 4, "percent": 0}), "4 entrevistas más que en el corte anterior.")
         # New campers registered and nobody finished: the percentage still moved
         self.assertEqual(
-            delta_sentence({"completed": 0, "percent": -5}),
-            "Ninguna entrevista nueva, pero el avance cambió \u22125\u00a0% desde el corte anterior.",
+            delta_sentence({"completed": 0, "percent": -5, "percent_before": 25, "percent_now": 20}),
+            "Ninguna entrevista nueva desde el corte anterior; el avance pasó de 25\u00a0% a 20\u00a0%.",
         )
         self.assertEqual(delta_sentence({"completed": 0, "percent": None}), "Sin cambios desde el corte anterior.")

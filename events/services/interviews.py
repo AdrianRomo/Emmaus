@@ -894,7 +894,19 @@ def revoke_claim(interview: Interview, *, actor) -> None:
 # ---- safety -----------------------------------------------------------------------------------
 
 
-def report_safety_concern(access, participant: EventParticipant, *, details: str, interview: Interview | None = None) -> FollowUp:
+@dataclass(frozen=True)
+class SafetyReport:
+    follow_up: FollowUp
+    notified: bool  # notify_safety_report returned True: there were addresses and the backend accepted the message
+
+
+def report_safety_concern(access, participant: EventParticipant, *, details: str, interview: Interview | None = None) -> SafetyReport:
+    """Store the report and send the alert, saying whether the alert went (so the screen never claims it did).
+
+    Called in autocommit (the view), the row is already stored when the alert goes, and its result is known.
+    Inside a caller's transaction the alert waits for the commit (a rollback must not alert anyone about a
+    report that does not exist) and ``notified`` is False: nothing is known yet.
+    """
     from .notifications import notify_safety_report
 
     follow_up = FollowUp.objects.create(
@@ -907,8 +919,37 @@ def report_safety_concern(access, participant: EventParticipant, *, details: str
         created_by=access.user,
     )
     audit.record(access.user, access.event, "reporte_riesgo", f"Reportó una situación de riesgo del campero #{participant.code}", follow_up)
-    transaction.on_commit(lambda: notify_safety_report(follow_up))
-    return follow_up
+    if transaction.get_connection().in_atomic_block:
+        transaction.on_commit(lambda: notify_safety_report(follow_up))
+        return SafetyReport(follow_up, notified=False)
+    return SafetyReport(follow_up, notified=notify_safety_report(follow_up))
+
+
+SAFETY_REPORT_SAVED = "El reporte quedó guardado."
+SAFETY_REPORT_CARE_TEAM = "El equipo de cuidado autorizado lo verá en Emmaus. Avísales también en persona."
+SAFETY_REPORT_ADMINISTRATION = "La administración lo verá en Seguimiento."
+SAFETY_REPORT_EMAILED = "También les mandamos un aviso por correo, sin nombres ni detalles."
+SAFETY_REPORT_NOBODY_CAN_READ = "Ahora mismo nadie en este evento tiene acceso confidencial: avisa a la administración."
+
+
+def safety_report_result(event: Event, *, notified: bool) -> tuple[str, str | None]:
+    """What the person who sent a safety report reads afterwards: only what Emmaus knows to be true.
+
+    The report is always saved. Who will see it depends on who holds confidential access in the event:
+    the care team, or, with nobody holding it, only the administration (which sees safety reports in
+    "Seguimiento" without the flag, but not what they say). The e-mail is mentioned only when it went:
+    ``notified`` (what ``report_safety_concern`` returned) and a backend that delivers
+    (``team.email_is_configured``; the console backend "sends" into the server log). The second value is
+    a warning, or None.
+    """
+    from ..models import EventMembership
+    from .team import email_is_configured
+
+    readers = EventMembership.objects.filter(event=event, is_active=True, can_view_sensitive=True, user__is_active=True).exists()
+    sentences = [SAFETY_REPORT_SAVED, SAFETY_REPORT_CARE_TEAM if readers else SAFETY_REPORT_ADMINISTRATION]
+    if notified and email_is_configured():
+        sentences.append(SAFETY_REPORT_EMAILED)
+    return " ".join(sentences), (None if readers else SAFETY_REPORT_NOBODY_CAN_READ)
 
 
 # ---- read helpers -------------------------------------------------------------------------------

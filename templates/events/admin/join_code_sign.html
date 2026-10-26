@@ -14,7 +14,7 @@
   <p class="join-sheet__url">{{ join_url }}</p>
   <ol class="join-sheet__steps">
     <li>Abre esa dirección en tu teléfono.</li>
-    <li>{% if event.join_by_name %}Escribe el código o el nombre del evento, {{ event.slug }}.{% else %}Escribe el código.{% endif %}</li>
+    <li>Escribe el código.{% if event.join_by_name %} También sirve el nombre corto: {{ event.slug }}.{% endif %}</li>
     <li>Llena tus datos y la administración te dará acceso.</li>
   </ol>
   <div class="step__actions">

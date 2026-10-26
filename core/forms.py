@@ -80,6 +80,26 @@ class TuSetPasswordForm(TuErrorMessagesMixin, SetPasswordForm):
         self.fields["new_password2"].help_text = ""
         self.fields["new_password2"].error_messages["required"] = "Escribe otra vez tu contraseña nueva."
 
+    # Django checks the rules on the confirmation field, so "muy corta" hung from "Escríbela otra vez" and the
+    # person retyped the confirmation. The rules are about the new password: their errors go there, and
+    # "Escríbela otra vez" only says that the two do not match (LANG-14).
+    TOO_SIMILAR = "La contraseña se parece demasiado a tu correo o a tu nombre. Elige otra."
+
+    def validate_password_for_user(self, user, password_field_name="new_password1"):
+        # SetPasswordForm.clean passes "new_password2"; the rules are checked on the new password whatever it
+        # passes. The password is never bound to a local name (Django's own method hides its "password" local
+        # from error reports with @sensitive_variables).
+        if not self.cleaned_data.get("new_password1"):
+            return
+        try:
+            validate_password(self.cleaned_data["new_password1"], user)
+        except ValidationError as error:
+            # Django names the field it compared ("tu nombre de usuario", "tu apellidos"); people here sign in
+            # with their e-mail and never see a user name (LANG-13).
+            self.add_error("new_password1", [
+                ValidationError(self.TOO_SIMILAR, code=e.code) if e.code == "password_too_similar" else e for e in error.error_list
+            ])
+
 
 class EmailAuthenticationForm(TuErrorMessagesMixin, AuthenticationForm):
     """Login form labelled for people who sign in with their email address."""

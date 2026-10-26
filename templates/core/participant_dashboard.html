@@ -28,7 +28,7 @@
         {% if current and current.completed_at %}
           <p class="disc-path__note">{% if summary.total_lessons == 1 %}Terminaste la lección.{% else %}Terminaste las {{ summary.total_lessons }} lecciones.{% endif %} <a href="{% url 'participant_lesson' current.lesson.id %}">Volver a leer “{{ current.lesson.title }}”</a></p>
         {% else %}
-          <p class="disc-path__note">Llevas {{ summary.completed_lessons }} de {{ summary.total_lessons }} lección{{ summary.total_lessons|pluralize:"es" }} terminada{{ summary.total_lessons|pluralize }}.</p>
+          <p class="disc-path__note">Llevas {{ summary.completed_lessons }} de {{ summary.total_lessons }} lecci{{ summary.total_lessons|pluralize:"ón,ones" }} terminada{{ summary.total_lessons|pluralize }}.</p>
         {% endif %}
       </div>
     {% else %}
