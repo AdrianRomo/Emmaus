@@ -5,13 +5,14 @@ from datetime import datetime, time, timedelta
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Q
+from django.db.models import Case, Count, F, IntegerField, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
+from django.views.decorators.http import require_POST
 
-from ..forms import FollowUpForm
+from ..forms import FollowUpAssignForm, FollowUpForm, follow_up_leaders
 from ..models import (
     AccessRequest,
     AuditEvent,
@@ -29,7 +30,7 @@ from ..services import audit
 from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
-from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment
+from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, safe_next
 
 
 def _last_snapshot(access):
@@ -247,26 +248,87 @@ def progress(request, event, access):
     return render(request, "events/pastor/progress.html", context)
 
 
+FOLLOW_UPS_SHOWN = 200  # a display cap, not a count: the page says "Mostrando 200 de N"
+RESPONSABLE_FILTERS = ("todos", "ninguno", "mio")
+
+
+def _follow_up_status_rank():
+    """Work in the order it is attended: nobody started it, under way, then the closed ones."""
+    return Case(
+        When(status=FollowUp.Status.PENDING, then=Value(0)),
+        When(status=FollowUp.Status.IN_PROGRESS, then=Value(1)),
+        When(status=FollowUp.Status.DONE, then=Value(2)),
+        When(status=FollowUp.Status.CANCELLED, then=Value(3)),
+        default=Value(4),
+        output_field=IntegerField(),
+    )
+
+
+def _can_assign(access, follow_up) -> bool:
+    """``access.can_manage_follow_up`` for a row already taken from ``access.follow_ups()``: the same
+    rule without its per-row ``exists()``. Only decides whether the row offers the control; the
+    assign endpoint still runs the full check."""
+    if follow_up.kind == FollowUp.Kind.SAFETY:
+        return access.can_view_sensitive or access.is_admin
+    return access.is_admin or access.is_pastor or access.is_tutor or access.can_view_sensitive or (
+        access.is_coordinator and follow_up.participant.coordinator_id == getattr(access.membership, "id", None)
+    )
+
+
 @event_view(*LEADERS, MembershipRole.COORDINATOR)
 def follow_ups(request, event, access):
     status = request.GET.get("estado", "abiertos")
-    qs = access.follow_ups().select_related("participant__coordinator__user", "assigned_to")
+    responsable = request.GET.get("responsable", "todos")
+    if responsable not in RESPONSABLE_FILTERS:
+        responsable = "todos"
+    in_status = access.follow_ups().select_related("participant__coordinator__user", "assigned_to")
     if status == "abiertos":
-        qs = qs.filter(status__in=FollowUp.OPEN_STATUSES)
+        in_status = in_status.filter(status__in=FollowUp.OPEN_STATUSES)
     elif status in FollowUp.Status.values:
-        qs = qs.filter(status=status)
-    qs = qs.order_by("-kind", "status", "-created_at")
+        in_status = in_status.filter(status=status)
+    unassigned = in_status.filter(assigned_to__isnull=True)
+    mine = in_status.filter(assigned_to_id=request.user.id)
+    qs = {"ninguno": unassigned, "mio": mine}.get(responsable, in_status)
+    total = qs.count()
+    qs = qs.annotate(
+        status_rank=_follow_up_status_rank(),
+        sin_responsable=Case(When(assigned_to__isnull=True, then=Value(1)), default=Value(0), output_field=IntegerField()),
+    ).order_by("-kind", "status_rank", "-sin_responsable", "-created_at")
+    rows = list(qs[:FOLLOW_UPS_SHOWN])
+    leaders = list(follow_up_leaders(event))
+    leader_ids = {user.id for user in leaders}
+    for f in rows:
+        f.can_assign = _can_assign(access, f)
+        # The form also accepts the campero's own coordinador; offer them on that row only.
+        coordinator = f.participant.coordinator
+        f.coordinator_option = coordinator.user if coordinator and coordinator.user_id not in leader_ids else None
+        # Someone who left the team stays shown and selected, so sending the row unchanged cannot
+        # unassign them by accident; the form still refuses them ("Elige a una persona del equipo.").
+        eligible = leader_ids | ({coordinator.user_id} if coordinator else set())
+        f.former_assignee = f.assigned_to if f.assigned_to_id and f.assigned_to_id not in eligible else None
     counts = dict(access.follow_ups().values_list("status").annotate(n=Count("id")))
     return render(
         request,
         "events/supervision/follow_ups.html",
-        {"follow_ups": qs[:200], "status": status, "counts": counts, "status_choices": FollowUp.Status.choices},
+        {
+            "follow_ups": rows,
+            "total": total,
+            "shown": FOLLOW_UPS_SHOWN,
+            "status": status,
+            "responsable": responsable,
+            "unassigned_count": unassigned.count(),
+            "mine_count": mine.count(),
+            "counts": counts,
+            "status_choices": FollowUp.Status.choices,
+            "leaders": leaders,
+        },
     )
 
 
 @event_view(*LEADERS, MembershipRole.COORDINATOR)
 def follow_up_detail(request, event, access, follow_up_id):
     follow_up = get_object_or_404(access.follow_ups(), pk=follow_up_id)
+    back = safe_next(request, request.POST.get("siguiente") or request.GET.get("siguiente"), reverse("events:follow_ups", args=[event.slug]))
     can_manage = access.can_manage_follow_up(follow_up)
     can_read = access.can_read_follow_up_details(follow_up)
     form = FollowUpForm(request.POST or None, instance=follow_up, event=event, can_write_notes=can_read) if can_manage else None
@@ -280,14 +342,34 @@ def follow_up_detail(request, event, access, follow_up_id):
             item.save()
             audit.record(request.user, event, "seguimiento", f"Actualizó un seguimiento del campero #{follow_up.participant.code}", follow_up, status=item.status)
             messages.success(request, "Seguimiento actualizado.")
-            return redirect("events:follow_ups", slug=event.slug)
+            return redirect(back)
     if can_read and (follow_up.details or follow_up.resolution_note):
         audit.record(request.user, event, "consulta_confidencial", f"Consultó un seguimiento confidencial del campero #{follow_up.participant.code}", follow_up)
     return render(
         request,
         "events/supervision/follow_up_detail.html",
-        {"follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage},
+        {"follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back},
     )
+
+
+@require_POST
+@event_view(*LEADERS, MembershipRole.COORDINATOR)
+def follow_up_assign(request, event, access, follow_up_id):
+    """Who attends a follow-up, set from its row in the list. The guards, audit row and message of
+    ``follow_up_detail``; it writes only ``assigned_to``, so it cannot undo a status saved meanwhile."""
+    item = get_object_or_404(access.follow_ups(), pk=follow_up_id)
+    if not access.can_manage_follow_up(item):
+        raise PermissionDenied
+    back = safe_next(request, request.POST.get("siguiente"), reverse("events:follow_ups", args=[event.slug]))
+    form = FollowUpAssignForm(request.POST, instance=item, event=event)
+    if not form.is_valid():
+        messages.error(request, "Elige a una persona del equipo.")
+        return redirect(back)
+    item = form.save(commit=False)
+    item.save(update_fields=["assigned_to", "updated_at"])
+    audit.record(request.user, event, "seguimiento", f"Actualizó un seguimiento del campero #{item.participant.code}", item, status=item.status)
+    messages.success(request, "Seguimiento actualizado.")
+    return redirect(back)
 
 
 @event_view(PASTOR, ADMIN)

@@ -58,7 +58,7 @@
           {% for f in follow_ups %}
             <li class="row">
               <div class="row__main">
-                <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
+                <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={% url 'events:tutor_home' event.slug %}">{{ f.participant.full_name }}</a></p>
                 <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>
               </div>
               {% follow_up_status f.status %}

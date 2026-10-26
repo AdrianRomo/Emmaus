@@ -28,7 +28,7 @@
         <ul class="rows">{% for f in follow_ups %}
           <li class="row">
             <div class="row__main">
-              <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
+              <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.get_full_path|urlencode }}">{{ f.participant.full_name }}</a></p>
               <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.created_at|since }}. {% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name }}{% else %}Sin asignar{% endif %}</p>
             </div>
             <div class="row__end">

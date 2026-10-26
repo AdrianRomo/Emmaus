@@ -3,11 +3,10 @@
 {% block page_title %}Seguimiento de {{ follow_up.participant.full_name }}{% endblock %}
 {% block content %}
 <div class="narrow">
-{% url 'events:follow_ups' event.slug as back_url %}
 {% if follow_up.kind == "seguridad" %}
-  {% with title="Situación de riesgo: "|add:follow_up.participant.full_name %}{% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label="Seguimiento" %}{% endwith %}
+  {% with title="Situación de riesgo: "|add:follow_up.participant.full_name %}{% include "events/rotulo/_page_head.html" with title=title back_url=back back_label="Volver" %}{% endwith %}
 {% else %}
-  {% with title="Seguimiento: "|add:follow_up.participant.full_name %}{% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label="Seguimiento" %}{% endwith %}
+  {% with title="Seguimiento: "|add:follow_up.participant.full_name %}{% include "events/rotulo/_page_head.html" with title=title back_url=back back_label="Volver" %}{% endwith %}
 {% endif %}
 <p class="interview-meta">{% follow_up_status follow_up.status %} <span>{{ follow_up.get_reason_display }}, registrado {{ follow_up.created_at|fecha_corta }} por {{ follow_up.created_by.get_full_name|default:"—" }}.</span></p>
 {% if follow_up.kind == "seguridad" %}
@@ -25,6 +24,7 @@
 {% if form %}
 <form method="post" class="block" novalidate>
   {% csrf_token %}
+  <input type="hidden" name="siguiente" value="{{ back }}">
   <h2 class="heading">Actualizar</h2>
   {% include "partials/ui/fields.html" with form=form %}
   <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar</button><a class="btn btn--link" href="{% url 'events:participant_detail' event.slug follow_up.participant.public_id %}">Ver campero</a></div>
