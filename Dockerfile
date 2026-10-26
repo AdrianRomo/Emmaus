@@ -10,13 +10,24 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Unprivileged runtime user with a fixed uid/gid. It owns nothing in /app.
+RUN groupadd --system --gid 10001 emmaus \
+    && useradd --system --uid 10001 --gid emmaus --no-create-home --home-dir /nonexistent \
+       --shell /usr/sbin/nologin emmaus
+
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+# .dockerignore keeps .env, .git, .venv, local databases, staticfiles/ and caches out of this copy.
 COPY . .
 
-# Build the hashed, compressed static manifest that WhiteNoise serves when DEBUG=false.
-RUN DEBUG=false SECRET_KEY=build-only-not-secret python manage.py collectstatic --noinput
+# Build the hashed, compressed static manifest that WhiteNoise serves when DEBUG=false (as root).
+# Then make /app readable but not writable by the app user, whatever umask the checkout had:
+# the app never writes there at runtime (uploads stay in memory or the system temp dir).
+RUN DEBUG=false SECRET_KEY=build-only-not-secret python manage.py collectstatic --noinput \
+    && chmod -R a+rX,go-w /app
+
+USER emmaus:emmaus
 
 EXPOSE 8000
 
