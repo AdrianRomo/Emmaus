@@ -5,7 +5,7 @@
 <header class="bar bar--leader{% if event_nav|length > 5 %} bar--stacked{% endif %}">
   <div class="bar__inner">
     <a class="wordmark" href="{% url 'events:home' event.slug %}">Emmaus</a>
-    <p class="bar__event">{{ event.name }}<a href="{% url 'events:list' %}?todos=1">Cambiar de evento</a></p>
+    <p class="bar__event">{{ event.name }} <a href="{% url 'events:list' %}?todos=1">Cambiar de evento</a></p>
     <nav class="bar__nav" aria-label="Principal">
       {% for item in event_nav %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
       {% if access.is_admin and theme_church.discipleship_enabled %}<a href="{% url 'church_dashboard' %}">Discipulado</a>{% endif %}

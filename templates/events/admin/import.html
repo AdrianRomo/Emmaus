@@ -37,9 +37,10 @@
 {% else %}
   {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% include "events/rotulo/_page_head.html" with title="Importar camperos" back_url=back_url back_label="Participantes" %}
+  {% comment %}The browser names the file button in its own language ("Choose File"): the lede says it in Spanish.{% endcomment %}
+  {% include "events/rotulo/_page_head.html" with title="Importar camperos" lede="Elige el archivo." back_url=back_url back_label="Participantes" %}
   <div class="split admin-split">
-    <form method="post" enctype="multipart/form-data" novalidate>
+    <form method="post" enctype="multipart/form-data" novalidate class="admin-upload">
       {% csrf_token %}
       {% include "partials/ui/field.html" with field=form.file %}
       <button class="btn btn--primary" type="submit">Revisar archivo</button>

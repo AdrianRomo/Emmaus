@@ -274,6 +274,8 @@ form.is-submitting .btn--primary { opacity: 0.7; }
 .error-summary a { color: var(--chile); font-weight: 700; }
 
 .details summary { color: var(--anil); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 0.18em; }
+/* 44px to tap (§6) around one line of text; the negative margins keep the text and the content after it in place */
+.details summary { padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); }
 .details__body { margin-top: var(--s-3); padding-left: var(--s-4); border-left: 4px solid var(--line); color: var(--ink-2); max-width: 65ch; }
 .details { margin: var(--s-4) 0; }
 
@@ -332,6 +334,11 @@ a.wordmark:hover { color: var(--anil); }
 .bar__event { color: var(--ink-2); font-size: var(--t-small); max-width: 13rem; line-height: 1.25; }
 .bar__event a { display: inline-block; min-height: 1.5rem; padding: 0.125rem 0; margin-top: 0.125rem; font-weight: 700; }  /* WCAG 2.5.8: 24px target */
 .bar--leader .bar__event { max-width: 17rem; }
+/* "Campamento de Jóvenes 2026 Cambiar de evento": apart when they share a line, flush left when the link wraps
+   (a margin on the link would indent it on its own line). Phones hide the event name. */
+@media (min-width: 601px) {
+  .bar--leader .bar__event { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s-2); }
+}
 .bar__event a { white-space: nowrap; }
 .bar__nav { display: flex; gap: var(--s-1); margin-left: auto; align-self: stretch; }
 .bar__nav a {
@@ -402,6 +409,9 @@ a.wordmark:hover { color: var(--anil); }
 .sign__text { margin-top: var(--s-2); font-size: var(--t-lead); max-width: 60ch; }
 .sign__actions { margin-top: var(--s-6); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-6); }
 .sign__link { color: var(--carbon); font-weight: 700; }
+/* 44px to tap (§6) around one line. The margins take back exactly what the padding adds, so the sign keeps its
+   height and the text its place however many lines the link wraps to */
+.sign__link { display: inline-flex; align-items: center; padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); }
 .sign .btn--primary { box-shadow: 0 3px 0 var(--carbon); }
 .search { display: flex; gap: var(--s-3); margin-top: var(--s-5); max-width: 46rem; }
 .search__input { flex: 1; min-height: 3.75rem; font-size: 1.375rem; border-width: var(--b-sign); }
@@ -437,14 +447,17 @@ a.wordmark:hover { color: var(--anil); }
 .summary-list dt { font-weight: 700; }
 .summary-list dd { margin: 0; }
 .summary-list__action { text-align: right; font-weight: 700; }
-.summary-list:has(.summary-list__action) .summary-list__row { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 10rem; }
+/* Not on the answers list: without the :not() this rule (0,3,0) out-ranked the answers layout below (0,2,0) and
+   the phone override, so the question wrapped one word per line and "Cambiar" sat in the middle of the row */
+.summary-list:not(.summary-list--answers):has(.summary-list__action) .summary-list__row { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 10rem; }
 .summary-list--answers .summary-list__row { grid-template-columns: minmax(0, 1fr) auto; padding: var(--s-4) 0; }
 .summary-list--answers dt { grid-column: 1; font-weight: 400; color: var(--ink-2); font-size: var(--t-small); }
 .summary-list--answers dd:not(.summary-list__action) { grid-column: 1; font-weight: 700; font-size: var(--t-lead); }
 .summary-list--answers .summary-list__action { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .summary-list--answers .muted { font-weight: 400; color: var(--ink-3); }
 @media (max-width: 600px) {
-  .summary-list__row { grid-template-columns: 1fr auto; }
+  .summary-list__row,
+  .summary-list:not(.summary-list--answers):has(.summary-list__action) .summary-list__row { grid-template-columns: 1fr auto; }
   .summary-list__row dt { grid-column: 1 / -1; }
   .summary-list--answers .summary-list__row dt { grid-column: 1; }
   .summary-list--answers .summary-list__action { grid-row: 1 / span 2; }
@@ -481,13 +494,16 @@ a.wordmark:hover { color: var(--anil); }
   display: grid; grid-template-columns: auto 1fr; align-items: baseline;
   gap: var(--s-1) var(--s-4); margin-bottom: var(--s-10);
 }
-.trail__back { grid-column: 1 / -1; justify-self: start; margin: 0 0 var(--s-3); }
 .trail__back, .back-link {
   display: inline-flex; align-items: center; gap: var(--s-2);
-  border: 0; background: none; padding: var(--s-1) 0; cursor: pointer; font-size: var(--t-body);
+  border: 0; background: none; cursor: pointer; font-size: var(--t-body);
   color: var(--carbon); font-weight: 700; text-decoration: underline; text-underline-offset: 0.18em;
+  /* 44px to tap (§6) around one line. The padding was 4px; the margins take back what it adds beyond that,
+     so the text and everything after it stay where they were, for any number of lines */
+  padding: calc((2.75rem - 1lh) / 2) 0; --target-pull: calc(var(--s-1) + (1lh - 2.75rem) / 2);
 }
-.back-link { margin-bottom: var(--s-5); }
+.trail__back { grid-column: 1 / -1; justify-self: start; margin: var(--target-pull) 0 calc(var(--s-3) + var(--target-pull)); }
+.back-link { margin: var(--target-pull) 0 calc(var(--s-5) + var(--target-pull)); }
 .trail__back::before, .back-link::before {
   content: ""; width: 0.5rem; height: 0.5rem; border: solid currentColor; border-width: 0 0 3px 3px;
   transform: rotate(45deg); margin-right: 0.125rem;
@@ -920,6 +936,20 @@ ol.promises li::before {
 .admin-import .admin-table td { vertical-align: top; }
 .admin-figures { margin: var(--s-6) 0 var(--s-8); }
 .admin-import__cancel { margin-top: var(--s-3); }
+/* Import: the native file control stays (keyboard, screen readers, the file name); no field box around it,
+   its button drawn as .btn--secondary. Same weight as the shared .field input rule, so it wins by coming later. */
+.admin-upload .field input[type="file"]:not([type="hidden"]) {
+  min-height: 0; padding: 0; border: 0; border-radius: 0; background: none;
+  font-size: var(--t-body); color: var(--ink-2);
+}
+.admin-upload input[type="file"]::file-selector-button {
+  min-height: var(--control); margin-right: var(--s-4); padding: 0.5rem 1.375rem;
+  border: var(--b-control) solid var(--carbon); border-radius: var(--r-control);
+  background: var(--cal); color: var(--carbon); font: inherit; font-weight: 700; line-height: 1.2; cursor: pointer;
+}
+.admin-upload input[type="file"]::file-selector-button:hover { background: var(--cal-2); }
+.admin-upload .field input[type="file"]:focus-visible { outline: 3px solid transparent; box-shadow: none; }
+.admin-upload input[type="file"]:focus-visible::file-selector-button { background: var(--maiz); border-color: var(--carbon); box-shadow: 0 3px 0 var(--carbon); }
 
 /* Two columns whose content may be wider than the column (tables, long links) must not widen the page */
 .admin-split > * { min-width: 0; }
@@ -969,11 +999,22 @@ ol.promises li::before {
 .admin-assign__unit { display: none; }
 @media (max-width: 600px) { .admin-assign__unit { display: inline; } }
 
+/* Participants: the table on a wide screen; on a phone the same people as rows (name, then the data as a
+   sentence), instead of names on three lines and a sideways scroll. display:none keeps the unused one
+   away from screen readers and the keyboard. */
+.admin-people__rows { display: none; margin-top: var(--s-3); }
+@media (max-width: 600px) {
+  .admin-people__table { display: none; }
+  .admin-people__rows { display: block; }
+}
+
 /* ---------- G4 Público ---------- */
 /* Sign-in, password and invitation pages, errors, the landing and the event list (all on base.html). */
 
 /* Sign-in: the shared-computer reminder stands apart from the button it follows */
 .auth-card > .notice { margin-top: var(--s-10); }
+/* "¿Olvidaste tu contraseña?": 44px to tap (§6); the margins take back exactly what the padding adds */
+.auth-card__link { display: inline-flex; align-items: center; padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); }
 
 /* Django sends the password rules as a list inside the field hint: keep the bullets inside the column */
 .field .hint ul { padding-left: 1.25rem; list-style: disc; }
@@ -1130,7 +1171,20 @@ ol.promises li::before {
 /* position: the visually hidden link text must scroll inside .table-wrap instead of widening the page */
 .table__actions { white-space: nowrap; position: relative; }
 .table .table__actions { padding-left: var(--s-5); }
-.table__actions a + a { margin-left: var(--s-4); }
+/* "Ver", "PDF", "Presentación": 44 x 44px to tap (§6). The row gets a 44px inner height (it was 40px), so each
+   target fills its row exactly and never reaches into the next one; the targets' own margins take back their
+   padding. The side padding widens each target and replaces the gap between them; the outer margins keep the
+   first and last words where they were. */
+.table tr:has(.table__actions) > td { padding-block: calc((2.75rem - 1lh) / 2); }
+.table__actions a {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem;
+  padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); padding-inline: var(--s-2);
+}
+.table__actions a:first-child { margin-left: calc(-1 * var(--s-2)); }
+.table__actions a:last-child { margin-right: calc(-1 * var(--s-2)); }
+/* Focus (§Foco: maíz behind the words, a 4px ink rule under them) kept inside the row: the usual rule above
+   and below the box would paint over the row lines */
+.table__actions a:focus-visible { box-shadow: inset 0 -4px 0 var(--carbon); }
 .keep-together { white-space: nowrap; }
 /* Row headers (comparison table) take the row's rule, not the header's */
 .report-section .table th[scope="row"] { border-bottom: 1px solid var(--line); }
@@ -1201,9 +1255,10 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .deck-teams__list:has(li:nth-child(7)) .ruler { grid-column: 2; grid-row: 1; }
 .deck-teams__list:has(li:nth-child(7)) strong { grid-column: 3; grid-row: 1; text-align: right; }
 
-/* Charts drawn with deck=True (events/charts.py): text is set in viewBox units, about 27 px at 1920 */
+/* Charts drawn with deck=True (events/charts.py): text is set in viewBox units, about 27 px at 1920.
+   The chart takes the slide's whole width; its canvas has the chart area's proportions, so it fills it */
 .deck-chart-box { flex: 1; min-height: 0; }
-.deck-chart { display: block; width: auto; max-width: 100%; height: 100%; overflow: visible; font-family: var(--font-ui); }
+.deck-chart { display: block; width: 100%; height: 100%; overflow: visible; font-family: var(--font-ui); }
 .deck-chart text { fill: var(--ink-2); font-size: 27px; }
 .deck-chart .label-strong { fill: var(--carbon); font-weight: 700; font-size: 32px; }
 .deck-chart .label-quiet { fill: var(--ink-2); font-weight: 700; }

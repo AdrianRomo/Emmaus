@@ -15,7 +15,7 @@
     {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
     <div class="step__actions">
       <button class="btn btn--primary btn--large" type="submit">Entrar</button>
-      <a href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a>
+      <a class="auth-card__link" href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a>
     </div>
   </form>
   <div class="notice notice--quiet">
