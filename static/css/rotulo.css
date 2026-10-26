@@ -1082,6 +1082,17 @@ ol.promises li::before {
   .admin-people__rows { display: block; }
 }
 
+/* Home, "Preparación": "N de M pasos listos", the pending steps, then the ready ones in a fold that starts closed */
+.admin-steps__summary { font-weight: 500; color: var(--ink-2); margin-bottom: var(--s-3); }
+.admin-steps__done { margin-top: var(--s-4); }
+.admin-steps__done > summary { font-size: var(--t-small); }
+/* Configuración: an index of its sections (44px targets), then the sections one under the other, each after a rule.
+   A modifier, not ".admin-section + .admin-section": the settings form sits between sections, and the questionnaire
+   editor stacks .admin-section too. */
+.page-toc ul { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); list-style: none; margin: 0 0 var(--s-6); }
+.page-toc a { min-height: 2.75rem; display: inline-flex; align-items: center; }
+.admin-section--ruled { margin-top: var(--s-10); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+
 /* ---------- G4 Público ---------- */
 /* Sign-in, password and invitation pages, errors, the landing and the event list (all on base.html). */
 

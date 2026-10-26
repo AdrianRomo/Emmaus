@@ -38,6 +38,7 @@ from ..forms import (
 from ..models import (
     AccessRequest,
     AuditEvent,
+    Event,
     EventMembership,
     EventParticipant,
     FollowUp,
@@ -694,13 +695,16 @@ def option_add(request, event, access, version_id, question_id):
 
 @event_view(ADMIN)
 def settings_view(request, event, access):
-    basics = EventForm(request.POST if request.POST.get("form") == "basics" else None, instance=event, prefix="basics")
+    # Its own copy of the event: a bound form writes its clean values into its instance even when it is invalid, and
+    # the page (links, the computers' forms, the bar) is drawn from ``event``: an unsaved slug made them point nowhere.
+    basics = EventForm(request.POST if request.POST.get("form") == "basics" else None, instance=Event.objects.get(pk=event.pk), prefix="basics")
     settings_form = EventSettingsForm(request.POST if request.POST.get("form") == "settings" else None, instance=event, prefix="cfg")
     procedures = ProceduresForm(request.POST if request.POST.get("form") == "procedures" else None)
     if request.method == "POST":
         which = request.POST.get("form")
         target = {"basics": basics, "settings": settings_form, "procedures": procedures}.get(which)
         if target is not None and target.is_valid():
+            slug = event.slug
             if which == "procedures":
                 event.procedures_approved_at = timezone.now()
                 event.procedures_approved_by = request.user
@@ -709,10 +713,11 @@ def settings_view(request, event, access):
             else:
                 saved = target.save()
                 audit.record(request.user, event, "evento_configurado", "Cambió la configuración del evento", event, form=which)
-                if which == "basics" and saved.slug != event.slug:
-                    return redirect("events:settings", slug=saved.slug)
-            messages.success(request, "Configuración guardada.")
-            return redirect("events:settings", slug=event.slug)
+                slug = saved.slug  # a new slug is a new address
+            # Back to the section the form is in: the page is long (audit UX-14)
+            section = {"basics": "datos", "settings": "cortes", "procedures": "procedimientos"}[which]
+            messages.success(request, "Datos del evento guardados." if which == "basics" else "Configuración guardada.")
+            return redirect(reverse("events:settings", args=[slug]) + f"#{section}")
     return render(
         request,
         "events/admin/settings.html",

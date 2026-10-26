@@ -9,6 +9,7 @@ from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 
 from ..forms import FollowUpForm
 from ..models import (
@@ -27,6 +28,7 @@ from ..models import (
 from ..services import audit
 from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews
 from ..services.reports import next_slot
+from ..templatetags.emmaus import fecha_corta
 from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment
 
 
@@ -372,6 +374,117 @@ def _automatic_cutoffs(event, now) -> dict | None:
     return row
 
 
+def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state, roles, stations, has_automatic_cutoff,
+                       auto_cutoffs, last_snapshot, failed_count) -> list[dict]:
+    """The rows of "Preparación" on the administration home, in the order of the work (audit UI-06, UX-11).
+
+    Each step: ``key``; ``id`` (the row's anchor, or None); ``title``; ``meta`` (its lines, one ``.row__meta`` each);
+    ``state`` ("listo", "falta", "revisar", "esperando" or "apagados"); ``attention`` (the row is marked: every step
+    that is not "listo", except "Cortes"); and its button: ``url``, ``label`` and ``label_hidden`` (what a screen
+    reader hears after the label). The conditions are the ones the template used.
+
+    "Cortes" is one row (it was two): the schedule and the last cutoff, then whether the scheduler runs, said only
+    while it has work (``auto_cutoffs``, which also gives the row its id), and the cutoffs that failed. Only a late
+    scheduler marks the row; a failed cutoff says "Revisar" without marking it, because the scheduler did run.
+    """
+    slug = event.slug
+    settings_url = reverse("events:settings", args=[slug])
+
+    def step(key, title, meta, state, url, label, label_hidden="", *, attention=None, anchor=None):
+        return {
+            "key": key, "id": anchor, "title": title, "meta": meta if isinstance(meta, list) else [meta], "state": state,
+            "attention": state != "listo" if attention is None else attention,
+            "url": url, "label": label, "label_hidden": label_hidden,
+        }
+
+    steps = []
+    approved = event.procedures_approved
+    steps.append(step(
+        "procedimientos", "Procedimientos de la iglesia",
+        f"Confirmados el {fecha_corta(event.procedures_approved_at)}." if approved else "Sin confirmar. Sin eso no se pueden iniciar entrevistas.",
+        "listo" if approved else "falta",
+        f"{settings_url}#procedimientos", "Ver" if approved else "Confirmar", "los procedimientos",
+    ))
+
+    version = event.questionnaire_version
+    steps.append(step(
+        "cuestionario", "Cuestionario",
+        f"{version.title}, versión {version.number}." if version else "Sin cuestionario publicado.",
+        "listo" if event.questionnaire_version_id else "falta",
+        reverse("events:questionnaires", args=[slug]), "Ver", "los cuestionarios",
+    ))
+
+    eligible = progress["eligible"]
+    if unassigned:
+        campers_button = (f"{reverse('events:participants', args=[slug])}?coordinador=ninguno", "Asignar", "coordinador a los camperos que no tienen")
+    else:
+        campers_button = (reverse("events:participant_import", args=[slug]), "Importar", "camperos")
+    steps.append(step(
+        "camperos", "Camperos",
+        f"{eligible} participando{f', {unassigned} sin coordinador' if unassigned else ''}.",
+        "falta" if not eligible else "revisar" if unassigned else "listo",
+        *campers_button,
+    ))
+
+    counts = []  # "1 administrador, 2 pastores, 2 tutores y 3 coordinadores"
+    for value, label in MembershipRole.choices:
+        n = roles.get(value, 0)
+        counts.append(f"{n} {str(label).lower()}{'' if n == 1 else 'es'}")
+    if team_state == "falta":
+        team_note = "Sin coordinadores nadie puede entrevistar."
+    elif without_tutor:
+        team_note = f"{without_tutor} coordinador{'' if without_tutor == 1 else 'es'} sin tutor."
+    else:
+        team_note = "Cada coordinador tiene tutor."
+    if team_state == "revisar":
+        team_button = (reverse("events:assignments", args=[slug]), "Asignar tutores", "")
+    else:
+        team_button = (reverse("events:member_add", args=[slug]), "Agregar persona", "al equipo")
+    steps.append(step(
+        "equipo", "Equipo", f"{', '.join(counts[:-1])} y {counts[-1]}. {team_note}", team_state, *team_button, anchor="preparacion-equipo",
+    ))
+
+    steps.append(step(
+        "computadoras", "Computadoras",
+        f"{stations} disponible{'' if stations == 1 else 's'} para entrevistar." if stations else "Ninguna disponible para entrevistar.",
+        "listo" if stations else "falta",
+        f"{settings_url}#computadoras", "Configurar", "las computadoras",
+    ))
+
+    if event.reports_enabled:
+        schedule = f"{event.get_report_interval_minutes_display()}, de {event.report_window_start:%H:%M} a {event.report_window_end:%H:%M}."
+    else:
+        schedule = "Los cortes automáticos están apagados."
+    last = f"Último corte: {fecha_corta(last_snapshot.cutoff_at)}." if last_snapshot else "Aún no hay cortes."
+    late = bool(auto_cutoffs and auto_cutoffs["late"])
+    health = []  # the second line: whether the scheduler runs, and the cutoffs that failed
+    if auto_cutoffs:
+        if late:
+            health.append(f"{auto_cutoffs['late_text']} Puedes generar un corte a mano en Reportes.")
+        elif auto_cutoffs["last"]:
+            health.append(f"Último corte automático: {auto_cutoffs['last']}.")
+        else:
+            health.append("Todavía no hay cortes automáticos.")
+    if failed_count:
+        failed = "1 corte no se pudo generar." if failed_count == 1 else f"{failed_count} cortes no se pudieron generar."
+        health.append(format_html("<strong>{}</strong>", failed))
+    meta = [f"{schedule} {last}"]
+    if health:
+        meta.append(format_html_join(" ", "{}", ((part,) for part in health)))
+    if late or failed_count:
+        cutoffs_state = "revisar"
+    elif not event.reports_enabled:
+        cutoffs_state = "apagados"
+    else:
+        cutoffs_state = "listo" if has_automatic_cutoff else "esperando"
+    reports_url = reverse("events:reports", args=[slug])
+    cutoffs_button = (reports_url, "Generar un corte", "en Reportes") if late else (reports_url, "Ver reportes", "")
+    steps.append(step(
+        "cortes", "Cortes", meta, cutoffs_state, *cutoffs_button, attention=late, anchor="cortes-automaticos" if auto_cutoffs else None,
+    ))
+    return steps
+
+
 @event_view(ADMIN)
 def admin_home(request, event, access):
     payload = build_payload(scope_for_access(access), include_safety=True)
@@ -430,6 +543,17 @@ def admin_home(request, event, access):
         "stations": event.stations.filter(is_active=True).count(),
         "pending_requests": AccessRequest.objects.filter(event=event, status=AccessRequest.Status.PENDING).count(),
     }
+    # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)
+    steps = _preparation_steps(
+        event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,
+        roles=roles, stations=context["stations"], has_automatic_cutoff=context["has_automatic_cutoff"],
+        auto_cutoffs=context["auto_cutoffs"], last_snapshot=context["last_snapshot"], failed_count=failed_count,
+    )
+    pending = [s for s in steps if s["state"] != "listo"]
+    ready = [s for s in steps if s["state"] == "listo"]
+    context["steps"], context["steps_done"], context["steps_total"] = steps, len(ready), len(steps)
+    # Both lists in one loop, so the row is written once in the template; an empty list is left out
+    context["step_groups"] = [group for group in ({"listos": False, "steps": pending}, {"listos": True, "steps": ready}) if group["steps"]]
     if is_fragment(request):
         return render(request, "events/admin/_home_live.html", context)
     return render(request, "events/admin/home.html", context)
