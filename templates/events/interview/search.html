@@ -46,8 +46,11 @@
       {% if query %}<p class="more"><a href="{% url 'events:interview_search' event.slug %}">Borrar búsqueda</a></p>{% endif %}
     {% elif query %}
       <p class="empty-line">No encontramos a nadie con “{{ query }}”. Prueba con su número o con menos letras. Si no está registrado, toca “Registrar campero”.</p>
+    {% elif access.is_coordinator %}
+      {% comment %}LANG-15: without a search the list holds every campero in scope, so an empty one means there are none.{% endcomment %}
+      <p class="empty-line">Todavía no tienes camperos. Registra al primero o pide a la administración que te los asigne.</p>
     {% else %}
-      <p class="empty-line">No tienes entrevistas pendientes: todos tus camperos ya tienen su entrevista completada.</p>
+      <p class="empty-line">Todavía no hay camperos registrados. Regístralos aquí o <a href="{% url 'events:participant_import' event.slug %}">impórtalos de una lista</a>.</p>
     {% endif %}
     <p class="more">¿No está en la lista? <a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></p>
   </section>

@@ -413,6 +413,9 @@ class SectionForm(forms.ModelForm):
         widgets = {"description": forms.Textarea(attrs={"rows": 2})}
 
 
+CONFIDENTIAL_REQUIRED_WARNING = "Si el campero no la contesta, solo el equipo de cuidado autorizado podrá completarla."
+
+
 class QuestionForm(forms.ModelForm):
     condition_codes = forms.CharField(
         required=False,
@@ -434,6 +437,17 @@ class QuestionForm(forms.ModelForm):
         self.fields["condition_question"].required = False
         self.fields["condition_question"].empty_label = "Siempre se muestra"
         self.initial.setdefault("condition_codes", ", ".join(self.instance.condition_option_codes or []))
+        if self.confidential_and_required:
+            # A coordinador without confidential access can neither open nor finalize it after an "Entrevista a solas"
+            # (docs/roles-and-permissions.md, "Known gaps"): said next to the box that causes it. The bound field
+            # copied the (empty) help when the check above created it, so it gets the warning too.
+            self.fields["required"].help_text = CONFIDENTIAL_REQUIRED_WARNING
+            self["required"].help_text = CONFIDENTIAL_REQUIRED_WARNING
+
+    @property
+    def confidential_and_required(self) -> bool:
+        """What was just submitted, or else what is stored."""
+        return self["sensitivity"].value() == Question.Sensitivity.CONFIDENTIAL and bool(self["required"].value())
 
     def clean(self):
         cleaned = super().clean()
@@ -475,9 +489,9 @@ class SedeForm(SpanishErrorsMixin, forms.ModelForm):
     class Meta:
         model = Sede
         fields = ["name", "slug", "city", "order", "active"]
-        labels = {"active": "Activa"}
+        labels = {"slug": "Nombre corto", "active": "Activa"}  # LANG-17: not "Identificador"
         help_texts = {
-            "slug": "Se forma solo con el nombre si lo dejas vacío. Solo minúsculas, números y guiones, por ejemplo: zona-esmeralda.",
+            "slug": "Se genera del nombre; puedes cambiarlo.",
             "order": "Las sedes se muestran de menor a mayor.",
             "active": "Si la desactivas, ya no aparece al registrar camperos. Los que ya la tienen la conservan.",
         }

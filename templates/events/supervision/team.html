@@ -9,10 +9,10 @@
   {% comment %}What the church prints on the sign, and what to do with the people who used it.{% endcomment %}
   <div class="join-code" id="codigo">
     {% if event.join_by_name %}
-      <p class="join-code__text">Para unirse al equipo: entra a {{ join_url }} y escribe el código <strong>{{ event.join_code }}</strong> o el nombre <strong>{{ event.slug }}</strong>.</p>
+      <p class="join-code__text">Para unirse al equipo: entra a {{ join_url }} y escribe el código <strong>{{ event.join_code }}</strong> o el nombre corto <strong>{{ event.slug }}</strong>.</p>
     {% else %}
       <p class="join-code__text">Para unirse al equipo: entra a {{ join_url }} y escribe el código <strong>{{ event.join_code }}</strong>.</p>
-      <p class="join-code__note">El nombre del evento dejó de servir para unirse cuando se generó otro código.</p>
+      <p class="join-code__note">El nombre corto dejó de servir para unirse cuando se generó otro código.</p>
     {% endif %}
     <div class="field admin-link">
       <label class="label" for="enlace-evento">Enlace directo al evento</label>
@@ -23,12 +23,12 @@
       <a class="btn btn--secondary btn--small" href="{% url 'events:join_code_sign' event.slug %}">Ver la hoja para imprimir</a>
       <form method="post" action="{% url 'events:join_code_regenerate' event.slug %}">
         {% csrf_token %}
-        <button class="btn btn--link btn--small" type="submit" data-confirm="{% if event.join_by_name %}El código anterior y el nombre del evento dejarán de funcionar.{% else %}El código anterior dejará de funcionar.{% endif %}">Generar otro código</button>
+        <button class="btn btn--link btn--small" type="submit" data-confirm="{% if event.join_by_name %}El código anterior y el nombre corto dejarán de funcionar.{% else %}El código anterior dejará de funcionar.{% endif %}">Generar otro código</button>
       </form>
       {% if not event.join_by_name %}
         <form method="post" action="{% url 'events:join_by_name_enable' event.slug %}">
           {% csrf_token %}
-          <button class="btn btn--link btn--small" type="submit">Volver a permitir el nombre</button>
+          <button class="btn btn--link btn--small" type="submit">Volver a permitir el nombre corto</button>
         </form>
       {% endif %}
     </div>

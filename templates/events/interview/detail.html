@@ -7,7 +7,7 @@
 {% with title="Entrevista de "|add:participant.first_name %}
   {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Retomar entrevista" %}
 {% endwith %}
-<p class="interview-meta">{% status interview.status %} <span>{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} vez{{ interview.correction_count|pluralize:"es" }}{% endif %}.</span></p>
+<p class="interview-meta">{% status interview.status %} <span>{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.</span></p>
 
 <div class="narrow">
 {% if interview.status == "completada" %}

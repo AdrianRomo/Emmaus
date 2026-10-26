@@ -113,7 +113,7 @@ Set on every non-static response by `PrivateResponseMiddleware` and Django setti
 * The staff login allows 8 attempts per e-mail, then blocks that e-mail for 5 minutes, doubling up to 60 minutes if the failures continue.
 * Staff logins end when the browser closes and after 30 minutes idle (`EMMAUS_IDLE_LOGOUT_SECONDS`). A dashboard's automatic refresh does not count as activity, so an unattended dashboard or live presentation is logged out too and then says "Tu sesión terminó...". The stored session also expires 12 hours after its last change (`SESSION_COOKIE_AGE`). Still, close the session with "Cerrar sesión" when you leave.
 * Only one computer can edit an interview at a time; "Tomar el control aquí" is explicit and audited.
-* The printable "Lista de respaldo" contains registry data only (no answers) and warns to keep it out of sight and destroy it afterwards.
+* The printable "Lista de respaldo" contains registry data and, after it, the event's questionnaire for interviewing on paper ("Cuestionario para entrevistar en papel", UX-05). `backup_list` reads the questionnaire version's structure (`build_steps`), never an interview, so the sheet prints no answers. It warns to keep it out of sight and destroy it afterwards. A filled-in copy holds the campero's answers, confidential ones included, in the coordinador's hands, as an assisted interview does while it is typed: the sheet says it is as private as the interview, to be captured in Emmaus as an assisted interview and destroyed once captured.
 
 ## Small-group suppression
 

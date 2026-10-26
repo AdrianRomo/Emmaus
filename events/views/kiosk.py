@@ -19,7 +19,6 @@ from ..services import interviews as svc
 from ..services.questionnaire import (
     all_questions,
     build_steps,
-    first_unanswered_step,
     is_visible,
     load_answers,
     neighbor_steps,
@@ -50,7 +49,9 @@ def kiosk_home(request):
     answers = load_answers(interview)
     started = bool(answers)
     steps = visible_steps(interview.version, answers)
-    first = first_unanswered_step(interview.version, answers) or steps[0]
+    # "Retomar" opens the screen the review's "Seguir contestando" opens: a required follow-up left blank counts.
+    still_to_answer = _still_to_answer(interview)
+    first = still_to_answer[0][0] if still_to_answer else steps[0]
     context.update({"first_step": first, "started": started, "intro": interview.version.intro_text, "total_steps": len(steps)})
     return render(request, "events/kiosk/welcome.html", context)
 

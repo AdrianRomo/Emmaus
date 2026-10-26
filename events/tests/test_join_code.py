@@ -571,11 +571,11 @@ class TeamRequestsTests(JoinFixture):
         self.login(self.admin)
         response = self.client.get(self.url("team"))
         code = self.event.join_code
-        self.assertContains(response, f"Para unirse al equipo: entra a http://testserver/unirme/ y escribe el código <strong>{code}</strong> o el nombre <strong>campamento-a</strong>.", html=False)
+        self.assertContains(response, f"Para unirse al equipo: entra a http://testserver/unirme/ y escribe el código <strong>{code}</strong> o el nombre corto <strong>campamento-a</strong>.", html=False)
         self.assertContains(response, f'<input class="input" id="enlace-evento" value="http://testserver/e/{code}/" readonly>', html=False)
         self.assertContains(response, 'data-copy="enlace-evento"')
         self.assertContains(response, f'action="{self.url("join_code_regenerate")}"')
-        self.assertContains(response, 'data-confirm="El código anterior y el nombre del evento dejarán de funcionar."')
+        self.assertContains(response, 'data-confirm="El código anterior y el nombre corto dejarán de funcionar."')
         self.assertContains(response, f'href="{self.url("join_code_sign")}"')
 
     def test_a_new_code_replaces_the_old_one(self):

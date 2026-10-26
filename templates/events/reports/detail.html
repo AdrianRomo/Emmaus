@@ -42,7 +42,7 @@
 <section class="report-section" aria-labelledby="faltaba">
   <div class="report-section__q">
     <h2 id="faltaba" class="voice report-section__title">¿Cuánto faltaba?</h2>
-    <p class="report-section__answer">{% if progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, alrededor de {{ payload.throughput.eta_minutes|duration }} al ritmo de ese momento{% endif %}.{% else %}Nada: ya habíamos terminado.{% endif %}</p>
+    <p class="report-section__answer">{% if progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, alrededor de {{ payload.throughput.eta_minutes|duration }} al ritmo de ese momento{% endif %}.{% elif progress.eligible %}Nada: ya habíamos terminado.{% else %}Nada, porque aún no había a quién entrevistar. Los cortes siguientes contarán a los camperos que se registren.{% endif %}</p>
   </div>
   <div class="report-section__body">
     <dl class="figures">
