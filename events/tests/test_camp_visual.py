@@ -271,9 +271,30 @@ class TouchTargetTests(SimpleTestCase):
         self.assertEqual(declarations(css, ".table__actions a", 390).get("min-width"), "2.75rem")  # "Ver" was 40px wide
 
     def test_history_focus_stays_inside_the_row(self):
-        """The usual link focus draws 2px above and 4px below the box, over the row lines of a 44px target."""
-        focus = declarations(stylesheet(), ".table__actions a:focus-visible", 390)
-        self.assertEqual(focus.get("box-shadow"), "inset 0 -4px 0 var(--carbon)")
+        """The usual ring (3px outside a 2px white gap) would paint 5px over the row lines of a 44px target: here the
+        ring is drawn inside the box, at least as far in as it is wide, and the outward white gap is dropped."""
+        css = stylesheet()
+        ring = declarations(css, ":focus-visible", 390)
+        self.assertEqual(ring.get("outline"), "3px solid var(--ink)")
+        focus = declarations(css, ".table__actions a:focus-visible", 390)
+        self.assertLessEqual(css_length(focus["outline-offset"], 24), -3)
+        self.assertEqual(focus.get("box-shadow"), "none")
+
+    def test_standalone_inline_links_are_24px_tall(self):
+        """C7. Figtree's inline box is 1.2em (Atkinson's was taller): "Ver todos", "Cambiar" and "Ver mi avance" fell
+        from 24 to 22px at 18px. Vertical padding on an inline box widens the target and moves no line."""
+        from reportlab.pdfbase.ttfonts import TTFontFile
+
+        figtree = TTFontFile(str(settings.BASE_DIR / "events" / "fonts" / "Figtree-Regular.ttf"))
+        self.assertEqual((figtree.ascent - figtree.descent) / 1000, 1.2)  # the 1.2em in the rule is this font's box
+        css = stylesheet()
+        for selector in (".more a", ".summary-list__action a", ".coord__count-note a"):
+            for width in (390, 1440):
+                declared = declarations(css, selector, width)
+                self.assertEqual(declared.get("padding-block"), "max(0px, calc((1.5rem - 1.2em) / 2))", selector)
+                self.assertNotIn("display", declared, selector)  # still inline: the padding changes no line box
+                for size in (16, 18, 20, 24):
+                    self.assertGreaterEqual(round(1.2 * size + 2 * max(0, (24 - 1.2 * size) / 2), 3), 24, (selector, size))
 
     def test_the_forgotten_password_link_has_the_class(self):
         login = (settings.BASE_DIR / "templates" / "registration" / "login.html").read_text()
@@ -381,7 +402,7 @@ class LeaderBarAndScreensTests(CampFixture):
         self.assertContains(response, 'class="admin-upload"')
         self.assertContains(response, "Cómo preparar el archivo")
         button = declarations(stylesheet(), '.admin-upload input[type="file"]::file-selector-button')
-        self.assertEqual(button.get("border"), "var(--b-control) solid var(--carbon)")
+        self.assertEqual(button.get("border"), "var(--b-control) solid var(--line-strong)")  # as .btn--secondary
         self.assertEqual(button.get("min-height"), "var(--control)")
 
     def test_participants_render_as_rows_with_the_data_as_a_sentence(self):

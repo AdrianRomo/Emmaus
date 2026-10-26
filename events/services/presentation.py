@@ -13,6 +13,25 @@ from datetime import datetime
 from .metrics import STALE_MINUTES, eta_minutes, format_duration, suppress
 
 
+def about(cell: dict, *, feminine: bool) -> str:
+    """A rounded count in words, "unos 10 (seguimientos)" or "unas 10 (entrevistas)", by the gender of the noun that
+    follows; a hidden or empty count keeps its own words ("Menos de 5", "0", "—"). Figtree has no "≈", and on a
+    projector words read better than a symbol."""
+    if cell.get("suppressed") or not cell.get("value"):
+        return cell["display"]
+    if cell["value"] == 1:  # only with a minimum group size of 1: "unas 1" is not Spanish
+        return "1"
+    return f"{'unas' if feminine else 'unos'} {cell['value']}"
+
+
+def _lower_first(text: str) -> str:
+    return text[:1].lower() + text[1:]
+
+
+def _upper_first(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
 def _team_rows(teams: list[dict]) -> list[dict]:
     # Stable numbering by tutor id, so "Equipo 2" means the same team in every cutoff.
     ids = sorted(int(t["key"].split(":")[1]) for t in teams if t["key"].startswith("equipo:"))
@@ -61,6 +80,10 @@ def build_deck(
         "to_evaluate": suppress(fu.get("to_evaluate") if has else None, k),
         "as_of": released_at,
     }
+    # The figure on the slide, in words: follow-ups are masculine ("Unos 10 seguimientos solicitados"), the
+    # interviews still to decide feminine ("Unas 10 por decidir").
+    for key, feminine in (("requested", False), ("done", False), ("open", False), ("to_evaluate", True)):
+        follow[key]["words"] = _upper_first(about(follow[key], feminine=feminine))
     rate = payload["throughput"]["per_hour"]
     eta = eta_minutes(progress["pending"], rate)
 
@@ -68,7 +91,7 @@ def build_deck(
     if progress["eligible"] and progress["pending"]:
         text = "Completar 1 entrevista pendiente." if progress["pending"] == 1 else f"Completar {progress['pending']} entrevistas pendientes."
         if eta:
-            text += f" Al ritmo actual, unas {format_duration(eta)}."
+            text += f" Al ritmo actual, alrededor de {format_duration(eta)}."
         steps.append(text)
     overall = progress["percent"]
     if overall is not None:
@@ -77,14 +100,16 @@ def build_deck(
                 steps.append(f"{row['label']} necesita apoyo: lleva {row['percent']} % y le faltan {row['pending']} entrevistas.")
     stale = payload["attention"]["stale_interviews"]
     if stale:
-        steps.append(f"Retomar {stale} {'entrevista detenida' if stale == 1 else 'entrevistas detenidas'} hace más de {STALE_MINUTES} minutos.")
+        steps.append(f"Retomar {stale} {'entrevista interrumpida' if stale == 1 else 'entrevistas interrumpidas'} hace más de {STALE_MINUTES} minutos.")
     unassigned = payload["attention"]["unassigned_participants"]
     if unassigned:
         steps.append(f"Asignar coordinador a {unassigned} {'campero' if unassigned == 1 else 'camperos'}.")
     if has and follow["to_evaluate"]["display"] != "0":
-        steps.append(f"Decidir el seguimiento de {follow['to_evaluate']['display'].lower()} entrevistas por evaluar.")
+        cell = follow["to_evaluate"]
+        steps.append(f"Decidir el seguimiento de {_lower_first(about(cell, feminine=True))} {'entrevista' if cell['value'] == 1 else 'entrevistas'}.")
     if has and follow["open"]["display"] != "0":
-        steps.append(f"Asignar líderes a {follow['open']['display'].lower()} seguimientos abiertos.")
+        cell = follow["open"]
+        steps.append(f"Asignar líderes a {_lower_first(about(cell, feminine=False))} {'seguimiento abierto' if cell['value'] == 1 else 'seguimientos abiertos'}.")
     if not steps and progress["eligible"]:
         steps.append("Todas las entrevistas están completas. Gracias, equipo.")
 
