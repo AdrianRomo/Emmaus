@@ -116,7 +116,8 @@ class RedesignedScreenTests(CampFixture):
         self.assertFalse((settings.BASE_DIR / "static" / "css" / "emmaus.css").exists())
         pages = {
             self.coord1: ["coord_home", "my_participants", "coord_pending", "coord_progress", "participant_create",
-                          ("participant_detail", self.p1.public_id), "follow_ups", "backup_list", "interview_search"],
+                          ("participant_detail", self.p1.public_id), "follow_ups", "backup_list", "interview_search",
+                          ("guardian_authorization", self.p_minor_no_auth.public_id), ("guardian_authorization_withdraw", self.p1.public_id)],
             self.tutor1: ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups"],
             self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live"],
             self.admin: ["admin_home", "participants", "participant_import", "team", "assignments", "questionnaires",

@@ -47,7 +47,7 @@ The interview screens show "Confidencial: solo el equipo de cuidado autorizado p
 * An interview cannot start until the required confirmations are ticked: guardian authorization for minors (when the event requires it and none is on file), assent for minors, consent for adults. See `interview-station-workflow.md`.
 * The coordinador's tick is the record. The app does not store the signed paper form; the church keeps it.
 * Guardian authorizations are recorded on registration, in the CSV import, with "Marcar como recibida", or at the start of the interview. They are kept as a history; the latest record decides.
-* Withdrawal of guardian authorization (`revocado`, `negado`) exists in the model but there is no screen to record it.
+* Withdrawal: "Quitar la autorización" on the campero page (the campero's coordinador or an administrador) records a `revocado` entry with the reason, which is required (up to 200 characters). The reason stays on the record and in the campero's data export, not in the activity log (`autorizacion_retirada`, summary only). Completed interviews are not changed. An interview in progress is not stopped (the campero is already talking): the page says so, and the audit row carries that interview's id. Any later interview needs a new authorization.
 
 ## The church approves its procedures first
 
@@ -60,13 +60,13 @@ Each event also stores its own "Aviso de privacidad" (read to the campero before
 * "Días que se conservan las respuestas después del evento" (`retention_days`, 30 to 3650, default 365) counts from the event end date (`ends_on`).
 * `python manage.py purge_expired_event_data` lists the events past their retention period and how many camperos would be deleted. It is a dry run by default. With `--apply` it deletes every campero of those events, which cascades to interviews, answers, correction history, consents, follow-ups and capture sessions, sets `data_purged_at` and writes an audit row.
 * Kept after a purge: cutoffs (aggregates), the event, the team, the questionnaire and the activity log.
-* Not automatic: nothing schedules the purge. Run it by hand or with cron. An event without an end date is never purged. Database backups are not affected; their retention is the operator's job.
+* Automatic for finished events: the `scheduler` service (`run_report_cutoffs`) runs the same purge once a day, after 03:00 in the event's time zone, for events marked Terminado or Archivado that have no open safety report or confidential referral (see "Retention" in `deployment.md`). An event still En curso or En preparación is purged only by hand. An event without an end date is never purged. Database backups are not affected; their retention is the operator's job.
 
 ## Export and deletion for one campero
 
 On the campero page, administradores see:
 
-* "Descargar todos sus datos" (only with confidential access): a JSON file with the registry data, the interview status and version, every answer as question and text, and the authorization records. Audited as `exportacion`.
+* "Descargar todos sus datos" (only with confidential access): a JSON file with the registry data, the interview status and version, every answer as question and text, and the authorization records with their notes (for a withdrawal, its reason). Audited as `exportacion`.
 * "Eliminar sus datos": requires typing the full name, then deletes the campero with their interview, answers, authorizations and follow-ups. Audited as `campero_eliminado` with the number only. Cutoffs are not changed.
 
 "Descargar lista de camperos" exports registry data only (no answers), as CSV, and is audited. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return are prefixed with `'` so a spreadsheet does not run them as formulas.
@@ -78,8 +78,8 @@ On the campero page, administradores see:
 ## E-mail
 
 * New safety report: sent to the event's care team (members with confidential access, administradores and church administrators). Subject "Emmaus: reporte urgente en {evento}". The body says a report exists and asks them to log in; it has no names and no details.
-* New team member: a link to create their password. It contains the staff member's first name and the event name.
-* "¿Olvidaste tu contraseña?": Django's password reset e-mail ("Emmaus: crea una nueva contraseña"), sent only to the address of an existing active account that already has a password, with the person's first name and the link. At most 3 such e-mails per address per hour; extra requests show the same "Revisa tu correo" page without sending anything. Administrators cannot generate this link for accounts that already have a password.
+* New team member: a link to create their password. It contains the staff member's first name and the event name. With the console, file or dummy backend nothing is sent (the link would only land in a log or a file on the server); the screen shows the link and says "No hay correo configurado".
+* "¿Olvidaste tu contraseña?": for an active account that already has a password, Django's password reset e-mail ("Emmaus: crea una nueva contraseña"); for an active account that never set one (added to a team, link never used), "Emmaus: crea tu contraseña" with the link to create it. Both go only to the account's own address, with the person's first name, and match the address the way Django does (NFKC, then casefold, after the database's case-insensitive filter). At most 3 such e-mails per address per hour, counted on that normalized address, so other spellings of it share the limit; extra requests show the same "Revisa tu correo" page without sending anything, and so does an unknown address. With no e-mail configured, the "crea tu contraseña" message is not sent at all. Django's own reset still goes through whatever backend is configured. Administrators cannot generate a link for accounts that already have a password.
 * No e-mail ever contains answers or campero names. A sending failure is logged (subject and error) and does not block the action; the new-member screen always shows the link to copy.
 
 ## No external AI in the camp module
@@ -179,6 +179,6 @@ Riesgos que siguen, dichos con honestidad:
 - [ ] Solo las personas del equipo de cuidado tienen "Puede leer información confidencial", y cada una sabe que sus consultas quedan registradas.
 - [ ] Cada coordinador tiene su propia cuenta y contraseña, y sabe recuperar la computadora en la captura supervisada.
 - [ ] El servidor usa HTTPS, `DEBUG=false`, respaldos cifrados y `manage.py check --deploy` sin la advertencia `emmaus.W001` (cuentas de demostración).
-- [ ] Hay una persona encargada de ejecutar `purge_expired_event_data --apply` cuando termine el periodo de conservación, y el servicio `scheduler` está corriendo.
+- [ ] El servicio `scheduler` está corriendo (borra los datos vencidos de los eventos terminados o archivados, una vez al día), y al acabar el campamento alguien lo marca como "Terminado".
 - [ ] Hiciste una prueba completa con datos ficticios antes del campamento.
 - [ ] Solo entonces marcaste la casilla de procedimientos y pulsaste "Confirmar".

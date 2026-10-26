@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
@@ -14,6 +14,7 @@ from ..forms import FollowUpForm
 from ..models import (
     AccessRequest,
     AuditEvent,
+    Event,
     EventMembership,
     FollowUp,
     Interview,
@@ -23,7 +24,7 @@ from ..models import (
     ReportSnapshot,
 )
 from ..services import audit
-from ..services.metrics import build_payload, coordinator_scope, scope_for_access, stale_interviews
+from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews
 from ..services.reports import next_slot
 from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment
 
@@ -316,6 +317,60 @@ def team(request, event, access):
 # ---- Admin -----------------------------------------------------------------------------------
 
 
+# The scheduler (run_report_cutoffs --loop 300) stores an automatic cutoff within minutes of each slot.
+SCHEDULER_LATE = timedelta(minutes=15)
+_MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+
+
+def _when(moment, local_now, tz) -> tuple[str, str]:
+    """("hoy" | "ayer" | "23 oct", "14:00") for a moment, in the event's time zone."""
+    local = moment.astimezone(tz)
+    days = (local_now.date() - local.date()).days
+    day = "hoy" if days == 0 else "ayer" if days == 1 else f"{local.day} {_MONTHS[local.month - 1]}"
+    return day, f"{local:%H:%M}"
+
+
+def _since_phrase(moment, local_now, tz) -> str:
+    """"las 12:00", "ayer a las 20:00" or "el 23 oct a las 20:00": what follows "desde" or "el corte de"."""
+    day, clock = _when(moment, local_now, tz)
+    return f"las {clock}" if day == "hoy" else f"ayer a las {clock}" if day == "ayer" else f"el {day} a las {clock}"
+
+
+def _automatic_cutoffs(event, now) -> dict | None:
+    """The "Cortes automáticos" row: when the scheduler last stored a cutoff, and whether it missed one.
+
+    Shown only while the event is in course with automatic cutoffs on: otherwise the scheduler has nothing to do
+    and the row would say nothing true. Late means: the first slot strictly after ``since`` passed more than
+    15 minutes ago without an automatic cutoff. ``since`` is the latest of the newest automatic cutoff, the
+    start of today, and the moments the scheduler could not have been expected to work before: the event's
+    last save (the settings form saves it when its status or its cutoffs change, so a camp opened at 10:40
+    or cutoffs turned back on at 16:45 owe nothing for 08:00) and the confirmation of its procedures. A save
+    for another reason only delays an alarm by one slot. Manual cutoffs prove nothing about the scheduler.
+    """
+    if not event.reports_enabled or event.status != Event.Status.ACTIVE:
+        return None
+    tz = local_tz(event)
+    local_now = now.astimezone(tz)
+    last = (
+        ReportSnapshot.objects.filter(event=event, trigger=ReportSnapshot.Trigger.AUTOMATIC)
+        .order_by("-cutoff_at", "-id")
+        .first()
+    )
+    changed = max(m for m in (event.updated_at, event.procedures_approved_at) if m)  # nothing was owed before this
+    since = max(m for m in (last.cutoff_at if last else None, datetime.combine(local_now.date(), time.min, tzinfo=tz), changed) if m)
+    expected = next_slot(event, since)
+    late = expected is not None and now - expected > SCHEDULER_LATE
+    row = {"late": late, "last": ""}
+    if last:
+        day, clock = _when(last.cutoff_at, local_now, tz)
+        row["last"] = f"{day} {clock}" if day in ("hoy", "ayer") else f"{day}, {clock}"  # "hoy 14:00", "23 oct, 14:00"
+    if late and last and last.cutoff_at >= changed:
+        row["late_text"] = f"El programador de cortes no ha corrido desde {_since_phrase(last.cutoff_at, local_now, tz)}."
+    elif late:  # the event changed after its last cutoff (opened, cutoffs turned back on): name the missed slot
+        row["late_text"] = f"El programador de cortes no ha corrido: el corte de {_since_phrase(expected, local_now, tz)} no se generó."
+    return row
+
+
 @event_view(ADMIN)
 def admin_home(request, event, access):
     payload = build_payload(scope_for_access(access), include_safety=True)
@@ -359,6 +414,7 @@ def admin_home(request, event, access):
         "recent": AuditEvent.objects.filter(event=event).select_related("actor")[:8],
         "last_snapshot": _last_snapshot(access),
         "next_cutoff": next_slot(event),
+        "auto_cutoffs": _automatic_cutoffs(event, now),
         "stations": event.stations.filter(is_active=True).count(),
         "pending_requests": AccessRequest.objects.filter(event=event, status=AccessRequest.Status.PENDING).count(),
     }

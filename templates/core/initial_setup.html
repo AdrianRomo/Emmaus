@@ -2,7 +2,7 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}Configuración inicial{% endblock %}
 {% block content %}
 {% include "partials/ui/error_summary.html" with form=form %}
-{% include "events/rotulo/_page_head.html" with title="Configura el espacio de tu iglesia" lede="Crea el primer espacio de Emmaus y la cuenta de administración. Después podrás invitar a pastores, mentores y participantes." meta="Configuración inicial" %}
+{% include "events/rotulo/_page_head.html" with title="Configura el espacio de tu iglesia" lede="Registra tu iglesia y a la persona que la administra. Después preparas tu primer campamento y agregas a tu equipo." meta="Configuración inicial" %}
 <div class="split">
   <form method="post" novalidate>
     {% csrf_token %}
@@ -14,16 +14,16 @@
   <aside aria-labelledby="que-sigue">
     <h2 id="que-sigue" class="heading">Qué sigue</h2>
     <ol class="promises">
-      <li>Agrega los datos de tu iglesia.</li>
-      <li>Crea la primera cuenta de administración.</li>
+      <li>Escribe el nombre de tu iglesia y un identificador corto.</li>
+      <li>Escribe el nombre y el correo de la persona que administra la iglesia, y crea su contraseña. Con ese correo y esa contraseña entrará a Emmaus.</li>
       <li>Lee el aviso para participantes, aquí abajo. Lo puedes cambiar después en la configuración de la iglesia. La indicación de llamar al 911 siempre aparece.</li>
-      <li>Crea el espacio y empieza a invitar a los líderes.</li>
+      <li>Toca “Crear espacio”. Después creas tu primer campamento y agregas a tu equipo.</li>
     </ol>
     <h3 id="aviso" class="heading">Aviso para participantes</h3>
     {% for paragraph in participant_notice %}<p>{{ paragraph|linebreaksbr }}</p>{% endfor %}
     <div class="notice notice--warning">
       <p class="notice__title">Información delicada</p>
-      <p>Emmaus guarda información sensible de discipulado. Pide consentimiento, escribe solo las notas necesarias y usa una configuración segura de producción antes de invitar a personas reales.</p>
+      <p>Emmaus guarda información sensible de las personas de tu iglesia. Pide consentimiento, escribe solo lo necesario y usa una configuración segura de producción antes de agregar a personas reales.</p>
     </div>
   </aside>
 </div>

@@ -3,7 +3,8 @@
   Administration home (Rótulo). A sign only when something blocks the interviews, and only the first
   of them (procedures, then questionnaire, then access requests, then camperos without a coordinator); then how the event is
   going, in a sentence, a ruler and a few figures; then the setup checklist, where a row that needs
-  action is marked (borrowed from "Bitácora"); then recent activity and downloads.
+  action is marked (borrowed from "Bitácora"), including whether the scheduler stored its automatic cutoffs;
+  then recent activity and downloads.
 {% endcomment %}
 {% with unassigned=payload.attention.unassigned_participants without_tutor=payload.attention.coordinators_without_tutor %}
 {% if not event.procedures_approved %}
@@ -121,6 +122,19 @@
           <a class="btn btn--secondary btn--small" href="{% url 'events:reports' event.slug %}">Ver reportes</a>
         </div>
       </li>
+      {% if auto_cutoffs %}
+      {% comment %}Whether the scheduler is running: it is a separate service, and nothing else on screen would tell.{% endcomment %}
+      <li class="row{% if auto_cutoffs.late %} row--attention{% endif %}" id="cortes-automaticos">
+        <div class="row__main">
+          <p class="row__title">Cortes automáticos</p>
+          <p class="row__meta">{% if auto_cutoffs.late %}{{ auto_cutoffs.late_text }} Puedes generar un corte a mano en Reportes.{% elif auto_cutoffs.last %}Último corte automático: {{ auto_cutoffs.last }}.{% else %}Todavía no hay cortes automáticos.{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% if auto_cutoffs.late %}{% status "pendiente" "Revisar" %}{% elif auto_cutoffs.last %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Esperando" %}{% endif %}
+          <a class="btn btn--secondary btn--small" href="{% url 'events:reports' event.slug %}">{% if auto_cutoffs.late %}Generar un corte<span class="visually-hidden"> en Reportes</span>{% else %}Ver reportes<span class="visually-hidden"> de los cortes automáticos</span>{% endif %}</a>
+        </div>
+      </li>
+      {% endif %}
     </ul>
   </section>
 
@@ -145,7 +159,7 @@
       {% else %}
         <p class="empty-line">Nadie ha descargado datos.</p>
       {% endif %}
-      <p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar lista de camperos</a></p>
+      <p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a></p>
     </section>
   </div>
 </div>

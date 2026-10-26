@@ -21,8 +21,8 @@
       <div class="summary-list__row"><dt>Coordinador</dt><dd>{{ participant.coordinator.display_name|default:"Sin asignar" }}</dd></div>
       <div class="summary-list__row"><dt>Registro</dt><dd>{{ participant.created_at|fecha_corta }}</dd></div>
       {% if participant.is_minor and event.requires_guardian_authorization %}
-      <div class="summary-list__row"><dt>Autorización de padre, madre o tutor legal</dt><dd>{% if guardian_ok %}Registrada{% else %}<strong>Falta</strong>{% endif %}</dd>
-        <dd class="summary-list__action">{% if not guardian_ok and can_edit %}<form method="post" action="{% url 'events:guardian_authorization' event.slug participant.public_id %}">{% csrf_token %}<button class="link-button" type="submit">Marcar como recibida</button></form>{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Autorización de padre, madre o tutor legal</dt><dd>{% if guardian_ok %}Registrada{% if guardian_record.recorded_by %} por {{ guardian_record.recorded_by.get_full_name|default:guardian_record.recorded_by.email }}{% endif %}, {{ guardian_record.recorded_at|fecha_corta }}{% else %}<strong>Falta</strong>{% endif %}</dd>
+        <dd class="summary-list__action">{% if can_edit %}{% if guardian_ok %}<a href="{% url 'events:guardian_authorization_withdraw' event.slug participant.public_id %}">Quitar la autorización</a>{% else %}<a href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a>{% endif %}{% endif %}</dd></div>
       {% endif %}
     </dl>
   </section>

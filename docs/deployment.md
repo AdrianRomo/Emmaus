@@ -213,9 +213,18 @@ Each gunicorn thread keeps one connection for `DB_CONN_MAX_AGE` seconds (`CONN_H
 | Job | How |
 |---|---|
 | Cutoffs, expired claims, idle capture sessions, expired Django sessions | `scheduler` service, every 300 s. Or cron every 5 minutes: `python manage.py run_report_cutoffs` |
-| Retention purge | Not scheduled. `python manage.py purge_expired_event_data` (dry run), then `--apply` |
+| Retention purge | Same `scheduler` service, once a day: see below. By hand: `python manage.py purge_expired_event_data` (dry run), then `--apply` |
+| "Cortes automáticos" row on the administration home | Shown only while the event is **En curso** with automatic cutoffs on. Shows the newest automatic cutoff. It turns to "Revisar" ("El programador de cortes no ha corrido desde las 12:00...") when the first slot after the latest of the newest automatic cutoff, the start of the day, the event's last save and the confirmation of its procedures passed more than 15 minutes ago without an automatic cutoff. That is how an administrator learns the `scheduler` service stopped; opening the camp at 10:40 or turning cutoffs back on does not count the slots before (the settings form saves the event; a change made with `QuerySet.update()` in a shell does not move `updated_at` and can raise a false alarm) |
 
 With compose: `docker compose -f docker-compose.prod.yml run --rm web python manage.py <command>`.
+
+**Retention.** `run_report_cutoffs` runs the `purge_expired_event_data --apply` logic itself (`purge_event` in that command's module), so the period an event's settings promise ("Días que se conservan las respuestas después del evento", `retention_days`) is enforced without a separate job. It only looks at events that are **Terminado** or **Archivado** and have an end date (`ends_on`); an event left **En curso** or **En preparación** is never purged automatically, whatever its dates. Each such event is checked on the first pass after 03:00 in the event's own time zone, once per day; when `ends_on` plus `retention_days` has passed, and no safety report or confidential referral of the event is still open (pendiente or en proceso), every campero of the event is deleted (interviews, answers, consents, follow-ups and capture sessions go with them), `data_purged_at` is set and the activity log gets a "Sistema" row. Cutoffs, the team, the questionnaire and the activity log stay. A pass that checked something prints one line: `2026-11-05 03:04 · eventos terminados revisados: 2 · eventos con datos vencidos borrados: 1 · camperos borrados: 312`.
+
+* An event with an open safety report or confidential referral keeps everything and prints `… · conservación: <slug> conserva sus datos: tiene reportes de riesgo o seguimientos confidenciales abiertos`; it is checked again the next day and purged once they are closed (atendido or cancelado).
+* The event row is locked and read again before anything is deleted (`select_for_update`, still unpurged, still Terminado or Archivado, nothing open), so two overlapping runs delete and audit once; the other prints `conserva sus datos: ya se habían borrado sus datos`.
+* "Once per day" is held by the `--loop` process. If you replace the service with cron, each run after 03:00 checks again; that repeats nothing, since a purged event is marked and never selected again.
+* The purge does not touch database backups: a dump taken before the purge still holds the data until it is rotated away (see Backups).
+* To purge an event that is still marked **En curso**, or one with open reports, change its status or close the reports, or run `purge_expired_event_data --apply` by hand, which checks neither.
 
 ## Backups
 

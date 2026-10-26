@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 
@@ -28,6 +29,21 @@ class AlreadyMember(Exception):
     def __init__(self, membership: EventMembership):
         super().__init__(membership.display_name)
         self.membership = membership
+
+
+# Backends that "send" without delivering anything: the console one (the default, see settings.EMAIL_BACKEND) only
+# writes the message to the server log, the file one to a file on the server, the dummy one drops it. With any of
+# them, the link on screen is the only delivery, and nothing may write a password link where operators read.
+UNDELIVERED_EMAIL_BACKENDS = frozenset({
+    "django.core.mail.backends.console.EmailBackend",
+    "django.core.mail.backends.dummy.EmailBackend",
+    "django.core.mail.backends.filebased.EmailBackend",
+})
+
+
+def email_is_configured() -> bool:
+    """False when no e-mail can reach anybody, so no screen may say "Le enviamos un correo"."""
+    return settings.EMAIL_BACKEND not in UNDELIVERED_EMAIL_BACKENDS
 
 
 def account_for_email(email: str) -> User | None:

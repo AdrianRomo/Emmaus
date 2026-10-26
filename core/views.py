@@ -150,7 +150,8 @@ def initial_setup(request):
         )
         login(request, user)
         messages.success(request, f"{church.name} ya está lista en Emmaus.")
-        return redirect("church_dashboard")
+        # The event list, where the only thing to do is "Crear campamento" (not the discipleship overview).
+        return redirect("events:list")
     # What participants of a new church will read (its notice starts as the default); "Qué sigue" asks to read it.
     notice = participant_notice(Church._meta.get_field("basic_disclaimer_text").default)
     return render(request, "core/initial_setup.html", {"form": form, "participant_notice": notice})
@@ -894,9 +895,45 @@ class ThrottledPasswordResetView(PasswordResetView):
     success_url = "/cuenta/olvide-mi-contrasena/enviado/"
 
     def form_valid(self, form):
-        from events.services import throttle
+        import unicodedata
 
-        email = form.cleaned_data["email"].strip().lower()
-        if throttle.consume(f"reset:{email}", limit=3, window_seconds=60 * 60, block_seconds=60 * 60):
+        from django.contrib.auth.forms import _unicode_ci_compare
+
+        from events.services import throttle
+        from events.services.team import email_is_configured
+
+        email = form.cleaned_data["email"].strip()
+        # Keyed on the address as Django's reset compares it (NFKC, then casefold), so every spelling that reaches
+        # the same account ("ſara" is "sara") spends the same 3 per hour.
+        key = unicodedata.normalize("NFKC", email).casefold()
+        if throttle.consume(f"reset:{key}", limit=3, window_seconds=60 * 60, block_seconds=60 * 60):
             return redirect(self.get_success_url())  # same page as success: no hint either way
+        # Django's form skips accounts without a usable password (added to a team, link never used): they get
+        # the link to create one instead, to their own address. ``email__iexact`` is only a first filter (PostgreSQL
+        # folds "lılı" into "LILI"); the account must match the way Django's own reset matches. With no e-mail
+        # configured nothing is sent, so the link is never written to a log. Same throttle, same page either way.
+        if email_is_configured():
+            for user in User.objects.filter(email__iexact=email, is_active=True):
+                if not user.has_usable_password() and _unicode_ci_compare(email, user.email):
+                    self._send_activation(user)
         return super().form_valid(form)
+
+    def _send_activation(self, user) -> None:
+        from django.contrib.auth.tokens import default_token_generator
+        from django.urls import reverse
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        from .services import send_email_safely
+
+        link = self.request.build_absolute_uri(reverse(
+            "password_reset_confirm",
+            kwargs={"uidb64": urlsafe_base64_encode(force_bytes(user.pk)), "token": default_token_generator.make_token(user)},
+        ))
+        greeting = f"Hola {user.first_name}:" if user.first_name else "Hola:"
+        send_email_safely(
+            "Emmaus: crea tu contraseña",
+            f"{greeting}\n\nAlguien pidió entrar a tu cuenta de Emmaus, que todavía no tiene contraseña. "
+            f"Créala con este enlace:\n\n{link}\n\nSi no lo pediste, ignora este correo.",
+            [user.email],
+        )
