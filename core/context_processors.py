@@ -1,13 +1,21 @@
 from django.urls import reverse
+from django.utils.functional import SimpleLazyObject
 
 from .access import get_role_context
 from .models import Church, Role
 from .services import progress_for_participant
 
 
+def first_active_church():
+    """The church the public pages speak for (the landing page names the same one)."""
+    return Church.objects.filter(active=True).order_by("created_at").first()
+
+
 def current_role(request):
+    # brand_church: whose logo the bar of base.html shows (core.templatetags.brand). Event shells use event.church.
     if not request.user.is_authenticated:
-        return {"theme_church": Church.objects.filter(active=True).order_by("created_at").first()}
+        church = first_active_church()
+        return {"theme_church": church, "brand_church": church}
     context = get_role_context(request.user)
     role = context.get("current_role")
     nav_items = []
@@ -64,4 +72,6 @@ def current_role(request):
     context["app_nav_items"] = nav_items
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
     context["theme_church"] = context.get("current_church")
+    # No church role (someone who only works in an event): the public pages' church, looked up only if drawn.
+    context["brand_church"] = context["theme_church"] or SimpleLazyObject(first_active_church)
     return context

@@ -1,10 +1,12 @@
 {% extends "base.html" %}
+{% load brand %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Configuración de la iglesia{% endblock %}
 {% block content %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% include "events/rotulo/_page_head.html" with title="Configuración de la iglesia" lede="Mantén claros la bienvenida, los datos de contacto, el aviso para participantes, las invitaciones y los colores." %}
-  <form method="post">
+  {% include "events/rotulo/_page_head.html" with title="Configuración de la iglesia" lede="Mantén claros la bienvenida, los datos de contacto, el aviso para participantes, el logotipo, las invitaciones y los colores." %}
+  {% comment %}admin-upload: the file controls drawn like the camper import's (rotulo.css, G3).{% endcomment %}
+  <form method="post" enctype="multipart/form-data" class="admin-upload">
     {% csrf_token %}
     <section class="block" aria-labelledby="datos-iglesia">
       <h2 id="datos-iglesia" class="heading">Datos de la iglesia</h2>
@@ -12,6 +14,27 @@
       {% include "partials/ui/field.html" with field=form.public_welcome_text %}
       {% include "partials/ui/field.html" with field=form.contact_email %}
       {% include "partials/ui/field.html" with field=form.basic_disclaimer_text %}
+    </section>
+
+    <section class="block" aria-labelledby="logotipo">
+      <h2 id="logotipo" class="heading">Logotipo</h2>
+      <p class="logo-settings__intro">Tu logotipo va en la barra de arriba, al entrar, en la pantalla del campero, en la presentación y en el PDF de los cortes. Se muestra tal cual, sin cambiarle los colores. Mientras no subas uno, se ve el nombre “Emmaus”.</p>
+      {% if logo_church|has_logo %}
+        <figure class="logo-preview">
+          <div class="logo-preview__plate">{% church_brand logo_church size="auth" %}</div>
+          <figcaption>Tu logotipo de ahora, sobre blanco.</figcaption>
+        </figure>
+      {% endif %}
+      {% include "partials/ui/field.html" with field=form.logo %}
+      {% if logo_church.logo %}{% include "partials/ui/field.html" with field=form.logo_clear %}{% endif %}
+      {% if logo_church.logo_dark %}
+        <figure class="logo-preview logo-preview--dark">
+          <div class="logo-preview__plate">{% church_brand logo_church variant="oscuro" size="auth" %}</div>
+          <figcaption>Tu versión para fondo oscuro, sobre carbón.</figcaption>
+        </figure>
+      {% endif %}
+      {% include "partials/ui/field.html" with field=form.logo_dark %}
+      {% if logo_church.logo_dark %}{% include "partials/ui/field.html" with field=form.logo_dark_clear %}{% endif %}
     </section>
 
     <section class="block" aria-labelledby="acceso">

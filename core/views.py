@@ -9,14 +9,17 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Max, Q
 from django.http import (
+    FileResponse,
     Http404,
     HttpResponse,
     HttpResponseBadRequest,
+    HttpResponseNotFound,
     HttpResponseServerError,
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
 from django.utils import timezone
+from django.views.decorators.http import require_safe
 
 from .access import (
     can_answer_question,
@@ -45,6 +48,7 @@ from .forms import (
     ReflectionQuestionForm,
     TuPasswordResetForm,
 )
+from .logos import logo_meta
 from .models import (
     AIDraft,
     Church,
@@ -125,6 +129,36 @@ def role_required(*roles: str):
 
 def health(request):
     return HttpResponse("ok")
+
+
+LOGO_FIELDS = {"claro": "logo", "oscuro": "logo_dark"}
+
+
+@require_safe
+def church_logo(request, slug: str, variant: str):
+    """The church's logo, for the wordmark's slot (core.templatetags.brand). Public: the sign-in page shows it.
+
+    Only this view reads MEDIA_ROOT. The URL carries ?v=<version>, so a day of caching never shows an old
+    logo; events.middleware lets this response keep its Cache-Control and no session is touched for it.
+    It is always a PNG (core.logos accepts nothing else, and logo_meta re-walks the stored file). Anything
+    missing is an empty 404, never the error page: that page is drawn for whoever is signed in, and this path
+    skips the idle logout.
+    """
+    field = LOGO_FIELDS.get(variant)
+    church = Church.objects.filter(slug=slug).first() if field else None
+    fieldfile = getattr(church, field) if church else None
+    meta = logo_meta(fieldfile) if fieldfile else None
+    if meta is None:
+        return HttpResponseNotFound("", content_type="text/plain")
+    try:
+        handle = open(fieldfile.path, "rb")
+    except OSError:
+        return HttpResponseNotFound("", content_type="text/plain")
+    response = FileResponse(handle, content_type="image/png")
+    response["Cache-Control"] = "public, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
+    response.public_asset = True
+    return response
 
 
 def landing(request):
@@ -284,12 +318,14 @@ def invitations_list(request):
 @role_required(Role.CHURCH_ADMIN)
 def church_settings(request):
     church = get_user_role(request.user).church
-    form = ChurchSettingsForm(request.POST or None, instance=church)
+    form = ChurchSettingsForm(request.POST or None, request.FILES or None, instance=church)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Se guardó la configuración de la iglesia.")
         return redirect("church_settings")
-    return render(request, "core/church_settings.html", {"form": form})
+    # The previews show what is saved: a rejected upload already sits on the form's instance.
+    logo_church = Church.objects.get(pk=church.pk) if form.is_bound else church
+    return render(request, "core/church_settings.html", {"form": form, "logo_church": logo_church})
 
 
 def ensure_participant_enrolled(user: User):

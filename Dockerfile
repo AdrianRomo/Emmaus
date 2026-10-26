@@ -22,10 +22,12 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Build the hashed, compressed static manifest that WhiteNoise serves when DEBUG=false (as root).
-# Then make /app readable but not writable by the app user, whatever umask the checkout had:
-# the app never writes there at runtime (uploads stay in memory or the system temp dir).
+# Then make /app readable but not writable by the app user, whatever umask the checkout had: the app
+# writes only to /app/media (the church logo; a volume in docker-compose.prod.yml), the one directory it owns.
+# Other uploads stay in memory or the system temp dir.
 RUN DEBUG=false SECRET_KEY=build-only-not-secret python manage.py collectstatic --noinput \
-    && chmod -R a+rX,go-w /app
+    && chmod -R a+rX,go-w /app \
+    && mkdir /app/media && chown 10001:10001 /app/media
 
 USER emmaus:emmaus
 

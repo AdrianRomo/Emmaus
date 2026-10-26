@@ -134,6 +134,9 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
+# Uploads (the church logo, core.logos). There is no MEDIA_URL and nothing serves this directory as static:
+# core.views.church_logo answers /iglesia/<slug>/logotipo/<variant>/. A volume in production (docs/deployment.md).
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
 
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},

@@ -186,6 +186,25 @@ Diapositivas de 16:9 para proyector: titular pintado de más de 100 px a 1920 ×
 
 ### Barras "Emmaus", el evento, "Estás en", los enlaces del rol con la marca maíz en la página actual, y "Cerrar sesión". Bajo 1180 px los enlaces pasan a "Menú" (`.menu-panel`, pantalla completa). `.focusbar` (entrevista y campero): quién o qué computadora, y una salida. Mismo ancho que la columna de contenido.
 
+### Marca de la iglesia (`{% church_brand iglesia variant="claro" size="bar" %}`)
+La iglesia sube su logotipo en "Configuración de la iglesia" (solo PNG, con fondo transparente, de hasta 512 KB y con el lado mayor de 32 a 2000 px; `core/logos.py` lo revisa por su contenido, no por su nombre; negro sobre transparente es lo recomendado, y una versión en blanco, opcional, para la presentación en Noche) y ocupa el lugar de la palabra "Emmaus". Sin logotipo, la etiqueta dibuja exactamente el "Emmaus" pintado de antes. "Emmaus" sigue siendo el nombre del producto en el `<title>` de cada página y en el PDF.
+
+| Lugar | `size` | Medida | Dónde |
+|---|---|---|---|
+| Barra | `bar` | 32 px de alto, hasta 180 px de ancho | `base.html` (la iglesia de la persona o, si no tiene, la primera activa), `shell_coordinator.html` y `shell_leader.html` (`event.church`), y la cabeza de "Menú" |
+| Entrar | `auth` | hasta 220 × 72 px, centrado sobre el título | `registration/login.html`. La barra de esa página conserva "Emmaus" para no repetir el logotipo |
+| Campero | `mark` | 40 px de alto | La barra del campero (`shell_kiosk.html`), desde la bienvenida "Hola, …" |
+| Presentación | `deck` | hasta 320 × 120 px en una diapositiva de 1920, en `cqw` | Solo la portada |
+| PDF del corte | — | hasta 2.2 × 0.72 pulgadas | El encabezado |
+
+- **Monocromo y sin colores nuevos.** El logotipo no se recolorea y la paleta no cambia por él: carbón sobre blanco, blanco sobre Noche. Lo recomendado es negro sobre transparente.
+- **Nunca se estira.** `width` y `height` salen de los píxeles del PNG, ajustados al lugar sin pasarse de su ancho ni de su alto, así la página no salta al cargar; CSS solo lo deja encoger, con `object-fit: contain` y el alto de cada lugar como tope. Un logotipo de más de 10:1 no se acepta.
+- **Texto alternativo: el nombre de la iglesia.** En la barra es el enlace a inicio, como lo era "Emmaus". No es un título: cada página sigue con un solo `h1`.
+- **En Noche** (`variant="oscuro"`): la versión en blanco si la iglesia la subió; si no, su logotipo de siempre sobre una placa blanca pequeña (`.brand__plate`), porque negro sobre `#141B33` desaparece. La portada lleva las dos versiones y `.deck--noche` muestra una.
+- **Nunca en datos ni gráficas**: ni como marca de una serie, ni en conteos, reglas, tablas, letreros o botones. Es identidad, no información.
+- La página de error 500 conserva "Emmaus": se dibuja sin base de datos.
+- La dirección de la imagen (`/iglesia/<slug>/logotipo/claro/`) lleva `?v=`: el navegador la guarda un día, y un logotipo nuevo cambia la dirección.
+
 ## 3. Gráficas
 
 `events/charts.py` dibuja SVG en el servidor; `rotulo.css` les da estilo.

@@ -33,6 +33,9 @@ class LessonInline(admin.TabularInline):
 class ChurchAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "contact_email", "active", "created_at")
     prepopulated_fields = {"slug": ("name",)}
+    # The logo is uploaded only in the church settings (ChurchSettingsForm), which checks the PNG (core.logos) and
+    # renames it; the admin's file fields would save any upload unchecked.
+    exclude = ("logo", "logo_dark")
 
 
 @admin.register(UserChurchRole)

@@ -12,6 +12,9 @@ services:
     environment:
       DEBUG: "false"
       DATABASE_URL: postgres://emmaus:${POSTGRES_PASSWORD}@db:5432/emmaus
+    volumes:
+      # The church logo (MEDIA_ROOT). Not in the database dump: back it up too (docs/deployment.md, Backups).
+      - media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -51,3 +54,4 @@ services:
 
 volumes:
   postgres_data:
+  media:

@@ -51,14 +51,14 @@ To take a server that has shown the demo back to an empty database, see [Empezar
 
 | Service | Command | Notes |
 |---|---|---|
-| `web` | `gunicorn emmaus.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 4 --timeout 60` | `DEBUG=false`; `DATABASE_URL` built from `POSTGRES_PASSWORD`; publishes `127.0.0.1:8000:8000` (only a proxy on the same host can reach it) |
+| `web` | `gunicorn emmaus.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 4 --timeout 60` | `DEBUG=false`; `DATABASE_URL` built from `POSTGRES_PASSWORD`; publishes `127.0.0.1:8000:8000` (only a proxy on the same host can reach it); volume `media` on `/app/media` |
 | `scheduler` | `python manage.py run_report_cutoffs --loop 300` | Same image; image healthcheck disabled |
 | `db` | `postgres:16` | Volume `postgres_data`; `pg_isready` healthcheck |
 
 The compose file builds the image from the working copy (`build: .`); there is no `image:` tag.
 
 * `.dockerignore` keeps `.env`, `.git`, `.venv`, local SQLite files, the host's `staticfiles/`, caches, `e2e/node_modules` and `docs/img` out of the image.
-* The containers run as the unprivileged user `emmaus` (uid/gid 10001), including `docker compose run --rm web python manage.py …`. Everything under `/app` is owned by root and read-only for that user; nothing there is written at runtime.
+* The containers run as the unprivileged user `emmaus` (uid/gid 10001), including `docker compose run --rm web python manage.py …`. Everything under `/app` is owned by root and read-only for that user, except `/app/media`: the image creates it owned by 10001, and the named volume `media` mounted there starts with that owner. It holds the church logo (see "Uploaded files").
 * `requirements.txt` pins exact versions; upgrade one package at a time and re-pin after the test suite passes.
 
 ```bash
@@ -204,6 +204,14 @@ Put a TLS-terminating reverse proxy (Caddy, nginx, Traefik) in front of `web:800
 * Do not mount a volume on `staticfiles/`: it would hide the new manifest after an upgrade. The README's `collectstatic` step for production is not needed with this image.
 * Outside Docker with `DEBUG=false`, run `python manage.py collectstatic --noinput` before starting, otherwise pages fail with a missing-manifest error.
 
+## Uploaded files (the church logo)
+
+* `MEDIA_ROOT` (default `<checkout>/media`, `/app/media` in the image; override with the `MEDIA_ROOT` environment variable) holds what the church uploads in "Configuración de la iglesia": `church-logos/logotipo-<slug>.png` and `logotipo-oscuro-<slug>.png`. Nothing else is written there.
+* There is no `MEDIA_URL` and neither WhiteNoise nor the proxy serves the directory: `core.views.church_logo` answers `/iglesia/<slug>/logotipo/claro/` and `/oscuro/` (public, always `image/png` with `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=86400`). Do not add a proxy rule that exposes `/app/media`.
+* Production mounts the named volume `media` on `web` only (`docker-compose.prod.yml`); the `scheduler` never reads it. Development bind-mounts `./media` (git-ignored, and kept out of the image by `.dockerignore`).
+* A missing file (a volume lost or not restored) is not an error page: the screens fall back to the painted "Emmaus", the PDF to the wordmark, and the app logs `The church logo … is missing from MEDIA_ROOT` at WARNING. Re-upload the logo or restore the volume.
+* The logo is PNG only (no SVG: a vector file is a document, and parsing it safely was not worth it for a logo). `core/logos.py` walks every chunk, refuses animated PNGs and anything after IEND, and decodes every pixel; upload it only through "Configuración de la iglesia" (the Django admin does not show the two file fields). A proxy CSP header on these paths is harmless: the response is always a PNG with `nosniff`.
+
 ## Database connection budget
 
 Each gunicorn thread keeps one connection for `DB_CONN_MAX_AGE` seconds (`CONN_HEALTH_CHECKS` on). The maximum is 3 workers x 4 threads = 12 from `web`, 1 from `scheduler`, plus 1 per one-off `manage.py` command. That stays under a free-tier limit of about 20. If you raise workers or threads, recompute; with a tight limit lower `DB_CONN_MAX_AGE` or set it to `0`.
@@ -219,7 +227,7 @@ With compose: `docker compose -f docker-compose.prod.yml run --rm web python man
 
 ## Backups
 
-The database holds everything, including answers. `scripts/backup_db.sh [OUT_DIR] [KEEP]` writes a custom-format dump (`pg_dump -Fc`) from the running `db` container to `OUT_DIR/emmaus-db-<UTC time>.dump`, restores it into `/dev/null` with `pg_restore` inside the container (every data block is read, so a truncated or corrupt dump is rejected), keeps the newest `KEEP` (default 48) and prints the file and its size. It exits non-zero, and keeps no partial file, if anything fails; a partial file left by a killed run is removed by the next one.
+The database holds everything, including answers, except the church logo: that file lives in the `media` volume (see "Uploaded files") and is **not in the database dump**. `scripts/backup_db.sh [OUT_DIR] [KEEP]` writes a custom-format dump (`pg_dump -Fc`) from the running `db` container to `OUT_DIR/emmaus-db-<UTC time>.dump`, restores it into `/dev/null` with `pg_restore` inside the container (every data block is read, so a truncated or corrupt dump is rejected), keeps the newest `KEEP` (default 48) and prints the file and its size. It exits non-zero, and keeps no partial file, if anything fails; a partial file left by a killed run is removed by the next one.
 
 * Only names the script writes (`emmaus-db-20261026T050000Z.dump`) count against `KEEP`. A dump you name by hand in the same directory (`emmaus-db-before-upgrade.dump`) is never rotated away.
 
@@ -231,7 +239,10 @@ Hourly during the camp weekend (48 dumps = two days), in the crontab of a user i
 
 ```cron
 0 * * * * cd /srv/emmaus && scripts/backup_db.sh /var/backups/emmaus 48 >> /var/backups/emmaus/backup_db.log 2>&1
+30 * * * * cd /srv/emmaus && { docker compose -f docker-compose.prod.yml exec -T web tar -C /app -cf - media > /var/backups/emmaus/emmaus-media.tar.part && mv /var/backups/emmaus/emmaus-media.tar.part /var/backups/emmaus/emmaus-media.tar; } 2>> /var/backups/emmaus/backup_db.log
 ```
+
+The second line copies `media/` (the logo) out of the running `web` container. It keeps one copy, `emmaus-media.tar`, replaced only when the new one was written completely; the logo rarely changes and holds no personal data.
 
 Cron's `PATH` is `/usr/bin:/bin`; that finds `docker` on Ubuntu. Look at the log (or the newest file's time) after the first hour: a job that is scheduled is not a job that ran.
 
@@ -243,6 +254,12 @@ docker compose -f docker-compose.prod.yml exec -T db \
   sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
   < /var/backups/emmaus/emmaus-db-YYYYMMDDTHHMMSSZ.dump
 docker compose -f docker-compose.prod.yml start web scheduler
+```
+
+Restore the logo into the running `web` (the app user owns `/app/media`):
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T web tar -C /app -xf - < /var/backups/emmaus/emmaus-media.tar
 ```
 
 Encrypt dumps, keep copies off the server, test a restore before the camp, and apply the same retention as the event data (purging the database does not touch old dumps; delete the camp's dumps when its retention ends).
@@ -304,7 +321,7 @@ To roll back the code, point the services at the saved image (or check out the p
 
 About the database:
 
-* The camp redesign's migrations are additive: `core/0003` adds two `Church` columns, `core/0004` is a data migration with a no-op reverse, `core/0005` only changes model options, `events/0001` adds new tables, `events/0002` adds `AuthThrottle` and `FollowUp.confidential`, `events/0003` gives that column a database default, `events/0004` adds `AuthThrottle.strikes` and Spanish field labels, and `events/0005` gives `strikes` a database default. Older code keeps reading and writing the database. The one exception is a new non-null column without a database default: creating a church (for example through `/setup/`) fails with code older than `core/0003`. Code from before `events/0002` can still insert follow-ups (`events/0003`) and throttle rows (`events/0005`); and the throttle fails closed: if its counter cannot be written, the password is not checked.
+* The camp redesign's migrations are additive: `core/0003` adds two `Church` columns, `core/0004` is a data migration with a no-op reverse, `core/0005` only changes model options, `events/0001` adds new tables, `events/0002` adds `AuthThrottle` and `FollowUp.confidential`, `events/0003` gives that column a database default, `events/0004` adds `AuthThrottle.strikes` and Spanish field labels, `events/0005` gives `strikes` a database default, and `core/0007` adds `Church.logo` and `Church.logo_dark` with a database default of `''`. Older code keeps reading and writing the database. The one exception is a new non-null column without a database default: creating a church (for example through `/setup/`) fails with code older than `core/0003`. Code from before `events/0002` can still insert follow-ups (`events/0003`) and throttle rows (`events/0005`); and the throttle fails closed: if its counter cannot be written, the password is not checked.
 * Reversing `events/0002` restores the old one-care-follow-up-per-interview constraint, which fails as soon as an interview has both an ordinary and a confidential referral.
 * Do **not** reverse with `python manage.py migrate events zero`: it drops every camp table (camperos, interviews, answers, follow-ups, cutoffs, activity log). Reversing `core` to `0002` needs that first and drops the two church columns.
 * To really go back, stop `web` and `scheduler`, restore the dump taken before the upgrade, and start the previous image.

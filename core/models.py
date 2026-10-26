@@ -8,6 +8,8 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
+from .logos import validate_church_logo
+
 
 hex_color_validator = RegexValidator(
     regex=r"^#[0-9A-Fa-f]{6}$",
@@ -96,6 +98,20 @@ class Church(models.Model):
         default="#D9D9D6",
         validators=[hex_color_validator],
         help_text="Color de bordes.",
+    )
+    # The church's identity in the wordmark's slot (docs/design-system.md, "Marca de la iglesia"). Stored under
+    # MEDIA_ROOT, served only by core.views.church_logo; never in the repository. db_default: older code
+    # (a rollback) can still create a church.
+    logo = models.FileField(
+        "Logotipo", upload_to="church-logos/", blank=True, default="", db_default="", validators=[validate_church_logo]
+    )
+    logo_dark = models.FileField(
+        "Logotipo para fondo oscuro",
+        upload_to="church-logos/",
+        blank=True,
+        default="",
+        db_default="",
+        validators=[validate_church_logo],
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

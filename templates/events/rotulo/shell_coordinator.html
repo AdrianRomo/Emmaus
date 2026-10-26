@@ -1,10 +1,11 @@
 {% extends "layout/skeleton.html" %}
+{% load brand %}
 {% comment %}Coordinator shell (Rótulo): where you are, a few plain links, nothing else.{% endcomment %}
 {% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
 {% block body %}
 <header class="bar">
   <div class="bar__inner">
-    <a class="wordmark" href="{% url 'events:home' event.slug %}">Emmaus</a>
+    {% url 'events:home' event.slug as event_home %}{% church_brand event.church size="bar" href=event_home %}
     <p class="bar__event">{{ event.name }}</p>
     {% if station %}<p class="here"><span class="here__blaze" aria-hidden="true"></span>Estás en <strong>{{ station.name }}</strong></p>{% endif %}
     <nav class="bar__nav" aria-label="Principal">
@@ -18,7 +19,7 @@
 </header>
 <div id="menu-panel" class="menu-panel" hidden>
   <div class="menu-panel__head">
-    <span class="wordmark">Emmaus</span>
+    {% church_brand event.church size="bar" %}
     <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
   </div>
   <nav class="menu-panel__nav" aria-label="Principal">

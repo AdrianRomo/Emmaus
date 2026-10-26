@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
+
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import UploadedFile
 
+from .logos import UPLOAD_HELP, inspect_logo_upload
 from .models import (
     AIDraft,
     Church,
@@ -20,6 +24,8 @@ from .models import (
     ReflectionQuestion,
     Role,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def use_tu_error_messages(field: forms.Field) -> None:
@@ -136,7 +142,17 @@ class InitialSetupForm(TuErrorMessagesMixin, forms.Form):
         return password
 
 
+# (file field, its "Quitar" checkbox)
+LOGO_FIELDS = (("logo", "logo_clear"), ("logo_dark", "logo_dark_clear"))
+LOGO_ACCEPT = {"accept": "image/png"}
+
+
 class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
+    """The church's data, access, logo and colours. The logo is a PNG checked by core.logos (its bytes, not its name)."""
+
+    logo_clear = forms.BooleanField(required=False, label="Quitar el logotipo")
+    logo_dark_clear = forms.BooleanField(required=False, label="Quitar el logotipo para fondo oscuro")
+
     class Meta:
         model = Church
         fields = [
@@ -144,6 +160,10 @@ class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
             "public_welcome_text",
             "contact_email",
             "basic_disclaimer_text",
+            "logo",
+            "logo_clear",
+            "logo_dark",
+            "logo_dark_clear",
             "self_registration_enabled",
             "leaders_can_invite_participants",
             "discipleship_enabled",
@@ -167,7 +187,16 @@ class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
             "theme_muted_text_color": "Texto secundario",
             "theme_border_color": "Bordes",
         }
+        help_texts = {
+            "logo": f"{UPLOAD_HELP} Negro sobre transparente se ve bien en todas las pantallas.",
+            "logo_dark": (
+                f"{UPLOAD_HELP} La versión en blanco, para la presentación en modo noche. Sin ella, "
+                "Emmaus pone tu logotipo sobre una placa blanca."
+            ),
+        }
         widgets = {
+            "logo": forms.FileInput(attrs=LOGO_ACCEPT),
+            "logo_dark": forms.FileInput(attrs=LOGO_ACCEPT),
             "public_welcome_text": forms.Textarea(attrs={"rows": 4}),
             "basic_disclaimer_text": forms.Textarea(attrs={"rows": 4}),
             "theme_primary_color": forms.TextInput(attrs={"type": "color"}),
@@ -179,6 +208,52 @@ class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
             "theme_muted_text_color": forms.TextInput(attrs={"type": "color"}),
             "theme_border_color": forms.TextInput(attrs={"type": "color"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # What is stored now, so a replaced or removed file can be deleted once the new state is saved.
+        self._stored_logos = {field: getattr(self.instance, field).name for field, _ in LOGO_FIELDS}
+
+    def _clean_upload(self, field: str, stem: str):
+        upload = self.cleaned_data.get(field)
+        if isinstance(upload, UploadedFile):
+            inspect_logo_upload(upload)
+            upload.name = f"{stem}-{self.instance.slug}.png"  # a name of our own; the one sent is not kept
+        return upload
+
+    def clean_logo(self):
+        return self._clean_upload("logo", "logotipo")
+
+    def clean_logo_dark(self):
+        return self._clean_upload("logo_dark", "logotipo-oscuro")
+
+    def clean(self):
+        cleaned = super().clean()
+        self._cleared_logos = []
+        for field, clear in LOGO_FIELDS:
+            if not cleaned.get(clear):
+                continue
+            if isinstance(cleaned.get(field), UploadedFile):
+                self.add_error(field, "Elige una sola cosa: sube un logotipo nuevo o marca “Quitar el logotipo”.")
+            else:
+                self._cleared_logos.append(field)
+        return cleaned
+
+    def save(self, commit=True):
+        # Set here: a file field with nothing uploaded is left out of construct_instance (it has a default).
+        for field in self._cleared_logos:
+            setattr(self.instance, field, "")
+        church = super().save(commit=commit)
+        if commit:
+            for field, _ in LOGO_FIELDS:
+                old, new = self._stored_logos[field], getattr(church, field).name
+                if old and old != new:
+                    storage = church._meta.get_field(field).storage
+                    try:
+                        storage.delete(old)
+                    except OSError as exc:  # the settings are saved; a leftover file only takes space
+                        logger.warning("Could not delete the replaced church logo %s: %s", old, exc)
+        return church
 
 
 class InvitationForm(TuErrorMessagesMixin, forms.ModelForm):
