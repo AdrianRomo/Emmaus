@@ -1,6 +1,8 @@
 services:
   web:
     build: .
+    # Development only: the image runs as uid 10001, which cannot write (or, with umask 077, read) the bind-mounted checkout.
+    user: root
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app

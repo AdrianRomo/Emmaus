@@ -1,0 +1,31 @@
+# The Dockerfile does `COPY . .`: everything not listed here ends up in the image.
+# Keep: manage.py, requirements.txt, emmaus/, core/, events/ (with events/fonts for the PDF),
+# templates/, static/ and locale/ (the compiled .mo ships the tú-voice Django messages).
+
+# Secrets and local configuration
+.env
+.env.*
+
+# Version control (in a worktree .git is a file; the pattern covers both)
+.git
+
+# Local Python environments, caches and databases
+.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+.coverage
+htmlcov
+db.sqlite3
+**/*.sqlite3
+media
+
+# Built inside the image by `collectstatic`; a host copy would only be stale.
+staticfiles
+
+# Browser tests and documentation screenshots are not needed at runtime
+e2e/node_modules
+docs/img
+
+**/.DS_Store

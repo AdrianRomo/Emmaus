@@ -36,6 +36,7 @@ DEBUG=true .venv/bin/python manage.py runserver
 With Docker: `make build && make up`, then `make migrate` and `make seed-demo`.
 
 For a real deployment, start at `/setup/` (first church and administrator), then use **Crear campamento**. See `docs/deployment.md`.
+A server that has shown the demo goes back to an empty database with `manage.py purge_demo_data` (dry run; `--yes` deletes): see "Empezar de cero para un evento real" in `docs/deployment.md`.
 
 ## Tests
 

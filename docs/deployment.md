@@ -30,6 +30,8 @@ make migrate      # in another terminal
 
 `docker-compose.yml` starts `web` (runserver, source mounted at `/app`) and `db` (`postgres:16`, user, password and database `emmaus`). The compose file sets `DATABASE_URL` and `DEBUG: "true"`.
 
+The image runs as the unprivileged user `emmaus` (uid 10001), which can neither write the bind-mounted checkout (`make collectstatic` fails with `PermissionError`) nor, in a checkout made with umask 077, even read `manage.py`. The dev `web` service therefore sets `user: root`; files it creates in the checkout (`staticfiles/`, migrations from `makemigrations`) belong to root. Production (`docker-compose.prod.yml`) has no such override and stays non-root.
+
 Other targets: `make createsuperuser`, `make test`, `make logs`, `make cutoffs` (one cutoff pass), `make seed-demo`, `make create-starter-path` (discipleship module), `make down`.
 
 ### Demo data
@@ -43,6 +45,8 @@ Other targets: `make createsuperuser`, `make test`, `make logs`, `make cutoffs` 
 
 `seed_dev_data` (discipleship module) is also DEBUG-only and uses the same password rules.
 
+To take a server that has shown the demo back to an empty database, see [Empezar de cero para un evento real](#empezar-de-cero-para-un-evento-real).
+
 ## Production with `docker-compose.prod.yml`
 
 | Service | Command | Notes |
@@ -52,6 +56,10 @@ Other targets: `make createsuperuser`, `make test`, `make logs`, `make cutoffs` 
 | `db` | `postgres:16` | Volume `postgres_data`; `pg_isready` healthcheck |
 
 The compose file builds the image from the working copy (`build: .`); there is no `image:` tag.
+
+* `.dockerignore` keeps `.env`, `.git`, `.venv`, local SQLite files, the host's `staticfiles/`, caches, `e2e/node_modules` and `docs/img` out of the image.
+* The containers run as the unprivileged user `emmaus` (uid/gid 10001), including `docker compose run --rm web python manage.py …`. Everything under `/app` is owned by root and read-only for that user; nothing there is written at runtime.
+* `requirements.txt` pins exact versions; upgrade one package at a time and re-pin after the test suite passes.
 
 ```bash
 cp .env.example .env                 # then edit it (table below)
@@ -69,25 +77,102 @@ The containers do not run migrations on start. Run `migrate` before `up -d` on e
 |---|---|---|
 | `SECRET_KEY` | none; startup fails if missing with `DEBUG=false` | Long random string |
 | `DEBUG` | `false` if unset | `false` (the prod compose file also forces it; `.env.example` has `true` for development) |
-| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Your domain, **first** in the list: the container healthcheck sends the first entry as its `Host` header (`*` makes it use `localhost`) |
-| `CSRF_TRUSTED_ORIGINS` | empty | `https://your-domain` |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | The real hostname (for example `campamento.tu-iglesia.mx`), **first** in the list: the container healthcheck sends the first entry as its `Host` header (`*` makes it use `localhost`) |
+| `CSRF_TRUSTED_ORIGINS` | empty | `https://` plus the same hostname (`https://campamento.tu-iglesia.mx`) |
 | `POSTGRES_PASSWORD` | none | Strong password; used by `db` and to build `DATABASE_URL` |
 | `DATABASE_URL` | SQLite | Set by the prod compose file (overrides `.env`) |
 | `DB_CONN_MAX_AGE` | `60` | Seconds to reuse a connection |
 | `TIME_ZONE` | `America/Mexico_City` | Server time zone (each event also has its own) |
 | `EMMAUS_IDLE_LOGOUT_SECONDS` | `1800` | Staff idle logout |
-| `SECURE_SSL_REDIRECT` | `false` | See HTTPS below |
-| `SECURE_HSTS_SECONDS` | `0` | See HTTPS below |
-| `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | `true` when `DEBUG=false` | Leave `true` |
-| `EMAIL_BACKEND` | console | `django.core.mail.backends.smtp.EmailBackend` |
-| `EMAIL_HOST`, `EMAIL_PORT` (587), `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` (`true`) | | Your SMTP |
+| `SECURE_SSL_REDIRECT` | `false` | `true` behind Traefik/HTTPS (see HTTPS below) |
+| `SECURE_HSTS_SECONDS` | `0` | `3600` to start (no preload); see HTTPS below |
+| `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | `true` when `DEBUG=false` | Leave unset (so `true`) |
+| `EMAIL_BACKEND` | console | `django.core.mail.backends.smtp.EmailBackend` (see SMTP below) |
+| `EMAIL_HOST`, `EMAIL_PORT` (587), `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` (`true`) | | Your SMTP provider |
 | `DEFAULT_FROM_EMAIL` | `Emmaus <no-reply@example.org>` | A real sender |
 | `LOG_LEVEL` | `INFO` | |
 | `LLM_ENABLED`, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | disabled | Leave disabled unless the discipleship module needs AI drafts; the camp module never uses them |
 | `EMMAUS_DEMO_PASSWORD` | empty | Development only |
 | `TEST_DATABASE_NAME` | Django default | Tests only |
 
-Without SMTP, safety alerts, invitations and "¿Olvidaste tu contraseña?" e-mails are only printed to the container log. The new-member screen still shows the link to copy, but administrators can generate a password link only for accounts that never set a password, so anyone who forgets an existing password depends on SMTP (or on a superuser using `manage.py changepassword`).
+### Recommended production values behind Traefik (HTTPS)
+
+Traefik (or any TLS proxy) terminates HTTPS and forwards to `web:8000` with `X-Forwarded-Proto: https`. In `.env`:
+
+```bash
+DEBUG=false
+SECRET_KEY=<long random string>
+ALLOWED_HOSTS=campamento.tu-iglesia.mx
+CSRF_TRUSTED_ORIGINS=https://campamento.tu-iglesia.mx
+SECURE_SSL_REDIRECT=true
+SECURE_HSTS_SECONDS=3600
+# SESSION_COOKIE_SECURE and CSRF_COOKIE_SECURE: leave them out; with DEBUG=false they are true.
+```
+
+* `SECURE_HSTS_SECONDS=3600` is one hour and has no preload: a mistake undoes itself quickly. Raise it to `31536000` after the camp runs cleanly on HTTPS.
+* With these values `check --deploy` still shows `security.W005` (`SECURE_HSTS_INCLUDE_SUBDOMAINS`) and `security.W021` (`SECURE_HSTS_PRELOAD`). Both are expected: `settings.py` has no switch for either, and both stay off on purpose, because a preloaded or subdomain-wide HSTS policy binds every subdomain of the church's domain and cannot be withdrawn quickly.
+* Open the app **only** at `https://<hostname>`. Over plain `http://<LAN-IP>:8000` sign-in fails, in one of three ways: "400 Bad Request" on every page when the LAN IP is not in `ALLOWED_HOSTS` (the usual case); a redirect to `https://<LAN-IP>:8000`, where nothing speaks TLS, when it is and `SECURE_SSL_REDIRECT=true`; otherwise the login page loads but submitting it shows Django's 403 page "CSRF verification failed. Request aborted.", because with `DEBUG=false` the CSRF and session cookies are `Secure` and the browser does not keep them on an `http://` page. (The prod compose file publishes gunicorn on `127.0.0.1:8000` only, so the LAN cannot reach it anyway.) For a throwaway test over HTTP, set `SESSION_COOKIE_SECURE=false` and `CSRF_COOKIE_SECURE=false`; never on the camp server.
+
+### SMTP
+
+Without SMTP (`EMAIL_BACKEND` left at the console backend), invitations, safety alerts and "¿Olvidaste tu contraseña?" e-mails are only printed to the container log (`docker compose -f docker-compose.prod.yml logs web`); nobody receives them. The new-member screen still shows the link to copy, but administrators can generate a password link only for accounts that never set a password, so anyone who forgets an existing password depends on SMTP (or on a superuser using `manage.py changepassword`).
+
+Any provider that offers SMTP submission with STARTTLS on port 587 works: the church's Google Workspace or Microsoft 365 account (with an app password), or a transactional service such as Brevo, Mailgun, SendGrid or Amazon SES.
+
+```bash
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.your-provider.example
+EMAIL_PORT=587
+EMAIL_USE_TLS=true
+EMAIL_HOST_USER=<SMTP user>
+EMAIL_HOST_PASSWORD=<SMTP password or app password>
+DEFAULT_FROM_EMAIL=Campamento <campamento@tu-iglesia.mx>
+```
+
+* `DEFAULT_FROM_EMAIL` must be an address the provider lets you send from (verified sender or domain with SPF/DKIM), otherwise mail is rejected or lands in spam.
+* Only STARTTLS (`EMAIL_USE_TLS`) is read from the environment; port 465 with implicit TLS has no setting.
+* Check it before the camp: `docker compose -f docker-compose.prod.yml run --rm web python manage.py sendtestemail you@your-domain`.
+
+## Empezar de cero para un evento real
+
+A server that has shown the demo still holds it: churches, 400 synthetic camperos, interviews, cutoffs and demo logins. The first real camp must start from an empty database. `purge_demo_data` removes exactly the demo:
+
+* the churches with identifier `iglesia-demo` (`seed_camp_demo`, whatever event `--slug` it used: `jovenes-2026`, `carga-2026`, …) and `emmaus-demo` (`seed_dev_data`), with everything that hangs from them: events, camperos, interviews, answers, cutoffs, follow-ups, questionnaires, discipleship paths and their lessons and enrollments;
+* the users whose e-mail ends in `@demo.invalid` or `@example.org` (the same markers as `emmaus.W001` and `deactivate_demo_accounts`), **except superusers**: an account made with `createsuperuser` and a placeholder address such as `soporte@example.org` is listed as skipped and never deleted;
+* if no church is left afterwards, every session (`django_session`) and every attempt counter (`AuthThrottle`): nobody real is signed in on a demo database, and the first real camp starts without leftovers.
+
+The command works with `DEBUG=false` (production is where the demo lives) and deletes nothing without `--yes`. It refuses, exits 1 and deletes nothing, in the dry run as well, when the demo is tangled with real data:
+
+* any row that does not go with the demo churches points at a demo user, through any foreign key of any app: a role, team membership or notes in another church, an event or interview it created, approved or conducted, a consent it recorded, an invitation it sent… Deleting the user would delete those rows or erase their author. The message lists each user with `app.Model.field: rows`. The one exception is the Django admin history (`admin.LogEntry`) of a demo account: it records what the demo did, so it is deleted with the account and counted as "Historial del admin de Django" (a superuser's history stays, like the superuser);
+* an event, interview or answer of another church uses a demo questionnaire or question. The message names the events.
+
+Remove that link (or only turn the accounts off with `deactivate_demo_accounts`) and run it again.
+
+The church identifier cannot be changed from "Configuración", but its name can: a church created by the demo seeds and then renamed and used for real still has identifier `emmaus-demo` or `iglesia-demo`, and the purge would wipe it. The dry run prints each church it would delete by **name** (with its identifier) at the top, followed by the counts: read that list before running `--yes`.
+
+The sequence, on the server, from the checkout (the backup user needs a directory it owns):
+
+```bash
+sudo install -d -m 700 -o "$USER" /var/backups/emmaus
+
+# 1. A dump first, so the purge can be undone (see Backups).
+scripts/backup_db.sh /var/backups/emmaus
+
+# 2. Dry run: the demo churches by name, skipped superusers, demo users, then what would be
+#    deleted per kind and per table. Read the church and user lists before going on.
+docker compose -f docker-compose.prod.yml run --rm web python manage.py purge_demo_data
+
+# 3. Stop the app so nothing writes into the demo event meanwhile, then purge (one transaction).
+docker compose -f docker-compose.prod.yml stop web scheduler
+docker compose -f docker-compose.prod.yml run --rm web python manage.py purge_demo_data --yes
+docker compose -f docker-compose.prod.yml start web scheduler
+```
+
+4. Open `https://<hostname>/`. With no church left, it redirects to `/setup/`.
+5. Create the real church and its first administrator there (see First-time setup), with a real e-mail address: an `@example.org` address would be flagged by `emmaus.W001` and removed by the next purge.
+6. `docker compose -f docker-compose.prod.yml run --rm web python manage.py check --deploy` must no longer show `emmaus.W001`.
+
+To undo, restore the dump from step 1 (see Backups).
 
 ## First-time setup
 
@@ -132,25 +217,35 @@ Each gunicorn thread keeps one connection for `DB_CONN_MAX_AGE` seconds (`CONN_H
 
 With compose: `docker compose -f docker-compose.prod.yml run --rm web python manage.py <command>`.
 
-## Backups (suggested, not part of the repository)
+## Backups
 
-The database holds everything, including answers. A daily custom-format dump:
+The database holds everything, including answers. `scripts/backup_db.sh [OUT_DIR] [KEEP]` writes a custom-format dump (`pg_dump -Fc`) from the running `db` container to `OUT_DIR/emmaus-db-<UTC time>.dump`, restores it into `/dev/null` with `pg_restore` inside the container (every data block is read, so a truncated or corrupt dump is rejected), keeps the newest `KEEP` (default 48) and prints the file and its size. It exits non-zero, and keeps no partial file, if anything fails; a partial file left by a killed run is removed by the next one.
 
-```bash
-docker compose -f docker-compose.prod.yml exec -T db \
-  pg_dump -U emmaus -d emmaus -Fc > emmaus-$(date +%F-%H%M).dump
+* Only names the script writes (`emmaus-db-20261026T050000Z.dump`) count against `KEEP`. A dump you name by hand in the same directory (`emmaus-db-before-upgrade.dump`) is never rotated away.
+
+* It holds no password: `pg_dump` runs inside the container as the container's own `$POSTGRES_USER` on `$POSTGRES_DB`.
+* It finds the container by compose project and service (`db`). The project defaults to the checkout's directory name, normalised as compose does (lowercase, only `a-z0-9_-`, no leading `-` or `_`); if the stack was started with `-p <name>` or a `COMPOSE_PROJECT_NAME` in `.env`, pass `COMPOSE_PROJECT_NAME=<name>`, or name the container directly with `EMMAUS_DB_CONTAINER=<container>`.
+* Dumps are created mode `600` (they contain every answer). The user running it needs access to Docker.
+
+Hourly during the camp weekend (48 dumps = two days), in the crontab of a user in the `docker` group or root (`crontab -e`; adjust the checkout path). Create the directory first, owned by that user, or cron cannot even open the log: `sudo install -d -m 700 -o <user> /var/backups/emmaus`.
+
+```cron
+0 * * * * cd /srv/emmaus && scripts/backup_db.sh /var/backups/emmaus 48 >> /var/backups/emmaus/backup_db.log 2>&1
 ```
+
+Cron's `PATH` is `/usr/bin:/bin`; that finds `docker` on Ubuntu. Look at the log (or the newest file's time) after the first hour: a job that is scheduled is not a job that ran.
 
 Restore into the running `db` after stopping the app:
 
 ```bash
 docker compose -f docker-compose.prod.yml stop web scheduler
 docker compose -f docker-compose.prod.yml exec -T db \
-  pg_restore -U emmaus -d emmaus --clean --if-exists < emmaus-YYYY-MM-DD-HHMM.dump
+  sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
+  < /var/backups/emmaus/emmaus-db-YYYYMMDDTHHMMSSZ.dump
 docker compose -f docker-compose.prod.yml start web scheduler
 ```
 
-Encrypt dumps, keep them off the server, test a restore before the camp, and apply the same retention as the event data (purging the database does not touch old dumps).
+Encrypt dumps, keep copies off the server, test a restore before the camp, and apply the same retention as the event data (purging the database does not touch old dumps; delete the camp's dumps when its retention ends).
 
 ## Deploy checks
 
@@ -158,8 +253,8 @@ Encrypt dumps, keep them off the server, test a restore before the camp, and app
 docker compose -f docker-compose.prod.yml run --rm web python manage.py check --deploy
 ```
 
-* Django's own warnings appear while `SECURE_SSL_REDIRECT=false` or `SECURE_HSTS_SECONDS=0`; they are expected if the proxy handles the redirect, and should disappear for HSTS once you set it.
-* `emmaus.W001` (from `events/checks.py`, only when `DEBUG=false`) lists active accounts ending in `@example.org` or `@demo.invalid`. Fix with `python manage.py deactivate_demo_accounts` (`--dry-run` lists them first). Migration `core/0004` already deactivates `participant@example.org`.
+* Django's own warnings: `security.W008` while `SECURE_SSL_REDIRECT=false` (expected if the proxy handles the redirect) and `security.W004` while `SECURE_HSTS_SECONDS=0`. Once HSTS is set, W004 gives way to `security.W005` and `security.W021` (no `includeSubDomains`, no preload); those two are expected, see "Recommended production values behind Traefik".
+* `emmaus.W001` (from `events/checks.py`, only when `DEBUG=false`) lists active accounts ending in `@example.org` or `@demo.invalid`. Fix with `python manage.py deactivate_demo_accounts` (`--dry-run` lists them first), or remove the whole demo with `purge_demo_data` (see [Empezar de cero para un evento real](#empezar-de-cero-para-un-evento-real)). Migration `core/0004` already deactivates `participant@example.org`.
 
 ## Running the tests
 
