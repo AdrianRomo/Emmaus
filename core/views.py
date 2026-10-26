@@ -973,3 +973,9 @@ class ThrottledPasswordResetView(PasswordResetView):
             f"Créala con este enlace:\n\n{link}\n\nSi no lo pediste, ignora este correo.",
             [user.email],
         )
+
+
+@login_required
+def ayuda(request):
+    """Help outside an event (base.html's "Ayuda"). Signed in is enough: coordinators and tutors have no church role."""
+    return render(request, "core/ayuda.html")

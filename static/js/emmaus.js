@@ -97,8 +97,8 @@
     }
     button.addEventListener("click", open);
     $all("[data-menu-close]", panel).forEach(function (b) { b.addEventListener("click", function () { close(true); }); });
-    if (window.matchMedia) {  // past 1180px "Menú" is not shown (rotulo.css): the bar has the links again
-      var narrow = window.matchMedia("(max-width: 1180px)");
+    if (window.matchMedia) {  // past 760px "Menú" is not shown (rotulo.css): the bar has the links again
+      var narrow = window.matchMedia("(max-width: 760px)");
       var onResize = function () { if (!narrow.matches) close(false); };
       if (narrow.addEventListener) narrow.addEventListener("change", onResize);
       else if (narrow.addListener) narrow.addListener(onResize);

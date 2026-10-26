@@ -160,13 +160,13 @@ class RedesignedScreenTests(CampFixture):
         """One design system: no role ever crosses into the old stylesheet, which no longer exists."""
         self.assertFalse((settings.BASE_DIR / "static" / "css" / "emmaus.css").exists())
         pages = {
-            self.coord1: ["coord_home", "my_participants", "coord_pending", "coord_progress", "participant_create",
+            self.coord1: ["coord_home", "my_participants", "coord_pending", "coord_progress", "participant_create", "ayuda",
                           ("participant_detail", self.p1.public_id), "follow_ups", "backup_list", "interview_search",
                           ("guardian_authorization", self.p_minor_no_auth.public_id), ("guardian_authorization_withdraw", self.p1.public_id)],
-            self.tutor1: ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups"],
-            self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live"],
+            self.tutor1: ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups", "ayuda"],
+            self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live", "ayuda"],
             self.admin: ["admin_home", "participants", "participant_import", "team", "assignments", "questionnaires",
-                         "settings", "audit", "sessions", "reports", "member_add", "join_code_sign", "sedes", "sede_add"],
+                         "settings", "audit", "sessions", "reports", "member_add", "join_code_sign", "sedes", "sede_add", "ayuda"],
         }
         for user, names in pages.items():
             client = Client()
@@ -278,7 +278,7 @@ class RedesignedScreenTests(CampFixture):
         self.choose_station()
         response = self.client.get(self.url("interview_search"), {"q": "mar rui"})
         self.assertContains(response, "css/rotulo.css")
-        self.assertContains(response, "Cambiar de evento")
+        self.assertContains(response, f'<a href="{reverse("events:list")}?todos=1">Campamentos</a>')
         self.assertContains(response, "Mariana López Ruiz")
 
     def test_my_participants_search_matches_words_in_any_order(self):

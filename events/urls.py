@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import admin, coordinator, dashboards, home, interview, reports, session
+from .views import admin, ayuda, coordinator, dashboards, home, interview, reports, session
 
 app_name = "events"
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path("cuenta/sigo-aqui/", session.still_here, name="still_here"),
     path("nuevo/", home.event_create, name="create"),
     path(E, home.event_home, name="home"),
+    path(E + "ayuda/", ayuda.ayuda, name="ayuda"),
     path(E + "computadora/", home.choose_station, name="choose_station"),
     # Coordinador
     path(E + "mi-inicio/", coordinator.coord_home, name="coord_home"),

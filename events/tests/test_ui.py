@@ -60,10 +60,10 @@ def analyse(html):
 
 class SpanishAndAccessibilityTests(CampFixture):
     PAGES = {
-        "coord1": ["coord_home", "my_participants", "coord_pending", "coord_progress", "interview_search", "participant_create"],
-        "tutor1": ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups"],
-        "pastor": ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live"],
-        "admin": ["admin_home", "participants", "participant_import", "team", "member_add", "assignments", "questionnaires", "settings", "audit", "sessions", "join_code_sign", "sedes", "sede_add"],
+        "coord1": ["coord_home", "my_participants", "coord_pending", "coord_progress", "interview_search", "participant_create", "ayuda"],
+        "tutor1": ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups", "ayuda"],
+        "pastor": ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live", "ayuda"],
+        "admin": ["admin_home", "participants", "participant_import", "team", "member_add", "assignments", "questionnaires", "settings", "audit", "sessions", "join_code_sign", "sedes", "sede_add", "ayuda"],
     }
 
     def test_pages_are_spanish_and_labelled(self):

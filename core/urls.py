@@ -8,6 +8,7 @@ urlpatterns = [
     path("iglesia/<slug:slug>/logotipo/<str:variant>/", views.church_logo, name="church_logo"),
     path("setup/", views.initial_setup, name="initial_setup"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("ayuda/", views.ayuda, name="ayuda"),
     path("invite/<str:token>/", views.accept_invitation, name="accept_invitation"),
     path("participant/", views.participant_dashboard, name="participant_dashboard"),
     path("participant/lesson/<int:lesson_id>/", views.participant_lesson, name="participant_lesson"),
