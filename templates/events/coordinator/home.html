@@ -12,7 +12,7 @@
         <h2 id="que-hago" class="sign__title">Termina la entrevista de {{ iv.participant.full_name }}</h2>
         <p class="sign__text">Sus respuestas están guardadas hasta donde se quedó{% if iv.station %}, en {{ iv.station.name }}{% endif %}.</p>
         <div class="sign__actions">
-          <a class="btn btn--primary btn--large" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Continuar entrevista</a>
+          <a class="btn btn--primary btn--large" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar entrevista</a>
           <a class="sign__link" href="{% url 'events:interview_search' event.slug %}">Mejor entrevistar a otro campero</a>
         </div>
       {% endwith %}

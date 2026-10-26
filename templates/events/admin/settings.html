@@ -4,7 +4,7 @@
 {% block content %}
 {% comment %}
   The header follows events/rotulo/_page_head.html; it is written out here because it carries two
-  secondary links (activity log, open sessions) and no primary action: each form below has its own.
+  secondary links (activity log, computers in use) and no primary action: each form below has its own.
 {% endcomment %}
 <header class="page-head page-head--actions">
   <div class="page-head__text">
@@ -13,7 +13,7 @@
   </div>
   <div class="page-head__actions">
     <a class="btn btn--secondary" href="{% url 'events:audit' event.slug %}">Registro de actividad</a>
-    <a class="btn btn--secondary" href="{% url 'events:sessions' event.slug %}">Sesiones abiertas</a>
+    <a class="btn btn--secondary" href="{% url 'events:sessions' event.slug %}">Computadoras en uso</a>
   </div>
 </header>
 
@@ -23,7 +23,7 @@
   {% if event.procedures_approved %}
     <div class="notice notice--success"><p class="notice__title">Confirmado</p><p>{{ event.procedures_approved_by.get_full_name|default:"La administración" }} confirmó el {{ event.procedures_approved_at|fecha_larga|lower }} que la iglesia aprobó sus procedimientos de autorización, protección de menores y atención de situaciones de riesgo.</p></div>
   {% else %}
-    <div class="notice notice--warning"><p class="notice__title">Antes de entrevistar a menores reales</p><p>La iglesia debe definir y aprobar quién autoriza, cómo se guarda la autorización de padres o tutores, quién atiende las situaciones de riesgo y cuánto tiempo se conservan los datos. Mientras no lo confirmes, no se pueden iniciar entrevistas.</p></div>
+    <div class="notice notice--warning"><p class="notice__title">Antes de entrevistar a menores de edad</p><p>La iglesia debe decidir cuatro cosas: quién autoriza, cómo se guarda la autorización de padres o tutores, quién atiende una situación de riesgo y cuánto tiempo se conservan los datos. Mientras no lo confirmes, no se pueden iniciar entrevistas.</p></div>
     <form method="post" class="mt-6" novalidate>{% csrf_token %}<input type="hidden" name="form" value="procedures">{% include "partials/ui/error_summary.html" with form=procedures %}{% include "partials/ui/fields.html" with form=procedures %}<button class="btn btn--primary" type="submit">Confirmar</button></form>
   {% endif %}
   </div>

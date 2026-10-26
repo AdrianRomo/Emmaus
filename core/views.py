@@ -87,8 +87,8 @@ QUESTION_DISCLAIMER_INTRO = (
     "ni consejo legal, y no sustituye el cuidado pastoral."
 )
 EMERGENCY_NOTICE = (
-    "Si estás en peligro inmediato o piensas hacerte daño o hacerle daño a otra persona, llama de inmediato al 911 "
-    "o a los servicios de emergencia de tu localidad."
+    "Si estás en peligro inmediato, llama al 911 o a los servicios de emergencia de tu localidad. "
+    "Haz lo mismo si piensas hacerte daño o hacerle daño a otra persona."
 )
 # The English default of core migration 0001. Churches created before 0003 still hold it (0006 clears it);
 # read as "no notice of their own" so no participant reads English.
@@ -116,7 +116,7 @@ def role_required(*roles: str):
         def wrapped(request, *args, **kwargs):
             role_record = get_user_role(request.user)
             if not role_record:
-                messages.error(request, "Tu cuenta todavía no está vinculada a ninguna iglesia.")
+                messages.error(request, "Tu cuenta todavía no está vinculada a ninguna iglesia. Pide a quien te invitó que revise tu invitación.")
                 return redirect("landing")
             if role_record.role not in roles:
                 raise PermissionDenied
@@ -608,11 +608,11 @@ def question_detail(request, question_id: int):
                 created_by=request.user,
                 assigned_to=question.participant.participant_profile.assigned_mentor,
                 source=FollowUpRequest.Source.QUESTION_ESCALATION,
-                reason=f"Pregunta escalada: {question.question_text[:300]}",
+                reason=f"Pregunta pasada al pastor: {question.question_text[:300]}",
             )
             notify_question_escalated(question)
             notify_follow_up_created(follow_up)
-            messages.success(request, "La pregunta se escaló a los pastores.")
+            messages.success(request, "La pregunta se pasó al pastor. Los pastores de tu iglesia ya pueden verla.")
             return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
         elif action == "generate_ai":
             if not can_answer_question(request.user, question) or not has_leader_access(request.user):

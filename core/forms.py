@@ -345,7 +345,7 @@ class AcceptInvitationForm(TuErrorMessagesMixin, forms.Form):
         password = cleaned.get("password1")
         confirm = cleaned.get("password2")
         if password and confirm and password != confirm:
-            raise ValidationError("Las contraseñas no coinciden.")
+            raise ValidationError("Las dos contraseñas no coinciden. Escríbelas otra vez.")
         if password:
             validate_password(password)
         if User.objects.filter(email__iexact=self.invitation.email).exists():
@@ -421,7 +421,7 @@ class ParticipantQuestionForm(TuErrorMessagesMixin, forms.ModelForm):
             "sensitivity_level": "¿Cómo deben tratar los líderes tu pregunta?",
         }
         help_texts = {
-            "sensitivity_level": "Elige «Delicada» o «Requiere cuidado pastoral» si tu pregunta necesita más cuidado.",
+            "sensitivity_level": "Elige “Delicada” o “Requiere cuidado pastoral” si tu pregunta necesita más cuidado.",
         }
         widgets = {
             "question_text": forms.Textarea(

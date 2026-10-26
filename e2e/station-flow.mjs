@@ -35,7 +35,7 @@ await go(page, page.click("form button:has-text('Entrar')"));
 await page.goto(`${BASE}/eventos/${EVENT}/entrevistas/iniciar/`);
 if (page.url().includes("/computadora/")) {
   await page.check("input[name=station] >> nth=0");
-  await go(page, page.click("form button:has-text('Continuar')"));
+  await go(page, page.click("form button:has-text('Usar esta computadora')"));
 }
 await shot(page, "buscar");
 
@@ -47,7 +47,7 @@ for (const box of await page.$$("input[type=checkbox][name^=consent_]")) await b
 await page.check("input[name=mode][value=asistida]");
 await go(page, page.click("button:has-text('Comenzar entrevista')"));
 assert.match(page.url(), /\/paso\/1\/$/);
-await page.click("label:has-text('No estoy seguro/a')");
+await page.click("label:has-text('No lo tengo claro')");
 await go(page, page.click(".step__actions button.btn--primary"));
 await page.click("label:has-text('Sí') >> nth=0");
 assert.ok(await page.isVisible("textarea"), "conditional question is revealed");
@@ -87,8 +87,8 @@ assert.match(page.url(), /\/estacion\/$/, "kiosk confinement (admin)");
 await go(page, page.click(".welcome a.btn--primary"));
 await page.click("label:has-text('Sí') >> nth=0");
 await go(page, page.click(".step__actions button.btn--primary"));
-await go(page, page.click("a:has-text('Terminar por ahora')"));
-await go(page, page.click("button:has-text('Terminar')"));
+await go(page, page.click("a:has-text('Parar por ahora')"));
+await go(page, page.click("button:has-text('Ya terminé')"));
 const handback = await page.textContent("main");
 assert.ok(handback.includes("Avisa a tu coordinador"));
 assert.ok(!handback.includes("Sí"), "no answers on the hand-back screen");

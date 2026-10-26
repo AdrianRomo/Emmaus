@@ -22,7 +22,7 @@ RETENTION_HOUR = clock(3, 0)
 
 
 class Command(BaseCommand):
-    help = "Genera los cortes de seguimiento que tocan ahora y limpia sesiones vencidas. Se puede repetir sin duplicar."
+    help = "Genera los cortes que tocan ahora y limpia sesiones vencidas. Se puede repetir sin duplicar."
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

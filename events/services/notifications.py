@@ -32,7 +32,7 @@ def notify_safety_report(follow_up: FollowUp) -> bool:
         (
             "Se registró un reporte de una posible situación de riesgo.\n\n"
             "Por privacidad, este correo no incluye nombres ni detalles. "
-            "Ingresa a Emmaus con tu cuenta para atenderlo y sigue el procedimiento de protección de tu iglesia."
+            "Entra a Emmaus para atenderlo y sigue el procedimiento de protección de tu iglesia."
         ),
         recipients,
     )

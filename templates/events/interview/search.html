@@ -16,7 +16,7 @@
   {% if blockers %}
     <div class="notice notice--warning">
       <p class="notice__title">Todavía no se pueden iniciar entrevistas</p>
-      <p>{{ blockers.0 }}</p>
+      {% for b in blockers %}<p>{{ b }}</p>{% endfor %}
     </div>
   {% endif %}
 
@@ -35,7 +35,7 @@
               {% if p.interview_status == "completada" %}
                 <a class="btn btn--secondary btn--small" href="{% url 'events:participant_detail' event.slug p.public_id %}">Ver<span class="visually-hidden"> a {{ p.full_name }}</span></a>
               {% elif p.interview_status == "en_curso" %}
-                <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Continuar<span class="visually-hidden"> con {{ p.full_name }}</span></a>
+                <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ p.full_name }}</span></a>
               {% else %}
                 <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>
               {% endif %}
@@ -45,11 +45,11 @@
       </ul>
       {% if query %}<p class="more"><a href="{% url 'events:interview_search' event.slug %}">Borrar búsqueda</a></p>{% endif %}
     {% elif query %}
-      <p class="empty-line">No encontramos a nadie con “{{ query }}”. Prueba con su número o con menos letras. Si no está registrado, regístralo ahora.</p>
+      <p class="empty-line">No encontramos a nadie con “{{ query }}”. Prueba con su número o con menos letras. Si no está registrado, toca “Registrar campero”.</p>
     {% else %}
       <p class="empty-line">No tienes entrevistas pendientes: todos tus camperos ya tienen su entrevista completada.</p>
     {% endif %}
-    <p class="more"><a href="{% url 'events:participant_create' event.slug %}">¿No está en la lista? Registrar a un campero nuevo</a></p>
+    <p class="more">¿No está en la lista? <a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></p>
   </section>
 </div>
 {% endblock %}

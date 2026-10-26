@@ -69,7 +69,7 @@ try {
   if (page.url().includes("/computadora/")) {
     await everyWidth(page, "computadora", { full: false });
     await page.check("input[name=station] >> nth=3");
-    await go(page, page.click("form button:has-text('Continuar')"));
+    await go(page, page.click("form button:has-text('Usar esta computadora')"));
   }
   await page.goto(BASE + S + "/mi-inicio/");
   await everyWidth(page, "coordinador");
@@ -128,12 +128,12 @@ try {
   await go(page, page.click("button:has-text('Entregar la computadora')"));
   await everyWidth(page, "campero-bienvenida", { full: false });
   await go(page, page.click("a:has-text('Empezar')"));
-  await page.click("label:has-text('No estoy seguro/a')");
+  await page.click("label:has-text('No lo tengo claro')");
   await everyWidth(page, "campero-pregunta", { full: false });
   await next(page);
-  await go(page, page.click("a:has-text('Terminar por ahora')"));
+  await go(page, page.click("a:has-text('Parar por ahora')"));
   await everyWidth(page, "campero-revision", { full: false });
-  await go(page, page.click("button:has-text('Terminar')"));
+  await go(page, page.click("button:has-text('Ya terminé')"));
   await everyWidth(page, "campero-gracias", { full: false });
   await go(page, page.click("a:has-text('recuperar la computadora')"));
   await everyWidth(page, "campero-recuperar", { full: false });

@@ -22,9 +22,9 @@ from django.utils import timezone
 
 DEFAULT_PRIVACY_NOTICE = (
     "La iglesia organizadora registra tus respuestas para acompañarte durante y después del "
-    "campamento. Solo las personas autorizadas del equipo pastoral pueden ver las respuestas "
-    "confidenciales. Puedes elegir “Prefiero no responder” en cualquier pregunta. "
-    "Tus respuestas no se comparten con terceros ni se procesan con inteligencia artificial."
+    "campamento. El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: "
+    "esas solo las lee el equipo de cuidado autorizado. Puedes elegir “Prefiero no responder” en cualquier pregunta. "
+    "No compartimos tus respuestas con nadie fuera de la iglesia, y ninguna inteligencia artificial las analiza."
 )
 
 DEFAULT_SAFEGUARDING_INSTRUCTIONS = (
@@ -136,7 +136,7 @@ class Event(models.Model):
         related_name="events_using",
     )
 
-    # Cortes de seguimiento
+    # Cortes
     reports_enabled = models.BooleanField("Generar cortes automáticos", default=True)
     report_interval_minutes = models.PositiveSmallIntegerField(
         "Frecuencia de los cortes", choices=REPORT_INTERVAL_CHOICES, default=120
@@ -146,10 +146,10 @@ class Event(models.Model):
 
     # Privacidad y protección
     min_group_size = models.PositiveSmallIntegerField(
-        "Tamaño mínimo de grupo para mostrar datos sensibles",
+        "Mínimo de personas para mostrar un total",
         default=5,
         validators=[MinValueValidator(3), MaxValueValidator(20)],
-        help_text="Las cifras sensibles menores a este número se ocultan en resúmenes y presentaciones.",
+        help_text="En los resúmenes de respuestas y en la presentación, los totales menores a este número no se muestran y los demás se redondean a múltiplos de él.",
     )
     adult_age = models.PositiveSmallIntegerField("Edad de mayoría", default=18)
     requires_guardian_authorization = models.BooleanField(
@@ -297,7 +297,7 @@ class EventMembership(models.Model):
         help_text="Solo para tutores. Se usa en presentaciones en lugar de nombres de personas.",
     )
     can_view_sensitive = models.BooleanField(
-        "Acceso a información confidencial",
+        "Puede leer información confidencial",
         default=False,
         help_text="Permite leer respuestas confidenciales y reportes de riesgo. Cada consulta queda registrada.",
     )
@@ -318,7 +318,7 @@ class EventMembership(models.Model):
         verbose_name_plural = "integrantes del equipo"
 
     def __str__(self) -> str:
-        return f"{self.display_name} · {self.get_role_display()}"
+        return f"{self.display_name}, {self.get_role_display().lower()}"
 
     @property
     def display_name(self) -> str:
@@ -420,8 +420,8 @@ class InterviewStation(models.Model):
     class Meta:
         ordering = ["number"]
         constraints = [models.UniqueConstraint(fields=["event", "number"], name="station_number_per_event")]
-        verbose_name = "computadora de entrevistas"
-        verbose_name_plural = "computadoras de entrevistas"
+        verbose_name = "computadora de entrevista"
+        verbose_name_plural = "computadoras de entrevista"
 
     def __str__(self) -> str:
         return self.name
@@ -519,7 +519,7 @@ class EventParticipant(models.Model):
 class ConsentRecord(models.Model):
     class Kind(models.TextChoices):
         GUARDIAN = "autorizacion_tutor_legal", "Autorización de padre, madre o tutor legal"
-        SELF = "consentimiento", "Consentimiento del participante"
+        SELF = "consentimiento", "Consentimiento del campero"
         ASSENT = "asentimiento", "Asentimiento del menor"
 
     class Status(models.TextChoices):
@@ -655,7 +655,7 @@ class Question(_DraftOnlyMixin, models.Model):
 
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name="questions")
     order = models.PositiveSmallIntegerField("Orden")
-    code = models.SlugField("Clave interna", max_length=60)
+    code = models.SlugField("Identificador interno", max_length=60, help_text="No lo ven los camperos. Sirve para las condiciones y los reportes.")
     text = models.CharField("Pregunta", max_length=300)
     help_text = models.CharField("Ayuda", max_length=300, blank=True)
     kind = models.CharField("Tipo de respuesta", max_length=16, choices=Kind.choices)
@@ -699,7 +699,7 @@ class Question(_DraftOnlyMixin, models.Model):
 class QuestionOption(_DraftOnlyMixin, models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="options")
     order = models.PositiveSmallIntegerField("Orden")
-    code = models.SlugField("Clave interna", max_length=60)
+    code = models.SlugField("Identificador interno", max_length=60, help_text="No lo ven los camperos. Sirve para las condiciones y los reportes.")
     label = models.CharField("Texto", max_length=160)
     is_exclusive = models.BooleanField(
         "Excluye las demás", default=False, help_text="Por ejemplo, “Prefiero no responder”."
@@ -727,7 +727,7 @@ class QuestionOption(_DraftOnlyMixin, models.Model):
 class Interview(models.Model):
     class Mode(models.TextChoices):
         ASSISTED = "asistida", "Entrevista asistida"
-        SUPERVISED = "supervisada", "Captura supervisada"
+        SUPERVISED = "supervisada", "Entrevista a solas"
 
     class Status(models.TextChoices):
         IN_PROGRESS = "en_curso", "En curso"
@@ -737,7 +737,7 @@ class Interview(models.Model):
     class FollowUpDecision(models.TextChoices):
         REQUIRED = "requerido", "Se requiere seguimiento"
         NOT_REQUIRED = "no_requerido", "No se requiere seguimiento"
-        TO_EVALUATE = "por_evaluar", "Seguimiento pendiente de evaluación"
+        TO_EVALUATE = "por_evaluar", "Por decidir"
 
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="interviews")
@@ -845,7 +845,7 @@ class ParticipantSession(models.Model):
 
     class EndReason(models.TextChoices):
         UNLOCKED = "desbloqueada", "El coordinador recuperó la computadora"
-        EXPIRED = "expirada", "Terminó por tiempo"
+        EXPIRED = "expirada", "Se cerró por inactividad"
         REVOKED = "revocada", "Cerrada por la administración"
         TAKEN_OVER = "retomada", "La entrevista se abrió en otra computadora"
         DISCARDED = "descartada", "La entrevista se descartó"
@@ -905,10 +905,10 @@ class FollowUp(models.Model):
     reason = models.CharField("Motivo", max_length=32, choices=Reason.choices, default=Reason.COORDINATOR)
     details = models.TextField("Detalles confidenciales", blank=True)
     confidential = models.BooleanField(
-        "Solo para el equipo de cuidado",
+        "Solo para el equipo de cuidado autorizado",
         default=False,
         db_default=False,  # older code (rolling deploys) can still insert follow-ups
-        help_text="Se creó a partir de respuestas confidenciales: solo lo ve el equipo con acceso confidencial.",
+        help_text="Se creó a partir de respuestas confidenciales: solo lo ve el equipo de cuidado autorizado.",
     )
     assigned_to = models.ForeignKey(
         settings.AUTH_USER_MODEL, verbose_name="Líder responsable", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
@@ -962,7 +962,7 @@ class ReportSnapshot(models.Model):
     )
     trigger = models.CharField(max_length=16, choices=Trigger.choices)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.READY)
-    cutoff_at = models.DateTimeField("Datos al")
+    cutoff_at = models.DateTimeField("Hora de los datos")
     interval_minutes = models.PositiveSmallIntegerField()
     metrics_version = models.CharField(max_length=16)
     data = models.JSONField(default=dict)
@@ -980,8 +980,8 @@ class ReportSnapshot(models.Model):
             ),
         ]
         indexes = [models.Index(fields=["event", "scope_key", "-cutoff_at"], name="snapshot_history_idx")]
-        verbose_name = "corte de seguimiento"
-        verbose_name_plural = "cortes de seguimiento"
+        verbose_name = "corte"
+        verbose_name_plural = "cortes"
 
     def save(self, *args, **kwargs):
         if self.pk:

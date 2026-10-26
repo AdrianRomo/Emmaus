@@ -16,7 +16,7 @@
   <p class="confirm__text">{{ counts.open_care }} seguimiento{{ counts.open_care|pluralize }} abierto{{ counts.open_care|pluralize }}, {{ counts.open_safety }} reporte{{ counts.open_safety|pluralize }} de riesgo abierto{{ counts.open_safety|pluralize }}, {{ counts.interviews }} entrevista{{ counts.interviews|pluralize }}.</p>
   <p class="confirm__text">Si existieran seguimientos confidenciales, también se borrarían.</p>
 </section>
-<div class="notice notice--danger mt-8"><p class="notice__title">Esto no se puede deshacer</p><p>Se borran su registro, su entrevista, sus respuestas, autorizaciones y seguimientos, abiertos o cerrados. Los reportes guardados solo tienen totales y no cambian.{% if counts.open_safety %} Antes de borrar, asegúrate de que el equipo de cuidado ya atendió {{ counts.open_safety|pluralize:"el reporte de riesgo abierto,los reportes de riesgo abiertos" }}.{% endif %}</p></div>
+<div class="notice notice--danger mt-8"><p class="notice__title">Esto no se puede deshacer</p><p>Se borran su registro, su entrevista, sus respuestas, autorizaciones y seguimientos, abiertos o cerrados. Los reportes guardados solo tienen totales y no cambian.{% if counts.open_safety %} Antes de borrar, asegúrate de que el equipo de cuidado autorizado ya atendió {{ counts.open_safety|pluralize:"el reporte de riesgo abierto,los reportes de riesgo abiertos" }}.{% endif %}</p></div>
 <form method="post" class="mt-8" novalidate>
   {% csrf_token %}
   {% include "partials/ui/field.html" with field=form.confirm_name %}

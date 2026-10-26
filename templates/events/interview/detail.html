@@ -5,7 +5,7 @@
 {% url 'events:participant_detail' event.slug participant.public_id as back_url %}
 {% if can_continue %}{% url 'events:interview_resume' event.slug interview.public_id as continue_url %}{% endif %}
 {% with title="Entrevista de "|add:participant.first_name %}
-  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Continuar entrevista" %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Retomar entrevista" %}
 {% endwith %}
 <p class="interview-meta">{% status interview.status %} <span>{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} vez{{ interview.correction_count|pluralize:"es" }}{% endif %}.</span></p>
 

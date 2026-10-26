@@ -1,5 +1,5 @@
 {% extends "events/shell_kiosk.html" %}
-{% block page_title %}Bienvenido{% endblock %}
+{% block page_title %}Te damos la bienvenida{% endblock %}
 {% block body_attrs %}data-kiosk-idle="300" data-kiosk-timeout-url="{% url 'kiosk:timeout' %}" data-kiosk-heartbeat-url="{% url 'kiosk:heartbeat' %}"{% endblock %}
 {% block content %}
 <div class="welcome">
@@ -8,10 +8,11 @@
   <ul class="promises">
     {% if total_steps %}<li>Son {{ total_steps }} pregunta{{ total_steps|pluralize }}, una por pantalla. Tómate tu tiempo.</li>{% endif %}
     <li>Nadie más verá tus respuestas en esta pantalla.</li>
+    <li>El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: esas solo las lee el equipo de cuidado autorizado.</li>
     {% if "Prefiero no responder" not in intro %}<li>Puedes elegir “Prefiero no responder” en cualquier pregunta.</li>{% endif %}
-    <li>Si quieres parar, puedes terminar en cualquier momento.</li>
+    <li>Si quieres parar, toca “Parar por ahora” en cualquier momento.</li>
   </ul>
-  <div class="step__actions"><a class="btn btn--primary btn--large" href="{% url 'kiosk:step' first_step.number %}">{% if started %}Continuar{% else %}Empezar{% endif %}</a></div>
+  <div class="step__actions"><a class="btn btn--primary btn--large" href="{% url 'kiosk:step' first_step.number %}">{% if started %}Retomar{% else %}Empezar{% endif %}</a></div>
 </div>
 {% endblock %}
 {% block idle_dialog %}

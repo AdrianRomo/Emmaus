@@ -87,7 +87,7 @@
         region.dispatchEvent(new CustomEvent("emmaus:updated", { bubbles: true }));
       }).catch(function () {
         var ago = Math.round((Date.now() - lastOk.getTime()) / 60000);
-        setStatus("stale", "Sin conexión. Los datos pueden estar desactualizados (última actualización: " + timeLabel(lastOk) + (ago >= 1 ? ", hace " + ago + " min" : "") + ").");
+        setStatus("stale", "Sin conexión. Los datos pueden estar desactualizados. Última actualización: " + timeLabel(lastOk) + (ago >= 1 ? ", hace " + ago + (ago === 1 ? " minuto" : " minutos") : "") + ".");
       }).then(function () {
         region.removeAttribute("aria-busy");
         schedule();

@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import urlencode
 
 from ..forms import ParticipantForm
@@ -56,8 +57,9 @@ def my_participants(request, event, access):
         for word in normalize_name(query).split():  # same rule as the interview search: every word, in any order
             words &= Q(normalized_name__contains=word)
         filters = words | Q(room__iexact=query)
-        if query.lstrip("#").isdigit():
-            filters |= Q(number=int(query.lstrip("#")))
+        digits = query.lstrip("#")
+        if digits.isascii() and digits.isdigit():  # "²".isdigit() is True and int("²") raises
+            filters |= Q(number=int(digits))
         participants = participants.filter(filters)
     if status in InterviewStatus.values:
         participants = participants.filter(interview_status=status)
@@ -80,13 +82,13 @@ def backup_list(request, event, access):
         "coordinator__user__first_name", "coordinator__user__last_name", "room", "full_name"
     )
     coordinator_id = request.GET.get("coordinador", "")
-    if coordinator_id.isdigit():
+    if coordinator_id.isascii() and coordinator_id.isdigit():
         participants = participants.filter(coordinator_id=int(coordinator_id))
     groups = {}
     for p in participants:
         key = p.coordinator.display_name if p.coordinator else "Sin coordinador"
         groups.setdefault(key, []).append(p)
-    return render(request, "events/backup_list.html", {"groups": groups})
+    return render(request, "events/backup_list.html", {"groups": groups, "printed_at": timezone.now()})
 
 
 @event_view(COORDINATOR, ADMIN)

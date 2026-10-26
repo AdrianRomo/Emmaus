@@ -1,30 +1,30 @@
 # Interview station workflow
 
-This page describes how an interview runs on a shared "computadora de entrevistas" (an `InterviewStation`), from the code in `events/services/interviews.py`, `events/views/interview.py`, `events/views/kiosk.py` and `events/middleware.py`.
+This page describes how an interview runs on a shared "computadora de entrevista" (an `InterviewStation`), from the code in `events/services/interviews.py`, `events/views/interview.py`, `events/views/kiosk.py` and `events/middleware.py`.
 
 There are two modes (`Interview.Mode`):
 
 | Mode | Label in the UI | Who types |
 |---|---|---|
 | `asistida` | "Entrevista asistida" ("Tú haces las preguntas y anotas las respuestas.") | The coordinador, logged in |
-| `supervisada` | "Captura supervisada" ("El campero responde solo. Necesitarás tu contraseña para recuperar la computadora.") | The campero, on an anonymous kiosk session |
+| `supervisada` | "Entrevista a solas" ("El campero responde solo en la computadora. Necesitarás tu contraseña para recuperarla.") | The campero, on an anonymous kiosk session |
 
 Only coordinadores (for their own active camperos) and administradores (for any active campero) can run interviews.
 
 ## Preconditions
 
-`event_blockers(event)` must return nothing, otherwise the start button is disabled and the reason is shown:
+`event_blockers(event)` must return nothing, otherwise the start button is disabled and every reason is shown, each with what to do:
 
-1. The event status is "En curso" (`activo`).
-2. The event has a published questionnaire version (`Event.questionnaire_version`).
-3. An administrador has confirmed in "Configuración" that the church approved its authorization, child-protection and risk procedures (`procedures_approved_at`). Until then: "La administración aún no confirma que la iglesia aprobó sus procedimientos de autorización y protección."
+1. The event status is "En curso" (`activo`). "En preparación": "El evento todavía no está en curso. Avisa a la administración."; "Terminado" or "Archivado": "El evento ya terminó. Si falta alguna entrevista, avisa a la administración."
+2. The event has a published questionnaire version (`Event.questionnaire_version`). Otherwise: "Todavía no hay un cuestionario publicado para este evento. Avisa a la administración."
+3. An administrador has confirmed in "Configuración" that the church approved its authorization, child-protection and risk procedures (`procedures_approved_at`). Until then: "La administración todavía no confirma los procedimientos de autorización y protección de la iglesia. Avísale."
 
 Registering camperos does not need these; interviewing does.
 
 ## Station selection
 
 * "Crear campamento" creates ten stations, "Computadora 1" to "Computadora 10". Administrators add more or take one out of use in "Configuración" → "Computadoras de entrevista".
-* The first time a browser opens "Iniciar entrevista" while active stations exist, it is sent to "¿En qué computadora estás?". The choice is stored in the browser's session (`session["stations"][event_id]`) and can be changed with "¿No estás en {computadora}? Cambia de computadora" on the search page.
+* The first time a browser opens "Iniciar entrevista" while active stations exist, it is sent to "¿En qué computadora estás?" ("Usar esta computadora"). The choice is stored in the browser's session (`session["stations"][event_id]`) and can be changed with "¿No estás en {computadora}? Cambia de computadora" on the search page.
 * The station is recorded on the interview (and updated on take-over) so supervisors see where it was opened. It is informational; it does not restrict anything.
 * The station choice survives the hand-over to a campero and the unlock: `hand_over_to_participant` copies it into the new anonymous session (it is not a secret), and `login()` keeps it. A new login (after "Cerrar sesión" or an idle logout) asks again.
 
@@ -42,20 +42,20 @@ On start, each newly confirmed item becomes a `ConsentRecord`: guardian authoriz
 
 ## Assisted interview, step by step
 
-1. "Iniciar entrevista" → search by name or number → "Entrevistar" (or "Continuar" if one is in progress).
+1. "Iniciar entrevista" → search by name or number → "Entrevistar" (or "Retomar" if one is in progress).
 2. "Antes de empezar": check the data, tick the authorizations, choose "Entrevista asistida", "Comenzar entrevista".
 3. `start_interview` locks the campero row, refuses if a live interview exists, creates the `Interview` with the event's current questionnaire version, sets a 15-minute claim, records the consents, sets the campero to "En curso" and writes the audit row `entrevista_iniciada`.
 4. One question per screen ("Pregunta N de M", with the section title under it). A conditional follow-up question of the same section appears on the same screen and is revealed when a matching option is chosen (it is also visible without JavaScript, with a hint). "Prefiero no responder" and other exclusive options sit after an "o bien" divider; choosing one clears the others.
 5. Buttons: "Continuar" (or "Revisar respuestas" on the last step), "Atrás", and "Guardar y salir" in the top bar. All three save the current screen first. Validation runs on every save; the default questionnaire has no required questions.
 6. "Revisa las respuestas de {nombre}": every visible question with "Cambiar". Then "¿Necesita seguimiento?" and "Finalizar entrevista".
 
-## Supervised capture, step by step
+## "Entrevista a solas", step by step
 
-1. Same search and "Antes de empezar", choosing "Captura supervisada". The coordinador still confirms the authorizations.
-2. "Entrega la computadora a {nombre}" (`interview/handoff.html`): three reminders, then "Entregar la computadora". "Mejor hago yo las preguntas" switches to assisted mode, allowed only while no answer was typed by the campero (`switch_to_assisted`). "Cancelar" in the top bar opens the discard screen. If the coordinador leaves this screen, "Continuar" on that interview brings them back here as long as the campero has not typed any answer (`interview_resume`).
+1. Same search and "Antes de empezar", choosing "Entrevista a solas". The coordinador still confirms the authorizations.
+2. "Entrega la computadora a {nombre}" (`interview/handoff.html`): three reminders, then "Entregar la computadora". "Mejor hago yo las preguntas" switches to assisted mode, allowed only while no answer was typed by the campero (`switch_to_assisted`). "Cancelar" in the top bar opens the discard screen. If the coordinador leaves this screen, "Retomar" on that interview brings them back here as long as the campero has not typed any answer (`interview_resume`).
 3. `hand_over_to_participant` verifies the claim, closes any older capture session, creates a `ParticipantSession` (random token, only its hash stored; expires in 60 minutes), sets a 60-minute claim whose raw token is kept only in the kiosk session, sets mode `supervisada`, audits `captura_iniciada`, then **calls `logout()`**. The browser keeps only `session["kiosk"]`.
-4. The campero sees "Hola, {nombre}", three reassurances and "Empezar". Steps look like the coordinador's, with "Terminar por ahora" in the top bar and "Tus respuestas se guardan cada vez que avanzas." Answers are stored with `answered_by_participant=True`.
-5. "Revisa tus respuestas" (all their answers, with "Cambiar") → "Terminar". The session moves to `por_desbloquear`.
+4. The campero sees "Hola, {nombre}", the reassurances (including who reads the answers: "El equipo del campamento podrá leer tus respuestas, menos las marcadas “Confidencial”: esas solo las lee el equipo de cuidado autorizado.") and "Empezar". Steps look like the coordinador's, with "Parar por ahora" (it opens the review) in the top bar and "Tus respuestas se guardan cada vez que avanzas." Answers are stored with `answered_by_participant=True`.
+5. "Revisa tus respuestas" (all their answers, with "Cambiar", and the same sentence about who reads them) → "Ya terminé". The session moves to `por_desbloquear`.
 6. The campero sees "¡Gracias!" and "Ya terminaste. Avisa a tu coordinador para que recupere la computadora." (no name, so the next person to sit down does not see who was there), and the button "Soy coordinador: recuperar la computadora".
 7. "Recuperar la computadora": the coordinador types their password (or "Soy otro coordinador" to use another account's e-mail). On success the browser is logged in again, the claim is handed back, and the coordinador lands on the review screen: "Recuperaste la computadora. Revisa y finaliza la entrevista."
 8. On review, confidential rows show only "Confidencial" and cannot be changed; conditional questions that depend on a confidential answer are not listed. The coordinador chooses the follow-up decision and finalizes.
@@ -68,7 +68,7 @@ sequenceDiagram
     participant S as Django
     participant DB as PostgreSQL
     actor P as Campero
-    C->>B: Antes de empezar, mode Captura supervisada
+    C->>B: Antes de empezar, mode Entrevista a solas
     B->>S: POST camperos/{id}/entrevista/
     S->>DB: lock EventParticipant, insert Interview with claim hash
     S-->>B: redirect to entregar/ (claim token kept in session)
@@ -103,16 +103,17 @@ sequenceDiagram
 * A claim is a random token. Its SHA-256 is stored on the interview row; the token itself lives only in the server-side session of the browser that holds it. Every write locks the row and checks claim and `revision`.
 * A staff claim lasts 15 minutes (`CLAIM_MINUTES`) and each save extends it. Once a claim has expired, whoever opens the interview next (the same browser or another one) gets it without a prompt, audited as `entrevista_retomada`.
 * If another browser holds an active claim, opening the interview shows "Esta entrevista está abierta en otra computadora" with the station, holder and last activity, and the warning "Si tomas el control aquí... La otra computadora ya no podrá guardar cambios." The button "Tomar el control aquí" replaces the claim, closes any capture session on the other computer (`retomada`) and is audited as `entrevista_control`.
-* A tab with an old `revision` cannot overwrite newer answers: "Las respuestas cambiaron desde que abriste esta pantalla. Te mostramos la versión más reciente."
-* Administrators can clear claims and capture sessions in "Configuración" → "Sesiones abiertas" ("Liberar", "Cerrar").
-* "Liberar" (`revoke_claim`) closes any capture session of that interview and frees the claim, but keeps the released token's hash on the row with no expiry. Every other browser sees the interview as free and opens it normally. The browser that had it open is refused on its next save, review, hand-over, discard or step, and a stale "Entrevista completada" address does not re-open it either (`interview_done` continues without `reopen`). It lands on the conflict page, which in this case says "La administración liberó esta entrevista" and "Esta computadora ya no puede guardar. Para seguir aquí, toca “Tomar el control aquí”; para seguir en otra computadora, ábrela desde “Mi inicio”." (no station, holder or "otra computadora": nobody else has it). Nothing is saved or discarded. That browser continues only by opening the interview again on purpose ("Continuar entrevista" on "Mi inicio", "Continuar" in a list, the camper page: `interview_resume`, which calls `claim(reopen=True)`) or with "Tomar el control aquí". The scheduler's clean-up of expired claims leaves released ones alone. Once another browser has opened the interview, the old one is refused like any other browser while that claim is active.
-* "Cerrar" (`revoke_participant_session`) ends a capture session; if the kiosk still held the claim, the claim is cleared and the coordinador continues from any computer.
+* A tab with an old `revision` cannot overwrite newer answers: "Las respuestas cambiaron desde que abriste esta pantalla. Te mostramos la versión más reciente: revísala y guarda otra vez."
+* A browser whose claim was taken or expired is told "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Vuelve a abrirla desde tu inicio." (`CLAIM_LOST_MESSAGE`; "tu inicio" because the administración's tab is "Inicio", the coordinador's "Mi inicio").
+* Administrators can clear claims and capture sessions in "Configuración" → "Computadoras en uso" ("Liberar", "Cerrar la pantalla").
+* "Liberar" (`revoke_claim`) closes any capture session of that interview and frees the claim, but keeps the released token's hash on the row with no expiry. Every other browser sees the interview as free and opens it normally. The browser that had it open is refused on its next save, review, hand-over, discard or step, and a stale "Entrevista completada" address does not re-open it either (`interview_done` continues without `reopen`). It lands on the conflict page, which in this case says "La administración liberó esta entrevista" and "Esta computadora ya no puede guardar. Para seguir aquí, toca “Tomar el control aquí”; para seguir en otra computadora, ábrela desde “Mi inicio”." (no station, holder or "otra computadora": nobody else has it). Nothing is saved or discarded. That browser continues only by opening the interview again on purpose ("Retomar entrevista" on "Mi inicio", "Retomar" in a list, the camper page: `interview_resume`, which calls `claim(reopen=True)`) or with "Tomar el control aquí". The scheduler's clean-up of expired claims leaves released ones alone. Once another browser has opened the interview, the old one is refused like any other browser while that claim is active.
+* "Cerrar la pantalla" (`revoke_participant_session`) ends a capture session; if the kiosk still held the claim, the claim is cleared and the coordinador continues from any computer.
 
 ## Interrupted and abandoned interviews
 
 * Nothing is lost: every step is saved when the coordinador or campero moves on.
-* "Interrumpidas" are interviews in progress with no saved activity for 20 minutes or more (`STALE_MINUTES`). They appear on the tutor's "Mi equipo" and "Pendientes" screens, in the recommendations ("Próximos pasos") of dashboards and cutoffs, and in the presentation. On "Mi inicio" the coordinador's yellow sign says "Termina la entrevista de {nombre}" with "Continuar entrevista"; other open interviews are listed under "También sin terminar" with "Continuar". They are also in "Entrevistas pendientes".
-* "Continuar" goes to the first visible step whose main question has no stored answer, otherwise to the review. A text question left blank is not stored, so resuming can land on that blank question again.
+* "Interrumpidas" are interviews in progress with no saved change for 20 minutes or more (`STALE_MINUTES`; templates print it with `{% stale_minutes %}`). They appear on the tutor's "Mi equipo" and "Pendientes" screens, in the recommendations ("Próximos pasos") of dashboards and cutoffs, and in the presentation. On "Mi inicio" the coordinador's yellow sign says "Termina la entrevista de {nombre}" with "Retomar entrevista"; other open interviews are listed under "También sin terminar" with "Retomar". They are also in "Entrevistas pendientes".
+* "Retomar" goes to the first visible step whose main question has no stored answer, otherwise to the review. A text question left blank is not stored, so resuming can land on that blank question again.
 * The scheduler clears expired claims, moves capture sessions idle for 10 minutes to `por_desbloquear` and deletes expired Django sessions on every pass (`run_report_cutoffs`).
 
 ## Kiosk confinement and timeouts
@@ -128,19 +129,19 @@ sequenceDiagram
 
 `kiosk_unlock` authenticates the password of the coordinador who handed over the computer, or of the e-mail typed after "Soy otro coordinador". The account must resolve to a role that `can_interview` this campero: the assigned coordinador or an administrador.
 
-* A capture session that was already closed (revoked from "Sesiones abiertas", taken over, or unlocked) cannot be unlocked: the browser is released to "No hay una entrevista abierta en esta computadora" and the original end reason is kept.
+* A capture session that was already closed (closed from "Computadoras en uso", taken over, or unlocked) cannot be unlocked: the browser is released to "No hay una entrevista abierta en esta computadora" and the original end reason is kept.
 * Attempts are limited in the database (`events/services/throttle.py`, key `unlock:<ParticipantSession id>`), not in the browser session, so clearing cookies or sending requests in parallel does not give more tries. Each attempt is counted under a row lock before the password is checked. Five attempts are checked within a 60-minute window; the sixth is refused and starts a 60-second block ("Demasiados intentos. Espera N segundos e inténtalo otra vez."). After each block one more attempt is checked, and the next refusal starts a block twice as long (2, 4, 8 minutes...), up to 15 minutes. The counter is forgotten 60 minutes after the last block started, or when the unlock succeeds. Since blocks never reach 60 minutes, that means about a dozen checked guesses in the first hour and about four per hour after that. The unlock screen stays available after the 60-minute capture limit (the session then just waits for its coordinador).
 * The staff login page has its own limit: 8 checked attempts per typed e-mail, then blocks of 5, 10, 20, 40 and 60 minutes with 3 checked attempts after each. There is no per-IP limit.
 
 ## Review, finalize and the follow-up decision
 
 * "Lo que {nombre} pidió" lists deterministic hints from options marked `suggests_follow_up` in **non-confidential questions the coordinador can read**: "Pidió hablar con un líder", "Tomó una decisión espiritual". It says "Tú decides. Emmaus solo te recuerda lo que el campero pidió." If there are hints, "Se requiere seguimiento" is preselected.
-* Choices: "Se requiere seguimiento", "No se requiere seguimiento", "Seguimiento pendiente de evaluación". One is mandatory.
-* `finalize` is idempotent, checks claim and revision, refuses if a visible required question is empty, marks the interview and campero "Completada", clears the claim and closes capture sessions. Then:
+* Choices: "Se requiere seguimiento", "No se requiere seguimiento", "Por decidir". One is mandatory.
+* `finalize` is idempotent, checks claim and revision, refuses if a visible required question is empty (naming it: "Falta responder “{pregunta}”. Toca “Cambiar” junto a ella."), marks the interview and campero "Completada", clears the claim and closes capture sessions. Then:
   * if the decision is "required", it creates one ordinary care `FollowUp` (reason from the first hint, else "A criterio del coordinador");
   * independently of the decision, if the campero chose a support option in a confidential question, it creates one **confidential** care referral ("Pidió apoyo en un área de su vida", `confidential=True`, no creator) that only members with confidential access can see.
-* "Entrevista completada" offers "Continuar con otro campero" and shows how many are left.
-* An interview left "pendiente de evaluación" can be resolved later, once, on its detail page with "Sí requiere seguimiento" / "No requiere seguimiento". After that the decision cannot be changed ("El seguimiento de esta entrevista ya se decidió.").
+* "Entrevista completada" offers "Entrevistar a otro campero" and "Volver a mi inicio", and shows how many are left.
+* An interview left "Por decidir" can be resolved later, once, on its detail page with "Sí requiere seguimiento" / "No requiere seguimiento". After that the decision cannot be changed ("El seguimiento de esta entrevista ya se decidió.").
 
 ## Corrections
 
@@ -190,5 +191,5 @@ How to repeat the load test is in `deployment.md`.
 
 * A computer left waiting for its coordinador stops accepting the unlock after 3 hours (the scheduler closes the capture). The interview stays in progress and the coordinador continues it after a normal login.
 
-* A text question left blank is not stored, so "Continuar" can land on that blank question again instead of the review.
+* A text question left blank is not stored, so "Retomar" can land on that blank question again instead of the review.
 * Confidential steps cannot be opened by the coordinador once the campero has answered on their own; opening one by URL redirects to the review with "Esa pregunta es confidencial y la respondió el campero."

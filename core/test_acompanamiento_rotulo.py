@@ -133,7 +133,7 @@ class AcompanamientoRotuloTests(EmmausFixture):
             with self.subTest(url=url):
                 main = main_of(self.client.get(url))
                 self.assertIn("status--progress", main)
-                self.assertIn("Escalada", main)
+                self.assertIn("Pasada al pastor", main)
                 self.assertNotIn("status--risk", main)
                 self.assertNotIn("btn--danger", main)
 

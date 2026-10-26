@@ -361,7 +361,7 @@ class ParticipantQuestion(models.Model):
     class Status(models.TextChoices):
         OPEN = "open", "Abierta"
         ANSWERED = "answered", "Respondida"
-        ESCALATED = "escalated", "Escalada"
+        ESCALATED = "escalated", "Pasada al pastor"
         CLOSED = "closed", "Cerrada"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="participant_questions")
@@ -422,7 +422,7 @@ class FollowUpRequest(models.Model):
     class Source(models.TextChoices):
         MANUAL = "manual", "Manual"
         PARTICIPANT_REQUEST = "participant_request", "Solicitud del participante"
-        QUESTION_ESCALATION = "question_escalation", "Pregunta escalada"
+        QUESTION_ESCALATION = "question_escalation", "Pregunta pasada al pastor"
         INACTIVITY = "inactivity", "Inactividad"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="follow_ups")

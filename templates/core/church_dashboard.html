@@ -13,13 +13,13 @@
     {% if escalated_questions == 1 and escalated_questions_list %}
       {% with question=escalated_questions_list.0 %}
         <h2 id="que-sigue" class="sign__title">{{ question.participant.get_full_name|default:question.participant.email }} espera una respuesta pastoral</h2>
-        <p class="sign__text">Su pregunta se escaló a la iglesia porque necesita atención pastoral.</p>
+        <p class="sign__text">Su pregunta se pasó al pastor porque necesita atención pastoral.</p>
         <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'church_question_detail' question.id %}">Responder la pregunta</a></div>
       {% endwith %}
     {% else %}
-      <h2 id="que-sigue" class="sign__title">{{ escalated_questions }} preguntas escaladas esperan respuesta</h2>
+      <h2 id="que-sigue" class="sign__title">{{ escalated_questions }} preguntas pasadas al pastor esperan respuesta</h2>
       <p class="sign__text">Necesitan atención pastoral de un líder de tu iglesia.</p>
-      <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'escalations' %}">Ver preguntas escaladas</a></div>
+      <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'escalations' %}">Ver preguntas para el pastor</a></div>
     {% endif %}
   </section>
 {% else %}
@@ -48,7 +48,7 @@
   </div>
   <div class="report-section__body">
     <div>
-      <h3 class="heading">Preguntas escaladas <span class="count">{{ escalated_questions }}</span></h3>
+      <h3 class="heading">Preguntas pasadas al pastor <span class="count">{{ escalated_questions }}</span></h3>
       {% if escalated_questions_list %}
         <ul class="rows">
           {% for question in escalated_questions_list %}
@@ -57,13 +57,13 @@
                 <p class="row__title"><a class="row__link" href="{% url 'church_question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
                 <p class="row__meta">{{ question.question_text|truncatewords:20 }}</p>
               </div>
-              {% status "pendiente" "Escalada" %}
+              {% status "pendiente" "Pasada al pastor" %}
             </li>
           {% endfor %}
         </ul>
-        <p class="more"><a href="{% url 'escalations' %}">Ver todas las preguntas escaladas</a></p>
+        <p class="more"><a href="{% url 'escalations' %}">Ver todas las preguntas para el pastor</a></p>
       {% else %}
-        <p class="empty-line">No hay preguntas escaladas. Aquí aparecerán las preguntas que necesiten atención pastoral.</p>
+        <p class="empty-line">No hay preguntas pasadas al pastor. Aquí aparecerán las preguntas que necesiten atención pastoral.</p>
       {% endif %}
     </div>
     <p class="more"><a href="{% url 'questions_inbox' %}">Ver las preguntas de los participantes</a>{% if open_questions %}, {{ open_questions }} sin respuesta{% endif %}.</p>

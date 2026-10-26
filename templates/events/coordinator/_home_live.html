@@ -31,7 +31,7 @@
       {% else %}
         <p class="empty-line">No hay entrevistas por iniciar. Cuando registres o te asignen camperos aparecerán aquí.</p>
       {% endif %}
-      <p class="more"><a href="{% url 'events:participant_create' event.slug %}">Registrar a un campero nuevo</a></p>
+      <p class="more"><a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></p>
     </section>
   </div>
 
@@ -46,7 +46,7 @@
                 <p class="row__title">{{ iv.participant.full_name }}</p>
                 <p class="row__meta">Última actividad {{ iv.last_activity_at|since }}{% if iv.station %}, en {{ iv.station.name }}{% endif %}</p>
               </div>
-              <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Continuar<span class="visually-hidden"> con {{ iv.participant.full_name }}</span></a>
+              <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
             </li>
           {% endfor %}
         </ul>

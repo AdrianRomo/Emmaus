@@ -62,7 +62,7 @@ def report_generate(request, event, access):
     except PermissionError as exc:
         raise PermissionDenied(str(exc))
     if snapshot.status == ReportSnapshot.Status.FAILED:
-        messages.error(request, "No se pudo generar el corte. La administración puede ver el detalle del error.")
+        messages.error(request, "No se pudo generar el corte. Inténtalo otra vez; si sigue igual, avisa a la administración.")
         return redirect("events:reports", slug=event.slug)
     messages.success(request, f"Corte generado con datos de las {timezone.localtime(snapshot.cutoff_at):%H:%M}.")
     return redirect("events:report_detail", slug=event.slug, public_id=snapshot.public_id)

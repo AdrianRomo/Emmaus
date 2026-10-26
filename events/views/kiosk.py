@@ -1,4 +1,4 @@
-"""Captura supervisada: screens a campero sees on a shared computer.
+"""Entrevista a solas: screens a campero sees on a shared computer.
 
 The browser holds no login here. Every request is validated against the server-side
 ParticipantSession (one interview, one station, expiring). The middleware keeps this

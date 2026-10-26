@@ -246,7 +246,7 @@ class KioskRateLimitRaceTests(RefuterBase):
             try:
                 svc.kiosk_unlock(request, "adivinanza")
             except svc.InterviewError as exc:
-                evaluated += exc.message == "La contraseña no es correcta."
+                evaluated += exc.message == svc.WRONG_PASSWORD_MESSAGE
             store.save()
         final = store_class(session_key=key)[svc.KIOSK_KEY]
         self.assertLessEqual(

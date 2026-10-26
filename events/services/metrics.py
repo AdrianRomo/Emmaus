@@ -2,18 +2,18 @@
 
 Definitions (metrics version 1)
 -------------------------------
-* Participantes: camperos registered in the scope and still taking part (``is_active``).
+* Camperos: camperos registered in the scope and still taking part (``is_active``).
 * Completadas: participantes whose interview is completed. A campero has at most one live
   interview (database constraint) and corrections edit that same interview, so nothing is
   counted twice.
 * En curso: participantes whose interview was started and not yet finalized.
 * Pendientes: participantes without a completed interview (includes "en curso").
 * Sin iniciar: pendientes that have not started.
-* Avance: completadas / participantes. With 0 participantes it is None, shown as "—", never 0 %.
+* Avance: completadas / camperos. With 0 camperos it is None, shown as "—", never 0 %.
 * Ritmo: interviews completed per hour, averaged over the last 2 hours.
 * Seguimientos abiertos: care follow-ups with status pendiente or en proceso.
-* Por evaluar: completed interviews marked "Seguimiento pendiente de evaluación".
-* Interrumpidas: interviews en curso without activity for 20 minutes or more.
+* Por decidir: completed interviews whose follow-up decision is "Por decidir" (``por_evaluar``).
+* Interrumpidas: interviews en curso without changes for 20 minutes or more.
 """
 
 from __future__ import annotations
@@ -43,17 +43,23 @@ from .questionnaire import all_questions
 METRICS_VERSION = "1"
 STALE_MINUTES = 20
 THROUGHPUT_WINDOW_HOURS = 2
+SHORT_MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+
+
+def short_day(moment) -> str:
+    """'25 oct', like ``fecha_corta``. Charts use the bucket's own wall clock (already in the event's time zone)."""
+    return f"{moment.day} {SHORT_MONTHS[moment.month - 1]}"
 
 DEFINITIONS = [
-    ("Participantes", "Camperos registrados que siguen participando en el evento."),
+    ("Camperos", "Camperos registrados que siguen participando en el evento."),
     ("Completadas", "Camperos con entrevista finalizada. Las correcciones no cuentan como una entrevista nueva."),
     ("En curso", "Entrevistas iniciadas que todavía no se finalizan."),
-    ("Pendientes", "Camperos sin entrevista completada (incluye las que están en curso)."),
-    ("Avance", "Completadas entre participantes. Si no hay participantes no se calcula y se muestra “—”, nunca 0 %."),
+    ("Pendientes", "Camperos sin entrevista completada, incluidos los que la tienen en curso."),
+    ("Avance", "Completadas entre camperos. Si no hay camperos no se calcula y se muestra “—”, nunca 0\u00a0%."),
     ("Ritmo", "Entrevistas completadas por hora, en promedio, durante las últimas 2 horas."),
     ("Seguimientos abiertos", "Seguimientos en estado pendiente o en proceso."),
-    ("Por evaluar", "Entrevistas completadas que esperan decidir si necesitan seguimiento."),
-    ("Interrumpidas", f"Entrevistas en curso sin actividad desde hace {STALE_MINUTES} minutos o más."),
+    ("Por decidir", "Entrevistas completadas que esperan decidir si necesitan seguimiento."),
+    ("Interrumpidas", f"Entrevistas en curso sin cambios desde hace {STALE_MINUTES} minutos o más."),
 ]
 
 
@@ -144,7 +150,7 @@ def scope_from_key(event: Event, key: str) -> Scope | None:
     if key == "evento":
         return event_scope(event)
     kind, _, raw_id = key.partition(":")
-    if not raw_id.isdigit():
+    if not (raw_id.isascii() and raw_id.isdigit()):  # "²".isdigit() is True and int("²") raises
         return None
     membership = EventMembership.objects.filter(event=event, pk=int(raw_id)).select_related("user").first()
     if membership is None:
@@ -212,7 +218,7 @@ def timeline(event: Event, participants, *, now: datetime | None = None) -> dict
             {
                 "t": bucket.isoformat(),
                 "label": label,
-                "day": bucket.strftime("%d/%m") if multi_day else "",
+                "day": short_day(bucket) if multi_day else "",  # cutoffs saved before held "25/10": see emmaus.chart_day
                 "count": count,
                 "cumulative": cumulative,
             }
@@ -453,15 +459,23 @@ def present_outcomes(event: Event, released: dict | None, *, k: int | None = Non
 # ---- recommendations (deterministic) -------------------------------------------------------------
 
 
+def _count(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
 def format_duration(minutes: int | None) -> str:
+    """'1 hora 20 minutos', '2 horas', '45 minutos': words, never 'h' or 'min'.
+
+    Callers write "alrededor de" before it: "unas" would not agree with "1 hora" or "45 minutos".
+    """
     if minutes is None:
         return ""
     hours, mins = divmod(minutes, 60)
     if hours and mins:
-        return f"{hours} h {mins} min"
+        return f"{_count(hours, 'hora', 'horas')} {_count(mins, 'minuto', 'minutos')}"
     if hours:
-        return f"{hours} h"
-    return f"{mins} min"
+        return _count(hours, "hora", "horas")
+    return _count(mins, "minuto", "minutos")
 
 
 def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
@@ -474,7 +488,7 @@ def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
         evidence = f"{progress['completed']} completadas, {progress['in_progress']} en curso."
         eta = eta_minutes(progress["pending"], rate)
         if eta:
-            text += f" Al ritmo actual ({rate:g} por hora) terminarían en unas {format_duration(eta)}."
+            text += f" Al ritmo actual, {rate:g} por hora, terminarían en alrededor de {format_duration(eta)}."
         items.append({"kind": "pendientes", "text": text, "evidence": evidence})
     elif progress["eligible"]:
         items.append({"kind": "completo", "text": "Todas las entrevistas están completas.", "evidence": f"{progress['completed']} de {progress['eligible']}."})
@@ -488,14 +502,19 @@ def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
             items.append(
                 {
                     "kind": "equipo",
-                    "text": f"{team['label']} lleva {team['percent']} % (el promedio es {overall} %). Podría necesitar otra computadora o más apoyo.",
+                    "text": f"{team['label']} lleva {team['percent']}\u00a0% y el promedio es {overall}\u00a0%. Podría necesitar otra computadora o más apoyo.",
                     "evidence": f"{team['pending']} entrevistas pendientes en el equipo.",
                 }
             )
     att = payload["attention"]
     if att["stale_interviews"]:
         n = att["stale_interviews"]
-        items.append({"kind": "interrumpidas", "text": f"{n} {'entrevista lleva' if n == 1 else 'entrevistas llevan'} más de {STALE_MINUTES} minutos sin actividad. Hay que retomarlas o descartarlas.", "evidence": "Entrevistas en curso sin cambios recientes."})
+        text = (
+            f"1 entrevista está interrumpida: lleva más de {STALE_MINUTES} minutos sin cambios. Hay que retomarla o descartarla."
+            if n == 1
+            else f"{n} entrevistas están interrumpidas: llevan más de {STALE_MINUTES} minutos sin cambios. Hay que retomarlas o descartarlas."
+        )
+        items.append({"kind": "interrumpidas", "text": text, "evidence": "Entrevistas en curso sin cambios recientes."})
     if att["unassigned_participants"]:
         n = att["unassigned_participants"]
         items.append({"kind": "sin_coordinador", "text": f"{n} {'campero no tiene' if n == 1 else 'camperos no tienen'} coordinador asignado.", "evidence": "Sin coordinador nadie los puede entrevistar."})
@@ -508,7 +527,7 @@ def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
     fu = payload["follow_ups"]
     if fu["to_evaluate"]:
         n = fu["to_evaluate"]
-        items.append({"kind": "por_evaluar", "text": f"{n} {'entrevista espera' if n == 1 else 'entrevistas esperan'} que se decida si necesita{'' if n == 1 else 'n'} seguimiento.", "evidence": "Marcadas como “pendiente de evaluación”."})
+        items.append({"kind": "por_evaluar", "text": f"{n} {'entrevista espera' if n == 1 else 'entrevistas esperan'} que se decida si necesita{'' if n == 1 else 'n'} seguimiento.", "evidence": "Marcadas como “Por decidir”."})
     if fu["open_total"]:
         n = fu["open_total"]
         items.append({"kind": "seguimientos", "text": f"{n} {'seguimiento está abierto' if n == 1 else 'seguimientos están abiertos'}. Asigna a un líder para cada uno.", "evidence": f"{fu['pending']} pendientes y {fu['in_progress']} en proceso."})

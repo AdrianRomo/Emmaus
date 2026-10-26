@@ -14,7 +14,7 @@
     <details class="details" id="{{ chart_id }}-tabla">
       <summary>Ver los datos en una tabla</summary>
       <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas por hora"><table class="table"><thead><tr><th>Hora</th><th class="num">En esa hora</th><th class="num">Acumuladas</th></tr></thead>
-        <tbody>{% for p in points %}<tr><td>{% if p.day %}{{ p.day }} {% endif %}{{ p.label }}</td><td class="num">{{ p.count }}</td><td class="num">{{ p.cumulative }}</td></tr>{% endfor %}</tbody></table></div>
+        <tbody>{% for p in points %}<tr><td>{% if p.day %}{{ p|chart_day }}, {% endif %}{{ p.label }}</td><td class="num">{{ p.count }}</td><td class="num">{{ p.cumulative }}</td></tr>{% endfor %}</tbody></table></div>
     </details>
   {% else %}
     <p class="chart__empty">Aún no hay entrevistas completadas. La gráfica aparecerá con la primera.</p>
