@@ -35,6 +35,8 @@
       <input class="input" type="text" id="id_reason" name="reason" maxlength="200" value="{{ reason_value }}">
     </div>
   {% endif %}
+  {% comment %}Shown by the offline guard in emmaus.js instead of sending the form without a network.{% endcomment %}
+  <div class="notice notice--warning" role="alert" data-offline-notice hidden><p>Sin conexión. Cuando vuelva la red, toca el botón otra vez. Lo que elegiste sigue aquí.</p></div>
   <div class="step__actions">
     {% if mode == "correction" %}
       <button class="btn btn--primary btn--large" type="submit" name="direction" value="next">Guardar corrección</button>

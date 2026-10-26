@@ -10,12 +10,21 @@ from __future__ import annotations
 from django.contrib import messages
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from ..models import Interview, ParticipantSession
 from ..services import interviews as svc
-from ..services.questionnaire import build_steps, first_unanswered_step, load_answers, neighbor_steps, visible_steps
+from ..services.questionnaire import (
+    all_questions,
+    build_steps,
+    first_unanswered_step,
+    is_visible,
+    load_answers,
+    neighbor_steps,
+    visible_steps,
+)
 from .interview import step_context
 
 
@@ -46,6 +55,10 @@ def kiosk_home(request):
     return render(request, "events/kiosk/welcome.html", context)
 
 
+# "Cambiar" on the review adds ?volver=revision: after that one question, back to the review.
+RETURN_TO_REVIEW = "revision"
+
+
 def kiosk_step(request, number):
     participant_session, screen = _session_or_screen(request)
     if screen:
@@ -60,20 +73,25 @@ def kiosk_step(request, number):
     if step.number not in [s.number for s in visible_steps(interview.version, answers)]:
         _, following = neighbor_steps(interview.version, answers, number)
         return redirect("kiosk:step", number=following.number) if following else redirect("kiosk:review")
+    return_to_review = request.GET.get("volver") == RETURN_TO_REVIEW
+    marker = f"?volver={RETURN_TO_REVIEW}" if return_to_review else ""
+    this_step = request.path + marker
     if request.method == "POST":
+        direction = request.POST.get("direction", "next")
         try:
-            interview, errors = svc.kiosk_save_step(request.session, step, request.POST)
+            # "Parar por ahora" (direction=pause) saves the screen without requiring anything (svc.save_step).
+            interview, errors = svc.kiosk_save_step(request.session, step, request.POST, partial=direction == "pause")
         except svc.StaleRevision:
-            return redirect("kiosk:step", number=number)
+            return redirect(this_step)
         except (svc.ClaimLost, svc.KioskEnded, svc.AlreadyCompleted):
             return redirect("kiosk:home")
         if not errors:
             answers = load_answers(interview)
             previous, following = neighbor_steps(interview.version, answers, step.number)
-            direction = request.POST.get("direction", "next")
             if direction == "back" and previous:
-                return redirect("kiosk:step", number=previous.number)
-            if following is None or direction == "review":
+                # From "Cambiar", "Atrás" still ends on the review: the marker goes along.
+                return redirect(reverse("kiosk:step", args=[previous.number]) + marker)
+            if following is None or direction in ("review", "pause") or return_to_review:
                 return redirect("kiosk:review")
             return redirect("kiosk:step", number=following.number)
         context = step_context(interview, step, errors=errors, posted=request.POST)
@@ -82,7 +100,7 @@ def kiosk_step(request, number):
     context.update(
         {
             "participant": interview.participant,
-            "form_action": request.path,
+            "form_action": this_step,
             "mode": "participant",
             "ps": participant_session,
         }
@@ -98,7 +116,41 @@ def kiosk_review(request):
         return redirect("kiosk:home")
     interview = participant_session.interview
     rows = svc.review_rows(None, interview, for_participant=True)
-    return render(request, "events/kiosk/review.html", {"interview": interview, "participant": interview.participant, "rows": rows, "ps": participant_session})
+    unanswered = _still_to_answer(interview)
+    return render(
+        request,
+        "events/kiosk/review.html",
+        {
+            "interview": interview,
+            "participant": interview.participant,
+            "rows": rows,
+            "ps": participant_session,
+            "next_step": unanswered[0][0] if unanswered else None,
+            "pending": sum(missing for _, missing in unanswered),
+        },
+    )
+
+
+def _still_to_answer(interview: Interview) -> list[tuple]:
+    """(step, questions missing on it) for every screen with something left: after "Parar por ahora",
+    "Seguir contestando" opens the first one (as "Retomar" does) and the review says how many are left.
+
+    A screen counts when its question has no answer, or when a follow-up it shows is required and blank
+    (stored before the follow-up became required): only the camper can fill a confidential follow-up.
+    """
+    answers = load_answers(interview)
+    by_id = {q.id: q for q in all_questions(interview.version)}
+    result = []
+    for step in visible_steps(interview.version, answers):
+        missing = 0 if step.question.id in answers else 1
+        missing += sum(
+            1
+            for child in step.children
+            if child.required and is_visible(child, answers, by_id) and (child.id not in answers or answers[child.id].is_empty)
+        )
+        if missing:
+            result.append((step, missing))
+    return result
 
 
 @require_POST

@@ -259,6 +259,9 @@ def interview_conflict(request, event, access, public_id):
 
 # ---- steps --------------------------------------------------------------------------------------
 
+# "Cambiar" on the review adds ?volver=revision: after that one question, back to the review.
+RETURN_TO_REVIEW = "revision"
+
 
 @event_view(COORDINATOR, ADMIN)
 def interview_step(request, event, access, public_id, number):
@@ -286,12 +289,15 @@ def interview_step(request, event, access, public_id, number):
             # Supervised capture already happened for this question; coordinators may not see it.
             messages.info(request, "Esa pregunta es confidencial y la respondió el campero.")
             return redirect("events:interview_review", slug=event.slug, public_id=public_id)
+    return_to_review = request.GET.get("volver") == RETURN_TO_REVIEW
+    marker = f"?volver={RETURN_TO_REVIEW}" if return_to_review else ""
+    this_step = request.path + marker
     if request.method == "POST":
         try:
             interview, errors = svc.save_step(interview, step, request.POST, token=token, actor=request.user, by_participant=False)
         except svc.StaleRevision as exc:
             messages.warning(request, exc.message)
-            return redirect("events:interview_step", slug=event.slug, public_id=public_id, number=number)
+            return redirect(this_step)
         except svc.ClaimLost as exc:
             messages.error(request, exc.message)
             return redirect("events:interview_conflict", slug=event.slug, public_id=public_id)
@@ -305,8 +311,9 @@ def interview_step(request, event, access, public_id, number):
                 messages.success(request, f"Guardamos las respuestas de {interview.participant.first_name}. Puedes retomar la entrevista después.")
                 return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
             if direction == "back" and previous:
-                return redirect("events:interview_step", slug=event.slug, public_id=public_id, number=previous.number)
-            if direction == "review" or following is None:
+                # From "Cambiar", "Atrás" still ends on the review: the marker goes along.
+                return redirect(reverse("events:interview_step", args=[event.slug, public_id, previous.number]) + marker)
+            if direction == "review" or following is None or return_to_review:
                 return redirect("events:interview_review", slug=event.slug, public_id=public_id)
             return redirect("events:interview_step", slug=event.slug, public_id=public_id, number=following.number)
         context = step_context(interview, step, errors=errors, posted=request.POST)
@@ -315,7 +322,7 @@ def interview_step(request, event, access, public_id, number):
     context.update(
         {
             "participant": interview.participant,
-            "form_action": request.path,
+            "form_action": this_step,
             "mode": "coordinator",
             "exit_url": reverse("events:coord_home" if access.is_coordinator else "events:admin_home", args=[event.slug]),
             "review_url": reverse("events:interview_review", args=[event.slug, public_id]),

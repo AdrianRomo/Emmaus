@@ -9,7 +9,7 @@
   <div class="slide__body">
     <h2 class="voice deck-cover__title">Así va {% if event.kind in event.FEMININE_KINDS %}nuestra{% else %}nuestro{% endif %} {{ deck.kind_label|lower }}.</h2>
     <p class="deck-cover__event">{{ deck.event_name }}{% if deck.scope_label == "Equipo" %}, un equipo{% endif %}</p>
-    <p class="deck-sub">{% if live %}En vivo, con datos del {{ deck.as_of|fecha_larga|lower }} a las {{ deck.as_of|date:"H:i" }}.{% else %}Corte de las {{ deck.as_of|date:"H:i" }} del {{ deck.as_of|fecha_larga|lower }}.{% endif %}</p>
+    <p class="deck-sub">{% if live %}<span data-deck-live>En vivo, con datos del {{ deck.as_of|fecha_larga|lower }} a las {{ deck.as_of|date:"H:i" }}.</span><span class="deck-ended" data-deck-ended hidden>Sesión terminada: vuelve a entrar para ver datos actuales</span>{% else %}Corte de las {{ deck.as_of|date:"H:i" }} del {{ deck.as_of|fecha_larga|lower }}.{% endif %}</p>
   </div>
   {% include "events/presentation/_foot.html" with n=1 %}
 </section>

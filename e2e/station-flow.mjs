@@ -87,7 +87,7 @@ assert.match(page.url(), /\/estacion\/$/, "kiosk confinement (admin)");
 await go(page, page.click(".welcome a.btn--primary"));
 await page.click("label:has-text('Sí') >> nth=0");
 await go(page, page.click(".step__actions button.btn--primary"));
-await go(page, page.click("a:has-text('Parar por ahora')"));
+await go(page, page.click("button:has-text('Parar por ahora')"));
 await go(page, page.click("button:has-text('Ya terminé')"));
 const handback = await page.textContent("main");
 assert.ok(handback.includes("Avisa a tu coordinador"));

@@ -10,7 +10,8 @@
     <legend class="question__legend"><h1 class="question__text">¿En qué computadora estás?</h1></legend>
     <p class="question__help">Busca el número pegado en la computadora. Así sabemos dónde se abrió cada entrevista.</p>
     {% if form.station.errors %}<p class="error-message" id="estacion-error">{{ form.station.errors.0 }}</p>{% endif %}
-    <div class="choices choices--grid" id="id_station_0">
+    {% comment %}The group takes the field id (the error summary links here), never the first radio's "id_station_0".{% endcomment %}
+    <div class="choices choices--grid" id="{{ form.station.auto_id }}">
       {% for radio in form.station %}
         <div class="choice">{{ radio.tag }}<label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label></div>
       {% endfor %}

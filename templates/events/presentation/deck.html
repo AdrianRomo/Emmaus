@@ -2,7 +2,7 @@
 {% load emmaus %}
 {% block title %}Modo presentación · {{ deck.event_name }}{% endblock %}
 {% block body %}
-<main id="contenido" class="deck" aria-roledescription="presentación" aria-label="Modo presentación de {{ deck.event_name }}">
+<main id="contenido" class="deck" tabindex="-1" aria-roledescription="presentación" aria-label="Modo presentación de {{ deck.event_name }}">
   <h1 class="visually-hidden">Modo presentación de {{ deck.event_name }}</h1>
   <div class="deck__frame"{% if live %} data-live-url="{% url 'events:presentation_live' event.slug %}" data-live-interval="60" data-live-status="deck-estado" id="diapositivas"{% endif %}>
     {% include "events/presentation/_slides.html" %}

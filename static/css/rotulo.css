@@ -1400,3 +1400,9 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 @media print {
   .deck-controls { display: none !important; }
 }
+
+/* ---- fix/audit-flows, UX-04: the slide's "Sesión terminada" label, styled like the bar's .live-status[data-state="stale"] ---- */
+.deck-ended { color: var(--chile); font-weight: 700; }
+.deck--noche .deck-ended { color: #ff9f8c; }
+.deck-controls .live-status { white-space: normal; }  /* the bar's long "sesión terminó" line wraps at 390 px instead of leaving the screen */
+/* ---- end fix/audit-flows ---- */
