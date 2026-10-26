@@ -132,7 +132,7 @@ class AcompanamientoRotuloTests(EmmausFixture):
         for url in (reverse("escalations"), reverse("church_question_detail", args=[self.question.id])):
             with self.subTest(url=url):
                 main = main_of(self.client.get(url))
-                self.assertIn("status--progress", main)
+                self.assertIn("status--review", main)
                 self.assertIn("Pasada al pastor", main)
                 self.assertNotIn("status--risk", main)
                 self.assertNotIn("btn--danger", main)

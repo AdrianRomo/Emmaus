@@ -159,7 +159,7 @@ class DiscipleshipStatusMarkTests(EmmausFixture):
                 self.assertIn(f'<span class="status status--closed"><span class="status__mark" aria-hidden="true"></span>{label}</span>', self.render_partial(value, label))
 
     def test_other_states_keep_their_marks(self):
-        for value, kind in (("answered", "done"), ("escalated", "progress"), ("in_progress", "progress"), ("open", "pending"), ("draft", "pending")):
+        for value, kind in (("answered", "done"), ("escalated", "review"), ("in_progress", "progress"), ("open", "pending"), ("draft", "pending")):
             with self.subTest(value):
                 self.assertIn(f"status--{kind}", self.render_partial(value, "x"))
 

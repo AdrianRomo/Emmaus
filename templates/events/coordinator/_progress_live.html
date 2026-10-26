@@ -16,7 +16,7 @@
   {% endif %}
   <dl class="figures block">
     <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
-    <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
+    <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
     <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.to_evaluate }} por decidir</dd></div>
   </dl>
   <div class="block">

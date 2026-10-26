@@ -15,7 +15,7 @@ from datetime import timedelta
 from html.parser import HTMLParser
 from unittest import mock
 
-from django.test import Client
+from django.test import Client, SimpleTestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -616,3 +616,21 @@ class ConfidentialRequiredGapTests(CampFixture):
         posted = self.client.post(step_url, {"revision": self.interview.revision, "direction": "next", f"q_{question.id}": "Algo"})
         self.assertEqual(posted.status_code, 302)
         self.assertRedirects(self.finalize(self.client), self.url("interview_done", self.interview.public_id), fetch_redirect_response=False)
+
+
+class RateIsNeverShownWithAPointlessDecimalTests(SimpleTestCase):
+    """"22.0 por hora" read as a technical figure; every template that shows the rate formats it with
+    floatformat:"-1" (22 or 22.5), as the cutoff page already did."""
+
+    def test_every_rendering_of_per_hour_drops_the_trailing_zero(self):
+        import pathlib
+        import re
+
+        base = pathlib.Path(__file__).resolve().parents[2] / "templates"
+        raw = []
+        for path in base.rglob("*.html"):
+            text = path.read_text(encoding="utf-8")
+            for match in re.finditer(r"\{\{ payload\.throughput\.per_hour([^}]*)\}\}", text):
+                if "floatformat" not in match.group(1) and "pluralize" not in match.group(1):
+                    raw.append(f"{path.relative_to(base)}: {match.group(0)}")
+        self.assertEqual(raw, [])

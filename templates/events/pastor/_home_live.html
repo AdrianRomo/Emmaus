@@ -15,8 +15,8 @@
       <p class="voice headline">Llevamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</p>
       <p class="headline__sub">
         {% if not progress.pending %}Ya se completaron todas.
-        {% elif finish_at %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, terminaríamos hacia las {{ finish_at|date:"H:i" }}.
-        {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour }} por hora, faltan más de 12 horas.
+        {% elif finish_at %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, terminaríamos hacia las {{ finish_at|date:"H:i" }}.
+        {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltan más de 12 horas.
         {% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}
       </p>
       <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
@@ -41,7 +41,7 @@
   <div class="report-section__body">
     <dl class="figures">
       <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
-      <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
+      <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
       <div><dt>Tiempo estimado</dt><dd class="figures__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration_short }}{% else %}—{% endif %}</dd><dd class="figures__note">si se mantiene el ritmo</dd></div>
       <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>
     </dl>
