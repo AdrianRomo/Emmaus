@@ -48,6 +48,7 @@ urlpatterns = [
     path(E + "avance/", dashboards.progress, name="progress"),
     path(E + "seguimiento/", dashboards.follow_ups, name="follow_ups"),
     path(E + "seguimiento/<int:follow_up_id>/", dashboards.follow_up_detail, name="follow_up_detail"),
+    path(E + "seguimiento/<int:follow_up_id>/asignar/", dashboards.follow_up_assign, name="follow_up_assign"),
     path(E + "equipo/", dashboards.team, name="team"),
     # Reportes
     path(E + "reportes/", reports.reports, name="reports"),

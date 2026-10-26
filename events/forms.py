@@ -265,6 +265,28 @@ class SafetyReportForm(forms.Form):
     )
 
 
+def _follow_up_leader_ids(event: Event):
+    return EventMembership.objects.filter(event=event, is_active=True).exclude(
+        role=MembershipRole.COORDINATOR
+    ).values_list("user_id", flat=True)
+
+
+def follow_up_leaders(event: Event):
+    """Who can be responsible for any follow-up of the event: every active member who is not a coordinador."""
+    return User.objects.filter(id__in=_follow_up_leader_ids(event)).order_by("first_name")
+
+
+def _limit_assigned_to(form: forms.ModelForm, event: Event) -> None:
+    """The people a follow-up can go to: the leaders above plus the campero's own coordinador.
+    One rule for the detail form and for the row of the list."""
+    coordinator_id = getattr(getattr(form.instance.participant, "coordinator", None), "user_id", None)
+    field = form.fields["assigned_to"]
+    field.queryset = User.objects.filter(id__in=[*_follow_up_leader_ids(event), coordinator_id]).order_by("first_name")
+    field.label_from_instance = lambda u: u.get_full_name() or u.email
+    field.required = False
+    field.empty_label = "Sin asignar"
+
+
 class FollowUpForm(forms.ModelForm):
     class Meta:
         model = FollowUp
@@ -274,16 +296,22 @@ class FollowUpForm(forms.ModelForm):
 
     def __init__(self, *args, event: Event, can_write_notes: bool, **kwargs):
         super().__init__(*args, **kwargs)
-        leader_ids = EventMembership.objects.filter(event=event, is_active=True).exclude(
-            role=MembershipRole.COORDINATOR
-        ).values_list("user_id", flat=True)
-        coordinator_id = getattr(getattr(self.instance.participant, "coordinator", None), "user_id", None)
-        self.fields["assigned_to"].queryset = User.objects.filter(id__in=[*leader_ids, coordinator_id]).order_by("first_name")
-        self.fields["assigned_to"].label_from_instance = lambda u: u.get_full_name() or u.email
-        self.fields["assigned_to"].required = False
-        self.fields["assigned_to"].empty_label = "Sin asignar"
+        _limit_assigned_to(self, event)
         if not can_write_notes:
             self.fields.pop("resolution_note")
+
+
+class FollowUpAssignForm(forms.ModelForm):
+    """Only who attends a follow-up, chosen from its row in the list."""
+
+    class Meta:
+        model = FollowUp
+        fields = ["assigned_to"]
+        labels = {"assigned_to": "Líder responsable"}
+
+    def __init__(self, *args, event: Event, **kwargs):
+        super().__init__(*args, **kwargs)
+        _limit_assigned_to(self, event)
 
 
 class MemberForm(forms.Form):
