@@ -1,0 +1,34 @@
+{% load brand %}{% comment %}
+  The top bar of every signed-in screen, and its "Menú" panel (menu_panel.html, included at the end so it stays a
+  direct child of <body>: emmaus.js makes every other child of <body> inert while it is open). Included by
+  base.html, events/rotulo/shell_coordinator.html and shell_leader.html with these arguments (never "only": the
+  logout form needs csrf_token):
+    modifiers        extra classes of <header class="bar ..."> ("bar--stacked": the links on their own row)
+    brand, home_url  the church whose logo (or "Emmaus") leads the bar, and where it goes
+    context_line     the event or the church; context_role under it (base.html: the church role)
+    switch_url       the event list: an inline "Campamentos" link in context_line when switch_inline, else a
+                     button in .bar__end. "?todos=1" is added here: the bare list jumps back to the last event.
+    station          "Estás en Computadora 3" (coordinators)
+    nav, nav_label   items {label, url, names and/or active}; discipleship_url adds "Discipulado"; help_url
+                     is the last link, "Ayuda", marked on the view named help_view ("ayuda" or "events:ayuda":
+                     both routes are named "ayuda", so the bare url name would mark the church's on an event 403)
+    role_label, sensitive   the panel's "who": name, role, place, confidential access
+  DOM order: brand, context, "Estás en", the links, then Menú and the logout. Whitespace is a contract: tests read
+  '<div class="bar__inner">' + newline + four spaces + the brand, byte for byte.
+{% endcomment %}
+<header class="bar{% if modifiers %} {{ modifiers }}{% endif %}">
+  <div class="bar__inner">
+    {% church_brand brand size="bar" href=home_url %}
+    {% if context_line %}<p class="bar__event">{{ context_line }}{% if context_role %}<span>{{ context_role }}</span>{% endif %}{% if switch_url and switch_inline %} <a href="{{ switch_url }}?todos=1">Campamentos</a>{% endif %}</p>{% endif %}
+    {% if station %}<p class="here"><span class="here__blaze" aria-hidden="true"></span>Estás en <strong>{{ station.name }}</strong></p>{% endif %}
+    {% if nav or discipleship_url or help_url %}<nav class="bar__nav" aria-label="{{ nav_label|default:'Principal' }}">
+      {% for item in nav %}<a href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}{% if discipleship_url %}<a href="{{ discipleship_url }}">Discipulado</a>{% endif %}{% if help_url %}<a href="{{ help_url }}"{% if request.resolver_match and request.resolver_match.view_name == help_view %} aria-current="page"{% endif %}>Ayuda</a>{% endif %}
+    </nav>{% endif %}
+    <div class="bar__end">
+      {% if switch_url and not switch_inline %}<a class="btn btn--small btn--secondary bar__switch" href="{{ switch_url }}?todos=1">Campamentos</a>{% endif %}
+      <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+      <div class="bar__logout">{% include "partials/ui/logout.html" with css="btn--small btn--link" %}</div>
+    </div>
+  </div>
+</header>
+{% include "partials/ui/menu_panel.html" %}

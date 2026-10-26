@@ -388,10 +388,10 @@ class DeckFootTests(CampFixture):
 
 class LeaderBarAndScreensTests(CampFixture):
     def test_event_name_and_change_link_are_apart(self):
-        """B4. "Campamento de Jóvenes 2026Cambiar de evento": the name and the link ran together."""
+        """B4. "Campamento de Jóvenes 2026Campamentos": the name and the link to the event list ran together."""
         self.login(self.admin)
         html = self.client.get(self.url("admin_home")).content.decode()
-        self.assertRegex(html, r'<p class="bar__event">Campamento A\s+<a href="[^"]*">Cambiar de evento</a></p>')
+        self.assertRegex(html, r'<p class="bar__event">Campamento A\s+<a href="[^"]*">Campamentos</a></p>')
         self.assertEqual(declarations(stylesheet(), ".bar--leader .bar__event", 1440).get("column-gap"), "var(--s-2)")
 
     def test_import_page_says_in_spanish_what_the_file_button_does(self):

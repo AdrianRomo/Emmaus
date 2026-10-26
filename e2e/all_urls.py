@@ -33,7 +33,7 @@ pages = {
   "ana.lopez@demo.invalid": [["c-computadora", u("choose_station")], ["c-inicio", u("coord_home")], ["c-busqueda", u("interview_search") + "?q=mat"],
      ["c-camperos", u("my_participants")], ["c-pendientes", u("coord_pending")], ["c-avance", u("coord_progress")], ["c-registrar", u("participant_create")],
      ["c-ficha", u("participant_detail", ana.first().public_id)], ["c-entrevista", u("interview_detail", done.public_id)], ["c-seguimientos", u("follow_ups")],
-     ["c-respaldo", u("backup_list")], ["c-eventos", reverse("events:list")]],
+     ["c-respaldo", u("backup_list")], ["c-eventos", reverse("events:list")], ["c-ayuda", u("ayuda")]],
   "marta.rios@demo.invalid": [["t-equipo", u("tutor_home")], ["t-coordinadores", u("coordinators")], ["t-coordinador", u("coordinator_detail", coord.id)],
      ["t-entrevistas", u("interviews")], ["t-pendientes", u("pending")], ["t-reportes", u("reports")]],
   "ernesto.salas@demo.invalid": [["p-resumen", u("pastor_home")], ["p-avance", u("progress")], ["p-seguimientos", u("follow_ups")],

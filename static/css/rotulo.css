@@ -9,7 +9,7 @@
 
    One stylesheet, no build step, for every screen (templates/layout/skeleton.html).
    The per-area sections at the end were added when the last screens moved over.
-   Breakpoints (literal in media queries): 600px, 900px, 1100px.
+   Breakpoints (literal in media queries): 600px, 760px, 900px, 1280px.
    See docs/design-system.md.
    ========================================================================== */
 
@@ -333,7 +333,7 @@ a.wordmark:hover { color: var(--petroleo); }
 .bar__event { color: var(--ink-2); font-size: var(--t-small); max-width: 13rem; line-height: 1.25; }
 .bar__event a { display: inline-block; min-height: 1.5rem; padding: 0.125rem 0; margin-top: 0.125rem; font-weight: 700; }  /* WCAG 2.5.8: 24px target */
 .bar--leader .bar__event { max-width: 17rem; }
-/* "Campamento de Jóvenes 2026 Cambiar de evento": apart when they share a line, flush left when the link wraps
+/* "Campamento de Jóvenes 2026 Campamentos": apart when they share a line, flush left when the link wraps
    (a margin on the link would indent it on its own line). Phones hide the event name. */
 @media (min-width: 601px) {
   .bar--leader .bar__event { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s-2); }
@@ -382,10 +382,20 @@ a.wordmark:hover { color: var(--petroleo); }
 .page--wide { max-width: var(--w-wide); }
 .page--lead { padding-top: var(--s-12); }  /* sign-in and landing with the church's logo leading: no bar, so the page gives the logo its room */
 
-@media (max-width: 1180px) {
+/* Three steps (partials/ui/bar.html). Past 1280px: one row. 761-1280px: the links take their own row under the bar
+   (the .bar--stacked layout) and wrap rather than overflow; the logout stays. 760px and less: "Menú" holds the links
+   and the logout (emmaus.js closes an open panel past 760px). A .bar--stacked bar has two rows past 760px at any
+   width: base.html, a leader with more than five links, a coordinator once the bar says "Estás en". */
+@media (max-width: 1280px) {
+  .bar__inner { flex-wrap: wrap; row-gap: 0; padding-top: var(--s-2); }
+  .bar__end { margin-left: auto; }
+  .bar__nav { order: 10; flex-basis: 100%; flex-wrap: wrap; margin-left: calc(-1 * var(--s-3)); min-height: 3rem; }
+  .bar__nav a { min-height: 2.75rem; }
+}
+@media (max-width: 760px) {
+  .bar__inner { padding-top: 0; }
   .bar__nav, .bar__logout, .bar__switch { display: none; }
   .menu-toggle { display: inline-flex; }
-  .bar__end { margin-left: auto; }
 }
 @media (max-width: 600px) {
   .bar__inner { padding: var(--s-2) var(--s-4); gap: var(--s-3); min-height: 3.75rem; flex-wrap: wrap; }

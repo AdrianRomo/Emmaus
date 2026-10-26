@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block page_title %}Ayuda{% endblock %}
+{% block content %}
+{% comment %}
+  "Ayuda" outside an event (audit UX-17): base.html's bar links here for everyone signed in, with or without a church
+  role. Inside an event the bar links the event's own help (events/ayuda.html), five tasks for that role.
+{% endcomment %}
+<div class="narrow">
+  {% include "events/rotulo/_page_head.html" with title="Ayuda" lede="Lo más común en Emmaus, en pocos pasos." %}
+  <section class="block" aria-labelledby="tarea-entrar">
+    <h2 id="tarea-entrar" class="heading">Entra y sal de Emmaus</h2>
+    <ol class="promises">
+      <li>Escribe tu correo y tu contraseña, y toca “Entrar”.</li>
+      <li>Si olvidaste tu contraseña, toca “¿Olvidaste tu contraseña?” en la pantalla de entrada.</li>
+      <li>Al terminar, toca “Cerrar sesión”, sobre todo en una computadora compartida.</li>
+    </ol>
+  </section>
+  <section class="block" aria-labelledby="tarea-codigo">
+    <h2 id="tarea-codigo" class="heading">Únete a un evento con el código</h2>
+    <ol class="promises">
+      <li>Abre la dirección de la hoja, que termina en /unirme/, y escribe el código.</li>
+      <li>Revisa tu nombre y tu correo, elige qué vas a hacer y toca “Pedir acceso”.</li>
+      <li>Cuando la administración te dé acceso, el evento aparece en “Campamentos”.</li>
+    </ol>
+    <p class="more"><a href="{% url 'join' %}">Escribir el código</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-campamento">
+    <h2 id="tarea-campamento" class="heading">Elige el campamento en “Campamentos”</h2>
+    <p>Toca “Campamentos” en la barra de arriba; en un celular está en “Menú”. Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
+    <p class="more"><a href="{% url 'events:list' %}?todos=1">Ir a Campamentos</a></p>
+  </section>
+  {% if current_church.discipleship_enabled %}
+  <section class="block" aria-labelledby="tarea-discipulado">
+    <h2 id="tarea-discipulado" class="heading">Sigue tu camino o acompaña a tus participantes</h2>
+    <p>Si participas, en “Mi camino” ves tu lección y haces tus preguntas.</p>
+    <p>Si acompañas, en “Inicio” ves a tus participantes y lo que preguntan.</p>
+    <p class="more"><a href="{% url 'dashboard' %}">Ir al discipulado</a></p>
+  </section>
+  {% endif %}
+  <p class="block">¿Algo no está aquí? Pregunta a {% if is_church_admin %}quien instaló Emmaus{% elif current_church %}la administración de tu iglesia{% else %}la administración del evento{% endif %}.</p>
+</div>
+{% endblock %}
