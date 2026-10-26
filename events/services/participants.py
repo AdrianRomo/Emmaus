@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 from django.db import transaction
 from django.db.models import Max
+from django.utils.text import slugify
 
 from ..models import (
     ConsentRecord,
@@ -15,6 +16,7 @@ from ..models import (
     EventMembership,
     EventParticipant,
     MembershipRole,
+    Sede,
     normalize_name,
 )
 from . import audit
@@ -56,6 +58,7 @@ def create_participant(
     coordinator: EventMembership | None,
     guardian_authorization: bool = False,
     log: bool = True,
+    sede: Sede | None = None,
 ) -> EventParticipant:
     participant = EventParticipant.objects.create(
         event=event,
@@ -64,6 +67,7 @@ def create_participant(
         age=age,
         room=room,
         church_group=church_group,
+        sede=sede,
         coordinator=coordinator,
         created_by=actor,
         updated_by=actor,
@@ -97,6 +101,7 @@ def update_participant(participant: EventParticipant, *, actor, **changes) -> Ev
         "age": "edad",
         "room": "cuarto",
         "church_group": "iglesia o grupo",
+        "sede": "sede",
         "coordinator": "coordinador",
         "is_active": "participación",
         "withdrawn_reason": "motivo de baja",
@@ -204,7 +209,10 @@ HEADER_ALIASES = {
     "church_group": {"iglesia", "iglesia o grupo", "grupo", "congregacion", "congregación"},
     "coordinator": {"coordinador", "coordinador asignado", "correo del coordinador"},
     "guardian": {"autorizacion", "autorización", "permiso", "autorizacion firmada", "autorización firmada"},
+    "sede": {"sede", "sede de la iglesia", "campus"},
 }
+# The file's headers, in this order, as import.html and the example file (`sample_csv`) show them.
+IMPORT_COLUMNS = ["Nombre", "Edad", "Cuarto", "Iglesia o grupo", "Coordinador", "Autorización", "Sede"]
 YES_VALUES = {"si", "sí", "s", "x", "1", "true", "verdadero", "yes"}
 MAX_IMPORT_ROWS = 1500
 
@@ -219,6 +227,8 @@ class ImportRow:
     coordinator_id: int | None = None
     coordinator_label: str = ""
     guardian: bool = False
+    sede_id: int | None = None
+    sede_label: str = ""
     errors: list[str] = field(default_factory=list)
     duplicate_of: list[str] = field(default_factory=list)
     duplicate_in_file: int | None = None
@@ -265,6 +275,13 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
     )
     by_email = {c.user.email.lower(): c for c in coordinators if c.user.email}
     by_name = {normalize_name(c.display_name): c for c in coordinators}
+    sedes = list(event.allowed_sedes())
+    sede_by_key: dict[str, list[Sede]] = {}
+    for sede in sedes:  # name or identifier, without case or accents: "Mérida", "MERIDA", "merida"
+        for key in (slugify(sede.slug), slugify(sede.name)):
+            # A name with no letters or digits reads as "": a cell with only "-" must not land on it.
+            if key and sede not in sede_by_key.setdefault(key, []):
+                sede_by_key[key].append(sede)
 
     rows: list[ImportRow] = []
     seen_names: dict[str, int] = {}
@@ -301,6 +318,21 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
             else:
                 row.errors.append(f"No encontramos al coordinador “{coordinator_raw}” en este evento.")
         row.guardian = normalize_name(values.get("guardian", "")) in YES_VALUES
+        sede_raw = values.get("sede", "")
+        if sede_raw:
+            matches = sede_by_key.get(slugify(sede_raw), [])
+            if len(matches) == 1:
+                row.sede_id, row.sede_label = matches[0].id, matches[0].name
+            elif matches:
+                # Two sedes that read the same (made outside SedeForm, which refuses it): never pick one silently.
+                row.errors.append(
+                    f"Sede ambigua: «{sede_raw}». Coincide con {', '.join(s.name for s in matches)}: "
+                    "cambia el nombre o el identificador de una de ellas en Sedes de la iglesia."
+                )
+            elif sedes:
+                row.errors.append(f"Sede desconocida: «{sede_raw}». Usa una de: {', '.join(s.name for s in sedes)}.")
+            else:
+                row.errors.append(f"Sede desconocida: «{sede_raw}». La iglesia no tiene sedes activas: deja la columna vacía.")
         if row.full_name:
             key = normalize_name(row.full_name)
             if key in seen_names:
@@ -315,15 +347,38 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
 
 
 @transaction.atomic
-def apply_import(event: Event, rows: list[dict], *, actor, include_lines: set[int]) -> int:
-    created = 0
+@dataclass
+class ImportResult:
+    created: int = 0
+    # Rows imported without the sede their preview showed: it was deleted, deactivated or left the event's list
+    # between the preview (kept in the session) and the confirmation.
+    sede_unavailable: int = 0
+
+    @property
+    def message(self) -> str:
+        text = "Se importó 1 campero." if self.created == 1 else f"Se importaron {self.created} camperos."
+        if self.sede_unavailable == 1:
+            text += " 1 campero quedó sin sede porque la sede ya no estaba disponible."
+        elif self.sede_unavailable:
+            text += f" {self.sede_unavailable} camperos quedaron sin sede porque la sede ya no estaba disponible."
+        return text
+
+
+def apply_import(event: Event, rows: list[dict], *, actor, include_lines: set[int]) -> ImportResult:
+    result = ImportResult()
     valid_coordinators = set(
         EventMembership.objects.filter(event=event, role=MembershipRole.COORDINATOR).values_list("id", flat=True)
     )
+    # Checked again on confirm, with the same rule as the preview: the preview lives in the session.
+    allowed_sedes = {s.id: s for s in event.allowed_sedes()}
     for row in rows:
         if row["errors"] or row["line"] not in include_lines:
             continue
         coordinator_id = row["coordinator_id"] if row["coordinator_id"] in valid_coordinators else None
+        sede_id = row.get("sede_id")  # .get: a preview stored before sedes existed has no key
+        sede = allowed_sedes.get(sede_id)
+        if sede_id and sede is None:
+            result.sede_unavailable += 1
         create_participant(
             event,
             actor=actor,
@@ -334,8 +389,10 @@ def apply_import(event: Event, rows: list[dict], *, actor, include_lines: set[in
             coordinator=EventMembership.objects.get(pk=coordinator_id) if coordinator_id else None,
             guardian_authorization=row["guardian"],
             log=False,
+            sede=sede,
         )
-        created += 1
+        result.created += 1
+    created = result.created
     summary = "Importó 1 campero desde un archivo" if created == 1 else f"Importó {created} camperos desde un archivo"
-    audit.record(actor, event, "importacion", summary, None, count=created)
-    return created
+    audit.record(actor, event, "importacion", summary, None, count=created, sin_sede=result.sede_unavailable)
+    return result

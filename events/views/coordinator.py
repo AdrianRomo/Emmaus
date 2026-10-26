@@ -61,7 +61,7 @@ def my_participants(request, event, access):
         participants = participants.filter(filters)
     if status in InterviewStatus.values:
         participants = participants.filter(interview_status=status)
-    participants = participants.order_by("room", "full_name")
+    participants = participants.select_related("sede").order_by("room", "full_name")
     counts = dict(access.participants().values_list("interview_status").annotate(n=Count("id")))
     tabs = [{"value": "", "label": "Todos", "count": sum(counts.values())}] + [
         {"value": value, "label": label, "count": counts.get(value, 0)} for value, label in InterviewStatus.choices
@@ -105,6 +105,7 @@ def participant_create(request, event, access):
             church_group=form.cleaned_data["church_group"],
             coordinator=coordinator,
             guardian_authorization=form.cleaned_data.get("guardian_authorization", False),
+            sede=form.cleaned_data.get("sede"),
         )
         messages.success(request, f"{participant.full_name} quedó registrado con el número {participant.code}.")
         if request.POST.get("then") == "entrevistar" and access.can_interview(participant):

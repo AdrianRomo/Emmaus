@@ -4,7 +4,7 @@
 #   DEBUG=true python manage.py shell < e2e/all_urls.py | tail -1 > /tmp/urls.json
 import json
 from django.urls import reverse
-from events.models import Event, EventParticipant, Interview, FollowUp, EventMembership, MembershipRole, ReportSnapshot, QuestionnaireVersion
+from events.models import Event, EventParticipant, Interview, FollowUp, EventMembership, MembershipRole, ReportSnapshot, QuestionnaireVersion, Sede
 from core.models import DiscipleshipPath
 
 ev = Event.objects.get(slug="jovenes-2026")
@@ -18,6 +18,7 @@ version = ev.questionnaire_version
 question = version.sections.first().questions.first()
 member = EventMembership.objects.filter(event=ev, role=MembershipRole.PASTOR).first()
 path = DiscipleshipPath.objects.first()
+sede = Sede.objects.filter(church=ev.church).first()  # seed_camp_demo creates five
 pages = {
   "ana.lopez@demo.invalid": [["c-computadora", u("choose_station")], ["c-inicio", u("coord_home")], ["c-busqueda", u("interview_search") + "?q=mat"],
      ["c-camperos", u("my_participants")], ["c-pendientes", u("coord_pending")], ["c-avance", u("coord_progress")], ["c-registrar", u("participant_create")],
@@ -31,7 +32,7 @@ pages = {
      ["a-equipo", u("team")], ["a-agregar", u("member_add")], ["a-persona", u("member_edit", member.id)], ["a-asignaciones", u("assignments")],
      ["a-cuestionarios", u("questionnaires")], ["a-version", u("version_detail", version.id)], ["a-pregunta", u("question_edit", version.id, question.id)],
      ["a-configuracion", u("settings")], ["a-actividad", u("audit")], ["a-sesiones", u("sessions")], ["a-eliminar", u("participant_delete", ana.first().public_id)],
-     ["a-nuevo-evento", reverse("events:create")], ["a-codigo", u("join_code_sign")]],
+     ["a-nuevo-evento", reverse("events:create")], ["a-codigo", u("join_code_sign")], ["a-sedes", u("sedes")], ["a-sede-nueva", u("sede_add")], ["a-sede", u("sede_edit", sede.id)]],
   "admin@example.org": [["d-panorama", reverse("church_dashboard")], ["d-participantes", reverse("participants_list")], ["d-invitaciones", reverse("invitations_list")],
      ["d-rutas", reverse("path_list")], ["d-ruta", reverse("path_detail", args=[path.id])], ["d-preguntas", reverse("questions_inbox")],
      ["d-seguimientos", reverse("church_follow_up_list")], ["d-configuracion", reverse("church_settings")], ["d-personas", reverse("user_list")], ["d-403", u("admin_home")]],

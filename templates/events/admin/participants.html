@@ -16,6 +16,7 @@
   <div class="field filter-bar__search"><label class="label" for="q">Buscar</label><span class="hint" id="q-ayuda">Nombre, número, cuarto o iglesia</span><input id="q" type="search" name="q" value="{{ query }}" aria-describedby="q-ayuda"></div>
   <div class="field"><label class="label" for="f-estado">Entrevista</label><select id="f-estado" name="estado"><option value="">Todas</option>{% for v, l in status_choices %}<option value="{{ v }}"{% if selected.estado == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
   <div class="field"><label class="label" for="f-coord">Coordinador</label><select id="f-coord" name="coordinador"><option value="">Todos</option><option value="ninguno"{% if selected.coordinador == "ninguno" %} selected{% endif %}>Sin coordinador</option>{% for c in coordinators %}<option value="{{ c.id }}"{% if selected.coordinador == c.id|stringformat:"s" %} selected{% endif %}>{{ c.display_name }}</option>{% endfor %}</select></div>
+  {% if sede_options %}<div class="field"><label class="label" for="f-sede">Sede</label><select id="f-sede" name="sede"><option value="">Todas</option>{% for o in sede_options %}<option value="{{ o.value }}"{% if selected.sede == o.value %} selected{% endif %}>{{ o.label }}</option>{% endfor %}</select></div>{% endif %}
   <div class="field"><label class="label" for="f-part">Participación</label><select id="f-part" name="participa"><option value="si"{% if selected.participa == "si" %} selected{% endif %}>Participando</option><option value="no"{% if selected.participa == "no" %} selected{% endif %}>Dados de baja</option><option value="todos"{% if selected.participa == "todos" %} selected{% endif %}>Todos</option></select></div>
   <button class="btn btn--secondary" type="submit">Filtrar</button>
 </form>
@@ -32,16 +33,16 @@
         <li class="row">
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
-            <p class="row__meta">#{{ p.code }}{% if not p.is_active %}, dado de baja{% endif %}, {{ p.room|cuarto }}, {{ p.age }} años{% if p.church_group %}, {{ p.church_group }}{% endif %}, {% if p.coordinator %}con {{ p.coordinator.display_name }}{% else %}sin coordinador{% endif %}, {{ p.get_interview_status_display }}</p>
+            <p class="row__meta">#{{ p.code }}{% if not p.is_active %}, dado de baja{% endif %}, {{ p.room|cuarto }}{% if p.sede %}, {{ p.sede.name }}{% endif %}, {{ p.age }} años{% if p.church_group %}, {{ p.church_group }}{% endif %}, {% if p.coordinator %}con {{ p.coordinator.display_name }}{% else %}sin coordinador{% endif %}, {{ p.get_interview_status_display }}</p>
           </div>
         </li>
       {% endfor %}
     </ul>
     <div class="table-wrap admin-people__table" tabindex="0" role="region" aria-label="Participantes">
       <table class="table admin-table">
-        <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Entrevista</th></tr></thead>
+        <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th>{% if sede_options %}<th>Sede</th>{% endif %}<th>Coordinador</th><th>Entrevista</th></tr></thead>
         <tbody>{% for p in page.object_list %}
-          <tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a>{% if not p.is_active %}<span class="table__note">Dado de baja</span>{% endif %}</td><td class="num">{{ p.age }}</td><td class="table__nowrap">{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.coordinator.display_name|default:"—" }}</td><td>{% status p.interview_status %}</td></tr>
+          <tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a>{% if not p.is_active %}<span class="table__note">Dado de baja</span>{% endif %}</td><td class="num">{{ p.age }}</td><td class="table__nowrap">{{ p.room }}</td><td>{{ p.church_group }}</td>{% if sede_options %}<td>{{ p.sede.name|default:"—" }}</td>{% endif %}<td>{{ p.coordinator.display_name|default:"—" }}</td><td>{% status p.interview_status %}</td></tr>
         {% endfor %}</tbody>
       </table>
     </div>
@@ -49,6 +50,7 @@
   {% else %}
     <p class="empty-line">No se encontraron participantes. Cambia los filtros{% if access.is_admin %} o <a href="{{ import_url }}">importa la lista de camperos</a> desde un archivo{% endif %}.</p>
   {% endif %}
-  {% if can_manage %}<p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a> (CSV, sin respuestas).</p>{% endif %}
+  {% if can_manage %}<p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a> (CSV, sin respuestas).</p>
+  <p class="more"><a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a>, para saber de dónde viene cada campero.</p>{% endif %}
 </section>
 {% endblock %}

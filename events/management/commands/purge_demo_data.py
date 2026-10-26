@@ -51,7 +51,7 @@ from core.models import (
     ReflectionAnswer,
     ReflectionQuestion,
 )
-from events.models import Answer, AuthThrottle, Event, EventParticipant, FollowUp, Interview, ReportSnapshot
+from events.models import Answer, AuthThrottle, Event, EventParticipant, FollowUp, Interview, ReportSnapshot, Sede
 
 DEMO_CHURCH_SLUGS = ("iglesia-demo", "emmaus-demo")
 DEMO_EMAIL_DOMAINS = ("@demo.invalid", "@example.org")
@@ -64,6 +64,7 @@ SUMMARY = (
     ("Iglesias", (Church,)),
     ("Eventos", (Event,)),
     ("Camperos", (EventParticipant,)),
+    ("Sedes", (Sede,)),
     ("Entrevistas", (Interview,)),
     ("Respuestas", (Answer,)),
     ("Cortes de seguimiento", (ReportSnapshot,)),

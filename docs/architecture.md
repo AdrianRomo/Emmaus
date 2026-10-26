@@ -35,7 +35,7 @@ Layout:
 
 * `events/models.py`: all tables (below).
 * `events/access.py`: `EventAccess`, `resolve_access`, `accessible_events`. Every authorization decision lives here.
-* `events/services/`: `interviews.py` (lifecycle, claims, kiosk), `questionnaire.py` (steps, conditions, versions), `metrics.py` (payload builder), `reports.py` (cutoffs and released aggregates), `presentation.py` (privacy serializer), `pdf.py`, `participants.py` (registration, CSV import, erasure), `throttle.py` (database-backed attempt limits), `audit.py`, `notifications.py`.
+* `events/services/`: `interviews.py` (lifecycle, claims, kiosk), `questionnaire.py` (steps, conditions, versions), `metrics.py` (payload builder), `reports.py` (cutoffs and released aggregates), `presentation.py` (privacy serializer), `pdf.py`, `participants.py` (registration, CSV import with its optional `sede` column matched by name or identifier without case or accents, erasure), `throttle.py` (database-backed attempt limits), `audit.py`, `notifications.py`.
 * `events/views/`: thin views per area (`home`, `coordinator`, `interview`, `kiosk`, `dashboards`, `reports`, `admin`).
 * `events/urls.py` is mounted at `/eventos/`; `events/kiosk_urls.py` at `/estacion/`.
 * `events/middleware.py`: shared-computer protections.
@@ -47,6 +47,9 @@ Layout:
 erDiagram
     CHURCH ||--o{ EVENT : organizes
     CHURCH ||--o{ QUESTIONNAIRE : owns
+    CHURCH ||--o{ SEDE : "campuses"
+    EVENT }o--o{ SEDE : "taking part (none: all)"
+    SEDE |o--o{ EVENT_PARTICIPANT : "comes from"
     USER ||--o{ EVENT_MEMBERSHIP : "one per event"
     EVENT ||--o{ EVENT_MEMBERSHIP : staff
     EVENT_MEMBERSHIP ||--o{ TUTOR_ASSIGNMENT : "tutor supervises"
@@ -102,6 +105,13 @@ erDiagram
         string church_group
         string interview_status
         bool is_active
+    }
+    SEDE {
+        string name
+        string slug "unique per church"
+        string city
+        int order
+        bool active
     }
     INTERVIEW {
         uuid public_id UK
@@ -162,6 +172,7 @@ Notes on the model:
 * `FollowUp.confidential` marks a care referral created automatically from a confidential answer; only members with confidential access see it (see `roles-and-permissions.md`).
 * A snapshot's `data` holds the full metrics payload plus a `released` block: the follow-up counts and per-option answer counts as last released (they only change when a count moves by at least the minimum group size; see `reporting.md`).
 * `AuditEvent` never stores answer contents.
+* `Sede` belongs to the church, not to an event: one list ("Satélite", "Mérida", …) for all its events, edited from any of them on "Sedes de la iglesia" (`/eventos/<slug>/administracion/sedes/`), but only by a church admin or a superuser; an event-only Administrador chooses the event's sedes and nothing more (see `roles-and-permissions.md`). `Event.sedes` lists the sedes taking part. `Event.allowed_sedes()` returns the active ones of that list, or every active sede of the church when the list is empty or none of it is active any more (all deactivated or deleted since: registration never loses the select while the church has active sedes); the sedes page warns when a listed sede is inactive. The register form, the edit form, the CSV preview and the import confirmation all use it: the "Sede" select appears only when it returns something, and an edit also offers the campero's current sede even if it was deactivated since. The import reads a sede cell, a name and an identifier through `slugify` (no case, no accents), so `SedeForm` refuses a name or an identifier that would read like another sede's name or identifier, and a name with no letters or digits (an identifier cut to 40 characters loses a trailing `-` or `_`); the import never matches an empty reading, and a cell that still reads like two sedes (rows made outside the form) is a row error, "Sede ambigua: «X».", never a guess. The preview waits in the session, so `apply_import` checks each row's sede against `allowed_sedes()` again: a sede deleted, deactivated or taken off the event's list in between imports that campero without a sede, and the confirmation counts them ("2 camperos quedaron sin sede porque la sede ya no estaba disponible."; `ImportResult.sede_unavailable`, also `sin_sede` in the audit row). In "Participantes" each sede's count is taken under every other filter (participation, interview, coordinator, search), so it equals the rows that choosing it shows. `EventParticipant.sede` is `PROTECT`: a sede with camperos (in any event) cannot be deleted, only deactivated (`active=False`), which takes it out of registration and import but leaves it on the camperos who have it and in the list filter while they do. The sede is personal data about the campero (often a minor) but not sensitive: it is not a question of the interview, so it is shown like the room (in "Participantes", "Mis camperos" and the downloaded list), and it goes with the campero's row. `purge_expired_event_data` deletes every `EventParticipant` of an expired event (`event.participants.all().delete()`), so it needs no change; `purge_demo_data` deletes events (and their camperos) before churches, so the `PROTECT` never blocks it.
 
 ## Request flow
 
@@ -254,6 +265,7 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 | `events/0005_throttle_strikes_db_default` | Gives `AuthThrottle.strikes` a database default, so older code can still create throttle rows; `throttle.consume()` also fails closed if a row cannot be written |
 | `events/0006_event_join_code` | Adds `Event.join_code` (`db_default=''`, so older code can still insert events) and `Event.join_by_name` (`db_default=True`), a unique constraint on non-blank codes, then a data migration that gives every existing event its own code. Reverse of the data step is a no-op. A row still without a code (written by older code) gets one the first time "Equipo" or the printable sheet needs it |
 | `events/0007_access_request` | Adds `AccessRequest` (requests from the event's public page) |
+| `events/0008_sede` | Adds `Sede` (the church's campuses; `city`, `order` and `active` with database defaults), the `Event.sedes` join table and the nullable `EventParticipant.sede`. Additive: older code keeps inserting events and camperos. Reversing it drops every campero's sede |
 
 Existing churches and discipleship data are not modified apart from `0004`. The camp module adds new tables and columns only. `makemigrations --check` reports no pending changes.
 
@@ -276,6 +288,7 @@ Existing churches and discipleship data are not modified apart from `0004`. The 
 | `AuthThrottle` | `key` | |
 | `Event` | `slug`, partial `(join_code)` where not blank | |
 | `AccessRequest` | partial `(event, email)` where `pendiente` | `(event, status)` |
+| `Sede` | `(church, slug)` | `church` (foreign key), `slug` (a `SlugField` is indexed); `EventParticipant.sede` gets its own foreign-key index |
 
 Name search uses `normalized_name LIKE '%...%'`, which cannot use the B-tree index. That is fine at camp sizes (the CSV import accepts up to 1500 rows per file).
 
