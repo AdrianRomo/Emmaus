@@ -49,7 +49,7 @@
       </section>
     {% endif %}
     <section class="block" aria-label="Otras acciones">
-      <p><a href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p>
+      <p><a class="btn btn--secondary btn--danger-outline" href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p>
       {% if access.is_admin %}
         {% if access.can_view_sensitive %}<p class="more"><a href="{% url 'events:participant_data_export' event.slug participant.public_id %}">Descargar todos sus datos</a></p>{% endif %}
         <p class="more"><a href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>

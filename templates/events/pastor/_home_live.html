@@ -3,6 +3,8 @@
   The report reads as five questions. Left column: the question and a one-line answer, so reading
   only the left column is the executive summary. Right column: the evidence.
   With no camperos registered yet every section says so in one sentence: no zeros, charts or team rows.
+  A big figure says a duration short ("6 h 15 min", duration_short): in words it overflowed its tile (audit UI-01);
+  the sentence beside it keeps the words.
 {% endcomment %}
 <section class="report-section report-section--lead" aria-labelledby="como-va">
   <div class="report-section__q">
@@ -40,7 +42,7 @@
     <dl class="figures">
       <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
       <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
-      <div><dt>Tiempo estimado</dt><dd class="figures__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration }}{% else %}—{% endif %}</dd><dd class="figures__note">si se mantiene el ritmo</dd></div>
+      <div><dt>Tiempo estimado</dt><dd class="figures__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration_short }}{% else %}—{% endif %}</dd><dd class="figures__note">si se mantiene el ritmo</dd></div>
       <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>
     </dl>
     {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="pastor-acumulado" eta=chart_eta bucket=payload.timeline.bucket_minutes projection_label=projection_label as_of=payload.data_as_of %}

@@ -17,19 +17,92 @@
     return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   }
 
-  /* ---- Mobile menu ------------------------------------------------------ */
+  /* ---- Mobile menu: a modal dialog (audit A11Y-02) ------------------------ */
+  // Open: focus moves into the panel, everything else on the page is inert (where the browser lacks `inert`: hidden
+  // from assistive technology and out of the tab order), and Tab and Shift+Tab cycle inside. Escape, "Cerrar menú"
+  // or a window grown past the menu's breakpoint close it; focus goes back to "Menú".
+  var FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), " +
+    "textarea:not([disabled]), summary, [tabindex]:not([tabindex='-1'])";
+  function focusables(root) {
+    return $all(FOCUSABLE, root).filter(function (el) { return el.getClientRects().length > 0; });
+  }
+  function inertOutside(keep) {
+    var changed = [];
+    Array.prototype.forEach.call(doc.body.children, function (el) {
+      if (el === keep || el.tagName === "DIALOG" || el.tagName === "SCRIPT") return;  // a notice may open on top
+      if ("inert" in el) {
+        if (!el.inert) { el.inert = true; changed.push({ el: el }); }
+        return;
+      }
+      if (el.getAttribute("aria-hidden") === "true") return;
+      var own = el.matches && el.matches(FOCUSABLE) ? [el] : [];  // the skip link is itself a child of <body>
+      var tabbable = own.concat(focusables(el)).map(function (f) {
+        var before = f.getAttribute("tabindex");
+        f.setAttribute("tabindex", "-1");
+        return { el: f, tabindex: before };
+      });
+      el.setAttribute("aria-hidden", "true");
+      changed.push({ el: el, hidden: true, tabbable: tabbable });
+    });
+    return changed;
+  }
+  function restoreOutside(changed) {
+    changed.forEach(function (c) {
+      if (!c.hidden) { c.el.inert = false; return; }
+      c.el.removeAttribute("aria-hidden");
+      c.tabbable.forEach(function (t) {
+        if (t.tabindex === null) t.el.removeAttribute("tabindex"); else t.el.setAttribute("tabindex", t.tabindex);
+      });
+    });
+  }
   $all("[data-menu-open]").forEach(function (button) {
     var panel = doc.getElementById(button.getAttribute("aria-controls"));
     if (!panel) return;
-    function close() { panel.hidden = true; button.setAttribute("aria-expanded", "false"); button.focus(); }
-    button.addEventListener("click", function () {
+    var changed = [];
+    function insideNotice(el) { return !!(el && el.closest && el.closest("dialog[open]")); }
+    function onKey(e) {
+      if (insideNotice(e.target)) return;  // "¿Sigues aquí?" answers its own keys
+      if (e.key === "Escape") { e.preventDefault(); close(true); return; }
+      if (e.key !== "Tab") return;
+      var items = focusables(panel);
+      if (!items.length) { e.preventDefault(); return; }
+      var first = items[0], last = items[items.length - 1], active = doc.activeElement;
+      if (e.shiftKey && (active === first || !panel.contains(active))) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (active === last || !panel.contains(active))) { e.preventDefault(); first.focus(); }
+    }
+    function onFocusIn(e) {
+      if (panel.contains(e.target) || insideNotice(e.target)) return;
+      var items = focusables(panel);
+      if (items.length) items[0].focus();
+    }
+    function open() {
+      if (!panel.hidden) return;
       panel.hidden = false;
       button.setAttribute("aria-expanded", "true");
-      var first = $("a, button", panel);
-      if (first) first.focus();
-    });
-    $all("[data-menu-close]", panel).forEach(function (b) { b.addEventListener("click", close); });
-    panel.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+      changed = inertOutside(panel);
+      doc.addEventListener("keydown", onKey);
+      doc.addEventListener("focusin", onFocusIn);
+      var items = focusables(panel);
+      if (items.length) items[0].focus();
+    }
+    function close(giveFocusBack) {
+      if (panel.hidden) return;
+      panel.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+      restoreOutside(changed);
+      changed = [];
+      doc.removeEventListener("keydown", onKey);
+      doc.removeEventListener("focusin", onFocusIn);
+      if (giveFocusBack) button.focus();
+    }
+    button.addEventListener("click", open);
+    $all("[data-menu-close]", panel).forEach(function (b) { b.addEventListener("click", function () { close(true); }); });
+    if (window.matchMedia) {  // past 1180px "Menú" is not shown (rotulo.css): the bar has the links again
+      var narrow = window.matchMedia("(max-width: 1180px)");
+      var onResize = function () { if (!narrow.matches) close(false); };
+      if (narrow.addEventListener) narrow.addEventListener("change", onResize);
+      else if (narrow.addListener) narrow.addListener(onResize);
+    }
   });
 
   /* ---- Folds that start closed on small screens ------------------------- */
@@ -100,6 +173,22 @@
     }
     setStatus("ok", "Última actualización: " + timeLabel(lastOk));
     schedule();
+  });
+
+  /* ---- Live status: announce a change of state, never the time (audit A11Y-07) ---------- */
+  // "Última actualización: 14:05:20" changes on every refresh, so its line is aria-live="off". A separate role="status"
+  // element, data-live-announce="<id of that line>", receives only a lost connection or an ended session, once when
+  // it happens, and is emptied when the data flows again.
+  $all("[data-live-announce]").forEach(function (announcer) {
+    var line = doc.getElementById(announcer.getAttribute("data-live-announce"));
+    if (!line || typeof MutationObserver === "undefined") return;
+    var was = line.getAttribute("data-state");
+    new MutationObserver(function () {
+      var state = line.getAttribute("data-state");
+      if (state === "stale" && was !== "stale") announcer.textContent = line.textContent;
+      if (state === "ok" && was === "stale") announcer.textContent = "";
+      was = state;
+    }).observe(line, { attributes: true, attributeFilter: ["data-state"], childList: true, characterData: true, subtree: true });
   });
 
   /* ---- Conditional reveal (GOV.UK pattern) ------------------------------- */
@@ -174,18 +263,159 @@
   });
   $all("[data-print]").forEach(function (b) { b.addEventListener("click", function () { window.print(); }); });
 
-  /* ---- Kiosk: idle lock and server heartbeat ----------------------------- */
+  /* ---- Staff: "¿Sigues aquí?" before the idle logout (audit A11Y-04) -------- */
+  // events.middleware logs a staff session out after data-idle-seconds without a request, and typing is not a request.
+  // The countdown starts from the server's last touch (data-idle-remaining, the seconds really left) and is shared by
+  // every tab of the browser (localStorage). Two minutes before the end a notice offers "Seguir aquí"; it, Escape, and
+  // typing or choosing in a form (at most once every two minutes) send one GET to data-idle-ping-url, which touches the
+  // session. An idle page sends nothing until the end, and then only a check that does not touch the session
+  // (?comprobar=1, a background request): Emmaus says the session closed only when the server says so.
   var body = doc.body;
+  var staffIdle = parseInt(body.getAttribute("data-idle-seconds") || "0", 10) * 1000;
+  var pingUrl = body.getAttribute("data-idle-ping-url");
+  if (staffIdle > 0 && pingUrl) {
+    var TOUCH_KEY = "emmaus:staff-touched";
+    var warnBefore = staffIdle > 120000 ? 120000 : staffIdle / 2;
+    var leftAtLoad = parseInt(body.getAttribute("data-idle-remaining") || "", 10);
+    var touched = Date.now() - (isNaN(leftAtLoad) ? 0 : Math.max(0, staffIdle - leftAtLoad * 1000));
+    var lastPing = touched;
+    var notice = null;
+    var noticeReturn = null;
+    var noticeState = "";   // "warn", "offline" or "closed" while the notice is open
+    var ended = false;
+    var checking = false;
+    var sharedTouch = function () {
+      try { return parseInt(window.localStorage.getItem(TOUCH_KEY) || "0", 10) || 0; }
+      catch (err) { return 0; }  // storage blocked: this tab keeps its own countdown, and the server check still decides
+    };
+    var shareTouch = function (when) {
+      touched = Math.max(touched, when);
+      try { if (when > sharedTouch()) window.localStorage.setItem(TOUCH_KEY, String(when)); }
+      catch (err) { return; }  // storage blocked: the other tabs ask the server before they announce anything
+    };
+    shareTouch(touched);
+    var verdict = function (response) {
+      if (response.status === 204) return "alive";
+      if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400) ||
+          response.status === 401 || response.status === 403) return "closed";  // sent to the login page
+      return "offline";  // a 5xx or anything else: the server did not say the session closed
+    };
+    var ask = function (touch) {
+      var url = touch ? pingUrl : pingUrl + (pingUrl.indexOf("?") === -1 ? "?" : "&") + "comprobar=1";
+      // A check goes as a background request, which the middleware never counts as activity
+      var headers = touch ? {} : { "X-Requested-With": "fetch" };
+      return fetch(url, { credentials: "same-origin", cache: "no-store", redirect: "manual", headers: headers }).then(function (response) {
+        var result = verdict(response);
+        var left = parseInt(response.headers.get("X-Idle-Remaining") || "", 10);
+        if (result === "alive" && !isNaN(left)) shareTouch(Date.now() - (staffIdle - left * 1000));
+        return result;
+      }, function () { return "offline"; });  // the request never reached the server
+    };
+    var inWords = function (ms) {
+      var s = Math.max(1, Math.ceil(ms / 1000));
+      if (s >= 90) return Math.round(s / 60) + " minutos";
+      if (s >= 50) return "1 minuto";
+      return Math.ceil(s / 10) * 10 + " segundos";
+    };
+    var TEXTS = {
+      warn: ["¿Sigues aquí?", "", "Seguir aquí"],
+      offline: ["Sin conexión", "No pudimos confirmar tu sesión con el servidor. Lo que escribiste sigue en esta pantalla: revisa la conexión y vuelve a intentar.", "Volver a intentar"],
+      closed: ["Tu sesión se cerró", "Por seguridad cerramos tu sesión. Si escribiste algo que no se guardó, cópialo antes de volver a entrar.", "Volver a entrar"]
+    };
+    var setText = function (el, text) { if (el.textContent !== text) el.textContent = text; };
+    var buildNotice = function () {
+      var d = doc.createElement("dialog");
+      d.className = "dialog";
+      d.setAttribute("data-staff-idle", "");
+      d.setAttribute("role", "alertdialog");
+      d.setAttribute("aria-labelledby", "staff-idle-title");
+      d.setAttribute("aria-describedby", "staff-idle-text");
+      d.innerHTML = '<div class="dialog__body"><h2 id="staff-idle-title"></h2><p id="staff-idle-text"></p></div>' +
+        '<div class="dialog__actions"><button class="btn btn--primary" type="button"></button></div>';
+      $("button", d).addEventListener("click", function () {
+        if (noticeState === "closed") { dirtyForms = []; window.location.assign(window.location.href); return; }  // to the login page
+        d.close();
+      });
+      d.addEventListener("close", function () {  // the button or Escape; a quiet close has already cleared the state
+        var was = noticeState;
+        noticeState = "";
+        if (was === "warn" || was === "offline") touch(true);
+        if (noticeReturn && noticeReturn.focus && doc.contains(noticeReturn)) noticeReturn.focus();
+        noticeReturn = null;
+      });
+      doc.body.appendChild(d);
+      return d;
+    };
+    var show = function (kind, left) {
+      if (!notice) notice = buildNotice();
+      var t = TEXTS[kind];
+      setText($("#staff-idle-title", notice), t[0]);
+      setText($("#staff-idle-text", notice), kind === "warn" ?
+        "Por seguridad, tu sesión se cerrará en " + inWords(left) + " si no hay actividad. Lo que no hayas guardado se perdería." : t[1]);
+      setText($("button", notice), t[2]);
+      noticeState = kind;
+      if (notice.open || typeof notice.showModal !== "function") return;
+      noticeReturn = doc.activeElement;
+      notice.showModal();
+      $("button", notice).focus();
+    };
+    var closeQuietly = function () {  // another tab kept the session open: no ping, no announcement
+      if (!notice || !notice.open || noticeState !== "warn") return;
+      noticeState = "";
+      notice.close();
+    };
+    var touch = function (fromNotice) {
+      var before = touched;
+      lastPing = touched = Date.now();  // at once, so the notice does not come back while the answer is on its way
+      return ask(true).then(function (result) {
+        if (result === "alive") { shareTouch(lastPing); return; }
+        touched = before;
+        if (result === "closed") { ended = true; show("closed"); }
+        else if (fromNotice) show("offline");  // typing offline says nothing now: the notice comes at its time
+      });
+    };
+    var tick = function () {
+      if (ended || checking) return;
+      touched = Math.max(touched, sharedTouch());  // another tab's activity counts
+      if (notice && notice.open && noticeState !== "warn") return;  // "Sin conexión" waits for the person
+      var left = staffIdle - (Date.now() - touched);
+      if (left > warnBefore) { closeQuietly(); return; }
+      if (left > 0) { show("warn", left); return; }
+      checking = true;  // the end: ask the server, without touching the session, before saying anything
+      ask(false).then(function (result) {
+        checking = false;
+        if (result === "closed") { ended = true; show("closed"); }
+        else if (result === "offline") show("offline");
+        // else still open (another tab, or a second of rounding): the countdown moved; the next tick, a second from
+        // now, looks again, so the server is asked at most once a second
+      });
+    };
+    var typed = function (e) {
+      var t = e.target;
+      // Not while the notice is open: opening it takes the focus, and a text box then fires "change" by itself
+      if (ended || (notice && notice.open) || !t || !t.closest || !t.closest("form")) return;
+      if (Date.now() - Math.max(lastPing, touched, sharedTouch()) >= 120000) touch(false);
+    };
+    doc.addEventListener("input", typed);
+    doc.addEventListener("change", typed);
+    window.addEventListener("storage", function (e) { if (e.key === TOUCH_KEY) tick(); });
+    window.setInterval(tick, 1000);
+  }
+
+  /* ---- Kiosk: idle lock and server heartbeat ----------------------------- */
   var idleSeconds = parseInt(body.getAttribute("data-kiosk-idle") || "0", 10);
   if (idleSeconds > 0) {
     var timeoutUrl = body.getAttribute("data-kiosk-timeout-url");
     var heartbeatUrl = body.getAttribute("data-kiosk-heartbeat-url");
     var warning = doc.getElementById("idle-warning");
+    var warningReturn = null;
     var last = Date.now();
     var lastBeat = Date.now();
     function activity() {
+      // While "¿Sigues aquí?" is open only its button or Escape answer it (audit A11Y-05): a key (Tab, an arrow, Shift),
+      // the wheel or a touch elsewhere neither closes it nor restarts the clock, so a screen reader can read it.
+      if (warning && warning.open) return;
       last = Date.now();
-      if (warning && warning.open) warning.close();
       if (heartbeatUrl && Date.now() - lastBeat > 120000) {
         lastBeat = Date.now();
         fetch(heartbeatUrl, { method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": csrfToken() } }).catch(function () {});
@@ -196,12 +426,29 @@
     });
     window.setInterval(function () {
       var idle = (Date.now() - last) / 1000;
-      if (warning && idle > idleSeconds - 60 && !warning.open && typeof warning.showModal === "function") warning.showModal();
+      if (warning && idle > idleSeconds - 60 && !warning.open && typeof warning.showModal === "function") {
+        warningReturn = doc.activeElement;
+        warning.showModal();
+        var answer = $("[data-idle-continue]", warning);
+        if (answer) answer.focus();
+      }
       if (idle > idleSeconds) { dirtyForms = []; window.location.replace(timeoutUrl); }
     }, 5000);
     if (warning) {
+      warning.setAttribute("role", "alertdialog");  // it interrupts: read at once, answered before anything else
+      var warningText = $(".dialog__body p", warning);
+      if (warningText) {
+        if (!warningText.id) warningText.id = "idle-warning-text";
+        warning.setAttribute("aria-describedby", warningText.id);
+      }
       $all("[data-idle-continue]", warning).forEach(function (b) {
-        b.addEventListener("click", function () { lastBeat = 0; activity(); });
+        b.addEventListener("click", function () { warning.close(); });  // Enter, Space, a click or a tap
+      });
+      warning.addEventListener("close", function () {  // the button or Escape: the only answers
+        lastBeat = 0;
+        activity();
+        if (warningReturn && warningReturn.focus && doc.contains(warningReturn)) warningReturn.focus();
+        warningReturn = null;
       });
     }
   }

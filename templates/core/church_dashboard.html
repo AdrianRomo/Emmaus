@@ -57,7 +57,7 @@
                 <p class="row__title"><a class="row__link" href="{% url 'church_question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
                 <p class="row__meta">{{ question.question_text|truncatewords:20 }}</p>
               </div>
-              {% status "pendiente" "Pasada al pastor" %}
+              {% status "pasada_al_pastor" %}
             </li>
           {% endfor %}
         </ul>

@@ -72,7 +72,7 @@
                 <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
                 <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}</p>
               </div>
-              {% if follow_up.status == "completed" %}{% status "completada" follow_up.get_status_display %}{% elif follow_up.status == "in_progress" %}{% status "en_curso" follow_up.get_status_display %}{% else %}{% status "pendiente" follow_up.get_status_display %}{% endif %}
+              {% if follow_up.status == "completed" %}{% status "completada" follow_up.get_status_display %}{% elif follow_up.status == "in_progress" %}{% status "en_curso" follow_up.get_status_display %}{% elif follow_up.status == "cancelled" %}{% status "descartada" follow_up.get_status_display %}{% else %}{% status "pendiente" follow_up.get_status_display %}{% endif %}
             </li>
           {% endfor %}
         </ul>

@@ -6,7 +6,9 @@
 {% with title="Avance "|add:event.of_kind %}
   {% include "events/rotulo/_page_head.html" with title=title meta=event.name secondary_url=interviews_url secondary_label="Ver entrevistas" %}
 {% endwith %}
-<p class="live-status lead-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
+{# The time changes every 30 s and is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
+<p class="live-status lead-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
+<p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>
 <div id="avance-vivo" data-live-url="{% url 'events:progress' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/pastor/_progress_live.html" %}
 </div>

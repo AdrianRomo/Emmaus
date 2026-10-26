@@ -16,6 +16,7 @@ from ..models import (
     AuditEvent,
     Event,
     EventMembership,
+    EventParticipant,
     FollowUp,
     Interview,
     InterviewStatus,
@@ -401,9 +402,18 @@ def admin_home(request, event, access):
     if without_tutor:
         text = "1 coordinador no tiene tutor." if without_tutor == 1 else f"{without_tutor} coordinadores no tienen tutor."
         problems.append((text, "events:assignments"))
+    # "Equipo" in Preparación says "Listo" only when someone can interview and someone reviews them (audit UX-11): no
+    # coordinator is "falta"; a coordinator without a tutor is "revisar" (every coordinator with a tutor implies a tutor).
+    coordinators = roles.get(MembershipRole.COORDINATOR, 0)
+    team_state = "falta" if not coordinators else "revisar" if without_tutor else "listo"
     context = {
         "payload": payload,
         "progress": payload["progress"],
+        # No camperos yet: the next-action panel asks to import or register them (audit UI-03)
+        "no_participants": not EventParticipant.objects.filter(event=event, is_active=True).exists(),
+        "team_state": team_state,
+        # "Cortes" says "Listo" once the scheduler stored its first automatic cutoff; until then "Esperando" (UX-11)
+        "has_automatic_cutoff": ReportSnapshot.objects.filter(event=event, trigger=ReportSnapshot.Trigger.AUTOMATIC).exists(),
         "roles": roles,
         "role_labels": MembershipRole.choices,
         "active_sessions": active_sessions,

@@ -15,7 +15,7 @@
           </div>
           <div class="row__end">
             {% if event.questionnaire_version_id == v.id %}{% status "completada" "En uso" %}{% endif %}
-            {% if v.status == 'borrador' %}{% status "en_curso" v.get_status_display %}{% else %}{% status "pendiente" v.get_status_display %}{% endif %}
+            {% status v.status v.get_status_display %}
           </div>
         </li>
       {% endfor %}

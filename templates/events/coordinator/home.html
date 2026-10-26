@@ -38,7 +38,9 @@
     {% endif %}
   </section>
 
-  <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="polite">Se actualiza automáticamente</p>
+  {# The time is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
+  <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
+  <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>
   <div id="inicio-vivo" data-live-url="{% url 'events:coord_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
     {% include "events/coordinator/_home_live.html" %}
   </div>

@@ -14,7 +14,7 @@
     <button class="btn" type="button" data-deck-next>Siguiente</button>
     <button class="btn" type="button" data-deck-full>Pantalla completa</button>
     <button class="btn" type="button" data-deck-theme aria-pressed="false">Modo noche</button>
-    {% if live %}<span class="deck-controls__count live-status" id="deck-estado" data-state="ok" aria-live="polite">En vivo</span>{% endif %}
+    {% if live %}<span class="deck-controls__count live-status" id="deck-estado" data-state="ok" aria-live="off">En vivo</span><span class="visually-hidden" role="status" aria-live="polite" data-live-announce="deck-estado"></span>{% endif %}
   </nav>
 </main>
 {% endblock %}

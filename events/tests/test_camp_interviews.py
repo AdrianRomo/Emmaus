@@ -26,7 +26,7 @@ from events.services.questionnaire import build_steps, create_questionnaire_from
 from .base import CampFixture
 
 CANCEL_RE = re.compile(r'<a class="btn btn--link" href="([^"]+)">Cancelar</a>')
-SAFETY_LINK_RE = re.compile(r'<a class="row__link" href="([^"]+)">Reportar una situación de riesgo</a>')
+SAFETY_LINK_RE = re.compile(r'<a class="btn btn--secondary btn--danger-outline" href="([^"]+)">Reportar una situación de riesgo</a>')
 RELEASED_HEADING = "La administración liberó esta entrevista"
 RELEASED_BODY = (
     "Esta computadora ya no puede guardar. Para seguir aquí, toca “Tomar el control aquí”; "
