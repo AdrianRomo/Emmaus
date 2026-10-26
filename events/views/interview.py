@@ -17,7 +17,7 @@ from ..services.questionnaire import (
     neighbor_steps,
     visible_steps,
 )
-from .common import ADMIN, COORDINATOR, current_station, event_view
+from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view
 
 
 # ---- view models ----------------------------------------------------------------------------
@@ -98,10 +98,14 @@ def _step_or_404(interview: Interview, number: int):
     raise Http404
 
 
-def _claim_or_conflict(request, access, interview: Interview):
-    """Ensure this browser is the editor; returns a response when it is not."""
+def _claim_or_conflict(request, access, interview: Interview, *, reopen: bool = False):
+    """Ensure this browser is the editor; returns a response when it is not.
+
+    ``reopen`` only for opening the interview on purpose (``interview_resume``): see ``svc.claim``.
+    A released claim (``svc.ClaimReleased``) lands on the same conflict URL, which then says so.
+    """
     try:
-        svc.claim(access, interview, request.session, station=current_station(request, access.event))
+        svc.claim(access, interview, request.session, station=current_station(request, access.event), reopen=reopen)
     except svc.ClaimConflict:
         return redirect("events:interview_conflict", slug=access.event.slug, public_id=interview.public_id)
     except svc.AlreadyCompleted:
@@ -205,12 +209,11 @@ def interview_start(request, event, access, public_id):
     )
 
 
-@event_view(COORDINATOR, ADMIN)
-def interview_resume(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+def _resume(request, event, access, interview: Interview, *, reopen: bool):
+    """Send this browser to where the interview continues, claiming it first."""
     if interview.status != Interview.Status.IN_PROGRESS:
         return redirect("events:interview_detail", slug=event.slug, public_id=interview.public_id)
-    response = _claim_or_conflict(request, access, interview)
+    response = _claim_or_conflict(request, access, interview, reopen=reopen)
     if response:
         return response
     interview.refresh_from_db()
@@ -221,6 +224,12 @@ def interview_resume(request, event, access, public_id):
         if step.question.id not in answers:
             return redirect("events:interview_step", slug=event.slug, public_id=interview.public_id, number=step.number)
     return redirect("events:interview_review", slug=event.slug, public_id=interview.public_id)
+
+
+@event_view(COORDINATOR, ADMIN)
+def interview_resume(request, event, access, public_id):
+    # The links of "Mi inicio", the lists and the camper page land here: opening on purpose.
+    return _resume(request, event, access, _scoped_interview(access, public_id), reopen=True)
 
 
 @event_view(COORDINATOR, ADMIN)
@@ -236,7 +245,16 @@ def interview_conflict(request, event, access, public_id):
             return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
         messages.success(request, "Ahora esta computadora tiene el control de la entrevista.")
         return redirect("events:interview_resume", slug=event.slug, public_id=interview.public_id)
-    return render(request, "events/interview/conflict.html", {"interview": interview, "participant": interview.participant})
+    return render(
+        request,
+        "events/interview/conflict.html",
+        {
+            "interview": interview,
+            "participant": interview.participant,
+            # Nobody else has it: "Liberar" stopped this browser. The page must not say "otra computadora".
+            "released": svc.claim_released_here(interview, request.session),
+        },
+    )
 
 
 # ---- steps --------------------------------------------------------------------------------------
@@ -363,7 +381,8 @@ def interview_review(request, event, access, public_id):
 def interview_done(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if interview.status != Interview.Status.COMPLETED:
-        return redirect("events:interview_resume", slug=event.slug, public_id=public_id)
+        # Not a deliberate "Continuar": a stale "done" tab must not re-open a released claim.
+        return _resume(request, event, access, interview, reopen=False)
     follow_up = interview.follow_ups.filter(kind=FollowUp.Kind.CARE, confidential=False).exclude(status=FollowUp.Status.CANCELLED).first()
     remaining = access.participants().exclude(interview_status=InterviewStatus.COMPLETED).count()
     return render(
@@ -378,9 +397,12 @@ def interview_handoff(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if interview.status != Interview.Status.IN_PROGRESS or not access.can_interview(interview.participant):
         raise Http404
-    response = _claim_or_conflict(request, access, interview) if request.method == "GET" else None
-    if response:
-        return response
+    if request.method == "GET" or not interview.lock_matches(svc.session_claim_token(request.session, interview)):
+        # Like a step: an expired claim is picked up again, a released or taken one is refused.
+        response = _claim_or_conflict(request, access, interview)
+        if response:
+            return response
+        interview.refresh_from_db()
     if request.method == "POST" and request.POST.get("action") == "asistida":
         try:
             svc.switch_to_assisted(access, interview, session=request.session)
@@ -392,6 +414,9 @@ def interview_handoff(request, event, access, public_id):
     if request.method == "POST":
         try:
             svc.hand_over_to_participant(request, access, interview, current_station(request, event))
+        except svc.ClaimLost as exc:
+            messages.error(request, exc.message)
+            return redirect("events:interview_handoff", slug=event.slug, public_id=public_id)
         except svc.InterviewError as exc:
             messages.error(request, exc.message)
             return redirect("events:interview_resume", slug=event.slug, public_id=public_id)
@@ -404,9 +429,19 @@ def interview_discard(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if interview.status != Interview.Status.IN_PROGRESS or not access.can_interview(interview.participant):
         raise Http404
+    if not interview.lock_matches(svc.session_claim_token(request.session, interview)):
+        # Same claim check as a step save: an expired claim is picked up again, a released or taken one is refused.
+        response = _claim_or_conflict(request, access, interview)
+        if response:
+            return response
+        interview.refresh_from_db()
     form = DiscardForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        svc.discard(interview, actor=request.user, reason=form.cleaned_data["reason"], session=request.session)
+        try:
+            svc.discard(interview, actor=request.user, reason=form.cleaned_data["reason"], session=request.session, check_claim=True)
+        except svc.ClaimLost as exc:
+            messages.error(request, exc.message)
+            return redirect("events:interview_conflict", slug=event.slug, public_id=public_id)
         messages.success(request, f"Se descartó la entrevista de {interview.participant.full_name}. Sus respuestas se borraron.")
         return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
     return render(request, "events/interview/discard.html", {"interview": interview, "participant": interview.participant, "form": form})
@@ -453,10 +488,11 @@ def interview_correct(request, event, access, public_id, number):
     interview = _scoped_interview(access, public_id)
     if not access.can_correct(interview):
         raise PermissionDenied
-    step = _step_or_404(interview, number)
-    for question in step.questions:
-        if not access.can_view_answer(interview, question):
-            raise PermissionDenied
+    try:
+        # Per answer, not per screen: the screen shows only the answers this person may read.
+        step = svc.correctable_step(access, interview, _step_or_404(interview, number))
+    except svc.NotAllowed:
+        raise PermissionDenied from None
     errors = {}
     if request.method == "POST":
         try:
@@ -464,6 +500,8 @@ def interview_correct(request, event, access, public_id, number):
         except svc.StaleRevision as exc:
             messages.warning(request, exc.message)
             return redirect(request.path)
+        except svc.NotAllowed:
+            raise PermissionDenied from None
         if not errors:
             messages.success(request, "Corrección guardada. El cambio quedó registrado.")
             return redirect("events:interview_detail", slug=event.slug, public_id=public_id)
@@ -485,15 +523,36 @@ def interview_correct(request, event, access, public_id, number):
 def safety_report(request, event, access, participant_id):
     participant = get_object_or_404(access.participants(include_inactive=True), public_id=participant_id)
     interview = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
+    # "Cancelar" and the redirect after sending go back where the person came from. The only page
+    # they may go back to other than the camper record is this interview's review, and only while
+    # this browser holds the interview: opening the review claims it, which a tutor cannot do and an
+    # administrador must not do by cancelling.
+    allowed = []
+    if (
+        interview
+        and interview.status == Interview.Status.IN_PROGRESS
+        and interview.lock_matches(svc.session_claim_token(request.session, interview))
+    ):
+        allowed.append(reverse("events:interview_review", args=[event.slug, interview.public_id]))
+    back_url = allowlisted_next(
+        request,
+        request.POST.get("siguiente") or request.GET.get("siguiente"),
+        allowed,
+        reverse("events:participant_detail", args=[event.slug, participant.public_id]),
+    )
     form = SafetyReportForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         svc.report_safety_concern(access, participant, details=form.cleaned_data["details"], interview=interview)
         messages.success(request, "El reporte se envió al equipo responsable. Sigue las indicaciones de protección de tu iglesia.")
-        if interview and interview.status == Interview.Status.IN_PROGRESS and access.can_interview(participant):
-            return redirect("events:interview_review", slug=event.slug, public_id=interview.public_id)
-        return redirect("events:participant_detail", slug=event.slug, public_id=participant.public_id)
+        return redirect(back_url)
     return render(
         request,
         "events/interview/safety.html",
-        {"participant": participant, "form": form, "instructions": event.safeguarding_instructions, "interview": interview},
+        {
+            "participant": participant,
+            "form": form,
+            "instructions": event.safeguarding_instructions,
+            "interview": interview,
+            "back_url": back_url,
+        },
     )

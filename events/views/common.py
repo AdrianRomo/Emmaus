@@ -123,3 +123,14 @@ def safe_next(request, candidate: str | None, fallback: str) -> str:
     if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         return candidate
     return fallback
+
+
+def allowlisted_next(request, candidate: str | None, allowed, fallback: str) -> str:
+    """Stricter than ``safe_next``: follow ``candidate`` only if it is exactly one of ``allowed``.
+
+    For a way back that must not open just any page of the site (for example one that would
+    claim an interview). ``allowed`` holds paths the view built itself with ``reverse``.
+    """
+    if candidate and candidate in set(allowed):
+        return safe_next(request, candidate, fallback)
+    return fallback

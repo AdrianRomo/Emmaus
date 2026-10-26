@@ -1,7 +1,14 @@
 {% extends "events/shell_focus.html" %}
 {% load emmaus %}
-{% block page_title %}La entrevista está abierta en otra computadora{% endblock %}
+{% block page_title %}{% if released %}La administración liberó esta entrevista{% else %}La entrevista está abierta en otra computadora{% endif %}{% endblock %}
 {% block content %}
+{% if released %}
+  {% comment %}"Liberar" stopped this browser and nobody has opened the interview since: there is no other computer to describe.{% endcomment %}
+  <header class="page-head">
+    <h1 class="voice page-head__title">La administración liberó esta entrevista</h1>
+    <p class="lede">Esta computadora ya no puede guardar. Para seguir aquí, toca “Tomar el control aquí”; para seguir en otra computadora, ábrela desde “Mi inicio”.</p>
+  </header>
+{% else %}
 <header class="page-head">
   <h1 class="voice page-head__title">Esta entrevista está abierta en otra computadora</h1>
   <p class="lede">Para que no se pierdan respuestas, solo una computadora puede editarla a la vez.</p>
@@ -15,6 +22,7 @@
   <p class="notice__title">Si tomas el control aquí</p>
   <p>La otra computadora ya no podrá guardar cambios. Las respuestas guardadas hasta ahora se conservan.</p>
 </div>
+{% endif %}
 <form method="post" class="step__actions">
   {% csrf_token %}
   <button class="btn btn--primary" type="submit">Tomar el control aquí</button>

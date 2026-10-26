@@ -55,7 +55,7 @@
 <section class="other-actions" aria-labelledby="otras">
   <h2 id="otras" class="heading">Si algo no salió como se esperaba</h2>
   <ul class="rows">
-    <li class="row"><div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p><p class="row__meta">Si el campero contó algo que pone en riesgo su seguridad o la de otra persona.</p></div></li>
+    <li class="row"><div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:safety_report' event.slug participant.public_id %}?siguiente={{ request.path|urlencode }}">Reportar una situación de riesgo</a></p><p class="row__meta">Si el campero contó algo que pone en riesgo su seguridad o la de otra persona.</p></div></li>
     <li class="row"><div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Descartar esta entrevista</a></p><p class="row__meta">Si se abrió por error o el campero ya no quiere continuar. Se borran las respuestas.</p></div></li>
   </ul>
 </section>

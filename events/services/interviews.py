@@ -8,6 +8,10 @@ Concurrency model
      on the interview and which expires after ``CLAIM_MINUTES`` without activity), and
   2. the form's ``revision`` matches the row, so a stale tab cannot overwrite newer answers.
 * Finalizing is idempotent: a repeated submit of a completed interview returns it unchanged.
+* "Liberar" (``revoke_claim``) frees the interview but keeps the released token's hash with no
+  expiry, so the browser that held it is refused (``ClaimReleased``) instead of silently taking
+  it back on its next save. Other browsers may open it; the same browser may too, on purpose,
+  by opening it again (``claim(reopen=True)``) or with "Tomar el control aquí".
 
 Supervised capture (Captura supervisada)
 ----------------------------------------
@@ -18,6 +22,7 @@ one station). Coming back to privileged screens requires the coordinator's passw
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -59,6 +64,7 @@ KIOSK_IDLE_MINUTES = 10
 KIOSK_MAX_MINUTES = 60
 UNLOCK_MAX_ATTEMPTS = 5
 UNLOCK_COOLDOWN_SECONDS = 60
+HIDDEN_BY_CORRECTION = "ocultada por corrección"  # AnswerRevision.reason of an answer a correction hid
 SESSION_LOCKS_KEY = "interview_claims"
 KIOSK_KEY = "kiosk"
 
@@ -84,6 +90,12 @@ class AlreadyInProgress(InterviewError):
 
 class ClaimConflict(InterviewError):
     code = "en_otra_computadora"
+
+
+class ClaimReleased(ClaimConflict):
+    """This browser's claim was released by an administrator ("Sesiones abiertas" → "Liberar")."""
+
+    code = "liberada"
 
 
 class ClaimLost(InterviewError):
@@ -143,6 +155,29 @@ def _clear_claim(interview: Interview) -> None:
     interview.lock_token_hash = ""
     interview.lock_holder = None
     interview.lock_expires_at = None
+
+
+def _release_claim(interview: Interview) -> None:
+    """Free the interview, but keep the released token's hash (with no expiry) on the row.
+
+    Nobody holds it any more (``lock_is_active`` is false), so any browser may open it. The
+    browser that held it is recognized by ``_is_released_claim`` and refused until it opens
+    the interview again on purpose. ``_set_claim`` always sets an expiry and ``_clear_claim``
+    empties the hash, so "hash without expiry" means "released" and nothing else.
+    """
+    interview.lock_holder = None
+    interview.lock_expires_at = None
+
+
+def _is_released_claim(interview: Interview, token: str | None) -> bool:
+    if not (token and interview.lock_token_hash) or interview.lock_expires_at is not None:
+        return False
+    return secrets.compare_digest(interview.lock_token_hash, hash_token(token))
+
+
+def claim_released_here(interview: Interview, session) -> bool:
+    """True when "Liberar" stopped this browser and no other browser has opened the interview since."""
+    return _is_released_claim(interview, session_claim_token(session, interview))
 
 
 def _close_participant_sessions(interview: Interview, reason: str) -> None:
@@ -291,8 +326,14 @@ def start_interview(
     return interview
 
 
-def claim(access, interview: Interview, session, *, take_over: bool = False, station=None) -> Interview:
-    """Make this browser the editor of an in-progress interview."""
+def claim(access, interview: Interview, session, *, take_over: bool = False, station=None, reopen: bool = False) -> Interview:
+    """Make this browser the editor of an in-progress interview.
+
+    ``reopen`` means the person opened the interview on purpose ("Continuar entrevista" on
+    "Mi inicio", a list, the camper page). Only then may a browser whose claim an administrator
+    released pick the interview up again without "Tomar el control aquí"; a save, the review
+    or the hand-over from that browser raise ``ClaimReleased``.
+    """
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("participant").get(pk=interview.pk)
         if locked.status != Interview.Status.IN_PROGRESS:
@@ -305,6 +346,10 @@ def claim(access, interview: Interview, session, *, take_over: bool = False, sta
             locked.lock_expires_at = now + timedelta(minutes=CLAIM_MINUTES)
             locked.save(update_fields=["lock_expires_at"])
             return locked
+        if not (take_over or reopen) and _is_released_claim(locked, token):
+            raise ClaimReleased(
+                "La administración liberó esta entrevista. Esta computadora ya no puede guardar.", interview=locked
+            )
         if locked.lock_is_active(now) and not take_over:
             raise ClaimConflict("Esta entrevista está abierta en otra computadora.", interview=locked)
         was_active = locked.lock_is_active(now)
@@ -463,11 +508,19 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
     return locked
 
 
-def discard(interview: Interview, *, actor, reason: str, session=None) -> Interview:
+def discard(interview: Interview, *, actor, reason: str, session=None, check_claim: bool = False) -> Interview:
+    """Delete every answer and mark the interview discarded.
+
+    With ``check_claim`` (the discard screen), this browser must hold the claim, checked under the
+    row lock like a step save, so a released or taken-over browser cannot discard.
+    """
+    token = session_claim_token(session, interview) if check_claim and session is not None else None
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("participant").get(pk=interview.pk)
         if locked.status != Interview.Status.IN_PROGRESS:
             raise InterviewError("Solo se puede descartar una entrevista en curso.", interview=locked)
+        if check_claim and not locked.lock_matches(token):
+            raise ClaimLost("Esta pantalla ya no tiene el control de la entrevista.", interview=locked)
         # Data minimization: a discarded interview keeps no answers.
         locked.answers.all().delete()
         locked.status = Interview.Status.DISCARDED
@@ -487,7 +540,10 @@ def discard(interview: Interview, *, actor, reason: str, session=None) -> Interv
 
 
 def release_stale_claims(event: Event | None = None) -> int:
-    """Expired claims are already ignored by every check; this just tidies the rows."""
+    """Expired claims are already ignored by every check; this just tidies the rows.
+
+    Released claims have no expiry, so they are left alone and their browser stays refused.
+    """
     qs = Interview.objects.filter(status=Interview.Status.IN_PROGRESS, lock_expires_at__lt=timezone.now())
     if event is not None:
         qs = qs.filter(event=event)
@@ -526,15 +582,33 @@ def update_follow_up_decision(access, interview: Interview, decision: str) -> In
 # ---- corrections --------------------------------------------------------------------------------
 
 
+def correctable_step(access, interview: Interview, step: Step) -> Step:
+    """The part of a screen this person may correct: the answers they can read.
+
+    Corrections are decided per answer, not per screen. A question that shares its screen
+    with a confidential follow-up can be corrected by whoever can read it; the follow-up is
+    left off the correction screen (and out of the form) for anyone without confidential
+    access. A screen whose main question the person cannot read is refused.
+    """
+    if not access.can_view_answer(interview, step.question):
+        raise NotAllowed("Esta respuesta es confidencial. Solo el equipo autorizado puede corregirla.")
+    children = [child for child in step.children if access.can_view_answer(interview, child)]
+    if len(children) == len(step.children):
+        return step
+    return Step(step.number, step.section, step.section_number, step.question, children)
+
+
 def correct_step(access, interview: Interview, step: Step, data, *, reason: str) -> tuple[Interview, dict]:
     reason = (reason or "").strip()
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("participant", "version").get(pk=interview.pk)
         if not access.can_correct(locked):
             raise NotAllowed("No tienes permiso para corregir esta entrevista.")
-        for question in step.questions:
-            if not access.can_view_answer(locked, question):
-                raise NotAllowed("Esta respuesta es confidencial. Solo el equipo autorizado puede corregirla.")
+        # Work from the whole screen whatever the caller passed, then keep what this person may correct.
+        full = next((s for s in build_steps(locked.version) if s.number == step.number), None)
+        if full is None:
+            raise InterviewError("Esa pregunta no existe en esta entrevista.")
+        editable = correctable_step(access, locked, full)
         try:
             posted = int(data.get("revision"))
         except (TypeError, ValueError):
@@ -542,11 +616,30 @@ def correct_step(access, interview: Interview, step: Step, data, *, reason: str)
         if posted != locked.revision:
             raise StaleRevision("Alguien más cambió esta entrevista. Revisa la versión más reciente.", interview=locked)
         answers = load_answers(locked)
-        cleaned, errors = validate_step(step, data, answers)
+        cleaned, errors = validate_step(editable, data, answers)
         if not reason:
             errors["reason"] = "Escribe brevemente por qué corriges esta respuesta."
         if errors:
             return locked, errors
+        editable_ids = {q.id for q in editable.questions}
+        merged = dict(answers)
+        for question_id, value in cleaned.items():
+            if value is None:
+                merged.pop(question_id, None)
+            else:
+                merged[question_id] = value
+        by_id = {q.id: q for q in all_questions(locked.version)}
+        # A follow-up this person cannot read is never written from their form. If the corrected
+        # answer hides it, it goes as on any other save (hidden answers are not kept) and gets a
+        # revision below, like any answer the correction hides.
+        for child in full.children:
+            if child.id not in editable_ids and child.id in answers and not is_visible(child, merged, by_id):
+                cleaned[child.id] = None
+
+        def revision_reason(question_id: int, value) -> str:
+            hidden = value is None and not is_visible(by_id[question_id], merged, by_id)
+            return HIDDEN_BY_CORRECTION if hidden else reason[:200]
+
         changed = []
         for question_id, value in cleaned.items():
             before = answers.get(question_id)
@@ -560,24 +653,36 @@ def correct_step(access, interview: Interview, step: Step, data, *, reason: str)
                     question_id=question_id,
                     previous_option_codes=before_codes,
                     previous_text=before_text,
-                    reason=reason[:200],
+                    reason=revision_reason(question_id, value),
                     changed_by=access.user,
                 )
                 changed.append(question_id)
         if not changed:
             return locked, {}
-        write_answers(locked, cleaned, actor=access.user, by_participant=False)
+        pruned = write_answers(locked, cleaned, actor=access.user, by_participant=False)
+        # Answers on other screens that the correction hid (``_prune_hidden``) leave a revision too.
+        for question_id, before in pruned.items():
+            AnswerRevision.objects.create(
+                interview=locked,
+                question_id=question_id,
+                previous_option_codes=sorted(before.codes),
+                previous_text=before.text,
+                reason=HIDDEN_BY_CORRECTION,
+                changed_by=access.user,
+            )
         locked.revision += 1
         locked.correction_count += 1
         locked.last_corrected_at = timezone.now()
         locked.save(update_fields=["revision", "correction_count", "last_corrected_at"])
+        # Count only answers the person could read: the count must not reveal that a hidden one existed.
+        corrected = len([question_id for question_id in changed if question_id in editable_ids])
         audit.record(
             access.user,
             locked.event,
             "entrevista_corregida",
-            f"Corrigió {len(changed)} respuesta(s) de la entrevista del campero #{locked.participant.code}",
+            f"Corrigió {corrected} respuesta(s) de la entrevista del campero #{locked.participant.code}",
             locked,
-            questions=len(changed),
+            questions=corrected,
         )
     return locked, {}
 
@@ -765,11 +870,17 @@ def revoke_participant_session(participant_session: ParticipantSession, *, actor
 
 
 def revoke_claim(interview: Interview, *, actor) -> None:
+    """"Liberar": free the interview and stop the computer that had it open from saving.
+
+    That computer's next save, review or hand-over is refused (``ClaimReleased``). Another
+    computer opens the interview normally; the same one opens it again from "Mi inicio" or
+    takes control. See ``_release_claim``.
+    """
     with transaction.atomic():
         locked = Interview.objects.select_for_update().get(pk=interview.pk)
         _close_participant_sessions(locked, ParticipantSession.EndReason.REVOKED)
-        _clear_claim(locked)
-        locked.save(update_fields=["lock_token_hash", "lock_holder", "lock_expires_at"])
+        _release_claim(locked)
+        locked.save(update_fields=["lock_holder", "lock_expires_at"])
         audit.record(actor, locked.event, "sesion_revocada", "Liberó una entrevista abierta en otra computadora", locked)
 
 
