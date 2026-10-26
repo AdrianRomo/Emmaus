@@ -180,7 +180,9 @@ class ParticipantDeleteTests(CampFixture):
     def page_html(self, participant, user=None):
         client = self.login(user or self.admin, Client())
         html = client.get(self.url("participant_delete", participant.public_id)).content.decode()
-        return re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', 'name="csrfmiddlewaretoken" value=""', html)
+        html = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', 'name="csrfmiddlewaretoken" value=""', html)
+        # The idle countdown (data-idle-remaining, in seconds) moves on between two requests that straddle a second.
+        return re.sub(r'data-idle-remaining="\d+"', 'data-idle-remaining=""', html)
 
     def test_without_confidential_access_a_confidential_referral_changes_nothing_on_the_page(self):
         """The administration sees what "Seguimiento" shows it, and a sentence that is the same for everyone."""
@@ -188,7 +190,7 @@ class ParticipantDeleteTests(CampFixture):
         before = self.page_html(self.p1)
         self.confidential_referral(self.p1)
         after = self.page_html(self.p1)
-        self.assertEqual(before, after)  # byte for byte, apart from the CSRF token
+        self.assertEqual(before, after)  # byte for byte, apart from the CSRF token and the idle countdown
         self.assertIn("1 seguimiento abierto, 0 reportes de riesgo abiertos, 0 entrevistas.", after)
         self.assertIn(CONFIDENTIAL_SENTENCE, after)
         self.assertNotIn("DETALLE-CONFIDENCIAL", after)
