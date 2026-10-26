@@ -9,8 +9,9 @@
   </div>
   <nav class="deck-controls" aria-label="Controles de la presentación">
     {% comment %}"Salir" returns to where the person came from: a saved cutoff's deck to that cutoff, the live deck to the page
-      that opened it (reports.presentation_live: ?desde=, Reportes by default).{% endcomment %}
-    <a class="btn" href="{% if snapshot %}{% url 'events:report_detail' event.slug snapshot.public_id %}{% else %}{{ exit_url }}{% endif %}">Salir</a>
+      that opened it (reports.presentation_live: ?desde=, Reportes by default). Escape follows the same link (emmaus.js,
+      data-deck-exit); in full screen the first Escape only leaves full screen.{% endcomment %}
+    <a class="btn" data-deck-exit href="{% if snapshot %}{% url 'events:report_detail' event.slug snapshot.public_id %}{% else %}{{ exit_url }}{% endif %}">Salir</a>
     <button class="btn" type="button" data-deck-prev>Anterior</button>
     <span class="deck-controls__count" data-deck-count aria-live="polite">1 de 5</span>
     <button class="btn" type="button" data-deck-next>Siguiente</button>

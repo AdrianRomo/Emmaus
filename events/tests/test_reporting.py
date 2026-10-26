@@ -3,10 +3,11 @@
 import re
 from datetime import datetime, time, timedelta
 from urllib.parse import quote
+from types import SimpleNamespace
 from unittest import mock
 
 from django.core.management import call_command
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 from django.utils import timezone
 
 from events.access import resolve_access
@@ -262,7 +263,7 @@ class PresentationExitTests(CampFixture):
 
     def salir(self, url: str) -> str:
         html = self.client.get(url).content.decode()
-        return re.search(r'<a class="btn" href="([^"]+)">Salir</a>', html).group(1)
+        return re.search(r'<a class="btn" data-deck-exit href="([^"]+)">Salir</a>', html).group(1)  # data-deck-exit: Escape follows it
 
     def test_the_live_deck_returns_to_reports_by_default(self):
         self.login(self.pastor)
@@ -309,3 +310,130 @@ class BackupListWayBackTests(CampFixture):
         response = self.client.get(self.url("backup_list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, f'href="{self.url("home")}">Volver</a>')
+
+
+class HistoryFoldingTests(SimpleTestCase):
+    """events.services.reports.group_history: quiet stretches fold, the newest cutoff and failed cutoffs never do."""
+
+    @staticmethod
+    def snap(completed=10, pending=5, status="listo"):
+        return SimpleNamespace(status=status, data={"progress": {"completed": completed, "pending": pending}})
+
+    @staticmethod
+    def kinds(rows):
+        return [row["kind"] for row in rows]
+
+    def test_three_or_more_unchanged_cutoffs_fold_into_one_row(self):
+        from events.services.reports import group_history
+
+        items = [self.snap(12), self.snap(10), self.snap(10), self.snap(10), self.snap(7)]
+        rows = group_history(items)
+        self.assertEqual(self.kinds(rows), ["corte", "run", "corte"])
+        self.assertEqual(rows[1]["count"], 3)
+        self.assertIs(rows[1]["newest"], items[1])
+        self.assertIs(rows[1]["oldest"], items[3])
+        self.assertEqual(rows[1]["snapshots"], items[1:4])  # newest first, like the list
+
+    def test_the_newest_cutoff_never_folds_even_when_nothing_changed(self):
+        from events.services.reports import group_history
+
+        rows = group_history([self.snap(10) for _ in range(4)])
+        self.assertEqual(self.kinds(rows), ["corte", "run"])
+        self.assertEqual(rows[1]["count"], 3)
+
+    def test_two_unchanged_cutoffs_stay_as_rows(self):
+        from events.services.reports import group_history
+
+        rows = group_history([self.snap(12), self.snap(10), self.snap(10), self.snap(9)])
+        self.assertEqual(self.kinds(rows), ["corte"] * 4)
+
+    def test_a_failed_cutoff_or_a_change_in_pending_ends_a_run(self):
+        from events.services.reports import group_history
+
+        items = [self.snap(12)] + [self.snap(10)] * 3 + [self.snap(10, status="fallido")] + [self.snap(10)] * 3
+        self.assertEqual(self.kinds(group_history(items)), ["corte", "run", "corte", "run"])
+        items = [self.snap(12)] + [self.snap(10, pending=5)] * 2 + [self.snap(10, pending=4)] * 2
+        self.assertEqual(self.kinds(group_history(items)), ["corte"] * 5)
+        self.assertEqual(group_history([]), [])
+
+
+class HistoryPageTests(CampFixture):
+    """The reports history: twelve rows a page, the scope kept by the pager, quiet stretches folded on the page."""
+
+    def make(self, count, completed):
+        """``count`` ready cutoffs two hours apart, newest first; ``completed(i)`` gives the i-th cutoff's count."""
+        scope = event_scope(self.event)
+        payload = build_payload(scope)  # a real payload (the page draws the newest cutoff in full); only the progress varies
+        base = timezone.now().replace(minute=0, second=0, microsecond=0)
+        snaps = []
+        for i in range(count):
+            done = completed(i)
+            progress = {"eligible": 40, "completed": done, "in_progress": 0, "not_started": 40 - done, "pending": 40 - done, "percent": round(done * 100 / 40)}
+            snaps.append(ReportSnapshot.objects.create(
+                event=self.event, scope_key=scope.key, scope_label=scope.label, trigger="automatico", status="listo",
+                cutoff_at=base - timedelta(hours=2 * i), interval_minutes=120, metrics_version="1",
+                data={**payload, "progress": progress},
+            ))
+        return snaps
+
+    @staticmethod
+    def rows(response):
+        body = response.content.decode().split("<tbody>", 1)[1].split("</tbody>", 1)[0]
+        return re.findall(r"<tr[^>]*>", body)
+
+    def test_the_history_is_paginated_twelve_rows_at_a_time(self):
+        self.make(30, lambda i: 30 - i)  # every cutoff different: nothing folds
+        self.login(self.pastor)
+        page1 = self.client.get(self.url("reports"))
+        self.assertContains(page1, "30 cortes, del más reciente al más antiguo. 12 por página.")
+        self.assertEqual(len(self.rows(page1)), 12)
+        self.assertContains(page1, "Página 1 de 3")
+        self.assertContains(page1, 'href="?pagina=2">Siguiente</a>')
+        page3 = self.client.get(self.url("reports") + "?pagina=99")  # out of range: the last page
+        self.assertContains(page3, "Página 3 de 3")
+        self.assertEqual(len(self.rows(page3)), 6)
+        self.assertNotContains(page3, "Siguiente</a>")
+        scope = event_scope(self.event).key
+        scoped = self.client.get(self.url("reports") + f"?alcance={scope}&pagina=2")
+        self.assertContains(scoped, f'href="?alcance={scope}&amp;pagina=3">Siguiente</a>')
+        self.assertContains(scoped, f'href="?alcance={scope}&amp;pagina=1">Anterior</a>')
+
+    def test_a_short_history_has_no_pager(self):
+        self.make(5, lambda i: 30 - i)
+        self.login(self.pastor)
+        response = self.client.get(self.url("reports"))
+        self.assertContains(response, "5 cortes, del más reciente al más antiguo.</p>")
+        self.assertNotContains(response, 'class="pager"')
+
+    def test_a_quiet_stretch_is_one_row_until_it_is_unfolded(self):
+        # newest 15; then five cutoffs at 10 (a quiet evening); then 4 and 3
+        snaps = self.make(8, lambda i: 15 if i == 0 else (10 if i < 6 else 10 - i))
+        self.login(self.pastor)
+        response = self.client.get(self.url("reports"))
+        html = response.content.decode()
+        rows = self.rows(response)
+        self.assertEqual(len(rows), 1 + 1 + 5 + 2)  # newest, the folded row, its five hidden cutoffs, the last two
+        self.assertEqual(sum(1 for r in rows if "hidden" in r), 5)
+        self.assertEqual(sum(1 for r in rows if 'class="table__run"' in r), 1)
+        run_id = f"corte-{snaps[1].public_id}"
+        self.assertContains(response, '<td>Sin cambios</td>')
+        self.assertContains(response, f'<td class="table__actions"><button class="btn btn--small btn--secondary" type="button" data-run-toggle="{run_id}" data-show-label="Mostrar los 5 cortes" data-hide-label="Ocultar los 5 cortes" aria-expanded="false">Mostrar los 5 cortes</button></td>')
+        self.assertEqual(html.count(f'<tr data-run="{run_id}" hidden>'), 5)
+        from events.templatetags.emmaus import fecha_corta, pct
+
+        self.assertContains(response, f'<td class="num">10</td><td class="num">{pct(25)}</td><td class="num">30</td>', count=6)  # the folded row and its five
+        # every cutoff keeps its own Ver / PDF / Presentación, folded or not
+        self.assertEqual(html.count("Presentación<span"), 8)
+        # the folded row names its span, oldest to newest
+        self.assertContains(response, f'<td><span class="keep-together">{fecha_corta(snaps[5].cutoff_at)}</span><br><span class="keep-together">a {fecha_corta(snaps[1].cutoff_at)}</span></td>')
+        self.assertContains(response, "8 cortes, del más reciente al más antiguo.</p>")
+
+    def test_the_stylesheet_and_the_script_unfold_and_degrade(self):
+        from django.conf import settings
+
+        css = (settings.BASE_DIR / "static" / "css" / "rotulo.css").read_text()
+        self.assertIn(".no-js tr[data-run][hidden] { display: table-row; }", css)
+        self.assertIn(".no-js [data-run-toggle] { display: none; }", css)
+        js = (settings.BASE_DIR / "static" / "js" / "emmaus.js").read_text()
+        self.assertIn('$all("[data-run-toggle]")', js)
+        self.assertIn('row.hidden = !open', js)

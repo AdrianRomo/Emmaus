@@ -57,20 +57,23 @@
 <section class="report-section" aria-labelledby="historial">
   <div class="report-section__q">
     <h2 id="historial" class="voice report-section__title">Historial</h2>
-    <p class="report-section__answer">{% if history %}{{ history|length }} corte{{ history|length|pluralize }}, del más reciente al más antiguo.{% else %}Todavía no hay cortes.{% endif %}</p>
+    <p class="report-section__answer">{% if history_total %}{{ history_total }} corte{{ history_total|pluralize }}, del más reciente al más antiguo.{% if history_page.paginator.num_pages > 1 %} {{ history_page.paginator.per_page }} por página.{% endif %}{% else %}Todavía no hay cortes.{% endif %}</p>
   </div>
   <div class="report-section__body">
-    {% if history %}
+    {% if history_total %}
+      {% comment %}A quiet stretch (events.services.reports.group_history: three or more cutoffs in a row with the same
+        completed and pending counts) is one row; "Mostrar los N cortes" (emmaus.js) unfolds its cutoffs, which are
+        ordinary rows kept hidden. Without JS nothing is hidden (rotulo.css). The newest cutoff never folds.{% endcomment %}
       <div class="table-wrap" tabindex="0" role="region" aria-label="Historial de cortes"><table class="table">
         <thead><tr><th scope="col">Corte</th><th scope="col">Tipo</th><th scope="col" class="num">Completadas</th><th scope="col" class="num">Avance</th><th scope="col" class="num">Pendientes</th><th scope="col" class="table__actions"><span class="visually-hidden">Acciones</span></th></tr></thead>
-        <tbody>{% for s in history %}<tr>
-          <td class="keep-together">{{ s.cutoff_at|fecha_corta }}</td>
-          <td>{{ s.get_trigger_display }}{% if s.status == "fallido" %} <span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>No se generó</span>{% endif %}</td>
-          {% if s.status == "listo" %}<td class="num">{{ s.data.progress.completed }}</td><td class="num">{{ s.data.progress.percent|pct }}</td><td class="num">{{ s.data.progress.pending }}</td>
-          <td class="table__actions"><a href="{% url 'events:report_detail' event.slug s.public_id %}">Ver<span class="visually-hidden"> el corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_pdf' event.slug s.public_id %}">PDF<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a><a href="{% url 'events:report_presentation' event.slug s.public_id %}">Presentación<span class="visually-hidden"> del corte de las {{ s.cutoff_at|date:"H:i" }}</span></a></td>
-          {% else %}<td colspan="4" class="muted">{% if access.is_admin %}{{ s.error|truncatechars:80 }}{% else %}Genera uno nuevo con “Generar corte ahora”.{% endif %}</td>{% endif %}
-        </tr>{% endfor %}</tbody>
+        <tbody>{% for row in history_page %}{% if row.kind == "run" %}<tr class="table__run">
+          <td><span class="keep-together">{{ row.oldest.cutoff_at|fecha_corta }}</span><br><span class="keep-together">a {{ row.newest.cutoff_at|fecha_corta }}</span></td>
+          <td>Sin cambios</td>
+          <td class="num">{{ row.newest.data.progress.completed }}</td><td class="num">{{ row.newest.data.progress.percent|pct }}</td><td class="num">{{ row.newest.data.progress.pending }}</td>
+          <td class="table__actions"><button class="btn btn--small btn--secondary" type="button" data-run-toggle="corte-{{ row.newest.public_id }}" data-show-label="Mostrar los {{ row.count }} cortes" data-hide-label="Ocultar los {{ row.count }} cortes" aria-expanded="false">Mostrar los {{ row.count }} cortes</button></td>
+        </tr>{% for s in row.snapshots %}<tr data-run="corte-{{ row.newest.public_id }}" hidden>{% include "events/reports/_history_cells.html" with s=s %}</tr>{% endfor %}{% else %}<tr>{% include "events/reports/_history_cells.html" with s=row.snapshot %}</tr>{% endif %}{% endfor %}</tbody>
       </table></div>
+      {% include "events/rotulo/_pagination.html" with page=history_page %}
     {% else %}
       <p class="empty-line">Los cortes se generan solos durante el horario configurado. También puedes generar uno ahora.</p>
     {% endif %}

@@ -453,6 +453,16 @@
     }
   }
 
+  /* ---- Folded rows ("Mostrar los N cortes", the reports history) ---------- */
+  $all("[data-run-toggle]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var open = b.getAttribute("aria-expanded") !== "true";
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+      b.textContent = b.getAttribute(open ? "data-hide-label" : "data-show-label") || b.textContent;
+      $all('[data-run="' + b.getAttribute("data-run-toggle") + '"]').forEach(function (row) { row.hidden = !open; });
+    });
+  });
+
   /* ---- Presentation deck ------------------------------------------------- */
   var deck = $(".deck");
   if (deck) {
@@ -479,6 +489,7 @@
       var target = e.target && e.target.closest ? e.target : null;
       if (target && target.closest("input, textarea, select, [contenteditable]")) return;
       if (target && (e.key === " " || e.key === "Enter") && target.closest("button, a, summary")) return;
+      if (e.key === "Escape") { leave(); return; }
       if (["ArrowRight", "PageDown", " "].indexOf(e.key) !== -1) { e.preventDefault(); show(index + 1); }
       if (["ArrowLeft", "PageUp"].indexOf(e.key) !== -1) { e.preventDefault(); show(index - 1); }
       if (e.key === "Home") show(0);
@@ -491,6 +502,15 @@
       if (!doc.fullscreenElement && deck.requestFullscreen) deck.requestFullscreen().catch(function () {});
       else if (doc.exitFullscreen) doc.exitFullscreen();
     }
+    // Escape goes back to where the presentation was opened from ("Salir", data-deck-exit). In full screen the
+    // browser itself answers the first Escape by leaving full screen (and may or may not hand the key to the page),
+    // so an Escape while full screen, or within a second of leaving it, only leaves full screen; the next one exits.
+    var exitLink = deck.querySelector("[data-deck-exit]");
+    var leftFullAt = 0;
+    function leave() {
+      if (doc.fullscreenElement || Date.now() - leftFullAt < 1000) return;
+      if (exitLink) window.location.assign(exitLink.href);
+    }
     $all("[data-deck-full]").forEach(function (b) { b.addEventListener("click", toggleFull); });
     // A pointer click on a toolbar button leaves the focus there: the deck (tabindex -1) takes it back, so a clicker's
     // keys (Space included) reach the slides. A button pressed from the keyboard (detail 0) keeps the focus, so
@@ -502,6 +522,7 @@
       });
     });
     doc.addEventListener("fullscreenchange", function () {
+      if (!doc.fullscreenElement) leftFullAt = Date.now();
       $all("[data-deck-full]").forEach(function (b) { b.textContent = doc.fullscreenElement ? "Salir de pantalla completa" : "Pantalla completa"; });
     });
     var idleTimer = null;
@@ -510,8 +531,11 @@
       window.clearTimeout(idleTimer);
       idleTimer = window.setTimeout(function () { deck.classList.add("is-idle"); }, 3000);
     }
+    // The bar hides 3 s after the pointer last moved and stays hidden while the presenter uses the keys: a clicker's
+    // arrows must not bring it back over the slide. Moving the pointer or touching the screen shows it again, and
+    // a control that has the focus keeps it visible (rotulo.css).
     doc.addEventListener("mousemove", wake);
-    doc.addEventListener("keydown", wake);
+    doc.addEventListener("touchstart", wake, { passive: true });
     wake();
     deck.addEventListener("emmaus:updated", function () { show(index); });
 

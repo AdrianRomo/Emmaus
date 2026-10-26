@@ -408,7 +408,7 @@ Los pastores y la administración ven los cortes de todo el campamento y de cada
 
 ### La pantalla de Reportes
 
-En **"Reportes"** ves el último corte, la hora del próximo y el historial.
+En **"Reportes"** ves el último corte, la hora del próximo y el historial. El historial muestra doce cortes por página (**"Anterior"** y **"Siguiente"** abajo). Cuando tres o más cortes seguidos tienen las mismas cifras (por ejemplo durante la noche), se agrupan en una sola línea **"Sin cambios"** con sus horas y sus cifras: toca **"Mostrar los N cortes"** para verlos uno por uno. El corte más reciente siempre va solo.
 
 ![Reportes](img/reportes.png)
 
@@ -427,8 +427,8 @@ Sirve para proyectar el avance en una reunión del equipo.
 
 1. Toca **"Mostrar presentación"** (en "Resumen general" o en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial o **"Mostrar presentación"** en el corte.
 2. Toca **"Pantalla completa"** (o la tecla **F**). Si el salón está oscuro, toca **"Modo noche"**: fondo azul oscuro y letra clara. Emmaus recuerda tu elección en esa computadora.
-3. Avanza con la **flecha derecha** o **"Siguiente"**; regresa con la **flecha izquierda** o **"Anterior"**.
-4. Toca **"Salir"** al terminar: vuelves a la página desde la que abriste la presentación (Reportes o tu resumen). La presentación de un corte guardado vuelve a ese corte.
+3. Avanza con la **flecha derecha** o **"Siguiente"**; regresa con la **flecha izquierda** o **"Anterior"**. La barra de botones se oculta sola a los tres segundos y las teclas no la vuelven a mostrar: mueve el ratón (o toca la pantalla) para verla.
+4. Toca **"Salir"** o la tecla **Esc** al terminar: vuelves a la página desde la que abriste la presentación (Reportes o tu resumen). En pantalla completa, la primera **Esc** solo sale de la pantalla completa; la segunda vuelve a la página. La presentación de un corte guardado vuelve a ese corte.
 
 ![Modo presentación](img/presentacion.png)
 

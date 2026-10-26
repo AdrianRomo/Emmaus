@@ -1278,6 +1278,12 @@ ol.promises li::before {
    padding. The side padding widens each target and replaces the gap between them; the outer margins keep the
    first and last words where they were. */
 .table tr:has(.table__actions) > td { padding-block: calc((2.75rem - 1lh) / 2); }
+/* Reports history: a quiet stretch folds into one sunken row (events.services.reports.group_history) whose cutoffs are
+   hidden rows that "Mostrar los N cortes" (emmaus.js) unfolds. Without JS nothing folds: the rows show, the button goes. */
+.table__run > td { background: var(--hundido); }
+.table__run .btn { white-space: nowrap; }  /* in the actions column, where "Ver PDF Presentación" would be */
+.no-js tr[data-run][hidden] { display: table-row; }
+.no-js [data-run-toggle] { display: none; }
 .table__actions a {
   display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem;
   padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); padding-inline: var(--s-2);
