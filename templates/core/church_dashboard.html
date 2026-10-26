@@ -4,11 +4,13 @@
 {% block content %}
 {% comment %}
   Reads like the pastor's summary: each section is a question with a one-line answer on the left and the
-  evidence on the right. The sign appears only when escalated questions are waiting for a pastoral answer.
+  evidence on the right, in the order of what to do: questions, follow-ups, who went quiet, who needs a mentor,
+  then the figures and the latest notes. The sign appears only when escalated questions are waiting for a pastoral
+  answer.
 {% endcomment %}
 {% url 'create_invitation' as invite_url %}
 {% if escalated_questions %}
-  {% include "events/rotulo/_page_head.html" with title="Panorama del ministerio" lede="Preguntas, seguimientos, mentores y actividad reciente de tu iglesia en un solo lugar." meta=church.name secondary_url=invite_url secondary_label="Invitar a una persona" %}
+  {% include "events/rotulo/_page_head.html" with title="Panorama del ministerio" lede="Las preguntas y los seguimientos que esperan, quién se quedó callado y quién espera un mentor, en un solo lugar." meta=church.name secondary_url=invite_url secondary_label="Invitar a una persona" %}
   <section class="sign church-sign" aria-labelledby="que-sigue">
     {% if escalated_questions == 1 and escalated_questions_list %}
       {% with question=escalated_questions_list.0 %}
@@ -23,23 +25,8 @@
     {% endif %}
   </section>
 {% else %}
-  {% include "events/rotulo/_page_head.html" with title="Panorama del ministerio" lede="Preguntas, seguimientos, mentores y actividad reciente de tu iglesia en un solo lugar." meta=church.name action_url=invite_url action_label="Invitar a una persona" %}
+  {% include "events/rotulo/_page_head.html" with title="Panorama del ministerio" lede="Las preguntas y los seguimientos que esperan, quién se quedó callado y quién espera un mentor, en un solo lugar." meta=church.name action_url=invite_url action_label="Invitar a una persona" %}
 {% endif %}
-
-<section class="report-section church-report" aria-labelledby="como-va">
-  <div class="report-section__q">
-    <h2 id="como-va" class="voice report-section__title">¿Cómo va el discipulado?</h2>
-    <p class="report-section__answer">{% if participant_count %}{{ participant_count }} participante{{ participant_count|pluralize }} en una ruta{% if new_this_week %}; {{ new_this_week }} {{ new_this_week|pluralize:"llegó,llegaron" }} esta semana{% endif %}.{% else %}Todavía no hay participantes.{% endif %}</p>
-  </div>
-  <div class="report-section__body">
-    <dl class="figures">
-      <div><dt>Participantes activos</dt><dd class="figures__value">{{ participant_count }}</dd><dd class="figures__note">recorren hoy una ruta en Emmaus</dd></div>
-      <div><dt>Nuevos esta semana</dt><dd class="figures__value">{{ new_this_week }}</dd><dd class="figures__note">llegaron hace poco</dd></div>
-      <div><dt>Sin mentor</dt><dd class="figures__value">{{ waiting_for_mentor }}</dd><dd class="figures__note">esperan a alguien que los acompañe</dd></div>
-      <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ open_follow_ups }}</dd><dd class="figures__note">para platicar o recibir cuidado</dd></div>
-    </dl>
-  </div>
-</section>
 
 <section class="report-section church-report" aria-labelledby="preguntas">
   <div class="report-section__q">
@@ -70,10 +57,70 @@
   </div>
 </section>
 
+<section class="report-section church-report" aria-labelledby="seguimientos">
+  <div class="report-section__q">
+    <h2 id="seguimientos" class="voice report-section__title">¿Qué seguimientos siguen pendientes?</h2>
+    <p class="report-section__answer">{% if open_follow_ups %}{{ open_follow_ups }} seguimiento{{ open_follow_ups|pluralize }} para platicar o recibir cuidado.{% else %}Ninguno por ahora.{% endif %}</p>
+  </div>
+  <div class="report-section__body">
+    <div>
+      <h3 class="heading">Seguimientos pendientes <span class="count">{{ open_follow_ups }}</span></h3>
+      {% if open_follow_ups_list %}
+        <ul class="rows">
+          {% for follow_up in open_follow_ups_list %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+                <p class="row__meta">{{ follow_up.reason|truncatewords:16 }}</p>
+                <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"sin asignar" }}</p>
+              </div>
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="more"><a href="{% url 'church_follow_up_list' %}">Ver todos los seguimientos</a></p>
+      {% else %}
+        <p class="empty-line">No hay seguimientos pendientes. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% comment %}Who went quiet: more than seven days without a lesson, an answer or a question (the quietest first).{% endcomment %}
+<section class="report-section church-report" aria-labelledby="callado">
+  <div class="report-section__q">
+    <h2 id="callado" class="voice report-section__title">¿Quién se quedó callado?</h2>
+    <p class="report-section__answer">{% if inactive_count %}{{ inactive_count }} participante{{ inactive_count|pluralize }} lleva{{ inactive_count|pluralize:"n" }} más de 7 días sin actividad.{% elif participant_count %}Nadie lleva más de 7 días sin actividad.{% else %}Todavía no hay participantes.{% endif %}</p>
+  </div>
+  <div class="report-section__body">
+    <div>
+      <h3 class="heading">Sin actividad en 7 días <span class="count">{{ inactive_count }}</span></h3>
+      {% if inactive_profiles %}
+        <ul class="rows">
+          {% for profile in inactive_profiles %}
+            {% with name=profile.user.get_full_name|default:profile.user.email %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ name }}</p>
+                <p class="row__meta">Última actividad {{ profile.activity_ago }}.</p>
+              </div>
+              <a class="btn btn--secondary btn--small" href="{% url 'participant_detail' profile.id %}">Ver<span class="visually-hidden"> a {{ name }}</span></a>
+            </li>
+            {% endwith %}
+          {% endfor %}
+        </ul>
+        {% if inactive_count > inactive_profiles|length %}<p class="more"><a href="{% url 'participants_list' %}">Ver a todos los participantes</a></p>{% endif %}
+      {% else %}
+        <p class="empty-line">Aquí aparecerán quienes lleven más de 7 días sin actividad, para que alguien los busque.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
 <section class="report-section church-report" aria-labelledby="mentores">
   <div class="report-section__q">
     <h2 id="mentores" class="voice report-section__title">¿Quién espera un mentor?</h2>
-    <p class="report-section__answer">{% if waiting_for_mentor %}{{ waiting_for_mentor }} participante{{ waiting_for_mentor|pluralize }}. Asigna a alguien que pueda acompañar a cada uno.{% else %}Nadie: todos tienen mentor.{% endif %}</p>
+    <p class="report-section__answer">{% if waiting_for_mentor %}{{ waiting_for_mentor }} participante{{ waiting_for_mentor|pluralize }}. Asigna a alguien que pueda acompañar a cada uno.{% elif participant_count %}Nadie: todos tienen mentor.{% else %}Todavía no hay participantes.{% endif %}</p>
   </div>
   <div class="report-section__body">
     <div>
@@ -89,64 +136,33 @@
         </ul>
         {% if waiting_for_mentor > participants_without_mentor|length %}<p class="more"><a href="{% url 'participants_list' %}">Ver a todos los participantes</a></p>{% endif %}
       {% else %}
-        <p class="empty-line">Todos tienen mentor. Aquí aparecerán los participantes que todavía no tengan mentor.</p>
+        <p class="empty-line">{% if participant_count %}Todos tienen mentor. {% endif %}Aquí aparecerán los participantes que todavía no tengan mentor.</p>
       {% endif %}
     </div>
   </div>
 </section>
 
-<section class="report-section church-report" aria-labelledby="seguimientos">
+<section class="report-section church-report" aria-labelledby="como-va">
   <div class="report-section__q">
-    <h2 id="seguimientos" class="voice report-section__title">¿Qué seguimientos siguen abiertos?</h2>
-    <p class="report-section__answer">{% if open_follow_ups %}{{ open_follow_ups }} solicitud{{ open_follow_ups|pluralize:"es" }} para platicar o recibir cuidado.{% else %}Ninguno por ahora.{% endif %}</p>
+    <h2 id="como-va" class="voice report-section__title">¿Cómo va el discipulado?</h2>
+    <p class="report-section__answer">{% if participant_count %}{{ on_a_path }} de {{ participant_count }} participante{{ participant_count|pluralize }} recorre{{ on_a_path|pluralize:"n" }} hoy una ruta.{% if new_this_week %} {{ new_this_week }} {{ new_this_week|pluralize:"llegó,llegaron" }} esta semana.{% endif %}{% else %}Todavía no hay participantes.{% endif %}</p>
   </div>
   <div class="report-section__body">
-    <div>
-      <h3 class="heading">Solicitudes de seguimiento <span class="count">{{ open_follow_ups }}</span></h3>
-      {% if open_follow_ups_list %}
-        <ul class="rows">
-          {% for follow_up in open_follow_ups_list %}
-            <li class="row">
-              <div class="row__main">
-                <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
-                <p class="row__meta">{{ follow_up.reason|truncatewords:16 }}</p>
-                <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"sin asignar" }}</p>
-              </div>
-              {% if follow_up.status == "in_progress" %}{% status "en_curso" follow_up.get_status_display %}{% else %}{% status "pendiente" follow_up.get_status_display %}{% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-        <p class="more"><a href="{% url 'church_follow_up_list' %}">Ver todos los seguimientos</a></p>
-      {% else %}
-        <p class="empty-line">No hay seguimientos abiertos. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
-      {% endif %}
-    </div>
+    <dl class="figures">
+      <div><dt>Participantes</dt><dd class="figures__value">{{ participant_count }}</dd><dd class="figures__note">tienen cuenta en Emmaus</dd></div>
+      <div><dt>En una ruta</dt><dd class="figures__value">{{ on_a_path }}</dd><dd class="figures__note">recorren hoy una ruta</dd></div>
+      <div><dt>Sin mentor</dt><dd class="figures__value">{{ waiting_for_mentor }}</dd><dd class="figures__note">esperan a alguien que los acompañe</dd></div>
+      <div><dt>Nuevos esta semana</dt><dd class="figures__value">{{ new_this_week }}</dd><dd class="figures__note">llegaron hace poco</dd></div>
+    </dl>
   </div>
 </section>
 
-<section class="report-section church-report" aria-labelledby="semana">
+<section class="report-section church-report" aria-labelledby="notas">
   <div class="report-section__q">
-    <h2 id="semana" class="voice report-section__title">¿Qué se movió esta semana?</h2>
-    <p class="report-section__answer">{% if recent_active_profiles %}Quién entró en los últimos siete días y las notas pastorales más recientes.{% else %}Todavía no hay actividad reciente.{% endif %}</p>
+    <h2 id="notas" class="voice report-section__title">¿Qué anotaron los líderes?</h2>
+    <p class="report-section__answer">{% if recent_notes %}Las notas pastorales más recientes de tu iglesia.{% else %}Todavía no hay notas pastorales.{% endif %}</p>
   </div>
   <div class="report-section__body">
-    <div>
-      <h3 class="heading">Actividad reciente</h3>
-      {% if recent_active_profiles %}
-        <ul class="rows">
-          {% for profile in recent_active_profiles %}
-            <li class="row">
-              <div class="row__main">
-                <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ profile.user.get_full_name|default:profile.user.email }}</a></p>
-                <p class="row__meta">Última actividad: {{ profile.last_activity|date:"j b Y" }}</p>
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="empty-line">Aquí verás el movimiento de los participantes cuando empiecen a usar Emmaus.</p>
-      {% endif %}
-    </div>
     <div>
       <h3 class="heading">Notas pastorales recientes</h3>
       {% if recent_notes %}
@@ -162,7 +178,7 @@
         </ul>
         <p class="more"><a href="{% url 'notes_list' %}">Ver todas las notas pastorales</a></p>
       {% else %}
-        <p class="empty-line">Todavía no hay notas pastorales. Aquí aparecerán las notas privadas que escriban pastores o mentores.</p>
+        <p class="empty-line">Aquí aparecerán las notas privadas que escriban pastores o mentores.</p>
       {% endif %}
     </div>
   </div>

@@ -15,7 +15,7 @@
             <p class="row__meta">{{ path.description|default:"Todavía no tiene descripción."|truncatewords:28 }}</p>
             <p class="row__meta">{% if path.lesson_count == 1 %}1 lección{% else %}{{ path.lesson_count }} lecciones{% endif %}{% if path.is_default %}, ruta predeterminada{% endif %}</p>
           </div>
-          {% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "pendiente" "Inactiva" %}{% endif %}
+          {% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %}
         </li>
       {% endfor %}
     </ul>

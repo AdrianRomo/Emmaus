@@ -49,6 +49,11 @@ def use_tu_error_messages(field: forms.Field) -> None:
     field.error_messages.update(messages)
 
 
+def person_label(user: User) -> str:
+    """How a person reads in a select: "Nombre Apellido", never the e-mail (User.__str__ is the username, an e-mail)."""
+    return user.get_full_name() or "Persona sin nombre"
+
+
 class TuErrorMessagesMixin:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -338,6 +343,7 @@ class InvitationForm(TuErrorMessagesMixin, forms.ModelForm):
         )
         self.fields["assigned_mentor"].required = False
         self.fields["assigned_mentor"].empty_label = "Sin mentor por ahora"
+        self.fields["assigned_mentor"].label_from_instance = person_label
         self.fields["assigned_mentor"].help_text = "Solo aplica cuando invitas a un participante."
         self.fields["path"].queryset = church.paths.filter(is_active=True).order_by("-is_default", "title")
         self.fields["path"].required = False
@@ -515,12 +521,12 @@ class ParticipantFollowUpForm(TuErrorMessagesMixin, forms.Form):
 class FollowUpRequestForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = FollowUpRequest
-        fields = ["participant", "assigned_to", "reason", "status", "due_date"]
+        # No "status": a new follow-up is always pending (the model's default); "Marcar como atendido" ends it.
+        fields = ["participant", "assigned_to", "reason", "due_date"]
         labels = {
             "participant": "Participante",
             "assigned_to": "Responsable",
             "reason": "Motivo del seguimiento",
-            "status": "Estado",
             "due_date": "Fecha límite",
         }
         help_texts = {
@@ -538,6 +544,7 @@ class FollowUpRequestForm(TuErrorMessagesMixin, forms.ModelForm):
             "first_name", "last_name", "email"
         )
         self.fields["participant"].empty_label = "Elige a una persona"
+        self.fields["participant"].label_from_instance = person_label
         leader_ids = church.user_roles.filter(role__in=[Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR]).values_list(
             "user_id", flat=True
         )
@@ -546,6 +553,7 @@ class FollowUpRequestForm(TuErrorMessagesMixin, forms.ModelForm):
         )
         self.fields["assigned_to"].required = False
         self.fields["assigned_to"].empty_label = "Sin asignar"
+        self.fields["assigned_to"].label_from_instance = person_label
 
 
 class PastoralNoteForm(TuErrorMessagesMixin, forms.ModelForm):
@@ -570,6 +578,7 @@ class AssignMentorForm(TuErrorMessagesMixin, forms.Form):
         super().__init__(*args, **kwargs)
         mentor_ids = church.user_roles.filter(role=Role.MENTOR).values_list("user_id", flat=True)
         self.fields["mentor"].queryset = User.objects.filter(id__in=mentor_ids).order_by("first_name", "last_name", "email")
+        self.fields["mentor"].label_from_instance = person_label
 
 
 class AIDraftReviewForm(TuErrorMessagesMixin, forms.ModelForm):

@@ -46,6 +46,7 @@ class Command(BaseCommand):
                 "name": "Iglesia de demostración Emmaus",
                 "contact_email": "hello@example.org",
                 "public_welcome_text": "Te damos la bienvenida al espacio de demostración de Emmaus.",
+                "discipleship_enabled": True,
             },
         )
         people = {

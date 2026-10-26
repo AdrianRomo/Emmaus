@@ -25,32 +25,35 @@ def current_role(request):
             {"label": "Mi camino", "url": reverse("participant_dashboard"), "names": ["participant_dashboard"]},
             {"label": "Preguntas", "url": reverse("participant_questions"), "names": ["participant_questions", "participant_question_detail", "ask_question"]},
             {"label": "Pedir una conversación", "url": reverse("request_follow_up"), "names": ["request_follow_up"]},
-            {"label": "Mi cuenta", "url": reverse("participant_dashboard"), "names": []},
         ]
-        summary = progress_for_participant(request.user)
-        if summary.current_progress:
+        # "Lección actual" only while there is one: once the path is done, current_progress is its last lesson, finished.
+        current = progress_for_participant(request.user).current_progress
+        if current and not current.completed_at:
             nav_items.insert(
                 1,
                 {
                     "label": "Lección actual",
-                    "url": reverse("participant_lesson", kwargs={"lesson_id": summary.current_progress.lesson_id}),
+                    "url": reverse("participant_lesson", kwargs={"lesson_id": current.lesson_id}),
                     "names": ["participant_lesson"],
                 },
             )
     elif role == Role.MENTOR:
+        # One item per page: the mentor's people and their questions are on the home and open from it.
         nav_items = [
-            {"label": "Inicio", "url": reverse("mentor_dashboard"), "names": ["mentor_dashboard"]},
-            {"label": "Mis participantes", "url": f"{reverse('mentor_dashboard')}#assigned-participants", "names": ["participant_detail"]},
-            {"label": "Preguntas", "url": f"{reverse('mentor_dashboard')}#open-questions", "names": ["question_detail"]},
+            {"label": "Inicio", "url": reverse("mentor_dashboard"), "names": ["mentor_dashboard", "participant_detail", "question_detail"]},
             {"label": "Seguimientos", "url": reverse("follow_up_list"), "names": ["follow_up_list"]},
-            {"label": "Notas pastorales", "url": f"{reverse('mentor_dashboard')}#assigned-participants", "names": []},
         ]
+    elif role in (Role.PASTOR, Role.CHURCH_ADMIN) and not context["current_church"].discipleship_enabled:
+        # The module is off (Church.discipleship_enabled): none of its pages in the bar. The admin keeps the church settings,
+        # where the module is switched on.
+        if role == Role.CHURCH_ADMIN:
+            nav_items = [{"label": "Configuración", "url": reverse("church_settings"), "names": ["church_settings", "user_list"]}]
     elif role == Role.PASTOR:
         nav_items = [
             {"label": "Inicio", "url": reverse("church_dashboard"), "names": ["church_dashboard"]},
             {"label": "Participantes", "url": reverse("participants_list"), "names": ["participants_list", "participant_detail", "assign_mentor"]},
             {"label": "Preguntas", "url": reverse("questions_inbox"), "names": ["questions_inbox", "church_question_detail"]},
-            {"label": "Preguntas para el pastor", "url": reverse("escalations"), "names": ["escalations"]},
+            {"label": "Para el pastor", "url": reverse("escalations"), "names": ["escalations"]},
             {"label": "Seguimientos", "url": reverse("church_follow_up_list"), "names": ["church_follow_up_list"]},
             {"label": "Notas pastorales", "url": reverse("notes_list"), "names": ["notes_list"]},
         ]
@@ -59,8 +62,11 @@ def current_role(request):
             {"label": "Inicio", "url": reverse("church_dashboard"), "names": ["church_dashboard"]},
             {"label": "Participantes", "url": reverse("participants_list"), "names": ["participants_list", "participant_detail", "assign_mentor"]},
             {"label": "Invitaciones", "url": reverse("invitations_list"), "names": ["invitations_list", "create_invitation"]},
-            {"label": "Rutas", "url": reverse("path_list"), "names": ["path_list", "path_detail", "path_create", "path_edit"]},
-            {"label": "Lecciones", "url": reverse("path_list"), "names": ["lesson_create", "lesson_edit", "reflection_question_create"]},
+            {
+                "label": "Rutas",
+                "url": reverse("path_list"),
+                "names": ["path_list", "path_detail", "path_create", "path_edit", "lesson_create", "lesson_edit", "reflection_question_create"],
+            },
             {"label": "Preguntas", "url": reverse("questions_inbox"), "names": ["questions_inbox", "church_question_detail"]},
             {"label": "Seguimientos", "url": reverse("church_follow_up_list"), "names": ["church_follow_up_list"]},
             {"label": "Configuración", "url": reverse("church_settings"), "names": ["church_settings", "user_list"]},

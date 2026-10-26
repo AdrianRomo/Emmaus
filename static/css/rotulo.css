@@ -1175,6 +1175,21 @@ ol.promises li::before {
   .participant-progress .row__main { flex-basis: 100%; }
 }
 
+/* Invitations as rows: a long e-mail wraps; on a phone the state goes under it */
+.disc-invites .row__title { overflow-wrap: anywhere; }
+.disc-invites .row__end { flex-wrap: wrap; justify-content: flex-end; }
+.disc-invites .row__main { flex: 1 1 auto; }
+@media (max-width: 600px) {
+  .disc-invites .row { flex-wrap: wrap; }
+  .disc-invites .row__main { flex-basis: 100%; }
+  .disc-invites .row__end { justify-content: flex-start; }
+}
+/* A pending invitation's link, folded under its row: a small "Ver enlace", then the field and "Copiar enlace" */
+.disc-invites .fold--inline > summary { border-top: 0; padding: var(--s-2) 0; font-size: var(--t-small); min-height: 2.75rem; }
+.disc-invites .fold--inline > * + * { margin-top: var(--s-2); }
+.disc-invites .fold--inline .field { max-width: 36rem; margin-bottom: var(--s-2); }
+.disc-invites .fold--inline .input { font-size: var(--t-small); }
+
 /* ---------- G5b Discipulado acompañamiento ---------- */
 /* The discipleship module as the people in it see it: the participant's path and lessons, the mentor's home,
    questions and follow-ups (templates/core). Classes start with disc-. */
@@ -1265,6 +1280,12 @@ ol.promises li::before {
   .disc-lists .row { flex-wrap: wrap; }
   .disc-next { max-width: none; width: 100%; text-align: left; }
 }
+
+/* Participant home with the path done: one line with the next step where the sign was */
+.disc-done { font-size: var(--t-lead); max-width: 60ch; }
+/* Follow-ups: the list at reading width, "Crear un seguimiento" folded under it */
+.disc-follow { max-width: 52rem; }
+.disc-follow > .fold { margin-top: var(--s-10); }
 
 /* ---------- G2 Reportes y presentación ---------- */
 /* Reports: the coordinator's team under the name; the row actions of the cutoff history */
