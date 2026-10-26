@@ -1,63 +1,24 @@
 {% extends "base.html" %}
-{% block page_title %}{% if church.discipleship_enabled %}Discipulado con acompañamiento{% else %}Acompañar bien a las personas{% endif %}{% endblock %}
+{% load brand %}
+{% block page_title %}Platicar con cada joven, sin perder a nadie{% endblock %}
 {% block content %}
 {% comment %}
-  The public front door. Plain and honest: what Emmaus is for this church and one way in.
-  Camps are always on; the discipleship text only shows when the church has turned that module on.
+  The public front door (Atrio, docs/design-direction.md): one column like the sign-in page, no photos, no icons.
+  The church's logo leads when it has one (the bar then keeps the painted "Emmaus", so it is never drawn twice);
+  then the promise as the one heading, one way in, the way in for a volunteer who has an event's code, three
+  promises in one sentence each, and who uses it. Signed-in visitors never see it: core.views.landing sends
+  them to their dashboard.
 {% endcomment %}
-<div class="landing">
-  <header class="landing__head">
-    <h1 class="voice headline">Un lugar tranquilo para acompañar bien a las personas</h1>
-    {% if church.discipleship_enabled %}
-      <p class="lede">Emmaus ayuda a las iglesias a guiar a visitantes, personas que buscan a Dios, nuevos creyentes y cristianos que regresan a la fe, con un acompañamiento personal de verdad.</p>
-    {% else %}
-      <p class="lede">Emmaus ayuda al equipo de un campamento a platicar con cada campero sobre su fe y a no perder de vista a quien necesita seguimiento.</p>
-    {% endif %}
-    {% if church %}<p class="page-head__meta">{{ church.name }} usa Emmaus{% if church.discipleship_enabled %} en sus campamentos y en su discipulado{% else %} en sus campamentos{% endif %}.</p>{% endif %}
-  </header>
-
-  <div class="landing__in">
-    <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar</a>
-    <p class="aside-note">La mayoría de las personas entra a Emmaus con una invitación de su iglesia.</p>
-  </div>
-
-  <div class="landing__body">
-    <section aria-labelledby="por-que">
-      <h2 id="por-que" class="heading">Por qué existe</h2>
-      <div class="stack">
-        <p>Nadie debería quedar en el olvido después de visitar la iglesia, hacer preguntas o empezar a seguir a Jesús.</p>
-        {% if church.discipleship_enabled %}<p>Emmaus da a los líderes un lugar compartido para notar las preguntas, asignar mentores, dar seguimiento personal y mantener claras las rutas de discipulado.</p>{% endif %}
-        <p>Aquí la tecnología no reemplaza el cuidado. Lo hace visible, para que sea menos probable que alguien se quede fuera.</p>
-      </div>
-    </section>
-
-    <section aria-labelledby="campamentos">
-      <h2 id="campamentos" class="heading">En el campamento</h2>
-      <div class="stack">
-        <p>Cada campero tiene una conversación sobre su fe con alguien del equipo, en una de las computadoras del campamento. En cualquier pregunta puede elegir “Prefiero no responder”.</p>
-        <p>Si alguien necesita que lo acompañen después, queda anotado para que una persona del equipo lo busque.</p>
-      </div>
-    </section>
-
-    {% if church.discipleship_enabled %}
-      <section aria-labelledby="discipulado">
-        <h2 id="discipulado" class="heading">En el discipulado</h2>
-        <div class="stack">
-          <p><strong>Participantes:</strong> un camino tranquilo con lecciones, reflexión, preguntas e invitaciones a platicar con líderes de confianza.</p>
-          <p><strong>Mentores:</strong> una vista enfocada en las personas que acompañas, sus preguntas abiertas y los seguimientos que necesitan atención personal.</p>
-          <p><strong>Pastores y administración:</strong> claridad sobre toda la iglesia sin convertir a las personas en números, casos o tareas.</p>
-          <p>La iglesia invita a participantes, mentores, pastores y administración. Cada participante avanza por las lecciones y reflexiona a su propio ritmo. Las preguntas y los seguimientos llegan a los líderes indicados de la iglesia, y mentores y pastores responden en persona.</p>
-        </div>
-      </section>
-    {% endif %}
-
-    <section aria-labelledby="privacidad">
-      <h2 id="privacidad" class="heading">La seguridad y la privacidad importan</h2>
-      <div class="stack">
-        <p>Emmaus maneja información espiritual y personal delicada. {% if church.discipleship_enabled %}Los participantes nunca ven las notas pastorales, cada{% else %}Cada{% endif %} persona solo ve lo que le corresponde según su rol y las emergencias se atienden con los servicios de emergencia locales.</p>
-        {% if church.discipleship_enabled %}<p>La IA nunca reemplaza a los líderes. Los borradores con IA son opcionales y solo los ven los líderes. Una persona debe revisar, editar, aprobar o rechazar cada borrador antes de que se convierta en una respuesta real.</p>{% endif %}
-      </div>
-    </section>
-  </div>
+<div class="auth-card">
+  {% if church|has_logo %}<div class="auth-card__brand">{% church_brand church size="auth" %}</div>
+  {% endif %}{% include "events/rotulo/_page_head.html" with title="Platicar con cada joven, sin perder a nadie." lede="Emmaus ayuda al equipo del campamento a conversar con cada campero sobre su fe y a recordar a quién buscar después." %}
+  <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar a Emmaus</a>
+  <p class="mt-4"><a class="auth-card__link" href="{% url 'join' %}">¿Vas a ayudar en un evento? Escribe el código</a></p>
+  <ul class="rows mt-8">
+    <li class="row">Cada pregunta se puede dejar sin contestar.</li>
+    <li class="row">Cada persona ve solo lo que le toca.</li>
+    <li class="row">Si alguien necesita seguimiento, queda anotado.</li>
+  </ul>
+  <p class="aside-note">{% if church %}{{ church.name }} usa Emmaus en sus campamentos{% if church.discipleship_enabled %} y en su discipulado{% endif %}.{% else %}Emmaus es la herramienta de la iglesia para entrevistar y acompañar.{% endif %}</p>
 </div>
 {% endblock %}

@@ -30,7 +30,7 @@
       {% if logo_church.logo_dark %}
         <figure class="logo-preview logo-preview--dark">
           <div class="logo-preview__plate">{% church_brand logo_church variant="oscuro" size="auth" %}</div>
-          <figcaption>Tu versión para fondo oscuro, sobre carbón.</figcaption>
+          <figcaption>Tu versión en blanco, sobre fondo oscuro.</figcaption>
         </figure>
       {% endif %}
       {% include "partials/ui/field.html" with field=form.logo_dark %}
@@ -47,7 +47,7 @@
 
     <section class="block" aria-labelledby="colores">
       <h2 id="colores" class="heading">Colores</h2>
-      <p class="theme-colors__intro">El color principal pinta los botones y los enlaces; el de acento marca dónde estás y lo que sigue. Revisa que el texto se lea bien sobre cada fondo.</p>
+      <p class="theme-colors__intro">El color principal pinta los botones y los enlaces; el de acento marca dónde estás. Revisa que el texto se lea bien sobre cada fondo.</p>
       {% include "partials/ui/field.html" with field=form.custom_theme_enabled %}
       {% if not form.instance.custom_theme_enabled %}
         <div class="notice notice--quiet">

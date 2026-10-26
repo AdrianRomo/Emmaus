@@ -4,7 +4,7 @@
   Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: a bar whose
   module links sit on their own row (a church admin has nine). Signed out: just the wordmark and "Entrar".
   The wordmark's slot shows the church's logo when it has one (brand_church, core.context_processors); the
-  sign-in page leads with the logo above its title instead, so its bar keeps the painted "Emmaus".
+  sign-in page and the landing lead with the logo above their title instead, so their bar keeps the painted "Emmaus".
 {% endcomment %}
 {% block title %}{% block page_title %}Emmaus{% endblock %} · Emmaus{% endblock %}
 {% block body %}
@@ -41,7 +41,7 @@
 {% else %}
 <header class="bar bar--public">
   <div class="bar__inner">
-    {% if request.resolver_match.url_name == "login" %}<a class="wordmark" href="{% url 'landing' %}">Emmaus</a>{% else %}{% url 'landing' as landing_url %}{% church_brand brand_church size="bar" href=landing_url %}{% endif %}
+    {% if request.resolver_match.url_name == "login" or request.resolver_match.url_name == "landing" %}<a class="wordmark" href="{% url 'landing' %}">Emmaus</a>{% else %}{% url 'landing' as landing_url %}{% church_brand brand_church size="bar" href=landing_url %}{% endif %}
     {% if request.resolver_match.url_name != "login" and request.resolver_match.url_name != "landing" %}<div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>{% endif %}
   </div>
 </header>

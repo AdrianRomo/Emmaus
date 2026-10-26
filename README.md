@@ -5,13 +5,13 @@ Emmaus is a Spanish-language (es-MX) Django platform that helps a church care fo
 - **Emmaus Campamentos** runs a camp's interview operation: 350–400 camperos without accounts, ten shared interview computers, volunteer coordinadores, tutores who supervise them, pastors who need an honest overview, and leadership meetings that need a privacy-safe projector view.
 - **Discipulado**, the original module, is still supported: discipleship paths, lessons, reflections, participant questions and pastoral follow-up for participants who have accounts. It is shown only to churches that turn it on.
 
-The interface is Mexican Spanish throughout and every screen uses one design system, "Rótulo" (`docs/design-system.md`): hand-painted camp signs for what a person says, a hyperlegible sans for everything else, and one yellow sign per screen for the thing to do next.
+The interface is Mexican Spanish throughout and every screen uses one design system, "Atrio" ([`docs/design-system.md`](docs/design-system.md)), which replaced "Rótulo" on 2026-10-26: white pages, one action colour (petróleo `#0B6270`), Figtree with sentences as headings, no icons, shadows or yellow, the church's own logo as the only ornament, and at most one tinted panel per screen that asks the next question and holds its one button. The stylesheet keeps its name, `static/css/rotulo.css`. Why the direction changed: `docs/design-direction.md`.
 
 ## What a camp gets
 
 | Role | Main screen | Highlights |
 |---|---|---|
-| Coordinador | **Mi inicio**: one yellow sign with the thing to do now ("¿A quién vas a entrevistar?") | Register camperos, search, assisted interview or supervised capture on a shared computer, resume interrupted interviews, decide follow-up, print a paper backup list |
+| Coordinador | **Mi inicio**: one tinted panel with the thing to do now, asked as a question ("¿A quién vas a entrevistar?") | Register camperos, search, assisted interview or supervised capture on a shared computer, resume interrupted interviews, decide follow-up, print a paper backup list |
 | Campero | No account, no navigation | One question per screen, "Prefiero no responder" everywhere, answers saved at every step, screen locks when idle, returns the computer to the coordinador |
 | Tutor | **Mi equipo** | Progress per assigned coordinador, interrupted interviews, follow-ups, filters, team cutoffs |
 | Pastor | **Resumen general** | Five questions answered in order, team progress, privacy-suppressed answer totals, deterministic next steps, **Modo presentación** |
@@ -53,10 +53,10 @@ cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… 
 | Document | Contents |
 |---|---|
 | `docs/ux-redesign-plan.md` | Audit of the original app, information architecture, data-model changes, migration strategy, phases |
-| `docs/design-research.md` | Real screens from Planning Center, Tally, Airtable, GOV.UK, Mobbin and Refero: what to adapt, what not to copy, and what we could not access |
-| `docs/design-direction.md` | Why the previous look read as generated, three concepts (Rótulo, Bitácora, Sobremesa) and why "Rótulo" won; per-role experiences, including tutor and presentation proposals |
-| `docs/design-system.md` | "Rótulo" tokens, components, layouts, chart rules, accessibility and how to migrate a screen |
-| `docs/ux-review.md` | Six screenshot review rounds at three widths, axe results and what is still open |
+| `docs/design-research.md` | Real screens from Planning Center, Tally, Airtable, GOV.UK, Mobbin and Refero, then (v3) 32 church, camp, discipleship and calm-product tools: what to adapt, what not to copy, what we could not access, and the three directions that led to "Atrio" |
+| `docs/design-direction.md` | The two retired directions ("Cuaderno de campo", "Rótulo") and why each was retired; "Atrio": why it won, its patterns and principles, what it kept from Rótulo, the landing page copy and the church's logo |
+| `docs/design-system.md` | "Atrio" tokens, components, chart rules, screens, language, accessibility, motion and how to make a new screen |
+| `docs/ux-review.md` | Sixteen screenshot review rounds at three widths (round 16 is Atrio), axe results and what is still open |
 | `docs/architecture.md` | Apps, models, concurrency model, live updates, PDF, static files |
 | `docs/roles-and-permissions.md` | Role resolution, permission matrix, field-level visibility |
 | `docs/interview-station-workflow.md` | Assisted and supervised flows on shared computers, locking, recovery, load test |
