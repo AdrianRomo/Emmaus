@@ -9,7 +9,7 @@
   <div class="slide__body">
     <h2 class="voice deck-cover__title">Así va {% if event.kind in event.FEMININE_KINDS %}nuestra{% else %}nuestro{% endif %} {{ deck.kind_label|lower }}.</h2>
     <p class="deck-cover__event">{{ deck.event_name }}{% if deck.scope_label == "Equipo" %}, un equipo{% endif %}</p>
-    <p class="deck-sub">{% if live %}<span data-deck-live>En vivo, con datos del {{ deck.as_of|fecha_larga|lower }} a las {{ deck.as_of|date:"H:i" }}.</span><span class="deck-ended" data-deck-ended hidden>Sesión terminada: vuelve a entrar para ver datos actuales</span>{% else %}Corte de las {{ deck.as_of|date:"H:i" }} del {{ deck.as_of|fecha_larga|lower }}.{% endif %}</p>
+    <p class="deck-sub">{% if live %}<span data-deck-live>En vivo, con datos del {{ deck.as_of|fecha_larga|lower }} a las {{ deck.as_of|date:"H:i" }}.</span><span class="deck-ended" data-deck-ended hidden>Sesión terminada: vuelve a entrar para ver datos actuales</span>{% else %}Corte de las {{ snapshot.cutoff_at|date:"H:i" }} del {{ snapshot.cutoff_at|fecha_larga|lower }}.{% endif %}</p>
   </div>
   {% include "events/presentation/_foot.html" with n=1 %}
 </section>
@@ -73,7 +73,10 @@
       <li><span class="deck-counts__value">{{ deck.follow_ups.done.words }}</span> <span class="deck-counts__label">ya atendidos</span></li>
       <li><span class="deck-counts__value">{{ deck.follow_ups.to_evaluate.words }}</span> <span class="deck-counts__label">por decidir</span></li>
     </ul>
-    <p class="deck-note">{% if deck.follow_ups.as_of %}Según el corte de las {{ deck.follow_ups.as_of|date:"H:i" }}. {% else %}Estas cifras aparecerán con el primer corte. {% endif %}Los totales se redondean de {{ deck.k }} en {{ deck.k }} y las cantidades menores a {{ deck.k }} no se muestran, para que nadie pueda ser identificado. No se muestran nombres, respuestas ni temas personales.</p>
+    {% comment %}Live, this slide mixes two clocks: the follow-ups come from the last cutoff (released, rounded), the rest of the
+      deck from deck.as_of (the top row's time). Both are named here, once (audit UI-17). A saved deck has one clock, its
+      cutoff (snapshot.cutoff_at, the same time as its top row).{% endcomment %}
+    <p class="deck-note">{% if not live %}Según el corte de las {{ snapshot.cutoff_at|date:"H:i" }}. {% elif deck.follow_ups.as_of %}Según el corte de las {{ deck.follow_ups.as_of|date:"H:i" }}; lo demás, datos de las {{ deck.as_of|date:"H:i" }}. {% else %}Estas cifras aparecerán con el primer corte. {% endif %}Los totales se redondean de {{ deck.k }} en {{ deck.k }} y las cantidades menores a {{ deck.k }} no se muestran, para que nadie pueda ser identificado. No se muestran nombres, respuestas ni temas personales.</p>
   </div>
   {% include "events/presentation/_foot.html" with n=4 %}
 </section>

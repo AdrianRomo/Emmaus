@@ -281,7 +281,7 @@ class EmptyEventTests(CampFlowFixture):
         response = self.client.get(reverse("events:pastor_home", args=[self.empty.slug]))
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
-        self.assertEqual(html.count(EMPTY), 5, "one sentence in each of the five sections")
+        self.assertEqual(html.count(EMPTY), 1, "said once, in the first section; the other four are not rendered")
         self.assertNotIn("ya terminamos", html)
         self.assertNotIn("Ritmo", html)
         self.assertNotIn("0 de 0", html)
