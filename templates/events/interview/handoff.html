@@ -1,0 +1,23 @@
+{% extends "events/shell_focus.html" %}
+{% block page_title %}Entregar la computadora{% endblock %}
+{% block focus_actions %}<a class="btn btn--small btn--link" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Cancelar</a>{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1 class="voice page-head__title">Entrega la computadora a {{ participant.first_name }}</h1>
+  <p class="lede">En la entrevista a solas, {{ participant.first_name }} responde solo en la computadora. Antes de entregársela:</p>
+</header>
+<ol class="promises">
+  <li>Dile que puede responder con calma y que puede elegir “Prefiero no responder”.</li>
+  <li>Explícale que nadie más verá sus respuestas en la pantalla, y que las marcadas “Confidencial” solo las lee el equipo de cuidado autorizado.</li>
+  <li>Pídele que te avise cuando termine.</li>
+</ol>
+<div class="notice notice--quiet mt-8">
+  <p class="notice__title">Tu sesión se cerrará en esta computadora</p>
+  <p>Así el campero no puede ver nada más. Para recuperar la computadora necesitarás tu contraseña.</p>
+</div>
+<form method="post" class="step__actions">
+  {% csrf_token %}
+  <button class="btn btn--primary" type="submit">Entregar la computadora</button>
+    <button class="btn btn--link" type="submit" name="action" value="asistida">Mejor hago yo las preguntas</button>
+</form>
+{% endblock %}

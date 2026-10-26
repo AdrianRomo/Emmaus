@@ -1,0 +1,27 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Cuestionarios{% endblock %}
+{% block content %}
+{% include "events/rotulo/_page_head.html" with title="Cuestionarios" lede="Una versión publicada ya no se modifica, para que las respuestas anteriores conserven su significado. Para cambiar preguntas, crea una versión nueva." %}
+<section class="admin-narrow" aria-labelledby="versiones">
+  <h2 id="versiones" class="heading">Versiones <span class="count">{{ versions|length }}</span></h2>
+  {% if versions %}
+    <ul class="rows">
+      {% for v in versions %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'events:version_detail' event.slug v.id %}">{{ v.title }}, versión {{ v.number }}</a></p>
+            <p class="row__meta">{{ v.questionnaire.name }}, {{ v.uses }} entrevista{{ v.uses|pluralize }}{% if v.published_at %}, publicada el {{ v.published_at|fecha_corta }}{% endif %}.</p>
+          </div>
+          <div class="row__end">
+            {% if event.questionnaire_version_id == v.id %}{% status "completada" "En uso" %}{% endif %}
+            {% status v.status v.get_status_display %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">No hay cuestionarios. Al crear un campamento se prepara el cuestionario de conversación espiritual.</p>
+  {% endif %}
+</section>
+{% endblock %}

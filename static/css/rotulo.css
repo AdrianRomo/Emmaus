@@ -1,0 +1,1431 @@
+/* ==========================================================================
+   Emmaus · "Atrio" design system (the file keeps its historical name)
+   --------------------------------------------------------------------------
+   The open door of the church: a white page, one colour for action (petróleo),
+   chile only for error and risk. One family, Figtree: 400 for reading, 500 for
+   labels, 700 for buttons and emphasis, 800 for titles. Warmth comes from the
+   words and the weight of the titles, not from ornament: no shadows, no pills,
+   no painted letters.
+
+   One stylesheet, no build step, for every screen (templates/layout/skeleton.html).
+   The per-area sections at the end were added when the last screens moved over.
+   Breakpoints (literal in media queries): 600px, 900px, 1100px.
+   See docs/design-system.md.
+   ========================================================================== */
+
+/* Figtree variable (OFL, static/fonts/OFL-Figtree.txt), latin subset: 22.5 KB. unicode-range lists exactly the 317
+   characters the file contains (its cmap), so any other one, "≈" included, goes straight to the system font.
+   Test: test_rotulo.AtrioFoundationTests.test_the_unicode_range_is_what_the_font_contains */
+@font-face {
+  font-family: "Figtree";
+  src: url("../fonts/figtree-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00AC, U+00AE-0113, U+0116-0127, U+012A-012B, U+012E-0137, U+0139-013E, U+0141-0148,
+    U+014A-014D, U+0150-0161, U+0164-0165, U+016A-017E, U+2013-2014, U+2018-201A, U+201C-201E, U+2020-2022, U+2026,
+    U+2039-203A, U+2044, U+20AC, U+20B9, U+2212;
+}
+
+/* ---------- 1. Tokens ---------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* Surfaces: white, one sunken step */
+  --page: #ffffff;
+  --surface: #ffffff;        /* fields, choices, bars, panels */
+  --hundido: #f3f5f6;        /* sunken: hover, table heads, quiet rows, notices */
+
+  /* Ink */
+  --ink: #16222b;            /* text; 16.2:1 on white, 14.0:1 on the tint */
+  --ink-2: #44525d;          /* secondary text; 8.0:1 (7.0:1 on the tint) */
+  --ink-3: #5a6872;          /* the lightest text allowed; 5.7:1 (5.0:1 on the tint) */
+  --line: #dce1e4;           /* borders of panels, separators, table rules */
+  --line-strong: #7b8a94;    /* borders of controls, "sin iniciar"; 3.6:1 (WCAG 1.4.11) */
+
+  /* One colour for action, one for risk */
+  --petroleo: #0b6270;       /* action, links, the selected option, data; 7.0:1 with white both ways */
+  --petroleo-hover: #084e5a; /* 9.3:1 */
+  --petroleo-tint: #e4f1f3;  /* the selected option, the next-action panel */
+  --mark: var(--petroleo);   /* "estás aquí": the station dot, the current page and filter (the church's accent) */
+  --chile: #b8321c;          /* error and risk only; 6.0:1 on white, 5.0:1 on its tint */
+  --chile-tint: #fbe6e1;
+
+  /* Data: ordinal petróleo (done 7.0:1, in progress 3.4:1 on white); "sin iniciar" is an outline on white */
+  --data-done: #0b6270;
+  --data-progress: #4c95a2;
+  --data-track: #ffffff;     /* drawn with a --line-strong outline; never the only signal */
+  --data-grid: #dce1e4;
+  --data-axis: #7b8a94;
+
+  /* Type: one family */
+  --font-ui: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --t-caption: 0.9375rem;    /* 15 - chart text and footnotes only */
+  --t-small: 1rem;           /* 16 - metadata */
+  --t-body: 1.125rem;        /* 18 - body */
+  --t-lead: 1.25rem;         /* 20 - answers, leads, options */
+  --t-h3: 1.375rem;          /* 22 */
+  --t-h2: 1.625rem;          /* 26 - titles start here (800) */
+  --t-h1: 2.75rem;           /* 44 - the largest title */
+  --t-display: 2.75rem;      /* 44 - confirmation, welcome */
+
+  /* Space: 4px steps */
+  --s-1: 0.25rem; --s-2: 0.5rem; --s-3: 0.75rem; --s-4: 1rem; --s-5: 1.25rem; --s-6: 1.5rem;
+  --s-8: 2rem; --s-10: 2.5rem; --s-12: 3rem; --s-16: 4rem; --s-20: 5rem;
+
+  /* Shape: two radii, one border */
+  --r-mark: 4px;             /* tally marks, status marks, tags */
+  --r-control: 10px;         /* buttons, fields, choices, panels, the next-action panel */
+  --b-control: 1.5px;
+
+  /* Motion: purposeful and short; prefers-reduced-motion turns all of it off (section 13) */
+  --dur-1: 120ms;            /* controls: colour, focus, underline */
+  --dur-2: 200ms;            /* pages, messages, folds, the chosen mark */
+  --dur-3: 320ms;            /* the next-action panel, the page head, the deck */
+  --ease: cubic-bezier(.2,.7,.2,1);
+  --rise: 6px;
+
+  --control: 3rem;           /* 48px minimum target */
+  --w-page: 72rem;
+  --w-wide: 80rem;
+  --w-focus: 46rem;
+}
+
+/* ---------- 2. Base ------------------------------------------------------ */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--t-body);
+  line-height: 1.5;
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, p, ul, ol, dl, dd, figure, fieldset { margin: 0; }
+ul, ol { padding: 0; }
+fieldset { border: 0; padding: 0; min-width: 0; }
+legend { padding: 0; }
+img, svg { max-width: 100%; }
+a {
+  color: var(--petroleo); text-decoration-thickness: 1px; text-underline-offset: 0.18em;
+  transition: text-underline-offset var(--dur-1) var(--ease), text-decoration-thickness var(--dur-1) var(--ease),
+    outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+a:hover { text-decoration-thickness: 2px; text-underline-offset: 0.24em; }
+strong, b { font-weight: 700; }
+button, input, select, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+.voice, .sign__title, .question__text, .headline, .page-head__title, .confirm__title { text-wrap: balance; }
+.lede, .headline__sub, .report-section__answer, .sign__text, .question__help, .confirm__text { text-wrap: pretty; }
+/* Titles: what a person would say, set in Figtree 800 (the class keeps its name so templates do not change) */
+.voice { font-weight: 800; letter-spacing: normal; text-wrap: balance; }
+
+/* Focus: a 3px ink ring outside a 2px white gap, the same on every background. It fades in over --dur-1
+   (outline-width and colour interpolate from the unfocused "none") */
+:focus { outline: none; }
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+summary, button, input, select, textarea {
+  transition: outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+main:focus { outline: none; box-shadow: none; }
+
+.skip-link {
+  position: absolute; left: var(--s-4); top: -10rem; z-index: 100;
+  padding: var(--s-3) var(--s-4); background: var(--petroleo); color: #ffffff;
+  font-weight: 700; border-radius: var(--r-control);
+}
+.skip-link:focus { top: var(--s-4); }
+.visually-hidden {
+  position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+html:not(.no-js) .no-js-only { display: none; }
+
+/* Small utilities the shared partials and legacy templates still use */
+.muted { color: var(--ink-2); }
+.text-sm { font-size: var(--t-small); }
+.mt-2 { margin-top: var(--s-2); } .mt-4 { margin-top: var(--s-4); } .mt-6 { margin-top: var(--s-6); } .mt-8 { margin-top: var(--s-8); }
+.stack > * + * { margin-top: var(--s-4); }
+.stack-lg > * + * { margin-top: var(--s-8); }
+.cluster, .btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.cluster--between { justify-content: space-between; }
+.prose { max-width: 65ch; }
+.optional { color: var(--ink-3); font-weight: 400; }
+
+/* ---------- 3. Buttons --------------------------------------------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  min-height: var(--control);
+  padding: 0.5rem 1.375rem;
+  border: var(--b-control) solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--t-body);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
+    outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+.btn:hover { background: var(--hundido); }
+/* The one filled button of a screen: petróleo, 60px tall, no shadow */
+.btn--primary { background: var(--petroleo); border-color: var(--petroleo); color: #fff; min-height: 3.75rem; }
+.btn--primary:hover { background: var(--petroleo-hover); border-color: var(--petroleo-hover); }
+.btn--danger { background: var(--chile); border-color: var(--chile); color: #fff; }
+.btn--danger:hover { background: #962812; border-color: #962812; }
+/* A risk action that is not the screen's main action ("Reportar una situación de riesgo", audit UI-02): a secondary
+   button drawn in chile (6.0:1; 5.0:1 on its tint), so it is found at once and never reads like a quiet link such as
+   "Descartar esta entrevista". Chile is for risk, and this is risk. */
+.btn--danger-outline { color: var(--chile); border-color: var(--chile); }
+.btn--danger-outline:hover { background: var(--chile-tint); }
+.btn--secondary { background: var(--surface); }
+.btn--link {
+  border-color: transparent; background: none; color: var(--petroleo);
+  text-decoration: underline; text-underline-offset: 0.18em; font-weight: 700;
+  padding-inline: var(--s-2); min-height: 2.75rem;
+  transition: text-underline-offset var(--dur-1) var(--ease), text-decoration-thickness var(--dur-1) var(--ease), outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+.btn--link:hover { background: none; text-decoration-thickness: 2px; text-underline-offset: 0.24em; }
+.btn--large { min-height: 3.75rem; padding: 0.75rem 1.875rem; font-size: var(--t-lead); }
+.btn--small { min-height: 2.75rem; padding: 0.375rem 1rem; font-size: var(--t-small); }
+.btn--block { width: 100%; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+form.is-submitting .btn--primary { opacity: 0.7; }
+
+/* ---------- 4. Forms ----------------------------------------------------- */
+.field { margin: 0 0 var(--s-6); }
+.field--error, .question--error {
+  border-left: 5px solid var(--chile);
+  padding-left: var(--s-4);
+}
+.label, .legend { display: block; font-weight: 500; font-size: var(--t-body); margin-bottom: var(--s-1); }
+.hint { display: block; color: var(--ink-2); font-size: var(--t-small); margin-bottom: var(--s-2); }
+.error-message { display: block; color: var(--chile); font-weight: 700; margin: var(--s-1) 0 var(--s-2); }
+/* Form widgets from Django carry no class: inside a .field they look like .input */
+.input, .textarea, select,
+.field input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), .field textarea {
+  display: block; width: 100%;
+  min-height: 3.5rem;
+  padding: 0.625rem 0.875rem;
+  border: var(--b-control) solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  font-size: var(--t-lead);
+  transition: border-color var(--dur-1) var(--ease), outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+.textarea, .field textarea { min-height: 9rem; line-height: 1.45; resize: vertical; }
+.field input[type="number"] { max-width: 8rem; }
+.field--error .input, .field--error .textarea, .field--error textarea, .field--error select,
+.field.field--error input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]) { border-color: var(--chile); }
+
+/* Checkbox rows from partials/ui/field.html */
+.check { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-2) 0; cursor: pointer; }
+.check input { flex: none; width: 1.75rem; height: 1.75rem; margin: 0; accent-color: var(--petroleo); }
+.check__text { font-weight: 500; padding-top: 0.125rem; }
+.check__text small { display: block; font-weight: 400; color: var(--ink-2); font-size: var(--t-small); }
+.radio-list { display: grid; gap: var(--s-1); }
+
+.error-summary {
+  border: 3px solid var(--chile); border-radius: var(--r-control);
+  padding: var(--s-5) var(--s-6);
+  margin: 0 0 var(--s-8);
+}
+.error-summary h2 { font-size: var(--t-h3); font-weight: 700; margin-bottom: var(--s-2); }
+.error-summary ul { list-style: none; }
+.error-summary li + li { margin-top: var(--s-1); }
+.error-summary a { color: var(--chile); font-weight: 700; }
+
+.details summary { color: var(--petroleo); font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 0.18em; }
+/* 44px to tap (§6) around one line of text; the negative margins keep the text and the content after it in place */
+.details summary { padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); }
+.details__body { margin-top: var(--s-3); padding-left: var(--s-4); border-left: 3px solid var(--line); color: var(--ink-2); max-width: 65ch; }
+.details { margin: var(--s-4) 0; }
+
+/* ---------- 5. Notices, status, tags ------------------------------------ */
+.notice {
+  padding: var(--s-4) var(--s-5);
+  border-left: 4px solid var(--line-strong);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  background: var(--hundido);
+  margin: var(--s-4) 0;
+}
+.notice p + p, .notice ul { margin-top: var(--s-1); }
+.notice ul { padding-left: 1.25rem; }
+.notice__title { font-weight: 700; }
+.notice--info, .notice--success { border-color: var(--petroleo); background: var(--petroleo-tint); }
+.notice--warning { border-color: var(--petroleo); background: var(--hundido); }  /* attention without a colour of its own */
+.notice--danger { border-color: var(--chile); background: var(--chile-tint); }
+.notice--quiet { border-color: var(--line-strong); background: var(--hundido); }
+.messages { margin-bottom: var(--s-6); }
+.messages .notice { margin-top: 0; }
+
+.status {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  font-size: var(--t-small); font-weight: 500; white-space: nowrap; color: var(--ink);
+}
+.status__mark { width: 0.625rem; height: 1rem; border-radius: var(--r-mark); background: var(--data-track); border: var(--b-control) solid var(--line-strong); }
+.status--done .status__mark { background: var(--data-done); border-color: var(--data-done); }
+.status--progress .status__mark { background: var(--data-progress); border-color: var(--data-progress); }
+/* "alert" (a follow-up nobody has taken) is the first stage, drawn like "sin iniciar": chile is kept for risk */
+/* Not a stage, so not a stage mark (audit UI-07): what ended without being done (descartada, cancelado, vencida,
+   retirada) is filled grey; what waits for someone to look or decide ("Revisar", "Por decidir") is half grey. */
+.status--closed .status__mark { background: var(--line-strong); border-color: var(--line-strong); }
+.status--review .status__mark { background: linear-gradient(to top, var(--line-strong) 50%, var(--data-track) 50%); }
+
+.privacy { margin-top: var(--s-4); font-size: var(--t-small); color: var(--ink-2); }
+.privacy__tag {
+  display: inline-block; margin-right: var(--s-2); padding: 0 0.5rem;
+  border: var(--b-control) solid var(--petroleo); border-radius: var(--r-mark);
+  color: var(--petroleo); font-weight: 700; font-size: var(--t-small);
+}
+
+.live-status { font-size: var(--t-small); color: var(--ink-3); }
+.live-status[data-state="stale"] { color: var(--chile); font-weight: 700; }
+.aside-note { margin-top: var(--s-4); font-size: var(--t-small); color: var(--ink-2); max-width: 70ch; }
+.empty-line { color: var(--ink-2); padding: var(--s-3) 0; }
+.more { margin-top: var(--s-3); }
+.more a { font-weight: 700; }
+/* Links that stand alone but are set inline ("Ver todos…", "Cambiar", "Ver mi avance"). Figtree's inline box is 1.2em
+   (21.6px at 18px): vertical padding makes the target 24px at least (WCAG 2.5.8). Padding on an inline box never
+   changes the line box, so no text moves. */
+.more a, .summary-list__action a, .coord__count-note a { padding-block: max(0px, calc((1.5rem - 1.2em) / 2)); }
+
+/* ---------- 6. Bars and shells ------------------------------------------ */
+.wordmark {
+  font-weight: 700; font-size: 1.5rem; line-height: 1; color: var(--ink); text-decoration: none; letter-spacing: -0.01em;
+}
+a.wordmark:hover { color: var(--petroleo); }
+/* The church's logo in the wordmark's slot (docs/design-system.md, "Marca de la iglesia"; core/templatetags/brand.py).
+   Its width and height come from the file, fitted to the slot: CSS only lets it shrink, never stretch it. */
+.brand { display: inline-flex; align-items: center; flex-shrink: 0; text-decoration: none; }
+.brand__logo { display: block; max-width: 100%; height: auto; object-fit: contain; }
+/* Each slot's height as a ceiling too: whatever the file claims, the logo never grows past its slot */
+.brand__logo--bar { max-height: 32px; }
+.brand__logo--auth { max-height: 72px; }
+.brand__logo--mark { max-height: 40px; }
+.brand__logo--deck { max-height: 6.25cqw; }
+/* No white version on a dark background: the usual logo on a small Cal plate, so black on dark does not vanish */
+.brand__plate { display: inline-flex; padding: 0.375rem 0.5rem; background: #ffffff; border-radius: var(--r-control); }
+@media (forced-colors: active) {
+  .brand__plate { forced-color-adjust: none; }
+}
+
+.bar { border-bottom: 1px solid var(--line); background: var(--surface); }
+.bar__inner {
+  max-width: var(--w-wide); margin: 0 auto; padding: 0 var(--s-8);
+  min-height: 4.5rem; display: flex; align-items: center; gap: var(--s-6);
+}
+.bar__event { color: var(--ink-2); font-size: var(--t-small); max-width: 13rem; line-height: 1.25; }
+.bar__event a { display: inline-block; min-height: 1.5rem; padding: 0.125rem 0; margin-top: 0.125rem; font-weight: 700; }  /* WCAG 2.5.8: 24px target */
+.bar--leader .bar__event { max-width: 17rem; }
+/* "Campamento de Jóvenes 2026 Cambiar de evento": apart when they share a line, flush left when the link wraps
+   (a margin on the link would indent it on its own line). Phones hide the event name. */
+@media (min-width: 601px) {
+  .bar--leader .bar__event { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s-2); }
+}
+.bar__event a { white-space: nowrap; }
+.bar__nav { display: flex; gap: var(--s-1); margin-left: auto; align-self: stretch; }
+.bar__nav a {
+  display: flex; align-items: center; padding: 0 var(--s-3);
+  color: var(--ink); font-weight: 500; font-size: var(--t-small); text-decoration: none; white-space: nowrap;
+  box-shadow: inset 0 -3px 0 transparent;
+}
+.bar__nav a:hover { box-shadow: inset 0 -3px 0 var(--line); }
+.bar__nav a[aria-current="page"] { font-weight: 700; box-shadow: inset 0 -3px 0 var(--mark); }
+.bar__nav a:focus-visible { outline-offset: -3px; }  /* the ring stays inside the bar */
+.bar__end { display: flex; align-items: center; gap: var(--s-2); }
+.bar__end form { margin: 0; }
+.bar__end .btn { white-space: nowrap; }
+.menu-toggle { display: none; }
+/* Many module links (discipleship): they get their own row under the bar */
+.bar--stacked .bar__inner { flex-wrap: wrap; row-gap: 0; padding-top: var(--s-2); }
+.bar--stacked .bar__end { margin-left: auto; }
+.bar--stacked .bar__nav { order: 10; flex-basis: 100%; margin-left: calc(-1 * var(--s-3)); min-height: 3rem; }
+.bar__event span { display: block; color: var(--ink-3); }
+.bar--stacked .bar__event { max-width: 24rem; }
+.bar--public .bar__end { margin-left: auto; }
+
+/* "Estás en Computadora 4": a small petróleo dot before the place */
+.here { display: inline-flex; align-items: center; gap: var(--s-2); font-size: var(--t-small); color: var(--ink); white-space: nowrap; }
+.here__blaze { flex: none; width: 0.625rem; height: 0.625rem; background: var(--mark); border-radius: 50%; }
+
+.menu-panel {
+  position: fixed; inset: 0; z-index: 60; overflow-y: auto;
+  background: var(--surface); padding: var(--s-4) var(--s-5) var(--s-12);
+}
+.menu-panel__head { display: flex; align-items: center; justify-content: space-between; min-height: 3rem; margin-bottom: var(--s-6); }
+.menu-panel__nav a {
+  display: block; padding: var(--s-4) 0 var(--s-4) var(--s-4); border-bottom: 1px solid var(--line);
+  color: var(--ink); font-size: var(--t-lead); font-weight: 700; text-decoration: none;
+  box-shadow: inset 4px 0 0 transparent;
+}
+.menu-panel__nav a[aria-current="page"] { box-shadow: inset 4px 0 0 var(--mark); }
+.menu-panel__nav a:focus-visible { outline-offset: -3px; }
+.menu-panel__who { margin: var(--s-8) 0 var(--s-3); color: var(--ink-2); }
+
+.page { max-width: var(--w-wide); margin: 0 auto; padding: var(--s-8) var(--s-8) var(--s-20); }
+.page--wide { max-width: var(--w-wide); }
+
+@media (max-width: 1180px) {
+  .bar__nav, .bar__logout, .bar__switch { display: none; }
+  .menu-toggle { display: inline-flex; }
+  .bar__end { margin-left: auto; }
+}
+@media (max-width: 600px) {
+  .bar__inner { padding: var(--s-2) var(--s-4); gap: var(--s-3); min-height: 3.75rem; flex-wrap: wrap; }
+  .bar__event { display: none; }
+  .bar .here { order: 3; width: 100%; padding: var(--s-2) 0 var(--s-1); border-top: 1px solid var(--line); }
+  .page { padding: var(--s-5) var(--s-4) var(--s-16); }
+}
+
+/* ---------- 7. The next-action panel (.sign) ----------------------------- */
+/* One per screen: a tinted panel, the next thing to do as a question, one filled button. */
+.sign {
+  background: var(--petroleo-tint);
+  border: 0;
+  border-radius: var(--r-control);
+  padding: var(--s-6) var(--s-8) var(--s-8);
+}
+.sign__title {
+  font-weight: 800;
+  font-size: clamp(1.625rem, 1.3rem + 1vw, 2.25rem); line-height: 1.12;
+}
+.sign__title label { cursor: pointer; }
+.sign__text { margin-top: var(--s-2); font-size: var(--t-lead); color: var(--ink-2); max-width: 60ch; }
+.sign__actions { margin-top: var(--s-6); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-6); }
+.sign__link { color: var(--petroleo); font-weight: 700; }
+/* 44px to tap (§6) around one line. The margins take back exactly what the padding adds, so the sign keeps its
+   height and the text its place however many lines the link wraps to */
+.sign__link { display: inline-flex; align-items: center; padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); }
+.search { display: flex; gap: var(--s-3); margin-top: var(--s-5); max-width: 46rem; }
+.search__input { flex: 1; min-height: 3.75rem; font-size: 1.375rem; }
+@media (max-width: 600px) {
+  .sign { padding: var(--s-5) var(--s-5) var(--s-6); }
+  .search { flex-direction: column; }
+  .search .btn, .sign__actions .btn { width: 100%; }
+}
+
+/* ---------- 8. Lists ----------------------------------------------------- */
+.heading {
+  font-size: var(--t-h3); font-weight: 700; line-height: 1.25;
+  padding-bottom: var(--s-2); border-bottom: var(--b-control) solid var(--line);
+}
+.rows { list-style: none; }
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-4);
+  padding: var(--s-3) 0; min-height: 4.25rem; border-bottom: 1px solid var(--line);
+}
+.row__main { min-width: 0; }
+.row__title { font-size: var(--t-lead); font-weight: 700; line-height: 1.3; }
+.row__meta { font-size: var(--t-small); color: var(--ink-2); }
+.row__link { color: var(--ink); }
+.row__end { display: flex; align-items: center; gap: var(--s-4); flex: none; }
+.results { margin-top: var(--s-10); max-width: 52rem; }
+.row--attention { background: var(--hundido); border-left: 4px solid var(--petroleo); border-radius: 0 var(--r-control) var(--r-control) 0; padding: var(--s-3) var(--s-4); border-bottom: 0; margin: var(--s-3) 0; }
+
+.summary-list { margin: 0; }
+.summary-list__row {
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto; gap: var(--s-1) var(--s-6);
+  padding: var(--s-3) 0; border-bottom: 1px solid var(--line);
+}
+.summary-list dt { font-weight: 700; }
+.summary-list dd { margin: 0; }
+.summary-list__action { text-align: right; font-weight: 700; }
+/* Not on the answers list: without the :not() this rule (0,3,0) out-ranked the answers layout below (0,2,0) and
+   the phone override, so the question wrapped one word per line and "Cambiar" sat in the middle of the row */
+.summary-list:not(.summary-list--answers):has(.summary-list__action) .summary-list__row { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) 10rem; }
+.summary-list--answers .summary-list__row { grid-template-columns: minmax(0, 1fr) auto; padding: var(--s-4) 0; }
+.summary-list--answers dt { grid-column: 1; font-weight: 400; color: var(--ink-2); font-size: var(--t-small); }
+.summary-list--answers dd:not(.summary-list__action) { grid-column: 1; font-weight: 700; font-size: var(--t-lead); }
+.summary-list--answers .summary-list__action { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.summary-list--answers .muted { font-weight: 400; color: var(--ink-3); }
+@media (max-width: 600px) {
+  .summary-list__row,
+  .summary-list:not(.summary-list--answers):has(.summary-list__action) .summary-list__row { grid-template-columns: 1fr auto; }
+  .summary-list__row dt { grid-column: 1 / -1; }
+  .summary-list--answers .summary-list__row dt { grid-column: 1; }
+  .summary-list--answers .summary-list__action { grid-row: 1 / span 2; }
+}
+
+/* ---------- 9. Progress marks -------------------------------------------- */
+/* Tally: one mark per campero. Ordinal petróleo: done, in progress; outline on white: not started. */
+.tally { display: flex; flex-wrap: wrap; gap: 0.3125rem; margin: var(--s-4) 0 var(--s-3); max-width: 60rem; }
+.tally__mark { width: 0.75rem; height: 2.25rem; border-radius: var(--r-mark); border: var(--b-control) solid var(--line-strong); background: var(--data-track); }
+.tally__mark--done { background: var(--data-done); border-color: var(--data-done); }
+.tally__mark--progress { background: var(--data-progress); border-color: var(--data-progress); }
+@media (max-width: 600px) {
+  .tally { gap: 0.25rem; }
+  .tally__mark { width: 0.5625rem; height: 1.75rem; }
+}
+
+/* Ruler: stacked bar with a 2px surface gap between segments and an optional marker; the track ("sin iniciar")
+   is white with the control outline, drawn as an inset shadow so the segments paint over it */
+.ruler { position: relative; display: flex; height: 1.125rem; background: var(--data-track); border-radius: var(--r-mark); box-shadow: inset 0 0 0 var(--b-control) var(--line-strong); }
+.ruler__seg { height: 100%; border-right: 2px solid var(--surface); }
+.ruler__seg:first-child { border-radius: var(--r-mark) 0 0 var(--r-mark); }
+.ruler__seg--done { background: var(--data-done); }
+.ruler__seg--progress { background: var(--data-progress); }
+.ruler__marker { position: absolute; top: -0.3125rem; bottom: -0.3125rem; width: 3px; margin-left: -1.5px; background: var(--ink); }
+
+.key { list-style: none; display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-5); font-size: var(--t-small); color: var(--ink-2); }
+.key li { display: inline-flex; align-items: center; gap: var(--s-2); }
+.key__mark { display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: var(--r-mark); background: var(--data-track); border: var(--b-control) solid var(--line-strong); }
+.key__mark--done { background: var(--data-done); border-color: var(--data-done); }
+.key__mark--progress { background: var(--data-progress); border-color: var(--data-progress); }
+.key__mark--marker { width: 3px; height: 1.125rem; background: var(--ink); border: 0; border-radius: 0; }
+
+/* Trail: the questionnaire as a marked path. Done petróleo, here ink-3, ahead outlined. */
+.trail {
+  display: grid; grid-template-columns: auto 1fr; align-items: baseline;
+  gap: var(--s-1) var(--s-4); margin-bottom: var(--s-10);
+}
+.trail__back, .back-link {
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  border: 0; background: none; cursor: pointer; font-size: var(--t-body);
+  color: var(--ink); font-weight: 700; text-decoration: underline; text-underline-offset: 0.18em;
+  transition: text-underline-offset var(--dur-1) var(--ease), outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+  /* 44px to tap (§6) around one line. The padding was 4px; the margins take back what it adds beyond that,
+     so the text and everything after it stay where they were, for any number of lines */
+  padding: calc((2.75rem - 1lh) / 2) 0; --target-pull: calc(var(--s-1) + (1lh - 2.75rem) / 2);
+}
+.trail__back { grid-column: 1 / -1; justify-self: start; margin: var(--target-pull) 0 calc(var(--s-3) + var(--target-pull)); }
+.back-link { margin: var(--target-pull) 0 calc(var(--s-5) + var(--target-pull)); }
+.trail__back::before, .back-link::before {
+  content: ""; width: 0.5rem; height: 0.5rem; border: solid currentColor; border-width: 0 0 3px 3px;
+  transform: rotate(45deg); margin-right: 0.125rem;
+}
+.trail__count { font-size: var(--t-small); }
+.trail__section { font-size: var(--t-small); color: var(--ink-2); text-align: right; }
+@media (max-width: 600px) {
+  .trail__section { grid-column: 1 / -1; text-align: left; }
+}
+.trail__blazes { grid-column: 1 / -1; display: flex; gap: 0.375rem; list-style: none; margin-top: var(--s-2); }
+.trail__blazes li { flex: 1 1 0; max-width: 4.5rem; height: 0.5rem; border-radius: var(--r-mark); border: var(--b-control) solid var(--line-strong); }
+.trail__blazes li.is-done { background: var(--petroleo); border-color: var(--petroleo); }
+.trail__blazes li.is-here { background: var(--ink-3); border-color: var(--ink-3); }
+
+/* ---------- 10. Questionnaire -------------------------------------------- */
+.focus { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+.focusbar { border-bottom: 1px solid var(--line); background: var(--surface); }
+.focusbar__inner {
+  max-width: var(--w-focus); margin: 0 auto; padding: var(--s-2) var(--s-6); min-height: 4rem;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-6); flex-wrap: wrap;
+}
+.focusbar__who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s-3); }
+.focusbar__who strong { font-size: var(--t-body); }
+.focusbar__who span { color: var(--ink-2); font-size: var(--t-small); }
+.focusbar__who .wordmark { font-size: 1.5rem; color: var(--ink); }
+.focusbar__who .brand__logo { align-self: center; }
+.focusbar__actions { display: flex; align-items: center; gap: var(--s-4); }
+.focus__main { width: 100%; max-width: var(--w-focus); margin: 0 auto; padding: var(--s-8) var(--s-6) var(--s-16); flex: 1; }
+@media (max-width: 600px) {
+  .focusbar__inner { padding: var(--s-2) var(--s-4); }
+  .focus__main { padding: var(--s-5) var(--s-4) var(--s-8); }
+}
+
+.question__legend { display: block; width: 100%; }
+.question__text {
+  font-weight: 800;
+  font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.75rem); line-height: 1.12;
+  max-width: 24ch;
+}
+.question__text label { cursor: text; }
+.question__help { margin-top: var(--s-3); font-size: var(--t-lead); color: var(--ink-2); max-width: 55ch; }
+.question--follow { margin-top: 0; }
+.question__follow-text { display: block; font-size: var(--t-lead); font-weight: 700; margin-bottom: var(--s-1); }
+.question--error .error-message { margin-top: var(--s-4); }
+.question .textarea, .question .input { margin-top: var(--s-4); }
+
+.choices { display: grid; gap: var(--s-3); margin-top: var(--s-6); }
+.choice { position: relative; }
+/* The real input sits, transparent, exactly over the drawn mark (GOV.UK technique): 44px target, real events */
+.choice > input {
+  position: absolute; z-index: 1; top: 50%; left: 0.75rem; transform: translateY(-50%);
+  width: 2.75rem; height: 2.75rem; margin: 0; opacity: 0; cursor: pointer;
+}
+.choice__label {
+  display: flex; align-items: center; gap: var(--s-4);
+  min-height: 4rem; padding: var(--s-3) var(--s-5);
+  border: var(--b-control) solid var(--line-strong); border-radius: var(--r-control);
+  background: var(--surface); cursor: pointer;
+  font-size: var(--t-lead); font-weight: 500; line-height: 1.3;
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+.choice__label:hover { background: var(--hundido); }
+.choice__mark {
+  flex: none; position: relative; width: 1.75rem; height: 1.75rem;
+  border: 2px solid var(--line-strong); border-radius: 50%; background: var(--surface);
+}
+.choice--multi .choice__mark { border-radius: var(--r-mark); }
+.choice__sub { display: block; margin-top: 0.125rem; font-size: var(--t-small); font-weight: 400; color: var(--ink-2); }
+/* Chosen: the tint, a petróleo edge and a petróleo mark; the words keep their ink */
+.choice > input:checked + .choice__label { background: var(--petroleo-tint); border-color: var(--petroleo); }
+.choice > input:checked + .choice__label .choice__mark { border-color: var(--petroleo); }
+.choice > input:checked + .choice__label .choice__mark::after {
+  content: ""; position: absolute; inset: 0.3125rem; border-radius: 50%; background: var(--petroleo);
+}
+.choice--multi > input:checked + .choice__label .choice__mark { background: var(--petroleo); }
+.choice--multi > input:checked + .choice__label .choice__mark::after {
+  inset: auto; left: 0.4375rem; top: 0.125rem; width: 0.5rem; height: 0.9375rem;
+  border: solid #fff; border-width: 0 3px 3px 0; border-radius: 0; background: none; transform: rotate(45deg);
+}
+.choice > input:focus-visible + .choice__label { outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px #ffffff; }
+.choice--quiet .choice__label { font-weight: 400; color: var(--ink-2); border-color: var(--line); }
+.choice--quiet .choice__mark { border-color: var(--line-strong); }
+.choices__or { color: var(--ink-2); font-size: var(--t-small); padding: var(--s-1) 0 0 var(--s-1); }
+
+.reveal { margin-top: var(--s-6); padding: var(--s-1) 0 var(--s-1) var(--s-5); border-left: 3px solid var(--line-strong); }
+.reveal .hint { margin-bottom: var(--s-3); }
+
+.step__actions { margin-top: var(--s-10); display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-6); }
+.step__reassure { margin-top: var(--s-8); color: var(--ink-2); font-size: var(--t-small); max-width: 60ch; }
+@media (max-width: 600px) {
+  .step .step__actions {
+    margin: var(--s-8) calc(-1 * var(--s-4)) 0;
+    padding: var(--s-3) var(--s-4) var(--s-4); background: var(--surface); border-top: 1px solid var(--line);
+  }
+  .step__actions .btn--large { width: 100%; }
+  .choice__label { padding: var(--s-3) var(--s-4); }  /* still 64px: options keep their height on a phone */
+  /* Keyboard focus scrolls a control clear of the bar below, with room for its label and its focus ring */
+  .step .choice > input { scroll-margin-block: var(--s-6); }   /* the 44px input sits inside a 64px label */
+  .step textarea, .step .input { scroll-margin-block: var(--s-3); }
+}
+/* On a phone the step's button stays in reach, stuck to the bottom of the window: 12 + 60 + 16 px and a 1px rule.
+   The browser only scrolls a focused control into the window, not clear of the bar, so the page reserves the bar's
+   height at the bottom (WCAG 2.4.11 Focus not obscured, audit A11Y-01). In a short window (a phone on its side, 400 %
+   zoom) the bar would cover a third of it: there it stays in the flow, after the last option. */
+@media (max-width: 600px) and (min-height: 480px) {
+  html:has(.step .step__actions) { scroll-padding-bottom: calc(5.5rem + 1px); }
+  .step .step__actions { position: sticky; bottom: 0; z-index: 5; }
+}
+
+.page-head { margin-bottom: var(--s-8); }
+.page-head--actions { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-8); }
+.page-head__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.page-head__title { font-size: clamp(2rem, 1.5rem + 1.6vw, var(--t-h1)); line-height: 1.08; max-width: 24ch; }
+.page-head__meta { font-size: var(--t-small); color: var(--ink-2); margin-top: var(--s-3); }
+.lede { margin-top: var(--s-3); font-size: var(--t-lead); color: var(--ink-2); max-width: 60ch; }
+
+.checks__step { padding: var(--s-8) 0; border-top: 1px solid var(--line); }
+.checks__title { display: flex; align-items: center; gap: var(--s-3); font-size: var(--t-h3); font-weight: 700; margin-bottom: var(--s-4); }
+.checks__n {
+  flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem;
+  border: var(--b-control) solid var(--line-strong); border-radius: var(--r-mark); font-size: var(--t-body);
+}
+.checks__aside { margin-top: var(--s-3); }
+.checks .step__actions { border-top: 1px solid var(--line); padding-top: var(--s-8); margin-top: 0; }
+
+.decision { margin-top: var(--s-12); padding-top: var(--s-8); border-top: var(--b-control) solid var(--line); }
+.decision__title { font-size: var(--t-h2); line-height: 1.1; }
+.other-actions { margin-top: var(--s-16); }
+
+/* Confirmation, after the GOV.UK panel: the one time the page is filled with petróleo */
+.confirm {
+  background: var(--petroleo); color: #fff; border-radius: var(--r-control);
+  padding: var(--s-10) var(--s-8); margin-bottom: var(--s-8);
+}
+.confirm__title { font-size: clamp(2.25rem, 1.6rem + 2.2vw, var(--t-display)); line-height: 1.04; }
+.confirm__text { margin-top: var(--s-3); font-size: var(--t-lead); max-width: 48ch; }
+
+/* Campero */
+.welcome__hello { font-size: clamp(2.25rem, 1.8rem + 1.6vw, var(--t-display)); line-height: 1.05; }
+.welcome__intro { margin-top: var(--s-4); font-size: 1.375rem; max-width: 40ch; }
+.promises { list-style: none; margin: var(--s-8) 0 0; display: grid; gap: var(--s-4); max-width: 46ch; counter-reset: promise; }
+.promises li { position: relative; padding-left: 2.75rem; font-size: var(--t-lead); }
+.promises li::before {   /* a petróleo check ("palomita"), drawn like the chosen multi-option mark: not a bullet */
+  content: ""; position: absolute; left: 0.5rem; top: 0.22em; width: 0.5rem; height: 0.9375rem;
+  border: solid var(--petroleo); border-width: 0 3px 3px 0; transform: rotate(45deg);
+}
+ol.promises li::before {
+  counter-increment: promise; content: counter(promise);
+  top: 0; left: 0.25rem; width: 1.875rem; height: 1.875rem; display: grid; place-items: center; transform: none;
+  background: none; border: var(--b-control) solid var(--line-strong); border-radius: var(--r-mark);
+  font-size: var(--t-small); font-weight: 700;
+}
+.kiosk-footer {
+  margin-top: var(--s-16); padding-top: var(--s-4); border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s-2) var(--s-6);
+  color: var(--ink-2); font-size: var(--t-small);
+}
+.auth-card { max-width: 30rem; margin-inline: auto; }  /* the public one-column pages sit in the middle of a wide screen */
+.auth-card--left { margin-inline: 0; }  /* under a left-aligned page head ("Recuperar la computadora"): one left edge (UI-21) */
+
+.dialog { border: var(--b-control) solid var(--line); border-radius: var(--r-control); padding: 0; max-width: min(30rem, calc(100% - 2rem)); color: var(--ink); }
+.dialog::backdrop { background: rgba(22, 34, 43, 0.6); }
+.dialog__body { padding: var(--s-6) var(--s-6) var(--s-4); }
+.dialog__body h2 { font-size: var(--t-h2); margin-bottom: var(--s-2); }
+.dialog__actions { padding: 0 var(--s-6) var(--s-6); }
+
+/* Filters: views of the same list. The current one is "estás aquí", so it gets the petróleo mark. */
+.filters { display: flex; flex-wrap: wrap; gap: var(--s-1) var(--s-2); list-style: none; margin-bottom: var(--s-6); border-bottom: 1px solid var(--line); }
+.filters a {
+  display: inline-flex; align-items: center; gap: var(--s-2); min-height: 2.75rem; padding: 0 var(--s-3);
+  color: var(--ink); font-weight: 500; text-decoration: none; box-shadow: inset 0 -3px 0 transparent;
+}
+.filters a:hover { box-shadow: inset 0 -3px 0 var(--line); }
+.filters a[aria-current="page"] { font-weight: 700; box-shadow: inset 0 -3px 0 var(--mark); }
+.filters a:focus-visible { outline-offset: -3px; }
+.filters .count { color: var(--ink-2); font-weight: 400; font-variant-numeric: tabular-nums; }
+.list-search { display: flex; gap: var(--s-3); max-width: 36rem; margin-bottom: var(--s-4); }
+.list-search .input { flex: 1; }
+.list-count { color: var(--ink-2); font-size: var(--t-small); margin-bottom: var(--s-2); }
+
+.pager { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); margin-top: var(--s-6); max-width: 52rem; }
+.pager__where { color: var(--ink-2); font-size: var(--t-small); }
+.choices--grid { grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr)); max-width: 52rem; }
+.narrow { max-width: var(--w-focus); }
+.heading .count { color: var(--ink-2); font-weight: 400; margin-left: var(--s-2); font-variant-numeric: tabular-nums; }
+.interview-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-4); margin: calc(-1 * var(--s-4)) 0 var(--s-8); color: var(--ink-2); font-size: var(--t-small); }
+
+/* Two columns on a record page (datos | entrevista) */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-10) var(--s-16); align-items: start; }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.block + .block { margin-top: var(--s-10); }
+.heading + * { margin-top: var(--s-3); }
+
+/* A form button that reads as a link ("Marcar como recibida") */
+.link-button { border: 0; background: none; padding: 0; color: var(--petroleo); font-weight: 700; text-decoration: underline; text-underline-offset: 0.18em; cursor: pointer; min-height: 2.75rem;
+  transition: text-underline-offset var(--dur-1) var(--ease), outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease); }
+.link-button:hover { text-decoration-thickness: 2px; text-underline-offset: 0.24em; }
+.status--risk .status__mark { background: var(--chile); border-color: var(--chile); }
+.prose-block { max-width: 65ch; white-space: normal; }
+
+/* Fold: long, secondary blocks that start closed on phones (emmaus.js, data-fold-below) */
+.fold > summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: var(--s-3);
+  font-weight: 700; font-size: var(--t-body); padding: var(--s-3) 0; border-top: 1px solid var(--line);
+}
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary::before {
+  content: ""; width: 0.5rem; height: 0.5rem; border: solid currentColor; border-width: 0 3px 3px 0;
+  transform: rotate(-45deg); transition: transform var(--dur-1) var(--ease); flex: none;
+}
+.fold[open] > summary::before { transform: rotate(45deg); }
+.fold > summary .fold__hint { font-weight: 400; color: var(--ink-2); font-size: var(--t-small); }
+.fold > * + * { margin-top: var(--s-6); }
+
+/* Printable backup list */
+.print-sheet { max-width: var(--w-wide); margin: 0 auto; padding: var(--s-8) var(--s-8) var(--s-12); }
+.print-group { margin-top: var(--s-10); break-inside: avoid-page; }
+.print-group h2 { font-size: var(--t-h3); margin-bottom: var(--s-2); }
+.print-box { text-align: center; font-size: 1.25rem; }
+.print-notes { min-width: 10rem; }
+
+/* ---------- 11. Coordinator home ----------------------------------------- */
+.coord__hello { font-size: var(--t-h2); line-height: 1.1; margin-bottom: var(--s-5); }
+.coord > .live-status { text-align: right; margin: var(--s-2) 0 var(--s-8); }
+.coord__progress { margin-bottom: var(--s-10); }
+.coord__count { font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem); line-height: 1.1; }
+.coord__count-note { margin-top: var(--s-1); color: var(--ink-2); }
+.coord__count-note a { font-weight: 700; margin-left: var(--s-2); }
+.coord__lists { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-12) var(--s-16); align-items: start; }
+.coord__side { display: grid; gap: var(--s-12); }
+@media (max-width: 900px) {
+  .coord__lists { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .row { gap: var(--s-3); }
+  .results .row { flex-wrap: wrap; }
+  .results .row__end { width: 100%; justify-content: space-between; }
+}
+
+/* ---------- 12. Report (pastor) ------------------------------------------ */
+.report-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-8); margin-bottom: var(--s-10); }
+.report-head__title { font-size: clamp(2rem, 1.5rem + 1.6vw, var(--t-h1)); line-height: 1.05; }
+.report-head__meta { margin-top: var(--s-2); color: var(--ink-2); font-size: var(--t-small); }
+.report-head__meta .live-status { font-size: inherit; }
+.report-head__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+
+.report-section {
+  display: grid; grid-template-columns: minmax(14rem, 21rem) minmax(0, 1fr); gap: var(--s-6) var(--s-16);
+  padding: var(--s-10) 0 var(--s-12); border-top: var(--b-control) solid var(--line);
+}
+.report-section__title { font-size: var(--t-h2); line-height: 1.12; }
+.report-section__answer { margin-top: var(--s-3); font-size: var(--t-lead); color: var(--ink-2); max-width: 30ch; }
+.report-section__body { min-width: 0; }
+.report-section__body > * + * { margin-top: var(--s-8); }
+.report-section__body > .key + .teams { margin-top: var(--s-4); }
+@media (max-width: 900px) {
+  .report-section { grid-template-columns: 1fr; padding: var(--s-8) 0 var(--s-10); }
+}
+
+.headline { font-size: clamp(2rem, 1.4rem + 1.8vw, var(--t-h1)); line-height: 1.08; max-width: 20ch; }
+.headline__sub { font-size: var(--t-lead); color: var(--ink-2); max-width: 52ch; }
+.report-section__body > .headline__sub { margin-top: var(--s-4); }
+.headline__ruler .ruler { height: 1.75rem; }
+.report-section__body > .key { margin-top: var(--s-3); }
+.headline__delta { font-size: var(--t-small); color: var(--ink-2); }
+
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--s-4) var(--s-6); }
+/* A value wraps inside its tile rather than run under the next one ("6 h 15 min", audit UI-01): the tile may shrink
+   below its content (min-width: 0) and the value may break (overflow-wrap) */
+.figures > div { border-top: 1px solid var(--line); padding-top: var(--s-3); min-width: 0; }
+.figures dt { font-size: var(--t-small); font-weight: 500; color: var(--ink-2); }
+.figures__value { font-size: 2.25rem; font-weight: 800; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
+.figures__note { font-size: var(--t-small); color: var(--ink-3); }
+.figures__alert { border-top-color: var(--chile) !important; border-top-width: 4px !important; }
+.figures__alert .figures__value { color: var(--chile); }
+
+.chart__title { font-weight: 700; font-size: var(--t-body); }
+.chart__sub { font-size: var(--t-small); color: var(--ink-2); margin-bottom: var(--s-3); max-width: 70ch; }
+.chart__svg { display: block; width: 100%; max-width: 50rem; height: auto; font-family: var(--font-ui); }
+.chart__svg text { fill: var(--ink-3); }
+.chart__svg .grid { stroke: var(--data-grid); stroke-width: 1; }
+.chart__svg .axis { stroke: var(--data-axis); stroke-width: 1; }
+.chart__svg .area { display: none; }
+.chart__svg .line { fill: none; stroke: var(--data-done); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart__svg .dot { fill: var(--data-done); stroke: var(--surface); stroke-width: 2; }
+.chart__svg .label-strong { fill: var(--ink); font-weight: 700; }
+.chart__svg .label-quiet { fill: var(--ink-3); font-weight: 500; }  /* the goal and its projection: 5.7:1 */
+.chart__svg .projection { fill: none; stroke: var(--data-done); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; }
+.chart__svg .projection-end { fill: var(--surface); stroke: var(--data-done); stroke-width: 2; }
+.chart__svg .col { fill: var(--data-done); }
+.chart__svg .col--partial { fill: var(--data-progress); }
+.chart__empty { color: var(--ink-2); padding: var(--s-4) 0; }
+.chart__narrow { display: none; }
+@media (max-width: 600px) {
+  .chart__wide { display: none; }
+  .chart__narrow { display: block; }
+  .figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .figures__value { font-size: 1.75rem; }
+}
+.table-wrap { position: relative; overflow-x: auto; margin-top: var(--s-3); }  /* keeps visually hidden text inside the scroller */
+.table { border-collapse: collapse; width: 100%; font-size: var(--t-small); }
+/* A sunken header row and hairline rules; the first column keeps a little air from the edge of the header */
+.table th { text-align: left; font-weight: 700; background: var(--hundido); border-bottom: 1px solid var(--line); padding: var(--s-2) var(--s-3); }
+.table td { border-bottom: 1px solid var(--line); padding: var(--s-2) var(--s-3); }
+.table th[scope="row"] { background: none; border-bottom: 1px solid var(--line); }  /* a row header is not a column header */
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.teams { list-style: none; }
+.teams__row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-4); align-items: baseline;
+  padding: var(--s-4) 0; border-bottom: 1px solid var(--line);
+}
+.teams__row .ruler { grid-column: 1 / -1; }
+.teams__name { font-weight: 700; font-size: var(--t-lead); }
+.teams__value { color: var(--ink-2); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
+.teams__value strong { color: var(--ink); font-size: var(--t-lead); margin-right: var(--s-2); }
+
+.outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: var(--s-10) var(--s-12); }
+.outcome__title { font-weight: 700; font-size: var(--t-body); line-height: 1.3; }
+.outcome__sub { font-size: var(--t-small); color: var(--ink-3); margin-bottom: var(--s-3); }
+.outcome__rows { list-style: none; display: grid; gap: var(--s-3); }
+.outcome__rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-1) var(--s-3); }
+.outcome__label { font-size: var(--t-small); }
+.outcome__value { font-size: var(--t-small); font-weight: 700; font-variant-numeric: tabular-nums; }
+.outcome__track { grid-column: 1 / -1; height: 0.625rem; background: var(--hundido); border-radius: var(--r-mark); }
+.outcome__bar { display: block; height: 100%; background: var(--data-done); border-radius: var(--r-mark); }
+
+.agenda { list-style: none; counter-reset: asunto; }
+.agenda li { position: relative; padding: var(--s-4) 0 var(--s-4) 3rem; border-bottom: 1px solid var(--line); }
+.agenda li::before {
+  counter-increment: asunto; content: counter(asunto);
+  position: absolute; left: 0; top: var(--s-4); width: 2rem; height: 2rem; display: grid; place-items: center;
+  border: var(--b-control) solid var(--line-strong); border-radius: var(--r-mark); font-weight: 700; font-size: var(--t-small);
+}
+.agenda__text { font-weight: 700; }
+.agenda__evidence { font-size: var(--t-small); color: var(--ink-2); margin-top: var(--s-1); }
+
+/* ---------- 13. Motion ---------------------------------------------------- */
+/* Eight rules, short and purposeful: they say "this is new", "this is yours", "this is loading". Nothing loops and
+   nothing decorates. prefers-reduced-motion turns every one of them off (14). Tokens: --dur-1/2/3, --ease, --rise. */
+@keyframes atrio-rise { from { opacity: 0; transform: translateY(var(--rise)); } }
+@keyframes atrio-leave { to { opacity: 0; transform: translateY(calc(-1 * var(--rise))); } }
+@keyframes atrio-drop { from { opacity: 0; transform: translateY(calc(-1 * var(--rise))); } }
+@keyframes atrio-fade { from { opacity: 0; } }
+@keyframes atrio-fill { from { background-color: var(--data-track); border-color: var(--line-strong); } }
+@keyframes atrio-pop { 50% { transform: scale(1.06); } }
+
+/* 1. Between pages, a crossfade of --dur-1 only, so a page never feels slow to answer (browsers without
+   cross-document view transitions simply navigate). Between questions the question itself leaves upwards and
+   the next one rises, by --rise at most, over --dur-2. Only the main question is named: a name must be unique
+   on the page, and the follow-up questions are .question too. */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-1); animation-timing-function: var(--ease); }
+.step > .question { view-transition-name: pregunta; }
+::view-transition-group(pregunta) { animation-duration: var(--dur-2); animation-timing-function: var(--ease); }
+::view-transition-old(pregunta) { animation: atrio-leave var(--dur-2) var(--ease) both; }
+::view-transition-new(pregunta) { animation: atrio-rise var(--dur-2) var(--ease) both; }
+
+/* 2. The next-action panel and the page head arrive with the page */
+.sign, .page-head { animation: atrio-rise var(--dur-3) var(--ease) both; }
+
+/* 3. Completed marks fill in on the first load, 8ms apart and 400ms at most (sibling-index(): where it is not
+   supported the delay stays 0 and they fill together). The done marks come first in a tally. */
+.tally__mark--done {
+  animation: atrio-fill var(--dur-2) var(--ease) both;
+  animation-delay: 0ms;
+  animation-delay: min(calc((sibling-index() - 1) * 8ms), 400ms);
+}
+.ruler__seg--done { animation: atrio-fade var(--dur-3) var(--ease) both; }
+
+/* 6. A fold that opens: its content fades in (no height animation) */
+.fold[open] > :not(summary) { animation: atrio-fade var(--dur-2) var(--ease) both; }
+
+/* 7. Messages slide down into place */
+.notice { animation: atrio-drop var(--dur-2) var(--ease) both; }
+
+/* 5. The chosen mark answers the tap (the colour changes of controls are their own --dur-1 transitions) */
+.choice > input:checked + .choice__label .choice__mark { animation: atrio-pop var(--dur-2) var(--ease); }
+
+/* A live region replays nothing: emmaus.js sets data-live-settled before its first replacement */
+[data-live-settled] .sign, [data-live-settled] .page-head, [data-live-settled] .notice,
+[data-live-settled] .fold[open] > :not(summary), [data-live-settled] .tally__mark--done,
+[data-live-settled] .ruler__seg--done { animation: none; }
+
+/* 4. Live refresh: while a fetch is in flight the region dims, but only if it takes longer than --dur-2,
+   so a fast refresh never flickers; it comes back at once. The status text changes without motion. */
+[data-live-url] { transition: opacity var(--dur-1) var(--ease); }
+[data-live-url][data-live-busy] { opacity: 0.72; transition-delay: var(--dur-2); }
+
+/* ---------- 14. Reduced motion, forced colours, print -------------------- */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  *, *::before, *::after, ::file-selector-button { animation: none !important; transition: none !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+@media (forced-colors: active) {
+  .tally__mark, .ruler, .ruler__seg, .key__mark, .trail__blazes li, .status__mark, .outcome__bar, .here__blaze { forced-color-adjust: none; border: 1px solid CanvasText; }
+  .sign, .confirm { border: 2px solid CanvasText; }
+}
+@media print {
+  .bar, .focusbar, .menu-panel, .btn, .skip-link, .live-status, .kiosk-footer, .back-link { display: none !important; }
+  .print-sheet { padding: 0; max-width: none; }
+  .table { font-size: 10pt; }
+  .table td, .table th { border-bottom: 1px solid #999; }
+  .sign, .confirm { border: 2px solid #000; background: none; color: #000; }
+  body { font-size: 12pt; }
+}
+
+/* ---------- G1 Liderazgo ---------- */
+/* Tutor home ("Mi equipo"): the team's name and the update status share a line; the sign only when something stalled */
+.crew-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-2) var(--s-6); margin-bottom: var(--s-8); }
+.crew-head__title { font-size: var(--t-h2); line-height: 1.1; }
+.crew-sign { margin-bottom: var(--s-10); }
+.crew-board { display: grid; grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); gap: var(--s-12) var(--s-16); align-items: start; }
+.crew-board__main > * + * { margin-top: var(--s-12); }
+.crew-board__side { display: grid; gap: var(--s-12); }
+.crew-board__pace > .chart + .chart { margin-top: var(--s-8); }
+@media (max-width: 900px) { .crew-board { grid-template-columns: 1fr; } }
+
+/* One row per coordinator: who and where | one mark per campero | "X de Y" and the percent */
+.crew { list-style: none; margin-top: var(--s-4); }
+.crew__row {
+  display: grid; grid-template-columns: minmax(9rem, 15rem) minmax(0, 1fr) auto; gap: var(--s-2) var(--s-6);
+  align-items: start; padding: var(--s-5) 0; border-bottom: 1px solid var(--line);
+}
+.crew__name { font-size: var(--t-lead); font-weight: 700; line-height: 1.3; }
+.crew__meta { font-size: var(--t-small); color: var(--ink-2); }
+.crew__who, .crew__marks { min-width: 0; }
+.crew__marks .tally { margin: 0.125rem 0 0; }
+.crew__marks .tally__mark { height: 1.75rem; }
+.crew__marks .ruler { margin-top: var(--s-2); }
+.crew__note { margin-top: var(--s-2); font-size: var(--t-small); font-weight: 700; text-wrap: balance; }
+.crew__figures { text-align: right; white-space: nowrap; font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.crew__figures strong { display: block; font-size: var(--t-lead); color: var(--ink); }
+.crew__key { margin-top: var(--s-4); }
+.crew-list { max-width: 60rem; }
+@media (max-width: 600px) {
+  .crew__row { grid-template-columns: minmax(0, 1fr) auto; }
+  .crew__marks { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* Interviews: a filter bar of selects */
+.filter-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-4) var(--s-5); margin-bottom: var(--s-10); }
+.filter-form .field { flex: 1 1 10rem; min-width: 0; margin: 0; }
+.filter-form select { font-size: var(--t-body); }
+.filter-form__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); }
+
+/* Team: one block per tutor, two side by side on a wide screen */
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 30rem), 1fr)); gap: var(--s-12) var(--s-16); align-items: start; }
+
+/* A short note under a name in a table cell ("2 entrevistas detenidas"): words, never red */
+.table .cell-note { display: block; font-weight: 700; color: var(--ink); }
+/* Tables of people: on a phone they scroll sideways instead of squeezing names into three lines */
+.table--nowrap th, .table--nowrap td { white-space: nowrap; }
+@media (max-width: 600px) {
+  /* ...except the name, so the number, the name and the status fit on the first screen */
+  .table--nowrap .cell-name { white-space: normal; min-width: 8.5rem; }
+}
+.nowrap { white-space: nowrap; }
+/* The update status under a page header, before a report */
+.lead-status { margin: calc(-1 * var(--s-5)) 0 var(--s-8); }
+
+/* ---------- G3 Administración ---------- */
+/* Administration is the one denser place: tables with tabular numbers, filter bars, and the row that
+   needs action marked like a highlighter (borrowed from "Bitácora"). Still no cards, no pills. */
+
+/* Home: the sign (only when something blocks), the state in a sentence, the checklist */
+.admin-sign { margin-bottom: var(--s-10); }
+.admin-state { margin-bottom: var(--s-12); }
+.admin-state__title { font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem); line-height: 1.1; max-width: 40ch; }
+.admin-state__sub { margin-top: var(--s-2); font-size: var(--t-lead); color: var(--ink-2); max-width: 60ch; }
+.admin-state__ruler { margin: var(--s-5) 0 var(--s-3); }
+.admin-state__ruler .ruler { height: 1.5rem; }
+.admin-state__figures { margin-top: var(--s-8); }
+.admin-side { display: grid; gap: var(--s-12); align-content: start; }
+.admin-rows .row__meta { max-width: 52ch; }
+.admin-log .row { min-height: 0; padding: var(--s-2) 0; }
+.admin-log .row__title { font-size: var(--t-body); font-weight: 400; }
+
+/* Filter bar: a GET form of labelled controls, aligned on their bottom edge */
+.filter-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s-4); margin-bottom: var(--s-8); }
+.filter-bar .field { margin: 0; flex: 1 1 13rem; max-width: 20rem; }
+.filter-bar .filter-bar__search { flex: 2 1 18rem; max-width: 28rem; }
+.filter-bar .btn { flex: none; min-height: 3.5rem; }  /* as tall as the fields beside it */
+
+/* Tables. In a --marked table a 4px edge on the first cell marks the row (petróleo: needs a decision; chile: has an error) */
+.admin-table th, .admin-table td.num, .table__nowrap { white-space: nowrap; }
+.admin-table--marked th:first-child, .admin-table--marked td:first-child { padding-left: var(--s-4); }
+.admin-table--marked tr.is-attention td { background: var(--hundido); }
+.admin-table--marked tr.is-attention td:first-child { box-shadow: inset 4px 0 0 var(--petroleo); }
+.admin-table--marked tr.is-error td:first-child { box-shadow: inset 4px 0 0 var(--chile); }
+.admin-table td form { margin: 0; }
+.admin-table input[type="checkbox"] { display: block; width: 1.75rem; height: 1.75rem; margin: 0; accent-color: var(--petroleo); cursor: pointer; }
+.admin-table select { min-width: 15rem; min-height: 2.75rem; padding-block: 0.375rem; font-size: var(--t-body); }
+.table__note { display: block; color: var(--ink-2); }
+.table__error, .table__flag { display: block; font-weight: 700; }
+.table__error { color: var(--chile); }
+.table__action { text-align: right; white-space: nowrap; }
+.table__date { width: 1%; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table__review { min-width: 16rem; }
+.admin-import .admin-table td { vertical-align: top; }
+.admin-figures { margin: var(--s-6) 0 var(--s-8); }
+.admin-import__cancel { margin-top: var(--s-3); }
+/* Import: the native file control stays (keyboard, screen readers, the file name); no field box around it,
+   its button drawn as .btn--secondary. Same weight as the shared .field input rule, so it wins by coming later. */
+.admin-upload .field input[type="file"]:not([type="hidden"]) {
+  min-height: 0; padding: 0; border: 0; border-radius: 0; background: none;
+  font-size: var(--t-body); color: var(--ink-2);
+}
+.admin-upload input[type="file"]::file-selector-button {
+  min-height: var(--control); margin-right: var(--s-4); padding: 0.5rem 1.375rem;
+  border: var(--b-control) solid var(--line-strong); border-radius: var(--r-control);
+  background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; line-height: 1.2; cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+.admin-upload input[type="file"]::file-selector-button:hover { background: var(--hundido); }
+/* The usual ring, around the whole control (its button and the file name) */
+.admin-upload .field input[type="file"]:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px #ffffff; }
+
+/* Two columns whose content may be wider than the column (tables, long links) must not widen the page */
+.admin-split > * { min-width: 0; }
+.admin-split > .admin-stack > * + * { margin-top: var(--s-12); }
+
+/* A link to copy (activation link) */
+.admin-link { margin: var(--s-6) 0 var(--s-3); }
+.admin-link .input { font-size: var(--t-body); }
+
+/* Questionnaire editor */
+.admin-narrow { max-width: 52rem; }
+.admin-section { margin-top: var(--s-12); }
+.admin-section__desc { margin-top: var(--s-2); color: var(--ink-2); max-width: 65ch; }
+.admin-section__add { margin-top: var(--s-12); }
+.admin-questions .row { align-items: flex-start; }
+.admin-questions__actions { flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2) var(--s-3); }
+.admin-questions__actions form { margin: 0; }
+.admin-answers { list-style: none; display: flex; flex-wrap: wrap; gap: 0 var(--s-6); margin-top: var(--s-2); font-size: var(--t-small); }
+.admin-answers li { display: inline-flex; align-items: center; gap: var(--s-2); }
+.admin-answers__label { font-weight: 700; }
+.admin-answers__label--decline { font-weight: 400; color: var(--ink-2); }
+.admin-answers__note { font-weight: 400; color: var(--ink-2); }
+.admin-answers__remove { margin: 0; }
+.link-button--danger { color: var(--chile); }
+.admin-levels .summary-list__row { grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); }
+
+@media (max-width: 600px) {
+  .filter-bar { gap: var(--s-3); }
+  .filter-bar .field, .filter-bar .btn { flex: 1 1 calc(50% - var(--s-3)); max-width: none; }
+  .filter-bar .filter-bar__search { flex-basis: 100%; max-width: none; }
+  .admin-rows .row, .admin-questions .row { flex-wrap: wrap; }
+  .admin-rows .row__end, .admin-questions__actions { width: 100%; justify-content: space-between; }
+  .admin-questions__actions { justify-content: flex-start; }
+  .admin-table select { min-width: 8rem; width: 100%; }
+  /* Assignments on a phone: each coordinator on one line, the tutor select full width below */
+  .admin-assign .table-wrap { overflow: visible; }
+  .admin-assign .admin-table, .admin-assign .admin-table tbody { display: block; }
+  .admin-assign .admin-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .admin-assign .admin-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s-2) var(--s-4); padding: var(--s-3) 0; border-bottom: 1px solid var(--line); }
+  .admin-assign .admin-table td { border: 0; padding: 0; }
+  .admin-assign .admin-table td:first-child { padding-left: var(--s-3); font-weight: 700; font-size: var(--t-body); }
+  .admin-assign .admin-table td:last-child { grid-column: 1 / -1; padding-left: var(--s-3); }
+  .admin-assign .admin-table td.num { color: var(--ink-2); }
+  .admin-assign .admin-table tr.is-attention { padding-right: var(--s-3); background: var(--hundido); box-shadow: inset 4px 0 0 var(--petroleo); }
+  .admin-assign .admin-table tr.is-attention td { background: none; box-shadow: none; }
+}
+.admin-assign__unit { display: none; }
+@media (max-width: 600px) { .admin-assign__unit { display: inline; } }
+
+/* Participants: the table on a wide screen; on a phone the same people as rows (name, then the data as a
+   sentence), instead of names on three lines and a sideways scroll. display:none keeps the unused one
+   away from screen readers and the keyboard. */
+.admin-people__rows { display: none; margin-top: var(--s-3); }
+@media (max-width: 600px) {
+  .admin-people__table { display: none; }
+  .admin-people__rows { display: block; }
+}
+
+/* ---------- G4 Público ---------- */
+/* Sign-in, password and invitation pages, errors, the landing and the event list (all on base.html). */
+
+/* Sign-in: the shared-computer reminder stands apart from the button it follows */
+.auth-card > .notice { margin-top: var(--s-10); }
+/* Sign-in: the church's logo leads, centred above the title */
+.auth-card__brand { display: flex; justify-content: center; margin-bottom: var(--s-8); }
+/* "¿Olvidaste tu contraseña?": 44px to tap (§6); the margins take back exactly what the padding adds */
+.auth-card__link { display: inline-flex; align-items: center; padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); }
+
+/* Django sends the password rules as a list inside the field hint: keep the bullets inside the column */
+.field .hint ul { padding-left: 1.25rem; list-style: disc; }
+.field .hint li + li { margin-top: var(--s-1); }
+
+/* Create camp: a date is short, so its field is too (as number fields already are) */
+.event-create input[type="date"] { max-width: 16rem; }
+
+
+/* Joining a team with the printed code: /unirme/ and the event's page (one column, like sign-in), the code
+   and the requests on "Equipo", and the sheet the church prints (the code at 96px, in Figtree 800) */
+.join-search .search { margin-top: 0; }
+.join-choices { margin-top: var(--s-2); }
+.join-code { margin: 0 0 var(--s-10); max-width: 52rem; }
+.join-code__text { font-size: var(--t-lead); overflow-wrap: anywhere; }
+.join-code__note { margin-top: var(--s-1); font-size: var(--t-small); color: var(--ink-2); }
+.join-code__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); }
+.join-requests { margin-bottom: var(--s-10); max-width: 52rem; }
+.join-requests .row { flex-wrap: wrap; }
+.join-requests .row__end { flex: 0 1 auto; flex-wrap: wrap; min-width: 0; }  /* a role, two buttons: they wrap on a phone */
+.join-requests .row__main { overflow-wrap: anywhere; }
+.join-requests__approve { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); }
+.join-requests__approve select { width: auto; min-height: 2.75rem; }
+.join-sheet { max-width: var(--w-focus); }
+.join-sheet__label { margin-top: var(--s-6); font-size: var(--t-h3); font-weight: 700; }
+.join-sheet__code { font-size: 6rem; line-height: 1; letter-spacing: 0.08em; margin-top: var(--s-2); }
+.join-sheet__url { margin-top: var(--s-4); font-size: var(--t-h2); font-weight: 700; overflow-wrap: anywhere; }
+.join-sheet__steps { margin-top: var(--s-8); padding-left: 1.5rem; list-style: decimal; font-size: var(--t-lead); }
+.join-sheet__steps li + li { margin-top: var(--s-2); }
+@media (max-width: 600px) {
+  .join-sheet__code { font-size: 3.5rem; }
+}
+@media print {
+  .join-sheet { max-width: none; }  /* the code keeps its 96px: one inch on paper */
+}
+
+/* ---------- G5a Discipulado gestión ---------- */
+/* Lists that open a page (participants, paths, notes, people): reading width, no extra gap under the head */
+.disc-list { max-width: 52rem; }
+/* Church dashboard: the sign sits between the page head and the first question */
+.church-sign { margin-bottom: var(--s-10); }
+.church-report .row > .btn { white-space: nowrap; }
+/* Four figures fit in one line down to tablets instead of leaving one alone on a second line */
+.church-report .figures { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); }
+/* Participants: the path's progress as a ruler with its figure beside it (single series, no key) */
+.participant-progress .row__main { flex: 1 1 auto; }
+.participant-progress__line { display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-2); }
+.participant-progress__line .ruler { flex: 0 1 16rem; height: 0.75rem; }
+.participant-progress__text { flex: none; font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+/* A fixed label column, so the values line up whether or not a row has "Cambiar mentor" */
+.participant-data .summary-list__row { grid-template-columns: 12rem minmax(0, 1fr) auto; }
+.participant-detail__ruler { margin-top: var(--s-2); max-width: 20rem; }
+.participant-detail__ruler .ruler { height: 0.75rem; }
+.participant-detail__form { margin-top: var(--s-6); }
+/* Church settings: theme colours side by side; the swatches line up whatever the hint length */
+.theme-colors__intro, .logo-settings__intro { color: var(--ink-2); margin-bottom: var(--s-4); max-width: 60ch; }
+/* The logo as it is now: on white and, the white version, on ink */
+.logo-preview { margin: var(--s-4) 0 var(--s-5); }
+.logo-preview__plate {
+  display: inline-flex; padding: var(--s-4) var(--s-6);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-control);
+}
+.logo-preview--dark .logo-preview__plate { background: var(--ink); border-color: var(--ink); }
+.logo-preview figcaption { margin-top: var(--s-2); font-size: var(--t-small); color: var(--ink-2); }
+.theme-colors { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 0 var(--s-6); margin-top: var(--s-6); }
+.theme-colors .field { display: flex; flex-direction: column; }
+.theme-colors .field input { margin-top: auto; }
+/* Invitations: the backup link wraps instead of stretching the table */
+.invitations-table__link { display: block; min-width: 16rem; overflow-wrap: anywhere; color: var(--ink-2); }
+.invitation-link .field { margin-bottom: var(--s-3); }
+.invitation-about p + p { margin-top: var(--s-3); }
+/* A path: its lessons in order, each with its reflection questions and actions */
+.path-lessons .row { align-items: flex-start; padding: var(--s-5) 0; }
+.path-lessons .row__main { flex: 1 1 auto; }
+.path-lessons__label { margin-top: var(--s-3); font-size: var(--t-small); font-weight: 700; }
+.path-lessons__questions { padding-left: 1.5rem; font-size: var(--t-small); color: var(--ink-2); max-width: 65ch; }
+.path-lessons__questions li + li { margin-top: var(--s-1); }
+.path-lessons__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); margin-top: var(--s-4); }
+@media (max-width: 600px) {
+  .participant-data .summary-list__row { grid-template-columns: 1fr auto; }
+  .participant-progress .row { flex-wrap: wrap; }
+  .participant-progress .row__main { flex-basis: 100%; }
+}
+
+/* ---------- G5b Discipulado acompañamiento ---------- */
+/* The discipleship module as the people in it see it: the participant's path and lessons, the mentor's home,
+   questions and follow-ups (templates/core). Classes start with disc-. */
+
+/* A reading or writing column at the interview's measure, with a quiet aside on wide screens */
+.disc-focus {
+  display: grid; grid-template-columns: minmax(0, var(--w-focus)) minmax(15rem, 20rem);
+  gap: var(--s-12) var(--s-16); align-items: start; justify-content: space-between;
+}
+.disc-focus__aside { position: sticky; top: var(--s-8); }
+.disc-focus__aside.notice { margin: 0; }
+@media (max-width: 900px) {
+  .disc-focus { grid-template-columns: minmax(0, 1fr); }
+  .disc-focus__aside { position: static; }
+}
+
+/* Participant home: the next lesson on the sign, then the path, who walks with you and your questions */
+.page-head + .disc-camino { margin-top: 0; }
+.disc-camino { margin-top: var(--s-12); }
+.disc-path { font-size: var(--t-lead); font-weight: 700; line-height: 1.3; }
+.disc-path + .prose { margin-top: var(--s-1); }
+.disc-path__progress { margin-top: var(--s-5); }
+.disc-path__progress .ruler { max-width: 30rem; }
+.disc-path__note { margin-top: var(--s-2); font-size: var(--t-small); color: var(--ink-2); }
+.disc-side { display: grid; gap: var(--s-10); }
+.disc-actions { margin-top: var(--s-4); }
+
+/* A lesson reads like a question page: the title, a reading measure, the reflection as a large field */
+.disc-lesson__refs { margin-top: var(--s-4); }
+.disc-reading { margin-top: var(--s-8); max-width: 65ch; font-size: var(--t-lead); line-height: 1.6; }
+.disc-reading p + p { margin-top: var(--s-4); }
+.disc-lesson__step { margin-top: var(--s-8); max-width: 65ch; }
+.disc-reflect { margin-top: var(--s-16); }
+.disc-reflect__intro { margin-top: var(--s-3); max-width: 55ch; font-size: var(--t-lead); color: var(--ink-2); }
+.disc-reflect__q { margin-top: var(--s-10); }
+.disc-reflect__label { display: block; max-width: 30ch; font-size: clamp(1.5rem, 1.25rem + 0.8vw, var(--t-h2)); line-height: 1.15; cursor: text; }
+.disc-reflect__answer.textarea, .disc-ask__answer.textarea { min-height: 13rem; }
+.disc-lesson__nav { margin-top: var(--s-12); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+
+/* Asking a question or for a conversation: the campero's interview, one question at a time */
+.disc-ask > .error-summary, .disc-ask > div > .error-summary { max-width: var(--w-focus); }
+.disc-ask .question + .question { margin-top: var(--s-10); }
+.disc-ask__hint { margin: var(--s-3) 0 0; }
+.disc-ask__aside { margin-top: var(--s-10); }
+@media (min-width: 901px) {
+  /* The safety notice moves beside the question; in the source it stays before the button */
+  .disc-ask__form {
+    display: grid; grid-template-columns: minmax(0, var(--w-focus)) minmax(15rem, 20rem);
+    column-gap: var(--s-16); align-items: start; justify-content: space-between;
+  }
+  .disc-ask__form > * { grid-column: 1; }
+  .disc-ask__form > .disc-ask__aside { grid-column: 2; grid-row: 1 / span 3; margin: 0; position: sticky; top: var(--s-8); }
+}
+
+/* A question as a thread: who said it and when as a sentence, then the words */
+.disc-question + .block { margin-top: var(--s-10); }
+.disc-thread .row { align-items: flex-start; padding: var(--s-5) 0; }
+.disc-thread__text { margin-top: var(--s-2); max-width: 65ch; }
+.disc-thread__text p + p { margin-top: var(--s-3); }
+.disc-thread__text--question { font-size: var(--t-lead); }
+.disc-answer { margin-top: var(--s-16); }
+.disc-section__intro { max-width: 60ch; margin-bottom: var(--s-5); color: var(--ink-2); }
+.disc-escalate { margin-top: var(--s-10); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+.disc-escalate .btn-row { margin-top: var(--s-3); }
+.disc-draft { margin-top: var(--s-8); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+.disc-draft .disc-draft__meta { margin: 0 0 var(--s-3); }
+.disc-draft .notice { margin: 0 0 var(--s-4); }
+.disc-draft .disc-thread__text { margin-bottom: var(--s-6); }
+
+/* Mentor home: who needs a reply, then the people with their path */
+.disc-summary { margin: var(--s-10) 0 var(--s-12); }
+.page-head + .disc-summary { margin-top: 0; }
+.disc-next { flex: none; max-width: 11rem; text-align: right; font-size: var(--t-small); font-weight: 700; }
+.disc-person .row__main { flex: 1; }
+.disc-person .ruler { margin-top: var(--s-2); max-width: 24rem; }
+
+/* Questions and follow-ups in a list: the words, the status beside the name, the action under the words */
+.disc-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start;
+  gap: var(--s-3) var(--s-4); padding: var(--s-4) 0;
+}
+.disc-item > .status { margin-top: 0.3125rem; }
+.disc-item__text { margin-top: var(--s-1); max-width: 65ch; }
+.disc-item__action { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .disc-item { grid-template-columns: minmax(0, 1fr); }
+  .disc-item > .status { margin-top: 0; }
+  .disc-lists .row { flex-wrap: wrap; }
+  .disc-next { max-width: none; width: 100%; text-align: left; }
+}
+
+/* ---------- G2 Reportes y presentación ---------- */
+/* Reports: the coordinator's team under the name; the row actions of the cutoff history */
+.teams__meta { display: block; font-size: var(--t-small); font-weight: 400; color: var(--ink-2); }
+.teams__row > .status { grid-column: 1 / -1; white-space: normal; }
+/* position: the visually hidden link text must scroll inside .table-wrap instead of widening the page */
+.table__actions { white-space: nowrap; position: relative; }
+.table .table__actions { padding-left: var(--s-5); }
+/* "Ver", "PDF", "Presentación": 44 x 44px to tap (§6). The row gets a 44px inner height (it was 40px), so each
+   target fills its row exactly and never reaches into the next one; the targets' own margins take back their
+   padding. The side padding widens each target and replaces the gap between them; the outer margins keep the
+   first and last words where they were. */
+.table tr:has(.table__actions) > td { padding-block: calc((2.75rem - 1lh) / 2); }
+.table__actions a {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem;
+  padding-block: calc((2.75rem - 1lh) / 2); margin-block: calc((1lh - 2.75rem) / 2); padding-inline: var(--s-2);
+}
+.table__actions a:first-child { margin-left: calc(-1 * var(--s-2)); }
+.table__actions a:last-child { margin-right: calc(-1 * var(--s-2)); }
+/* Focus (§Foco) kept inside the row: the usual ring, 5px outside the box, would paint over the row lines */
+.table__actions a:focus-visible { outline-offset: -3px; box-shadow: none; }
+.keep-together { white-space: nowrap; }
+/* Row headers (comparison table) take the row's rule, not the header's */
+.report-section .table th[scope="row"] { border-bottom: 1px solid var(--line); }
+
+/* Presentation deck, 16:9 (docs/design-direction.md, "Modo presentación").
+   Inside a slide everything is sized in container units (1cqw = 1% of the slide width), so a slide
+   reads the same on a laptop and on a 1920 projector: there the headline is 120 px and nothing is
+   under 26 px. "Cal" (white) by default; .deck--noche swaps the tokens for a dim room: text #F3F5F6 (15.6:1)
+   on the night navy #141B33, data done #8FC1CA (8.6:1), in progress #4C95A2 (5.0:1), "sin iniciar" an outline
+   #7B8A94 (4.8:1, WCAG 1.4.11). Changing slides crossfades, and so does switching to Noche (8. --dur-3). */
+.deck {
+  min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 2vmin;
+  background: var(--page); color: var(--ink);
+  transition: background-color var(--dur-3) var(--ease), color var(--dur-3) var(--ease);
+}
+.deck--noche {
+  color-scheme: dark;
+  --page: #141b33; --surface: #141b33; --hundido: #1d2647;
+  --ink: #f3f5f6; --ink-2: #c9d2d8; --ink-3: #a9b4bc; --line: #2c355a; --line-strong: #7b8a94;
+  --petroleo: #8fc1ca; --mark: #8fc1ca;
+  --data-done: #8fc1ca; --data-progress: #4c95a2; --data-track: #141b33; --data-grid: #2c355a; --data-axis: #7b8a94;
+}
+body.is-presenting { transition: background-color var(--dur-3) var(--ease); }
+body.is-presenting:has(.deck--noche) { background: #141b33; }
+.deck__frame {
+  position: relative; width: min(100vw - 4vmin, (100vh - 4vmin) * 16 / 9); aspect-ratio: 16 / 9;
+  overflow: hidden; container-type: inline-size; background: var(--page);
+  transition: background-color var(--dur-3) var(--ease), opacity var(--dur-1) var(--ease);  /* opacity: 4. live refresh */
+}
+/* 8. Noche: every colour inside the slide crossfades with the background */
+.deck__frame *, .deck__frame *::before {
+  transition: color var(--dur-3) var(--ease), background-color var(--dur-3) var(--ease), border-color var(--dur-3) var(--ease),
+    fill var(--dur-3) var(--ease), stroke var(--dur-3) var(--ease);
+}
+/* 8. Slides crossfade: the one leaving stays visible (and keeps its place) until it has faded */
+.slide {
+  position: absolute; inset: 0; display: flex; flex-direction: column; padding: 4.6cqw 6.25cqw 3.75cqw;
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--dur-3) var(--ease), visibility 0s linear var(--dur-3);
+}
+.slide.is-active { opacity: 1; visibility: visible; transition: opacity var(--dur-3) var(--ease), visibility 0s; }
+.no-js .deck__frame { aspect-ratio: auto; overflow: visible; }
+.no-js .slide { position: relative; display: flex; opacity: 1; visibility: visible; aspect-ratio: 16 / 9; border-bottom: var(--b-control) solid var(--line); }
+.slide__top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqw; font-size: 1.46cqw; line-height: 1.3; color: var(--ink-2); }
+.slide__top .wordmark { font-size: 2.3cqw; }
+/* The title slide leads with the church's logo: the usual one in Cal; in Noche its white one, or the usual one on
+   a plate. The logo's width is set in cqw on the image, so it scales with the slide */
+.deck-brand { display: inline-flex; }
+.deck-brand--noche, .deck--noche .deck-brand--cal { display: none; }
+.deck--noche .deck-brand--noche { display: inline-flex; }
+.deck .brand__plate { padding: 0.6cqw 0.8cqw; }
+.slide__title { margin-top: 3.5cqw; font-size: 5.5cqw; line-height: 1.06; }
+.slide__body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
+.slide__top + .slide__body { margin-top: 3cqw; }
+.slide__title + .slide__body { margin-top: 2cqw; }
+.slide__foot {
+  display: flex; justify-content: space-between; gap: 3cqw; margin-top: 2.5cqw; padding-top: 1.25cqw;
+  border-top: var(--b-control) solid var(--line); font-size: 1.4cqw; line-height: 1.3; color: var(--ink-3);
+}
+
+.deck-cover__title { font-size: 8.5cqw; line-height: 1.02; }
+.deck-cover__event { margin-top: 3cqw; font-size: 2.6cqw; font-weight: 700; line-height: 1.2; }
+.deck-sub { margin-top: 1.67cqw; font-size: 2.08cqw; line-height: 1.3; color: var(--ink-2); max-width: 40ch; text-wrap: pretty; }
+.deck-cover__event + .deck-sub { margin-top: 0.6cqw; }
+
+.deck-split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 6.25cqw; align-items: center; }
+.deck-split--solo { grid-template-columns: minmax(0, 1fr); }
+.deck-headline { font-size: 6.25cqw; line-height: 1.04; }
+.deck-ruler .ruler { height: 2.9cqw; margin-top: 2.9cqw; }
+.deck-key { margin-top: 1.25cqw; gap: 0.6cqw 2.5cqw; font-size: 1.56cqw; }
+.deck-key li { gap: 0.6cqw; }
+.deck-key .key__mark { width: 1.35cqw; height: 1.35cqw; }
+.deck-teams__title { margin-bottom: 1.2cqw; font-size: 2.7cqw; line-height: 1.1; }
+.deck-teams__list { list-style: none; }
+.deck-teams__list li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6cqw 1.5cqw; align-items: baseline;
+  padding: 1.04cqw 0; border-bottom: var(--b-control) solid var(--line); font-size: 1.77cqw; line-height: 1.2;
+}
+.deck-teams__list li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-teams__list strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.deck-teams__list .ruler { grid-column: 1 / -1; height: 1.46cqw; }
+.deck .ruler__marker { width: 0.2cqw; margin-left: -0.1cqw; top: -0.45cqw; bottom: -0.45cqw; }
+/* Up to eight teams fit beside the headline: tighter rows from the fifth, one line per team from the seventh */
+.deck-teams__list:has(li:nth-child(5)) li { padding: 0.55cqw 0; gap: 0.45cqw 1.5cqw; font-size: 1.56cqw; }
+.deck-teams__list:has(li:nth-child(5)) .ruler { height: 1.15cqw; }
+.deck-teams__list:has(li:nth-child(7)) li { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 4.8cqw; align-items: center; padding: 0.5cqw 0; font-size: 1.46cqw; }
+.deck-teams__list:has(li:nth-child(7)) li > span { grid-column: 1; grid-row: 1; }
+.deck-teams__list:has(li:nth-child(7)) .ruler { grid-column: 2; grid-row: 1; }
+.deck-teams__list:has(li:nth-child(7)) strong { grid-column: 3; grid-row: 1; text-align: right; }
+
+/* Charts drawn with deck=True (events/charts.py): text is set in viewBox units, about 27 px at 1920.
+   The chart takes the slide's whole width; its canvas has the chart area's proportions, so it fills it */
+.deck-chart-box { flex: 1; min-height: 0; }
+.deck-chart { display: block; width: 100%; height: 100%; overflow: visible; font-family: var(--font-ui); }
+.deck-chart text { fill: var(--ink-2); font-size: 27px; }
+.deck-chart .label-strong { fill: var(--ink); font-weight: 700; font-size: 32px; }
+.deck-chart .label-quiet { fill: var(--ink-3); font-weight: 500; }
+.deck-chart .grid { stroke: var(--data-grid); stroke-width: 1.5; }
+.deck-chart .axis { stroke: var(--data-axis); }
+.deck-chart .line { fill: none; stroke: var(--data-done); stroke-width: 5; stroke-linejoin: round; stroke-linecap: round; }
+.deck-chart .dot { fill: var(--data-done); stroke: var(--page); stroke-width: 3; }
+.deck-chart .projection { fill: none; stroke: var(--data-done); stroke-width: 3; stroke-dasharray: 3 9; stroke-linecap: round; }
+.deck-chart .projection-end { fill: var(--page); stroke: var(--data-done); stroke-width: 3; }
+.deck-chart .col { fill: var(--data-done); }
+.deck-chart .col--partial { fill: var(--data-progress); }
+
+.deck-counts { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.4cqw 6.25cqw; }
+.deck-counts li { padding-top: 1.25cqw; border-top: var(--b-control) solid var(--line); }
+.deck-counts__value { display: block; font-size: 4.4cqw; font-weight: 800; line-height: 1.05; }
+.deck-counts__label { display: block; margin-top: 0.4cqw; font-size: 2.08cqw; line-height: 1.25; color: var(--ink-2); }
+
+.deck-steps { list-style: none; counter-reset: paso; display: grid; gap: 1.8cqw; }
+.deck-steps li { position: relative; padding-left: 4.6cqw; font-size: 2.08cqw; line-height: 1.3; }
+.deck-steps li::before {
+  counter-increment: paso; content: counter(paso);
+  position: absolute; left: 0; top: -0.1cqw; width: 2.9cqw; height: 2.9cqw; display: grid; place-items: center;
+  border: 2px solid var(--line-strong); border-radius: var(--r-mark); font-size: 1.56cqw; font-weight: 700;
+}
+.deck-note { margin-top: 2cqw; font-size: 1.46cqw; line-height: 1.35; color: var(--ink-2); max-width: 80ch; }
+.deck-teams .deck-note { margin-top: 1.25cqw; }
+.deck-empty { font-size: 2.08cqw; color: var(--ink-2); }
+
+/* The presenter's bar, bottom right over the slide number it repeats: hides after 3 s without the mouse
+   (emmaus.js), never while a keyboard focus is in it */
+.deck-controls {
+  position: fixed; right: 2vmin; bottom: 1.5vmin; z-index: 10;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s-2);
+  width: max-content; max-width: calc(100vw - 2rem); padding: var(--s-2);
+  background: var(--page); border: var(--b-control) solid var(--line); border-radius: var(--r-control);
+  transition: opacity var(--dur-3) var(--ease), background-color var(--dur-3) var(--ease), border-color var(--dur-3) var(--ease);
+}
+.deck-controls .btn { min-height: 2.75rem; padding: 0.375rem 1rem; font-size: var(--t-small); }
+.deck-controls .btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--page); }
+.deck-controls__count { padding: 0 var(--s-2); font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.deck.is-idle .deck-controls:not(:has(:focus-visible)) { opacity: 0; }
+.deck--noche .live-status[data-state="stale"] { color: #ff9f8c; }
+@media print {
+  .deck-controls { display: none !important; }
+}
+
+/* ---- fix/audit-flows, UX-04: the slide's "Sesión terminada" label, styled like the bar's .live-status[data-state="stale"] ---- */
+.deck-ended { color: var(--chile); font-weight: 700; }
+.deck--noche .deck-ended { color: #ff9f8c; }
+.deck-controls .live-status { white-space: normal; }  /* the bar's long "sesión terminó" line wraps at 390 px instead of leaving the screen */
+/* ---- end fix/audit-flows ---- */

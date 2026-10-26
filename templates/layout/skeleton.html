@@ -1,0 +1,23 @@
+{% load static %}<!doctype html>
+<html lang="es-MX" class="no-js">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}Emmaus{% endblock %}</title>
+    {# One design system, "Atrio" (the stylesheet keeps its historical name): docs/design-system.md #}
+    <link rel="preload" href="{% static 'fonts/figtree-latin.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="{% static 'css/rotulo.css' %}">
+    <link rel="icon" href="{% static 'img/emmaus-mark.svg' %}" type="image/svg+xml">
+    {% if theme_church and theme_church.custom_theme_enabled %}{% load emmaus %}
+      {# The hover is the primary colour about 12 % darker (emmaus theme_hover), so a button still answers the pointer #}
+      <style>:root{--petroleo:{{ theme_church.theme_primary_color }};--petroleo-hover:{{ theme_church.theme_primary_color|theme_hover }};--mark:{{ theme_church.theme_accent_color }};--page:{{ theme_church.theme_background_color }};--surface:{{ theme_church.theme_surface_color }};--ink:{{ theme_church.theme_text_color }};--ink-3:{{ theme_church.theme_muted_text_color }};--line:{{ theme_church.theme_border_color }};}</style>
+    {% endif %}
+    {% block head %}{% endblock %}
+    <script src="{% static 'js/emmaus.js' %}" defer></script>
+  </head>
+  <body class="{% block body_class %}{% endblock %}" {% block body_attrs %}{% endblock %}>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+    {% block body %}{% endblock %}
+  </body>
+</html>

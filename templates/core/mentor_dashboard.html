@@ -1,99 +1,118 @@
 {% extends "base.html" %}
-{% load core_extras %}
-{% block title %}Mentor dashboard | Emmaus{% endblock %}
+{% load core_extras emmaus %}
+{% block page_title %}Mentoría{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Mentor workspace" title="Who needs attention today?" subtitle="A focused view of the people assigned to you, the questions they have asked, and follow-ups that need personal care." %}
+{% with people=participants|length waiting=awaiting.count open_follow_ups=follow_ups.count %}
+{% include "events/rotulo/_page_head.html" with title="¿Quién necesita atención hoy?" lede="Las personas que acompañas, las preguntas que han hecho y los seguimientos que necesitan cuidado personal." %}
 
-  <section class="grid gap-4 md:grid-cols-3">
-    {% include "partials/stat_card.html" with label="Assigned participants" value=participants|length hint="People currently entrusted to your care." %}
-    {% include "partials/stat_card.html" with label="Waiting for response" value=questions.count hint="Open questions from assigned participants." %}
-    {% include "partials/stat_card.html" with label="Follow-up requested" value=follow_ups.count hint="Open conversations or care requests." %}
-  </section>
+{% comment %}
+  The sign: who has waited longest for the mentor's reply (awaiting: open questions, oldest first; escalated ones
+  already reached a pastor). Yellow appears nowhere else here.
+{% endcomment %}
+{% if waiting %}
+  {% with question=awaiting.first %}
+    <section class="sign" aria-labelledby="que-hago">
+      <h2 id="que-hago" class="sign__title">{{ question.participant.get_full_name|default:question.participant.email }} espera tu respuesta</h2>
+      <p class="sign__text">Preguntó el {{ question.created_at|fecha_larga|lower }}.{% if waiting > 1 %} En total {{ waiting }} preguntas esperan tu respuesta.{% endif %}</p>
+      <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'question_detail' question.id %}">Responder</a></div>
+    </section>
+  {% endwith %}
+{% endif %}
 
-  <section class="mt-6 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
-    <div class="card p-5 md:p-6">
-      <h2 class="text-xl font-semibold text-stone-950">Today’s priorities</h2>
-      <p class="mt-2 text-sm leading-6 text-stone-600">Start with questions, open follow-ups, and people who may benefit from a check-in.</p>
-      <div class="mt-5 space-y-3">
-        {% for profile in priority_participants %}
-          <a class="human-row" href="{% url 'participant_detail' profile.id %}">
-            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p class="font-semibold text-stone-950">{{ profile.user.get_full_name|default:profile.user.email }}</p>
-                <p class="mt-1 text-sm text-stone-600">
-                  {{ profile.progress_summary|path_title:"No path assigned" }} · {{ profile.progress_summary.percent }}% complete
-                </p>
-                <p class="mt-1 text-xs text-stone-500">Last activity {{ profile.last_activity|date:"M j, Y"|default:"Not yet recorded" }}</p>
+<section class="disc-summary" aria-labelledby="acompanas">
+  <h2 id="acompanas" class="voice coord__count">{% if people %}Acompañas a {{ people }} persona{{ people|pluralize }}.{% else %}Todavía no acompañas a nadie.{% endif %}</h2>
+  <p class="coord__count-note">{% if waiting %}{{ waiting }} pregunta{{ waiting|pluralize }} espera{{ waiting|pluralize:"n" }} respuesta{% else %}Ninguna pregunta espera respuesta{% endif %} y {% if open_follow_ups %}{{ open_follow_ups }} seguimiento{{ open_follow_ups|pluralize }} sigue{{ open_follow_ups|pluralize:"n" }} pendiente{{ open_follow_ups|pluralize }}{% else %}no hay seguimientos pendientes{% endif %}.</p>
+</section>
+
+<div class="coord__lists disc-lists">
+  <div class="coord__side">
+    <section aria-labelledby="prioridades">
+      <h2 id="prioridades" class="heading">Prioridades de hoy</h2>
+      {% if priority_participants %}
+        <p class="disc-section__intro">Empieza por las preguntas, los seguimientos abiertos y las personas a las que les vendría bien que las busques.</p>
+        <ul class="rows">
+          {% for profile in priority_participants %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ profile.user.get_full_name|default:profile.user.email }}</a></p>
+                <p class="row__meta">{% filter capfirst %}{% if profile.open_question_count %}{{ profile.open_question_count }} pregunta{{ profile.open_question_count|pluralize }} abierta{{ profile.open_question_count|pluralize }}, {% endif %}{% if profile.open_follow_up_count %}{{ profile.open_follow_up_count }} seguimiento{{ profile.open_follow_up_count|pluralize }} abierto{{ profile.open_follow_up_count|pluralize }}, {% endif %}{% if profile.is_inactive %}sin actividad reciente, {% endif %}última actividad: {{ profile.last_activity|date:"j b Y"|default:"sin registro" }}.{% endfilter %}</p>
               </div>
-              <div class="flex flex-wrap items-center gap-2">
-                {% if profile.open_question_count %}<span class="badge badge-attention">{{ profile.open_question_count }} question{{ profile.open_question_count|pluralize }}</span>{% endif %}
-                {% if profile.open_follow_up_count %}<span class="badge badge-soft">{{ profile.open_follow_up_count }} follow-up{{ profile.open_follow_up_count|pluralize }}</span>{% endif %}
-                {% if profile.is_inactive %}<span class="badge badge-care">Check in</span>{% endif %}
-                <span class="btn btn-secondary !min-h-0 !py-2">{{ profile.suggested_action }}</span>
-              </div>
-            </div>
-          </a>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No urgent priorities today" body="Open questions, follow-up requests, and participants who may need a check-in will appear here." %}
-        {% endfor %}
-      </div>
-    </div>
+              <p class="disc-next">{{ profile.suggested_action }}</p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">No hay prioridades urgentes hoy. Aquí aparecerán las preguntas abiertas, las solicitudes de seguimiento y las personas que podrían necesitar que las busques.</p>
+      {% endif %}
+    </section>
 
-    <div class="space-y-5">
-      <div id="open-questions" class="card-flat p-5">
-        <h2 class="font-semibold text-stone-950">Open questions</h2>
-        <div class="mt-4 space-y-3">
-          {% for question in questions %}
-            <a class="human-row" href="{% url 'question_detail' question.id %}">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <p class="text-sm font-semibold text-stone-950">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-                  <p class="mt-1 text-sm leading-6 text-stone-600">{{ question.question_text|truncatewords:18 }}</p>
+    <section id="assigned-participants" aria-labelledby="asignados">
+      <h2 id="asignados" class="heading">Participantes asignados{% if people %} <span class="count">{{ people }}</span>{% endif %}</h2>
+      {% if participants %}
+        <ul class="rows">
+          {% for profile in participants %}
+            {% with progress=profile.progress_summary %}
+              <li class="row disc-person">
+                <div class="row__main">
+                  <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ profile.user.get_full_name|default:profile.user.email }}</a></p>
+                  {% if progress.enrollment %}
+                    <p class="row__meta">{{ progress|path_title:"Sin ruta asignada" }}, {{ progress.completed_lessons }} de {{ progress.total_lessons }} lecci{{ progress.total_lessons|pluralize:"ón,ones" }}.</p>
+                    {% ruler progress.completed_lessons 0 progress.total_lessons %}
+                  {% else %}
+                    <p class="row__meta">Sin ruta asignada.</p>
+                  {% endif %}
                 </div>
-                {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
+                <p class="disc-next">{{ profile.suggested_action }}</p>
+              </li>
+            {% endwith %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Todavía no tienes participantes asignados. Cuando la administración o un pastor te asigne participantes, aparecerán aquí.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="coord__side">
+    <section id="open-questions" aria-labelledby="abiertas">
+      <h2 id="abiertas" class="heading">Preguntas abiertas{% if questions %} <span class="count">{{ questions.count }}</span>{% endif %}</h2>
+      {% if questions %}
+        <ul class="rows">
+          {% for question in questions %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
+                <p class="row__meta">{{ question.question_text|truncatewords:18 }}</p>
               </div>
-            </a>
-          {% empty %}
-            {% include "partials/empty_state.html" with title="No open questions" body="When assigned participants ask questions, they’ll appear here." %}
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
+            </li>
           {% endfor %}
-        </div>
-      </div>
+        </ul>
+      {% else %}
+        <p class="empty-line">No hay preguntas abiertas. Cuando tus participantes hagan preguntas, aparecerán aquí.</p>
+      {% endif %}
+    </section>
 
-      <div class="card-flat p-5">
-        <h2 class="font-semibold text-stone-950">Follow-up requested</h2>
-        <div class="mt-4 space-y-3">
+    <section aria-labelledby="pendientes">
+      <h2 id="pendientes" class="heading">Seguimientos pendientes{% if open_follow_ups %} <span class="count">{{ open_follow_ups }}</span>{% endif %}</h2>
+      {% if follow_ups %}
+        <ul class="rows">
           {% for follow_up in follow_ups %}
-            <div class="human-row">
-              <p class="text-sm font-semibold text-stone-950">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
-              <p class="mt-1 text-sm leading-6 text-stone-600">{{ follow_up.reason|truncatewords:18 }}</p>
-              <p class="mt-2">{% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}</p>
-            </div>
-          {% empty %}
-            {% include "partials/empty_state.html" with title="No follow-ups right now" body="Requests for conversation or care will appear here." %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+                <p class="row__meta">{{ follow_up.reason|truncatewords:18 }}</p>
+              </div>
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+            </li>
           {% endfor %}
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="assigned-participants" class="mt-6 card p-5 md:p-6">
-    <h2 class="text-xl font-semibold text-stone-950">Assigned participants</h2>
-    <div class="mt-5 grid gap-3 lg:grid-cols-2">
-      {% for profile in participants %}
-        <a class="human-row" href="{% url 'participant_detail' profile.id %}">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="font-semibold text-stone-950">{{ profile.user.get_full_name|default:profile.user.email }}</p>
-              <p class="mt-1 text-sm text-stone-600">{{ profile.progress_summary|path_title:"No path assigned" }}</p>
-            </div>
-            <span class="text-sm font-bold text-amber-800">{{ profile.progress_summary.percent }}%</span>
-          </div>
-          <div class="mt-4">{% include "partials/progress_bar.html" with percent=profile.progress_summary.percent label="Journey" %}</div>
-          <p class="mt-3 text-sm text-stone-600">{{ profile.suggested_action }}</p>
-        </a>
-      {% empty %}
-        {% include "partials/empty_state.html" with title="No assigned participants yet" body="When a church admin or pastor assigns participants to you, they will appear here." %}
-      {% endfor %}
-    </div>
-  </section>
+        </ul>
+        <p class="more"><a href="{% url 'follow_up_list' %}">Ver todos los seguimientos</a></p>
+      {% else %}
+        <p class="empty-line">No hay seguimientos pendientes. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endwith %}
 {% endblock %}

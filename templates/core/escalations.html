@@ -1,20 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Escalations | Emmaus{% endblock %}
+{% load emmaus %}
+{% block page_title %}Preguntas para el pastor{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Pastoral care" title="Escalated questions" subtitle="Questions that mentors or participants marked for pastoral attention." %}
-  <div class="space-y-3">
-    {% for question in questions %}
-      <a class="human-row" href="{% url 'church_question_detail' question.id %}">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <p class="font-semibold text-stone-950">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-            <p class="mt-2 text-sm leading-6 text-stone-600">{{ question.question_text|truncatewords:30 }}</p>
+<div class="disc-list">
+{% url 'questions_inbox' as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas para el pastor" lede="Preguntas que mentores o participantes pasaron al pastor para recibir atención pastoral." back_url=back_url back_label="Todas las preguntas" %}
+{% comment %}Escalated means "a pastor should look at this", not an error: the in-progress mark, never chile.{% endcomment %}
+<section aria-label="Preguntas para el pastor">
+  {% if questions %}
+    <ul class="rows">
+      {% for question in questions %}
+        <li class="row disc-item">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'church_question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
+            <p class="disc-item__text">{{ question.question_text|truncatewords:30 }}</p>
+            <p class="row__meta">{% if question.sensitivity_level != "normal" %}<span class="privacy__tag">{{ question.get_sensitivity_level_display }}</span>{% endif %}Enviada el {{ question.created_at|fecha_corta }}.</p>
           </div>
-          {% include "partials/status_badge.html" with status=question.status label="Escalated" %}
-        </div>
-      </a>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No escalations right now" body="Questions needing pastoral attention will appear here." %}
-    {% endfor %}
-  </div>
+          {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label="Pasada al pastor" %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">No hay preguntas pasadas al pastor. Aquí aparecerán las preguntas que necesiten atención pastoral.</p>
+  {% endif %}
+</section>
+</div>
 {% endblock %}

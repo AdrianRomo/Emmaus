@@ -1,21 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Pastoral notes | Emmaus{% endblock %}
+{% block page_title %}Notas pastorales{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Private leader notes" title="Pastoral notes" subtitle="Notes are never visible to participants. Keep them limited, careful, and pastorally necessary." %}
-  <div class="space-y-3">
-    {% for note in notes %}
-      <div class="human-row">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p class="font-semibold text-stone-950">{{ note.participant.get_full_name|default:note.participant.email }}</p>
-            <p class="mt-2 whitespace-pre-line text-sm leading-6 text-stone-700">{{ note.body }}</p>
-            <p class="mt-2 text-xs font-semibold text-stone-500">{{ note.author.get_full_name|default:note.author.email }}</p>
+{% include "events/rotulo/_page_head.html" with title="Notas pastorales" lede="Los participantes nunca ven estas notas. Escribe solo lo necesario, con cuidado y por motivos pastorales." %}
+<section class="disc-list" aria-labelledby="notas">
+  <h2 id="notas" class="heading">{{ notes|length }} nota{{ notes|length|pluralize }} privada{{ notes|length|pluralize }} de líderes</h2>
+  {% if notes %}
+    <ul class="rows">
+      {% for note in notes %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ note.participant.get_full_name|default:note.participant.email }}</p>
+            <p class="prose-block">{{ note.body|linebreaksbr }}</p>
+            <p class="row__meta">{{ note.author.get_full_name|default:note.author.email }}, {{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}.</p>
           </div>
-          {% include "partials/status_badge.html" with status=note.visibility label=note.get_visibility_display %}
-        </div>
-      </div>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No pastoral notes yet" body="Private notes for participant care will appear here when leaders create them." %}
-    {% endfor %}
-  </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Todavía no hay notas pastorales. Aquí aparecerán las notas privadas para el cuidado de los participantes cuando los líderes las escriban.</p>
+  {% endif %}
+</section>
 {% endblock %}

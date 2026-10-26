@@ -1,0 +1,9 @@
+{% load emmaus %}
+{% comment %}points, chart_id. The last column is the hour in progress, drawn lighter.{% endcomment %}
+{% if points %}
+  <figure class="chart">
+    <figcaption><p class="chart__title">Entrevistas por hora</p><p class="chart__sub">La última columna es la hora en curso.</p></figcaption>
+    <div class="chart__wide">{% columns_chart points chart_id "Entrevistas completadas por hora" False True %}</div>
+    <div class="chart__narrow">{% columns_chart points chart_id|add:"-movil" "Entrevistas completadas por hora" False True True %}</div>
+  </figure>
+{% endif %}

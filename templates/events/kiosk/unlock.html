@@ -1,0 +1,26 @@
+{% extends "events/shell_kiosk.html" %}
+{% block page_title %}{% if error %}Error: {% endif %}Recuperar la computadora{% endblock %}
+{% block content %}
+{% if error %}<div class="error-summary" role="alert"><h2>Hay un problema</h2><ul><li><a href="#password">{{ error }}</a></li></ul></div>{% endif %}
+<header class="page-head">
+  <h1 class="voice page-head__title">Recuperar la computadora</h1>
+  <p class="lede">Solo para coordinadores.{% if not other %} {{ coordinator.get_full_name|default:coordinator.email }}, escribe tu contraseña para volver a la entrevista.{% endif %}</p>
+</header>
+<form method="post" class="auth-card auth-card--left" novalidate autocomplete="off">
+  {% csrf_token %}
+  {% if other %}
+    <input type="hidden" name="otra" value="1">
+    <div class="field"><label class="label" for="username">Correo electrónico</label><input class="input" id="username" name="username" type="email" autocomplete="off" required></div>
+  {% endif %}
+  <div class="field{% if error %} field--error{% endif %}">
+    <label class="label" for="password">Contraseña</label>
+    {% if error %}<span class="error-message">{{ error }}</span>{% endif %}
+    <input class="input" id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn--primary" type="submit">Recuperar la computadora</button>
+    <a class="btn btn--link" href="{% url 'kiosk:home' %}">Volver</a>
+  </div>
+  {% if not other %}<p class="mt-6 text-sm"><a href="{% url 'kiosk:unlock' %}?otra=1">Soy otro coordinador</a></p>{% endif %}
+</form>
+{% endblock %}

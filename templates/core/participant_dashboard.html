@@ -1,105 +1,107 @@
 {% extends "base.html" %}
-{% block title %}My Journey | Emmaus{% endblock %}
+{% load emmaus %}
+{% block page_title %}Mi camino{% endblock %}
 {% block content %}
-  {% url 'ask_question' as ask_url %}
-  <div class="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-    <div>
-      <p class="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">{{ profile.church.name }}</p>
-      <h1 class="mt-1 text-3xl font-semibold leading-tight text-stone-950 md:text-4xl">Hello, {{ profile.user.get_full_name|default:profile.user.email }}</h1>
-      <p class="mt-3 max-w-3xl text-base leading-7 text-stone-600">Your journey is meant to be walked with others. Move at a faithful pace, ask honest questions, and let your church know when you would like a conversation.</p>
-    </div>
-    <a class="btn btn-primary md:shrink-0" href="{{ ask_url }}">Ask a question</a>
-  </div>
+{% url 'ask_question' as ask_url %}
+{% with name=profile.user.first_name|default:profile.user.get_full_name|default:profile.user.email current=summary.current_progress %}
+{% with title="Hola, "|add:name|add:"." %}
+  {% include "events/rotulo/_page_head.html" with title=title lede="Este camino se recorre en compañía. Avanza a tu ritmo, haz preguntas con confianza y avísale a tu iglesia cuando quieras platicar con alguien." meta=profile.church.name %}
+{% endwith %}
 
-  <section class="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
-    <div class="card p-6 md:p-8">
-      {% if summary.enrollment %}
-        <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">Current path</p>
-            <h2 class="mt-2 text-3xl font-semibold text-stone-950">{{ summary.enrollment.path.title }}</h2>
-            <p class="mt-3 max-w-2xl leading-7 text-stone-600">{{ summary.enrollment.path.description }}</p>
-          </div>
-          <div class="rounded-2xl border border-amber-200 bg-amber-50/80 px-5 py-4 text-center">
-            <p class="text-4xl font-semibold text-amber-900">{{ summary.percent }}%</p>
-            <p class="mt-1 text-xs font-bold uppercase tracking-wide text-amber-800">complete</p>
-          </div>
-        </div>
-        <div class="mt-7">
-          {% include "partials/progress_bar.html" with percent=summary.percent label="Journey progress" %}
-        </div>
-        {% if summary.current_progress %}
-          <div class="mt-8 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-            <div class="rounded-2xl border border-stone-200 bg-white/70 p-5">
-              <p class="text-sm font-bold uppercase tracking-[0.14em] text-[#51685b]">Your next step</p>
-              <h3 class="mt-2 text-2xl font-semibold text-stone-950">{{ summary.current_progress.lesson.title }}</h3>
-              <p class="mt-2 text-sm text-stone-600">{{ summary.completed_lessons }} of {{ summary.total_lessons }} lessons complete</p>
-            </div>
-            <a class="btn btn-primary" href="{% url 'participant_lesson' summary.current_progress.lesson.id %}">Continue lesson</a>
-          </div>
-        {% endif %}
-      {% else %}
-        {% include "partials/empty_state.html" with title="No path assigned yet" body="A leader from your church can enroll you in a discipleship path when they are ready to walk with you." %}
-      {% endif %}
-    </div>
+{% comment %}The sign: the lesson that comes next. Only while there is one; yellow appears nowhere else here.{% endcomment %}
+{% if summary.enrollment and current and not current.completed_at %}
+  <section class="sign" aria-labelledby="siguiente-paso">
+    <h2 id="siguiente-paso" class="sign__title">{{ current.lesson.title }}</h2>
+    <p class="sign__text">Tu siguiente paso es la lección {{ current.lesson.order }} de {{ summary.total_lessons }}. Tómate tu tiempo: puedes guardar tu reflexión y volver después.</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'participant_lesson' current.lesson.id %}">Continuar lección</a></div>
+  </section>
+{% endif %}
 
-    <aside class="space-y-5">
-      <div class="card-flat p-5">
-        <h2 class="font-semibold text-stone-950">Someone can walk with you</h2>
-        {% if profile.assigned_mentor %}
-          <p class="mt-3 text-sm leading-6 text-stone-600">Your mentor is <span class="font-semibold text-stone-950">{{ profile.assigned_mentor.get_full_name|default:profile.assigned_mentor.email }}</span>.</p>
+<div class="split disc-camino">
+  <section aria-labelledby="tu-ruta">
+    <h2 id="tu-ruta" class="heading">Tu ruta de discipulado</h2>
+    {% if summary.enrollment %}
+      <p class="disc-path">{{ summary.enrollment.path.title }}</p>
+      {% if summary.enrollment.path.description %}<p class="prose muted">{{ summary.enrollment.path.description }}</p>{% endif %}
+      <div class="disc-path__progress">
+        {% ruler summary.completed_lessons 0 summary.total_lessons %}
+        {% if current and current.completed_at %}
+          <p class="disc-path__note">{% if summary.total_lessons == 1 %}Terminaste la lección.{% else %}Terminaste las {{ summary.total_lessons }} lecciones.{% endif %} <a href="{% url 'participant_lesson' current.lesson.id %}">Volver a leer “{{ current.lesson.title }}”</a></p>
         {% else %}
-          <p class="mt-3 text-sm leading-6 text-stone-600">Your church has not assigned a mentor yet. You can still ask questions or request a conversation.</p>
+          <p class="disc-path__note">Llevas {{ summary.completed_lessons }} de {{ summary.total_lessons }} lecci{{ summary.total_lessons|pluralize:"ón,ones" }} terminada{{ summary.total_lessons|pluralize }}.</p>
         {% endif %}
-        <a class="btn btn-secondary mt-5 w-full" href="{% url 'request_follow_up' %}">Request conversation</a>
       </div>
-      <div class="card-flat p-5">
-        <h2 class="font-semibold text-stone-950">Questions are welcome</h2>
-        <p class="mt-3 text-sm leading-6 text-stone-600">Your question will be shared with trusted leaders from your church who can walk with you personally.</p>
-        <div class="mt-5 flex flex-col gap-2">
-          <a class="btn btn-primary" href="{% url 'ask_question' %}">Ask a question</a>
-          <a class="btn btn-soft" href="{% url 'participant_questions' %}">Questions you’ve asked</a>
-        </div>
-      </div>
-    </aside>
+    {% else %}
+      <p class="empty-line">Todavía no tienes una ruta asignada. Un líder de tu iglesia puede inscribirte en una ruta de discipulado cuando esté listo para acompañarte.</p>
+    {% endif %}
   </section>
 
-  <section class="mt-6 grid gap-5 lg:grid-cols-2">
-    <div class="card-flat p-5">
-      <h2 class="font-semibold text-stone-950">Recent reflections</h2>
-      <div class="mt-4 space-y-3">
-        {% for answer in answers %}
-          <div class="rounded-2xl border border-stone-100 bg-white/60 p-4">
-            <p class="text-sm font-semibold text-stone-900">{{ answer.lesson.title }}</p>
-            <p class="mt-2 text-sm leading-6 text-stone-600">{{ answer.answer_text|truncatewords:28 }}</p>
-          </div>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No reflections yet" body="When you save reflection answers, they will appear here as markers along your journey." %}
-        {% endfor %}
+  <div class="disc-side">
+    <section aria-labelledby="compania">
+      <h2 id="compania" class="heading">Alguien puede acompañarte</h2>
+      {% if profile.assigned_mentor %}
+        <p>Tu mentor es <strong>{{ profile.assigned_mentor.get_full_name|default:profile.assigned_mentor.email }}</strong>.</p>
+      {% else %}
+        <p>Tu iglesia todavía no te asigna un mentor. Aun así, puedes hacer preguntas o pedir una conversación.</p>
+      {% endif %}
+      <div class="btn-row disc-actions"><a class="btn btn--secondary" href="{% url 'request_follow_up' %}">Pedir una conversación</a></div>
+    </section>
+    <section aria-labelledby="bienvenidas">
+      <h2 id="bienvenidas" class="heading">Tus preguntas son bienvenidas</h2>
+      <p>Tu pregunta la leerán líderes de confianza de tu iglesia que pueden acompañarte en persona.</p>
+      <div class="btn-row disc-actions">
+        <a class="btn{% if summary.enrollment and current and not current.completed_at %} btn--secondary{% else %} btn--primary{% endif %}" href="{{ ask_url }}">Haz una pregunta</a>
+        <a class="btn btn--link" href="{% url 'participant_questions' %}">Preguntas que has hecho</a>
       </div>
-    </div>
-    <div class="card-flat p-5">
-      <h2 class="font-semibold text-stone-950">Questions and conversations</h2>
-      <div class="mt-4 space-y-3">
+    </section>
+  </div>
+</div>
+
+<div class="split disc-camino">
+  <section aria-labelledby="reflexiones">
+    <h2 id="reflexiones" class="heading">Reflexiones recientes</h2>
+    {% if answers %}
+      <ul class="rows">
+        {% for answer in answers %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ answer.lesson.title }}</p>
+              <p class="row__meta">{{ answer.answer_text|truncatewords:28 }}</p>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Todavía no hay reflexiones. Cuando guardes tus respuestas de reflexión, aparecerán aquí como señales de tu camino.</p>
+    {% endif %}
+  </section>
+  <section aria-labelledby="conversaciones">
+    <h2 id="conversaciones" class="heading">Preguntas y conversaciones</h2>
+    {% if questions or follow_ups %}
+      <ul class="rows">
         {% for question in questions %}
-          <a class="human-row" href="{% url 'participant_question_detail' question.id %}">
-            <span class="flex items-start justify-between gap-3">
-              <span class="text-sm font-semibold text-stone-950">{{ question.question_text|truncatewords:18 }}</span>
-              {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
-            </span>
-          </a>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No questions yet" body="When you ask a question, responses from your church leaders will appear here." action_url=ask_url action_label="Ask a question" %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'participant_question_detail' question.id %}">{{ question.question_text|truncatewords:18 }}</a></p>
+              <p class="row__meta">Enviada el {{ question.created_at|fecha_corta }}.</p>
+            </div>
+            {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
+          </li>
         {% endfor %}
         {% for follow_up in follow_ups %}
-          <div class="human-row">
-            <div class="flex items-start justify-between gap-3">
-              <p class="text-sm font-semibold text-stone-950">{{ follow_up.reason|truncatewords:18 }}</p>
-              {% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
+              <p class="row__meta">Solicitud de conversación.</p>
             </div>
-          </div>
+            {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+          </li>
         {% endfor %}
-      </div>
-    </div>
+      </ul>
+    {% else %}
+      <p class="empty-line">Todavía no has hecho preguntas. Cuando hagas una pregunta, aquí aparecerán las respuestas de los líderes de tu iglesia.</p>
+    {% endif %}
   </section>
+</div>
+{% endwith %}
 {% endblock %}

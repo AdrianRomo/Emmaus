@@ -1,0 +1,209 @@
+# Emmaus speaks tú-voice Mexican Spanish. Django's own es/es_MX catalogs use "usted" (and Spain's "fichero"),
+# so these entries override the messages a person can meet in a form. LOCALE_PATHS wins over Django's catalogs.
+# After editing, compile: python manage.py compilemessages -l es_MX (needs GNU gettext); the .mo is committed so the
+# image needs no gettext, and core/test_locale.py fails if the two drift.
+msgid ""
+msgstr ""
+"Project-Id-Version: Emmaus\n"
+"Language: es_MX\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Enter a valid value."
+msgstr "Escribe un valor válido."
+
+msgid "Enter a valid domain name."
+msgstr "Escribe un nombre de dominio válido."
+
+msgid "Enter a valid URL."
+msgstr "Escribe una dirección web válida, por ejemplo: https://ejemplo.com."
+
+msgid "Enter a valid integer."
+msgstr "Escribe un número entero."
+
+msgid "Enter a valid email address."
+msgstr "Escribe un correo electrónico válido, por ejemplo: nombre@ejemplo.com."
+
+msgid "Enter a valid “slug” consisting of letters, numbers, underscores or hyphens."
+msgstr "Usa solo letras sin acentos, números, guiones y guiones bajos."
+
+msgid "Enter a valid “slug” consisting of Unicode letters, numbers, underscores, or hyphens."
+msgstr "Usa solo letras, números, guiones y guiones bajos."
+
+msgid "Enter a valid %(protocol)s address."
+msgstr "Escribe una dirección %(protocol)s válida."
+
+msgid "Enter only digits separated by commas."
+msgstr "Escribe solo números separados por comas."
+
+msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)."
+msgstr "Este valor debe ser %(limit_value)s (ahora es %(show_value)s)."
+
+msgid "Ensure this value is less than or equal to %(limit_value)s."
+msgstr "Usa un número igual o menor que %(limit_value)s."
+
+msgid "Ensure this value is greater than or equal to %(limit_value)s."
+msgstr "Usa un número igual o mayor que %(limit_value)s."
+
+msgid "Ensure this value is a multiple of step size %(limit_value)s."
+msgstr "Usa un múltiplo de %(limit_value)s."
+
+msgid "Ensure this value is a multiple of step size %(limit_value)s, starting from %(offset)s, e.g. %(offset)s, %(valid_value1)s, %(valid_value2)s, and so on."
+msgstr "Usa un múltiplo de %(limit_value)s a partir de %(offset)s, por ejemplo: %(offset)s, %(valid_value1)s, %(valid_value2)s."
+
+msgid "Ensure this value has at least %(limit_value)d character (it has %(show_value)d)."
+msgid_plural "Ensure this value has at least %(limit_value)d characters (it has %(show_value)d)."
+msgstr[0] "Escribe al menos %(limit_value)d carácter (ahora hay %(show_value)d)."
+msgstr[1] "Escribe al menos %(limit_value)d caracteres (ahora hay %(show_value)d)."
+
+msgid "Ensure this value has at most %(limit_value)d character (it has %(show_value)d)."
+msgid_plural "Ensure this value has at most %(limit_value)d characters (it has %(show_value)d)."
+msgstr[0] "Escribe como máximo %(limit_value)d carácter (ahora hay %(show_value)d)."
+msgstr[1] "Escribe como máximo %(limit_value)d caracteres (ahora hay %(show_value)d)."
+
+msgid "Enter a number."
+msgstr "Escribe un número."
+
+msgid "Ensure that there are no more than %(max)s digit in total."
+msgid_plural "Ensure that there are no more than %(max)s digits in total."
+msgstr[0] "Usa como máximo %(max)s dígito en total."
+msgstr[1] "Usa como máximo %(max)s dígitos en total."
+
+msgid "Ensure that there are no more than %(max)s decimal place."
+msgid_plural "Ensure that there are no more than %(max)s decimal places."
+msgstr[0] "Usa como máximo %(max)s decimal."
+msgstr[1] "Usa como máximo %(max)s decimales."
+
+msgid "Ensure that there are no more than %(max)s digit before the decimal point."
+msgid_plural "Ensure that there are no more than %(max)s digits before the decimal point."
+msgstr[0] "Usa como máximo %(max)s dígito antes del punto decimal."
+msgstr[1] "Usa como máximo %(max)s dígitos antes del punto decimal."
+
+msgid "File extension “%(extension)s” is not allowed. Allowed extensions are: %(allowed_extensions)s."
+msgstr "No se aceptan archivos con extensión “%(extension)s”. Usa uno de estos tipos: %(allowed_extensions)s."
+
+msgid "Enter a whole number."
+msgstr "Escribe un número entero."
+
+msgid "Enter a valid date."
+msgstr "Escribe una fecha válida."
+
+msgid "Enter a valid time."
+msgstr "Escribe una hora válida."
+
+msgid "Enter a valid date/time."
+msgstr "Escribe una fecha y hora válidas."
+
+msgid "Enter a valid duration."
+msgstr "Escribe una duración válida."
+
+msgid "No file was submitted. Check the encoding type on the form."
+msgstr "No llegó ningún archivo. Revisa el tipo de codificación del formulario."
+
+msgid "No file was submitted."
+msgstr "No llegó ningún archivo. Elige uno y vuelve a intentarlo."
+
+msgid "The submitted file is empty."
+msgstr "El archivo está vacío."
+
+msgid "Ensure this filename has at most %(max)d character (it has %(length)d)."
+msgid_plural "Ensure this filename has at most %(max)d characters (it has %(length)d)."
+msgstr[0] "El nombre del archivo debe tener como máximo %(max)d carácter (tiene %(length)d)."
+msgstr[1] "El nombre del archivo debe tener como máximo %(max)d caracteres (tiene %(length)d)."
+
+msgid "Please either submit a file or check the clear checkbox, not both."
+msgstr "Sube un archivo o marca la casilla para quitarlo, pero no las dos cosas."
+
+msgid "Upload a valid image. The file you uploaded was either not an image or a corrupted image."
+msgstr "Sube una imagen válida. El archivo no es una imagen o está dañado."
+
+msgid "Select a valid choice. %(value)s is not one of the available choices."
+msgstr "Elige una de las opciones de la lista. %(value)s no es una de ellas."
+
+msgid "Enter a list of values."
+msgstr "Escribe una lista de valores."
+
+msgid "Enter a complete value."
+msgstr "Escribe el valor completo."
+
+msgid "Enter a valid UUID."
+msgstr "Escribe un UUID válido."
+
+msgid "Enter a valid JSON."
+msgstr "Escribe un JSON válido."
+
+msgid "Select a valid choice. That choice is not one of the available choices."
+msgstr "Elige una de las opciones de la lista."
+
+msgid "Please submit at most %(num)d form."
+msgid_plural "Please submit at most %(num)d forms."
+msgstr[0] "Envía como máximo %(num)d formulario."
+msgstr[1] "Envía como máximo %(num)d formularios."
+
+msgid "Please submit at least %(num)d form."
+msgid_plural "Please submit at least %(num)d forms."
+msgstr[0] "Envía al menos %(num)d formulario."
+msgstr[1] "Envía al menos %(num)d formularios."
+
+msgid "Please correct the duplicate data for %(field)s."
+msgstr "Corrige los datos repetidos en %(field)s."
+
+msgid "Please correct the duplicate data for %(field)s, which must be unique."
+msgstr "Corrige los datos repetidos en %(field)s: cada valor debe ser único."
+
+msgid "Please correct the duplicate data for %(field_name)s which must be unique for the %(lookup)s in %(date_field)s."
+msgstr "Corrige los datos repetidos en %(field_name)s: debe ser único para %(lookup)s en %(date_field)s."
+
+msgid "Please correct the duplicate values below."
+msgstr "Corrige los valores repetidos."
+
+msgid "Please enter a correct %(username)s and password. Note that both fields may be case-sensitive."
+msgstr "Revisa tu %(username)s y tu contraseña. Recuerda que las mayúsculas cuentan."
+
+msgid "This account is inactive."
+msgstr "Esta cuenta está desactivada."
+
+msgid "The two password fields didn’t match."
+msgstr "Las dos contraseñas no coinciden. Escríbelas otra vez."
+
+msgid "Enter the same password as before, for verification."
+msgstr "Escribe la misma contraseña otra vez para confirmarla."
+
+msgid "Your old password was entered incorrectly. Please enter it again."
+msgstr "Tu contraseña actual no es correcta. Escríbela otra vez."
+
+msgid "Enter a valid username. This value may contain only unaccented lowercase a-z and uppercase A-Z letters, numbers, and @/./+/-/_ characters."
+msgstr "Escribe un nombre de usuario válido: solo letras sin acentos, números y los signos @ . + - _."
+
+msgid "Enter a valid username. This value may contain only letters, numbers, and @/./+/-/_ characters."
+msgstr "Escribe un nombre de usuario válido: solo letras, números y los signos @ . + - _."
+
+msgid "The password is too similar to the %(verbose_name)s."
+msgstr "La contraseña se parece demasiado a tu %(verbose_name)s."
+
+msgid "Your password can’t be too similar to your other personal information."
+msgstr "Tu contraseña no puede parecerse a tu nombre ni a tu correo."
+
+msgid "This password is too short. It must contain at least %d character."
+msgid_plural "This password is too short. It must contain at least %d characters."
+msgstr[0] "Esta contraseña es muy corta. Usa al menos %d carácter."
+msgstr[1] "Esta contraseña es muy corta. Usa al menos %d caracteres."
+
+msgid "Your password must contain at least %(min_length)d character."
+msgid_plural "Your password must contain at least %(min_length)d characters."
+msgstr[0] "Tu contraseña debe tener al menos %(min_length)d carácter."
+msgstr[1] "Tu contraseña debe tener al menos %(min_length)d caracteres."
+
+msgid "This password is too common."
+msgstr "Esta contraseña es muy común."
+
+msgid "Your password can’t be a commonly used password."
+msgstr "Tu contraseña no puede ser una contraseña muy común."
+
+msgid "This password is entirely numeric."
+msgstr "Esta contraseña tiene solo números."
+
+msgid "Your password can’t be entirely numeric."
+msgstr "Tu contraseña no puede tener solo números."

@@ -1,0 +1,14 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{{ title }}{% endblock %}
+{% block content %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title=title back_url=back back_label="Volver al cuestionario" %}
+<form method="post" novalidate>{% csrf_token %}{% include "partials/ui/fields.html" with form=form %}
+  <div class="step__actions">
+    <button class="btn btn--primary" type="submit">{{ submit_label|default:"Guardar" }}</button>
+    <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endblock %}

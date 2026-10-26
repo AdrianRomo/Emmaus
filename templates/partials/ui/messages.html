@@ -1,0 +1,9 @@
+{% if messages %}
+  <div class="messages" role="status">
+    {% for message in messages %}
+      <div class="notice {% if message.tags == 'success' %}notice--success{% elif message.tags == 'warning' %}notice--warning{% elif message.tags == 'error' %}notice--danger{% else %}notice--quiet{% endif %}">
+        <p>{{ message }}</p>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

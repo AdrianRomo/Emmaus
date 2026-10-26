@@ -1,21 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Sign in | Emmaus{% endblock %}
+{% load brand %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Entrar{% endblock %}
 {% block content %}
-  <section class="mx-auto grid max-w-5xl gap-6 py-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-    <div>
-      <p class="text-sm font-bold uppercase tracking-[0.18em] text-amber-800">Welcome back</p>
-      <h1 class="mt-3 text-4xl font-semibold leading-tight text-stone-950">Sign in to your church workspace.</h1>
-      <p class="mt-4 text-base leading-7 text-stone-600">
-        Use the account connected to your church invitation. Emmaus keeps participant care within your church community.
-      </p>
+{% comment %}
+  The first screen every volunteer sees, often on a shared computer: one column, big fields, one button.
+  Wrong-password, inactive-account and too-many-attempts messages arrive as non-field errors and are
+  shown verbatim by the error summary.
+{% endcomment %}
+<div class="auth-card">
+  {% if brand_church|has_logo %}<div class="auth-card__brand">{% church_brand brand_church size="auth" %}</div>
+  {% endif %}{% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Entrar a Emmaus" lede="Escribe el correo y la contraseña de tu cuenta." %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Entrar</button>
+      <a class="auth-card__link" href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a>
     </div>
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary mt-2 w-full">Sign in</button>
-      </form>
-      <p class="mt-5 text-center text-sm leading-6 text-stone-600">Need access? Ask your church leader for an Emmaus invitation.</p>
-    </div>
-  </section>
+  </form>
+  <div class="notice notice--quiet">
+    <p>Si usas una computadora compartida, cierra sesión al terminar.</p>
+  </div>
+  <p class="aside-note">¿Vas a ayudar en un evento? <a href="{% url 'join' %}">Únete con el código del evento</a>. Si ya formas parte del equipo, entra con tu correo.</p>
+</div>
 {% endblock %}

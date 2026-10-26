@@ -1,18 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Ask a question | Emmaus{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Haz una pregunta{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Questions" title="Ask a question" subtitle="Your question will be shared with trusted leaders from your church who can walk with you personally." %}
-  <section class="grid gap-6 lg:grid-cols-[1fr_0.8fr]">
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary mt-2">Send question</button>
-      </form>
+<div class="disc-ask">
+{% include "partials/ui/error_summary.html" with form=form %}
+<form method="post" class="disc-ask__form" novalidate>
+  {% csrf_token %}
+  {% comment %}Like a question in the campero interview: the question is the h1 and wraps the label.{% endcomment %}
+  {% with field=form.question_text %}
+    <div class="question{% if field.errors %} question--error{% endif %}" id="campo-{{ field.html_name }}">
+      <h1 class="question__text"><label for="{{ field.id_for_label }}">{{ field.label }}</label></h1>
+      <p class="question__help" id="{{ field.auto_id }}-hint">Tu pregunta la leerán líderes de confianza de tu iglesia que pueden acompañarte en persona.</p>
+      {% if field.errors %}<p class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</p>{% endif %}
+      <textarea class="textarea disc-ask__answer" name="{{ field.html_name }}" id="{{ field.auto_id }}" rows="{{ field.field.widget.attrs.rows }}" placeholder="{{ field.field.widget.attrs.placeholder }}" spellcheck="true"{% if field.field.required %} required{% endif %} aria-describedby="{{ field.auto_id }}-hint{% if field.errors %} {{ field.auto_id }}-error{% endif %}">{{ field.value|default_if_none:"" }}</textarea>
     </div>
-    <aside class="card-flat p-6">
-      <h2 class="font-semibold text-stone-950">A gentle safety note</h2>
-      <p class="mt-3 text-sm leading-7 text-stone-700">{{ question_disclaimer }}</p>
-    </aside>
-  </section>
+  {% endwith %}
+
+  {% with field=form.sensitivity_level %}
+    <fieldset class="question question--follow disc-ask__care{% if field.errors %} question--error{% endif %}" id="campo-{{ field.html_name }}" aria-describedby="{{ field.auto_id }}-hint{% if field.errors %} {{ field.auto_id }}-error{% endif %}">
+      <legend class="question__follow-text">{{ field.label }}</legend>
+      <p class="hint" id="{{ field.auto_id }}-hint">{{ field.help_text }}</p>
+      {% if field.errors %}<p class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</p>{% endif %}
+      {% comment %}The first radio keeps the field's own id, so "Hay un problema" links straight to it.{% endcomment %}
+      <div class="choices">
+        {% for option in field %}
+          <div class="choice">
+            <input class="choice__input" type="radio" id="{{ field.auto_id }}{% if not forloop.first %}_{{ forloop.counter0 }}{% endif %}" name="{{ field.html_name }}" value="{{ option.data.value }}"{% if option.data.selected %} checked{% endif %}>
+            <label class="choice__label" for="{{ field.auto_id }}{% if not forloop.first %}_{{ forloop.counter0 }}{% endif %}"><span class="choice__mark" aria-hidden="true"></span><span>{{ option.choice_label }}</span></label>
+          </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+  {% endwith %}
+
+  <aside class="notice notice--info disc-ask__aside" aria-label="Aviso de seguridad">
+    <p class="notice__title">Un aviso importante</p>
+    {% for paragraph in question_disclaimer %}<p>{{ paragraph|linebreaksbr }}</p>{% endfor %}
+  </aside>
+
+  <div class="step__actions">
+    <button class="btn btn--primary btn--large" type="submit">Enviar pregunta</button>
+    <a class="btn btn--link" href="{% url 'participant_questions' %}">Volver a mis preguntas</a>
+  </div>
+</form>
+</div>
 {% endblock %}

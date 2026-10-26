@@ -1,0 +1,9 @@
+{% if form.errors %}
+  <div class="error-summary" role="alert" aria-labelledby="error-summary-title">
+    <h2 id="error-summary-title">Hay un problema</h2>
+    <ul>
+      {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+      {% for field in form %}{% for error in field.errors %}<li><a href="#{{ field.id_for_label|default:field.auto_id }}">{{ field.label }}{% if field.label|slice:"-1:" == "?" %} {% else %}: {% endif %}{{ error }}</a></li>{% endfor %}{% endfor %}
+    </ul>
+  </div>
+{% endif %}

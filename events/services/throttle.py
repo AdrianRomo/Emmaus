@@ -1,0 +1,84 @@
+"""Brute-force protection backed by the database (works across gunicorn workers).
+
+Attempts are counted *before* the password is checked, under a row lock. After ``limit``
+attempts the key is blocked; each further block doubles (up to ``max_block_seconds``) and
+the strike count is forgotten only after a full quiet window. So a patient attacker gets
+a handful of guesses per hour, not a fresh allowance every minute.
+"""
+
+from __future__ import annotations
+
+import math
+from datetime import timedelta
+
+from django.db import IntegrityError, transaction
+from django.db.models import Q
+from django.utils import timezone
+
+from ..models import AuthThrottle
+
+
+def consume(key: str, *, limit: int, window_seconds: int, block_seconds: int, max_block_seconds: int | None = None) -> int:
+    """Count one attempt. Returns 0 if allowed, else the seconds to wait."""
+    max_block_seconds = max_block_seconds or block_seconds * 16
+    now = timezone.now()
+    for _ in range(2):
+        try:
+            with transaction.atomic():
+                row, _ = AuthThrottle.objects.select_for_update().get_or_create(key=key)
+                if row.blocked_until and row.blocked_until > now:
+                    return math.ceil((row.blocked_until - now).total_seconds())
+                if now - row.window_started_at > timedelta(seconds=window_seconds):
+                    row.attempts = 0
+                    row.strikes = 0
+                    row.window_started_at = now
+                if row.blocked_until:  # a block just ended: a smaller allowance, same window
+                    row.blocked_until = None
+                    row.attempts = max(row.attempts - limit // 2, 0)
+                row.attempts += 1
+                if row.attempts > limit:
+                    row.strikes += 1
+                    seconds = min(block_seconds * 2 ** (row.strikes - 1), max_block_seconds)
+                    row.blocked_until = now + timedelta(seconds=seconds)
+                    row.window_started_at = now
+                    row.save()
+                    return seconds
+                row.save()
+                return 0
+        except IntegrityError:  # two first attempts raced to create the row; retry once
+            continue
+    return block_seconds  # fail closed: if the counter cannot be written, do not check the password
+
+
+def reset(key: str) -> None:
+    AuthThrottle.objects.filter(key=key).delete()
+
+
+def blocked_for(key: str) -> int:
+    """Seconds left on a block, without counting an attempt (0 when not blocked)."""
+    blocked_until = AuthThrottle.objects.filter(key=key).values_list("blocked_until", flat=True).first()
+    now = timezone.now()
+    if blocked_until and blocked_until > now:
+        return math.ceil((blocked_until - now).total_seconds())
+    return 0
+
+
+# The longest ``window_seconds`` any caller passes (login, password reset, kiosk unlock, join request: 1 hour).
+# A row whose window ended that long ago and whose block is over is reset by consume() anyway, so deleting it
+# changes nothing. A caller with a longer window must raise this.
+LONGEST_WINDOW_SECONDS = 60 * 60
+
+
+def purge_expired(now=None) -> int:
+    """Delete counters whose window and block are both in the past (anonymous searches leave one per session)."""
+    now = now or timezone.now()
+    window_over = Q(window_started_at__lt=now - timedelta(seconds=LONGEST_WINDOW_SECONDS))
+    block_over = Q(blocked_until__isnull=True) | Q(blocked_until__lte=now)
+    deleted, _ = AuthThrottle.objects.filter(window_over & block_over).delete()
+    return deleted
+
+
+def wait_message(seconds: int) -> str:
+    if seconds >= 90:
+        return f"Demasiados intentos. Espera {math.ceil(seconds / 60)} minutos e inténtalo otra vez."
+    return f"Demasiados intentos. Espera {seconds} segundos e inténtalo otra vez."

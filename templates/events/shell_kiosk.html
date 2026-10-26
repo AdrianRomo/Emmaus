@@ -1,0 +1,29 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus brand %}
+{% comment %}
+  Campero shell (Rótulo): a shared computer that belongs to the campero for a while. The bar leads with the
+  church's mark from the welcome ("Hola, …") on; without a logo, the painted "Emmaus".
+{% endcomment %}
+{% block title %}{% block page_title %}Tu conversación{% endblock %} · Emmaus{% endblock %}
+{% block body_class %}is-kiosk{% endblock %}
+{% block body_attrs %}{% endblock %}
+{% block body %}
+{% comment %}Enter submits the first submit button of a form in tree order, so a step's "next" button goes here, before "Guardar y salir" and "Atrás".{% endcomment %}
+{% block default_submit %}{% endblock %}
+<div class="focus">
+  <header class="focusbar">
+    <div class="focusbar__inner">
+      <p class="focusbar__who">{% church_brand ps.interview.participant.event.church size="mark" %}{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}</p>
+      <div class="focusbar__actions">{% block focus_actions %}{% endblock %}</div>
+    </div>
+  </header>
+  <main id="contenido" class="focus__main" tabindex="-1">
+    {% block content %}{% endblock %}
+    <footer class="kiosk-footer">
+      <p>Tus respuestas se guardan cada vez que avanzas.</p>
+      <p>Si necesitas ayuda, levanta la mano.</p>
+    </footer>
+  </main>
+</div>
+{% block idle_dialog %}{% endblock %}
+{% endblock %}

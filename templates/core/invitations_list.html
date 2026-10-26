@@ -1,49 +1,47 @@
 {% extends "base.html" %}
-{% load core_extras %}
-{% block title %}Invitations | Emmaus{% endblock %}
+{% load emmaus core_extras %}
+{% block page_title %}Invitaciones{% endblock %}
 {% block content %}
-  {% url 'create_invitation' as create_url %}
-  {% include "partials/page_header.html" with eyebrow="Workspace access" title="Invitations" subtitle="Track pending, accepted, and expired invitations for your church workspace." action_url=create_url action_label="New invitation" %}
-  <div class="table-wrap">
-    <table class="w-full text-left text-sm">
-      <thead class="bg-[#f3ebdf] text-stone-700">
+{% url 'create_invitation' as create_url %}
+{% include "events/rotulo/_page_head.html" with title="Invitaciones" lede="Revisa las invitaciones pendientes, aceptadas y vencidas de tu iglesia." action_url=create_url action_label="Nueva invitación" %}
+{% if rows %}
+  <p class="list-count">{{ rows|length }} invitaci{{ rows|length|pluralize:"ón,ones" }}</p>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Invitaciones">
+    <table class="table invitations-table">
+      <thead>
         <tr>
-          <th class="px-5 py-4 font-semibold">Person</th>
-          <th class="px-5 py-4 font-semibold">Role</th>
-          <th class="px-5 py-4 font-semibold">Mentor</th>
-          <th class="px-5 py-4 font-semibold">Status</th>
-          <th class="px-5 py-4 font-semibold">Fallback link</th>
+          <th scope="col">Persona</th>
+          <th scope="col">Rol</th>
+          <th scope="col">Mentor</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Enlace de respaldo</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-stone-100">
+      <tbody>
         {% for row in rows %}
-          <tr class="hover:bg-[#fbf7f0]">
-            <td class="px-5 py-4">
-              <p class="font-semibold text-stone-950">{{ row.invitation.email }}</p>
-              <p class="mt-1 text-xs text-stone-500">Expires {{ row.invitation.expires_at|date:"M j, Y" }}</p>
+          <tr>
+            <td>
+              <strong>{{ row.invitation.email }}</strong><br>
+              <span class="muted">Vence el {{ row.invitation.expires_at|date:"j b Y" }}</span>
             </td>
-            <td class="px-5 py-4">{{ row.invitation.get_role_display }}</td>
-            <td class="px-5 py-4">{{ row.invitation.assigned_mentor|display_name:"Not assigned" }}</td>
-            <td class="px-5 py-4">
+            <td>{{ row.invitation.get_role_display }}</td>
+            <td>{{ row.invitation.assigned_mentor|display_name:"Sin asignar" }}</td>
+            <td>
               {% if row.invitation.accepted_at %}
-                {% include "partials/status_badge.html" with status="accepted" label="Accepted" %}
+                {% status "completada" "Aceptada" %}
               {% elif row.invitation.is_expired %}
-                {% include "partials/status_badge.html" with status="expired" label="Expired" %}
+                {% status "descartada" "Vencida" %}
               {% else %}
-                {% include "partials/status_badge.html" with status="pending" label="Pending" %}
+                {% status "en_curso" "Pendiente" %}
               {% endif %}
             </td>
-            <td class="px-5 py-4"><span class="block max-w-xs truncate text-stone-500">{{ row.link }}</span></td>
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="5" class="px-5 py-8">
-              {% url 'create_invitation' as invite_url %}
-              {% include "partials/empty_state.html" with title="No invitations yet" body="Invite pastors, mentors, or participants when you are ready to begin using Emmaus with real people." action_url=invite_url action_label="Create invitation" %}
-            </td>
+            <td><span class="invitations-table__link">{{ row.link }}</span></td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+{% else %}
+  <p class="empty-line">Todavía no hay invitaciones. Invita a pastores, mentores o participantes cuando quieras empezar a usar Emmaus con tu iglesia.</p>
+{% endif %}
 {% endblock %}

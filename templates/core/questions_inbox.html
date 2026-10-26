@@ -1,24 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Questions inbox | Emmaus{% endblock %}
+{% load emmaus %}
+{% block page_title %}Preguntas{% endblock %}
 {% block content %}
-  {% url 'escalations' as escalations_url %}
-  {% include "partials/page_header.html" with eyebrow="Questions" title="Questions awaiting care" subtitle="Questions from participants that may need a leader response." action_url=escalations_url action_label="View escalations" %}
-  <div class="space-y-3">
-    {% for question in questions %}
-      <a class="human-row" href="{% url 'church_question_detail' question.id %}">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p class="font-semibold text-stone-950">{{ question.participant.get_full_name|default:question.participant.email }}</p>
-            <p class="mt-2 text-sm leading-6 text-stone-600">{{ question.question_text|truncatewords:30 }}</p>
+<div class="disc-list">
+{% url 'escalations' as escalations_url %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas por atender" lede="Preguntas de participantes que pueden necesitar la respuesta de un líder." secondary_url=escalations_url secondary_label="Ver preguntas para el pastor" %}
+<section aria-label="Preguntas">
+  {% if questions %}
+    <ul class="rows">
+      {% for question in questions %}
+        <li class="row disc-item">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'church_question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
+            <p class="disc-item__text">{{ question.question_text|truncatewords:30 }}</p>
+            <p class="row__meta">{% if question.sensitivity_level != "normal" %}<span class="privacy__tag">{{ question.get_sensitivity_level_display }}</span>{% endif %}Enviada el {{ question.created_at|fecha_corta }}.</p>
           </div>
-          <div class="flex flex-wrap gap-2">
-            {% include "partials/status_badge.html" with status=question.sensitivity_level label=question.get_sensitivity_level_display %}
-            {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
-          </div>
-        </div>
-      </a>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No open questions" body="When participants ask questions, they’ll appear here." %}
-    {% endfor %}
-  </div>
+          {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">No hay preguntas abiertas. Cuando los participantes hagan preguntas, aparecerán aquí.</p>
+  {% endif %}
+</section>
+</div>
 {% endblock %}

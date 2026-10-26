@@ -1,15 +1,19 @@
 services:
   web:
     build: .
+    # Development only: the image runs as uid 10001, which cannot write (or, with umask 077, read) the bind-mounted checkout.
+    user: root
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
+      - ./media:/app/media  # uploads (the church logo); git-ignored
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
       DATABASE_URL: postgres://emmaus:emmaus@db:5432/emmaus
+      DEBUG: "true"
       EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
     depends_on:
       db:

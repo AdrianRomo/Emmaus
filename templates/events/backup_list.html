@@ -1,0 +1,77 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus %}
+{% block title %}Lista de respaldo · {{ event.name }}{% endblock %}
+{% block body %}
+<main id="contenido" class="print-sheet">
+  <header class="page-head page-head--actions">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">Lista de respaldo</h1>
+      <p class="page-head__meta">{{ event.name }}, impresa el {{ printed_at|fecha_corta }}.</p>
+    </div>
+    <div class="page-head__actions"><button class="btn btn--primary" type="button" data-print>Imprimir</button><a class="btn btn--link" href="{% url 'events:home' event.slug %}">Volver</a></div>
+  </header>
+  <p class="notice notice--warning">Úsala solo si falla la red o una computadora. Marca a quién entrevistaste y captura sus respuestas en Emmaus en cuanto se pueda. Contiene datos personales: no la dejes a la vista y destrúyela al terminar.</p>
+  {% for coordinator, rows in groups.items %}
+    <section class="print-group">
+      <h2>{{ coordinator }}, {{ rows|length }} campero{{ rows|length|pluralize }}</h2>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Camperos de {{ coordinator }}">
+      <table class="table">
+        <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Estado en Emmaus</th><th>Entrevistado</th><th>Notas</th></tr></thead>
+        <tbody>{% for p in rows %}<tr><td class="num">{{ p.code }}</td><td>{{ p.full_name }}</td><td class="num">{{ p.age }}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.get_interview_status_display }}</td><td class="print-box">☐</td><td class="print-notes"></td></tr>{% endfor %}</tbody>
+      </table>
+      </div>
+    </section>
+  {% empty %}
+    <p class="empty-line">No hay camperos en esta lista.</p>
+  {% endfor %}
+
+  {% comment %}UX-05: the questions, so a coordinador can interview on paper. The structure of the version only: no answer is ever read here.
+  Each question is a .print-group, so a page never cuts one in two; a follow-up sits in its parent's block, indented like on the screen.{% endcomment %}
+  <section class="mt-8" id="cuestionario" aria-labelledby="cuestionario-titulo">
+    <div class="print-group">
+      <h2 id="cuestionario-titulo">Cuestionario para entrevistar en papel</h2>
+      {% if paper_version %}
+        <p class="page-head__meta">{{ paper_version.title }}, versión {{ paper_version.number }}.</p>
+        <p class="aside-note">Usa una copia por campero y hazle las preguntas en este orden. Marca lo que elija; si no quiere contestar una pregunta opcional, déjala en blanco. En cuanto vuelva la red, captura sus respuestas en Emmaus como entrevista asistida. Con respuestas, esta hoja es tan privada como la entrevista: guárdala tú y destrúyela en cuanto las captures.</p>
+        <dl class="summary-list">
+          <div class="summary-list__row"><dt>Nombre del campero</dt><dd></dd></div>
+          <div class="summary-list__row"><dt>Número</dt><dd></dd></div>
+        </dl>
+        <h3 class="mt-4">Antes de empezar</h3>
+        <ul class="admin-answers" aria-label="Antes de empezar">
+          <li><span class="print-box" aria-hidden="true">☐</span> <span>Le expliqué el aviso de privacidad y está de acuerdo en conversar.</span></li>
+          <li><span class="print-box" aria-hidden="true">☐</span> <span>Si es menor de edad, tengo la autorización firmada de su padre, madre o tutor legal.</span></li>
+        </ul>
+      {% else %}
+        <p class="empty-line">Todavía no hay un cuestionario publicado para este evento. Avisa a la administración.</p>
+      {% endif %}
+    </div>
+    {% for step in paper_steps %}
+      <div class="print-group" id="papel-q{{ step.question.id }}">
+        {% ifchanged step.section.id %}<h3>{{ step.section.title }}</h3>{% endifchanged %}
+        {% for q in step.questions %}
+          {% if forloop.first %}
+            <h4 class="question__follow-text">{{ forloop.parentloop.counter }}. {{ q.text }}</h4>
+            {% if q.condition_question_id %}<p class="hint">Solo si en “{{ q.condition_question.text }}” contestó {% for label in q.condition_option_labels %}{% if not forloop.first %}{% if forloop.last %} o {% else %}, {% endif %}{% endif %}“{{ label }}”{% endfor %}.</p>{% endif %}
+          {% else %}
+            <div class="reveal" id="papel-q{{ q.id }}">
+            <p class="hint">Si contestó {% for label in q.condition_option_labels %}{% if not forloop.first %}{% if forloop.last %} o {% else %}, {% endif %}{% endif %}“{{ label }}”{% endfor %}:</p>
+            <p class="question__follow-text">{{ q.text }}</p>
+          {% endif %}
+          <p class="hint">{{ q.get_kind_display }}, {% if q.required %}obligatoria{% else %}opcional{% endif %}.</p>
+          {% if q.help_text %}<p class="hint">{{ q.help_text }}</p>{% endif %}
+          {% if q.sensitivity == "confidencial" %}<p class="privacy"><span class="privacy__tag">Confidencial</span> Solo el equipo de cuidado autorizado podrá leer esta respuesta.</p>{% endif %}
+          {% if q.is_choice %}
+            <ul class="admin-answers" aria-label="Opciones">{% for o in paper_options|get_item:q.id %}<li><span class="print-box" aria-hidden="true">☐</span> <span class="admin-answers__label{% if o.is_decline %} admin-answers__label--decline{% endif %}">{{ o.label }}</span></li>{% endfor %}</ul>
+          {% elif q.kind == "texto_largo" %}
+            <div class="textarea" aria-hidden="true"></div>
+          {% else %}
+            <div class="input" aria-hidden="true"></div>
+          {% endif %}
+          {% if not forloop.first %}</div>{% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </section>
+</main>
+{% endblock %}

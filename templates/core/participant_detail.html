@@ -1,80 +1,127 @@
 {% extends "base.html" %}
-{% load core_extras %}
-{% block title %}Participant detail | Emmaus{% endblock %}
+{% load emmaus core_extras %}
+{% block page_title %}{% if note_form.errors or follow_up_form.errors %}Error: {% endif %}{{ profile.user.get_full_name|default:profile.user.email }}{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Participant care" title=profile.user.get_full_name|default:profile.user.email subtitle="Review this person's journey, questions, follow-ups, and pastoral notes." %}
+{% include "partials/ui/error_summary.html" with form=note_form %}
+{% include "partials/ui/error_summary.html" with form=follow_up_form %}
+{% if is_pastoral_leader %}{% url 'participants_list' as back_url %}{% else %}{% url 'mentor_dashboard' as back_url %}{% endif %}
+{% if is_pastoral_leader %}
+  {% include "events/rotulo/_page_head.html" with title=profile.user.get_full_name|default:profile.user.email lede="Revisa el camino de esta persona: sus preguntas, seguimientos y notas pastorales." back_url=back_url back_label="Participantes" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title=profile.user.get_full_name|default:profile.user.email lede="Revisa el camino de esta persona: sus preguntas, seguimientos y notas pastorales." back_url=back_url back_label="Inicio" %}
+{% endif %}
 
-  <section class="grid gap-4 md:grid-cols-3">
-    {% include "partials/stat_card.html" with label="Journey progress" value=summary.percent hint=summary|path_title:"No path assigned yet." %}
-    {% include "partials/stat_card.html" with label="Mentor" value=profile.assigned_mentor|display_name:"Not assigned" hint="Assign someone who can walk with them." %}
-    {% include "partials/stat_card.html" with label="Preferred contact" value=profile.get_preferred_contact_method_display hint=profile.phone_number %}
-  </section>
+<div class="split">
+  <div>
+    <section class="block" aria-labelledby="datos">
+      <h2 id="datos" class="heading">Datos del participante</h2>
+      <dl class="summary-list participant-data">
+        <div class="summary-list__row">
+          <dt>Ruta de discipulado</dt>
+          <dd>{{ summary|path_title:"Sin ruta asignada" }}</dd>
+        </div>
+        <div class="summary-list__row">
+          <dt>Avance</dt>
+          <dd>
+            {% if summary.enrollment %}
+              {{ summary.completed_lessons }} de {{ summary.total_lessons }} lecciones terminadas, {{ summary.percent|pct }}
+              <div class="participant-detail__ruler">{% ruler summary.completed_lessons 0 summary.total_lessons %}</div>
+            {% else %}
+              Sin avance todavía
+            {% endif %}
+          </dd>
+        </div>
+        <div class="summary-list__row">
+          <dt>Mentor</dt>
+          <dd>{{ profile.assigned_mentor|display_name:"Sin asignar" }}</dd>
+          {% if is_pastoral_leader %}<dd class="summary-list__action"><a href="{% url 'assign_mentor' profile.id %}">Cambiar mentor</a></dd>{% endif %}
+        </div>
+        <div class="summary-list__row">
+          <dt>Contacto preferido</dt>
+          <dd>{{ profile.get_preferred_contact_method_display }}{% if profile.phone_number %}, {{ profile.phone_number }}{% endif %}</dd>
+        </div>
+      </dl>
+    </section>
 
-  <section class="mt-6 grid gap-5 xl:grid-cols-[1fr_1fr]">
-    <div class="card-flat p-5">
-      <h2 class="font-semibold text-stone-950">Questions</h2>
-      <div class="mt-4 space-y-3">
-        {% for question in questions %}
-          <a class="human-row" href="{% if is_pastoral_leader %}{% url 'church_question_detail' question.id %}{% else %}{% url 'question_detail' question.id %}{% endif %}">
-            <div class="flex items-start justify-between gap-3">
-              <p class="text-sm font-semibold text-stone-950">{{ question.question_text|truncatewords:20 }}</p>
-              {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
-            </div>
-          </a>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No questions yet" body="Questions from this participant will appear here." %}
-        {% endfor %}
-      </div>
-    </div>
-    <div class="card-flat p-5">
-      <h2 class="font-semibold text-stone-950">Follow-ups</h2>
-      <div class="mt-4 space-y-3">
-        {% for follow_up in follow_ups %}
-          <div class="human-row">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <p class="text-sm font-semibold text-stone-950">{{ follow_up.reason|truncatewords:18 }}</p>
-                <p class="mt-1 text-xs text-stone-500">Assigned to {{ follow_up.assigned_to|display_name:"Not assigned" }}</p>
+    <section class="block" aria-labelledby="preguntas">
+      <h2 id="preguntas" class="heading">Preguntas</h2>
+      {% if questions %}
+        <ul class="rows">
+          {% for question in questions %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% if is_pastoral_leader %}{% url 'church_question_detail' question.id %}{% else %}{% url 'question_detail' question.id %}{% endif %}">{{ question.question_text|truncatewords:20 }}</a></p>
+                <p class="row__meta">Enviada el {{ question.created_at|date:"j b Y" }}</p>
               </div>
-              {% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}
-            </div>
-          </div>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No follow-ups right now" body="Requests for conversation or care will appear here." %}
-        {% endfor %}
-      </div>
-    </div>
-  </section>
+              {% if question.status == "answered" or question.status == "closed" %}{% status "completada" question.get_status_display %}{% else %}{% status "pendiente" question.get_status_display %}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Todavía no hay preguntas. Aquí aparecerán las preguntas de este participante.</p>
+      {% endif %}
+    </section>
 
-  <section class="mt-6 grid gap-5 xl:grid-cols-2">
-    <div class="card p-5 md:p-6">
-      <h2 class="font-semibold text-stone-950">Pastoral notes</h2>
-      <div class="mt-4 space-y-3">
-        {% for note in notes %}
-          <div class="rounded-2xl border border-stone-200 bg-white/70 p-4 text-sm">
-            <p class="leading-6 text-stone-700">{{ note.body }}</p>
-            <p class="mt-2 text-xs font-semibold text-stone-500">{{ note.author.get_full_name|default:note.author.email }} · {{ note.get_visibility_display }}</p>
-          </div>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No visible notes" body="Leader notes you are allowed to see will appear here." %}
-        {% endfor %}
-      </div>
-      <form method="post" class="mt-6 border-t border-stone-200 pt-5">
+    <section class="block" aria-labelledby="seguimientos">
+      <h2 id="seguimientos" class="heading">Seguimientos</h2>
+      {% if follow_ups %}
+        <ul class="rows">
+          {% for follow_up in follow_ups %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
+                <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}</p>
+              </div>
+              {% if follow_up.status == "completed" %}{% status "completada" follow_up.get_status_display %}{% elif follow_up.status == "in_progress" %}{% status "en_curso" follow_up.get_status_display %}{% elif follow_up.status == "cancelled" %}{% status "descartada" follow_up.get_status_display %}{% else %}{% status "pendiente" follow_up.get_status_display %}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">No hay seguimientos. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div>
+    <section class="block" aria-labelledby="notas">
+      <h2 id="notas" class="heading">Notas pastorales</h2>
+      <p class="privacy"><span class="privacy__tag">Confidencial</span> El participante nunca ve estas notas.</p>
+      {% if notes %}
+        <ul class="rows">
+          {% for note in notes %}
+            <li class="row">
+              <div class="row__main">
+                <p class="prose-block">{{ note.body|linebreaksbr }}</p>
+                <p class="row__meta">{{ note.author.get_full_name|default:note.author.email }}, {{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}.</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">No hay notas que puedas ver. Aquí aparecerán las notas de líderes que tienes permiso de ver.</p>
+      {% endif %}
+      <form method="post" class="participant-detail__form">
         {% csrf_token %}
         <input type="hidden" name="action" value="note">
-        {% include "partials/form_fields.html" with form=note_form %}
-        <button class="btn btn-primary">Add note</button>
+        {% include "partials/ui/fields.html" with form=note_form %}
+        <div class="step__actions">
+          <button class="btn btn--secondary" type="submit">Guardar nota</button>
+        </div>
       </form>
-    </div>
-    <div class="card p-5 md:p-6">
-      <h2 class="font-semibold text-stone-950">Create follow-up</h2>
-      <p class="mt-2 text-sm leading-6 text-stone-600">Create a clear request so a leader can follow up personally.</p>
-      <form method="post" class="mt-5">
+    </section>
+
+    <section class="block" aria-labelledby="crear-seguimiento">
+      <h2 id="crear-seguimiento" class="heading">Crear seguimiento</h2>
+      <p class="hint">Deja una solicitud clara para que un líder pueda dar seguimiento en persona.</p>
+      <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="follow">
-        {% include "partials/form_fields.html" with form=follow_up_form %}
-        <button class="btn btn-primary">Create follow-up</button>
+        {% include "partials/ui/fields.html" with form=follow_up_form %}
+        <div class="step__actions">
+          <button class="btn btn--primary" type="submit">Crear seguimiento</button>
+        </div>
       </form>
-    </div>
-  </section>
+    </section>
+  </div>
+</div>
 {% endblock %}

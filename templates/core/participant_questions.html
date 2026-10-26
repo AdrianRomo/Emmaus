@@ -1,21 +1,28 @@
 {% extends "base.html" %}
-{% block title %}Questions you’ve asked | Emmaus{% endblock %}
+{% load emmaus %}
+{% block page_title %}Mis preguntas{% endblock %}
 {% block content %}
-  {% url 'ask_question' as ask_url %}
-  {% include "partials/page_header.html" with eyebrow="Your questions" title="Questions you’ve asked" subtitle="Responses from your church leaders will stay here so you can return to them." action_url=ask_url action_label="Ask a question" %}
-  <div class="space-y-3">
-    {% for question in questions %}
-      <a class="human-row" href="{% url 'participant_question_detail' question.id %}">
-        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p class="font-semibold text-stone-950">{{ question.question_text|truncatewords:28 }}</p>
-            <p class="mt-2 text-sm text-stone-500">{{ question.responses.count }} response{{ question.responses.count|pluralize }} · Asked {{ question.created_at|date:"M j, Y" }}</p>
-          </div>
-          {% include "partials/status_badge.html" with status=question.status label=question.get_status_display %}
-        </div>
-      </a>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No questions yet" body="When something feels unclear, you can ask a trusted church leader here." action_url=ask_url action_label="Ask your first question" %}
-    {% endfor %}
-  </div>
+<div class="disc-list">
+{% url 'ask_question' as ask_url %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas que has hecho" lede="Aquí se quedan las respuestas de los líderes de tu iglesia para que puedas volver a leerlas." action_url=ask_url action_label="Haz una pregunta" %}
+<section aria-label="Tus preguntas">
+  {% if questions %}
+    <ul class="rows">
+      {% for question in questions %}
+        {% with count=question.responses.count %}
+          <li class="row disc-item">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'participant_question_detail' question.id %}">{{ question.question_text|truncatewords:28 }}</a></p>
+              <p class="row__meta">Enviada el {{ question.created_at|fecha_corta }}, {% if count %}{{ count }} respuesta{{ count|pluralize }}{% else %}sin respuesta todavía{% endif %}.</p>
+            </div>
+            {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
+          </li>
+        {% endwith %}
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Todavía no has hecho preguntas. Cuando algo no te quede claro, puedes preguntarle aquí a un líder de confianza de tu iglesia. <a href="{{ ask_url }}">Haz tu primera pregunta</a></p>
+  {% endif %}
+</section>
+</div>
 {% endblock %}

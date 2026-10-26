@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block page_title %}No encontramos esta página{% endblock %}
+{% block content %}
+<div class="narrow">
+  {% include "events/rotulo/_page_head.html" with title="No encontramos esta página" lede="Puede que la dirección esté mal escrita o que ya no exista. También puede ser información que no está asignada a ti." %}
+  <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Volver a mi inicio</a></p>
+</div>
+{% endblock %}

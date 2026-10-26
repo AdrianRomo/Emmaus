@@ -1,0 +1,4 @@
+<div class="choice{% if q.is_multi %} choice--multi{% endif %}{% if quiet %} choice--quiet{% endif %}">
+  <input class="choice__input" type="{% if q.is_multi %}checkbox{% else %}radio{% endif %}" id="{{ o.id }}" name="{{ q.name }}" value="{{ o.option.code }}"{% if o.checked %} checked{% endif %}{% if o.option.is_exclusive and q.is_multi %} data-exclusive{% endif %}{% if q.error %} aria-describedby="q{{ q.question.id }}-error"{% endif %}>
+  <label class="choice__label" for="{{ o.id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ o.option.label }}</span></label>
+</div>

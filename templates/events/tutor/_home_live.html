@@ -1,0 +1,113 @@
+{% load emmaus %}
+{% comment %}
+  "¿Cuál de mis coordinadores necesita ayuda ahorita?" The sign appears only when an interview stalled
+  (the one thing to do now); then the team in one sentence and one row per coordinator; on the right,
+  what waits for someone else: follow-ups, decisions, recent activity and the cutoffs.
+{% endcomment %}
+{% if stalled %}
+  <section class="sign crew-sign" aria-labelledby="que-hago">
+    {% if stalled|length == 1 %}
+      {% with c=stalled.0 %}{% with place=stalled_places|get_item:c.id %}
+        <h2 id="que-hago" class="sign__title">{{ c.name }} tiene {{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}</h2>
+        <p class="sign__text">{% if c.stale == 1 %}Lleva{% else %}Llevan{% endif %} {% stale_minutes %} minutos o más sin cambios{% if place %} en {{ place }}{% endif %}. Pregúntale si necesita ayuda o si hay que retomarla{{ c.stale|pluralize }}.</p>
+      {% endwith %}{% endwith %}
+    {% else %}
+      <h2 id="que-hago" class="sign__title">{{ payload.attention.stale_interviews }} entrevistas interrumpidas</h2>
+      <p class="sign__text">{% for c in stalled %}{{ c.name }} tiene {{ c.stale }}{% if forloop.revcounter == 2 %} y {% elif not forloop.last %}, {% endif %}{% endfor %}. Llevan {% stale_minutes %} minutos o más sin cambios. Pregúntales si necesitan ayuda o si hay que retomarlas.</p>
+    {% endif %}
+    <div class="sign__actions">
+      <a class="btn btn--primary btn--large" href="{% url 'events:pending' event.slug %}#interrumpidas">Ver las entrevistas interrumpidas</a>
+    </div>
+  </section>
+{% endif %}
+
+<div class="crew-board">
+  <div class="crew-board__main">
+    <section aria-labelledby="avance-equipo">
+      {% if progress.eligible %}
+        <h2 id="avance-equipo" class="voice coord__count">Tu equipo lleva {{ progress.completed }} de {{ progress.eligible }}.</h2>
+        <p class="coord__count-note">
+          {{ progress.percent|pct }} de sus camperos{% if progress.in_progress %}, {{ progress.in_progress }} en curso{% endif %}.
+          {% if not progress.pending %}Ya completaron todas.
+          {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltan alrededor de <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
+          {% endif %}
+          Cada marca es un campero.
+        </p>
+      {% else %}
+        <h2 id="avance-equipo" class="voice coord__count">Tu equipo todavía no tiene camperos.</h2>
+      {% endif %}
+      {% if coordinators %}
+        {% include "events/rotulo/_coordinator_rows.html" with rows=coordinators places=places label="Avance por coordinador, primero los que van más atrás" %}
+      {% else %}
+        <p class="empty-line">Aún no tienes coordinadores asignados. La administración del evento te los asigna.</p>
+      {% endif %}
+    </section>
+
+    <section class="crew-board__pace" aria-labelledby="ritmo-equipo">
+      <h2 id="ritmo-equipo" class="heading">Ritmo del equipo</h2>
+      {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="equipo-acumulado" as_of=payload.data_as_of %}
+      {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="equipo-ritmo" %}
+    </section>
+  </div>
+
+  <div class="crew-board__side">
+    <section aria-labelledby="seguimientos-equipo">
+      <h2 id="seguimientos-equipo" class="heading">Seguimientos del equipo</h2>
+      {% if follow_ups %}
+        <ul class="rows">
+          {% for f in follow_ups %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
+                <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>
+              </div>
+              {% follow_up_status f.status %}
+            </li>
+          {% endfor %}
+        </ul>
+        {% if follow_ups_open > follow_ups|length %}<p class="more"><a href="{% url 'events:pending' event.slug %}#seguimientos">Ver los {{ follow_ups_open }} seguimientos abiertos</a></p>{% endif %}
+      {% else %}
+        <p class="empty-line">No hay seguimientos abiertos. Cuando un campero pida acompañamiento aparecerá aquí.</p>
+      {% endif %}
+    </section>
+
+    <section aria-labelledby="por-decidir">
+      <h2 id="por-decidir" class="heading">Por decidir</h2>
+      {% with n=payload.follow_ups.to_evaluate %}
+        {% if n %}
+          <p>{{ n }} entrevista{{ n|pluralize }} espera{{ n|pluralize:"n" }} que su coordinador decida el seguimiento.</p>
+          <p class="more"><a href="{% url 'events:pending' event.slug %}#por-evaluar">Ver las entrevistas por decidir</a></p>
+        {% else %}
+          <p class="empty-line">Ninguna entrevista espera esa decisión.</p>
+        {% endif %}
+      {% endwith %}
+    </section>
+
+    <section aria-labelledby="actividad">
+      <h2 id="actividad" class="heading">Actividad reciente</h2>
+      {% if recent %}
+        <ul class="rows">
+          {% for iv in recent %}
+            <li class="row">
+              <div class="row__main">
+                <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug iv.participant.public_id %}">{{ iv.participant.full_name }}</a></p>
+                <p class="row__meta">{% if iv.conducted_by %}{{ iv.conducted_by.get_full_name }}, {{ iv.last_activity_at|since }}{% else %}{{ iv.last_activity_at|since|capfirst }}{% endif %}</p>
+              </div>
+              {% status iv.status %}
+            </li>
+          {% endfor %}
+        </ul>
+        <p class="more"><a href="{% url 'events:interviews' event.slug %}">Ver todas las entrevistas</a></p>
+      {% else %}
+        <p class="empty-line">Todavía no hay actividad.</p>
+      {% endif %}
+    </section>
+
+    <section aria-labelledby="cortes">
+      <h2 id="cortes" class="heading">Cortes</h2>
+      <p>{% if last_snapshot %}El último corte fue a las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Aún no hay cortes.{% endif %}
+        {% if next_cutoff %}El próximo será a las {{ next_cutoff|date:"H:i" }}.{% else %}No hay otro programado.{% endif %}</p>
+      <p class="more"><a href="{% url 'events:reports' event.slug %}">Ver reportes de mi equipo</a></p>
+    </section>
+  </div>
+</div>

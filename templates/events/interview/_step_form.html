@@ -1,0 +1,50 @@
+{% load emmaus %}
+<div class="trail">
+  {% if previous and mode != "correction" %}
+    <button class="trail__back" type="submit" form="step-form" name="direction" value="back">Atrás</button>
+  {% endif %}
+  <p class="trail__count">Pregunta <strong>{{ position }}</strong> de {{ total }}</p>
+  <p class="trail__section">{{ step.section.title }}</p>
+  <ol class="trail__blazes" aria-hidden="true">
+    {% for n in visible_numbers %}<li{% if forloop.counter < position %} class="is-done"{% elif forloop.counter == position %} class="is-here"{% endif %}></li>{% endfor %}
+  </ol>
+</div>
+
+{% if error_list %}
+  <div class="error-summary" role="alert" aria-labelledby="error-summary-title">
+    <h2 id="error-summary-title">Hay un problema</h2>
+    <ul>{% for anchor, message in error_list %}<li><a href="#{{ anchor }}">{{ message }}</a></li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+<form method="post" action="{{ form_action }}" id="step-form" class="step" data-guard novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="revision" value="{{ interview.revision }}">
+  {% include "events/interview/_question.html" with q=main heading=True %}
+  {% for child in children %}
+    <div class="reveal" data-reveal-for="{{ child.reveal_for }}" data-reveal-codes="{{ child.reveal_codes }}">
+      <p class="hint no-js-only">Responde esta parte solo si elegiste la opción relacionada.</p>
+      {% include "events/interview/_question.html" with q=child heading=False %}
+    </div>
+  {% endfor %}
+  {% if mode == "correction" %}
+    <div class="field{% if reason_error %} field--error{% endif %}">
+      <label class="label" for="id_reason">¿Por qué corriges esta respuesta?</label>
+      <p class="hint">Por ejemplo: “Se marcó una opción por error”. Queda registrado junto con tu nombre.</p>
+      {% if reason_error %}<p class="error-message">{{ reason_error }}</p>{% endif %}
+      <input class="input" type="text" id="id_reason" name="reason" maxlength="200" value="{{ reason_value }}">
+    </div>
+  {% endif %}
+  {% comment %}Shown by the offline guard in emmaus.js instead of sending the form without a network.{% endcomment %}
+  <div class="notice notice--warning" role="alert" data-offline-notice hidden><p>Sin conexión. Cuando vuelva la red, toca el botón otra vez. Lo que elegiste sigue aquí.</p></div>
+  <div class="step__actions">
+    {% if mode == "correction" %}
+      <button class="btn btn--primary btn--large" type="submit" name="direction" value="next">Guardar corrección</button>
+    {% else %}
+      <button class="btn btn--primary btn--large" type="submit" name="direction" value="next">{% if following %}Continuar{% else %}Revisar respuestas{% endif %}</button>
+    {% endif %}
+  </div>
+</form>
+{% if mode == "participant" %}
+  <p class="step__reassure">Puedes elegir “Prefiero no responder” en cualquier pregunta. Nadie más ve esta pantalla mientras respondes.</p>
+{% endif %}

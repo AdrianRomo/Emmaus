@@ -1,0 +1,30 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Entrevistas{% endblock %}
+{% block content %}
+{% include "events/rotulo/_page_head.html" with title="Entrevistas" lede="Filtra para encontrar lo que necesitas revisar." %}
+<form method="get" class="filter-form" aria-label="Filtros">
+  <div class="field"><label class="label" for="f-coord">Coordinador</label><select id="f-coord" name="coordinador"><option value="">Todos</option>{% for c in coordinators %}<option value="{{ c.id }}"{% if selected.coordinador == c.id|stringformat:"s" %} selected{% endif %}>{{ c.display_name }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="label" for="f-cuarto">Cuarto</label><select id="f-cuarto" name="cuarto"><option value="">Todos</option>{% for r in rooms %}<option value="{{ r }}"{% if selected.cuarto == r %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="label" for="f-grupo">Iglesia o grupo</label><select id="f-grupo" name="grupo"><option value="">Todos</option>{% for g in groups %}<option value="{{ g }}"{% if selected.grupo == g %} selected{% endif %}>{{ g }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="label" for="f-estado">Estado</label><select id="f-estado" name="estado"><option value="">Todos</option>{% for v, l in status_choices %}<option value="{{ v }}"{% if selected.estado == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="label" for="f-periodo">Completadas</label><select id="f-periodo" name="periodo">{% for v, l in periods %}<option value="{{ v }}"{% if selected.periodo == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+  <div class="filter-form__actions">
+    <button class="btn btn--secondary" type="submit">Filtrar</button>
+    {% if filters_active %}<a class="btn btn--link" href="{{ request.path }}">Quitar filtros</a>{% endif %}
+  </div>
+</form>
+
+<section aria-labelledby="lista">
+  <h2 id="lista" class="heading">{{ page.paginator.count }} campero{{ page.paginator.count|pluralize }}{% if filters_active %} con estos filtros{% endif %}</h2>
+  {% if page.object_list %}
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Camperos y su entrevista"><table class="table table--nowrap">
+      <thead><tr><th class="num">#</th><th>Nombre</th><th>Entrevista</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th></tr></thead>
+      <tbody>{% for p in page.object_list %}<tr><td class="num">{{ p.code }}</td><td class="cell-name"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{% status p.interview_status %}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.coordinator.display_name|default:"Sin asignar" }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% include "events/rotulo/_pagination.html" with page=page %}
+  {% else %}
+    <p class="empty-line">No encontramos camperos con estos filtros. Prueba quitando alguno.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} | Emmaus{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{{ title }}{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow=path.title title=title subtitle="Shape the lesson with readable teaching, Scripture references, reflection, and one practical next step." %}
-  <section class="mx-auto max-w-4xl">
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <div class="mt-2 flex flex-col gap-3 sm:flex-row">
-          <button class="btn btn-primary">Save lesson</button>
-          <a class="btn btn-secondary" href="{% url 'path_detail' path.id %}">Back to path</a>
-        </div>
-      </form>
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'path_detail' path.id as back_url %}
+  {% include "events/rotulo/_page_head.html" with title=title lede="Arma la lección con una enseñanza fácil de leer, pasajes bíblicos y un paso práctico." back_url=back_url back_label=path.title %}
+  <form method="post">
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar lección</button>
+      <a class="btn btn--link" href="{% url 'path_detail' path.id %}">Volver a la ruta</a>
     </div>
-  </section>
+  </form>
+</div>
 {% endblock %}

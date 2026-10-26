@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Crear campamento{% endblock %}
+{% block content %}
+<div class="narrow">
+<a class="back-link" href="{% url 'events:list' %}?todos=1">Campamentos y eventos</a>
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Crear campamento" lede="Podrás cambiar todo esto después en Configuración." meta=church.name %}
+<form method="post" novalidate class="event-create">
+  {% csrf_token %}
+  {% include "partials/ui/fields.html" with form=form %}
+  <div class="step__actions">
+    <button class="btn btn--primary btn--large" type="submit">Crear campamento</button>
+    <a class="btn btn--link" href="{% url 'events:list' %}?todos=1">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endblock %}

@@ -1,189 +1,74 @@
 # Emmaus
 
-Emmaus is a Django monolith for a church discipleship pilot. It helps pastors, mentors, admins, and participants keep discipleship journeys visible without replacing human shepherding.
+Emmaus is a Spanish-language (es-MX) Django platform that helps a church care for people at its events.
 
-## What Is Included
+- **Emmaus Campamentos** runs a camp's interview operation: 350–400 camperos without accounts, ten shared interview computers, volunteer coordinadores, tutores who supervise them, pastors who need an honest overview, and leadership meetings that need a privacy-safe projector view.
+- **Discipulado**, the original module, is still supported: discipleship paths, lessons, reflections, participant questions and pastoral follow-up for participants who have accounts. It is shown only to churches that turn it on.
 
-- Real first-church setup flow with no seed-user dependency
-- Church-scoped roles: `church_admin`, `pastor`, `mentor`, `participant`
-- Secure invitation links with expiration and single-use acceptance
-- Participant onboarding with consent and emergency disclaimer acceptance
-- Editable discipleship paths, lessons, reflection questions, enrollments, progress, and answers
-- Participant questions, leader responses, pastoral escalations, and follow-up requests
-- Pastoral notes hidden from participants and filtered by leader role
-- Optional human-reviewed AI response drafts
-- Synchronous email notifications with console email in local development
-- Docker Compose for local PostgreSQL and first production deployment
-- Healthcheck at `/health/`
-- Tests for setup, invitations, access control, participant actions, leader responses, inactivity follow-ups, and health
+The interface is Mexican Spanish throughout and every screen uses one design system, "Atrio" ([`docs/design-system.md`](docs/design-system.md)), which replaced "Rótulo" on 2026-10-26: white pages, one action colour (petróleo `#0B6270`), Figtree with sentences as headings, no icons, shadows or yellow, the church's own logo as the only ornament, and at most one tinted panel per screen that asks the next question and holds its one button. The stylesheet keeps its name, `static/css/rotulo.css`. Why the direction changed: `docs/design-direction.md`.
 
-## Local Development
+## What a camp gets
 
-Create an environment file:
+| Role | Main screen | Highlights |
+|---|---|---|
+| Coordinador | **Mi inicio**: one tinted panel with the thing to do now, asked as a question ("¿A quién vas a entrevistar?") | Register camperos, search, assisted interview or supervised capture on a shared computer, resume interrupted interviews, decide follow-up, print a paper backup list |
+| Campero | No account, no navigation | One question per screen, "Prefiero no responder" everywhere, answers saved at every step, screen locks when idle, returns the computer to the coordinador |
+| Tutor | **Mi equipo** | Progress per assigned coordinador, interrupted interviews, follow-ups, filters, team cutoffs |
+| Pastor | **Resumen general** | Five questions answered in order, team progress, privacy-suppressed answer totals, deterministic next steps, **Modo presentación** |
+| Administración | **Inicio** | Events, team and roles, tutor assignments, CSV import with duplicate review, questionnaire versions, cutoffs, audit log, open sessions |
 
-```bash
-cp .env.example .env
-```
+Cutoffs ("cortes de seguimiento") are immutable snapshots generated every two hours (configurable). Each one can be viewed, compared with the previous one, presented full screen, or downloaded as a PDF.
 
-Run with Docker Compose:
-
-```bash
-make build
-make up
-```
-
-In another terminal:
-
-```bash
-make migrate
-make create-starter-path
-```
-
-Open `http://localhost:8000`.
-
-## Real First-Church Setup
-
-1. Visit `http://localhost:8000`.
-2. If no church exists, Emmaus redirects to `/setup/`.
-3. Enter the church name, slug, first admin name, email, and password.
-4. After setup, create the starter path:
-
-```bash
-make create-starter-path
-```
-
-5. Use the admin dashboard to invite pastors, mentors, and participants.
-
-The main flow does not require demo data.
-
-## Optional Demo Data
-
-For local testing only:
-
-```bash
-docker compose run --rm web python manage.py seed_dev_data
-```
-
-Demo users use `password12345`:
-
-- `admin@example.org`
-- `pastor@example.org`
-- `mentor@example.org`
-- `participant@example.org`
-
-## Useful Commands
-
-```bash
-make up
-make down
-make build
-make migrate
-make createsuperuser
-make create-starter-path
-make test
-make collectstatic
-make logs
-```
-
-Without Docker, you can run:
+## Quick start (local)
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+export DATABASE_URL=postgres://emmaus:emmaus@localhost:5432/emmaus   # or omit for SQLite
+export DEBUG=true   # DEBUG is off unless you turn it on; production needs SECRET_KEY instead
 .venv/bin/python manage.py migrate
-.venv/bin/python manage.py runserver
+DEBUG=true .venv/bin/python manage.py seed_camp_demo --password "una-contraseña-de-prueba"
+DEBUG=true .venv/bin/python manage.py runserver
 ```
 
-If `DATABASE_URL` is not set, Django uses local SQLite for convenience. Docker Compose uses PostgreSQL.
+`seed_camp_demo` builds a synthetic camp: 400 fictitious camperos, an admin, a pastor, a care-team member, 4 tutors, 12 coordinators, a simulated day of interviews and its cutoffs. It refuses to run unless `DEBUG=true`. Without `--password` (or `EMMAUS_DEMO_PASSWORD`) it prints a random password once. The demo accounts use the reserved `@demo.invalid` domain. Turn them off with `manage.py deactivate_demo_accounts`; `check --deploy` warns while they are active.
 
-## Production Deployment Notes
+With Docker: `make build && make up`, then `make migrate` and `make seed-demo`.
 
-Use `docker-compose.prod.yml` as the starting point:
-
-```bash
-cp .env.example .env
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml run --rm web python manage.py migrate
-docker compose -f docker-compose.prod.yml run --rm web python manage.py collectstatic --noinput
-docker compose -f docker-compose.prod.yml up -d
-```
-
-Set production values in `.env`:
-
-- `SECRET_KEY`
-- `DEBUG=false`
-- `ALLOWED_HOSTS`
-- `CSRF_TRUSTED_ORIGINS`
-- `POSTGRES_PASSWORD`
-- `DATABASE_URL`
-
-Put Emmaus behind HTTPS before real participant use.
-
-## Email Configuration
-
-Local development defaults to console email. For SMTP, set:
-
-```env
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.example.org
-EMAIL_PORT=587
-EMAIL_HOST_USER=your-user
-EMAIL_HOST_PASSWORD=your-password
-EMAIL_USE_TLS=true
-DEFAULT_FROM_EMAIL=Emmaus <no-reply@example.org>
-```
-
-If email sending fails, Emmaus logs the error and keeps the user flow moving. Invitation pages also show a manual copy link for early pilot operations.
-
-## AI Draft Configuration
-
-AI is disabled by default and is never shown directly to participants.
-
-```env
-LLM_ENABLED=true
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_API_KEY=your-key
-LLM_MODEL=gpt-4.1-mini
-```
-
-Leaders must review, edit, approve, or reject generated drafts before any response is sent.
-
-## UI System
-
-Emmaus uses Django templates with a self-contained local stylesheet, so the interface does not depend on CDN access:
-
-- `static/css/emmaus.css` defines the warm visual palette, authenticated app shell, role-aware sidebar, mobile nav, buttons, cards, badges, responsive utility layer, and focus states.
-- `templates/base.html` loads the local stylesheet with Django static files and does not include Tailwind CDN scripts.
-- `templates/partials/` contains reusable pieces for page headers, messages, form fields, empty states, stat cards, progress bars, and status badges.
-- Human-centered lists use card rows instead of dense tables where the record represents a person, question, or follow-up.
-- Tables are reserved for invitation management and other scan-heavy administrative views.
-
-The design language should stay calm, warm, minimal, and pastoral. Avoid generic SaaS patterns, loud colors, decorative religious imagery, and surveillance-style copy.
+For a real deployment, start at `/setup/` (first church and administrator), then use **Crear campamento**. See `docs/deployment.md`.
+A server that has shown the demo goes back to an empty database with `manage.py purge_demo_data` (dry run; `--yes` deletes): see "Empezar de cero para un evento real" in `docs/deployment.md`.
 
 ## Tests
 
 ```bash
-make test
+DATABASE_URL=postgres://… .venv/bin/python manage.py test          # 170+ tests, use PostgreSQL
+python scripts/simulate_camp_day.py --base http://127.0.0.1:8000 --event carga-2026 --password …   # 10-station load test
+cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… npm test              # browser check
 ```
 
-Or locally:
+`TEST_DATABASE_NAME` lets two test runs share one Postgres server. The threaded tests in `events/tests/test_concurrency.py` need PostgreSQL row locks.
 
-```bash
-.venv/bin/python manage.py test
-```
+## Documentation
 
-## Known Limitations
+| Document | Contents |
+|---|---|
+| `docs/ux-redesign-plan.md` | Audit of the original app, information architecture, data-model changes, migration strategy, phases |
+| `docs/design-research.md` | Real screens from Planning Center, Tally, Airtable, GOV.UK, Mobbin and Refero, then (v3) 32 church, camp, discipleship and calm-product tools: what to adapt, what not to copy, what we could not access, and the three directions that led to "Atrio" |
+| `docs/design-direction.md` | The two retired directions ("Cuaderno de campo", "Rótulo") and why each was retired; "Atrio": why it won, its patterns and principles, what it kept from Rótulo, the landing page copy and the church's logo |
+| `docs/design-system.md` | "Atrio" tokens, components, chart rules, screens, language, accessibility, motion and how to make a new screen |
+| `docs/ux-review.md` | Sixteen screenshot review rounds at three widths (round 16 is Atrio), axe results and what is still open |
+| `docs/architecture.md` | Apps, models, concurrency model, live updates, PDF, static files |
+| `docs/roles-and-permissions.md` | Role resolution, permission matrix, field-level visibility |
+| `docs/interview-station-workflow.md` | Assisted and supervised flows on shared computers, locking, recovery, load test |
+| `docs/reporting.md` | Metric definitions, cutoffs, presentation privacy, PDF |
+| `docs/privacy-and-safeguarding.md` | Data inventory, consent, retention, escalation, checklist before use with minors |
+| `docs/deployment.md` | Environment, Docker, scheduler, HTTPS, backups, rollback |
+| `docs/user-guide-es.md` | Guía para coordinadores, tutores, pastores y administración |
 
-- Email is synchronous for MVP simplicity.
-- No SMS or WhatsApp delivery is implemented.
-- No billing, mobile app, or public social features are included.
-- Multi-church support is model-scoped, but the pilot UI assumes a user works in one church at a time.
-- Static files are collected into the app container; a production reverse proxy or object storage setup can be added later.
+## Principles that are not negotiable
 
-## Recommended Next Phase
-
-- Add audit logs for sensitive pastoral records.
-- Add richer lesson editing and reordering.
-- Add notification preferences.
-- Add backup/restore runbooks.
-- Add production observability, uptime checks, and error reporting.
+- Camperos never have accounts, and a supervised capture never exposes coordinator privileges: the coordinador's login ends before the campero touches the keyboard.
+- Spiritual and personal answers are the participant's own words. Emmaus never judges them, never scores them, never diagnoses, and never sends them to an AI service or by email.
+- Pastoral or administrative status does not unlock confidential answers. That takes an explicit, audited "acceso confidencial" per event.
+- Reports never widen access: a saved cutoff is shown only to people whose **current** scope includes it.
+- Before real minors are interviewed, the church must define and approve its consent, safeguarding and escalation procedures. Emmaus blocks interviews until an administrator confirms this.

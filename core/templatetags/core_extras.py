@@ -14,16 +14,14 @@ def get_item(mapping, key):
 def status_class(value):
     value = str(value or "").lower()
     if value in {"answered", "completed", "accepted", "approved"}:
-        return "badge badge-success"
+        return "chip chip--done"
     if value in {"open", "pending", "draft", "in_progress"}:
-        return "badge badge-attention"
+        return "chip chip--progress"
     if value in {"escalated", "pastoral_care_required", "sensitive"}:
-        return "badge badge-care"
+        return "chip chip--alert"
     if value in {"expired", "rejected", "cancelled", "closed"}:
-        return "badge badge-muted"
-    if value in {"normal"}:
-        return "badge badge-soft"
-    return "badge badge-soft"
+        return "chip chip--pending"
+    return "chip chip--info"
 
 
 @register.filter
@@ -32,7 +30,7 @@ def in_list(value, values):
 
 
 @register.filter
-def display_name(user, fallback="Not assigned"):
+def display_name(user, fallback="Sin asignar"):
     if not user:
         return fallback
     full_name = ""
@@ -43,7 +41,7 @@ def display_name(user, fallback="Not assigned"):
 
 
 @register.filter
-def path_title(summary, fallback="No path assigned"):
+def path_title(summary, fallback="Sin ruta asignada"):
     enrollment = getattr(summary, "enrollment", None)
     path = getattr(enrollment, "path", None)
     return getattr(path, "title", "") or fallback

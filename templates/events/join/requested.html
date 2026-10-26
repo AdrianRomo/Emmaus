@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block page_title %}Solicitud enviada{% endblock %}
+{% block content %}
+{% comment %}
+  The same page whether this was the first request, a repeated one, or the e-mail already has an account,
+  and whether or not the server sends e-mail: it tells nobody who is on the team or how the server is set up,
+  and it promises nothing that is not true in every case.
+{% endcomment %}
+<div class="auth-card">
+  <section class="confirm" aria-labelledby="solicitud-enviada">
+    <h1 id="solicitud-enviada" class="voice confirm__title">Solicitud enviada</h1>
+    <p class="confirm__text">Listo. La administración de {{ join_event.name }} revisará tu solicitud. Cuando te den acceso podrás entrar con tu correo; si es tu primera vez, te darán un enlace para crear tu contraseña.</p>
+  </section>
+</div>
+{% endblock %}

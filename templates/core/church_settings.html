@@ -1,49 +1,74 @@
 {% extends "base.html" %}
-{% block title %}Church settings | Emmaus{% endblock %}
+{% load brand %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Configuración de la iglesia{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Workspace settings" title="Church settings" subtitle="Keep the public welcome, contact information, consent language, invitation settings, and visual identity clear." %}
-  <form method="post">
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Configuración de la iglesia" lede="Mantén claros la bienvenida, los datos de contacto, el aviso para participantes, el logotipo, las invitaciones y los colores." %}
+  {% comment %}admin-upload: the file controls drawn like the camper import's (rotulo.css, G3).{% endcomment %}
+  <form method="post" enctype="multipart/form-data" class="admin-upload">
     {% csrf_token %}
-    <section class="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
-      <div class="card p-6 md:p-8">
-        <h2 class="text-xl font-semibold text-stone-950">Church details</h2>
-        <div class="mt-5">
-          {% include "partials/form_field.html" with field=form.name %}
-          {% include "partials/form_field.html" with field=form.public_welcome_text %}
-          {% include "partials/form_field.html" with field=form.contact_email %}
-          {% include "partials/form_field.html" with field=form.basic_disclaimer_text %}
-          {% include "partials/form_field.html" with field=form.self_registration_enabled %}
-          {% include "partials/form_field.html" with field=form.leaders_can_invite_participants %}
-        </div>
-      </div>
+    <section class="block" aria-labelledby="datos-iglesia">
+      <h2 id="datos-iglesia" class="heading">Datos de la iglesia</h2>
+      {% include "partials/ui/field.html" with field=form.name %}
+      {% include "partials/ui/field.html" with field=form.public_welcome_text %}
+      {% include "partials/ui/field.html" with field=form.contact_email %}
+      {% include "partials/ui/field.html" with field=form.basic_disclaimer_text %}
+    </section>
 
-      <div class="card-flat p-6 md:p-8">
-        <h2 class="text-xl font-semibold text-stone-950">Theme colors</h2>
-        <p class="mt-2 text-sm leading-6 text-stone-600">Defaults are based on Satélite Iglesia Cristiana: black and white structure, cool gray surfaces, clay accent, and calm olive support.</p>
-        <div class="theme-grid mt-5">
-          {% include "partials/form_field.html" with field=form.theme_primary_color %}
-          {% include "partials/form_field.html" with field=form.theme_accent_color %}
-          {% include "partials/form_field.html" with field=form.theme_secondary_color %}
-          {% include "partials/form_field.html" with field=form.theme_background_color %}
-          {% include "partials/form_field.html" with field=form.theme_surface_color %}
-          {% include "partials/form_field.html" with field=form.theme_text_color %}
-          {% include "partials/form_field.html" with field=form.theme_muted_text_color %}
-          {% include "partials/form_field.html" with field=form.theme_border_color %}
+    <section class="block" aria-labelledby="logotipo">
+      <h2 id="logotipo" class="heading">Logotipo</h2>
+      <p class="logo-settings__intro">Tu logotipo va en la barra de arriba, al entrar, en la pantalla del campero, en la presentación y en el PDF de los cortes. Se muestra tal cual, sin cambiarle los colores. Mientras no subas uno, se ve el nombre “Emmaus”.</p>
+      {% if logo_church|has_logo %}
+        <figure class="logo-preview">
+          <div class="logo-preview__plate">{% church_brand logo_church size="auth" %}</div>
+          <figcaption>Tu logotipo de ahora, sobre blanco.</figcaption>
+        </figure>
+      {% endif %}
+      {% include "partials/ui/field.html" with field=form.logo %}
+      {% if logo_church.logo %}{% include "partials/ui/field.html" with field=form.logo_clear %}{% endif %}
+      {% if logo_church.logo_dark %}
+        <figure class="logo-preview logo-preview--dark">
+          <div class="logo-preview__plate">{% church_brand logo_church variant="oscuro" size="auth" %}</div>
+          <figcaption>Tu versión en blanco, sobre fondo oscuro.</figcaption>
+        </figure>
+      {% endif %}
+      {% include "partials/ui/field.html" with field=form.logo_dark %}
+      {% if logo_church.logo_dark %}{% include "partials/ui/field.html" with field=form.logo_dark_clear %}{% endif %}
+    </section>
+
+    <section class="block" aria-labelledby="acceso">
+      <h2 id="acceso" class="heading">Acceso e invitaciones</h2>
+      {% include "partials/ui/field.html" with field=form.self_registration_enabled %}
+      {% include "partials/ui/field.html" with field=form.leaders_can_invite_participants %}
+      {% include "partials/ui/field.html" with field=form.discipleship_enabled %}
+      <p class="more"><a href="{% url 'user_list' %}">Ver personas con acceso</a></p>
+    </section>
+
+    <section class="block" aria-labelledby="colores">
+      <h2 id="colores" class="heading">Colores</h2>
+      <p class="theme-colors__intro">El color principal pinta los botones y los enlaces; el de acento marca dónde estás. Al guardar, Emmaus revisa que los dos se lean sobre blanco, y que el principal y los textos se lean sobre el fondo y las superficies. Los bordes revísalos tú.</p>
+      {% include "partials/ui/field.html" with field=form.custom_theme_enabled %}
+      {% if not form.instance.custom_theme_enabled %}
+        <div class="notice notice--quiet">
+          <p>Hoy tu iglesia usa la paleta de Emmaus, revisada para contraste y legibilidad. Estos colores solo se aplican cuando se activan los colores propios de la iglesia.</p>
         </div>
-        <div class="theme-preview mt-4">
-          <div class="theme-preview-card">
-            <p class="text-sm font-bold uppercase tracking-[0.14em] text-amber-800">Preview</p>
-            <h3 class="mt-2 text-2xl font-semibold text-stone-950">Emmaus for your church</h3>
-            <p class="mt-2 text-sm leading-6 text-stone-600">Cards, buttons, badges, and highlights inherit these colors.</p>
-            <div class="mt-4 flex flex-wrap gap-2">
-              <span class="badge badge-attention">Accent</span>
-              <span class="badge badge-soft">Secondary</span>
-              <button class="btn btn-primary !min-h-0 !py-2" type="button">Primary action</button>
-            </div>
-          </div>
-        </div>
+      {% endif %}
+      <div class="theme-colors">
+        {% include "partials/ui/field.html" with field=form.theme_primary_color %}
+        {% include "partials/ui/field.html" with field=form.theme_accent_color %}
+        {% include "partials/ui/field.html" with field=form.theme_secondary_color %}
+        {% include "partials/ui/field.html" with field=form.theme_background_color %}
+        {% include "partials/ui/field.html" with field=form.theme_surface_color %}
+        {% include "partials/ui/field.html" with field=form.theme_text_color %}
+        {% include "partials/ui/field.html" with field=form.theme_muted_text_color %}
+        {% include "partials/ui/field.html" with field=form.theme_border_color %}
       </div>
     </section>
-    <button class="btn btn-primary mt-6">Save settings</button>
+
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar cambios</button>
+    </div>
   </form>
+</div>
 {% endblock %}

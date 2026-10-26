@@ -1,0 +1,41 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Mis camperos{% endblock %}
+{% block content %}
+{% url 'events:participant_create' event.slug as create_url %}
+{% include "events/rotulo/_page_head.html" with title="Mis camperos" lede="Las personas asignadas a ti en este evento." action_url=create_url action_label="Registrar campero" %}
+
+<ul class="filters" aria-label="Estado de la entrevista">
+  {% for tab in tabs %}<li><a href="?estado={{ tab.value }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}"{% if status == tab.value %} aria-current="page"{% endif %}>{{ tab.label }} <span class="count">{{ tab.count }}</span></a></li>{% endfor %}
+</ul>
+<form method="get" class="list-search" role="search">
+  <input type="hidden" name="estado" value="{{ status }}">
+  <label class="visually-hidden" for="q">Buscar campero</label>
+  <input class="input" id="q" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="q-ayuda">
+  <button class="btn btn--secondary" type="submit">Buscar</button>
+</form>
+<p class="hint" id="q-ayuda">Número, cuarto o las primeras letras del nombre y apellido.</p>
+
+<section class="results" aria-labelledby="lista">
+  <h2 id="lista" class="heading">{{ participants|length }} de {{ total }} camperos</h2>
+  {% if participants %}
+    <ul class="rows">
+      {% for p in participants %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
+            <p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}{% if p.sede %}, {{ p.sede.name }}{% endif %}, {{ p.age }} años, {{ p.church_group }}</p>
+          </div>
+          <div class="row__end">
+            {% status p.interview_status %}
+            {% if p.interview_status != "completada" %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Retomar<span class="visually-hidden"> la entrevista de {{ p.full_name }}</span>{% else %}Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span>{% endif %}</a>{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras, o <a href="{{ create_url }}">registra al campero</a>.</p>
+  {% endif %}
+  <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a>, por si falla la red o una computadora.</p>
+</section>
+{% endblock %}

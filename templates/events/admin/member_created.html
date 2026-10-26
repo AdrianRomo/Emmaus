@@ -1,0 +1,20 @@
+{% extends rotulo_shell %}
+{% block page_title %}Persona agregada{% endblock %}
+{% block content %}
+<div class="narrow">
+<section class="confirm" aria-labelledby="agregada">
+  <h1 id="agregada" class="voice confirm__title">{{ membership.display_name }} ya forma parte del equipo</h1>
+  <p class="confirm__text">Rol: {{ membership.get_role_display }}. Para entrar, necesita crear su contraseña con este enlace (vence en unos días).</p>
+</section>
+<div class="field admin-link">
+  <label class="label" for="enlace">Enlace para crear contraseña</label>
+  <input class="input" id="enlace" value="{{ link }}" readonly>
+</div>
+<button class="btn btn--secondary" type="button" data-copy="enlace">Copiar enlace</button>
+<p class="aside-note">Compártelo solo con esa persona. Si se pierde, puedes generar otro desde su ficha.</p>
+<div class="step__actions">
+  <a class="btn btn--primary" href="{% url 'events:member_add' event.slug %}">Agregar a otra persona</a>
+  <a class="btn btn--link" href="{% url 'events:team' event.slug %}">Ver equipo</a>
+</div>
+</div>
+{% endblock %}

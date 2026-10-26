@@ -1,26 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Accept invitation | Emmaus{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Aceptar invitación{% endblock %}
 {% block content %}
-  <section class="mx-auto grid max-w-5xl gap-6 py-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
-    <div class="card-flat p-6">
-      <p class="text-sm font-bold uppercase tracking-[0.16em] text-amber-800">{{ invitation.church.name }}</p>
-      <h1 class="mt-3 text-4xl font-semibold leading-tight text-stone-950">Accept your Emmaus invitation</h1>
-      <p class="mt-4 leading-7 text-stone-600">
-        You are accepting access as <span class="font-semibold text-stone-950">{{ invitation.get_role_display }}</span>.
-        After you create your password, Emmaus will take you to the workspace for your role.
-      </p>
-      {% if invitation.role == "participant" %}
-        <p class="mt-4 rounded-2xl border border-[#d3ddd7] bg-[#eef3f0] p-4 text-sm leading-6 text-stone-700">
-          Your church may use Emmaus to guide lessons, receive questions, and coordinate personal follow-up with trusted leaders.
-        </p>
-      {% endif %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <header class="page-head">
+    <h1 class="voice page-head__title">Acepta tu invitación a Emmaus</h1>
+    <p class="lede">Vas a entrar con el rol de <strong>{{ invitation.get_role_display }}</strong>. Cuando crees tu contraseña, Emmaus te llevará a tu espacio.</p>
+    <p class="page-head__meta">Invitación de {{ invitation.church.name }}.</p>
+  </header>
+  <p>Vas a entrar con el correo <strong>{{ invitation.email }}</strong> y la contraseña que elijas aquí.</p>
+  {% if invitation.role == "participant" %}
+    <div class="notice">
+      <p>Tu iglesia puede usar Emmaus para guiarte en las lecciones, recibir tus preguntas y coordinar un acompañamiento personal con líderes de confianza.</p>
     </div>
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary mt-2 w-full sm:w-auto">Create account</button>
-      </form>
+  {% endif %}
+  <form method="post" novalidate class="mt-8">
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Crear mi cuenta</button>
     </div>
-  </section>
+  </form>
+</div>
 {% endblock %}

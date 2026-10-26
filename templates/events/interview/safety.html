@@ -1,0 +1,24 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Reportar una situación de riesgo{% endblock %}
+{% block content %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% with lede="Sobre "|add:participant.full_name|add:", #"|add:participant.code|add:"." %}
+  {% include "events/rotulo/_page_head.html" with title="Reportar una situación de riesgo" lede=lede %}
+{% endwith %}
+<div class="notice notice--danger">
+  <p class="notice__title">Primero, actúa</p>
+  <p>{{ instructions|linebreaksbr }}</p>
+</div>
+<form method="post" class="block" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="siguiente" value="{{ back_url }}">
+  {% include "partials/ui/field.html" with field=form.details %}
+  <p class="aside-note">Solo el equipo de cuidado autorizado podrá leer lo que escribas. La administración verá que existe un reporte, pero no lo que dice.</p>
+  <div class="step__actions">
+    <button class="btn btn--danger btn--large" type="submit">Enviar reporte</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endblock %}

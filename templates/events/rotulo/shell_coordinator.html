@@ -1,0 +1,39 @@
+{% extends "layout/skeleton.html" %}
+{% load brand emmaus %}
+{% comment %}Coordinator shell (Rótulo): where you are, a few plain links, nothing else.{% endcomment %}
+{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
+{% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
+{% block body %}
+<header class="bar">
+  <div class="bar__inner">
+    {% url 'events:home' event.slug as event_home %}{% church_brand event.church size="bar" href=event_home %}
+    <p class="bar__event">{{ event.name }}</p>
+    {% if station %}<p class="here"><span class="here__blaze" aria-hidden="true"></span>Estás en <strong>{{ station.name }}</strong></p>{% endif %}
+    <nav class="bar__nav" aria-label="Principal">
+      {% for item in event_nav %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+    </nav>
+    <div class="bar__end">
+      <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+      <div class="bar__logout">{% include "partials/ui/logout.html" with css="btn--small btn--link" %}</div>
+    </div>
+  </div>
+</header>
+{% comment %}The "Menú" panel is a modal dialog (audit A11Y-02): emmaus.js moves focus in, keeps Tab inside, makes the page
+  behind it inert, and Escape or "Cerrar menú" give focus back to "Menú".{% endcomment %}
+<div id="menu-panel" class="menu-panel" role="dialog" aria-modal="true" aria-labelledby="menu-panel-title" hidden>
+  <div class="menu-panel__head">
+    {% church_brand event.church size="bar" %}
+    <h2 id="menu-panel-title" class="visually-hidden">Menú</h2>
+    <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
+  </div>
+  <nav class="menu-panel__nav" aria-label="Principal">
+    {% for item in event_nav %}<a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+  </nav>
+  <p class="menu-panel__who">{{ user.get_full_name|default:user.email }}, coordinador{% if station %}, en {{ station.name }}{% endif %}</p>
+  {% include "partials/ui/logout.html" with css="btn--secondary" %}
+</div>
+<main id="contenido" class="page" tabindex="-1">
+  {% include "partials/ui/messages.html" %}
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}

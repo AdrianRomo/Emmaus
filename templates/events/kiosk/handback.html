@@ -1,0 +1,14 @@
+{% extends "events/shell_kiosk.html" %}
+{% block page_title %}Gracias{% endblock %}
+{% block content %}
+<section class="confirm" aria-labelledby="gracias">
+  {% if ps.end_reason == "expirada" %}
+    <h1 id="gracias" class="voice confirm__title">La pantalla se cerró</h1>
+    <p class="confirm__text">Para cuidar tu privacidad, la pantalla se cierra si pasa un rato sin que nadie la use. Lo que respondiste está guardado. Avisa a tu coordinador.</p>
+  {% else %}
+    <h1 id="gracias" class="voice confirm__title">¡Gracias!</h1>
+    <p class="confirm__text">Ya terminaste. Avisa a tu coordinador para que recupere la computadora.</p>
+  {% endif %}
+</section>
+<div class="step__actions"><a class="btn btn--secondary" href="{% url 'kiosk:unlock' %}">Soy coordinador: recuperar la computadora</a></div>
+{% endblock %}

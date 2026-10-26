@@ -9,3 +9,4 @@ db.sqlite3
 staticfiles/
 .env
 media/
+e2e/node_modules/

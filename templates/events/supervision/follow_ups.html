@@ -1,0 +1,29 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Seguimiento{% endblock %}
+{% block content %}
+{% include "events/rotulo/_page_head.html" with title="Seguimiento" lede="Camperos que pidieron o necesitan acompañamiento. Asigna un líder a cada uno." %}
+<ul class="filters" aria-label="Estados">
+  <li><a href="?estado=abiertos"{% if status == "abiertos" %} aria-current="page"{% endif %}>Abiertos</a></li>
+  {% for value, label in status_choices %}<li><a href="?estado={{ value }}"{% if status == value %} aria-current="page"{% endif %}>{{ label }} <span class="count">{{ counts|get_item:value|default:0 }}</span></a></li>{% endfor %}
+  <li><a href="?estado=todos"{% if status == "todos" %} aria-current="page"{% endif %}>Todos</a></li>
+</ul>
+<section class="results" aria-label="Seguimientos">
+  {% if follow_ups %}
+    <ul class="rows">{% for f in follow_ups %}
+      <li class="row">
+        <div class="row__main">
+          <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
+          <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.participant.coordinator.display_name|default:"sin coordinador" }}, {{ f.created_at|since }}{% if f.assigned_to %}. Responsable: {{ f.assigned_to.get_full_name }}{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Urgente</span>{% endif %}
+          {% follow_up_status f.status %}
+        </div>
+      </li>
+    {% endfor %}</ul>
+  {% else %}
+    <p class="empty-line">No hay seguimientos en esta lista. Cuando un coordinador marque que un campero necesita seguimiento aparecerá aquí.</p>
+  {% endif %}
+</section>
+{% endblock %}

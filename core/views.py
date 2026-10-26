@@ -4,12 +4,22 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.auth.views import LoginView, PasswordResetView
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Max, Q
-from django.http import Http404, HttpResponse
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpResponse,
+    HttpResponseBadRequest,
+    HttpResponseNotFound,
+    HttpResponseServerError,
+)
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template import loader
 from django.utils import timezone
+from django.views.decorators.http import require_safe
 
 from .access import (
     can_answer_question,
@@ -22,8 +32,8 @@ from .access import (
     visible_questions,
 )
 from .forms import (
-    AIDraftReviewForm,
     AcceptInvitationForm,
+    AIDraftReviewForm,
     AssignMentorForm,
     ChurchSettingsForm,
     FollowUpRequestForm,
@@ -36,12 +46,13 @@ from .forms import (
     PathForm,
     QuestionResponseForm,
     ReflectionQuestionForm,
+    TuPasswordResetForm,
 )
+from .logos import logo_meta
 from .models import (
     AIDraft,
     Church,
     DiscipleshipPath,
-    Enrollment,
     FollowUpRequest,
     Invitation,
     Lesson,
@@ -52,6 +63,7 @@ from .models import (
     QuestionResponse,
     ReflectionAnswer,
     Role,
+    UserChurchRole,
 )
 from .services import (
     assign_role,
@@ -70,12 +82,32 @@ from .services import (
     progress_for_participant,
 )
 
-
-QUESTION_DISCLAIMER = (
-    "Emmaus helps connect you with leaders from your church. It is not emergency support, therapy, medical advice, "
-    "legal advice, or a replacement for pastoral care. If you are in immediate danger or considering harming yourself "
-    "or someone else, contact local emergency services immediately."
+QUESTION_DISCLAIMER_INTRO = (
+    "Emmaus te ayuda a conectar con líderes de tu iglesia. No es un servicio de emergencias, terapia, consejo médico "
+    "ni consejo legal, y no sustituye el cuidado pastoral."
 )
+EMERGENCY_NOTICE = (
+    "Si estás en peligro inmediato, llama al 911 o a los servicios de emergencia de tu localidad. "
+    "Haz lo mismo si piensas hacerte daño o hacerle daño a otra persona."
+)
+# The English default of core migration 0001. Churches created before 0003 still hold it (0006 clears it);
+# read as "no notice of their own" so no participant reads English.
+LEGACY_ENGLISH_NOTICE = (
+    "Emmaus supports discipleship follow-up through your church. It is not emergency support, therapy, "
+    "medical advice, legal advice, or a replacement for pastoral care."
+)
+
+
+def participant_notice(church_text: str) -> list[str]:
+    """The notice a participant reads before writing to their church, as paragraphs.
+
+    The church's own notice (church settings) when it has one, Emmaus's otherwise; the emergency
+    sentence always follows, so no church text can leave a participant without it.
+    """
+    text = (church_text or "").strip()
+    if text == LEGACY_ENGLISH_NOTICE:
+        text = ""
+    return [text or QUESTION_DISCLAIMER_INTRO, EMERGENCY_NOTICE]
 
 
 def role_required(*roles: str):
@@ -84,7 +116,7 @@ def role_required(*roles: str):
         def wrapped(request, *args, **kwargs):
             role_record = get_user_role(request.user)
             if not role_record:
-                messages.error(request, "Your account is not connected to a church workspace yet.")
+                messages.error(request, "Tu cuenta todavía no está vinculada a ninguna iglesia. Pide a quien te invitó que revise tu invitación.")
                 return redirect("landing")
             if role_record.role not in roles:
                 raise PermissionDenied
@@ -97,6 +129,36 @@ def role_required(*roles: str):
 
 def health(request):
     return HttpResponse("ok")
+
+
+LOGO_FIELDS = {"claro": "logo", "oscuro": "logo_dark"}
+
+
+@require_safe
+def church_logo(request, slug: str, variant: str):
+    """The church's logo, for the wordmark's slot (core.templatetags.brand). Public: the sign-in page shows it.
+
+    Only this view reads MEDIA_ROOT. The URL carries ?v=<version>, so a day of caching never shows an old
+    logo; events.middleware lets this response keep its Cache-Control and no session is touched for it.
+    It is always a PNG (core.logos accepts nothing else, and logo_meta re-walks the stored file). Anything
+    missing is an empty 404, never the error page: that page is drawn for whoever is signed in, and this path
+    skips the idle logout.
+    """
+    field = LOGO_FIELDS.get(variant)
+    church = Church.objects.filter(slug=slug).first() if field else None
+    fieldfile = getattr(church, field) if church else None
+    meta = logo_meta(fieldfile) if fieldfile else None
+    if meta is None:
+        return HttpResponseNotFound("", content_type="text/plain")
+    try:
+        handle = open(fieldfile.path, "rb")
+    except OSError:
+        return HttpResponseNotFound("", content_type="text/plain")
+    response = FileResponse(handle, content_type="image/png")
+    response["Cache-Control"] = "public, max-age=86400"
+    response["X-Content-Type-Options"] = "nosniff"
+    response.public_asset = True
+    return response
 
 
 def landing(request):
@@ -121,23 +183,61 @@ def initial_setup(request):
             admin_password=form.cleaned_data["admin_password"],
         )
         login(request, user)
-        messages.success(request, f"{church.name} is ready.")
-        return redirect("church_dashboard")
-    return render(request, "core/initial_setup.html", {"form": form})
+        messages.success(request, f"{church.name} ya está lista en Emmaus.")
+        # The event list, where the only thing to do is "Crear campamento" (not the discipleship overview).
+        return redirect("events:list")
+    # What participants of a new church will read (its notice starts as the default); "Qué sigue" asks to read it.
+    notice = participant_notice(Church._meta.get_field("basic_disclaimer_text").default)
+    return render(request, "core/initial_setup.html", {"form": form, "participant_notice": notice})
 
 
 @login_required
 def dashboard(request):
+    """Send each person to the place where their work is.
+
+    Event roles (campamentos) come first; the discipleship module keeps its own homes.
+    """
+    from events.access import accessible_events
+
     role_record = get_user_role(request.user)
+    has_events = accessible_events(request.user).exists()
+    if has_events or request.user.is_superuser or (role_record and role_record.role == Role.CHURCH_ADMIN):
+        return redirect("events:list")
     if not role_record:
         if not Church.objects.exists():
             return redirect("initial_setup")
-        raise PermissionDenied
+        # No role yet: the event list says so and who can add them (it only lists events they can open).
+        return redirect("events:list")
     if role_record.role == Role.PARTICIPANT:
         return redirect("participant_dashboard")
     if role_record.role == Role.MENTOR:
         return redirect("mentor_dashboard")
     return redirect("church_dashboard")
+
+
+def permission_denied(request, exception=None):
+    return render(request, "errors/403.html", status=403)
+
+
+def page_not_found(request, exception=None):
+    return render(request, "errors/404.html", status=404)
+
+
+def bad_request(request, exception=None):
+    if not hasattr(request, "user"):
+        # Refused before authentication ran (a host not in ALLOWED_HOSTS): the context processors need the user.
+        return HttpResponseBadRequest(loader.render_to_string("errors/400.html"))
+    return render(request, "errors/400.html", status=400)
+
+
+def server_error(request):
+    """No request context: whatever failed (often the database) must not fail again while drawing this page."""
+    return HttpResponseServerError(loader.render_to_string("errors/500.html"))
+
+
+def csrf_failure(request, reason=""):
+    """settings.CSRF_FAILURE_VIEW: a form sent from a page that was open too long, or from another session."""
+    return render(request, "errors/csrf.html", status=403)
 
 
 def accept_invitation(request, token: str):
@@ -172,7 +272,7 @@ def accept_invitation(request, token: str):
             invitation.accepted_at = timezone.now()
             invitation.save(update_fields=["accepted_at"])
         login(request, user)
-        messages.success(request, "Welcome to Emmaus.")
+        messages.success(request, "Te damos la bienvenida a Emmaus.")
         if invitation.role == Role.PARTICIPANT:
             return redirect("participant_dashboard")
         return redirect("dashboard")
@@ -196,9 +296,9 @@ def create_invitation(request):
         manual_link = invite_url(request, invitation)
         email_sent = notify_invitation(request, invitation)
         if email_sent:
-            messages.success(request, "Invitation email sent.")
+            messages.success(request, "La invitación se envió por correo.")
         else:
-            messages.warning(request, "Email was not sent. Copy the invitation link below.")
+            messages.warning(request, "No se pudo enviar el correo. Copia el enlace de invitación que aparece abajo y compártelo directamente.")
     return render(
         request,
         "core/invitation_form.html",
@@ -219,12 +319,14 @@ def invitations_list(request):
 @role_required(Role.CHURCH_ADMIN)
 def church_settings(request):
     church = get_user_role(request.user).church
-    form = ChurchSettingsForm(request.POST or None, instance=church)
+    form = ChurchSettingsForm(request.POST or None, request.FILES or None, instance=church)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Church settings saved.")
+        messages.success(request, "Se guardó la configuración de la iglesia.")
         return redirect("church_settings")
-    return render(request, "core/church_settings.html", {"form": form})
+    # The previews show what is saved: a rejected upload already sits on the form's instance.
+    logo_church = Church.objects.get(pk=church.pk) if form.is_bound else church
+    return render(request, "core/church_settings.html", {"form": form, "logo_church": logo_church})
 
 
 def ensure_participant_enrolled(user: User):
@@ -299,9 +401,9 @@ def participant_lesson(request, lesson_id: int):
             if not summary.enrollment.lesson_progress.filter(completed_at__isnull=True).exists():
                 summary.enrollment.completed_at = timezone.now()
                 summary.enrollment.save(update_fields=["completed_at"])
-            messages.success(request, "Lesson marked complete.")
+            messages.success(request, "Marcaste la lección como terminada.")
             return redirect("participant_dashboard")
-        messages.success(request, "Reflection saved.")
+        messages.success(request, "Se guardó tu reflexión.")
         return redirect("participant_lesson", lesson_id=lesson.id)
     return render(
         request,
@@ -334,12 +436,12 @@ def ask_question(request):
         question.related_enrollment = progress_for_participant(request.user).enrollment
         question.save()
         notify_question_created(question)
-        messages.success(request, "Your question was sent to your church leaders.")
+        messages.success(request, "Tu pregunta se envió a los líderes de tu iglesia.")
         return redirect("participant_questions")
     return render(
         request,
         "core/ask_question.html",
-        {"form": form, "question_disclaimer": QUESTION_DISCLAIMER},
+        {"form": form, "question_disclaimer": participant_notice(profile.church.basic_disclaimer_text)},
     )
 
 
@@ -357,7 +459,7 @@ def request_follow_up(request):
             reason=form.cleaned_data["reason"],
         )
         notify_follow_up_created(follow_up)
-        messages.success(request, "Your conversation request was sent.")
+        messages.success(request, "Tu solicitud para platicar se envió a tu iglesia.")
         return redirect("participant_dashboard")
     return render(request, "core/request_follow_up.html", {"form": form})
 
@@ -377,15 +479,15 @@ def mentor_dashboard(request):
             status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS]
         ).count()
         if profile.open_question_count:
-            profile.suggested_action = "Reply to question"
+            profile.suggested_action = "Responder pregunta"
         elif profile.open_follow_up_count:
-            profile.suggested_action = "Continue follow-up"
+            profile.suggested_action = "Continuar seguimiento"
         elif profile.is_inactive:
-            profile.suggested_action = "Check in this week"
+            profile.suggested_action = "Contactar esta semana"
         elif profile.progress_summary.enrollment:
-            profile.suggested_action = "Review reflections"
+            profile.suggested_action = "Revisar reflexiones"
         else:
-            profile.suggested_action = "No action needed"
+            profile.suggested_action = "Sin pendientes"
     questions = visible_questions(request.user).filter(status__in=[ParticipantQuestion.Status.OPEN, ParticipantQuestion.Status.ESCALATED])
     follow_ups = FollowUpRequest.objects.filter(
         church=get_user_role(request.user).church,
@@ -404,6 +506,8 @@ def mentor_dashboard(request):
             "participants": participants,
             "priority_participants": priority_participants,
             "questions": questions,
+            # Oldest first, and only those still waiting on the mentor: escalated ones already reached a pastor.
+            "awaiting": questions.filter(status=ParticipantQuestion.Status.OPEN).order_by("created_at"),
             "follow_ups": follow_ups,
         },
     )
@@ -429,7 +533,7 @@ def participant_detail(request, profile_id: int):
                 note.participant = profile.user
                 note.author = request.user
                 note.save()
-                messages.success(request, "Pastoral note saved.")
+                messages.success(request, "Se guardó la nota pastoral.")
                 return redirect("participant_detail", profile_id=profile.id)
         elif action == "follow":
             follow_up_form = FollowUpRequestForm(request.POST, prefix="follow", church=role_record.church)
@@ -441,7 +545,7 @@ def participant_detail(request, profile_id: int):
                 follow_up.source = FollowUpRequest.Source.MANUAL
                 follow_up.save()
                 notify_follow_up_created(follow_up)
-                messages.success(request, "Follow-up created.")
+                messages.success(request, "Se creó el seguimiento.")
                 return redirect("participant_detail", profile_id=profile.id)
     summary = progress_for_participant(profile.user)
     questions = profile.user.participant_questions.prefetch_related("responses").all()
@@ -460,6 +564,16 @@ def participant_detail(request, profile_id: int):
             "follow_up_form": follow_up_form,
         },
     )
+
+
+def _plain_text(text: str) -> str:
+    """Browsers send a textarea's line breaks as CRLF: compare and store text with LF, without outer spaces."""
+    return (text or "").replace("\r\n", "\n").strip()
+
+
+def _draft_prefix(draft) -> str:
+    """Each AI draft gets its own form prefix, so several drafts on one page never share element ids."""
+    return f"borrador-{draft.pk}"
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR, Role.PARTICIPANT)
@@ -481,7 +595,7 @@ def question_detail(request, question_id: int):
                 question.status = ParticipantQuestion.Status.ANSWERED
                 question.save(update_fields=["status", "updated_at"])
                 notify_question_response(response)
-                messages.success(request, "Response sent.")
+                messages.success(request, "Tu respuesta se envió.")
                 return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
         elif action == "escalate":
             if not can_answer_question(request.user, question):
@@ -494,11 +608,11 @@ def question_detail(request, question_id: int):
                 created_by=request.user,
                 assigned_to=question.participant.participant_profile.assigned_mentor,
                 source=FollowUpRequest.Source.QUESTION_ESCALATION,
-                reason=f"Question escalated: {question.question_text[:300]}",
+                reason=f"Pregunta pasada al pastor: {question.question_text[:300]}",
             )
             notify_question_escalated(question)
             notify_follow_up_created(follow_up)
-            messages.success(request, "Question escalated to pastoral leaders.")
+            messages.success(request, "La pregunta se pasó al pastor. Los pastores de tu iglesia ya pueden verla.")
             return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
         elif action == "generate_ai":
             if not can_answer_question(request.user, question) or not has_leader_access(request.user):
@@ -507,38 +621,57 @@ def question_detail(request, question_id: int):
             if error:
                 messages.warning(request, error)
             else:
-                messages.success(request, "Draft generated. Review it before sending.")
+                messages.success(request, "Se generó un borrador con IA. Revísalo antes de enviarlo.")
             return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
         elif action == "review_ai":
             if not can_answer_question(request.user, question) or not has_leader_access(request.user):
                 raise PermissionDenied
             draft = get_object_or_404(visible_ai_drafts(request.user), pk=request.POST.get("draft_id"), related_question=question)
-            draft_form = AIDraftReviewForm(request.POST, instance=draft)
+            question_url = "church_question_detail" if has_pastoral_access(request.user) else "question_detail"
+            if draft.status != AIDraft.Status.DRAFT:
+                # A draft is reviewed once: a second click, or a second leader, must not send it again.
+                messages.warning(request, "Este borrador ya se revisó.")
+                return redirect(question_url, question_id=question.id)
+            draft_form = AIDraftReviewForm(request.POST, instance=draft, prefix=_draft_prefix(draft))
             if draft_form.is_valid():
                 chosen_action = draft_form.cleaned_data["review_action"]
-                draft = draft_form.save(commit=False)
-                draft.reviewed_at = timezone.now()
+                generated = _plain_text(draft.generated_text)
                 if chosen_action == "reject":
-                    draft.status = AIDraft.Status.REJECTED
-                    draft.save()
-                    messages.success(request, "Draft rejected.")
-                    return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
-                body = draft.edited_final_text.strip() or draft.generated_text
-                draft.status = AIDraft.Status.EDITED if chosen_action == "edit" else AIDraft.Status.APPROVED
-                draft.edited_final_text = body
-                draft.save()
-                response = QuestionResponse.objects.create(
-                    question=question,
-                    responder=request.user,
-                    response_body=body,
-                )
-                question.status = ParticipantQuestion.Status.ANSWERED
-                question.save(update_fields=["status", "updated_at"])
+                    status, body = AIDraft.Status.REJECTED, _plain_text(draft.edited_final_text)
+                else:
+                    body = _plain_text(draft.edited_final_text) or generated
+                    # The label says what reached the participant, whichever button was used: "Editado" only
+                    # when the text differs from the generated one, "Aprobado" when it went out as generated.
+                    status = AIDraft.Status.EDITED if body != generated else AIDraft.Status.APPROVED
+                with transaction.atomic():
+                    # Claim the draft only while it is still a draft, so two reviews at the same time send one answer.
+                    claimed = AIDraft.objects.filter(pk=draft.pk, status=AIDraft.Status.DRAFT).update(
+                        status=status, edited_final_text=body, reviewed_at=timezone.now()
+                    )
+                    if not claimed:
+                        messages.warning(request, "Este borrador ya se revisó.")
+                        return redirect(question_url, question_id=question.id)
+                    if status == AIDraft.Status.REJECTED:
+                        messages.success(request, "Se rechazó el borrador.")
+                        return redirect(question_url, question_id=question.id)
+                    response = QuestionResponse.objects.create(
+                        question=question,
+                        responder=request.user,
+                        response_body=body,
+                    )
+                    question.status = ParticipantQuestion.Status.ANSWERED
+                    question.save(update_fields=["status", "updated_at"])
                 notify_question_response(response)
-                messages.success(request, "Reviewed draft sent as a leader response.")
-                return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
+                messages.success(request, "El borrador revisado se envió como tu respuesta.")
+                return redirect(question_url, question_id=question.id)
     drafts = visible_ai_drafts(request.user).filter(related_question=question) if has_leader_access(request.user) else AIDraft.objects.none()
-    draft_forms = [(draft, AIDraftReviewForm(instance=draft, initial={"edited_final_text": draft.generated_text})) for draft in drafts]
+    # A review that did not validate keeps its bound form, so the person sees what to fix.
+    draft_forms = [
+        (draft, draft_form)
+        if draft_form is not None and draft_form.instance.pk == draft.pk
+        else (draft, AIDraftReviewForm(instance=draft, initial={"edited_final_text": draft.generated_text}, prefix=_draft_prefix(draft)))
+        for draft in drafts
+    ]
     return render(
         request,
         "core/question_detail.html",
@@ -546,8 +679,10 @@ def question_detail(request, question_id: int):
             "question": question,
             "response_form": response_form,
             "draft_forms": draft_forms,
+            "draft_form": draft_form,
             "can_answer": can_answer_question(request.user, question),
-            "question_disclaimer": QUESTION_DISCLAIMER,
+            # The notice of the church the question was asked in, wherever a leader opens it from.
+            "question_disclaimer": participant_notice(question.church.basic_disclaimer_text),
         },
     )
 
@@ -608,8 +743,9 @@ def participants_list(request):
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def user_list(request):
     church = get_user_role(request.user).church
-    users = User.objects.filter(church_roles__church=church).select_related().order_by("church_roles__role", "email")
-    return render(request, "core/user_list.html", {"users": users})
+    # This church's role of each person (someone can belong to several churches), in one query.
+    roles = UserChurchRole.objects.filter(church=church).select_related("user").order_by("role", "user__email")
+    return render(request, "core/user_list.html", {"roles": roles})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -619,7 +755,7 @@ def assign_mentor(request, profile_id: int):
     if request.method == "POST" and form.is_valid():
         profile.assigned_mentor = form.cleaned_data["mentor"]
         profile.save(update_fields=["assigned_mentor"])
-        messages.success(request, "Mentor assignment updated.")
+        messages.success(request, "Se actualizó el mentor asignado.")
         return redirect("participants_list")
     return render(request, "core/assign_mentor.html", {"profile": profile, "form": form})
 
@@ -656,7 +792,7 @@ def follow_up_list(request):
             raise PermissionDenied
         follow_up.save()
         notify_follow_up_created(follow_up)
-        messages.success(request, "Follow-up created.")
+        messages.success(request, "Se creó el seguimiento.")
         return redirect("follow_up_list" if role_record.role == Role.MENTOR else "church_follow_up_list")
     return render(request, "core/follow_up_list.html", {"follow_ups": follow_ups, "form": form})
 
@@ -672,7 +808,7 @@ def complete_follow_up(request, follow_up_id: int):
         follow_up.status = FollowUpRequest.Status.COMPLETED
         follow_up.completed_at = timezone.now()
         follow_up.save(update_fields=["status", "completed_at"])
-        messages.success(request, "Follow-up completed.")
+        messages.success(request, "El seguimiento quedó completado.")
     return redirect("follow_up_list" if role_record.role == Role.MENTOR else "church_follow_up_list")
 
 
@@ -697,9 +833,9 @@ def path_create(request):
         path.church = church
         path.created_by = request.user
         path.save()
-        messages.success(request, "Discipleship path created.")
+        messages.success(request, "Se creó la ruta de discipulado.")
         return redirect("path_detail", path_id=path.id)
-    return render(request, "core/path_form.html", {"form": form, "title": "New path"})
+    return render(request, "core/path_form.html", {"form": form, "title": "Nueva ruta"})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -708,9 +844,9 @@ def path_edit(request, path_id: int):
     form = PathForm(request.POST or None, instance=path)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Discipleship path saved.")
+        messages.success(request, "Se guardó la ruta de discipulado.")
         return redirect("path_detail", path_id=path.id)
-    return render(request, "core/path_form.html", {"form": form, "title": "Edit path", "path": path})
+    return render(request, "core/path_form.html", {"form": form, "title": "Editar ruta", "path": path})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -732,9 +868,9 @@ def lesson_create(request, path_id: int):
         lesson = form.save(commit=False)
         lesson.path = path
         lesson.save()
-        messages.success(request, "Lesson created.")
+        messages.success(request, "Se creó la lección.")
         return redirect("path_detail", path_id=path.id)
-    return render(request, "core/lesson_form.html", {"form": form, "path": path, "title": "New lesson"})
+    return render(request, "core/lesson_form.html", {"form": form, "path": path, "title": "Nueva lección"})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -743,9 +879,9 @@ def lesson_edit(request, lesson_id: int):
     form = LessonForm(request.POST or None, instance=lesson)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Lesson saved.")
+        messages.success(request, "Se guardó la lección.")
         return redirect("path_detail", path_id=lesson.path_id)
-    return render(request, "core/lesson_form.html", {"form": form, "path": lesson.path, "lesson": lesson, "title": "Edit lesson"})
+    return render(request, "core/lesson_form.html", {"form": form, "path": lesson.path, "lesson": lesson, "title": "Editar lección"})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
@@ -757,6 +893,83 @@ def reflection_question_create(request, lesson_id: int):
         question = form.save(commit=False)
         question.lesson = lesson
         question.save()
-        messages.success(request, "Reflection question added.")
+        messages.success(request, "Se agregó la pregunta de reflexión.")
         return redirect("path_detail", path_id=lesson.path_id)
     return render(request, "core/reflection_question_form.html", {"form": form, "lesson": lesson})
+
+
+class ThrottledLoginView(LoginView):
+    """Login with a per-account attempt limit shared by all workers (8 tries per 15 minutes)."""
+
+    template_name = "registration/login.html"
+
+    def post(self, request, *args, **kwargs):
+        from events.services import throttle
+
+        username = (request.POST.get("username") or "").strip().lower()
+        key = f"login:{username}"
+        wait = throttle.consume(key, limit=8, window_seconds=60 * 60, block_seconds=5 * 60, max_block_seconds=60 * 60) if username else 0
+        if wait:
+            form = self.get_form()
+            form.is_valid()
+            form.errors.clear()
+            form.add_error(None, throttle.wait_message(wait))
+            return self.form_invalid(form)
+        response = super().post(request, *args, **kwargs)
+        if request.user.is_authenticated:
+            throttle.reset(key)
+        return response
+
+
+class ThrottledPasswordResetView(PasswordResetView):
+    """At most 3 reset e-mails per address per hour (prevents mail flooding)."""
+
+    template_name = "registration/password_reset_form.html"
+    form_class = TuPasswordResetForm
+    email_template_name = "registration/password_reset_email.txt"
+    subject_template_name = "registration/password_reset_subject.txt"
+    success_url = "/cuenta/olvide-mi-contrasena/enviado/"
+
+    def form_valid(self, form):
+        import unicodedata
+
+        from django.contrib.auth.forms import _unicode_ci_compare
+
+        from events.services import throttle
+        from events.services.team import email_is_configured
+
+        email = form.cleaned_data["email"].strip()
+        # Keyed on the address as Django's reset compares it (NFKC, then casefold), so every spelling that reaches
+        # the same account ("ſara" is "sara") spends the same 3 per hour.
+        key = unicodedata.normalize("NFKC", email).casefold()
+        if throttle.consume(f"reset:{key}", limit=3, window_seconds=60 * 60, block_seconds=60 * 60):
+            return redirect(self.get_success_url())  # same page as success: no hint either way
+        # Django's form skips accounts without a usable password (added to a team, link never used): they get
+        # the link to create one instead, to their own address. ``email__iexact`` is only a first filter (PostgreSQL
+        # folds "lılı" into "LILI"); the account must match the way Django's own reset matches. With no e-mail
+        # configured nothing is sent, so the link is never written to a log. Same throttle, same page either way.
+        if email_is_configured():
+            for user in User.objects.filter(email__iexact=email, is_active=True):
+                if not user.has_usable_password() and _unicode_ci_compare(email, user.email):
+                    self._send_activation(user)
+        return super().form_valid(form)
+
+    def _send_activation(self, user) -> None:
+        from django.contrib.auth.tokens import default_token_generator
+        from django.urls import reverse
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        from .services import send_email_safely
+
+        link = self.request.build_absolute_uri(reverse(
+            "password_reset_confirm",
+            kwargs={"uidb64": urlsafe_base64_encode(force_bytes(user.pk)), "token": default_token_generator.make_token(user)},
+        ))
+        greeting = f"Hola {user.first_name}:" if user.first_name else "Hola:"
+        send_email_safely(
+            "Emmaus: crea tu contraseña",
+            f"{greeting}\n\nAlguien pidió entrar a tu cuenta de Emmaus, que todavía no tiene contraseña. "
+            f"Créala con este enlace:\n\n{link}\n\nSi no lo pediste, ignora este correo.",
+            [user.email],
+        )

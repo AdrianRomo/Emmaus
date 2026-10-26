@@ -1,0 +1,62 @@
+{% extends "events/shell_focus.html" %}
+{% load emmaus %}
+{% block page_title %}{% if error %}Error: {% endif %}Revisa y finaliza{% endblock %}
+{% block focus_actions %}<a class="btn btn--small btn--secondary" href="{% if access.is_coordinator %}{% url 'events:coord_home' event.slug %}{% else %}{% url 'events:admin_home' event.slug %}{% endif %}">Guardar y salir</a>{% endblock %}
+{% block content %}
+{% if error %}
+  <div class="error-summary" role="alert"><h2>Hay un problema</h2><ul><li><a href="#decision">{{ error }}</a></li></ul></div>
+{% endif %}
+<header class="page-head">
+  <h1 class="voice page-head__title">Revisa las respuestas de {{ participant.first_name }}</h1>
+  <p class="lede">Si algo no está bien, usa “Cambiar”. Al final decide si necesita seguimiento.</p>
+  <p class="page-head__meta">{{ interview.get_mode_display }}, iniciada {{ interview.started_at|since }}</p>
+</header>
+
+<dl class="summary-list summary-list--answers">
+  {% for row in rows %}
+    <div class="summary-list__row">
+      <dt>{{ row.question.text }}</dt>
+      <dd>{% if not row.visible %}<span class="privacy__tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
+      <dd class="summary-list__action">{% if row.visible %}<a href="{% url 'events:interview_step' event.slug interview.public_id row.step.number %}?volver=revision">Cambiar<span class="visually-hidden"> la respuesta a “{{ row.question.text }}”</span></a>{% endif %}</dd>
+    </div>
+  {% endfor %}
+</dl>
+{% if has_hidden %}
+  <p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>
+{% endif %}
+
+<form method="post" class="decision" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="revision" value="{{ interview.revision }}">
+  <fieldset id="decision"{% if error %} class="question--error"{% endif %}>
+    <legend><h2 class="voice decision__title">¿Necesita seguimiento?</h2></legend>
+    {% if suggestions %}
+      <div class="notice notice--info">
+        <p class="notice__title">Lo que {{ participant.first_name }} pidió</p>
+        <ul>{% for code, label in suggestions %}<li>{{ label }}</li>{% endfor %}</ul>
+        <p>Tú decides. Emmaus solo te recuerda lo que el campero pidió.</p>
+      </div>
+    {% endif %}
+    {% if error %}<p class="error-message">{{ error }}</p>{% endif %}
+    <div class="choices">
+      {% for value, label in decision_choices %}
+        <div class="choice">
+          <input class="choice__input" type="radio" id="decision-{{ value }}" name="follow_up_decision" value="{{ value }}"{% if selected_decision == value %} checked{% endif %}>
+          <label class="choice__label" for="decision-{{ value }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ label }}</span></label>
+        </div>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="step__actions">
+    <button class="btn btn--primary btn--large" type="submit">Finalizar entrevista</button>
+  </div>
+</form>
+
+<section class="other-actions" aria-labelledby="otras">
+  <h2 id="otras" class="heading">Si algo no salió como se esperaba</h2>
+  <ul class="rows">
+    <li class="row"><div class="row__main"><p class="row__title"><a class="btn btn--secondary btn--danger-outline" href="{% url 'events:safety_report' event.slug participant.public_id %}?siguiente={{ request.path|urlencode }}">Reportar una situación de riesgo</a></p><p class="row__meta">Si el campero contó algo que pone en riesgo su seguridad o la de otra persona.</p></div></li>
+    <li class="row"><div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Descartar esta entrevista</a></p><p class="row__meta">Si se abrió por error o el campero ya no quiere continuar. Se borran las respuestas.</p></div></li>
+  </ul>
+</section>
+{% endblock %}

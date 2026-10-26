@@ -1,0 +1,31 @@
+{% extends "events/shell_focus.html" %}
+{% load emmaus %}
+{% block page_title %}{% if released %}La administración liberó esta entrevista{% else %}La entrevista está abierta en otra computadora{% endif %}{% endblock %}
+{% block content %}
+{% if released %}
+  {% comment %}"Liberar" stopped this browser and nobody has opened the interview since: there is no other computer to describe.{% endcomment %}
+  <header class="page-head">
+    <h1 class="voice page-head__title">La administración liberó esta entrevista</h1>
+    <p class="lede">Esta computadora ya no puede guardar. Para seguir aquí, toca “Tomar el control aquí”; para seguir en otra computadora, ábrela desde “Mi inicio”.</p>
+  </header>
+{% else %}
+<header class="page-head">
+  <h1 class="voice page-head__title">Esta entrevista está abierta en otra computadora</h1>
+  <p class="lede">Para que no se pierdan respuestas, solo una computadora puede editarla a la vez.</p>
+</header>
+<dl class="summary-list">
+  <div class="summary-list__row"><dt>Computadora</dt><dd>{{ interview.station.name|default:"Sin registrar" }}</dd></div>
+  <div class="summary-list__row"><dt>Abierta por</dt><dd>{{ interview.lock_holder.get_full_name|default:"Otro coordinador" }}</dd></div>
+  <div class="summary-list__row"><dt>Última actividad</dt><dd>{{ interview.last_activity_at|since }}</dd></div>
+</dl>
+<div class="notice notice--warning mt-8">
+  <p class="notice__title">Si tomas el control aquí</p>
+  <p>La otra computadora ya no podrá guardar cambios. Las respuestas guardadas hasta ahora se conservan.</p>
+</div>
+{% endif %}
+<form method="post" class="step__actions">
+  {% csrf_token %}
+  <button class="btn btn--primary" type="submit">Tomar el control aquí</button>
+    <a class="btn btn--link" href="{% url 'events:home' event.slug %}">Volver</a>
+</form>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}¿En qué computadora estás?{% endblock %}
+{% block content %}
+<div>
+{% include "partials/ui/error_summary.html" with form=form %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="siguiente" value="{{ next_url }}">
+  <fieldset class="question{% if form.station.errors %} question--error{% endif %}"{% if form.station.errors %} aria-describedby="estacion-error"{% endif %}>
+    <legend class="question__legend"><h1 class="question__text">¿En qué computadora estás?</h1></legend>
+    <p class="question__help">Busca el número pegado en la computadora. Así sabemos dónde se abrió cada entrevista.</p>
+    {% if form.station.errors %}<p class="error-message" id="estacion-error">{{ form.station.errors.0 }}</p>{% endif %}
+    {% comment %}The group takes the field id (the error summary links here), never the first radio's "id_station_0".{% endcomment %}
+    <div class="choices choices--grid" id="{{ form.station.auto_id }}">
+      {% for radio in form.station %}
+        <div class="choice">{{ radio.tag }}<label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label></div>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="step__actions"><button class="btn btn--primary btn--large" type="submit">Usar esta computadora</button></div>
+</form>
+</div>
+{% endblock %}

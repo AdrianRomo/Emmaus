@@ -1,0 +1,20 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Coordinadores{% endblock %}
+{% block content %}
+{% if progress.eligible %}
+  {% with done=progress.completed|stringformat:"s" total=progress.eligible|stringformat:"s" %}{% with meta="Entre todos llevan "|add:done|add:" de "|add:total|add:" entrevistas." %}
+    {% include "events/rotulo/_page_head.html" with title="Coordinadores" lede="Avance de cada coordinador, del que va más atrás al que va más adelante." meta=meta %}
+  {% endwith %}{% endwith %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Coordinadores" lede="Avance de cada coordinador, del que va más atrás al que va más adelante." %}
+{% endif %}
+<section class="crew-list" aria-labelledby="lista-coordinadores">
+  <h2 id="lista-coordinadores" class="heading">{{ rows|length }} coordinador{{ rows|length|pluralize:"es" }}</h2>
+  {% if rows %}
+    {% include "events/rotulo/_coordinator_rows.html" with rows=rows places=places show_team=access.sees_whole_event label="Coordinadores, primero los que van más atrás" %}
+  {% else %}
+    <p class="empty-line">Todavía no hay coordinadores asignados.</p>
+  {% endif %}
+</section>
+{% endblock %}

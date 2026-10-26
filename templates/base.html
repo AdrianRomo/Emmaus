@@ -1,91 +1,57 @@
-{% load static %}
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Emmaus{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/emmaus.css' %}">
-    {% if theme_church %}
-      <style>
-        :root {
-          --page: {{ theme_church.theme_background_color }};
-          --page-2: {{ theme_church.theme_border_color }};
-          --surface: {{ theme_church.theme_surface_color }};
-          --surface-2: {{ theme_church.theme_surface_color }};
-          --ink: {{ theme_church.theme_text_color }};
-          --ink-soft: {{ theme_church.theme_text_color }};
-          --muted: {{ theme_church.theme_muted_text_color }};
-          --muted-2: {{ theme_church.theme_muted_text_color }};
-          --line: {{ theme_church.theme_border_color }};
-          --line-strong: {{ theme_church.theme_border_color }};
-          --gold: {{ theme_church.theme_accent_color }};
-          --gold-dark: {{ theme_church.theme_primary_color }};
-          --sage: {{ theme_church.theme_secondary_color }};
-          --clay: {{ theme_church.theme_accent_color }};
-          --blue: {{ theme_church.theme_secondary_color }};
-          --primary: {{ theme_church.theme_primary_color }};
-          --primary-2: {{ theme_church.theme_text_color }};
-        }
-      </style>
+{% extends "layout/skeleton.html" %}
+{% load emmaus brand %}
+{% comment %}
+  Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: a bar whose
+  module links sit on their own row (a church admin has nine). Signed out: just the wordmark and "Entrar".
+  The wordmark's slot shows the church's logo when it has one (brand_church, core.context_processors); the
+  sign-in page and the landing lead with the logo above their title instead, so their bar keeps the painted "Emmaus".
+{% endcomment %}
+{% block title %}{% block page_title %}Emmaus{% endblock %} · Emmaus{% endblock %}
+{% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
+{% block body %}
+{% if user.is_authenticated %}
+<header class="bar bar--stacked">
+  <div class="bar__inner">
+    {% url 'dashboard' as home_url %}{% church_brand brand_church size="bar" href=home_url %}
+    {% if current_church %}<p class="bar__event">{{ current_church.name }}{% if current_role_record %}<span>{{ current_role_record.get_role_display }}</span>{% endif %}</p>{% endif %}
+    <div class="bar__end">
+      {% if show_events_link %}<a class="btn btn--small btn--secondary bar__switch" href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
+      <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+      <div class="bar__logout">{% include "partials/ui/logout.html" with css="btn--small btn--link" %}</div>
+    </div>
+    {% if app_nav_items %}
+      <nav class="bar__nav" aria-label="Discipulado">
+        {% for item in app_nav_items %}<a href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+      </nav>
     {% endif %}
-  </head>
-  <body>
-    {% if user.is_authenticated %}
-      <div class="min-h-screen lg:grid lg:grid-cols-[17.5rem_1fr]">
-        <aside class="hidden border-r border-stone-200/80 bg-[#efe6d8]/70 px-5 py-6 lg:block">
-          <div class="sticky top-6 flex h-[calc(100vh-3rem)] flex-col">
-            <a href="{% url 'dashboard' %}" class="mb-8 block">
-              <span class="text-2xl font-semibold tracking-wide text-stone-950">Emmaus</span>
-              {% if current_church %}<span class="mt-1 block text-sm text-stone-600">{{ current_church.name }}</span>{% endif %}
-            </a>
-            <nav aria-label="Primary" class="space-y-1">
-              {% for item in app_nav_items %}
-                <a class="nav-link {% if active_url_name in item.names %}nav-link-active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-              {% endfor %}
-            </nav>
-            <div class="mt-auto rounded-2xl border border-stone-300/70 bg-white/50 p-4 text-sm text-stone-700">
-              <p class="font-semibold text-stone-950">{{ user.get_full_name|default:user.email }}</p>
-              <p class="mt-1">{{ current_role_record.get_role_display }}</p>
-              <form method="post" action="{% url 'logout' %}" class="mt-4">
-                {% csrf_token %}
-                <button class="btn btn-secondary w-full" type="submit">Sign out</button>
-              </form>
-            </div>
-          </div>
-        </aside>
-
-        <div class="min-w-0">
-          <header class="sticky top-0 z-20 border-b border-stone-200/80 bg-[#fbf7f0]/90 backdrop-blur lg:hidden">
-            <div class="flex items-center justify-between px-4 py-4">
-              <a href="{% url 'dashboard' %}" class="text-xl font-semibold text-stone-950">Emmaus</a>
-              <form method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button class="btn btn-secondary !min-h-0 !px-3 !py-2 text-sm" type="submit">Sign out</button>
-              </form>
-            </div>
-            <nav aria-label="Mobile primary" class="flex gap-2 overflow-x-auto px-4 pb-4">
-              {% for item in app_nav_items %}
-                <a class="shrink-0 rounded-full border border-stone-300 bg-white/80 px-3 py-2 text-sm font-semibold text-stone-700 {% if active_url_name in item.names %}!border-amber-700 !text-stone-950{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-              {% endfor %}
-            </nav>
-          </header>
-          <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-    {% else %}
-      <header class="border-b border-stone-200/80 bg-[#fbf7f0]/88 backdrop-blur">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-10">
-          <a href="{% url 'landing' %}" class="text-2xl font-semibold tracking-wide text-stone-950">Emmaus</a>
-          <a class="btn btn-primary" href="{% url 'login' %}">Sign in</a>
-        </div>
-      </header>
-      <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
-    {% endif %}
-        {% include "partials/messages.html" %}
-        {% block content %}{% endblock %}
-      </main>
-    {% if user.is_authenticated %}
-        </div>
-      </div>
-    {% endif %}
-  </body>
-</html>
+  </div>
+</header>
+{% comment %}The "Menú" panel is a modal dialog (audit A11Y-02): emmaus.js moves focus in, keeps Tab inside, makes the page
+  behind it inert, and Escape or "Cerrar menú" give focus back to "Menú".{% endcomment %}
+<div id="menu-panel" class="menu-panel" role="dialog" aria-modal="true" aria-labelledby="menu-panel-title" hidden>
+  <div class="menu-panel__head">
+    {% church_brand brand_church size="bar" %}
+    <h2 id="menu-panel-title" class="visually-hidden">Menú</h2>
+    <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
+  </div>
+  <nav class="menu-panel__nav" aria-label="Principal">
+    {% for item in app_nav_items %}<a href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
+    {% if show_events_link %}<a href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
+  </nav>
+  <p class="menu-panel__who">{{ user.get_full_name|default:user.email }}{% if current_role_record %}, {{ current_role_record.get_role_display|lower }}{% endif %}</p>
+  {% include "partials/ui/logout.html" with css="btn--secondary" %}
+</div>
+<main id="contenido" class="page page--wide" tabindex="-1">
+{% else %}
+<header class="bar bar--public">
+  <div class="bar__inner">
+    {% if request.resolver_match.url_name == "login" or request.resolver_match.url_name == "landing" %}<a class="wordmark" href="{% url 'landing' %}">Emmaus</a>{% else %}{% url 'landing' as landing_url %}{% church_brand brand_church size="bar" href=landing_url %}{% endif %}
+    {% if request.resolver_match.url_name != "login" and request.resolver_match.url_name != "landing" %}<div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>{% endif %}
+  </div>
+</header>
+<main id="contenido" class="page" tabindex="-1">
+{% endif %}
+  {% include "partials/ui/messages.html" %}
+  {% block content %}{% endblock %}
+</main>
+{% endblock %}

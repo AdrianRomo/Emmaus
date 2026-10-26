@@ -1,25 +1,26 @@
 {% extends "base.html" %}
-{% block title %}Discipleship paths | Emmaus{% endblock %}
+{% load emmaus %}
+{% block page_title %}Rutas de discipulado{% endblock %}
 {% block content %}
-  {% url 'path_create' as create_url %}
-  {% include "partials/page_header.html" with eyebrow="Discipleship content" title="Discipleship paths" subtitle="Create and edit the journeys participants walk through with mentors and church leaders." action_url=create_url action_label="New path" %}
-  <div class="grid gap-4 lg:grid-cols-2">
-    {% for path in paths %}
-      <a class="human-row" href="{% url 'path_detail' path.id %}">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h2 class="text-xl font-semibold text-stone-950">{{ path.title }}</h2>
-            <p class="mt-2 text-sm leading-6 text-stone-600">{{ path.description|default:"No description yet."|truncatewords:28 }}</p>
+{% url 'path_create' as create_url %}
+{% include "events/rotulo/_page_head.html" with title="Rutas de discipulado" lede="Crea y edita los caminos que recorren los participantes junto con sus mentores y líderes." action_url=create_url action_label="Nueva ruta" %}
+<section class="disc-list" aria-labelledby="rutas">
+  <h2 id="rutas" class="heading">{{ paths|length }} ruta{{ paths|length|pluralize }}</h2>
+  {% if paths %}
+    <ul class="rows">
+      {% for path in paths %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'path_detail' path.id %}">{{ path.title }}</a></p>
+            <p class="row__meta">{{ path.description|default:"Todavía no tiene descripción."|truncatewords:28 }}</p>
+            <p class="row__meta">{% if path.lesson_count == 1 %}1 lección{% else %}{{ path.lesson_count }} lecciones{% endif %}{% if path.is_default %}, ruta predeterminada{% endif %}</p>
           </div>
-          <div class="flex flex-col items-end gap-2">
-            {% if path.is_default %}<span class="badge badge-attention">Default path</span>{% endif %}
-            {% if path.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-muted">Inactive</span>{% endif %}
-          </div>
-        </div>
-        <p class="mt-4 text-sm font-semibold text-stone-500">{{ path.lesson_count }} lesson{{ path.lesson_count|pluralize }}</p>
-      </a>
-    {% empty %}
-      {% include "partials/empty_state.html" with title="No paths yet" body="Create your first discipleship path so participants have a clear next step." action_url=create_url action_label="Create your first path" %}
-    {% endfor %}
-  </div>
+          {% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "pendiente" "Inactiva" %}{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Todavía no hay rutas. Crea tu primera ruta de discipulado para que los participantes tengan un siguiente paso claro.</p>
+  {% endif %}
+</section>
 {% endblock %}

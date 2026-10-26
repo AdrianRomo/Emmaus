@@ -4,93 +4,120 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
+from .logos import validate_church_logo
+
 
 hex_color_validator = RegexValidator(
     regex=r"^#[0-9A-Fa-f]{6}$",
-    message="Use a hex color in the format #RRGGBB.",
+    message="Usa un color hexadecimal con el formato #RRGGBB.",
 )
 
 
 class Role(models.TextChoices):
-    CHURCH_ADMIN = "church_admin", "Church admin"
+    CHURCH_ADMIN = "church_admin", "Administración de la iglesia"
     PASTOR = "pastor", "Pastor"
     MENTOR = "mentor", "Mentor"
-    PARTICIPANT = "participant", "Participant"
+    PARTICIPANT = "participant", "Participante"
 
 
 class Church(models.Model):
-    name = models.CharField(max_length=180)
-    slug = models.SlugField(unique=True)
-    public_welcome_text = models.TextField(blank=True)
-    contact_email = models.EmailField(blank=True)
-    time_zone = models.CharField(max_length=80, default="UTC")
-    active = models.BooleanField(default=True)
+    name = models.CharField("Nombre de la iglesia", max_length=180)
+    slug = models.SlugField("Identificador", unique=True)
+    public_welcome_text = models.TextField("Mensaje de bienvenida", blank=True)
+    contact_email = models.EmailField("Correo de contacto", blank=True)
+    time_zone = models.CharField("Zona horaria", max_length=80, default="America/Mexico_City")
+    active = models.BooleanField("Activa", default=True)
     basic_disclaimer_text = models.TextField(
+        "Aviso para participantes",
         blank=True,
         default=(
-            "Emmaus supports discipleship follow-up through your church. It is not "
-            "emergency support, therapy, medical advice, legal advice, or a replacement "
-            "for pastoral care."
+            "Emmaus apoya el acompañamiento de discipulado de tu iglesia. No es un servicio de "
+            "emergencias, terapia, consejo médico o legal, ni sustituye el cuidado pastoral."
         ),
     )
-    self_registration_enabled = models.BooleanField(default=False)
-    leaders_can_invite_participants = models.BooleanField(default=True)
+    self_registration_enabled = models.BooleanField("Permitir registro propio", default=False)
+    leaders_can_invite_participants = models.BooleanField("Los líderes pueden invitar participantes", default=True)
+    discipleship_enabled = models.BooleanField(
+        "Usar el módulo de discipulado",
+        default=False,
+        help_text="Rutas, lecciones y preguntas de participantes con cuenta propia.",
+    )
+    custom_theme_enabled = models.BooleanField(
+        "Usar colores propios de la iglesia",
+        default=False,
+        help_text="Si está apagado se usa la paleta de Emmaus, revisada para contraste y legibilidad.",
+    )
     theme_primary_color = models.CharField(
         max_length=7,
         default="#111111",
         validators=[hex_color_validator],
-        help_text="Main brand color used for primary actions and strong contrast.",
+        help_text="Color principal para botones y acciones.",
     )
     theme_accent_color = models.CharField(
         max_length=7,
         default="#B85C38",
         validators=[hex_color_validator],
-        help_text="Warm accent color used for highlights and important calls to action.",
+        help_text="Color de acento para resaltar elementos activos.",
     )
     theme_secondary_color = models.CharField(
         max_length=7,
         default="#596B54",
         validators=[hex_color_validator],
-        help_text="Secondary support color for calm labels and subtle emphasis.",
+        help_text="Color secundario de apoyo.",
     )
     theme_background_color = models.CharField(
         max_length=7,
         default="#F0F0EE",
         validators=[hex_color_validator],
-        help_text="Page background color.",
+        help_text="Color de fondo de la página.",
     )
     theme_surface_color = models.CharField(
         max_length=7,
         default="#FFFFFF",
         validators=[hex_color_validator],
-        help_text="Card and form surface color.",
+        help_text="Color de superficies y formularios.",
     )
     theme_text_color = models.CharField(
         max_length=7,
         default="#111111",
         validators=[hex_color_validator],
-        help_text="Primary text color.",
+        help_text="Color del texto principal.",
     )
     theme_muted_text_color = models.CharField(
         max_length=7,
         default="#6D6A64",
         validators=[hex_color_validator],
-        help_text="Secondary text color.",
+        help_text="Color del texto secundario.",
     )
     theme_border_color = models.CharField(
         max_length=7,
         default="#D9D9D6",
         validators=[hex_color_validator],
-        help_text="Subtle border color.",
+        help_text="Color de bordes.",
+    )
+    # The church's identity in the wordmark's slot (docs/design-system.md, "Marca de la iglesia"). Stored under
+    # MEDIA_ROOT, served only by core.views.church_logo; never in the repository. db_default: older code
+    # (a rollback) can still create a church.
+    logo = models.FileField(
+        "Logotipo", upload_to="church-logos/", blank=True, default="", db_default="", validators=[validate_church_logo]
+    )
+    logo_dark = models.FileField(
+        "Logotipo para fondo oscuro",
+        upload_to="church-logos/",
+        blank=True,
+        default="",
+        db_default="",
+        validators=[validate_church_logo],
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "iglesia"
+        verbose_name_plural = "iglesias"
         ordering = ["name"]
 
     def __str__(self) -> str:
@@ -104,6 +131,8 @@ class UserChurchRole(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "rol en la iglesia"
+        verbose_name_plural = "roles en la iglesia"
         unique_together = ("church", "user")
         ordering = ["church__name", "role", "user__last_name", "user__first_name"]
 
@@ -150,10 +179,12 @@ class Invitation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "invitación"
+        verbose_name_plural = "invitaciones"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"{self.email} invited as {self.role}"
+        return f"{self.email} invitado como {self.get_role_display()}"
 
     @property
     def is_expired(self) -> bool:
@@ -170,11 +201,11 @@ class Invitation(models.Model):
 
 class ParticipantProfile(models.Model):
     class ContactMethod(models.TextChoices):
-        EMAIL = "email", "Email"
-        PHONE = "phone", "Phone"
+        EMAIL = "email", "Correo electrónico"
+        PHONE = "phone", "Teléfono"
         WHATSAPP = "whatsapp", "WhatsApp"
-        IN_PERSON = "in_person", "In person"
-        UNSPECIFIED = "unspecified", "Unspecified"
+        IN_PERSON = "in_person", "En persona"
+        UNSPECIFIED = "unspecified", "Sin preferencia"
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="participant_profile")
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="participants")
@@ -196,6 +227,8 @@ class ParticipantProfile(models.Model):
     emergency_disclaimer_accepted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "perfil de participante"
+        verbose_name_plural = "perfiles de participante"
         ordering = ["user__last_name", "user__first_name", "user__email"]
 
     def __str__(self) -> str:
@@ -219,6 +252,8 @@ class DiscipleshipPath(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "ruta de discipulado"
+        verbose_name_plural = "rutas de discipulado"
         ordering = ["church__name", "-is_default", "title"]
 
     def __str__(self) -> str:
@@ -242,6 +277,8 @@ class Lesson(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
+        verbose_name = "lección"
+        verbose_name_plural = "lecciones"
         unique_together = ("path", "order")
         ordering = ["path", "order"]
 
@@ -255,6 +292,8 @@ class ReflectionQuestion(models.Model):
     order = models.PositiveIntegerField()
 
     class Meta:
+        verbose_name = "pregunta de reflexión"
+        verbose_name_plural = "preguntas de reflexión"
         unique_together = ("lesson", "order")
         ordering = ["lesson", "order"]
 
@@ -269,11 +308,13 @@ class Enrollment(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "inscripción"
+        verbose_name_plural = "inscripciones"
         unique_together = ("participant", "path")
         ordering = ["-started_at"]
 
     def __str__(self) -> str:
-        return f"{self.participant.email} in {self.path.title}"
+        return f"{self.participant.email} en {self.path.title}"
 
 
 class LessonProgress(models.Model):
@@ -283,6 +324,8 @@ class LessonProgress(models.Model):
     last_viewed_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "avance de lección"
+        verbose_name_plural = "avances de lección"
         unique_together = ("enrollment", "lesson")
         ordering = ["lesson__order"]
 
@@ -300,6 +343,8 @@ class ReflectionAnswer(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "respuesta de reflexión"
+        verbose_name_plural = "respuestas de reflexión"
         unique_together = ("enrollment", "question")
         ordering = ["lesson__order", "question__order"]
 
@@ -310,14 +355,14 @@ class ReflectionAnswer(models.Model):
 class ParticipantQuestion(models.Model):
     class Sensitivity(models.TextChoices):
         NORMAL = "normal", "Normal"
-        SENSITIVE = "sensitive", "Sensitive"
-        PASTORAL_CARE_REQUIRED = "pastoral_care_required", "Pastoral care required"
+        SENSITIVE = "sensitive", "Delicada"
+        PASTORAL_CARE_REQUIRED = "pastoral_care_required", "Requiere cuidado pastoral"
 
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
-        ANSWERED = "answered", "Answered"
-        ESCALATED = "escalated", "Escalated"
-        CLOSED = "closed", "Closed"
+        OPEN = "open", "Abierta"
+        ANSWERED = "answered", "Respondida"
+        ESCALATED = "escalated", "Pasada al pastor"
+        CLOSED = "closed", "Cerrada"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="participant_questions")
     participant = models.ForeignKey(
@@ -343,6 +388,8 @@ class ParticipantQuestion(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "pregunta de participante"
+        verbose_name_plural = "preguntas de participantes"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
@@ -357,6 +404,8 @@ class QuestionResponse(models.Model):
     edited_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "respuesta de líder"
+        verbose_name_plural = "respuestas de líderes"
         ordering = ["created_at"]
 
     def __str__(self) -> str:
@@ -365,16 +414,16 @@ class QuestionResponse(models.Model):
 
 class FollowUpRequest(models.Model):
     class Status(models.TextChoices):
-        OPEN = "open", "Open"
-        IN_PROGRESS = "in_progress", "In progress"
-        COMPLETED = "completed", "Completed"
-        CANCELLED = "cancelled", "Cancelled"
+        OPEN = "open", "Abierto"
+        IN_PROGRESS = "in_progress", "En proceso"
+        COMPLETED = "completed", "Completado"
+        CANCELLED = "cancelled", "Cancelado"
 
     class Source(models.TextChoices):
         MANUAL = "manual", "Manual"
-        PARTICIPANT_REQUEST = "participant_request", "Participant request"
-        QUESTION_ESCALATION = "question_escalation", "Question escalation"
-        INACTIVITY = "inactivity", "Inactivity"
+        PARTICIPANT_REQUEST = "participant_request", "Solicitud del participante"
+        QUESTION_ESCALATION = "question_escalation", "Pregunta pasada al pastor"
+        INACTIVITY = "inactivity", "Inactividad"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="follow_ups")
     participant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="follow_ups")
@@ -400,6 +449,8 @@ class FollowUpRequest(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "solicitud de seguimiento"
+        verbose_name_plural = "solicitudes de seguimiento"
         ordering = ["status", "due_date", "-created_at"]
 
     def __str__(self) -> str:
@@ -408,9 +459,9 @@ class FollowUpRequest(models.Model):
 
 class PastoralNote(models.Model):
     class Visibility(models.TextChoices):
-        MENTOR_ONLY = "mentor_only", "Mentor only"
-        PASTOR_ONLY = "pastor_only", "Pastor only"
-        PASTOR_AND_MENTOR = "pastor_and_mentor", "Pastor and mentor"
+        MENTOR_ONLY = "mentor_only", "Solo el mentor"
+        PASTOR_ONLY = "pastor_only", "Solo pastores"
+        PASTOR_AND_MENTOR = "pastor_and_mentor", "Pastores y mentor"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="pastoral_notes")
     participant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pastoral_notes")
@@ -424,6 +475,8 @@ class PastoralNote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = "nota pastoral"
+        verbose_name_plural = "notas pastorales"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
@@ -432,10 +485,10 @@ class PastoralNote(models.Model):
 
 class AIDraft(models.Model):
     class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        APPROVED = "approved", "Approved"
-        REJECTED = "rejected", "Rejected"
-        EDITED = "edited", "Edited"
+        DRAFT = "draft", "Borrador"
+        APPROVED = "approved", "Aprobado"
+        REJECTED = "rejected", "Rechazado"
+        EDITED = "edited", "Editado"
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="ai_drafts")
     related_question = models.ForeignKey(ParticipantQuestion, on_delete=models.CASCADE, related_name="ai_drafts")
@@ -447,7 +500,9 @@ class AIDraft(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        verbose_name = "borrador con IA"
+        verbose_name_plural = "borradores con IA"
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"Draft for question {self.related_question_id}"
+        return f"Borrador para la pregunta {self.related_question_id}"

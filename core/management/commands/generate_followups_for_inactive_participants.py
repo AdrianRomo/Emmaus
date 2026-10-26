@@ -5,10 +5,15 @@ from core.services import create_inactivity_follow_up
 
 
 class Command(BaseCommand):
-    help = "Create follow-up requests for participants with no activity for 7+ days."
+    help = "Crea solicitudes de seguimiento para participantes sin actividad durante 7 días o más."
 
     def add_arguments(self, parser):
-        parser.add_argument("--days", type=int, default=7)
+        parser.add_argument(
+            "--days",
+            type=int,
+            default=7,
+            help="Días sin actividad antes de crear un seguimiento (7 si no lo indicas).",
+        )
 
     def handle(self, *args, **options):
         created = 0
@@ -16,4 +21,8 @@ class Command(BaseCommand):
             follow_up = create_inactivity_follow_up(profile, days=options["days"])
             if follow_up:
                 created += 1
-        self.stdout.write(self.style.SUCCESS(f"Created {created} inactivity follow-up request(s)."))
+        if created == 1:
+            message = "Se creó 1 solicitud de seguimiento por inactividad."
+        else:
+            message = f"Se crearon {created} solicitudes de seguimiento por inactividad."
+        self.stdout.write(self.style.SUCCESS(message))

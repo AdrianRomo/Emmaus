@@ -1,28 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Initial setup | Emmaus{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Configuración inicial{% endblock %}
 {% block content %}
-  <section class="mx-auto max-w-5xl py-6">
-    {% include "partials/page_header.html" with eyebrow="First church setup" title="Set up your church workspace" subtitle="Create the first Emmaus workspace and admin account. You can invite pastors, mentors, and participants after this step." %}
-    <div class="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-      <aside class="card-flat p-6">
-        <h2 class="font-semibold text-stone-950">What happens next</h2>
-        <ol class="mt-5 space-y-4 text-sm leading-6 text-stone-700">
-          <li><span class="font-bold text-amber-800">1.</span> Add church details.</li>
-          <li><span class="font-bold text-amber-800">2.</span> Create the first admin account.</li>
-          <li><span class="font-bold text-amber-800">3.</span> Review the privacy reminder.</li>
-          <li><span class="font-bold text-amber-800">4.</span> Create the workspace and begin inviting leaders.</li>
-        </ol>
-        <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm leading-6 text-amber-950">
-          Emmaus stores sensitive discipleship information. Get consent, keep notes limited, and use secure production settings before inviting real participants.
-        </div>
-      </aside>
-      <div class="card p-6 md:p-8">
-        <form method="post">
-          {% csrf_token %}
-          {% include "partials/form_fields.html" %}
-          <button class="btn btn-primary mt-2 w-full sm:w-auto">Create workspace</button>
-        </form>
-      </div>
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Configura el espacio de tu iglesia" lede="Registra tu iglesia y a la persona que la administra. Después preparas tu primer campamento y agregas a tu equipo." meta="Configuración inicial" %}
+<div class="split">
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Crear espacio</button>
     </div>
-  </section>
+  </form>
+  <aside aria-labelledby="que-sigue">
+    <h2 id="que-sigue" class="heading">Qué sigue</h2>
+    <ol class="promises">
+      <li>Escribe el nombre de tu iglesia y un identificador corto.</li>
+      <li>Escribe el nombre y el correo de la persona que administra la iglesia, y crea su contraseña. Con ese correo y esa contraseña entrará a Emmaus.</li>
+      <li>Lee el aviso para participantes, aquí abajo. Lo puedes cambiar después en la configuración de la iglesia. La indicación de llamar al 911 siempre aparece.</li>
+      <li>Toca “Crear espacio”. Después creas tu primer campamento y agregas a tu equipo.</li>
+    </ol>
+    <h3 id="aviso" class="heading">Aviso para participantes</h3>
+    {% for paragraph in participant_notice %}<p>{{ paragraph|linebreaksbr }}</p>{% endfor %}
+    <div class="notice notice--warning">
+      <p class="notice__title">Información delicada</p>
+      <p>Emmaus guarda información sensible de las personas de tu iglesia. Pide su consentimiento y escribe solo lo necesario. Antes de agregar a las personas de tu iglesia, pide a quien instaló Emmaus que confirme que el servidor está protegido.</p>
+    </div>
+  </aside>
+</div>
 {% endblock %}

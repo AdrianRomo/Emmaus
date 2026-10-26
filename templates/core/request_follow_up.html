@@ -1,14 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Request conversation | Emmaus{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Pedir una conversación{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Conversation" title="Request a conversation" subtitle="Let your church know you would like someone to follow up personally." %}
-  <section class="mx-auto max-w-2xl">
-    <div class="card p-6 md:p-8">
-      <form method="post">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary mt-2">Send request</button>
-      </form>
+<div class="disc-focus disc-ask">
+<div>
+{% include "partials/ui/error_summary.html" with form=form %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% comment %}Like a question in the campero interview: the question is the h1 and wraps the label.{% endcomment %}
+  {% with field=form.reason %}
+    <div class="question{% if field.errors %} question--error{% endif %}" id="campo-{{ field.html_name }}">
+      <h1 class="question__text"><label for="{{ field.id_for_label }}">{{ field.label }}</label></h1>
+      <p class="question__help" id="{{ field.auto_id }}-intro">Avísale a tu iglesia que te gustaría que alguien te busque para platicar en persona.</p>
+      <p class="hint disc-ask__hint" id="{{ field.auto_id }}-hint">{{ field.help_text }}</p>
+      {% if field.errors %}<p class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</p>{% endif %}
+      <textarea class="textarea disc-ask__answer" name="{{ field.html_name }}" id="{{ field.auto_id }}" rows="{{ field.field.widget.attrs.rows }}" maxlength="{{ field.field.max_length }}" placeholder="{{ field.field.widget.attrs.placeholder }}" spellcheck="true"{% if field.field.required %} required{% endif %} aria-describedby="{{ field.auto_id }}-intro {{ field.auto_id }}-hint{% if field.errors %} {{ field.auto_id }}-error{% endif %}">{{ field.value|default_if_none:"" }}</textarea>
     </div>
-  </section>
+  {% endwith %}
+  <div class="step__actions">
+    <button class="btn btn--primary btn--large" type="submit">Enviar solicitud</button>
+    <a class="btn btn--link" href="{% url 'participant_dashboard' %}">Volver a mi camino</a>
+  </div>
+</form>
+</div>
+<aside class="disc-focus__aside" aria-labelledby="compania">
+  <h2 id="compania" class="heading">Alguien puede acompañarte</h2>
+  {% with mentor=user.participant_profile.assigned_mentor %}
+    {% if mentor %}
+      <p>Tu mentor es <strong>{{ mentor.get_full_name|default:mentor.email }}</strong>.</p>
+    {% else %}
+      <p>Tu iglesia todavía no te asigna un mentor. Aun así, puedes hacer preguntas o pedir una conversación.</p>
+    {% endif %}
+  {% endwith %}
+</aside>
+</div>
 {% endblock %}

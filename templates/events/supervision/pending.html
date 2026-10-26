@@ -1,0 +1,71 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Pendientes{% endblock %}
+{% block content %}
+{% include "events/rotulo/_page_head.html" with title="Pendientes" lede="Lo que necesita una decisión o un empujón, en orden de urgencia." %}
+<div class="split">
+  <div>
+    <section class="block" id="interrumpidas" aria-labelledby="t-interrumpidas">
+      <h2 id="t-interrumpidas" class="heading">Entrevistas interrumpidas <span class="count">{{ stale|length }}</span></h2>
+      <p class="hint">Llevan {% stale_minutes %} minutos o más sin cambios.</p>
+      {% if stale %}
+        <ul class="rows">{% for iv in stale %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ iv.participant.full_name }}</p>
+              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, {{ iv.station.name|default:"computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}</p>
+            </div>
+            {% status "en_curso" "Interrumpida" %}
+          </li>
+        {% endfor %}</ul>
+        <p class="aside-note">Pide al coordinador que la retome desde “Mi inicio”. Si no puede, la administración la puede liberar.</p>
+      {% else %}<p class="empty-line">No hay entrevistas interrumpidas.</p>{% endif %}
+    </section>
+
+    <section class="block" id="seguimientos" aria-labelledby="t-seg">
+      <h2 id="t-seg" class="heading">Seguimientos abiertos <span class="count">{{ follow_ups|length }}</span></h2>
+      {% if follow_ups %}
+        <ul class="rows">{% for f in follow_ups %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
+              <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.created_at|since }}. {% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name }}{% else %}Sin asignar{% endif %}</p>
+            </div>
+            <div class="row__end">
+              {% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Urgente</span>{% endif %}
+              {% follow_up_status f.status %}
+            </div>
+          </li>
+        {% endfor %}</ul>
+        <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver todos los seguimientos</a></p>
+      {% else %}<p class="empty-line">No hay seguimientos abiertos.</p>{% endif %}
+    </section>
+  </div>
+
+  <div>
+    <section class="block" id="por-evaluar" aria-labelledby="t-eval">
+      <h2 id="t-eval" class="heading">Seguimiento por decidir <span class="count">{{ to_evaluate|length }}</span></h2>
+      {% if to_evaluate %}
+        <ul class="rows">{% for iv in to_evaluate %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
+              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, completada {{ iv.completed_at|since }}</p>
+            </div>
+          </li>
+        {% endfor %}</ul>
+      {% else %}<p class="empty-line">Nada por decidir.</p>{% endif %}
+    </section>
+
+    <section class="block" aria-labelledby="t-sin">
+      <h2 id="t-sin" class="heading">Sin iniciar, por coordinador</h2>
+      {% if not_started_by_coordinator %}
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas sin iniciar por coordinador"><table class="table"><thead><tr><th>Coordinador</th><th class="num">Sin iniciar</th></tr></thead>
+          <tbody>{% for row in not_started_by_coordinator %}<tr><td>{% if row.coordinator__id %}<a href="{% url 'events:coordinator_detail' event.slug row.coordinator__id %}">{{ row.coordinator__user__first_name }} {{ row.coordinator__user__last_name }}</a>{% else %}Sin coordinador{% endif %}</td><td class="num">{{ row.n }}</td></tr>{% endfor %}</tbody></table></div>
+      {% elif access.participants.exists %}<p class="empty-line">Todas las entrevistas ya se iniciaron.</p>
+      {% elif access.is_tutor %}<p class="empty-line">Tu equipo todavía no tiene camperos. Los registran sus coordinadores o la administración.</p>
+      {% else %}<p class="empty-line">Todavía no hay camperos registrados. La administración los registra o importa.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

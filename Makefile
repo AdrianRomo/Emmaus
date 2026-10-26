@@ -1,4 +1,4 @@
-.PHONY: up down build migrate createsuperuser create-starter-path test collectstatic logs
+.PHONY: up down build migrate createsuperuser create-starter-path test collectstatic logs seed-demo cutoffs
 
 up:
 	docker compose up
@@ -26,3 +26,11 @@ collectstatic:
 
 logs:
 	docker compose logs -f web
+
+# Synthetic camp with 400 fictitious camperos (DEBUG only).
+seed-demo:
+	docker compose run --rm web python manage.py seed_camp_demo --reset
+
+# Generate due report cutoffs once (production runs the scheduler service instead).
+cutoffs:
+	docker compose run --rm web python manage.py run_report_cutoffs

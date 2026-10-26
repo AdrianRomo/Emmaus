@@ -1,0 +1,14 @@
+{% extends "events/shell_focus.html" %}
+{% block page_title %}{% if error_list %}Error: {% endif %}{{ step.question.text }}{% endblock %}
+{% block default_submit %}<button type="submit" form="step-form" name="direction" value="next" class="visually-hidden" tabindex="-1" aria-hidden="true">Continuar</button>{% endblock %}
+{% block focus_actions %}
+  {% if mode == "correction" %}
+    <a class="btn btn--small btn--secondary" href="{{ exit_url }}">Cancelar corrección</a>
+  {% else %}
+    {% if station %}<p class="here"><span class="here__blaze" aria-hidden="true"></span>{{ station.name }}</p>{% endif %}
+    <button class="btn btn--small btn--secondary" type="submit" form="step-form" name="direction" value="exit">Guardar y salir</button>
+  {% endif %}
+{% endblock %}
+{% block content %}
+  {% include "events/interview/_step_form.html" %}
+{% endblock %}

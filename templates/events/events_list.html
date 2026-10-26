@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Campamentos y eventos{% endblock %}
+{% block content %}
+{% if can_create %}{% url 'events:create' as create_url %}{% endif %}
+<div class="narrow">
+{% if rows %}
+  {% include "events/rotulo/_page_head.html" with title="Campamentos y eventos" lede="Elige el evento en el que vas a trabajar." action_url=create_url action_label="Crear campamento" %}
+  <section class="results" aria-labelledby="lista-eventos">
+    <h2 id="lista-eventos" class="heading">Tus eventos <span class="count">{{ rows|length }}</span></h2>
+    <ul class="rows">
+      {% for row in rows %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ row.event.name }}</p>
+            <p class="row__meta">{{ row.event.get_kind_display }}{% if row.event.starts_on %} {% include "events/rotulo/_event_dates.html" with event=row.event %}{% endif %}{% if row.event.location %}, en {{ row.event.location }}{% endif %}.</p>
+            <p class="row__meta">Tu rol: {{ row.access.role_label|lower }}.</p>
+          </div>
+          <div class="row__end">
+            {% if row.event.status == "activo" %}{% status "en_curso" row.event.get_status_display %}{% elif row.event.status == "cerrado" %}{% status "completada" row.event.get_status_display %}{% elif row.event.status == "archivado" %}{% status "archivado" row.event.get_status_display %}{% else %}{% status "pendiente" row.event.get_status_display %}{% endif %}
+            <a class="btn btn--secondary btn--small" href="{% url 'events:home' row.event.slug %}">Abrir<span class="visually-hidden"> {{ row.event.name }}</span></a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% elif can_create %}
+  {% include "events/rotulo/_page_head.html" with title="Campamentos y eventos" %}
+  {% comment %}Nothing to choose yet: creating the first camp is the one thing to do, so it gets the sign.{% endcomment %}
+  <section class="sign" aria-labelledby="primer-evento">
+    <h2 id="primer-evento" class="sign__title">Todavía no hay campamentos</h2>
+    <p class="sign__text">Crea el primer campamento. Emmaus prepara el cuestionario de conversación espiritual y 10 computadoras de entrevista.</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{{ create_url }}">Crear campamento</a></div>
+  </section>
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Campamentos y eventos" %}
+  <section class="results" aria-labelledby="sin-eventos">
+    <h2 id="sin-eventos" class="heading">Aún no formas parte de ningún evento</h2>
+    <p class="empty-line">¿Vas a ayudar en un evento? <a href="{% url 'join' %}">Únete con el código del evento</a>. También puedes pedir a la administración de tu iglesia que te agregue al equipo.</p>
+  </section>
+{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "events/rotulo/shell_coordinator.html" %}
+{% load emmaus %}
+{% block page_title %}Mi inicio{% endblock %}
+{% block content %}
+<div class="coord">
+  <h1 class="voice coord__hello">Hola, {{ user.first_name|default:user.get_full_name }}.</h1>
+
+  {% comment %}UX-10: the block shows here, on the first screen, not after choosing a computer and searching.{% endcomment %}
+  {% if procedures_pending %}
+    <div class="notice notice--quiet"><p>Todavía no se pueden iniciar entrevistas: la administración debe confirmar los procedimientos.</p></div>
+  {% endif %}
+
+  {% comment %}The sign: the one thing to do now. Yellow appears nowhere else on this screen.{% endcomment %}
+  <section class="sign" aria-labelledby="que-hago">
+    {% if in_progress %}
+      {% with iv=in_progress.0 %}
+        <h2 id="que-hago" class="sign__title">Termina la entrevista de {{ iv.participant.full_name }}</h2>
+        <p class="sign__text">Sus respuestas están guardadas hasta donde se quedó{% if iv.station %}, en {{ iv.station.name }}{% endif %}.</p>
+        <div class="sign__actions">
+          <a class="btn btn--primary btn--large" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar entrevista</a>
+          <a class="sign__link" href="{% url 'events:interview_search' event.slug %}">Mejor entrevistar a otro campero</a>
+        </div>
+      {% endwith %}
+    {% elif progress.pending %}
+      <h2 id="que-hago" class="sign__title"><label for="buscar">¿A quién vas a entrevistar?</label></h2>
+      <p class="sign__text" id="buscar-ayuda">Escribe su número o las primeras letras de su nombre y apellido, por ejemplo “mat jim”.</p>
+      <form class="search" method="get" action="{% url 'events:interview_search' event.slug %}" role="search">
+        <input class="input search__input" id="buscar" type="search" name="q" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+        <button class="btn btn--primary btn--large" type="submit">Buscar</button>
+      </form>
+    {% elif progress.eligible %}
+      <h2 id="que-hago" class="sign__title">¡Terminaste!</h2>
+      <p class="sign__text">Las {{ progress.completed }} entrevistas de tus camperos están completas. Gracias por tu tiempo.</p>
+    {% else %}
+      <h2 id="que-hago" class="sign__title">Todavía no tienes camperos asignados</h2>
+      <p class="sign__text">Registra al primero o pide a la administración que te los asigne.</p>
+      <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></div>
+    {% endif %}
+  </section>
+
+  {# The time is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
+  <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
+  <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>
+  <div id="inicio-vivo" data-live-url="{% url 'events:coord_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
+    {% include "events/coordinator/_home_live.html" %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% load emmaus %}
+{% comment %}
+  Projector slides (16:9). Privacy: the deck only receives what services/presentation.py returns,
+  totals with no names, answers or free text. Sizes live in rotulo.css ("G2 Reportes y presentación").
+{% endcomment %}
+{% with p=deck.progress %}
+<section class="slide slide--cover is-active" aria-label="Diapositiva 1 de 5">
+  {% include "events/presentation/_top.html" with cover=True %}
+  <div class="slide__body">
+    <h2 class="voice deck-cover__title">Así va {% if event.kind in event.FEMININE_KINDS %}nuestra{% else %}nuestro{% endif %} {{ deck.kind_label|lower }}.</h2>
+    <p class="deck-cover__event">{{ deck.event_name }}{% if deck.scope_label == "Equipo" %}, un equipo{% endif %}</p>
+    <p class="deck-sub">{% if live %}<span data-deck-live>En vivo, con datos del {{ deck.as_of|fecha_larga|lower }} a las {{ deck.as_of|date:"H:i" }}.</span><span class="deck-ended" data-deck-ended hidden>Sesión terminada: vuelve a entrar para ver datos actuales</span>{% else %}Corte de las {{ deck.as_of|date:"H:i" }} del {{ deck.as_of|fecha_larga|lower }}.{% endif %}</p>
+  </div>
+  {% include "events/presentation/_foot.html" with n=1 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 2 de 5">
+  {% include "events/presentation/_top.html" %}
+  {% comment %}A team deck has no teams to compare: the headline takes the whole slide.{% endcomment %}
+  <div class="slide__body deck-split{% if not deck.teams and deck.scope_label == "Equipo" %} deck-split--solo{% endif %}">
+    <div>
+      {% if p.eligible %}
+        <h2 class="voice deck-headline">Llevamos {{ p.completed }} de {{ p.eligible }} entrevistas.</h2>
+        <p class="deck-sub">{% if not p.pending %}Ya se completaron todas.{% elif deck.eta %}A este ritmo, {{ deck.rate|floatformat:"-1" }} por hora, terminamos en <span class="keep-together">alrededor de {{ deck.eta }}</span>.{% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}</p>
+        <div class="deck-ruler">{% ruler p.completed p.in_progress p.eligible %}</div>
+        <ul class="key deck-key">
+          <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ p.completed }} completadas</li>
+          <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ p.in_progress }} en curso</li>
+          <li><span class="key__mark" aria-hidden="true"></span>{{ p.not_started }} sin iniciar</li>
+        </ul>
+      {% else %}
+        <h2 class="voice deck-headline">Todavía no hay camperos registrados.</h2>
+      {% endif %}
+    </div>
+    {% if deck.teams or deck.scope_label != "Equipo" %}
+    <div class="deck-teams">
+      <h3 class="voice deck-teams__title">Equipos</h3>
+      {% if deck.teams %}
+        <ol class="deck-teams__list">{% for t in deck.teams|slice:":8" %}
+          <li><span>{{ t.label }}</span><strong>{{ t.percent|pct }}</strong>{% ruler t.completed t.in_progress t.eligible p.percent "Promedio" %}</li>
+        {% endfor %}</ol>
+        <p class="deck-note">{% if p.percent is not None %}La raya marca el promedio, {{ p.percent|pct }}.{% endif %}{% if deck.teams|length > 8 %} Se muestran los 8 equipos con menos avance.{% endif %}</p>
+      {% else %}
+        <p class="deck-empty">Todavía no hay equipos asignados.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  {% include "events/presentation/_foot.html" with n=2 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 3 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="voice slide__title">Avance de entrevistas</h2>
+  <div class="slide__body">
+    {% if deck.timeline %}
+      <div class="deck-chart-box">{% cumulative_chart deck.timeline p.eligible "deck-acumulado" "Entrevistas completadas acumuladas" True %}</div>
+      <p class="deck-note">La línea horizontal es el total de camperos, {{ p.eligible }}. Faltan {{ p.pending }}{% if deck.eta %}; al ritmo actual, {{ deck.rate|floatformat:"-1" }} por hora, <span class="keep-together">alrededor de {{ deck.eta }}</span>{% endif %}.</p>
+    {% else %}
+      <p class="deck-empty">Aún no hay entrevistas completadas.</p>
+    {% endif %}
+  </div>
+  {% include "events/presentation/_foot.html" with n=3 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 4 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="voice slide__title">Necesidades de seguimiento</h2>
+  <div class="slide__body">
+    <ul class="deck-counts">
+      <li><span class="deck-counts__value">{{ deck.follow_ups.requested.words }}</span> <span class="deck-counts__label">seguimientos solicitados</span></li>
+      <li><span class="deck-counts__value">{{ deck.follow_ups.open.words }}</span> <span class="deck-counts__label">esperan a un líder</span></li>
+      <li><span class="deck-counts__value">{{ deck.follow_ups.done.words }}</span> <span class="deck-counts__label">ya atendidos</span></li>
+      <li><span class="deck-counts__value">{{ deck.follow_ups.to_evaluate.words }}</span> <span class="deck-counts__label">por decidir</span></li>
+    </ul>
+    <p class="deck-note">{% if deck.follow_ups.as_of %}Según el corte de las {{ deck.follow_ups.as_of|date:"H:i" }}. {% else %}Estas cifras aparecerán con el primer corte. {% endif %}Los totales se redondean de {{ deck.k }} en {{ deck.k }} y las cantidades menores a {{ deck.k }} no se muestran, para que nadie pueda ser identificado. No se muestran nombres, respuestas ni temas personales.</p>
+  </div>
+  {% include "events/presentation/_foot.html" with n=4 %}
+</section>
+
+<section class="slide" aria-label="Diapositiva 5 de 5">
+  {% include "events/presentation/_top.html" %}
+  <h2 class="voice slide__title">Próximos pasos</h2>
+  <div class="slide__body">
+    {% if deck.next_steps %}<ol class="deck-steps">{% for step in deck.next_steps %}<li>{{ step }}</li>{% endfor %}</ol>{% else %}<p class="deck-empty">Sin pendientes por ahora.</p>{% endif %}
+  </div>
+  {% include "events/presentation/_foot.html" with n=5 %}
+</section>
+{% endwith %}

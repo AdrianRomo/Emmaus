@@ -1,0 +1,61 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}{{ version.title }}, versión {{ version.number }}{% endblock %}
+{% block content %}
+{% comment %}
+  The header follows events/rotulo/_page_head.html; it is written out here because its actions are
+  buttons of one POST form (publish, use, duplicate), which the partial cannot hold.
+{% endcomment %}
+<a class="back-link" href="{% url 'events:questionnaires' event.slug %}">Cuestionarios</a>
+<header class="page-head page-head--actions">
+  <div class="page-head__text">
+    <h1 class="voice page-head__title">{{ version.title }}</h1>
+    <p class="page-head__meta">Versión {{ version.number }}, {{ version.get_status_display|lower }}, {{ steps|length }} pasos.{% if in_use %} En uso en este evento.{% endif %}</p>
+  </div>
+  <form method="post" class="page-head__actions">
+    {% csrf_token %}
+    {% if version.is_editable %}
+      <button class="btn btn--primary" name="action" value="publish" data-confirm="Al publicar ya no podrás cambiar esta versión. ¿Continuar?">Publicar versión</button>
+    {% else %}
+      {% if not in_use and version.status == "publicada" %}<button class="btn btn--primary" name="action" value="use">Usar en entrevistas nuevas</button>{% endif %}
+      <button class="btn btn--secondary" name="action" value="duplicate">Crear versión nueva a partir de esta</button>
+    {% endif %}
+  </form>
+</header>
+{% if not version.is_editable %}<div class="notice notice--quiet admin-narrow"><p>Esta versión está publicada y no se puede modificar. Las entrevistas que la usaron conservan exactamente estas preguntas.</p></div>{% endif %}
+{% for section in sections %}
+  <section class="block admin-section" aria-labelledby="s-{{ section.id }}">
+    <h2 id="s-{{ section.id }}" class="heading">{{ section.order }}. {{ section.title }}</h2>
+    {% if section.description %}<p class="admin-section__desc">{{ section.description }}</p>{% endif %}
+    <ol class="rows admin-questions">
+      {% for q in section.questions.all %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ q.text }}</p>
+            <p class="row__meta">{{ q.get_kind_display }}, {{ q.get_sensitivity_display|lower }}, {% if q.required %}obligatoria{% else %}opcional{% endif %}{% if q.condition_question %}, se muestra solo si en “{{ q.condition_question.text|truncatechars:40 }}” se elige {% for label in q.condition_option_labels %}{% if not forloop.first %}{% if forloop.last %} o {% else %}, {% endif %}{% endif %}“{{ label }}”{% endfor %}{% endif %}.</p>
+            {% if q.options.all %}
+              <ul class="admin-answers" aria-label="Opciones">{% for o in q.options.all %}
+                <li><span class="admin-answers__label{% if o.is_decline %} admin-answers__label--decline{% endif %}">{{ o.label }}{% if o.suggests_follow_up %}<span class="admin-answers__note">, sugiere seguimiento</span>{% endif %}</span>{% if version.is_editable %}<form method="post" class="admin-answers__remove">{% csrf_token %}<input type="hidden" name="action" value="delete_option"><input type="hidden" name="option" value="{{ o.id }}"><button class="link-button link-button--danger" data-confirm="¿Quitar la opción “{{ o.label }}”?">Quitar<span class="visually-hidden"> {{ o.label }}</span></button></form>{% endif %}</li>
+              {% endfor %}</ul>
+            {% endif %}
+            {% comment %}The codes are for conditions and reports, typed only by whoever edits: folded away (LANG-05).{% endcomment %}
+            <details class="details">
+              <summary>Identificador interno (para quien edita el cuestionario)</summary>
+              <div class="details__body"><p>Pregunta: <code>{{ q.code }}</code>.{% if q.options.all %} Respuestas: {% for o in q.options.all %}{{ o.label }}, <code>{{ o.code }}</code>{% if forloop.last %}.{% else %}; {% endif %}{% endfor %}{% endif %}</p></div>
+            </details>
+          </div>
+          {% if version.is_editable %}
+            <div class="row__end admin-questions__actions">
+              <a class="btn btn--secondary btn--small" href="{% url 'events:question_edit' event.slug version.id q.id %}">Editar<span class="visually-hidden"> “{{ q.text|truncatechars:40 }}”</span></a>
+              {% if q.is_choice %}<a class="btn btn--link btn--small" href="{% url 'events:option_add' event.slug version.id q.id %}">Agregar opción<span class="visually-hidden"> a “{{ q.text|truncatechars:40 }}”</span></a>{% endif %}
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete_question"><input type="hidden" name="question" value="{{ q.id }}"><button class="link-button link-button--danger" data-confirm="¿Quitar esta pregunta del borrador?">Quitar<span class="visually-hidden"> “{{ q.text|truncatechars:40 }}”</span></button></form>
+            </div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+    {% if version.is_editable %}<p class="more"><a class="btn btn--secondary btn--small" href="{% url 'events:question_add' event.slug version.id section.id %}">Agregar pregunta<span class="visually-hidden"> a “{{ section.title }}”</span></a></p>{% endif %}
+  </section>
+{% endfor %}
+{% if version.is_editable %}<p class="admin-section__add"><a class="btn btn--secondary" href="{% url 'events:section_add' event.slug version.id %}">Agregar sección</a></p>{% endif %}
+{% endblock %}

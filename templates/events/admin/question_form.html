@@ -1,0 +1,42 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if question.pk %}Editar pregunta{% else %}Nueva pregunta{% endif %}{% endblock %}
+{% block content %}
+{% include "partials/ui/error_summary.html" with form=form %}
+{% url 'events:version_detail' event.slug version.id as back_url %}
+{% with n=version.number|stringformat:"s" %}{% with back_label=version.title|add:", versión "|add:n %}
+  {% if question.pk %}
+    {% include "events/rotulo/_page_head.html" with title="Editar pregunta" back_url=back_url back_label=back_label %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Nueva pregunta" back_url=back_url back_label=back_label %}
+  {% endif %}
+{% endwith %}{% endwith %}
+<div class="split admin-split">
+  <form method="post" novalidate>{% csrf_token %}{% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar pregunta</button>
+      <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+    </div>
+  </form>
+  <aside aria-labelledby="niveles">
+    <h2 id="niveles" class="heading">Niveles de privacidad</h2>
+    <dl class="summary-list admin-levels">
+      <div class="summary-list__row"><dt>General</dt><dd>La ve quien puede ver al campero.</dd></div>
+      <div class="summary-list__row"><dt>Sensible</dt><dd>La ve su coordinador y el equipo de cuidado autorizado. En los resúmenes solo aparece en totales.</dd></div>
+      <div class="summary-list__row"><dt>Confidencial</dt><dd>Solo la lee el equipo de cuidado autorizado. Úsala para temas íntimos y textos libres.</dd></div>
+    </dl>
+    <p class="aside-note">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
+    {% with choices=form.fields.condition_question.queryset %}{% if choices %}
+      {% comment %}"Respuestas que la muestran" takes internal identifiers; the questionnaire page folds them away, so they are listed here, folded too (LANG-05).{% endcomment %}
+      <details class="details">
+        <summary>Identificador interno (para quien edita el cuestionario)</summary>
+        <div class="details__body">
+          <p>En “Respuestas que la muestran” escribe el identificador de cada respuesta, separado por comas.</p>
+          <dl class="summary-list">{% for cq in choices %}
+            <div class="summary-list__row"><dt>{{ cq.text }}</dt><dd>{% for o in cq.options.all %}{{ o.label }}, <code>{{ o.code }}</code>{% if not forloop.last %}; {% endif %}{% empty %}Sin respuestas todavía.{% endfor %}</dd></div>
+          {% endfor %}</dl>
+        </div>
+      </details>
+    {% endif %}{% endwith %}
+  </aside>
+</div>
+{% endblock %}

@@ -1,43 +1,44 @@
 {% extends "base.html" %}
 {% load core_extras %}
-{% block title %}Follow-ups | Emmaus{% endblock %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Seguimientos{% endblock %}
 {% block content %}
-  {% include "partials/page_header.html" with eyebrow="Care requests" title="Follow-ups" subtitle="Requests for conversation, care, check-ins, or next steps." %}
-  <section class="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-    <div class="card p-5 md:p-6">
-      <div class="space-y-3">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Seguimientos" lede="Solicitudes para platicar, acompañar, saludar o acordar un siguiente paso." %}
+<div class="split disc-follow">
+  <section aria-labelledby="lista">
+    <h2 id="lista" class="heading">Lista de seguimientos{% if follow_ups %} <span class="count">{{ follow_ups|length }}</span>{% endif %}</h2>
+    {% if follow_ups %}
+      <ul class="rows">
         {% for follow_up in follow_ups %}
-          <div class="human-row">
-            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p class="font-semibold text-stone-950">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
-                <p class="mt-2 text-sm leading-6 text-stone-600">{{ follow_up.reason }}</p>
-                <p class="mt-2 text-xs text-stone-500">Assigned to {{ follow_up.assigned_to|display_name:"Not assigned" }}</p>
-              </div>
-              <div class="flex flex-wrap items-center gap-2">
-                {% include "partials/status_badge.html" with status=follow_up.status label=follow_up.get_status_display %}
-                {% if follow_up.status != "completed" %}
-                  <form method="post" action="{% url 'complete_follow_up' follow_up.id %}">
-                    {% csrf_token %}
-                    <button class="btn btn-secondary !min-h-0 !py-2">Complete follow-up</button>
-                  </form>
-                {% endif %}
-              </div>
+          <li class="row disc-item">
+            <div class="row__main">
+              <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+              <p class="disc-item__text">{{ follow_up.reason|linebreaksbr }}</p>
+              <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}.{% if follow_up.due_date %} Fecha límite: {{ follow_up.due_date|date:"j b Y" }}.{% endif %}</p>
             </div>
-          </div>
-        {% empty %}
-          {% include "partials/empty_state.html" with title="No follow-ups right now" body="Requests for conversation or care will appear here." %}
+            {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+            {% if follow_up.status != "completed" %}
+              <form method="post" action="{% url 'complete_follow_up' follow_up.id %}" class="disc-item__action">
+                {% csrf_token %}
+                <button class="btn btn--secondary btn--small" type="submit">Marcar como completado<span class="visually-hidden">: {{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</span></button>
+              </form>
+            {% endif %}
+          </li>
         {% endfor %}
-      </div>
-    </div>
-    <div class="card-flat p-5 md:p-6">
-      <h2 class="font-semibold text-stone-950">Create follow-up</h2>
-      <p class="mt-2 text-sm leading-6 text-stone-600">Create a request when someone needs a personal check-in or next step.</p>
-      <form method="post" class="mt-5">
-        {% csrf_token %}
-        {% include "partials/form_fields.html" %}
-        <button class="btn btn-primary">Create follow-up</button>
-      </form>
-    </div>
+      </ul>
+    {% else %}
+      <p class="empty-line">No hay seguimientos. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
+    {% endif %}
   </section>
+
+  <section aria-labelledby="crear">
+    <h2 id="crear" class="heading">Crear seguimiento</h2>
+    <p class="disc-section__intro">Crea una solicitud cuando alguien necesite que lo busquen en persona o acordar un siguiente paso.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="btn-row"><button class="btn btn--primary" type="submit">Crear seguimiento</button></div>
+    </form>
+  </section>
+</div>
 {% endblock %}

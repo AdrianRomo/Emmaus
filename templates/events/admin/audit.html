@@ -1,0 +1,22 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Registro de actividad{% endblock %}
+{% block content %}
+{% url 'events:settings' event.slug as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Registro de actividad" lede="Cada acción importante queda registrada. Nunca se guardan aquí las respuestas." back_url=back_url back_label="Configuración" %}
+<form method="get" class="filter-bar" aria-label="Filtrar el registro">
+  <div class="field"><label class="label" for="accion">Acción</label><select id="accion" name="accion"><option value="">Todas</option>{% for code, label in actions %}<option value="{{ code }}"{% if selected == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <button class="btn btn--secondary" type="submit">Filtrar</button>
+</form>
+<section aria-labelledby="t-registro">
+  <h2 id="t-registro" class="heading">{{ page.paginator.count }} registro{{ page.paginator.count|pluralize }}</h2>
+  {% if not access.can_view_sensitive %}<p class="aside-note">Lo relacionado con información confidencial y con reportes de riesgo aparece como “Movimiento confidencial”, sin decir de qué campero se trata.</p>{% endif %}
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Registro de actividad">
+    <table class="table admin-table">
+      <thead><tr><th>Fecha</th><th>Quién</th><th>Qué pasó</th></tr></thead>
+      <tbody>{% for a in rows %}<tr><td class="table__date">{{ a.created_at|fecha_corta }}</td><td>{{ a.actor_label }}</td><td>{{ a.shown_summary }}</td></tr>{% empty %}<tr><td colspan="3">No hay registros.</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% include "events/rotulo/_pagination.html" with page=page %}
+</section>
+{% endblock %}

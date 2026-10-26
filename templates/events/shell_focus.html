@@ -1,0 +1,21 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus %}
+{% comment %}Interview shell (Rótulo): no navigation, only who is being interviewed and a way out.{% endcomment %}
+{% block title %}{% block page_title %}{% endblock %} · Emmaus{% endblock %}
+{% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
+{% block body %}
+{% comment %}Enter submits the first submit button of a form in tree order, so a step's "next" button goes here, before "Guardar y salir" and "Atrás".{% endcomment %}
+{% block default_submit %}{% endblock %}
+<div class="focus">
+  <header class="focusbar">
+    <div class="focusbar__inner">
+      <p class="focusbar__who">{% block who %}<strong>{{ participant.full_name }}</strong> <span>#{{ participant.code }}, {{ participant.room|cuarto }}</span>{% endblock %}</p>
+      <div class="focusbar__actions">{% block focus_actions %}{% endblock %}</div>
+    </div>
+  </header>
+  <main id="contenido" class="focus__main" tabindex="-1">
+    {% include "partials/ui/messages.html" %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% endblock %}

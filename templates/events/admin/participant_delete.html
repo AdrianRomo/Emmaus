@@ -1,0 +1,30 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Eliminar datos del campero{% endblock %}
+{% block content %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% url 'events:participant_detail' event.slug participant.public_id as back_url %}
+{% with title="Eliminar los datos de "|add:participant.full_name %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name %}
+{% endwith %}
+{% comment %}
+  What goes with the person, as counts only: never what a follow-up or a report says. The counts are what this
+  viewer may see in "Seguimiento"; the sentence about confidential follow-ups is constant, so it reveals nothing.
+{% endcomment %}
+<section class="confirm" aria-labelledby="se-borra">
+  <h2 id="se-borra" class="voice confirm__title">Esto se borra con su registro</h2>
+  <p class="confirm__text">{{ counts.open_care }} seguimiento{{ counts.open_care|pluralize }} abierto{{ counts.open_care|pluralize }}, {{ counts.open_safety }} reporte{{ counts.open_safety|pluralize }} de riesgo abierto{{ counts.open_safety|pluralize }}, {{ counts.interviews }} entrevista{{ counts.interviews|pluralize }}.</p>
+  <p class="confirm__text">Si existieran seguimientos confidenciales, también se borrarían.</p>
+</section>
+<div class="notice notice--danger mt-8"><p class="notice__title">Esto no se puede deshacer</p><p>Se borran su registro, su entrevista, sus respuestas, autorizaciones y seguimientos, abiertos o cerrados. Los reportes guardados solo tienen totales y no cambian.{% if counts.open_safety %} Antes de borrar, asegúrate de que el equipo de cuidado autorizado ya atendió {{ counts.open_safety|pluralize:"el reporte de riesgo abierto,los reportes de riesgo abiertos" }}.{% endif %}</p></div>
+<form method="post" class="mt-8" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/field.html" with field=form.confirm_name %}
+  {% if form.understand_safety %}{% include "partials/ui/field.html" with field=form.understand_safety %}{% endif %}
+  <div class="step__actions">
+    <button class="btn btn--danger" type="submit">Eliminar definitivamente</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endblock %}

@@ -1,9 +1,30 @@
+# Production starting point. Static files are served by WhiteNoise from the image,
+# so there is no staticfiles volume (a volume would keep stale assets after upgrades).
 services:
   web:
     build: .
-    command: gunicorn emmaus.wsgi:application --bind 0.0.0.0:8000 --workers 3
+    command: gunicorn emmaus.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 4 --timeout 60
     ports:
-      - "8000:8000"
+      # Only the reverse proxy on this host should reach gunicorn. Change if your proxy runs elsewhere.
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    environment:
+      DEBUG: "false"
+      DATABASE_URL: postgres://emmaus:${POSTGRES_PASSWORD}@db:5432/emmaus
+    volumes:
+      # The church logo (MEDIA_ROOT). Not in the database dump: back it up too (docs/deployment.md, Backups).
+      - media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Cortes de seguimiento: generates due report snapshots and tidies expired
+  # station sessions every 5 minutes. Safe to restart; every pass is idempotent.
+  scheduler:
+    build: .
+    command: python manage.py run_report_cutoffs --loop 300
     env_file:
       - .env
     environment:
@@ -12,8 +33,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - staticfiles:/app/staticfiles
+    healthcheck:
+      disable: true
+    restart: unless-stopped
 
   db:
     image: postgres:16
@@ -28,7 +50,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-  staticfiles:
+  media:

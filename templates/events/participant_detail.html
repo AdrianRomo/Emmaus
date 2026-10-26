@@ -1,0 +1,60 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}{{ participant.full_name }}{% endblock %}
+{% block content %}
+{% if can_interview and interview.status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}
+{% if can_edit %}{% url 'events:participant_edit' event.slug participant.public_id as edit_url %}{% endif %}
+{% if interview %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
+{% endif %}
+
+<div class="split">
+  <section aria-labelledby="datos">
+    <h2 id="datos" class="heading">Datos del campero</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Número</dt><dd>#{{ participant.code }}{% if not participant.is_active %}, dado de baja{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años</dd></div>
+      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
+      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
+      <div class="summary-list__row"><dt>Coordinador</dt><dd>{{ participant.coordinator.display_name|default:"Sin asignar" }}</dd></div>
+      <div class="summary-list__row"><dt>Registro</dt><dd>{{ participant.created_at|fecha_corta }}</dd></div>
+      {% if participant.is_minor and event.requires_guardian_authorization %}
+      <div class="summary-list__row"><dt>Autorización de padre, madre o tutor legal</dt><dd>{% if guardian_ok %}Registrada{% if guardian_record.recorded_by %} por {{ guardian_record.recorded_by.get_full_name|default:guardian_record.recorded_by.email }}{% endif %}, {{ guardian_record.recorded_at|fecha_corta }}{% else %}<strong>Falta</strong>{% endif %}</dd>
+        <dd class="summary-list__action">{% if can_edit %}{% if guardian_ok %}<a href="{% url 'events:guardian_authorization_withdraw' event.slug participant.public_id %}">Quitar la autorización</a>{% else %}<a href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a>{% endif %}{% endif %}</dd></div>
+      {% endif %}
+    </dl>
+  </section>
+  <div>
+    <section class="block" aria-labelledby="entrevista">
+      <h2 id="entrevista" class="heading">Entrevista</h2>
+      {% if interview %}
+        <p>{% status interview.status %}</p>
+        <p class="row__meta">{{ interview.get_mode_display }}, iniciada {{ interview.started_at|fecha_corta }}{% if interview.completed_at %}, completada {{ interview.completed_at|fecha_corta }}{% endif %}.</p>
+        <p class="more"><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">Ver respuestas</a></p>
+      {% else %}
+        <p>{% status "pendiente" %}</p>
+      {% endif %}
+    </section>
+    {% if follow_ups %}
+      <section class="block" aria-labelledby="seguimiento">
+        <h2 id="seguimiento" class="heading">Seguimiento</h2>
+        <ul class="rows">{% for f in follow_ups %}
+          <li class="row">
+            <div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta">{{ f.created_at|since|capfirst }}</p></div>
+            {% follow_up_status f.status %}
+          </li>
+        {% endfor %}</ul>
+      </section>
+    {% endif %}
+    <section class="block" aria-label="Otras acciones">
+      <p><a class="btn btn--secondary btn--danger-outline" href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p>
+      {% if access.is_admin %}
+        {% if access.can_view_sensitive %}<p class="more"><a href="{% url 'events:participant_data_export' event.slug participant.public_id %}">Descargar todos sus datos</a></p>{% endif %}
+        <p class="more"><a href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}
