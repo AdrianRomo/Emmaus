@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 
+from django import forms
 from django.contrib import messages
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
@@ -39,6 +40,7 @@ from ..models import (
     AuditEvent,
     EventMembership,
     EventParticipant,
+    FollowUp,
     Interview,
     InterviewStation,
     InterviewStatus,
@@ -194,8 +196,9 @@ def participant_data_export(request, event, access, public_id):
             "completada": interview.completed_at.isoformat() if interview and interview.completed_at else None,
             "respuestas": answers,
         },
+        # The notes are the campero's own data: for a withdrawn authorization, the reason it was withdrawn.
         "autorizaciones": [
-            {"tipo": c.get_kind_display(), "estado": c.get_status_display(), "fecha": c.recorded_at.isoformat()}
+            {"tipo": c.get_kind_display(), "estado": c.get_status_display(), "fecha": c.recorded_at.isoformat(), "notas": c.notes}
             for c in participant.consents.all()
         ],
     }
@@ -205,20 +208,70 @@ def participant_data_export(request, event, access, public_id):
     return response
 
 
+class ParticipantDeleteForm(forms.Form):
+    """The full name, typed; and, when a safety report about the person is open, a box saying so."""
+
+    confirm_name = forms.CharField(
+        label="Para confirmar, escribe su nombre completo",
+        error_messages={"required": "Escribe su nombre completo exactamente como aparece."},
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+    )
+
+    def __init__(self, *args, participant, open_safety: int, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.participant = participant
+        self.fields["confirm_name"].help_text = participant.full_name
+        if open_safety:
+            one = open_safety == 1
+            label = "Entiendo que se borrará un reporte de riesgo abierto" if one else f"Entiendo que se borrarán {open_safety} reportes de riesgo abiertos"
+            error = f"Marca esta casilla para borrar sus datos junto con {'el reporte abierto' if one else 'los reportes abiertos'}."
+            self.fields["understand_safety"] = forms.BooleanField(label=label, error_messages={"required": error})
+
+    def clean_confirm_name(self):
+        typed = self.cleaned_data["confirm_name"].strip()
+        if typed.lower() != self.participant.full_name.lower():
+            raise forms.ValidationError("Escribe su nombre completo exactamente como aparece.")
+        return typed
+
+
+def _erased_counts(participant, access) -> dict:
+    """What deleting the person takes with it, as counts only (never what any of it says).
+
+    Only what this viewer may see in "Seguimiento" (``access.follow_ups()``): confidential referrals are
+    counted only with confidential access, so the page of an administrator without it reads the same
+    whether or not one exists. The template says, always, that they would be deleted too.
+    """
+    open_follow_ups = access.follow_ups().filter(participant=participant, status__in=FollowUp.OPEN_STATUSES)
+    return {
+        "open_care": open_follow_ups.filter(kind=FollowUp.Kind.CARE).count(),
+        "open_safety": open_follow_ups.filter(kind=FollowUp.Kind.SAFETY).count(),
+        "interviews": participant.interviews.exclude(status=Interview.Status.DISCARDED).count(),
+    }
+
+
 @event_view(ADMIN)
 def participant_delete(request, event, access, public_id):
     participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
-    if request.method == "POST":
-        if request.POST.get("confirm_name", "").strip().lower() != participant.full_name.lower():
-            messages.error(request, "Escribe el nombre completo exactamente como aparece para confirmar.")
-        else:
-            participant_svc.delete_participant_data(participant, actor=request.user)
-            messages.success(request, "Se eliminaron los datos del campero.")
-            return redirect("events:participants", slug=event.slug)
-    return render(request, "events/admin/participant_delete.html", {"participant": participant})
+    # Counted again on every request: a report filed after the page was opened still needs its own box.
+    counts = _erased_counts(participant, access)
+    form = ParticipantDeleteForm(request.POST or None, participant=participant, open_safety=counts["open_safety"])
+    if request.method == "POST" and form.is_valid():
+        participant_svc.delete_participant_data(participant, actor=request.user)
+        messages.success(request, "Se eliminaron los datos del campero.")
+        return redirect("events:participants", slug=event.slug)
+    return render(request, "events/admin/participant_delete.html", {"participant": participant, "form": form, "counts": counts})
 
 
 # ---- team -----------------------------------------------------------------------------------
+
+
+def _managed_elsewhere(event, user) -> bool:
+    """A superuser, or an account with a role or a team in another church: this administration does not own it."""
+    if user.is_superuser:
+        return True
+    if UserChurchRole.objects.filter(user=user).exclude(church_id=event.church_id).exists():
+        return True
+    return EventMembership.objects.filter(user=user).exclude(event__church_id=event.church_id).exists()
 
 
 def _can_issue_activation_link(event, user) -> bool:
@@ -227,13 +280,9 @@ def _can_issue_activation_link(event, user) -> bool:
     An account that already has a password, a staff/superuser account, or one that also
     belongs to another church must use "¿Olvidaste tu contraseña?" (e-mail to its owner).
     """
-    if user.has_usable_password() or user.is_superuser or user.is_staff:
+    if user.has_usable_password() or user.is_staff:
         return False
-    if UserChurchRole.objects.filter(user=user).exclude(church_id=event.church_id).exists():
-        return False
-    if EventMembership.objects.filter(user=user).exclude(event__church_id=event.church_id).exists():
-        return False
-    return True
+    return not _managed_elsewhere(event, user)
 
 
 def _activation_link(request, user) -> str:
@@ -242,26 +291,38 @@ def _activation_link(request, user) -> str:
     return request.build_absolute_uri(reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token}))
 
 
-def _member_added(request, event, added, link_for_existing=False):
+def _member_added(request, event, added):
     """After "Agregar persona" or an approved request: a new account gets its link (by e-mail and on screen).
 
-    ``link_for_existing`` (approvals): an existing account that never set a password gets the link too,
-    when ``_can_issue_activation_link`` allows it; otherwise it could never sign in.
+    An existing account that never set a password gets the link too, when ``_can_issue_activation_link``
+    allows it; otherwise it could never sign in. The message says an e-mail went out only when one could.
     """
     membership, user = added.membership, added.user
-    if added.is_new or (link_for_existing and _can_issue_activation_link(event, user)):
+    if added.is_new or _can_issue_activation_link(event, user):
         created_link = _activation_link(request, user)
-        sent = send_email_safely(
+        configured = team_svc.email_is_configured()
+        sent = configured and send_email_safely(
             f"Te invitaron a {event.name} en Emmaus",
             f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}. Crea tu contraseña aquí:\n{created_link}\n\nSi no esperabas este correo, ignóralo.",
             [user.email],
         )
+        if sent:
+            delivery = " Le enviamos un correo para crear su contraseña."
+        elif not configured:
+            delivery = " No hay correo configurado: comparte este enlace con la persona."
+        else:
+            delivery = " Copia el enlace para que cree su contraseña."
+        messages.success(request, f"{membership.display_name} ya forma parte del equipo.{delivery}")
+        return render(request, "events/admin/member_created.html", {"membership": membership, "link": created_link})
+    if _managed_elsewhere(event, user) or (user.is_staff and not user.has_usable_password()):
+        # Its link may only go to its owner's e-mail, and this administration may not learn whether it has a
+        # password: one message, with or without one.
         messages.success(
             request,
-            f"{membership.display_name} ya forma parte del equipo."
-            + (" Le enviamos un correo para crear su contraseña." if sent else " Copia el enlace para que cree su contraseña."),
+            f"{membership.display_name} ya forma parte del equipo. Esta cuenta ya existe y la administra otra iglesia "
+            "o el sistema; pide a esa administración que le dé acceso.",
         )
-        return render(request, "events/admin/member_created.html", {"membership": membership, "link": created_link})
+        return redirect("events:team", slug=event.slug)
     messages.success(request, f"{membership.display_name} ya forma parte del equipo. Puede entrar con su contraseña de siempre.")
     return redirect("events:team", slug=event.slug)
 
@@ -322,7 +383,7 @@ def access_request_approve(request, event, access, pk):
             request.user, event, "solicitud_aprobada",
             f"Aprobó la solicitud de acceso de {access_request.full_name} como {added.membership.get_role_display().lower()}", access_request,
         )
-    return _member_added(request, event, added, link_for_existing=True)
+    return _member_added(request, event, added)
 
 
 def _refuse_existing_access(request, event, access_request, name, role_label):

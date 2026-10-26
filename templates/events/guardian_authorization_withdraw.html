@@ -1,0 +1,21 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Quitar la autorización{% endblock %}
+{% block content %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% with title="Quitar la autorización de "|add:participant.first_name %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name lede="Úsalo si se marcó por error o si la familia retiró su permiso. Las entrevistas ya completadas no cambian. Antes de una entrevista nueva, alguien tendrá que confirmar la autorización otra vez." %}
+{% endwith %}
+{% if interview_in_progress %}
+<div class="notice notice--warning"><p>Hay una entrevista en curso; se podrá terminar. Las siguientes necesitarán una autorización nueva.</p></div>
+{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/field.html" with field=form.reason %}
+  <div class="step__actions">
+    <button class="btn btn--primary" type="submit">Quitar la autorización</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endblock %}

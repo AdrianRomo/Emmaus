@@ -54,7 +54,7 @@ class InitialSetupTests(TestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("church_dashboard"))
+        self.assertRedirects(response, reverse("events:list"))  # where "Crear campamento" is, not the discipleship overview
         church = Church.objects.get(slug="grace")
         admin = User.objects.get(email="ada@example.org")
         self.assertEqual(church.name, "Grace Church")

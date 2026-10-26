@@ -22,6 +22,7 @@ urlpatterns = [
     path(E + "camperos/" + I, coordinator.participant_detail, name="participant_detail"),
     path(E + "camperos/" + I + "editar/", coordinator.participant_edit, name="participant_edit"),
     path(E + "camperos/" + I + "autorizacion/", coordinator.guardian_authorization, name="guardian_authorization"),
+    path(E + "camperos/" + I + "autorizacion/quitar/", coordinator.guardian_authorization_withdraw, name="guardian_authorization_withdraw"),
     path(E + "camperos/" + I + "entrevista/", interview.interview_start, name="interview_start"),
     path(E + "camperos/<uuid:participant_id>/riesgo/", interview.safety_report, name="safety_report"),
     # Entrevistas

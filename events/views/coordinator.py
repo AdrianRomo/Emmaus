@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from django import forms
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import urlencode
 
 from ..forms import ParticipantForm
 from ..models import FollowUp, Interview, InterviewStatus, normalize_name
@@ -145,8 +147,10 @@ def participant_detail(request, event, access, public_id):
     participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
     interview = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
     follow_ups = access.follow_ups().filter(participant=participant)
-    from ..services.participants import guardian_authorized
+    from ..models import ConsentRecord
+    from ..services.participants import latest_consent
 
+    guardian = latest_consent(participant, ConsentRecord.Kind.GUARDIAN)
     return render(
         request,
         "events/participant_detail.html",
@@ -156,7 +160,8 @@ def participant_detail(request, event, access, public_id):
             "follow_ups": follow_ups,
             "can_edit": access.can_edit_participant(participant),
             "can_interview": access.can_interview(participant),
-            "guardian_ok": guardian_authorized(participant),
+            "guardian_ok": bool(guardian and guardian.status == ConsentRecord.Status.GRANTED),
+            "guardian_record": guardian,
             "consents": participant.consents.select_related("recorded_by")[:6],
         },
     )
@@ -182,12 +187,62 @@ def participant_edit(request, event, access, public_id):
     return render(request, "events/participant_form.html", {"form": form, "participant": participant, "creating": False})
 
 
+def _guardian_participant(access, public_id):
+    participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
+    if not access.can_edit_participant(participant):
+        raise PermissionDenied
+    return participant
+
+
 @event_view(COORDINATOR, ADMIN)
 def guardian_authorization(request, event, access, public_id):
-    participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
-    if not access.can_edit_participant(participant) or request.method != "POST":
-        raise PermissionDenied
-    participant_svc.record_guardian_authorization(participant, actor=request.user, granted=True)
-    messages.success(request, "Autorización registrada.")
-    fallback = reverse("events:participant_detail", args=[event.slug, participant.public_id])
-    return redirect(safe_next(request, request.POST.get("siguiente"), fallback))
+    """"Marcar como recibida": a page that says what is attested and by whom; only its own button records it.
+
+    A POST without ``confirmar`` (a stale one-click form) is sent to that page instead of recording.
+    """
+    participant = _guardian_participant(access, public_id)
+    detail = reverse("events:participant_detail", args=[event.slug, participant.public_id])
+    after = safe_next(request, request.POST.get("siguiente") or request.GET.get("siguiente"), detail)
+    if request.method == "POST" and request.POST.get("confirmar") == "si":
+        if participant_svc.guardian_authorized(participant):
+            messages.info(request, "La autorización ya estaba registrada.")
+        else:
+            participant_svc.record_guardian_authorization(participant, actor=request.user, granted=True)
+            messages.success(request, "Autorización registrada.")
+        return redirect(after)
+    if request.method == "POST":
+        page = reverse("events:guardian_authorization", args=[event.slug, participant.public_id])
+        return redirect(f"{page}?{urlencode({'siguiente': after})}" if after != detail else page)
+    if participant_svc.guardian_authorized(participant):
+        messages.info(request, "La autorización ya está registrada.")
+        return redirect(detail)
+    return render(request, "events/guardian_authorization.html", {"participant": participant, "after": after, "back_url": detail})
+
+
+class GuardianWithdrawForm(forms.Form):
+    reason = forms.CharField(
+        label="¿Por qué la quitas?",
+        help_text="Por ejemplo: se marcó por error, o la familia retiró su permiso. Queda registrado con tu nombre.",
+        max_length=200,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        error_messages={"required": "Escribe por qué quitas la autorización.",
+                        "max_length": "Escribe el motivo en 200 caracteres o menos."},
+    )
+
+
+@event_view(COORDINATOR, ADMIN)
+def guardian_authorization_withdraw(request, event, access, public_id):
+    """"Quitar la autorización": undoes "Marcar como recibida" with a reason. Completed interviews keep theirs."""
+    participant = _guardian_participant(access, public_id)
+    detail = reverse("events:participant_detail", args=[event.slug, participant.public_id])
+    if not participant_svc.guardian_authorized(participant):
+        messages.info(request, "No hay una autorización registrada que quitar.")
+        return redirect(detail)
+    form = GuardianWithdrawForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        participant_svc.withdraw_guardian_authorization(participant, actor=request.user, reason=form.cleaned_data["reason"].strip())
+        messages.success(request, "Se quitó la autorización. Antes de entrevistar, alguien tendrá que confirmarla otra vez.")
+        return redirect(detail)
+    in_progress = participant.interviews.filter(status=Interview.Status.IN_PROGRESS).exists()
+    return render(request, "events/guardian_authorization_withdraw.html",
+                  {"participant": participant, "form": form, "back_url": detail, "interview_in_progress": in_progress})

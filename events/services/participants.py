@@ -124,7 +124,14 @@ def delete_participant_data(participant: EventParticipant, *, actor) -> None:
     participant.delete()
 
 
+@transaction.atomic
 def record_guardian_authorization(participant: EventParticipant, *, actor, granted: bool = True, notes: str = "") -> ConsentRecord:
+    """The signed guardian authorization is in the church's hands, attested by ``actor``. Once: a second
+    confirmation (a double click, two tabs) returns the record already there."""
+    EventParticipant.objects.select_for_update().filter(pk=participant.pk).first()
+    current = latest_consent(participant, ConsentRecord.Kind.GUARDIAN)
+    if granted and current is not None and current.status == ConsentRecord.Status.GRANTED:
+        return current
     record = ConsentRecord.objects.create(
         participant=participant,
         kind=ConsentRecord.Kind.GUARDIAN,
@@ -136,9 +143,45 @@ def record_guardian_authorization(participant: EventParticipant, *, actor, grant
     audit.record(
         actor,
         participant.event,
-        "autorizacion",
+        "autorizacion_registrada",
         f"Registró la autorización del padre, madre o tutor legal del campero #{participant.code}",
         participant,
+    )
+    return record
+
+
+@transaction.atomic
+def withdraw_guardian_authorization(participant: EventParticipant, *, actor, reason: str) -> ConsentRecord | None:
+    """Undo "Marcar como recibida": a newer record (revocado) with the reason; the earlier one stays as history.
+
+    Only checks from now on read it (``guardian_authorized``): an interview already completed is not touched,
+    and one in progress is not stopped (the campero is already talking); the audit row then names it. Returns
+    None when there was no authorization to remove. The reason stays on the record (and in the campero's data
+    export), not in the activity log.
+    """
+    from ..models import Interview
+
+    EventParticipant.objects.select_for_update().filter(pk=participant.pk).first()
+    current = latest_consent(participant, ConsentRecord.Kind.GUARDIAN)
+    if current is None or current.status != ConsentRecord.Status.GRANTED:
+        return None
+    record = ConsentRecord.objects.create(
+        participant=participant,
+        kind=ConsentRecord.Kind.GUARDIAN,
+        status=ConsentRecord.Status.REVOKED,
+        method=current.method,
+        notes=reason[:200],
+        recorded_by=actor,
+    )
+    in_progress = participant.interviews.filter(status=Interview.Status.IN_PROGRESS).first()
+    summary = f"Quitó la autorización del padre, madre o tutor legal del campero #{participant.code}"
+    audit.record(
+        actor,
+        participant.event,
+        "autorizacion_retirada",
+        summary + (", con una entrevista en curso que se podrá terminar" if in_progress else ""),
+        participant,
+        **({"interview": str(in_progress.public_id)} if in_progress else {}),
     )
     return record
 

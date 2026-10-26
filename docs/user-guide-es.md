@@ -2,6 +2,19 @@
 
 Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y administración. Explica, paso a paso, cómo se usa Emmaus durante el campamento. No necesitas saber nada de computación.
 
+## Antes de empezar: la primera cuenta
+
+Esto se hace una sola vez, cuando Emmaus está recién instalado y todavía no tiene ninguna iglesia. Lo hace la persona que va a administrar la iglesia en Emmaus. No necesitas abrir una terminal ni escribir comandos: todo es en el navegador.
+
+1. Abre en el navegador la dirección de Emmaus que te dio quien lo instaló.
+2. Como todavía no hay ninguna iglesia, Emmaus te lleva solo a **"Configura el espacio de tu iglesia"** (la dirección termina en `/setup/`).
+3. Escribe el **"Nombre de la iglesia"** y un **"Identificador de la iglesia"**: un nombre corto en minúsculas, sin espacios ni acentos, por ejemplo `iglesia-gracia`.
+4. Escribe tu nombre en **"Nombre de la primera persona administradora"**, tu correo en **"Correo de la primera persona administradora"** y crea tu contraseña. Con ese correo y esa contraseña vas a entrar a Emmaus.
+5. Lee el **"Aviso para participantes"**, a la derecha. Lo puedes cambiar después en la configuración de la iglesia; la indicación de llamar al 911 siempre aparece.
+6. Toca **"Crear espacio"**.
+
+Emmaus entra con tu cuenta y te lleva a **"Campamentos y eventos"**, donde lo único que hay que hacer es **"Crear campamento"**: sigue en [Crear el campamento](#1-crear-el-campamento). Desde que existe la iglesia, `/setup/` ya no aparece; las demás personas entran con la cuenta que la administración les crea en **"Equipo"**.
+
 ## Palabras que vas a ver
 
 | Palabra | Qué significa |
@@ -23,7 +36,7 @@ Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y 
 1. Abre Emmaus en el navegador y escribe tu **Correo electrónico** y tu **Contraseña**.
 2. Toca **"Entrar"**.
 3. Si es tu primera vez, la administración te mandó un correo o te dio un enlace para crear tu contraseña.
-4. Si olvidaste tu contraseña, toca **"¿Olvidaste tu contraseña?"**, escribe tu correo y toca **"Enviar enlace"**. Te llegará un correo para crear una nueva. Si no llega, revisa el correo no deseado o pide ayuda a la administración.
+4. Si olvidaste tu contraseña, toca **"¿Olvidaste tu contraseña?"**, escribe tu correo y toca **"Enviar enlace"**. Te llegará un correo con un enlace para crear tu contraseña, también si nunca la creaste. Si no llega, revisa el correo no deseado o pide ayuda a la administración.
 5. Si te equivocas muchas veces, Emmaus te pide esperar unos minutos antes de intentar otra vez, y cada vez un poco más si sigues fallando. Es para proteger tu cuenta.
 6. Cuando termines, toca **"Cerrar sesión"**. En computadoras compartidas esto es muy importante.
 
@@ -52,13 +65,14 @@ En **"Inicio"**, si algo impide entrevistar, arriba aparece un letrero amarillo 
 
 ![Inicio de la administración](img/admin-inicio.png)
 
-Luego, **"Preparación"** lista cada paso (procedimientos de la iglesia, cuestionario, camperos, equipo, computadoras y cortes) con su estado, **Listo**, **Falta** o **Revisar**, y el enlace para resolverlo. Al final están la actividad reciente y las descargas recientes. El resto de las herramientas está en la barra de arriba: "Participantes", "Equipo", "Cuestionarios", "Reportes" y "Configuración".
+Luego, **"Preparación"** lista cada paso (procedimientos de la iglesia, cuestionario, camperos, equipo, computadoras y cortes) con su estado, **Listo**, **Falta** o **Revisar**, y el enlace para resolverlo. Mientras el campamento está **"En curso"** y genera cortes automáticos, el renglón **"Cortes automáticos"** dice cuándo fue el último ("Último corte automático: hoy 14:00"). Si un corte que tocaba no se generó en 15 minutos, el renglón pide **Revisar** (los cortes de antes de abrir el campamento o de encender los cortes no cuentan): "El programador de cortes no ha corrido desde las 12:00. Puedes generar un corte a mano en Reportes." Genera el corte en **"Reportes"** y avisa a quien administra el servidor. Al final están la actividad reciente y las descargas recientes. El resto de las herramientas está en la barra de arriba: "Participantes", "Equipo", "Cuestionarios", "Reportes" y "Configuración".
 
 ### 1. Crear el campamento
 
 1. En **"Campamentos y eventos"**, toca **"Crear campamento"**.
 2. Escribe el nombre, el tipo de actividad, un identificador corto para la dirección web (solo minúsculas, números y guiones, por ejemplo `jovenes-2026`), el lugar y las fechas.
-3. Toca **"Crear campamento"**.
+3. Revisa el **"Estado"**. Empieza en **"En curso"**, y así ya se puede entrevistar. Si todavía estás preparando, elige **"En preparación"**: nadie puede iniciar entrevistas hasta que lo cambies a "En curso" en **"Configuración"**. Al terminar el campamento, cámbialo a **"Terminado"**.
+4. Toca **"Crear campamento"**.
 
 Emmaus prepara solo 10 computadoras de entrevista ("Computadora 1" a "Computadora 10") y el cuestionario: usa el último que haya publicado tu iglesia o, si no hay ninguno, el cuestionario de conversación espiritual que trae Emmaus.
 
@@ -71,6 +85,8 @@ Antes de entrevistar a cualquier campero, la iglesia debe definir y aprobar qui�
 
 Mientras no lo confirmes, nadie puede iniciar entrevistas. En la misma pantalla revisa también el **"Aviso de privacidad"** y **"Qué hacer ante una situación de riesgo"** (pon nombres y teléfonos reales), la zona horaria, la edad de mayoría y si se pide autorización de padres para menores. Toca **"Guardar configuración"**.
 
+Revisa también los **"Días que se conservan las respuestas después del evento"**. Cuando el campamento está **"Terminado"** o **"Archivado"** y pasan esos días desde la fecha de término, Emmaus borra solo, a partir de las 3 de la mañana, en el siguiente ciclo del programador, los datos de cada campero: su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Los cortes, que solo tienen totales, se quedan. Un campamento que sigue **"En curso"** nunca se borra solo; por eso, al terminar, márcalo como "Terminado". Mientras quede abierto un reporte de riesgo o un seguimiento confidencial, Emmaus tampoco lo borra: lo vuelve a revisar cada día y lo borra cuando ya estén atendidos.
+
 ### 3. Agregar al equipo
 
 1. Ve a **"Equipo"** y toca **"Agregar persona"**.
@@ -80,7 +96,7 @@ Mientras no lo confirmes, nadie puede iniciar entrevistas. En la misma pantalla 
 5. Marca **"Puede leer información confidencial"** solo para el equipo de cuidado. Cada consulta que hagan queda registrada. Nadie puede darse este permiso a sí mismo: otra persona de la administración tiene que dártelo.
 6. Toca **"Agregar al equipo"**.
 
-Si la persona es nueva, Emmaus le manda un correo para crear su contraseña. También verás el enlace en pantalla con el botón **"Copiar enlace"**: compártelo solo con esa persona. Si alguien ya tiene contraseña y la olvidó, debe usar "¿Olvidaste tu contraseña?" en la pantalla de entrada.
+Si la persona es nueva, o ya tenía cuenta pero nunca creó su contraseña, verás en pantalla el enlace para que la cree, con el botón **"Copiar enlace"**: compártelo solo con esa persona. Si el servidor tiene correo configurado, Emmaus además se lo manda y te dice "Le enviamos un correo para crear su contraseña". Si no lo tiene, te dice **"No hay correo configurado: comparte este enlace con la persona."**: ese enlace es la única forma de que le llegue. Si el enlace se pierde o vence, en **"Equipo"** toca **"Editar"** junto a la persona y luego **"Generar enlace"** (solo aparece mientras no haya creado su contraseña). Si alguien ya tiene contraseña y la olvidó, debe usar "¿Olvidaste tu contraseña?" en la pantalla de entrada.
 
 **La hoja con el código.** En **"Equipo"**, arriba, dice "Para unirse al equipo: entra a ... y escribe el código ... o el nombre ...". Toca **"Ver la hoja para imprimir"** y luego **"Imprimir"**: sale una hoja con el nombre del evento, el código en letras grandes, la dirección y tres pasos. Pégala donde llega el equipo. **"Copiar enlace"** copia la dirección directa del evento para mandarla por mensaje. Si el código se compartió con quien no debía, toca **"Generar otro código"**: el código anterior y el nombre del evento dejan de funcionar al instante, y solo entra el código nuevo. Imprime la hoja otra vez (ya no trae el nombre). Si quieres que el nombre vuelva a servir, toca **"Volver a permitir el nombre"**.
 
@@ -99,6 +115,8 @@ Cada coordinador tiene un solo tutor. Un tutor solo ve a sus coordinadores y a l
 ### 5. Registrar camperos
 
 **Uno por uno:** en **"Participantes"**, toca **"Registrar campero"**. Escribe nombre y apellido, edad, cuarto e iglesia o grupo, y elige su coordinador (o déjalo "Sin coordinador por ahora"). Si es menor y ya entregó la autorización firmada, marca **"Ya entregó la autorización firmada de su padre, madre o tutor legal"**. Toca **"Guardar"** o **"Guardar y registrar otro"**.
+
+**La autorización que llega después:** en la ficha del campero, junto a "Autorización de padre, madre o tutor legal", toca **"Marcar como recibida"**. Emmaus te muestra lo que vas a confirmar ("Confirmas que la autorización firmada del padre, la madre o el tutor legal de ... está en manos de la iglesia") y que quedará a tu nombre. Toca **"Sí, la iglesia la tiene"** solo si viste el formato firmado. Si te equivocaste, o la familia retira su permiso, toca **"Quitar la autorización"** en la misma ficha, escribe por qué y toca **"Quitar la autorización"**. Las dos cosas quedan en el registro de actividad. Quitarla no cambia una entrevista ya completada. Si hay una entrevista en curso, Emmaus te avisa ("Hay una entrevista en curso; se podrá terminar. Las siguientes necesitarán una autorización nueva."): no se detiene, porque el campero ya está conversando, y el registro de actividad dice que se quitó con esa entrevista en curso. Si la entrevista no ha empezado, quien la haga tendrá que confirmar la autorización otra vez.
 
 **Desde un archivo (CSV):**
 
@@ -127,16 +145,16 @@ Pega en cada computadora una etiqueta con su número.
 Si una computadora se quedó con una entrevista abierta, ve a **"Configuración"** → **"Sesiones abiertas"**:
 
 * En **"Capturas supervisadas"**, **"Cerrar"** termina la pantalla del campero en esa computadora. La entrevista sigue en curso para retomarla.
-* En **"Entrevistas en curso"**, **"Liberar"** deja la entrevista libre para abrirla en otra computadora. Las respuestas guardadas no se pierden.
+* En **"Entrevistas en curso"**, **"Liberar"** deja la entrevista libre para abrirla en otra computadora. Emmaus pregunta primero: "¿Liberar esta entrevista? La computadora donde está abierta ya no podrá guardar." Las respuestas que ya se guardaron no se pierden.
 
 ### 8. Datos de un campero
 
 En la ficha de un campero, la administración ve:
 
 * **"Descargar todos sus datos"** (solo con acceso confidencial): por ejemplo, si la familia lo pide.
-* **"Eliminar sus datos"**: borra su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Tienes que escribir su nombre completo para confirmar. No se puede deshacer.
+* **"Eliminar sus datos"**: borra su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Antes de borrar, Emmaus te dice cuánto se va, solo en números ("1 seguimiento abierto, 1 reporte de riesgo abierto, 1 entrevista"), nunca lo que dicen. Cuenta lo mismo que tú ves en **"Seguimiento"**: si no tienes acceso confidencial, los seguimientos confidenciales no aparecen en la cuenta, pero también se borran ("Si existieran seguimientos confidenciales, también se borrarían."). Tienes que escribir su nombre completo para confirmar. Si tiene un reporte de riesgo abierto, además marca **"Entiendo que se borrará un reporte de riesgo abierto"**; antes, asegúrate de que el equipo de cuidado ya lo atendió. No se puede deshacer.
 
-En **"Participantes"**, **"Descargar lista"** baja la lista de camperos sin respuestas. Cada descarga queda registrada.
+En **"Participantes"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"). Cada descarga queda registrada.
 
 ---
 
@@ -160,7 +178,7 @@ En las demás pantallas, arriba está el botón **"Iniciar entrevista"**.
 
 ### Elegir tu computadora
 
-La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Continuar"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambiar"**.
+La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te pregunta **"¿En qué computadora estás?"**. Busca el número pegado en la computadora, elígelo y toca **"Continuar"**. Si te equivocaste, en la pantalla de búsqueda toca **"Cambia de computadora"** ("¿No estás en Computadora 3? Cambia de computadora").
 
 ### Iniciar una entrevista
 
@@ -402,7 +420,7 @@ No se pierde lo que ya se guardó: cada vez que tocas "Continuar", "Atrás" o "G
 Puede faltar que la administración confirme los procedimientos de la iglesia, que haya un cuestionario publicado o que el campamento esté "En curso". La pantalla dice cuál es el motivo.
 
 **El campero es menor y no tiene autorización registrada.**
-Si viste el formato firmado, márcalo en "Antes de empezar" (o en su ficha con **"Marcar como recibida"**). Si no lo tienes, no inicies la entrevista.
+Si viste el formato firmado, márcalo en "Antes de empezar" (o en su ficha con **"Marcar como recibida"** y luego **"Sí, la iglesia la tiene"**). Si no lo tienes, no inicies la entrevista. Si se marcó por error, en su ficha toca **"Quitar la autorización"**.
 
 **¿Puedo entrevistar a un campero de otro coordinador?**
 No. Pide a la administración que te lo asigne.
@@ -426,7 +444,7 @@ Pasa cada vez que vuelves a entrar a Emmaus. Elige el número pegado en la compu
 Pasa si no usas Emmaus unos 30 minutos (aunque la pantalla se actualice sola) o si cerraste el navegador. Vuelve a entrar.
 
 **Olvidé mi contraseña.**
-En la pantalla de entrada toca "¿Olvidaste tu contraseña?". Si nunca creaste tu contraseña, pide a la administración un enlace nuevo.
+En la pantalla de entrada toca "¿Olvidaste tu contraseña?" y escribe tu correo: te llega un enlace para crearla, también si nunca la creaste. Si el correo no llega (puede que el servidor no tenga correo configurado), pide a la administración un enlace nuevo.
 
 **Escribí mal la contraseña varias veces y no me deja entrar.**
 Espera unos minutos y vuelve a intentar.
