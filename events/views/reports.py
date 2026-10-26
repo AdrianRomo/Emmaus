@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -14,7 +15,7 @@ from ..services.metrics import build_payload, compare, scope_for_access
 from ..services.pdf import build_snapshot_pdf
 from ..services.presentation import build_deck
 from ..services.reports import latest_snapshot, manual_cutoff, next_slot, previous_snapshot, released_follow_ups, visible_payload
-from .common import LEADERS, event_view, is_fragment
+from .common import LEADERS, event_view, is_fragment, safe_next
 
 
 def _team_public_names(event) -> dict[str, str]:
@@ -139,6 +140,9 @@ def presentation_live(request, event, access):
     payload = build_payload(scope)
     context = _deck_context(event, payload, latest_snapshot(event, scope.key))
     context["live"] = True
+    # "Salir" goes back to the page that opened the presentation (``?desde=``, the pages that link here say which),
+    # and to Reportes otherwise: never to the role's home, which is not where the person was.
+    context["exit_url"] = safe_next(request, request.GET.get("desde"), reverse("events:reports", args=[event.slug]))
     if is_fragment(request):
         return render(request, "events/presentation/_slides.html", context)
     return render(request, "events/presentation/deck.html", context)

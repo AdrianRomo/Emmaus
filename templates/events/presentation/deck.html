@@ -8,7 +8,9 @@
     {% include "events/presentation/_slides.html" %}
   </div>
   <nav class="deck-controls" aria-label="Controles de la presentación">
-    <a class="btn" href="{% if snapshot %}{% url 'events:report_detail' event.slug snapshot.public_id %}{% else %}{% url 'events:home' event.slug %}{% endif %}">Salir</a>
+    {% comment %}"Salir" returns to where the person came from: a saved cutoff's deck to that cutoff, the live deck to the page
+      that opened it (reports.presentation_live: ?desde=, Reportes by default).{% endcomment %}
+    <a class="btn" href="{% if snapshot %}{% url 'events:report_detail' event.slug snapshot.public_id %}{% else %}{{ exit_url }}{% endif %}">Salir</a>
     <button class="btn" type="button" data-deck-prev>Anterior</button>
     <span class="deck-controls__count" data-deck-count aria-live="polite">1 de 5</span>
     <button class="btn" type="button" data-deck-next>Siguiente</button>

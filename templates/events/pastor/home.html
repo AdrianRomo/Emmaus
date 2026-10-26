@@ -11,7 +11,7 @@
     <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>
   </div>
   <div class="report-head__actions">
-    <a class="btn btn--primary" href="{% url 'events:presentation_live' event.slug %}">Mostrar presentación</a>
+    <a class="btn btn--primary" href="{% url 'events:presentation_live' event.slug %}?desde={{ request.path|urlencode }}">Mostrar presentación</a>
     <a class="btn btn--secondary" href="{% url 'events:reports' event.slug %}">Reportes</a>
   </div>
 </header>
