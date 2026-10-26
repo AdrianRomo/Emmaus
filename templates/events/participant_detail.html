@@ -14,7 +14,7 @@
   <section aria-labelledby="datos">
     <h2 id="datos" class="heading">Datos del campero</h2>
     <dl class="summary-list">
-      <div class="summary-list__row"><dt>Número</dt><dd>#{{ participant.code }}{% if not participant.is_active %}, dado de baja{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Número</dt><dd>#{{ participant.code }}{% if not participant.is_active %}, ya no participa{% endif %}</dd></div>
       <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años</dd></div>
       <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
       <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>

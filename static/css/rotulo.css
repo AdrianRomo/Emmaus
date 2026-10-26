@@ -997,6 +997,20 @@ ol.promises li::before {
 /* Administration is the one denser place: tables with tabular numbers, filter bars, and the row that
    needs action marked like a highlighter (borrowed from "Bitácora"). Still no cards, no pills. */
 
+/* Admin flows (2026-10-26), first in G3. .fold--inline beats .fold (section 5) by coming after it, at the same
+   specificity; the participants' filter rules beat the later G3 .filter-bar rules by specificity (two classes). */
+/* "Datos técnicos" inside a row or an aside: the fold without its rule above, small, close to what it opens (UI-19) */
+.fold--inline > summary { border-top: 0; font-size: var(--t-small); }
+.fold--inline > * + * { margin-top: var(--s-2); }
+/* Participants: from 900px the filters and "Filtrar" share one row (UI-31); narrower, they wrap like every filter bar */
+@media (min-width: 900px) {
+  .filter-bar.admin-people__filters { flex-wrap: nowrap; }
+  .filter-bar.admin-people__filters .field { flex: 1 1 0; min-width: 0; }
+  .filter-bar.admin-people__filters .filter-bar__search { flex: 2 1 0; }
+}
+/* The pager under the participants spans the table, not the reading width (UI-30) */
+.admin-people .pager { max-width: none; }
+
 /* Home: the sign (only when something blocks), the state in a sentence, the checklist */
 .admin-sign { margin-bottom: var(--s-10); }
 .admin-state { margin-bottom: var(--s-12); }

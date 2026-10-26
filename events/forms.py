@@ -35,7 +35,16 @@ class SpanishErrorsMixin:
 
 
 class EventForm(SpanishErrorsMixin, forms.ModelForm):
-    required_messages = {"name": "Escribe el nombre del evento.", "slug": "Escribe un nombre corto."}
+    """Create an event, or its "Datos del evento" in Configuración (prefix "basics").
+
+    The short name for the address forms itself from the name when it is left blank (UX-12): on the server here, and
+    while typing in emmaus.js (data-slug-from), which never rewrites one that already has a value.
+    """
+
+    required_messages = {"name": "Escribe el nombre del evento."}
+    # Routed before an event's address (events/urls.py): /eventos/nuevo/ is "Crear campamento", /eventos/cuenta/… the
+    # session ping. An event with one of these would open that page instead of its own.
+    RESERVED_SLUGS = frozenset({"nuevo", "cuenta"})
 
     class Meta:
         model = Event
@@ -45,18 +54,42 @@ class EventForm(SpanishErrorsMixin, forms.ModelForm):
             "ends_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
         }
         help_texts = {
-            "slug": "Solo minúsculas, números y guiones. Por ejemplo: jovenes-2026.",
+            "slug": "Se forma con el nombre; puedes cambiarlo. Solo minúsculas, números y guiones.",
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        slug = self.fields["slug"]
+        slug.required = False
+        slug.widget.attrs["data-slug-from"] = self["name"].auto_id  # id_name, id_basics-name: whatever the prefix
+
+    def _slug_taken(self, slug: str) -> bool:
+        return slug in self.RESERVED_SLUGS or Event.objects.filter(slug=slug).exclude(pk=self.instance.pk).exists()
+
     def clean_slug(self):
-        slug = slugify(self.cleaned_data["slug"])
-        if not slug:
-            raise ValidationError("Usa letras, números o guiones.")
-        clash = Event.objects.filter(slug=slug)
-        if self.instance.pk:
-            clash = clash.exclude(pk=self.instance.pk)
-        if clash.exists():
-            raise ValidationError("Ya existe un evento con ese nombre corto. Prueba con otro.")
+        submitted = self.cleaned_data.get("slug") or ""
+        name = self.cleaned_data.get("name")
+        max_length = Event._meta.get_field("slug").max_length
+        base = None if name is None else slugify(name)[:max_length].strip("-")
+        # Typed: a slug that is not the name's. The one emmaus.js mirrors from the name arrives filled in, and counts
+        # as formed from the name, like a blank one.
+        if submitted and slugify(submitted) != base:
+            slug = slugify(submitted)
+            if not slug:
+                raise ValidationError("Usa letras, números o guiones.")
+            if self._slug_taken(slug):
+                raise ValidationError("Ya existe un evento con ese nombre corto. Prueba con otro.")
+            return slug
+        if name is None:
+            # The name has its own error and nothing is saved. The bound instance keeps its saved address: the page
+            # shown again builds every link from it ("" on create, where no link uses it).
+            return self.instance.slug
+        if not base:
+            raise ValidationError("Escribe un nombre corto con letras, números o guiones.")
+        slug, n = base, 2  # taken: the next number, as question_edit does with codes
+        while self._slug_taken(slug):
+            suffix = f"-{n}"
+            slug, n = f"{base[: max_length - len(suffix)].rstrip('-')}{suffix}", n + 1
         return slug
 
 
@@ -448,7 +481,7 @@ class QuestionForm(forms.ModelForm):
     condition_codes = forms.CharField(
         required=False,
         label="Respuestas que la muestran",
-        help_text="Los identificadores internos de esas respuestas, separados por comas. Están en “Identificador interno (para quien edita el cuestionario)”, en esta página y debajo de cada pregunta del cuestionario. Por ejemplo: si",
+        help_text="Los identificadores internos de esas respuestas, separados por comas. Están en “Datos técnicos”, en esta página y debajo de cada pregunta del cuestionario. Por ejemplo: si",
     )
 
     class Meta:
@@ -458,6 +491,8 @@ class QuestionForm(forms.ModelForm):
 
     def __init__(self, *args, version: QuestionnaireVersion, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["kind"].choices = [("", "Elige un tipo de respuesta"), *Question.Kind.choices]  # not "---------"
+        self.fields["kind"].error_messages["required"] = "Elige un tipo de respuesta."  # Django's says "usted"
         qs = Question.objects.filter(section__version=version, kind__in=[Question.Kind.SINGLE, Question.Kind.MULTIPLE])
         if self.instance.pk:
             qs = qs.exclude(pk=self.instance.pk)

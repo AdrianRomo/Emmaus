@@ -360,7 +360,15 @@ def _member_added(request, event, added):
         else:
             delivery = " Copia el enlace para que cree su contraseña."
         messages.success(request, f"{membership.display_name} ya forma parte del equipo.{delivery}")
-        return render(request, "events/admin/member_created.html", {"membership": membership, "link": created_link})
+        # The page also writes the message to send by hand (UX-24); it says an e-mail went out only when one did.
+        context = {
+            "membership": membership,
+            "link": created_link,
+            "first_name": user.first_name or membership.display_name,
+            "role_label": membership.get_role_display(),
+            "email_sent": bool(sent),
+        }
+        return render(request, "events/admin/member_created.html", context)
     if _managed_elsewhere(event, user) or (user.is_staff and not user.has_usable_password()):
         # Its link may only go to its owner's e-mail, and this administration may not learn whether it has a
         # password: one message, with or without one.

@@ -412,8 +412,10 @@ class LeaderBarAndScreensTests(CampFixture):
         self.assertIn('class="table-wrap admin-people__table"', html)
         rows = re.search(r'<ul class="rows admin-people__rows">(.*?)</ul>', html, re.S).group(1)
         p = self.p1
-        sentence = f"#{p.code}, Cuarto {p.room}, {p.age} años, {p.church_group}, con {p.coordinator.display_name}, Sin entrevista"
-        self.assertIn(f'<p class="row__meta">{sentence}</p>', rows)
+        # Two lines of at most three data (UI-09); the interview status is the mark at the end of the row.
+        self.assertIn(f'<p class="row__meta">Cuarto {p.room}, {p.age} años</p>', rows)
+        self.assertIn(f'<p class="row__meta">#{p.code}, {p.church_group}, con {p.coordinator.display_name}</p>', rows)
+        self.assertRegex(rows, r'<div class="row__end">\s*<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Sin entrevista</span>')
         self.assertIn(f'href="{self.url("participant_detail", p.public_id)}">{p.full_name}</a>', rows)
         self.assertEqual(rows.count('<li class="row">'), html.count("<tr><td class=\"num\">"))
 

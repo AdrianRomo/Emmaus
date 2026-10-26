@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
+from django.utils.text import slugify
 
 from .colors import contrast_ratio, contrast_with_white, parse_hex
 from .logos import UPLOAD_HELP, inspect_logo_upload
@@ -136,11 +137,19 @@ class EmailAuthenticationForm(TuErrorMessagesMixin, AuthenticationForm):
 
 
 class InitialSetupForm(TuErrorMessagesMixin, forms.Form):
+    """First setup. The church's short name forms itself from its name when left blank (UX-12), here and while typing
+    (emmaus.js, data-slug-from)."""
+
+    # Church.slug is a SlugField without max_length: 50 characters in the database. The field says the same, so neither
+    # a typed nor a formed short name is longer than the column (PostgreSQL refuses it).
+    SLUG_MAX_LENGTH = Church._meta.get_field("slug").max_length
+
     church_name = forms.CharField(max_length=180, label="Nombre de la iglesia")
     church_slug = forms.SlugField(
-        max_length=80,
+        max_length=SLUG_MAX_LENGTH,
+        required=False,
         label="Nombre corto de la iglesia para la dirección",
-        help_text="Un nombre corto en minúsculas, sin espacios ni acentos, por ejemplo: iglesia-gracia.",
+        help_text="Se forma con el nombre; puedes cambiarlo.",
     )
     admin_name = forms.CharField(max_length=150, label="Nombre de la primera persona administradora")
     admin_email = forms.EmailField(label="Correo de la primera persona administradora")
@@ -150,10 +159,31 @@ class InitialSetupForm(TuErrorMessagesMixin, forms.Form):
         help_text="Usa una contraseña segura. Emmaus revisa que no sea demasiado corta ni común.",
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["church_slug"].widget.attrs["data-slug-from"] = self["church_name"].auto_id
+
+    @staticmethod
+    def _slug_taken(slug: str) -> bool:
+        return Church.objects.filter(slug=slug).exists()
+
     def clean_church_slug(self):
-        slug = self.cleaned_data["church_slug"].lower()
-        if Church.objects.filter(slug=slug).exists():
-            raise ValidationError("Ese identificador ya está en uso. Elige otro.")
+        typed = self.cleaned_data["church_slug"]
+        if typed:
+            slug = typed.lower()
+            if self._slug_taken(slug):
+                raise ValidationError("Ese nombre corto ya está en uso. Elige otro.")
+            return slug
+        name = self.cleaned_data.get("church_name")
+        if name is None:
+            return ""  # the name has its own error; nothing is created
+        base = slugify(name)[: self.SLUG_MAX_LENGTH].strip("-")
+        if not base:
+            raise ValidationError("Escribe un nombre corto con letras, números o guiones.")
+        slug, n = base, 2  # taken: the next number, as events do
+        while self._slug_taken(slug):
+            suffix = f"-{n}"
+            slug, n = f"{base[: self.SLUG_MAX_LENGTH - len(suffix)].rstrip('-')}{suffix}", n + 1
         return slug
 
     def clean_admin_email(self):
@@ -221,18 +251,22 @@ class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
             "theme_border_color",
         ]
         labels = {
-            "theme_primary_color": "Color principal",
-            "theme_accent_color": "Color de acento",
+            "theme_primary_color": "Color principal",  # also the prefix of its line in the error summary
+            "theme_accent_color": "Color de “estás aquí”",
             "theme_secondary_color": "Color secundario",
-            "theme_background_color": "Fondo",
-            "theme_surface_color": "Superficies",
-            "theme_text_color": "Texto",
-            "theme_muted_text_color": "Texto secundario",
-            "theme_border_color": "Bordes",
+            "theme_background_color": "Color del fondo",
+            "theme_surface_color": "Color de campos y paneles",
+            "theme_text_color": "Color del texto",
+            "theme_muted_text_color": "Color del texto tenue",
+            "theme_border_color": "Color de los bordes",
         }
         help_texts = {
-            "theme_primary_color": "Pinta los botones, con letra blanca encima, y los enlaces. Necesita un contraste de al menos 4.5 a 1 sobre blanco.",
-            "theme_accent_color": "Marca dónde estás. Necesita un contraste de al menos 3 a 1 sobre blanco.",
+            "theme_primary_color": "Botones, enlaces y cifras. Necesita un contraste de al menos 4.5 a 1 sobre blanco.",
+            "theme_accent_color": (
+                "El punto de la computadora y el subrayado de la página actual. "
+                "Necesita un contraste de al menos 3 a 1 sobre blanco."
+            ),
+            "theme_secondary_color": "Por ahora no se usa en pantalla.",
             "theme_text_color": "Necesita un contraste de al menos 4.5 a 1 sobre el fondo y sobre las superficies.",
             "theme_muted_text_color": "Necesita un contraste de al menos 4.5 a 1 sobre el fondo y sobre las superficies.",
             "logo": f"{UPLOAD_HELP} Negro sobre transparente se ve bien en todas las pantallas.",
