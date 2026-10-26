@@ -205,6 +205,34 @@ def pending(request, event, access):
 
 # ---- Pastor ----------------------------------------------------------------------------------
 
+# Where each matter of "¿Qué hay que coordinar?" is done: (url name, query, fragment). Every target opens for both
+# roles of pastor_home (PASTOR, ADMIN). The link is added here, at render time: recommendations() is frozen into
+# every cutoff (ReportSnapshot.data) and printed by the cutoff page and the PDF, which must not gain live links.
+# "completo" and any kind not listed render as plain text.
+AGENDA_TARGETS = {
+    "pendientes": ("events:progress", "", ""),
+    "equipo": ("events:progress", "", "equipos"),
+    "interrumpidas": ("events:pending", "", "interrumpidas"),
+    "sin_coordinador": ("events:participants", "coordinador=ninguno", ""),
+    "sin_tutor": ("events:team", "", "sin-tutor"),
+    "por_evaluar": ("events:pending", "", "por-evaluar"),
+    "seguimientos": ("events:follow_ups", "responsable=ninguno", ""),
+    "autorizaciones": ("events:participants", "", ""),
+}
+
+
+def _agenda(event, recommendations):
+    """[{text, evidence, url}] for the pastor summary; url is "" when there is nothing to open."""
+    agenda = []
+    for item in recommendations:
+        url = ""
+        target = AGENDA_TARGETS.get(item.get("kind"))
+        if target:
+            name, query, fragment = target
+            url = reverse(name, args=[event.slug]) + (f"?{query}" if query else "") + (f"#{fragment}" if fragment else "")
+        agenda.append({"text": item["text"], "evidence": item["evidence"], "url": url})
+    return agenda
+
 
 @event_view(PASTOR, ADMIN)
 def pastor_home(request, event, access):
@@ -233,6 +261,7 @@ def pastor_home(request, event, access):
         "next_cutoff": next_slot(event),
         "outcomes": outcomes,
         "outcomes_snapshot": outcome_snapshot,
+        "agenda": _agenda(event, payload["recommendations"]),
     }
     if is_fragment(request):
         return render(request, "events/pastor/_home_live.html", context)
