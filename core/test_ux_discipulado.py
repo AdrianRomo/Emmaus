@@ -40,7 +40,9 @@ LOCMEM = "django.core.mail.backends.locmem.EmailBackend"
 def bar_nav(html: str) -> list[tuple[str, str]]:
     """(href, label) of each link of the bar's module nav, in order; [] when the bar draws no nav."""
     match = re.search(r'<nav class="bar__nav" aria-label="Discipulado">(.*?)</nav>', html, re.S)
-    return re.findall(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', match.group(1)) if match else []
+    links = re.findall(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', match.group(1)) if match else []
+    # The bar partial ends every signed-in nav with "Ayuda" (partials/ui/bar.html); it is not a module item.
+    return [(href, label) for href, label in links if label != "Ayuda"]
 
 
 def main_of(response) -> str:
