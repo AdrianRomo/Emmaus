@@ -12,28 +12,34 @@
   {% endif %}
 {% endwith %}
 
-<form method="get" class="filter-bar" role="search" aria-label="Buscar y filtrar camperos">
+<form method="get" class="filter-bar admin-people__filters" role="search" aria-label="Buscar y filtrar camperos">
   <div class="field filter-bar__search"><label class="label" for="q">Buscar</label><span class="hint" id="q-ayuda">Nombre, número, cuarto o iglesia</span><input id="q" type="search" name="q" value="{{ query }}" aria-describedby="q-ayuda"></div>
   <div class="field"><label class="label" for="f-estado">Entrevista</label><select id="f-estado" name="estado"><option value="">Todas</option>{% for v, l in status_choices %}<option value="{{ v }}"{% if selected.estado == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
   <div class="field"><label class="label" for="f-coord">Coordinador</label><select id="f-coord" name="coordinador"><option value="">Todos</option><option value="ninguno"{% if selected.coordinador == "ninguno" %} selected{% endif %}>Sin coordinador</option>{% for c in coordinators %}<option value="{{ c.id }}"{% if selected.coordinador == c.id|stringformat:"s" %} selected{% endif %}>{{ c.display_name }}</option>{% endfor %}</select></div>
   {% if sede_options %}<div class="field"><label class="label" for="f-sede">Sede</label><select id="f-sede" name="sede"><option value="">Todas</option>{% for o in sede_options %}<option value="{{ o.value }}"{% if selected.sede == o.value %} selected{% endif %}>{{ o.label }}</option>{% endfor %}</select></div>{% endif %}
-  <div class="field"><label class="label" for="f-part">Participación</label><select id="f-part" name="participa"><option value="si"{% if selected.participa == "si" %} selected{% endif %}>Participando</option><option value="no"{% if selected.participa == "no" %} selected{% endif %}>Dados de baja</option><option value="todos"{% if selected.participa == "todos" %} selected{% endif %}>Todos</option></select></div>
+  <div class="field"><label class="label" for="f-part">Participación</label><select id="f-part" name="participa"><option value="si"{% if selected.participa == "si" %} selected{% endif %}>Participando</option><option value="no"{% if selected.participa == "no" %} selected{% endif %}>Ya no participan</option><option value="todos"{% if selected.participa == "todos" %} selected{% endif %}>Todos</option></select></div>
   <button class="btn btn--secondary" type="submit">Filtrar</button>
 </form>
 
-<section aria-labelledby="resultados">
+<section class="admin-people" aria-labelledby="resultados">
   <h2 id="resultados" class="heading">{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}</h2>
   {% if page.object_list %}
     {% comment %}
       The same page twice: the table from 601px up, the rows on a phone (rotulo.css, G3). The one not in use is
-      display:none, so screen readers and the keyboard meet only one of them.
+      display:none, so screen readers and the keyboard meet only one of them. A row has two short lines instead of one
+      with eight data (UI-09): where and how old, then the number, the group and the coordinator; the interview status
+      is the mark at the end.
     {% endcomment %}
     <ul class="rows admin-people__rows">
       {% for p in page.object_list %}
         <li class="row">
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
-            <p class="row__meta">#{{ p.code }}{% if not p.is_active %}, dado de baja{% endif %}, {{ p.room|cuarto }}{% if p.sede %}, {{ p.sede.name }}{% endif %}, {{ p.age }} años{% if p.church_group %}, {{ p.church_group }}{% endif %}, {% if p.coordinator %}con {{ p.coordinator.display_name }}{% else %}sin coordinador{% endif %}, {{ p.get_interview_status_display }}</p>
+            <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años{% if p.sede %}, {{ p.sede.name }}{% endif %}</p>
+            <p class="row__meta">#{{ p.code }}{% if p.church_group %}, {{ p.church_group }}{% endif %}, {% if p.coordinator %}con {{ p.coordinator.display_name }}{% else %}sin coordinador{% endif %}{% if not p.is_active %}, ya no participa{% endif %}</p>
+          </div>
+          <div class="row__end">
+            {% status p.interview_status %}
           </div>
         </li>
       {% endfor %}
@@ -42,7 +48,7 @@
       <table class="table admin-table">
         <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th>{% if sede_options %}<th>Sede</th>{% endif %}<th>Coordinador</th><th>Entrevista</th></tr></thead>
         <tbody>{% for p in page.object_list %}
-          <tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a>{% if not p.is_active %}<span class="table__note">Dado de baja</span>{% endif %}</td><td class="num">{{ p.age }}</td><td class="table__nowrap">{{ p.room }}</td><td>{{ p.church_group }}</td>{% if sede_options %}<td>{{ p.sede.name|default:"—" }}</td>{% endif %}<td>{{ p.coordinator.display_name|default:"—" }}</td><td>{% status p.interview_status %}</td></tr>
+          <tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a>{% if not p.is_active %}<span class="table__note">Ya no participa</span>{% endif %}</td><td class="num">{{ p.age }}</td><td class="table__nowrap">{{ p.room }}</td><td>{{ p.church_group }}</td>{% if sede_options %}<td>{{ p.sede.name|default:"—" }}</td>{% endif %}<td>{{ p.coordinator.display_name|default:"—" }}</td><td>{% status p.interview_status %}</td></tr>
         {% endfor %}</tbody>
       </table>
     </div>

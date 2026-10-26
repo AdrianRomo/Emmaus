@@ -375,8 +375,10 @@ class SedeListTests(SedeFixture):
         self.assertContains(response, "<th>Sede</th>", html=True)
         self.assertContains(response, "<td>Mérida</td>", html=True)
         html = response.content.decode()
-        self.assertIn(f"#{self.p1.code}, Cuarto 1, Mérida, 15 años, Iglesia Centro,", html)
-        self.assertIn(f"#{self.p2.code}, Cuarto 2, 19 años, Iglesia Centro,", html)  # no sede: nothing in its place
+        self.assertIn('<p class="row__meta">Cuarto 1, 15 años, Mérida</p>', html)
+        self.assertIn('<p class="row__meta">Cuarto 2, 19 años</p>', html)  # no sede: nothing in its place
+        self.assertIn(f'<p class="row__meta">#{self.p1.code}, Iglesia Centro,', html)
+        self.assertIn(f'<p class="row__meta">#{self.p2.code}, Iglesia Centro,', html)
 
     def test_csv_export_has_the_sede(self):
         self.login(self.admin)

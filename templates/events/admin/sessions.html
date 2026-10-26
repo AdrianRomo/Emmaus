@@ -25,9 +25,9 @@
   {% if claims %}
     <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas en curso">
       <table class="table admin-table">
-        <thead><tr><th>Campero</th><th>Abierta en</th><th>Por</th><th>Última actividad</th><th><span class="visually-hidden">Acción</span></th></tr></thead>
+        <thead><tr><th>Campero</th><th>Computadora</th><th>Por</th><th>Última actividad</th><th><span class="visually-hidden">Acción</span></th></tr></thead>
         <tbody>{% for iv in claims %}
-          <tr><td>{{ iv.participant.full_name }}</td><td>{% if iv.lock_expires_at and iv.lock_expires_at > now %}{{ iv.station.name|default:"una computadora" }}{% else %}<span class="muted">Libre</span>{% endif %}</td><td>{{ iv.lock_holder.get_full_name|default:"—" }}</td><td>{{ iv.last_activity_at|since }}</td>
+          <tr><td>{{ iv.participant.full_name }}</td><td>{% if iv.lock_expires_at and iv.lock_expires_at > now %}{{ iv.station.name|default:"una computadora" }}{% else %}<span class="muted">Ninguna</span>{% endif %}</td><td>{{ iv.lock_holder.get_full_name|default:"—" }}</td><td>{{ iv.last_activity_at|since }}</td>
             <td class="table__action">{% if iv.lock_expires_at and iv.lock_expires_at > now %}<form method="post">{% csrf_token %}<input type="hidden" name="interview" value="{{ iv.public_id }}"><button class="btn btn--danger btn--small" data-confirm="¿Liberar esta entrevista? La computadora donde está abierta ya no podrá guardar.">Liberar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></button></form>{% endif %}</td></tr>
         {% endfor %}</tbody>
       </table>

@@ -26,10 +26,10 @@
     </dl>
     <p class="aside-note">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
     {% with choices=form.fields.condition_question.queryset %}{% if choices %}
-      {% comment %}"Respuestas que la muestran" takes internal identifiers; the questionnaire page folds them away, so they are listed here, folded too (LANG-05).{% endcomment %}
-      <details class="details">
-        <summary>Identificador interno (para quien edita el cuestionario)</summary>
-        <div class="details__body">
+      {% comment %}"Respuestas que la muestran" takes internal identifiers; the questionnaire page folds them away, so they are listed here, folded too (LANG-05, UI-19).{% endcomment %}
+      <details class="fold fold--inline">
+        <summary>Datos técnicos</summary>
+        <div class="fold__body">
           <p>En “Respuestas que la muestran” escribe el identificador de cada respuesta, separado por comas.</p>
           <dl class="summary-list">{% for cq in choices %}
             <div class="summary-list__row"><dt>{{ cq.text }}</dt><dd>{% for o in cq.options.all %}{{ o.label }}, <code>{{ o.code }}</code>{% if not forloop.last %}; {% endif %}{% empty %}Sin respuestas todavía.{% endfor %}</dd></div>

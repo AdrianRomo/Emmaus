@@ -464,7 +464,7 @@ class ReleaseStopsTheOldComputerTests(CampFixture):
         self.assertIsNone(self.interview.lock_holder)
         self.assertIsNone(self.interview.lock_expires_at)
         page = self.admin_client.get(self.url("sessions"))
-        self.assertContains(page, '<span class="muted">Libre</span>')
+        self.assertContains(page, '<span class="muted">Ninguna</span>')  # "Computadora: Ninguna" (LANG-42)
         self.assertNotContains(page, "¿Liberar esta entrevista?")
         self.assertEqual(svc.release_stale_claims(self.event), 0)
 
