@@ -55,11 +55,15 @@ Every event has a `join_code` (6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ2345678
 | Grant "Puede leer información confidencial" | To other people only | No | No | No | No |
 | "Equipo" page | Yes | Read only | No | No | No |
 | Register a campero | Yes (any coordinador) | No | No | Own (assigned to self) | No |
-| Import CSV, download the campero list | Yes | No | No | No | No |
+| Choose the campero's sede when registering or correcting (only if the church has active sedes) | Yes | No | No | Own | No |
+| Import CSV (and download its example file), download the campero list | Yes | No | No | No | No |
+| "Sedes de la iglesia": add, edit, deactivate or delete a sede | Only church admins and superusers (not an Administrador who is only a member of the event) | No | No | No | No |
+| "Sedes de la iglesia": choose the sedes taking part in the event | Yes | No | No | No | No |
 | Correct campero data | Yes | No | No | Own (no change of coordinador or withdrawal) | No |
 | Withdraw a campero, reassign coordinador | Yes | No | No | No | No |
 | Record guardian authorization | Yes | No | No | Own | No |
 | Campero list / detail | Whole event | Whole event | Team | Own | No |
+| "Sede" filter on "Participantes", with counts | Whole event | Whole event | Team (counts too) | No (sede shown in "Mis camperos") | No |
 | Start, continue, take over an interview | Any active campero | No | No | Own | No |
 | Answer questions on a supervised computer | No | No | No | No | Own interview only |
 | Recover the computer (unlock) | Yes | No | No | Own camperos | No |
@@ -161,3 +165,4 @@ Limits of membership deactivation:
 * Administrators can add any existing account to their event by e-mail. That account does not get a password link from them (see above), but it does get the role.
 * An access request's e-mail is whatever the person typed; nothing verifies it before an Administrador approves. The password link still goes only to that address (or is handed over in person), so a wrong e-mail gives the requester nothing, but the Administrador must know who they are approving. The per-session limits (searches and requests) slow down one browser; a client that drops its cookies starts a new session each time, so the bound that holds against a script is the cap of 50 pending requests per event. Each anonymous search or request leaves a session row (deleted by the scheduler when it expires: `SESSION_COOKIE_AGE` is 12 hours, and `SESSION_EXPIRE_AT_BROWSER_CLOSE` drops the cookie, not the row) and an `AuthThrottle` row (deleted by the scheduler once its window and any block are over, `throttle.purge_expired`).
 * Changes made in the Django admin (for example to `EventMembership.can_view_sensitive`) are not written to the activity log. `/admin/` is a technical back office for superusers.
+* Sedes belong to the church, but "Sedes de la iglesia" lives inside an event (`/eventos/<slug>/administracion/sedes/`). Adding, editing, deactivating and deleting a sede (`sede_add`, `sede_edit`, `sede_delete`) need a church-admin `UserChurchRole` for the event's church, or a superuser (`administered_churches`); an Administrador who is only a member of one event gets 403 there, because a rename or a deactivation would change the camperos of the church's other events. That Administrador still sees the page (without "Agregar sede" or "Editar", with "Las sedes las administra la iglesia.") and chooses which sedes take part in their own event. A sede with camperos in any event cannot be deleted (`PROTECT`), and every change is audited in the event where it was made (`evento_configurado`).

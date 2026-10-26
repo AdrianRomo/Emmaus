@@ -58,6 +58,7 @@ urlpatterns = [
     path(E + "participantes/", admin.participants, name="participants"),
     path(E + "participantes/importar/", admin.participant_import, name="participant_import"),
     path(E + "participantes/exportar/", admin.participant_export, name="participant_export"),
+    path(E + "camperos/importar/ejemplo.csv", admin.sample_csv, name="participant_import_sample"),
     path(E + "camperos/" + I + "datos/", admin.participant_data_export, name="participant_data_export"),
     path(E + "camperos/" + I + "eliminar/", admin.participant_delete, name="participant_delete"),
     path(E + "equipo/agregar/", admin.member_add, name="member_add"),
@@ -78,4 +79,8 @@ urlpatterns = [
     path(E + "configuracion/computadoras/", admin.stations, name="stations"),
     path(E + "configuracion/actividad/", admin.audit_log, name="audit"),
     path(E + "configuracion/sesiones/", admin.sessions, name="sessions"),
+    path(E + "administracion/sedes/", admin.sedes, name="sedes"),
+    path(E + "administracion/sedes/nueva/", admin.sede_edit, name="sede_add"),
+    path(E + "administracion/sedes/<int:sede_id>/", admin.sede_edit, name="sede_edit"),
+    path(E + "administracion/sedes/<int:sede_id>/borrar/", admin.sede_delete, name="sede_delete"),
 ]

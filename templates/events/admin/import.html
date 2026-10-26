@@ -18,13 +18,13 @@
       <input type="hidden" name="action" value="confirm">
       <div class="table-wrap" tabindex="0" role="region" aria-label="Filas del archivo">
         <table class="table admin-table admin-table--marked">
-          <thead><tr><th>Importar</th><th class="num">Fila</th><th>Nombre</th><th>Revisión</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th></tr></thead>
+          <thead><tr><th>Importar</th><th class="num">Fila</th><th>Nombre</th><th>Revisión</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Sede</th><th>Coordinador</th></tr></thead>
           <tbody>{% for row in preview.rows %}
             <tr{% if row.errors %} class="is-error"{% elif row.duplicate_of or row.duplicate_in_file %} class="is-attention"{% endif %}>
               <td>{% if not row.errors %}<input type="checkbox" name="include" value="{{ row.line }}" aria-label="Importar fila {{ row.line }}"{% if not row.duplicate_of and not row.duplicate_in_file %} checked{% endif %}>{% endif %}</td>
               <td class="num">{{ row.line }}</td><td>{{ row.full_name }}</td>
               <td class="table__review">{% for e in row.errors %}<span class="table__error">{{ e }}</span>{% endfor %}{% for d in row.duplicate_of %}<span class="table__flag">Ya existe: {{ d }}</span>{% endfor %}{% if row.duplicate_in_file %}<span class="table__flag">Repetido en la fila {{ row.duplicate_in_file }}</span>{% endif %}{% if not row.errors and not row.duplicate_of and not row.duplicate_in_file %}<span class="muted">Bien</span>{% endif %}</td>
-              <td class="num">{{ row.age|default_if_none:"" }}</td><td class="table__nowrap">{{ row.room }}</td><td>{{ row.church_group }}</td><td>{{ row.coordinator_label|default:"—" }}</td>
+              <td class="num">{{ row.age|default_if_none:"" }}</td><td class="table__nowrap">{{ row.room }}</td><td>{{ row.church_group }}</td><td>{{ row.sede_label|default:"—" }}</td><td>{{ row.coordinator_label|default:"—" }}</td>
             </tr>
           {% endfor %}</tbody>
         </table>
@@ -49,10 +49,18 @@
       <h2 id="como-preparar" class="heading">Cómo preparar el archivo</h2>
       <p class="text-sm">En Excel o Google Sheets usa una fila de encabezados con estos nombres:</p>
       <div class="table-wrap" tabindex="0" role="region" aria-label="Ejemplo de archivo">
-        <table class="table admin-table"><thead><tr><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Autorización</th></tr></thead>
-          <tbody><tr><td>Mariana López Ruiz</td><td class="num">15</td><td>4</td><td>Iglesia Centro</td><td>ana@correo.mx</td><td>sí</td></tr></tbody></table>
+        <table class="table admin-table"><thead><tr><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Autorización</th><th>Sede</th></tr></thead>
+          <tbody><tr><td>Mariana López Ruiz</td><td class="num">15</td><td>4</td><td>Iglesia Centro</td><td>ana@correo.mx</td><td>sí</td><td>Mérida</td></tr></tbody></table>
       </div>
-      <p class="text-sm mt-4">“Coordinador” y “Autorización” son opcionales. Guarda como <strong>CSV UTF-8</strong>.</p>
+      <p class="text-sm mt-4">“Coordinador”, “Autorización” y “Sede” son opcionales. Guarda como <strong>CSV UTF-8</strong>.</p>
+      {% with sedes=event.allowed_sedes %}
+        {% if sedes %}
+          <p class="text-sm">En “Sede” escribe el nombre o el identificador de una de estas sedes, con o sin mayúsculas y acentos: {% for s in sedes %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Una sede que no está en la lista marca la fila con error.</p>
+        {% else %}
+          <p class="text-sm">La iglesia no tiene sedes activas: deja “Sede” vacía. Las sedes se administran en <a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a>.</p>
+        {% endif %}
+      {% endwith %}
+      <p class="more"><a href="{% url 'events:participant_import_sample' event.slug %}" download>Descargar archivo de ejemplo</a> (CSV con los encabezados y dos filas).</p>
     </aside>
   </div>
 {% endif %}

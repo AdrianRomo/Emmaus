@@ -67,26 +67,33 @@ IMPORT_SESSION_KEY = "import_preview"
 
 @event_view(ADMIN, MembershipRole.PASTOR, MembershipRole.TUTOR)
 def participants(request, event, access):
-    qs = access.participants(include_inactive=True).select_related("coordinator__user")
+    qs = access.participants(include_inactive=True).select_related("coordinator__user", "sede")
     query = (request.GET.get("q") or "").strip()
     status = request.GET.get("estado", "")
     coordinator = request.GET.get("coordinador", "")
     active = request.GET.get("participa", "si")
+    sede = request.GET.get("sede", "")
     if query:
         filters = Q(normalized_name__contains=normalize_name(query)) | Q(room__iexact=query) | Q(church_group__icontains=query)
-        if query.lstrip("#").isdigit():
-            filters |= Q(number=int(query.lstrip("#")))
+        number = query.lstrip("#")
+        if number.isascii() and number.isdigit():  # "²".isdigit() is True and int("²") raises
+            filters |= Q(number=int(number))
         qs = qs.filter(filters)
     if status in InterviewStatus.values:
         qs = qs.filter(interview_status=status)
     if coordinator == "ninguno":
         qs = qs.filter(coordinator__isnull=True)
-    elif coordinator.isdigit():
+    elif coordinator.isascii() and coordinator.isdigit():
         qs = qs.filter(coordinator_id=int(coordinator))
     if active == "si":
         qs = qs.filter(is_active=True)
     elif active == "no":
         qs = qs.filter(is_active=False)
+    sede_options = _sede_options(event, access, qs)  # counted under every filter but its own
+    if sede == "ninguna":
+        qs = qs.filter(sede__isnull=True)
+    elif sede.isascii() and sede.isdigit():
+        qs = qs.filter(sede_id=int(sede))
     page = Paginator(qs.order_by("full_name"), 50).get_page(request.GET.get("pagina"))
     return render(
         request,
@@ -94,7 +101,8 @@ def participants(request, event, access):
         {
             "page": page,
             "query": query,
-            "selected": {"estado": status, "coordinador": coordinator, "participa": active},
+            "selected": {"estado": status, "coordinador": coordinator, "participa": active, "sede": sede},
+            "sede_options": sede_options,
             "status_choices": InterviewStatus.choices,
             "coordinators": access.coordinators(),
             "can_manage": access.is_admin,
@@ -111,9 +119,9 @@ def participant_import(request, event, access):
         preview = None
     if request.method == "POST" and request.POST.get("action") == "confirm" and preview:
         include = {int(line) for line in request.POST.getlist("include") if line.isdigit()}
-        created = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
+        result = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
         request.session.pop(IMPORT_SESSION_KEY, None)
-        messages.success(request, "Se importó 1 campero." if created == 1 else f"Se importaron {created} camperos.")
+        messages.success(request, result.message)
         return redirect("events:participants", slug=event.slug)
     if request.method == "POST" and request.POST.get("action") == "cancel":
         request.session.pop(IMPORT_SESSION_KEY, None)
@@ -155,10 +163,10 @@ def participant_export(request, event, access):
     response["Content-Disposition"] = f'attachment; filename="camperos-{event.slug}-{stamp}.csv"'
     response.write("﻿")  # Excel opens UTF-8 correctly with a BOM
     writer = csv.writer(response)
-    writer.writerow(["Número", "Nombre", "Edad", "Cuarto", "Iglesia o grupo", "Coordinador", "Entrevista", "Participa", "Registro"])
-    for p in access.participants(include_inactive=True).select_related("coordinator__user").order_by("number"):
+    writer.writerow(["Número", "Nombre", "Edad", "Cuarto", "Iglesia o grupo", "Sede", "Coordinador", "Entrevista", "Participa", "Registro"])
+    for p in access.participants(include_inactive=True).select_related("coordinator__user", "sede").order_by("number"):
         writer.writerow([_safe_cell(value) for value in [
-            p.code, p.full_name, p.age, p.room, p.church_group,
+            p.code, p.full_name, p.age, p.room, p.church_group, p.sede.name if p.sede else "",
             p.coordinator.display_name if p.coordinator else "",
             p.get_interview_status_display(), "Sí" if p.is_active else "No",
             timezone.localtime(p.created_at).strftime("%d/%m/%Y %H:%M"),
@@ -665,3 +673,116 @@ def sessions(request, event, access):
     )
     claims = Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS).select_related("participant", "lock_holder", "station").order_by("-last_activity_at")
     return render(request, "events/admin/sessions.html", {"captures": captures, "claims": claims, "now": now})
+
+
+# ---- sedes ----------------------------------------------------------------------------------
+# Imported next to their only users so that this whole area stays at the end of the file.
+from django.db.models import ProtectedError  # noqa: E402
+
+from ..access import administered_churches  # noqa: E402
+from ..forms import EventSedesForm, SedeForm  # noqa: E402
+from ..models import Sede  # noqa: E402
+
+
+def _sede_options(event, access, filtered) -> list[dict]:
+    """The "Sede" filter of Participantes: "Mérida (80)" for each sede, and "Sin sede".
+
+    ``filtered`` is the list under every other filter (participation, interview, coordinator, search), so each
+    count is the rows that choosing it shows. Empty when the church has no sedes. A sede that is no longer
+    offered stays listed while camperos this person can see have it, whatever the other filters leave.
+    """
+    counts = dict(filtered.order_by().values_list("sede_id").annotate(n=Count("id")))
+    offered = set(event.allowed_sedes().values_list("pk", flat=True))
+    in_use = set(access.participants(include_inactive=True).exclude(sede=None).order_by().values_list("sede_id", flat=True))
+    sedes = [s for s in Sede.objects.filter(church_id=event.church_id) if s.pk in offered or s.pk in in_use]
+    if not sedes:
+        return []
+    options = [{"value": str(s.pk), "label": f"{s.name} ({counts.get(s.pk, 0)})"} for s in sedes]
+    options.append({"value": "ninguna", "label": f"Sin sede ({counts.get(None, 0)})"})
+    return options
+
+
+@event_view(ADMIN)
+def sample_csv(request, event, access):
+    """The example file of "Importar camperos": the headers the import reads and two rows it accepts."""
+    sedes = [s.name for s in event.allowed_sedes()[:2]]
+    coordinator = access.coordinators().filter(is_active=True, user__email__gt="").select_related("user").first()
+    rows = [
+        ["Mariana López Ruiz", 15, "4", "Iglesia Centro", coordinator.user.email if coordinator else "", "sí", sedes[0] if sedes else ""],
+        ["Diego Hernández Cruz", 17, "Cabaña 2", "Iglesia Centro", "", "no", sedes[-1] if sedes else ""],
+    ]
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="camperos-ejemplo.csv"'
+    response.write("\ufeff")  # Excel opens UTF-8 correctly with a BOM
+    writer = csv.writer(response)
+    writer.writerow(participant_svc.IMPORT_COLUMNS)
+    for row in rows:
+        writer.writerow([_safe_cell(value) for value in row])
+    return response
+
+
+def _manages_sedes(user, event) -> bool:
+    """Sedes belong to the church: a church administrator (or a superuser) adds, edits and deletes them. An
+    Administrador who is only a member of one event chooses which of them take part in it, nothing more."""
+    return administered_churches(user).filter(pk=event.church_id).exists()
+
+
+@event_view(ADMIN)
+def sedes(request, event, access):
+    """Sedes de la iglesia: the church's campuses and which of them take part in this event."""
+    # Every box unchecked sends no "sedes" at all: still a submission (the whole church), not an empty form.
+    form = EventSedesForm(request.POST if request.method == "POST" else None, event=event)
+    if request.method == "POST" and form.is_valid():
+        chosen = form.cleaned_data["sedes"]
+        event.sedes.set(chosen)
+        names = ", ".join(s.name for s in chosen) or "todas"
+        audit.record(request.user, event, "evento_configurado", f"Cambió las sedes que participan: {names}", event, form="sedes")
+        messages.success(request, "Sedes del evento guardadas.")
+        return redirect("events:sedes", slug=event.slug)
+    rows = Sede.objects.filter(church_id=event.church_id).annotate(
+        n=Count("participants", filter=Q(participants__event=event, participants__is_active=True))
+    )
+    chosen = list(event.sedes.all())
+    context = {
+        "sedes": rows,
+        "form": form,
+        "chosen_active": [s for s in chosen if s.active],
+        "chosen_inactive": [s for s in chosen if not s.active],
+        "manages_sedes": _manages_sedes(request.user, event),
+    }
+    return render(request, "events/admin/sedes.html", context)
+
+
+@event_view(ADMIN)
+def sede_edit(request, event, access, sede_id=None):
+    if not _manages_sedes(request.user, event):
+        raise PermissionDenied
+    sede = get_object_or_404(Sede, pk=sede_id, church_id=event.church_id) if sede_id else None
+    form = SedeForm(request.POST or None, instance=sede, church=event.church)
+    if request.method == "POST" and form.is_valid():
+        saved = form.save()
+        verb = "Agregó" if sede is None else "Modificó"
+        audit.record(request.user, event, "evento_configurado", f"{verb} la sede «{saved.name}»", saved, form="sede")
+        messages.success(request, f"Sede «{saved.name}» guardada.")
+        return redirect("events:sedes", slug=event.slug)
+    in_use = sede is not None and sede.participants.exists()
+    return render(request, "events/admin/sede_form.html", {"form": form, "sede": sede, "in_use": in_use})
+
+
+@require_POST
+@event_view(ADMIN)
+def sede_delete(request, event, access, sede_id):
+    """Only a sede no campero has (in any event of the church). One with camperos is deactivated instead."""
+    if not _manages_sedes(request.user, event):
+        raise PermissionDenied
+    sede = get_object_or_404(Sede, pk=sede_id, church_id=event.church_id)
+    name = sede.name
+    try:
+        with transaction.atomic():
+            sede.delete()
+    except ProtectedError:
+        messages.error(request, f"«{name}» tiene camperos registrados y no se puede borrar. Desactívala para que ya no aparezca.")
+        return redirect("events:sede_edit", slug=event.slug, sede_id=sede_id)
+    audit.record(request.user, event, "evento_configurado", f"Borró la sede «{name}»", None, form="sede")
+    messages.success(request, f"Se borró la sede «{name}».")
+    return redirect("events:sedes", slug=event.slug)

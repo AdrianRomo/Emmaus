@@ -120,7 +120,7 @@ class RedesignedScreenTests(CampFixture):
             self.tutor1: ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups"],
             self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live"],
             self.admin: ["admin_home", "participants", "participant_import", "team", "assignments", "questionnaires",
-                         "settings", "audit", "sessions", "reports", "member_add", "join_code_sign"],
+                         "settings", "audit", "sessions", "reports", "member_add", "join_code_sign", "sedes", "sede_add"],
         }
         for user, names in pages.items():
             client = Client()

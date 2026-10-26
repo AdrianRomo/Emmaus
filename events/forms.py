@@ -3,6 +3,7 @@ from __future__ import annotations
 from django import forms
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils.text import slugify
 
 from .models import (
@@ -16,6 +17,7 @@ from .models import (
     QuestionOption,
     QuestionnaireVersion,
     Section,
+    Sede,
 )
 
 
@@ -146,7 +148,7 @@ class ParticipantForm(SpanishErrorsMixin, forms.ModelForm):
 
     class Meta:
         model = EventParticipant
-        fields = ["full_name", "age", "room", "church_group", "coordinator"]
+        fields = ["full_name", "age", "room", "church_group", "sede", "coordinator"]
         widgets = {
             "full_name": forms.TextInput(attrs={"autocomplete": "off", "autocapitalize": "words", "spellcheck": "false"}),
             "age": forms.NumberInput(attrs={"inputmode": "numeric", "min": 5, "max": 99}),
@@ -170,6 +172,19 @@ class ParticipantForm(SpanishErrorsMixin, forms.ModelForm):
             self.fields.pop("coordinator")
         if not show_guardian or not event.requires_guardian_authorization:
             self.fields.pop("guardian_authorization")
+        self._limit_sedes(event)
+
+    def _limit_sedes(self, event: Event):
+        """Only when the church has sedes: the event's (or all active ones), plus the one already saved."""
+        allowed = event.allowed_sedes()
+        if self.instance.sede_id:  # a sede deactivated since keeps its campero, and saving keeps it too
+            allowed = Sede.objects.filter(Q(pk__in=allowed.values("pk")) | Q(pk=self.instance.sede_id))
+        if not allowed.exists():
+            self.fields.pop("sede")
+            return
+        self.fields["sede"].queryset = allowed
+        self.fields["sede"].required = False
+        self.fields["sede"].empty_label = "Sin sede"
 
     def clean_full_name(self):
         name = " ".join(self.cleaned_data["full_name"].split())
@@ -194,7 +209,7 @@ class ParticipantForm(SpanishErrorsMixin, forms.ModelForm):
 
 class ParticipantAdminForm(ParticipantForm):
     class Meta(ParticipantForm.Meta):
-        fields = ["full_name", "age", "room", "church_group", "coordinator", "is_active", "withdrawn_reason"]
+        fields = ["full_name", "age", "room", "church_group", "sede", "coordinator", "is_active", "withdrawn_reason"]
         labels = {"full_name": "Nombre completo del campero", "is_active": "Sigue participando en el evento"}
 
 
@@ -378,7 +393,7 @@ class MembershipEditForm(forms.ModelForm):
 class ImportForm(forms.Form):
     file = forms.FileField(
         label="Archivo CSV",
-        help_text="Columnas: Nombre, Edad, Cuarto, Iglesia o grupo. Opcionales: Coordinador (correo o nombre) y Autorización (sí/no).",
+        help_text="Columnas: Nombre, Edad, Cuarto, Iglesia o grupo. Opcionales: Coordinador (correo o nombre), Autorización (sí/no) y Sede.",
         error_messages={"required": "Elige un archivo CSV."},
     )
 
@@ -447,3 +462,83 @@ class ReportScopeForm(forms.Form):
     def __init__(self, *args, scopes, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["scope"].choices = [(s["key"], s["label"]) for s in scopes]
+
+
+class SedeForm(SpanishErrorsMixin, forms.ModelForm):
+    """A campus of the church. The identifier comes from the name unless someone writes one."""
+
+    required_messages = {"name": "Escribe el nombre de la sede.", "order": "Escribe un número. Las sedes con 0 van primero."}
+
+    class Meta:
+        model = Sede
+        fields = ["name", "slug", "city", "order", "active"]
+        labels = {"active": "Activa"}
+        help_texts = {
+            "slug": "Se forma solo con el nombre si lo dejas vacío. Solo minúsculas, números y guiones, por ejemplo: zona-esmeralda.",
+            "order": "Las sedes se muestran de menor a mayor.",
+            "active": "Si la desactivas, ya no aparece al registrar camperos. Los que ya la tienen la conservan.",
+        }
+        widgets = {"order": forms.NumberInput(attrs={"inputmode": "numeric", "min": 0})}
+
+    def __init__(self, *args, church, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.church = church
+        self.instance.church = church
+        self.fields["slug"].required = False
+        self.fields["slug"].error_messages["invalid"] = "Usa solo minúsculas, números y guiones."
+
+    def _others(self):
+        return Sede.objects.filter(church=self.church).exclude(pk=self.instance.pk)
+
+    def clean_name(self):
+        # The import finds a sede by its name or its identifier, read without case or accents (slugify):
+        # every value it can read must lead to one sede only.
+        name = " ".join(self.cleaned_data["name"].split())
+        key = slugify(name)
+        if not key:
+            raise ValidationError("Escribe un nombre con letras o números.")
+        for other in self._others():
+            if slugify(other.name) == key:
+                raise ValidationError("Ya hay una sede con ese nombre.")
+            if slugify(other.slug) == key:  # slugify: a row made outside this form may hold "centro_"
+                raise ValidationError(f"Ese nombre es el identificador de la sede «{other.name}». Usa otro nombre o cambia ese identificador.")
+        return name
+
+    def clean(self):
+        cleaned = super().clean()
+        name = cleaned.get("name")
+        if not name or "slug" in self.errors:
+            return cleaned
+        # Cut to the column, then drop a separator the cut left at the end: slugify() would drop it when reading.
+        slug = slugify(cleaned.get("slug") or name)[:40].strip("-_")
+        others = list(self._others())
+        same_name = next((o for o in others if slugify(o.name) == slug), None)
+        if not slug:
+            self.add_error("slug", "Usa letras, números o guiones.")
+        elif any(o.slug == slug or slugify(o.slug) == slug for o in others):
+            self.add_error("slug", "Ya hay una sede con ese identificador. Prueba con otro.")
+        elif same_name:
+            self.add_error("slug", f"Ese identificador se lee como el nombre de la sede «{same_name.name}». Prueba con otro.")
+        else:
+            cleaned["slug"] = slug
+        return cleaned
+
+
+class EventSedesForm(forms.Form):
+    """Which sedes take part in this event. None marked: the whole church."""
+
+    sedes = forms.ModelMultipleChoiceField(
+        queryset=Sede.objects.none(),
+        required=False,
+        label="Sedes que participan",
+        help_text="Si no marcas ninguna, participan todas las sedes activas.",
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(self, *args, event: Event, **kwargs):
+        super().__init__(*args, **kwargs)
+        chosen = event.sedes.values("pk")
+        # An inactive sede stays listed while the event still has it, so it can be unmarked.
+        self.fields["sedes"].queryset = Sede.objects.filter(church_id=event.church_id).filter(Q(active=True) | Q(pk__in=chosen))
+        self.fields["sedes"].label_from_instance = lambda s: s.name if s.active else f"{s.name}, inactiva"
+        self.initial.setdefault("sedes", list(event.sedes.values_list("pk", flat=True)))

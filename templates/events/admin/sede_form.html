@@ -1,0 +1,32 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if sede %}Editar sede{% else %}Agregar sede{% endif %}{% endblock %}
+{% block content %}
+{% url 'events:sedes' event.slug as back_url %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% if sede %}
+  {% include "events/rotulo/_page_head.html" with title=sede.name lede="Los cambios se ven en todos los eventos de la iglesia." back_url=back_url back_label="Sedes de la iglesia" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Agregar sede" lede="Un lugar de donde vienen los camperos, por ejemplo Satélite o Mérida." back_url=back_url back_label="Sedes de la iglesia" %}
+{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/fields.html" with form=form %}
+  <div class="step__actions">
+    <button class="btn btn--primary" type="submit">{% if sede %}Guardar cambios{% else %}Agregar sede{% endif %}</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+{% if sede %}
+  <section class="admin-section" aria-labelledby="t-borrar">
+    <h2 id="t-borrar" class="heading">Borrar la sede</h2>
+    {% if in_use %}
+      <p class="admin-section__desc">Hay camperos registrados con esta sede, así que no se puede borrar. Desmarca “Activa” para que ya no aparezca al registrar; quienes ya la tienen la conservan.</p>
+    {% else %}
+      <p class="admin-section__desc">Ningún campero tiene esta sede. Puedes borrarla si se agregó por error.</p>
+      <form method="post" action="{% url 'events:sede_delete' event.slug sede.id %}" class="mt-4">{% csrf_token %}<button class="btn btn--danger" type="submit" data-confirm="¿Borrar la sede {{ sede.name }}?">Borrar la sede</button></form>
+    {% endif %}
+  </section>
+{% endif %}
+</div>
+{% endblock %}

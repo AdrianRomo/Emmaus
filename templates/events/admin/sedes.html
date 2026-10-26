@@ -1,0 +1,59 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Sedes de la iglesia{% endblock %}
+{% block content %}
+{% url 'events:participants' event.slug as back_url %}
+{% if manages_sedes %}{% url 'events:sede_add' event.slug as add_url %}{% endif %}
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Sedes de la iglesia" lede="De qué sede viene cada campero. Se elige al registrarlo: después ya no hay forma de saberlo." back_url=back_url back_label="Participantes" action_url=add_url action_label="Agregar sede" %}
+
+<section aria-labelledby="t-sedes">
+  <h2 id="t-sedes" class="heading">{{ sedes|length }} sede{{ sedes|length|pluralize }}</h2>
+  {% if not manages_sedes %}<p class="hint mt-4">Las sedes las administra la iglesia.</p>{% endif %}
+  {% if sedes %}
+    <ul class="rows admin-rows">
+      {% for s in sedes %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ s.name }}</p>
+            <p class="row__meta">{% filter capfirst %}{% if s.city %}{{ s.city }}, {% endif %}{% if s.active %}activa{% else %}inactiva{% endif %}, {{ s.n }} campero{{ s.n|pluralize }} en este evento{% endfilter %}</p>
+          </div>
+          {% if manages_sedes %}<div class="row__end">
+            <a class="btn btn--secondary btn--small" href="{% url 'events:sede_edit' event.slug s.id %}">Editar<span class="visually-hidden"> {{ s.name }}</span></a>
+          </div>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">La iglesia todavía no tiene sedes. Si todos los camperos vienen del mismo lugar, no hace falta agregarlas.</p>
+  {% endif %}
+</section>
+
+{% if form.sedes.field.queryset.exists %}
+<section class="admin-section" aria-labelledby="t-evento">
+  <h2 id="t-evento" class="heading">Sedes que participan en este evento</h2>
+  <p class="admin-section__desc">{% if chosen_active %}Participan estas sedes: {% for s in chosen_active %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Al registrar un campero solo se puede elegir una de ellas.{% else %}Participan todas las sedes activas de la iglesia.{% endif %}</p>
+  {% if chosen_inactive %}
+    {% comment %}Event.allowed_sedes(): an inactive sede is never offered, and with no active one marked the whole church is.{% endcomment %}
+    <p class="notice notice--warning mt-4">{% if chosen_active %}{% for s in chosen_inactive %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %} {% if chosen_inactive|length == 1 %}está inactiva: no se ofrece{% else %}están inactivas: no se ofrecen{% endif %} al registrar ni al importar.{% else %}Ninguna de las sedes marcadas está activa: al registrar y al importar se ofrecen todas las sedes activas de la iglesia.{% endif %} Desmárcala{{ chosen_inactive|length|pluralize }}{% if manages_sedes %} o vuelve a activarla{{ chosen_inactive|length|pluralize }}{% else %} o pide a la iglesia que la{{ chosen_inactive|length|pluralize }} vuelva a activar{% endif %}.</p>
+  {% endif %}
+  <form method="post" class="narrow mt-4" novalidate>
+    {% csrf_token %}
+    {% with field=form.sedes %}
+    <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+      <fieldset aria-describedby="{{ field.auto_id }}_helptext{% if field.errors %} {{ field.auto_id }}-error{% endif %}">
+        <legend class="legend">{{ field.label }}</legend>
+        <span class="hint" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</span>
+        {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+        <div class="choices" id="{{ field.auto_id }}">
+          {% for box in field %}
+            <div class="choice choice--multi">{{ box.tag }}<label class="choice__label" for="{{ box.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ box.choice_label }}</span></label></div>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </div>
+    {% endwith %}
+    <button class="btn btn--secondary" type="submit">Guardar sedes del evento</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

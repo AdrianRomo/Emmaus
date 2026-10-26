@@ -27,6 +27,7 @@ from events.models import (
     InterviewStation,
     InterviewStatus,
     MembershipRole,
+    Sede,
     TutorAssignment,
 )
 from events.services.metrics import local_tz
@@ -47,6 +48,8 @@ LAST = ["Hernández", "García", "Martínez", "López", "González", "Pérez", "
 GROUPS = ["Iglesia Centro", "Iglesia Lomas", "Iglesia del Valle", "Misión Tepeyac", "Iglesia Esperanza",
           "Grupo Universitario", "Iglesia Nueva Vida", "Misión Santa Fe"]
 TEAMS = ["Equipo Betel", "Equipo Jordán", "Equipo Monte Sion", "Equipo Getsemaní"]
+SEDES = [("Satélite", "satelite", "Naucalpan"), ("Zona Esmeralda", "zona-esmeralda", "Atizapán"),
+         ("Lomas Verdes", "lomas-verdes", "Naucalpan"), ("CDMX", "cdmx", "Ciudad de México"), ("Mérida", "merida", "Mérida")]
 STAFF = [
     ("Laura", "Méndez Ortiz", "administrador"), ("Ernesto", "Salas Vega", "pastor"), ("Rebeca", "Torres Lima", "cuidado"),
     ("Marta", "Ríos Paredes", "tutor"), ("Hugo", "Cárdenas Beltrán", "tutor"), ("Patricia", "Núñez Soto", "tutor"),
@@ -117,6 +120,12 @@ class Command(BaseCommand):
 
     def _build(self, rng, password, opts):
         church, _ = Church.objects.get_or_create(slug="iglesia-demo", defaults={"name": "Iglesia de demostración"})
+        sedes = [
+            Sede.objects.update_or_create(church=church, slug=slug, defaults={"name": name, "city": city, "order": order, "active": True})[0]
+            for order, (name, slug, city) in enumerate(SEDES)
+        ]
+        # Its own random stream: the sedes leave every other seeded value (names, ages, interviews) as it was.
+        sede_rng = random.Random(opts["seed"] + 1)
         version = create_questionnaire_from_definition(church, DEFAULT_CAMP_QUESTIONNAIRE)
         today = timezone.localdate()
         event = Event.objects.create(
@@ -156,7 +165,7 @@ class Command(BaseCommand):
             coordinator = users["coordinators"][(number - 1) % len(users["coordinators"])] if number % 57 else None
             participant = EventParticipant.objects.create(
                 event=event, number=number, full_name=name, age=age, room=f"Cabaña {rng.randint(1, 20)}",
-                church_group=rng.choice(GROUPS), coordinator=coordinator,
+                church_group=rng.choice(GROUPS), coordinator=coordinator, sede=sede_rng.choice(sedes),
             )
             if age < 18 and rng.random() < 0.94:
                 ConsentRecord.objects.create(participant=participant, kind=ConsentRecord.Kind.GUARDIAN, method=ConsentRecord.Method.PAPER)

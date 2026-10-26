@@ -31,6 +31,7 @@
   {% include "partials/ui/field.html" with field=form.room %}
   {% include "partials/ui/field.html" with field=form.church_group %}
   <datalist id="church-groups">{% for g in groups %}<option value="{{ g }}">{% endfor %}</datalist>
+  {% if form.sede %}{% include "partials/ui/field.html" with field=form.sede %}{% endif %}
   {% if form.coordinator %}{% include "partials/ui/field.html" with field=form.coordinator %}{% endif %}
   {% if form.guardian_authorization %}{% include "partials/ui/field.html" with field=form.guardian_authorization %}{% endif %}
   {% if form.is_active %}{% include "partials/ui/field.html" with field=form.is_active %}{% include "partials/ui/field.html" with field=form.withdrawn_reason %}{% endif %}

@@ -68,6 +68,27 @@ def new_join_code() -> str:
 # --------------------------------------------------------------------------------------
 
 
+class Sede(models.Model):
+    """A campus of the church ("Satélite", "Mérida"). Each campero's is captured when they register:
+    afterwards nobody can tell where they came from. Deactivated, never deleted, once a campero has it."""
+
+    church = models.ForeignKey("core.Church", on_delete=models.CASCADE, related_name="sedes")
+    name = models.CharField("Nombre", max_length=80)
+    slug = models.SlugField("Identificador", max_length=40)
+    city = models.CharField("Ciudad", max_length=80, blank=True, default="", db_default="")
+    order = models.PositiveSmallIntegerField("Orden", default=0, db_default=0)
+    active = models.BooleanField("Activa", default=True, db_default=True)
+
+    class Meta:
+        ordering = ["order", "name"]
+        constraints = [models.UniqueConstraint(fields=["church", "slug"], name="sede_slug_per_church")]
+        verbose_name = "sede"
+        verbose_name_plural = "sedes"
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Event(models.Model):
     class Kind(models.TextChoices):
         CAMP = "campamento", "Campamento"
@@ -103,6 +124,8 @@ class Event(models.Model):
     join_code = models.CharField("Código para unirse", max_length=8, blank=True, default="", db_default="")
     # The sheet also says the event's name. A new code turns this off, so a sheet that leaked stops working whole.
     join_by_name = models.BooleanField("Se puede entrar con el nombre del evento", default=True, db_default=True)
+    # Empty: the whole church takes part (every active sede).
+    sedes = models.ManyToManyField(Sede, verbose_name="Sedes que participan", blank=True, related_name="events")
 
     questionnaire_version = models.ForeignKey(
         "QuestionnaireVersion",
@@ -242,6 +265,16 @@ class Event(models.Model):
     @property
     def is_open_for_interviews(self) -> bool:
         return self.status == self.Status.ACTIVE and self.procedures_approved and self.questionnaire_version_id
+
+    def allowed_sedes(self):
+        """The sedes a campero can be registered or imported with: the active ones of the event's own list, else
+        (no list, or every listed sede deactivated or deleted since) every active sede of the church.
+        Inactive sedes are never offered."""
+        if self.pk:
+            chosen = self.sedes.filter(active=True)
+            if chosen.exists():
+                return chosen
+        return Sede.objects.filter(church_id=self.church_id, active=True)
 
 
 class MembershipRole(models.TextChoices):
@@ -416,6 +449,8 @@ class EventParticipant(models.Model):
     )
     room = models.CharField("Cuarto", max_length=40)
     church_group = models.CharField("Iglesia o grupo", max_length=120)
+    # PROTECT: a sede with camperos is deactivated, not deleted (the answer to "¿cuántos de Mérida?").
+    sede = models.ForeignKey(Sede, verbose_name="Sede", on_delete=models.PROTECT, null=True, blank=True, related_name="participants")
     coordinator = models.ForeignKey(
         EventMembership,
         verbose_name="Coordinador asignado",

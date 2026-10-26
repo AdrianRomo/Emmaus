@@ -24,7 +24,7 @@
         <li class="row">
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
-            <p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p>
+            <p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}{% if p.sede %}, {{ p.sede.name }}{% endif %}, {{ p.age }} años, {{ p.church_group }}</p>
           </div>
           <div class="row__end">
             {% status p.interview_status %}

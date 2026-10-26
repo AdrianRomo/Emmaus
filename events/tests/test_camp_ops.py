@@ -31,6 +31,7 @@ from events.models import (
     MembershipRole,
     QuestionnaireVersion,
     ReportSnapshot,
+    Sede,
 )
 from events.services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, all_questions, create_questionnaire_from_definition
 
@@ -129,6 +130,7 @@ class PurgeDemoDataTests(TestCase):
         self.assertEqual(ReportSnapshot.objects.count(), 0)
         self.assertEqual(FollowUp.objects.count(), 0)
         self.assertEqual(DiscipleshipPath.objects.count(), 0)
+        self.assertEqual(Sede.objects.count(), 0)  # the demo church's five; the real church has none
         self.assertEqual(QuestionnaireVersion.objects.exclude(questionnaire__church=self.real_church).count(), 0)
         self.assertTrue(self.real_admin.church_roles.filter(church=self.real_church, role=Role.CHURCH_ADMIN).exists())
         # Nothing is left to purge.

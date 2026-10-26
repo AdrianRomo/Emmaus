@@ -16,6 +16,7 @@ Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y 
 | **Corte de seguimiento** | Una "foto" del avance que Emmaus guarda a ciertas horas. No cambia después. |
 | **Seguimiento** | Un campero que pidió o necesita que un líder lo acompañe después. |
 | **Equipo de cuidado** | Las pocas personas autorizadas para leer las respuestas confidenciales. |
+| **Sede** | El lugar de la iglesia de donde viene el campero, por ejemplo "Satélite" o "Mérida". Se elige al registrarlo. |
 | **Código del evento** | Seis letras y números, por ejemplo `K7M3QX`, que la administración imprime en una hoja. Sirve para pedir acceso al equipo en `/unirme/`. No sirve para entrar ni para ver nada. |
 
 ## Entrar y salir
@@ -98,16 +99,18 @@ Cada coordinador tiene un solo tutor. Un tutor solo ve a sus coordinadores y a l
 
 ### 5. Registrar camperos
 
-**Uno por uno:** en **"Participantes"**, toca **"Registrar campero"**. Escribe nombre y apellido, edad, cuarto e iglesia o grupo, y elige su coordinador (o déjalo "Sin coordinador por ahora"). Si es menor y ya entregó la autorización firmada, marca **"Ya entregó la autorización firmada de su padre, madre o tutor legal"**. Toca **"Guardar"** o **"Guardar y registrar otro"**.
+Si tu iglesia tiene varias sedes, agrégalas antes de registrar (ver [9. Sedes de la iglesia](#9-sedes-de-la-iglesia)): la sede de cada campero se elige al registrarlo y después ya no hay forma de saberla.
+
+**Uno por uno:** en **"Participantes"**, toca **"Registrar campero"**. Escribe nombre y apellido, edad, cuarto e iglesia o grupo, elige su **"Sede"** (o déjala en "Sin sede"; el campo solo aparece si la iglesia tiene sedes) y su coordinador (o déjalo "Sin coordinador por ahora"). Si es menor y ya entregó la autorización firmada, marca **"Ya entregó la autorización firmada de su padre, madre o tutor legal"**. Toca **"Guardar"** o **"Guardar y registrar otro"**.
 
 **Desde un archivo (CSV):**
 
-1. En Excel o Google Sheets haz una tabla con estos encabezados en la primera fila: **Nombre**, **Edad**, **Cuarto**, **Iglesia o grupo**. Puedes agregar **Coordinador** (su correo o su nombre) y **Autorización** (sí o no).
+1. En Excel o Google Sheets haz una tabla con estos encabezados en la primera fila: **Nombre**, **Edad**, **Cuarto**, **Iglesia o grupo**. Puedes agregar **Coordinador** (su correo o su nombre), **Autorización** (sí o no) y **Sede** (el nombre o el identificador de la sede, con o sin mayúsculas y acentos: "Mérida", "MERIDA" y "merida" sirven igual). Para empezar más rápido, en **"Importar CSV"** toca **"Descargar archivo de ejemplo"**: trae los encabezados y dos filas que puedes reemplazar.
 2. Guárdala como **CSV UTF-8** (máximo 2 MB).
 3. En **"Participantes"**, toca **"Importar CSV"**, elige el archivo y toca **"Revisar archivo"**.
 4. Emmaus te muestra todo antes de guardar: cuántas filas están listas, cuáles tienen errores y cuáles podrían estar repetidas ("Ya existe..." o "Repetido en la fila..."). Nada se guarda todavía.
-5. Las filas con errores no se importan. Las posibles repetidas aparecen **desmarcadas**: revísalas. Si es otra persona con el mismo nombre, márcala.
-6. Toca **"Importar filas marcadas"**. Si te equivocaste de archivo, toca **"Cancelar y subir otro archivo"**.
+5. Las filas con errores no se importan. Una sede que no es de este evento es un error: "Sede desconocida: «Guadalajara». Usa una de: Satélite, Zona Esmeralda, Lomas Verdes, CDMX, Mérida." También lo es una que coincide con dos sedes ("Sede ambigua: «Merida»."). Corrige el archivo y súbelo otra vez. Las posibles repetidas aparecen **desmarcadas**: revísalas. Si es otra persona con el mismo nombre, márcala.
+6. Toca **"Importar filas marcadas"**. Si mientras revisabas alguien desactivó o quitó una sede del archivo, esos camperos se importan sin sede y el mensaje dice cuántos ("2 camperos quedaron sin sede porque la sede ya no estaba disponible."): corrígelos en su ficha. Si te equivocaste de archivo, toca **"Cancelar y subir otro archivo"**.
 
 ![Importar camperos](img/admin-importar.png)
 
@@ -138,6 +141,22 @@ En la ficha de un campero, la administración ve:
 
 En **"Participantes"**, **"Descargar lista"** baja la lista de camperos sin respuestas. Cada descarga queda registrada.
 
+### 9. Sedes de la iglesia
+
+Si la iglesia tiene varias sedes (por ejemplo Satélite, Zona Esmeralda, Lomas Verdes, CDMX y Mérida), Emmaus guarda de cuál viene cada campero, para poder responder "¿cuántos vinieron de Mérida?".
+
+Las sedes las agrega y las cambia quien administra la iglesia. Si solo administras este evento, ves la lista ("Las sedes las administra la iglesia.") y eliges cuáles participan (paso 3).
+
+1. En **"Participantes"**, abajo, toca **"Sedes de la iglesia"**.
+2. Toca **"Agregar sede"**. Escribe el nombre y, si quieres, la ciudad. El identificador se forma solo con el nombre (por ejemplo `zona-esmeralda`); puedes cambiarlo. Toca **"Agregar sede"**. Dos sedes no pueden llamarse igual (sin contar mayúsculas ni acentos), ni puede el nombre de una ser el identificador de otra: el archivo de importación no sabría cuál es.
+3. Si el campamento es solo para algunas sedes, márcalas en **"Sedes que participan"** y toca **"Guardar sedes del evento"**. Si no marcas ninguna, participan todas. Una sede marcada que está inactiva no se ofrece, y la página lo avisa; si desactivas o borras todas las que marcaste, al registrar y al importar se ofrecen todas las sedes activas de la iglesia.
+
+Las sedes son de la iglesia: valen para todos sus eventos y un cambio se ve en todos. Una sede que ya tiene camperos no se puede borrar: en **"Editar"** desmarca **"Activa"** y ya no aparece al registrar ni al importar; los camperos que ya la tienen la conservan.
+
+Con sedes, en **"Participantes"** aparece el filtro **"Sede"** con cuántos camperos hay de cada una ("Mérida (80)", contando con los demás filtros que elegiste), la sede sale en la lista después del cuarto ("Cuarto 2, Mérida, 17 años") y en la lista descargada. Si la iglesia no tiene sedes, nada de esto aparece.
+
+La sede no es confidencial, pero es un dato personal del campero (muchas veces menor de edad): se borra junto con su registro, igual que su nombre y su cuarto, cuando termina el tiempo de conservación del evento o cuando eliminas sus datos.
+
 ---
 
 ## Para coordinadores
@@ -153,7 +172,7 @@ En las demás pantallas, arriba está el botón **"Iniciar entrevista"**.
 ### Registrar a un campero
 
 1. En **"Mis camperos"**, toca **"Registrar campero"**.
-2. Escribe nombre y apellido, edad, cuarto e iglesia o grupo. Quedará asignado a ti.
+2. Escribe nombre y apellido, edad, cuarto e iglesia o grupo y, si aparece, elige su **"Sede"**. Quedará asignado a ti.
 3. Si es menor y ya entregó la autorización firmada, márcalo.
 4. Si Emmaus te avisa "Ya hay un campero registrado con este nombre", revisa la lista. Si es la misma persona, no la registres otra vez. Si es otra, marca **"Sí, es otra persona con el mismo nombre"**.
 5. Toca **"Guardar y empezar la entrevista"** o **"Guardar y registrar otro"**.
@@ -383,7 +402,7 @@ Solo el equipo de cuidado autorizado puede leer el reporte. Emmaus les avisa por
 
 | | Coordinador | Tutor | Pastor | Administración | Equipo de cuidado |
 |---|---|---|---|---|---|
-| Datos de sus camperos (nombre, edad, cuarto) | Los suyos | Su equipo | Todos | Todos | Según su rol |
+| Datos de sus camperos (nombre, edad, cuarto, sede) | Los suyos | Su equipo | Todos | Todos | Según su rol |
 | Respuestas espirituales | De sus camperos | No | No | Solo si hizo la entrevista | Sí |
 | Respuestas confidenciales | Solo mientras las anota en una entrevista asistida | No | No | Igual que el coordinador, si hace la entrevista | Sí |
 | Reportes y presentación | No (solo "Mi avance") | Su equipo | Todo | Todo | Según su rol |
