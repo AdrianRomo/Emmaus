@@ -12,6 +12,22 @@ from html import escape
 
 from django.utils.safestring import mark_safe
 
+# The projection label ("Hacia las 16:43") ends at the projection's end point, its baseline this far above the goal line.
+PROJECTION_RISE = 9
+# Width of a character for label collisions, in ems: Atkinson Hyperlegible Next runs about 0.55, digits included.
+CHAR_EM = 0.6
+
+
+def _text_box(x: float, baseline: float, text: str, size: float, anchor: str) -> tuple[float, float, float, float]:
+    """Approximate box (x0, x1, y0, y1) of one line of SVG text."""
+    width = len(text) * size * CHAR_EM
+    x0 = x - width if anchor == "end" else x - width / 2 if anchor == "middle" else x
+    return x0, x0 + width, baseline - size, baseline + size * 0.25
+
+
+def _boxes_overlap(a: tuple, b: tuple, gap: float = 4) -> bool:
+    return a[0] < b[1] + gap and b[0] < a[1] + gap and a[2] < b[3] + gap and b[2] < a[3] + gap
+
 
 def nice_max(value: int) -> int:
     if value <= 4:
@@ -91,12 +107,16 @@ def cumulative_chart(
     """
     if not points:
         return ""
+    # ``top`` leaves room above the goal line for the projection label, drawn PROJECTION_RISE above it:
+    # with less, "Hacia las 04:34" was cut off at the top edge whenever the goal was the top gridline.
+    # The deck canvas is as wide as the slide's chart area (about 3.6:1 at any size), so the chart fills
+    # the slide's width; its text is set in rotulo.css at 27 (label) and 32 (value) viewBox units.
     if deck:
-        width, height, font, (left, right, top, bottom) = 1200, 420, 22, (70, 120, 24, 50)
+        width, height, font, (left, right, top, bottom) = 1600, 420, 22, (70, 150, 27 + PROJECTION_RISE, 50)
     elif compact:  # drawn near 1:1 on a phone, so the text stays readable
-        width, height, font, (left, right, top, bottom) = 360, 240, 12, (32, 64, 14, 30)
+        width, height, font, (left, right, top, bottom) = 360, 240, 12, (32, 64, 12 + PROJECTION_RISE, 30)
     else:
-        width, height, font, (left, right, top, bottom) = 640, 260, 13, (40, 72, 16, 34)
+        width, height, font, (left, right, top, bottom) = 640, 260, 13, (40, 72, 13 + PROJECTION_RISE, 34)
     plot_w, plot_h = width - left - right, height - top - bottom
     y_max = nice_max(max(total, points[-1]["cumulative"], 1))
     n = len(points)
@@ -133,20 +153,32 @@ def cumulative_chart(
             parts.append(f'<path class="area" d="{area}"/>')
         parts.append(f'<path class="line" d="{line}"/>')
     lx, ly = coords[-1]
-    if project:
-        px, py = x_for(slots), y_for(total)
-        parts.append(f'<path class="projection" d="M{lx:.1f},{ly:.1f} L{px:.1f},{py:.1f}"/>')
-        parts.append(f'<circle class="projection-end" cx="{px:.1f}" cy="{py:.1f}" r="{6 if deck else 4}"/>')
-        if projection_label:
-            parts.append(
-                f'<text class="label-quiet" x="{px - 4:.1f}" y="{py - 9:.1f}" text-anchor="end" font-size="{font}">{escape(projection_label)}</text>'
-            )
-    parts.append(f'<circle class="dot" cx="{lx:.1f}" cy="{ly:.1f}" r="{7 if deck else 5}"/>')
     label_x, anchor_last = (lx - 10, "end") if project else (lx + 12, "start")
     label_y = ly - 10
     # Near the goal the value would sit on top of the "Total" label (same right edge): put it under the point.
     if total and not project and abs(label_y - (y_for(total) + font / 3)) < font * 1.4:
         label_x, anchor_last, label_y = lx - 10, "end", ly + font + 8
+    # Sizes as drawn: the deck's stylesheet sets its text at 27 and the value at 32 viewBox units (rotulo.css).
+    label_size, value_size = (27, 32) if deck else (font, font + 2)
+    if project:
+        px, py = x_for(slots), y_for(total)
+        parts.append(f'<path class="projection" d="M{lx:.1f},{ly:.1f} L{px:.1f},{py:.1f}"/>')
+        parts.append(f'<circle class="projection-end" cx="{px:.1f}" cy="{py:.1f}" r="{6 if deck else 4}"/>')
+        if projection_label:
+            # Beside the projection's end, unless the last value sits there too (close to the goal, a short ETA):
+            # then at the goal line's other end. Nothing else is drawn above that line while there is a
+            # projection, since every point is below the goal.
+            value_box = _text_box(label_x, label_y, str(points[-1]["cumulative"]), value_size, anchor_last)
+
+            def clear(x, anchor):
+                return not _boxes_overlap(_text_box(x, py - PROJECTION_RISE, projection_label, label_size, anchor), value_box)
+
+            places = [(px - 4, "end"), (left + 4, "start")]
+            goal_x, goal_anchor = next((place for place in places if clear(*place)), places[0])
+            parts.append(
+                f'<text class="label-quiet" x="{goal_x:.1f}" y="{py - PROJECTION_RISE:.1f}" text-anchor="{goal_anchor}" font-size="{font}">{escape(projection_label)}</text>'
+            )
+    parts.append(f'<circle class="dot" cx="{lx:.1f}" cy="{ly:.1f}" r="{7 if deck else 5}"/>')
     parts.append(
         f'<text class="label-strong" x="{label_x:.1f}" y="{label_y:.1f}" text-anchor="{anchor_last}" font-size="{font + 2}">{points[-1]["cumulative"]}</text>'
     )

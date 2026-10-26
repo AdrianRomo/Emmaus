@@ -23,7 +23,21 @@
 <section aria-labelledby="resultados">
   <h2 id="resultados" class="heading">{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}</h2>
   {% if page.object_list %}
-    <div class="table-wrap" tabindex="0" role="region" aria-label="Participantes">
+    {% comment %}
+      The same page twice: the table from 601px up, the rows on a phone (rotulo.css, G3). The one not in use is
+      display:none, so screen readers and the keyboard meet only one of them.
+    {% endcomment %}
+    <ul class="rows admin-people__rows">
+      {% for p in page.object_list %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
+            <p class="row__meta">#{{ p.code }}{% if not p.is_active %}, dado de baja{% endif %}, {{ p.room|cuarto }}, {{ p.age }} años{% if p.church_group %}, {{ p.church_group }}{% endif %}, {% if p.coordinator %}con {{ p.coordinator.display_name }}{% else %}sin coordinador{% endif %}, {{ p.get_interview_status_display }}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <div class="table-wrap admin-people__table" tabindex="0" role="region" aria-label="Participantes">
       <table class="table admin-table">
         <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Entrevista</th></tr></thead>
         <tbody>{% for p in page.object_list %}
