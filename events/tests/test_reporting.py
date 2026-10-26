@@ -1,6 +1,8 @@
 """Metrics, cutoffs, presentation privacy."""
 
+import re
 from datetime import datetime, time, timedelta
+from urllib.parse import quote
 from unittest import mock
 
 from django.core.management import call_command
@@ -252,3 +254,58 @@ class SeedSafetyTests(CampFixture):
 
         with self.assertRaises(CommandError):
             call_command("seed_camp_demo", verbosity=0)
+
+
+class PresentationExitTests(CampFixture):
+    """"Salir" returns to where the presentation was opened from: Reportes by default, a saved cutoff's deck to
+    that cutoff, never the role's home (which is not where the person was) and never another site."""
+
+    def salir(self, url: str) -> str:
+        html = self.client.get(url).content.decode()
+        return re.search(r'<a class="btn" href="([^"]+)">Salir</a>', html).group(1)
+
+    def test_the_live_deck_returns_to_reports_by_default(self):
+        self.login(self.pastor)
+        self.assertEqual(self.salir(self.url("presentation_live")), self.url("reports"))
+        self.login(self.admin)
+        self.assertEqual(self.salir(self.url("presentation_live")), self.url("reports"))
+
+    def test_the_live_deck_returns_to_the_page_that_opened_it(self):
+        self.login(self.pastor)
+        home = self.url("pastor_home")
+        self.assertEqual(self.salir(self.url("presentation_live") + "?desde=" + quote(home)), home)
+        scoped = self.url("reports") + "?alcance=evento"
+        self.assertEqual(self.salir(self.url("presentation_live") + "?desde=" + quote(scoped)), scoped)
+        for elsewhere in ("https://evil.example/", "//evil.example/", "/\\evil.example"):
+            with self.subTest(desde=elsewhere):
+                self.assertEqual(self.salir(self.url("presentation_live") + "?desde=" + quote(elsewhere, safe="")), self.url("reports"))
+
+    def test_the_pages_that_open_it_say_where_they_are(self):
+        self.login(self.pastor)
+        live = self.url("presentation_live")
+        reports = self.client.get(self.url("reports"))
+        self.assertContains(reports, f'href="{live}?desde={quote(self.url("reports"))}">Mostrar presentación</a>')
+        home = self.client.get(self.url("pastor_home"))
+        self.assertContains(home, f'href="{live}?desde={quote(self.url("pastor_home"))}">Mostrar presentación</a>')
+
+    def test_a_saved_cutoffs_deck_returns_to_that_cutoff(self):
+        from events.services.reports import generate_snapshot
+
+        snap = generate_snapshot(self.event, event_scope(self.event), trigger="automatico", cutoff_at=timezone.now())
+        self.login(self.pastor)
+        self.assertEqual(self.salir(self.url("report_presentation", snap.public_id)), self.url("report_detail", snap.public_id))
+
+
+class BackupListWayBackTests(CampFixture):
+    def test_volver_returns_to_mis_camperos_for_a_coordinator(self):
+        self.login(self.coord1)
+        self.choose_station()
+        response = self.client.get(self.url("backup_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{self.url("my_participants")}">Volver</a>')
+
+    def test_and_to_the_role_home_for_everyone_else(self):
+        self.login(self.admin)
+        response = self.client.get(self.url("backup_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'href="{self.url("home")}">Volver</a>')

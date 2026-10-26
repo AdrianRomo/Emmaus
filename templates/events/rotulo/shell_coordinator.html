@@ -1,7 +1,7 @@
 {% extends "layout/skeleton.html" %}
 {% load brand emmaus %}
 {% comment %}Coordinator shell (Rótulo): where you are, a few plain links, nothing else.{% endcomment %}
-{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · Emmaus{% endblock %}
+{% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · {% brand_name event.church %}{% endblock %}
 {% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
 {% block body %}
 <header class="bar">

@@ -8,7 +8,7 @@
       <h1 class="voice page-head__title">Lista de respaldo</h1>
       <p class="page-head__meta">{{ event.name }}, impresa el {{ printed_at|fecha_corta }}.</p>
     </div>
-    <div class="page-head__actions"><button class="btn btn--primary" type="button" data-print>Imprimir</button><a class="btn btn--link" href="{% url 'events:home' event.slug %}">Volver</a></div>
+    <div class="page-head__actions"><button class="btn btn--primary" type="button" data-print>Imprimir</button><a class="btn btn--link" href="{% if access.is_coordinator %}{% url 'events:my_participants' event.slug %}{% else %}{% url 'events:home' event.slug %}{% endif %}">Volver</a></div>
   </header>
   <p class="notice notice--warning">Úsala solo si falla la red o una computadora. Marca a quién entrevistaste y captura sus respuestas en Emmaus en cuanto se pueda. Contiene datos personales: no la dejes a la vista y destrúyela al terminar.</p>
   {% for coordinator, rows in groups.items %}

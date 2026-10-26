@@ -188,7 +188,7 @@ La sede no es confidencial, pero es un dato personal del campero (muchas veces m
 
 ### El logotipo de tu iglesia
 
-Si tu iglesia tiene logotipo, súbelo y aparece donde hoy dice "Emmaus": en la barra de arriba, en la pantalla para entrar (sobre el título), en la pantalla del campero desde "Hola, …", en la portada de la presentación y en el encabezado del PDF de los cortes. Solo puede subirlo la administración de la iglesia.
+Si tu iglesia tiene logotipo, súbelo y aparece donde hoy dice "Emmaus": en la barra de arriba, en la pantalla para entrar (sobre el título), en la pantalla del campero desde "Hola, …", en cada diapositiva de la presentación y en el encabezado del PDF de los cortes. El título de la pestaña del navegador y el autor del PDF pasan a ser el nombre de tu iglesia. Solo puede subirlo la administración de la iglesia.
 
 1. En **"Campamentos y eventos"**, toca **"Configuración"** en la barra de arriba (es la configuración de la iglesia; la de cada campamento está dentro del campamento). Se abre **"Configuración de la iglesia"**.
 2. En **"Logotipo"**, elige el archivo: **un PNG con fondo transparente, de hasta 512 KB, con el lado mayor de 32 a 2000 píxeles**. Lo que mejor funciona es el logotipo en **negro sobre transparente**; uno de al menos 640 píxeles de ancho se ve nítido en el proyector. Emmaus no acepta SVG, JPG ni otros formatos: desde tu programa de diseño, exporta o guarda como PNG.
@@ -428,7 +428,7 @@ Sirve para proyectar el avance en una reunión del equipo.
 1. Toca **"Mostrar presentación"** (en "Resumen general" o en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial o **"Mostrar presentación"** en el corte.
 2. Toca **"Pantalla completa"** (o la tecla **F**). Si el salón está oscuro, toca **"Modo noche"**: fondo azul oscuro y letra clara. Emmaus recuerda tu elección en esa computadora.
 3. Avanza con la **flecha derecha** o **"Siguiente"**; regresa con la **flecha izquierda** o **"Anterior"**.
-4. Toca **"Salir"** al terminar.
+4. Toca **"Salir"** al terminar: vuelves a la página desde la que abriste la presentación (Reportes o tu resumen). La presentación de un corte guardado vuelve a ese corte.
 
 ![Modo presentación](img/presentacion.png)
 

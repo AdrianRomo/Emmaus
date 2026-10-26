@@ -1,5 +1,6 @@
-"""The church's logo on the camp screens: the event bars, the campero's screens from "Hola, …", the title
-slide of the presentation (Cal and Noche) and the header of the cutoff PDF. Images are made by the tests."""
+"""The church's logo on the camp screens: the event bars, the campero's screens from "Hola, …", every slide
+of the presentation (Cal and Noche) and the header of the cutoff PDF; with a logo, the <title> and the PDF's
+author name the church instead of Emmaus. Images are made by the tests."""
 
 from __future__ import annotations
 
@@ -43,7 +44,8 @@ class EventBarLogoTests(MediaRootMixin, CampFixture):
                 head = html.split('class="menu-panel__head">', 1)[1].split("<button", 1)[0]
                 self.assertIn('<img class="brand__logo brand__logo--bar"', head)
                 self.assertEqual(len(re.findall(r"<h1\b", html)), 1)
-                self.assertIn("· Emmaus</title>", html)
+                self.assertIn("· Iglesia de prueba</title>", html)
+                self.assertNotIn("Emmaus</title>", html)
 
     def test_without_a_logo_the_bars_are_unchanged(self):
         home = self.url("home")
@@ -56,6 +58,18 @@ class EventBarLogoTests(MediaRootMixin, CampFixture):
                 self.assertContains(response, f'<div class="bar__inner">\n    <a class="wordmark" href="{home}">Emmaus</a>\n')
                 self.assertContains(response, f'<div class="menu-panel__head">\n    {WORDMARK}\n')
                 self.assertNotContains(response, "brand__logo")
+                self.assertContains(response, "· Emmaus</title>")
+
+    def test_the_interview_screens_name_the_church_in_the_tab(self):
+        self.give_logo(self.church, png_bytes(300, 100))
+        self.login(self.coord1)
+        self.choose_station()
+        started = self.start(self.p1)
+        self.assertEqual(started.status_code, 302)
+        response = self.client.get(started.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "· Iglesia de prueba</title>")
+        self.assertNotContains(response, "Emmaus</title>")
 
     def test_each_event_shows_its_own_church(self):
         from core.models import Church
@@ -87,6 +101,7 @@ class KioskLogoTests(MediaRootMixin, CampFixture):
             f'<p class="focusbar__who"><img class="brand__logo brand__logo--mark" src="/iglesia/{self.church.slug}/logotipo/claro/?v=',
         )
         self.assertContains(response, 'alt="Iglesia de prueba" width="120" height="40"> <span>Computadora 5</span>')
+        self.assertContains(response, "· Iglesia de prueba</title>")
         # The campero's browser is confined to /estacion/, but may load the logo the page asks for.
         src = re.search(r'brand__logo--mark" src="([^"]+)"', response.content.decode()).group(1)
         image = self.client.get(src)
@@ -98,6 +113,16 @@ class KioskLogoTests(MediaRootMixin, CampFixture):
         self.hand_over()
         response = self.client.get(reverse("kiosk:home"))
         self.assertContains(response, f'<p class="focusbar__who">{WORDMARK} <span>Computadora 5</span></p>')
+        self.assertContains(response, "· Emmaus</title>")
+
+    def test_a_computer_with_no_session_left_still_speaks_for_the_church(self):
+        """The "ended" page has no session to name an event: the public pages' church (brand_church) speaks."""
+        self.give_logo(self.church, png_bytes(300, 100))
+        response = Client().get(reverse("kiosk:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'<p class="focusbar__who"><img class="brand__logo brand__logo--mark" src="/iglesia/{self.church.slug}/logotipo/claro/?v=')
+        self.assertContains(response, "· Iglesia de prueba</title>")
+        self.assertNotContains(response, WORDMARK)
 
 
 class DeckLogoTests(MediaRootMixin, CampFixture):
@@ -133,11 +158,21 @@ class DeckLogoTests(MediaRootMixin, CampFixture):
         noche = cover.split('class="deck-brand deck-brand--noche">', 1)[1]
         self.assertTrue(noche.startswith(f'<span class="brand__plate"><img class="brand__logo brand__logo--deck" src="/iglesia/{self.church.slug}/logotipo/claro/'), noche[:200])
 
-    def test_the_other_slides_keep_the_wordmark(self):
-        self.give_logo(self.church, png_bytes())
+    def test_the_other_slides_carry_the_logo_in_the_top_row(self):
+        """Slides 2 to 5: the logo beside the event's name, smaller than on the title slide, Cal and Noche like it."""
+        self.give_logo(self.church, png_bytes(300, 100))
         html = self.deck()
-        self.assertEqual(html.count(WORDMARK), 4)  # slides 2 to 5
-        self.assertEqual(html.count("brand__logo--deck"), 2)  # the title slide's two versions
+        self.assertEqual(html.count(WORDMARK), 0)
+        self.assertEqual(html.count('class="brand__logo brand__logo--deck"'), 2)  # the title slide's two versions
+        self.assertEqual(html.count('class="brand__logo brand__logo--deck-top"'), 8)  # four slides, Cal and Noche each
+        top = html.split('<section class="slide" aria-label="Diapositiva 2 de 5">', 1)[1].split("</div>", 1)[0]
+        self.assertRegex(
+            top,
+            r'<div class="slide__top"><span class="deck-brand deck-brand--cal"><img class="brand__logo brand__logo--deck-top" '
+            rf'src="/iglesia/{self.church.slug}/logotipo/claro/\?v=[0-9-]+" alt="Iglesia de prueba" width="144" height="48" style="width:7.50cqw"></span>'
+            r'<span class="deck-brand deck-brand--noche"><span class="brand__plate"><img class="brand__logo brand__logo--deck-top" ',
+        )
+        self.assertIn("<span data-deck-live>", top)  # the event's name and the time still follow the logo
 
     def test_without_a_logo_the_title_slide_is_unchanged(self):
         html = self.deck()
@@ -149,6 +184,7 @@ class DeckLogoTests(MediaRootMixin, CampFixture):
         css = (settings.BASE_DIR / "static" / "css" / "rotulo.css").read_text()
         self.assertIn(".deck-brand--noche, .deck--noche .deck-brand--cal { display: none; }", css)
         self.assertIn(".deck--noche .deck-brand--noche { display: inline-flex; }", css)
+        self.assertIn(".brand__logo--deck-top { max-height: 2.5cqw; }", css)  # the top row's ceiling, 48 px of 1920
         self.assertRegex(css, r"\.brand__logo \{[^}]*height: auto;")  # never stretched: height follows the width
 
 
@@ -171,6 +207,11 @@ class PdfLogoTests(MediaRootMixin, CampFixture):
         self.assertTrue(with_logo.startswith(b"%PDF"))
         self.assertIn(b"/Subtype /Image", with_logo)
         self.assertGreater(len(with_logo), len(without))
+
+    def test_the_author_is_the_church_once_it_has_a_logo(self):
+        self.assertIn(b"/Author (Emmaus)", self.pdf())
+        self.give_logo(self.church, png_bytes(600, 200))
+        self.assertIn(b"/Author (Iglesia de prueba)", self.pdf())
 
     def test_the_logo_is_at_most_2_2_inches_wide(self):
         from events.services.pdf import LOGO_MAX_HEIGHT, LOGO_MAX_WIDTH, _brand, _styles

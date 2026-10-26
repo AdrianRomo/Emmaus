@@ -9,7 +9,7 @@
   </div>
   <div class="report-head__actions">
     <form method="post" action="{% url 'events:report_generate' event.slug %}">{% csrf_token %}<input type="hidden" name="scope" value="{{ scope_key }}"><button class="btn btn--primary" type="submit">Generar corte ahora</button></form>
-    <a class="btn btn--secondary" href="{% url 'events:presentation_live' event.slug %}">Mostrar presentación</a>
+    <a class="btn btn--secondary" href="{% url 'events:presentation_live' event.slug %}?desde={{ request.get_full_path|urlencode }}">Mostrar presentación</a>
   </div>
 </header>
 

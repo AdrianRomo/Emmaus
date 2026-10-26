@@ -128,9 +128,11 @@ class LandingTests(MediaRootMixin, TestCase):
         self.assertContains(response, '<div class="auth-card__brand"><img class="brand__logo brand__logo--auth" src="/iglesia/camino/logotipo/claro/?v=', html=False)
         self.assertContains(response, 'alt="Iglesia del Camino" width="216" height="72">', html=False)
         self.assertLess(html.index("auth-card__brand"), html.index("<h1"))
-        # Like the sign-in page: the bar keeps the painted "Emmaus", so the logo shows once
-        self.assertContains(response, '<a class="wordmark" href="/">Emmaus</a>', html=False)
+        # Like the sign-in page: no bar at all, so the logo shows once and nothing says "Emmaus"; the church names the tab
+        self.assertNotContains(response, 'class="wordmark"', html=False)
+        self.assertNotContains(response, 'class="bar bar--public"', html=False)
         self.assertContains(response, '<img class="brand__logo', count=1, html=False)
+        self.assertContains(response, "<title>Platicar con cada joven, sin perder a nadie · Iglesia del Camino</title>", html=False)
 
     def test_without_a_logo_there_is_no_second_wordmark(self):
         response = self.get()

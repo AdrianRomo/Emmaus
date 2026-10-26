@@ -6,7 +6,8 @@
 With a logo (a PNG, core.logos): an <img> whose alt is the church's name and whose width and height come from
 the file, fitted to the slot without changing its proportions, so nothing moves when it loads. Without one
 (or with the stored file gone or unreadable): exactly the painted wordmark that was there before, a link
-when ``href`` is given.
+when ``href`` is given. Emmaus is the product, the church is the brand: with a logo uploaded nothing on a
+screen or a report says "Emmaus" any more (``brand_name`` gives the <title> and the PDF the church's name too).
 
 ``variant="oscuro"`` is for dark backgrounds (the "Noche" deck): the church's white version if it uploaded
 one; otherwise its usual logo on a small white plate, because a black logo on a dark slide would vanish.
@@ -30,7 +31,8 @@ SIZES = {
     "bar": (180, 32),
     "auth": (220, 72),
     "mark": (400, 40),  # 40 px tall; 400 is what the widest logo allowed (10:1, core.logos) needs
-    "deck": (320, 120),  # on a 1920 px slide; drawn in cqw, so it scales with the slide like everything on it
+    "deck": (320, 120),  # the title slide; on a 1920 px slide, drawn in cqw, so it scales with the slide like everything on it
+    "deck-top": (220, 48),  # the top row of every other slide, beside the event's name
 }
 DECK_SLIDE_WIDTH = 1920
 VARIANTS = ("claro", "oscuro")
@@ -73,6 +75,13 @@ def has_logo(church, variant="claro") -> bool:
 
 
 @register.simple_tag
+def brand_name(church) -> str:
+    """Who the page speaks for where only words fit (the <title>, the PDF's author): the church's name once it has
+    a logo, "Emmaus" until then. The same rule as the logo itself: with one uploaded, Emmaus steps back everywhere."""
+    return church.name if choose(church, "claro") else "Emmaus"
+
+
+@register.simple_tag
 def church_brand(church, variant="claro", size="bar", href=""):
     if size not in SIZES:
         raise ValueError(f"church_brand: unknown size {size!r}")
@@ -90,7 +99,7 @@ def church_brand(church, variant="claro", size="bar", href=""):
     if fitted is None:
         return wordmark
     width, height = fitted
-    style = mark_safe(f' style="width:{width * 100 / DECK_SLIDE_WIDTH:.2f}cqw"') if size == "deck" else ""
+    style = mark_safe(f' style="width:{width * 100 / DECK_SLIDE_WIDTH:.2f}cqw"') if size.startswith("deck") else ""
     html = format_html(
         '<img class="brand__logo brand__logo--{}" src="{}" alt="{}" width="{}" height="{}"{}>',
         size,

@@ -3,10 +3,11 @@
 {% comment %}
   Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: a bar whose
   module links sit on their own row (a church admin has nine). Signed out: just the wordmark and "Entrar".
-  The wordmark's slot shows the church's logo when it has one (brand_church, core.context_processors); the
-  sign-in page and the landing lead with the logo above their title instead, so their bar keeps the painted "Emmaus".
+  The wordmark's slot shows the church's logo when it has one (brand_church, core.context_processors). The
+  sign-in page and the landing lead with the logo above their title instead, and then have no bar at all: the
+  logo is drawn once and nothing says "Emmaus". Without a logo their bar is the painted "Emmaus", as before.
 {% endcomment %}
-{% block title %}{% block page_title %}Emmaus{% endblock %} · Emmaus{% endblock %}
+{% block title %}{% block page_title %}Emmaus{% endblock %} · {% brand_name brand_church %}{% endblock %}
 {% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
 {% block body %}
 {% if user.is_authenticated %}
@@ -43,13 +44,22 @@
 </div>
 <main id="contenido" class="page page--wide" tabindex="-1">
 {% else %}
+{% if request.resolver_match.url_name == "login" or request.resolver_match.url_name == "landing" %}
+{% if brand_church|has_logo %}<main id="contenido" class="page page--lead" tabindex="-1">{% else %}<header class="bar bar--public">
+  <div class="bar__inner">
+    <a class="wordmark" href="{% url 'landing' %}">Emmaus</a>
+  </div>
+</header>
+<main id="contenido" class="page" tabindex="-1">{% endif %}
+{% else %}
 <header class="bar bar--public">
   <div class="bar__inner">
-    {% if request.resolver_match.url_name == "login" or request.resolver_match.url_name == "landing" %}<a class="wordmark" href="{% url 'landing' %}">Emmaus</a>{% else %}{% url 'landing' as landing_url %}{% church_brand brand_church size="bar" href=landing_url %}{% endif %}
-    {% if request.resolver_match.url_name != "login" and request.resolver_match.url_name != "landing" %}<div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>{% endif %}
+    {% url 'landing' as landing_url %}{% church_brand brand_church size="bar" href=landing_url %}
+    <div class="bar__end"><a class="btn btn--small btn--secondary" href="{% url 'login' %}">Entrar</a></div>
   </div>
 </header>
 <main id="contenido" class="page" tabindex="-1">
+{% endif %}
 {% endif %}
   {% include "partials/ui/messages.html" %}
   {% block content %}{% endblock %}

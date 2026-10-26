@@ -396,6 +396,23 @@ class ChurchBrandTagTests(MediaRootMixin, TestCase):
         super().setUp()
         self.church = Church.objects.create(name="Iglesia del Camino", slug="camino")
 
+    def test_brand_name_is_the_church_only_once_it_has_a_logo(self):
+        """Where only words fit (the <title>, the PDF's author): the same rule as the logo."""
+        self.assertEqual(render("{% brand_name church %}", church=None), "Emmaus")
+        self.assertEqual(render("{% brand_name church %}", church=""), "Emmaus")  # an undefined variable
+        self.assertEqual(render("{% brand_name church %}", church=self.church), "Emmaus")
+        self.give_logo(self.church, png_bytes())
+        self.assertEqual(render("{% brand_name church %}", church=self.church), "Iglesia del Camino")
+        os.remove(self.church.logo.path)
+        with self.assertLogs("core.logos", "WARNING"):
+            self.assertEqual(render("{% brand_name church %}", church=self.church), "Emmaus")
+
+    def test_brand_name_is_escaped(self):
+        self.church.name = 'Iglesia "Luz" & <Vida>'
+        self.church.save()
+        self.give_logo(self.church, png_bytes())
+        self.assertEqual(render("<title>{% brand_name church %}</title>", church=self.church), "<title>Iglesia &quot;Luz&quot; &amp; &lt;Vida&gt;</title>")
+
     def test_without_a_logo_the_wordmark_is_exactly_what_it_was(self):
         old_link = Template('<a class="wordmark" href="{{ url }}">Emmaus</a>').render(Context({"url": "/eventos/a/"}))
         old_span = '<span class="wordmark">Emmaus</span>'
@@ -479,9 +496,12 @@ class SignInPlacementTests(MediaRootMixin, TestCase):
         self.assertContains(response, '<div class="auth-card__brand"><img class="brand__logo brand__logo--auth" src="/iglesia/camino/logotipo/claro/?v=')
         self.assertContains(response, 'alt="Iglesia del Camino" width="216" height="72">')
         self.assertLess(html.index("auth-card__brand"), html.index("<h1"))
-        # The bar keeps the painted "Emmaus" here, so the logo is not shown twice; the product name stays in the title.
-        self.assertContains(response, '<a class="wordmark" href="/">Emmaus</a>')
-        self.assertContains(response, "<title>Entrar · Emmaus</title>")
+        # With the logo leading, the page has no bar: the logo is shown once and nothing says "Emmaus"; the church
+        # names the tab.
+        self.assertNotContains(response, 'class="wordmark"')
+        self.assertNotContains(response, 'class="bar bar--public"')
+        self.assertContains(response, '<img class="brand__logo', count=1)
+        self.assertContains(response, "<title>Entrar · Iglesia del Camino</title>")
         self.assertEqual(h1_count(response), 1)
 
     def test_sign_in_without_a_logo_is_unchanged(self):
@@ -489,6 +509,7 @@ class SignInPlacementTests(MediaRootMixin, TestCase):
         response = self.client.get(reverse("login"))
         self.assertNotContains(response, "auth-card__brand")
         self.assertContains(response, '<a class="wordmark" href="/">Emmaus</a>')
+        self.assertContains(response, "<title>Entrar · Emmaus</title>")
 
     def test_sign_in_works_with_no_church_at_all(self):
         response = self.client.get(reverse("login"))

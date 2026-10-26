@@ -318,6 +318,7 @@ a.wordmark:hover { color: var(--petroleo); }
 .brand__logo--auth { max-height: 72px; }
 .brand__logo--mark { max-height: 40px; }
 .brand__logo--deck { max-height: 6.25cqw; }
+.brand__logo--deck-top { max-height: 2.5cqw; }
 /* No white version on a dark background: the usual logo on a small Cal plate, so black on dark does not vanish */
 .brand__plate { display: inline-flex; padding: 0.375rem 0.5rem; background: #ffffff; border-radius: var(--r-control); }
 @media (forced-colors: active) {
@@ -379,6 +380,7 @@ a.wordmark:hover { color: var(--petroleo); }
 
 .page { max-width: var(--w-wide); margin: 0 auto; padding: var(--s-8) var(--s-8) var(--s-20); }
 .page--wide { max-width: var(--w-wide); }
+.page--lead { padding-top: var(--s-12); }  /* sign-in and landing with the church's logo leading: no bar, so the page gives the logo its room */
 
 @media (max-width: 1180px) {
   .bar__nav, .bar__logout, .bar__switch { display: none; }
