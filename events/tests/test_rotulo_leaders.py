@@ -136,9 +136,9 @@ class LeaderScreensTests(CampFixture):
 
 
 class CutoffPdfTests(CampFixture):
-    """The PDF reads like the cutoff page: Recursive Casual for the voice, Atkinson Hyperlegible Next for the rest."""
+    """The PDF reads like the cutoff page: Figtree ExtraBold for the titles and questions, Regular and Bold for the rest."""
 
-    def test_pdf_uses_the_rotulo_fonts(self):
+    def test_pdf_uses_the_atrio_fonts(self):
         from events.services.metrics import event_scope
         from events.services.reports import generate_snapshot
 
@@ -146,10 +146,131 @@ class CutoffPdfTests(CampFixture):
         self.login(self.pastor)
         pdf = self.client.get(self.url("report_pdf", snap.public_id)).content
         self.assertTrue(pdf.startswith(b"%PDF"))
-        self.assertIn(b"RecursiveCasual-Bold", pdf)
-        self.assertIn(b"AtkinsonHyperlegibleNext-Regular", pdf)
-        self.assertIn(b"AtkinsonHyperlegibleNext-Bold", pdf)
-        self.assertNotIn(b"Literata", pdf)
+        for face in (b"Figtree-Regular", b"Figtree-Bold", b"Figtree-ExtraBold"):
+            self.assertIn(face, pdf)
+        for retired in (b"Recursive", b"Atkinson", b"Literata"):
+            self.assertNotIn(retired, pdf)
+
+    def pdf_texts(self, payload_changes):
+        """Build the PDF from a snapshot whose payload is changed as given; return every text handed to ReportLab."""
+        from unittest import mock
+
+        from events.services import pdf as pdf_module
+        from events.services.metrics import event_scope
+        from events.services.reports import generate_snapshot
+
+        snap = generate_snapshot(self.event, event_scope(self.event), trigger="automatico", cutoff_at=timezone.now())
+        payload = {**snap.data, **payload_changes}
+        with mock.patch.object(pdf_module, "Paragraph", wraps=pdf_module.Paragraph) as paragraph, \
+                mock.patch.object(pdf_module, "Table", wraps=pdf_module.Table) as table:
+            data = pdf_module.build_snapshot_pdf(snap, payload)
+        self.assertTrue(data.startswith(b"%PDF"))
+        texts = [str(call.args[0]) for call in paragraph.call_args_list]
+        for call in table.call_args_list:
+            texts += [str(cell) for row in call.args[0] for cell in row]
+        return texts
+
+    def test_rounded_counts_are_words_in_the_pdf(self):
+        """Figtree has no "≈" (ReportLab would print a box): the PDF writes "unas 85", read from the value, so a
+        cutoff saved while the display was still "≈ 85" prints words too."""
+        old_style = {"value": 85, "display": "\u2248 85", "suppressed": False}
+        outcomes = [{
+            "code": "salvo", "title": "¿Eres salvo?", "kind": "single", "sensitivity": "spiritual",
+            "respondents": old_style, "withheld": False,
+            "rows": [
+                {"label": "Sí", "code": "si", "decline": False, "value": 40, "display": "\u2248 40", "suppressed": False},
+                {"label": "No", "code": "no", "decline": False, "value": None, "display": "Menos de 5", "suppressed": True},
+            ],
+        }]
+        texts = self.pdf_texts({"outcomes": outcomes, "min_group_size": 5})
+        joined = "\n".join(texts)
+        self.assertNotIn("\u2248", joined)
+        self.assertIn("Respondieron unas 85 personas.", joined)
+        self.assertIn("unas 40", texts)
+        self.assertIn("menos de 5", texts)
+        self.assertIn("Los totales se redondean de 5 en 5 y las cantidades menores a 5 no se muestran, para que nadie pueda ser identificado.", joined)
+        from events.services.pdf import _about
+
+        self.assertEqual(_about({"value": 1, "display": "unas 1", "suppressed": False}, "personas"), "1 persona")  # minimum group of 1
+
+    def test_the_pdf_speaks_of_camperos_and_hides_the_metrics_version(self):
+        """Substrings of the whole text, not list membership. The glossary ("Cómo se calcula") prints
+        metrics.DEFINITIONS, which another branch renames: its lines are left out while they still say
+        "Participantes", and checked with everything else once they do not."""
+        from xml.sax.saxutils import escape
+
+        from events.services.metrics import DEFINITIONS
+
+        texts = self.pdf_texts({})
+        joined = "\n".join(texts)
+        self.assertNotIn("métricas versión", joined)
+        self.assertIn("Camperos", texts)  # the team table's column
+        glossary = {f"<b>{escape(name)}:</b> {escape(text)}" for name, text in DEFINITIONS}
+        self.assertTrue(glossary <= set(texts))  # the exclusion below really matches the glossary lines
+        if any("articipantes" in name + text for name, text in DEFINITIONS):
+            joined = "\n".join(text for text in texts if text not in glossary)
+        self.assertNotIn("Participantes", joined)
+        self.assertNotIn("participantes", joined)
+
+    def test_rounded_follow_ups_on_the_deck_are_words_by_gender(self):
+        from events.services.metrics import build_payload, event_scope
+        from events.services.presentation import build_deck
+
+        deck = build_deck(
+            build_payload(event_scope(self.event)), event_name="X", kind_label="Campamento", k=5,
+            released_follow_ups={"requested_total": 12, "open_total": 7, "done": 0, "to_evaluate": 11},
+        )
+        words = {key: deck["follow_ups"][key]["words"] for key in ("requested", "open", "done", "to_evaluate")}
+        self.assertEqual(words, {"requested": "Unos 10", "open": "Unos 5", "done": "0", "to_evaluate": "Unas 10"})
+        self.assertIn("Decidir el seguimiento de unas 10 entrevistas.", deck["next_steps"])  # never "... por decidir" twice
+        self.assertIn("Asignar líderes a unos 5 seguimientos abiertos.", deck["next_steps"])
+        small = build_deck(build_payload(event_scope(self.event)), event_name="X", kind_label="Campamento", k=5,
+                           released_follow_ups={"requested_total": 1, "open_total": 2, "done": 0, "to_evaluate": 3})
+        self.assertEqual(small["follow_ups"]["open"]["words"], "Menos de 5")
+        self.assertIn("Asignar líderes a menos de 5 seguimientos abiertos.", small["next_steps"])
+        self.assertNotIn("\u2248", str(deck) + str(small))
+        one = build_deck(build_payload(event_scope(self.event)), event_name="X", kind_label="Campamento", k=1,
+                         released_follow_ups={"requested_total": 1, "open_total": 1, "done": 0, "to_evaluate": 1})
+        self.assertIn("Decidir el seguimiento de 1 entrevista.", one["next_steps"])
+        self.assertIn("Asignar líderes a 1 seguimiento abierto.", one["next_steps"])
+        self.assertEqual(one["follow_ups"]["requested"]["words"], "1")
+
+    def test_the_deck_says_camperos_and_how_totals_are_rounded(self):
+        self.login(self.pastor)
+        html = self.client.get(self.url("presentation_live")).content.decode()
+        self.assertNotIn("\u2248", html)
+        from django.conf import settings
+
+        slides = (settings.BASE_DIR / "templates" / "events" / "presentation" / "_slides.html").read_text()
+        self.assertIn("La línea horizontal es el total de camperos", slides)  # slide 3 needs completed interviews
+        self.assertNotIn("participantes", slides)
+        self.assertIn("Los totales se redondean de 5 en 5 y las cantidades menores a 5 no se muestran, para que nadie pueda ser identificado.", html)
+        self.assertNotIn("redondeados a múltiplos", html)
+
+    def test_the_pdf_timeline_labels_never_overlap(self):
+        """C9. At 22 hourly points the last two labels were 20.0 pt apart and 20.5 pt wide: drawn on top of each other.
+        Measured with Figtree's own widths; the first and the last label always stay."""
+        from unittest import mock
+
+        from reportlab.pdfbase import pdfmetrics
+
+        from events.services import pdf as pdf_module
+
+        pdf_module._register_fonts()
+        for n in (2, 5, 8, 13, 22, 30, 48):
+            points = [{"label": f"{h % 24:02d}:00", "cumulative": 4 * (h + 1)} for h in range(n)]
+            timeline = pdf_module.Timeline(points, 4 * n + 10, 498)
+            timeline.canv = mock.MagicMock()
+            timeline.draw()
+            drawn = [call.args for call in timeline.canv.drawCentredString.call_args_list]
+            self.assertEqual(drawn[0][2], points[0]["label"], n)
+            self.assertEqual(drawn[-1][2], points[-1]["label"], n)
+            boxes = []
+            for x, _, text in drawn:
+                width = pdfmetrics.stringWidth(text, "Figtree", 7.5)
+                boxes.append((x - width / 2, x + width / 2))
+            for (_, a1), (b0, _) in zip(boxes, boxes[1:]):
+                self.assertLessEqual(a1 + 4, b0, (n, drawn))
 
     def test_the_change_since_the_last_cutoff_keeps_the_percentage(self):
         from events.services.pdf import delta_sentence

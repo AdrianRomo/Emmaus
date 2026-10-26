@@ -3,6 +3,10 @@
 Rules (see docs/design-system.md): one axis per chart, thin marks, hairline solid grid,
 a single series colour, direct label on the last point only, every chart has a text
 alternative (<title>/<desc>) plus a data table in the template.
+
+No colour is written here: the marks carry classes and rotulo.css paints them with the data
+tokens (petróleo #0B6270 for completed, #4C95A2 for the hour in progress, the goal and its
+projection label in ink-3 #5A6872), so the screen, the deck in Cal and in Noche share one drawing.
 """
 
 from __future__ import annotations
@@ -14,7 +18,8 @@ from django.utils.safestring import mark_safe
 
 # The projection label ("Hacia las 16:43") ends at the projection's end point, its baseline this far above the goal line.
 PROJECTION_RISE = 9
-# Width of a character for label collisions, in ems: Atkinson Hyperlegible Next runs about 0.55, digits included.
+# Width of a character for label collisions, in ems: Figtree's digits measure 0.56 (400) to 0.58 (800), its labels about
+# 0.47; 0.6 keeps a margin.
 CHAR_EM = 0.6
 
 
@@ -131,7 +136,7 @@ def cumulative_chart(
         f'aria-labelledby="{chart_id}-t {chart_id}-d" preserveAspectRatio="xMidYMid meet">',
         f'<title id="{chart_id}-t">{escape(title)}</title>',
         f'<desc id="{chart_id}-d">De {escape(points[0]["label"])} a {escape(points[-1]["label"])} se completaron '
-        f'{points[-1]["cumulative"]} entrevistas de {total} participantes.</desc>',
+        f'{points[-1]["cumulative"]} entrevistas de {total} camperos.</desc>',
     ]
     steps = _grid_steps(y_max, (4, 5))
     for i in range(steps + 1):
@@ -182,13 +187,34 @@ def cumulative_chart(
     parts.append(
         f'<text class="label-strong" x="{label_x:.1f}" y="{label_y:.1f}" text-anchor="{anchor_last}" font-size="{font + 2}">{points[-1]["cumulative"]}</text>'
     )
-    labelled = _label_indexes(n, 4 if compact else 7)
-    for i, point in enumerate(points):
-        if i not in labelled:
-            continue
-        label = escape(point["label"] if not point.get("day") or i else f'{point["day"]} {point["label"]}')
+    # Time labels. The first one may carry the day ("25/10 18:00"), about twice as wide as the spacing
+    # _label_indexes assumes, and a far finish squeezes the points together. Every box is measured from its own
+    # string at the size drawn (the deck's stylesheet sets its text at 27 units). A label that would touch the one
+    # before it gives way; the last one never does: the labels before it give way instead, the first by dropping its
+    # day before it is dropped.
+    axis_size = label_size
+    placed: list[tuple[int, str, str, tuple]] = []
+
+    def placed_label(i: int, text: str, anchor: str) -> tuple[int, str, str, tuple]:
+        return i, text, anchor, _text_box(x_for(i), 0, text, axis_size, anchor)
+
+    for i in sorted(_label_indexes(n, 4 if compact else 7)):
+        point = points[i]
+        text = point["label"] if not point.get("day") or i else f'{point["day"]} {point["label"]}'
         anchor = "start" if (i == 0 and n > 1) else "end" if i == n - 1 and n > 1 and not project else "middle"
-        parts.append(f'<text x="{x_for(i):.1f}" y="{height - (14 if deck else 10)}" text-anchor="{anchor}" font-size="{font}">{label}</text>')
+        label = placed_label(i, text, anchor)
+        while placed and _boxes_overlap(placed[-1][3], label[3], gap=axis_size * 0.5):
+            if i != n - 1:
+                break
+            j, previous_text, previous_anchor, _ = placed[-1]
+            if j == 0 and previous_text != points[0]["label"]:
+                placed[-1] = placed_label(0, points[0]["label"], previous_anchor)  # "18:00" without its day
+            else:
+                placed.pop()
+        else:
+            placed.append(label)
+    for i, text, anchor, _ in placed:
+        parts.append(f'<text x="{x_for(i):.1f}" y="{height - (14 if deck else 10)}" text-anchor="{anchor}" font-size="{font}">{escape(text)}</text>')
     parts.append(f'<line class="axis" x1="{left}" x2="{left + plot_w}" y1="{top + plot_h}" y2="{top + plot_h}"/>')
     parts.append("</svg>")
     return mark_safe("".join(parts))

@@ -4,7 +4,7 @@
 {% block content %}
 <div class="disc-focus">
 <article class="disc-lesson" aria-labelledby="leccion-titulo">
-  {% comment %}The path as a trail, like the interview: añil the lessons already finished, maíz where you are.{% endcomment %}
+  {% comment %}The path as a trail, like the interview: the lessons already finished, then where you are.{% endcomment %}
   <div class="trail">
     <a class="trail__back" href="{% url 'participant_dashboard' %}">Mi camino</a>
     <p class="trail__count">Lección <strong>{{ lesson.order }}</strong> de {{ summary.total_lessons }}. Llevas {{ summary.completed_lessons }} terminada{{ summary.completed_lessons|pluralize }}.</p>

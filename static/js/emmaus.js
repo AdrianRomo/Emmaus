@@ -61,6 +61,7 @@
       if (doc.hidden) { schedule(); return; }
       if (region.contains(doc.activeElement) && doc.activeElement !== doc.body) { schedule(); return; }
       region.setAttribute("aria-busy", "true");
+      region.setAttribute("data-live-busy", "");  // rotulo.css dims the region if the fetch is slow
       if (status && status.getAttribute("data-state") !== "stale") status.setAttribute("data-state", "loading");
       fetch(url + (url.indexOf("?") === -1 ? "?" : "&") + "_=" + Date.now(), {
         credentials: "same-origin",
@@ -79,6 +80,9 @@
         // A refresh must not close a table or fold the reader opened (or reopen one they closed).
         var openState = {};
         $all("details[id]", region).forEach(function (d) { openState[d.id] = d.open; });
+        // Arrival motion (the panel, the page head, marks filling in) is for the first load only: from the
+        // first replacement on, rotulo.css replays nothing inside this region.
+        region.setAttribute("data-live-settled", "");
         region.innerHTML = html;
         $all("details[id]", region).forEach(function (d) { if (d.id in openState) d.open = openState[d.id]; });
         applyFolds(region, openState);
@@ -90,6 +94,7 @@
         setStatus("stale", "Sin conexión. Los datos pueden estar desactualizados (última actualización: " + timeLabel(lastOk) + (ago >= 1 ? ", hace " + ago + " min" : "") + ").");
       }).then(function () {
         region.removeAttribute("aria-busy");
+        region.removeAttribute("data-live-busy");
         schedule();
       });
     }

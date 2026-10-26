@@ -21,7 +21,7 @@
     <div>
       {% if p.eligible %}
         <h2 class="voice deck-headline">Llevamos {{ p.completed }} de {{ p.eligible }} entrevistas.</h2>
-        <p class="deck-sub">{% if not p.pending %}Ya se completaron todas.{% elif deck.eta %}A este ritmo, {{ deck.rate|floatformat:"-1" }} por hora, terminamos en <span class="keep-together">unas {{ deck.eta }}</span>.{% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}</p>
+        <p class="deck-sub">{% if not p.pending %}Ya se completaron todas.{% elif deck.eta %}A este ritmo, {{ deck.rate|floatformat:"-1" }} por hora, terminamos en <span class="keep-together">alrededor de {{ deck.eta }}</span>.{% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}</p>
         <div class="deck-ruler">{% ruler p.completed p.in_progress p.eligible %}</div>
         <ul class="key deck-key">
           <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ p.completed }} completadas</li>
@@ -29,7 +29,7 @@
           <li><span class="key__mark" aria-hidden="true"></span>{{ p.not_started }} sin iniciar</li>
         </ul>
       {% else %}
-        <h2 class="voice deck-headline">Todavía no hay participantes registrados.</h2>
+        <h2 class="voice deck-headline">Todavía no hay camperos registrados.</h2>
       {% endif %}
     </div>
     {% if deck.teams or deck.scope_label != "Equipo" %}
@@ -55,7 +55,7 @@
   <div class="slide__body">
     {% if deck.timeline %}
       <div class="deck-chart-box">{% cumulative_chart deck.timeline p.eligible "deck-acumulado" "Entrevistas completadas acumuladas" True %}</div>
-      <p class="deck-note">La línea horizontal es el total de participantes, {{ p.eligible }}. Faltan {{ p.pending }}{% if deck.eta %}; al ritmo actual, {{ deck.rate|floatformat:"-1" }} por hora, <span class="keep-together">unas {{ deck.eta }}</span>{% endif %}.</p>
+      <p class="deck-note">La línea horizontal es el total de camperos, {{ p.eligible }}. Faltan {{ p.pending }}{% if deck.eta %}; al ritmo actual, {{ deck.rate|floatformat:"-1" }} por hora, <span class="keep-together">alrededor de {{ deck.eta }}</span>{% endif %}.</p>
     {% else %}
       <p class="deck-empty">Aún no hay entrevistas completadas.</p>
     {% endif %}
@@ -68,12 +68,12 @@
   <h2 class="voice slide__title">Necesidades de seguimiento</h2>
   <div class="slide__body">
     <ul class="deck-counts">
-      <li><span class="deck-counts__value">{{ deck.follow_ups.requested.display }}</span> <span class="deck-counts__label">seguimientos solicitados</span></li>
-      <li><span class="deck-counts__value">{{ deck.follow_ups.open.display }}</span> <span class="deck-counts__label">esperan a un líder</span></li>
-      <li><span class="deck-counts__value">{{ deck.follow_ups.done.display }}</span> <span class="deck-counts__label">ya atendidos</span></li>
-      <li><span class="deck-counts__value">{{ deck.follow_ups.to_evaluate.display }}</span> <span class="deck-counts__label">por decidir</span></li>
+      <li><span class="deck-counts__value">{{ deck.follow_ups.requested.words }}</span> <span class="deck-counts__label">seguimientos solicitados</span></li>
+      <li><span class="deck-counts__value">{{ deck.follow_ups.open.words }}</span> <span class="deck-counts__label">esperan a un líder</span></li>
+      <li><span class="deck-counts__value">{{ deck.follow_ups.done.words }}</span> <span class="deck-counts__label">ya atendidos</span></li>
+      <li><span class="deck-counts__value">{{ deck.follow_ups.to_evaluate.words }}</span> <span class="deck-counts__label">por decidir</span></li>
     </ul>
-    <p class="deck-note">{% if deck.follow_ups.as_of %}Según el corte de las {{ deck.follow_ups.as_of|date:"H:i" }}. {% else %}Estas cifras aparecerán con el primer corte de seguimiento. {% endif %}Solo totales generales, redondeados a múltiplos de {{ deck.k }}; las cifras menores a {{ deck.k }} se ocultan. No se muestran nombres, respuestas ni temas personales.</p>
+    <p class="deck-note">{% if deck.follow_ups.as_of %}Según el corte de las {{ deck.follow_ups.as_of|date:"H:i" }}. {% else %}Estas cifras aparecerán con el primer corte. {% endif %}Los totales se redondean de {{ deck.k }} en {{ deck.k }} y las cantidades menores a {{ deck.k }} no se muestran, para que nadie pueda ser identificado. No se muestran nombres, respuestas ni temas personales.</p>
   </div>
   {% include "events/presentation/_foot.html" with n=4 %}
 </section>

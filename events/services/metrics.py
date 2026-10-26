@@ -392,7 +392,7 @@ def suppress(value: int | None, k: int, *, hide_zero: bool = False) -> dict:
     if value < k:
         return {"value": None, "display": f"Menos de {k}", "suppressed": True}
     rounded = int(k * round(value / k))
-    return {"value": rounded, "display": f"\u2248 {rounded}", "suppressed": False}
+    return {"value": rounded, "display": f"unas {rounded}", "suppressed": False}  # words: Figtree has no "≈"
 
 
 def outcome_counts(event: Event) -> dict:

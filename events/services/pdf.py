@@ -1,11 +1,11 @@
 """PDF export of a cutoff, built with ReportLab (pure Python, no system packages).
 
 The PDF is generated from the *viewer-trimmed* payload, so it never shows more than
-the person downloading it may see on screen. It reads like the cutoff page ("Rótulo",
-docs/design-system.md): Recursive Casual for what a person would say (the title, the
-section questions, the headline sentence), Atkinson Hyperlegible Next for everything
-else, añil for data, chile only for risk, no yellow (nothing in a PDF is a next action). The header is the
-church's PNG logo when it has one (core.logos), otherwise the wordmark.
+the person downloading it may see on screen. It reads like the cutoff page ("Atrio",
+docs/design-system.md): Figtree ExtraBold for what a person would say (the title, the
+section questions, the headline sentence), Regular for reading, Bold for emphasis; petróleo
+for data, chile only for risk. The header is the church's PNG logo when it has one (core.logos),
+otherwise the wordmark.
 """
 
 from __future__ import annotations
@@ -44,20 +44,20 @@ from ..charts import _grid_steps, nice_max
 from ..templatetags.emmaus import fecha_corta, fecha_larga
 from .metrics import DEFINITIONS, delta_sentence, format_duration
 
-# Static TrueType fonts: ReportLab cannot read the variable WOFF2 files in static/fonts. Atkinson-*.ttf are static
-# Atkinson Hyperlegible Next subsets that include "≈" (used for rounded totals; the web subset lacks it);
-# RecursiveCasual-Bold.ttf is the web Recursive instanced at CASL 1, wght 700 with fontTools (fixed text only: it has
-# no "≈"). Licences: OFL-*.txt next to them.
+# Static TrueType fonts: ReportLab cannot read the variable WOFF2 in static/fonts. Figtree-{Regular,Bold,ExtraBold}.ttf
+# are the 400, 700 and 800 instances of Figtree 2.002 (OFL, OFL-Figtree.txt next to them), full character set. Figtree
+# has no "≈": rounded counts are written in words ("unas 85"), see _about.
 FONT_DIR = Path(__file__).resolve().parent.parent / "fonts"
-# The Rótulo tokens (static/css/rotulo.css :root).
-CARBON = colors.HexColor("#1C1B19")
-INK_2 = colors.HexColor("#4D4A44")
-INK_3 = colors.HexColor("#68645C")
-LINE = colors.HexColor("#DEDBD3")
-LINE_STRONG = colors.HexColor("#8B877E")
-DONE = colors.HexColor("#1F3C8F")  # añil
-PROGRESS = colors.HexColor("#7D93CF")
-TRACK = colors.HexColor("#E7E5DF")
+# The Atrio tokens (static/css/rotulo.css :root).
+INK = colors.HexColor("#16222B")
+INK_2 = colors.HexColor("#44525D")
+INK_3 = colors.HexColor("#5A6872")
+HUNDIDO = colors.HexColor("#F3F5F6")
+LINE = colors.HexColor("#DCE1E4")
+LINE_STRONG = colors.HexColor("#7B8A94")
+DONE = colors.HexColor("#0B6270")  # petróleo
+PROGRESS = colors.HexColor("#4C95A2")
+TRACK = colors.white  # "sin iniciar": white with a LINE_STRONG outline, as on screen
 CHILE = colors.HexColor("#B8321C")
 
 # The church's logo in the header: within 2.2 x 0.72 in (the proportions of the sign-in slot), never stretched.
@@ -74,28 +74,27 @@ def _register_fonts() -> None:
     global _registered
     if _registered:
         return
-    pdfmetrics.registerFont(TTFont("EmmausSans", str(FONT_DIR / "Atkinson-Regular.ttf")))
-    pdfmetrics.registerFont(TTFont("EmmausSans-Bold", str(FONT_DIR / "Atkinson-Bold.ttf")))
-    pdfmetrics.registerFont(TTFont("EmmausVoice", str(FONT_DIR / "RecursiveCasual-Bold.ttf")))
-    from reportlab.pdfbase.pdfmetrics import registerFontFamily
-
-    registerFontFamily("EmmausSans", normal="EmmausSans", bold="EmmausSans-Bold", italic="EmmausSans", boldItalic="EmmausSans-Bold")
+    pdfmetrics.registerFont(TTFont("Figtree", str(FONT_DIR / "Figtree-Regular.ttf")))
+    pdfmetrics.registerFont(TTFont("Figtree-Bold", str(FONT_DIR / "Figtree-Bold.ttf")))
+    pdfmetrics.registerFont(TTFont("Figtree-ExtraBold", str(FONT_DIR / "Figtree-ExtraBold.ttf")))
+    # No italic file: italic maps to upright (ReportLab draws no synthetic slant)
+    pdfmetrics.registerFontFamily("Figtree", normal="Figtree", bold="Figtree-Bold", italic="Figtree", boldItalic="Figtree-Bold")
     _registered = True
 
 
 def _styles():
     return {
-        "wordmark": ParagraphStyle("wordmark", fontName="EmmausVoice", fontSize=13, leading=16, textColor=CARBON),
-        "title": ParagraphStyle("title", fontName="EmmausVoice", fontSize=26, leading=30, textColor=CARBON, spaceBefore=6, spaceAfter=4),
-        "lede": ParagraphStyle("lede", fontName="EmmausSans", fontSize=12, leading=16, textColor=INK_2),
-        "meta": ParagraphStyle("meta", fontName="EmmausSans", fontSize=9, leading=12.5, textColor=INK_3, spaceBefore=2),
-        "question": ParagraphStyle("question", fontName="EmmausVoice", fontSize=15, leading=19, textColor=CARBON, spaceBefore=4, spaceAfter=6),
-        "headline": ParagraphStyle("headline", fontName="EmmausVoice", fontSize=21, leading=25, textColor=CARBON, spaceAfter=3),
-        "body": ParagraphStyle("body", fontName="EmmausSans", fontSize=10.5, leading=15, textColor=CARBON, alignment=TA_LEFT),
-        "small": ParagraphStyle("small", fontName="EmmausSans", fontSize=8.5, leading=12, textColor=INK_3),
-        "figure": ParagraphStyle("figure", fontName="EmmausSans-Bold", fontSize=24, leading=27, textColor=CARBON),
-        "figlabel": ParagraphStyle("figlabel", fontName="EmmausSans-Bold", fontSize=9, leading=12, textColor=INK_2),
-        "fignote": ParagraphStyle("fignote", fontName="EmmausSans", fontSize=8.5, leading=11, textColor=INK_3),
+        "wordmark": ParagraphStyle("wordmark", fontName="Figtree-Bold", fontSize=13, leading=16, textColor=INK),
+        "title": ParagraphStyle("title", fontName="Figtree-ExtraBold", fontSize=26, leading=30, textColor=INK, spaceBefore=6, spaceAfter=4),
+        "lede": ParagraphStyle("lede", fontName="Figtree", fontSize=12, leading=16, textColor=INK_2),
+        "meta": ParagraphStyle("meta", fontName="Figtree", fontSize=9, leading=12.5, textColor=INK_3, spaceBefore=2),
+        "question": ParagraphStyle("question", fontName="Figtree-ExtraBold", fontSize=15, leading=19, textColor=INK, spaceBefore=4, spaceAfter=6),
+        "headline": ParagraphStyle("headline", fontName="Figtree-ExtraBold", fontSize=21, leading=25, textColor=INK, spaceAfter=3),
+        "body": ParagraphStyle("body", fontName="Figtree", fontSize=10.5, leading=15, textColor=INK, alignment=TA_LEFT),
+        "small": ParagraphStyle("small", fontName="Figtree", fontSize=8.5, leading=12, textColor=INK_3),
+        "figure": ParagraphStyle("figure", fontName="Figtree-ExtraBold", fontSize=24, leading=27, textColor=INK),
+        "figlabel": ParagraphStyle("figlabel", fontName="Figtree-Bold", fontSize=9, leading=12, textColor=INK_2),
+        "fignote": ParagraphStyle("fignote", fontName="Figtree", fontSize=8.5, leading=11, textColor=INK_3),
     }
 
 
@@ -113,7 +112,7 @@ class Rule(Flowable):
 
 
 class Meter(Flowable):
-    """The ruler: completed / in progress / remaining, a 2pt paper gap between segments, 2pt corners."""
+    """The ruler: completed / in progress / remaining (white, outlined), a 2pt paper gap between segments, 3pt corners."""
 
     def __init__(self, completed: int, in_progress: int, total: int, width: float, height: float = 12):
         super().__init__()
@@ -123,14 +122,16 @@ class Meter(Flowable):
     def draw(self):
         c = self.canv
         c.setFillColor(TRACK)
-        c.roundRect(0, 0, self.width, self.height, 2, stroke=0, fill=1)
+        c.setStrokeColor(LINE_STRONG)
+        c.setLineWidth(0.8)
+        c.roundRect(0.4, 0.4, self.width - 0.8, self.height - 0.8, 3, stroke=1, fill=1)
         if not self.total:
             return
         done_w = self.width * self.completed / self.total
         prog_w = self.width * self.in_progress / self.total
         if done_w:
             c.setFillColor(DONE)
-            c.roundRect(0, 0, done_w, self.height, 2, stroke=0, fill=1)
+            c.roundRect(0, 0, done_w, self.height, 3, stroke=0, fill=1)
         if prog_w:
             gap = 2 if done_w else 0
             c.setFillColor(colors.white)
@@ -158,10 +159,10 @@ class Key(Flowable):
             else:
                 c.setFillColor(fill)
                 c.rect(x, 2, 9, 9, stroke=0, fill=1)
-            c.setFillColor(CARBON)
-            c.setFont("EmmausSans", 9.5)
+            c.setFillColor(INK)
+            c.setFont("Figtree", 9.5)
             c.drawString(x + 13, 3, text)
-            x += 13 + pdfmetrics.stringWidth(text, "EmmausSans", 9.5) + 18
+            x += 13 + pdfmetrics.stringWidth(text, "Figtree", 9.5) + 18
 
 
 class Timeline(Flowable):
@@ -177,7 +178,7 @@ class Timeline(Flowable):
         plot_w, plot_h = self.width - left - right, self.height - bottom - top
         peak = nice_max(max([self.total] + [p["cumulative"] for p in self.points] + [1]))
         steps = _grid_steps(peak, (4, 5, 2, 3))
-        c.setFont("EmmausSans", 7.5)
+        c.setFont("Figtree", 7.5)
         for i in range(steps + 1):
             y = bottom + plot_h * i / steps
             c.setStrokeColor(LINE)
@@ -192,7 +193,7 @@ class Timeline(Flowable):
             c.setDash(3, 2)
             c.line(left, y_total, left + plot_w, y_total)
             c.setDash()
-            c.setFillColor(INK_2)
+            c.setFillColor(INK_3)  # the goal's label, as on screen
             c.drawString(left + plot_w + 5, y_total - 2.5, f"Total {self.total}")
         n = len(self.points)
         if not n:
@@ -211,20 +212,40 @@ class Timeline(Flowable):
         c.setLineWidth(1.5)
         c.setFillColor(DONE)
         c.circle(xs[-1], ys[-1], 3.2, stroke=1, fill=1)
-        c.setFillColor(CARBON)
-        c.setFont("EmmausSans-Bold", 9)
+        c.setFillColor(INK)
+        c.setFont("Figtree-Bold", 9)
         last = str(self.points[-1]["cumulative"])
         # Keep the last value clear of the "Total" label when the line ends near it.
         label_y = ys[-1] + 4
         if self.total and abs(label_y - (bottom + plot_h * self.total / peak)) < 9:
             label_y = ys[-1] - 12
         c.drawString(xs[-1] + 6, label_y, last)
-        c.setFont("EmmausSans", 7.5)
+        c.setFont("Figtree", 7.5)
         c.setFillColor(INK_3)
-        every = max(1, -(-n // 7))
-        for i, point in enumerate(self.points):
-            if i % every == 0 or i == n - 1:
-                c.drawCentredString(xs[i], 4, point["label"])
+        for i in _spaced_labels(xs, [p["label"] for p in self.points], "Figtree", 7.5):
+            c.drawCentredString(xs[i], 4, self.points[i]["label"])
+
+
+def _spaced_labels(xs: list[float], texts: list[str], font: str, size: float, gap: float = 4) -> list[int]:
+    """The time labels drawn under the PDF chart: about seven, always the first and the last, never two closer than
+    ``gap`` points, measured with the font's own widths. A label that would touch the one before it is left out; when
+    that is the last one, the label before it goes instead (at 22 points they were 20.0 pt apart and 20.5 pt wide)."""
+    n = len(xs)
+    every = max(1, -(-n // 7))
+
+    def box(i: int) -> tuple[float, float]:
+        half = pdfmetrics.stringWidth(texts[i], font, size) / 2
+        return xs[i] - half, xs[i] + half
+
+    kept: list[int] = []
+    for i in (i for i in range(n) if i % every == 0 or i == n - 1):
+        while kept and box(kept[-1])[1] + gap > box(i)[0]:
+            if i != n - 1:
+                break
+            kept.pop()
+        else:
+            kept.append(i)
+    return kept
 
 
 @functools.lru_cache(maxsize=8)
@@ -288,22 +309,36 @@ def _pct(value) -> str:
     return "—" if value is None else f"{value} %"
 
 
+def _about(cell: dict, noun: str = "") -> str:
+    """A rounded count in words, "unas 85 personas": Figtree has no "≈" (ReportLab would draw a box). Read from the
+    cell's value, not its display, so a cutoff saved when the display was still "≈ 85" prints the same words. A hidden
+    or empty count keeps its own words ("menos de 5", "0", "—")."""
+    if cell.get("suppressed") or not cell.get("value"):
+        words = cell.get("display", "—")
+        words = words[:1].lower() + words[1:]
+    elif cell["value"] == 1:  # only with a minimum group size of 1: "1 persona", never "unas 1"
+        return f"1 {noun[:-1]}" if noun else "1"
+    else:
+        words = f"unas {cell['value']}"
+    return f"{words} {noun}" if noun and words not in ("—", "0") else words
+
+
 def _section(question: str, width: float, styles) -> list:
     return [Spacer(1, 10), Rule(width), Paragraph(escape(question), styles["question"])]
 
 
 def _table_style(numeric_from: int = 1) -> list:
     return [
-        ("FONT", (0, 0), (-1, 0), "EmmausSans-Bold", 9),
-        ("FONT", (0, 1), (-1, -1), "EmmausSans", 9.5),
+        ("FONT", (0, 0), (-1, 0), "Figtree-Bold", 9),
+        ("FONT", (0, 1), (-1, -1), "Figtree", 9.5),
         ("TEXTCOLOR", (0, 0), (-1, 0), INK_2),
-        ("TEXTCOLOR", (0, 1), (-1, -1), CARBON),
+        ("TEXTCOLOR", (0, 1), (-1, -1), INK),
+        ("BACKGROUND", (0, 0), (-1, 0), HUNDIDO),  # a sunken header row and hairline rules, as on screen
         ("ALIGN", (numeric_from, 0), (-1, -1), "RIGHT"),
-        ("LINEBELOW", (0, 0), (-1, 0), 1, LINE_STRONG),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.4, LINE),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
         ("RIGHTPADDING", (0, 0), (-1, -1), 4),
     ]
 
@@ -320,7 +355,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         rightMargin=18 * mm,
         topMargin=16 * mm,
         bottomMargin=18 * mm,
-        title=f"Corte de seguimiento de las {timezone.localtime(snapshot.cutoff_at):%H:%M}, {snapshot.event.name}",
+        title=f"Corte de las {timezone.localtime(snapshot.cutoff_at):%H:%M}, {snapshot.event.name}",
         author="Emmaus",
     )
     width = doc.width - 12  # the frame pads 6 pt on each side; tables and rules line up with the text
@@ -334,7 +369,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         Paragraph(
             escape(
                 f"Corte guardado: no cambia. Datos al {fecha_corta(_as_datetime(payload['data_as_of']))}, generado de forma "
-                f"{'manual' if snapshot.trigger == 'manual' else 'automática'}, métricas versión {payload['metrics_version']}."
+                f"{'manual' if snapshot.trigger == 'manual' else 'automática'}."
             ),
             styles["meta"],
         ),
@@ -346,7 +381,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         if not progress["pending"]:
             sub = "Ya se habían completado todas."
         elif rate.get("eta_minutes"):
-            sub = f"Al ritmo de ese momento, {rate['per_hour']:g} por hora, faltaban unas {format_duration(rate['eta_minutes'])}."
+            sub = f"Al ritmo de ese momento, {rate['per_hour']:g} por hora, faltaban alrededor de {format_duration(rate['eta_minutes'])}."
         else:
             sub = "Todavía no había suficiente ritmo para estimar cuándo terminaríamos."
         story += [
@@ -365,7 +400,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
             ),
         ]
     else:
-        story.append(Paragraph("Todavía no había participantes registrados.", styles["headline"]))
+        story.append(Paragraph("Todavía no había camperos registrados.", styles["headline"]))
     if delta:
         story += [Spacer(1, 6), Paragraph(escape(delta_sentence(delta, previous_cutoff)), styles["body"])]
 
@@ -399,7 +434,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         rows_source = [{"label": c["name"], **c} for c in payload["coordinators"]]
         title = "Por coordinador"
     if rows_source:
-        table_rows = [["", "Participantes", "Completadas", "Pendientes", "Avance"]]
+        table_rows = [["", "Camperos", "Completadas", "Pendientes", "Avance"]]
         for row in rows_source:
             table_rows.append([row["label"], row["eligible"], row["completed"], row["pending"], _pct(row["percent"])])
         table = Table(table_rows, colWidths=[width * 0.4] + [width * 0.15] * 4, repeatRows=1)
@@ -410,11 +445,11 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         ["Seguimientos pendientes", fu["pending"]],
         ["En proceso", fu["in_progress"]],
         ["Atendidos", fu["done"]],
-        ["Entrevistas por evaluar", fu["to_evaluate"]],
+        ["Entrevistas por decidir", fu["to_evaluate"]],
     ]
     fu_style = [
-        ("FONT", (0, 0), (-1, -1), "EmmausSans", 10),
-        ("TEXTCOLOR", (0, 0), (-1, -1), CARBON),
+        ("FONT", (0, 0), (-1, -1), "Figtree", 10),
+        ("TEXTCOLOR", (0, 0), (-1, -1), INK),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
         ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
@@ -425,7 +460,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
     if fu.get("safety_open") is not None:
         fu_rows.append(["Situaciones de riesgo abiertas", fu["safety_open"]])
         if fu["safety_open"]:
-            fu_style += [("TEXTCOLOR", (0, -1), (-1, -1), CHILE), ("FONT", (0, -1), (-1, -1), "EmmausSans-Bold", 10)]
+            fu_style += [("TEXTCOLOR", (0, -1), (-1, -1), CHILE), ("FONT", (0, -1), (-1, -1), "Figtree-Bold", 10)]
     fu_table = Table(fu_rows, colWidths=[width * 0.6, width * 0.2], hAlign="LEFT")
     fu_table.setStyle(TableStyle(fu_style))
     story.append(KeepTogether(_section("Seguimiento", width, styles) + [fu_table]))
@@ -436,7 +471,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         story += _section("Resumen de respuestas", width, styles)
         story.append(
             Paragraph(
-                f"Sin datos individuales. Cifras redondeadas a múltiplos de {k}; las cantidades menores a {k} se ocultan para que nadie pueda ser identificado.",
+                f"Sin datos individuales. Los totales se redondean de {k} en {k} y las cantidades menores a {k} no se muestran, para que nadie pueda ser identificado.",
                 styles["small"],
             )
         )
@@ -444,15 +479,15 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         for outcome in outcomes:
             title = escape(outcome["title"])
             sep = " " if title.rstrip()[-1:] in "?!." else ". "
-            block = [Paragraph(f"<b>{title}</b>{sep}Respondieron {escape(outcome['respondents']['display'])}.", styles["body"])]
+            block = [Paragraph(f"<b>{title}</b>{sep}Respondieron {escape(_about(outcome['respondents'], 'personas'))}.", styles["body"])]
             if outcome["withheld"]:
                 block.append(Paragraph("Aún no hay suficientes respuestas para mostrar este resumen.", styles["small"]))
             else:
-                data = [[row["label"], row["display"]] for row in outcome["rows"]]
+                data = [[row["label"], _about(row)] for row in outcome["rows"]]
                 t = Table(data, colWidths=[width * 0.6, width * 0.2], hAlign="LEFT")
                 t.setStyle(TableStyle([
-                    ("FONT", (0, 0), (-1, -1), "EmmausSans", 9.5),
-                    ("TEXTCOLOR", (0, 0), (-1, -1), CARBON),
+                    ("FONT", (0, 0), (-1, -1), "Figtree", 9.5),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), INK),
                     ("ALIGN", (1, 0), (1, -1), "RIGHT"),
                     ("LINEBELOW", (0, 0), (-1, -1), 0.4, LINE),
                     ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -465,7 +500,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
     if recs:
         story += _section("Próximos pasos", width, styles)
         for index, rec in enumerate(recs, start=1):
-            story.append(Paragraph(f"{index}. {escape(rec['text'])} <font color='#68645C'>({escape(rec['evidence'])})</font>", styles["body"]))
+            story.append(Paragraph(f"{index}. {escape(rec['text'])} <font color='#5A6872'>({escape(rec['evidence'])})</font>", styles["body"]))
             story.append(Spacer(1, 3))
 
     story += _section("Cómo se calcula", width, styles)
@@ -478,7 +513,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         canvas.setLineWidth(0.5)
         left, right = doc.leftMargin + 6, doc.leftMargin + 6 + width
         canvas.line(left, 13 * mm, right, 13 * mm)
-        canvas.setFont("EmmausSans", 8)
+        canvas.setFont("Figtree", 8)
         canvas.setFillColor(INK_3)
         canvas.drawString(left, 9 * mm, "Documento confidencial de uso interno. No reenviar.")
         canvas.drawRightString(right, 9 * mm, f"Página {document.page}")
