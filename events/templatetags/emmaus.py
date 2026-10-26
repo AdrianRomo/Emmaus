@@ -160,6 +160,14 @@ def signed(value):
 
 
 @register.simple_tag
+def delta_sentence(delta, since):
+    """'+11 entrevistas y +3 % de avance desde el corte de las 20:00.' The same sentence as the PDF."""
+    from ..services.metrics import delta_sentence as sentence
+
+    return sentence(delta or {}, as_datetime(since))
+
+
+@register.simple_tag
 def cumulative_chart(points, total, chart_id, title, deck=False, eta_minutes=None, bucket_minutes=60, projection_label="", compact=False):
     return charts.cumulative_chart(
         points,

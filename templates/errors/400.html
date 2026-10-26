@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block page_title %}La dirección no es válida{% endblock %}
+{% block content %}
+<div class="narrow">
+  {% include "events/rotulo/_page_head.html" with title="La dirección no es válida" lede="Revisa la dirección o vuelve a tu inicio." %}
+  <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Volver a mi inicio</a></p>
+</div>
+{% endblock %}

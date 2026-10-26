@@ -2,6 +2,7 @@
 {% comment %}
   The report reads as five questions. Left column: the question and a one-line answer, so reading
   only the left column is the executive summary. Right column: the evidence.
+  With no camperos registered yet every section says so in one sentence: no zeros, charts or team rows.
 {% endcomment %}
 <section class="report-section report-section--lead" aria-labelledby="como-va">
   <div class="report-section__q">
@@ -22,9 +23,9 @@
         <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
         <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
       </ul>
-      {% if delta %}<p class="headline__delta">{% if delta.completed %}{{ delta.completed|signed }} entrevistas{% if delta.percent %} y {{ delta.percent|signed }} puntos{% endif %} desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Sin cambios desde el corte de las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% endif %}</p>{% endif %}
+      {% if delta %}<p class="headline__delta">{% delta_sentence delta last_snapshot.cutoff_at %}</p>{% endif %}
     {% else %}
-      <p class="voice headline">Todavía no hay participantes registrados.</p>
+      <p class="voice headline">Aún no hay camperos registrados.</p>
     {% endif %}
   </div>
 </section>
@@ -32,8 +33,9 @@
 <section class="report-section" aria-labelledby="faltan">
   <div class="report-section__q">
     <h2 id="faltan" class="voice report-section__title">¿Cuánto falta?</h2>
-    <p class="report-section__answer">{% if progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, unas {{ payload.throughput.eta_minutes|duration }} al ritmo actual{% endif %}.{% else %}Nada: ya terminamos.{% endif %}</p>
+    <p class="report-section__answer">{% if not progress.eligible %}Aún no hay camperos registrados.{% elif progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, unas {{ payload.throughput.eta_minutes|duration }} al ritmo actual{% endif %}.{% else %}Nada: ya terminamos.{% endif %}</p>
   </div>
+  {% if progress.eligible %}
   <div class="report-section__body">
     <dl class="figures">
       <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
@@ -44,13 +46,16 @@
     {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="pastor-acumulado" eta=chart_eta bucket=payload.timeline.bucket_minutes projection_label=projection_label as_of=payload.data_as_of %}
     {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="pastor-ritmo" %}
   </div>
+  {% endif %}
 </section>
 
 <section class="report-section" aria-labelledby="grupos">
   <div class="report-section__q">
     <h2 id="grupos" class="voice report-section__title">¿Qué equipos necesitan apoyo?</h2>
-    {% if teams|length > 1 %}{% with first=teams.0 %}<p class="report-section__answer">{{ first.label }} va más atrás, con {{ first.percent|pct }}. El promedio es {{ progress.percent|pct }}.</p>{% endwith %}{% endif %}
+    {% if not progress.eligible %}<p class="report-section__answer">Aún no hay camperos registrados.</p>
+    {% elif teams|length > 1 %}{% with first=teams.0 %}<p class="report-section__answer">{{ first.label }} va más atrás, con {{ first.percent|pct }}. El promedio es {{ progress.percent|pct }}.</p>{% endwith %}{% endif %}
   </div>
+  {% if progress.eligible %}
   <div class="report-section__body">
     {% if teams %}
       <ul class="key">
@@ -73,13 +78,15 @@
       <p class="empty-line">Todavía no hay equipos. Cuando la administración asigne tutores y coordinadores verás el avance de cada equipo.</p>
     {% endif %}
   </div>
+  {% endif %}
 </section>
 
 <section class="report-section" aria-labelledby="necesidades">
   <div class="report-section__q">
     <h2 id="necesidades" class="voice report-section__title">¿Qué necesidades hay?</h2>
-    <p class="report-section__answer">{{ payload.follow_ups.open_total }} seguimiento{{ payload.follow_ups.open_total|pluralize }} abierto{{ payload.follow_ups.open_total|pluralize }}{% if payload.follow_ups.pending %}, {{ payload.follow_ups.pending }} sin atender{% endif %}.</p>
+    <p class="report-section__answer">{% if not progress.eligible %}Aún no hay camperos registrados.{% else %}{{ payload.follow_ups.open_total }} seguimiento{{ payload.follow_ups.open_total|pluralize }} abierto{{ payload.follow_ups.open_total|pluralize }}{% if payload.follow_ups.pending %}, {{ payload.follow_ups.pending }} sin atender{% endif %}.{% endif %}</p>
   </div>
+  {% if progress.eligible %}
   <div class="report-section__body">
     <dl class="figures">
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.pending }} sin atender, {{ payload.follow_ups.in_progress }} en proceso</dd></div>
@@ -114,13 +121,15 @@
       </details>
     {% endif %}
   </div>
+  {% endif %}
 </section>
 
 <section class="report-section" aria-labelledby="acciones">
   <div class="report-section__q">
     <h2 id="acciones" class="voice report-section__title">¿Qué hay que coordinar?</h2>
-    <p class="report-section__answer">{% if payload.recommendations %}{{ payload.recommendations|length }} asunto{{ payload.recommendations|length|pluralize }} para la próxima reunión.{% else %}Nada por ahora.{% endif %}</p>
+    <p class="report-section__answer">{% if not progress.eligible %}Aún no hay camperos registrados.{% elif payload.recommendations %}{{ payload.recommendations|length }} asunto{{ payload.recommendations|length|pluralize }} para la próxima reunión.{% else %}Nada por ahora.{% endif %}</p>
   </div>
+  {% if progress.eligible %}
   <div class="report-section__body">
     {% if payload.recommendations %}
       <ol class="agenda">{% for rec in payload.recommendations %}
@@ -131,4 +140,5 @@
       <p class="empty-line">No hay acciones pendientes.</p>
     {% endif %}
   </div>
+  {% endif %}
 </section>

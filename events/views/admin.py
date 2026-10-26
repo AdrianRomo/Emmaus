@@ -111,7 +111,7 @@ def participant_import(request, event, access):
         include = {int(line) for line in request.POST.getlist("include") if line.isdigit()}
         created = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
         request.session.pop(IMPORT_SESSION_KEY, None)
-        messages.success(request, f"Se importaron {created} camperos.")
+        messages.success(request, "Se importó 1 campero." if created == 1 else f"Se importaron {created} camperos.")
         return redirect("events:participants", slug=event.slug)
     if request.method == "POST" and request.POST.get("action") == "cancel":
         request.session.pop(IMPORT_SESSION_KEY, None)

@@ -34,7 +34,7 @@
 
   <aside class="notice notice--info disc-ask__aside" aria-label="Aviso de seguridad">
     <p class="notice__title">Un aviso importante</p>
-    <p>{{ question_disclaimer }}</p>
+    {% for paragraph in question_disclaimer %}<p>{{ paragraph|linebreaksbr }}</p>{% endfor %}
   </aside>
 
   <div class="step__actions">

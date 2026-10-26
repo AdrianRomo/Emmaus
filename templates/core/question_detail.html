@@ -43,7 +43,7 @@
   </div>
   <aside class="disc-focus__aside notice notice--info" aria-label="Aviso de seguridad">
     <p class="notice__title">Un aviso importante</p>
-    <p>{{ question_disclaimer }}</p>
+    {% for paragraph in question_disclaimer %}<p>{{ paragraph|linebreaksbr }}</p>{% endfor %}
   </aside>
 </div>
 
@@ -75,6 +75,13 @@
         <button class="btn btn--secondary" type="submit">Generar borrador con IA</button>
       </form>
       {% for draft, form in draft_forms %}
+        {% if draft.status != "draft" %}
+        {% comment %}Reviewed once: its status, never a second review form.{% endcomment %}
+        <div class="disc-draft">
+          <p class="interview-meta disc-draft__meta">{% include "core/rotulo/_acompanamiento_estado.html" with value=draft.status label=draft.get_status_display %} <span>Generado con IA el {{ draft.created_at|fecha_corta }}.</span></p>
+          <p>Este borrador ya se revisó{% if draft.reviewed_at %} el {{ draft.reviewed_at|fecha_corta }}{% endif %}.</p>
+        </div>
+        {% else %}
         <form method="post" class="disc-draft" novalidate>
           {% csrf_token %}
           <input type="hidden" name="action" value="review_ai">
@@ -87,6 +94,7 @@
           {% include "partials/ui/fields.html" with form=form %}
           <div class="btn-row"><button class="btn btn--secondary" type="submit">Confirmar revisión</button></div>
         </form>
+        {% endif %}
       {% empty %}
         <p class="empty-line">Todavía no hay borradores con IA. Genera un borrador solo si te ayuda a preparar una respuesta humana y cuidadosa.</p>
       {% endfor %}

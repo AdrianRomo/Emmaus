@@ -34,7 +34,7 @@ from reportlab.platypus import (
 
 from ..charts import _grid_steps, nice_max
 from ..templatetags.emmaus import fecha_corta, fecha_larga
-from .metrics import DEFINITIONS, format_duration
+from .metrics import DEFINITIONS, delta_sentence, format_duration
 
 # Static TrueType fonts: ReportLab cannot read the variable WOFF2 files in static/fonts. Atkinson-*.ttf are static
 # Atkinson Hyperlegible Next subsets that include "≈" (used for rounded totals; the web subset lacks it);
@@ -225,26 +225,6 @@ def _pct(value) -> str:
     return "—" if value is None else f"{value} %"
 
 
-def _signed(value) -> str:
-    if value is None:
-        return "—"
-    return f"+{value}" if value > 0 else str(value)
-
-
-def delta_sentence(delta: dict) -> str:
-    """'Desde el corte anterior: +11 entrevistas y +3 puntos.' New campers can move the percentage even when
-    nobody finished an interview, so the points are said in both cases."""
-    points = delta.get("percent")
-    if delta.get("completed"):
-        change = f"{_signed(delta['completed'])} entrevistas"
-        if points:
-            change += f" y {_signed(points)} puntos"
-        return f"Desde el corte anterior: {change}."
-    if points:
-        return f"Desde el corte anterior no se completaron entrevistas, y el avance cambió {_signed(points)} puntos."
-    return "Desde el corte anterior no se completaron entrevistas."
-
-
 def _section(question: str, width: float, styles) -> list:
     return [Spacer(1, 10), Rule(width), Paragraph(escape(question), styles["question"])]
 
@@ -265,7 +245,8 @@ def _table_style(numeric_from: int = 1) -> list:
     ]
 
 
-def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None) -> bytes:
+def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, previous_cutoff=None) -> bytes:
+    """``previous_cutoff`` names the time in the change sentence, as the cutoff page does."""
     _register_fonts()
     styles = _styles()
     buffer = io.BytesIO()
@@ -323,7 +304,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None) ->
     else:
         story.append(Paragraph("Todavía no había participantes registrados.", styles["headline"]))
     if delta:
-        story += [Spacer(1, 6), Paragraph(escape(delta_sentence(delta)), styles["body"])]
+        story += [Spacer(1, 6), Paragraph(escape(delta_sentence(delta, previous_cutoff)), styles["body"])]
 
     # ¿Cuánto faltaba? Three figures and the cumulative chart.
     story += _section("¿Cuánto faltaba?", width, styles)

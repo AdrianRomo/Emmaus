@@ -469,7 +469,8 @@ def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
     progress = payload["progress"]
     rate = payload["throughput"]["per_hour"]
     if progress["eligible"] and progress["pending"]:
-        text = f"Faltan {progress['pending']} entrevistas de {progress['eligible']}."
+        pending = progress["pending"]
+        text = f"Falta 1 entrevista de {progress['eligible']}." if pending == 1 else f"Faltan {pending} entrevistas de {progress['eligible']}."
         evidence = f"{progress['completed']} completadas, {progress['in_progress']} en curso."
         eta = eta_minutes(progress["pending"], rate)
         if eta:
@@ -557,3 +558,36 @@ def compare(current: dict, previous: dict | None) -> dict:
             delta["teams"][team["key"]] = team["percent"] - before["percent"]
     delta["previous_as_of"] = previous.get("data_as_of")
     return delta
+
+
+def _signed(value: int) -> str:
+    """'+11' or '-5' written with a real minus sign (U+2212), like the `signed` template filter."""
+    return f"+{value}" if value > 0 else f"\u2212{abs(value)}"
+
+
+def delta_sentence(delta: dict, since: datetime | None = None) -> str:
+    """The change since the previous cutoff, said the same way on every screen and in the PDF.
+
+    ``delta`` is what ``compare`` returns. When nobody finished an interview, camperos registered (or
+    removed) and the percentage they move are still said, never "Sin cambios". With ``since`` (the
+    previous cutoff) the sentence names its time; without it, it says "el corte anterior".
+    """
+    anchor = f"el corte de las {timezone.localtime(since):%H:%M}" if since else "el corte anterior"
+    completed = delta.get("completed") or 0
+    percent = delta.get("percent") or 0
+    camperos = delta.get("eligible") or 0
+    if completed:
+        change = f"{_signed(completed)} entrevista{'' if abs(completed) == 1 else 's'}"
+        if percent:
+            change += f" y {_signed(percent)}\u00a0% de avance"
+        return f"{change} desde {anchor}."
+    changes = []
+    if camperos > 0:
+        changes.append("se registró +1 campero" if camperos == 1 else f"se registraron +{camperos} camperos")
+    elif camperos < 0:
+        changes.append("hay 1 campero menos" if camperos == -1 else f"hay {-camperos} camperos menos")
+    if percent:
+        changes.append(f"el avance cambió {_signed(percent)}\u00a0%")
+    if changes:
+        return f"Ninguna entrevista nueva, pero {' y '.join(changes)} desde {anchor}."
+    return f"Sin cambios desde {anchor}."

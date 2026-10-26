@@ -27,7 +27,15 @@ from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment
 
 
 def _last_snapshot(access):
-    return access.snapshots().filter(status=ReportSnapshot.Status.READY).order_by("-cutoff_at").first()
+    """The newest cutoff of the scope this page shows: the whole event for the pastor and the
+    administration, the team for a tutor. A team's cutoff is never the baseline of the whole event."""
+    scope_key = scope_for_access(access).key
+    return (
+        access.snapshots()
+        .filter(status=ReportSnapshot.Status.READY, scope_key=scope_key)
+        .order_by("-cutoff_at", "-id")
+        .first()
+    )
 
 
 def _recent_activity(access, limit=8):
@@ -318,10 +326,14 @@ def admin_home(request, event, access):
     if failed_count:
         text = "1 corte no se pudo generar." if failed_count == 1 else f"{failed_count} cortes no se pudieron generar."
         problems.append((text, "events:reports"))
-    if payload["attention"]["unassigned_participants"]:
-        problems.append((f"{payload['attention']['unassigned_participants']} camperos sin coordinador.", "events:participants"))
-    if payload["attention"]["coordinators_without_tutor"]:
-        problems.append((f"{payload['attention']['coordinators_without_tutor']} coordinadores sin tutor.", "events:assignments"))
+    unassigned = payload["attention"]["unassigned_participants"]
+    if unassigned:
+        text = "1 campero no tiene coordinador." if unassigned == 1 else f"{unassigned} camperos no tienen coordinador."
+        problems.append((text, "events:participants"))
+    without_tutor = payload["attention"]["coordinators_without_tutor"]
+    if without_tutor:
+        text = "1 coordinador no tiene tutor." if without_tutor == 1 else f"{without_tutor} coordinadores no tienen tutor."
+        problems.append((text, "events:assignments"))
     context = {
         "payload": payload,
         "progress": payload["progress"],
