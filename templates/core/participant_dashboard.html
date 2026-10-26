@@ -15,6 +15,9 @@
     <p class="sign__text">Tu siguiente paso es la lección {{ current.lesson.order }} de {{ summary.total_lessons }}. Tómate tu tiempo: puedes guardar tu reflexión y volver después.</p>
     <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'participant_lesson' current.lesson.id %}">Continuar lección</a></div>
   </section>
+{% elif summary.enrollment and current %}
+  {% comment %}The path is done: no sign, one line with the next step there is.{% endcomment %}
+  <p class="disc-done">Terminaste la ruta. Si quieres platicar, <a href="{% url 'request_follow_up' %}">pide una conversación</a>.</p>
 {% endif %}
 
 <div class="split disc-camino">
@@ -32,7 +35,8 @@
         {% endif %}
       </div>
     {% else %}
-      <p class="empty-line">Todavía no tienes una ruta asignada. Un líder de tu iglesia puede inscribirte en una ruta de discipulado cuando esté listo para acompañarte.</p>
+      {% comment %}No enrollment means the church has no active path: opening this page enrolls in one when there is.{% endcomment %}
+      <p class="empty-line">Tu iglesia todavía no tiene una ruta activa. Cuando la tenga, aparecerá aquí.</p>
     {% endif %}
   </section>
 

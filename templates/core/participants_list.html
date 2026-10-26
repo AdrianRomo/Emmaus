@@ -2,8 +2,14 @@
 {% load emmaus core_extras %}
 {% block page_title %}Participantes{% endblock %}
 {% block content %}
-{% include "events/rotulo/_page_head.html" with title="Participantes" lede="Las personas que están recorriendo una ruta de discipulado." %}
 {% url 'create_invitation' as invite_url %}
+{% comment %}A pastor invites only where the church lets leaders invite (create_invitation answers 403 otherwise).{% endcomment %}
+{% if is_church_admin or current_church.leaders_can_invite_participants %}
+  {% include "events/rotulo/_page_head.html" with title="Participantes" lede="Las personas de tu iglesia en el discipulado." action_url=invite_url action_label="Invitar participante" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Participantes" lede="Las personas de tu iglesia en el discipulado." %}
+{% endif %}
+{% comment %}Who needs someone first: without a mentor, then whoever has gone longest without activity (the view orders them).{% endcomment %}
 <section class="disc-list participant-progress" aria-labelledby="lista">
   <h2 id="lista" class="heading">{{ profiles|length }} participante{{ profiles|length|pluralize }}</h2>
   {% if profiles %}
@@ -13,14 +19,9 @@
         <li class="row">
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ name }}</a></p>
-            <p class="row__meta">{% if profile.assigned_mentor %}Mentor: {{ profile.assigned_mentor|display_name }}{% else %}Sin mentor{% endif %}, última actividad: {{ profile.last_activity|date:"j b Y"|default:"sin registro" }}</p>
+            <p class="row__meta">{% if profile.assigned_mentor %}Mentor: {{ profile.assigned_mentor|display_name }}{% else %}Sin mentor{% endif %}, {% if summary.enrollment %}{{ summary.completed_lessons }} de {{ summary.total_lessons }} lecci{{ summary.total_lessons|pluralize:"ón,ones" }}{% else %}sin ruta{% endif %}, última actividad {{ profile.activity_ago }}.</p>
             {% if summary.enrollment %}
-              <div class="participant-progress__line">
-                {% ruler summary.completed_lessons 0 summary.total_lessons %}
-                <p class="participant-progress__text">{{ summary.completed_lessons }} de {{ summary.total_lessons }} lecciones, {{ summary.percent|pct }}</p>
-              </div>
-            {% else %}
-              <p class="row__meta">Sin ruta asignada</p>
+              <div class="participant-progress__line">{% ruler summary.completed_lessons 0 summary.total_lessons %}</div>
             {% endif %}
           </div>
           {% if not profile.assigned_mentor %}
@@ -31,7 +32,7 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">Todavía no hay participantes. <a href="{{ invite_url }}">Invita a un participante</a> para que empiece a recorrer una ruta de discipulado.</p>
+    <p class="empty-line">Todavía no hay participantes. Aparecerán aquí cuando acepten su invitación.</p>
   {% endif %}
 </section>
 {% endblock %}

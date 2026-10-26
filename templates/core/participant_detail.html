@@ -53,7 +53,7 @@
                 <p class="row__title"><a class="row__link" href="{% if is_pastoral_leader %}{% url 'church_question_detail' question.id %}{% else %}{% url 'question_detail' question.id %}{% endif %}">{{ question.question_text|truncatewords:20 }}</a></p>
                 <p class="row__meta">Enviada el {{ question.created_at|date:"j b Y" }}</p>
               </div>
-              {% if question.status == "answered" or question.status == "closed" %}{% status "completada" question.get_status_display %}{% else %}{% status "pendiente" question.get_status_display %}{% endif %}
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
             </li>
           {% endfor %}
         </ul>
@@ -72,7 +72,7 @@
                 <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
                 <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}</p>
               </div>
-              {% if follow_up.status == "completed" %}{% status "completada" follow_up.get_status_display %}{% elif follow_up.status == "in_progress" %}{% status "en_curso" follow_up.get_status_display %}{% elif follow_up.status == "cancelled" %}{% status "descartada" follow_up.get_status_display %}{% else %}{% status "pendiente" follow_up.get_status_display %}{% endif %}
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
             </li>
           {% endfor %}
         </ul>
@@ -112,7 +112,7 @@
 
     <section class="block" aria-labelledby="crear-seguimiento">
       <h2 id="crear-seguimiento" class="heading">Crear seguimiento</h2>
-      <p class="hint">Deja una solicitud clara para que un líder pueda dar seguimiento en persona.</p>
+      <p class="hint">Deja una solicitud clara para que un líder pueda dar seguimiento en persona. Queda pendiente hasta que alguien la marque como atendida.</p>
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="follow">

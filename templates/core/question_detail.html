@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load emmaus %}
-{% block page_title %}{% if can_answer and response_form.errors or draft_form.errors %}Error: {% endif %}Pregunta{% endblock %}
+{% block page_title %}{% if can_answer and response_form.errors or draft_form.errors %}Error: {% endif %}Pregunta de {{ question.participant.get_full_name|default:question.participant.email }}{% endblock %}
 {% block content %}
 {% with asker=question.participant.get_full_name|default:question.participant.email %}
 {% if is_participant %}{% url 'participant_questions' as back_url %}{% elif is_mentor %}{% url 'mentor_dashboard' as back_url %}{% else %}{% url 'questions_inbox' as back_url %}{% endif %}
@@ -56,7 +56,7 @@
         {% csrf_token %}
         <input type="hidden" name="action" value="respond">
         {% include "partials/ui/fields.html" with form=response_form %}
-        <div class="btn-row"><button class="btn btn--primary" type="submit">Enviar respuesta</button></div>
+        <div class="btn-row"><button class="btn btn--primary" type="submit">Responder</button></div>
       </form>
       <form method="post" class="disc-escalate">
         {% csrf_token %}
@@ -72,7 +72,7 @@
       <form method="post">
         {% csrf_token %}
         <input type="hidden" name="action" value="generate_ai">
-        <button class="btn btn--secondary" type="submit">Generar borrador con IA</button>
+        <button class="btn btn--link" type="submit">Generar borrador</button>
       </form>
       {% for draft, form in draft_forms %}
         {% if draft.status != "draft" %}

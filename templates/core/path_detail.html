@@ -6,7 +6,7 @@
 {% url 'lesson_create' path.id as lesson_url %}
 {% url 'path_edit' path.id as edit_url %}
 {% include "events/rotulo/_page_head.html" with title=path.title lede=path.description back_url=back_url back_label="Rutas de discipulado" action_url=lesson_url action_label="Agregar lección" secondary_url=edit_url secondary_label="Editar ruta" %}
-<p class="interview-meta">{% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "pendiente" "Inactiva" %}{% endif %} <span>{% if path.is_default %}Ruta predeterminada{% else %}Ruta de discipulado{% endif %}{% if path.target_audience %}, para: {{ path.target_audience }}{% endif %}.</span></p>
+<p class="interview-meta">{% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %} <span>{% if path.is_default %}Ruta predeterminada{% else %}Ruta de discipulado{% endif %}{% if path.target_audience %}, para: {{ path.target_audience }}{% endif %}.</span></p>
 
 {% with lessons=path.lessons.all %}
 <section class="disc-list path-lessons" aria-labelledby="lecciones">
@@ -31,7 +31,7 @@
               <a class="btn btn--link btn--small" href="{% url 'reflection_question_create' lesson.id %}">Agregar pregunta<span class="visually-hidden"> a la lección {{ lesson.order }}, {{ lesson.title }}</span></a>
             </p>
           </div>
-          {% if lesson.is_active %}{% status "completada" "Activa" %}{% else %}{% status "pendiente" "Inactiva" %}{% endif %}
+          {% if lesson.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %}
         </li>
       {% endfor %}
     </ol>

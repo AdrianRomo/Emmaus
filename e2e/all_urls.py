@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from events.models import Event, EventParticipant, Interview, FollowUp, EventMembership, MembershipRole, ReportSnapshot, QuestionnaireVersion, Sede
 from events.services.questionnaire import duplicate_version
-from core.models import DiscipleshipPath
+from core.models import DiscipleshipPath, ParticipantProfile
 
 ev = Event.objects.get(slug="jovenes-2026")
 u = lambda n, *a: reverse(f"events:{n}", args=[ev.slug, *a])  # noqa: E731
@@ -25,6 +25,9 @@ draft = (QuestionnaireVersion.objects.filter(questionnaire=version.questionnaire
 question = draft.sections.first().questions.first()
 member = EventMembership.objects.filter(event=ev, role=MembershipRole.PASTOR).first()
 path = DiscipleshipPath.objects.first()
+# seed_dev_data: the participant is enrolled in the starter path; their record and their first active lesson
+profile = ParticipantProfile.objects.get(user__email="participant@example.org")
+lesson = profile.user.enrollments.order_by("-started_at").first().path.lessons.filter(is_active=True).order_by("order").first()
 sede = Sede.objects.filter(church=ev.church).first()  # seed_camp_demo creates five
 pages = {
   "ana.lopez@demo.invalid": [["c-computadora", u("choose_station")], ["c-inicio", u("coord_home")], ["c-busqueda", u("interview_search") + "?q=mat"],
@@ -43,9 +46,13 @@ pages = {
   "admin@example.org": [["d-panorama", reverse("church_dashboard")], ["d-participantes", reverse("participants_list")], ["d-invitaciones", reverse("invitations_list")],
      ["d-rutas", reverse("path_list")], ["d-ruta", reverse("path_detail", args=[path.id])], ["d-preguntas", reverse("questions_inbox")],
      ["d-seguimientos", reverse("church_follow_up_list")], ["d-configuracion", reverse("church_settings")], ["d-personas", reverse("user_list")], ["d-403", u("admin_home")]],
-  "mentor@example.org": [["m-inicio", reverse("mentor_dashboard")], ["m-seguimientos", reverse("follow_up_list")]],
-  "participant@example.org": [["e-camino", reverse("participant_dashboard")], ["e-preguntas", reverse("participant_questions")], ["e-preguntar", reverse("ask_question")],
-     ["e-conversacion", reverse("request_follow_up")]],
+  "pastor@example.org": [["dp-panorama", reverse("church_dashboard")], ["dp-participantes", reverse("participants_list")],
+     ["dp-participante", reverse("participant_detail", args=[profile.id])], ["dp-preguntas", reverse("questions_inbox")],
+     ["dp-para-el-pastor", reverse("escalations")], ["dp-seguimientos", reverse("church_follow_up_list")], ["dp-notas", reverse("notes_list")]],
+  "mentor@example.org": [["m-inicio", reverse("mentor_dashboard")], ["m-seguimientos", reverse("follow_up_list")],
+     ["m-participante", reverse("participant_detail", args=[profile.id])]],
+  "participant@example.org": [["e-camino", reverse("participant_dashboard")], ["e-leccion", reverse("participant_lesson", args=[lesson.id])],
+     ["e-preguntas", reverse("participant_questions")], ["e-preguntar", reverse("ask_question")], ["e-conversacion", reverse("request_follow_up")]],
   "": [["x-entrar", reverse("login")], ["x-inicio", reverse("landing")], ["x-olvide", reverse("password_reset")], ["x-404", "/no-existe/"],
      ["x-unirme", reverse("join")], ["x-evento", reverse("event_entry", args=[ev.join_code])]],
 }

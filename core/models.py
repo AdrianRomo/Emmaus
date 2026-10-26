@@ -414,9 +414,9 @@ class QuestionResponse(models.Model):
 
 class FollowUpRequest(models.Model):
     class Status(models.TextChoices):
-        OPEN = "open", "Abierto"
+        OPEN = "open", "Pendiente"
         IN_PROGRESS = "in_progress", "En proceso"
-        COMPLETED = "completed", "Completado"
+        COMPLETED = "completed", "Atendido"
         CANCELLED = "cancelled", "Cancelado"
 
     class Source(models.TextChoices):
