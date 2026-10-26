@@ -301,6 +301,59 @@ class MemberForm(forms.Form):
         return email
 
 
+JOIN_NOT_FOUND = "No encontramos ese evento. Revisa lo que escribiste o pregunta a quien organiza."
+
+
+class JoinForm(forms.Form):
+    """/unirme/: the code on the sign or the event's name. One field, one button."""
+
+    clave = forms.CharField(
+        label="Código o nombre del evento",
+        max_length=160,
+        error_messages={"required": "Escribe el código o el nombre del evento.", "max_length": JOIN_NOT_FOUND},
+        widget=forms.TextInput(attrs={"class": "input search__input", "autocomplete": "off", "spellcheck": "false"}),
+    )
+
+
+class AccessRequestForm(forms.Form):
+    """Asking to join an event team: who you are and what you will do. Approval is the administration's."""
+
+    ROLE_CHOICES = [
+        (MembershipRole.TUTOR.value, "Tutor: acompaño a un grupo de coordinadores"),
+        (MembershipRole.COORDINATOR.value, "Coordinador: entrevisto a mis camperos"),
+    ]
+
+    # 150: the longest username and name an account can have (approving creates one from these)
+    full_name = forms.CharField(label="Nombre completo", max_length=150,
+                                error_messages={"required": "Escribe tu nombre completo.", "max_length": "Escribe un nombre de 150 caracteres o menos."},
+                                widget=forms.TextInput(attrs={"autocomplete": "name"}))
+    email = forms.EmailField(
+        label="Correo",
+        max_length=150,
+        error_messages={"required": "Escribe tu correo.", "invalid": "Escribe un correo válido, como nombre@ejemplo.com.",
+                        "max_length": "Escribe un correo de 150 caracteres o menos."},
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
+    )
+    requested_role = forms.ChoiceField(label="¿Qué vas a hacer en el evento?", choices=ROLE_CHOICES, widget=forms.RadioSelect,
+                                       error_messages={"required": "Elige qué vas a hacer en el evento.",
+                                                       "invalid_choice": "Elige qué vas a hacer en el evento."})
+    note = forms.CharField(label="Algo que la administración deba saber", max_length=300, required=False,
+                           error_messages={"max_length": "Escribe 300 caracteres o menos."},
+                           widget=forms.Textarea(attrs={"rows": 3}))
+
+    def __init__(self, *args, account_email: str = "", **kwargs):
+        super().__init__(*args, **kwargs)
+        self.account_email = account_email
+        if account_email:  # signed in: the request is for this account, whatever the page sends
+            self.fields["email"].widget.attrs["readonly"] = True
+            self.fields["email"].help_text = "Es el correo de tu cuenta."
+
+    def clean_email(self):
+        if self.account_email:
+            return self.account_email
+        return self.cleaned_data["email"].strip().lower()
+
+
 class MembershipEditForm(forms.ModelForm):
     tutor = forms.ModelChoiceField(queryset=EventMembership.objects.none(), required=False, label="Tutor que lo supervisa",
                                    empty_label="Sin tutor")

@@ -174,6 +174,8 @@ Middleware order (`emmaus/settings.py`): `SecurityMiddleware` → `WhiteNoiseMid
 5. The view asks `request.access` for querysets (`participants()`, `interviews()`, `follow_ups()`, `snapshots()`) and object checks (`can_view_answer`, `can_correct`, ...). Services receive the `EventAccess` and re-check inside their transactions.
 6. `events.context_processors.event_context` adds the role navigation, the shell template (top bar for coordinators, side rail for everyone else) and the current station.
 
+Joining a team (`events/views/join.py`) happens outside `event_view`, because the person has no access yet. `/unirme/` turns a typed code or event name into an event with `events.services.join.find_event_by_key` (the `Event.join_code` first, case-insensitively; then, while `Event.join_by_name` is on, the slug or the event's name compared after `slugify`, in Python over the non-archived events) and redirects to `/e/<code>/`. Each search counts against `AuthThrottle` under `join:<session key>`, a key bounded by the session rather than built from the typed text; a miss on `/e/<x>/` counts too, and a hit while blocked answers like a miss. A hit on `/e/<code>/` writes nothing on GET: someone with access is redirected to their role's home, a closed event says so, anyone else gets a form whose POST stores an `AccessRequest` (name, e-mail, tutor or coordinador, note; one pending per e-mail and event; at most 50 pending per event, checked under a lock on the event row; 5 POSTs per hour per session under `join-request:<session key>`). The scheduler (`run_report_cutoffs`) deletes expired attempt counters (`throttle.purge_expired`) and requests decided more than 30 days ago. No account is created there. An Administrador approves it on "Equipo", which calls `events.services.team.add_member`, the same function behind "Agregar persona", so the account, the password link and the audit rows are exactly those of adding someone by hand. `Event.save()` generates the code (6 characters without 0/O/1/I/L) and retries on a clash, since a callable default could not. `Event.regenerate_join_code()` replaces it from "Generar otro código" and turns `join_by_name` off. An approval never changes an account that already has access to the event (see `roles-and-permissions.md`).
+
 ## Server-side scoping
 
 Nothing in a URL, form or query string can widen what a user sees:
@@ -250,6 +252,8 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 | `events/0003_followup_confidential_db_default` | Gives `FollowUp.confidential` a database default (`db_default=False`), so code from before `0002` can still insert follow-ups during a rolling deploy |
 | `events/0004_labels_and_throttle_strikes` | Adds `AuthThrottle.strikes` (escalating blocks) and Spanish labels on `FollowUp.kind`, `status`, `assigned_to` ("Tipo", "Estado", "Líder responsable") |
 | `events/0005_throttle_strikes_db_default` | Gives `AuthThrottle.strikes` a database default, so older code can still create throttle rows; `throttle.consume()` also fails closed if a row cannot be written |
+| `events/0006_event_join_code` | Adds `Event.join_code` (`db_default=''`, so older code can still insert events) and `Event.join_by_name` (`db_default=True`), a unique constraint on non-blank codes, then a data migration that gives every existing event its own code. Reverse of the data step is a no-op. A row still without a code (written by older code) gets one the first time "Equipo" or the printable sheet needs it |
+| `events/0007_access_request` | Adds `AccessRequest` (requests from the event's public page) |
 
 Existing churches and discipleship data are not modified apart from `0004`. The camp module adds new tables and columns only. `makemigrations --check` reports no pending changes.
 
@@ -270,6 +274,8 @@ Existing churches and discipleship data are not modified apart from `0004`. The 
 | `ReportSnapshot` | `(event, scope_key, cutoff_at, trigger)`, `public_id` | `(event, scope_key, -cutoff_at)` |
 | `AuditEvent` | | `created_at`, `(event, -created_at)`, `(action, -created_at)` |
 | `AuthThrottle` | `key` | |
+| `Event` | `slug`, partial `(join_code)` where not blank | |
+| `AccessRequest` | partial `(event, email)` where `pendiente` | `(event, status)` |
 
 Name search uses `normalized_name LIKE '%...%'`, which cannot use the B-tree index. That is fine at camp sizes (the CSV import accepts up to 1500 rows per file).
 

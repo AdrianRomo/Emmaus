@@ -4,7 +4,6 @@ import csv
 import json
 
 from django.contrib import messages
-from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -21,8 +20,9 @@ from core.models import UserChurchRole
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
-from core.services import full_name_to_parts, send_email_safely
+from core.services import send_email_safely
 
+from ..access import resolve_access
 from ..forms import (
     EventForm,
     EventSettingsForm,
@@ -35,6 +35,7 @@ from ..forms import (
     SectionForm,
 )
 from ..models import (
+    AccessRequest,
     AuditEvent,
     EventMembership,
     EventParticipant,
@@ -53,6 +54,7 @@ from ..models import (
 from ..services import audit
 from ..services import interviews as interview_svc
 from ..services import participants as participant_svc
+from ..services import team as team_svc
 from ..services.audit import ACTION_LABELS
 from ..services.questionnaire import all_questions, build_steps, describe_answer, duplicate_version, load_answers, publish_version
 from .common import ADMIN, event_view
@@ -240,51 +242,147 @@ def _activation_link(request, user) -> str:
     return request.build_absolute_uri(reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token}))
 
 
+def _member_added(request, event, added, link_for_existing=False):
+    """After "Agregar persona" or an approved request: a new account gets its link (by e-mail and on screen).
+
+    ``link_for_existing`` (approvals): an existing account that never set a password gets the link too,
+    when ``_can_issue_activation_link`` allows it; otherwise it could never sign in.
+    """
+    membership, user = added.membership, added.user
+    if added.is_new or (link_for_existing and _can_issue_activation_link(event, user)):
+        created_link = _activation_link(request, user)
+        sent = send_email_safely(
+            f"Te invitaron a {event.name} en Emmaus",
+            f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}. Crea tu contraseña aquí:\n{created_link}\n\nSi no esperabas este correo, ignóralo.",
+            [user.email],
+        )
+        messages.success(
+            request,
+            f"{membership.display_name} ya forma parte del equipo."
+            + (" Le enviamos un correo para crear su contraseña." if sent else " Copia el enlace para que cree su contraseña."),
+        )
+        return render(request, "events/admin/member_created.html", {"membership": membership, "link": created_link})
+    messages.success(request, f"{membership.display_name} ya forma parte del equipo. Puede entrar con su contraseña de siempre.")
+    return redirect("events:team", slug=event.slug)
+
+
 @event_view(ADMIN)
 def member_add(request, event, access):
     form = MemberForm(request.POST or None, event=event)
-    created_link = None
     if request.method == "POST" and form.is_valid() and form.cleaned_data["can_view_sensitive"] and form.cleaned_data["email"] == (request.user.email or "").lower():
         form.add_error("can_view_sensitive", "Otra persona de la administración debe otorgarte este acceso.")
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
-        with transaction.atomic():
-            user = User.objects.filter(email__iexact=data["email"]).first()
-            is_new = user is None
-            if is_new:
-                first, last = full_name_to_parts(data["full_name"])
-                user = User.objects.create_user(username=data["email"], email=data["email"], first_name=first, last_name=last)
-                user.set_unusable_password()
-                user.save()
-            membership = EventMembership.objects.create(
-                event=event,
-                user=user,
-                role=data["role"],
-                team_name=data["team_name"] if data["role"] == MembershipRole.TUTOR else "",
-                can_view_sensitive=data["can_view_sensitive"],
-                created_by=request.user,
+        try:
+            added = team_svc.add_member(
+                event, request.user, full_name=data["full_name"], email=data["email"], role=data["role"],
+                team_name=data["team_name"], can_view_sensitive=data["can_view_sensitive"], tutor=data.get("tutor"),
             )
-            if data["role"] == MembershipRole.COORDINATOR and data.get("tutor"):
-                TutorAssignment.objects.create(event=event, tutor=data["tutor"], coordinator=membership, created_by=request.user)
-            audit.record(request.user, event, "integrante_agregado", f"Agregó a {membership.display_name} como {membership.get_role_display().lower()}", membership)
-            if data["can_view_sensitive"]:
-                audit.record(request.user, event, "acceso_confidencial", f"Otorgó acceso confidencial a {membership.display_name}", membership)
-        if is_new:
-            created_link = _activation_link(request, user)
-            sent = send_email_safely(
-                f"Te invitaron a {event.name} en Emmaus",
-                f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}. Crea tu contraseña aquí:\n{created_link}\n\nSi no esperabas este correo, ignóralo.",
-                [user.email],
-            )
-            messages.success(
-                request,
-                f"{membership.display_name} ya forma parte del equipo."
-                + (" Le enviamos un correo para crear su contraseña." if sent else " Copia el enlace para que cree su contraseña."),
-            )
-            return render(request, "events/admin/member_created.html", {"membership": membership, "link": created_link})
-        messages.success(request, f"{membership.display_name} ya forma parte del equipo. Puede entrar con su contraseña de siempre.")
-        return redirect("events:team", slug=event.slug)
+        except team_svc.AlreadyMember:  # added by someone else since the form was checked
+            form.add_error("email", "Esta persona ya forma parte del equipo de este evento.")
+        else:
+            return _member_added(request, event, added)
     return render(request, "events/admin/member_form.html", {"form": form})
+
+
+def _requests_url(event) -> str:
+    return reverse("events:team", args=[event.slug]) + "#solicitudes"
+
+
+@require_POST
+@event_view(ADMIN)
+def access_request_approve(request, event, access, pk):
+    """Add the person who asked, with the role the administration chose (the same path as "Agregar persona")."""
+    role = request.POST.get("role", "")
+    if role not in MembershipRole.values:
+        messages.error(request, "Elige el rol que tendrá esta persona.")
+        return redirect(_requests_url(event))
+    with transaction.atomic():
+        access_request = get_object_or_404(AccessRequest.objects.select_for_update(), pk=pk, event=event)
+        if access_request.status != AccessRequest.Status.PENDING:
+            messages.info(request, "Esta solicitud ya se atendió.")
+            return redirect(_requests_url(event))
+        # Anybody can type anybody's e-mail. An account that already has access here (church admin or pastor,
+        # superuser, active member) is never changed by a request: that is "Editar", on purpose.
+        account = team_svc.account_for_email(access_request.email)
+        current = resolve_access(account, event) if account is not None else None
+        if current is not None:
+            return _refuse_existing_access(request, event, access_request, account.get_full_name() or account.email, current.role_label.lower())
+        try:
+            added = team_svc.add_member(event, request.user, full_name=access_request.full_name, email=access_request.email, role=role)
+        except team_svc.AlreadyMember as already:  # became a member while this request waited (a race)
+            membership = already.membership
+            return _refuse_existing_access(request, event, access_request, membership.display_name, membership.get_role_display().lower())
+        access_request.status = AccessRequest.Status.APPROVED
+        access_request.decided_at = timezone.now()
+        access_request.decided_by = request.user
+        access_request.membership = added.membership
+        access_request.save(update_fields=["status", "decided_at", "decided_by", "membership"])
+        audit.record(
+            request.user, event, "solicitud_aprobada",
+            f"Aprobó la solicitud de acceso de {access_request.full_name} como {added.membership.get_role_display().lower()}", access_request,
+        )
+    return _member_added(request, event, added, link_for_existing=True)
+
+
+def _refuse_existing_access(request, event, access_request, name, role_label):
+    """Close the request without touching the account. Called inside the approval's transaction."""
+    access_request.status = AccessRequest.Status.REJECTED
+    access_request.decided_at = timezone.now()
+    access_request.decided_by = request.user
+    access_request.decision_note = f"Ya tenía acceso como {role_label}."
+    access_request.save(update_fields=["status", "decided_at", "decided_by", "decision_note"])
+    audit.record(request.user, event, "solicitud_rechazada",
+                 f"Cerró la solicitud de acceso de {access_request.full_name}: la cuenta ya tenía acceso como {role_label}", access_request)
+    messages.warning(request, f"{name} ya tiene acceso a este evento como {role_label}. Si quieres cambiar su rol, hazlo en Equipo, Editar.")
+    return redirect(_requests_url(event))
+
+
+@require_POST
+@event_view(ADMIN)
+def access_request_reject(request, event, access, pk):
+    with transaction.atomic():
+        access_request = get_object_or_404(AccessRequest.objects.select_for_update(), pk=pk, event=event)
+        if access_request.status != AccessRequest.Status.PENDING:
+            messages.info(request, "Esta solicitud ya se atendió.")
+            return redirect(_requests_url(event))
+        access_request.status = AccessRequest.Status.REJECTED
+        access_request.decided_at = timezone.now()
+        access_request.decided_by = request.user
+        access_request.save(update_fields=["status", "decided_at", "decided_by"])
+        audit.record(request.user, event, "solicitud_rechazada", f"Rechazó la solicitud de acceso de {access_request.full_name}", access_request)
+    messages.success(request, f"Se rechazó la solicitud de {access_request.full_name}.")
+    return redirect(_requests_url(event))
+
+
+@require_POST
+@event_view(ADMIN)
+def join_code_regenerate(request, event, access):
+    code = event.regenerate_join_code()
+    audit.record(request.user, event, "evento_configurado", "Generó un código nuevo para unirse")
+    messages.success(request, f"El código anterior y el nombre del evento dejan de funcionar. Ahora solo entra el código nuevo: {code}.")
+    return redirect(reverse("events:team", args=[event.slug]) + "#codigo")
+
+
+@require_POST
+@event_view(ADMIN)
+def join_by_name_enable(request, event, access):
+    """After a new code, the name stays off until the administration turns it back on."""
+    event.join_by_name = True
+    event.save(update_fields=["join_by_name", "updated_at"])
+    audit.record(request.user, event, "evento_configurado", "Volvió a permitir unirse con el nombre del evento")
+    messages.success(request, f"Se puede entrar otra vez con el nombre del evento, {event.slug}.")
+    return redirect(reverse("events:team", args=[event.slug]) + "#codigo")
+
+
+@event_view(ADMIN)
+def join_code_sign(request, event, access):
+    """The page to print and hang where volunteers arrive."""
+    event.ensure_join_code()
+    return render(request, "events/admin/join_code_sign.html", {
+        "join_url": request.build_absolute_uri(reverse("join")),
+        "entry_url": request.build_absolute_uri(reverse("event_entry", args=[event.join_code])),
+    })
 
 
 @event_view(ADMIN)

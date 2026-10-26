@@ -1,7 +1,7 @@
 {% load emmaus %}
 {% comment %}
   Administration home (Rótulo). A sign only when something blocks the interviews, and only the first
-  of them (procedures, then questionnaire, then camperos without a coordinator); then how the event is
+  of them (procedures, then questionnaire, then access requests, then camperos without a coordinator); then how the event is
   going, in a sentence, a ruler and a few figures; then the setup checklist, where a row that needs
   action is marked (borrowed from "Bitácora"); then recent activity and downloads.
 {% endcomment %}
@@ -17,6 +17,12 @@
     <h2 id="que-sigue" class="sign__title">Elige el cuestionario de las entrevistas</h2>
     <p class="sign__text">El evento no tiene un cuestionario publicado. Sin él no se pueden iniciar entrevistas.</p>
     <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:questionnaires' event.slug %}">Ver cuestionarios</a></div>
+  </section>
+{% elif pending_requests %}
+  <section class="sign admin-sign" aria-labelledby="que-sigue">
+    <h2 id="que-sigue" class="sign__title">{{ pending_requests }} persona{{ pending_requests|pluralize }} {{ pending_requests|pluralize:"pide,piden" }} acceso al equipo</h2>
+    <p class="sign__text">{% if pending_requests == 1 %}Revisa quién es y agrégala con su rol.{% else %}Revisa quiénes son y agrégalas con su rol.{% endif %}</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:team' event.slug %}#solicitudes">Ver solicitudes</a></div>
   </section>
 {% elif unassigned %}
   <section class="sign admin-sign" aria-labelledby="que-sigue">

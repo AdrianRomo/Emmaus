@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Unirte a un evento{% endblock %}
+{% block content %}
+{% comment %}
+  /unirme/, the address on the printed sign. One field and one button, like the sign-in page. A code
+  and a name get the same answer when nothing matches, and every search counts against the browser.
+{% endcomment %}
+<div class="auth-card">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="¿Vas a ayudar en un evento?" lede="Escribe el código o el nombre del evento que te dieron." %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% with field=form.clave %}
+    <div class="field join-search{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+      <label class="label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+      <div class="search">
+        {{ field|described }}
+        <button class="btn btn--primary btn--large" type="submit">Buscar el evento</button>
+      </div>
+    </div>
+    {% endwith %}
+  </form>
+  {% if not user.is_authenticated %}<p class="aside-note">Si ya formas parte del equipo, <a href="{% url 'login' %}">entra con tu correo</a>.</p>{% endif %}
+</div>
+{% endblock %}

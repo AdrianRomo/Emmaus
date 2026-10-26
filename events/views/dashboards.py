@@ -7,10 +7,12 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 
 from ..forms import FollowUpForm
 from ..models import (
+    AccessRequest,
     AuditEvent,
     EventMembership,
     FollowUp,
@@ -294,11 +296,21 @@ def team(request, event, access):
     counts = dict(
         event.participants.filter(is_active=True).values_list("coordinator").annotate(n=Count("id"))
     )
-    return render(
-        request,
-        "events/supervision/team.html",
-        {"tutors": tutors, "unassigned": unassigned, "others": others, "counts": counts, "can_manage": access.is_admin},
-    )
+    context = {"tutors": tutors, "unassigned": unassigned, "others": others, "counts": counts, "can_manage": access.is_admin}
+    if access.is_admin:  # requests carry strangers' e-mails and notes: only the people who decide see them
+        from ..services.team import describe_account
+
+        event.ensure_join_code()
+        access_requests = list(AccessRequest.objects.filter(event=event, status=AccessRequest.Status.PENDING))
+        for access_request in access_requests:  # at most 50 (the public form's cap)
+            access_request.account = describe_account(event, access_request.email)
+        context.update({
+            "access_requests": access_requests,
+            "role_choices": MembershipRole.choices,
+            "join_url": request.build_absolute_uri(reverse("join")),
+            "entry_url": request.build_absolute_uri(reverse("event_entry", args=[event.join_code])),
+        })
+    return render(request, "events/supervision/team.html", context)
 
 
 # ---- Admin -----------------------------------------------------------------------------------
@@ -348,6 +360,7 @@ def admin_home(request, event, access):
         "last_snapshot": _last_snapshot(access),
         "next_cutoff": next_slot(event),
         "stations": event.stations.filter(is_active=True).count(),
+        "pending_requests": AccessRequest.objects.filter(event=event, status=AccessRequest.Status.PENDING).count(),
     }
     if is_fragment(request):
         return render(request, "events/admin/_home_live.html", context)

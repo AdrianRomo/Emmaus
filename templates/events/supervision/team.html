@@ -5,6 +5,66 @@
 {% if can_manage %}{% url 'events:member_add' event.slug as add_url %}{% url 'events:assignments' event.slug as assign_url %}{% endif %}
 {% include "events/rotulo/_page_head.html" with title="Equipo" lede="Quién supervisa a quién en este evento." action_url=add_url action_label="Agregar persona" secondary_url=assign_url secondary_label="Asignar tutores" %}
 
+{% if can_manage %}
+  {% comment %}What the church prints on the sign, and what to do with the people who used it.{% endcomment %}
+  <div class="join-code" id="codigo">
+    {% if event.join_by_name %}
+      <p class="join-code__text">Para unirse al equipo: entra a {{ join_url }} y escribe el código <strong>{{ event.join_code }}</strong> o el nombre <strong>{{ event.slug }}</strong>.</p>
+    {% else %}
+      <p class="join-code__text">Para unirse al equipo: entra a {{ join_url }} y escribe el código <strong>{{ event.join_code }}</strong>.</p>
+      <p class="join-code__note">El nombre del evento dejó de servir para unirse cuando se generó otro código.</p>
+    {% endif %}
+    <div class="field admin-link">
+      <label class="label" for="enlace-evento">Enlace directo al evento</label>
+      <input class="input" id="enlace-evento" value="{{ entry_url }}" readonly>
+    </div>
+    <div class="join-code__actions">
+      <button class="btn btn--secondary btn--small" type="button" data-copy="enlace-evento">Copiar enlace</button>
+      <a class="btn btn--secondary btn--small" href="{% url 'events:join_code_sign' event.slug %}">Ver la hoja para imprimir</a>
+      <form method="post" action="{% url 'events:join_code_regenerate' event.slug %}">
+        {% csrf_token %}
+        <button class="btn btn--link btn--small" type="submit" data-confirm="{% if event.join_by_name %}El código anterior y el nombre del evento dejarán de funcionar.{% else %}El código anterior dejará de funcionar.{% endif %}">Generar otro código</button>
+      </form>
+      {% if not event.join_by_name %}
+        <form method="post" action="{% url 'events:join_by_name_enable' event.slug %}">
+          {% csrf_token %}
+          <button class="btn btn--link btn--small" type="submit">Volver a permitir el nombre</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <section class="join-requests" id="solicitudes" aria-labelledby="solicitudes-titulo">
+    <h2 id="solicitudes-titulo" class="heading">Solicitudes de acceso <span class="count">{{ access_requests|length }}</span></h2>
+    {% if access_requests %}
+      <ul class="rows">{% for r in access_requests %}
+        <li class="row row--attention">
+          <div class="row__main">
+            <p class="row__title">{{ r.full_name }}</p>
+            <p class="row__meta">{{ r.email }}, pidió ser {{ r.get_requested_role_display|lower }}, {{ r.created_at|since }}</p>
+            {% if r.account %}<p class="row__meta">{{ r.account }}</p>{% endif %}
+            {% if r.note %}<p class="row__meta">Nota: {{ r.note }}</p>{% endif %}
+          </div>
+          <div class="row__end">
+            <form class="join-requests__approve" method="post" action="{% url 'events:access_request_approve' event.slug r.pk %}">
+              {% csrf_token %}
+              <label class="visually-hidden" for="rol-{{ r.pk }}">Rol de {{ r.full_name }}</label>
+              <select id="rol-{{ r.pk }}" name="role">{% for value, label in role_choices %}<option value="{{ value }}"{% if value == r.requested_role %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+              <button class="btn btn--secondary btn--small" type="submit">Agregar al equipo<span class="visually-hidden"> a {{ r.full_name }}</span></button>
+            </form>
+            <form method="post" action="{% url 'events:access_request_reject' event.slug r.pk %}">
+              {% csrf_token %}
+              <button class="btn btn--link btn--small" type="submit" data-confirm="¿Rechazar la solicitud de {{ r.full_name }}?">Rechazar<span class="visually-hidden"> la solicitud de {{ r.full_name }}</span></button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}</ul>
+    {% else %}
+      <p class="empty-line">Nadie ha pedido acceso.</p>
+    {% endif %}
+  </section>
+{% endif %}
+
 <div class="team-grid">
   {% for tutor in tutors %}
     <section aria-labelledby="tutor-{{ tutor.id }}">

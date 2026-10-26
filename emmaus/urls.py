@@ -5,6 +5,7 @@ from django.views.generic import RedirectView
 
 from core.forms import EmailAuthenticationForm, TuSetPasswordForm
 from core.views import ThrottledLoginView, ThrottledPasswordResetView
+from events.views import join as join_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -31,6 +32,9 @@ urlpatterns = [
     path("accounts/login/", RedirectView.as_view(pattern_name="login", query_string=True)),
     path("eventos/", include("events.urls")),
     path("estacion/", include("events.kiosk_urls")),
+    # The printed sign: "Entra a /unirme/ y escribe el código". Public, outside /eventos/.
+    path("unirme/", join_views.join, name="join"),
+    path("e/<str:code>/", join_views.event_entry, name="event_entry"),
     path("", include("core.urls")),
 ]
 

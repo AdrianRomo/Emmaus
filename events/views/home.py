@@ -17,12 +17,15 @@ from .common import COORDINATOR, EVERYONE, event_view, remember_station, role_ho
 
 @login_required
 def events_home(request):
-    """Entry point after login: go straight to the only/last event, else list them."""
+    """Entry point after login: go straight to the last event, the only one in course or the only one, else list them."""
     events = list(accessible_events(request.user).order_by("-starts_on", "name"))
     can_create = administered_churches(request.user).exists()
     last = request.session.get("current_event")
     if not request.GET.get("todos"):
         preferred = next((e for e in events if e.slug == last), None)
+        active = [e for e in events if e.status == Event.Status.ACTIVE]
+        if preferred is None and len(active) == 1:  # closed and draft events do not hide the camp in course
+            preferred = active[0]
         if preferred is None and len(events) == 1:
             preferred = events[0]
         if preferred is not None and preferred.status != Event.Status.ARCHIVED:

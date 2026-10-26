@@ -1,0 +1,25 @@
+{% extends rotulo_shell %}
+{% block page_title %}Código para unirse{% endblock %}
+{% block content %}
+{% comment %}
+  The page the church prints and hangs where volunteers arrive: the event, the code large enough to read
+  from a few steps away, the address, and three sentences. No sign (it is not "the next thing to do" on
+  this screen); the bar, the buttons and the back link do not print.
+{% endcomment %}
+{% url 'events:team' event.slug as team_url %}
+<div class="join-sheet">
+  {% include "events/rotulo/_page_head.html" with title=event.name back_url=team_url back_label="Equipo" %}
+  <p class="join-sheet__label">Código para unirte al equipo</p>
+  <p class="voice join-sheet__code">{{ event.join_code }}</p>
+  <p class="join-sheet__url">{{ join_url }}</p>
+  <ol class="join-sheet__steps">
+    <li>Abre esa dirección en tu teléfono.</li>
+    <li>{% if event.join_by_name %}Escribe el código o el nombre del evento, {{ event.slug }}.{% else %}Escribe el código.{% endif %}</li>
+    <li>Llena tus datos y la administración te dará acceso.</li>
+  </ol>
+  <div class="step__actions">
+    <button class="btn btn--primary" type="button" data-print>Imprimir</button>
+    <a class="btn btn--link" href="{{ team_url }}#codigo">Volver a Equipo</a>
+  </div>
+</div>
+{% endblock %}

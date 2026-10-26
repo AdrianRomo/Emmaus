@@ -31,13 +31,14 @@ pages = {
      ["a-equipo", u("team")], ["a-agregar", u("member_add")], ["a-persona", u("member_edit", member.id)], ["a-asignaciones", u("assignments")],
      ["a-cuestionarios", u("questionnaires")], ["a-version", u("version_detail", version.id)], ["a-pregunta", u("question_edit", version.id, question.id)],
      ["a-configuracion", u("settings")], ["a-actividad", u("audit")], ["a-sesiones", u("sessions")], ["a-eliminar", u("participant_delete", ana.first().public_id)],
-     ["a-nuevo-evento", reverse("events:create")]],
+     ["a-nuevo-evento", reverse("events:create")], ["a-codigo", u("join_code_sign")]],
   "admin@example.org": [["d-panorama", reverse("church_dashboard")], ["d-participantes", reverse("participants_list")], ["d-invitaciones", reverse("invitations_list")],
      ["d-rutas", reverse("path_list")], ["d-ruta", reverse("path_detail", args=[path.id])], ["d-preguntas", reverse("questions_inbox")],
      ["d-seguimientos", reverse("church_follow_up_list")], ["d-configuracion", reverse("church_settings")], ["d-personas", reverse("user_list")], ["d-403", u("admin_home")]],
   "mentor@example.org": [["m-inicio", reverse("mentor_dashboard")], ["m-seguimientos", reverse("follow_up_list")]],
   "participant@example.org": [["e-camino", reverse("participant_dashboard")], ["e-preguntas", reverse("participant_questions")], ["e-preguntar", reverse("ask_question")],
      ["e-conversacion", reverse("request_follow_up")]],
-  "": [["x-entrar", reverse("login")], ["x-inicio", reverse("landing")], ["x-olvide", reverse("password_reset")], ["x-404", "/no-existe/"]],
+  "": [["x-entrar", reverse("login")], ["x-inicio", reverse("landing")], ["x-olvide", reverse("password_reset")], ["x-404", "/no-existe/"],
+     ["x-unirme", reverse("join")], ["x-evento", reverse("event_entry", args=[ev.join_code])]],
 }
 print(json.dumps(pages))

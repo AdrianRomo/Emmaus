@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{{ join_event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  /e/<code>/, the event's public page. Someone with access never sees it (they go to their home); anyone
+  else can ask to join. Only tutor and coordinador can be asked for: pastors and administration are added
+  by hand. Signed in, the e-mail is the account's and cannot be changed here. A closed event takes no requests.
+{% endcomment %}
+<div class="auth-card">
+{% if closed %}
+  {% include "events/rotulo/_page_head.html" with title=join_event.name lede="Este evento ya terminó." meta=meta %}
+{% else %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title=join_event.name lede="Pide acceso al equipo. La administración del evento revisará tu solicitud." meta=meta %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/field.html" with field=form.full_name %}
+    {% include "partials/ui/field.html" with field=form.email %}
+    {% with field=form.requested_role %}
+    <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+      <fieldset{% if field.errors %} aria-describedby="{{ field.auto_id }}-error"{% endif %}>
+        <legend class="legend">{{ field.label }}</legend>
+        {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+        <div class="choices join-choices" id="{{ field.auto_id }}">
+          {% for radio in field %}
+            <div class="choice">{{ radio.tag }}<label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label></div>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </div>
+    {% endwith %}
+    {% include "partials/ui/field.html" with field=form.note %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Pedir acceso</button>
+    </div>
+  </form>
+  {% if not user.is_authenticated %}
+    <div class="notice notice--quiet">
+      <p>¿Ya tienes cuenta? <a href="{% url 'login' %}?next={{ request.path|urlencode }}">Entra y vuelve a esta página.</a></p>
+    </div>
+  {% endif %}
+{% endif %}
+</div>
+{% endblock %}

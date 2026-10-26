@@ -67,7 +67,7 @@ def nav_items(event: Event, access) -> list[dict]:
             item("Inicio", "admin_home"),
             {"label": "Campamentos", "url": reverse("events:list"), "names": {"list", "create"}},
             item("Participantes", "participants", ("participant_detail", "participant_edit", "participant_create", "participant_import", "participant_delete")),
-            item("Equipo", "team", ("member_add", "member_edit", "assignments", "coordinator_detail")),
+            item("Equipo", "team", ("member_add", "member_edit", "assignments", "coordinator_detail", "join_code_sign")),
             item("Cuestionarios", "questionnaires", ("version_detail", "question_edit", "question_add", "option_add", "section_add")),
             item("Reportes", "reports", ("report_detail", "presentation_live")),
             item("Configuración", "settings", ("audit", "sessions", "stations")),

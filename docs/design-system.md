@@ -213,6 +213,8 @@ Diapositivas de 16:9 para proyector: titular pintado de más de 100 px a 1920 ×
 | `events/reports/*.html`, `events/presentation/*.html` | `rotulo_shell`; la presentación usa `layout/skeleton.html` | El corte se lee como el resumen del pastor; diapositivas de 16:9 en Cal y Noche |
 | `templates/core/*.html` | `base.html` (barra de dos renglones) | Discipulado: el panorama de la iglesia como el resumen del pastor; el participante con su siguiente lección en un letrero; las lecciones como las preguntas de la entrevista |
 | `registration/*.html`, `errors/*.html`, `events/events_list.html` | `base.html` | Una columna, el título pintado, un solo botón principal |
+| `events/join/join.html` (`/unirme/`), `events/join/entry.html` (`/e/<código>/`), `events/join/requested.html` | `base.html` | Como la entrada: una columna (`.auth-card`). `/unirme/` es un solo campo con su botón (`.search`); la página del evento lleva su nombre como título pintado, la iglesia y las fechas, y pide nombre, correo y rol en `.choices` (solo tutor o coordinador) |
+| `events/admin/join_code_sign.html` | `rotulo_shell` (líder) | La hoja para imprimir: el nombre del evento, el código a 96 px en la letra pintada, la dirección y tres pasos. Sin letrero; al imprimir no salen la barra ni los botones |
 
 Las partes vivas (`_home_live.html`) se recargan cada 20 o 30 s con `data-live-url`; el indicador `.live-status` queda fuera de la región que se reemplaza.
 
