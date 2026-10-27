@@ -112,6 +112,46 @@ Diapositivas de 16:9 para leerse desde el fondo de un salón, con el titular en 
 |---|---|
 | ![Presentación en Cal](img/atrio/presentacion-cal.png) | ![Presentación en Noche](img/atrio/presentacion-noche.png) |
 
+## Ronda "cada rol sabe qué hacer", 26 de octubre de 2026
+
+Atrio se quedó: los mismos tokens, el mismo trato de cada componente y los mismos nombres de clase. La auditoría del 26 de octubre (`auditoria-ux-2026-10.md`) cerró antes del campamento lo urgente; esta ronda hizo la parte de estructura que dejó abierta, rol por rol. La prueba de cada pantalla es que diga **dónde estás, qué hacer ahora y cómo**. Cambiaron el orden, lo que muestra cada pantalla, las palabras y algunos componentes. No cambiaron los permisos ni las reglas del negocio. Dos migraciones tocan la base: `core/0009` (solo etiquetas) y `core/0010` (enciende el discipulado en las iglesias que ya lo usan). El detalle de las pantallas está en `design-system.md` y la revisión, en `ux-review.md` (ronda 17).
+
+### Lo que responde cada inicio
+
+| Rol | Su inicio responde | Después |
+|---|---|---|
+| Campero | "Hola, N.", una frase, tres promesas de una línea y "¿Quién lee tus respuestas?" | Un botón |
+| Coordinación | "¿A quién vas a entrevistar?" en el panel, "Llevas X de Y." y "Por entrevistar" | Al lado, "Esperan algo de ti": sus decisiones y sus seguimientos |
+| Tutoría | Un panel solo si alguien se detuvo, "Tu equipo lleva X de Y." y una fila por coordinador | Al lado, los seguimientos del equipo y lo que espera una decisión |
+| Pastoral | "¿Cómo va?" en una frase con la regla, y "¿Qué hay que coordinar?" con cada asunto enlazado | Los equipos, cuánto falta y las necesidades |
+| Administración | El panel con lo primero que impide entrevistar, "Llevamos X de Y." y "N de M pasos listos", lo pendiente primero | Al lado, la actividad y las descargas |
+| Discipulado | La misma forma para participante, mentor e iglesia: un panel, una frase y los pocos renglones que piden atención | |
+
+### Decisiones
+
+1. **Una barra, un nombre por destino.** `partials/ui/bar.html` es la barra de toda pantalla con sesión, con el mismo orden y el mismo "Menú" para todos los roles. Había cuatro barras y tres nombres para la lista de eventos (UI-44, LANG-40); ahora la lista se llama "Campamentos" en todas.
+2. **Tres pasos en vez de dos.** Una fila desde 1281 px; de 761 a 1280 px los enlaces bajan a su propia fila; "Menú" solo de 760 px para abajo. Antes, "Menú" de pantalla completa empezaba en 1180 px y una tableta perdía de vista dónde estaba (UI-14).
+3. **"Ayuda" en toda barra con sesión.** Cinco tareas por rol, cada una con el enlace a la pantalla donde se hace. La guía de 500 líneas no estaba enlazada desde ninguna pantalla (UX-17, A11Y-17).
+4. **Un botón relleno por formulario.** En una pantalla con un solo formulario, uno por pantalla. Configuración tiene uno en cada formulario y cada botón dice qué guarda (UX-14, UI-26).
+5. **Tres datos por línea.** Un renglón lleva a lo mucho tres datos en su primera línea, en una frase con comas, con etiqueta cuando el dato no se explica solo ("Responsable: Ana López"); si hacen falta más, una segunda línea (UI-09, LANG-23).
+6. **Lo pendiente primero.** "Preparación" dice "N de M pasos listos" y pliega lo listo; Mis camperos pone primero las entrevistas en curso; Seguimiento, las situaciones de riesgo y los pendientes sin responsable (UI-06, UI-04, UI-08).
+7. **Volver al origen.** Quien abre una ficha desde una lista regresa a esa lista: `?siguiente=`, validado con `safe_next` (UX-21).
+8. **La decisión, después de "¿Cómo va?".** El Resumen del pastor sube "¿Qué hay que coordinar?" al segundo lugar y enlaza cada asunto (UI-10).
+9. **Una palabra por cosa.** "Faltan" para entrevistas y "sin atender" para seguimientos (LANG-19); "Pendiente", "En proceso", "Atendido" y "Cancelado" en el campamento y en el discipulado (LANG-20); "Ya no participan" (LANG-43); "Computadora: ninguna" (LANG-42); "Datos técnicos" (UI-19).
+10. **El nombre corto se forma solo.** Del nombre, mientras escribes y en el servidor; se puede cambiar. La palabra no cambió, "Nombre corto para la dirección", porque D6 sigue abierta (UX-12).
+11. **La bandera del discipulado decide la barra.** Con el módulo apagado, la administración solo ve "Configuración" y el pastor llega a "Campamentos y eventos". `core/0010` lo enciende donde ya se usa, para que nadie pierda su barra (UX-13).
+12. **El campero sabe quién lee sus respuestas.** La bienvenida dice "¿Quién lee tus respuestas?" con la misma frase de la revisión, de un solo archivo (`kiosk/_who_reads.html`), y ya no promete "Nadie más verá tus respuestas en esta pantalla."
+13. **La presentación respeta su pie.** Los controles tienen su propia franja, la letra chica no baja de 22 px desde 1280 × 720 y cada diapositiva dice de qué hora son sus datos (UI-16, UI-17).
+
+### Lo que no se hizo, a propósito
+
+- **12 h o 24 h.** Las horas siguen en 24 h (`H:i`). Es la decisión D1 de la auditoría y se cierra con voluntarios, no en esta ronda.
+- **Paloma.** Atrio se queda. Paloma sigue siendo la salida si el dueño lo siente genérico (D10).
+- **Roles neutros en todas partes.** Las palabras de los roles no cambiaron (D3). "Coordinador" se queda donde nombra lo que una persona tiene asignado y las pruebas lo fijan.
+- **El título "Campamentos y eventos" de la lista.** La barra dice "Campamentos"; la página conserva su título.
+- **El logotipo de más de 113 px en la barra del pastor, entre 1181 y 1280 px.** No necesitó un arreglo propio: desde que la barra pasa a dos filas en 1280 px, en ese ancho los enlaces ya van en su propia fila.
+- **"Apagados" como paso listo.** Con los cortes automáticos apagados, el renglón "Cortes" dice "Apagados" y cuenta como no listo.
+
 ## Lo que sigue
 
 Probar Atrio con voluntarios reales en una computadora compartida y con un proyector real. Si el dueño lo siente genérico, probar Paloma sobre el mismo esqueleto antes de pensar en una cuarta dirección.

@@ -6,9 +6,35 @@
 - **Toda la aplicación:** `e2e/all_urls.py` arma la lista de pantallas de cada cuenta (coordinador, tutor, pastor, administración, y en discipulado administración, mentor y participante, más las páginas sin sesión) y `e2e/review-all.mjs` visita cada una en tres anchos con axe, y revisa que no haya desborde horizontal, que haya un solo `h1` y que cargue `rotulo.css`.
 - **Anchos:** escritorio 1440 × 900, tableta 820 × 1180, teléfono 390 × 844.
 - **Datos:** solo sintéticos. `seed_camp_demo` crea un campamento de 400 camperos ficticios; los nombres son combinaciones aleatorias de nombres y apellidos comunes. Antes de cada ronda se volvió a sembrar la base, porque el recorrido abre y termina entrevistas y los tableros cambian.
-- **Rondas:** 16 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador, la 14 llevó el resto de la aplicación al sistema, la 15 cerró sus pendientes y la 16 pasó toda la aplicación de Rótulo a Atrio.
+- **Rondas:** 17 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador, la 14 llevó el resto de la aplicación al sistema, la 15 cerró sus pendientes, la 16 pasó toda la aplicación de Rótulo a Atrio y la 17 ordenó cada pantalla por lo que su rol tiene que hacer.
 
 ## Rondas
+
+### Ronda 17 · cada rol sabe qué hacer
+
+El 26 y 26 de octubre de 2026 cada pantalla pasó a responder tres cosas para quien la abre: dónde está, qué hacer ahora y cómo. Es la parte de estructura que la auditoría (`auditoria-ux-2026-10.md`) dejó para después del campamento. Atrio se quedó: los mismos tokens y el mismo trato de cada componente. Tampoco cambiaron los permisos ni las reglas del negocio. Cambiaron el orden de cada pantalla, lo que muestra, sus palabras y algunos componentes (la barra, el plegable en línea, el selector de "Asignar"). Las decisiones están en `design-direction.md` y las pantallas, en `design-system.md` (§2 y §4).
+
+Siete paquetes en paralelo, cada uno en su rama y con su propio módulo de pruebas, integrados después en una sola rama:
+
+| Paquete | Lo que cambió | Pruebas nuevas |
+|---|---|---|
+| Marco | Una sola barra para todas las pantallas con sesión (`partials/ui/bar.html`); tres pasos (una fila, los enlaces en su propia fila, "Menú" solo en el celular); "Campamentos" como única palabra para la lista; "Ayuda" con las cinco tareas de cada rol | 26, en `events/tests/test_ux_marco.py` |
+| Coordinación y campero | "Esperan algo de ti" en Mi inicio y "Completadas hace poco" en Mi avance; la línea de la computadora; Mis camperos por lo que falta, con tres estados vacíos verdaderos; volver al origen al decidir; la bienvenida del campero con "¿Quién lee tus respuestas?" | 31, en `events/tests/test_ux_coordinator.py` |
+| Pastoral | El Resumen en el orden cómo va, qué coordinar (con enlaces), equipos, cuánto falta y necesidades; un solo mensaje sin camperos; la presentación con su franja de controles, letra chica de 22 px y la hora de cada dato | 21, en `events/tests/test_ux_pastoral.py` |
+| Seguimiento | Orden por urgencia, filtro "Responsable", "Asignar" en el renglón, "Mostrando 200 de N", volver al origen | 48, en `events/tests/test_ux_seguimiento.py` |
+| Administración: inicio y configuración | "N de M pasos listos", con lo pendiente primero y lo listo plegado; un solo renglón de cortes; Configuración por secciones, con índice y aviso al salir | 24, en `events/tests/test_ux_admin_inicio.py` |
+| Administración: alta y listas | El nombre corto se forma solo; un mensaje listo para enviar; subir otro archivo al importar; "Datos técnicos" en el editor; renglones de camperos con tres datos por línea; "Ya no participan"; "Ninguna" en Computadoras en uso | 46, en `events/tests/test_ux_admin_flujos.py` |
+| Discipulado | La navegación como datos y apagada con el módulo; una palabra por estado de seguimiento; el inicio del mentor y el panorama de la iglesia; las invitaciones en renglones | 45, en `core/test_ux_discipulado.py` |
+
+En total, 241 pruebas nuevas en siete módulos. `e2e/all_urls.py` suma la Ayuda del coordinador, las siete pantallas del pastor en el discipulado, la ficha de un participante para el mentor y la lección del participante.
+
+**Resultado.** Las cifras son del verificador, sobre la rama integrada.
+
+| Prueba | Resultado |
+|---|---|
+| `manage.py test` después de integrar | 1172 pruebas, OK (6 omitidas: solo corren en PostgreSQL), SQLite en serie |
+| `e2e/review-all.mjs` (cada pantalla en tres anchos, con axe, desbordes y un solo `h1`) | 225 comprobaciones (75 pantallas × 3 anchos, 10 más que en la ronda 16); 0 violaciones de axe, 0 desbordes, un `h1` en todas; las 3 «con problema» son la sonda d-403 esperada |
+| `e2e/station-flow.mjs` | OK: flujo de estación completo (asistida + supervisada) |
 
 ### Ronda 16 · Atrio
 
