@@ -3,6 +3,7 @@
 from django.http import QueryDict
 
 from events.models import ImmutableRecordError, Interview, Question, QuestionOption, QuestionnaireVersion
+from events.services.event_questionnaires import use_version
 from events.services.questionnaire import (
     AnswerValue,
     build_steps,
@@ -135,8 +136,7 @@ class VersioningTests(CampFixture):
         new_salvo.text = "¿Cómo describirías tu relación con Dios hoy?"
         new_salvo.save()
         publish_version(draft, self.admin)
-        self.event.questionnaire_version = draft
-        self.event.save()
+        use_version(self.event, draft)
         interview.refresh_from_db()
         self.assertEqual(interview.version, self.version)
         self.assertEqual(interview.answers.get().question.text, "¿Te consideras salvo?")
@@ -148,8 +148,7 @@ class VersioningTests(CampFixture):
     def test_new_interviews_use_the_event_version(self):
         draft = duplicate_version(self.version, self.admin)
         publish_version(draft, self.admin)
-        self.event.questionnaire_version = draft
-        self.event.save()
+        use_version(self.event, draft)
         self.login(self.coord1)
         self.choose_station()
         self.start(self.p2)

@@ -1,0 +1,17 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Nuevo cuestionario{% endblock %}
+{% block content %}
+{% url 'events:questionnaires' event.slug as back_url %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Nuevo cuestionario" lede="Se crea como borrador (versión 1). Agrega secciones y preguntas, publícalo y después elige «Usar en este evento»." back_url=back_url back_label="Cuestionarios" %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/fields.html" with form=form %}
+  <div class="step__actions">
+    <button class="btn btn--primary" type="submit">Crear cuestionario</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endblock %}

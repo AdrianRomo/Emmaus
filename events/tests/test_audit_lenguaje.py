@@ -217,12 +217,14 @@ class SafetyReportDeliveryTests(TransactionTestCase):
     def setUp(self):
         from core.models import Church, Role
         from core.services import assign_role
+        from events.services.event_questionnaires import use_version
         from events.services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, create_questionnaire_from_definition
 
         church = Church.objects.create(name="Iglesia de prueba", slug="iglesia-prueba")
         version = create_questionnaire_from_definition(church, DEFAULT_CAMP_QUESTIONNAIRE)
-        self.event = Event.objects.create(church=church, name="Campamento A", slug="campamento-a", questionnaire_version=version,
+        self.event = Event.objects.create(church=church, name="Campamento A", slug="campamento-a",
                                           procedures_approved_at=timezone.now())
+        use_version(self.event, version)
         admin = make_user("admin@prueba.mx", "Ada", "Admin")
         assign_role(admin, church, Role.CHURCH_ADMIN)
         self.care = EventMembership.objects.create(event=self.event, user=make_user("cuidado@prueba.mx", "Celia", "Cuidado"),

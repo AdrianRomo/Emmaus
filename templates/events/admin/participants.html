@@ -39,16 +39,18 @@
             <p class="row__meta">#{{ p.code }}{% if p.church_group %}, {{ p.church_group }}{% endif %}, {% if p.coordinator %}con {{ p.coordinator.display_name }}{% else %}sin coordinador{% endif %}{% if not p.is_active %}, ya no participa{% endif %}</p>
           </div>
           <div class="row__end">
-            {% status p.interview_status %}
+            {% campero_status p %}
           </div>
         </li>
       {% endfor %}
     </ul>
     <div class="table-wrap admin-people__table" tabindex="0" role="region" aria-label="Camperos">
       <table class="table admin-table">
-        <thead><tr><th class="num">#</th><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th>{% if sede_options %}<th>Sede</th>{% endif %}<th>Coordinador</th><th>Entrevista</th></tr></thead>
+        {% comment %}Each header sorts the table by its column (admin.participants: ?orden=, ?dir=), keeping the search and the
+          filters; the active one says how it is sorted (aria-sort and words). The caret is drawn by CSS, decoration only.{% endcomment %}
+        <thead><tr>{% for c in columns %}<th scope="col"{% if c.css %} class="{{ c.css }}"{% endif %}{% if c.aria_sort %} aria-sort="{{ c.aria_sort }}"{% endif %}><a href="{{ c.url }}">{% if c.key == "numero" %}<span aria-hidden="true">#</span><span class="visually-hidden">Número</span>{% else %}{{ c.label }}{% endif %}{% if c.active %}<span class="table__sort table__sort--{{ c.direction }}" aria-hidden="true"></span><span class="visually-hidden">, ordenado de {% if c.direction == "desc" %}mayor a menor{% else %}menor a mayor{% endif %}</span>{% else %}<span class="visually-hidden">, ordenar</span>{% endif %}</a></th>{% endfor %}</tr></thead>
         <tbody>{% for p in page.object_list %}
-          <tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a>{% if not p.is_active %}<span class="table__note">Ya no participa</span>{% endif %}</td><td class="num">{{ p.age }}</td><td class="table__nowrap">{{ p.room }}</td><td>{{ p.church_group }}</td>{% if sede_options %}<td>{{ p.sede.name|default:"—" }}</td>{% endif %}<td>{{ p.coordinator.display_name|default:"—" }}</td><td>{% status p.interview_status %}</td></tr>
+          <tr><td class="num">{{ p.code }}</td><td><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a>{% if not p.is_active %}<span class="table__note">Ya no participa</span>{% endif %}</td><td class="num">{{ p.age }}</td><td class="table__nowrap">{{ p.room }}</td><td>{{ p.church_group }}</td>{% if sede_options %}<td>{{ p.sede.name|default:"—" }}</td>{% endif %}<td>{{ p.coordinator.display_name|default:"—" }}</td><td>{% campero_status p %}</td></tr>
         {% endfor %}</tbody>
       </table>
     </div>

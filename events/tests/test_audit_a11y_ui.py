@@ -22,6 +22,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from events.models import Event, EventMembership, Interview, InterviewStatus, MembershipRole, ReportSnapshot
+from events.services.event_questionnaires import use_version
 from events.services.interviews import KIOSK_KEY
 from events.templatetags.emmaus import FOLLOW_UP_MARKS, STATUS_MARKS, duration_short
 
@@ -77,7 +78,7 @@ def tag(html: str, pattern: str) -> str:
 def complete(event, participant, when=None):
     when = when or timezone.now()
     Interview.objects.create(
-        event=event, participant=participant, version=event.questionnaire_version, status=Interview.Status.COMPLETED,
+        event=event, participant=participant, version=event.questionnaire_versions()[0], status=Interview.Status.COMPLETED,
         completed_at=when, started_at=when - timedelta(minutes=10), follow_up_decision="no_requerido",
     )
     participant.interview_status = InterviewStatus.COMPLETED
@@ -381,11 +382,13 @@ class AdminHomeTests(CampFixture):
     SIGN = "Registra o importa a los camperos"
 
     def empty_event(self, **kw):
-        return Event.objects.create(
-            church=self.church, name="Retiro vacío", slug="retiro-vacio", questionnaire_version=self.version,
+        event = Event.objects.create(
+            church=self.church, name="Retiro vacío", slug="retiro-vacio",
             procedures_approved_at=kw.get("procedures_approved_at", timezone.now()),
             starts_on=timezone.localdate(), ends_on=timezone.localdate(),
         )
+        use_version(event, self.version)
+        return event
 
     def home(self, event):
         self.login(self.admin)

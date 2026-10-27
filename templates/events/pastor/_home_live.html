@@ -122,8 +122,8 @@
         <p class="notice__title">Solo totales</p>
         <p>Corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}. Solo totales {{ event.of_kind }}. Los totales se redondean de {{ payload.min_group_size }} en {{ payload.min_group_size }} y las cantidades menores a {{ payload.min_group_size }} no se muestran, para que nadie pueda ser identificado. Cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas. No son diagnósticos.</p>
       </div>
-      <div class="outcomes">
-        {% for outcome in outcomes %}
+      {% regroup outcomes by questionnaire_id as outcome_groups %}{% for group in outcome_groups %}{% if group.list.0.show_questionnaire %}<div><h3 class="heading">{{ group.list.0.questionnaire }}</h3>{% endif %}<div class="outcomes">
+        {% for outcome in group.list %}
           <figure class="outcome">
             <figcaption><p class="outcome__title">{{ outcome.title }}</p><p class="outcome__sub">Personas. Respondieron {{ outcome.respondents.display }}.</p></figcaption>
             {% if outcome.withheld %}
@@ -136,7 +136,7 @@
             {% endif %}
           </figure>
         {% endfor %}
-      </div>
+      </div>{% if group.list.0.show_questionnaire %}</div>{% endif %}{% endfor %}
       </details>
     {% endif %}
   </div>

@@ -757,6 +757,10 @@ ol.promises li::before {
   .row { gap: var(--s-3); }
   .results .row { flex-wrap: wrap; }
   .results .row__end { width: 100%; justify-content: space-between; }
+  /* Por entrevistar with several questionnaires: "1 de 2 cuestionarios" and "Entrevistar" go under the name, else the
+     pair (flex: none) widens the column past a phone. A row with only the button keeps its one line. */
+  .coord__queue .row:has(> .row__end) { flex-wrap: wrap; }
+  .coord__queue .row__end { width: 100%; justify-content: space-between; }
 }
 /* "Todavía no eliges computadora. Elegir computadora": one quiet line under the greeting, only while none is chosen */
 .coord__station { margin-bottom: var(--s-5); color: var(--ink-2); }
@@ -1131,6 +1135,10 @@ ol.promises li::before {
   .admin-people__table { display: none; }
   .admin-people__rows { display: block; }
 }
+/* Its headers sort the table: the active one carries a small caret drawn with borders (no glyph: the font is a subset) */
+.table__sort { display: inline-block; margin-left: .35em; border-left: .3em solid transparent; border-right: .3em solid transparent; vertical-align: middle; }
+.table__sort--asc { border-bottom: .45em solid currentColor; }
+.table__sort--desc { border-top: .45em solid currentColor; }
 
 /* Home, "Preparación": "N de M pasos listos", the pending steps, then the ready ones in a fold that starts closed */
 .admin-steps__summary { font-weight: 500; color: var(--ink-2); margin-bottom: var(--s-3); }

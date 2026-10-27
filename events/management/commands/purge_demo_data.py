@@ -51,7 +51,17 @@ from core.models import (
     ReflectionAnswer,
     ReflectionQuestion,
 )
-from events.models import Answer, AuthThrottle, Event, EventParticipant, FollowUp, Interview, ReportSnapshot, Sede
+from events.models import (
+    Answer,
+    AuthThrottle,
+    Event,
+    EventParticipant,
+    EventQuestionnaire,
+    FollowUp,
+    Interview,
+    ReportSnapshot,
+    Sede,
+)
 
 DEMO_CHURCH_SLUGS = ("iglesia-demo", "emmaus-demo")
 DEMO_EMAIL_DOMAINS = ("@demo.invalid", "@example.org")
@@ -116,6 +126,10 @@ def describe_protected(objects):
     """'events.Event (1): retiro-real' for each kind of row that keeps a demo questionnaire alive."""
     by_label = defaultdict(list)
     for obj in objects:
+        if isinstance(obj, EventQuestionnaire):
+            obj = obj.event  # the event uses the questionnaire; the link row is how it says so
+            if any(seen.pk == obj.pk for seen in by_label[obj._meta.label]):
+                continue
         by_label[obj._meta.label].append(obj)
     parts = []
     for label, objs in sorted(by_label.items()):
@@ -196,8 +210,9 @@ class Command(BaseCommand):
 
         A plain ``Church.delete()`` fails on a seeded demo: Django's PROTECT raises as soon as a
         protected row exists, even when the same cascade would delete it. Interview.version,
-        Event.questionnaire_version, Answer.question and AnswerRevision.question all point at the
-        questionnaire the church cascade reaches, so the interviews and events go first.
+        Interview.questionnaire, EventQuestionnaire.version, Answer.question and AnswerRevision.question
+        all point at the questionnaire the church cascade reaches, so the interviews go first, then the
+        events (their EventQuestionnaire rows go with them, CASCADE).
         """
         deleted = Counter()
 

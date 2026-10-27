@@ -151,7 +151,7 @@ def main():
 
     completed = Interview.objects.filter(event=event, status="completada").count()
     duplicates = (
-        Interview.objects.filter(event=event).exclude(status="descartada").values("participant").order_by().annotate(n=django.db.models.Count("id")).filter(n__gt=1).count()
+        Interview.objects.filter(event=event).exclude(status="descartada").values("participant", "questionnaire").order_by().annotate(n=django.db.models.Count("id")).filter(n__gt=1).count()
     )
     print(f"Tiempo total: {elapsed:.1f} s · entrevistas recorridas: {len(done)} · completadas en BD: {completed} · duplicadas: {duplicates}")
     print(f"{'acción':<14}{'n':>6}{'p50 ms':>10}{'p95 ms':>10}{'max ms':>10}")

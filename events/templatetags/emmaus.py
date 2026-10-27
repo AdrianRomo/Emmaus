@@ -62,6 +62,19 @@ def status(status, label=None):
 
 
 @register.simple_tag
+def campero_status(participant):
+    """A campero's pill in a list: ``{% status p.interview_status %}``, except a campero who answered some of the
+    event's questionnaires and has not started the next one, who reads "1 de 2 cuestionarios" (same pending mark).
+    The counts come from ``event_questionnaires.annotate_questionnaire_progress``; without them it is the plain pill."""
+    value = participant.interview_status
+    total = getattr(participant, "questionnaire_total", 1) or 0
+    done = getattr(participant, "done_count", 0) or 0
+    if value == "pendiente" and total > 1 and done > 0:
+        return status(value, f"{done} de {total} cuestionarios")
+    return status(value)
+
+
+@register.simple_tag
 def follow_up_status(status):
     kind, label = FOLLOW_UP_MARKS.get(status, ("pending", status))
     return format_html('<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>', kind, label)

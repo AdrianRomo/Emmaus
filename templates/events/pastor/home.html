@@ -18,4 +18,5 @@
 <div id="resumen-vivo" data-live-url="{% url 'events:pastor_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/pastor/_home_live.html" %}
 </div>
+<p class="more">Quién lee las respuestas confidenciales: <a href="{% url 'events:confidential_level' event.slug %}">{{ event.get_confidential_level_display }}</a>.</p>
 {% endblock %}

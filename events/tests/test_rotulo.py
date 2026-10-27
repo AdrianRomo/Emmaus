@@ -164,9 +164,10 @@ class RedesignedScreenTests(CampFixture):
                           ("participant_detail", self.p1.public_id), "follow_ups", "backup_list", "interview_search",
                           ("guardian_authorization", self.p_minor_no_auth.public_id), ("guardian_authorization_withdraw", self.p1.public_id)],
             self.tutor1: ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups", "ayuda"],
-            self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live", "ayuda"],
+            self.pastor: ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live", "confidential_level", "ayuda"],
             self.admin: ["admin_home", "participants", "participant_import", "team", "assignments", "questionnaires",
-                         "settings", "audit", "sessions", "reports", "member_add", "join_code_sign", "sedes", "sede_add", "ayuda"],
+                         "questionnaire_create", "settings", "confidential_level", "audit", "sessions", "reports", "member_add",
+                         "join_code_sign", "sedes", "sede_add", "ayuda"],
         }
         for user, names in pages.items():
             client = Client()

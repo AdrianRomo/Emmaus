@@ -33,7 +33,7 @@
           <li class="row">
             <div class="row__main">
               <p class="row__title"><a class="row__link" href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
-              <p class="row__meta">{{ iv.completed_at|since|capfirst }}</p>
+              <p class="row__meta">{{ iv.completed_at|since|capfirst }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
             </div>
             {% status "completada" %}
           </li>

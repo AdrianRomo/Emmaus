@@ -42,7 +42,7 @@ def give_interview(participant, status, *, decision="no_requerido", minutes_ago=
         interview = Interview.objects.create(
             event=participant.event,
             participant=participant,
-            version=participant.event.questionnaire_version,
+            version=participant.event.questionnaire_versions()[0],
             status=Interview.Status.COMPLETED if done else Interview.Status.IN_PROGRESS,
             started_at=now - timedelta(minutes=minutes_ago + 10),
             last_activity_at=now - timedelta(minutes=minutes_ago),

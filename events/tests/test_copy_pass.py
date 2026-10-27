@@ -94,7 +94,8 @@ class UnicodeDigitsTests(CampFixture):
 
 class BlockersSayWhatToDoTests(CampFixture):
     def test_the_search_lists_every_blocker_not_only_the_first(self):
-        Event.objects.filter(pk=self.event.pk).update(status=Event.Status.DRAFT, questionnaire_version=None, procedures_approved_at=None)
+        Event.objects.filter(pk=self.event.pk).update(status=Event.Status.DRAFT, procedures_approved_at=None)
+        self.event.questionnaire_links.all().delete()
         self.login(self.coord1)
         self.choose_station()
         response = self.client.get(self.url("interview_search"))

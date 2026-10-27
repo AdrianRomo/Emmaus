@@ -106,12 +106,12 @@ MEXICO_TIME_ZONES = [
 
 class EventSettingsForm(forms.ModelForm):
     time_zone = forms.ChoiceField(label="Zona horaria", choices=MEXICO_TIME_ZONES, help_text="Define a qué hora caen los cortes y cómo se muestran las horas.")
+    # The event's questionnaires are chosen in Cuestionarios (admin.questionnaires), not here.
 
     class Meta:
         model = Event
         fields = [
             "time_zone",
-            "questionnaire_version",
             "reports_enabled",
             "report_interval_minutes",
             "report_window_start",
@@ -130,17 +130,41 @@ class EventSettingsForm(forms.ModelForm):
             "safeguarding_instructions": forms.Textarea(attrs={"rows": 5}),
         }
         help_texts = {
-            "questionnaire_version": "Solo aparecen versiones publicadas. Las entrevistas ya hechas conservan su versión.",
             "report_window_start": "Los cortes se generan solo dentro de este horario.",
             "retention_days": "Después de este tiempo se borran las respuestas individuales. Los resúmenes se conservan.",
         }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["questionnaire_version"].queryset = QuestionnaireVersion.objects.filter(
-            questionnaire__church=self.instance.church, status=QuestionnaireVersion.Status.PUBLISHED
-        ).select_related("questionnaire")
-        self.fields["questionnaire_version"].empty_label = "Sin cuestionario"
+
+class QuestionnaireForm(forms.Form):
+    """"Nuevo cuestionario": the questionnaire and its first version, a draft (services.questionnaire.create_questionnaire)."""
+
+    name = forms.CharField(label="Nombre", max_length=160, error_messages={"required": "Escribe el nombre del cuestionario."})
+    title = forms.CharField(
+        label="Título que ven los camperos", max_length=160, required=False, help_text="Si lo dejas vacío se usa el nombre."
+    )
+    intro_text = forms.CharField(label="Texto de bienvenida", required=False, widget=forms.Textarea(attrs={"rows": 4}))
+
+
+class QuestionnaireOrderForm(forms.Form):
+    questionnaires_in_order = forms.BooleanField(
+        required=False,
+        label=Event._meta.get_field("questionnaires_in_order").verbose_name,
+        help_text=Event._meta.get_field("questionnaires_in_order").help_text,
+    )
+
+
+class ConfidentialLevelForm(forms.Form):
+    """Who reads the answers marked "Confidencial" in this event (admin.confidential_level: administración or pastoral)."""
+
+    confidential_level = forms.ChoiceField(
+        label=Event._meta.get_field("confidential_level").verbose_name,
+        choices=Event.ConfidentialLevel.choices,
+        widget=forms.RadioSelect,
+        error_messages={
+            "required": "Elige quién lee las respuestas confidenciales.",
+            "invalid_choice": "Elige una de las opciones de la lista.",
+        },
+    )
 
 
 class ProceduresForm(forms.Form):
@@ -258,9 +282,22 @@ class InterviewStartForm(forms.Form):
         error_messages={"required": "Elige cómo se va a responder la entrevista."},
     )
 
-    def __init__(self, *args, requirements, **kwargs):
+    def __init__(self, *args, requirements, questionnaire_choices=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.requirements = requirements
+        # [(str(questionnaire_id), version title), ...]: the questionnaires the campero can start now.
+        self.questionnaire_choices = list(questionnaire_choices)
+        if len(self.questionnaire_choices) > 1:
+            self.fields["questionnaire"] = forms.ChoiceField(
+                label="¿Qué cuestionario?",
+                choices=self.questionnaire_choices,
+                widget=forms.RadioSelect,
+                initial=self.questionnaire_choices[0][0],
+                error_messages={
+                    "required": "Elige el cuestionario.",
+                    "invalid_choice": "Elige uno de los cuestionarios de la lista.",
+                },
+            )
         for requirement in requirements:
             if requirement.confirm_now:
                 self.fields[f"consent_{requirement.key}"] = forms.BooleanField(
@@ -272,6 +309,15 @@ class InterviewStartForm(forms.Form):
 
     def confirmed(self) -> set[str]:
         return {r.key for r in self.requirements if r.confirm_now and self.cleaned_data.get(f"consent_{r.key}")}
+
+    def chosen_questionnaire_id(self) -> int | None:
+        """The questionnaire picked, else the only one offered, else None (the service starts the next one)."""
+        if "questionnaire" in self.fields:
+            value = getattr(self, "cleaned_data", {}).get("questionnaire")
+            return int(value) if value else None
+        if len(self.questionnaire_choices) == 1:
+            return int(self.questionnaire_choices[0][0])
+        return None
 
 
 class DiscardForm(forms.Form):

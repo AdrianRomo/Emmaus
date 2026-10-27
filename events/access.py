@@ -25,6 +25,7 @@ from .models import (
     MembershipRole,
     Question,
     ReportSnapshot,
+    stricter_confidential_level,
 )
 
 ROLE_LABELS = dict(MembershipRole.choices)
@@ -176,8 +177,12 @@ class EventAccess:
 
         general      -> anyone who can see the participant
         sensible     -> the assigned coordinator, or members with explicit sensitive access
-        confidencial -> members with explicit sensitive access; the coordinator only while
-                        they are recording it in an assisted interview
+        confidencial -> by the effective level (Interview.effective_confidential_level: the more closed of the
+                        level the interview started with and the event's level now):
+                        cuidado        members with explicit sensitive access; the coordinator only while
+                                       they are recording it in an assisted interview
+                        coordinacion   as "sensible"
+                        todo_el_equipo anyone who can see the participant
         """
         if not self.can_view_participant(interview.participant):
             return False
@@ -190,6 +195,11 @@ class EventAccess:
             self.is_coordinator and interview.participant.coordinator_id == getattr(self.membership, "id", None)
         ) or (self.is_admin and interview.conducted_by_id == self.user.id)
         if sensitivity == Question.Sensitivity.SENSITIVE:
+            return is_assigned_coordinator
+        level = stricter_confidential_level(interview.confidential_level, self.event.confidential_level)
+        if level == Event.ConfidentialLevel.TEAM:
+            return True
+        if level == Event.ConfidentialLevel.COORDINATION:
             return is_assigned_coordinator
         return (
             during_capture

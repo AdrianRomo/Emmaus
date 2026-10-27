@@ -28,7 +28,7 @@
             <p class="row__meta">#{{ p.code }}{% if p.church_group %}, {{ p.church_group }}{% endif %}</p>
           </div>
           <div class="row__end">
-            {% status p.interview_status %}
+            {% campero_status p %}
             {% if p.interview_status != "completada" %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Retomar<span class="visually-hidden"> la entrevista de {{ p.full_name }}</span>{% else %}Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span>{% endif %}</a>{% endif %}
           </div>
         </li>

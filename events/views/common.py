@@ -28,7 +28,7 @@ def event_view(*roles):
         @login_required
         @wraps(view)
         def wrapped(request, slug, *args, **kwargs):
-            event = get_object_or_404(Event.objects.select_related("church", "questionnaire_version"), slug=slug)
+            event = get_object_or_404(Event.objects.select_related("church"), slug=slug)
             access = resolve_access(request.user, event)
             if access is None or (roles and access.role not in roles):
                 raise PermissionDenied
@@ -69,13 +69,14 @@ def nav_items(event: Event, access) -> list[dict]:
             item("Camperos", "participants", ("participant_detail", "participant_edit", "participant_create", "participant_import", "participant_delete",
                                                    "sedes", "sede_add", "sede_edit")),
             item("Equipo", "team", ("member_add", "member_edit", "assignments", "coordinator_detail", "join_code_sign")),
-            item("Cuestionarios", "questionnaires", ("version_detail", "question_edit", "question_add", "option_add", "section_add")),
+            item("Cuestionarios", "questionnaires", ("version_detail", "question_edit", "question_add", "option_add", "section_add",
+                                                     "questionnaire_create")),
             item("Reportes", "reports", ("report_detail", "presentation_live")),
-            item("Configuración", "settings", ("audit", "sessions", "stations")),
+            item("Configuración", "settings", ("audit", "sessions", "stations", "confidential_level")),
         ]
     if access.is_pastor:
         return [
-            item("Resumen general", "pastor_home"),
+            item("Resumen general", "pastor_home", ("confidential_level",)),
             item(f"Avance {event.of_kind}", "progress", ("coordinator_detail", "interviews")),
             item("Seguimiento", "follow_ups", ("follow_up_detail",)),
             item("Reportes", "reports", ("report_detail", "presentation_live")),

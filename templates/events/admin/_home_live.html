@@ -14,7 +14,7 @@
     <p class="sign__text">Falta confirmar los procedimientos de autorización y protección. Sin eso no se pueden iniciar entrevistas.</p>
     <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'events:settings' event.slug %}#procedimientos">Confirmar los procedimientos</a></div>
   </section>
-{% elif not event.questionnaire_version_id %}
+{% elif not event.has_questionnaire %}
   <section class="sign admin-sign" aria-labelledby="que-sigue">
     <h2 id="que-sigue" class="sign__title">Elige el cuestionario de las entrevistas</h2>
     <p class="sign__text">El evento no tiene un cuestionario publicado. Sin él no se pueden iniciar entrevistas.</p>

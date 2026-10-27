@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST
 from ..forms import ReportScopeForm
 from ..models import EventMembership, MembershipRole, ReportSnapshot
 from ..services import audit
-from ..services.metrics import build_payload, compare, scope_for_access
+from ..services.metrics import build_payload, compare, scope_for_access, scope_from_key
 from ..services.pdf import build_snapshot_pdf
 from ..services.presentation import build_deck
 from ..services.reports import (
@@ -152,10 +152,19 @@ def report_presentation(request, event, access, public_id):
 
 @event_view(*LEADERS)
 def presentation_live(request, event, access):
-    scope = scope_for_access(access)
+    # ?alcance= is the scope the person was looking at in Reportes (a team); only one of their own scopes counts,
+    # anything else is their whole scope, as without it.
+    default = scope_for_access(access)
+    key = request.GET.get("alcance", "")
+    scope = None
+    if key and key != default.key and key in {s["key"] for s in access.report_scopes()}:
+        scope = scope_from_key(event, key)
+    scope = scope or default
     payload = build_payload(scope)
     context = _deck_context(event, payload, latest_snapshot(event, scope.key))
     context["live"] = True
+    # deck.html: the 60 s refresh asks for the same scope (emmaus.js re-fetches data-live-url as it is).
+    context["scope_param"] = scope.key if scope.key != default.key else ""
     # "Salir" goes back to the page that opened the presentation (``?desde=``, the pages that link here say which),
     # and to Reportes otherwise: never to the role's home, which is not where the person was.
     context["exit_url"] = safe_next(request, request.GET.get("desde"), reverse("events:reports", args=[event.slug]))

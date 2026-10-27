@@ -25,6 +25,7 @@ from events.services.metrics import (
     recommendations,
     team_scope,
 )
+from events.services.event_questionnaires import use_version
 from events.services.presentation import build_deck
 from events.services.reports import generate_snapshot
 
@@ -264,11 +265,11 @@ class EmptyEventTests(CampFlowFixture):
             church=self.church,
             name="Campamento vacío",
             slug="campamento-vacio",
-            questionnaire_version=self.version,
             procedures_approved_at=timezone.now(),
             starts_on=timezone.localdate(),
             ends_on=timezone.localdate(),
         )
+        use_version(self.empty, self.version)
         EventMembership.objects.create(event=self.empty, user=self.pastor, role=MembershipRole.PASTOR)
         tutor = EventMembership.objects.create(event=self.empty, user=self.tutor1, role=MembershipRole.TUTOR, team_name="Equipo Norte")
         coordinator = EventMembership.objects.create(event=self.empty, user=self.coord1, role=MembershipRole.COORDINATOR)

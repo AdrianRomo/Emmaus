@@ -2,7 +2,8 @@
 
 Concurrency model
 -----------------
-* One live interview per campero is a database constraint (partial unique index).
+* One live interview per campero and questionnaire is a database constraint (partial unique index);
+  ``start_interview`` also refuses a second live interview of the same campero, whatever the questionnaire.
 * Every write takes ``SELECT ... FOR UPDATE`` on the interview row, then checks:
   1. the editing browser holds the current *claim* (a random token whose hash is stored
      on the interview and which expires after ``CLAIM_MINUTES`` without activity), and
@@ -45,6 +46,7 @@ from ..models import (
     new_token,
 )
 from . import audit
+from .event_questionnaires import BLOCKED, COMPLETED, PENDING, derive_interview_status, links_for, progress_for
 from .participants import guardian_authorized
 from .questionnaire import (
     AnswerValue,
@@ -73,6 +75,7 @@ CLAIM_LOST_MESSAGE = (
     "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Vuelve a abrirla desde tu inicio."
 )
 NOT_IN_PROGRESS_MESSAGE = "Esta entrevista ya no está en curso. En la ficha del campero ves cómo quedó."
+NO_QUESTIONNAIRE_MESSAGE = "Todavía no hay un cuestionario publicado para este evento. Avisa a la administración."
 KIOSK_CLOSED_MESSAGE = "Esta pantalla ya se cerró. Avisa a tu coordinador."
 WRONG_PASSWORD_MESSAGE = "La contraseña no es correcta. Revísala e inténtalo otra vez."
 
@@ -120,6 +123,12 @@ class ConsentMissing(InterviewError):
 
 class NotAllowed(InterviewError):
     code = "sin_permiso"
+
+
+class QuestionnaireNotAvailable(InterviewError):
+    """The questionnaire asked for cannot start: already answered, waiting for an earlier one, or not in the event."""
+
+    code = "cuestionario_no_disponible"
 
 
 class KioskEnded(InterviewError):
@@ -270,8 +279,8 @@ def event_blockers(event: Event) -> list[str]:
         problems.append("El evento todavía no está en curso. Avisa a la administración.")
     elif event.status != Event.Status.ACTIVE:
         problems.append("El evento ya terminó. Si falta alguna entrevista, avisa a la administración.")
-    if not event.questionnaire_version_id:
-        problems.append("Todavía no hay un cuestionario publicado para este evento. Avisa a la administración.")
+    if not event.has_questionnaire:
+        problems.append(NO_QUESTIONNAIRE_MESSAGE)
     if not event.procedures_approved:
         problems.append(
             "La administración todavía no confirma los procedimientos de autorización y protección de la iglesia. Avísale."
@@ -290,7 +299,10 @@ def start_interview(
     station: InterviewStation | None,
     confirmed_consents: set[str],
     session,
+    questionnaire=None,
 ) -> Interview:
+    """Start the campero's interview for ``questionnaire`` (a Questionnaire or its id), or for the next one
+    they can answer when it is None."""
     event = access.event
     blockers = event_blockers(event)
     if blockers:
@@ -302,15 +314,33 @@ def start_interview(
             locked = EventParticipant.objects.select_for_update().get(pk=participant.pk, event=event)
             if not access.can_interview(locked):
                 raise NotAllowed("Este campero no está asignado a ti.")
-            existing = Interview.objects.filter(participant=locked).exclude(status=Interview.Status.DISCARDED).first()
-            if existing and existing.status == Interview.Status.COMPLETED:
+            live = Interview.objects.filter(participant=locked, status=Interview.Status.IN_PROGRESS).first()
+            if live:
+                raise AlreadyInProgress("Este campero ya tiene una entrevista en curso.", interview=live)
+            progress = progress_for(locked, links_for(event))
+            if not progress:
+                raise NotAllowed(NO_QUESTIONNAIRE_MESSAGE)  # the last questionnaire was removed a moment ago
+            pending = [p.link for p in progress if p.state == PENDING]
+            if not pending:
+                existing = Interview.objects.filter(participant=locked, status=Interview.Status.COMPLETED).first()
                 raise AlreadyCompleted("Este campero ya tiene una entrevista completada.", interview=existing)
-            if existing:
-                raise AlreadyInProgress("Este campero ya tiene una entrevista en curso.", interview=existing)
+            link = pending[0]
+            if questionnaire is not None:
+                wanted = int(getattr(questionnaire, "pk", questionnaire))
+                link = next((candidate for candidate in pending if candidate.questionnaire_id == wanted), None)
+                if link is None:
+                    asked = next((p for p in progress if p.link.questionnaire_id == wanted), None)
+                    if asked is not None and asked.state == BLOCKED:
+                        raise QuestionnaireNotAvailable(f"Primero hay que completar «{pending[0].version.title}».")
+                    if asked is not None and asked.state == COMPLETED:
+                        raise QuestionnaireNotAvailable("Ese cuestionario ya se respondió.", interview=asked.interview)
+                    raise QuestionnaireNotAvailable("Ese cuestionario no está en uso en este evento.")
             interview = Interview(
                 event=event,
                 participant=locked,
-                version=event.questionnaire_version,
+                version=link.version,
+                questionnaire_id=link.questionnaire_id,
+                confidential_level=event.confidential_level,  # what the campero is told now; a later opening does not reach it
                 mode=mode,
                 conducted_by=access.user,
                 station=station,
@@ -330,8 +360,10 @@ def start_interview(
                 station=station.name if station else "",
             )
     except IntegrityError:
-        # Another station created the interview between our check and insert.
-        existing = Interview.objects.filter(participant=participant).exclude(status=Interview.Status.DISCARDED).first()
+        # Another station created the interview between our check and insert: point at the live one, not a done one.
+        existing = Interview.objects.filter(participant=participant, status=Interview.Status.IN_PROGRESS).first() or (
+            Interview.objects.filter(participant=participant).exclude(status=Interview.Status.DISCARDED).first()
+        )
         raise AlreadyInProgress("Otra computadora acaba de iniciar la entrevista de este campero.", interview=existing)
     _remember_claim(session, interview, token)
     return interview
@@ -511,7 +543,7 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
         _clear_claim(locked)
         locked.save()
         participant = locked.participant
-        participant.interview_status = InterviewStatus.COMPLETED
+        participant.interview_status = derive_interview_status(participant)
         participant.updated_by = actor
         participant.save(update_fields=["interview_status", "updated_by", "updated_at"])
         _close_participant_sessions(locked, ParticipantSession.EndReason.UNLOCKED)
@@ -567,7 +599,7 @@ def discard(interview: Interview, *, actor, reason: str, session=None, check_cla
         locked.save()
         _close_participant_sessions(locked, ParticipantSession.EndReason.DISCARDED)
         participant = locked.participant
-        participant.interview_status = InterviewStatus.PENDING
+        participant.interview_status = derive_interview_status(participant)
         participant.save(update_fields=["interview_status", "updated_at"])
         audit.record(actor, locked.event, "entrevista_descartada", f"Descartó la entrevista del campero #{participant.code}", locked)
     if session is not None:

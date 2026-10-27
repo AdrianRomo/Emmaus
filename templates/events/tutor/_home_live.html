@@ -91,7 +91,7 @@
             <li class="row">
               <div class="row__main">
                 <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug iv.participant.public_id %}">{{ iv.participant.full_name }}</a></p>
-                <p class="row__meta">{% if iv.conducted_by %}{{ iv.conducted_by.get_full_name }}, {{ iv.last_activity_at|since }}{% else %}{{ iv.last_activity_at|since|capfirst }}{% endif %}</p>
+                <p class="row__meta">{% if iv.conducted_by %}{{ iv.conducted_by.get_full_name }}, {{ iv.last_activity_at|since }}{% else %}{{ iv.last_activity_at|since|capfirst }}{% endif %}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
               </div>
               {% status iv.status %}
             </li>

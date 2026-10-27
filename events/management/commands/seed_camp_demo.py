@@ -30,6 +30,7 @@ from events.models import (
     Sede,
     TutorAssignment,
 )
+from events.services.event_questionnaires import use_version
 from events.services.metrics import local_tz
 from events.services.questionnaire import (
     DEFAULT_CAMP_QUESTIONNAIRE,
@@ -130,9 +131,10 @@ class Command(BaseCommand):
         today = timezone.localdate()
         event = Event.objects.create(
             church=church, name="Campamento de Jóvenes 2026", slug=opts["slug"], location="Rancho El Encino, Valle de Bravo",
-            starts_on=today - timedelta(days=1), ends_on=today + timedelta(days=1), questionnaire_version=version,
+            starts_on=today - timedelta(days=1), ends_on=today + timedelta(days=1),
             report_window_start=time(0, 0), report_window_end=time(23, 0), procedures_approved_at=timezone.now(),
         )
+        use_version(event, version)
         for n in range(1, 11):
             InterviewStation.objects.create(event=event, number=n, name=f"Computadora {n}")
         users = {"by_label": {}, "tutors": [], "coordinators": []}
@@ -195,7 +197,7 @@ class Command(BaseCommand):
         return answers
 
     def _write_interview(self, event, participant, rng, *, completed_at, users, status):
-        version = event.questionnaire_version
+        version = event.questionnaire_versions()[0]
         coordinator_user = participant.coordinator.user if participant.coordinator else users["by_label"]["Administración"]
         started = completed_at - timedelta(minutes=rng.randint(7, 16))
         interview = Interview.objects.create(

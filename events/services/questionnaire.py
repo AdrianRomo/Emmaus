@@ -261,6 +261,20 @@ def publish_version(version: QuestionnaireVersion, user) -> QuestionnaireVersion
 
 
 @transaction.atomic
+def create_questionnaire(church, *, name: str, title: str = "", intro_text: str = "", actor=None) -> QuestionnaireVersion:
+    """"Nuevo cuestionario": the questionnaire and its version 1, an empty draft to fill in the editor."""
+    questionnaire = Questionnaire.objects.create(church=church, name=name)
+    return QuestionnaireVersion.objects.create(
+        questionnaire=questionnaire,
+        number=1,
+        status=QuestionnaireVersion.Status.DRAFT,
+        title=title or name,
+        intro_text=intro_text,
+        created_by=actor,
+    )
+
+
+@transaction.atomic
 def duplicate_version(source: QuestionnaireVersion, user) -> QuestionnaireVersion:
     """New editable draft with the same content. Old interviews keep pointing at ``source``."""
     last = source.questionnaire.versions.order_by("-number").first()

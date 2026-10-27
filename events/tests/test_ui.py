@@ -10,6 +10,7 @@ from django.urls import reverse
 from core.models import Church, Role
 from core.services import assign_role
 from events.models import Event, EventMembership, Interview, MembershipRole
+from events.services.event_questionnaires import use_version
 
 from .base import CampFixture, make_user
 
@@ -62,8 +63,8 @@ class SpanishAndAccessibilityTests(CampFixture):
     PAGES = {
         "coord1": ["coord_home", "my_participants", "coord_pending", "coord_progress", "interview_search", "participant_create", "ayuda"],
         "tutor1": ["tutor_home", "coordinators", "interviews", "pending", "reports", "follow_ups", "ayuda"],
-        "pastor": ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live", "ayuda"],
-        "admin": ["admin_home", "participants", "participant_import", "team", "member_add", "assignments", "questionnaires", "settings", "audit", "sessions", "join_code_sign", "sedes", "sede_add", "ayuda"],
+        "pastor": ["pastor_home", "progress", "follow_ups", "reports", "team", "presentation_live", "confidential_level", "ayuda"],
+        "admin": ["admin_home", "participants", "participant_import", "team", "member_add", "assignments", "questionnaires", "questionnaire_create", "settings", "confidential_level", "audit", "sessions", "join_code_sign", "sedes", "sede_add", "ayuda"],
     }
 
     def test_pages_are_spanish_and_labelled(self):
@@ -121,7 +122,8 @@ class SpanishAndAccessibilityTests(CampFixture):
         self.assertContains(response, 'aria-live="polite"')
 
     def test_empty_states(self):
-        event = Event.objects.create(church=self.church, name="Retiro vacío", slug="retiro-vacio", kind="retiro", questionnaire_version=self.version)
+        event = Event.objects.create(church=self.church, name="Retiro vacío", slug="retiro-vacio", kind="retiro")
+        use_version(event, self.version)
         coord = make_user("nuevo@prueba.mx", "Nora", "Nueva")
         EventMembership.objects.create(event=event, user=coord, role=MembershipRole.COORDINATOR)
         self.login(coord)

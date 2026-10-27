@@ -21,6 +21,7 @@ from django.utils import timezone
 from events.models import AnswerRevision, EventMembership, Interview, MembershipRole, ParticipantSession
 from events.services import interviews as svc
 from events.services import questionnaire
+from events.services.event_questionnaires import use_version
 from events.services.questionnaire import build_steps, create_questionnaire_from_definition
 
 from .base import CampFixture
@@ -509,7 +510,8 @@ class CorrectionHidesAnotherScreenTests(CampFixture):
         # rollback: drop any stale entry for this id now and ours afterwards, or other tests read it.
         questionnaire._structure_cache.pop(version.id, None)
         self.addCleanup(questionnaire._structure_cache.pop, version.id, None)
-        type(self.event).objects.filter(pk=self.event.pk).update(questionnaire_version=version)
+        self.event.questionnaire_links.all().delete()  # replace the fixture's questionnaire, do not add a second one
+        use_version(self.event, version)
         self.event.refresh_from_db()
         salvo_step, private_step = build_steps(version)
         self.assertNotEqual(salvo_step.number, private_step.number)  # really on another screen

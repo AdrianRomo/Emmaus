@@ -11,6 +11,7 @@ from django.utils.http import urlencode
 
 from ..forms import ParticipantForm
 from ..models import FollowUp, Interview, InterviewStatus, QuestionnaireVersion, normalize_name
+from ..services import event_questionnaires as eq
 from ..services import participants as participant_svc
 from ..services.metrics import build_payload, coordinator_scope, progress_for
 from ..services.questionnaire import build_steps
@@ -18,22 +19,38 @@ from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment
 
 
 def _recent_completed(access) -> list:
-    """The coordinator's last five completed interviews ("Completadas hace poco", on Mi avance)."""
-    return list(access.interviews().filter(status=Interview.Status.COMPLETED).order_by("-completed_at")[:5])
+    """The coordinator's last five completed interviews ("Completadas hace poco", on Mi avance). With several
+    questionnaires each row names its own (the version's title)."""
+    return list(
+        access.interviews().filter(status=Interview.Status.COMPLETED).select_related("participant", "version").order_by("-completed_at")[:5]
+    )
 
 
 def _my_context(event, access):
     participants = access.participants()
     progress = progress_for(participants)
     mine = access.interviews()
-    in_progress = list(mine.filter(status=Interview.Status.IN_PROGRESS).order_by("-last_activity_at")[:5])
-    next_up = list(participants.filter(interview_status=InterviewStatus.PENDING).order_by("room", "full_name")[:6])
+    in_progress = list(mine.filter(status=Interview.Status.IN_PROGRESS).select_related("version").order_by("-last_activity_at")[:5])
+    next_up = list(
+        eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by("room", "full_name")[:6]
+    )
     follow_ups = list(
         access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5]
     )
     to_evaluate = mine.filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
+    # With several questionnaires "sin iniciar" (pendiente, nothing live) also holds the camperos who answered some:
+    # the head counts them apart, "a medias". None with one questionnaire: the head is the line it always was.
+    partial = None
+    if event.questionnaire_count > 1:
+        partial = (
+            eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event)
+            .filter(done_count__gt=0)
+            .count()
+        )
     return {
         "progress": progress,
+        "partial": partial,
+        "untouched": progress.not_started - partial if partial is not None else None,
         "in_progress": in_progress,
         "next_up": next_up,
         "follow_ups": follow_ups,
@@ -73,7 +90,7 @@ def my_participants(request, event, access):
     # What needs action first: an interview left half done, then the ones not started, then the finished ones
     # (the same rank as interview_search); room and name inside each.
     participants = list(
-        participants.select_related("sede")
+        eq.annotate_questionnaire_progress(participants.select_related("sede"), event)
         .annotate(
             rank=Case(
                 When(interview_status=InterviewStatus.IN_PROGRESS, then=Value(0)),
@@ -118,31 +135,35 @@ def backup_list(request, event, access):
     coordinator_id = request.GET.get("coordinador", "")
     if coordinator_id.isascii() and coordinator_id.isdigit():
         participants = participants.filter(coordinator_id=int(coordinator_id))
+    participants = eq.annotate_questionnaire_progress(participants, event)
     groups = {}
     for p in participants:
         key = p.coordinator.display_name if p.coordinator else "Sin coordinador"
         groups.setdefault(key, []).append(p)
-    # The questions new interviews ask, screen by screen: the structure only, no interview is read.
-    version = event.questionnaire_version
-    paper_steps = build_steps(version) if version and version.status != QuestionnaireVersion.Status.DRAFT else []
-    # Options in the order the screen shows them (interview.question_context): "Prefiero no responder" and other
-    # exclusive options last. A dict, not attributes: build_steps caches its Question objects for every request.
-    paper_options = {}
-    for step in paper_steps:
-        for question in step.questions:
-            listed = list(question.options.all())
-            quiet = [o for o in listed if o.is_decline or o.is_exclusive]
-            paper_options[question.id] = [o for o in listed if o not in quiet] + quiet
+    # The questions new interviews ask, screen by screen, one sheet per questionnaire of the event in its order:
+    # the structure only, no interview is read. A draft can still change, so it is never handed out on paper.
+    paper_sheets = []
+    for link in eq.links_for(event):
+        version = link.version
+        if version.status == QuestionnaireVersion.Status.DRAFT:
+            continue
+        steps = build_steps(version)
+        if not steps:
+            continue
+        # Options in the order the screen shows them (interview.question_context): "Prefiero no responder" and other
+        # exclusive options last. A dict, not attributes: build_steps caches its Question objects for every request.
+        options = {}
+        for step in steps:
+            for question in step.questions:
+                listed = list(question.options.all())
+                quiet = [o for o in listed if o.is_decline or o.is_exclusive]
+                options[question.id] = [o for o in listed if o not in quiet] + quiet
+        anchor = "cuestionario" if not paper_sheets else f"cuestionario-{len(paper_sheets) + 1}"
+        paper_sheets.append({"version": version, "steps": steps, "options": options, "anchor": anchor})
     return render(
         request,
         "events/backup_list.html",
-        {
-            "groups": groups,
-            "printed_at": timezone.now(),
-            "paper_version": version if paper_steps else None,
-            "paper_steps": paper_steps,
-            "paper_options": paper_options,
-        },
+        {"groups": groups, "printed_at": timezone.now(), "paper_sheets": paper_sheets},
     )
 
 
@@ -179,11 +200,13 @@ def participant_create(request, event, access):
 @event_view(COORDINATOR)
 def coord_pending(request, event, access):
     participants = access.participants()
-    in_progress = access.interviews().filter(status=Interview.Status.IN_PROGRESS).order_by("last_activity_at")
-    not_started = participants.filter(interview_status=InterviewStatus.PENDING).order_by("room", "full_name")
+    in_progress = access.interviews().filter(status=Interview.Status.IN_PROGRESS).select_related("version").order_by("last_activity_at")
+    not_started = eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by(
+        "room", "full_name"
+    )
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
-    )
+    ).select_related("version")
     return render(
         request,
         "events/coordinator/pending.html",
@@ -204,7 +227,11 @@ def coord_progress(request, event, access):
 @event_view()
 def participant_detail(request, event, access, public_id):
     participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
+    # One questionnaire: the "Entrevista" block shows ``interview`` (the newest kept), as it always did. Several: one row
+    # per questionnaire of the event (``questionnaire_rows``); the page head offers to resume ``live_interview``.
     interview = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
+    live_interview = participant.interviews.filter(status=Interview.Status.IN_PROGRESS).first()
+    questionnaire_rows = eq.progress_for(participant) if event.questionnaire_count > 1 else []
     follow_ups = access.follow_ups().filter(participant=participant)
     from ..models import ConsentRecord
     from ..services.participants import latest_consent
@@ -216,6 +243,8 @@ def participant_detail(request, event, access, public_id):
         {
             "participant": participant,
             "interview": interview,
+            "live_interview": live_interview,
+            "questionnaire_rows": questionnaire_rows,
             "follow_ups": follow_ups,
             "can_edit": access.can_edit_participant(participant),
             "can_interview": access.can_interview(participant),

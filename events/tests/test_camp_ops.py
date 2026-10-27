@@ -26,6 +26,7 @@ from events.models import (
     Event,
     EventMembership,
     EventParticipant,
+    EventQuestionnaire,
     FollowUp,
     Interview,
     MembershipRole,
@@ -33,6 +34,7 @@ from events.models import (
     ReportSnapshot,
     Sede,
 )
+from events.services.event_questionnaires import use_version
 from events.services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, all_questions, create_questionnaire_from_definition
 
 COUNTED = (
@@ -71,9 +73,10 @@ class PurgeDemoDataTests(TestCase):
         cls.near_miss = User.objects.create_user("ana@example.org.mx", "ana@example.org.mx", "x")
         cls.real_version = create_questionnaire_from_definition(cls.real_church, DEFAULT_CAMP_QUESTIONNAIRE)
         cls.real_event = Event.objects.create(
-            church=cls.real_church, name="Campamento real", slug="campamento-real", questionnaire_version=cls.real_version,
+            church=cls.real_church, name="Campamento real", slug="campamento-real",
             starts_on=timezone.localdate(), ends_on=timezone.localdate(),
         )
+        use_version(cls.real_event, cls.real_version)
         camper = EventParticipant.objects.create(event=cls.real_event, number=1, full_name="Campero Real", age=20)
         cls.real_interview = Interview.objects.create(
             event=cls.real_event, participant=camper, version=cls.real_version, conducted_by=cls.real_admin
@@ -146,9 +149,11 @@ class PurgeDemoDataTests(TestCase):
         self.assertEqual(counts(), before)
 
     def test_yes_refuses_when_a_real_event_uses_a_demo_questionnaire(self):
-        Event.objects.create(
-            church=self.real_church, name="Retiro", slug="retiro-real", questionnaire_version=self.demo_church.events.get().questionnaire_version
-        )
+        retreat = Event.objects.create(church=self.real_church, name="Retiro", slug="retiro-real")
+        # Written directly: use_version refuses another church's questionnaire, but older data or the Django admin
+        # can still hold such a link, and the purge must not delete what it points at.
+        version = self.demo_church.events.get().questionnaire_versions()[0]
+        EventQuestionnaire.objects.create(event=retreat, questionnaire=version.questionnaire, version=version, order=1)
         before = counts()
         with self.assertRaises(CommandError) as raised:
             purge("--yes")

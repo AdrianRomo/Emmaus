@@ -11,6 +11,7 @@ from ..access import accessible_events, administered_churches, resolve_access
 from ..forms import EventForm, StationChoiceForm
 from ..models import Event, InterviewStation
 from ..services import audit
+from ..services.event_questionnaires import use_version
 from ..services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, create_questionnaire_from_definition
 from .common import COORDINATOR, EVERYONE, event_view, remember_station, role_home_url, safe_next
 
@@ -50,14 +51,15 @@ def event_create(request):
             event = form.save(commit=False)
             event.church = church
             event.created_by = request.user
-            version = (
+            questionnaire = (
                 church.questionnaires.filter(versions__status="publicada").order_by("-created_at").first()
             )
-            if version:
-                event.questionnaire_version = version.versions.filter(status="publicada").order_by("-number").first()
+            if questionnaire:
+                version = questionnaire.versions.filter(status="publicada").order_by("-number").first()
             else:
-                event.questionnaire_version = create_questionnaire_from_definition(church, DEFAULT_CAMP_QUESTIONNAIRE, request.user)
+                version = create_questionnaire_from_definition(church, DEFAULT_CAMP_QUESTIONNAIRE, request.user)
             event.save()
+            use_version(event, version)  # the event starts with one questionnaire; Cuestionarios adds more
             for number in range(1, 11):
                 InterviewStation.objects.create(event=event, number=number, name=f"Computadora {number}")
             audit.record(request.user, event, "evento_creado", f"Creó el evento {event.name}", event)

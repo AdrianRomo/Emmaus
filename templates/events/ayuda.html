@@ -31,8 +31,9 @@
     <p class="more"><a href="{% url 'events:assignments' event.slug %}">Asignar tutores</a></p>
   </section>
   <section class="block" aria-labelledby="tarea-4">
-    <h2 id="tarea-4" class="heading">Confirma los procedimientos y las computadoras</h2>
+    <h2 id="tarea-4" class="heading">Prepara los procedimientos, los cuestionarios y las computadoras</h2>
     <p>Nadie puede iniciar entrevistas hasta que confirmes los procedimientos de la iglesia. En “Configuración”, marca la casilla y toca “Confirmar”. Ahí mismo agregas computadoras o las pones fuera de uso.</p>
+    <p>Las preguntas están en <a href="{% url 'events:questionnaires' event.slug %}">Cuestionarios</a>: toca “Nuevo cuestionario” para crear uno y “Usar en este evento” para que los camperos lo respondan. Si usas varios, ahí eliges su orden.</p>
     <p class="more"><a href="{% url 'events:settings' event.slug %}">Ir a Configuración</a></p>
   </section>
   <section class="block" aria-labelledby="tarea-5">
@@ -75,8 +76,13 @@
   </section>
   <section class="block" aria-labelledby="tarea-5">
     <h2 id="tarea-5" class="heading">Entiende qué es “Confidencial”</h2>
+    {% if event.confidential_level == "cuidado" %}
     <p>Una pregunta marcada “Confidencial” dice: “Solo el equipo de cuidado autorizado podrá leer esta respuesta.” Ese equipo son las personas con “Puede leer información confidencial”, sea cual sea su rol. Cada consulta queda registrada.</p>
     <p class="more"><a href="{% url 'events:team' event.slug %}">Ver en Equipo quién tiene ese acceso</a></p>
+    {% else %}
+    <p>Una pregunta marcada “Confidencial” siempre lleva su etiqueta. En este evento sus respuestas las lee: {{ event.get_confidential_level_display|lower }}. Cada consulta queda registrada.</p>
+    <p class="more"><a href="{% url 'events:confidential_level' event.slug %}">Ver quién lee las respuestas confidenciales</a></p>
+    {% endif %}
   </section>
   {% elif access.is_tutor %}
   <section class="block" aria-labelledby="tarea-1">

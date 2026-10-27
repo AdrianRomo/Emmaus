@@ -1,19 +1,28 @@
 """Operational metrics. One payload builder feeds live dashboards *and* saved cutoffs.
 
-Definitions (metrics version 1)
+Definitions (metrics version 2)
 -------------------------------
+An event may use several questionnaires (``EventQuestionnaire``); a campero's "interview" is all of them.
+The counts of camperos come from ``EventParticipant.interview_status``, which
+``services.event_questionnaires`` derives from the campero's interviews.
+
 * Camperos: camperos registered in the scope and still taking part (``is_active``).
-* Completadas: participantes whose interview is completed. A campero has at most one live
-  interview (database constraint) and corrections edit that same interview, so nothing is
-  counted twice.
-* En curso: participantes whose interview was started and not yet finalized.
-* Pendientes: participantes without a completed interview (includes "en curso").
-* Sin iniciar: pendientes that have not started.
+* Completadas: camperos who completed the interview, that is every questionnaire of the event.
+  Corrections edit the same interview, so nothing is counted twice.
+* En curso: camperos with an interview started and not yet finalized (at most one at a time).
+* Pendientes: camperos who have not completed every questionnaire yet (includes "en curso").
+* Sin iniciar: pendientes without an interview in progress; with several questionnaires it includes
+  camperos who already completed some of them.
 * Avance: completadas / camperos. With 0 camperos it is None, shown as "—", never 0 %.
-* Ritmo: interviews completed per hour, averaged over the last 2 hours.
+* Ritmo: camperos who complete the interview per hour, averaged over the last 2 hours. A campero
+  completes it when their last questionnaire is finalized (``campero_completions``), so the rate and
+  the timeline are in the same unit as Pendientes.
 * Seguimientos abiertos: care follow-ups with status pendiente or en proceso.
-* Por decidir: completed interviews whose follow-up decision is "Por decidir" (``por_evaluar``).
+* Por decidir: completed interviews (one per questionnaire) whose follow-up decision is "Por decidir"
+  (``por_evaluar``).
 * Interrumpidas: interviews en curso without changes for 20 minutes or more.
+* Outcomes: counted per questionnaire of the event, keyed by questionnaire id (question codes repeat
+  between questionnaires). Cutoffs saved with version 1 hold their only questionnaire's counts unkeyed.
 """
 
 from __future__ import annotations
@@ -38,9 +47,10 @@ from ..models import (
     MembershipRole,
     Question,
 )
+from .event_questionnaires import links_for
 from .questionnaire import all_questions
 
-METRICS_VERSION = "1"
+METRICS_VERSION = "2"
 STALE_MINUTES = 20
 THROUGHPUT_WINDOW_HOURS = 2
 SHORT_MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
@@ -52,11 +62,11 @@ def short_day(moment) -> str:
 
 DEFINITIONS = [
     ("Camperos", "Camperos registrados que siguen participando en el evento."),
-    ("Completadas", "Camperos con entrevista finalizada. Las correcciones no cuentan como una entrevista nueva."),
+    ("Completadas", "Camperos que completaron la entrevista (todos los cuestionarios del evento). Las correcciones no cuentan como una entrevista nueva."),
     ("En curso", "Entrevistas iniciadas que todavía no se finalizan."),
-    ("Pendientes", "Camperos sin entrevista completada, incluidos los que la tienen en curso."),
+    ("Pendientes", "Camperos que aún no completan todos los cuestionarios, incluidos los que tienen una entrevista en curso."),
     ("Avance", "Completadas entre camperos. Si no hay camperos no se calcula y se muestra “—”, nunca 0\u00a0%."),
-    ("Ritmo", "Entrevistas completadas por hora, en promedio, durante las últimas 2 horas."),
+    ("Ritmo", "Camperos que completan la entrevista por hora, en promedio, durante las últimas 2 horas."),
     ("Seguimientos abiertos", "Seguimientos en estado pendiente o en proceso."),
     ("Por decidir", "Entrevistas completadas que esperan decidir si necesitan seguimiento."),
     ("Interrumpidas", f"Entrevistas en curso sin cambios desde hace {STALE_MINUTES} minutos o más."),
@@ -181,14 +191,27 @@ def local_tz(event: Event) -> ZoneInfo:
 
 
 def completed_interviews(participants):
+    """Completed interview ROWS: one per questionnaire answered. For "who finished", see ``campero_completions``."""
     return Interview.objects.filter(status=Interview.Status.COMPLETED, participant__in=participants)
 
 
+def campero_completions(participants):
+    """The camperos who completed the interview, each with ``finished_at``: when their last completed
+    questionnaire was finalized. Counts the same people as ``Progress.completed`` (``interview_status``), so
+    the timeline cannot climb above the camperos and the rate is in camperos per hour. With one
+    questionnaire per event it is the completed interviews, one per campero."""
+    return (
+        participants.filter(interview_status=InterviewStatus.COMPLETED)
+        .annotate(finished_at=Max("interviews__completed_at", filter=Q(interviews__status=Interview.Status.COMPLETED)))
+        .filter(finished_at__isnull=False)
+    )
+
+
 def timeline(event: Event, participants, *, now: datetime | None = None) -> dict:
-    """Completed interviews per bucket and cumulative, in the event's time zone."""
+    """Camperos who completed the interview per bucket and cumulative, in the event's time zone."""
     now = now or timezone.now()
     tz = local_tz(event)
-    stamps = sorted(completed_interviews(participants).filter(completed_at__lte=now).values_list("completed_at", flat=True))
+    stamps = sorted(campero_completions(participants).filter(finished_at__lte=now).values_list("finished_at", flat=True))
     if not stamps:
         return {"bucket_minutes": 60, "points": []}
     first = stamps[0].astimezone(tz)
@@ -228,9 +251,9 @@ def timeline(event: Event, participants, *, now: datetime | None = None) -> dict
 
 def throughput(participants, *, now: datetime | None = None) -> dict:
     now = now or timezone.now()
-    qs = completed_interviews(participants)
-    last_hour = qs.filter(completed_at__gt=now - timedelta(hours=1), completed_at__lte=now).count()
-    window = qs.filter(completed_at__gt=now - timedelta(hours=THROUGHPUT_WINDOW_HOURS), completed_at__lte=now).count()
+    qs = campero_completions(participants)
+    last_hour = qs.filter(finished_at__gt=now - timedelta(hours=1), finished_at__lte=now).count()
+    window = qs.filter(finished_at__gt=now - timedelta(hours=THROUGHPUT_WINDOW_HOURS), finished_at__lte=now).count()
     rate = window / THROUGHPUT_WINDOW_HOURS
     return {"last_hour": last_hour, "per_hour": round(rate, 1)}
 
@@ -402,57 +425,100 @@ def suppress(value: int | None, k: int, *, hide_zero: bool = False) -> dict:
 
 
 def outcome_counts(event: Event) -> dict:
-    """Raw counts per choice question (event level, completed interviews only).
+    """Raw counts per choice question of each questionnaire the event uses (completed interviews only):
+    ``{str(questionnaire_id): {question.code: {"respondents": n, "options": {option.code: n}}}}``. Keyed by
+    questionnaire because two questionnaires may share question codes. No questionnaire: ``{}``.
 
     Never rendered directly: snapshots store a *released* copy (see reports.release_cells)
     and templates show it through ``present_outcomes``.
     """
-    version = event.questionnaire_version
-    if version is None:
-        return {}
-    completed = Interview.objects.filter(event=event, status=Interview.Status.COMPLETED, participant__is_active=True)
     result = {}
-    for question in all_questions(version):
-        if not question.is_choice or question.sensitivity == Question.Sensitivity.GENERAL:
-            continue
-        answers = Answer.objects.filter(interview__in=completed, question=question)
-        option_counts = dict(answers.values_list("options__code").annotate(n=Count("id", distinct=True)))
-        result[question.code] = {
-            "respondents": answers.count(),
-            "options": {option.code: option_counts.get(option.code, 0) for option in question.options.all()},
-        }
+    for link in links_for(event):
+        completed = Interview.objects.filter(
+            event=event, status=Interview.Status.COMPLETED, participant__is_active=True, questionnaire_id=link.questionnaire_id
+        )
+        counts = {}
+        for question in all_questions(link.version):
+            if not question.is_choice or question.sensitivity == Question.Sensitivity.GENERAL:
+                continue
+            answers = Answer.objects.filter(interview__in=completed, question=question)
+            option_counts = dict(answers.values_list("options__code").annotate(n=Count("id", distinct=True)))
+            counts[question.code] = {
+                "respondents": answers.count(),
+                "options": {option.code: option_counts.get(option.code, 0) for option in question.options.all()},
+            }
+        result[str(link.questionnaire_id)] = counts
     return result
 
 
+def _is_flat_outcomes(released: dict) -> bool:
+    """A cutoff saved before events had several questionnaires: ``{question.code: {"respondents": n, ...}}``.
+    In the keyed shape the value under a questionnaire id is a dict of questions, never a count."""
+    return any(isinstance(value, dict) and isinstance(value.get("respondents"), int) for value in released.values())
+
+
+def _flat_outcomes_link(released: dict, links):
+    """The link an unkeyed cutoff counted. It was saved while the event had one questionnaire, whose link the
+    migration created: the oldest (lowest id), never the first in order, which "Subir" changes. Among the links
+    whose questions include every code of the cutoff, the oldest; if none has them all, the oldest link."""
+    if not links:
+        return None
+    codes = set(released)
+    having = [link for link in links if codes <= {question.code for question in all_questions(link.version)}]
+    return min(having or links, key=lambda link: link.id)
+
+
+def keyed_outcomes(released: dict | None, links) -> dict:
+    """Released outcome counts keyed by questionnaire id, whatever shape they were saved in. The unkeyed shape
+    of older cutoffs counted the event's only questionnaire (see ``_flat_outcomes_link``)."""
+    if not released:
+        return {}
+    if _is_flat_outcomes(released):
+        link = _flat_outcomes_link(released, links)
+        return {str(link.questionnaire_id): released} if link else {}
+    return released
+
+
 def present_outcomes(event: Event, released: dict | None, *, k: int | None = None) -> list[dict]:
-    """Suppressed, rounded rows for display, from released counts."""
+    """Suppressed, rounded rows for display, from released counts: one flat list, the event's questionnaires in
+    order. Each row says its questionnaire (``questionnaire_id``, ``questionnaire``: the version's title) and
+    ``show_questionnaire`` (the event uses more than one, so the screens put a heading over each)."""
     k = k or event.min_group_size
-    version = event.questionnaire_version
-    if not released or version is None:
+    if not released:
         return []
+    links = links_for(event)
+    by_questionnaire = keyed_outcomes(released, links)
+    several = len(links) > 1
     results = []
-    for question in all_questions(version):
-        counts = released.get(question.code)
-        if counts is None:
+    for link in links:
+        counts_by_code = by_questionnaire.get(str(link.questionnaire_id))
+        if not counts_by_code:
             continue
-        respondents = counts.get("respondents", 0)
-        rows = [
-            {"label": option.label, "code": option.code, "decline": option.is_decline,
-             **suppress(counts["options"].get(option.code, 0), k, hide_zero=True)}
-            for option in question.options.all()
-        ]
-        enough = respondents >= 2 * k
-        results.append(
-            {
-                "code": question.code,
-                "title": question.text,
-                "kind": question.kind,
-                "sensitivity": question.sensitivity,
-                "respondents": suppress(respondents, k, hide_zero=True),
-                "rows": rows if enough else [],
-                "withheld": not enough,
-            }
-        )
+        for question in all_questions(link.version):
+            counts = counts_by_code.get(question.code)
+            if counts is None:
+                continue
+            respondents = counts.get("respondents", 0)
+            rows = [
+                {"label": option.label, "code": option.code, "decline": option.is_decline,
+                 **suppress(counts["options"].get(option.code, 0), k, hide_zero=True)}
+                for option in question.options.all()
+            ]
+            enough = respondents >= 2 * k
+            results.append(
+                {
+                    "code": question.code,
+                    "title": question.text,
+                    "kind": question.kind,
+                    "sensitivity": question.sensitivity,
+                    "respondents": suppress(respondents, k, hide_zero=True),
+                    "rows": rows if enough else [],
+                    "withheld": not enough,
+                    "questionnaire_id": link.questionnaire_id,
+                    "questionnaire": link.version.title,
+                    "show_questionnaire": several,
+                }
+            )
     return results
 
 
