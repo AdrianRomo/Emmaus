@@ -992,6 +992,7 @@ ol.promises li::before {
 
 /* Follow-ups: who attends each one, chosen on its row */
 .results .row__meta { overflow-wrap: anywhere; }
+.filters__name { align-self: center; padding: 0 var(--s-2); font-size: var(--t-small); font-weight: 500; color: var(--ink-3); }
 .row-assign { display: flex; gap: var(--s-2); align-items: center; }
 .row-assign .input--small { min-height: var(--control); width: 14rem; max-width: 100%; }
 /* A risk row carries two marks and the form: where they do not fit beside the name they wrap, never past the edge */
@@ -1245,8 +1246,7 @@ ol.promises li::before {
   .disc-invites .row__end { justify-content: flex-start; }
 }
 /* A pending invitation's link, folded under its row: a small "Ver enlace", then the field and "Copiar enlace" */
-.disc-invites .fold--inline > summary { border-top: 0; padding: var(--s-2) 0; font-size: var(--t-small); min-height: 2.75rem; }
-.disc-invites .fold--inline > * + * { margin-top: var(--s-2); }
+.disc-invites .fold--inline > summary { padding: var(--s-2) 0; min-height: 2.75rem; }
 .disc-invites .fold--inline .field { max-width: 36rem; margin-bottom: var(--s-2); }
 .disc-invites .fold--inline .input { font-size: var(--t-small); }
 

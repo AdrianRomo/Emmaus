@@ -9,6 +9,7 @@
   <li><a href="?estado=todos{% if responsable != "todos" %}&amp;responsable={{ responsable }}{% endif %}"{% if status == "todos" %} aria-current="page"{% endif %}>Todos</a></li>
 </ul>
 <ul class="filters" aria-label="Responsable">
+  <li class="filters__name">Responsable:</li>
   <li><a href="?estado={{ status|urlencode }}"{% if responsable == "todos" %} aria-current="page"{% endif %}>Todos</a></li>
   <li><a href="?estado={{ status|urlencode }}&amp;responsable=ninguno"{% if responsable == "ninguno" %} aria-current="page"{% endif %}>Sin asignar <span class="count">{{ unassigned_count }}</span></a></li>
   <li><a href="?estado={{ status|urlencode }}&amp;responsable=mio"{% if responsable == "mio" %} aria-current="page"{% endif %}>Míos <span class="count">{{ mine_count }}</span></a></li>

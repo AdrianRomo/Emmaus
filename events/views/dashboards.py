@@ -216,7 +216,7 @@ AGENDA_TARGETS = {
     "sin_coordinador": ("events:participants", "coordinador=ninguno", ""),
     "sin_tutor": ("events:team", "", "sin-tutor"),
     "por_evaluar": ("events:pending", "", "por-evaluar"),
-    "seguimientos": ("events:follow_ups", "responsable=ninguno", ""),
+    "seguimientos": ("events:follow_ups", "", ""),
     "autorizaciones": ("events:participants", "", ""),
 }
 

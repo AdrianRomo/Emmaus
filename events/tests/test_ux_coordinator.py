@@ -374,3 +374,20 @@ class KioskWelcomeTests(test_audit_flows.KioskFixture):
                 for sentence in self.SENTENCES:
                     self.assertContains(response, sentence, count=1)
                 self.assertContains(response, f'<p class="{css}">{" ".join(self.SENTENCES)}</p>', count=1, html=False)
+
+
+# ---- Integration seams (2026-10-27): what the merged packages must agree on -------------------------------
+
+
+class HandoffChecklistTests(CampFixture):
+    """The coordinator's hand-over checklist must not restate the promise the kiosk welcome dropped (LANG-27)."""
+
+    def test_the_checklist_points_at_the_welcome_instead_of_promising_privacy(self):
+        self.login(self.coord1)
+        self.choose_station()
+        self.start(self.p1, mode="supervisada")
+        interview = Interview.objects.get(participant=self.p1)
+        response = self.client.get(self.url("interview_handoff", interview.public_id))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "nadie más verá")
+        self.assertContains(response, "la pantalla de bienvenida le explica quién lee sus respuestas")

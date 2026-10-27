@@ -132,7 +132,7 @@ class PastorAgendaLinkTests(CampFixture):
             "sin_tutor": self.url("team") + "#sin-tutor",
             "autorizaciones": self.url("participants"),
             "por_evaluar": self.url("pending") + "#por-evaluar",
-            "seguimientos": self.url("follow_ups") + "?responsable=ninguno",
+            "seguimientos": self.url("follow_ups"),
             "otra_cosa": None,  # a kind this page does not know: plain text
         }
 

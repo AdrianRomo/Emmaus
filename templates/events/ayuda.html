@@ -37,7 +37,7 @@
   </section>
   <section class="block" aria-labelledby="tarea-5">
     <h2 id="tarea-5" class="heading">Revisa que los cortes automáticos corran</h2>
-    <p>Emmaus genera cortes solos en el horario configurado. Si en “Inicio” el renglón “Cortes automáticos” pide revisar, genera un corte a mano en “Reportes”. Después avisa a quien administra el servidor.</p>
+    <p>Emmaus genera cortes solos en el horario configurado. Si en “Inicio” el renglón “Cortes” dice “Revisar”, toca “Generar un corte” para hacerlo en “Reportes”. Después avisa a quien administra el servidor.</p>
     <p class="more"><a href="{% url 'events:reports' event.slug %}">Ir a Reportes</a></p>
   </section>
   {% elif access.is_pastor %}
@@ -49,9 +49,9 @@
   <section class="block" aria-labelledby="tarea-2">
     <h2 id="tarea-2" class="heading">Asigna responsables a los seguimientos</h2>
     <ol class="promises">
-      <li>En “Seguimiento”, abre uno.</li>
-      <li>Elige el estado y el “Líder responsable”.</li>
-      <li>Toca “Guardar”.</li>
+      <li>En “Seguimiento”, busca el renglón del campero.</li>
+      <li>Elige a la persona en el selector del renglón y toca “Asignar”.</li>
+      <li>Para cambiar el estado o escribir una nota, abre el seguimiento.</li>
     </ol>
     <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ir a Seguimiento</a></p>
   </section>

@@ -303,3 +303,19 @@ class ResponsiveBarTests(SimpleTestCase):
                  if ".menu-toggle" in [s.strip() for s in selectors.split(",")] and "inline-flex" in body]
         self.assertEqual(shown, ["@media (max-width: 760px)"])
         self.assertTrue(media_applies(shown[0], 760) and not media_applies(shown[0], 761))
+
+
+# ---- Integration seams (2026-10-27) ----------------------------------------------------------------------
+
+
+class HelpNamesRealRowsTests(CampFixture):
+    """Every row title the administration help quotes must exist on the administration home."""
+
+    def test_every_quoted_row_title_is_on_the_admin_home(self):
+        self.login(self.admin)
+        help_html = self.client.get(self.url("ayuda")).content.decode()
+        home_html = self.client.get(self.url("admin_home")).content.decode()
+        quoted = set(re.findall(r"el renglón “([^”]+)”", help_html))
+        self.assertTrue(quoted, "the admin help should quote at least one row")
+        for title in quoted:
+            self.assertIn(f'<p class="row__title">{title}</p>', home_html, title)
