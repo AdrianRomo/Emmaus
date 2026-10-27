@@ -21,6 +21,7 @@ from events.models import (
     InterviewStatus,
     MembershipRole,
 )
+from events.services.event_questionnaires import use_version
 from events.services.metrics import build_payload as real_build_payload
 from events.services.metrics import event_scope
 from events.services.reports import generate_snapshot
@@ -39,7 +40,7 @@ def hhmm(moment):
 def complete(event, participant):
     now = timezone.now()
     Interview.objects.create(
-        event=event, participant=participant, version=event.questionnaire_version, status=Interview.Status.COMPLETED,
+        event=event, participant=participant, version=event.questionnaire_versions()[0], status=Interview.Status.COMPLETED,
         completed_at=now, started_at=now - timedelta(minutes=10), follow_up_decision="no_requerido",
     )
     participant.interview_status = InterviewStatus.COMPLETED
@@ -99,11 +100,11 @@ class PastorEmptyEventTests(CampFixture):
             church=self.church,
             name="Campamento vacío",
             slug="campamento-vacio",
-            questionnaire_version=self.version,
             procedures_approved_at=timezone.now(),
             starts_on=timezone.localdate(),
             ends_on=timezone.localdate(),
         )
+        use_version(self.empty, self.version)
         EventMembership.objects.create(event=self.empty, user=self.pastor, role=MembershipRole.PASTOR)
 
     def test_only_how_is_it_going_with_one_sentence(self):

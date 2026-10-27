@@ -1,6 +1,6 @@
 # Reporting
 
-One function, `build_payload(scope)` in `events/services/metrics.py`, produces the operational numbers Emmaus shows: live dashboards, saved cutoffs ("cortes"), PDFs and presentations. A cutoff is that payload frozen at a point in time, plus a "released" block (below). The definitions are metrics version `1` (`METRICS_VERSION`), stored on every snapshot.
+One function, `build_payload(scope)` in `events/services/metrics.py`, produces the operational numbers Emmaus shows: live dashboards, saved cutoffs ("cortes"), PDFs and presentations. A cutoff is that payload frozen at a point in time, plus a "released" block (below). The definitions are metrics version `2` (`METRICS_VERSION`), stored on every snapshot. Version 2 came with several questionnaires per event: a campero's "entrevista" is all of the event's questionnaires, and the answer counts are kept per questionnaire.
 
 ## Metric definitions
 
@@ -9,11 +9,11 @@ These are the `DEFINITIONS` printed at the end of every PDF ("Cómo se calcula")
 | Metric | Definition (as shown to users) |
 |---|---|
 | Camperos | Camperos registrados que siguen participando en el evento. |
-| Completadas | Camperos con entrevista finalizada. Las correcciones no cuentan como una entrevista nueva. |
+| Completadas | Camperos que completaron la entrevista (todos los cuestionarios del evento). Las correcciones no cuentan como una entrevista nueva. |
 | En curso | Entrevistas iniciadas que todavía no se finalizan. |
-| Pendientes | Camperos sin entrevista completada, incluidos los que la tienen en curso. |
+| Pendientes | Camperos que aún no completan todos los cuestionarios, incluidos los que tienen una entrevista en curso. |
 | Avance | Completadas entre camperos. Si no hay camperos no se calcula y se muestra "—", nunca 0 %. |
-| Ritmo | Entrevistas completadas por hora, en promedio, durante las últimas 2 horas. |
+| Ritmo | Camperos que completan la entrevista por hora, en promedio, durante las últimas 2 horas. |
 | Seguimientos abiertos | Seguimientos en estado pendiente o en proceso. |
 | Por decidir | Entrevistas completadas que esperan decidir si necesitan seguimiento. |
 | Interrumpidas | Entrevistas en curso sin cambios desde hace 20 minutos o más. |
@@ -21,10 +21,12 @@ These are the `DEFINITIONS` printed at the end of every PDF ("Cómo se calcula")
 How they are computed:
 
 * Counts come from `EventParticipant` rows with `is_active=True` in the scope, using `interview_status`. Withdrawn camperos drop out of every figure.
-* "Sin iniciar" (meters, PDF legend) is camperos minus completadas minus en curso.
+* `interview_status` is derived from the campero's interviews (`events/services/event_questionnaires.py`): `completada` when every questionnaire the event uses is completed, `en_curso` while one is in progress (at most one at a time), `pendiente` otherwise. With one questionnaire these are the version 1 figures.
+* "Sin iniciar" (meters, PDF legend) is camperos minus completadas minus en curso; with several questionnaires it includes camperos who completed some of them.
+* "Por decidir" counts interviews, so one per questionnaire.
 * "Avance" is `round(100 * completadas / camperos)`. With zero camperos it is `None`, shown as "—", never 0 %.
-* "Ritmo" (`per_hour`) is completions in the last 2 hours divided by 2; `last_hour` is also stored. The ETA is `ceil(pendientes / ritmo * 60)` minutes, empty when the rate is 0.
-* The timeline groups completions in the event's time zone into 60-minute buckets (120 above 30 hours of span, 240 above 60 hours), at most 96, with a cumulative line.
+* "Ritmo" (`per_hour`) is camperos who completed the interview in the last 2 hours divided by 2, each at the moment their last questionnaire was finalized (`campero_completions`), so it is in the same unit as "Pendientes"; `last_hour` is also stored. The ETA is `ceil(pendientes / ritmo * 60)` minutes, empty when the rate is 0.
+* The timeline groups those same completions (camperos, never above their total) in the event's time zone into 60-minute buckets (120 above 30 hours of span, 240 above 60 hours), at most 96, with a cumulative line.
 * Follow-up counts cover **ordinary** care follow-ups only (`kind=seguimiento`, `confidential=False`): pendiente, en proceso, atendido. `open_total = pendiente + en proceso`; `requested_total = open_total + atendido`. Confidential support referrals (`confidential_open`) and safety reports (`safety_open`) are counted separately, and only in payloads meant for viewers allowed to see them.
 * Attention counters: interrumpidas, camperos without coordinador, active coordinadores without tutor, and minors not yet completed whose latest guardian record is not "Otorgado" (only when the event requires guardian authorization).
 
@@ -61,11 +63,11 @@ Slot rules:
 Each snapshot stores `data["released"]` with two groups of raw counts:
 
 * `follow_ups`: `requested_total`, `open_total`, `done`, `to_evaluate`;
-* `outcomes`: for each choice question that is not `general`, the number of respondents and the count per option, from completed interviews of active camperos (event scope only).
+* `outcomes`: for each questionnaire the event uses, keyed by its id (question codes can repeat between questionnaires), and each of its choice questions that is not `general`, the number of respondents and the count per option, from that questionnaire's completed interviews of active camperos (event scope only). A version 1 cutoff holds the counts unkeyed; they are read as the event's first questionnaire's (`keyed_outcomes`), on screen and as the previous release for the next cutoff.
 
 `release_cells(current, previous, k)` works cell by cell against the previous ready snapshot of the same scope. A cell takes the new value only if it moved by at least `k` (the event's "Mínimo de personas para mostrar un total", default 5) since the last released value; otherwise the old released value is repeated. The first cutoff releases the current values. Comparing two consecutive releases can therefore never isolate fewer than `k` people. Raw outcome counts are not kept anywhere else in the snapshot.
 
-Answer aggregates are **never computed live**. The pastor home shows those of the latest saved event cutoff (under "Lo que los camperos quisieron compartir", marked "corte de las HH:MM"; a cutoff's own page lists them under "Resumen de respuestas"), and the presentation's follow-up tiles use the latest cutoff of its scope.
+Answer aggregates are **never computed live**. The pastor home shows those of the latest saved event cutoff (under "Lo que los camperos quisieron compartir", marked "corte de las HH:MM"; a cutoff's own page lists them under "Resumen de respuestas"), and the presentation's follow-up tiles use the latest cutoff of its scope. With two or more questionnaires, the summaries go under each questionnaire's title, in the event's order (cutoff page, pastor home and PDF).
 
 ## Manual cutoffs
 
@@ -108,7 +110,7 @@ The PDF shows team labels and, for team cutoffs, coordinador names. It never sho
 
 ## Presentation ("Modo presentación")
 
-"Mostrar presentación" (pastor home and reports) opens the **live** deck for the viewer's own scope, refreshed every 60 seconds. "Presentación" in the history, or "Mostrar presentación" on a cutoff, opens that **saved** cutoff. Keyboard: arrows, PageUp/PageDown or space, Home/End, and F for full screen. Buttons: "Anterior", "Siguiente", "Pantalla completa", "Salir".
+"Mostrar presentación" (pastor home and reports) opens the **live** deck for the viewer's own scope, refreshed every 60 seconds. From a team chosen in "Reportes" it carries `?alcance=` and shows that team; only one of the viewer's own scopes is honoured, anything else gives their whole scope, and the refresh keeps it. (A team cutoff was already a team report; only the live presentation used to ignore the choice.) "Presentación" in the history, or "Mostrar presentación" on a cutoff, opens that **saved** cutoff. Keyboard: arrows, PageUp/PageDown or space, Home/End, and F for full screen. Buttons: "Anterior", "Siguiente", "Pantalla completa", "Salir".
 
 The template renders only the dict returned by `build_deck()` in `events/services/presentation.py`. It contains no campero, coordinador or tutor names, no answers or free text, no safety reports and no answer aggregates.
 
@@ -138,7 +140,7 @@ Participation counts on slides 1 to 3 are exact: they are operational, not perso
 
 **Why release and round, rather than only round.** With plain rounding, someone who knows exactly who finished between two cutoffs could see a value flip at a rounding boundary and learn one person's answer. With per-cell release, a displayed value changes only when at least k answers changed.
 
-**Remaining risk.** Once k or more answers change, a new value is released at the next cutoff, so a group of k people can still be described. Outcomes use the questions of the event's **current** questionnaire version; interviews on an older version are not counted after the version changes.
+**Remaining risk.** Once k or more answers change, a new value is released at the next cutoff, so a group of k people can still be described. Outcomes use the questions of the version each of the event's questionnaires uses **now**; interviews on an older version are not counted after the version changes, and a questionnaire the event stops using drops out of the summaries.
 
 ## Recommendations (deterministic)
 

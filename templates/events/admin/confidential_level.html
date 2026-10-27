@@ -1,0 +1,38 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Respuestas confidenciales{% endblock %}
+{% block content %}
+{% comment %}
+  Who reads the answers to the questions marked "Confidencial" (Event.confidential_level). Administración and pastoral
+  decide it (admin.confidential_level). The promise the camperos read follows the level (kiosk/_who_reads.html,
+  interview/_question.html); the event's privacy notice is free text, so the flash asks to check it.
+{% endcomment %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Respuestas confidenciales" lede="Las preguntas marcadas “Confidencial” siempre llevan su etiqueta. Aquí decides quién puede leer lo que respondió cada campero." back_url=back_url back_label=back_label %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% with field=form.confidential_level %}
+  <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+    <fieldset aria-describedby="{{ field.auto_id }}_helptext{% if field.errors %} {{ field.auto_id }}-error{% endif %}">
+      <legend class="legend">{{ field.label }}</legend>
+      <span class="hint" id="{{ field.auto_id }}_helptext">Si abres el acceso, aplica a las entrevistas que empiecen después. Si lo restringes, aplica de inmediato.</span>
+      {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+      <div class="choices" id="{{ field.auto_id }}">
+        {% for radio in field %}
+          <div class="choice">
+            {{ radio.tag }}
+            <label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label>
+          </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </div>
+  {% endwith %}
+  <p class="hint">Hoy los camperos leen: «Las marcadas “Confidencial”, {{ event.confidential_readers_phrase }}.»</p>
+  <div class="step__actions">
+    <button class="btn btn--primary" type="submit">Guardar</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endblock %}

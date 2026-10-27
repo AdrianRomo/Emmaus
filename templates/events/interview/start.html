@@ -9,7 +9,7 @@
 {% include "partials/ui/error_summary.html" with form=form %}
 <header class="page-head">
   <h1 class="voice page-head__title">Antes de empezar con {{ participant.first_name }}</h1>
-  <p class="lede">Confirma tres cosas. Toma menos de un minuto.</p>
+  <p class="lede">Confirma {% if questionnaire_rows %}cuatro{% else %}tres{% endif %} cosas. Toma menos de un minuto.</p>
 </header>
 
 {% if blockers %}
@@ -38,12 +38,37 @@
     {% for r in requirements %}
       {% if r.satisfied %}<p class="notice notice--success"><span class="notice__title">Autorización de padre, madre o tutor legal: registrada.</span></p>{% endif %}
     {% endfor %}
-    {% for field in form %}{% if field.name != "mode" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
   </section>
-
+{% if questionnaire_rows %}
+  {% comment %}Only when the event has two or more questionnaires: a radio when the campero can start more than one now, else the one that opens,
+  posted in a hidden field so a page made stale by another computer is refused rather than starting another one (interview_start).{% endcomment %}
+  <section class="checks__step"{% if not ask_questionnaire %} aria-labelledby="paso-3"{% endif %}>
+    {% if ask_questionnaire %}
+    <fieldset{% if form.questionnaire.errors %} class="question--error" aria-describedby="cuestionario-error"{% endif %}>
+      <legend><h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Qué cuestionario?</h2></legend>
+      {% if done_titles %}<p class="hint">Ya respondió: {{ done_titles }}.</p>{% endif %}
+      {% if form.questionnaire.errors %}<p class="error-message" id="cuestionario-error">{{ form.questionnaire.errors.0 }}</p>{% endif %}
+      <div class="choices" id="{{ form.questionnaire.auto_id }}">
+        {% for radio in form.questionnaire %}
+          <div class="choice">
+            {{ radio.tag }}
+            <label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label>
+          </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% else %}
+    <h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Qué cuestionario?</h2>
+    {% if next_title %}<input type="hidden" name="questionnaire" value="{{ next_questionnaire_id }}"><p>Cuestionario: <strong>{{ next_title }}</strong>.</p>{% endif %}
+    {% if after_title %}<p class="hint">Después: {{ after_title }}.</p>{% endif %}
+    {% if done_titles %}<p class="hint">Ya respondió: {{ done_titles }}.</p>{% endif %}
+    {% endif %}
+  </section>
+{% endif %}
   <section class="checks__step">
     <fieldset{% if form.mode.errors %} class="question--error" aria-describedby="modo-error"{% endif %}>
-      <legend><h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Cómo se va a responder?</h2></legend>
+      <legend><h2 id="paso-{% if questionnaire_rows %}4{% else %}3{% endif %}" class="checks__title"><span class="checks__n">{% if questionnaire_rows %}4{% else %}3{% endif %}</span>¿Cómo se va a responder?</h2></legend>
       {% if form.mode.errors %}<p class="error-message" id="modo-error">{{ form.mode.errors.0 }}</p>{% endif %}
       {% comment %}The group takes the field id (the error summary links here), never the first radio's "id_mode_0".{% endcomment %}
       <div class="choices" id="{{ form.mode.auto_id }}">

@@ -26,7 +26,8 @@ Emmaus entra con tu cuenta y te lleva a **"Campamentos y eventos"**, donde lo ú
 | **Tutor** | Acompaña a varios coordinadores y revisa cómo van. |
 | **Pastor** | Ve el avance de todo el campamento y los reportes. |
 | **Administración** | Prepara el campamento: equipo, camperos, computadoras y configuración. |
-| **Entrevista** | La conversación espiritual con cada campero. Hay una sola por campero. |
+| **Entrevista** | La conversación espiritual con cada campero, con un cuestionario. Si el campamento usa varios cuestionarios, cada uno es una entrevista, una después de la otra. |
+| **1 de 2 cuestionarios** | En las listas, un campero que ya respondió alguno de los cuestionarios del campamento y todavía no empieza el siguiente. |
 | **Cuarto** | Donde duerme el campero durante el campamento, por ejemplo "Cuarto 12". |
 | **Computadora de entrevista** | Una computadora compartida con un número pegado, por ejemplo "Computadora 3". |
 | **Computadoras en uso** | La página de la administración donde se libera una entrevista o se cierra la pantalla de un campero que se quedó abierta. |
@@ -92,7 +93,7 @@ Junto a "Preparación" (en un celular, debajo) están la actividad reciente y la
 3. Revisa el **"Estado"**. Empieza en **"En curso"**, y así ya se puede entrevistar. Si todavía estás preparando, elige **"En preparación"**: nadie puede iniciar entrevistas hasta que lo cambies a "En curso" en **"Configuración"**. Al terminar el campamento, cámbialo a **"Terminado"**.
 4. Toca **"Crear campamento"**.
 
-Emmaus prepara solo 10 computadoras de entrevista ("Computadora 1" a "Computadora 10") y el cuestionario: usa el último que haya publicado tu iglesia o, si no hay ninguno, el cuestionario de conversación espiritual que trae Emmaus.
+Emmaus prepara solo 10 computadoras de entrevista ("Computadora 1" a "Computadora 10") y un primer cuestionario: el último que haya publicado tu iglesia o, si no hay ninguno, el cuestionario de conversación espiritual que trae Emmaus. Si quieres usar más de uno, agrégalos en "Cuestionarios" (ver [10. Cuestionarios](#10-cuestionarios)).
 
 ### 2. Confirmar los procedimientos de la iglesia
 
@@ -103,9 +104,9 @@ Antes de entrevistar a cualquier campero, la iglesia debe definir y aprobar qui�
 
 Mientras no lo confirmes, nadie puede iniciar entrevistas.
 
-"Configuración" tiene un índice arriba con sus secciones: Procedimientos, Datos del evento, Cortes, Privacidad y protección, Cuestionario y Computadoras. En **"Privacidad y protección"** revisa también el **"Aviso de privacidad"** y **"Qué hacer ante una situación de riesgo"** (pon nombres y teléfonos reales), la edad de mayoría y si se pide autorización de padres para menores; la zona horaria está en **"Cortes"**. Toca **"Guardar cortes, privacidad y cuestionario"**: ese botón guarda las tres secciones juntas. El nombre, las fechas y el estado del evento están en **"Datos del evento"**, con su propio botón, **"Guardar datos del evento"**. Al guardar, vuelves a la sección donde estabas. Si sales de la página con cambios sin guardar, Emmaus te pregunta antes.
+"Configuración" tiene un índice arriba con sus secciones: Procedimientos, Datos del evento, Cortes, Privacidad y protección y Computadoras. En **"Privacidad y protección"** revisa también el **"Aviso de privacidad"** y **"Qué hacer ante una situación de riesgo"** (pon nombres y teléfonos reales), la edad de mayoría y si se pide autorización de padres para menores; la zona horaria está en **"Cortes"**. Toca **"Guardar cortes y privacidad"**: ese botón guarda las dos secciones juntas. Al final de "Privacidad y protección", **"Quién lee las respuestas confidenciales"** lleva a su propia página (ver [11. Respuestas confidenciales](#11-respuestas-confidenciales)), y los cuestionarios del evento se eligen en **"Cuestionarios"**. El nombre, las fechas y el estado del evento están en **"Datos del evento"**, con su propio botón, **"Guardar datos del evento"**. Al guardar, vuelves a la sección donde estabas. Si sales de la página con cambios sin guardar, Emmaus te pregunta antes.
 
-El aviso de privacidad que trae Emmaus dice quién lee las respuestas, tal como funciona Emmaus: "Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado." Si lo cambias, que siga diciendo eso: el campero decide qué contar según lo que le digas.
+El aviso de privacidad que trae Emmaus dice quién lee las respuestas, tal como funciona Emmaus: "Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado." Si lo cambias, que siga diciendo eso: el campero decide qué contar según lo que le digas. Si cambias quién lee las respuestas confidenciales, cambia también la última frase del aviso: Emmaus no lo hace solo.
 
 Revisa también los **"Días que se conservan las respuestas después del evento"**. Cuando el campamento está **"Terminado"** o **"Archivado"** y pasan esos días desde la fecha de término, Emmaus borra solo, a partir de las 3 de la mañana, en el siguiente ciclo del programador, los datos de cada campero: su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Los cortes, que solo tienen totales, se quedan. Un campamento que sigue **"En curso"** nunca se borra solo; por eso, al terminar, márcalo como "Terminado". Mientras quede abierto un reporte de riesgo o un seguimiento confidencial, Emmaus tampoco lo borra: lo vuelve a revisar cada día y lo borra cuando ya estén atendidos.
 
@@ -175,10 +176,12 @@ Si una computadora se quedó con una entrevista abierta, ve a **"Configuración"
 
 En la ficha de un campero, la administración ve:
 
-* **"Descargar todos sus datos"** (solo con acceso confidencial): por ejemplo, si la familia lo pide. Baja un archivo (`campero-0265.json`) con sus datos de registro (número, nombre, edad, cuarto, iglesia o grupo y fecha de registro), su entrevista (estado, versión del cuestionario, cuándo se completó y cada pregunta con su respuesta y la fecha en que se respondió) y sus autorizaciones con sus notas (si se quitó una, el motivo). Los datos tienen nombres en español ("nombre", "cuarto", "respuestas") y las fechas vienen escritas, con segundos y la hora del campamento ("26 de octubre de 2026, 11:00:30 (hora de Ciudad de México)"). No trae seguimientos ni reportes de riesgo. La descarga queda en el registro de actividad.
+* **"Descargar todos sus datos"** (solo con acceso confidencial): por ejemplo, si la familia lo pide. Baja un archivo (`campero-0265.json`) con sus datos de registro (número, nombre, edad, cuarto, iglesia o grupo y fecha de registro), su entrevista (estado, versión del cuestionario, cuándo se completó y cada pregunta con su respuesta y la fecha en que se respondió; si respondió varios cuestionarios, además "entrevistas", todas, cada una con el título de su cuestionario) y sus autorizaciones con sus notas (si se quitó una, el motivo). Los datos tienen nombres en español ("nombre", "cuarto", "respuestas") y las fechas vienen escritas, con segundos y la hora del campamento ("26 de octubre de 2026, 11:00:30 (hora de Ciudad de México)"). No trae seguimientos ni reportes de riesgo. La descarga queda en el registro de actividad.
 * **"Eliminar sus datos"**: borra su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Antes de borrar, Emmaus te dice cuánto se va, solo en números ("1 seguimiento abierto, 1 reporte de riesgo abierto, 1 entrevista"), nunca lo que dicen. Cuenta lo mismo que tú ves en **"Seguimiento"**: si no tienes acceso confidencial, los seguimientos confidenciales no aparecen en la cuenta, pero también se borran ("Si existieran seguimientos confidenciales, también se borrarían."). Tienes que escribir su nombre completo para confirmar. Si tiene un reporte de riesgo abierto, además marca **"Entiendo que se borrará un reporte de riesgo abierto"**; antes, asegúrate de que el equipo de cuidado autorizado ya lo atendió. No se puede deshacer.
 
-En **"Camperos"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"). Cada descarga queda registrada.
+En **"Camperos"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"); en la columna "Entrevista", a quien respondió algunos cuestionarios le dice "1 de 2 cuestionarios". Cada descarga queda registrada.
+
+**Ordenar la tabla.** En la tabla de "Camperos", toca el encabezado de una columna (número, nombre, edad, cuarto, iglesia o grupo, sede, coordinador o entrevista) para ordenarla por ella; tócalo otra vez para invertir el orden. Un triángulo pequeño junto al encabezado dice por cuál está ordenada. La búsqueda y los filtros se quedan como los tenías. En un celular la tabla se muestra en renglones, sin encabezados, con el orden que elegiste.
 
 ### 9. Sedes de la iglesia
 
@@ -195,6 +198,33 @@ Las sedes son de la iglesia: valen para todos sus eventos y un cambio se ve en t
 Con sedes, en **"Camperos"** aparece el filtro **"Sede"** con cuántos camperos hay de cada una ("Mérida (80)", contando con los demás filtros que elegiste), la sede sale en la lista, en su columna (en un celular, después de la edad: "Cuarto 2, 17 años, Mérida") y en la lista descargada. Si la iglesia no tiene sedes, nada de esto aparece.
 
 La sede no es confidencial, pero es un dato personal del campero (muchas veces menor de edad): se borra junto con su registro, igual que su nombre y su cuarto, cuando termina el tiempo de conservación del evento o cuando eliminas sus datos.
+
+### 10. Cuestionarios
+
+En **"Cuestionarios"** están las preguntas de las entrevistas. Un campamento puede usar uno o varios cuestionarios; con uno solo, nadie ve nada distinto.
+
+* **Crear uno nuevo.** Toca **"Nuevo cuestionario"**, escribe el **"Nombre"**, el **"Título que ven los camperos"** (si lo dejas vacío se usa el nombre) y, si quieres, el **"Texto de bienvenida"**, y toca **"Crear cuestionario"**. Nace como borrador, versión 1: agrégale secciones y preguntas, toca **"Publicar versión"** y después **"Usar en este evento"**. Una versión publicada ya no se puede cambiar.
+* **Usar varios.** "Usar en este evento" agrega el cuestionario al final de **"En este evento"**. Cada cuestionario es una entrevista aparte: el campero responde uno y después el siguiente, nunca dos a la vez.
+* **El orden.** En "En este evento" toca **"Subir"** o **"Bajar"**. Con dos o más aparece la casilla **"Los camperos los responden en este orden"**: márcala y toca **"Guardar"** si el siguiente debe abrirse solo cuando el campero completó el anterior; sin marcarla, el coordinador elige cuál empezar.
+* **Cambiar de versión.** En una versión publicada del mismo cuestionario toca **"Usar esta versión en este evento"**: toma el lugar de la anterior en el orden. Las entrevistas ya hechas conservan su versión.
+* **Quitar uno.** Toca **"Quitar"** junto a él (o **"Dejar de usar en este evento"** en la versión). Las entrevistas hechas se conservan. El único cuestionario no se puede quitar mientras el evento tenga entrevistas: agrega otro primero o usa otra versión.
+
+Un campero cuenta como entrevistado cuando respondió todos los cuestionarios del evento. Si agregas uno cuando ya hay entrevistas completadas, a esos camperos les falta el nuevo: vuelven a las que faltan, el avance baja y en las listas dicen "1 de 2 cuestionarios".
+
+### 11. Respuestas confidenciales
+
+Las preguntas marcadas "Confidencial" tienen su propia regla de quién lee la respuesta, y cada campamento la decide. La cambian la administración y pastoral: en **"Configuración"**, al final de **"Privacidad y protección"**, toca el enlace de **"Quién lee las respuestas confidenciales"** (pastoral lo tiene al final de **"Resumen general"**). Elige una opción y toca **"Guardar"**. Cada cambio queda en el registro de actividad.
+
+| Opción | Quién lee la respuesta |
+|---|---|
+| **"Solo quien tiene acceso confidencial (y su coordinador mientras la anota)"** | La de siempre: el equipo de cuidado autorizado. El coordinador la ve solo mientras la escribe en una entrevista asistida. |
+| **"Su coordinador, quien lo entrevistó y quien tiene acceso confidencial"** | Como las de temas personales. |
+| **"Todo el equipo que ve al campero"** | Su coordinador, su tutor, pastoral y la administración. |
+
+* **Abrir no cambia lo ya respondido.** Si abres el acceso, aplica solo a las entrevistas que empiecen después: lo que un campero contó con la promesa de antes se queda con esa regla. Si lo restringes, aplica de inmediato a todas.
+* Quien puede leer la respuesta la ve en la entrevista con su etiqueta **"Confidencial"**, y cada consulta queda registrada, también si la abre para corregirla. Quien no puede leer una respuesta ve solo la etiqueta de su nivel: **"Sensible"** o **"Confidencial"**.
+* La pantalla del campero ("¿Quién lee tus respuestas?") y la frase bajo cada pregunta confidencial dicen la regla nueva solas. **El aviso de privacidad del evento no:** es tu texto. Al guardar, Emmaus te lo recuerda ("Guardado. Revisa que el aviso de privacidad del evento diga lo mismo."): cambia su frase sobre las respuestas confidenciales en "Configuración", porque es lo que el coordinador le lee al campero antes de empezar.
+* El recordatorio de "Entrega la computadora" también dice la regla de esa entrevista, y la hoja para entrevistar en papel, la del campamento. En el editor de preguntas, "Confidencial" no nombra a nadie: un cuestionario puede servir a varios campamentos, así que dice que cada evento decide quién la lee y enlaza a "Respuestas confidenciales".
 
 ### El logotipo de tu iglesia
 
@@ -218,7 +248,7 @@ Para cambiarlo, sube otro archivo; para quitarlo, marca **"Quitar el logotipo"**
 
 ### Tu pantalla de inicio
 
-**"Mi inicio"** te dice qué hacer ahora en el panel de arriba: terminar la entrevista que dejaste a medias, buscar al campero que vas a entrevistar o registrar a tu primer campero. Debajo ves cuántas llevas ("Llevas 18 de 31.", con una marca por cada uno de tus camperos) y los siguientes **"Por entrevistar"**. A la derecha (en un celular, debajo) está **"Esperan algo de ti"**: las entrevistas que esperan tu decisión de seguimiento, con **"Decidir"**, y tus seguimientos abiertos. Si nada espera, dice "Nada espera tu decisión por ahora." Las entrevistas que completaste hace poco están en **"Mi avance"**. La pantalla se actualiza sola.
+**"Mi inicio"** te dice qué hacer ahora en el panel de arriba: terminar la entrevista que dejaste a medias, buscar al campero que vas a entrevistar o registrar a tu primer campero. Debajo ves cuántas llevas ("Llevas 18 de 31.", con una marca por cada uno de tus camperos) y los siguientes **"Por entrevistar"**. Si el campamento usa varios cuestionarios, dice "Llevas 18 de 31 con todo." y, aparte de los que no han empezado, cuántos van **"a medias"** (respondieron alguno y no tienen uno en curso). A la derecha (en un celular, debajo) está **"Esperan algo de ti"**: las entrevistas que esperan tu decisión de seguimiento, con **"Decidir"**, y tus seguimientos abiertos. Si nada espera, dice "Nada espera tu decisión por ahora." Las entrevistas que completaste hace poco están en **"Mi avance"** (con varios cuestionarios, cada una dice cuál). La pantalla se actualiza sola.
 
 Si todavía no eliges computadora, debajo del saludo dice **"Todavía no eliges computadora."** con el enlace **"Elegir computadora"**. Cuando la eliges, la barra de arriba dice en cuál estás ("Estás en Computadora 3").
 
@@ -236,7 +266,7 @@ En **"Entrevistas pendientes"** y en la ficha de cada campero, arriba está el b
 4. Si Emmaus te avisa "Ya hay un campero registrado con este nombre", revisa la lista. Si es la misma persona, no la registres otra vez. Si es otra, marca **"Sí, es otra persona con el mismo nombre"**.
 5. Toca **"Guardar y empezar la entrevista"** o **"Guardar y registrar otro"**.
 
-En **"Mis camperos"** aparecen primero las entrevistas en curso, luego las que faltan y al final las completadas. Cada campero lleva dos líneas: dónde duerme, su edad y, si la iglesia tiene sedes, su sede ("Cuarto 2, 17 años, Mérida"), y debajo su número y su grupo ("#0133, Iglesia Centro"). Si una búsqueda no encuentra a nadie, dice "No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras."
+En **"Mis camperos"** aparecen primero las entrevistas en curso, luego las que faltan y al final las completadas. Cada campero lleva dos líneas: dónde duerme, su edad y, si la iglesia tiene sedes, su sede ("Cuarto 2, 17 años, Mérida"), y debajo su número y su grupo ("#0133, Iglesia Centro"). Si una búsqueda no encuentra a nadie, dice "No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras." Si el campamento usa varios cuestionarios, el campero que ya respondió algunos dice "1 de 2 cuestionarios" y sigue con "Entrevistar".
 
 ### Elegir tu computadora
 
@@ -253,6 +283,7 @@ La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te p
      * Si es **menor**: "Le expliqué el aviso de privacidad a ... y está de acuerdo en conversar".
      * Si es **adulto**: "Le expliqué el aviso de privacidad a ... y acepta participar".
      * Si no quiere conversar, no inicies. Puede decidirlo en otro momento.
+   * **¿Qué cuestionario?** Solo si el campamento usa varios. Si el campero puede empezar más de uno, elige cuál; si no, Emmaus te dice cuál sigue ("Cuestionario: …" y, si van en orden, "Después: …") y cuáles ya respondió.
    * **¿Cómo se va a responder?** Elige **"Entrevista asistida"** (tú haces las preguntas y anotas) o **"Entrevista a solas"** (el campero responde solo en la computadora).
 4. Toca **"Comenzar entrevista"**.
 
@@ -265,7 +296,7 @@ Si aparece "Todavía no se pueden iniciar entrevistas" (en "Mi inicio" o en la b
 * Aparece **una pregunta por pantalla**. Arriba dice en qué pregunta vas (por ejemplo, "Pregunta 3 de 9") y el nombre de la sección.
 * A veces, según la respuesta, aparece una pregunta más en la misma pantalla (por ejemplo, si dice que sí tiene dudas, se abre un espacio para contarlas).
 * Debajo de las opciones, después de "o bien", está **"Prefiero no responder"**. Siempre se puede elegir.
-* Las preguntas marcadas **"Confidencial"**, con la frase "Solo el equipo de cuidado autorizado podrá leer esta respuesta.", son privadas: después de terminar ya no podrás ver esa respuesta.
+* Las preguntas marcadas **"Confidencial"**, con la frase "Solo el equipo de cuidado autorizado podrá leer esta respuesta.", son privadas: después de terminar ya no podrás ver esa respuesta. Si el campamento abrió las respuestas confidenciales, la frase dice quién las lee (por ejemplo "Esta respuesta la leen quien te entrevistó, tu coordinador y el equipo de cuidado.") y tú sí podrás volver a verla.
 * **"Continuar"** guarda y pasa a la siguiente. En la última pregunta el botón dice **"Revisar respuestas"**.
 * **"Atrás"** (arriba, a la izquierda) guarda y regresa a la anterior.
 * **"Guardar y salir"** (arriba) guarda y te regresa a tu inicio. Puedes retomarla después.
@@ -289,6 +320,8 @@ Las respuestas se guardan cada vez que avanzas. Lo único que se pierde es lo qu
 
 Verás **"Entrevista completada"**. Toca **"Entrevistar a otro campero"** o **"Volver a mi inicio"**.
 
+Si el campamento usa varios cuestionarios y al campero le falta alguno, la pantalla te lo dice ("A Mateo le falta 1 cuestionario.") y el botón principal es **"Continuar con «…»"**, con el título del siguiente: abre "Antes de empezar" con ese cuestionario ya elegido. Si prefieres seguir después, búscalo otra vez: en las listas dice "1 de 2 cuestionarios".
+
 ![Entrevista completada](img/entrevista-completada.png)
 
 Si el campero pidió apoyo en una pregunta confidencial, el equipo de cuidado autorizado se entera solo, sin que tengas que hacer nada.
@@ -302,18 +335,18 @@ Si marcaste "Por decidir", después ve a **"Entrevistas pendientes"** → **"Seg
 **Entregar la computadora**
 
 1. En "Antes de empezar" elige **"Entrevista a solas"** y toca **"Comenzar entrevista"**.
-2. Lee la pantalla **"Entrega la computadora a ..."**: dile que puede responder con calma, que puede elegir "Prefiero no responder", que nadie más verá sus respuestas en la pantalla, que las marcadas "Confidencial" solo las lee el equipo de cuidado autorizado y que te avise al terminar.
+2. Lee la pantalla **"Entrega la computadora a ..."**: dile que puede responder con calma, que puede elegir "Prefiero no responder", que nadie más verá sus respuestas en la pantalla, quién lee las marcadas "Confidencial" (si el campamento no las abrió, solo el equipo de cuidado autorizado) y que te avise al terminar.
 3. Toca **"Entregar la computadora"**. Si cambias de idea antes de entregarla, toca **"Mejor hago yo las preguntas"**. Si sales de esta pantalla sin entregarla, cuando toques "Retomar" en esa entrevista Emmaus te regresa aquí. Si una computadora se queda esperando a su coordinador más de 3 horas, ya no se puede recuperar con la contraseña: entra normalmente y retoma la entrevista desde "Mi inicio".
 
 **Lo que ve el campero**
 
-* Una bienvenida con su nombre, tres promesas cortas (cuántas preguntas son, que puede elegir "Prefiero no responder" y que puede parar con "Parar por ahora"), un bloque **"¿Quién lee tus respuestas?"** ("Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado.") y el botón **"Empezar"**. Si ya contestó algo, el botón dice **"Retomar"** y abre la misma pregunta que "Seguir contestando" en la revisión.
+* Una bienvenida con su nombre, tres promesas cortas (cuántas preguntas son, que puede elegir "Prefiero no responder" y que puede parar con "Parar por ahora"), un bloque **"¿Quién lee tus respuestas?"** ("Tus respuestas las lee tu coordinador y, las generales, también el equipo del campamento. Las de temas personales, solo quien te entrevistó, tu coordinador y el equipo de cuidado. Las marcadas “Confidencial”, solo el equipo de cuidado autorizado."; la última frase cambia si el campamento abrió las respuestas confidenciales) y el botón **"Empezar"**. Si ya contestó algo, el botón dice **"Retomar"** y abre la misma pregunta que "Seguir contestando" en la revisión.
 
   ![Bienvenida en la computadora](img/estacion-bienvenida.png)
 
 * Las mismas preguntas, con **"Continuar"**, **"Atrás"** y arriba **"Parar por ahora"**: guarda lo que tenga elegido en esa pantalla (no tiene que contestarla) y lo lleva a revisar sus respuestas.
 * Al final, o al parar, **"Revisa tus respuestas"**: todas sus respuestas (las que faltan dicen "Sin responder") y otra vez quién las lee. **"Cambiar"** abre esa pregunta y, al guardarla, lo regresa a la revisión. Si le faltan preguntas, la pantalla se lo dice ("Te faltan 3 preguntas...") y **"Seguir contestando"** lo lleva a la primera que falta. Cuando acaba, toca **"Ya terminé"**.
-* Luego la pantalla **"¡Gracias!"**, que le pide avisarte.
+* Luego la pantalla **"¡Gracias!"**, que le pide avisarte. Si el campamento usa varios cuestionarios, dice "Ya terminaste este cuestionario.": al finalizar, toca "Continuar con «…»" y entrégale la computadora otra vez para el siguiente.
 
   ![Pantalla de gracias](img/estacion-gracias.png)
 
@@ -329,7 +362,7 @@ Mientras el campero responde, esa computadora no puede abrir ninguna otra págin
 
 ![Recuperar la computadora](img/estacion-desbloquear.png)
 
-Al recuperarla, Emmaus te lleva a la revisión. Las respuestas confidenciales aparecen solo como **"Confidencial"**: es normal, tú no las puedes leer. Elige si necesita seguimiento y toca **"Finalizar entrevista"**.
+Al recuperarla, Emmaus te lleva a la revisión. Las respuestas confidenciales aparecen solo como **"Confidencial"**: es normal, tú no las puedes leer (salvo que el campamento las haya abierto antes de que empezara esa entrevista; ver [11. Respuestas confidenciales](#11-respuestas-confidenciales)). Elige si necesita seguimiento y toca **"Finalizar entrevista"**.
 
 Emmaus recuerda en qué computadora estás, así que no tienes que elegirla otra vez.
 
@@ -355,7 +388,7 @@ Una entrevista que lleva 20 minutos o más sin cambios aparece como **interrumpi
 
 La corrección queda registrada con tu nombre y la respuesta anterior. No cuenta como una entrevista nueva.
 
-Las respuestas confidenciales no tienen "Corregir": solo las corrige la administración o el coordinador asignado, si tiene acceso confidencial. Si una pregunta comparte pantalla con una confidencial (por ejemplo, "¿Tienes dudas acerca de tu fe?"), al corregirla solo ves la tuya. Si tu corrección hace que otra pregunta ya no aplique (por ejemplo, cambias "Sí" por "No"), esa respuesta se quita y queda registrado que se quitó y cuándo.
+Las respuestas confidenciales no tienen "Corregir": solo las corrige la administración o el coordinador asignado, si tiene acceso confidencial (o si el campamento las abrió antes de que empezara esa entrevista). Si una pregunta comparte pantalla con una confidencial (por ejemplo, "¿Tienes dudas acerca de tu fe?"), al corregirla solo ves la tuya. Si tu corrección hace que otra pregunta ya no aplique (por ejemplo, cambias "Sí" por "No"), esa respuesta se quita y queda registrado que se quitó y cuándo.
 
 ### Descartar una entrevista
 
@@ -364,13 +397,13 @@ Si abriste la entrevista de otro campero por error, o el campero ya no quiere co
 1. En la revisión toca **"Descartar esta entrevista"**.
 2. Elige el motivo y toca **"Sí, descartar y borrar respuestas"**.
 
-Se borran todas sus respuestas y el campero queda "sin entrevista", así que se puede empezar de nuevo. Solo se pueden descartar entrevistas que no se han finalizado.
+Se borran todas sus respuestas y el campero queda sin esa entrevista, así que ese cuestionario se puede empezar de nuevo. Solo se pueden descartar entrevistas que no se han finalizado.
 
 ### Lista de respaldo en papel
 
 En **"Mis camperos"**, toca **"Imprimir lista de respaldo"** y luego **"Imprimir"**. Úsala solo si falla la red o una computadora. Tiene nombres, edades y cuartos, pero ninguna respuesta. No la dejes a la vista y destrúyela al terminar.
 
-Después de la lista viene el **"Cuestionario para entrevistar en papel"**: las preguntas del cuestionario del evento en el orden de la entrevista, una por bloque, con un cuadro por cada opción (también "Prefiero no responder") y espacio para escribir en las de texto. Las que dependen de otra respuesta van debajo de su pregunta, con sangría y la condición escrita ("Si contestó “Sí”:"), y las confidenciales dicen "Confidencial". Usa una copia por campero: escribe su nombre y su número, marca lo de "Antes de empezar" y lo que elija. En cuanto vuelva la red, captura sus respuestas en Emmaus como entrevista asistida. Una hoja con respuestas es tan privada como la entrevista: guárdala tú y destrúyela en cuanto las captures. Si el evento todavía no tiene un cuestionario publicado, la hoja lo dice.
+Después de la lista viene el **"Cuestionario para entrevistar en papel"**, una hoja por cada cuestionario del campamento, en su orden y, si son varios, con su título: las preguntas en el orden de la entrevista, una por bloque, con un cuadro por cada opción (también "Prefiero no responder") y espacio para escribir en las de texto. Las que dependen de otra respuesta van debajo de su pregunta, con sangría y la condición escrita ("Si contestó “Sí”:"), y las confidenciales dicen "Confidencial". Usa una copia por campero: escribe su nombre y su número, marca lo de "Antes de empezar" y lo que elija. En cuanto vuelva la red, captura sus respuestas en Emmaus como entrevista asistida. Una hoja con respuestas es tan privada como la entrevista: guárdala tú y destrúyela en cuanto las captures. Si el evento todavía no tiene un cuestionario publicado, la hoja lo dice.
 
 ---
 
@@ -406,7 +439,9 @@ Si todavía no hay camperos, el Resumen dice solo eso, una vez: "Aún no hay cam
 
 ![Resumen general del pastor](img/pastor-resumen.png)
 
-Los resúmenes de respuestas solo muestran totales de todo el campamento, redondeados. Por eso a veces verás "Menos de 5" o "unas 10": así nadie puede ser identificado. No son diagnósticos; son lo que cada campero quiso compartir.
+Los resúmenes de respuestas solo muestran totales de todo el campamento, redondeados, y si el campamento usa varios cuestionarios van bajo el título de cada uno. Por eso a veces verás "Menos de 5" o "unas 10": así nadie puede ser identificado. No son diagnósticos; son lo que cada campero quiso compartir.
+
+Al final de "Resumen general", **"Quién lee las respuestas confidenciales"** te deja elegir quién las lee; la administración también puede cambiarlo (ver [11. Respuestas confidenciales](#11-respuestas-confidenciales)).
 
 ### Seguimiento
 
@@ -448,7 +483,7 @@ Toca **"Descargar PDF"** (en el último corte o en el historial, botón **"PDF"*
 
 Sirve para proyectar el avance en una reunión del equipo.
 
-1. Toca **"Mostrar presentación"** (en "Resumen general" o en "Reportes"). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial o **"Mostrar presentación"** en el corte.
+1. Toca **"Mostrar presentación"** (en "Resumen general" o en "Reportes"; si en "Reportes" elegiste un equipo, muestra ese equipo). Esta versión está **en vivo** y se actualiza cada minuto; en la barra de controles dice cuándo fue la última actualización. Si nadie toca la computadora durante 30 minutos, tu sesión se cierra, la presentación deja de actualizarse y la barra lo avisa: vuelve a entrar. Para mostrar un corte guardado, toca **"Presentación"** en el historial o **"Mostrar presentación"** en el corte.
 2. Toca **"Pantalla completa"** (o la tecla **F**). Si el salón está oscuro, toca **"Modo noche"**: fondo azul oscuro y letra clara. Emmaus recuerda tu elección en esa computadora.
 3. Avanza con la **flecha derecha** o **"Siguiente"**; regresa con la **flecha izquierda** o **"Anterior"**. La barra de botones va en su propia franja, debajo de la diapositiva, así nunca tapa el pie. Se oculta sola a los tres segundos y las teclas no la vuelven a mostrar: mueve el ratón (o toca la pantalla) para verla.
 4. Toca **"Salir"** o la tecla **Esc** al terminar: vuelves a la página desde la que abriste la presentación (Reportes o tu resumen). En pantalla completa, la primera **Esc** solo sale de la pantalla completa; la segunda vuelve a la página. La presentación de un corte guardado vuelve a ese corte.
@@ -489,6 +524,8 @@ Solo el equipo de cuidado autorizado puede leer el reporte. La administración v
 
 El "equipo de cuidado autorizado" son las personas con **"Puede leer información confidencial"**, sea cual sea su rol.
 
+La fila de las respuestas confidenciales es la opción de siempre. Si el campamento las abre, también las leen el coordinador y quien hizo la entrevista, o todo el equipo que ve al campero, en las entrevistas que empiecen después (ver [11. Respuestas confidenciales](#11-respuestas-confidenciales)).
+
 ---
 
 ## Preguntas frecuentes
@@ -497,7 +534,7 @@ El "equipo de cuidado autorizado" son las personas con **"Puede leer informació
 No se pierde lo que ya se guardó: cada vez que tocas "Continuar", "Atrás" o "Guardar y salir", se guarda. Solo se pierde lo que estaba escrito en la pantalla actual. Si falla la red, usa la lista de respaldo y captura después.
 
 **¿Por qué no puedo iniciar entrevistas?**
-Puede faltar que la administración confirme los procedimientos de la iglesia, que haya un cuestionario publicado o que el campamento esté "En curso". La pantalla dice cuál es el motivo.
+Puede faltar que la administración confirme los procedimientos de la iglesia, que el campamento use al menos un cuestionario publicado o que esté "En curso". La pantalla dice cuál es el motivo.
 
 **El campero es menor y no tiene autorización registrada.**
 Si viste el formato firmado, márcalo en "Antes de empezar" (o en su ficha con **"Marcar como recibida"** y luego **"Sí, la iglesia la tiene"**). Si no lo tienes, no inicies la entrevista. Si se marcó por error, en su ficha toca **"Quitar la autorización"**.
@@ -509,10 +546,10 @@ No. Pide a la administración que te lo asigne.
 Toca "Descartar esta entrevista" y elige "Se abrió la entrevista de otro campero por error". Sus respuestas se borran.
 
 **¿Un campero puede tener dos entrevistas?**
-No. Cada campero tiene una sola. Si hay un error después de finalizar, se corrige con "Corregir".
+Una por cuestionario: si el campamento usa dos, tiene dos entrevistas, una después de la otra, nunca dos en curso a la vez. Con un solo cuestionario, una sola. Si hay un error después de finalizar, se corrige con "Corregir".
 
 **Soy tutor o pastor: ¿por qué no veo las respuestas?**
-Por privacidad. Los tutores y pastores ven avances y totales. Las respuestas espirituales las ve el coordinador del campero, y las confidenciales solo el equipo de cuidado autorizado.
+Por privacidad. Los tutores y pastores ven avances y totales. Las respuestas espirituales las ve el coordinador del campero, y las confidenciales solo el equipo de cuidado autorizado, salvo que el campamento las haya abierto a todo el equipo.
 
 **¿Por qué dice "Menos de 5" o "unas 10"?**
 Para que nadie pueda adivinar lo que respondió una persona. Los números pequeños se ocultan y los demás se redondean.
@@ -530,7 +567,7 @@ En la pantalla de entrada toca "¿Olvidaste tu contraseña?" y escribe tu correo
 Espera unos minutos y vuelve a intentar.
 
 **¿Se puede cambiar el cuestionario durante el campamento?**
-La administración puede crear una versión nueva. Las entrevistas ya hechas conservan la versión con la que se hicieron.
+La administración puede crear una versión nueva y tocar "Usar esta versión en este evento": queda en el mismo lugar del orden, y las entrevistas ya hechas conservan la versión con la que se hicieron. También puede agregar o quitar un cuestionario; si agrega uno cuando ya hay entrevistas completadas, a esos camperos les falta el nuevo y el avance baja.
 
 **¿Emmaus usa inteligencia artificial?**
 En los campamentos, no: Emmaus no usa inteligencia artificial con las entrevistas y no envía respuestas por correo ni a otros servicios. En el discipulado hay un **"Borrador con IA"** opcional para responder preguntas: solo funciona si quien administra el servidor lo activa, y un líder lo revisa antes de enviarlo.

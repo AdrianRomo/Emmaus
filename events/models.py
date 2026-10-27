@@ -94,6 +94,28 @@ class Sede(models.Model):
         return self.name
 
 
+# Event.ConfidentialLevel from the most closed to the most open. The effective level of an answer is the more closed
+# of the interview's and the event's (Interview.effective_confidential_level).
+CONFIDENTIAL_LEVEL_OPENNESS = ("cuidado", "coordinacion", "todo_el_equipo")
+CONFIDENTIAL_READERS_PHRASES = {
+    "cuidado": "solo el equipo de cuidado autorizado",
+    "coordinacion": "quien te entrevistó, tu coordinador y el equipo de cuidado",
+    "todo_el_equipo": "tu coordinador y el equipo del campamento",
+}
+
+
+def stricter_confidential_level(*levels: str) -> str:
+    """The most closed of ``levels``; an unknown value counts as the most closed."""
+    return min(
+        levels,
+        key=lambda level: CONFIDENTIAL_LEVEL_OPENNESS.index(level) if level in CONFIDENTIAL_LEVEL_OPENNESS else -1,
+    )
+
+
+def confidential_readers_phrase(level: str) -> str:
+    return CONFIDENTIAL_READERS_PHRASES.get(level, CONFIDENTIAL_READERS_PHRASES["cuidado"])
+
+
 class Event(models.Model):
     class Kind(models.TextChoices):
         CAMP = "campamento", "Campamento"
@@ -132,13 +154,30 @@ class Event(models.Model):
     # Empty: the whole church takes part (every active sede).
     sedes = models.ManyToManyField(Sede, verbose_name="Sedes que participan", blank=True, related_name="events")
 
-    questionnaire_version = models.ForeignKey(
-        "QuestionnaireVersion",
-        verbose_name="Cuestionario en uso",
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name="events_using",
+    class ConfidentialLevel(models.TextChoices):
+        """Who reads the answers to the questions marked "Confidencial". Ordered from the most closed to the most open
+        (CONFIDENTIAL_LEVEL_OPENNESS): an interview keeps the level it started with, so opening it later never widens
+        who reads answers given under a narrower promise (Interview.effective_confidential_level)."""
+
+        CARE = "cuidado", "Solo quien tiene acceso confidencial (y su coordinador mientras la anota)"
+        COORDINATION = "coordinacion", "Su coordinador, quien lo entrevistó y quien tiene acceso confidencial"
+        TEAM = "todo_el_equipo", "Todo el equipo que ve al campero"
+
+    # Which questionnaires the event uses, and in what order, is EventQuestionnaire (``questionnaire_links``).
+    questionnaires_in_order = models.BooleanField(
+        "Los camperos los responden en este orden",
+        default=False,
+        db_default=False,
+        help_text="Con varios cuestionarios, el siguiente se abre cuando el campero completó el anterior.",
+    )
+
+    # Set by administración or pastoral (admin.confidential_level). The default is the rule of every earlier event.
+    confidential_level = models.CharField(
+        "Quién lee las respuestas confidenciales",
+        max_length=16,
+        choices=ConfidentialLevel.choices,
+        default=ConfidentialLevel.CARE,
+        db_default=ConfidentialLevel.CARE,
     )
 
     # Cortes
@@ -198,6 +237,10 @@ class Event(models.Model):
         if self.join_code:
             return super().save(*args, **kwargs)
         return self._save_with_new_join_code(*args, **kwargs)
+
+    def refresh_from_db(self, *args, **kwargs):
+        self.forget_questionnaire_links()
+        return super().refresh_from_db(*args, **kwargs)
 
     def regenerate_join_code(self) -> str:
         """A new code for the sign. The old code and the event's name stop working at once."""
@@ -268,8 +311,43 @@ class Event(models.Model):
         return self.procedures_approved_at is not None
 
     @property
+    def confidential_readers_phrase(self) -> str:
+        """Who reads a "Confidencial" answer in this event, said to the campero: "Las marcadas “Confidencial”, {phrase}."."""
+        return confidential_readers_phrase(self.confidential_level)
+
+    @property
     def is_open_for_interviews(self) -> bool:
-        return self.status == self.Status.ACTIVE and self.procedures_approved and self.questionnaire_version_id
+        return self.status == self.Status.ACTIVE and self.procedures_approved and self.has_questionnaire
+
+    # ---- questionnaires (EventQuestionnaire; changed only through events.services.event_questionnaires) ----
+
+    _LINKS_CACHE = "_questionnaire_links_cache"
+
+    def ordered_links(self) -> list[EventQuestionnaire]:
+        """The event's questionnaires in the order the camperos answer them. Read once per instance: the
+        services that change the links call ``forget_questionnaire_links`` on the event they were given."""
+        if self.pk is None:
+            return []
+        links = self.__dict__.get(self._LINKS_CACHE)
+        if links is None:
+            links = list(self.questionnaire_links.select_related("version__questionnaire").order_by("order", "id"))
+            self.__dict__[self._LINKS_CACHE] = links
+        return links
+
+    def forget_questionnaire_links(self) -> None:
+        self.__dict__.pop(self._LINKS_CACHE, None)
+
+    def questionnaire_versions(self) -> list[QuestionnaireVersion]:
+        return [link.version for link in self.ordered_links()]
+
+    @property
+    def has_questionnaire(self) -> bool:
+        # Asks the database every time: it gates starting an interview.
+        return self.pk is not None and self.questionnaire_links.exists()
+
+    @property
+    def questionnaire_count(self) -> int:
+        return len(self.ordered_links())
 
     def allowed_sedes(self):
         """The sedes a campero can be registered or imported with: the active ones of the event's own list, else
@@ -611,6 +689,34 @@ class QuestionnaireVersion(models.Model):
         return self.status == self.Status.DRAFT
 
 
+class EventQuestionnaire(models.Model):
+    """A questionnaire an event uses: which version, and its place in the order the camperos answer them."""
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="questionnaire_links")
+    # Copied from ``version`` so the database refuses two versions of one questionnaire in the same event.
+    questionnaire = models.ForeignKey(Questionnaire, on_delete=models.CASCADE, related_name="event_links")
+    version = models.ForeignKey(QuestionnaireVersion, on_delete=models.PROTECT, related_name="event_links")
+    order = models.PositiveSmallIntegerField("Orden", default=1)
+
+    class Meta:
+        ordering = ["order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["event", "questionnaire"], name="one_version_per_questionnaire_per_event"),
+        ]
+        verbose_name = "cuestionario del evento"
+        verbose_name_plural = "cuestionarios del evento"
+
+    def __str__(self) -> str:
+        return f"{self.version} en {self.event}"
+
+    def save(self, *args, **kwargs):
+        if not self.questionnaire_id:
+            self.questionnaire_id = self.version.questionnaire_id
+        elif self.questionnaire_id != self.version.questionnaire_id:
+            raise ValueError("La versión no es de ese cuestionario.")
+        super().save(*args, **kwargs)
+
+
 class _DraftOnlyMixin:
     """Sections, questions and options can change only while their version is a draft."""
 
@@ -762,8 +868,21 @@ class Interview(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="interviews")
     participant = models.ForeignKey(EventParticipant, on_delete=models.CASCADE, related_name="interviews")
     version = models.ForeignKey(QuestionnaireVersion, on_delete=models.PROTECT, related_name="interviews")
+    # Copied from ``version`` by save(): one live interview per campero and questionnaire is a database constraint.
+    questionnaire = models.ForeignKey(
+        Questionnaire, verbose_name="cuestionario", on_delete=models.PROTECT, related_name="interviews"
+    )
     mode = models.CharField(max_length=16, choices=Mode.choices, default=Mode.ASSISTED)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.IN_PROGRESS)
+    # The event's level when the interview started (services.interviews.start_interview). Opening the event's level
+    # later does not open this interview's answers; closing it applies at once (effective_confidential_level).
+    confidential_level = models.CharField(
+        "Quién lee las respuestas confidenciales",
+        max_length=16,
+        choices=Event.ConfidentialLevel.choices,
+        default=Event.ConfidentialLevel.CARE,
+        db_default=Event.ConfidentialLevel.CARE,
+    )
     conducted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="conducted_interviews"
     )
@@ -795,9 +914,9 @@ class Interview(models.Model):
         ordering = ["-started_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["participant"],
+                fields=["participant", "questionnaire"],
                 condition=~Q(status="descartada"),
-                name="one_live_interview_per_participant",
+                name="one_live_interview_per_questionnaire",
             ),
         ]
         indexes = [
@@ -810,6 +929,25 @@ class Interview(models.Model):
 
     def __str__(self) -> str:
         return f"Entrevista de {self.participant}"
+
+    def save(self, *args, **kwargs):
+        if not self.questionnaire_id and self.version_id:
+            self.questionnaire_id = self.version.questionnaire_id
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None and "questionnaire" not in update_fields:
+                kwargs["update_fields"] = [*update_fields, "questionnaire"]
+        elif self.questionnaire_id and self.version_id and self.version.questionnaire_id != self.questionnaire_id:
+            raise ValueError("La versión no pertenece a ese cuestionario.")
+        super().save(*args, **kwargs)
+
+    @property
+    def effective_confidential_level(self) -> str:
+        """Who reads this interview's "Confidencial" answers: the more closed of its own level and the event's now."""
+        return stricter_confidential_level(self.confidential_level, self.event.confidential_level)
+
+    @property
+    def confidential_readers_phrase(self) -> str:
+        return confidential_readers_phrase(self.effective_confidential_level)
 
     def lock_is_active(self, now=None) -> bool:
         now = now or timezone.now()

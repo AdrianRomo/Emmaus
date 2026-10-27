@@ -16,6 +16,7 @@ from events.models import (
     MembershipRole,
     TutorAssignment,
 )
+from events.services.event_questionnaires import use_version
 from events.services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, build_steps, create_questionnaire_from_definition
 
 PASSWORD = "clave-de-prueba-123"
@@ -78,11 +79,11 @@ class CampFixture(TestCase):
             church=cls.church,
             name=name,
             slug=slug,
-            questionnaire_version=cls.version,
             procedures_approved_at=timezone.now(),
             starts_on=timezone.localdate(),
             ends_on=timezone.localdate(),
         )
+        use_version(event, cls.version)
         for n in range(1, 11):
             InterviewStation.objects.create(event=event, number=n, name=f"Computadora {n}")
         return event

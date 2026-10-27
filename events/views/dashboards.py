@@ -27,6 +27,7 @@ from ..models import (
     ReportSnapshot,
 )
 from ..services import audit
+from ..services import event_questionnaires as eq
 from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
@@ -49,7 +50,7 @@ def _recent_activity(access, limit=8):
     return (
         access.interviews()
         .filter(Q(status=Interview.Status.COMPLETED) | Q(status=Interview.Status.IN_PROGRESS))
-        .select_related("participant", "conducted_by")
+        .select_related("participant", "conducted_by", "version")
         .order_by("-last_activity_at")[:limit]
     )
 
@@ -123,7 +124,9 @@ def coordinators(request, event, access):
 def coordinator_detail(request, event, access, membership_id):
     coordinator = get_object_or_404(access.coordinators(), pk=membership_id)
     payload = build_payload(coordinator_scope(event, coordinator))
-    participants = access.participants().filter(coordinator=coordinator).order_by("interview_status", "room", "full_name")
+    participants = eq.annotate_questionnaire_progress(access.participants().filter(coordinator=coordinator), event).order_by(
+        "interview_status", "room", "full_name"
+    )
     return render(
         request,
         "events/supervision/coordinator_detail.html",
@@ -136,7 +139,9 @@ PERIODS = [("", "Todo el tiempo"), ("2h", "Últimas 2 horas"), ("hoy", "Hoy")]
 
 @event_view(*LEADERS)
 def interviews(request, event, access):
-    participants = access.participants().select_related("coordinator__user")
+    # Annotated before the "Completadas" filter below: that filter joins the interviews too, and a count taken after
+    # it would only see the interviews completed in the period.
+    participants = eq.annotate_questionnaire_progress(access.participants().select_related("coordinator__user"), event)
     coordinator_id = request.GET.get("coordinador", "")
     room = request.GET.get("cuarto", "")
     group = request.GET.get("grupo", "")
@@ -180,9 +185,11 @@ def interviews(request, event, access):
 @event_view(TUTOR, PASTOR, ADMIN)
 def pending(request, event, access):
     participants = access.participants()
-    stale = stale_interviews(participants).select_related("participant__coordinator__user", "conducted_by", "station")
+    stale = stale_interviews(participants).select_related("participant__coordinator__user", "conducted_by", "station", "version")
     in_progress = access.interviews().filter(status=Interview.Status.IN_PROGRESS).exclude(pk__in=stale.values("pk"))
-    to_evaluate = access.interviews().filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE)
+    to_evaluate = access.interviews().filter(
+        status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
+    ).select_related("participant__coordinator__user", "version")
     follow_ups = access.follow_ups().filter(status__in=FollowUp.OPEN_STATUSES).order_by("kind", "created_at")
     not_started_by_coordinator = (
         participants.filter(interview_status=InterviewStatus.PENDING)
@@ -517,11 +524,14 @@ def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state
         f"{settings_url}#procedimientos", "Ver" if approved else "Confirmar", "los procedimientos",
     ))
 
-    version = event.questionnaire_version
+    links = eq.links_for(event)  # one line per questionnaire the event uses, in the order the camperos answer them
+    questionnaire_meta = [f"{link.version.title}, versión {link.version.number}." for link in links]
+    if len(links) > 1 and event.questionnaires_in_order:
+        questionnaire_meta.append("Se responden en orden.")
     steps.append(step(
         "cuestionario", "Cuestionario",
-        f"{version.title}, versión {version.number}." if version else "Sin cuestionario publicado.",
-        "listo" if event.questionnaire_version_id else "falta",
+        questionnaire_meta or "Sin cuestionario publicado.",
+        "listo" if links else "falta",
         reverse("events:questionnaires", args=[slug]), "Ver", "los cuestionarios",
     ))
 
@@ -613,7 +623,7 @@ def admin_home(request, event, access):
     problems = []
     if not event.procedures_approved:
         problems.append(("Falta confirmar los procedimientos de autorización y protección. Sin eso no se pueden iniciar entrevistas.", "events:settings"))
-    if not event.questionnaire_version_id:
+    if not event.has_questionnaire:
         problems.append(("El evento no tiene un cuestionario publicado.", "events:questionnaires"))
     if failed_count:
         text = "1 corte no se pudo generar." if failed_count == 1 else f"{failed_count} cortes no se pudieron generar."

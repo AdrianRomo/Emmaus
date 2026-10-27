@@ -19,8 +19,10 @@
 
 {% comment %}
   One column in the order of the work, under an index (audit UX-14, UI-23). The two forms that edit the event warn
-  before leaving with unsaved changes (data-guard, emmaus.js), also when another form on the page is sent. Cortes,
-  privacidad and cuestionario are one form (EventSettingsForm, "settings"): three sections, saved together.
+  before leaving with unsaved changes (data-guard, emmaus.js), also when another form on the page is sent. Cortes and
+  privacidad are one form (EventSettingsForm, "settings"): two sections, saved together. The event's questionnaires
+  are chosen in Cuestionarios, and who reads the confidential answers on a page of its own (admin.confidential_level):
+  one line each links there.
 {% endcomment %}
 <nav class="page-toc" aria-label="Secciones">
   <ul>
@@ -28,7 +30,6 @@
     <li><a href="#datos">Datos del evento</a></li>
     <li><a href="#cortes">Cortes</a></li>
     <li><a href="#privacidad">Privacidad y protección</a></li>
-    <li><a href="#cuestionario">Cuestionario</a></li>
     <li><a href="#computadoras">Computadoras</a></li>
   </ul>
 </nav>
@@ -73,14 +74,10 @@
       {% include "partials/ui/field.html" with field=settings_form.privacy_notice %}
       {% include "partials/ui/field.html" with field=settings_form.safeguarding_instructions %}
     </fieldset>
+    <p class="hint narrow mt-4">Quién lee las respuestas confidenciales: <a href="{% url 'events:confidential_level' event.slug %}">{{ event.get_confidential_level_display }}</a>.</p>
   </section>
-  <section class="admin-section admin-section--ruled" id="cuestionario" aria-labelledby="t-cuestionario">
-    <h2 id="t-cuestionario" class="heading">Cuestionario</h2>
-    <fieldset class="narrow" aria-labelledby="t-cuestionario">
-      {% include "partials/ui/field.html" with field=settings_form.questionnaire_version %}
-    </fieldset>
-  </section>
-  <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar cortes, privacidad y cuestionario</button></div>
+  <p class="hint narrow mt-6">Los cuestionarios del evento se eligen en <a href="{% url 'events:questionnaires' event.slug %}">Cuestionarios</a>.</p>
+  <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar cortes y privacidad</button></div>
 </form>
 
 <section class="admin-section admin-section--ruled" id="computadoras" aria-labelledby="t-comp">

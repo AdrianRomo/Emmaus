@@ -3,8 +3,8 @@
   <div class="coord__main">
     {% if progress.eligible %}
     <section class="coord__progress" aria-labelledby="mi-avance">
-      <h2 id="mi-avance" class="voice coord__count">Llevas {{ progress.completed }} de {{ progress.eligible }}.</h2>
-      <p class="coord__count-note">{% if progress.in_progress %}{{ progress.in_progress }} en curso y {% endif %}{{ progress.not_started }} sin iniciar. <a href="{% url 'events:coord_progress' event.slug %}">Ver mi avance</a></p>
+      {% comment %}With several questionnaires (partial is not None): "con todo" = every questionnaire; "a medias" = some done, none live. One questionnaire: the line it always was.{% endcomment %}<h2 id="mi-avance" class="voice coord__count">Llevas {{ progress.completed }} de {{ progress.eligible }}{% if partial is not None %} con todo{% endif %}.</h2>
+      <p class="coord__count-note">{% if partial is None %}{% if progress.in_progress %}{{ progress.in_progress }} en curso y {% endif %}{{ progress.not_started }} sin iniciar.{% else %}{% if progress.in_progress %}{{ progress.in_progress }} en curso{% if partial %}, {% else %} y {% endif %}{% endif %}{% if partial %}{{ partial }} a medias y {% endif %}{{ untouched }} sin iniciar.{% endif %} <a href="{% url 'events:coord_progress' event.slug %}">Ver mi avance</a></p>
       {% tally progress.completed progress.in_progress progress.eligible %}
       <ul class="key" aria-hidden="true">
         <li><span class="key__mark key__mark--done"></span>Completada</li>
@@ -23,7 +23,8 @@
                 <p class="row__title">{{ p.full_name }}</p>
                 <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años</p>
               </div>
-              <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>
+              {% if p.questionnaire_total > 1 and p.done_count %}<div class="row__end">{% campero_status p %}
+              {% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>{% if p.questionnaire_total > 1 and p.done_count %}</div>{% endif %}
             </li>
           {% endfor %}
         </ul>
@@ -47,7 +48,7 @@
             <li class="row">
               <div class="row__main">
                 <p class="row__title">{{ iv.participant.full_name }}</p>
-                <p class="row__meta">Última actividad {{ iv.last_activity_at|since }}{% if iv.station %}, en {{ iv.station.name }}{% endif %}</p>
+                <p class="row__meta">Última actividad {{ iv.last_activity_at|since }}{% if iv.station %}, en {{ iv.station.name }}{% endif %}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
               </div>
               <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
             </li>

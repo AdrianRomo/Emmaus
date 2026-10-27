@@ -16,13 +16,19 @@
   {% for row in rows %}
     <div class="summary-list__row">
       <dt>{{ row.question.text }}</dt>
-      <dd>{% if not row.visible %}<span class="privacy__tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
+      <dd>{% if not row.visible %}<span class="privacy__tag">{{ row.question.get_sensitivity_display }}</span>{% else %}{% if row.question.sensitivity == "confidencial" %}<span class="privacy__tag">Confidencial</span> {% endif %}{% if row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}{% endif %}</dd>
       <dd class="summary-list__action">{% if row.visible %}<a href="{% url 'events:interview_step' event.slug interview.public_id row.step.number %}?volver=revision">Cambiar<span class="visually-hidden"> la respuesta a “{{ row.question.text }}”</span></a>{% endif %}</dd>
     </div>
   {% endfor %}
 </dl>
 {% if has_hidden %}
+  {% if interview.effective_confidential_level == "cuidado" %}
   <p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>
+  {% elif interview.effective_confidential_level == "coordinacion" %}
+  <p class="aside-note">Algunas preguntas son confidenciales y llevan su etiqueta: las leen quien entrevistó a {{ participant.first_name }}, su coordinador y el equipo de cuidado.</p>
+  {% else %}
+  <p class="aside-note">Algunas preguntas son confidenciales y llevan su etiqueta: las leen su coordinador y el equipo del campamento.</p>
+  {% endif %}
 {% endif %}
 
 <form method="post" class="decision" novalidate>

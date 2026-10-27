@@ -32,11 +32,11 @@ STEPS = ["Procedimientos de la iglesia", "Cuestionario", "Camperos", "Equipo", "
 LISTO = '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Listo</span>'
 REVISAR = '<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>Revisar</span>'
 APAGADOS = '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Apagados</span>'
-SECTIONS = ["procedimientos", "datos", "cortes", "privacidad", "cuestionario", "computadoras"]
+# The questionnaires are chosen in Cuestionarios (several per event): Configuración only links there.
+SECTIONS = ["procedimientos", "datos", "cortes", "privacidad", "computadoras"]
 GROUPS = {
     "cortes": {"time_zone", "reports_enabled", "report_interval_minutes", "report_window_start", "report_window_end"},
     "privacidad": {"adult_age", "requires_guardian_authorization", "min_group_size", "retention_days", "privacy_notice", "safeguarding_instructions"},
-    "cuestionario": {"questionnaire_version"},
 }
 
 
@@ -304,15 +304,15 @@ class SettingsSectionsTests(CampFixture):
         self.assertEqual(re.findall(r'<li><a href="#([^"]+)">', nav.group(1)), SECTIONS)
         self.assertEqual(
             re.findall(r'<a href="#[^"]+">([^<]+)</a>', nav.group(1)),
-            ["Procedimientos", "Datos del evento", "Cortes", "Privacidad y protección", "Cuestionario", "Computadoras"],
+            ["Procedimientos", "Datos del evento", "Cortes", "Privacidad y protección", "Computadoras"],
         )
         self.assertNotIn("admin-split", html)  # one column
 
-    def test_the_settings_form_holds_three_fieldsets_and_every_field_once(self):
+    def test_the_settings_form_holds_two_fieldsets_and_every_field_once(self):
         html = self.page()
         (tag, body), = self.forms(html)["settings"]
         self.assertIn("data-guard", tag)
-        self.assertEqual(body.count("<fieldset"), 3)
+        self.assertEqual(body.count("<fieldset"), 2)
         self.assertEqual(html.count('name="cfg-'), len(EventSettingsForm(instance=self.event).fields))
         for section, names in GROUPS.items():
             match = re.search(rf'<section class="admin-section[^"]*" id="{section}"[^>]*>(.*?)</section>', body, re.S)
@@ -320,7 +320,7 @@ class SettingsSectionsTests(CampFixture):
             self.assertIn("<fieldset", match.group(1))
             self.assertEqual(set(re.findall(r'name="cfg-(\w+)"', match.group(1))), names, section)
         self.assertEqual(body.count("btn--primary"), 1)
-        self.assertIn('<button class="btn btn--primary" type="submit">Guardar cortes, privacidad y cuestionario</button>', body)
+        self.assertIn('<button class="btn btn--primary" type="submit">Guardar cortes y privacidad</button>', body)
 
     def test_the_event_data_form_is_guarded_and_the_computers_are_not(self):
         Event.objects.filter(pk=self.event.pk).update(procedures_approved_at=None)
@@ -347,7 +347,7 @@ class SettingsSectionsTests(CampFixture):
     def test_saving_the_settings_comes_back_to_cortes_and_keeps_every_field(self):
         self.login(self.admin)
         changes = {
-            "time_zone": "America/Cancun", "questionnaire_version": None, "reports_enabled": False, "report_interval_minutes": 240,
+            "time_zone": "America/Cancun", "reports_enabled": False, "report_interval_minutes": 240,
             "report_window_start": time(9), "report_window_end": time(19), "adult_age": 21, "requires_guardian_authorization": False,
             "min_group_size": 7, "retention_days": 90, "privacy_notice": "Aviso nuevo.", "safeguarding_instructions": "Llama a Ana.",
         }

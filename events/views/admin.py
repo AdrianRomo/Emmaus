@@ -9,7 +9,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Prefetch, Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -25,6 +25,7 @@ from core.services import send_email_safely
 
 from ..access import resolve_access
 from ..forms import (
+    ConfidentialLevelForm,
     EventForm,
     EventSettingsForm,
     ImportForm,
@@ -33,6 +34,8 @@ from ..forms import (
     OptionForm,
     ProceduresForm,
     QuestionForm,
+    QuestionnaireForm,
+    QuestionnaireOrderForm,
     SectionForm,
 )
 from ..models import (
@@ -49,25 +52,108 @@ from ..models import (
     ParticipantSession,
     Question,
     QuestionOption,
+    Questionnaire,
     QuestionnaireVersion,
     Section,
     TutorAssignment,
     normalize_name,
 )
 from ..services import audit
+from ..services import event_questionnaires as eq
 from ..services import interviews as interview_svc
 from ..services import participants as participant_svc
 from ..services import team as team_svc
 from ..services.audit import ACTION_LABELS
-from ..services.questionnaire import all_questions, build_steps, describe_answer, duplicate_version, load_answers, publish_version
+from ..services.questionnaire import (
+    all_questions,
+    build_steps,
+    create_questionnaire,
+    describe_answer,
+    duplicate_version,
+    load_answers,
+    publish_version,
+)
 from ..services.metrics import local_tz
 from ..templatetags.emmaus import MESES
-from .common import ADMIN, event_view
+from .common import ADMIN, PASTOR, event_view
 
 IMPORT_SESSION_KEY = "import_preview"
 
 
 # ---- participants ---------------------------------------------------------------------------
+
+# "Camperos" table: ?orden= (column) and ?dir= (asc/desc). Anything else is the default, by name. The name always
+# breaks ties; a campero without a sede or a coordinador goes last either way.
+PARTICIPANT_SORTS = {
+    "numero": ("number",),
+    "nombre": ("full_name",),
+    "edad": ("age",),
+    "cuarto": ("room",),
+    "grupo": ("church_group",),
+    "sede": ("sede__name",),
+    "coordinador": ("coordinator__user__first_name", "coordinator__user__last_name"),
+    "entrevista": ("interview_status",),
+}
+NULLABLE_SORT_FIELDS = {"sede__name", "coordinator__user__first_name", "coordinator__user__last_name"}
+PARTICIPANT_COLUMNS = [  # (orden, header, cell class); "sede" only when the church has sedes
+    ("numero", "#", "num"),
+    ("nombre", "Nombre", ""),
+    ("edad", "Edad", "num"),
+    ("cuarto", "Cuarto", ""),
+    ("grupo", "Iglesia o grupo", ""),
+    ("sede", "Sede", ""),
+    ("coordinador", "Coordinador", ""),
+    ("entrevista", "Entrevista", ""),
+]
+
+
+def _participant_sort(params) -> tuple[str, str]:
+    """(orden, dir) asked for, or ("", "asc"): the default order, by name."""
+    key = params.get("orden", "")
+    if key not in PARTICIPANT_SORTS:
+        return "", "asc"
+    return key, "desc" if params.get("dir") == "desc" else "asc"
+
+
+def _participant_ordering(key: str, direction: str) -> list:
+    if not key:
+        return ["full_name"]
+    ordering = []
+    for name in PARTICIPANT_SORTS[key]:
+        expression = F(name)
+        if name in NULLABLE_SORT_FIELDS:
+            ordering.append(expression.desc(nulls_last=True) if direction == "desc" else expression.asc(nulls_last=True))
+        else:
+            ordering.append(expression.desc() if direction == "desc" else expression.asc())
+    if key != "nombre":
+        ordering.append(F("full_name").asc())
+    return ordering
+
+
+def _participant_columns(params, key: str, direction: str, *, with_sede: bool) -> list[dict]:
+    """The table's headers: each one a link that sorts by it (the active one flips its direction), keeping the
+    search and the filters and starting again at page 1."""
+    kept = params.copy()
+    for name in ("orden", "dir", "pagina"):
+        kept.pop(name, None)
+    columns = []
+    for column, label, css in PARTICIPANT_COLUMNS:
+        if column == "sede" and not with_sede:
+            continue
+        active = column == key
+        query = kept.copy()
+        query["orden"] = column
+        query["dir"] = ("asc" if direction == "desc" else "desc") if active else "asc"
+        columns.append({
+            "key": column,
+            "label": label,
+            "css": css,
+            "url": "?" + query.urlencode(),
+            "active": active,
+            "direction": direction if active else "",
+            "aria_sort": ("descending" if direction == "desc" else "ascending") if active else "",
+        })
+    return columns
 
 
 @event_view(ADMIN, MembershipRole.PASTOR, MembershipRole.TUTOR)
@@ -99,12 +185,15 @@ def participants(request, event, access):
         qs = qs.filter(sede__isnull=True)
     elif sede.isascii() and sede.isdigit():
         qs = qs.filter(sede_id=int(sede))
-    page = Paginator(qs.order_by("full_name"), 50).get_page(request.GET.get("pagina"))
+    sort_key, sort_dir = _participant_sort(request.GET)
+    qs = eq.annotate_questionnaire_progress(qs, event)  # "1 de 2 cuestionarios" for a campero partly done
+    page = Paginator(qs.order_by(*_participant_ordering(sort_key, sort_dir)), 50).get_page(request.GET.get("pagina"))
     return render(
         request,
         "events/admin/participants.html",
         {
             "page": page,
+            "columns": _participant_columns(request.GET, sort_key, sort_dir, with_sede=bool(sede_options)),
             "query": query,
             "selected": {"estado": status, "coordinador": coordinator, "participa": active, "sede": sede},
             "sede_options": sede_options,
@@ -169,15 +258,27 @@ def participant_export(request, event, access):
     response.write("﻿")  # Excel opens UTF-8 correctly with a BOM
     writer = csv.writer(response)
     writer.writerow(["Número", "Nombre", "Edad", "Cuarto", "Iglesia o grupo", "Sede", "Coordinador", "Entrevista", "Participa", "Registro"])
-    for p in access.participants(include_inactive=True).select_related("coordinator__user", "sede").order_by("number"):
+    rows = eq.annotate_questionnaire_progress(
+        access.participants(include_inactive=True).select_related("coordinator__user", "sede"), event
+    ).order_by("number")
+    for p in rows:
         writer.writerow([_safe_cell(value) for value in [
             p.code, p.full_name, p.age, p.room, p.church_group, p.sede.name if p.sede else "",
             p.coordinator.display_name if p.coordinator else "",
-            p.get_interview_status_display(), "Sí" if p.is_active else "No",
+            _interview_cell(p), "Sí" if p.is_active else "No",
             timezone.localtime(p.created_at).strftime("%d/%m/%Y %H:%M"),
         ]])
     audit.record(request.user, event, "exportacion", "Descargó la lista de camperos (sin respuestas)", None, kind="lista")
     return response
+
+
+def _interview_cell(participant) -> str:
+    """The "Entrevista" cell: "1 de 2 cuestionarios" for a campero who answered some of the event's questionnaires
+    and has none in progress; the status otherwise (as with a single questionnaire)."""
+    total, done = participant.questionnaire_total, participant.done_count
+    if participant.interview_status == InterviewStatus.PENDING and total > 1 and done:
+        return f"{done} de {total} cuestionarios"
+    return participant.get_interview_status_display()
 
 
 # The place a family recognises in "hora de ...", for the zones an event can choose (forms.MEXICO_TIME_ZONES).
@@ -217,18 +318,8 @@ def participant_data_export(request, event, access, public_id):
     participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
     if not access.can_view_sensitive:
         raise PermissionDenied
-    interview = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
-    answers = []
-    if interview:
-        values = load_answers(interview)
-        answered_at = dict(interview.answers.values_list("question_id", "updated_at"))
-        for question in all_questions(interview.version):
-            if question.id in values:
-                answers.append({
-                    "pregunta": question.text,
-                    "respuesta": describe_answer(question, values[question.id]),
-                    "fecha": _family_date(answered_at.get(question.id), event),
-                })
+    kept = list(participant.interviews.exclude(status=Interview.Status.DISCARDED).select_related("version"))  # newest first
+    interview = kept[0] if kept else None
     data = {
         "evento": event.name,
         "número de campero": participant.code,
@@ -237,22 +328,45 @@ def participant_data_export(request, event, access, public_id):
         "cuarto": participant.room,
         "iglesia o grupo": participant.church_group,
         "fecha de registro": _family_date(participant.created_at, event),
-        "entrevista": {
-            "estado": interview.get_status_display() if interview else "Sin entrevista",
-            "versión del cuestionario": interview.version.number if interview else None,
-            "fecha en que se completó": _family_date(interview.completed_at, event) if interview else "",
-            "respuestas": answers,
-        },
+        "entrevista": _interview_record(interview, event),
         # The notes are the campero's own data: for a withdrawn authorization, the reason it was withdrawn.
         "autorizaciones": [
             {"tipo": c.get_kind_display(), "estado": c.get_status_display(), "fecha": _family_date(c.recorded_at, event), "notas": c.notes}
             for c in participant.consents.all()
         ],
     }
+    if len(kept) > 1:
+        # Several questionnaires: "entrevista" stays the newest (as with one), "entrevistas" holds every one, oldest first.
+        data["entrevistas"] = [
+            {"cuestionario": i.version.title, **_interview_record(i, event)} for i in sorted(kept, key=lambda i: i.started_at)
+        ]
     audit.record(request.user, event, "exportacion", f"Descargó los datos completos del campero #{participant.code}", participant, kind="individual")
     response = HttpResponse(json.dumps(data, ensure_ascii=False, indent=2), content_type="application/json; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="campero-{participant.code}.json"'
     return response
+
+
+def _interview_record(interview, event) -> dict:
+    """One interview in a person's export: its status, version, completion date and every answer."""
+    if interview is None:
+        return {"estado": "Sin entrevista", "versión del cuestionario": None, "fecha en que se completó": "", "respuestas": []}
+    values = load_answers(interview)
+    answered_at = dict(interview.answers.values_list("question_id", "updated_at"))
+    answers = [
+        {
+            "pregunta": question.text,
+            "respuesta": describe_answer(question, values[question.id]),
+            "fecha": _family_date(answered_at.get(question.id), event),
+        }
+        for question in all_questions(interview.version)
+        if question.id in values
+    ]
+    return {
+        "estado": interview.get_status_display(),
+        "versión del cuestionario": interview.version.number,
+        "fecha en que se completó": _family_date(interview.completed_at, event),
+        "respuestas": answers,
+    }
 
 
 class ParticipantDeleteForm(forms.Form):
@@ -582,10 +696,102 @@ def assignments(request, event, access):
 
 @event_view(ADMIN)
 def questionnaires(request, event, access):
-    versions = QuestionnaireVersion.objects.filter(questionnaire__church=event.church).select_related("questionnaire").annotate(
-        uses=Count("interviews")
+    """The event's questionnaires (order, "in order" box, remove) and every questionnaire of the church by version."""
+    if request.method == "POST":
+        return _questionnaires_post(request, event)
+    links = eq.links_for(event)
+    in_use_version_ids = {link.version_id for link in links}
+    versions = QuestionnaireVersion.objects.filter(questionnaire__church=event.church).annotate(uses=Count("interviews"))
+    # "En este evento" counts this event's interviews; "Todos los cuestionarios" (``versions``) every event's.
+    here = dict(
+        Interview.objects.filter(event=event, version_id__in=in_use_version_ids).values_list("version_id").annotate(n=Count("id"))
     )
-    return render(request, "events/admin/questionnaires.html", {"versions": versions})
+    for link in links:
+        link.uses = here.get(link.version_id, 0)
+    church_questionnaires = list(
+        Questionnaire.objects.filter(church=event.church).prefetch_related(
+            Prefetch("versions", queryset=versions.order_by("-number"), to_attr="listed_versions")
+        )
+    )
+    linked_questionnaire_ids = {link.questionnaire_id for link in links}
+    for questionnaire in church_questionnaires:
+        for version in questionnaire.listed_versions:
+            version.in_use = version.id in in_use_version_ids
+            # "Usar" on it replaces the version of this questionnaire the event uses now, in the same place
+            version.replaces_other = not version.in_use and questionnaire.id in linked_questionnaire_ids
+    return render(
+        request,
+        "events/admin/questionnaires.html",
+        {
+            "links": links,
+            "order_form": QuestionnaireOrderForm(initial={"questionnaires_in_order": event.questionnaires_in_order}),
+            "questionnaires": church_questionnaires,
+            "version_count": sum(len(q.listed_versions) for q in church_questionnaires),
+            "in_use_version_ids": in_use_version_ids,
+        },
+    )
+
+
+def _questionnaires_post(request, event):
+    """Row actions of "En este evento" (Subir, Bajar, Quitar) and the "in order" box. Post, record, come back."""
+    action = request.POST.get("action")
+    back = redirect("events:questionnaires", slug=event.slug)
+    if action == "order":
+        if len(eq.links_for(event)) < 2:
+            return back  # the box is drawn only with two or more questionnaires: nothing to save or record
+        form = QuestionnaireOrderForm(request.POST)
+        form.is_valid()  # a box: unchecked is a valid False
+        in_order = bool(form.cleaned_data.get("questionnaires_in_order"))
+        eq.set_in_order(event, in_order)
+        summary = "Los cuestionarios se responden en orden" if in_order else "Los cuestionarios se responden en cualquier orden"
+        audit.record(request.user, event, "evento_configurado", summary, event, form="cuestionarios")
+        messages.success(request, "Orden guardado.")
+        return back
+    if action not in ("remove", eq.UP, eq.DOWN):
+        raise Http404
+    raw = request.POST.get("questionnaire", "")
+    link = None
+    if raw.isascii() and raw.isdigit():
+        link = next((candidate for candidate in eq.links_for(event) if candidate.questionnaire_id == int(raw)), None)
+    if link is None:
+        raise Http404  # not a questionnaire this event uses
+    title = link.version.title
+    if action == "remove":
+        try:
+            eq.stop_using(event, link.questionnaire_id)
+        except ValueError as exc:  # the last questionnaire of an event that already has interviews
+            messages.error(request, str(exc))
+            return back
+        audit.record(request.user, event, "cuestionario", f"Dejó de usar «{title}» en este evento", link.version)
+        messages.success(request, f"«{title}» ya no se usa en este evento. Las entrevistas hechas se conservan.")
+        return back
+    eq.move(event, link.questionnaire_id, action)
+    place = next((l.order for l in eq.links_for(event) if l.questionnaire_id == link.questionnaire_id), link.order)
+    if place != link.order:
+        audit.record(request.user, event, "cuestionario", f"Movió «{title}» al lugar {place}", link.version)
+    return back
+
+
+@event_view(ADMIN)
+def questionnaire_create(request, event, access):
+    """"Nuevo cuestionario": a questionnaire of the church with its version 1, an empty draft to fill in."""
+    form = QuestionnaireForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        name = form.cleaned_data["name"]
+        version = create_questionnaire(
+            event.church,
+            name=name,
+            title=form.cleaned_data["title"],
+            intro_text=form.cleaned_data["intro_text"],
+            actor=request.user,
+        )
+        audit.record(request.user, event, "cuestionario", f"Creó el cuestionario «{name}»", version)
+        messages.success(
+            request,
+            "Cuestionario creado como borrador. Agrega secciones y preguntas; cuando esté listo, publícalo y úsalo en este evento.",
+        )
+        return redirect("events:version_detail", slug=event.slug, version_id=version.id)
+    return render(request, "events/admin/questionnaire_form.html", {"form": form})
 
 
 def _version_for(event, version_id) -> QuestionnaireVersion:
@@ -612,10 +818,22 @@ def version_detail(request, event, access, version_id):
                 messages.success(request, f"Versión {version.number} publicada. Ya no se puede modificar.")
             return redirect("events:version_detail", slug=event.slug, version_id=version.id)
         if action == "use" and version.status == QuestionnaireVersion.Status.PUBLISHED:
-            event.questionnaire_version = version
-            event.save(update_fields=["questionnaire_version", "updated_at"])
+            swapped = _linked_other(event, version) is not None
+            eq.use_version(event, version, actor=request.user)
             audit.record(request.user, event, "cuestionario", f"Usará la versión {version.number} en entrevistas nuevas", version)
-            messages.success(request, "Las entrevistas nuevas usarán esta versión. Las anteriores conservan la suya.")
+            if swapped:
+                messages.success(request, "Las entrevistas nuevas usarán esta versión. Las anteriores conservan la suya.")
+            else:
+                messages.success(request, "Este cuestionario se agregó al evento. Las entrevistas nuevas lo incluirán.")
+            return redirect("events:version_detail", slug=event.slug, version_id=version.id)
+        if action == "stop" and _in_use(event, version):
+            try:
+                eq.stop_using(event, version.questionnaire_id)
+            except ValueError as exc:  # the last questionnaire of an event that already has interviews
+                messages.error(request, str(exc))
+                return redirect("events:version_detail", slug=event.slug, version_id=version.id)
+            audit.record(request.user, event, "cuestionario", f"Dejó de usar «{version.title}» en este evento", version)
+            messages.success(request, "Este cuestionario ya no se usa en el evento. Las entrevistas hechas se conservan.")
             return redirect("events:version_detail", slug=event.slug, version_id=version.id)
         if action == "delete_question" and version.is_editable:
             question = Question.objects.filter(pk=request.POST.get("question") or 0, section__version=version).first()
@@ -632,7 +850,25 @@ def version_detail(request, event, access, version_id):
     return render(
         request,
         "events/admin/version_detail.html",
-        {"version": version, "sections": sections, "steps": build_steps(version), "in_use": event.questionnaire_version_id == version.id},
+        {
+            "version": version,
+            "sections": sections,
+            "steps": build_steps(version),
+            "in_use": _in_use(event, version),
+            "linked_other": _linked_other(event, version),
+            "questionnaire_count": event.questionnaire_count,
+        },
+    )
+
+
+def _in_use(event, version) -> bool:
+    return any(link.version_id == version.id for link in eq.links_for(event))
+
+
+def _linked_other(event, version):
+    """The event's link to another version of the same questionnaire (it uses that one instead), or None."""
+    return next(
+        (l for l in eq.links_for(event) if l.questionnaire_id == version.questionnaire_id and l.version_id != version.id), None
     )
 
 
@@ -730,6 +966,36 @@ def settings_view(request, event, access):
         request,
         "events/admin/settings.html",
         {"basics": basics, "settings_form": settings_form, "procedures": procedures, "stations": event.stations.all()},
+    )
+
+
+@event_view(ADMIN, PASTOR)
+def confidential_level(request, event, access):
+    """Who reads the answers marked "Confidencial" in this event. The only screen of this module a pastor opens:
+    the decision belongs to administración or pastoral. Opening it reaches only the interviews that start afterwards
+    (Interview.confidential_level); closing it applies at once (EventAccess.can_view_answer)."""
+    form = ConfidentialLevelForm(request.POST or None, initial={"confidential_level": event.confidential_level})
+    if request.method == "POST" and form.is_valid():
+        level = form.cleaned_data["confidential_level"]
+        if level != event.confidential_level:
+            event.confidential_level = level
+            event.save(update_fields=["confidential_level", "updated_at"])
+            label = event.get_confidential_level_display()
+            audit.record(request.user, event, "acceso_confidencial", f"Las respuestas confidenciales las lee: {label}", event, level=level)
+        if level != Event.ConfidentialLevel.CARE:
+            messages.success(request, "Guardado. Revisa que el aviso de privacidad del evento diga lo mismo.")
+        else:
+            messages.success(request, "Guardado.")
+        return redirect("events:confidential_level", slug=event.slug)
+    back_url, back_label = (
+        (reverse("events:settings", args=[event.slug]), "Configuración")
+        if access.is_admin
+        else (reverse("events:pastor_home", args=[event.slug]), "Resumen general")
+    )
+    return render(
+        request,
+        "events/admin/confidential_level.html",
+        {"form": form, "back_url": back_url, "back_label": back_label},
     )
 
 

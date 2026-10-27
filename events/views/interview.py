@@ -11,6 +11,7 @@ from django.utils.http import urlencode
 from ..forms import DiscardForm, InterviewStartForm, SafetyReportForm
 from ..models import FollowUp, Interview, InterviewStatus, Question
 from ..services import audit
+from ..services import event_questionnaires as eq
 from ..services import interviews as svc
 from ..services.questionnaire import (
     build_steps,
@@ -126,7 +127,7 @@ def interview_search(request, event, access):
     if station is None and event.stations.filter(is_active=True).exists():
         return redirect(f"{reverse('events:choose_station', args=[event.slug])}?siguiente={request.path}")
     query = (request.GET.get("q") or "").strip()
-    participants = access.participants().annotate(
+    participants = eq.annotate_questionnaire_progress(access.participants(), event).annotate(
         rank=Case(
             When(interview_status=InterviewStatus.IN_PROGRESS, then=Value(0)),
             When(interview_status=InterviewStatus.PENDING, then=Value(1)),
@@ -164,17 +165,33 @@ def interview_start(request, event, access, public_id):
     participant = get_object_or_404(access.participants(), public_id=public_id)
     if not access.can_interview(participant):
         raise PermissionDenied
-    existing = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
-    if existing and existing.status == Interview.Status.IN_PROGRESS:
-        return redirect("events:interview_resume", slug=event.slug, public_id=existing.public_id)
-    if existing and existing.status == Interview.Status.COMPLETED:
-        messages.info(request, f"{participant.full_name} ya tiene su entrevista completada.")
-        return redirect("events:interview_detail", slug=event.slug, public_id=existing.public_id)
+    live = participant.interviews.filter(status=Interview.Status.IN_PROGRESS).first()
+    if live:
+        return redirect("events:interview_resume", slug=event.slug, public_id=live.public_id)
+    links = eq.links_for(event)
+    progress = eq.progress_for(participant, links)
+    pending = [row.link for row in progress if row.state == eq.PENDING]
+    if links and all(row.state == eq.COMPLETED for row in progress):
+        newest = max((row.interview for row in progress), key=lambda interview: interview.completed_at or interview.started_at)
+        if len(links) > 1:
+            messages.info(request, f"{participant.full_name} ya respondió todos los cuestionarios.")
+        else:
+            messages.info(request, f"{participant.full_name} ya tiene su entrevista completada.")
+        return redirect("events:interview_detail", slug=event.slug, public_id=newest.public_id)
     requirements = svc.consent_requirements(participant)
-    form = InterviewStartForm(request.POST or None, requirements=requirements)
+    # The questionnaires the campero can start now; with two or more the form asks which one ("Continuar con …"
+    # on the done page preselects it with ?cuestionario=<id>).
+    choices = [(str(link.questionnaire_id), link.version.title) for link in pending]
+    asked = request.GET.get("cuestionario", "")
+    initial = {"questionnaire": asked} if asked in {value for value, _ in choices} else {}
+    form = InterviewStartForm(request.POST or None, requirements=requirements, questionnaire_choices=choices, initial=initial)
     blockers = svc.event_blockers(event)
     station = current_station(request, event)
     if request.method == "POST" and form.is_valid() and not blockers:
+        # The questionnaire the page named when it was rendered, even when the form no longer asks: if another computer
+        # completed it meanwhile, the service says so instead of starting the other one without a word.
+        posted = request.POST.get("questionnaire", "")
+        chosen = int(posted) if posted.isascii() and posted.isdigit() else form.chosen_questionnaire_id()
         try:
             interview = svc.start_interview(
                 access,
@@ -183,6 +200,7 @@ def interview_start(request, event, access, public_id):
                 station=station,
                 confirmed_consents=form.confirmed(),
                 session=request.session,
+                questionnaire=chosen,
             )
         except (svc.AlreadyInProgress, svc.AlreadyCompleted) as exc:
             messages.warning(request, exc.message)
@@ -196,6 +214,15 @@ def interview_start(request, event, access, public_id):
                 return redirect("events:interview_handoff", slug=event.slug, public_id=interview.public_id)
             first = build_steps(interview.version)[0]
             return redirect("events:interview_step", slug=event.slug, public_id=interview.public_id, number=first.number)
+    # With one questionnaire the page is the one it always was: none of these is shown.
+    several = len(links) > 1
+    next_title = after_title = ""
+    if several and len(pending) == 1:
+        next_title = pending[0].version.title
+        if event.questionnaires_in_order:
+            index = next(i for i, row in enumerate(progress) if row.link == pending[0])
+            after = next((row for row in progress[index + 1:] if row.state == eq.BLOCKED), None)
+            after_title = after.link.version.title if after else ""
     return render(
         request,
         "events/interview/start.html",
@@ -206,6 +233,12 @@ def interview_start(request, event, access, public_id):
             "blockers": blockers,
             "station": station,
             "privacy_notice": event.privacy_notice,
+            "questionnaire_rows": progress if several else [],
+            "ask_questionnaire": "questionnaire" in form.fields,
+            "done_titles": ", ".join(row.link.version.title for row in progress if row.state == eq.COMPLETED) if several else "",
+            "next_title": next_title,
+            "next_questionnaire_id": pending[0].questionnaire_id if next_title else None,
+            "after_title": after_title,
         },
     )
 
@@ -393,10 +426,23 @@ def interview_done(request, event, access, public_id):
         return _resume(request, event, access, interview, reopen=False)
     follow_up = interview.follow_ups.filter(kind=FollowUp.Kind.CARE, confidential=False).exclude(status=FollowUp.Status.CANCELLED).first()
     remaining = access.participants().exclude(interview_status=InterviewStatus.COMPLETED).count()
+    participant = interview.participant
+    # The campero's other questionnaires: how many are still unanswered, and the ones that can start now (in order,
+    # only the next one). Empty for a one-questionnaire event, so the page is the one it always was.
+    progress = eq.progress_for(participant)
+    missing = sum(1 for row in progress if row.state != eq.COMPLETED)
+    next_links = [row.link for row in progress if row.state == eq.PENDING] if access.can_interview(participant) else []
     return render(
         request,
         "events/interview/done.html",
-        {"interview": interview, "participant": interview.participant, "follow_up": follow_up, "remaining": remaining},
+        {
+            "interview": interview,
+            "participant": participant,
+            "follow_up": follow_up,
+            "remaining": remaining,
+            "next_links": next_links,
+            "questionnaires_missing": missing,
+        },
     )
 
 
@@ -517,7 +563,22 @@ def interview_correct(request, event, access, public_id, number):
         if not errors:
             messages.success(request, "Corrección guardada. El cambio quedó registrado.")
             return redirect("events:interview_detail", slug=event.slug, public_id=public_id)
-    context = step_context(interview, step, errors={k: v for k, v in errors.items() if k != "reason"}, posted=request.POST if errors else None)
+    answers = load_answers(interview)
+    if request.method == "GET":
+        # The screen shows the answers it lets this person correct (correctable_step): reading a confidential one is
+        # recorded as on the interview page, which happens when the event's level opens them to the coordinator.
+        confidential_shown = [
+            q for q in step.questions
+            if q.sensitivity == Question.Sensitivity.CONFIDENTIAL and answers.get(q.id) is not None and not answers[q.id].is_empty
+        ]
+        if confidential_shown:
+            audit.record(
+                request.user, event, "consulta_confidencial",
+                f"Consultó respuestas confidenciales del campero #{interview.participant.code}", interview,
+            )
+    context = step_context(
+        interview, step, errors={k: v for k, v in errors.items() if k != "reason"}, posted=request.POST if errors else None, answers=answers
+    )
     context.update(
         {
             "participant": interview.participant,
@@ -534,7 +595,14 @@ def interview_correct(request, event, access, public_id, number):
 @event_view()
 def safety_report(request, event, access, participant_id):
     participant = get_object_or_404(access.participants(include_inactive=True), public_id=participant_id)
-    interview = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
+    # The interview the report belongs to: the live one this browser holds, else the campero's live one, else
+    # their newest (with several questionnaires the newest started may not be the one on screen).
+    live = list(participant.interviews.filter(status=Interview.Status.IN_PROGRESS))
+    interview = (
+        next((it for it in live if it.lock_matches(svc.session_claim_token(request.session, it))), None)
+        or (live[0] if live else None)
+        or participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
+    )
     # "Cancelar" and the redirect after sending go back where the person came from. The only page
     # they may go back to other than the camper record is this interview's review, and only while
     # this browser holds the interview: opening the review claims it, which a tutor cannot do and an

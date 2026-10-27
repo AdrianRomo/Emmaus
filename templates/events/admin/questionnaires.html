@@ -2,24 +2,63 @@
 {% load emmaus %}
 {% block page_title %}Cuestionarios{% endblock %}
 {% block content %}
-{% include "events/rotulo/_page_head.html" with title="Cuestionarios" lede="Una versión publicada ya no se modifica, para que las respuestas anteriores conserven su significado. Para cambiar preguntas, crea una versión nueva." %}
-<section class="admin-narrow" aria-labelledby="versiones">
-  <h2 id="versiones" class="heading">Versiones <span class="count">{{ versions|length }}</span></h2>
-  {% if versions %}
-    <ul class="rows">
-      {% for v in versions %}
+{% url 'events:questionnaire_create' event.slug as create_url %}
+{% include "events/rotulo/_page_head.html" with title="Cuestionarios" lede="Una versión publicada ya no se modifica, para que las respuestas anteriores conserven su significado. Para cambiar preguntas, crea una versión nueva." action_url=create_url action_label="Nuevo cuestionario" %}
+{% comment %}
+  "En este evento": the questionnaires the camperos answer, in order (EventQuestionnaire, services.event_questionnaires).
+  Each row moves up, down or out with a small form of its own (Subir is absent on the first, Bajar on the last). The
+  "in this order" box exists only with two or more: with one questionnaire the page asks nothing new.
+{% endcomment %}
+<section class="admin-narrow" aria-labelledby="en-este-evento">
+  <h2 id="en-este-evento" class="heading">En este evento <span class="count">{{ links|length }}</span></h2>
+  {% if links %}
+    <ol class="rows admin-questions">
+      {% for link in links %}
         <li class="row">
           <div class="row__main">
-            <p class="row__title"><a class="row__link" href="{% url 'events:version_detail' event.slug v.id %}">{{ v.title }}, versión {{ v.number }}</a></p>
-            <p class="row__meta">{{ v.questionnaire.name }}, {{ v.uses }} entrevista{{ v.uses|pluralize }}{% if v.published_at %}, publicada el {{ v.published_at|fecha_corta }}{% endif %}.</p>
+            <p class="row__title"><a class="row__link" href="{% url 'events:version_detail' event.slug link.version_id %}">{{ link.version.title }}</a></p>
+            <p class="row__meta">{{ link.questionnaire.name }}, versión {{ link.version.number }}, {{ link.uses }} entrevista{{ link.uses|pluralize }}.</p>
           </div>
-          <div class="row__end">
-            {% if event.questionnaire_version_id == v.id %}{% status "completada" "En uso" %}{% endif %}
-            {% status v.status v.get_status_display %}
+          <div class="row__end admin-questions__actions">
+            {% if not forloop.first %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="subir"><input type="hidden" name="questionnaire" value="{{ link.questionnaire_id }}"><button class="btn btn--secondary btn--small" type="submit">Subir<span class="visually-hidden"> {{ link.version.title }}</span></button></form>{% endif %}
+            {% if not forloop.last %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="bajar"><input type="hidden" name="questionnaire" value="{{ link.questionnaire_id }}"><button class="btn btn--secondary btn--small" type="submit">Bajar<span class="visually-hidden"> {{ link.version.title }}</span></button></form>{% endif %}
+            <form method="post">{% csrf_token %}<input type="hidden" name="action" value="remove"><input type="hidden" name="questionnaire" value="{{ link.questionnaire_id }}"><button class="btn btn--link btn--small" type="submit" data-confirm="¿Quitar «{{ link.version.title }}» de este evento?{% if links|length == 1 %} Es su único cuestionario: sin él no se pueden iniciar entrevistas.{% endif %} Las entrevistas hechas se conservan.">Quitar<span class="visually-hidden"> {{ link.version.title }}</span></button></form>
           </div>
         </li>
       {% endfor %}
-    </ul>
+    </ol>
+    {% if links|length >= 2 %}
+      <form method="post" class="mt-4" novalidate>
+        {% csrf_token %}<input type="hidden" name="action" value="order">
+        {% include "partials/ui/field.html" with field=order_form.questionnaires_in_order %}
+        <button class="btn btn--secondary" type="submit">Guardar</button>
+      </form>
+    {% endif %}
+  {% else %}
+    <p class="empty-line">Este evento todavía no usa ningún cuestionario. Publica uno y elige «Usar en este evento».</p>
+  {% endif %}
+</section>
+<section class="admin-narrow admin-section" aria-labelledby="versiones">
+  <h2 id="versiones" class="heading">Versiones <span class="count">{{ version_count }}</span></h2>
+  {% if questionnaires %}
+    {% for q in questionnaires %}
+      <h3 class="heading mt-6">{{ q.name }}</h3>
+      <ul class="rows admin-rows">
+        {% for v in q.listed_versions %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'events:version_detail' event.slug v.id %}">{{ v.title }}, versión {{ v.number }}</a></p>
+              <p class="row__meta">{{ v.uses }} entrevista{{ v.uses|pluralize }}{% if v.published_at %}, publicada el {{ v.published_at|fecha_corta }}{% endif %}.</p>
+            </div>
+            <div class="row__end">
+              {% if v.in_use %}{% status "completada" "En uso" %}{% endif %}
+              {% status v.status v.get_status_display %}
+              {% if v.status == "publicada" and not v.in_use %}<form method="post" action="{% url 'events:version_detail' event.slug v.id %}">{% csrf_token %}<input type="hidden" name="action" value="use"><button class="btn btn--secondary btn--small" type="submit">{% if v.replaces_other %}Usar esta versión en este evento{% else %}Usar en este evento{% endif %}<span class="visually-hidden"> {{ v.title }}, versión {{ v.number }}</span></button></form>{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
   {% else %}
     <p class="empty-line">No hay cuestionarios. Al crear un campamento se prepara el cuestionario de conversación espiritual.</p>
   {% endif %}

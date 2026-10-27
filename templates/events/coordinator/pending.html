@@ -11,7 +11,7 @@
     {% if in_progress %}
       <ul class="rows">{% for iv in in_progress %}
         <li class="row">
-          <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">{{ iv.participant.room|cuarto }}, última actividad {{ iv.last_activity_at|since }}</p></div>
+          <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">{{ iv.participant.room|cuarto }}, última actividad {{ iv.last_activity_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p></div>
           <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
         </li>
       {% endfor %}</ul>
@@ -24,7 +24,8 @@
       <ul class="rows">{% for p in not_started %}
         <li class="row">
           <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p></div>
-          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>
+          {% if p.questionnaire_total > 1 and p.done_count %}<div class="row__end">{% campero_status p %}
+          {% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>{% if p.questionnaire_total > 1 and p.done_count %}</div>{% endif %}
         </li>
       {% endfor %}</ul>
     {% elif has_participants %}<p class="empty-line">No quedan entrevistas por iniciar. ¡Buen trabajo!</p>
@@ -36,7 +37,7 @@
     {% if to_evaluate %}
       <ul class="rows">{% for iv in to_evaluate %}
         <li class="row">
-          <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">Completada {{ iv.completed_at|since }}</p></div>
+          <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">Completada {{ iv.completed_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p></div>
           <a class="btn btn--secondary btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={% url 'events:coord_pending' event.slug %}#seguimiento">Decidir<span class="visually-hidden"> sobre {{ iv.participant.full_name }}</span></a>
         </li>
       {% endfor %}</ul>

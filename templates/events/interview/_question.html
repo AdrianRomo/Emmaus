@@ -7,7 +7,7 @@
       <legend class="question__follow-text">{{ q.question.text }}</legend>
     {% endif %}
     {% if q.question.help_text %}<p class="question__help" id="q{{ q.question.id }}-hint">{{ q.question.help_text }}</p>{% endif %}
-    {% if q.question.sensitivity == "confidencial" %}<p class="privacy"><span class="privacy__tag">Confidencial</span> Solo el equipo de cuidado autorizado podrá leer esta respuesta.</p>{% endif %}
+    {% if q.question.sensitivity == "confidencial" %}<p class="privacy"><span class="privacy__tag">Confidencial</span> {% if interview and interview.effective_confidential_level != "cuidado" %}Esta respuesta la leen {{ interview.confidential_readers_phrase }}.{% else %}Solo el equipo de cuidado autorizado podrá leer esta respuesta.{% endif %}</p>{% endif %}
     {% if q.error %}<p class="error-message" id="q{{ q.question.id }}-error">{{ q.error }}</p>{% endif %}
     <div class="choices" id="q{{ q.question.id }}">
       {% for o in q.options %}{% include "events/interview/_option.html" %}{% endfor %}
@@ -25,7 +25,7 @@
       <label class="question__follow-text" for="q{{ q.question.id }}">{{ q.question.text }}{% if not q.question.required %} <span class="optional">(opcional)</span>{% endif %}</label>
     {% endif %}
     {% if q.question.help_text %}<p class="question__help" id="q{{ q.question.id }}-hint">{{ q.question.help_text }}</p>{% endif %}
-    {% if q.question.sensitivity == "confidencial" %}<p class="privacy"><span class="privacy__tag">Confidencial</span> Solo el equipo de cuidado autorizado podrá leer esta respuesta.</p>{% endif %}
+    {% if q.question.sensitivity == "confidencial" %}<p class="privacy"><span class="privacy__tag">Confidencial</span> {% if interview and interview.effective_confidential_level != "cuidado" %}Esta respuesta la leen {{ interview.confidential_readers_phrase }}.{% else %}Solo el equipo de cuidado autorizado podrá leer esta respuesta.{% endif %}</p>{% endif %}
     {% if q.error %}<p class="error-message" id="q{{ q.question.id }}-error">{{ q.error }}</p>{% endif %}
     {% if q.is_long %}
       <textarea class="textarea" id="q{{ q.question.id }}" name="{{ q.name }}" rows="5" maxlength="{{ q.question.max_length }}" spellcheck="true"{% if q.question.help_text %} aria-describedby="q{{ q.question.id }}-hint"{% endif %}>{{ q.text }}</textarea>

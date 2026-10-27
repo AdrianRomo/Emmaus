@@ -4,6 +4,7 @@ from .models import (
     AuditEvent,
     Event,
     EventMembership,
+    EventQuestionnaire,
     EventParticipant,
     Interview,
     InterviewStation,
@@ -13,10 +14,20 @@ from .models import (
 )
 
 
+class EventQuestionnaireInline(admin.TabularInline):
+    """The event's questionnaires. Unlike "Usar en este evento" (services.event_questionnaires.use_version takes only a
+    published version), this can point an event at a draft: it is for repairs by whoever runs the server."""
+
+    model = EventQuestionnaire
+    fields = ("questionnaire", "version", "order")
+    extra = 0
+
+
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
     list_display = ("name", "church", "kind", "status", "starts_on")
     list_filter = ("status", "kind")
+    inlines = [EventQuestionnaireInline]
 
 
 @admin.register(EventMembership)

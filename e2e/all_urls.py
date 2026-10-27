@@ -19,7 +19,8 @@ done = Interview.objects.filter(participant__in=ana, status="completada").first(
 fu = FollowUp.objects.filter(participant__event=ev, kind=FollowUp.Kind.CARE, confidential=False).first()
 coord = EventMembership.objects.filter(event=ev, role=MembershipRole.COORDINATOR, user__email="ana.lopez@demo.invalid").first()
 snap = ReportSnapshot.objects.filter(event=ev, status="lista").order_by("-cutoff_at").first() or ReportSnapshot.objects.filter(event=ev).order_by("-cutoff_at").first()
-version = ev.questionnaire_version  # published: its page can be read, its questions cannot be edited
+versions = ev.questionnaire_versions()
+version = versions[0] if versions else None  # published: its page can be read, its questions cannot be edited
 draft = (QuestionnaireVersion.objects.filter(questionnaire=version.questionnaire, status=QuestionnaireVersion.Status.DRAFT).order_by("-number").first()
          or duplicate_version(version, get_user_model().objects.get(email="laura.mendez@demo.invalid")))
 question = draft.sections.first().questions.first()
@@ -37,11 +38,12 @@ pages = {
   "marta.rios@demo.invalid": [["t-equipo", u("tutor_home")], ["t-coordinadores", u("coordinators")], ["t-coordinador", u("coordinator_detail", coord.id)],
      ["t-entrevistas", u("interviews")], ["t-pendientes", u("pending")], ["t-reportes", u("reports")]],
   "ernesto.salas@demo.invalid": [["p-resumen", u("pastor_home")], ["p-avance", u("progress")], ["p-seguimientos", u("follow_ups")],
-     ["p-seguimiento", u("follow_up_detail", fu.id)], ["p-equipo", u("team")], ["p-reportes", u("reports")], ["p-corte", u("report_detail", snap.public_id)]],
+     ["p-seguimiento", u("follow_up_detail", fu.id)], ["p-equipo", u("team")], ["p-reportes", u("reports")], ["p-corte", u("report_detail", snap.public_id)],
+     ["p-confidencial", u("confidential_level")]],
   "laura.mendez@demo.invalid": [["a-inicio", u("admin_home")], ["a-participantes", u("participants")], ["a-importar", u("participant_import")],
      ["a-equipo", u("team")], ["a-agregar", u("member_add")], ["a-persona", u("member_edit", member.id)], ["a-asignaciones", u("assignments")],
-     ["a-cuestionarios", u("questionnaires")], ["a-version", u("version_detail", version.id)], ["a-pregunta", u("question_edit", draft.id, question.id)],
-     ["a-configuracion", u("settings")], ["a-actividad", u("audit")], ["a-sesiones", u("sessions")], ["a-eliminar", u("participant_delete", ana.first().public_id)],
+     ["a-cuestionarios", u("questionnaires")], ["a-cuestionario-nuevo", u("questionnaire_create")], ["a-version", u("version_detail", version.id)],
+     ["a-pregunta", u("question_edit", draft.id, question.id)], ["a-configuracion", u("settings")], ["a-confidencial", u("confidential_level")], ["a-actividad", u("audit")], ["a-sesiones", u("sessions")], ["a-eliminar", u("participant_delete", ana.first().public_id)],
      ["a-nuevo-evento", reverse("events:create")], ["a-codigo", u("join_code_sign")], ["a-sedes", u("sedes")], ["a-sede-nueva", u("sede_add")], ["a-sede", u("sede_edit", sede.id)]],
   "admin@example.org": [["d-panorama", reverse("church_dashboard")], ["d-participantes", reverse("participants_list")], ["d-invitaciones", reverse("invitations_list")],
      ["d-rutas", reverse("path_list")], ["d-ruta", reverse("path_detail", args=[path.id])], ["d-preguntas", reverse("questions_inbox")],

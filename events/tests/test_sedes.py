@@ -367,12 +367,13 @@ class SedeListTests(SedeFixture):
         self.login(self.admin)
         response = self.client.get(self.url("participants"))
         self.assertNotContains(response, 'name="sede"')
-        self.assertNotContains(response, "<th>Sede</th>", html=True)
+        self.assertNotContains(response, "orden=sede")  # no "Sede" column header (each header sorts by its column)
 
     def test_table_column_and_phone_sentence(self):
         self.login(self.admin)
         response = self.client.get(self.url("participants"))
-        self.assertContains(response, "<th>Sede</th>", html=True)
+        sede_header = '<th scope="col"><a href="?orden=sede&amp;dir=asc">Sede<span class="visually-hidden">, ordenar</span></a></th>'
+        self.assertContains(response, sede_header, html=True)
         self.assertContains(response, "<td>Mérida</td>", html=True)
         html = response.content.decode()
         self.assertIn('<p class="row__meta">Cuarto 1, 15 años, Mérida</p>', html)

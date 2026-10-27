@@ -36,7 +36,7 @@ Layout:
 
 * `events/models.py`: all tables (below).
 * `events/access.py`: `EventAccess`, `resolve_access`, `accessible_events`. Every authorization decision lives here.
-* `events/services/`: `interviews.py` (lifecycle, claims, kiosk), `questionnaire.py` (steps, conditions, versions), `metrics.py` (payload builder), `reports.py` (cutoffs and released aggregates), `presentation.py` (privacy serializer), `pdf.py`, `participants.py` (registration, CSV import with its optional `sede` column matched by name or identifier without case or accents, erasure), `throttle.py` (database-backed attempt limits), `audit.py`, `notifications.py`.
+* `events/services/`: `interviews.py` (lifecycle, claims, kiosk), `questionnaire.py` (steps, conditions, versions), `event_questionnaires.py` (which questionnaires an event uses, their order, each campero's progress and `interview_status`), `metrics.py` (payload builder), `reports.py` (cutoffs and released aggregates), `presentation.py` (privacy serializer), `pdf.py`, `participants.py` (registration, CSV import with its optional `sede` column matched by name or identifier without case or accents, erasure), `throttle.py` (database-backed attempt limits), `audit.py`, `notifications.py`.
 * `events/views/`: thin views per area (`home`, `coordinator`, `interview`, `kiosk`, `dashboards`, `reports`, `admin`).
 * `events/urls.py` is mounted at `/eventos/`; `events/kiosk_urls.py` at `/estacion/`.
 * `events/middleware.py`: shared-computer protections.
@@ -60,12 +60,15 @@ erDiagram
     EVENT_MEMBERSHIP |o--o{ EVENT_PARTICIPANT : "assigned coordinator"
     EVENT_PARTICIPANT ||--o{ CONSENT_RECORD : has
     QUESTIONNAIRE ||--o{ QUESTIONNAIRE_VERSION : versions
-    QUESTIONNAIRE_VERSION |o--o{ EVENT : "used for new interviews"
+    EVENT ||--o{ EVENT_QUESTIONNAIRE : "uses, in order"
+    QUESTIONNAIRE ||--o{ EVENT_QUESTIONNAIRE : "one per event"
+    QUESTIONNAIRE_VERSION ||--o{ EVENT_QUESTIONNAIRE : "used for new interviews"
     QUESTIONNAIRE_VERSION ||--o{ SECTION : contains
     SECTION ||--o{ QUESTION : contains
     QUESTION ||--o{ QUESTION_OPTION : offers
     QUESTION |o--o{ QUESTION : "condition parent"
-    EVENT_PARTICIPANT ||--o{ INTERVIEW : "max one not discarded"
+    EVENT_PARTICIPANT ||--o{ INTERVIEW : "max one not discarded per questionnaire"
+    QUESTIONNAIRE ||--o{ INTERVIEW : "answers"
     QUESTIONNAIRE_VERSION ||--o{ INTERVIEW : "pinned version"
     INTERVIEW_STATION |o--o{ INTERVIEW : "opened at"
     INTERVIEW ||--o{ ANSWER : has
@@ -89,6 +92,11 @@ erDiagram
         datetime procedures_approved_at
         int retention_days
         int report_interval_minutes
+        bool questionnaires_in_order
+        string confidential_level
+    }
+    EVENT_QUESTIONNAIRE {
+        int order
     }
     EVENT_MEMBERSHIP {
         string role
@@ -123,6 +131,7 @@ erDiagram
         datetime lock_expires_at
         datetime last_activity_at
         string follow_up_decision
+        string confidential_level
     }
     QUESTION {
         string code
@@ -167,8 +176,10 @@ erDiagram
 
 Notes on the model:
 
-* `EventParticipant.interview_status` (`pendiente`, `en_curso`, `completada`) is a denormalized copy of the live interview state. It is updated inside the same transaction as the interview and is what the metrics count.
-* `QuestionnaireVersion` is immutable once published: `Section`, `Question` and `QuestionOption` raise `ImmutableRecordError` on save or delete unless the version is a draft. Each `Interview` points at the version it was started with, so editing means "duplicate as a new draft, publish, then use it for new interviews".
+* An event uses an ordered list of questionnaires, `EventQuestionnaire` (`event`, `questionnaire`, `version`, `order`), changed only through `events/services/event_questionnaires.py` ("Cuestionarios": `use_version`, `stop_using`, `move`). One version per questionnaire and event: `save()` copies `questionnaire` from `version`, so the database enforces it (`one_version_per_questionnaire_per_event`). With `Event.questionnaires_in_order` ("Los camperos los responden en este orden") a campero answers them in that order, the next one opening when the previous is completed; otherwise in any order. The last questionnaire cannot be removed while the event has interviews that are not discarded ("No se puede quitar el único cuestionario mientras el evento tenga entrevistas. Agrega otro primero o usa otra versión.").
+* `EventParticipant.interview_status` (`pendiente`, `en_curso`, `completada`) is derived from the campero's interviews (`event_questionnaires.derive_interview_status`) and stored, because the metrics and the lists count it: `en_curso` while the campero has a live interview (`start_interview` refuses a second one, so there is at most one); `completada` when every questionnaire the event uses has a completed interview; `pendiente` otherwise, also when some are done and the next is not started. With one questionnaire that is what it always meant. `start_interview`, `finalize` and `discard` set it in the interview's transaction, and `refresh_interview_statuses(event)` recomputes the event when its questionnaires change: adding one turns the camperos who had finished back to `pendiente`.
+* `QuestionnaireVersion` is immutable once published: `Section`, `Question` and `QuestionOption` raise `ImmutableRecordError` on save or delete unless the version is a draft. Each `Interview` points at the version it was started with and at its questionnaire (`Interview.questionnaire`, copied from the version on save), so editing means "duplicate as a new draft, publish, then «Usar esta versión en este evento»", which puts the new version in the old one's place in the order.
+* `Event.confidential_level` (`cuidado`, `coordinacion`, `todo_el_equipo`) says who reads the answers to confidential questions; each `Interview` stores the level of its event when it started, and the stricter of the two applies (`Interview.effective_confidential_level`, see `roles-and-permissions.md`).
 * `ReportSnapshot` refuses `save()` and `delete()` once its status is `listo`. Queryset deletes and cascades (deleting the `Event`) bypass this guard.
 * `FollowUp.confidential` marks a care referral created automatically from a confidential answer; only members with confidential access see it (see `roles-and-permissions.md`).
 * A snapshot's `data` holds the full metrics payload plus a `released` block: the follow-up counts and per-option answer counts as last released (they only change when a count moves by at least the minimum group size; see `reporting.md`).
@@ -203,7 +214,7 @@ Nothing in a URL, form or query string can widen what a user sees:
 
 Ten interview computers can work at once on the same event. The guarantees rely on PostgreSQL. On SQLite `select_for_update()` is a no-op, so the threaded tests skip there.
 
-* **One live interview per campero.** Partial unique index `one_live_interview_per_participant` on `Interview(participant)` where `status <> 'descartada'`. `start_interview` also locks the `EventParticipant` row (`SELECT ... FOR UPDATE`) and turns an `IntegrityError` into "Otra computadora acaba de iniciar la entrevista de este campero."
+* **One live interview per campero and questionnaire.** Partial unique index `one_live_interview_per_questionnaire` on `Interview(participant, questionnaire)` where `status <> 'descartada'`. `start_interview` also locks the `EventParticipant` row (`SELECT ... FOR UPDATE`), refuses a second interview in progress for the same campero whatever its questionnaire, and turns an `IntegrityError` into "Otra computadora acaba de iniciar la entrevista de este campero." Changes to an event's questionnaires lock the event row (`FOR NO KEY UPDATE`, which does not wait on the key-share locks an interview's foreign keys take) and, when they recompute the statuses, its camperos in primary-key order.
 * **Row locks on every write.** `save_step`, `finalize`, `discard`, `claim`, `correct_step`, `update_follow_up_decision`, hand-over, unlock and revocation all run in `transaction.atomic()` with `select_for_update()` on the interview row.
 * **Claims.** The editing browser holds a claim: `secrets.token_urlsafe(32)`. Only its SHA-256 (`lock_token_hash`) is stored on the row, with `lock_holder` and `lock_expires_at`. The raw token lives in the server-side (database-backed) Django session under `interview_claims` (the last 8 claims). Writes compare with `secrets.compare_digest`. A claim lasts 15 minutes (`CLAIM_MINUTES`) and is extended by each staff save; a kiosk claim lasts 60 minutes. Taking over an active claim is explicit and audited.
 * **Optimistic revision.** Each form posts the interview's `revision`. A mismatch raises `StaleRevision` and the page reloads with the newest data. Every save, finalize, correction and follow-up decision increments it.
@@ -268,8 +279,12 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 | `events/0006_event_join_code` | Adds `Event.join_code` (`db_default=''`, so older code can still insert events) and `Event.join_by_name` (`db_default=True`), a unique constraint on non-blank codes, then a data migration that gives every existing event its own code. Reverse of the data step is a no-op. A row still without a code (written by older code) gets one the first time "Equipo" or the printable sheet needs it |
 | `events/0007_access_request` | Adds `AccessRequest` (requests from the event's public page) |
 | `events/0008_sede` | Adds `Sede` (the church's campuses; `city`, `order` and `active` with database defaults), the `Event.sedes` join table and the nullable `EventParticipant.sede`. Additive: older code keeps inserting events and camperos. Reversing it drops every campero's sede |
+| `events/0009_copy_pass_labels` | Spanish labels, help texts and choice labels; no column changes. Data step: events still holding the `0001` default privacy notice word for word get the new default. Reverse of the data step is a no-op |
+| `events/0010_privacy_notice_who_reads` | Same for the `0009` default notice, replaced by one that says who reads each level of answer. Reverse is a no-op |
+| `events/0011_event_questionnaires` | Adds `EventQuestionnaire`, `Event.questionnaires_in_order` (`db_default=False`) and `Interview.questionnaire`. Data step: one link (order 1) per event that had `questionnaire_version`, every interview's questionnaire from its version, the old column emptied, every campero's `interview_status` recomputed by the new rule. Then `Interview.questionnaire` becomes required and `one_live_interview_per_participant` gives way to `one_live_interview_per_questionnaire`. `Event.questionnaire_version` leaves the model only: the column `events_event.questionnaire_version_id` stays, empty, for one release, and a migration of the next release drops it. Reverse puts each event's first version back and the old index, and refuses (`RuntimeError`, nothing deleted) while a campero has interviews of two questionnaires that are not discarded: "Descarta las sobrantes antes de revertir." |
+| `events/0012_confidential_level` | Adds `Event.confidential_level` and `Interview.confidential_level`, both with `db_default='cuidado'`, the rule every earlier event had. Additive; reversing drops both |
 
-Existing churches and discipleship data are not modified apart from `0004`. The camp module adds new tables and columns only. `makemigrations --check` reports no pending changes.
+Existing churches and discipleship data are not modified apart from `0004`. The camp module's migrations add tables and columns, with data steps in `events/0006` (join codes), `0009` and `0010` (the default privacy notice) and `0011`, which turns each event's questionnaire into its first `EventQuestionnaire` and recomputes `interview_status`. `makemigrations --check` reports no pending changes.
 
 ## Indexes and constraints
 
@@ -281,7 +296,8 @@ Existing churches and discipleship data are not modified apart from `0004`. The 
 | `EventParticipant` | `(event, number)`, `public_id` | `(event, is_active, interview_status)`, `(event, coordinator)`, `(event, normalized_name)`, `(event, room)`, `(event, church_group)` |
 | `ConsentRecord` | | `(participant, kind, -recorded_at)` |
 | `QuestionnaireVersion` | `(questionnaire, number)` | |
-| `Interview` | partial `(participant)` where not discarded, `public_id` | `(event, status)`, `(event, completed_at)`, `(conducted_by, status)` |
+| `Interview` | partial `(participant, questionnaire)` where not discarded, `public_id` | `(event, status)`, `(event, completed_at)`, `(conducted_by, status)` |
+| `EventQuestionnaire` | `(event, questionnaire)` | `event`, `questionnaire`, `version` (foreign keys) |
 | `Answer` | `(interview, question)` | |
 | `ParticipantSession` | `public_id` | `(state, expires_at)` |
 | `FollowUp` | partial `(interview, confidential)` for non-cancelled care follow-ups | `(event, kind, status)` |

@@ -6,9 +6,10 @@
   <h1 id="listo" class="voice confirm__title">Entrevista completada</h1>
   <p class="confirm__text">Las respuestas de {{ participant.first_name }} quedaron guardadas.{% if follow_up %} Se registró un seguimiento: {{ follow_up.get_reason_display|lower }}.{% endif %}</p>
 </section>
-<p class="lede">{% if remaining %}Te falta{{ remaining|pluralize:"n" }} {{ remaining }} entrevista{{ remaining|pluralize }}.{% else %}Ya no tienes entrevistas pendientes.{% endif %}</p>
+<p class="lede">{% if questionnaires_missing %}{% with n=questionnaires_missing %}A {{ participant.first_name }} le falta{{ n|pluralize:"n" }} {{ n }} cuestionario{{ n|pluralize }}. {% endwith %}{% endif %}{% if remaining %}Te falta{{ remaining|pluralize:"n" }} {{ remaining }} entrevista{{ remaining|pluralize }}.{% else %}Ya no tienes entrevistas pendientes.{% endif %}</p>
 <div class="step__actions">
-  <a class="btn btn--primary btn--large" href="{% url 'events:interview_search' event.slug %}">Entrevistar a otro campero</a>
+  {% if next_links %}{% with next=next_links.0 %}<a class="btn btn--primary btn--large" href="{% url 'events:interview_start' event.slug participant.public_id %}?cuestionario={{ next.questionnaire_id }}">Continuar con «{{ next.version.title }}»</a>{% endwith %}
+  {% endif %}<a class="btn {% if next_links %}btn--secondary{% else %}btn--primary{% endif %} btn--large" href="{% url 'events:interview_search' event.slug %}">Entrevistar a otro campero</a>
   <a class="btn btn--link" href="{% if access.is_coordinator %}{% url 'events:coord_home' event.slug %}{% else %}{% url 'events:home' event.slug %}{% endif %}">Volver a mi inicio</a>
 </div>
 {% endblock %}

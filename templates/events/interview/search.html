@@ -31,7 +31,7 @@
               <p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p>
             </div>
             <div class="row__end">
-              {% status p.interview_status %}
+              {% campero_status p %}
               {% if p.interview_status == "completada" %}
                 <a class="btn btn--secondary btn--small" href="{% url 'events:participant_detail' event.slug p.public_id %}">Ver<span class="visually-hidden"> a {{ p.full_name }}</span></a>
               {% elif p.interview_status == "en_curso" %}

@@ -17,7 +17,18 @@ from django.utils import timezone
 
 from ..models import Event, EventMembership, MembershipRole, ReportSnapshot
 from . import audit
-from .metrics import METRICS_VERSION, Scope, build_payload, event_scope, local_tz, present_outcomes, scope_from_key, team_scope
+from .event_questionnaires import links_for
+from .metrics import (
+    METRICS_VERSION,
+    Scope,
+    build_payload,
+    event_scope,
+    keyed_outcomes,
+    local_tz,
+    present_outcomes,
+    scope_from_key,
+    team_scope,
+)
 
 RELEASED_FOLLOW_UP_KEYS = ("requested_total", "open_total", "done", "to_evaluate")
 
@@ -115,9 +126,12 @@ def generate_snapshot(event: Event, scope: Scope, *, trigger: str, cutoff_at: da
         payload = build_payload(scope, include_safety=True, include_outcomes=scope.is_event, now=now)
         k = event.min_group_size
         previous = _previous_released(event, scope.key) or {}
+        # The counts are keyed by questionnaire; a cutoff saved before that holds them unkeyed. Without this the first
+        # cutoff after the change would find no previous cell and release raw counts, breaking the "moved by k" rule.
+        previous_outcomes = keyed_outcomes(previous.get("outcomes"), links_for(event)) if previous.get("outcomes") else None
         payload["released"] = {
             "follow_ups": release_cells({key: payload["follow_ups"][key] for key in RELEASED_FOLLOW_UP_KEYS}, previous.get("follow_ups"), k),
-            "outcomes": release_cells(payload.pop("outcome_counts", {}), previous.get("outcomes"), k),
+            "outcomes": release_cells(payload.pop("outcome_counts", {}), previous_outcomes, k),
         }
     except Exception as exc:  # recorded so administrators see it; never includes answers
         logger.exception("Snapshot generation failed for event %s scope %s", event.pk, scope.key)

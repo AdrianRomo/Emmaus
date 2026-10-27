@@ -19,6 +19,7 @@ from events.models import (
     MembershipRole,
 )
 from events.services import interviews as svc
+from events.services.event_questionnaires import use_version
 from events.services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, build_steps, create_questionnaire_from_definition
 
 from .base import make_user
@@ -50,7 +51,8 @@ class StationConcurrencyTests(TransactionTestCase):
     def setUp(self):
         church = Church.objects.create(name="Iglesia", slug="iglesia-concurrencia")
         version = create_questionnaire_from_definition(church, DEFAULT_CAMP_QUESTIONNAIRE)
-        self.event = Event.objects.create(church=church, name="Campamento", slug="concurrencia", questionnaire_version=version, procedures_approved_at=timezone.now())
+        self.event = Event.objects.create(church=church, name="Campamento", slug="concurrencia", procedures_approved_at=timezone.now())
+        use_version(self.event, version)
         self.stations = [InterviewStation.objects.create(event=self.event, number=n, name=f"Computadora {n}") for n in range(1, 11)]
         self.coordinators = []
         self.campers = []

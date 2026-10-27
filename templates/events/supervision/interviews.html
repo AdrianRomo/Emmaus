@@ -20,7 +20,7 @@
   {% if page.object_list %}
     <div class="table-wrap" tabindex="0" role="region" aria-label="Camperos y su entrevista"><table class="table table--nowrap">
       <thead><tr><th class="num">#</th><th>Nombre</th><th>Entrevista</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th></tr></thead>
-      <tbody>{% for p in page.object_list %}<tr><td class="num">{{ p.code }}</td><td class="cell-name"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{% status p.interview_status %}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.coordinator.display_name|default:"Sin asignar" }}</td></tr>{% endfor %}</tbody>
+      <tbody>{% for p in page.object_list %}<tr><td class="num">{{ p.code }}</td><td class="cell-name"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></td><td>{% campero_status p %}</td><td>{{ p.room }}</td><td>{{ p.church_group }}</td><td>{{ p.coordinator.display_name|default:"Sin asignar" }}</td></tr>{% endfor %}</tbody>
     </table></div>
     {% include "events/rotulo/_pagination.html" with page=page %}
   {% else %}

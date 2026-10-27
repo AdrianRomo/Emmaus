@@ -136,8 +136,8 @@
     <p class="report-section__answer">Los totales se redondean de {{ payload.min_group_size }} en {{ payload.min_group_size }} y las cantidades menores a {{ payload.min_group_size }} no se muestran, para que nadie pueda ser identificado.</p>
   </div>
   <div class="report-section__body">
-    <div class="outcomes">
-      {% for o in payload.outcomes %}
+    {# Several questionnaires: one grid per questionnaire under its title (inside the grid a heading would take a cell). #}{% regroup payload.outcomes by questionnaire_id as outcome_groups %}{% for group in outcome_groups %}{% if group.list.0.show_questionnaire %}<div><h3 class="heading">{{ group.list.0.questionnaire }}</h3>{% endif %}<div class="outcomes">
+      {% for o in group.list %}
         <figure class="outcome">
           <figcaption><p class="outcome__title">{{ o.title }}</p><p class="outcome__sub">Personas. Respondieron {{ o.respondents.display }}.</p></figcaption>
           {% if o.withheld %}
@@ -150,7 +150,7 @@
           {% endif %}
         </figure>
       {% endfor %}
-    </div>
+    </div>{% if group.list.0.show_questionnaire %}</div>{% endif %}{% endfor %}
   </div>
 </section>
 {% endif %}

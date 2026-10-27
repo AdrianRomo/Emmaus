@@ -33,6 +33,7 @@ from events.models import (
 )
 from events.services import interviews as svc
 from events.services import questionnaire
+from events.services.event_questionnaires import use_version
 from events.services.metrics import event_scope
 from events.services.questionnaire import (
     DECLINE,
@@ -188,7 +189,7 @@ class PaperQuestionnaireTests(CampFixture):
             option.save()
         draft.status = draft.Status.PUBLISHED
         draft.save(update_fields=["status"])
-        Event.objects.filter(pk=self.event.pk).update(questionnaire_version=draft)
+        use_version(self.event, draft)
         _, root = self.sheet()
         printed = self.options(self.block(self.section(root), apoyo))
         self.assertEqual(printed, ["☐ Familia", "☐ Bienestar emocional", "☐ Vida personal", "☐ Relaciones", "☐ Sexualidad",
@@ -243,7 +244,8 @@ class PaperQuestionnaireTests(CampFixture):
                 ]},
             ],
         })
-        Event.objects.filter(pk=self.event.pk).update(questionnaire_version=version)
+        self.event.questionnaire_links.all().delete()  # replace the fixture's questionnaire, do not add a second one
+        use_version(self.event, version)
         _, root = self.sheet()
         section = self.section(root)
         follow = Question.objects.get(section__version=version, code="cual")
@@ -270,7 +272,7 @@ class PaperQuestionnaireTests(CampFixture):
             self.assertNotContains(response, "checked")
 
     def test_without_a_questionnaire_the_sheet_says_so(self):
-        Event.objects.filter(pk=self.event.pk).update(questionnaire_version=None)
+        self.event.questionnaire_links.all().delete()
         response, root = self.sheet()
         self.assertContains(response, "Todavía no hay un cuestionario publicado para este evento. Avisa a la administración.")
         self.assertNotContains(response, self.question("salvo").text)
@@ -280,7 +282,7 @@ class PaperQuestionnaireTests(CampFixture):
     def test_a_draft_is_not_printed(self):
         """Only the Django admin can point an event at a draft; a draft can still change, so it is not handed out on paper."""
         draft = duplicate_version(self.version, self.admin)
-        Event.objects.filter(pk=self.event.pk).update(questionnaire_version=draft)
+        self.event.questionnaire_links.update(version=draft)  # a raw write: use_version refuses a draft
         response, root = self.sheet()
         self.assertContains(response, "Todavía no hay un cuestionario publicado para este evento. Avisa a la administración.")
         self.assertEqual([n for n in root.iter() if _is_question_block(n)], [])

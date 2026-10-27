@@ -22,7 +22,7 @@
     <dl class="summary-list admin-levels">
       <div class="summary-list__row"><dt>General</dt><dd>La ve quien puede ver al campero.</dd></div>
       <div class="summary-list__row"><dt>Sensible</dt><dd>La ve su coordinador y el equipo de cuidado autorizado. En los resúmenes solo aparece en totales.</dd></div>
-      <div class="summary-list__row"><dt>Confidencial</dt><dd>Solo la lee el equipo de cuidado autorizado. Úsala para temas íntimos y textos libres.</dd></div>
+      {% comment %}A questionnaire is the church's and several events may use it, each with its own level (admin.confidential_level): no single reader is promised here.{% endcomment %}<div class="summary-list__row"><dt>Confidencial</dt><dd>La leen las personas que permita cada evento que use este cuestionario (en Configuración, <a href="{% url 'events:confidential_level' event.slug %}">Respuestas confidenciales</a>). Úsala para temas íntimos y textos libres.</dd></div>
     </dl>
     <p class="aside-note">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
     {% with choices=form.fields.condition_question.queryset %}{% if choices %}

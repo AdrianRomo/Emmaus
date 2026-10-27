@@ -2,9 +2,9 @@
 {% load emmaus %}
 {% block page_title %}{{ participant.full_name }}{% endblock %}
 {% block content %}
-{% if can_interview and interview.status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}
+{% if can_interview %}{% if live_interview or participant.interview_status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}{% endif %}
 {% if can_edit %}{% url 'events:participant_edit' event.slug participant.public_id as edit_url %}{% endif %}
-{% if interview %}
+{% if live_interview %}
   {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
 {% else %}
   {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
@@ -29,7 +29,18 @@
   <div>
     <section class="block" aria-labelledby="entrevista">
       <h2 id="entrevista" class="heading">Entrevista</h2>
-      {% if interview %}
+      {% if questionnaire_rows %}
+        <ul class="rows">{% for row in questionnaire_rows %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ row.link.version.title }}</p>
+              {% if row.interview %}<p class="row__meta">{{ row.interview.get_mode_display }}, iniciada {{ row.interview.started_at|fecha_corta }}{% if row.interview.completed_at %}, completada {{ row.interview.completed_at|fecha_corta }}{% endif %}.</p>
+              <p class="more"><a href="{% url 'events:interview_detail' event.slug row.interview.public_id %}">Ver respuestas<span class="visually-hidden"> de {{ row.link.version.title }}</span></a></p>{% endif %}
+            </div>
+            {% if row.state == "bloqueado" %}{% status "pendiente" "Después" %}{% else %}{% status row.state %}{% endif %}
+          </li>
+        {% endfor %}</ul>
+      {% elif interview %}
         <p>{% status interview.status %}</p>
         <p class="row__meta">{{ interview.get_mode_display }}, iniciada {{ interview.started_at|fecha_corta }}{% if interview.completed_at %}, completada {{ interview.completed_at|fecha_corta }}{% endif %}.</p>
         <p class="more"><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">Ver respuestas</a></p>

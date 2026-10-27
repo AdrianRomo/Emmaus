@@ -39,7 +39,7 @@ from .base import CampFixture
 def complete(event, participant, answers=None, when=None, decision="no_requerido", questions=None):
     when = when or timezone.now()
     interview = Interview.objects.create(
-        event=event, participant=participant, version=event.questionnaire_version, status=Interview.Status.COMPLETED,
+        event=event, participant=participant, version=event.questionnaire_versions()[0], status=Interview.Status.COMPLETED,
         completed_at=when, started_at=when - timedelta(minutes=10), follow_up_decision=decision,
     )
     for code, values in (answers or {}).items():

@@ -13,7 +13,7 @@
           <li class="row">
             <div class="row__main">
               <p class="row__title">{{ iv.participant.full_name }}</p>
-              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, {{ iv.station.name|default:"computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}</p>
+              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, {{ iv.station.name|default:"computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
             </div>
             {% status "en_curso" "Interrumpida" %}
           </li>
@@ -50,7 +50,7 @@
           <li class="row">
             <div class="row__main">
               <p class="row__title"><a class="row__link" href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
-              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, completada {{ iv.completed_at|since }}</p>
+              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, completada {{ iv.completed_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
             </div>
           </li>
         {% endfor %}</ul>

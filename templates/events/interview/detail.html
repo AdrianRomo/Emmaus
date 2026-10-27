@@ -7,7 +7,7 @@
 {% with title="Entrevista de "|add:participant.first_name %}
   {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Retomar entrevista" %}
 {% endwith %}
-<p class="interview-meta">{% status interview.status %} <span>{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.</span></p>
+<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.</span></p>
 
 <div class="narrow">
 {% if interview.status == "completada" %}
@@ -33,7 +33,7 @@
       {% for row in rows %}
         <div class="summary-list__row">
           <dt>{{ row.question.text }}</dt>
-          <dd>{% if not row.visible %}<span class="privacy__tag">Confidencial</span>{% elif row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}</dd>
+          <dd>{% if not row.visible %}<span class="privacy__tag">{{ row.question.get_sensitivity_display }}</span>{% else %}{% if row.question.sensitivity == "confidencial" %}<span class="privacy__tag">Confidencial</span> {% endif %}{% if row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}{% endif %}</dd>
           <dd class="summary-list__action">{% if can_correct and row.visible %}<a href="{% url 'events:interview_correct' event.slug interview.public_id row.step.number %}">Corregir<span class="visually-hidden"> “{{ row.question.text }}”</span></a>{% endif %}</dd>
         </div>
       {% endfor %}
@@ -41,7 +41,7 @@
   {% else %}
     <p class="empty-line">Todavía no hay respuestas.</p>
   {% endif %}
-  {% if has_hidden %}<p class="aside-note">Algunas respuestas solo las puede leer el equipo de cuidado autorizado.</p>{% endif %}
+  {% if has_hidden %}{% if interview.effective_confidential_level == "cuidado" %}<p class="aside-note">Algunas respuestas solo las puede leer el equipo de cuidado autorizado.</p>{% elif interview.effective_confidential_level == "coordinacion" %}<p class="aside-note">Algunas respuestas son confidenciales y llevan su etiqueta: las leen quien entrevistó a {{ participant.first_name }}, su coordinador y el equipo de cuidado.</p>{% else %}<p class="aside-note">Algunas respuestas son confidenciales y llevan su etiqueta: las leen su coordinador y el equipo del campamento.</p>{% endif %}{% endif %}
 </section>
 
 {% if revisions %}

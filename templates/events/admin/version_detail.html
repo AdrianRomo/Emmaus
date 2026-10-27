@@ -4,20 +4,23 @@
 {% block content %}
 {% comment %}
   The header follows events/rotulo/_page_head.html; it is written out here because its actions are
-  buttons of one POST form (publish, use, duplicate), which the partial cannot hold.
+  buttons of one POST form (publish, use, stop, duplicate), which the partial cannot hold. "Usar" adds the
+  questionnaire to the event, or puts this version in place of the one the event uses (linked_other).
 {% endcomment %}
 <a class="back-link" href="{% url 'events:questionnaires' event.slug %}">Cuestionarios</a>
 <header class="page-head page-head--actions">
   <div class="page-head__text">
     <h1 class="voice page-head__title">{{ version.title }}</h1>
     <p class="page-head__meta">Versión {{ version.number }}, {{ version.get_status_display|lower }}, {{ steps|length }} pasos.{% if in_use %} En uso en este evento.{% endif %}</p>
+    {% if linked_other %}<p class="page-head__meta">En este evento se usa la versión {{ linked_other.version.number }} de este cuestionario.</p>{% endif %}
   </div>
   <form method="post" class="page-head__actions">
     {% csrf_token %}
     {% if version.is_editable %}
       <button class="btn btn--primary" name="action" value="publish" data-confirm="Al publicar ya no podrás cambiar esta versión. ¿Continuar?">Publicar versión</button>
     {% else %}
-      {% if not in_use and version.status == "publicada" %}<button class="btn btn--primary" name="action" value="use">Usar en entrevistas nuevas</button>{% endif %}
+      {% if not in_use and version.status == "publicada" %}<button class="btn btn--primary" name="action" value="use">{% if linked_other %}Usar esta versión en este evento{% else %}Usar en este evento{% endif %}</button>{% endif %}
+      {% if in_use %}<button class="btn btn--secondary" name="action" value="stop" data-confirm="¿Dejar de usar «{{ version.title }}» en este evento?{% if questionnaire_count == 1 %} Es su único cuestionario: sin él no se pueden iniciar entrevistas.{% endif %} Las entrevistas hechas se conservan.">Dejar de usar en este evento</button>{% endif %}
       <button class="btn btn--secondary" name="action" value="duplicate">Crear versión nueva a partir de esta</button>
     {% endif %}
   </form>

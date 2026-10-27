@@ -6,9 +6,33 @@
 - **Toda la aplicación:** `e2e/all_urls.py` arma la lista de pantallas de cada cuenta (coordinador, tutor, pastor, administración, y en discipulado administración, mentor y participante, más las páginas sin sesión) y `e2e/review-all.mjs` visita cada una en tres anchos con axe, y revisa que no haya desborde horizontal, que haya un solo `h1` y que cargue `rotulo.css`.
 - **Anchos:** escritorio 1440 × 900, tableta 820 × 1180, teléfono 390 × 844.
 - **Datos:** solo sintéticos. `seed_camp_demo` crea un campamento de 400 camperos ficticios; los nombres son combinaciones aleatorias de nombres y apellidos comunes. Antes de cada ronda se volvió a sembrar la base, porque el recorrido abre y termina entrevistas y los tableros cambian.
-- **Rondas:** 17 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador, la 14 llevó el resto de la aplicación al sistema, la 15 cerró sus pendientes, la 16 pasó toda la aplicación de Rótulo a Atrio y la 17 ordenó cada pantalla por lo que su rol tiene que hacer.
+- **Rondas:** 18 rondas de captura → crítica → cambio. La ronda 0 es la versión anterior, la 10 fue una revisión independiente del código, la 13 cerró al coordinador, la 14 llevó el resto de la aplicación al sistema, la 15 cerró sus pendientes, la 16 pasó toda la aplicación de Rótulo a Atrio, la 17 ordenó cada pantalla por lo que su rol tiene que hacer y la 18 dejó que un evento use varios cuestionarios.
 
 ## Rondas
+
+### Ronda 18 · varios cuestionarios por evento
+
+El 26 de octubre de 2026 un evento pasó a poder usar varios cuestionarios a la vez. Lo pidió el dueño: más de un cuestionario por campamento sin complicar a nadie, en orden fijo o en cualquier orden según lo decida la administración con una casilla, y un botón para crear un cuestionario nuevo, que Cuestionarios no tenía. La regla de la ronda: **con un solo cuestionario, ninguna pantalla cambia** (sin opción, sin "de N", sin casilla de orden; las pruebas lo comprueban en la entrevista, la ficha y las listas). En la misma ronda, quién lee las respuestas confidenciales pasó a decidirse por evento, la tabla de Camperos se ordena por columna y la presentación respeta el equipo elegido en Reportes. Los permisos de cada rol no cambiaron; lo nuevo es que administración y pastoral deciden quién lee las respuestas confidenciales de su evento.
+
+| Qué | Lo que cambió |
+|---|---|
+| Cuestionarios | "Nuevo cuestionario" (borrador, versión 1). "En este evento", en orden, con "Subir", "Bajar" y "Quitar", y con dos o más la casilla "Los camperos los responden en este orden". En la versión, "Usar en este evento", "Usar esta versión en este evento" y "Dejar de usar en este evento". Configuración ya no elige el cuestionario: lo enlaza |
+| Entrevista | "¿Qué cuestionario?" en "Antes de empezar"; "Continuar con «…»" en "Entrevista completada"; "Ya terminaste este cuestionario." en la computadora del campero; una fila por cuestionario en la ficha |
+| Listas y cifras | "1 de 2 cuestionarios" para quien respondió algunos (listas, lista de respaldo, lista descargada); "Completadas", "Avance" y "Ritmo" cuentan camperos que terminaron todos; los resúmenes de respuestas, por cuestionario (métricas versión 2); Mi inicio dice "Llevas X de Y con todo." y cuántos van "a medias", y "Completadas hace poco" nombra el cuestionario de cada fila |
+| Respuestas confidenciales | Una página para administración y pastoral con tres niveles. Abrir no es retroactivo y cerrar aplica de inmediato; la frase del campero, la nota de la pregunta, el recordatorio de "Entrega la computadora" y la hoja en papel siguen al nivel, y el editor de preguntas no promete uno (cada evento decide); la etiqueta "Confidencial" queda junto a la respuesta, una respuesta oculta lleva la de su nivel ("Sensible" o "Confidencial") y la pantalla de corrección registra la consulta como la ficha |
+| Camperos | Cada encabezado ordena la tabla (`?orden=`, `?dir=`), con `aria-sort`, una marca dibujada con CSS (la fuente no trae el glifo) y palabras para lector de pantalla |
+| Presentación | Abierta desde un equipo en Reportes, muestra ese equipo (`?alcance=`); un corte de equipo ya era del equipo |
+
+126 pruebas nuevas en cinco módulos: `test_multi_questionnaires.py` (34), `test_multi_questionnaires_admin.py` (43), `test_multi_questionnaires_flow.py` (31), `test_multi_questionnaires_metrics.py` (13) y `test_participants_sort.py` (5), en `events/tests/`. `e2e/all_urls.py` suma "Nuevo cuestionario" y "Respuestas confidenciales" (de administración y de pastoral).
+
+**Límites.** Un campero responde un cuestionario a la vez: no puede tener dos entrevistas en curso. Agregar un cuestionario a un evento con entrevistas completadas regresa a esos camperos a "faltan" y baja el avance. Los resúmenes de respuestas cuentan solo la versión que cada cuestionario usa ahora. El aviso de privacidad del evento es texto libre y se alinea a mano con el nivel confidencial (`privacy-and-safeguarding.md`). La prueba de carga sigue con un solo cuestionario. `events/0011` no es compatible con el código anterior entre `migrate` y `up -d` (`deployment.md`).
+
+**Resultado.**
+
+| Prueba | Resultado |
+|---|---|
+| `pytest` después de integrar (`DEBUG=true python -m pytest -q --ignore=e2e`) | 1292 pruebas pasan, 6 omitidas (solo corren en PostgreSQL), SQLite |
+| `manage.py test` | 1298 pruebas, OK (las mismas 6 omitidas), SQLite |
 
 ### Ronda 17 · cada rol sabe qué hacer
 
