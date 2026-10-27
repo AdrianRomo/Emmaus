@@ -15,7 +15,7 @@ The interface is Mexican Spanish throughout and every screen uses one design sys
 | Campero | No account, no navigation | One question per screen, "Prefiero no responder" everywhere, answers saved at every step, screen locks when idle, returns the computer to the coordinador |
 | Tutor | **Mi equipo** | Progress per assigned coordinador, interrupted interviews, follow-ups, filters, team cutoffs |
 | Pastor | **Resumen general** | Five questions answered in order, team progress, privacy-suppressed answer totals, deterministic next steps, **Modo presentación** |
-| Administración | **Inicio** | Events, team and roles, tutor assignments, CSV import with duplicate review, questionnaire versions, cutoffs, audit log, open sessions |
+| Administración | **Inicio** | Events, team and roles, tutor assignments, CSV import with duplicate review, a campero table sorted by any column, questionnaires (several per event, answered in a fixed or any order, each with its versions), who reads confidential answers (the pastor can set it too), cutoffs, audit log, open sessions |
 
 Cutoffs ("cortes de seguimiento") are immutable snapshots generated every two hours (configurable). Each one can be viewed, compared with the previous one, presented full screen, or downloaded as a PDF.
 
@@ -41,7 +41,7 @@ A server that has shown the demo goes back to an empty database with `manage.py 
 ## Tests
 
 ```bash
-DATABASE_URL=postgres://… .venv/bin/python manage.py test          # 170+ tests, use PostgreSQL
+DATABASE_URL=postgres://… .venv/bin/python manage.py test          # 1279 tests, use PostgreSQL (6 skip on SQLite)
 python scripts/simulate_camp_day.py --base http://127.0.0.1:8000 --event carga-2026 --password …   # 10-station load test
 cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… npm test              # browser check
 ```
@@ -69,6 +69,6 @@ cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… 
 
 - Camperos never have accounts, and a supervised capture never exposes coordinator privileges: the coordinador's login ends before the campero touches the keyboard.
 - Spiritual and personal answers are the participant's own words. Emmaus never judges them, never scores them, never diagnoses, and never sends them to an AI service or by email.
-- Pastoral or administrative status does not unlock confidential answers. That takes an explicit, audited "acceso confidencial" per event.
+- Pastoral or administrative status does not unlock confidential answers. That takes an explicit, audited "acceso confidencial" per event, unless the event's administración or pastoral opens them to more of the team ("Respuestas confidenciales", audited), which reaches only the interviews that start afterwards.
 - Reports never widen access: a saved cutoff is shown only to people whose **current** scope includes it.
 - Before real minors are interviewed, the church must define and approve its consent, safeguarding and escalation procedures. Emmaus blocks interviews until an administrator confirms this.
