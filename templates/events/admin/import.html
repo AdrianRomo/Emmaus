@@ -34,6 +34,22 @@
     </form>
     <form method="post" class="admin-import__cancel">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn btn--link" type="submit">Cancelar y subir otro archivo</button></form>
   </section>
+  {% comment %}
+    Another file without cancelling first (UX-22). A good one replaces the pending review (the view keeps one per
+    event); a bad one says why here and leaves the pending one as it was. It sends no "action": with "confirm" the
+    view would act on the pending review instead of reading the file.
+  {% endcomment %}
+  <section class="admin-upload" aria-labelledby="otro-archivo">
+    <h2 id="otro-archivo" class="heading">¿Otro archivo?</h2>
+    <p>Tienes un archivo por revisar: {{ preview.name }}. Si subes otro, reemplaza a este.</p>
+    {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
+    {% include "partials/ui/error_summary.html" with form=form %}
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/field.html" with field=form.file %}
+      <button class="btn btn--secondary" type="submit">Revisar otro archivo</button>
+    </form>
+  </section>
 {% else %}
   {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
   {% include "partials/ui/error_summary.html" with form=form %}

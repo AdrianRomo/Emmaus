@@ -14,7 +14,7 @@
   <section aria-labelledby="datos">
     <h2 id="datos" class="heading">Datos del campero</h2>
     <dl class="summary-list">
-      <div class="summary-list__row"><dt>Número</dt><dd>#{{ participant.code }}{% if not participant.is_active %}, dado de baja{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Número</dt><dd>#{{ participant.code }}{% if not participant.is_active %}, ya no participa{% endif %}</dd></div>
       <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años</dd></div>
       <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
       <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
@@ -42,7 +42,7 @@
         <h2 id="seguimiento" class="heading">Seguimiento</h2>
         <ul class="rows">{% for f in follow_ups %}
           <li class="row">
-            <div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta">{{ f.created_at|since|capfirst }}</p></div>
+            <div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.path|urlencode }}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta">{{ f.created_at|since|capfirst }}</p></div>
             {% follow_up_status f.status %}
           </li>
         {% endfor %}</ul>

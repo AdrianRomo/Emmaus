@@ -10,7 +10,16 @@
   <label class="label" for="enlace">Enlace para crear contraseña</label>
   <input class="input" id="enlace" value="{{ link }}" readonly>
 </div>
-<button class="btn btn--secondary" type="button" data-copy="enlace">Copiar enlace</button>
+<button class="btn btn--secondary" type="button" data-copy="enlace" data-copy-done="Enlace copiado">Copiar enlace</button>
+{% comment %}The same link inside a message ready to paste in a chat (UX-24). It never says an e-mail went out unless one did.{% endcomment %}
+<div class="field admin-link">
+  <label class="label" for="mensaje">Mensaje listo para enviar</label>
+  <textarea class="input" id="mensaje" rows="6" readonly>Hola, {{ first_name }}: te agregaron al equipo de {{ event.name }} en Emmaus, como {{ role_label|lower }}. Crea tu contraseña con este enlace (vence en unos días):
+{{ link }}
+Si tienes dudas, avísame.</textarea>
+</div>
+<button class="btn btn--secondary" type="button" data-copy="mensaje" data-copy-done="Mensaje copiado">Copiar mensaje</button>
+{% if email_sent %}<p class="aside-note">También le llegó un correo.</p>{% endif %}
 <p class="aside-note">Compártelo solo con esa persona. Si se pierde, puedes generar otro desde su ficha.</p>
 <div class="step__actions">
   <a class="btn btn--primary" href="{% url 'events:member_add' event.slug %}">Agregar a otra persona</a>

@@ -25,4 +25,22 @@
   <div class="block">
     {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="mi-ritmo" %}
   </div>
+  <section class="block" aria-labelledby="recientes">
+    <h2 id="recientes" class="heading">Completadas hace poco</h2>
+    {% if recent %}
+      <ul class="rows">
+        {% for iv in recent %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
+              <p class="row__meta">{{ iv.completed_at|since|capfirst }}</p>
+            </div>
+            {% status "completada" %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Aún no completas entrevistas.</p>
+    {% endif %}
+  </section>
 </div>

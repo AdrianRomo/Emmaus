@@ -375,8 +375,10 @@ class SedeListTests(SedeFixture):
         self.assertContains(response, "<th>Sede</th>", html=True)
         self.assertContains(response, "<td>Mérida</td>", html=True)
         html = response.content.decode()
-        self.assertIn(f"#{self.p1.code}, Cuarto 1, Mérida, 15 años, Iglesia Centro,", html)
-        self.assertIn(f"#{self.p2.code}, Cuarto 2, 19 años, Iglesia Centro,", html)  # no sede: nothing in its place
+        self.assertIn('<p class="row__meta">Cuarto 1, 15 años, Mérida</p>', html)
+        self.assertIn('<p class="row__meta">Cuarto 2, 19 años</p>', html)  # no sede: nothing in its place
+        self.assertIn(f'<p class="row__meta">#{self.p1.code}, Iglesia Centro,', html)
+        self.assertIn(f'<p class="row__meta">#{self.p2.code}, Iglesia Centro,', html)
 
     def test_csv_export_has_the_sede(self):
         self.login(self.admin)
@@ -391,8 +393,11 @@ class SedeListTests(SedeFixture):
     def test_my_participants_shows_the_sede(self):
         self.login(self.coord1)
         html = self.client.get(self.url("my_participants")).content.decode()
-        self.assertIn(f"#{self.p1.code}, Cuarto 1, Mérida, 15 años, Iglesia Centro</p>", html)
-        self.assertIn(f"#{self.p2.code}, Cuarto 2, 19 años, Iglesia Centro</p>", html)
+        # Two meta lines, at most three data on the first: where to find them, then who they are
+        self.assertIn('<p class="row__meta">Cuarto 1, 15 años, Mérida</p>', html)
+        self.assertIn(f'<p class="row__meta">#{self.p1.code}, Iglesia Centro</p>', html)
+        self.assertIn('<p class="row__meta">Cuarto 2, 19 años</p>', html)  # no sede: nothing in its place
+        self.assertIn(f'<p class="row__meta">#{self.p2.code}, Iglesia Centro</p>', html)
 
 
 class SedeAdminPageTests(SedeFixture):

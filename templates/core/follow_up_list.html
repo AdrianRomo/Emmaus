@@ -3,8 +3,12 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}Seguimientos{% endblock %}
 {% block content %}
 {% include "partials/ui/error_summary.html" with form=form %}
-{% include "events/rotulo/_page_head.html" with title="Seguimientos" lede="Solicitudes para platicar, acompañar, saludar o acordar un siguiente paso." %}
-<div class="split disc-follow">
+{% include "events/rotulo/_page_head.html" with title="Seguimientos" lede="Solicitudes para platicar, acompañar, saludar o acordar un siguiente paso. Primero los pendientes." %}
+{% comment %}
+  The list first, pending ones on top (the view orders by state, then newest); creating one is the less frequent
+  task, folded under it (open when the form came back with an error).
+{% endcomment %}
+<div class="disc-follow">
   <section aria-labelledby="lista">
     <h2 id="lista" class="heading">Lista de seguimientos{% if follow_ups %} <span class="count">{{ follow_ups|length }}</span>{% endif %}</h2>
     {% if follow_ups %}
@@ -14,31 +18,31 @@
             <div class="row__main">
               <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
               <p class="disc-item__text">{{ follow_up.reason|linebreaksbr }}</p>
-              <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}.{% if follow_up.due_date %} Fecha límite: {{ follow_up.due_date|date:"j b Y" }}.{% endif %}</p>
+              <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}{% if follow_up.due_date %}, fecha límite: {{ follow_up.due_date|date:"j b Y" }}{% endif %}.</p>
             </div>
             {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
-            {% if follow_up.status != "completed" %}
+            {% if follow_up.status == "open" or follow_up.status == "in_progress" %}
               <form method="post" action="{% url 'complete_follow_up' follow_up.id %}" class="disc-item__action">
                 {% csrf_token %}
-                <button class="btn btn--secondary btn--small" type="submit">Marcar como completado<span class="visually-hidden">: {{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</span></button>
+                <button class="btn btn--secondary btn--small" type="submit">Marcar como atendido<span class="visually-hidden">: {{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</span></button>
               </form>
             {% endif %}
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-line">No hay seguimientos. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
+      <p class="empty-line">Todavía no hay seguimientos. Crea uno abajo, o aparecerán aquí cuando alguien pida platicar.</p>
     {% endif %}
   </section>
 
-  <section aria-labelledby="crear">
-    <h2 id="crear" class="heading">Crear seguimiento</h2>
-    <p class="disc-section__intro">Crea una solicitud cuando alguien necesite que lo busquen en persona o acordar un siguiente paso.</p>
+  <details class="fold" id="nuevo-seguimiento"{% if form.errors %} open{% endif %}>
+    <summary>Crear un seguimiento</summary>
+    <p class="disc-section__intro">Crea una solicitud cuando alguien necesite que lo busquen en persona o acordar un siguiente paso. Queda pendiente hasta que alguien la marque como atendida.</p>
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/ui/fields.html" with form=form %}
       <div class="btn-row"><button class="btn btn--primary" type="submit">Crear seguimiento</button></div>
     </form>
-  </section>
+  </details>
 </div>
 {% endblock %}

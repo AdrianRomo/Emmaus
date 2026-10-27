@@ -3,9 +3,9 @@
   Administration home (Rótulo). A sign only when something blocks the interviews, and only the first
   of them (procedures, then questionnaire, then no camperos yet, then access requests, then camperos without a
   coordinator); then how the event is
-  going, in a sentence, a ruler and a few figures; then the setup checklist, where a row that needs
-  action is marked (borrowed from "Bitácora"), including whether the scheduler stored its automatic cutoffs;
-  then recent activity and downloads.
+  going, in a sentence, a ruler and a few figures; then the setup checklist: how many steps are ready, the
+  pending ones first, where a row that needs action is marked (borrowed from "Bitácora"), and "Cortes" says
+  whether the scheduler stored its automatic cutoffs; then recent activity and downloads.
 {% endcomment %}
 {% with unassigned=payload.attention.unassigned_participants without_tutor=payload.attention.coordinators_without_tutor %}
 {% if not event.procedures_approved %}
@@ -66,90 +66,32 @@
 </section>
 
 <div class="split admin-split">
+  {% comment %}
+    The steps come from the view (_preparation_steps): how many are ready, the pending ones first, then the ready
+    ones in a fold that starts closed. Its id keeps it as the reader left it across the 30 s refresh (emmaus.js).
+    The page and the fragment render this same file.
+  {% endcomment %}
   <section aria-labelledby="preparacion">
     <h2 id="preparacion" class="heading">Preparación</h2>
+    <p class="admin-steps__summary">{% if steps_done == steps_total %}Todo listo: {{ steps_total }} de {{ steps_total }} pasos.{% else %}{{ steps_done }} de {{ steps_total }} pasos listos.{% endif %}</p>
+    {% for group in step_groups %}
+    {% if group.listos %}<details class="fold admin-steps__done" id="preparacion-listos"><summary>{{ steps_done }} paso{{ steps_done|pluralize }} listo{{ steps_done|pluralize }}</summary>{% endif %}
     <ul class="rows admin-rows">
-      <li class="row{% if not event.procedures_approved %} row--attention{% endif %}">
+      {% for step in group.steps %}
+      <li class="row{% if step.attention %} row--attention{% endif %}"{% if step.id %} id="{{ step.id }}"{% endif %}>
         <div class="row__main">
-          <p class="row__title">Procedimientos de la iglesia</p>
-          <p class="row__meta">{% if event.procedures_approved %}Confirmados el {{ event.procedures_approved_at|fecha_corta }}.{% else %}Sin confirmar. Sin eso no se pueden iniciar entrevistas.{% endif %}</p>
+          <p class="row__title">{{ step.title }}</p>
+          {% for line in step.meta %}<p class="row__meta">{{ line }}</p>{% endfor %}
         </div>
         <div class="row__end">
-          {% if event.procedures_approved %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
-          <a class="btn btn--secondary btn--small" href="{% url 'events:settings' event.slug %}#procedimientos">{% if event.procedures_approved %}Ver{% else %}Confirmar{% endif %}<span class="visually-hidden"> los procedimientos</span></a>
+          {% if step.state == "listo" %}{% status "completada" "Listo" %}{% elif step.state == "revisar" %}{% status "revisar" %}{% elif step.state == "esperando" %}{% status "pendiente" "Esperando" %}{% elif step.state == "apagados" %}{% status "pendiente" "Apagados" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
+          <a class="btn btn--secondary btn--small" href="{{ step.url }}">{{ step.label }}{% if step.label_hidden %}<span class="visually-hidden"> {{ step.label_hidden }}</span>{% endif %}</a>
         </div>
       </li>
-      <li class="row{% if not event.questionnaire_version_id %} row--attention{% endif %}">
-        <div class="row__main">
-          <p class="row__title">Cuestionario</p>
-          <p class="row__meta">{% if event.questionnaire_version %}{{ event.questionnaire_version.title }}, versión {{ event.questionnaire_version.number }}.{% else %}Sin cuestionario publicado.{% endif %}</p>
-        </div>
-        <div class="row__end">
-          {% if event.questionnaire_version_id %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
-          <a class="btn btn--secondary btn--small" href="{% url 'events:questionnaires' event.slug %}">Ver<span class="visually-hidden"> los cuestionarios</span></a>
-        </div>
-      </li>
-      <li class="row{% if unassigned or not progress.eligible %} row--attention{% endif %}">
-        <div class="row__main">
-          <p class="row__title">Camperos</p>
-          <p class="row__meta">{{ progress.eligible }} participando{% if unassigned %}, {{ unassigned }} sin coordinador{% endif %}.</p>
-        </div>
-        <div class="row__end">
-          {% if not progress.eligible %}{% status "pendiente" "Falta" %}{% elif unassigned %}{% status "revisar" %}{% else %}{% status "completada" "Listo" %}{% endif %}
-          {% if unassigned %}<a class="btn btn--secondary btn--small" href="{% url 'events:participants' event.slug %}?coordinador=ninguno">Asignar<span class="visually-hidden"> coordinador a los camperos que no tienen</span></a>
-          {% else %}<a class="btn btn--secondary btn--small" href="{% url 'events:participant_import' event.slug %}">Importar<span class="visually-hidden"> camperos</span></a>{% endif %}
-        </div>
-      </li>
-      {% comment %}"Listo" only when someone can interview and every coordinator has a tutor (team_state, audit UX-11).{% endcomment %}
-      <li class="row{% if team_state != "listo" %} row--attention{% endif %}" id="preparacion-equipo">
-        <div class="row__main">
-          <p class="row__title">Equipo</p>
-          <p class="row__meta">{% for value, label in role_labels %}{% with n=roles|get_item:value|default:0 %}{{ n }} {{ label|lower }}{{ n|pluralize:"es" }}{% endwith %}{% if not forloop.last %}{% if forloop.revcounter == 2 %} y {% else %}, {% endif %}{% endif %}{% endfor %}. {% if team_state == "falta" %}Sin coordinadores nadie puede entrevistar.{% elif without_tutor %}{{ without_tutor }} coordinador{{ without_tutor|pluralize:"es" }} sin tutor.{% else %}Cada coordinador tiene tutor.{% endif %}</p>
-        </div>
-        <div class="row__end">
-          {% if team_state == "falta" %}{% status "pendiente" "Falta" %}
-            <a class="btn btn--secondary btn--small" href="{% url 'events:member_add' event.slug %}">Agregar persona<span class="visually-hidden"> al equipo</span></a>
-          {% elif team_state == "revisar" %}{% status "revisar" %}
-            <a class="btn btn--secondary btn--small" href="{% url 'events:assignments' event.slug %}">Asignar tutores</a>
-          {% else %}{% status "completada" "Listo" %}
-            <a class="btn btn--secondary btn--small" href="{% url 'events:member_add' event.slug %}">Agregar persona<span class="visually-hidden"> al equipo</span></a>
-          {% endif %}
-        </div>
-      </li>
-      <li class="row{% if not stations %} row--attention{% endif %}">
-        <div class="row__main">
-          <p class="row__title">Computadoras</p>
-          <p class="row__meta">{% if stations %}{{ stations }} disponible{{ stations|pluralize }} para entrevistar.{% else %}Ninguna disponible para entrevistar.{% endif %}</p>
-        </div>
-        <div class="row__end">
-          {% if stations %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
-          <a class="btn btn--secondary btn--small" href="{% url 'events:settings' event.slug %}#computadoras">Configurar<span class="visually-hidden"> las computadoras</span></a>
-        </div>
-      </li>
-      <li class="row{% if failed_reports %} row--attention{% endif %}">
-        <div class="row__main">
-          <p class="row__title">Cortes</p>
-          <p class="row__meta">{% if event.reports_enabled %}{{ event.get_report_interval_minutes_display }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}.{% else %}Los cortes automáticos están apagados.{% endif %} {% if last_snapshot %}Último corte: {{ last_snapshot.cutoff_at|fecha_corta }}.{% else %}Aún no hay cortes.{% endif %}{% if failed_reports %} <strong>{{ failed_reports }} corte{{ failed_reports|pluralize }} no se {{ failed_reports|pluralize:"pudo,pudieron" }} generar.</strong>{% endif %}</p>
-        </div>
-        <div class="row__end">
-          {% if failed_reports %}{% status "revisar" %}{% elif not event.reports_enabled %}{% status "pendiente" "Apagados" %}{% elif has_automatic_cutoff %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Esperando" %}{% endif %}
-          <a class="btn btn--secondary btn--small" href="{% url 'events:reports' event.slug %}">Ver reportes</a>
-        </div>
-      </li>
-      {% if auto_cutoffs %}
-      {% comment %}Whether the scheduler is running: it is a separate service, and nothing else on screen would tell.{% endcomment %}
-      <li class="row{% if auto_cutoffs.late %} row--attention{% endif %}" id="cortes-automaticos">
-        <div class="row__main">
-          <p class="row__title">Cortes automáticos</p>
-          <p class="row__meta">{% if auto_cutoffs.late %}{{ auto_cutoffs.late_text }} Puedes generar un corte a mano en Reportes.{% elif auto_cutoffs.last %}Último corte automático: {{ auto_cutoffs.last }}.{% else %}Todavía no hay cortes automáticos.{% endif %}</p>
-        </div>
-        <div class="row__end">
-          {% if auto_cutoffs.late %}{% status "revisar" %}{% elif auto_cutoffs.last %}{% status "completada" "Listo" %}{% else %}{% status "pendiente" "Esperando" %}{% endif %}
-          <a class="btn btn--secondary btn--small" href="{% url 'events:reports' event.slug %}">{% if auto_cutoffs.late %}Generar un corte<span class="visually-hidden"> en Reportes</span>{% else %}Ver reportes<span class="visually-hidden"> de los cortes automáticos</span>{% endif %}</a>
-        </div>
-      </li>
-      {% endif %}
+      {% endfor %}
     </ul>
+    {% if group.listos %}</details>{% endif %}
+    {% endfor %}
   </section>
 
   <div class="admin-side">

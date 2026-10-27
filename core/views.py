@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView, PasswordResetView
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
-from django.db.models import Count, Max, Q
+from django.db.models import Case, Count, IntegerField, Max, Q, Value, When
 from django.http import (
     FileResponse,
     Http404,
@@ -108,6 +108,32 @@ def participant_notice(church_text: str) -> list[str]:
     if text == LEGACY_ENGLISH_NOTICE:
         text = ""
     return [text or QUESTION_DISCLAIMER_INTRO, EMERGENCY_NOTICE]
+
+
+def ago(moment) -> str:
+    """How long ago, in whole local days, as a row reads it: "hoy", "ayer", "hace 9 días"."""
+    if moment is None:
+        return "sin registro"
+    days = (timezone.localdate() - timezone.localdate(moment)).days
+    if days <= 0:
+        return "hoy"
+    if days == 1:
+        return "ayer"
+    return f"hace {days} días"
+
+
+def by_state(follow_ups):
+    """Follow-ups pending first, then in progress, attended, cancelled; newest first within each. The model orders by
+    the stored string, which puts the open ones last."""
+    return follow_ups.annotate(
+        state_rank=Case(
+            When(status=FollowUpRequest.Status.OPEN, then=Value(0)),
+            When(status=FollowUpRequest.Status.IN_PROGRESS, then=Value(1)),
+            When(status=FollowUpRequest.Status.COMPLETED, then=Value(2)),
+            default=Value(3),
+            output_field=IntegerField(),
+        )
+    ).order_by("state_rank", "-created_at")
 
 
 def role_required(*roles: str):
@@ -212,6 +238,9 @@ def dashboard(request):
         return redirect("participant_dashboard")
     if role_record.role == Role.MENTOR:
         return redirect("mentor_dashboard")
+    if not role_record.church.discipleship_enabled:
+        # A pastor of a church that does not use the discipleship module: its overview is not their home.
+        return redirect("events:list")
     return redirect("church_dashboard")
 
 
@@ -306,14 +335,26 @@ def create_invitation(request):
     )
 
 
+INVITATIONS_SHOWN = 100
+
+
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR)
 def invitations_list(request):
     role_record = get_user_role(request.user)
     invitations = role_record.church.invitations.select_related("invited_by", "assigned_mentor", "path")
     if role_record.role != Role.CHURCH_ADMIN:
         invitations = invitations.filter(role=Role.PARTICIPANT)
-    rows = [{"invitation": invitation, "link": invite_url(request, invitation)} for invitation in invitations[:100]]
-    return render(request, "core/invitations_list.html", {"rows": rows})
+    # The personal link only for those that can still be accepted; it is copied, never printed.
+    rows = [
+        {
+            "invitation": invitation,
+            "link": invite_url(request, invitation) if invitation.can_accept else None,
+            "sent_ago": ago(invitation.created_at),
+        }
+        for invitation in invitations[:INVITATIONS_SHOWN]
+    ]
+    total = invitations.count() if len(rows) == INVITATIONS_SHOWN else len(rows)
+    return render(request, "core/invitations_list.html", {"rows": rows, "total": total})
 
 
 @role_required(Role.CHURCH_ADMIN)
@@ -348,7 +389,11 @@ def participant_dashboard(request):
     profile = request.user.participant_profile
     summary = ensure_participant_enrolled(request.user)
     questions = request.user.participant_questions.prefetch_related("responses").order_by("-created_at")[:5]
-    answers = ReflectionAnswer.objects.filter(enrollment__participant=request.user).select_related("lesson", "question")[:10]
+    answers = (
+        ReflectionAnswer.objects.filter(enrollment__participant=request.user)
+        .select_related("lesson", "question")
+        .order_by("-updated_at")[:3]
+    )
     follow_ups = request.user.follow_ups.filter(status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS])
     return render(
         request,
@@ -466,48 +511,35 @@ def request_follow_up(request):
 
 @role_required(Role.MENTOR)
 def mentor_dashboard(request):
+    """Three lists, in the order a mentor acts: the questions that wait for them, the follow-ups in their name, their people."""
     participants = list(visible_participant_profiles(request.user))
-    inactive_cutoff = timezone.now() - timezone.timedelta(days=7)
     for profile in participants:
         profile.progress_summary = progress_for_participant(profile.user)
-        profile.last_activity = last_activity_at(profile.user)
-        profile.is_inactive = profile.last_activity is None or profile.last_activity < inactive_cutoff
-        profile.open_question_count = profile.user.participant_questions.filter(
-            status__in=[ParticipantQuestion.Status.OPEN, ParticipantQuestion.Status.ESCALATED]
-        ).count()
-        profile.open_follow_up_count = profile.user.follow_ups.filter(
-            status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS]
-        ).count()
-        if profile.open_question_count:
-            profile.suggested_action = "Responder pregunta"
-        elif profile.open_follow_up_count:
-            profile.suggested_action = "Continuar seguimiento"
-        elif profile.is_inactive:
-            profile.suggested_action = "Contactar esta semana"
-        elif profile.progress_summary.enrollment:
-            profile.suggested_action = "Revisar reflexiones"
-        else:
-            profile.suggested_action = "Sin pendientes"
-    questions = visible_questions(request.user).filter(status__in=[ParticipantQuestion.Status.OPEN, ParticipantQuestion.Status.ESCALATED])
-    follow_ups = FollowUpRequest.objects.filter(
-        church=get_user_role(request.user).church,
-        participant__participant_profile__assigned_mentor=request.user,
-        status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS],
-    ).select_related("participant", "assigned_to")
-    priority_participants = [
-        profile
-        for profile in participants
-        if profile.open_question_count or profile.open_follow_up_count or profile.is_inactive
-    ]
+        profile.activity_ago = ago(last_activity_at(profile.user))
+    questions = visible_questions(request.user)
+    # In the mentor's name, or of one of their people with nobody in charge (made before a mentor was assigned, or
+    # left without one), so no unfinished follow-up of theirs is on nobody's home.
+    follow_ups = list(
+        FollowUpRequest.objects.filter(
+            Q(assigned_to=request.user)
+            | Q(assigned_to__isnull=True, participant__participant_profile__assigned_mentor=request.user),
+            church=get_user_role(request.user).church,
+            status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS],
+        )
+        .select_related("participant")
+        .order_by("created_at")
+    )
+    for follow_up in follow_ups:
+        follow_up.created_ago = ago(follow_up.created_at)
     return render(
         request,
         "core/mentor_dashboard.html",
         {
             "participants": participants,
-            "priority_participants": priority_participants,
-            "questions": questions,
             # Oldest first, and only those still waiting on the mentor: escalated ones already reached a pastor.
             "awaiting": questions.filter(status=ParticipantQuestion.Status.OPEN).order_by("created_at"),
+            # Listed after them, so the mentor sees where those went.
+            "with_pastor": questions.filter(status=ParticipantQuestion.Status.ESCALATED).order_by("created_at"),
             "follow_ups": follow_ups,
         },
     )
@@ -550,7 +582,7 @@ def participant_detail(request, profile_id: int):
     summary = progress_for_participant(profile.user)
     questions = profile.user.participant_questions.prefetch_related("responses").all()
     notes = visible_notes(request.user).filter(participant=profile.user)
-    follow_ups = profile.user.follow_ups.select_related("assigned_to", "created_by")
+    follow_ups = by_state(profile.user.follow_ups.select_related("assigned_to", "created_by"))
     return render(
         request,
         "core/participant_detail.html",
@@ -694,29 +726,30 @@ def church_dashboard(request):
     participants = ParticipantProfile.objects.filter(church=church).select_related("user", "assigned_mentor")
     week_ago = timezone.now() - timezone.timedelta(days=7)
     inactive_profiles = []
-    recent_active_profiles = []
     for profile in participants:
         activity = last_activity_at(profile.user)
         profile.last_activity = activity
         if activity is None or activity < week_ago:
+            profile.activity_ago = ago(activity)
             inactive_profiles.append(profile)
-        else:
-            recent_active_profiles.append(profile)
+    # The quietest first: whoever has gone longest without a sign of life.
+    inactive_profiles.sort(key=lambda profile: (profile.last_activity is not None, profile.last_activity or week_ago))
     context = {
         "church": church,
         "participant_count": participants.count(),
+        # Walking a path now: enrolled in an active path they have not finished.
+        "on_a_path": participants.filter(
+            user__enrollments__path__is_active=True, user__enrollments__completed_at__isnull=True
+        ).distinct().count(),
         "new_this_week": participants.filter(date_joined__gte=week_ago).count(),
         "waiting_for_mentor": participants.filter(assigned_mentor__isnull=True).count(),
         "open_questions": ParticipantQuestion.objects.filter(church=church, status=ParticipantQuestion.Status.OPEN).count(),
-        "sensitive_questions": ParticipantQuestion.objects.filter(
-            church=church,
-            sensitivity_level__in=[ParticipantQuestion.Sensitivity.SENSITIVE, ParticipantQuestion.Sensitivity.PASTORAL_CARE_REQUIRED],
-        ).count(),
         "escalated_questions": ParticipantQuestion.objects.filter(church=church, status=ParticipantQuestion.Status.ESCALATED).count(),
         "open_follow_ups": FollowUpRequest.objects.filter(
             church=church, status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS]
         ).count(),
-        "inactive_profiles": inactive_profiles,
+        "inactive_profiles": inactive_profiles[:6],
+        "inactive_count": len(inactive_profiles),
         "participants_without_mentor": participants.filter(assigned_mentor__isnull=True)[:6],
         "escalated_questions_list": ParticipantQuestion.objects.filter(
             church=church, status=ParticipantQuestion.Status.ESCALATED
@@ -724,19 +757,26 @@ def church_dashboard(request):
         "open_follow_ups_list": FollowUpRequest.objects.filter(
             church=church, status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS]
         ).select_related("participant", "assigned_to")[:6],
-        "recent_active_profiles": recent_active_profiles[:6],
         "recent_notes": PastoralNote.objects.filter(church=church).select_related("participant", "author")[:5],
-        "recent_questions": ParticipantQuestion.objects.filter(church=church).select_related("participant")[:5],
     }
     return render(request, "core/church_dashboard.html", context)
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def participants_list(request):
-    profiles = visible_participant_profiles(request.user)
+    profiles = list(visible_participant_profiles(request.user))
     for profile in profiles:
         profile.progress_summary = progress_for_participant(profile.user)
         profile.last_activity = last_activity_at(profile.user)
+        profile.activity_ago = ago(profile.last_activity)
+    # Who needs someone first: without a mentor, then whoever has gone longest without activity (none at all first).
+    profiles.sort(
+        key=lambda profile: (
+            profile.assigned_mentor_id is not None,
+            profile.last_activity is not None,
+            profile.last_activity or profile.date_joined,
+        )
+    )
     return render(request, "core/participants_list.html", {"profiles": profiles})
 
 
@@ -775,8 +815,8 @@ def escalations(request):
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR)
 def follow_up_list(request):
     role_record = get_user_role(request.user)
-    follow_ups = FollowUpRequest.objects.filter(church=role_record.church).select_related(
-        "participant", "assigned_to", "created_by"
+    follow_ups = by_state(
+        FollowUpRequest.objects.filter(church=role_record.church).select_related("participant", "assigned_to", "created_by")
     )
     if role_record.role == Role.MENTOR:
         follow_ups = follow_ups.filter(
@@ -808,7 +848,7 @@ def complete_follow_up(request, follow_up_id: int):
         follow_up.status = FollowUpRequest.Status.COMPLETED
         follow_up.completed_at = timezone.now()
         follow_up.save(update_fields=["status", "completed_at"])
-        messages.success(request, "El seguimiento quedó completado.")
+        messages.success(request, "El seguimiento quedó atendido.")
     return redirect("follow_up_list" if role_record.role == Role.MENTOR else "church_follow_up_list")
 
 
@@ -973,3 +1013,9 @@ class ThrottledPasswordResetView(PasswordResetView):
             f"Créala con este enlace:\n\n{link}\n\nSi no lo pediste, ignora este correo.",
             [user.email],
         )
+
+
+@login_required
+def ayuda(request):
+    """Help outside an event (base.html's "Ayuda"). Signed in is enough: coordinators and tutors have no church role."""
+    return render(request, "core/ayuda.html")

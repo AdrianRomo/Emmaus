@@ -1,8 +1,9 @@
 {% extends "layout/skeleton.html" %}
 {% load emmaus brand %}
 {% comment %}
-  Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: a bar whose
-  module links sit on their own row (a church admin has nine). Signed out: just the wordmark and "Entrar".
+  Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: the shared bar
+  (partials/ui/bar.html) whose module links sit on their own row, then "Ayuda"; "Campamentos" is a button.
+  Signed out: just the wordmark and "Entrar".
   The wordmark's slot shows the church's logo when it has one (brand_church, core.context_processors). The
   sign-in page and the landing lead with the logo above their title instead, and then have no bar at all: the
   logo is drawn once and nothing says "Emmaus". Without a logo their bar is the painted "Emmaus", as before.
@@ -11,37 +12,8 @@
 {% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
 {% block body %}
 {% if user.is_authenticated %}
-<header class="bar bar--stacked">
-  <div class="bar__inner">
-    {% url 'dashboard' as home_url %}{% church_brand brand_church size="bar" href=home_url %}
-    {% if current_church %}<p class="bar__event">{{ current_church.name }}{% if current_role_record %}<span>{{ current_role_record.get_role_display }}</span>{% endif %}</p>{% endif %}
-    <div class="bar__end">
-      {% if show_events_link %}<a class="btn btn--small btn--secondary bar__switch" href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
-      <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
-      <div class="bar__logout">{% include "partials/ui/logout.html" with css="btn--small btn--link" %}</div>
-    </div>
-    {% if app_nav_items %}
-      <nav class="bar__nav" aria-label="Discipulado">
-        {% for item in app_nav_items %}<a href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
-      </nav>
-    {% endif %}
-  </div>
-</header>
-{% comment %}The "Menú" panel is a modal dialog (audit A11Y-02): emmaus.js moves focus in, keeps Tab inside, makes the page
-  behind it inert, and Escape or "Cerrar menú" give focus back to "Menú".{% endcomment %}
-<div id="menu-panel" class="menu-panel" role="dialog" aria-modal="true" aria-labelledby="menu-panel-title" hidden>
-  <div class="menu-panel__head">
-    {% church_brand brand_church size="bar" %}
-    <h2 id="menu-panel-title" class="visually-hidden">Menú</h2>
-    <button class="btn btn--small btn--secondary" type="button" data-menu-close>Cerrar menú</button>
-  </div>
-  <nav class="menu-panel__nav" aria-label="Principal">
-    {% for item in app_nav_items %}<a href="{{ item.url }}"{% if active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
-    {% if show_events_link %}<a href="{% url 'events:list' %}">Campamentos y eventos</a>{% endif %}
-  </nav>
-  <p class="menu-panel__who">{{ user.get_full_name|default:user.email }}{% if current_role_record %}, {{ current_role_record.get_role_display|lower }}{% endif %}</p>
-  {% include "partials/ui/logout.html" with css="btn--secondary" %}
-</div>
+{% url 'dashboard' as bar_home_url %}{% url 'ayuda' as bar_help_url %}{% if show_events_link %}{% url 'events:list' as bar_events_url %}{% endif %}
+{% include "partials/ui/bar.html" with modifiers="bar--stacked" brand=brand_church home_url=bar_home_url context_line=current_church.name context_role=current_role_record.get_role_display switch_url=bar_events_url station=None nav=app_nav_items nav_label=app_nav_items|yesno:"Discipulado,Principal" help_url=bar_help_url help_view="ayuda" role_label=current_role_record.get_role_display %}
 <main id="contenido" class="page page--wide" tabindex="-1">
 {% else %}
 {% if request.resolver_match.url_name == "login" or request.resolver_match.url_name == "landing" %}

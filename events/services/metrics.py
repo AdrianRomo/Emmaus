@@ -530,7 +530,7 @@ def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
         items.append({"kind": "por_evaluar", "text": f"{n} {'entrevista espera' if n == 1 else 'entrevistas esperan'} que se decida si necesita{'' if n == 1 else 'n'} seguimiento.", "evidence": "Marcadas como “Por decidir”."})
     if fu["open_total"]:
         n = fu["open_total"]
-        items.append({"kind": "seguimientos", "text": f"{n} {'seguimiento está abierto' if n == 1 else 'seguimientos están abiertos'}. Asigna a un líder para cada uno.", "evidence": f"{fu['pending']} pendientes y {fu['in_progress']} en proceso."})
+        items.append({"kind": "seguimientos", "text": f"{n} {'seguimiento está abierto' if n == 1 else 'seguimientos están abiertos'}. Revisa que cada uno tenga responsable.", "evidence": f"{fu['pending']} pendientes y {fu['in_progress']} en proceso."})
     return items
 
 

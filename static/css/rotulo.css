@@ -9,7 +9,7 @@
 
    One stylesheet, no build step, for every screen (templates/layout/skeleton.html).
    The per-area sections at the end were added when the last screens moved over.
-   Breakpoints (literal in media queries): 600px, 900px, 1100px.
+   Breakpoints (literal in media queries): 600px, 760px, 900px, 1280px.
    See docs/design-system.md.
    ========================================================================== */
 
@@ -333,7 +333,7 @@ a.wordmark:hover { color: var(--petroleo); }
 .bar__event { color: var(--ink-2); font-size: var(--t-small); max-width: 13rem; line-height: 1.25; }
 .bar__event a { display: inline-block; min-height: 1.5rem; padding: 0.125rem 0; margin-top: 0.125rem; font-weight: 700; }  /* WCAG 2.5.8: 24px target */
 .bar--leader .bar__event { max-width: 17rem; }
-/* "Campamento de Jóvenes 2026 Cambiar de evento": apart when they share a line, flush left when the link wraps
+/* "Campamento de Jóvenes 2026 Campamentos": apart when they share a line, flush left when the link wraps
    (a margin on the link would indent it on its own line). Phones hide the event name. */
 @media (min-width: 601px) {
   .bar--leader .bar__event { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s-2); }
@@ -382,10 +382,20 @@ a.wordmark:hover { color: var(--petroleo); }
 .page--wide { max-width: var(--w-wide); }
 .page--lead { padding-top: var(--s-12); }  /* sign-in and landing with the church's logo leading: no bar, so the page gives the logo its room */
 
-@media (max-width: 1180px) {
+/* Three steps (partials/ui/bar.html). Past 1280px: one row. 761-1280px: the links take their own row under the bar
+   (the .bar--stacked layout) and wrap rather than overflow; the logout stays. 760px and less: "Menú" holds the links
+   and the logout (emmaus.js closes an open panel past 760px). A .bar--stacked bar has two rows past 760px at any
+   width: base.html, a leader with more than five links, a coordinator once the bar says "Estás en". */
+@media (max-width: 1280px) {
+  .bar__inner { flex-wrap: wrap; row-gap: 0; padding-top: var(--s-2); }
+  .bar__end { margin-left: auto; }
+  .bar__nav { order: 10; flex-basis: 100%; flex-wrap: wrap; margin-left: calc(-1 * var(--s-3)); min-height: 3rem; }
+  .bar__nav a { min-height: 2.75rem; }
+}
+@media (max-width: 760px) {
+  .bar__inner { padding-top: 0; }
   .bar__nav, .bar__logout, .bar__switch { display: none; }
   .menu-toggle { display: inline-flex; }
-  .bar__end { margin-left: auto; }
 }
 @media (max-width: 600px) {
   .bar__inner { padding: var(--s-2) var(--s-4); gap: var(--s-3); min-height: 3.75rem; flex-wrap: wrap; }
@@ -665,6 +675,10 @@ ol.promises li::before {
 }
 .auth-card { max-width: 30rem; margin-inline: auto; }  /* the public one-column pages sit in the middle of a wide screen */
 .auth-card--left { margin-inline: 0; }  /* under a left-aligned page head ("Recuperar la computadora"): one left edge (UI-21) */
+/* "¿Quién lee tus respuestas?": its own block under the promises, as wide as they are, set apart by a hairline */
+.welcome__who { margin-top: var(--s-6); padding-top: var(--s-4); border-top: 1px solid var(--line); max-width: 46ch; }
+.welcome__who-title { font-size: var(--t-h3); font-weight: 700; margin-bottom: var(--s-2); }
+.who-reads { color: var(--ink-2); }
 
 .dialog { border: var(--b-control) solid var(--line); border-radius: var(--r-control); padding: 0; max-width: min(30rem, calc(100% - 2rem)); color: var(--ink); }
 .dialog::backdrop { background: rgba(22, 34, 43, 0.6); }
@@ -744,6 +758,9 @@ ol.promises li::before {
   .results .row { flex-wrap: wrap; }
   .results .row__end { width: 100%; justify-content: space-between; }
 }
+/* "Todavía no eliges computadora. Elegir computadora": one quiet line under the greeting, only while none is chosen */
+.coord__station { margin-bottom: var(--s-5); color: var(--ink-2); }
+.coord__station a { font-weight: 700; padding-block: max(0px, calc((1.5rem - 1.2em) / 2)); }
 
 /* ---------- 12. Report (pastor) ------------------------------------------ */
 .report-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-8); margin-bottom: var(--s-10); }
@@ -842,6 +859,11 @@ ol.promises li::before {
 }
 .agenda__text { font-weight: 700; }
 .agenda__evidence { font-size: var(--t-small); color: var(--ink-2); margin-top: var(--s-1); }
+/* Three title levels on the pastor summary: the page h1 (44 px) > the headline's sentence (28-36 px, the size of
+   .coord__count) > the questions (26 px). .headline elsewhere (reports, Avance) keeps its size */
+.headline--sentence { font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem); }
+/* "Solo totales": a paragraph read in full, so it keeps a reading width (audit UI-45) */
+.report-section__body .notice { max-width: 65ch; }
 
 /* ---------- 13. Motion ---------------------------------------------------- */
 /* Eight rules, short and purposeful: they say "this is new", "this is yours", "this is loading". Nothing loops and
@@ -968,9 +990,37 @@ ol.promises li::before {
 /* The update status under a page header, before a report */
 .lead-status { margin: calc(-1 * var(--s-5)) 0 var(--s-8); }
 
+/* Follow-ups: who attends each one, chosen on its row */
+.results .row__meta { overflow-wrap: anywhere; }
+.filters__name { align-self: center; padding: 0 var(--s-2); font-size: var(--t-small); font-weight: 500; color: var(--ink-3); }
+.row-assign { display: flex; gap: var(--s-2); align-items: center; }
+.row-assign .input--small { min-height: var(--control); width: 14rem; max-width: 100%; }
+/* A risk row carries two marks and the form: where they do not fit beside the name they wrap, never past the edge */
+.row__end:has(> .row-assign) { flex-shrink: 1; flex-wrap: wrap; justify-content: flex-end; row-gap: var(--s-3); }
+@media (max-width: 600px) {
+  /* The form takes the whole row under the status: the select grows, the button keeps its size */
+  .row__end:has(> .row-assign) { justify-content: space-between; }
+  .row-assign { flex: 1 1 100%; min-width: 0; }
+  .row-assign .input--small { flex: 1 1 auto; width: auto; min-width: 0; }
+}
+
 /* ---------- G3 Administración ---------- */
 /* Administration is the one denser place: tables with tabular numbers, filter bars, and the row that
    needs action marked like a highlighter (borrowed from "Bitácora"). Still no cards, no pills. */
+
+/* Admin flows (2026-10-26), first in G3. .fold--inline beats .fold (section 5) by coming after it, at the same
+   specificity; the participants' filter rules beat the later G3 .filter-bar rules by specificity (two classes). */
+/* "Datos técnicos" inside a row or an aside: the fold without its rule above, small, close to what it opens (UI-19) */
+.fold--inline > summary { border-top: 0; font-size: var(--t-small); }
+.fold--inline > * + * { margin-top: var(--s-2); }
+/* Participants: from 900px the filters and "Filtrar" share one row (UI-31); narrower, they wrap like every filter bar */
+@media (min-width: 900px) {
+  .filter-bar.admin-people__filters { flex-wrap: nowrap; }
+  .filter-bar.admin-people__filters .field { flex: 1 1 0; min-width: 0; }
+  .filter-bar.admin-people__filters .filter-bar__search { flex: 2 1 0; }
+}
+/* The pager under the participants spans the table, not the reading width (UI-30) */
+.admin-people .pager { max-width: none; }
 
 /* Home: the sign (only when something blocks), the state in a sentence, the checklist */
 .admin-sign { margin-bottom: var(--s-10); }
@@ -1082,6 +1132,17 @@ ol.promises li::before {
   .admin-people__rows { display: block; }
 }
 
+/* Home, "Preparación": "N de M pasos listos", the pending steps, then the ready ones in a fold that starts closed */
+.admin-steps__summary { font-weight: 500; color: var(--ink-2); margin-bottom: var(--s-3); }
+.admin-steps__done { margin-top: var(--s-4); }
+.admin-steps__done > summary { font-size: var(--t-small); }
+/* Configuración: an index of its sections (44px targets), then the sections one under the other, each after a rule.
+   A modifier, not ".admin-section + .admin-section": the settings form sits between sections, and the questionnaire
+   editor stacks .admin-section too. */
+.page-toc ul { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-4); list-style: none; margin: 0 0 var(--s-6); }
+.page-toc a { min-height: 2.75rem; display: inline-flex; align-items: center; }
+.admin-section--ruled { margin-top: var(--s-10); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+
 /* ---------- G4 Público ---------- */
 /* Sign-in, password and invitation pages, errors, the landing and the event list (all on base.html). */
 
@@ -1175,6 +1236,20 @@ ol.promises li::before {
   .participant-progress .row__main { flex-basis: 100%; }
 }
 
+/* Invitations as rows: a long e-mail wraps; on a phone the state goes under it */
+.disc-invites .row__title { overflow-wrap: anywhere; }
+.disc-invites .row__end { flex-wrap: wrap; justify-content: flex-end; }
+.disc-invites .row__main { flex: 1 1 auto; }
+@media (max-width: 600px) {
+  .disc-invites .row { flex-wrap: wrap; }
+  .disc-invites .row__main { flex-basis: 100%; }
+  .disc-invites .row__end { justify-content: flex-start; }
+}
+/* A pending invitation's link, folded under its row: a small "Ver enlace", then the field and "Copiar enlace" */
+.disc-invites .fold--inline > summary { padding: var(--s-2) 0; min-height: 2.75rem; }
+.disc-invites .fold--inline .field { max-width: 36rem; margin-bottom: var(--s-2); }
+.disc-invites .fold--inline .input { font-size: var(--t-small); }
+
 /* ---------- G5b Discipulado acompañamiento ---------- */
 /* The discipleship module as the people in it see it: the participant's path and lessons, the mentor's home,
    questions and follow-ups (templates/core). Classes start with disc-. */
@@ -1266,6 +1341,12 @@ ol.promises li::before {
   .disc-next { max-width: none; width: 100%; text-align: left; }
 }
 
+/* Participant home with the path done: one line with the next step where the sign was */
+.disc-done { font-size: var(--t-lead); max-width: 60ch; }
+/* Follow-ups: the list at reading width, "Crear un seguimiento" folded under it */
+.disc-follow { max-width: 52rem; }
+.disc-follow > .fold { margin-top: var(--s-10); }
+
 /* ---------- G2 Reportes y presentación ---------- */
 /* Reports: the coordinator's team under the name; the row actions of the cutoff history */
 .teams__meta { display: block; font-size: var(--t-small); font-weight: 400; color: var(--ink-2); }
@@ -1304,6 +1385,8 @@ ol.promises li::before {
    #7B8A94 (4.8:1, WCAG 1.4.11). Changing slides crossfades, and so does switching to Noche (8. --dur-3). */
 .deck {
   min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 2vmin;
+  --deck-controls-h: 3.5rem;  /* the presenter's bar has a strip of its own under the slide (audit UI-16) */
+  padding-bottom: calc(2vmin + var(--deck-controls-h));
   background: var(--page); color: var(--ink);
   transition: background-color var(--dur-3) var(--ease), color var(--dur-3) var(--ease);
 }
@@ -1317,7 +1400,7 @@ ol.promises li::before {
 body.is-presenting { transition: background-color var(--dur-3) var(--ease); }
 body.is-presenting:has(.deck--noche) { background: #141b33; }
 .deck__frame {
-  position: relative; width: min(100vw - 4vmin, (100vh - 4vmin) * 16 / 9); aspect-ratio: 16 / 9;
+  position: relative; width: min(100vw - 4vmin, (100vh - 4vmin - var(--deck-controls-h)) * 16 / 9); aspect-ratio: 16 / 9;
   overflow: hidden; container-type: inline-size; background: var(--page);
   transition: background-color var(--dur-3) var(--ease), opacity var(--dur-1) var(--ease);  /* opacity: 4. live refresh */
 }
@@ -1335,7 +1418,14 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .slide.is-active { opacity: 1; visibility: visible; transition: opacity var(--dur-3) var(--ease), visibility 0s; }
 .no-js .deck__frame { aspect-ratio: auto; overflow: visible; }
 .no-js .slide { position: relative; display: flex; opacity: 1; visibility: visible; aspect-ratio: 16 / 9; border-bottom: var(--b-control) solid var(--line); }
-.slide__top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqw; font-size: 1.46cqw; line-height: 1.3; color: var(--ink-2); }
+/* Small print (the top row, the foot, notes, the key, team rows at every count) never goes under 22 px from a
+   1128 px frame up (audit UI-16): min(22px, 1.95cqw) is 22 px there, which covers 1280 x 720 (a 1129 px frame),
+   1366 x 768 (1211 px) and 1440 x 900 (1404 px). On a projector the cqw size takes over again (1.4cqw > 22 px past
+   a 1571 px frame), but 1920 x 1080 is not untouched: the controls' strip makes its frame 1744 px instead of 1843,
+   about 5 % smaller, and every cqw size with it (the foot is 24.4 px instead of 25.8). Below 1128 px the floor
+   shrinks with the frame (1.95cqw), so a smaller screen (a 1024 x 768 projector, a phone) shows the same slide
+   smaller instead of pushing the text under the foot */
+.slide__top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqw; font-size: max(1.46cqw, min(22px, 1.95cqw)); line-height: 1.3; color: var(--ink-2); }
 .slide__top .wordmark { font-size: 2.3cqw; }
 /* The title slide leads with the church's logo: the usual one in Cal; in Noche its white one, or the usual one on
    a plate. The logo's width is set in cqw on the image, so it scales with the slide */
@@ -1349,7 +1439,7 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .slide__title + .slide__body { margin-top: 2cqw; }
 .slide__foot {
   display: flex; justify-content: space-between; gap: 3cqw; margin-top: 2.5cqw; padding-top: 1.25cqw;
-  border-top: var(--b-control) solid var(--line); font-size: 1.4cqw; line-height: 1.3; color: var(--ink-3);
+  border-top: var(--b-control) solid var(--line); font-size: max(1.4cqw, min(22px, 1.95cqw)); line-height: 1.3; color: var(--ink-3);
 }
 
 .deck-cover__title { font-size: 8.5cqw; line-height: 1.02; }
@@ -1361,23 +1451,23 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .deck-split--solo { grid-template-columns: minmax(0, 1fr); }
 .deck-headline { font-size: 6.25cqw; line-height: 1.04; }
 .deck-ruler .ruler { height: 2.9cqw; margin-top: 2.9cqw; }
-.deck-key { margin-top: 1.25cqw; gap: 0.6cqw 2.5cqw; font-size: 1.56cqw; }
+.deck-key { margin-top: 1.25cqw; gap: 0.6cqw 2.5cqw; font-size: max(1.56cqw, min(22px, 1.95cqw)); }
 .deck-key li { gap: 0.6cqw; }
 .deck-key .key__mark { width: 1.35cqw; height: 1.35cqw; }
 .deck-teams__title { margin-bottom: 1.2cqw; font-size: 2.7cqw; line-height: 1.1; }
 .deck-teams__list { list-style: none; }
 .deck-teams__list li {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6cqw 1.5cqw; align-items: baseline;
-  padding: 1.04cqw 0; border-bottom: var(--b-control) solid var(--line); font-size: 1.77cqw; line-height: 1.2;
+  padding: 1.04cqw 0; border-bottom: var(--b-control) solid var(--line); font-size: max(1.77cqw, min(22px, 1.95cqw)); line-height: 1.2;
 }
 .deck-teams__list li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .deck-teams__list strong { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .deck-teams__list .ruler { grid-column: 1 / -1; height: 1.46cqw; }
 .deck .ruler__marker { width: 0.2cqw; margin-left: -0.1cqw; top: -0.45cqw; bottom: -0.45cqw; }
 /* Up to eight teams fit beside the headline: tighter rows from the fifth, one line per team from the seventh */
-.deck-teams__list:has(li:nth-child(5)) li { padding: 0.55cqw 0; gap: 0.45cqw 1.5cqw; font-size: 1.56cqw; }
+.deck-teams__list:has(li:nth-child(5)) li { padding: 0.55cqw 0; gap: 0.45cqw 1.5cqw; font-size: max(1.56cqw, min(22px, 1.95cqw)); }
 .deck-teams__list:has(li:nth-child(5)) .ruler { height: 1.15cqw; }
-.deck-teams__list:has(li:nth-child(7)) li { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 4.8cqw; align-items: center; padding: 0.5cqw 0; font-size: 1.46cqw; }
+.deck-teams__list:has(li:nth-child(7)) li { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 4.8cqw; align-items: center; padding: 0.5cqw 0; font-size: max(1.46cqw, min(22px, 1.95cqw)); }
 .deck-teams__list:has(li:nth-child(7)) li > span { grid-column: 1; grid-row: 1; }
 .deck-teams__list:has(li:nth-child(7)) .ruler { grid-column: 2; grid-row: 1; }
 .deck-teams__list:has(li:nth-child(7)) strong { grid-column: 3; grid-row: 1; text-align: right; }
@@ -1410,16 +1500,20 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
   position: absolute; left: 0; top: -0.1cqw; width: 2.9cqw; height: 2.9cqw; display: grid; place-items: center;
   border: 2px solid var(--line-strong); border-radius: var(--r-mark); font-size: 1.56cqw; font-weight: 700;
 }
-.deck-note { margin-top: 2cqw; font-size: 1.46cqw; line-height: 1.35; color: var(--ink-2); max-width: 80ch; }
+.deck-note { margin-top: 2cqw; font-size: max(1.46cqw, min(22px, 1.95cqw)); line-height: 1.35; color: var(--ink-2); max-width: 80ch; }
 .deck-teams .deck-note { margin-top: 1.25cqw; }
 .deck-empty { font-size: 2.08cqw; color: var(--ink-2); }
 
-/* The presenter's bar, bottom right over the slide number it repeats: hides after 3 s without the mouse
-   (emmaus.js), never while a keyboard focus is in it */
+/* The presenter's bar, bottom right in the strip the frame leaves free (--deck-controls-h), so it never covers the
+   slide's foot: hides after 3 s without the mouse (emmaus.js), never while a keyboard focus is in it. One row of
+   44px buttons fills the strip. Where the row wraps the bar grows upward. On a phone that is harmless: the frame is
+   width-bound there, so the slide sits well above the bar. On any screen a long status ("Sin conexión. Los datos
+   pueden estar desactualizados…", "Tu sesión terminó…") can wrap it and cover the bottom of the slide while it
+   shows; accepted, it is rare and says something the presenter must see */
 .deck-controls {
-  position: fixed; right: 2vmin; bottom: 1.5vmin; z-index: 10;
+  position: fixed; right: 2vmin; bottom: 0; z-index: 10; min-height: var(--deck-controls-h);
   display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--s-2);
-  width: max-content; max-width: calc(100vw - 2rem); padding: var(--s-2);
+  width: max-content; max-width: calc(100vw - 2rem); padding: calc((var(--deck-controls-h) - 2.75rem) / 2 - var(--b-control)) var(--s-2);
   background: var(--page); border: var(--b-control) solid var(--line); border-radius: var(--r-control);
   transition: opacity var(--dur-3) var(--ease), background-color var(--dur-3) var(--ease), border-color var(--dur-3) var(--ease);
 }

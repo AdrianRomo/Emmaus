@@ -1,0 +1,156 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Ayuda{% endblock %}
+{% block content %}
+{% comment %}
+  "Ayuda" (audit UX-17, A11Y-17): the five tasks each role asks about most, taken from docs/user-guide-es.md. One
+  section per task: the task as a heading, three short sentences or three steps, then the link to the screen where it
+  happens. The bar's last link opens it. The coordinator's page never names the leaders' screens (Reportes,
+  Configuración): events/tests/test_access.py keeps those words off a coordinator's screens.
+{% endcomment %}
+<div class="narrow">
+  {% include "events/rotulo/_page_head.html" with title="Ayuda" lede=lede %}
+  {% if access.is_admin %}
+  <section class="block" aria-labelledby="tarea-1">
+    <h2 id="tarea-1" class="heading">Registra o importa camperos</h2>
+    <p>En “Camperos”, toca “Registrar campero” para uno o “Importar CSV” para muchos. Antes de guardar un archivo, Emmaus te muestra cada fila. Si la iglesia tiene sedes, agrégalas antes de registrar.</p>
+    <p class="more"><a href="{% url 'events:participants' event.slug %}">Ir a Camperos</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-2">
+    <h2 id="tarea-2" class="heading">Agrega al equipo y entrega el código</h2>
+    <ol class="promises">
+      <li>En “Equipo”, toca “Agregar persona”.</li>
+      <li>Comparte el enlace para crear su contraseña solo con esa persona.</li>
+      <li>Para quien llega sin cuenta, toca “Ver la hoja para imprimir” y pégala a la entrada.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:team' event.slug %}">Ir a Equipo</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-3">
+    <h2 id="tarea-3" class="heading">Asigna tutores y coordinadores</h2>
+    <p>Cada coordinador tiene un solo tutor. En “Equipo”, toca “Asignar tutores” y luego “Guardar asignaciones”. El coordinador de cada campero se elige al registrarlo o en el archivo.</p>
+    <p class="more"><a href="{% url 'events:assignments' event.slug %}">Asignar tutores</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-4">
+    <h2 id="tarea-4" class="heading">Confirma los procedimientos y las computadoras</h2>
+    <p>Nadie puede iniciar entrevistas hasta que confirmes los procedimientos de la iglesia. En “Configuración”, marca la casilla y toca “Confirmar”. Ahí mismo agregas computadoras o las pones fuera de uso.</p>
+    <p class="more"><a href="{% url 'events:settings' event.slug %}">Ir a Configuración</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-5">
+    <h2 id="tarea-5" class="heading">Revisa que los cortes automáticos corran</h2>
+    <p>Emmaus genera cortes solos en el horario configurado. Si en “Inicio” el renglón “Cortes” dice “Revisar”, toca “Generar un corte” para hacerlo en “Reportes”. Después avisa a quien administra el servidor.</p>
+    <p class="more"><a href="{% url 'events:reports' event.slug %}">Ir a Reportes</a></p>
+  </section>
+  {% elif access.is_pastor %}
+  <section class="block" aria-labelledby="tarea-1">
+    <h2 id="tarea-1" class="heading">Lee el Resumen: cómo va, qué falta, qué decidir</h2>
+    <p>“Resumen general” dice cómo va, cuánto falta y qué hay que decidir. Cada pregunta tiene su respuesta en una frase. Se actualiza solo.</p>
+    <p class="more"><a href="{% url 'events:pastor_home' event.slug %}">Ir al Resumen general</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-2">
+    <h2 id="tarea-2" class="heading">Asigna responsables a los seguimientos</h2>
+    <ol class="promises">
+      <li>En “Seguimiento”, busca el renglón del campero.</li>
+      <li>Elige a la persona en el selector del renglón y toca “Asignar”.</li>
+      <li>Para cambiar el estado o escribir una nota, abre el seguimiento.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ir a Seguimiento</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-3">
+    <h2 id="tarea-3" class="heading">Genera un corte y descarga el PDF</h2>
+    <ol class="promises">
+      <li>En “Reportes”, toca “Generar corte ahora”.</li>
+      <li>Toca “Descargar PDF”.</li>
+      <li>No lo reenvíes fuera del equipo: es de uso interno.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:reports' event.slug %}">Ir a Reportes</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-4">
+    <h2 id="tarea-4" class="heading">Muestra la presentación</h2>
+    <ol class="promises">
+      <li>Toca “Mostrar presentación” en “Resumen general” o en “Reportes”.</li>
+      <li>La tecla F pone pantalla completa. Las flechas avanzan y regresan.</li>
+      <li>Esc te regresa a la página donde la abriste.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:presentation_live' event.slug %}?desde={{ request.get_full_path|urlencode }}">Abrir la presentación</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-5">
+    <h2 id="tarea-5" class="heading">Entiende qué es “Confidencial”</h2>
+    <p>Una pregunta marcada “Confidencial” dice: “Solo el equipo de cuidado autorizado podrá leer esta respuesta.” Ese equipo son las personas con “Puede leer información confidencial”, sea cual sea su rol. Cada consulta queda registrada.</p>
+    <p class="more"><a href="{% url 'events:team' event.slug %}">Ver en Equipo quién tiene ese acceso</a></p>
+  </section>
+  {% elif access.is_tutor %}
+  <section class="block" aria-labelledby="tarea-1">
+    <h2 id="tarea-1" class="heading">Mira quién necesita ayuda ahora</h2>
+    <p>En “Mi equipo”, si un coordinador tiene entrevistas interrumpidas, arriba aparece un letrero con su nombre. Debajo hay una fila por coordinador, con una marca por campero.</p>
+    <p class="more"><a href="{% url 'events:tutor_home' event.slug %}">Ir a Mi equipo</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-2">
+    <h2 id="tarea-2" class="heading">Abre las entrevistas interrumpidas</h2>
+    <p>Una entrevista está interrumpida si lleva {% stale_minutes %} minutos o más sin cambios. Pide al coordinador que la retome desde “Mi inicio”. Si no puede, la administración la libera.</p>
+    <p class="more"><a href="{% url 'events:pending' event.slug %}#interrumpidas">Ver las entrevistas interrumpidas</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-3">
+    <h2 id="tarea-3" class="heading">Decide o asigna un seguimiento</h2>
+    <ol class="promises">
+      <li>En “Pendientes”, abre el seguimiento.</li>
+      <li>Elige el estado y el “Líder responsable”.</li>
+      <li>Toca “Guardar”.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:pending' event.slug %}">Ir a Pendientes</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-4">
+    <h2 id="tarea-4" class="heading">Lee el corte más reciente</h2>
+    <p>Un corte es una foto del avance a cierta hora. En “Reportes” ves el último de tu equipo. Toca “Ver corte completo” para ver sus gráficas.</p>
+    <p class="more"><a href="{% url 'events:reports' event.slug %}">Ir a Reportes</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-5">
+    <h2 id="tarea-5" class="heading">Presenta el avance en la reunión</h2>
+    <ol class="promises">
+      <li>En “Reportes”, toca “Mostrar presentación”.</li>
+      <li>La tecla F pone pantalla completa. Las flechas avanzan y regresan.</li>
+      <li>Esc te regresa a la página donde la abriste.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:presentation_live' event.slug %}?desde={{ request.get_full_path|urlencode }}">Abrir la presentación</a></p>
+  </section>
+  {% else %}
+  <section class="block" aria-labelledby="tarea-1">
+    <h2 id="tarea-1" class="heading">Elige tu computadora</h2>
+    <p>La primera vez que buscas a un campero, Emmaus te pregunta “¿En qué computadora estás?”. Elige el número pegado en la computadora y toca “Usar esta computadora”.</p>
+    <p class="more"><a href="{% url 'events:choose_station' event.slug %}">Elegir la computadora</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-2">
+    <h2 id="tarea-2" class="heading">Empieza una entrevista</h2>
+    <ol class="promises">
+      <li>En “Mi inicio”, escribe el número del campero o las primeras letras de su nombre y su apellido.</li>
+      <li>Toca “Entrevistar”.</li>
+      <li>Explícale el aviso de privacidad, marca las casillas y toca “Comenzar entrevista”.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:interview_search' event.slug %}">Buscar a un campero</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-3">
+    <h2 id="tarea-3" class="heading">Retoma una entrevista interrumpida</h2>
+    <p>No se pierde nada de lo que ya se guardó. En “Entrevistas pendientes”, toca “Retomar”. Si está abierta en otra computadora que ya no se usa, toca “Tomar el control aquí”.</p>
+    <p class="more"><a href="{% url 'events:coord_pending' event.slug %}">Ir a Entrevistas pendientes</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-4">
+    <h2 id="tarea-4" class="heading">Corrige una respuesta después de terminar</h2>
+    <ol class="promises">
+      <li>En la ficha del campero, toca “Ver respuestas”.</li>
+      <li>Junto a la respuesta, toca “Corregir”.</li>
+      <li>Escribe por qué la corriges y toca “Guardar corrección”.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:my_participants' event.slug %}">Ir a Mis camperos</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-5">
+    <h2 id="tarea-5" class="heading">Ante una situación de riesgo, primero actúa</h2>
+    <ol class="promises">
+      <li>Si alguien está en peligro inmediato, llama al 911 y avisa en persona a quien responde por la protección {{ event.of_kind }}.</li>
+      <li>Después, en la ficha del campero, toca “Reportar una situación de riesgo”.</li>
+      <li>Escribe solo lo necesario y toca “Enviar reporte”.</li>
+    </ol>
+    <p class="more"><a href="{% url 'events:my_participants' event.slug %}">Abrir la ficha en Mis camperos</a></p>
+  </section>
+  {% endif %}
+  <p class="block">¿Algo no está aquí? Pregunta a {% if access.is_admin %}quien instaló Emmaus{% else %}la administración del evento{% endif %}.</p>
+</div>
+{% endblock %}

@@ -24,7 +24,8 @@
         <li class="row">
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
-            <p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}{% if p.sede %}, {{ p.sede.name }}{% endif %}, {{ p.age }} años, {{ p.church_group }}</p>
+            <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años{% if p.sede %}, {{ p.sede.name }}{% endif %}</p>
+            <p class="row__meta">#{{ p.code }}{% if p.church_group %}, {{ p.church_group }}{% endif %}</p>
           </div>
           <div class="row__end">
             {% status p.interview_status %}
@@ -33,8 +34,21 @@
         </li>
       {% endfor %}
     </ul>
+  {% elif empty_reason == "sin_camperos" %}
+    {% comment %}The view is open to the administration too: it is told about the event, not about "its" camperos.{% endcomment %}
+    {% if access.is_admin %}
+      <p class="empty-line">Todavía no hay camperos en este evento. <a href="{% url 'events:participant_import' event.slug %}">Importa la lista</a> o <a href="{{ create_url }}">registra al primero</a>.</p>
+    {% else %}
+      <p class="empty-line">Todavía no tienes camperos asignados. <a href="{{ create_url }}">Registra al primero</a> o pide a la administración que te los asigne.</p>
+    {% endif %}
+  {% elif empty_reason == "busqueda" %}
+    <p class="empty-line">No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras.</p>
+  {% elif status == "pendiente" %}
+    <p class="empty-line">No queda ningún campero sin entrevista.</p>
+  {% elif status == "en_curso" %}
+    <p class="empty-line">{% if access.is_admin %}No hay entrevistas en curso.{% else %}No tienes entrevistas en curso.{% endif %}</p>
   {% else %}
-    <p class="empty-line">No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras, o <a href="{{ create_url }}">registra al campero</a>.</p>
+    <p class="empty-line">{% if access.is_admin %}Todavía no hay entrevistas completadas.{% else %}Todavía no completas ninguna entrevista.{% endif %}</p>
   {% endif %}
   <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a>, por si falla la red o una computadora.</p>
 </section>

@@ -424,8 +424,8 @@ class QuestionnaireEditorLabelsTests(CampFixture):
         self.assertNotIn("se responde", html)
         self.assertNotIn("Identificador interno: <code>", html)
         self.assertNotIn(", identificador <code>", html)
-        # The codes are still there for whoever edits, inside a fold.
-        folds = re.findall(r"<details class=\"details\">\s*<summary>Identificador interno \(para quien edita el cuestionario\)</summary>(.*?)</details>", html, re.S)
+        # The codes are still there for whoever edits, inside a fold ("Datos técnicos" since UI-19).
+        folds = re.findall(r"<details class=\"fold fold--inline\">\s*<summary>Datos técnicos</summary>(.*?)</details>", html, re.S)
         self.assertEqual(len(folds), sum(len(step.questions) for step in self.steps))
         self.assertTrue(any("<code>salvo</code>" in fold and "Sí, <code>si</code>" in fold for fold in folds))
         outside = re.sub(r"<details.*?</details>", "", html, flags=re.S)
@@ -443,7 +443,7 @@ class QuestionnaireEditorLabelsTests(CampFixture):
         question = draft.sections.first().questions.first()
         response = self.login(self.admin).get(self.url("question_edit", draft.id, question.id))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "<summary>Identificador interno (para quien edita el cuestionario)</summary>", html=False)
+        self.assertRegex(response.content.decode(), r'<details class="fold fold--inline">\s*<summary>Datos técnicos</summary>')
         # The questions this one may depend on (not itself), each answer with its identifier.
         self.assertContains(response, "<dt>¿Tienes dudas acerca de tu fe?</dt><dd>Sí, <code>si</code>; No, <code>no</code>;", html=False)
         self.assertNotContains(response, "<code>no_seguro</code>")
@@ -597,7 +597,8 @@ class FormWordingTests(CampFixture):
         from events.forms import EventForm
 
         form = EventForm(data={"name": "Otro", "kind": "campamento", "slug": "", "status": "activo"})
-        self.assertEqual(form.errors["slug"], ["Escribe un nombre corto."])
+        self.assertNotIn("slug", form.errors)  # left blank, it forms itself from the name (UX-12)
+        self.assertEqual(form.cleaned_data["slug"], "otro")
         form = EventForm(data={"name": "Otro", "kind": "campamento", "slug": self.event.slug, "status": "activo"})
         self.assertEqual(form.errors["slug"], ["Ya existe un evento con ese nombre corto. Prueba con otro."])
 
@@ -605,5 +606,5 @@ class FormWordingTests(CampFixture):
         from events.forms import QuestionForm
 
         help_text = QuestionForm(version=self.version).fields["condition_codes"].help_text
-        self.assertIn("“Identificador interno (para quien edita el cuestionario)”", help_text)
+        self.assertIn("“Datos técnicos”", help_text)
         self.assertNotIn("junto a cada opción", help_text)

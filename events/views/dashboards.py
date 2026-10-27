@@ -5,12 +5,14 @@ from datetime import datetime, time, timedelta
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Q
+from django.db.models import Case, Count, F, IntegerField, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html, format_html_join
+from django.views.decorators.http import require_POST
 
-from ..forms import FollowUpForm
+from ..forms import FollowUpAssignForm, FollowUpForm, follow_up_leaders
 from ..models import (
     AccessRequest,
     AuditEvent,
@@ -27,7 +29,8 @@ from ..models import (
 from ..services import audit
 from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews
 from ..services.reports import next_slot
-from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment
+from ..templatetags.emmaus import fecha_corta
+from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, safe_next
 
 
 def _last_snapshot(access):
@@ -202,6 +205,34 @@ def pending(request, event, access):
 
 # ---- Pastor ----------------------------------------------------------------------------------
 
+# Where each matter of "¿Qué hay que coordinar?" is done: (url name, query, fragment). Every target opens for both
+# roles of pastor_home (PASTOR, ADMIN). The link is added here, at render time: recommendations() is frozen into
+# every cutoff (ReportSnapshot.data) and printed by the cutoff page and the PDF, which must not gain live links.
+# "completo" and any kind not listed render as plain text.
+AGENDA_TARGETS = {
+    "pendientes": ("events:progress", "", ""),
+    "equipo": ("events:progress", "", "equipos"),
+    "interrumpidas": ("events:pending", "", "interrumpidas"),
+    "sin_coordinador": ("events:participants", "coordinador=ninguno", ""),
+    "sin_tutor": ("events:team", "", "sin-tutor"),
+    "por_evaluar": ("events:pending", "", "por-evaluar"),
+    "seguimientos": ("events:follow_ups", "", ""),
+    "autorizaciones": ("events:participants", "", ""),
+}
+
+
+def _agenda(event, recommendations):
+    """[{text, evidence, url}] for the pastor summary; url is "" when there is nothing to open."""
+    agenda = []
+    for item in recommendations:
+        url = ""
+        target = AGENDA_TARGETS.get(item.get("kind"))
+        if target:
+            name, query, fragment = target
+            url = reverse(name, args=[event.slug]) + (f"?{query}" if query else "") + (f"#{fragment}" if fragment else "")
+        agenda.append({"text": item["text"], "evidence": item["evidence"], "url": url})
+    return agenda
+
 
 @event_view(PASTOR, ADMIN)
 def pastor_home(request, event, access):
@@ -230,6 +261,7 @@ def pastor_home(request, event, access):
         "next_cutoff": next_slot(event),
         "outcomes": outcomes,
         "outcomes_snapshot": outcome_snapshot,
+        "agenda": _agenda(event, payload["recommendations"]),
     }
     if is_fragment(request):
         return render(request, "events/pastor/_home_live.html", context)
@@ -245,26 +277,87 @@ def progress(request, event, access):
     return render(request, "events/pastor/progress.html", context)
 
 
+FOLLOW_UPS_SHOWN = 200  # a display cap, not a count: the page says "Mostrando 200 de N"
+RESPONSABLE_FILTERS = ("todos", "ninguno", "mio")
+
+
+def _follow_up_status_rank():
+    """Work in the order it is attended: nobody started it, under way, then the closed ones."""
+    return Case(
+        When(status=FollowUp.Status.PENDING, then=Value(0)),
+        When(status=FollowUp.Status.IN_PROGRESS, then=Value(1)),
+        When(status=FollowUp.Status.DONE, then=Value(2)),
+        When(status=FollowUp.Status.CANCELLED, then=Value(3)),
+        default=Value(4),
+        output_field=IntegerField(),
+    )
+
+
+def _can_assign(access, follow_up) -> bool:
+    """``access.can_manage_follow_up`` for a row already taken from ``access.follow_ups()``: the same
+    rule without its per-row ``exists()``. Only decides whether the row offers the control; the
+    assign endpoint still runs the full check."""
+    if follow_up.kind == FollowUp.Kind.SAFETY:
+        return access.can_view_sensitive or access.is_admin
+    return access.is_admin or access.is_pastor or access.is_tutor or access.can_view_sensitive or (
+        access.is_coordinator and follow_up.participant.coordinator_id == getattr(access.membership, "id", None)
+    )
+
+
 @event_view(*LEADERS, MembershipRole.COORDINATOR)
 def follow_ups(request, event, access):
     status = request.GET.get("estado", "abiertos")
-    qs = access.follow_ups().select_related("participant__coordinator__user", "assigned_to")
+    responsable = request.GET.get("responsable", "todos")
+    if responsable not in RESPONSABLE_FILTERS:
+        responsable = "todos"
+    in_status = access.follow_ups().select_related("participant__coordinator__user", "assigned_to")
     if status == "abiertos":
-        qs = qs.filter(status__in=FollowUp.OPEN_STATUSES)
+        in_status = in_status.filter(status__in=FollowUp.OPEN_STATUSES)
     elif status in FollowUp.Status.values:
-        qs = qs.filter(status=status)
-    qs = qs.order_by("-kind", "status", "-created_at")
+        in_status = in_status.filter(status=status)
+    unassigned = in_status.filter(assigned_to__isnull=True)
+    mine = in_status.filter(assigned_to_id=request.user.id)
+    qs = {"ninguno": unassigned, "mio": mine}.get(responsable, in_status)
+    total = qs.count()
+    qs = qs.annotate(
+        status_rank=_follow_up_status_rank(),
+        sin_responsable=Case(When(assigned_to__isnull=True, then=Value(1)), default=Value(0), output_field=IntegerField()),
+    ).order_by("-kind", "status_rank", "-sin_responsable", "-created_at")
+    rows = list(qs[:FOLLOW_UPS_SHOWN])
+    leaders = list(follow_up_leaders(event))
+    leader_ids = {user.id for user in leaders}
+    for f in rows:
+        f.can_assign = _can_assign(access, f)
+        # The form also accepts the campero's own coordinador; offer them on that row only.
+        coordinator = f.participant.coordinator
+        f.coordinator_option = coordinator.user if coordinator and coordinator.user_id not in leader_ids else None
+        # Someone who left the team stays shown and selected, so sending the row unchanged cannot
+        # unassign them by accident; the form still refuses them ("Elige a una persona del equipo.").
+        eligible = leader_ids | ({coordinator.user_id} if coordinator else set())
+        f.former_assignee = f.assigned_to if f.assigned_to_id and f.assigned_to_id not in eligible else None
     counts = dict(access.follow_ups().values_list("status").annotate(n=Count("id")))
     return render(
         request,
         "events/supervision/follow_ups.html",
-        {"follow_ups": qs[:200], "status": status, "counts": counts, "status_choices": FollowUp.Status.choices},
+        {
+            "follow_ups": rows,
+            "total": total,
+            "shown": FOLLOW_UPS_SHOWN,
+            "status": status,
+            "responsable": responsable,
+            "unassigned_count": unassigned.count(),
+            "mine_count": mine.count(),
+            "counts": counts,
+            "status_choices": FollowUp.Status.choices,
+            "leaders": leaders,
+        },
     )
 
 
 @event_view(*LEADERS, MembershipRole.COORDINATOR)
 def follow_up_detail(request, event, access, follow_up_id):
     follow_up = get_object_or_404(access.follow_ups(), pk=follow_up_id)
+    back = safe_next(request, request.POST.get("siguiente") or request.GET.get("siguiente"), reverse("events:follow_ups", args=[event.slug]))
     can_manage = access.can_manage_follow_up(follow_up)
     can_read = access.can_read_follow_up_details(follow_up)
     form = FollowUpForm(request.POST or None, instance=follow_up, event=event, can_write_notes=can_read) if can_manage else None
@@ -278,14 +371,34 @@ def follow_up_detail(request, event, access, follow_up_id):
             item.save()
             audit.record(request.user, event, "seguimiento", f"Actualizó un seguimiento del campero #{follow_up.participant.code}", follow_up, status=item.status)
             messages.success(request, "Seguimiento actualizado.")
-            return redirect("events:follow_ups", slug=event.slug)
+            return redirect(back)
     if can_read and (follow_up.details or follow_up.resolution_note):
         audit.record(request.user, event, "consulta_confidencial", f"Consultó un seguimiento confidencial del campero #{follow_up.participant.code}", follow_up)
     return render(
         request,
         "events/supervision/follow_up_detail.html",
-        {"follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage},
+        {"follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back},
     )
+
+
+@require_POST
+@event_view(*LEADERS, MembershipRole.COORDINATOR)
+def follow_up_assign(request, event, access, follow_up_id):
+    """Who attends a follow-up, set from its row in the list. The guards, audit row and message of
+    ``follow_up_detail``; it writes only ``assigned_to``, so it cannot undo a status saved meanwhile."""
+    item = get_object_or_404(access.follow_ups(), pk=follow_up_id)
+    if not access.can_manage_follow_up(item):
+        raise PermissionDenied
+    back = safe_next(request, request.POST.get("siguiente"), reverse("events:follow_ups", args=[event.slug]))
+    form = FollowUpAssignForm(request.POST, instance=item, event=event)
+    if not form.is_valid():
+        messages.error(request, "Elige a una persona del equipo.")
+        return redirect(back)
+    item = form.save(commit=False)
+    item.save(update_fields=["assigned_to", "updated_at"])
+    audit.record(request.user, event, "seguimiento", f"Actualizó un seguimiento del campero #{item.participant.code}", item, status=item.status)
+    messages.success(request, "Seguimiento actualizado.")
+    return redirect(back)
 
 
 @event_view(PASTOR, ADMIN)
@@ -372,6 +485,117 @@ def _automatic_cutoffs(event, now) -> dict | None:
     return row
 
 
+def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state, roles, stations, has_automatic_cutoff,
+                       auto_cutoffs, last_snapshot, failed_count) -> list[dict]:
+    """The rows of "Preparación" on the administration home, in the order of the work (audit UI-06, UX-11).
+
+    Each step: ``key``; ``id`` (the row's anchor, or None); ``title``; ``meta`` (its lines, one ``.row__meta`` each);
+    ``state`` ("listo", "falta", "revisar", "esperando" or "apagados"); ``attention`` (the row is marked: every step
+    that is not "listo", except "Cortes"); and its button: ``url``, ``label`` and ``label_hidden`` (what a screen
+    reader hears after the label). The conditions are the ones the template used.
+
+    "Cortes" is one row (it was two): the schedule and the last cutoff, then whether the scheduler runs, said only
+    while it has work (``auto_cutoffs``, which also gives the row its id), and the cutoffs that failed. Only a late
+    scheduler marks the row; a failed cutoff says "Revisar" without marking it, because the scheduler did run.
+    """
+    slug = event.slug
+    settings_url = reverse("events:settings", args=[slug])
+
+    def step(key, title, meta, state, url, label, label_hidden="", *, attention=None, anchor=None):
+        return {
+            "key": key, "id": anchor, "title": title, "meta": meta if isinstance(meta, list) else [meta], "state": state,
+            "attention": state != "listo" if attention is None else attention,
+            "url": url, "label": label, "label_hidden": label_hidden,
+        }
+
+    steps = []
+    approved = event.procedures_approved
+    steps.append(step(
+        "procedimientos", "Procedimientos de la iglesia",
+        f"Confirmados el {fecha_corta(event.procedures_approved_at)}." if approved else "Sin confirmar. Sin eso no se pueden iniciar entrevistas.",
+        "listo" if approved else "falta",
+        f"{settings_url}#procedimientos", "Ver" if approved else "Confirmar", "los procedimientos",
+    ))
+
+    version = event.questionnaire_version
+    steps.append(step(
+        "cuestionario", "Cuestionario",
+        f"{version.title}, versión {version.number}." if version else "Sin cuestionario publicado.",
+        "listo" if event.questionnaire_version_id else "falta",
+        reverse("events:questionnaires", args=[slug]), "Ver", "los cuestionarios",
+    ))
+
+    eligible = progress["eligible"]
+    if unassigned:
+        campers_button = (f"{reverse('events:participants', args=[slug])}?coordinador=ninguno", "Asignar", "coordinador a los camperos que no tienen")
+    else:
+        campers_button = (reverse("events:participant_import", args=[slug]), "Importar", "camperos")
+    steps.append(step(
+        "camperos", "Camperos",
+        f"{eligible} participando{f', {unassigned} sin coordinador' if unassigned else ''}.",
+        "falta" if not eligible else "revisar" if unassigned else "listo",
+        *campers_button,
+    ))
+
+    counts = []  # "1 administrador, 2 pastores, 2 tutores y 3 coordinadores"
+    for value, label in MembershipRole.choices:
+        n = roles.get(value, 0)
+        counts.append(f"{n} {str(label).lower()}{'' if n == 1 else 'es'}")
+    if team_state == "falta":
+        team_note = "Sin coordinadores nadie puede entrevistar."
+    elif without_tutor:
+        team_note = f"{without_tutor} coordinador{'' if without_tutor == 1 else 'es'} sin tutor."
+    else:
+        team_note = "Cada coordinador tiene tutor."
+    if team_state == "revisar":
+        team_button = (reverse("events:assignments", args=[slug]), "Asignar tutores", "")
+    else:
+        team_button = (reverse("events:member_add", args=[slug]), "Agregar persona", "al equipo")
+    steps.append(step(
+        "equipo", "Equipo", f"{', '.join(counts[:-1])} y {counts[-1]}. {team_note}", team_state, *team_button, anchor="preparacion-equipo",
+    ))
+
+    steps.append(step(
+        "computadoras", "Computadoras",
+        f"{stations} disponible{'' if stations == 1 else 's'} para entrevistar." if stations else "Ninguna disponible para entrevistar.",
+        "listo" if stations else "falta",
+        f"{settings_url}#computadoras", "Configurar", "las computadoras",
+    ))
+
+    if event.reports_enabled:
+        schedule = f"{event.get_report_interval_minutes_display()}, de {event.report_window_start:%H:%M} a {event.report_window_end:%H:%M}."
+    else:
+        schedule = "Los cortes automáticos están apagados."
+    last = f"Último corte: {fecha_corta(last_snapshot.cutoff_at)}." if last_snapshot else "Aún no hay cortes."
+    late = bool(auto_cutoffs and auto_cutoffs["late"])
+    health = []  # the second line: whether the scheduler runs, and the cutoffs that failed
+    if auto_cutoffs:
+        if late:
+            health.append(f"{auto_cutoffs['late_text']} Puedes generar un corte a mano en Reportes.")
+        elif auto_cutoffs["last"]:
+            health.append(f"Último corte automático: {auto_cutoffs['last']}.")
+        else:
+            health.append("Todavía no hay cortes automáticos.")
+    if failed_count:
+        failed = "1 corte no se pudo generar." if failed_count == 1 else f"{failed_count} cortes no se pudieron generar."
+        health.append(format_html("<strong>{}</strong>", failed))
+    meta = [f"{schedule} {last}"]
+    if health:
+        meta.append(format_html_join(" ", "{}", ((part,) for part in health)))
+    if late or failed_count:
+        cutoffs_state = "revisar"
+    elif not event.reports_enabled:
+        cutoffs_state = "apagados"
+    else:
+        cutoffs_state = "listo" if has_automatic_cutoff else "esperando"
+    reports_url = reverse("events:reports", args=[slug])
+    cutoffs_button = (reports_url, "Generar un corte", "en Reportes") if late else (reports_url, "Ver reportes", "")
+    steps.append(step(
+        "cortes", "Cortes", meta, cutoffs_state, *cutoffs_button, attention=late, anchor="cortes-automaticos" if auto_cutoffs else None,
+    ))
+    return steps
+
+
 @event_view(ADMIN)
 def admin_home(request, event, access):
     payload = build_payload(scope_for_access(access), include_safety=True)
@@ -430,6 +654,17 @@ def admin_home(request, event, access):
         "stations": event.stations.filter(is_active=True).count(),
         "pending_requests": AccessRequest.objects.filter(event=event, status=AccessRequest.Status.PENDING).count(),
     }
+    # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)
+    steps = _preparation_steps(
+        event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,
+        roles=roles, stations=context["stations"], has_automatic_cutoff=context["has_automatic_cutoff"],
+        auto_cutoffs=context["auto_cutoffs"], last_snapshot=context["last_snapshot"], failed_count=failed_count,
+    )
+    pending = [s for s in steps if s["state"] != "listo"]
+    ready = [s for s in steps if s["state"] == "listo"]
+    context["steps"], context["steps_done"], context["steps_total"] = steps, len(ready), len(steps)
+    # Both lists in one loop, so the row is written once in the template; an empty list is left out
+    context["step_groups"] = [group for group in ({"listos": False, "steps": pending}, {"listos": True, "steps": ready}) if group["steps"]]
     if is_fragment(request):
         return render(request, "events/admin/_home_live.html", context)
     return render(request, "events/admin/home.html", context)

@@ -4,24 +4,38 @@
 {% block content %}
 {% include "events/rotulo/_page_head.html" with title="Seguimiento" lede="Camperos que pidieron o necesitan acompañamiento. Asigna un líder a cada uno." %}
 <ul class="filters" aria-label="Estados">
-  <li><a href="?estado=abiertos"{% if status == "abiertos" %} aria-current="page"{% endif %}>Abiertos</a></li>
-  {% for value, label in status_choices %}<li><a href="?estado={{ value }}"{% if status == value %} aria-current="page"{% endif %}>{{ label }} <span class="count">{{ counts|get_item:value|default:0 }}</span></a></li>{% endfor %}
-  <li><a href="?estado=todos"{% if status == "todos" %} aria-current="page"{% endif %}>Todos</a></li>
+  <li><a href="?estado=abiertos{% if responsable != "todos" %}&amp;responsable={{ responsable }}{% endif %}"{% if status == "abiertos" %} aria-current="page"{% endif %}>Abiertos</a></li>
+  {% for value, label in status_choices %}<li><a href="?estado={{ value }}{% if responsable != "todos" %}&amp;responsable={{ responsable }}{% endif %}"{% if status == value %} aria-current="page"{% endif %}>{{ label }} <span class="count">{{ counts|get_item:value|default:0 }}</span></a></li>{% endfor %}
+  <li><a href="?estado=todos{% if responsable != "todos" %}&amp;responsable={{ responsable }}{% endif %}"{% if status == "todos" %} aria-current="page"{% endif %}>Todos</a></li>
+</ul>
+<ul class="filters" aria-label="Responsable">
+  <li class="filters__name">Responsable:</li>
+  <li><a href="?estado={{ status|urlencode }}"{% if responsable == "todos" %} aria-current="page"{% endif %}>Todos</a></li>
+  <li><a href="?estado={{ status|urlencode }}&amp;responsable=ninguno"{% if responsable == "ninguno" %} aria-current="page"{% endif %}>Sin asignar <span class="count">{{ unassigned_count }}</span></a></li>
+  <li><a href="?estado={{ status|urlencode }}&amp;responsable=mio"{% if responsable == "mio" %} aria-current="page"{% endif %}>Míos <span class="count">{{ mine_count }}</span></a></li>
 </ul>
 <section class="results" aria-label="Seguimientos">
   {% if follow_ups %}
+    <h2 class="heading">{{ total }} seguimiento{{ total|pluralize }}</h2>
+    {% if total > shown %}<p class="aside-note">Mostrando {{ shown }} de {{ total }}. Usa los filtros para ver los demás.</p>{% endif %}
     <ul class="rows">{% for f in follow_ups %}
       <li class="row">
         <div class="row__main">
-          <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}">{{ f.participant.full_name }}</a></p>
-          <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.participant.coordinator.display_name|default:"sin coordinador" }}, {{ f.created_at|since }}{% if f.assigned_to %}. Responsable: {{ f.assigned_to.get_full_name }}{% endif %}</p>
+          <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.get_full_path|urlencode }}">{{ f.participant.full_name }}</a></p>
+          <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.participant.coordinator.display_name|default:"sin coordinador" }}, {{ f.created_at|since }}</p>
+          <p class="row__meta">{% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name|default:f.assigned_to.email }}{% else %}Sin asignar{% endif %}</p>
         </div>
         <div class="row__end">
           {% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Urgente</span>{% endif %}
           {% follow_up_status f.status %}
+          {% if f.can_assign and f.is_open %}<form method="post" action="{% url 'events:follow_up_assign' event.slug f.id %}" class="row-assign">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><label class="visually-hidden" for="asignar-{{ f.id }}">Responsable de {{ f.participant.full_name }}</label><select class="input input--small" id="asignar-{{ f.id }}" name="assigned_to"><option value="">Sin asignar</option>{% for u in leaders %}<option value="{{ u.id }}"{% if f.assigned_to_id == u.id %} selected{% endif %}>{{ u.get_full_name|default:u.email }}</option>{% endfor %}{% if f.coordinator_option %}<option value="{{ f.coordinator_option.id }}"{% if f.assigned_to_id == f.coordinator_option.id %} selected{% endif %}>{{ f.coordinator_option.get_full_name|default:f.coordinator_option.email }}</option>{% endif %}{% if f.former_assignee %}<option value="{{ f.former_assignee.id }}" selected>{{ f.former_assignee.get_full_name|default:f.former_assignee.email }} (ya no está en el equipo)</option>{% endif %}</select><button class="btn btn--secondary btn--small" type="submit">Asignar</button></form>{% endif %}
         </div>
       </li>
     {% endfor %}</ul>
+  {% elif responsable == "ninguno" %}
+    <p class="empty-line">{% if status == "abiertos" %}Todos los seguimientos abiertos tienen responsable.{% else %}Ningún seguimiento de esta lista está sin asignar.{% endif %}</p>
+  {% elif responsable == "mio" %}
+    <p class="empty-line">{% if status == "todos" %}No tienes seguimientos asignados.{% else %}No tienes seguimientos asignados en esta lista.{% endif %}</p>
   {% else %}
     <p class="empty-line">No hay seguimientos en esta lista. Cuando un coordinador marque que un campero necesita seguimiento aparecerá aquí.</p>
   {% endif %}

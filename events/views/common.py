@@ -62,10 +62,10 @@ def nav_items(event: Event, access) -> list[dict]:
     def item(label, name, also=()):
         return {"label": label, "url": reverse(f"events:{name}", args=[event.slug]), "names": {name, *also}}
 
+    # "Campamentos" (the event list) is not an item: every bar links it beside the event's name (partials/ui/bar.html).
     if access.is_admin:
         return [
             item("Inicio", "admin_home"),
-            {"label": "Campamentos", "url": reverse("events:list"), "names": {"list", "create"}},
             item("Camperos", "participants", ("participant_detail", "participant_edit", "participant_create", "participant_import", "participant_delete",
                                                    "sedes", "sede_add", "sede_edit")),
             item("Equipo", "team", ("member_add", "member_edit", "assignments", "coordinator_detail", "join_code_sign")),
@@ -120,7 +120,7 @@ def initials(name: str) -> str:
 
 
 def safe_next(request, candidate: str | None, fallback: str) -> str:
-    """Only same-site redirects (rejects //evil.example, /\\evil.example, absolute URLs)."""
+    """Only same-site redirects (rejects //evil.example, /\\evil.example and absolute URLs to another host)."""
     if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         return candidate
     return fallback

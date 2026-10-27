@@ -18,6 +18,7 @@
     <form method="post" class="step__actions">
       {% csrf_token %}
       <input type="hidden" name="action" value="decision">
+      <input type="hidden" name="siguiente" value="{{ request.GET.siguiente }}">
       <button class="btn btn--primary" name="decision" value="requerido">Sí requiere seguimiento</button>
       <button class="btn btn--secondary" name="decision" value="no_requerido">No requiere seguimiento</button>
     </form>

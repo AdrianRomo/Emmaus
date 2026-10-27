@@ -28,7 +28,7 @@
           <label class="label" for="enlace">Enlace para crear contraseña</label>
           <input class="input" id="enlace" value="{{ link }}" readonly>
         </div>
-        <button class="btn btn--secondary btn--small" type="button" data-copy="enlace">Copiar enlace</button>
+        <button class="btn btn--secondary btn--small" type="button" data-copy="enlace" data-copy-done="Enlace copiado">Copiar enlace</button>
       {% else %}
         <form method="post" class="mt-4">{% csrf_token %}<input type="hidden" name="action" value="link"><button class="btn btn--secondary btn--small" type="submit">Generar enlace</button></form>
       {% endif %}

@@ -97,8 +97,8 @@
     }
     button.addEventListener("click", open);
     $all("[data-menu-close]", panel).forEach(function (b) { b.addEventListener("click", function () { close(true); }); });
-    if (window.matchMedia) {  // past 1180px "Menú" is not shown (rotulo.css): the bar has the links again
-      var narrow = window.matchMedia("(max-width: 1180px)");
+    if (window.matchMedia) {  // past 760px "Menú" is not shown (rotulo.css): the bar has the links again
+      var narrow = window.matchMedia("(max-width: 760px)");
       var onResize = function () { if (!narrow.matches) close(false); };
       if (narrow.addEventListener) narrow.addEventListener("change", onResize);
       else if (narrow.addListener) narrow.addListener(onResize);
@@ -251,14 +251,39 @@
   if (summary) { summary.setAttribute("tabindex", "-1"); summary.focus(); }
 
   /* ---- Copy / print helpers ---------------------------------------------- */
-  $all("[data-copy]").forEach(function (button) {
+  // data-copy="<id>" copies that field. The button says it worked (data-copy-done, else "Copiado") and gets its own
+  // words back after 3 s; one live region says the same aloud (audit A11Y-12). Without the Clipboard API, or when the
+  // browser refuses it (no HTTPS), the region says so and the text is selected for the person to copy.
+  var copyButtons = $all("[data-copy]");
+  var copyStatus = $("[data-copy-status]");
+  if (copyButtons.length && !copyStatus) {  // made on load: a region added at the moment it speaks is often not read
+    copyStatus = doc.createElement("p");
+    copyStatus.className = "visually-hidden";
+    copyStatus.setAttribute("role", "status");
+    copyStatus.setAttribute("data-copy-status", "");
+    doc.body.appendChild(copyStatus);
+  }
+  function announceCopy(text) {
+    copyStatus.textContent = "";  // emptied first, so the same words twice in a row are read twice
+    window.setTimeout(function () { copyStatus.textContent = text; }, 100);
+  }
+  copyButtons.forEach(function (button) {
+    var label = button.innerHTML;
+    var revert = null;
     button.addEventListener("click", function () {
       var target = doc.getElementById(button.getAttribute("data-copy"));
       if (!target) return;
       var text = target.value || target.textContent;
       (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function () {
-        button.textContent = "Copiado";
-      }).catch(function () { target.select && target.select(); });
+        var done = button.getAttribute("data-copy-done") || "Copiado";
+        button.textContent = done;
+        announceCopy(done);
+        window.clearTimeout(revert);
+        revert = window.setTimeout(function () { button.innerHTML = label; }, 3000);
+      }).catch(function () {
+        announceCopy("No se pudo copiar. Selecciona el texto y cópialo.");
+        target.select && target.select();
+      });
     });
   });
   $all("[data-print]").forEach(function (b) { b.addEventListener("click", function () { window.print(); }); });
@@ -590,4 +615,25 @@
       $all("[data-offline-notice]").forEach(function (notice) { notice.hidden = true; });
     });
   }
+
+  /* ---- Short name for the address, formed from the name (UX-12) ------------ */
+  // input[data-slug-from="<id>"] (event and first-setup forms): while it is empty and untouched it follows the field
+  // <id> as lowercase letters and numbers without accents, "-" between words, as long as the field allows (80 at most).
+  // The server forms one too when it arrives blank (events/forms.py, core/forms.py). Once the person types in it, it is
+  // theirs; one that already has a value when the page opens (an event's Configuración: the slug is its address) is
+  // never rewritten.
+  function slugOf(text, max) {
+    return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/, "");
+  }
+  $all("input[data-slug-from]").forEach(function (slug) {
+    var source = doc.getElementById(slug.getAttribute("data-slug-from"));
+    if (!source || slug.value) return;
+    var max = slug.maxLength > 0 ? Math.min(slug.maxLength, 80) : 80;
+    var following = true;
+    slug.addEventListener("input", function () { following = false; });
+    source.addEventListener("input", function () {
+      if (following) slug.value = slugOf(source.value, max);
+    });
+  });
 })();

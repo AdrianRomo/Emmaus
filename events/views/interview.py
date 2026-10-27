@@ -6,6 +6,7 @@ from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import urlencode
 
 from ..forms import DiscardForm, InterviewStartForm, SafetyReportForm
 from ..models import FollowUp, Interview, InterviewStatus, Question
@@ -17,7 +18,7 @@ from ..services.questionnaire import (
     neighbor_steps,
     visible_steps,
 )
-from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view
+from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view, safe_next
 
 
 # ---- view models ----------------------------------------------------------------------------
@@ -461,13 +462,17 @@ def interview_discard(request, event, access, public_id):
 def interview_detail(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if request.method == "POST" and request.POST.get("action") == "decision":
+        here = reverse("events:interview_detail", args=[event.slug, public_id])
+        # Where the decision was opened ("Entrevistas pendientes", UX-21); same site only, "" when absent or foreign.
+        back = safe_next(request, request.POST.get("siguiente") or request.GET.get("siguiente"), fallback="")
         try:
             svc.update_follow_up_decision(access, interview, request.POST.get("decision", ""))
         except svc.InterviewError as exc:
             messages.error(request, exc.message)
-        else:
-            messages.success(request, "Decisión de seguimiento guardada.")
-        return redirect("events:interview_detail", slug=event.slug, public_id=public_id)
+            # The error is about this record: it stays on screen, and keeps the way back for the next try.
+            return redirect(f"{here}?{urlencode({'siguiente': back})}" if back else here)
+        messages.success(request, "Decisión de seguimiento guardada.")
+        return redirect(back or here)
     rows = svc.review_rows(access, interview)
     confidential_shown = [r for r in rows if r["visible"] and r["question"].sensitivity == Question.Sensitivity.CONFIDENTIAL and r["answered"]]
     if confidential_shown:
