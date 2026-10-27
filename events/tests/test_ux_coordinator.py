@@ -391,3 +391,13 @@ class HandoffChecklistTests(CampFixture):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "nadie más verá")
         self.assertContains(response, "la pantalla de bienvenida le explica quién lee sus respuestas")
+
+
+class KioskStepPromiseTests(test_audit_flows.KioskFixture):
+    """Each kiosk question keeps "Prefiero no responder" and drops the physical promise the system cannot keep (LANG-27)."""
+
+    def test_the_question_page_does_not_promise_that_nobody_else_sees_the_screen(self):
+        response = self.client.get(reverse("kiosk:step", args=[1]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Puedes elegir “Prefiero no responder” en cualquier pregunta.")
+        self.assertNotContains(response, "Nadie más ve esta pantalla")
