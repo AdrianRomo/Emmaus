@@ -1,0 +1,31 @@
+name: Bug
+description: Something behaves wrongly
+title: "[bug] "
+labels: ["needs:triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+      description: Steps, expected, actual. Synthetic data only; never a real person's details.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      placeholder: "screen or URL path, role, branch or environment (main / v2)"
+    validations:
+      required: true
+  - type: dropdown
+    id: camp
+    attributes:
+      label: Does it affect the camp in production?
+      options: ["No", "Yes", "Unsure"]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Failing test, log excerpt (redacted), screenshot.

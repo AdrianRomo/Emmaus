@@ -1,0 +1,19 @@
+# Lint gate baseline (docs/agents/quality-gates.md). The rule set is the small, stable one:
+# pyflakes plus the pycodestyle import, statement and syntax groups. Widen it in its own PR.
+target-version = "py312"
+line-length = 120
+extend-exclude = [".venv", "staticfiles", "e2e/node_modules"]
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
+
+# Findings that existed on 2026-10-28, kept out of the gate so it starts green and cannot regress
+# elsewhere. Each entry is a debt item: delete the line when the finding is fixed (decision 0001,
+# follow-up "fix the seven baseline ruff findings").
+[lint.per-file-ignores]
+"core/services.py" = ["F841"]
+"core/test_acompanamiento_rotulo.py" = ["E702"]
+"events/tests/test_rol_visible.py" = ["F401"]
+"events/urls.py" = ["E741"]
+"events/views/admin.py" = ["E741"]
+"events/views/dashboards.py" = ["F841"]

@@ -1,0 +1,18 @@
+[
+  {"name": "agent:ready",       "color": "0E8A16", "description": "Spec complete (criteria, risk, verification). An agent may claim it."},
+  {"name": "agent:in-progress", "color": "1D76DB", "description": "Claimed by one session; the claim comment names branch and worktree."},
+  {"name": "agent:review",      "color": "5319E7", "description": "Draft PR open, gate run, awaiting Codex + human review."},
+  {"name": "agent:blocked",     "color": "B60205", "description": "Gate failed after the retry budget, or a dependency is open."},
+  {"name": "agent:needs-human", "color": "D93F0B", "description": "Escalated: a human decision is required (docs/agents/policies.md)."},
+  {"name": "agent:done",        "color": "C2E0C6", "description": "Merged and verified, or closed as won't do."},
+  {"name": "risk:low",          "color": "BFD4F2", "description": "Docs, tests, tooling, copy, isolated UI. No schema, authorization or camp screens."},
+  {"name": "risk:medium",       "color": "FBCA04", "description": "Additive schema or behaviour outside the camp flows; new screens."},
+  {"name": "risk:high",         "color": "E99695", "description": "Authorization, tenant isolation, sensitive data, camp flows, non-additive migrations."},
+  {"name": "exec:local-ok",     "color": "C5DEF5", "description": "Bounded, non-sensitive, reversible: a local model may pre-process or execute it."},
+  {"name": "needs:triage",      "color": "EDEDED", "description": "New issue from the form; a human sets risk and readiness."},
+  {"name": "needs:decision",    "color": "F9D0C4", "description": "A product or architecture decision is open; not executable."},
+  {"name": "area:camp",         "color": "D4C5F9", "description": "The camp module (events) as used in production."},
+  {"name": "area:v2",           "color": "D4C5F9", "description": "The next version (v2/foundation)."},
+  {"name": "area:infra",        "color": "D4C5F9", "description": "CI, tooling, environments, agent workflow."},
+  {"name": "area:docs",         "color": "D4C5F9", "description": "Documentation only."}
+]

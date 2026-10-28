@@ -1,0 +1,3 @@
+# Test node ids that scripts/agents/run-tests.sh postgres passes as --deselect. One per line, each
+# with the issue that removes it. They still run on SQLite. Blank lines and # comments are ignored.
+events/tests/test_camp_ops.py::PurgeDemoDataTests  # setUpTestData seeds 400 camperos: ~31 min on PostgreSQL, 3 s on SQLite; issue #14
