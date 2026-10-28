@@ -46,6 +46,12 @@ jobs:
         if: steps.key.outputs.present == 'true'
         with:
           node-version: "22"
+      - name: Allow unprivileged user namespaces for Codex's read-only sandbox
+        # Ubuntu 24.04 runners restrict unprivileged user namespaces through AppArmor, and Codex's
+        # bubblewrap sandbox then fails with "bwrap: loopback: Failed RTM_NEWADDR". The sandbox stays
+        # read-only; only the kernel knob that lets it start is changed, on a throwaway VM.
+        if: steps.key.outputs.present == 'true'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - name: Install the application requirements (so Codex can run tests) and Codex CLI
         if: steps.key.outputs.present == 'true'
         run: |
