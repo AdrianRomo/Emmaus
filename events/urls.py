@@ -63,6 +63,7 @@ urlpatterns = [
     path(E + "participantes/", admin.participants, name="participants"),
     path(E + "participantes/importar/", admin.participant_import, name="participant_import"),
     path(E + "participantes/exportar/", admin.participant_export, name="participant_export"),
+    path(E + "respuestas/exportar/", admin.answers_export, name="answers_export"),
     path(E + "camperos/importar/ejemplo.csv", admin.sample_csv, name="participant_import_sample"),
     path(E + "camperos/" + I + "datos/", admin.participant_data_export, name="participant_data_export"),
     path(E + "camperos/" + I + "eliminar/", admin.participant_delete, name="participant_delete"),

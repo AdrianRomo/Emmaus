@@ -67,7 +67,7 @@ def nav_items(event: Event, access) -> list[dict]:
         return [
             item("Inicio", "admin_home"),
             item("Camperos", "participants", ("participant_detail", "participant_edit", "participant_create", "participant_import", "participant_delete",
-                                                   "sedes", "sede_add", "sede_edit")),
+                                                   "sedes", "sede_add", "sede_edit", "answers_export")),
             item("Equipo", "team", ("member_add", "member_edit", "assignments", "coordinator_detail", "join_code_sign")),
             item("Cuestionarios", "questionnaires", ("version_detail", "question_edit", "question_add", "option_add", "section_add",
                                                      "questionnaire_create")),

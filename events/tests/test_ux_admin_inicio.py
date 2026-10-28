@@ -33,7 +33,7 @@ LISTO = '<span class="status status--done"><span class="status__mark" aria-hidde
 REVISAR = '<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>Revisar</span>'
 APAGADOS = '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Apagados</span>'
 # The questionnaires are chosen in Cuestionarios (several per event): Configuración only links there.
-SECTIONS = ["procedimientos", "datos", "cortes", "privacidad", "computadoras"]
+SECTIONS = ["procedimientos", "datos", "cortes", "privacidad", "exportar", "computadoras"]  # "exportar": Ronda 20
 GROUPS = {
     "cortes": {"time_zone", "reports_enabled", "report_interval_minutes", "report_window_start", "report_window_end"},
     "privacidad": {"adult_age", "requires_guardian_authorization", "min_group_size", "retention_days", "privacy_notice", "safeguarding_instructions"},
@@ -304,7 +304,7 @@ class SettingsSectionsTests(CampFixture):
         self.assertEqual(re.findall(r'<li><a href="#([^"]+)">', nav.group(1)), SECTIONS)
         self.assertEqual(
             re.findall(r'<a href="#[^"]+">([^<]+)</a>', nav.group(1)),
-            ["Procedimientos", "Datos del evento", "Cortes", "Privacidad y protección", "Computadoras"],
+            ["Procedimientos", "Datos del evento", "Cortes", "Privacidad y protección", "Exportar datos", "Computadoras"],
         )
         self.assertNotIn("admin-split", html)  # one column
 

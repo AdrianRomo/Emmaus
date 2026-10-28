@@ -58,7 +58,7 @@
   {% else %}
     <p class="empty-line">No encontramos camperos con estos filtros. Cambia los filtros{% if access.is_admin %} o <a href="{{ import_url }}">importa la lista de camperos</a> desde un archivo{% endif %}.</p>
   {% endif %}
-  {% if can_manage %}<p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a> (CSV, sin respuestas).</p>
+  {% if can_manage %}<p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a> (CSV, sin respuestas){% if access.is_admin and access.can_view_sensitive %} o <a href="{% url 'events:answers_export' event.slug %}">descargar las respuestas</a>{% endif %}.</p>
   <p class="more"><a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a>, para saber de dónde viene cada campero.</p>{% endif %}
 </section>
 {% endblock %}

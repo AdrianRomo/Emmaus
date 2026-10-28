@@ -73,6 +73,8 @@ from ..services.questionnaire import (
     load_answers,
     publish_version,
 )
+from ..services.exports import answers_rows
+from ..services.exports import safe_cell as _safe_cell
 from ..services.metrics import local_tz
 from ..templatetags.emmaus import MESES, campero_progress_label
 from .common import ADMIN, PASTOR, event_view
@@ -244,12 +246,6 @@ def participant_import(request, event, access):
     )
 
 
-def _safe_cell(value):
-    """Spreadsheets run cells that start with = + - @ as formulas; neutralize them."""
-    text = str(value)
-    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
-
-
 @event_view(ADMIN)
 def participant_export(request, event, access):
     response = HttpResponse(content_type="text/csv; charset=utf-8")
@@ -276,6 +272,34 @@ def _interview_cell(participant) -> str:
     """The "Entrevista" cell: the words of the list's pill (``campero_progress_label``), plain."""
     label = campero_progress_label(participant.interview_status, participant.done_count, participant.questionnaire_total)
     return label if label is not None else participant.get_interview_status_display()
+
+
+@event_view(ADMIN)
+def answers_export(request, event, access):
+    """"Descargar las respuestas": every campero and their answers to each questionnaire, one CSV row each
+    (services.exports.answers_rows). Only with confidential access, as one person's export: it holds every answer."""
+    if not access.can_view_sensitive:
+        raise PermissionDenied
+    links = eq.links_for(event)
+    header, rows = answers_rows(event, links)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    stamp = timezone.localtime(timezone.now(), local_tz(event)).strftime("%Y%m%d-%H%M")
+    response["Content-Disposition"] = f'attachment; filename="respuestas-{event.slug}-{stamp}.csv"'
+    response.write("\ufeff")  # Excel opens UTF-8 correctly with a BOM
+    writer = csv.writer(response)
+    writer.writerow(header)
+    writer.writerows(rows)
+    audit.record(
+        request.user,
+        event,
+        "exportacion",
+        "Descargó las respuestas de todos los camperos (CSV)",
+        None,
+        kind="respuestas",
+        camperos=len(rows),
+        cuestionarios=len(links),
+    )
+    return response
 
 
 # The place a family recognises in "hora de ...", for the zones an event can choose (forms.MEXICO_TIME_ZONES).

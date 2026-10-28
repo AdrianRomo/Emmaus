@@ -118,7 +118,7 @@
       {% else %}
         <p class="empty-line">Nadie ha descargado datos.</p>
       {% endif %}
-      <p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a></p>
+      <p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a>{% if access.is_admin and access.can_view_sensitive %} o <a href="{% url 'events:answers_export' event.slug %}">descargar las respuestas</a>{% endif %}</p>
     </section>
   </div>
 </div>
