@@ -219,7 +219,7 @@ Con varios cuestionarios, cada pantalla dice cuántos de ellos lleva cada quien:
 
 * La etiqueta de cada campero dice "0 de 2 cuestionarios", "1 de 2 cuestionarios" o "2 de 2 cuestionarios", y "En curso, 1 de 2" mientras responde uno. La pestaña y el filtro "Sin entrevista" se llaman **"Sin terminar"**.
 * Los conteos dicen "con los 2 cuestionarios" ("Llevamos 120 de 400 con los 2 cuestionarios.") y separan a los que van **"a medias"** de los que no han empezado ("30 sin iniciar y 12 a medias").
-* Cada bloque de avance, de "Mi inicio" a "Resumen general" y cada corte, suma **"Por cuestionario"**: una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400, 5 en curso."). Las filas de cada coordinador lo dicen en una línea ("«Primer cuestionario»: 25 de 31, «Segundo cuestionario»: 10 de 31."); las de cada equipo la llevan solo en un corte guardado: en "Resumen general" y "Avance", en vivo, las filas de los equipos no la tienen. El PDF trae la tabla "Por cuestionario" y la presentación una diapositiva más.
+* Cada bloque de avance, de "Mi inicio" a "Resumen general" y cada corte, suma **"Por cuestionario"**: una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400, 5 en curso."). Las filas de cada coordinador lo dicen en una línea ("«Primer cuestionario»: 25 de 31, «Segundo cuestionario»: 10 de 31."); las de cada equipo la llevan solo en un corte guardado: en "Resumen general" y "Avance", en vivo, las filas de los equipos no la tienen. El PDF trae la tabla "Por cuestionario" y la presentación una diapositiva más (mientras haya camperos).
 
 ### 11. Respuestas confidenciales
 
@@ -502,7 +502,7 @@ Sirve para proyectar el avance en una reunión del equipo.
 
 ![Modo presentación](img/presentacion.png)
 
-Son 5 diapositivas: portada, cómo va el campamento con el avance de cada equipo, la gráfica del avance de entrevistas, necesidades de seguimiento y próximos pasos. Si el campamento usa varios cuestionarios son 6: después de "cómo va" viene **"Por cuestionario"**, con una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400."). La letra está hecha para leerse desde el fondo del salón. **No muestra nombres de camperos, coordinadores ni tutores, ni respuestas.** Las cifras de seguimiento vienen del último corte y están redondeadas; antes del primer corte aparecen como "—". Cada diapositiva dice de qué hora son sus datos: en un corte guardado, la hora del corte; en vivo, la de seguimientos dice las dos horas ("Según el corte de las 14:00; lo demás, datos de las 14:35.").
+Son 5 diapositivas: portada, cómo va el campamento con el avance de cada equipo, la gráfica del avance de entrevistas, necesidades de seguimiento y próximos pasos. Si el campamento usa varios cuestionarios son 6 (5 mientras no haya camperos): después de "cómo va" viene **"Por cuestionario"**, con una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400."); un título largo termina en "…", y con nueve o más cuestionarios se ven los primeros ocho y "y N más". La letra está hecha para leerse desde el fondo del salón. **No muestra nombres de camperos, coordinadores ni tutores, ni respuestas.** Las cifras de seguimiento vienen del último corte y están redondeadas; antes del primer corte aparecen como "—". Cada diapositiva dice de qué hora son sus datos: en un corte guardado, la hora del corte; en vivo, la de seguimientos dice las dos horas ("Según el corte de las 14:00; lo demás, datos de las 14:35.").
 
 ---
 
