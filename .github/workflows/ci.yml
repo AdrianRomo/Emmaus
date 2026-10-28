@@ -39,6 +39,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -50,6 +52,14 @@ jobs:
         run: DEBUG=true python manage.py makemigrations --check --dry-run
       - name: check --deploy with production-like settings (only W005/W021 accepted)
         run: scripts/agents/check-deploy.sh
+      - name: Migration scope (no core/ or events/ migrations on v2 branches while the camp runs on main)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: origin/${{ github.base_ref }}
+          ALLOW_CAMP_MIGRATIONS: ${{ contains(github.event.pull_request.labels.*.name, 'area:camp') }}
+        run: |
+          git fetch --quiet origin "${{ github.base_ref }}"
+          scripts/agents/check-migration-scope.sh
 
   agent-tooling:
     name: Agent tooling regression tests

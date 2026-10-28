@@ -50,10 +50,25 @@ install). Never `git add -A` (worktrees may hold `db.sqlite3`, `e2e/node_modules
 
 ## Invariants (never break; add a test when you touch the area)
 
-1. **People exist independently of events.** A person's record never depends on an event, and
-   ending an event role never deletes or hides the person.
-2. **Church roles and event roles have distinct scopes.** `UserChurchRole` (church) and
-   `EventMembership` (event) are not interchangeable and neither implies the other.
+1. **People exist independently of events (goal; camperos are event-bound today).** A staff
+   member is one `auth.User` across events; a campero is today one `EventParticipant` row per
+   event with no account, deleted by the event's retention purge
+   (`events/management/commands/purge_expired_event_data.py`). The next version adds a
+   church-scoped `Person` (decision 0002) and links camp records to it only by a human-confirmed,
+   audited action, never by name, e-mail or phone, and never across churches. Until then: never
+   add a person concept to `EventParticipant`, and never let ending an event role touch a church
+   role (`events/tests/test_security_review.py::test_deactivated_membership_overrides_church_pastor_role`
+   proves the direction below, `test_join_code.py::test_a_church_pastor_without_membership_is_not_demoted`
+   that the church role survives).
+2. **Church roles and event roles are distinct scopes, and the implication runs one way only.**
+   `resolve_access` (`events/access.py:255-269`) makes a church `church_admin` the Administrador
+   of every event of that church and a church `pastor` a Pastor of every event unless an inactive
+   `EventMembership` says otherwise; an event role never grants a church role, never reaches
+   another event, and never grants `can_view_sensitive` by itself. Pinned by
+   `events/tests/test_access.py::test_church_admin_is_event_admin_everywhere_in_the_church`,
+   `test_roles_are_event_scoped` and `test_pastor_status_does_not_grant_sensitive_access`. Keep
+   both tables as the sources of truth; new scopes (group, ministry) get a separate
+   `RoleAssignment` projection (decision 0002), not new rows in these tables.
 3. **Church data is tenant-isolated.** Every query that serves a request is scoped to the
    caller's church; cross-church access is tested as denied, including by guessed ids.
 4. **Sensitive participant information requires authorization.** Confidential answers,
