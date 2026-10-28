@@ -66,6 +66,11 @@ When a budget is exhausted: comment with the evidence, set `agent:blocked` or
 - **Agent GitHub identity:** a fine-grained personal access token scoped to `AdrianRomo/Emmaus`
   with Contents, Issues and Pull requests read/write and Metadata read; no Administration,
   Actions, Secrets or Workflows. The owner's classic token is never used by automation.
+  Where it lives: for local automation (cron, the future queue, a non-interactive script) in
+  `~/.emmaus-agent/env` as `GH_TOKEN=…` (mode 0600, sourced by the unit that runs it; `gh` reads
+  `GH_TOKEN`); cloud Routines do not need it (their GitHub proxy authenticates), and if a separate
+  identity is wanted there it goes into the cloud environment's variables as `GH_TOKEN`. Never in
+  the repository, never in GitHub Actions secrets for this workflow, never in a prompt or an issue.
 - **Routines:** repository access through the claude.ai GitHub connection only; no SSH keys,
   no `.env`, no host access.
 - **Codex review:** `-s read-only --ephemeral`. **Local models:** no network, no repository

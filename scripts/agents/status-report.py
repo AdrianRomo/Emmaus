@@ -25,17 +25,21 @@ def age_days(iso, now):
     return (now - dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))).total_seconds() / 86400
 
 
+SUCCESS_STATES = {"SUCCESS", "NEUTRAL", "SKIPPED"}
+PENDING_STATES = {"", "PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", "WAITING", "REQUESTED"}
+
+
 def ci_state(pr):
+    """failure if any check did not succeed, pending if any is still running, success only when every
+    check succeeded. Unknown conclusions count as failure: a report that calls a red PR green is worse
+    than one that asks a human to look."""
     checks = pr.get("statusCheckRollup") or []
     if not checks:
         return "none"
-    states = []
-    for c in checks:
-        s = (c.get("conclusion") or c.get("state") or c.get("status") or "").upper()
-        states.append(s)
-    if any(s in ("FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED") for s in states):
+    states = [(c.get("conclusion") or c.get("state") or c.get("status") or "").upper() for c in checks]
+    if any(s not in SUCCESS_STATES and s not in PENDING_STATES for s in states):
         return "failure"
-    if any(s in ("", "PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", "WAITING") for s in states):
+    if any(s in PENDING_STATES for s in states):
         return "pending"
     return "success"
 

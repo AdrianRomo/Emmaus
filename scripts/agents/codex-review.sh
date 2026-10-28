@@ -26,22 +26,35 @@ Answer in the required JSON schema. Use verdict needs_human when a finding touch
 
 # Model: $CODEX_MODEL, else the one in ~/.codex/config.toml; when that model is at capacity the
 # fallbacks are tried in order (override with CODEX_REVIEW_FALLBACK_MODELS, space-separated).
+# Each attempt writes to a fresh temporary file; the verdict is accepted only when Codex exited 0
+# and the file parses against the schema's required keys, and only then does it replace $out.
+# A stale $out from an earlier run can therefore never pass as this run's verdict.
 models="${CODEX_MODEL:-}"
 fallbacks="${CODEX_REVIEW_FALLBACK_MODELS:-gpt-5.6-sol gpt-6-astra gpt-5.5}"
-rc=1
+rm -f "$out"; : >"$out.log"
+rc=1; verdict_ok=false
 for m in ${models:-default} $fallbacks; do
   margs=(); [ "$m" != default ] && margs=(-m "$m")
+  attempt="$(mktemp "${out}.attempt.XXXXXX")"
   log "codex exec (read-only, ephemeral, model ${m}) on $(git rev-parse --short HEAD) vs $base ($(printf '%s\n' "$files" | wc -l) files)"
   set +e
   codex exec -s read-only --ephemeral -C "$repo_root" --color never ${margs[@]+"${margs[@]}"} \
-    --output-schema "$agents_dir/codex-review.schema.json" -o "$out" "$prompt" >"$out.log" 2>&1
+    --output-schema "$agents_dir/codex-review.schema.json" -o "$attempt" "$prompt" >>"$out.log" 2>&1
   rc=$?
   set -e
-  [ -s "$out" ] && break
-  grep -q "at capacity" "$out.log" || break
-  log "model $m is at capacity; trying the next one"
+  if [ "$rc" -eq 0 ] && [ -s "$attempt" ] && "$PYTHON" -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["verdict"] in ("approve", "request_changes", "needs_human")
+assert isinstance(d["findings"], list) and isinstance(d["summary"], str)
+' "$attempt" 2>>"$out.log"; then
+    mv "$attempt" "$out"; verdict_ok=true; break
+  fi
+  rm -f "$attempt"
+  if grep -q "at capacity" "$out.log"; then log "model $m is at capacity; trying the next one"; continue; fi
+  break
 done
-[ -s "$out" ] || die "codex wrote no verdict (rc=$rc); see $out.log"
+$verdict_ok || die "codex produced no valid verdict (rc=$rc); see $out.log"
 "$PYTHON" - "$out" "$base" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
