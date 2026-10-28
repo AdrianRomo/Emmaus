@@ -3,6 +3,8 @@
   One row per coordinator (Rótulo): who and where, one mark per campero (a ruler above 80), "X de Y" and
   the percent. A stalled interview is said in words, not in red: red is only for risk.
   rows: payload["coordinators"]; optional: places (id -> {station, now}), show_team, label (the list's name).
+  With several questionnaires (c.questionnaires) a line under the marks says how many of the coordinator's camperos
+  completed each one, and the key counts the scope's camperos "a medias" (progress.partial, from the including page).
 {% endcomment %}
 <ul class="crew" aria-label="{{ label|default:'Avance por coordinador' }}">
   {% for c in rows %}
@@ -16,7 +18,8 @@
       </div>
       <div class="crew__marks">
         {% tally c.completed c.in_progress c.eligible %}
-        {% if c.stale %}<p class="crew__note">{{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}: {% stale_minutes %} minutos o más sin cambios</p>{% endif %}
+        {% if c.stale %}<p class="crew__note">{{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}: {% stale_minutes %} minutos o más sin cambios</p>{% endif %}{% if c.questionnaires %}
+        <p class="row__meta">{% for q in c.questionnaires %}«{{ q.title }}»: {{ q.completed }} de {{ c.eligible }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
       </div>
       <p class="crew__figures"><strong>{{ c.completed }} de {{ c.eligible }}</strong> <span>{{ c.percent|pct }}</span></p>
     </li>
@@ -26,5 +29,5 @@
 <ul class="key crew__key" aria-hidden="true">
   <li><span class="key__mark key__mark--done"></span>Completada</li>
   <li><span class="key__mark key__mark--progress"></span>En curso</li>
-  <li><span class="key__mark"></span>Sin iniciar</li>
+  <li><span class="key__mark"></span>{% if progress.partial %}{{ progress.not_started }} sin iniciar y {{ progress.partial }} a medias{% else %}Sin iniciar{% endif %}</li>
 </ul>

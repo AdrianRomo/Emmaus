@@ -24,6 +24,7 @@ from events.models import EventParticipant, Interview
 from events.services.event_questionnaires import refresh_interview_statuses, stop_using, use_version
 from events.services.metrics import (
     DEFINITIONS,
+    SEVERAL_QUESTIONNAIRE_DEFINITIONS,
     Progress,
     build_payload,
     coordinator_scope,
@@ -254,9 +255,10 @@ class ProgressForTests(ProgressFixture):
         json.dumps(payload)  # a cutoff stores it as JSON
 
     def test_the_glossary_defines_both(self):
-        """Defect: the PDF's "Cómo se calcula" printing numbers it never defines."""
-        names = [name for name, _ in DEFINITIONS]
-        self.assertEqual(names[-2:], ["A medias", "Por cuestionario"])
+        """Defect: the PDF's "Cómo se calcula" printing numbers it never defines. They live apart from DEFINITIONS so a
+        one-questionnaire PDF keeps its glossary (test_progreso_agregados checks both PDFs)."""
+        self.assertEqual([name for name, _ in SEVERAL_QUESTIONNAIRE_DEFINITIONS], ["A medias", "Por cuestionario"])
+        self.assertFalse({"A medias", "Por cuestionario"} & {name for name, _ in DEFINITIONS})
 
 
 # ---- 3. The partial "Por cuestionario" -----------------------------------------------------------------------------

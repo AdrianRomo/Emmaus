@@ -10,6 +10,21 @@
 
 ## Rondas
 
+### Ronda 19 · cuántos de los N cuestionarios, en cada nivel
+
+El 28 de octubre de 2026. Con varios cuestionarios, las pantallas hablaban de camperos "con todo" y nada decía cuántos de los N llevaba cada uno ni cuánto había avanzado cada cuestionario. Lo pidió el dueño: que el dato se entienda en cada nivel, del campero al campamento. La regla de la ronda sigue siendo la de la 18: **con un solo cuestionario, ninguna pantalla, PDF ni diapositiva cambia** (las pruebas comparan las palabras; antes de entregar se compararon byte a byte 34 salidas, páginas, fragmentos, presentación y textos del PDF, contra las de antes de la ronda, sin contar horas ni fichas de seguridad).
+
+| Qué | Lo que cambió |
+|---|---|
+| El campero | Su etiqueta dice "0 de 2 cuestionarios", "En curso, 1 de 2" o "2 de 2 cuestionarios" en cada lista, en la lista descargada y en la de respaldo; la pestaña y el filtro "Sin entrevista" se llaman "Sin terminar" |
+| Los conteos | "X de Y con los N cuestionarios" ("Llevamos…", "Llevas…", "Tu equipo lleva…", "Entre todos llevan…") en Mi inicio, Mi avance, Mi equipo, Resumen general, Avance, Inicio de la administración, Coordinadores, la página de un coordinador, Reportes y cada corte; la clave separa "sin iniciar" de "a medias" |
+| Por cuestionario | Después de la clave, una línea y una regla por cuestionario (`.quests`); en las filas de coordinadores y en las tablas de equipos y coordinadores, una línea bajo el nombre (`.table__sub`); en el historial, bajo "Completadas", y los cortes se pliegan solo si tampoco cambió ningún cuestionario |
+| PDF y presentación | El PDF dice "con los N cuestionarios", "a medias", trae la tabla "Por cuestionario" y define "A medias" y "Por cuestionario" en "Cómo se calcula" (solo con varios cuestionarios); la presentación suma la diapositiva "Por cuestionario" después de "cómo va" y cuenta seis |
+
+Los cortes guardados antes de la ronda no traen las cifras nuevas y se ven como siempre. 64 pruebas nuevas en `events/tests/test_multi_questionnaires_progress.py` (39) y `events/tests/test_progreso_agregados.py` (25).
+
+Queda pendiente: ver la diapositiva nueva en un proyector real (está medida contra el piso de 22 px, no en sala) y, con cuatro o más cuestionarios, que la diapositiva siga cabiendo sobre el pie.
+
 ### Ronda 18 · varios cuestionarios por evento
 
 El 26 de octubre de 2026 un evento pasó a poder usar varios cuestionarios a la vez. Lo pidió el dueño: más de un cuestionario por campamento sin complicar a nadie, en orden fijo o en cualquier orden según lo decida la administración con una casilla, y un botón para crear un cuestionario nuevo, que Cuestionarios no tenía. La regla de la ronda: **con un solo cuestionario, ninguna pantalla cambia** (sin opción, sin "de N", sin casilla de orden; las pruebas lo comprueban en la entrevista, la ficha y las listas). En la misma ronda, quién lee las respuestas confidenciales pasó a decidirse por evento, la tabla de Camperos se ordena por columna y la presentación respeta el equipo elegido en Reportes. Los permisos de cada rol no cambiaron; lo nuevo es que administración y pastoral deciden quién lee las respuestas confidenciales de su evento.

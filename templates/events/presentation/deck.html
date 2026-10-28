@@ -13,7 +13,7 @@
       data-deck-exit); in full screen the first Escape only leaves full screen.{% endcomment %}
     <a class="btn" data-deck-exit href="{% if snapshot %}{% url 'events:report_detail' event.slug snapshot.public_id %}{% else %}{{ exit_url }}{% endif %}">Salir</a>
     <button class="btn" type="button" data-deck-prev>Anterior</button>
-    <span class="deck-controls__count" data-deck-count aria-live="polite">1 de 5</span>
+    <span class="deck-controls__count" data-deck-count aria-live="polite">1 de {{ deck.progress.questionnaires|yesno:"6,5" }}</span>
     <button class="btn" type="button" data-deck-next>Siguiente</button>
     <button class="btn" type="button" data-deck-full>Pantalla completa</button>
     <button class="btn" type="button" data-deck-theme aria-pressed="false">Modo noche</button>

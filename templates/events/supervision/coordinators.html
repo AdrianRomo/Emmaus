@@ -3,8 +3,8 @@
 {% block page_title %}Coordinadores{% endblock %}
 {% block content %}
 {% if progress.eligible %}
-  {% with done=progress.completed|stringformat:"s" total=progress.eligible|stringformat:"s" %}{% with meta="Entre todos llevan "|add:done|add:" de "|add:total|add:" entrevistas." %}
-    {% include "events/rotulo/_page_head.html" with title="Coordinadores" lede="Avance de cada coordinador, del que va más atrás al que va más adelante." meta=meta %}
+  {% comment %}With several questionnaires (progress.questionnaires): "Entre todos llevan X de Y con los N cuestionarios."{% endcomment %}{% with done=progress.completed|stringformat:"s" total=progress.eligible|stringformat:"s" n=progress.questionnaires|length|stringformat:"s" %}{% with meta="Entre todos llevan "|add:done|add:" de "|add:total|add:" entrevistas." several="Entre todos llevan "|add:done|add:" de "|add:total|add:" con los "|add:n|add:" cuestionarios." %}
+    {% if progress.questionnaires %}{% include "events/rotulo/_page_head.html" with title="Coordinadores" lede="Avance de cada coordinador, del que va más atrás al que va más adelante." meta=several %}{% else %}{% include "events/rotulo/_page_head.html" with title="Coordinadores" lede="Avance de cada coordinador, del que va más atrás al que va más adelante." meta=meta %}{% endif %}
   {% endwith %}{% endwith %}
 {% else %}
   {% include "events/rotulo/_page_head.html" with title="Coordinadores" lede="Avance de cada coordinador, del que va más atrás al que va más adelante." %}

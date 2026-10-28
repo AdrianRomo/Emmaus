@@ -73,6 +73,10 @@ DEFINITIONS = [
     ("Seguimientos abiertos", "Seguimientos en estado pendiente o en proceso."),
     ("Por decidir", "Entrevistas completadas que esperan decidir si necesitan seguimiento."),
     ("Interrumpidas", f"Entrevistas en curso sin cambios desde hace {STALE_MINUTES} minutos o más."),
+]
+# Printed after DEFINITIONS only where the numbers exist: a cutoff of an event with several questionnaires (its progress
+# has "questionnaires" rows). With one questionnaire the glossary stays the one it always was.
+SEVERAL_QUESTIONNAIRE_DEFINITIONS = [
     ("A medias", "Camperos que completaron algún cuestionario del evento, pero no todos, y no tienen una entrevista en curso."),
     ("Por cuestionario", "Camperos que completaron cada cuestionario del evento. Un campero cuenta en cada cuestionario que terminó."),
 ]

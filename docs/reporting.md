@@ -18,11 +18,19 @@ These are the `DEFINITIONS` printed at the end of every PDF ("Cómo se calcula")
 | Por decidir | Entrevistas completadas que esperan decidir si necesitan seguimiento. |
 | Interrumpidas | Entrevistas en curso sin cambios desde hace 20 minutos o más. |
 
+Two more, `SEVERAL_QUESTIONNAIRE_DEFINITIONS`, follow them in the PDF only when the cutoff counts several questionnaires (its `progress.questionnaires` has rows), so a one-questionnaire PDF keeps the glossary above:
+
+| Metric | Definition (as shown to users) |
+|---|---|
+| A medias | Camperos que completaron algún cuestionario del evento, pero no todos, y no tienen una entrevista en curso. |
+| Por cuestionario | Camperos que completaron cada cuestionario del evento. Un campero cuenta en cada cuestionario que terminó. |
+
 How they are computed:
 
 * Counts come from `EventParticipant` rows with `is_active=True` in the scope, using `interview_status`. Withdrawn camperos drop out of every figure.
 * `interview_status` is derived from the campero's interviews (`events/services/event_questionnaires.py`): `completada` when every questionnaire the event uses is completed, `en_curso` while one is in progress (at most one at a time), `pendiente` otherwise. With one questionnaire these are the version 1 figures.
-* "Sin iniciar" (meters, PDF legend) is camperos minus completadas minus en curso; with several questionnaires it includes camperos who completed some of them.
+* "Sin iniciar" (meters, PDF legend) is camperos minus completadas minus en curso minus "a medias" (`partial`): pendientes with no interview in progress who completed at least one of the event's questionnaires. With one questionnaire `partial` is always 0.
+* "Por cuestionario" (`questionnaires`) counts, for each questionnaire the event uses and in its order, the scope's camperos who completed it and the ones answering it now. A campero counts in every questionnaire they finished.
 * "Por decidir" counts interviews, so one per questionnaire.
 * "Avance" is `round(100 * completadas / camperos)`. With zero camperos it is `None`, shown as "—", never 0 %.
 * "Ritmo" (`per_hour`) is camperos who completed the interview in the last 2 hours divided by 2, each at the moment their last questionnaire was finalized (`campero_completions`), so it is in the same unit as "Pendientes"; `last_hour` is also stored. The ETA is `ceil(pendientes / ritmo * 60)` minutes, empty when the rate is 0.
@@ -39,6 +47,13 @@ How they are computed:
 | `coordinador:<membership id>` | One coordinador's camperos | Live only ("Mi avance", coordinator detail); never saved as a cutoff |
 
 The event payload also lists teams (least progress first, plus "Sin equipo asignado") and coordinadores.
+
+`progress`, every `teams[]` row and every `coordinators[]` row carry `eligible`, `completed`, `in_progress`, `pending`, `not_started` and `percent`, and two keys for several questionnaires:
+
+* `progress.partial`: the camperos "a medias" (0 with one questionnaire);
+* `progress.questionnaires`: `[{id, title, order, eligible, completed, in_progress, percent}]`, one row per questionnaire in the event's order (`title` is the version's title, the one every screen shows; `[]` with one questionnaire).
+
+Cutoffs saved before them lack both keys. Every screen, the PDF and the deck read them with defaults (0 and no rows), so those cutoffs render as they always did. The reports history folds a quiet stretch only when completed, pending and each questionnaire's completed count are all unchanged (`_run_key`).
 
 ## Automatic cutoffs
 
@@ -95,15 +110,15 @@ Answer aggregates are **never computed live**. The pastor home shows those of th
 Built with ReportLab from the trimmed payload (`events/services/pdf.py`), US Letter, and audited as `exportacion`. All text is escaped before it reaches ReportLab markup. Contents, in order:
 
 1. Folio "{event} · {scope}", title "Corte de seguimiento de las HH:MM", "Datos al …", trigger and metrics version.
-2. Participantes, Completadas, Pendientes, Avance; a completed / in-progress / remaining bar and the legend "Completadas · En curso · Sin iniciar".
+2. Participantes, Completadas, Pendientes, Avance; a completed / in-progress / remaining bar and the legend "Completadas · En curso · Sin iniciar". With several questionnaires the headline says "Llevábamos X de Y con los N cuestionarios.", the legend "N sin iniciar y M a medias" (when some are halfway), and a "Por cuestionario" table follows (Cuestionario, Completadas, En curso, Avance).
 3. The change since the previous cutoff, when there is one, in the same sentence as every screen (`delta_sentence`): "+11 entrevistas y +3 % de avance desde el corte de las 20:00." When nobody finished an interview it still says what moved ("Ninguna entrevista nueva, pero se registraron +2 camperos y el avance cambió −1 % desde …"), or "Sin cambios desde …".
 4. Rate sentence and ETA.
 5. "Avance de entrevistas": cumulative line against the total of participants.
-6. "Avance por equipo" (or "Avance por coordinador" for a team cutoff).
+6. "Avance por equipo" (or "Avance por coordinador" for a team cutoff). With several questionnaires each name takes a second line: "«Primero»: 3 de 4, «Segundo»: 1 de 4."
 7. "Seguimiento": pendientes, en proceso, atendidos, por decidir, and "Situaciones de riesgo abiertas" when allowed.
 8. "Resumen de respuestas (sin datos individuales)" for event cutoffs viewed by administradores and pastores, from the released values, with the suppression note.
 9. "Próximos pasos" (the recommendations stored with the cutoff).
-10. "Cómo se calcula" (the definitions above).
+10. "Cómo se calcula" (the definitions above; "A medias" and "Por cuestionario" only with several questionnaires).
 11. Footer on every page: "Emmaus · Documento confidencial de uso interno. No reenviar." and the page number.
 
 The PDF shows team labels and, for team cutoffs, coordinador names. It never shows campero names or individual answers.
@@ -121,6 +136,8 @@ The template renders only the dict returned by `build_deck()` in `events/service
 | 3 | "Avance por equipo" | Up to 8 teams with the least progress, labelled with their "Nombre del equipo" or "Equipo N" (numbered by tutor id, so stable across cutoffs) |
 | 4 | "Necesidades de seguimiento" | Requested, waiting for a leader, attended, and to be decided, all from the **latest cutoff's released values**, suppressed. Shows "—" before the first cutoff ("Estas cifras aparecerán con el primer corte de seguimiento.") |
 | 5 | "Próximos pasos" | Up to 5 deterministic steps |
+
+With several questionnaires (`deck.progress.questionnaires`, copied by `build_deck` with only each row's title and counts, plus `partial`) the headline slide says "con los N cuestionarios" and its key "a medias", and a "Por cuestionario" slide follows it: one line and one ruler per questionnaire ("«Primer cuestionario»: 320 de 400."), the same foot as the others. The deck then has six slides; the slide numbers, the feet and the presenter's bar count them.
 
 Participation counts on slides 1 to 3 are exact: they are operational, not personal. A team name typed by an administrador is shown as is, so it should not contain a person's name.
 

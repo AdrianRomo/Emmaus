@@ -21,7 +21,7 @@
   </div>
   <div class="report-section__body">
     {% if progress.eligible %}
-      <p class="voice headline">Llevábamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</p>
+      {% comment %}With several questionnaires (progress.questionnaires; a cutoff saved before has no such key, which reads as one): "con los N cuestionarios", the camperos "a medias" (progress.partial) in the key, "Por cuestionario" after it, and under each team and coordinator how many completed each questionnaire.{% endcomment %}<p class="voice headline">Llevábamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>
       <p class="headline__sub">
         {% if not progress.pending %}Ya se habían completado todas.
         {% elif payload.throughput.eta_minutes %}Al ritmo de ese momento, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltaban alrededor de <span class="keep-together">{{ payload.throughput.eta_minutes|duration }}</span>.
@@ -31,8 +31,9 @@
       <ul class="key">
         <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
         <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
-        <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
-      </ul>
+        <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar{% if progress.partial %} y {{ progress.partial }} a medias{% endif %}</li>
+      </ul>{% if progress.questionnaires %}
+      {% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
     {% else %}
       <p class="voice headline">Todavía no había camperos registrados.</p>
     {% endif %}
@@ -92,7 +93,7 @@
     <ol class="teams">
       {% for row in payload.teams %}
         <li class="teams__row">
-          <span class="teams__name">{{ row.label }}</span>
+          <span class="teams__name">{{ row.label }}{% if row.questionnaires %}<span class="table__sub">{% for q in row.questionnaires %}«{{ q.title }}»: {{ q.completed }} de {{ row.eligible }}{% if not forloop.last %}, {% endif %}{% endfor %}.</span>{% endif %}</span>
           <span class="teams__value"><strong>{{ row.percent|pct }}</strong> {{ row.completed }} de {{ row.eligible }}</span>
           {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" %}
         </li>
@@ -118,7 +119,7 @@
     <ol class="teams">
       {% for row in payload.coordinators %}
         <li class="teams__row">
-          <span class="teams__name">{{ row.name }}{% if row.team %}<span class="teams__meta">{{ row.team }}</span>{% endif %}</span>
+          <span class="teams__name">{{ row.name }}{% if row.team %}<span class="teams__meta">{{ row.team }}</span>{% endif %}{% if row.questionnaires %}<span class="table__sub">{% for q in row.questionnaires %}«{{ q.title }}»: {{ q.completed }} de {{ row.eligible }}{% if not forloop.last %}, {% endif %}{% endfor %}.</span>{% endif %}</span>
           <span class="teams__value"><strong>{{ row.percent|pct }}</strong> {{ row.completed }} de {{ row.eligible }}</span>
           {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" %}
           {% if row.stale %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>{{ row.stale }} entrevista{{ row.stale|pluralize }} interrumpida{{ row.stale|pluralize }}</span>{% endif %}

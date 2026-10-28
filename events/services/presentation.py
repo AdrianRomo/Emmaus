@@ -126,6 +126,13 @@ def build_deck(
             "pending": progress["pending"],
             "not_started": progress["not_started"],
             "percent": progress["percent"],
+            # With several questionnaires: the camperos "a medias" and one row per questionnaire (its title and counts,
+            # nothing else). A cutoff saved before has neither key: 0 and no rows, so no "Por cuestionario" slide.
+            "partial": progress.get("partial") or 0,
+            "questionnaires": [
+                {key: row.get(key) for key in ("title", "eligible", "completed", "in_progress", "percent")}
+                for row in progress.get("questionnaires") or []
+            ],
         },
         "rate": rate,
         "eta": format_duration(eta) if eta else "",

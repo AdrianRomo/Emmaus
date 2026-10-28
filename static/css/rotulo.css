@@ -971,6 +971,7 @@ ol.promises li::before {
 .crew__marks .tally__mark { height: 1.75rem; }
 .crew__marks .ruler { margin-top: var(--s-2); }
 .crew__note { margin-top: var(--s-2); font-size: var(--t-small); font-weight: 700; text-wrap: balance; }
+.crew__marks .row__meta { margin-top: var(--s-2); overflow-wrap: anywhere; }  /* several questionnaires: «Primero»: 2 de 3, … */
 .crew__figures { text-align: right; white-space: nowrap; font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .crew__figures strong { display: block; font-size: var(--t-lead); color: var(--ink); }
 .crew__key { margin-top: var(--s-4); }
@@ -991,6 +992,9 @@ ol.promises li::before {
 
 /* A short note under a name in a table cell ("2 entrevistas detenidas"): words, never red */
 .table .cell-note { display: block; font-weight: 700; color: var(--ink); }
+/* With several questionnaires, under a name (a table cell, or a team's or coordinator's name in a report's list): how
+   many completed each questionnaire, «Primero»: 3 de 4, «Segundo»: 1 de 4. Block, so a <span> inside a name sits under it */
+.table__sub { display: block; margin: 0; font-size: var(--t-small); font-weight: 400; color: var(--ink-2); }
 /* Tables of people: on a phone they scroll sideways instead of squeezing names into three lines */
 .table--nowrap th, .table--nowrap td { white-space: nowrap; }
 @media (max-width: 600px) {
@@ -1502,6 +1506,18 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .deck-chart .projection-end { fill: var(--page); stroke: var(--data-done); stroke-width: 3; }
 .deck-chart .col { fill: var(--data-done); }
 .deck-chart .col--partial { fill: var(--data-progress); }
+
+/* "Por cuestionario" (slide 3, only with two or more questionnaires): the shared .quests rows in the deck's container
+   units, a line and a ruler per questionnaire. From four rows they tighten so the list stays above the foot, and the
+   line keeps the small print's floor (22 px from a 1128 px frame up) */
+.deck .quests__list { gap: 2.4cqw; }
+.deck .quests__row { gap: 0.8cqw; }
+.deck .quests__text { font-size: 2.6cqw; line-height: 1.2; color: var(--ink); }
+.deck .quests__row .ruler { height: 1.8cqw; }
+.deck .quests__list:has(li:nth-child(4)) { gap: 1.2cqw; }
+.deck .quests__list:has(li:nth-child(4)) .quests__row { gap: 0.45cqw; }
+.deck .quests__list:has(li:nth-child(4)) .quests__text { font-size: max(1.77cqw, min(22px, 1.95cqw)); }
+.deck .quests__list:has(li:nth-child(4)) .ruler { height: 1.15cqw; }
 
 .deck-counts { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.4cqw 6.25cqw; }
 .deck-counts li { padding-top: 1.25cqw; border-top: var(--b-control) solid var(--line); }
