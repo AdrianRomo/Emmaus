@@ -21,7 +21,7 @@ El 28 de octubre de 2026. Lo pidió el dueño: una forma de sacar los datos, sol
 | El archivo | `respuestas-<evento>-<fecha>.csv`: un renglón por campero, también los que ya no participan, con sus datos de registro y, por cada cuestionario, su estado, cuándo se completó y una columna por pregunta con la respuesta en palabras. Abre en Excel con acentos (BOM), y una celda que empieza como fórmula lleva `'` |
 | El registro | Una fila `exportacion` por descarga ("Descargó las respuestas de todos los camperos (CSV)"), que sale en "Descargas recientes" sin nombres |
 
-19 pruebas nuevas en `events/tests/test_answers_export.py`. El archivo sale de 6 consultas a la base, tenga el campamento 30 o 400 camperos (12 la primera vez que el proceso lee los cuestionarios). Esta ronda no se capturó con Playwright.
+19 pruebas nuevas en `events/tests/test_answers_export.py`. El archivo sale de 6 consultas a la base, tenga el campamento 30 o 400 camperos (12 la primera vez con dos cuestionarios: 3 más por cada cuestionario que el proceso lee por primera vez). Esta ronda no se capturó con Playwright.
 
 Queda pendiente: descargar los seguimientos y los reportes de riesgo, filtrar por cuestionario y el formato XLSX.
 

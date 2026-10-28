@@ -95,7 +95,7 @@ def answers_rows(event, links=None) -> tuple[list[str], list[list[str]]]:
     rows = []
     participants = EventParticipant.objects.filter(event=event).select_related("coordinator__user", "sede").order_by("number")
     for p in participants:
-        if p.age < event.adult_age:  # EventParticipant.is_minor, without reading the event again for each campero
+        if event.requires_guardian_authorization and p.age < event.adult_age:  # is_minor, and only when the event asks for it
             authorized = "Sí" if guardian.get(p.id) == ConsentRecord.Status.GRANTED else "No"
         else:
             authorized = ""

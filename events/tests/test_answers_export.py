@@ -186,7 +186,7 @@ class ContentTests(Helpers, CampFixture):
             {
                 "salvo": choice("si"),
                 "dudas": choice("no"),  # "dudas_detalle" stays hidden: an unanswered conditional
-                "apoyo": choice("relaciones", "familia"),
+                "apoyo": choice("bienestar_emocional", "familia"),  # chosen out of order on purpose
                 "apoyo_detalle": text("=HIPERVINCULO(\"x\")"),
                 "decision": choice("prefiero_no"),
                 "impedimento": text("Necesito más tiempo."),
@@ -226,7 +226,7 @@ class ContentTests(Helpers, CampFixture):
         self.assertEqual(row[self.col(FIRST, "salvo")], "Sí")
         self.assertEqual(row[self.col(FIRST, "dudas")], "No")
         self.assertEqual(row[self.col(FIRST, "dudas_detalle")], "")
-        self.assertEqual(row[self.col(FIRST, "apoyo")], "Familia, Relaciones")  # in the questionnaire's order
+        self.assertEqual(row[self.col(FIRST, "apoyo")], "Familia, Bienestar emocional")  # the questionnaire's order, not alphabetical
         self.assertEqual(row[self.col(FIRST, "decision")], "Prefiero no responder")
         self.assertEqual(row[self.col(FIRST, "impedimento")], "Necesito más tiempo.")
         self.assertEqual(row[self.col(FIRST, "orientacion")], "")
@@ -274,6 +274,29 @@ class ContentTests(Helpers, CampFixture):
         self.assertEqual(self.rows[self.p_minor_no_auth.full_name]["Autorización"], "No")
         self.assertEqual(self.rows[self.p4.full_name]["Autorización"], "No")
         self.assertEqual(self.rows[self.p2.full_name]["Autorización"], "")  # 19 years old
+
+    def test_autorizacion_is_empty_at_the_adult_age_and_when_the_event_does_not_ask_for_it(self):
+        """Defect: a campero exactly at the adult age marked "No", or "No" for every minor in a camp that never asks
+        for guardian authorization (the rest of the app shows nothing then)."""
+        just_adult = EventParticipant.objects.create(
+            event=self.event, number=90, full_name="Justo Mayor Edad", age=self.event.adult_age, room="90", church_group="Iglesia Centro",
+            coordinator=self.m_coord1,
+        )
+        _, rows = self.table()
+        self.assertEqual(rows[just_adult.full_name]["Autorización"], "")
+        self.event.requires_guardian_authorization = False
+        self.event.save(update_fields=["requires_guardian_authorization"])
+        _, rows = self.table()
+        self.assertEqual(rows[self.p_minor_no_auth.full_name]["Autorización"], "")
+        self.assertEqual(rows[self.p1.full_name]["Autorización"], "")
+
+    def test_a_header_that_starts_like_a_formula_is_neutralised_too(self):
+        """Defect: a questionnaire title starting with "=" run by Excel as a formula from the header row."""
+        third = create_questionnaire_from_definition(self.church, definition("Tercero", "=Tercero", "tercero"))
+        use_version(self.event, third)
+        header, _ = self.table()
+        self.assertIn("'=Tercero: estado", header)
+        self.assertNotIn("=Tercero: estado", header)
 
     def test_the_registry_columns_and_the_date_format(self):
         """Defect: a date in UTC or in a format Excel in Mexico reads as month/day."""
