@@ -1,0 +1,100 @@
+name: Agent task
+description: A bounded task that an agent may execute autonomously once a human marks it agent:ready
+title: "[task] "
+labels: ["needs:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill every field. A human sets the risk label and moves the issue to `agent:ready` when the
+        readiness checklist in `docs/agents/workflow.md` is met. Never include real participant data.
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: One paragraph. What changes for whom, and why now.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkable statements a test, a gate or a screenshot can confirm.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: In scope / out of scope. Files or screens expected to change.
+      value: |
+        In:
+        Out:
+    validations:
+      required: true
+  - type: input
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Issues or PRs that must be done first, or "none".
+      placeholder: "#12, #15 or none"
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk (the triager sets the matching label)
+      options:
+        - "low: docs, tests, tooling, copy, isolated UI"
+        - "medium: additive schema or behaviour outside camp flows; new screens"
+        - "high: authorization, tenant isolation, sensitive data, camp flows, non-additive migrations"
+    validations:
+      required: true
+  - type: dropdown
+    id: execution
+    attributes:
+      label: Preferred execution
+      options:
+        - "Claude Code cloud routine"
+        - "Claude Code local session (human watching)"
+        - "Codex CLI"
+        - "Local model allowed (exec:local-ok)"
+    validations:
+      required: true
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: Invariants touched (AGENTS.md)
+      description: Tick any the change could affect. Each ticked box needs a test and raises the risk.
+      options:
+        - label: People exist independently of events
+        - label: Church roles and event roles have distinct scopes
+        - label: Church data is tenant-isolated
+        - label: Sensitive participant information requires authorization
+        - label: Existing camp functionality (screens, flows, cutoffs, N=1 events)
+        - label: Spanish UI text, simple and accessible workflows
+        - label: Answers are never scored, judged, sent to an AI service or e-mailed
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: Which gates (`quality-gate.sh` flags), which manual checks, which synthetic data.
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback
+      description: How to undo it (revert PR, migration reverse, feature flag). Required for medium and high risk.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: No real participant data, credentials or production access is needed
+          required: true
+        - label: UI text, if any, is listed above in Spanish and the affected screens are named
+          required: true

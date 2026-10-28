@@ -1,0 +1,139 @@
+# The deterministic gate (docs/agents/quality-gates.md). Same steps as scripts/agents/quality-gate.sh.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, v2/foundation]
+  push:
+    branches: [main, v2/foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON: python
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  EMMAUS_AGENT_HOME: ${{ github.workspace }}/.agent-home
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff==0.17.2
+      - run: ruff check --output-format github .
+
+  checks:
+    name: Django checks, migrations, deploy check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: System checks
+        run: DEBUG=true python manage.py check
+      - name: Every model change ships its migration
+        run: DEBUG=true python manage.py makemigrations --check --dry-run
+      - name: check --deploy with production-like settings (only W005/W021 accepted)
+        run: scripts/agents/check-deploy.sh
+
+  security:
+    name: Dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit==2.9.0
+      - run: scripts/agents/pip-audit.sh
+
+  test-sqlite:
+    name: Tests (SQLite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: DEBUG=true python -m pytest -q -p no:cacheprovider --ignore=e2e
+
+  test-postgres:
+    name: Tests (PostgreSQL 16)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: emmaus
+          POSTGRES_PASSWORD: emmaus
+          POSTGRES_DB: emmaus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U emmaus -d emmaus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: DEBUG=true python -m pytest -q -p no:cacheprovider --ignore=e2e
+        env:
+          DATABASE_URL: postgres://emmaus:emmaus@127.0.0.1:5432/emmaus
+
+  e2e:
+    name: Browser gate (station flow + axe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - run: pip install -r requirements.txt
+      - name: Install Playwright and chromium
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Seed synthetic data, run the station flow and the whole-app axe review
+        run: scripts/agents/e2e-gate.sh
+        env:
+          E2E_OUT: ${{ runner.temp }}/e2e-out
+      - name: Keep screenshots and results when the gate fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-review
+          path: ${{ runner.temp }}/e2e-out
+          retention-days: 7

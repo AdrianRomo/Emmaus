@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Product vision (next version)
+    url: https://github.com/AdrianRomo/Emmaus/blob/v2/foundation/docs/EMMAUS_PRODUCT_VISION.md
+    about: Direction for v2. Not a description of what exists today.
+  - name: How agents work here
+    url: https://github.com/AdrianRomo/Emmaus/blob/v2/foundation/docs/agents/README.md
+    about: Labels, state machine, policies and gates for autonomous tasks.
