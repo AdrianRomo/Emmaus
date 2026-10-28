@@ -74,7 +74,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt pip-audit==2.9.0
+      - run: python -m pip install --upgrade pip && pip install -r requirements.txt pip-audit==2.9.0
       - name: Audit the installed environment (pins and their transitive dependencies)
         run: scripts/agents/pip-audit.sh
         env:

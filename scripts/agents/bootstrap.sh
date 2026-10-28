@@ -6,5 +6,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 venv="${1:-$root/.venv}"
 [ -x "$venv/bin/python" ] || python3 -m venv "$venv"
+# pip itself is part of the audited environment: keep it current so the audit reports the app, not the tool.
+"$venv/bin/python" -m pip install --quiet --disable-pip-version-check --upgrade pip
 "$venv/bin/pip" install --quiet --disable-pip-version-check -r "$root/requirements.txt" ruff==0.17.2 pip-audit==2.9.0
 echo "ready: PYTHON=$venv/bin/python (ruff $("$venv/bin/ruff" --version | cut -d' ' -f2), pip-audit $("$venv/bin/pip-audit" --version | cut -d' ' -f2))"
