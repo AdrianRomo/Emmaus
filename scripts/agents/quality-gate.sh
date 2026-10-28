@@ -43,15 +43,13 @@ fi
 if $skip_tests; then
   skip_step tests-sqlite "--skip-tests"; skip_step tests-postgres "--skip-tests"
 else
-  # The label names the backend: SQLite ignores any inherited DATABASE_URL; PostgreSQL needs a postgres:// URL.
-  run_step tests-sqlite 900 env -u DATABASE_URL DEBUG=true "$PYTHON" -m pytest -q -p no:cacheprovider --ignore=e2e
+  # The label names the backend (run-tests.sh): SQLite ignores any inherited DATABASE_URL;
+  # PostgreSQL needs a postgres:// URL and applies scripts/agents/postgres-deselect.txt.
+  run_step tests-sqlite 900 "$agents_dir/run-tests.sh" sqlite
   if ! $postgres; then
     skip_step tests-postgres "--postgres not given"
   elif [ -n "${DATABASE_URL:-}" ]; then
-    case "$DATABASE_URL" in
-      postgres://*|postgresql://*) run_step tests-postgres 1200 env DEBUG=true "$PYTHON" -m pytest -q -p no:cacheprovider --ignore=e2e;;
-      *) die "--postgres needs a postgres:// DATABASE_URL (got scheme ${DATABASE_URL%%:*}); unset it to use a throwaway container";;
-    esac
+    run_step tests-postgres 1200 "$agents_dir/run-tests.sh" postgres
   else
     need docker
     pg_port="$("$PYTHON" -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')"
@@ -61,8 +59,7 @@ else
       -p "127.0.0.1:$pg_port:5432" postgres:16 >/dev/null
     trap 'docker stop "$pg_name" >/dev/null 2>&1 || true' EXIT
     for i in $(seq 1 60); do docker exec "$pg_name" pg_isready -U emmaus -d emmaus >/dev/null 2>&1 && break; sleep 1; done
-    run_step tests-postgres 1200 env DEBUG=true DATABASE_URL="postgres://emmaus@127.0.0.1:$pg_port/emmaus" \
-      "$PYTHON" -m pytest -q -p no:cacheprovider --ignore=e2e
+    run_step tests-postgres 1200 env DATABASE_URL="postgres://emmaus@127.0.0.1:$pg_port/emmaus" "$agents_dir/run-tests.sh" postgres
     docker stop "$pg_name" >/dev/null 2>&1 || true; trap - EXIT
   fi
 fi

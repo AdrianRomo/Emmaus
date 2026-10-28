@@ -21,7 +21,7 @@ Scripts live in `scripts/agents/`; each prints usage with `-h`.
 |---|---|
 | `new-task-worktree.sh` | Isolated worktree + branch for one issue; optional claim |
 | `quality-gate.sh` | The deterministic gate (same steps as CI) |
-| `check-deploy.sh`, `pip-audit.sh`, `e2e-gate.sh` | Gate steps that CI and the gate script share |
+| `check-deploy.sh`, `pip-audit.sh`, `run-tests.sh`, `e2e-gate.sh` | Gate steps that CI and the gate script share |
 | `codex-review.sh` | Read-only Codex review with a structured verdict |
 | `audit-log.sh` | Append to the audit log and, optionally, the issue |
 | `status-report.py` | Markdown/JSON report of queue, PRs, failures, human attention |

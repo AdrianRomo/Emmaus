@@ -74,7 +74,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: DEBUG=true python -m pytest -q -p no:cacheprovider --ignore=e2e
+      - run: scripts/agents/run-tests.sh sqlite
 
   test-postgres:
     name: Tests (PostgreSQL 16)
@@ -101,7 +101,8 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: DEBUG=true python -m pytest -q -p no:cacheprovider --ignore=e2e
+      - name: Full suite on PostgreSQL (deselects listed in scripts/agents/postgres-deselect.txt still run on SQLite)
+        run: scripts/agents/run-tests.sh postgres
         env:
           DATABASE_URL: postgres://emmaus:emmaus@127.0.0.1:5432/emmaus
 
