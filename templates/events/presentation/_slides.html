@@ -40,7 +40,7 @@
       <h3 class="voice deck-teams__title">Equipos</h3>
       {% if deck.teams %}
         <ol class="deck-teams__list">{% for t in deck.teams|slice:":8" %}
-          <li><span>{{ t.label }}</span><strong>{{ t.percent|pct }}</strong>{% ruler t.completed t.in_progress t.eligible p.percent "Promedio" %}</li>
+          <li><span>{{ t.label }}</span><strong>{{ t.percent|pct }}</strong>{% ruler t.completed t.in_progress t.eligible p.percent "Promedio" partial=t.partial %}</li>
         {% endfor %}</ol>
         <p class="deck-note">{% if p.percent is not None %}La raya marca el promedio, {{ p.percent|pct }}.{% endif %}{% if deck.teams|length > 8 %} Se muestran los 8 equipos con menos avance.{% endif %}</p>
       {% else %}

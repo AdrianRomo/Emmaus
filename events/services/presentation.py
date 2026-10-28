@@ -48,6 +48,7 @@ def _team_rows(teams: list[dict]) -> list[dict]:
                 "eligible": team["eligible"],
                 "completed": team["completed"],
                 "in_progress": team["in_progress"],
+                "partial": team.get("partial", 0),  # several questionnaires: some done, none live; old cutoffs have none
                 "pending": team["pending"],
                 "percent": team["percent"],
             }

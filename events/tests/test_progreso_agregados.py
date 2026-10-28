@@ -255,6 +255,15 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
             self.assertIn("Sin nombres ni respuestas.", privacy)
             self.assertIn("Avance de entrevistas", slides[3][2])  # the chart moved to slide 4
 
+    def test_the_deck_team_rulers_say_a_medias_too(self):
+        """Defect: the teams slide's rulers (built from presentation._team_rows, which whitelists keys) kept counting the
+        "a medias" camperos as "sin iniciar" in their screen-reader label while the overall ruler did not."""
+        for html in (self.html("presentation_live", user=self.pastor), self.html("report_presentation", self.snapshot().public_id, user=self.pastor)):
+            labels = re.findall(r'<div class="ruler" role="img" aria-label="([^"]*)"', html)
+            with_partial = [label for label in labels if " a medias, " in label]
+            self.assertGreaterEqual(len(with_partial), 2, labels)  # the event's ruler and the team that holds p1
+            self.assertIn("1 de 5 completadas, 1 en curso, 1 a medias, 2 sin iniciar", labels)
+
     def test_the_new_slide_names_nobody(self):
         """Defect: a camper's or a leader's name, a "≈" Figtree cannot draw, or "participantes" on the new slide."""
         third = self.slides(self.html("presentation_live", user=self.pastor))[2][2]
