@@ -30,6 +30,7 @@
     <section class="block" aria-labelledby="entrevista">
       <h2 id="entrevista" class="heading">Entrevista</h2>
       {% if questionnaire_rows %}
+        <p>Lleva {{ questionnaires_done }} de {{ questionnaire_rows|length }} cuestionarios.</p>
         <ul class="rows">{% for row in questionnaire_rows %}
           <li class="row">
             <div class="row__main">

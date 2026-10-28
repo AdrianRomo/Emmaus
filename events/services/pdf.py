@@ -44,7 +44,7 @@ from ..charts import _grid_steps, nice_max
 from core.templatetags.brand import brand_name
 
 from ..templatetags.emmaus import fecha_corta, fecha_larga
-from .metrics import DEFINITIONS, delta_sentence, format_duration
+from .metrics import DEFINITIONS, SEVERAL_QUESTIONNAIRE_DEFINITIONS, delta_sentence, format_duration
 
 # Static TrueType fonts: ReportLab cannot read the variable WOFF2 in static/fonts. Figtree-{Regular,Bold,ExtraBold}.ttf
 # are the 400, 700 and 800 instances of Figtree 2.002 (OFL, OFL-Figtree.txt next to them), full character set. Figtree
@@ -97,6 +97,8 @@ def _styles():
         "figure": ParagraphStyle("figure", fontName="Figtree-ExtraBold", fontSize=24, leading=27, textColor=INK),
         "figlabel": ParagraphStyle("figlabel", fontName="Figtree-Bold", fontSize=9, leading=12, textColor=INK_2),
         "fignote": ParagraphStyle("fignote", fontName="Figtree", fontSize=8.5, leading=11, textColor=INK_3),
+        # A table cell with a second line (a team's or coordinator's name, then how many completed each questionnaire)
+        "cell": ParagraphStyle("cell", fontName="Figtree", fontSize=9.5, leading=12.5, textColor=INK),
     }
 
 
@@ -325,6 +327,13 @@ def _about(cell: dict, noun: str = "") -> str:
     return f"{words} {noun}" if noun and words not in ("—", "0") else words
 
 
+def _questionnaires_line(row: dict) -> str:
+    """'«Primero»: 3 de 4, «Segundo»: 1 de 4.', as under the names on the cutoff page; '' with one questionnaire or for a
+    cutoff saved before (no "questionnaires")."""
+    parts = [f"«{q.get('title', '')}»: {q.get('completed', 0)} de {row.get('eligible', 0)}" for q in row.get("questionnaires") or []]
+    return f"{', '.join(parts)}." if parts else ""
+
+
 def _section(question: str, width: float, styles) -> list:
     return [Spacer(1, 10), Rule(width), Paragraph(escape(question), styles["question"])]
 
@@ -377,8 +386,12 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         ),
     ]
 
-    # ¿Cómo íbamos? The answer as one sentence, then the ruler and its key.
+    # ¿Cómo íbamos? The answer as one sentence, then the ruler and its key. With several questionnaires the sentence
+    # says "con los N cuestionarios", the key counts the camperos "a medias" and a table says how far each one went; a
+    # cutoff saved before has neither "partial" nor "questionnaires" and prints as it always did.
     story += _section("¿Cómo íbamos?", width, styles)
+    questionnaires = progress.get("questionnaires") or []
+    partial = progress.get("partial") or 0
     if progress["eligible"]:
         if not progress["pending"]:
             sub = "Ya se habían completado todas."
@@ -387,7 +400,12 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         else:
             sub = "Todavía no había suficiente ritmo para estimar cuándo terminaríamos."
         story += [
-            Paragraph(f"Llevábamos {progress['completed']} de {progress['eligible']} entrevistas.", styles["headline"]),
+            Paragraph(
+                f"Llevábamos {progress['completed']} de {progress['eligible']} con los {len(questionnaires)} cuestionarios."
+                if questionnaires
+                else f"Llevábamos {progress['completed']} de {progress['eligible']} entrevistas.",
+                styles["headline"],
+            ),
             Paragraph(escape(sub), styles["lede"]),
             Spacer(1, 8),
             Meter(progress["completed"], progress["in_progress"], progress["eligible"], width),
@@ -396,11 +414,21 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
                 [
                     (DONE, f"{progress['completed']} completadas ({_pct(progress['percent'])})"),
                     (PROGRESS, f"{progress['in_progress']} en curso"),
-                    (None, f"{progress['not_started']} sin iniciar"),
+                    (None, f"{progress['not_started']} sin iniciar y {partial} a medias" if partial else f"{progress['not_started']} sin iniciar"),
                 ],
                 width,
             ),
         ]
+        if questionnaires:
+            # The title is a Paragraph so a long one wraps inside its column (a bare string runs over "Completadas"); the
+            # figures stay level with its first line, as in the teams table's two-line names.
+            quest_rows = [["Cuestionario", "Completadas", "En curso", "Avance"]]
+            for q in questionnaires:
+                name = Paragraph(escape(q.get("title", "")), styles["cell"])
+                quest_rows.append([name, q.get("completed", 0), q.get("in_progress", 0), _pct(q.get("percent"))])
+            quest_table = Table(quest_rows, colWidths=[width * 0.55] + [width * 0.15] * 3, repeatRows=1)
+            quest_table.setStyle(TableStyle(_table_style() + [("VALIGN", (0, 1), (-1, -1), "TOP")]))
+            story += [Spacer(1, 10), Paragraph("Por cuestionario", styles["figlabel"]), Spacer(1, 2), quest_table]
     else:
         story.append(Paragraph("Todavía no había camperos registrados.", styles["headline"]))
     if delta:
@@ -410,7 +438,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
     story += _section("¿Cuánto faltaba?", width, styles)
     fu = payload["follow_ups"]
     figures = [
-        ("Pendientes", str(progress["pending"]), f"incluye {progress['in_progress']} en curso"),
+        ("Pendientes", str(progress["pending"]), f"incluye {progress['in_progress']} en curso" + (f", {partial} a medias" if partial else "")),
         ("Ritmo", f"{rate['per_hour']:g}", "por hora, últimas 2 horas"),
         ("Seguimientos abiertos", str(fu.get("open_total", fu["pending"] + fu["in_progress"])), ""),
     ]
@@ -437,10 +465,20 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
         title = "Por coordinador"
     if rows_source:
         table_rows = [["", "Camperos", "Completadas", "Pendientes", "Avance"]]
+        two_lines = False
         for row in rows_source:
-            table_rows.append([row["label"], row["eligible"], row["completed"], row["pending"], _pct(row["percent"])])
+            # With several questionnaires the name takes a second line: how many completed each one.
+            line = _questionnaires_line(row)
+            label = (
+                Paragraph(f"{escape(row['label'])}<br/><font size='8.5' color='#5A6872'>{escape(line)}</font>", styles["cell"])
+                if line
+                else row["label"]
+            )
+            two_lines = two_lines or bool(line)
+            table_rows.append([label, row["eligible"], row["completed"], row["pending"], _pct(row["percent"])])
         table = Table(table_rows, colWidths=[width * 0.4] + [width * 0.15] * 4, repeatRows=1)
-        table.setStyle(TableStyle(_table_style()))
+        # Two-line names: the figures stay level with the name, not with the line under it.
+        table.setStyle(TableStyle(_table_style() + ([("VALIGN", (0, 1), (-1, -1), "TOP")] if two_lines else [])))
         story += _section(title, width, styles) + [table]
 
     fu_rows = [
@@ -512,7 +550,8 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
             story.append(Spacer(1, 3))
 
     story += _section("Cómo se calcula", width, styles)
-    for name, text in DEFINITIONS:
+    # "A medias" and "Por cuestionario" only where those numbers are printed (several questionnaires).
+    for name, text in DEFINITIONS + (SEVERAL_QUESTIONNAIRE_DEFINITIONS if questionnaires else []):
         story.append(Paragraph(f"<b>{escape(name)}:</b> {escape(text)}", styles["small"]))
 
     def footer(canvas, document):

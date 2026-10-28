@@ -3,7 +3,10 @@
 {% block page_title %}Mi equipo{% endblock %}
 {% block content %}
 <header class="crew-head">
-  <h1 class="voice crew-head__title">{% if access.membership.team_name %}{{ access.membership.team_name }}, con {{ user.first_name|default:user.get_full_name }}.{% else %}Hola, {{ user.first_name|default:user.get_full_name }}.{% endif %}</h1>
+  <div class="crew-head__text">
+    <h1 class="voice crew-head__title">{% if access.membership.team_name %}{{ access.membership.team_name }}, con {{ user.first_name|default:user.get_full_name }}.{% else %}Hola, {{ user.first_name|default:user.get_full_name }}.{% endif %}</h1>
+    <p class="crew-head__meta">Tu rol: {{ access.role_label|lower }}.</p>
+  </div>
   {# The time is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
   <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
   <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>

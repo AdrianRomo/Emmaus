@@ -24,13 +24,26 @@
       <ul class="rows">{% for p in not_started %}
         <li class="row">
           <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p></div>
-          {% if p.questionnaire_total > 1 and p.done_count %}<div class="row__end">{% campero_status p %}
-          {% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>{% if p.questionnaire_total > 1 and p.done_count %}</div>{% endif %}
+          {% if p.questionnaire_total > 1 %}<div class="row__end">{% campero_status p %}
+          {% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>{% if p.questionnaire_total > 1 %}</div>{% endif %}
         </li>
       {% endfor %}</ul>
+    {% elif partial %}<p class="empty-line">Nadie sin iniciar.</p>{% comment %}Several questionnaires: some are still "a medias" (below), so no celebration yet.{% endcomment %}
     {% elif has_participants %}<p class="empty-line">No quedan entrevistas por iniciar. ¡Buen trabajo!</p>
     {% else %}<p class="empty-line">Todavía no tienes camperos. Registra al primero o pide a la administración que te los asigne. <a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></p>{% endif %}
-  </section>
+  </section>{% if partial %}
+
+  {% comment %}Several questionnaires only: the camperos who answered some and have none in progress.{% endcomment %}
+  <section class="block" aria-labelledby="a-medias">
+    <h2 id="a-medias" class="heading">A medias <span class="count">{{ partial|length }}</span></h2>
+    <ul class="rows">{% for p in partial %}
+      <li class="row">
+        <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {{ p.church_group }}</p></div>
+        <div class="row__end">{% campero_status p %}
+        <a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
+      </li>
+    {% endfor %}</ul>
+  </section>{% endif %}
 
   <section class="block" aria-labelledby="por-evaluar-titulo" id="por-evaluar">
     <h2 id="por-evaluar-titulo" class="heading">Seguimiento por decidir <span class="count">{{ to_evaluate|length }}</span></h2>

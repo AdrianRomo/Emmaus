@@ -221,6 +221,15 @@ def refresh_interview_statuses(event) -> int:
     return changed
 
 
+def status_choices(event) -> list[tuple[str, str]]:
+    """``InterviewStatus.choices`` for a list's status filter or tabs. With several questionnaires "pendiente" holds the
+    camperos who answered some of them too ("1 de 2 cuestionarios"), so it reads "Sin terminar", not "Sin entrevista".
+    The model's choices stay as they are (changing them would need a migration)."""
+    if event.questionnaire_count > 1:
+        return [(value, "Sin terminar" if value == InterviewStatus.PENDING else label) for value, label in InterviewStatus.choices]
+    return list(InterviewStatus.choices)
+
+
 def annotate_questionnaire_progress(participants, event):
     """``done_count``: questionnaires of the event the campero completed; ``questionnaire_total``: how many the event uses."""
     linked = list(EventQuestionnaire.objects.filter(event=event).values_list("questionnaire_id", flat=True))

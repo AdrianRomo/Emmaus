@@ -58,11 +58,11 @@
     </section>
 
     <section class="block" aria-labelledby="t-sin">
-      <h2 id="t-sin" class="heading">Sin iniciar, por coordinador</h2>
+      {% comment %}Several questionnaires: "Sin terminar", each coordinador's camperos with none done (row.n) and the ones who answered some (row.partial). One questionnaire: the table it always was.{% endcomment %}<h2 id="t-sin" class="heading">{% if several_questionnaires %}Sin terminar, por coordinador{% else %}Sin iniciar, por coordinador{% endif %}</h2>
       {% if not_started_by_coordinator %}
-        <div class="table-wrap" tabindex="0" role="region" aria-label="Entrevistas sin iniciar por coordinador"><table class="table"><thead><tr><th>Coordinador</th><th class="num">Sin iniciar</th></tr></thead>
-          <tbody>{% for row in not_started_by_coordinator %}<tr><td>{% if row.coordinator__id %}<a href="{% url 'events:coordinator_detail' event.slug row.coordinator__id %}">{{ row.coordinator__user__first_name }} {{ row.coordinator__user__last_name }}</a>{% else %}Sin coordinador{% endif %}</td><td class="num">{{ row.n }}</td></tr>{% endfor %}</tbody></table></div>
-      {% elif access.participants.exists %}<p class="empty-line">Todas las entrevistas ya se iniciaron.</p>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="{% if several_questionnaires %}Sin terminar, por coordinador{% else %}Entrevistas sin iniciar por coordinador{% endif %}"><table class="table"><thead><tr><th>Coordinador</th><th class="num">{% if several_questionnaires %}Sin terminar{% else %}Sin iniciar{% endif %}</th></tr></thead>
+          <tbody>{% for row in not_started_by_coordinator %}<tr><td>{% if row.coordinator__id %}<a href="{% url 'events:coordinator_detail' event.slug row.coordinator__id %}">{{ row.coordinator__user__first_name }} {{ row.coordinator__user__last_name }}</a>{% else %}Sin coordinador{% endif %}</td><td class="num">{% if several_questionnaires %}{{ row.n }} sin iniciar y {{ row.partial }} a medias{% else %}{{ row.n }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+      {% elif access.participants.exists %}<p class="empty-line">{% if several_questionnaires %}Ningún campero está sin iniciar ni a medias.{% else %}Todas las entrevistas ya se iniciaron.{% endif %}</p>
       {% elif access.is_tutor %}<p class="empty-line">Tu equipo todavía no tiene camperos. Los registran sus coordinadores o la administración.</p>
       {% else %}<p class="empty-line">Todavía no hay camperos registrados. La administración los registra o importa.</p>{% endif %}
     </section>

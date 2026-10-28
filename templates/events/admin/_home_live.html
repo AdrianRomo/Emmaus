@@ -6,6 +6,8 @@
   going, in a sentence, a ruler and a few figures; then the setup checklist: how many steps are ready, the
   pending ones first, where a row that needs action is marked (borrowed from "Bitácora"), and "Cortes" says
   whether the scheduler stored its automatic cutoffs; then recent activity and downloads.
+  With several questionnaires (progress.questionnaires) the state says "con los N cuestionarios", its key counts the
+  camperos "a medias" (progress.partial) and "Por cuestionario" follows the key.
 {% endcomment %}
 {% with unassigned=payload.attention.unassigned_participants without_tutor=payload.attention.coordinators_without_tutor %}
 {% if not event.procedures_approved %}
@@ -46,14 +48,15 @@
 
 <section class="admin-state" aria-labelledby="estado-evento">
   {% if progress.eligible %}
-    <h2 id="estado-evento" class="voice admin-state__title">Llevamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</h2>
+    <h2 id="estado-evento" class="voice admin-state__title">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</h2>
     <p class="admin-state__sub">{% if not progress.pending %}Ya se completaron todas.{% else %}{{ progress.in_progress }} en curso, {% if open_claims %}{{ open_claims }} abierta{{ open_claims|pluralize }} ahora en una computadora{% else %}ninguna abierta ahora en una computadora{% endif %}.{% endif %}</p>
-    <div class="admin-state__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
+    <div class="admin-state__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
     <ul class="key">
       <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
       <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
-      <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
-    </ul>
+      <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar{% if progress.partial %} y {{ progress.partial }} a medias{% endif %}</li>
+    </ul>{% if progress.questionnaires %}
+    {% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
   {% else %}
     <h2 id="estado-evento" class="voice admin-state__title">Todavía no hay camperos registrados.</h2>
   {% endif %}

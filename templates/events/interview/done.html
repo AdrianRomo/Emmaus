@@ -6,7 +6,7 @@
   <h1 id="listo" class="voice confirm__title">Entrevista completada</h1>
   <p class="confirm__text">Las respuestas de {{ participant.first_name }} quedaron guardadas.{% if follow_up %} Se registró un seguimiento: {{ follow_up.get_reason_display|lower }}.{% endif %}</p>
 </section>
-<p class="lede">{% if questionnaires_missing %}{% with n=questionnaires_missing %}A {{ participant.first_name }} le falta{{ n|pluralize:"n" }} {{ n }} cuestionario{{ n|pluralize }}. {% endwith %}{% endif %}{% if remaining %}Te falta{{ remaining|pluralize:"n" }} {{ remaining }} entrevista{{ remaining|pluralize }}.{% else %}Ya no tienes entrevistas pendientes.{% endif %}</p>
+<p class="lede">{% if questionnaires_missing %}{% with n=questionnaires_missing %}A {{ participant.first_name }} le falta{{ n|pluralize:"n" }} {{ n }} cuestionario{{ n|pluralize }}. {% endwith %}{% endif %}{% if remaining %}{% if several_questionnaires %}A {{ remaining }} campero{{ remaining|pluralize }} {{ remaining|pluralize:"le,les" }} falta algún cuestionario.{% else %}Te falta{{ remaining|pluralize:"n" }} {{ remaining }} entrevista{{ remaining|pluralize }}.{% endif %}{% else %}Ya no tienes entrevistas pendientes.{% endif %}</p>
 <div class="step__actions">
   {% if next_links %}{% with next=next_links.0 %}<a class="btn btn--primary btn--large" href="{% url 'events:interview_start' event.slug participant.public_id %}?cuestionario={{ next.questionnaire_id }}">Continuar con «{{ next.version.title }}»</a>{% endwith %}
   {% endif %}<a class="btn {% if next_links %}btn--secondary{% else %}btn--primary{% endif %} btn--large" href="{% url 'events:interview_search' event.slug %}">Entrevistar a otro campero</a>

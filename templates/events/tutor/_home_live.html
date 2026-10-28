@@ -3,6 +3,8 @@
   "¿Cuál de mis coordinadores necesita ayuda ahorita?" The sign appears only when an interview stalled
   (the one thing to do now); then the team in one sentence and one row per coordinator; on the right,
   what waits for someone else: follow-ups, decisions, recent activity and the cutoffs.
+  With several questionnaires (progress.questionnaires) the team's sentence says "con los N cuestionarios" and the
+  camperos "a medias" (progress.partial), then "Por cuestionario" for the team; each coordinator's row says its own.
 {% endcomment %}
 {% if stalled %}
   <section class="sign crew-sign" aria-labelledby="que-hago">
@@ -25,14 +27,15 @@
   <div class="crew-board__main">
     <section aria-labelledby="avance-equipo">
       {% if progress.eligible %}
-        <h2 id="avance-equipo" class="voice coord__count">Tu equipo lleva {{ progress.completed }} de {{ progress.eligible }}.</h2>
+        <h2 id="avance-equipo" class="voice coord__count">Tu equipo lleva {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</h2>
         <p class="coord__count-note">
-          {{ progress.percent|pct }} de sus camperos{% if progress.in_progress %}, {{ progress.in_progress }} en curso{% endif %}.
+          {{ progress.percent|pct }} de sus camperos{% if progress.in_progress %}, {{ progress.in_progress }} en curso{% endif %}{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}.
           {% if not progress.pending %}Ya completaron todas.
           {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltan alrededor de <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
           {% endif %}
           Cada marca es un campero.
-        </p>
+        </p>{% if progress.questionnaires %}
+        {% include "events/rotulo/_questionnaire_progress.html" with progress=progress quests_id="por-cuestionario-equipo" %}{% endif %}
       {% else %}
         <h2 id="avance-equipo" class="voice coord__count">Tu equipo todavía no tiene camperos.</h2>
       {% endif %}

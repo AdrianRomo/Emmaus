@@ -74,7 +74,7 @@ from ..services.questionnaire import (
     publish_version,
 )
 from ..services.metrics import local_tz
-from ..templatetags.emmaus import MESES
+from ..templatetags.emmaus import MESES, campero_progress_label
 from .common import ADMIN, PASTOR, event_view
 
 IMPORT_SESSION_KEY = "import_preview"
@@ -197,7 +197,7 @@ def participants(request, event, access):
             "query": query,
             "selected": {"estado": status, "coordinador": coordinator, "participa": active, "sede": sede},
             "sede_options": sede_options,
-            "status_choices": InterviewStatus.choices,
+            "status_choices": eq.status_choices(event),
             "coordinators": access.coordinators(),
             "can_manage": access.is_admin,
             "querystring": request.GET.urlencode(),
@@ -273,12 +273,9 @@ def participant_export(request, event, access):
 
 
 def _interview_cell(participant) -> str:
-    """The "Entrevista" cell: "1 de 2 cuestionarios" for a campero who answered some of the event's questionnaires
-    and has none in progress; the status otherwise (as with a single questionnaire)."""
-    total, done = participant.questionnaire_total, participant.done_count
-    if participant.interview_status == InterviewStatus.PENDING and total > 1 and done:
-        return f"{done} de {total} cuestionarios"
-    return participant.get_interview_status_display()
+    """The "Entrevista" cell: the words of the list's pill (``campero_progress_label``), plain."""
+    label = campero_progress_label(participant.interview_status, participant.done_count, participant.questionnaire_total)
+    return label if label is not None else participant.get_interview_status_display()
 
 
 # The place a family recognises in "hora de ...", for the zones an event can choose (forms.MEXICO_TIME_ZONES).
@@ -329,12 +326,18 @@ def participant_data_export(request, event, access, public_id):
         "iglesia o grupo": participant.church_group,
         "fecha de registro": _family_date(participant.created_at, event),
         "entrevista": _interview_record(interview, event),
-        # The notes are the campero's own data: for a withdrawn authorization, the reason it was withdrawn.
-        "autorizaciones": [
-            {"tipo": c.get_kind_display(), "estado": c.get_status_display(), "fecha": _family_date(c.recorded_at, event), "notas": c.notes}
-            for c in participant.consents.all()
-        ],
     }
+    links = eq.links_for(event)
+    if len(links) > 1:
+        # Several questionnaires: how many the event uses and how many of them this person completed. One: no key.
+        linked = {link.questionnaire_id for link in links}
+        done = {i.questionnaire_id for i in kept if i.status == Interview.Status.COMPLETED and i.questionnaire_id in linked}
+        data["cuestionarios"] = {"total": len(links), "completados": len(done)}
+    # The notes are the campero's own data: for a withdrawn authorization, the reason it was withdrawn.
+    data["autorizaciones"] = [
+        {"tipo": c.get_kind_display(), "estado": c.get_status_display(), "fecha": _family_date(c.recorded_at, event), "notas": c.notes}
+        for c in participant.consents.all()
+    ]
     if len(kept) > 1:
         # Several questionnaires: "entrevista" stays the newest (as with one), "entrevistas" holds every one, oldest first.
         data["entrevistas"] = [
@@ -702,12 +705,20 @@ def questionnaires(request, event, access):
     links = eq.links_for(event)
     in_use_version_ids = {link.version_id for link in links}
     versions = QuestionnaireVersion.objects.filter(questionnaire__church=event.church).annotate(uses=Count("interviews"))
-    # "En este evento" counts this event's interviews; "Todos los cuestionarios" (``versions``) every event's.
-    here = dict(
-        Interview.objects.filter(event=event, version_id__in=in_use_version_ids).values_list("version_id").annotate(n=Count("id"))
+    # "En este evento": of the event's active camperos, how many completed each questionnaire (any version of it, like
+    # the campero's status); "Versiones" (``versions``) counts every event's interviews.
+    completed = dict(
+        Interview.objects.filter(
+            event=event,
+            status=Interview.Status.COMPLETED,
+            participant__is_active=True,
+            questionnaire_id__in=[link.questionnaire_id for link in links],
+        )
+        .values_list("questionnaire_id")
+        .annotate(n=Count("participant_id", distinct=True))
     )
     for link in links:
-        link.uses = here.get(link.version_id, 0)
+        link.completed = completed.get(link.questionnaire_id, 0)
     church_questionnaires = list(
         Questionnaire.objects.filter(church=event.church).prefetch_related(
             Prefetch("versions", queryset=versions.order_by("-number"), to_attr="listed_versions")
@@ -724,6 +735,7 @@ def questionnaires(request, event, access):
         "events/admin/questionnaires.html",
         {
             "links": links,
+            "camperos": event.participants.filter(is_active=True).count(),
             "order_form": QuestionnaireOrderForm(initial={"questionnaires_in_order": event.questionnaires_in_order}),
             "questionnaires": church_questionnaires,
             "version_count": sum(len(q.listed_versions) for q in church_questionnaires),

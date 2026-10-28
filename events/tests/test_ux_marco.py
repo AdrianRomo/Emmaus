@@ -123,7 +123,9 @@ class CampamentosTests(MarcoFixture):
         everything = reverse("events:list") + "?todos=1"
         for name, html in self.event_pages():
             with self.subTest(page=name):
-                self.assertIn(f'<p class="bar__event">Campamento A <a href="{everything}">Campamentos</a></p>', html)
+                # The role on its own line, after the link (test_rol_visible)
+                role = name.capitalize()
+                self.assertIn(f'<p class="bar__event">Campamento A <a href="{everything}">Campamentos</a><span>{role}</span></p>', html)
                 self.assertEqual(panel_links(html)[-1], (everything, "Campamentos"))
         for name, html in self.base_pages():
             with self.subTest(page=name):

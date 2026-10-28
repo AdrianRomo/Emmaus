@@ -1,1 +1,1 @@
-<div class="slide__foot"><span>Solo totales {% if deck.scope_label == "Equipo" %}del equipo{% else %}{{ event.of_kind }}{% endif %}. Sin nombres ni respuestas. Información de uso interno.</span><span>{{ n }} de 5</span></div>
+<div class="slide__foot"><span>Solo totales {% if deck.scope_label == "Equipo" %}del equipo{% else %}{{ event.of_kind }}{% endif %}. Sin nombres ni respuestas. Información de uso interno.</span><span>{{ n }} de {{ total|default:"5" }}</span></div>

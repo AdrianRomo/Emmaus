@@ -7,6 +7,8 @@
   With no camperos registered yet only the first question renders, with one sentence and who acts next: no
   zeros, charts, team rows or empty sections.
   The headline's sentence carries one figure (LANG-32); the rate per hour is in the "Ritmo" tile.
+  With several questionnaires (progress.questionnaires, one row each) the headline says "con los N cuestionarios", the
+  key and "Faltan" count the camperos "a medias" (progress.partial), and "Por cuestionario" follows the key.
   A big figure says a duration short ("6 h 15 min", duration_short): in words it overflowed its tile (audit UI-01);
   the sentence beside it keeps the words.
 {% endcomment %}
@@ -16,19 +18,20 @@
   </div>
   <div class="report-section__body">
     {% if progress.eligible %}
-      <p class="voice headline headline--sentence">Llevamos {{ progress.completed }} de {{ progress.eligible }} entrevistas.</p>
+      <p class="voice headline headline--sentence">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>
       <p class="headline__sub">
         {% if not progress.pending %}Ya se completaron todas.
         {% elif finish_at %}Al ritmo de las últimas dos horas terminaríamos hacia las {{ finish_at|date:"H:i" }}.
         {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas faltan más de 12 horas.
         {% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}
       </p>
-      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
+      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
       <ul class="key">
         <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
         <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
-        <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar</li>
-      </ul>
+        <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar{% if progress.partial %} y {{ progress.partial }} a medias{% endif %}</li>
+      </ul>{% if progress.questionnaires %}
+      {% include "events/rotulo/_questionnaire_progress.html" with progress=progress quests_id="por-cuestionario-resumen" %}{% endif %}
       {% if delta %}<p class="headline__delta">{% delta_sentence delta last_snapshot.cutoff_at %}</p>{% endif %}
     {% else %}
       <p class="voice headline headline--sentence">Aún no hay camperos registrados.</p>
@@ -73,7 +76,7 @@
           <li class="teams__row">
             <span class="teams__name">{{ row.label }}</span>
             <span class="teams__value"><strong>{{ row.percent|pct }}</strong> {{ row.completed }} de {{ row.eligible }}</span>
-            {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" %}
+            {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" partial=row.partial %}
           </li>
         {% endfor %}
       </ol>
@@ -91,7 +94,7 @@
   </div>
   <div class="report-section__body">
     <dl class="figures">
-      <div><dt>Faltan</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
+      <div><dt>Faltan</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</dd></div>
       <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
       <div><dt>Tiempo estimado</dt><dd class="figures__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration_short }}{% else %}—{% endif %}</dd><dd class="figures__note">si se mantiene el ritmo</dd></div>
       <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>

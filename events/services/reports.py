@@ -264,16 +264,17 @@ MIN_RUN = 3  # consecutive unchanged cutoffs before they fold into one row
 
 
 def _run_key(snapshot):
-    """What makes two cutoffs "the same" in the history: both ready, with the same completed and pending counts."""
+    """What makes two cutoffs "the same" in the history: both ready, with the same completed and pending counts and,
+    with several questionnaires, the same count completed of each (a cutoff saved before has none: an empty tuple)."""
     if snapshot.status != ReportSnapshot.Status.READY:
         return None
     progress = (snapshot.data or {}).get("progress") or {}
-    return (progress.get("completed"), progress.get("pending"))
+    return (progress.get("completed"), progress.get("pending"), tuple(q.get("completed") for q in (progress.get("questionnaires") or [])))
 
 
 def group_history(snapshots, *, min_run: int = MIN_RUN) -> list[dict]:
     """The history (newest first) with its quiet stretches folded: ``min_run`` or more consecutive ready cutoffs whose
-    completed and pending counts did not change become one row, so a night of identical cutoffs does not push the ones
+    counts did not change (``_run_key``) become one row, so a night of identical cutoffs does not push the ones
     that matter off the screen. The newest cutoff always stands on its own (it is the current state), and a failed
     cutoff keeps its own row and ends a run. Rows are ``{"kind": "corte", "snapshot": s}`` or
     ``{"kind": "run", "snapshots": [newest, ...], "count": n, "newest": s, "oldest": s}``."""

@@ -47,6 +47,7 @@
     {% if ask_questionnaire %}
     <fieldset{% if form.questionnaire.errors %} class="question--error" aria-describedby="cuestionario-error"{% endif %}>
       <legend><h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Qué cuestionario?</h2></legend>
+      <p>{{ participant.full_name }} lleva {{ questionnaires_done }} de {{ questionnaire_rows|length }} cuestionarios.</p>
       {% if done_titles %}<p class="hint">Ya respondió: {{ done_titles }}.</p>{% endif %}
       {% if form.questionnaire.errors %}<p class="error-message" id="cuestionario-error">{{ form.questionnaire.errors.0 }}</p>{% endif %}
       <div class="choices" id="{{ form.questionnaire.auto_id }}">
@@ -60,6 +61,7 @@
     </fieldset>
     {% else %}
     <h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Qué cuestionario?</h2>
+    <p>{{ participant.full_name }} lleva {{ questionnaires_done }} de {{ questionnaire_rows|length }} cuestionarios.</p>
     {% if next_title %}<input type="hidden" name="questionnaire" value="{{ next_questionnaire_id }}"><p>Cuestionario: <strong>{{ next_title }}</strong>.</p>{% endif %}
     {% if after_title %}<p class="hint">Después: {{ after_title }}.</p>{% endif %}
     {% if done_titles %}<p class="hint">Ya respondió: {{ done_titles }}.</p>{% endif %}

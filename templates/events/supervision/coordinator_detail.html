@@ -18,20 +18,21 @@
   <div class="report-section__body">
     {% if progress.eligible %}
       <div>
-        <p class="voice coord__count">{{ coordinator.user.first_name|default:coordinator.display_name }} lleva {{ progress.completed }} de {{ progress.eligible }}.</p>
-        <p class="coord__count-note">{{ progress.percent|pct }} de sus camperos.{% if progress.in_progress %} {{ progress.in_progress }} en curso.{% endif %}{% if progress.not_started %} {{ progress.not_started }} sin iniciar.{% endif %}</p>
-        {% tally progress.completed progress.in_progress progress.eligible %}
+        {% comment %}With several questionnaires (progress.questionnaires): "con los N cuestionarios", the camperos "a medias" (progress.partial) in the sentence and the key, and "Por cuestionario" after the key, as on the coordinator's own "Mi avance".{% endcomment %}<p class="voice coord__count">{{ coordinator.user.first_name|default:coordinator.display_name }} lleva {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</p>
+        <p class="coord__count-note">{{ progress.percent|pct }} de sus camperos.{% if progress.in_progress %} {{ progress.in_progress }} en curso.{% endif %}{% if progress.partial %} {{ progress.partial }} a medias.{% endif %}{% if progress.not_started %} {{ progress.not_started }} sin iniciar.{% endif %}</p>
+        {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
         <ul class="key" aria-hidden="true">
           <li><span class="key__mark key__mark--done"></span>Completada</li>
           <li><span class="key__mark key__mark--progress"></span>En curso</li>
-          <li><span class="key__mark"></span>Sin iniciar</li>
-        </ul>
+          <li><span class="key__mark"></span>{% if progress.partial %}{{ progress.not_started }} sin iniciar y {{ progress.partial }} a medias{% else %}Sin iniciar{% endif %}</li>
+        </ul>{% if progress.questionnaires %}
+        {% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
       </div>
     {% else %}
       <p class="empty-line">Todavía no tiene camperos asignados.</p>
     {% endif %}
     <dl class="figures">
-      <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
+      <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</dd></div>
       <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.to_evaluate }} por decidir</dd></div>
     </dl>

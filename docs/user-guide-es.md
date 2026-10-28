@@ -2,7 +2,7 @@
 
 Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y administración. Explica, paso a paso, cómo se usa Emmaus durante el campamento. No necesitas saber nada de computación.
 
-En la barra de arriba de cada pantalla hay un enlace **"Ayuda"**. Dentro de un campamento te muestra las cinco tareas más comunes de tu rol, cada una con el enlace a la pantalla donde se hace. Fuera de un campamento explica cómo entrar, unirte con el código y elegir el campamento.
+En la barra de arriba de cada pantalla hay un enlace **"Ayuda"**. Dentro de un campamento te muestra las cinco tareas más comunes de tu rol, cada una con el enlace a la pantalla donde se hace. Fuera de un campamento explica cómo entrar, unirte con el código y elegir el campamento. Bajo el nombre del campamento, la barra dice tu rol; en el teléfono lo ves en Menú y en tu inicio («Tu rol: …»).
 
 ## Antes de empezar: la primera cuenta
 
@@ -27,7 +27,9 @@ Emmaus entra con tu cuenta y te lleva a **"Campamentos y eventos"**, donde lo ú
 | **Pastor** | Ve el avance de todo el campamento y los reportes. |
 | **Administración** | Prepara el campamento: equipo, camperos, computadoras y configuración. |
 | **Entrevista** | La conversación espiritual con cada campero, con un cuestionario. Si el campamento usa varios cuestionarios, cada uno es una entrevista, una después de la otra. |
-| **1 de 2 cuestionarios** | En las listas, un campero que ya respondió alguno de los cuestionarios del campamento y todavía no empieza el siguiente. |
+| **1 de 2 cuestionarios** | Si el campamento usa varios cuestionarios, la etiqueta de cada campero dice cuántos lleva: "0 de 2 cuestionarios", "1 de 2 cuestionarios" o "2 de 2 cuestionarios", y "En curso, 1 de 2" mientras responde uno. |
+| **A medias** | Con varios cuestionarios, un campero que ya completó alguno, no todos, y no tiene uno en curso. Los conteos lo separan de los que no han empezado: "30 sin iniciar y 12 a medias". |
+| **Por cuestionario** | Con varios cuestionarios, el bloque que dice cuántos camperos completaron cada uno ("«Primer cuestionario»: 320 de 400."). |
 | **Cuarto** | Donde duerme el campero durante el campamento, por ejemplo "Cuarto 12". |
 | **Computadora de entrevista** | Una computadora compartida con un número pegado, por ejemplo "Computadora 3". |
 | **Computadoras en uso** | La página de la administración donde se libera una entrevista o se cierra la pantalla de un campero que se quedó abierta. |
@@ -56,6 +58,8 @@ Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y 
 En un celular, los enlaces de la barra están en el botón **"Menú"**. En una tableta o una ventana angosta, bajan a una segunda fila de la barra.
 
 Para cambiar de campamento, toca **"Campamentos"**: está junto al nombre del evento en la barra de arriba, y en un celular es lo último de "Menú". Te lleva a **"Campamentos y eventos"**, la lista de los eventos en los que participas.
+
+Debajo del nombre del campamento y de "Campamentos", la barra dice con qué rol entraste: **Coordinador**, **Tutor**, **Pastor** o **Administrador**. El rol es de cada campamento: si en otro tienes otro, la barra lo dice al cambiar. En un celular la barra no muestra el nombre del campamento; tu rol está en **"Menú"**, junto a tu nombre ("Carla Uno, coordinador"), y en tu pantalla de inicio, debajo del título ("Tu rol: coordinador.").
 
 ### Unirte al equipo con el código
 
@@ -179,7 +183,7 @@ En la ficha de un campero, la administración ve:
 * **"Descargar todos sus datos"** (solo con acceso confidencial): por ejemplo, si la familia lo pide. Baja un archivo (`campero-0265.json`) con sus datos de registro (número, nombre, edad, cuarto, iglesia o grupo y fecha de registro), su entrevista (estado, versión del cuestionario, cuándo se completó y cada pregunta con su respuesta y la fecha en que se respondió; si respondió varios cuestionarios, además "entrevistas", todas, cada una con el título de su cuestionario) y sus autorizaciones con sus notas (si se quitó una, el motivo). Los datos tienen nombres en español ("nombre", "cuarto", "respuestas") y las fechas vienen escritas, con segundos y la hora del campamento ("26 de octubre de 2026, 11:00:30 (hora de Ciudad de México)"). No trae seguimientos ni reportes de riesgo. La descarga queda en el registro de actividad.
 * **"Eliminar sus datos"**: borra su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. Antes de borrar, Emmaus te dice cuánto se va, solo en números ("1 seguimiento abierto, 1 reporte de riesgo abierto, 1 entrevista"), nunca lo que dicen. Cuenta lo mismo que tú ves en **"Seguimiento"**: si no tienes acceso confidencial, los seguimientos confidenciales no aparecen en la cuenta, pero también se borran ("Si existieran seguimientos confidenciales, también se borrarían."). Tienes que escribir su nombre completo para confirmar. Si tiene un reporte de riesgo abierto, además marca **"Entiendo que se borrará un reporte de riesgo abierto"**; antes, asegúrate de que el equipo de cuidado autorizado ya lo atendió. No se puede deshacer.
 
-En **"Camperos"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"); en la columna "Entrevista", a quien respondió algunos cuestionarios le dice "1 de 2 cuestionarios". Cada descarga queda registrada.
+En **"Camperos"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"); si el campamento usa varios cuestionarios, la columna "Entrevista" dice cuántos lleva cada campero ("0 de 2 cuestionarios", "En curso, 1 de 2", "2 de 2 cuestionarios"), igual que la lista. Cada descarga queda registrada.
 
 **Ordenar la tabla.** En la tabla de "Camperos", toca el encabezado de una columna (número, nombre, edad, cuarto, iglesia o grupo, sede, coordinador o entrevista) para ordenarla por ella; tócalo otra vez para invertir el orden. Un triángulo pequeño junto al encabezado dice por cuál está ordenada. La búsqueda y los filtros se quedan como los tenías. En un celular la tabla se muestra en renglones, sin encabezados, con el orden que elegiste.
 
@@ -210,6 +214,12 @@ En **"Cuestionarios"** están las preguntas de las entrevistas. Un campamento pu
 * **Quitar uno.** Toca **"Quitar"** junto a él (o **"Dejar de usar en este evento"** en la versión). Las entrevistas hechas se conservan. El único cuestionario no se puede quitar mientras el evento tenga entrevistas: agrega otro primero o usa otra versión.
 
 Un campero cuenta como entrevistado cuando respondió todos los cuestionarios del evento. Si agregas uno cuando ya hay entrevistas completadas, a esos camperos les falta el nuevo: vuelven a las que faltan, el avance baja y en las listas dicen "1 de 2 cuestionarios".
+
+Con varios cuestionarios, cada pantalla dice cuántos de ellos lleva cada quien:
+
+* La etiqueta de cada campero dice "0 de 2 cuestionarios", "1 de 2 cuestionarios" o "2 de 2 cuestionarios", y "En curso, 1 de 2" mientras responde uno. La pestaña y el filtro "Sin entrevista" se llaman **"Sin terminar"**.
+* Los conteos dicen "con los 2 cuestionarios" ("Llevamos 120 de 400 con los 2 cuestionarios.") y separan a los que van **"a medias"** de los que no han empezado ("30 sin iniciar y 12 a medias").
+* Cada bloque de avance, de "Mi inicio" a "Resumen general" y cada corte, suma **"Por cuestionario"**: una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400, 5 en curso."). Las filas de cada coordinador lo dicen en una línea ("«Primer cuestionario»: 25 de 31, «Segundo cuestionario»: 10 de 31."); las de cada equipo la llevan solo en un corte guardado: en "Resumen general" y "Avance", en vivo, las filas de los equipos no la tienen. El PDF trae la tabla "Por cuestionario" y la presentación una diapositiva más (mientras haya camperos).
 
 ### 11. Respuestas confidenciales
 
@@ -248,7 +258,7 @@ Para cambiarlo, sube otro archivo; para quitarlo, marca **"Quitar el logotipo"**
 
 ### Tu pantalla de inicio
 
-**"Mi inicio"** te dice qué hacer ahora en el panel de arriba: terminar la entrevista que dejaste a medias, buscar al campero que vas a entrevistar o registrar a tu primer campero. Debajo ves cuántas llevas ("Llevas 18 de 31.", con una marca por cada uno de tus camperos) y los siguientes **"Por entrevistar"**. Si el campamento usa varios cuestionarios, dice "Llevas 18 de 31 con todo." y, aparte de los que no han empezado, cuántos van **"a medias"** (respondieron alguno y no tienen uno en curso). A la derecha (en un celular, debajo) está **"Esperan algo de ti"**: las entrevistas que esperan tu decisión de seguimiento, con **"Decidir"**, y tus seguimientos abiertos. Si nada espera, dice "Nada espera tu decisión por ahora." Las entrevistas que completaste hace poco están en **"Mi avance"** (con varios cuestionarios, cada una dice cuál). La pantalla se actualiza sola.
+**"Mi inicio"** te dice qué hacer ahora en el panel de arriba: terminar la entrevista que dejaste a medias, buscar al campero que vas a entrevistar o registrar a tu primer campero. Debajo ves cuántas llevas ("Llevas 18 de 31.", con una marca por cada uno de tus camperos) y los siguientes **"Por entrevistar"**. Si el campamento usa varios cuestionarios, dice "Llevas 18 de 31 con los 2 cuestionarios.", cuántos van **"a medias"** (respondieron alguno y no tienen uno en curso) aparte de los que no han empezado, y debajo **"Por cuestionario"**: cuántos de tus camperos completaron cada uno. A la derecha (en un celular, debajo) está **"Esperan algo de ti"**: las entrevistas que esperan tu decisión de seguimiento, con **"Decidir"**, y tus seguimientos abiertos. Si nada espera, dice "Nada espera tu decisión por ahora." Las entrevistas que completaste hace poco están en **"Mi avance"** (con varios cuestionarios, cada una dice cuál). La pantalla se actualiza sola.
 
 Si todavía no eliges computadora, debajo del saludo dice **"Todavía no eliges computadora."** con el enlace **"Elegir computadora"**. Cuando la eliges, la barra de arriba dice en cuál estás ("Estás en Computadora 3").
 
@@ -266,7 +276,7 @@ En **"Entrevistas pendientes"** y en la ficha de cada campero, arriba está el b
 4. Si Emmaus te avisa "Ya hay un campero registrado con este nombre", revisa la lista. Si es la misma persona, no la registres otra vez. Si es otra, marca **"Sí, es otra persona con el mismo nombre"**.
 5. Toca **"Guardar y empezar la entrevista"** o **"Guardar y registrar otro"**.
 
-En **"Mis camperos"** aparecen primero las entrevistas en curso, luego las que faltan y al final las completadas. Cada campero lleva dos líneas: dónde duerme, su edad y, si la iglesia tiene sedes, su sede ("Cuarto 2, 17 años, Mérida"), y debajo su número y su grupo ("#0133, Iglesia Centro"). Si una búsqueda no encuentra a nadie, dice "No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras." Si el campamento usa varios cuestionarios, el campero que ya respondió algunos dice "1 de 2 cuestionarios" y sigue con "Entrevistar".
+En **"Mis camperos"** aparecen primero las entrevistas en curso, luego las que faltan y al final las completadas. Cada campero lleva dos líneas: dónde duerme, su edad y, si la iglesia tiene sedes, su sede ("Cuarto 2, 17 años, Mérida"), y debajo su número y su grupo ("#0133, Iglesia Centro"). Si una búsqueda no encuentra a nadie, dice "No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras." Si el campamento usa varios cuestionarios, cada campero dice cuántos lleva ("0 de 2 cuestionarios", "1 de 2 cuestionarios" o, mientras responde uno, "En curso, 1 de 2"), el que ya respondió algunos sigue con "Entrevistar", y la pestaña "Sin entrevista" se llama **"Sin terminar"**.
 
 ### Elegir tu computadora
 
@@ -409,7 +419,7 @@ Después de la lista viene el **"Cuestionario para entrevistar en papel"**, una 
 
 ## Para tutores
 
-En **"Mi equipo"** ves cómo va tu equipo. Si un coordinador tiene entrevistas interrumpidas (20 minutos o más sin cambios), arriba aparece un panel que dice quién y en qué computadora, con **"Ver las entrevistas interrumpidas"**. Debajo, **"Tu equipo lleva X de Y."** y una fila por coordinador con una marca por cada campero (completada, en curso o sin iniciar). A la derecha están los seguimientos del equipo, lo que espera una decisión y la actividad reciente. La pantalla se actualiza sola.
+En **"Mi equipo"** ves cómo va tu equipo. Si un coordinador tiene entrevistas interrumpidas (20 minutos o más sin cambios), arriba aparece un panel que dice quién y en qué computadora, con **"Ver las entrevistas interrumpidas"**. Debajo, **"Tu equipo lleva X de Y."** y una fila por coordinador con una marca por cada campero (completada, en curso o sin iniciar). Si el campamento usa varios cuestionarios, dice "Tu equipo lleva X de Y con los 2 cuestionarios.", cuántos van a medias y **"Por cuestionario"** del equipo, y la fila de cada coordinador suma una línea con cuántos de sus camperos completaron cada cuestionario. A la derecha están los seguimientos del equipo, lo que espera una decisión y la actividad reciente. La pantalla se actualiza sola.
 
 ![Mi equipo del tutor](img/tutor-equipo.png)
 
@@ -429,7 +439,7 @@ Como tutor no ves las respuestas de los camperos (salvo que te hayan dado acceso
 
 **"Resumen general"** responde cinco preguntas y se actualiza solo. En la columna izquierda cada pregunta tiene su respuesta en una frase: si solo lees esa columna, ya tienes el resumen para la reunión.
 
-1. **¿Cómo va el campamento?** Cuántas entrevistas van ("Llevamos 247 de 400 entrevistas.") y, en otra frase, a qué hora terminaríamos al ritmo de las últimas dos horas ("Al ritmo de las últimas dos horas terminaríamos hacia las 16:43.").
+1. **¿Cómo va el campamento?** Cuántas entrevistas van ("Llevamos 247 de 400 entrevistas.") y, en otra frase, a qué hora terminaríamos al ritmo de las últimas dos horas ("Al ritmo de las últimas dos horas terminaríamos hacia las 16:43."). Con varios cuestionarios dice "Llevamos 247 de 400 con los 2 cuestionarios.", la clave separa "sin iniciar" de "a medias" y debajo viene **"Por cuestionario"**.
 2. **¿Qué hay que coordinar?** Asuntos sugeridos para la próxima reunión. Cada asunto es un enlace a la pantalla donde se atiende: por ejemplo, los seguimientos sin responsable abren "Seguimiento" con ese filtro. Salen de reglas fijas sobre los números; no hay inteligencia artificial ni juicios sobre las personas.
 3. **¿Qué equipos necesitan apoyo?** Equipos del que va más atrás al que va más adelante, con una raya que marca el promedio del campamento.
 4. **¿Cuánto falta?** Cuántas entrevistas faltan, el ritmo por hora, el tiempo estimado y las gráficas. La línea punteada es la proyección al ritmo actual; la última columna es la hora en curso.
@@ -468,6 +478,8 @@ Los pastores y la administración ven los cortes de todo el campamento y de cada
 
 En **"Reportes"** ves el último corte, la hora del próximo y el historial. El historial muestra doce cortes por página (**"Anterior"** y **"Siguiente"** abajo). Cuando tres o más cortes seguidos tienen las mismas cifras (por ejemplo durante la noche), se agrupan en una sola línea **"Sin cambios"** con sus horas y sus cifras: toca **"Mostrar los N cortes"** para verlos uno por uno. El corte más reciente siempre va solo.
 
+Si el campamento usa varios cuestionarios, el último corte dice "Llevábamos 247 de 400 con los 2 cuestionarios." con su bloque **"Por cuestionario"**; en el historial, debajo de "Completadas" dice cuántos completaron cada cuestionario, y solo se agrupan los cortes en los que tampoco cambió ninguno de ellos. En el corte completo, cada equipo y cada coordinador lo dicen bajo su nombre. Los cortes guardados antes de que Emmaus contara por cuestionario se ven como siempre.
+
 ![Reportes](img/reportes.png)
 
 * **"Generar corte ahora"** hace un corte en este momento. Si alguien lo acaba de hacer, Emmaus te muestra ese mismo en lugar de repetirlo.
@@ -477,7 +489,7 @@ En **"Reportes"** ves el último corte, la hora del próximo y el historial. El 
 
 ### Descargar el PDF
 
-Toca **"Descargar PDF"** (en el último corte o en el historial, botón **"PDF"**). El PDF trae las cifras principales, la gráfica de avance, el avance por equipo, los seguimientos, los próximos pasos y cómo se calcula cada número. Dice "Documento confidencial de uso interno. No reenviar.": no lo compartas fuera del equipo. Cada descarga queda registrada.
+Toca **"Descargar PDF"** (en el último corte o en el historial, botón **"PDF"**). El PDF trae las cifras principales, la gráfica de avance, el avance por equipo, los seguimientos, los próximos pasos y cómo se calcula cada número. Dice "Documento confidencial de uso interno. No reenviar.": no lo compartas fuera del equipo. Cada descarga queda registrada. Con varios cuestionarios, el PDF también dice cuántos iban a medias, trae la tabla **"Por cuestionario"** (completadas, en curso y avance de cada uno) y, bajo cada equipo, cuántos completaron cada cuestionario.
 
 ### Mostrar la presentación
 
@@ -490,7 +502,7 @@ Sirve para proyectar el avance en una reunión del equipo.
 
 ![Modo presentación](img/presentacion.png)
 
-Son 5 diapositivas: portada, cómo va el campamento con el avance de cada equipo, la gráfica del avance de entrevistas, necesidades de seguimiento y próximos pasos. La letra está hecha para leerse desde el fondo del salón. **No muestra nombres de camperos, coordinadores ni tutores, ni respuestas.** Las cifras de seguimiento vienen del último corte y están redondeadas; antes del primer corte aparecen como "—". Cada diapositiva dice de qué hora son sus datos: en un corte guardado, la hora del corte; en vivo, la de seguimientos dice las dos horas ("Según el corte de las 14:00; lo demás, datos de las 14:35.").
+Son 5 diapositivas: portada, cómo va el campamento con el avance de cada equipo, la gráfica del avance de entrevistas, necesidades de seguimiento y próximos pasos. Si el campamento usa varios cuestionarios son 6 (5 mientras no haya camperos): después de "cómo va" viene **"Por cuestionario"**, con una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400."); un título largo termina en "…", y con nueve o más cuestionarios se ven los primeros ocho y "y N más". La letra está hecha para leerse desde el fondo del salón. **No muestra nombres de camperos, coordinadores ni tutores, ni respuestas.** Las cifras de seguimiento vienen del último corte y están redondeadas; antes del primer corte aparecen como "—". Cada diapositiva dice de qué hora son sus datos: en un corte guardado, la hora del corte; en vivo, la de seguimientos dice las dos horas ("Según el corte de las 14:00; lo demás, datos de las 14:35.").
 
 ---
 

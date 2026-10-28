@@ -11,8 +11,11 @@ The counts of camperos come from ``EventParticipant.interview_status``, which
   Corrections edit the same interview, so nothing is counted twice.
 * En curso: camperos with an interview started and not yet finalized (at most one at a time).
 * Pendientes: camperos who have not completed every questionnaire yet (includes "en curso").
-* Sin iniciar: pendientes without an interview in progress; with several questionnaires it includes
-  camperos who already completed some of them.
+* A medias (``partial``): with several questionnaires, pendientes without an interview in progress who
+  completed at least one of the event's questionnaires. Always 0 with one questionnaire.
+* Sin iniciar: pendientes without an interview in progress and not "a medias".
+* Por cuestionario (``questionnaires``): with several questionnaires, one row per questionnaire of the event
+  in its order: the camperos who completed it and the ones answering it now. Empty with one questionnaire.
 * Avance: completadas / camperos. With 0 camperos it is None, shown as "—", never 0 %.
 * Ritmo: camperos who complete the interview per hour, averaged over the last 2 hours. A campero
   completes it when their last questionnaire is finalized (``campero_completions``), so the rate and
@@ -28,11 +31,11 @@ The counts of camperos come from ``EventParticipant.interview_status``, which
 from __future__ import annotations
 
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from django.db.models import Count, Max, OuterRef, Q, Subquery
+from django.db.models import Count, Exists, Max, OuterRef, Q, Subquery
 from django.utils import timezone
 
 from ..models import (
@@ -71,6 +74,12 @@ DEFINITIONS = [
     ("Por decidir", "Entrevistas completadas que esperan decidir si necesitan seguimiento."),
     ("Interrumpidas", f"Entrevistas en curso sin cambios desde hace {STALE_MINUTES} minutos o más."),
 ]
+# Printed after DEFINITIONS only where the numbers exist: a cutoff of an event with several questionnaires (its progress
+# has "questionnaires" rows). With one questionnaire the glossary stays the one it always was.
+SEVERAL_QUESTIONNAIRE_DEFINITIONS = [
+    ("A medias", "Camperos que completaron algún cuestionario del evento, pero no todos, y no tienen una entrevista en curso."),
+    ("Por cuestionario", "Camperos que completaron cada cuestionario del evento. Un campero cuenta en cada cuestionario que terminó."),
+]
 
 
 def percent(part: int, whole: int) -> int | None:
@@ -84,6 +93,10 @@ class Progress:
     eligible: int = 0
     completed: int = 0
     in_progress: int = 0
+    # With several questionnaires (both stay 0 / [] with one): pendientes who completed some questionnaire and have
+    # none live ("a medias"), and one row per questionnaire of the event in its order (see _questionnaire_rows).
+    partial: int = 0
+    questionnaires: list = field(default_factory=list)
 
     @property
     def pending(self) -> int:
@@ -91,7 +104,7 @@ class Progress:
 
     @property
     def not_started(self) -> int:
-        return max(self.eligible - self.completed - self.in_progress, 0)
+        return max(self.eligible - self.completed - self.in_progress - self.partial, 0)
 
     @property
     def percent(self) -> int | None:
@@ -101,13 +114,68 @@ class Progress:
         return {**asdict(self), "pending": self.pending, "not_started": self.not_started, "percent": self.percent}
 
 
-def progress_for(participants) -> Progress:
+def _several_links(event: Event | None) -> list:
+    """The event's links in order when it uses two or more questionnaires; ``[]`` otherwise (or without an event)."""
+    if event is None:
+        return []
+    links = links_for(event)
+    return links if len(links) > 1 else []
+
+
+def _halfway(participants, linked_ids):
+    """Pendientes who completed at least one of ``linked_ids``: "a medias" (some done, none live)."""
+    done = Interview.objects.filter(participant=OuterRef("pk"), status=Interview.Status.COMPLETED, questionnaire_id__in=linked_ids)
+    return participants.filter(interview_status=InterviewStatus.PENDING).filter(Exists(done))
+
+
+def _questionnaire_counts(participants, linked_ids, *extra):
+    """Distinct camperos per questionnaire and interview status (completed or in progress), grouped also by ``extra``."""
+    return (
+        Interview.objects.filter(
+            participant__in=participants,
+            questionnaire_id__in=linked_ids,
+            status__in=[Interview.Status.COMPLETED, Interview.Status.IN_PROGRESS],
+        )
+        .values(*extra, "questionnaire_id", "status")
+        .annotate(n=Count("participant_id", distinct=True))
+    )
+
+
+def _questionnaire_rows(links, eligible: int, counts: dict) -> list[dict]:
+    """One row per link, in order. ``counts``: ``{(questionnaire_id, status): camperos}``."""
+    rows = []
+    for link in links:
+        completed = counts.get((link.questionnaire_id, Interview.Status.COMPLETED), 0)
+        rows.append(
+            {
+                "id": link.questionnaire_id,
+                "title": link.version.title,  # the title every other screen uses for a questionnaire
+                "order": link.order,
+                "eligible": eligible,
+                "completed": completed,
+                "in_progress": counts.get((link.questionnaire_id, Interview.Status.IN_PROGRESS), 0),
+                "percent": percent(completed, eligible),
+            }
+        )
+    return rows
+
+
+def progress_for(participants, event: Event | None = None) -> Progress:
+    """The scope's counts. With ``event`` and two or more questionnaires, also ``partial`` and ``questionnaires``
+    (three more queries: the links, the "a medias" count, the counts per questionnaire)."""
     row = participants.aggregate(
         eligible=Count("id"),
         completed=Count("id", filter=Q(interview_status=InterviewStatus.COMPLETED)),
         in_progress=Count("id", filter=Q(interview_status=InterviewStatus.IN_PROGRESS)),
     )
-    return Progress(row["eligible"] or 0, row["completed"] or 0, row["in_progress"] or 0)
+    progress = Progress(row["eligible"] or 0, row["completed"] or 0, row["in_progress"] or 0)
+    links = _several_links(event)
+    if links:
+        linked_ids = [link.questionnaire_id for link in links]
+        progress.partial = _halfway(participants, linked_ids).count()
+        counts = {(r["questionnaire_id"], r["status"]): r["n"] for r in _questionnaire_counts(participants, linked_ids)}
+        progress.questionnaires = _questionnaire_rows(links, progress.eligible, counts)
+    return progress
 
 
 # ---- scopes (user-independent, so the scheduler can use them) ------------------------------------
@@ -264,13 +332,74 @@ def eta_minutes(pending: int, per_hour: float) -> int | None:
     return int(math.ceil(pending / per_hour * 60))
 
 
-def group_progress(participants, field: str) -> dict:
+class GroupProgress(dict):
+    """``group_progress``'s result: ``{group: Progress}``. ``of(group)`` is that group's Progress, or for a group without
+    camperos an empty one that still has a row per questionnaire when the event uses several."""
+
+    def __init__(self, groups: dict, links: list):
+        super().__init__(groups)
+        self.links = links
+
+    def of(self, key) -> Progress:
+        found = self.get(key)
+        if found is not None:
+            return found
+        return Progress(questionnaires=_questionnaire_rows(self.links, 0, {}))
+
+
+def group_progress(participants, field: str, event: Event | None = None) -> GroupProgress:
+    """``progress_for`` per value of ``field``; with ``event`` and several questionnaires each group also carries
+    ``partial`` and ``questionnaires`` (three more queries for every group together)."""
     rows = participants.values(field).annotate(
         eligible=Count("id"),
         completed=Count("id", filter=Q(interview_status=InterviewStatus.COMPLETED)),
         in_progress=Count("id", filter=Q(interview_status=InterviewStatus.IN_PROGRESS)),
     )
-    return {row[field]: Progress(row["eligible"], row["completed"], row["in_progress"]) for row in rows}
+    groups = {row[field]: Progress(row["eligible"], row["completed"], row["in_progress"]) for row in rows}
+    links = _several_links(event)
+    if links:
+        linked_ids = [link.questionnaire_id for link in links]
+        partial = dict(_halfway(participants, linked_ids).values_list(field).annotate(n=Count("id")))
+        counts: dict = {}
+        for row in _questionnaire_counts(participants, linked_ids, f"participant__{field}"):
+            counts.setdefault(row[f"participant__{field}"], {})[(row["questionnaire_id"], row["status"])] = row["n"]
+        for key, progress in groups.items():
+            progress.partial = partial.get(key, 0)
+            progress.questionnaires = _questionnaire_rows(links, progress.eligible, counts.get(key, {}))
+    return GroupProgress(groups, links)
+
+
+def sum_rows(rows: list[dict]) -> dict:
+    """The camperos of a page's rows (``coordinators()`` or ``teams()`` rows, each a ``Progress.as_dict()``) added up, in
+    the same shape: ``eligible``, ``completed``, ``in_progress``, ``partial``, ``not_started``, ``pending``, ``percent``
+    and ``questionnaires`` (each questionnaire's counts summed by id, in the rows' order). What a sentence or a key under
+    those rows counts: a scope's own progress also holds the camperos in no row (the event's camperos without a
+    coordinador). Rows of a cutoff saved before several questionnaires have no ``partial`` nor ``questionnaires``."""
+    total = Progress(
+        eligible=sum(row["eligible"] for row in rows),
+        completed=sum(row["completed"] for row in rows),
+        in_progress=sum(row["in_progress"] for row in rows),
+        partial=sum(row.get("partial") or 0 for row in rows),
+    )
+    by_id: dict = {}
+    for row in rows:
+        for quest in row.get("questionnaires") or []:
+            entry = by_id.setdefault(quest["id"], {"id": quest["id"], "title": quest["title"], "order": quest.get("order"), "completed": 0, "in_progress": 0})
+            entry["completed"] += quest["completed"]
+            entry["in_progress"] += quest["in_progress"]
+    total.questionnaires = [
+        {
+            "id": entry["id"],
+            "title": entry["title"],
+            "order": entry["order"],
+            "eligible": total.eligible,
+            "completed": entry["completed"],
+            "in_progress": entry["in_progress"],
+            "percent": percent(entry["completed"], total.eligible),
+        }
+        for entry in by_id.values()
+    ]
+    return total.as_dict()
 
 
 def stale_interviews(participants, *, now: datetime | None = None):
@@ -285,7 +414,7 @@ def stale_interviews(participants, *, now: datetime | None = None):
 def teams(scope: Scope) -> list[dict]:
     if not scope.is_event:
         return []
-    by_tutor = group_progress(scope.participants(), "coordinator__tutor_assignment__tutor")
+    by_tutor = group_progress(scope.participants(), "coordinator__tutor_assignment__tutor", scope.event)
     tutor_rows = EventMembership.objects.filter(event=scope.event, role=MembershipRole.TUTOR).select_related("user")
     coordinator_counts = dict(
         EventMembership.objects.filter(event=scope.event, role=MembershipRole.COORDINATOR, is_active=True)
@@ -294,7 +423,7 @@ def teams(scope: Scope) -> list[dict]:
     )
     result = []
     for tutor in tutor_rows:
-        progress = by_tutor.get(tutor.id, Progress())
+        progress = by_tutor.of(tutor.id)
         result.append(
             {
                 "key": f"equipo:{tutor.id}",
@@ -315,14 +444,14 @@ def teams(scope: Scope) -> list[dict]:
 def coordinators(scope: Scope, *, now: datetime | None = None) -> list[dict]:
     now = now or timezone.now()
     participants = scope.participants()
-    by_coordinator = group_progress(participants, "coordinator")
+    by_coordinator = group_progress(participants, "coordinator", scope.event)
     stale = dict(stale_interviews(participants, now=now).values_list("participant__coordinator").annotate(n=Count("id")))
     last_completed = dict(
         completed_interviews(participants).values_list("participant__coordinator").annotate(last=Max("completed_at"))
     )
     rows = []
     for coordinator in scope.coordinators():
-        progress = by_coordinator.get(coordinator.id, Progress())
+        progress = by_coordinator.of(coordinator.id)
         assignment = getattr(coordinator, "tutor_assignment", None)
         last = last_completed.get(coordinator.id)
         rows.append(
@@ -606,7 +735,7 @@ def recommendations(payload: dict, *, include_names: bool = True) -> list[dict]:
 def build_payload(scope: Scope, *, include_safety: bool = False, include_outcomes: bool = False, now: datetime | None = None) -> dict:
     now = now or timezone.now()
     participants = scope.participants()
-    progress = progress_for(participants)
+    progress = progress_for(participants, scope.event)
     rate = throughput(participants, now=now)
     payload = {
         "metrics_version": METRICS_VERSION,

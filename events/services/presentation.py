@@ -12,6 +12,10 @@ from datetime import datetime
 
 from .metrics import STALE_MINUTES, eta_minutes, format_duration, suppress
 
+# Slide 3 ("Por cuestionario") lists at most this many questionnaires; a last line says how many more ("y 2 más").
+# Ten rows at the small print's floor run past the foot at a 1192 px frame (rotulo.css, "Por cuestionario").
+DECK_QUESTIONNAIRE_ROWS = 8
+
 
 def about(cell: dict, *, feminine: bool) -> str:
     """A rounded count in words, "unos 10 (seguimientos)" or "unas 10 (entrevistas)", by the gender of the noun that
@@ -48,6 +52,7 @@ def _team_rows(teams: list[dict]) -> list[dict]:
                 "eligible": team["eligible"],
                 "completed": team["completed"],
                 "in_progress": team["in_progress"],
+                "partial": team.get("partial", 0),  # several questionnaires: some done, none live; old cutoffs have none
                 "pending": team["pending"],
                 "percent": team["percent"],
             }
@@ -113,6 +118,13 @@ def build_deck(
     if not steps and progress["eligible"]:
         steps.append("Todas las entrevistas están completas. Gracias, equipo.")
 
+    # With several questionnaires: one row per questionnaire (its title and counts, nothing else). A cutoff saved before
+    # has no "questionnaires" key: no rows, so no "Por cuestionario" slide. Nor with 0 camperos: slide 2 says
+    # "Todavía no hay camperos registrados." and a slide of zeros would add nothing (five slides, as with one).
+    questionnaires = [
+        {key: row.get(key) for key in ("title", "eligible", "completed", "in_progress", "percent")}
+        for row in progress.get("questionnaires") or []
+    ] if progress["eligible"] else []
     as_of = payload["data_as_of"]
     return {
         "event_name": event_name,
@@ -126,7 +138,13 @@ def build_deck(
             "pending": progress["pending"],
             "not_started": progress["not_started"],
             "percent": progress["percent"],
+            # With several questionnaires: the camperos "a medias" (a cutoff saved before has none: 0) and the rows above.
+            "partial": progress.get("partial") or 0,
+            "questionnaires": questionnaires,
         },
+        # Slide 3's rows (the first DECK_QUESTIONNAIRE_ROWS) and how many it leaves for its last line, "y 2 más".
+        "questionnaire_rows": questionnaires[:DECK_QUESTIONNAIRE_ROWS],
+        "questionnaires_more": max(len(questionnaires) - DECK_QUESTIONNAIRE_ROWS, 0),
         "rate": rate,
         "eta": format_duration(eta) if eta else "",
         "timeline": [{"label": p["label"], "day": p.get("day", ""), "count": p["count"], "cumulative": p["cumulative"]} for p in payload["timeline"]["points"]],

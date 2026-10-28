@@ -7,7 +7,7 @@
     <p class="confirm__text">Para cuidar tu privacidad, la pantalla se cierra si pasa un rato sin que nadie la use. Lo que respondiste está guardado. Avisa a tu coordinador.</p>
   {% else %}
     <h1 id="gracias" class="voice confirm__title">¡Gracias!</h1>
-    <p class="confirm__text">Ya terminaste{% if interview.event.questionnaire_count > 1 %} este cuestionario{% endif %}. Avisa a tu coordinador para que recupere la computadora.</p>
+    <p class="confirm__text">Ya terminaste{% if questionnaire_position %} el cuestionario {{ questionnaire_position }} de {{ questionnaire_total }}{% elif interview.event.questionnaire_count > 1 %} este cuestionario{% endif %}. Avisa a tu coordinador para que recupere la computadora.</p>
   {% endif %}
 </section>
 <div class="step__actions"><a class="btn btn--secondary" href="{% url 'kiosk:unlock' %}">Soy coordinador: recuperar la computadora</a></div>

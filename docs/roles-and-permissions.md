@@ -24,6 +24,8 @@ Camperos are `EventParticipant` rows, not users. In supervised capture the brows
 4. **`pastor` of the event's church** in `core`, with no membership in this event → **Pastor**.
 5. Otherwise no access.
 
+The resolved role is what the screens show: `access.role_label` is the line under the event's name in the bar (`context_role` in `partials/ui/bar.html`, passed by both event shells), the role in the "who" line of "Menú" and the "Tu rol: …" sentence on each role's home, so a church admin who also has a coordinator membership reads "Administrador" everywhere.
+
 `accessible_events(user)` lists events of churches where the user is church admin or pastor, plus events with an active membership, excluding archived events (superusers see every event, archived included). It applies the same rule 2: an event where the user has a deactivated membership is left out (unless they are a church admin), so nobody is sent to an event that would answer 403.
 
 ## One role per user per event
