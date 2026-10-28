@@ -153,6 +153,38 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
             self.assertIn('<li><span class="key__mark" aria-hidden="true"></span>2 sin iniciar y 1 a medias</li>', html)
             self.assert_event_block(html)
 
+    def test_every_mark_says_a_medias_like_its_key(self):
+        """Defect (Q1 refuter D3): the event's, a team's or a coordinator's marks labelled "3 sin iniciar" (the camperos
+        halfway counted as never started) under a key that says "2 sin iniciar y 1 a medias"; or a questionnaire's own
+        ruler, whose "sin iniciar" is per questionnaire, given the event's "a medias"."""
+        label = 'aria-label="{}"'.format
+        event = label("1 de 5 completadas, 1 en curso, 1 a medias, 2 sin iniciar")
+        north = label("0 de 4 completadas, 1 en curso, 1 a medias, 2 sin iniciar")  # Equipo Norte: Carla's and César's
+        carla = label("0 de 3 completadas, 1 en curso, 1 a medias, 1 sin iniciar")
+        snapshot = self.snapshot()
+        pages = {
+            "pastor_home": (self.pastor, (), (event, north)),
+            "progress": (self.pastor, (), (event, north)),
+            "admin_home": (self.admin, (), (event,)),
+            "tutor_home": (self.tutor1, (), (carla,)),
+            "coordinators": (self.pastor, (), (carla,)),
+            "coordinator_detail": (self.pastor, (self.m_coord1.id,), (carla,)),
+            "reports": (self.pastor, (), (event,)),
+            "report_detail": (self.pastor, (snapshot.public_id,), (event, north, carla)),
+            "presentation_live": (self.pastor, (), (event,)),
+            "report_presentation": (self.pastor, (snapshot.public_id,), (event,)),
+        }
+        for name, (user, args, labels) in pages.items():
+            html = self.html(name, *args, user=user)
+            for expected in labels:
+                with self.subTest(page=name, label=expected):
+                    self.assertIn(expected, html)
+        # each questionnaire's ruler keeps its own "sin iniciar" (not completed nor in progress of THAT questionnaire)
+        quests = re.search(r'<section class="quests".*?</section>', self.html("pastor_home", user=self.pastor), re.S).group(0)
+        self.assertIn(label("3 de 5 completadas, 0 en curso, 2 sin iniciar"), quests)  # «Primer cuestionario»
+        self.assertIn(label("1 de 5 completadas, 1 en curso, 3 sin iniciar"), quests)  # «Segundo cuestionario»
+        self.assertNotIn("a medias", quests)
+
     def test_no_a_medias_in_the_key_while_nobody_is_halfway(self):
         """Defect: "y 0 a medias" in a key (or "0 a medias" under "Faltan") when no campero is halfway."""
         Interview.objects.filter(participant=self.p1).delete()

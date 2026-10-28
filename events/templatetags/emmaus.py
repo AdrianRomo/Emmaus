@@ -109,32 +109,41 @@ def follow_up_status(status):
     return format_html('<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>', kind, label)
 
 
-def _progress_text(completed, in_progress, total):
-    remaining = max(total - completed - in_progress, 0)
+def _progress_text(completed, in_progress, total, partial=0):
+    """The marks' label. With several questionnaires ``partial`` (the camperos "a medias") is said apart from "sin
+    iniciar", as the key and the sentence beside the marks say it; with 0 the words are the ones they always were."""
     if not total:
         return "Sin datos todavía"
+    if partial > 0:
+        remaining = max(total - completed - in_progress - partial, 0)
+        return f"{completed} de {total} completadas, {in_progress} en curso, {partial} a medias, {remaining} sin iniciar"
+    remaining = max(total - completed - in_progress, 0)
     return f"{completed} de {total} completadas, {in_progress} en curso, {remaining} sin iniciar"
 
 
 @register.simple_tag
-def tally(completed, in_progress, total, limit=80):
-    """One mark per campero (completed, in progress, not started). Above `limit` people a ruler reads better."""
-    completed, in_progress, total = int(completed or 0), int(in_progress or 0), int(total or 0)
+def tally(completed, in_progress, total, limit=80, partial=0):
+    """One mark per campero (completed, in progress, not started). Above `limit` people a ruler reads better.
+    ``partial``: the camperos "a medias", only in the label; a campero halfway keeps the outline mark."""
+    completed, in_progress, total, partial = int(completed or 0), int(in_progress or 0), int(total or 0), int(partial or 0)
     if total > limit:
-        return ruler(completed, in_progress, total)
+        return ruler(completed, in_progress, total, partial=partial)
     remaining = max(total - completed - in_progress, 0)
     marks = (
         '<span class="tally__mark tally__mark--done"></span>' * completed
         + '<span class="tally__mark tally__mark--progress"></span>' * in_progress
         + '<span class="tally__mark"></span>' * remaining
     )
-    return format_html('<div class="tally" role="img" aria-label="{}">{}</div>', _progress_text(completed, in_progress, total), mark_safe(marks))
+    return format_html(
+        '<div class="tally" role="img" aria-label="{}">{}</div>', _progress_text(completed, in_progress, total, partial), mark_safe(marks)
+    )
 
 
 @register.simple_tag
-def ruler(completed, in_progress, total, marker=None, marker_label=""):
-    """Stacked bar: completed, in progress, remaining track. Optional marker (a percent) such as the event average."""
-    completed, in_progress, total = int(completed or 0), int(in_progress or 0), int(total or 0)
+def ruler(completed, in_progress, total, marker=None, marker_label="", partial=0):
+    """Stacked bar: completed, in progress, remaining track. Optional marker (a percent) such as the event average.
+    ``partial``: the camperos "a medias", only in the label (their part of the track stays the remaining one)."""
+    completed, in_progress, total, partial = int(completed or 0), int(in_progress or 0), int(total or 0), int(partial or 0)
     segs = []
     if total and completed:
         segs.append(f'<span class="ruler__seg ruler__seg--done" style="width:{100 * completed / total:.2f}%"></span>')
@@ -145,7 +154,7 @@ def ruler(completed, in_progress, total, marker=None, marker_label=""):
         tick = f'<span class="ruler__marker" style="left:{float(marker):.2f}%" title="{escape(marker_label)}"></span>'
     return format_html(
         '<div class="ruler" role="img" aria-label="{}">{}{}</div>',
-        _progress_text(completed, in_progress, total),
+        _progress_text(completed, in_progress, total, partial),
         mark_safe("".join(segs)),
         mark_safe(tick),
     )

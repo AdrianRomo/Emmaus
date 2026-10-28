@@ -28,6 +28,7 @@
           {% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a>{% if p.questionnaire_total > 1 %}</div>{% endif %}
         </li>
       {% endfor %}</ul>
+    {% elif partial %}<p class="empty-line">Nadie sin iniciar.</p>{% comment %}Several questionnaires: some are still "a medias" (below), so no celebration yet.{% endcomment %}
     {% elif has_participants %}<p class="empty-line">No quedan entrevistas por iniciar. ¡Buen trabajo!</p>
     {% else %}<p class="empty-line">Todavía no tienes camperos. Registra al primero o pide a la administración que te los asigne. <a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a></p>{% endif %}
   </section>{% if partial %}

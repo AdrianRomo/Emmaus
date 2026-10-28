@@ -18,7 +18,7 @@
         {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltan alrededor de <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
         {% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}
       </p>
-      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
+      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
       <ul class="key">
         <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
         <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
@@ -66,7 +66,7 @@
           <li class="teams__row">
             <span class="teams__name">{{ row.label }}</span>
             <span class="teams__value"><strong>{{ row.percent|pct }}</strong> {{ row.completed }} de {{ row.eligible }}</span>
-            {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" %}
+            {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" partial=row.partial %}
           </li>
         {% endfor %}
       </ol>

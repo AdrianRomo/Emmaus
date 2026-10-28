@@ -4,7 +4,7 @@
     <section class="block" aria-labelledby="cuantas">
       {% comment %}With several questionnaires (progress.questionnaires has a row each): "con los N cuestionarios", the camperos "a medias" (progress.partial) apart from "sin iniciar", and a line per questionnaire after the key. One questionnaire: as it always was.{% endcomment %}<h2 id="cuantas" class="voice coord__count">Llevas {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</h2>
       <p class="coord__count-note">{{ progress.percent|pct }} de tus camperos.{% if progress.in_progress %} {{ progress.in_progress }} en curso{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}.{% elif progress.partial %} {{ progress.partial }} a medias.{% endif %}</p>
-      {% tally progress.completed progress.in_progress progress.eligible %}
+      {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
       <ul class="key" aria-hidden="true">
         <li><span class="key__mark key__mark--done"></span>Completada</li>
         <li><span class="key__mark key__mark--progress"></span>En curso</li>

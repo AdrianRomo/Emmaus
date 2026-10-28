@@ -15,6 +15,7 @@ import io
 import json
 import re
 
+from django.template import Context, Template
 from django.template.loader import render_to_string
 from django.test import Client, SimpleTestCase
 from django.urls import reverse
@@ -301,6 +302,38 @@ class QuestionnaireProgressPartialTests(SimpleTestCase):
         self.assertFalse(any("nowrap" in body for _, _, body in rules))
 
 
+class ProgressMarksPartialTests(SimpleTestCase):
+    def render(self, source, **context):
+        return Template("{% load emmaus %}" + source).render(Context(context))
+
+    def test_the_label_says_a_medias_apart_from_sin_iniciar(self):
+        """Defect (Q1 refuter D3): the marks' aria-label counting the camperos "a medias" as "sin iniciar" (total minus
+        completed minus in progress), so a screen reader hears "10 sin iniciar" under a key that says 7 and 3 a medias."""
+        label = 'aria-label="1 de 12 completadas, 1 en curso, 3 a medias, 7 sin iniciar"'
+        tally = self.render("{% tally 1 1 12 partial=3 %}")
+        self.assertIn(label, tally)
+        # still three kinds of mark: a campero halfway keeps the outline one (the key says "sin iniciar y a medias")
+        self.assertEqual(tally.count('class="tally__mark"'), 10)
+        self.assertEqual(tally.count("tally__mark--done"), 1)
+        self.assertEqual(tally.count("tally__mark--progress"), 1)
+        self.assertIn(label, self.render("{% ruler 1 1 12 partial=3 %}"))
+        self.assertIn(label, self.render('{% ruler 1 1 12 50 "Promedio" partial=3 %}'))
+        # above the limit the tally hands the words to its ruler
+        self.assertIn('aria-label="1 de 120 completadas, 1 en curso, 3 a medias, 115 sin iniciar"', self.render("{% tally 1 1 120 partial=3 %}"))
+        # never a negative "sin iniciar"
+        self.assertIn('aria-label="1 de 4 completadas, 1 en curso, 9 a medias, 0 sin iniciar"', self.render("{% tally 1 1 4 partial=9 %}"))
+
+    def test_partial_zero_or_missing_renders_byte_identical(self):
+        """Defect: the keyword changing a one-questionnaire page (partial is 0 there) or an old cutoff's row without the
+        key (it resolves to ""): either must render exactly what the tag rendered without it."""
+        for source in ("{% tally 3 1 6 %}", "{% tally 50 10 120 %}", "{% tally 0 0 0 %}", "{% ruler 3 1 6 %}", '{% ruler 3 1 6 50 "Promedio" %}'):
+            plain = self.render(source)
+            with self.subTest(source):
+                self.assertEqual(self.render(source.replace(" %}", " partial=0 %}")), plain)
+                self.assertEqual(self.render(source.replace(" %}", " partial=row.partial %}"), row={}), plain)
+        self.assertIn('aria-label="3 de 6 completadas, 1 en curso, 2 sin iniciar"', self.render("{% tally 3 1 6 partial=0 %}"))
+
+
 # ---- 4. Lists: "Sin terminar" -------------------------------------------------------------------------------------------
 
 
@@ -375,6 +408,65 @@ class CoordinatorScreensTests(ProgressFixture):
         self.assertIn(self.p2.full_name, halfway)
         self.assertIn(PILL.format("pending", "1 de 2 cuestionarios"), halfway)
 
+    def test_pendientes_does_not_celebrate_above_a_medias(self):
+        """Defect (Q1 refuter D2): "No quedan entrevistas por iniciar. ¡Buen trabajo!" directly above a non-empty
+        "A medias" list, when the coordinator's only campero answered one of the two questionnaires."""
+        self.interview(self.p3, self.first)  # coord2's only campero: Primero done, Segundo never started
+        html = self.page("coord_pending", user=self.coord2)
+        not_started = re.search(r'aria-labelledby="sin-iniciar">(.*?)</section>', html, re.S).group(1)
+        self.assertIn('Sin iniciar <span class="count">0</span>', not_started)
+        self.assertIn('<p class="empty-line">Nadie sin iniciar.</p>', not_started)
+        self.assertNotIn("¡Buen trabajo!", html)
+        self.assertIn('<h2 id="a-medias" class="heading">A medias <span class="count">1</span></h2>', html)
+
+    def test_pendientes_celebrates_once_nobody_is_left(self):
+        """Defect: the celebration lost with several questionnaires when nobody is sin iniciar nor a medias."""
+        self.interview(self.p3, self.first)
+        self.interview(self.p3, self.second)
+        html = self.page("coord_pending", user=self.coord2)
+        self.assertIn('<p class="empty-line">No quedan entrevistas por iniciar. ¡Buen trabajo!</p>', html)
+        self.assertNotIn("Nadie sin iniciar.", html)
+        self.assertNotIn('aria-labelledby="a-medias"', html)
+
+    def more_camperos(self, n):
+        """``n`` more adult camperos for coord1, with nothing done."""
+        return [self._camper(f"Campero Extra {i}", 20, self.m_coord1) for i in range(1, n + 1)]
+
+    def test_the_marks_say_what_the_sentence_and_the_key_say(self):
+        """Defect (Q1 refuter D3): Mi inicio and Mi avance printing "3 a medias y 7 sin iniciar" while the marks' label,
+        the only thing a screen reader hears of them, says "10 sin iniciar"."""
+        extra = self.more_camperos(9)  # coord1: p1, p2, p_minor_no_auth and these 9, 12 in all
+        self.interview(self.p1, self.first)
+        self.interview(self.p1, self.second)  # 1 completada
+        self.interview(self.p2, self.first)
+        self.interview(self.p2, self.second, Interview.Status.IN_PROGRESS)  # 1 en curso
+        for p in (self.p_minor_no_auth, *extra[:2]):
+            self.interview(p, self.first)  # 3 a medias; the other 7 sin iniciar
+        label = 'aria-label="1 de 12 completadas, 1 en curso, 3 a medias, 7 sin iniciar"'
+        home = self.page("coord_home")
+        self.assertIn('<p class="coord__count-note">1 en curso, 3 a medias y 7 sin iniciar. <a href="', home)
+        self.assertIn(label, home)
+        progress = self.page("coord_progress")
+        self.assertIn('<li><span class="key__mark"></span>7 sin iniciar y 3 a medias</li>', progress)
+        self.assertIn(label, progress)
+
+    def test_mi_inicio_links_to_the_sin_iniciar_and_the_a_medias(self):
+        """Defect (Q1 refuter D4, a mutation survivor): "Ver los …" counting only the camperos sin iniciar, so with 6 of 7
+        pending in the queue the halfway one behind them has no way in."""
+        self.more_camperos(4)  # coord1: 7 pending, the queue shows 6
+        self.interview(self.p1, self.first)  # 1 a medias, 6 sin iniciar
+        html = self.page("coord_home")
+        self.assertIn(f'<p class="more"><a href="{self.url("coord_pending")}">Ver los 6 sin iniciar y 1 a medias</a></p>', html)
+
+    def test_mi_inicio_links_to_the_a_medias_when_none_is_sin_iniciar(self):
+        """Defect (Q1 refuter D4): with every pending campero halfway the link vanishing (it counted 0 sin iniciar) or
+        saying "Ver los 0 sin iniciar"."""
+        for p in (self.p1, self.p2, self.p_minor_no_auth, *self.more_camperos(4)):
+            self.interview(p, self.first)  # 7 a medias, 0 sin iniciar
+        html = self.page("coord_home")
+        self.assertIn(f'<p class="more"><a href="{self.url("coord_pending")}">Ver los 7 a medias</a></p>', html)
+        self.assertNotIn("sin iniciar y", html)
+
 
 class OneQuestionnaireCoordinatorTests(IsolatedCacheMixin, CampFixture):
     def test_no_per_questionnaire_block_nor_a_medias_list(self):
@@ -388,6 +480,13 @@ class OneQuestionnaireCoordinatorTests(IsolatedCacheMixin, CampFixture):
                 self.assertNotIn("cuestionarios", html)
         self.assertContains(client.get(self.url("coord_progress")), '<li><span class="key__mark"></span>Sin iniciar</li>')
         self.assertContains(client.get(self.url("coord_pending")), 'Sin iniciar <span class="count">3</span>')
+
+    def test_the_marks_label_is_as_before(self):
+        """Defect (Q1 refuter D3 fix): a one-questionnaire Mi inicio or Mi avance whose marks' label changed."""
+        client = self.login(self.coord1, Client())
+        for name in ("coord_home", "coord_progress"):
+            with self.subTest(name):
+                self.assertContains(client.get(self.url(name)), 'aria-label="0 de 3 completadas, 0 en curso, 3 sin iniciar"')
 
 
 # ---- 6. Supervision: Pendientes ---------------------------------------------------------------------------------------
@@ -553,6 +652,27 @@ class AdminTests(ProgressFixture):
         section = re.search(r'<section class="admin-narrow" aria-labelledby="en-este-evento">(.*?)</section>', html, re.S).group(1)
         self.assertIn('<p class="row__meta">Primero, versión 1, 1 de 4 camperos.</p>', section)
         self.assertIn('<p class="row__meta">Segundo, versión 1, 0 de 4 camperos.</p>', section)
+
+    def test_the_export_counts_only_the_questionnaires_the_event_uses(self):
+        """Defect (Q1 refuter D4, a mutation survivor): a completed interview of a questionnaire the event stopped using
+        counted among "completados", so the family reads 2 of 2 for a person who answered one of the two in use."""
+        third = create_questionnaire_from_definition(self.church, definition("Tercero", "Tercer cuestionario", "tres"))
+        use_version(self.event, third)
+        self.interview(self.p1, third)
+        self.interview(self.p1, self.first)
+        stop_using(self.event, third.questionnaire)  # the event keeps Primero and Segundo
+        self.assertEqual(self.export()["cuestionarios"], {"total": 2, "completados": 1})
+
+    def test_cuestionarios_says_campero_for_one(self):
+        """Defect (Q1 refuter D5): "1 de 1 camperos." on a Cuestionarios row when the event has one active campero."""
+        self.interview(self.p1, self.first)
+        EventParticipant.objects.filter(event=self.event).exclude(pk=self.p1.pk).update(is_active=False)
+        html = self.page("questionnaires", user=self.admin)
+        self.assertIn('<p class="row__meta">Primero, versión 1, 1 de 1 campero.</p>', html)
+        self.assertIn('<p class="row__meta">Segundo, versión 1, 0 de 1 campero.</p>', html)
+        EventParticipant.objects.filter(pk=self.p2.pk).update(is_active=True)
+        html = self.page("questionnaires", user=self.admin)
+        self.assertIn('<p class="row__meta">Primero, versión 1, 1 de 2 camperos.</p>', html)
 
 
 class OneQuestionnaireAdminTests(IsolatedCacheMixin, CampFixture):

@@ -37,7 +37,7 @@
     {% endif %}
     {% if delta %}<p class="headline__sub">{% delta_sentence delta previous.cutoff_at %}</p>{% endif %}
     {% if p.eligible %}
-      <div class="headline__ruler">{% ruler p.completed p.in_progress p.eligible %}</div>
+      <div class="headline__ruler">{% ruler p.completed p.in_progress p.eligible partial=p.partial %}</div>
       <ul class="key">
         <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ p.completed }} completadas ({{ p.percent|pct }})</li>
         <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ p.in_progress }} en curso</li>

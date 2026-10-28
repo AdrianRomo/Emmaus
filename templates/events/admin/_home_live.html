@@ -50,7 +50,7 @@
   {% if progress.eligible %}
     <h2 id="estado-evento" class="voice admin-state__title">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</h2>
     <p class="admin-state__sub">{% if not progress.pending %}Ya se completaron todas.{% else %}{{ progress.in_progress }} en curso, {% if open_claims %}{{ open_claims }} abierta{{ open_claims|pluralize }} ahora en una computadora{% else %}ninguna abierta ahora en una computadora{% endif %}.{% endif %}</p>
-    <div class="admin-state__ruler">{% ruler progress.completed progress.in_progress progress.eligible %}</div>
+    <div class="admin-state__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
     <ul class="key">
       <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
       <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>

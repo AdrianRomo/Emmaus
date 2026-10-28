@@ -17,7 +17,7 @@
         {% if not c.active %}<p class="crew__meta">Sin acceso</p>{% endif %}
       </div>
       <div class="crew__marks">
-        {% tally c.completed c.in_progress c.eligible %}
+        {% tally c.completed c.in_progress c.eligible partial=c.partial %}
         {% if c.stale %}<p class="crew__note">{{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}: {% stale_minutes %} minutos o más sin cambios</p>{% endif %}{% if c.questionnaires %}
         <p class="row__meta">{% for q in c.questionnaires %}«{{ q.title }}»: {{ q.completed }} de {{ c.eligible }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
       </div>

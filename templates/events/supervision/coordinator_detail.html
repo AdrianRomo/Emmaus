@@ -20,7 +20,7 @@
       <div>
         {% comment %}With several questionnaires (progress.questionnaires): "con los N cuestionarios", the camperos "a medias" (progress.partial) in the sentence and the key, and "Por cuestionario" after the key, as on the coordinator's own "Mi avance".{% endcomment %}<p class="voice coord__count">{{ coordinator.user.first_name|default:coordinator.display_name }} lleva {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</p>
         <p class="coord__count-note">{{ progress.percent|pct }} de sus camperos.{% if progress.in_progress %} {{ progress.in_progress }} en curso.{% endif %}{% if progress.partial %} {{ progress.partial }} a medias.{% endif %}{% if progress.not_started %} {{ progress.not_started }} sin iniciar.{% endif %}</p>
-        {% tally progress.completed progress.in_progress progress.eligible %}
+        {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
         <ul class="key" aria-hidden="true">
           <li><span class="key__mark key__mark--done"></span>Completada</li>
           <li><span class="key__mark key__mark--progress"></span>En curso</li>

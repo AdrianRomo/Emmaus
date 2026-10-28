@@ -2,7 +2,7 @@
 
 Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y administración. Explica, paso a paso, cómo se usa Emmaus durante el campamento. No necesitas saber nada de computación.
 
-En la barra de arriba de cada pantalla hay un enlace **"Ayuda"**. Dentro de un campamento te muestra las cinco tareas más comunes de tu rol, cada una con el enlace a la pantalla donde se hace. Fuera de un campamento explica cómo entrar, unirte con el código y elegir el campamento.
+En la barra de arriba de cada pantalla hay un enlace **"Ayuda"**. Dentro de un campamento te muestra las cinco tareas más comunes de tu rol, cada una con el enlace a la pantalla donde se hace. Fuera de un campamento explica cómo entrar, unirte con el código y elegir el campamento. Bajo el nombre del campamento, la barra dice tu rol; en el teléfono lo ves en Menú y en tu inicio («Tu rol: …»).
 
 ## Antes de empezar: la primera cuenta
 
@@ -58,6 +58,8 @@ Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y 
 En un celular, los enlaces de la barra están en el botón **"Menú"**. En una tableta o una ventana angosta, bajan a una segunda fila de la barra.
 
 Para cambiar de campamento, toca **"Campamentos"**: está junto al nombre del evento en la barra de arriba, y en un celular es lo último de "Menú". Te lleva a **"Campamentos y eventos"**, la lista de los eventos en los que participas.
+
+Debajo del nombre del campamento y de "Campamentos", la barra dice con qué rol entraste: **Coordinador**, **Tutor**, **Pastor** o **Administrador**. El rol es de cada campamento: si en otro tienes otro, la barra lo dice al cambiar. En un celular la barra no muestra el nombre del campamento; tu rol está en **"Menú"**, junto a tu nombre ("Carla Uno, coordinador"), y en tu pantalla de inicio, debajo del título ("Tu rol: coordinador.").
 
 ### Unirte al equipo con el código
 

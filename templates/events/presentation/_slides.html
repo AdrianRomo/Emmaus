@@ -25,7 +25,7 @@
       {% if p.eligible %}
         <h2 class="voice deck-headline">Llevamos {{ p.completed }} de {{ p.eligible }}{% if p.questionnaires %} con los {{ p.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</h2>
         <p class="deck-sub">{% if not p.pending %}Ya se completaron todas.{% elif deck.eta %}A este ritmo, {{ deck.rate|floatformat:"-1" }} por hora, terminamos en <span class="keep-together">alrededor de {{ deck.eta }}</span>.{% else %}Todavía no hay suficiente ritmo para estimar cuándo terminaremos.{% endif %}</p>
-        <div class="deck-ruler">{% ruler p.completed p.in_progress p.eligible %}</div>
+        <div class="deck-ruler">{% ruler p.completed p.in_progress p.eligible partial=p.partial %}</div>
         <ul class="key deck-key">
           <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ p.completed }} completadas</li>
           <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ p.in_progress }} en curso</li>
