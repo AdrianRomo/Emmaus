@@ -15,15 +15,23 @@ fake() { # <name> <script body>
   mkdir -p "$tmp/bin"; printf '#!/bin/sh\n%s\n' "$2" >"$tmp/bin/$1"; chmod +x "$tmp/bin/$1"
 }
 
+# A fake interpreter that behaves like $PYTHON except for `-m pip_audit`, whose outcome the test sets
+# (the gate must run pip-audit through the selected interpreter, never through PATH).
+fake_python() { # <name> <pip_audit body>
+  mkdir -p "$tmp/bin"
+  printf '#!/bin/sh\nif [ "$1" = "-m" ] && [ "$2" = "pip_audit" ]; then %s; fi\nexec "%s" "$@"\n' "$2" "$PYTHON" >"$tmp/bin/$1"
+  chmod +x "$tmp/bin/$1"
+}
+
 # 1. A failing step gives overall FAIL and exit 1, and the summary lists every step.
-fake pip-audit 'echo "No known vulnerabilities found"; exit 1'
-out="$(cd "$root" && PIP_AUDIT="$tmp/bin/pip-audit" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
+fake_python python-audit-fails 'echo "No known vulnerabilities found"; exit 1'
+out="$(cd "$root" && PYTHON="$tmp/bin/python-audit-fails" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
 if [ "$rc" -eq 1 ] && grep -q "^overall: FAIL" <<<"$out" && [ "$(grep -cE '^(lint|check|migrations|deploy-check|pip-audit|tests-sqlite|tests-postgres|e2e) ' <<<"$out")" -eq 8 ]; then
   ok "gate: failing step -> overall FAIL, exit 1, 8 step lines"; else bad "gate: failing step" "rc=$rc"$'\n'"$out"; fi
 
 # 2. A passing step whose log matches none of the summary patterns does not truncate the summary.
-fake pip-audit 'echo "nothing here matches the summary grep"; exit 0'
-out="$(cd "$root" && PIP_AUDIT="$tmp/bin/pip-audit" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
+fake_python python-audit-quiet 'echo "nothing here matches the summary grep"; exit 0'
+out="$(cd "$root" && PYTHON="$tmp/bin/python-audit-quiet" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -q "^overall: PASS" <<<"$out" && grep -q "^e2e " <<<"$out"; then
   ok "gate: unmatched log text keeps the summary complete (PASS, exit 0)"; else bad "gate: unmatched log text" "rc=$rc"$'\n'"$out"; fi
 
@@ -46,6 +54,14 @@ fake codex 'o=""; while [ $# -gt 0 ]; do [ "$1" = "-o" ] && o="$2"; shift; done;
 out="$(PATH="$tmp/bin:$PATH" PYTHON="$PYTHON" "$review" --base base --out "$tmp/bad.json" 2>&1)"; rc=$?
 if [ "$rc" -eq 1 ] && [ ! -e "$tmp/bad.json" ]; then ok "codex-review: invalid JSON rejected, exit 1"; else bad "codex-review: invalid JSON" "rc=$rc"; fi
 cd "$root"
+
+# 2b. pip-audit.sh audits the selected interpreter: a pip-audit on PATH must not stand in for a
+#     missing pip_audit module, and the script fails clearly instead.
+fake pip-audit 'echo "WRONG ENVIRONMENT AUDITED"; exit 0'
+fake_python python-no-audit 'echo "No module named pip_audit" >&2; exit 1'
+out="$(PATH="$tmp/bin:$PATH" PYTHON="$tmp/bin/python-no-audit" "$agents/pip-audit.sh" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && grep -q "pip_audit is not installed" <<<"$out" && ! grep -q "WRONG ENVIRONMENT" <<<"$out"; then
+  ok "pip-audit: missing module fails clearly; PATH pip-audit is never used"; else bad "pip-audit: environment selection" "rc=$rc"$'\n'"$out"; fi
 
 # 5. run-tests.sh: backend guards, and sqlite ignores an inherited PostgreSQL URL.
 "$agents/run-tests.sh" postgres >/dev/null 2>&1; [ $? -eq 1 ] && ok "run-tests: postgres without DATABASE_URL refused" || bad "run-tests: postgres without URL"
