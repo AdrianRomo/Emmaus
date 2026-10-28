@@ -10,6 +10,21 @@
 
 ## Rondas
 
+### Ronda 20 · descargar las respuestas
+
+El 28 de octubre de 2026. Lo pidió el dueño: una forma de sacar los datos, solo para la administración por ahora, probablemente en CSV. Había dos descargas, la lista de camperos (sin respuestas) y los datos completos de un campero (JSON, uno por uno); ninguna juntaba las respuestas de todos.
+
+| Qué | Lo que cambió |
+|---|---|
+| Configuración | Una sección nueva, "Exportar datos", después de "Privacidad y protección" y en el índice de la página: una frase dice qué trae el archivo y que queda registrado, y el botón "Descargar las respuestas". Quien administra sin acceso confidencial lee en su lugar "Solo quien tiene acceso confidencial puede descargar las respuestas." |
+| Camperos e Inicio | Junto a "Descargar la lista de camperos", "o descargar las respuestas", solo con acceso confidencial |
+| El archivo | `respuestas-<evento>-<fecha>.csv`: un renglón por campero, también los que ya no participan, con sus datos de registro y, por cada cuestionario, su estado, cuándo se completó y una columna por pregunta con la respuesta en palabras. Abre en Excel con acentos (BOM), y una celda que empieza como fórmula lleva `'` |
+| El registro | Una fila `exportacion` por descarga ("Descargó las respuestas de todos los camperos (CSV)"), que sale en "Descargas recientes" sin nombres |
+
+19 pruebas nuevas en `events/tests/test_answers_export.py`. El archivo sale de 6 consultas a la base, tenga el campamento 30 o 400 camperos (12 la primera vez que el proceso lee los cuestionarios). Esta ronda no se capturó con Playwright.
+
+Queda pendiente: descargar los seguimientos y los reportes de riesgo, filtrar por cuestionario y el formato XLSX.
+
 ### Ronda 19 · cuántos de los N cuestionarios, en cada nivel
 
 El 28 de octubre de 2026. Con varios cuestionarios, las pantallas hablaban de camperos "con todo" y nada decía cuántos de los N llevaba cada uno ni cuánto había avanzado cada cuestionario. Lo pidió el dueño: que el dato se entienda en cada nivel, del campero al campamento. La regla de la ronda sigue siendo la de la 18: **con un solo cuestionario, ninguna pantalla, PDF ni diapositiva cambia** (las pruebas comparan las palabras; antes de entregar se compararon byte a byte 34 salidas, páginas, fragmentos, presentación y textos del PDF, contra las de antes de la ronda, sin contar horas ni fichas de seguridad).

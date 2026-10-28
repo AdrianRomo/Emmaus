@@ -30,6 +30,7 @@
     <li><a href="#datos">Datos del evento</a></li>
     <li><a href="#cortes">Cortes</a></li>
     <li><a href="#privacidad">Privacidad y protección</a></li>
+    <li><a href="#exportar">Exportar datos</a></li>
     <li><a href="#computadoras">Computadoras</a></li>
   </ul>
 </nav>
@@ -79,6 +80,20 @@
   <p class="hint narrow mt-6">Los cuestionarios del evento se eligen en <a href="{% url 'events:questionnaires' event.slug %}">Cuestionarios</a>.</p>
   <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar cortes y privacidad</button></div>
 </form>
+
+{% comment %}
+  Every campero and their answers (admin.answers_export): only with confidential access, as one person's export. An
+  administrador without it reads why there is no link.
+{% endcomment %}
+<section class="admin-section admin-section--ruled" id="exportar" aria-labelledby="t-exportar">
+  <h2 id="t-exportar" class="heading">Exportar datos</h2>
+  {% if access.is_admin and access.can_view_sensitive %}
+  <p class="hint narrow mt-4">Un archivo CSV con todos los camperos y sus respuestas a cada cuestionario, para abrirlo en Excel. Queda registrado en el registro de actividad.</p>
+  <p class="mt-4"><a class="btn btn--secondary" href="{% url 'events:answers_export' event.slug %}">Descargar las respuestas</a></p>
+  {% elif access.is_admin %}
+  <p class="hint narrow mt-4">Solo quien tiene acceso confidencial puede descargar las respuestas.</p>
+  {% endif %}
+</section>
 
 <section class="admin-section admin-section--ruled" id="computadoras" aria-labelledby="t-comp">
   <h2 id="t-comp" class="heading">Computadoras de entrevista</h2>

@@ -59,6 +59,7 @@ Every event has a `join_code` (6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ2345678
 | Register a campero | Yes (any coordinador) | No | No | Own (assigned to self) | No |
 | Choose the campero's sede when registering or correcting (only if the church has active sedes) | Yes | No | No | Own | No |
 | Import CSV (and download its example file), download the campero list | Yes | No | No | No | No |
+| "Descargar las respuestas" (every campero's answers, CSV; audited `exportacion`, kind `respuestas`) | Only with confidential access | No | No | No | No |
 | "Sedes de la iglesia": add, edit, deactivate or delete a sede | Only church admins and superusers (not an Administrador who is only a member of the event) | No | No | No | No |
 | "Sedes de la iglesia": choose the sedes taking part in the event | Yes | No | No | No | No |
 | Correct campero data | Yes | No | No | Own (no change of coordinador or withdrawal) | No |
@@ -141,7 +142,7 @@ Administrators grant and remove the flag. Nobody can grant it to themselves: che
 * follow-up details and closing notes ("Nota de cierre (confidencial)");
 * reading and managing safety reports;
 * the "Situaciones de riesgo abiertas" figure in dashboards and PDFs (administrators also see this figure without the flag);
-* for administrators, "Descargar todos sus datos".
+* for administrators, "Descargar todos sus datos" (one campero) and "Descargar las respuestas" (every campero's answers, CSV).
 
 ## Follow-ups and safety reports
 
