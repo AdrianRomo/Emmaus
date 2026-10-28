@@ -28,3 +28,12 @@ find_python() {
 }
 PYTHON="$(find_python)"
 export PYTHON
+
+# pip-audit: $PIP_AUDIT, else the one next to the interpreter (bootstrap.sh), else on PATH.
+find_pip_audit() {
+  if [ -n "${PIP_AUDIT:-}" ]; then printf '%s' "$PIP_AUDIT"; return; fi
+  if [ -x "$(dirname "$PYTHON")/pip-audit" ]; then printf '%s' "$(dirname "$PYTHON")/pip-audit"; return; fi
+  command -v pip-audit 2>/dev/null || true
+}
+PIP_AUDIT="$(find_pip_audit)"
+export PIP_AUDIT

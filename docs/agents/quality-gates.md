@@ -15,6 +15,8 @@ and the PR body carries the local gate summary.
 | Tests (PostgreSQL) | `scripts/agents/run-tests.sh postgres` with `DATABASE_URL=postgres://…` | the full suite incl. `test_concurrency`, minus the node ids in `scripts/agents/postgres-deselect.txt` (today one class whose seed takes ~31 min on PostgreSQL; it still runs on SQLite; each entry names its issue) | 20 min | `test-postgres` |
 | Browser gate | `scripts/agents/e2e-gate.sh` | synthetic seed → `station-flow.mjs` (shared-computer interview regression) → `review-all.mjs` (every screen per role at 3 widths: axe WCAG 2.2 AA at zero violations, no overflow, one h1, the stylesheet, no JS errors) | 25 min | `e2e` |
 | Static analysis | CodeQL (python, javascript) | security queries on every PR and weekly | 30 min | `.github/workflows/codeql.yml` |
+| Independent review | `scripts/agents/codex-review.sh` | Codex CLI read-only verdict posted as a PR comment (advisory) | 25 min | `.github/workflows/codex-review.yml` |
+| Tooling tests | `scripts/agents/tests/test-tooling.sh` | the gate's own failure boundaries with mocked commands (failing step → FAIL/exit 1, stale Codex verdict rejected, backend guards, CI-state table) | 15 min | `agent-tooling` |
 | Secret scanning | GitHub secret scanning + push protection (repository setting, on) | credentials never reach the repo | — | — |
 
 Spanish UI copy is checked by the existing suites (`core/test_audit_lenguaje.py`,
@@ -34,7 +36,8 @@ Interpreter: `$PYTHON`, else `.venv/bin/python` in the worktree, else the main c
 `.venv` (worktrees share it), else `python3`. Logs and the summary go to
 `$EMMAUS_AGENT_HOME/gates/<timestamp>/`; the summary block is what you paste into the PR.
 
-Browser gate prerequisites (once per checkout): `cd e2e && npm ci && npx playwright install chromium`.
+Setup (once per checkout): `scripts/agents/bootstrap.sh` (virtualenv, requirements, ruff, pip-audit);
+browser gate: `cd e2e && npm ci && npx playwright install chromium`.
 
 ## What "verified" means
 

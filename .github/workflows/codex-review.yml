@@ -1,0 +1,79 @@
+# Independent review of every PR by Codex CLI (docs/agents/codex-review.md). Read-only, ephemeral,
+# structured verdict posted as a PR comment. Advisory: the verdict informs the human reviewer and
+# the follow-up routine; the job fails only when the tool itself fails, never on the verdict.
+# Needs the repository secret OPENAI_API_KEY; without it the job skips and says so.
+name: Codex review
+
+on:
+  pull_request:
+    branches: [main, v2/foundation]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: codex-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Independent review (Codex CLI)
+    # Secrets are not available to forks; same-repository PRs only.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PYTHON: python
+      EMMAUS_AGENT_HOME: ${{ github.workspace }}/.agent-home
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Is the key present?
+        id: key
+        run: |
+          if [ -n "$OPENAI_API_KEY" ]; then echo "present=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::OPENAI_API_KEY is not set; the Codex review is skipped"; echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-python@v5
+        if: steps.key.outputs.present == 'true'
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          node-version: "22"
+      - name: Install the application requirements (so Codex can run tests) and Codex CLI
+        if: steps.key.outputs.present == 'true'
+        run: |
+          pip install -r requirements.txt ruff==0.17.2
+          npm install -g @openai/codex@0.163.0
+          printenv OPENAI_API_KEY | codex login --with-api-key
+      - name: Review HEAD against the base branch
+        if: steps.key.outputs.present == 'true'
+        id: review
+        run: |
+          set +e
+          scripts/agents/codex-review.sh --base "origin/${{ github.base_ref }}" --out "$RUNNER_TEMP/review.json" | tee "$RUNNER_TEMP/review.txt"
+          echo "rc=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+      - name: Post the verdict on the pull request
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "### Independent review (Codex CLI, read-only) of \`${{ github.event.pull_request.head.sha }}\`"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/review.txt"
+            echo '```'
+            echo
+            echo "_Advisory: informs the human reviewer and the follow-up routine; it does not block the merge. Exit ${{ steps.review.outputs.rc }} (0 approve, 2 request_changes, 3 needs_human, 1 tool error)._"
+          } > "$RUNNER_TEMP/comment.md"
+          gh api -X POST "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" -F body=@"$RUNNER_TEMP/comment.md" >/dev/null
+      - name: Fail only when the tool itself failed
+        if: steps.key.outputs.present == 'true'
+        run: test "${{ steps.review.outputs.rc }}" != "1"

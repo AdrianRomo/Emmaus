@@ -28,12 +28,15 @@ capacity the script tries `CODEX_REVIEW_FALLBACK_MODELS` (default `gpt-5.6-sol g
 Alternative on the AI workstation: the `ai-router` MCP tool `codex_review` runs the same
 `codex exec -s read-only --ephemeral` with a secret scan in front.
 
-## In CI (not set up; follow-up)
+## In CI (`.github/workflows/codex-review.yml`)
 
-A GitHub Action can run the same script with `OPENAI_API_KEY` as a repository secret and post
-the verdict as a PR comment. It is not added here because it cannot be verified without the
-secret; when added, keep it `workflow_dispatch` plus a label trigger (`review:codex`), read-only,
-with a 15-minute timeout, and never let it approve or merge.
+Runs on every same-repository PR against `v2/foundation` or `main` when the repository secret
+`OPENAI_API_KEY` exists (it skips with a notice otherwise): installs the requirements and
+`@openai/codex@0.163.0`, logs in with the key, runs `scripts/agents/codex-review.sh --base
+origin/<base>`, and posts the summary as a PR comment headed "Independent review (Codex CLI)".
+The verdict is advisory: the job fails only when the tool itself fails (exit 1), never on
+`request_changes`, so a model's false positive cannot block a merge; humans and the follow-up
+routine read the comment. Forked PRs get no review (secrets are unavailable to forks).
 
 ## Policy
 

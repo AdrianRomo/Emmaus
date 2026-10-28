@@ -19,6 +19,7 @@ Scripts live in `scripts/agents/`; each prints usage with `-h`.
 
 | Script | Purpose |
 |---|---|
+| `bootstrap.sh` | Virtualenv with the requirements and the pinned gate tools |
 | `new-task-worktree.sh` | Isolated worktree + branch for one issue; optional claim |
 | `quality-gate.sh` | The deterministic gate (same steps as CI) |
 | `check-deploy.sh`, `pip-audit.sh`, `run-tests.sh`, `e2e-gate.sh` | Gate steps that CI and the gate script share |
@@ -26,3 +27,4 @@ Scripts live in `scripts/agents/`; each prints usage with `-h`.
 | `audit-log.sh` | Append to the audit log and, optionally, the issue |
 | `status-report.py` | Markdown/JSON report of queue, PRs, failures, human attention |
 | `sync-labels.sh` | Create or update the labels from `.github/labels.json` |
+| `tests/test-tooling.sh` | Regression tests for the tooling itself (run in CI) |

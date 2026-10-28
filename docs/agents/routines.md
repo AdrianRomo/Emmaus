@@ -98,16 +98,18 @@ Task: execute at most ONE issue.
    the oldest.
 2. Claim it: comment `**agent:claimed** routine <UTC date>: branch v2/issue-<n>-<slug>` and move
    the label from agent:ready to agent:in-progress.
-3. `git checkout -b v2/issue-<n>-<slug> origin/v2/foundation`; `python3 -m venv .venv &&
-   .venv/bin/pip install -r requirements.txt`. Implement only what the acceptance criteria ask;
-   diff under 400 changed lines; no dependency changes unless the issue asks.
+3. `git checkout -b v2/issue-<n>-<slug> origin/v2/foundation`; `scripts/agents/bootstrap.sh`
+   (virtualenv with the requirements, ruff and pip-audit). Implement only what the acceptance
+   criteria ask; diff under 400 changed lines; no dependency changes unless the issue asks.
 4. `PYTHON=.venv/bin/python scripts/agents/quality-gate.sh` (no --postgres, no --e2e: CI runs
    those). On failure fix and rerun at most twice; if still red, comment the GATE SUMMARY, move
    the label to agent:blocked, stop.
 5. Commit naming the issue, push the branch, open a DRAFT PR against v2/foundation from
    .github/PULL_REQUEST_TEMPLATE.md with the GATE SUMMARY verbatim and `Closes #<n>`; label the
-   issue agent:review; comment the PR URL. Never merge, never mark ready, never push to main or
-   v2/foundation.
+   issue agent:review; comment the PR URL. The independent review is NOT yours to run: the
+   "Codex review" workflow runs on the PR and posts its verdict as a comment; the follow-up
+   routine and the human reviewer act on it. Never merge, never mark ready, never push to main
+   or v2/foundation.
 6. On any escalation condition in docs/agents/policies.md, stop, label agent:needs-human,
    comment the decision needed.
 Stop after 90 minutes with a status comment. Never fabricate results.
@@ -122,10 +124,12 @@ GitHub access rejects GraphQL; use REST only via gh api repos/AdrianRomo/Emmaus/
 `pulls?state=open&base=v2/foundation`; check runs: `commits/<head sha>/check-runs`; review and
 issue comments: `pulls/N/reviews`, `pulls/N/comments`, `issues/N/comments`).
 Task: follow up open DRAFT PRs against v2/foundation whose head starts with v2/issue- (max 3,
-oldest first). For each: read the check runs and the comments since the last agent comment. If a
-check failed for a reason inside the PR's scope, check out the head branch, create .venv, fix it
-(max 2 attempts), run PYTHON=.venv/bin/python scripts/agents/quality-gate.sh, commit, push to the
-same branch, comment what changed with the GATE SUMMARY. Answer reviewer questions with evidence
+oldest first). For each: read the check runs and the comments since the last agent comment,
+including the "Independent review (Codex CLI)" comment. If a check failed, or Codex reported a
+high/medium finding, for a reason inside the PR's scope: check out the head branch, run
+scripts/agents/bootstrap.sh, fix it (max 2 attempts), run PYTHON=.venv/bin/python
+scripts/agents/quality-gate.sh, commit, push to the same branch, comment what changed with the
+GATE SUMMARY (the push triggers a new Codex review). Answer reviewer questions with evidence
 (file, line, test). If the fix needs a product decision, touches an invariant, or exceeds 2
 attempts, label the linked issue agent:needs-human and comment the decision needed.
 Never merge, never mark ready for review, never push to main or v2/foundation, never change a PR

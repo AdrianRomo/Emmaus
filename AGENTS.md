@@ -21,7 +21,7 @@ multi-sede, tenant-isolated later). Direction: `docs/EMMAUS_PRODUCT_VISION.md`. 
 ## Commands
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+scripts/agents/bootstrap.sh                      # .venv with the requirements, ruff and pip-audit
 DEBUG=true .venv/bin/python manage.py migrate
 DEBUG=true .venv/bin/python -m pytest -q -p no:cacheprovider --ignore=e2e   # SQLite, ~75 s
 scripts/agents/quality-gate.sh                   # lint, checks, migrations, deploy check, tests (= CI)
