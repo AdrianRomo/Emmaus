@@ -28,7 +28,9 @@ def _recent_completed(access) -> list:
 
 def _my_context(event, access):
     participants = access.participants()
-    progress = progress_for(participants)
+    # With several questionnaires ``progress.partial`` counts the camperos "a medias" (some done, none live) apart
+    # from ``not_started``, and ``progress.questionnaires`` has a row per questionnaire; one questionnaire: 0 and [].
+    progress = progress_for(participants, event)
     mine = access.interviews()
     in_progress = list(mine.filter(status=Interview.Status.IN_PROGRESS).select_related("version").order_by("-last_activity_at")[:5])
     next_up = list(
@@ -38,19 +40,8 @@ def _my_context(event, access):
         access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5]
     )
     to_evaluate = mine.filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
-    # With several questionnaires "sin iniciar" (pendiente, nothing live) also holds the camperos who answered some:
-    # the head counts them apart, "a medias". None with one questionnaire: the head is the line it always was.
-    partial = None
-    if event.questionnaire_count > 1:
-        partial = (
-            eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event)
-            .filter(done_count__gt=0)
-            .count()
-        )
     return {
         "progress": progress,
-        "partial": partial,
-        "untouched": progress.not_started - partial if partial is not None else None,
         "in_progress": in_progress,
         "next_up": next_up,
         "follow_ups": follow_ups,
@@ -103,7 +94,7 @@ def my_participants(request, event, access):
     )
     counts = dict(access.participants().values_list("interview_status").annotate(n=Count("id")))
     tabs = [{"value": "", "label": "Todos", "count": sum(counts.values())}] + [
-        {"value": value, "label": label, "count": counts.get(value, 0)} for value, label in InterviewStatus.choices
+        {"value": value, "label": label, "count": counts.get(value, 0)} for value, label in eq.status_choices(event)
     ]
     total = access.participants().count()
     if total == 0:
@@ -204,13 +195,25 @@ def coord_pending(request, event, access):
     not_started = eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by(
         "room", "full_name"
     )
+    # With several questionnaires "Sin iniciar" keeps the camperos with none done; the ones who answered some go to
+    # "A medias". None with one questionnaire: the page is the one it always was.
+    partial = None
+    if event.questionnaire_count > 1:
+        partial = list(not_started.filter(done_count__gt=0))
+        not_started = not_started.filter(done_count=0)
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
     ).select_related("version")
     return render(
         request,
         "events/coordinator/pending.html",
-        {"in_progress": in_progress, "not_started": not_started, "to_evaluate": to_evaluate, "has_participants": participants.exists()},
+        {
+            "in_progress": in_progress,
+            "not_started": not_started,
+            "partial": partial,
+            "to_evaluate": to_evaluate,
+            "has_participants": participants.exists(),
+        },
     )
 
 
@@ -232,6 +235,7 @@ def participant_detail(request, event, access, public_id):
     interview = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
     live_interview = participant.interviews.filter(status=Interview.Status.IN_PROGRESS).first()
     questionnaire_rows = eq.progress_for(participant) if event.questionnaire_count > 1 else []
+    questionnaires_done = sum(1 for row in questionnaire_rows if row.state == eq.COMPLETED)
     follow_ups = access.follow_ups().filter(participant=participant)
     from ..models import ConsentRecord
     from ..services.participants import latest_consent
@@ -245,6 +249,7 @@ def participant_detail(request, event, access, public_id):
             "interview": interview,
             "live_interview": live_interview,
             "questionnaire_rows": questionnaire_rows,
+            "questionnaires_done": questionnaires_done,
             "follow_ups": follow_ups,
             "can_edit": access.can_edit_participant(participant),
             "can_interview": access.can_interview(participant),

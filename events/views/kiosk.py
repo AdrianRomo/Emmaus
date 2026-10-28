@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from ..models import Interview, ParticipantSession
 from ..services import interviews as svc
+from ..services.event_questionnaires import links_for
 from ..services.questionnaire import (
     all_questions,
     build_steps,
@@ -35,6 +36,16 @@ def _session_or_screen(request):
         return None, render(request, "events/kiosk/ended.html", {}, status=200)
 
 
+def _questionnaire_place(interview) -> dict:
+    """With several questionnaires: which one this is in the event's order (1-based) and how many there are, for
+    "Es el cuestionario 1 de 2." Empty with one questionnaire, or if the event no longer uses this one."""
+    links = links_for(interview.event_id)
+    if len(links) < 2:
+        return {}
+    position = next((i for i, link in enumerate(links, start=1) if link.questionnaire_id == interview.questionnaire_id), None)
+    return {"questionnaire_position": position, "questionnaire_total": len(links)} if position else {}
+
+
 def kiosk_home(request):
     participant_session, screen = _session_or_screen(request)
     if screen:
@@ -44,6 +55,7 @@ def kiosk_home(request):
     if participant_session.state == ParticipantSession.State.CLOSED:
         request.session.pop(svc.KIOSK_KEY, None)
         return render(request, "events/kiosk/ended.html", context)
+    context.update(_questionnaire_place(interview))
     if participant_session.state == ParticipantSession.State.AWAITING_UNLOCK or interview.status != Interview.Status.IN_PROGRESS:
         return render(request, "events/kiosk/handback.html", context)
     answers = load_answers(interview)

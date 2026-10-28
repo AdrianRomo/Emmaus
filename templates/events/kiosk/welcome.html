@@ -6,7 +6,7 @@
   <h1 class="voice welcome__hello">Hola, {{ participant.first_name }}.</h1>
   <p class="welcome__intro">{{ intro|default:"Gracias por darte este tiempo. No hay respuestas correctas o incorrectas." }}</p>
   <ul class="promises">
-    {% if total_steps %}<li>Son {{ total_steps }} pregunta{{ total_steps|pluralize }}, una por pantalla. Tómate tu tiempo.</li>{% endif %}
+    {% if total_steps %}<li>Son {{ total_steps }} pregunta{{ total_steps|pluralize }}, una por pantalla. Tómate tu tiempo.{% if questionnaire_position %}<p>Es el cuestionario {{ questionnaire_position }} de {{ questionnaire_total }}.</p>{% endif %}</li>{% endif %}
     {% if "Prefiero no responder" not in intro %}<li>Puedes elegir “Prefiero no responder” en cualquier pregunta.</li>{% endif %}
     <li>Si quieres parar, toca “Parar por ahora” en cualquier momento.</li>
   </ul>

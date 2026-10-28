@@ -5,7 +5,7 @@ from datetime import datetime, time, timedelta
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import Case, Count, F, IntegerField, Q, Value, When
+from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -173,7 +173,7 @@ def interviews(request, event, access):
             "coordinators": access.coordinators(),
             "rooms": scoped.order_by("room").values_list("room", flat=True).distinct(),
             "groups": scoped.order_by("church_group").values_list("church_group", flat=True).distinct(),
-            "status_choices": InterviewStatus.choices,
+            "status_choices": eq.status_choices(event),
             "periods": PERIODS,
             "selected": {"coordinador": coordinator_id, "cuarto": room, "grupo": group, "estado": status, "periodo": period},
             "filters_active": filters_active,
@@ -191,12 +191,26 @@ def pending(request, event, access):
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
     ).select_related("participant__coordinator__user", "version")
     follow_ups = access.follow_ups().filter(status__in=FollowUp.OPEN_STATUSES).order_by("kind", "created_at")
-    not_started_by_coordinator = (
-        participants.filter(interview_status=InterviewStatus.PENDING)
-        .values("coordinator__id", "coordinator__user__first_name", "coordinator__user__last_name")
-        .annotate(n=Count("id"))
-        .order_by("-n")
-    )
+    waiting = participants.filter(interview_status=InterviewStatus.PENDING)
+    coordinator_fields = ("coordinator__id", "coordinator__user__first_name", "coordinator__user__last_name")
+    links = eq.links_for(event)
+    several = len(links) > 1
+    if several:
+        # Several questionnaires: per coordinador, "n" pendientes with none done (sin iniciar) and "partial" the ones
+        # who completed some (a medias); the heading says "Sin terminar". One questionnaire: the table it always was.
+        done = Interview.objects.filter(
+            participant=OuterRef("pk"),
+            status=Interview.Status.COMPLETED,
+            questionnaire_id__in=[link.questionnaire_id for link in links],
+        )
+        not_started_by_coordinator = (
+            waiting.annotate(has_done=Exists(done))
+            .values(*coordinator_fields)
+            .annotate(n=Count("id", filter=Q(has_done=False)), partial=Count("id", filter=Q(has_done=True)))
+            .order_by("-n", "-partial")
+        )
+    else:
+        not_started_by_coordinator = waiting.values(*coordinator_fields).annotate(n=Count("id")).order_by("-n")
     return render(
         request,
         "events/supervision/pending.html",
@@ -206,6 +220,7 @@ def pending(request, event, access):
             "to_evaluate": to_evaluate,
             "follow_ups": follow_ups,
             "not_started_by_coordinator": not_started_by_coordinator,
+            "several_questionnaires": several,
         },
     )
 

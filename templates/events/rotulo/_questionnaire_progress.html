@@ -1,0 +1,10 @@
+{% load emmaus %}
+{% comment %}progress: a metrics.Progress or its payload dict (a saved cutoff's too: one saved before has no "questionnaires", which reads as empty). quests_id (optional): the heading's id, for a page that includes this twice. Callers include it only when progress.questionnaires has rows, that is with two or more questionnaires.{% endcomment %}
+<section class="quests" aria-labelledby="{{ quests_id|default:'por-cuestionario' }}">
+  <h3 id="{{ quests_id|default:'por-cuestionario' }}" class="heading quests__title">Por cuestionario</h3>
+  <ul class="quests__list">
+    {% for q in progress.questionnaires %}
+    <li class="quests__row"><p class="quests__text">«{{ q.title }}»: {{ q.completed }} de {{ q.eligible }}{% if q.in_progress %}, {{ q.in_progress }} en curso{% endif %}.</p>{% ruler q.completed q.in_progress q.eligible %}</li>
+    {% endfor %}
+  </ul>
+</section>

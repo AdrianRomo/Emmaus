@@ -236,6 +236,7 @@ def interview_start(request, event, access, public_id):
             "questionnaire_rows": progress if several else [],
             "ask_questionnaire": "questionnaire" in form.fields,
             "done_titles": ", ".join(row.link.version.title for row in progress if row.state == eq.COMPLETED) if several else "",
+            "questionnaires_done": sum(1 for row in progress if row.state == eq.COMPLETED),
             "next_title": next_title,
             "next_questionnaire_id": pending[0].questionnaire_id if next_title else None,
             "after_title": after_title,
@@ -442,6 +443,8 @@ def interview_done(request, event, access, public_id):
             "remaining": remaining,
             "next_links": next_links,
             "questionnaires_missing": missing,
+            # Several questionnaires: "remaining" is camperos who still lack one, said as such.
+            "several_questionnaires": len(progress) > 1,
         },
     )
 

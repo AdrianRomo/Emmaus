@@ -207,15 +207,17 @@ class DoneAndListTests(FlowFixture):
         second = self.begin(questionnaire=self.q2)
         self.complete(second)
         row = list_row(self.page("my_participants"), self.p2.full_name)
-        self.assertIn(PILL.format("done", "Completada"), row)
+        self.assertIn(PILL.format("done", "2 de 2 cuestionarios"), row)  # changed on purpose: the N shows in every state
         html = self.page("interview_done", second.public_id)
         self.assertNotIn("Continuar con", html)
         self.assertNotIn("le falta", html)
 
-    def test_a_campero_with_nothing_done_keeps_the_plain_pill(self):
-        """Defect: "0 de 2 cuestionarios" where the list always said "Sin entrevista"."""
+    def test_a_campero_with_nothing_done_says_zero_of_two(self):
+        """Defect: a campero with nothing done reading "Sin entrevista", which hides how many questionnaires the event has.
+        Changed on purpose (owner's ask 2026-10-28, reversing the earlier "keeps the plain pill" decision): the N is visible
+        before the first questionnaire too."""
         row = list_row(self.page("my_participants"), self.p2.full_name)
-        self.assertIn(PILL.format("pending", "Sin entrevista"), row)
+        self.assertIn(PILL.format("pending", "0 de 2 cuestionarios"), row)
 
     def test_the_coordinators_pending_page_and_home_mark_the_partly_done(self):
         """Defect: a campero with questionnaire 1 done listed under "Sin iniciar" as if nothing was done."""
@@ -239,15 +241,16 @@ class DoneAndListTests(FlowFixture):
 
     def test_the_home_count_tells_the_halfway_camperos_from_the_untouched(self):
         """Defect (wording): with two questionnaires the head read "Llevas 0 de 3. 3 sin iniciar." although two camperos
-        had answered the first one: "sin iniciar" counted the halfway camperos as never interviewed."""
+        had answered the first one: "sin iniciar" counted the halfway camperos as never interviewed. The head names the
+        number of questionnaires ("con los 2 cuestionarios", changed on purpose from "con todo", owner's ask 2026-10-28)."""
         self.complete(self.begin(questionnaire=self.q1))  # p2
         self.complete(svc.start_interview(  # p1 is a minor: the assent, not the adult's consent
             resolve_access(self.coord1, self.event), self.p1, mode="asistida", station=None,
             confirmed_consents={"assent"}, session=self.session, questionnaire=self.q1,
         ))
-        self.assertEqual(self.count_line(), ("Llevas 0 de 3 con todo.", "2 a medias y 1 sin iniciar."))
+        self.assertEqual(self.count_line(), ("Llevas 0 de 3 con los 2 cuestionarios.", "2 a medias y 1 sin iniciar."))
         self.begin(questionnaire=self.q2)  # p2 now has one in progress
-        self.assertEqual(self.count_line(), ("Llevas 0 de 3 con todo.", "1 en curso, 1 a medias y 1 sin iniciar."))
+        self.assertEqual(self.count_line(), ("Llevas 0 de 3 con los 2 cuestionarios.", "1 en curso, 1 a medias y 1 sin iniciar."))
 
     def recent_rows(self):
         html = self.page("coord_progress")
@@ -346,14 +349,15 @@ class OneQuestionnaireDoneTests(IsolatedCacheMixin, ServiceHelpers, CampFixture)
 
 class KioskHandbackTests(FlowFixture):
     def test_the_camper_is_told_this_questionnaire_is_done(self):
-        """Defect: "Ya terminaste." to a campero who still has a questionnaire to answer."""
+        """Defect: "Ya terminaste." to a campero who still has a questionnaire to answer. Changed on purpose (owner's ask
+        2026-10-28): it says which one of how many, "el cuestionario 1 de 2"."""
         self.login(self.coord1)
         self.choose_station(number=5)
         self.client.post(self.url("interview_start", self.p2.public_id), {**START_ADULT, "mode": "supervisada", "questionnaire": self.q1.id})
         interview = Interview.objects.get(participant=self.p2)
         self.client.post(self.url("interview_handoff", interview.public_id))
         self.client.post(reverse("kiosk:finish"))
-        self.assertContains(self.client.get(reverse("kiosk:home")), "Ya terminaste este cuestionario. Avisa a tu coordinador")
+        self.assertContains(self.client.get(reverse("kiosk:home")), "Ya terminaste el cuestionario 1 de 2. Avisa a tu coordinador")
 
 
 class OneQuestionnaireKioskTests(IsolatedCacheMixin, CampFixture):

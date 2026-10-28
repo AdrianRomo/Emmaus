@@ -61,17 +61,46 @@ def status(status, label=None):
     )
 
 
+def campero_progress_label(status: str, done: int, total: int) -> str | None:
+    """The words for a campero's interview status when the event uses several questionnaires: "2 de 2 cuestionarios",
+    "En curso, 1 de 2", "1 de 2 cuestionarios" (also "0 de 2 cuestionarios", so the N shows before the first one).
+    ``None`` with one questionnaire (or none): the caller says the status as it always did. One rule for the pill, the
+    CSV and the printed list."""
+    done, total = int(done or 0), int(total or 0)
+    if total <= 1:
+        return None
+    if status == "completada":
+        return f"{total} de {total} cuestionarios"
+    if status == "en_curso":
+        return f"En curso, {done} de {total}"
+    if status == "pendiente":
+        return f"{done} de {total} cuestionarios"
+    return None
+
+
+def _campero_label(participant) -> str | None:
+    """``campero_progress_label`` for a campero annotated by ``event_questionnaires.annotate_questionnaire_progress``;
+    without the annotation it is ``None`` (the plain status)."""
+    return campero_progress_label(
+        participant.interview_status, getattr(participant, "done_count", 0), getattr(participant, "questionnaire_total", 1)
+    )
+
+
 @register.simple_tag
 def campero_status(participant):
-    """A campero's pill in a list: ``{% status p.interview_status %}``, except a campero who answered some of the
-    event's questionnaires and has not started the next one, who reads "1 de 2 cuestionarios" (same pending mark).
-    The counts come from ``event_questionnaires.annotate_questionnaire_progress``; without them it is the plain pill."""
-    value = participant.interview_status
-    total = getattr(participant, "questionnaire_total", 1) or 0
-    done = getattr(participant, "done_count", 0) or 0
-    if value == "pendiente" and total > 1 and done > 0:
-        return status(value, f"{done} de {total} cuestionarios")
-    return status(value)
+    """A campero's pill in a list: ``{% status p.interview_status %}`` with one questionnaire; with several, the same
+    mark (done, progress, pending) says how many the campero completed (``campero_progress_label``)."""
+    label = _campero_label(participant)
+    if label is not None:
+        return status(participant.interview_status, label)
+    return status(participant.interview_status)
+
+
+@register.simple_tag
+def campero_status_text(participant) -> str:
+    """The pill's words as plain text, for the printed list."""
+    label = _campero_label(participant)
+    return label if label is not None else participant.get_interview_status_display()
 
 
 @register.simple_tag

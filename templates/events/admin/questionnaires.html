@@ -17,7 +17,7 @@
         <li class="row">
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'events:version_detail' event.slug link.version_id %}">{{ link.version.title }}</a></p>
-            <p class="row__meta">{{ link.questionnaire.name }}, versión {{ link.version.number }}, {{ link.uses }} entrevista{{ link.uses|pluralize }}.</p>
+            <p class="row__meta">{{ link.questionnaire.name }}, versión {{ link.version.number }}, {{ link.completed }} de {{ camperos }} camperos.</p>
           </div>
           <div class="row__end admin-questions__actions">
             {% if not forloop.first %}<form method="post">{% csrf_token %}<input type="hidden" name="action" value="subir"><input type="hidden" name="questionnaire" value="{{ link.questionnaire_id }}"><button class="btn btn--secondary btn--small" type="submit">Subir<span class="visually-hidden"> {{ link.version.title }}</span></button></form>{% endif %}

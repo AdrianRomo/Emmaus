@@ -122,14 +122,15 @@ class QuestionnairesPageTests(AdminHelpers, CampFixture):
         self.assertFalse(Questionnaire.objects.filter(name="Intruso").exists())
 
     def test_the_event_list_is_in_order_with_its_moves_and_the_box_only_with_two(self):
-        """Defect: "Subir" on the first row, "Bajar" on the last, or the in-order box adding a question to a one-questionnaire event."""
+        """Defect: "Subir" on the first row, "Bajar" on the last, or the in-order box adding a question to a one-questionnaire event.
+        (The row's count changed on purpose, for every number of questionnaires: "X de Y camperos", owner's ask 2026-10-28.)"""
         one = section(self.page("questionnaires"))
         (row,) = ROW.findall(one)
         self.assertNotIn(">Subir<", row)
         self.assertNotIn(">Bajar<", row)
         self.assertIn(">Quitar<", row)
         self.assertNotIn('name="questionnaires_in_order"', one)
-        self.assertIn(f'{self.version.questionnaire.name}, versión 1, 0 entrevistas.', row)
+        self.assertIn(f'{self.version.questionnaire.name}, versión 1, 0 de 5 camperos.', row)
 
         second = self.second()
         two = section(self.page("questionnaires"))
@@ -205,14 +206,17 @@ class QuestionnairesPageTests(AdminHelpers, CampFixture):
         self.assertEqual(AuditEvent.objects.count(), before)
 
     def test_the_event_rows_count_this_events_interviews_only(self):
-        """Defect: "En este evento" saying "N entrevistas" for the version's interviews in every event of the church."""
+        """Defect: "En este evento" counting the version's interviews in every event of the church.
+        Changed on purpose (owner's ask 2026-10-28): the row says how many of the event's active camperos completed the
+        questionnaire, "X de Y camperos", instead of "N entrevistas"; an interview still in progress does not count."""
         self.assertEqual(self.other_event.questionnaire_versions(), [self.version])  # both events use it
-        Interview.objects.create(event=self.other_event, participant=self.p_other_event, version=self.version)
-        Interview.objects.create(event=self.event, participant=self.p2, version=self.version)
-        Interview.objects.create(event=self.event, participant=self.p3, version=self.version)
+        done = Interview.Status.COMPLETED
+        Interview.objects.create(event=self.other_event, participant=self.p_other_event, version=self.version, status=done)
+        Interview.objects.create(event=self.event, participant=self.p2, version=self.version, status=done)
+        Interview.objects.create(event=self.event, participant=self.p3, version=self.version)  # in progress
         html = self.page("questionnaires")
         (row,) = ROW.findall(section(html))
-        self.assertIn(f"{self.version.questionnaire.name}, versión 1, 2 entrevistas.", row)
+        self.assertIn(f"{self.version.questionnaire.name}, versión 1, 1 de 5 camperos.", row)
         self.assertIn("<p class=\"row__meta\">3 entrevistas", html)  # the church's list still counts every event
 
 
@@ -360,26 +364,30 @@ class ExportTests(AdminHelpers, CampFixture):
         self.assertEqual([i["estado"] for i in data["entrevistas"]], ["Completada", "En curso"])
 
     def test_the_list_says_how_many_questionnaires_a_partly_done_campero_answered(self):
-        """Defect: a campero who finished one of two questionnaires listed as "Sin entrevista" in the CSV."""
+        """Defect: a campero who finished one of two questionnaires listed as "Sin entrevista" in the CSV.
+        Changed on purpose (owner's ask 2026-10-28): with two questionnaires a campero with none done reads
+        "0 de 2 cuestionarios", the same words as the list's pill (campero_progress_label)."""
         self.second()
         Interview.objects.create(event=self.event, participant=self.p1, version=self.version, status=Interview.Status.COMPLETED)
         response = self.login(self.admin, Client()).get(self.url("participant_export"))
         rows = {row[1]: row for row in csv.reader(io.StringIO(response.content.decode("utf-8-sig")))}
         self.assertEqual(rows[self.p1.full_name][7], "1 de 2 cuestionarios")
-        self.assertEqual(rows[self.p2.full_name][7], "Sin entrevista")
+        self.assertEqual(rows[self.p2.full_name][7], "0 de 2 cuestionarios")
 
 
 class ParticipantsListTests(AdminHelpers, CampFixture):
     PILL = '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>{}</span>'
 
     def test_the_admin_list_says_how_many_questionnaires_a_partly_done_campero_answered(self):
-        """Defect: a campero who finished one of two questionnaires shown as "Sin entrevista" on the admin Camperos list."""
+        """Defect: a campero who finished one of two questionnaires shown as "Sin entrevista" on the admin Camperos list.
+        Changed on purpose (owner's ask 2026-10-28): the others, with nothing done, read "0 de 2 cuestionarios", never
+        "Sin entrevista"."""
         self.second()
         Interview.objects.create(event=self.event, participant=self.p1, version=self.version, status=Interview.Status.COMPLETED)
         html = self.page("participants")
         self.assertEqual(html.count(self.PILL.format("1 de 2 cuestionarios")), 2)  # the phone row and the table cell
-        self.assertEqual(html.count("de 2 cuestionarios"), 2)  # only that campero
-        self.assertIn(self.PILL.format("Sin entrevista"), html)  # the others, nothing started
+        self.assertEqual(html.count(self.PILL.format("0 de 2 cuestionarios")), 8)  # the 4 others, nothing started
+        self.assertNotIn(self.PILL.format("Sin entrevista"), html)
 
 
 class EventCreateTests(AdminHelpers, CampFixture):
