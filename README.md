@@ -64,6 +64,18 @@ cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… 
 | `docs/privacy-and-safeguarding.md` | Data inventory, consent, retention, escalation, checklist before use with minors |
 | `docs/deployment.md` | Environment, Docker, scheduler, HTTPS, backups, rollback |
 | `docs/user-guide-es.md` | Guía para coordinadores, tutores, pastores y administración |
+| `docs/EMMAUS_PRODUCT_VISION.md` | **Next version.** Product north star: Emmaus as a connected home for church life (church-first, multi-sede, SaaS-ready later), principles, personas, the four experiences, target domain model, phased delivery, decision register |
+| `docs/EMMAUS_AUDIT_PROMPT.md` | **Next version.** The read-only audit brief to run first: current-state inventory, gap analysis against the vision, evolution roadmap, open questions |
+
+## Next version (this branch)
+
+`main` runs the camp in production and only takes the small fixes the camp needs. This branch, `v2/foundation`, is the
+foundation for the next version of Emmaus. It starts from the camp code and adds the two documents above; nothing in the
+application changes here until the audit has been done and reviewed.
+
+Order of work: read `docs/EMMAUS_PRODUCT_VISION.md`; run the audit in `docs/EMMAUS_AUDIT_PROMPT.md` (it writes only under
+`docs/audits/`); agree the first implementation slice; then build it in small, reversible steps that keep every camp flow
+working (vision §0 and §2.6). Changes that the camp needs keep going to `main` and get merged into this branch.
 
 ## Principles that are not negotiable
 
