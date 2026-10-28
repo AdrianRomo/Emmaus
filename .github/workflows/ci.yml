@@ -73,8 +73,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pip-audit==2.9.0
-      - run: scripts/agents/pip-audit.sh
+          cache: pip
+      - run: pip install -r requirements.txt pip-audit==2.9.0
+      - name: Audit the installed environment (pins and their transitive dependencies)
+        run: scripts/agents/pip-audit.sh
+        env:
+          PIP_AUDIT: pip-audit
 
   test-sqlite:
     name: Tests (SQLite)

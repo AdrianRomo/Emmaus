@@ -61,8 +61,8 @@ What the audit found on 2026-10-28 (verified in the repository and on the hosts)
 4. **Gates.** The same deterministic gate runs locally (`scripts/agents/quality-gate.sh`) and in
    GitHub Actions (`.github/workflows/ci.yml`): ruff on a baseline rule set that passes today,
    Django system checks, `makemigrations --check`, `check --deploy` accepting only the two
-   documented HSTS warnings, the suite on SQLite and on PostgreSQL 16, pip-audit on the pinned
-   requirements (one documented, issue-tracked ignore), CodeQL for Python and JavaScript, and
+   documented HSTS warnings, the suite on SQLite and on PostgreSQL 16, pip-audit on the installed
+   environment (one documented, issue-tracked ignore), CodeQL for Python and JavaScript, and
    the browser gate on synthetic data (`station-flow.mjs` regression + `review-all.mjs`
    accessibility at zero axe violations). Spanish UI copy is covered by the existing
    `test_audit_lenguaje` suites and the PR checklist.

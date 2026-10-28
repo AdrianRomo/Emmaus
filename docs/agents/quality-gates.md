@@ -10,7 +10,7 @@ and the PR body carries the local gate summary.
 | System checks | `DEBUG=true manage.py check` | Django system checks incl. `events/checks.py` | 3 min | `checks` |
 | Migrations | `DEBUG=true manage.py makemigrations --check --dry-run` | every model change ships its migration | 3 min | `checks` |
 | Deploy check | `scripts/agents/check-deploy.sh` | `check --deploy` with production-like settings; only `security.W005` and `security.W021` are accepted (documented in `docs/deployment.md`) | 3 min | `checks` |
-| Dependency audit | `scripts/agents/pip-audit.sh` | pip-audit on the pinned `requirements.txt` (direct pins); ignores listed in `.github/pip-audit-ignore.txt`, each with an issue | 5 min | `security` |
+| Dependency audit | `scripts/agents/pip-audit.sh` | pip-audit on the installed environment: the pins in `requirements.txt` and their transitive dependencies; ignores listed in `.github/pip-audit-ignore.txt`, each with an issue | 5 min | `security` |
 | Tests (SQLite) | `scripts/agents/run-tests.sh sqlite` | the full suite (1,414 pass, 6 skip on row locks) | 15 min | `test-sqlite` |
 | Tests (PostgreSQL) | `scripts/agents/run-tests.sh postgres` with `DATABASE_URL=postgres://…` | the full suite incl. `test_concurrency`, minus the node ids in `scripts/agents/postgres-deselect.txt` (today one class whose seed takes ~31 min on PostgreSQL; it still runs on SQLite; each entry names its issue) | 20 min | `test-postgres` |
 | Browser gate | `scripts/agents/e2e-gate.sh` | synthetic seed → `station-flow.mjs` (shared-computer interview regression) → `review-all.mjs` (every screen per role at 3 widths: axe WCAG 2.2 AA at zero violations, no overflow, one h1, the stylesheet, no JS errors) | 25 min | `e2e` |
