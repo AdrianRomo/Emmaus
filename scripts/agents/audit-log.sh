@@ -14,8 +14,11 @@ case "$action" in claimed|gate|retry|pr|blocked|escalated|done|note) ;; *) die "
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 actor="${EMMAUS_AGENT_ACTOR:-${USER:-unknown}}"
 host="$(hostname)"
-branch="$(git -C "$repo_root" branch --show-current 2>/dev/null || echo '-')"
-sha="$(git -C "$repo_root" rev-parse --short HEAD 2>/dev/null || echo '-')"
+# Branch and commit come from the checkout the caller stands in (the task's worktree), not from
+# the checkout this script file happens to live in.
+where="${AUDIT_REPO:-$PWD}"
+branch="$(git -C "$where" branch --show-current 2>/dev/null || echo '-')"
+sha="$(git -C "$where" rev-parse --short HEAD 2>/dev/null || echo '-')"
 line="$("$PYTHON" -c 'import json,sys; k=["ts","actor","host","issue","branch","sha","action","detail"]; print(json.dumps(dict(zip(k, sys.argv[1:]))))' \
   "$ts" "$actor" "$host" "$issue" "$branch" "$sha" "$action" "$detail")"
 printf '%s\n' "$line" >>"$EMMAUS_AGENT_HOME/audit.jsonl"

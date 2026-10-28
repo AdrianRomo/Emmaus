@@ -43,11 +43,15 @@ fi
 if $skip_tests; then
   skip_step tests-sqlite "--skip-tests"; skip_step tests-postgres "--skip-tests"
 else
-  run_step tests-sqlite 900 env DEBUG=true "$PYTHON" -m pytest -q -p no:cacheprovider --ignore=e2e
+  # The label names the backend: SQLite ignores any inherited DATABASE_URL; PostgreSQL needs a postgres:// URL.
+  run_step tests-sqlite 900 env -u DATABASE_URL DEBUG=true "$PYTHON" -m pytest -q -p no:cacheprovider --ignore=e2e
   if ! $postgres; then
     skip_step tests-postgres "--postgres not given"
   elif [ -n "${DATABASE_URL:-}" ]; then
-    run_step tests-postgres 1200 env DEBUG=true "$PYTHON" -m pytest -q -p no:cacheprovider --ignore=e2e
+    case "$DATABASE_URL" in
+      postgres://*|postgresql://*) run_step tests-postgres 1200 env DEBUG=true "$PYTHON" -m pytest -q -p no:cacheprovider --ignore=e2e;;
+      *) die "--postgres needs a postgres:// DATABASE_URL (got scheme ${DATABASE_URL%%:*}); unset it to use a throwaway container";;
+    esac
   else
     need docker
     pg_port="$("$PYTHON" -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')"
@@ -64,15 +68,22 @@ else
 fi
 if $e2e; then run_step e2e 1500 env E2E_OUT="$out/e2e" "$agents_dir/e2e-gate.sh"; else skip_step e2e "--e2e not given"; fi
 
+# The verdict is computed before the summary is printed, and nothing inside the summary block can
+# abort it (a grep with no match must not hide a FAIL line under `set -e`).
 overall=PASS
+for r in "${results[@]}"; do
+  IFS='|' read -r _ status _ _ <<<"$r"
+  case "$status" in FAIL*) overall=FAIL;; esac
+done
 {
   echo "GATE SUMMARY  $(git branch --show-current 2>/dev/null || echo detached) @ $(git rev-parse --short HEAD)  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf '%-15s %-14s %6s  %s\n' step status secs detail
   for r in "${results[@]}"; do
     IFS='|' read -r name status secs detail <<<"$r"
-    case "$status" in FAIL*) overall=FAIL;; esac
     tail_line=""
-    [ -f "$detail" ] && tail_line="$(grep -E "passed|failed|error|OK|FAILED|Found|All checks|No changes|identified" "$detail" | tail -n 1 | cut -c1-90)"
+    if [ -f "$detail" ]; then
+      tail_line="$(grep -iE "passed|failed|error|ok|found|all checks|no changes|identified|vulnerab" "$detail" | tail -n 1 | cut -c1-90 || true)"
+    fi
     printf '%-15s %-14s %6s  %s\n' "$name" "$status" "$secs" "${tail_line:-$detail}"
   done
   echo "overall: $overall   logs: $out"

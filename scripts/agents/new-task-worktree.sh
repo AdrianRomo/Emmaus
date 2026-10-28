@@ -54,7 +54,9 @@ git -C "$mc" worktree add "$dir" -b "$branch" "$base" >/dev/null
 echo "created $dir on $branch from $base ($(git -C "$dir" rev-parse --short HEAD))"
 if $claim; then
   gh issue edit "$issue" -R "$repo" --remove-label agent:ready --add-label agent:in-progress >/dev/null
-  (cd "$dir" && "$agents_dir/audit-log.sh" --issue "$issue" --action claimed \
+  # Log from inside the new worktree so the record carries the task branch and its HEAD.
+  al="$dir/scripts/agents/audit-log.sh"; [ -x "$al" ] || al="$agents_dir/audit-log.sh"
+  (cd "$dir" && "$al" --issue "$issue" --action claimed \
      --detail "branch \`$branch\` from \`$base\`; worktree \`$dir\`" --comment)
 fi
 cat <<NEXT
