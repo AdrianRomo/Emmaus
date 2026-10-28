@@ -22,7 +22,8 @@ severity, file, line, evidence and a suggestion. Paste the summary block into th
 "Independent review"; address or rebut each `high`/`medium` finding.
 
 Prerequisite: `codex login` on the machine that runs it (ChatGPT or API key).
-`~/.codex/config.toml` sets the model; the script does not override it.
+`~/.codex/config.toml` sets the model; `CODEX_MODEL` overrides it, and when the model is at
+capacity the script tries `CODEX_REVIEW_FALLBACK_MODELS` (default `gpt-5.6-sol gpt-6-astra gpt-5.5`).
 
 Alternative on the AI workstation: the `ai-router` MCP tool `codex_review` runs the same
 `codex exec -s read-only --ephemeral` with a secret scan in front.

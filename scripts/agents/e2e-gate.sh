@@ -38,7 +38,7 @@ log "scratch database: migrate + seed_camp_demo + seed_dev_data"
 "$PYTHON" manage.py runserver "127.0.0.1:$port" --noreload >"$out/server.log" 2>&1 &
 server=$!
 for i in $(seq 1 60); do
-  curl -fsS -o /dev/null "http://127.0.0.1:$port/health/" && break
+  curl -fsS -o /dev/null "http://127.0.0.1:$port/health/" 2>/dev/null && break
   [ "$i" -eq 60 ] && die "server did not answer on :$port (see $out/server.log)"
   sleep 1
 done

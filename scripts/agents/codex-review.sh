@@ -24,12 +24,23 @@ Changed files:
 ${files}
 Answer in the required JSON schema. Use verdict needs_human when a finding touches an invariant or needs a product decision, request_changes for defects you are confident about, approve otherwise. Every finding needs file, line (0 if not applicable), evidence quoted from the diff, and a concrete suggestion. Do not invent findings to look thorough; an empty findings list with approve is a valid answer."
 
-log "codex exec (read-only, ephemeral) on $(git rev-parse --short HEAD) vs $base ($(printf '%s\n' "$files" | wc -l) files)"
-set +e
-codex exec -s read-only --ephemeral -C "$repo_root" --color never \
-  --output-schema "$agents_dir/codex-review.schema.json" -o "$out" "$prompt" >"$out.log" 2>&1
-rc=$?
-set -e
+# Model: $CODEX_MODEL, else the one in ~/.codex/config.toml; when that model is at capacity the
+# fallbacks are tried in order (override with CODEX_REVIEW_FALLBACK_MODELS, space-separated).
+models="${CODEX_MODEL:-}"
+fallbacks="${CODEX_REVIEW_FALLBACK_MODELS:-gpt-5.6-sol gpt-6-astra gpt-5.5}"
+rc=1
+for m in ${models:-default} $fallbacks; do
+  margs=(); [ "$m" != default ] && margs=(-m "$m")
+  log "codex exec (read-only, ephemeral, model ${m}) on $(git rev-parse --short HEAD) vs $base ($(printf '%s\n' "$files" | wc -l) files)"
+  set +e
+  codex exec -s read-only --ephemeral -C "$repo_root" --color never ${margs[@]+"${margs[@]}"} \
+    --output-schema "$agents_dir/codex-review.schema.json" -o "$out" "$prompt" >"$out.log" 2>&1
+  rc=$?
+  set -e
+  [ -s "$out" ] && break
+  grep -q "at capacity" "$out.log" || break
+  log "model $m is at capacity; trying the next one"
+done
 [ -s "$out" ] || die "codex wrote no verdict (rc=$rc); see $out.log"
 "$PYTHON" - "$out" "$base" <<'PY'
 import json, sys

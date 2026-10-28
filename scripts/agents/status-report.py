@@ -51,9 +51,7 @@ def main():
     ap.add_argument("--stale-days", type=float, default=2.0)
     ap.add_argument("--days", type=int, default=30)
     a = ap.parse_args()
-    repo = a.repo or gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner") if a.repo is None else a.repo
-    if isinstance(repo, dict):
-        repo = repo["nameWithOwner"]
+    repo = a.repo or gh("repo", "view", "--json", "nameWithOwner")["nameWithOwner"]
     now = dt.datetime.now(dt.timezone.utc)
     since = (now - dt.timedelta(days=a.days)).date().isoformat()
 
