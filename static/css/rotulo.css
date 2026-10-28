@@ -337,6 +337,7 @@ a.wordmark:hover { color: var(--petroleo); }
    (a margin on the link would indent it on its own line). Phones hide the event name. */
 @media (min-width: 601px) {
   .bar--leader .bar__event { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--s-2); }
+  .bar--leader .bar__event span { flex-basis: 100%; }  /* the role: its own line, under the name and the link */
 }
 .bar__event a { white-space: nowrap; }
 .bar__nav { display: flex; gap: var(--s-1); margin-left: auto; align-self: stretch; }
@@ -765,6 +766,8 @@ ol.promises li::before {
 /* "Todavía no eliges computadora. Elegir computadora": one quiet line under the greeting, only while none is chosen */
 .coord__station { margin-bottom: var(--s-5); color: var(--ink-2); }
 .coord__station a { font-weight: 700; padding-block: max(0px, calc((1.5rem - 1.2em) / 2)); }
+/* "Tu rol: coordinador.": the same quiet line, right under the greeting */
+.coord__role { margin-bottom: var(--s-5); color: var(--ink-2); }
 
 /* ---------- 12. Report (pastor) ------------------------------------------ */
 .report-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--s-4) var(--s-8); margin-bottom: var(--s-10); }
@@ -944,6 +947,8 @@ ol.promises li::before {
 /* Tutor home ("Mi equipo"): the team's name and the update status share a line; the sign only when something stalled */
 .crew-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-2) var(--s-6); margin-bottom: var(--s-8); }
 .crew-head__title { font-size: var(--t-h2); line-height: 1.1; }
+.crew-head__text { min-width: 0; }  /* title + "Tu rol: tutor." together, the live status at the other end */
+.crew-head__meta { margin-top: var(--s-2); color: var(--ink-2); font-size: var(--t-small); }  /* like .report-head__meta */
 .crew-sign { margin-bottom: var(--s-10); }
 .crew-board { display: grid; grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); gap: var(--s-12) var(--s-16); align-items: start; }
 .crew-board__main > * + * { margin-top: var(--s-12); }

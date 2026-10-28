@@ -7,7 +7,7 @@
 {% url 'events:home' event.slug as bar_home_url %}{% url 'events:list' as bar_events_url %}{% url 'events:ayuda' event.slug as bar_help_url %}
 {% if access.is_admin and theme_church.discipleship_enabled %}{% url 'church_dashboard' as bar_discipleship_url %}{% endif %}
 {% if event_nav|length > 5 %}{% firstof "bar--leader bar--stacked" as bar_modifiers %}{% else %}{% firstof "bar--leader" as bar_modifiers %}{% endif %}
-{% include "partials/ui/bar.html" with modifiers=bar_modifiers brand=event.church home_url=bar_home_url context_line=event.name switch_url=bar_events_url switch_inline=True station=None nav=event_nav nav_label="Principal" discipleship_url=bar_discipleship_url help_url=bar_help_url help_view="events:ayuda" role_label=access.role_label sensitive=access.can_view_sensitive %}
+{% include "partials/ui/bar.html" with modifiers=bar_modifiers brand=event.church home_url=bar_home_url context_line=event.name context_role=access.role_label switch_url=bar_events_url switch_inline=True station=None nav=event_nav nav_label="Principal" discipleship_url=bar_discipleship_url help_url=bar_help_url help_view="events:ayuda" role_label=access.role_label sensitive=access.can_view_sensitive %}
 <main id="contenido" class="page page--wide" tabindex="-1">
   {% include "partials/ui/messages.html" %}
   {% block content %}{% endblock %}
