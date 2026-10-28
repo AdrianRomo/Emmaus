@@ -58,7 +58,9 @@ cd "$root"
 # 2b. pip-audit.sh audits the selected interpreter: a pip-audit on PATH must not stand in for a
 #     missing pip_audit module, and the script fails clearly instead.
 fake pip-audit 'echo "WRONG ENVIRONMENT AUDITED"; exit 0'
-fake_python python-no-audit 'echo "No module named pip_audit" >&2; exit 1'
+mkdir -p "$tmp/bin"
+printf '#!/bin/sh\ncase "$1 $2" in "-c import pip_audit"|"-m pip_audit") echo "No module named pip_audit" >&2; exit 1;; esac\nexec "%s" "$@"\n' "$PYTHON" >"$tmp/bin/python-no-audit"
+chmod +x "$tmp/bin/python-no-audit"
 out="$(PATH="$tmp/bin:$PATH" PYTHON="$tmp/bin/python-no-audit" "$agents/pip-audit.sh" 2>&1)"; rc=$?
 if [ "$rc" -eq 1 ] && grep -q "pip_audit is not installed" <<<"$out" && ! grep -q "WRONG ENVIRONMENT" <<<"$out"; then
   ok "pip-audit: missing module fails clearly; PATH pip-audit is never used"; else bad "pip-audit: environment selection" "rc=$rc"$'\n'"$out"; fi
