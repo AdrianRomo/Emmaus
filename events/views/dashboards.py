@@ -28,7 +28,7 @@ from ..models import (
 )
 from ..services import audit
 from ..services import event_questionnaires as eq
-from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews
+from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews, sum_rows
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
 from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, safe_next
@@ -113,10 +113,14 @@ def tutor_home(request, event, access):
 @event_view(*LEADERS)
 def coordinators(request, event, access):
     payload = build_payload(scope_for_access(access))
+    rows = payload["coordinators"]
+    # "Entre todos llevan X de Y…" and the key under the rows count the camperos in the rows (metrics.sum_rows): the
+    # event's camperos without a coordinador are in none. The event-wide pages (the pastor's home, "Avance") still count
+    # them, and the recommendations say how many have no coordinador.
     return render(
         request,
         "events/supervision/coordinators.html",
-        {"rows": payload["coordinators"], "progress": payload["progress"], "places": _last_station(access)},
+        {"rows": rows, "progress": sum_rows(rows), "places": _last_station(access)},
     )
 
 

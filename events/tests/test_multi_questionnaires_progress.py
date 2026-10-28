@@ -296,10 +296,15 @@ class QuestionnaireProgressPartialTests(SimpleTestCase):
         self.assertIn('<h3 id="por-cuestionario-equipo"', html)
 
     def test_the_row_wraps_on_a_phone(self):
-        """Defect (layout): a long questionnaire title on one unbreakable line widening a phone's page."""
+        """Defect (layout): a long questionnaire title on one unbreakable line widening a phone's page. The deck's rows are
+        one line on purpose (Q2 fix, D): inside the slide, whose frame hides what overflows, a long title ends in "…"."""
         rules = [(media, prelude, body) for media, prelude, body in css_rules(stylesheet()) if ".quests" in prelude]
-        self.assertTrue(rules)
-        self.assertFalse(any("nowrap" in body for _, _, body in rules))
+        page = [body for _, prelude, body in rules if not prelude.startswith(".deck ")]
+        self.assertTrue(page)
+        self.assertFalse(any("nowrap" in body for body in page))
+        for _, prelude, body in rules:
+            if "nowrap" in body:
+                self.assertIn("overflow: hidden", body, prelude)
 
 
 class ProgressMarksPartialTests(SimpleTestCase):

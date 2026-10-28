@@ -47,7 +47,7 @@
   </div>
   <div class="report-section__body">
     <dl class="figures">
-      <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso</dd></div>
+      <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</dd></div>
       <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora</dd></div>
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd></div>
     </dl>

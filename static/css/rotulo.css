@@ -1002,6 +1002,9 @@ ol.promises li::before {
 .table__sub { display: block; margin: 0; font-size: var(--t-small); font-weight: 400; color: var(--ink-2); }
 /* Tables of people: on a phone they scroll sideways instead of squeezing names into three lines */
 .table--nowrap th, .table--nowrap td { white-space: nowrap; }
+/* ...but the line per questionnaire under a name wraps (it inherited nowrap and pushed "Avance"'s coordinators table
+   sideways on a desktop): never wider than 22rem, so the name's column stays a name's width */
+.table--nowrap .table__sub { white-space: normal; max-width: 22rem; }
 @media (max-width: 600px) {
   /* ...except the name, so the number, the name and the status fit on the first screen */
   .table--nowrap .cell-name { white-space: normal; min-width: 8.5rem; }
@@ -1513,16 +1516,27 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .deck-chart .col--partial { fill: var(--data-progress); }
 
 /* "Por cuestionario" (slide 3, only with two or more questionnaires): the shared .quests rows in the deck's container
-   units, a line and a ruler per questionnaire. From four rows they tighten so the list stays above the foot, and the
-   line keeps the small print's floor (22 px from a 1128 px frame up) */
+   units, one line and a ruler per questionnaire. A long title (.quests__name) ends in "…" on its one line, like a
+   team's name on slide 2, and its count ("3 de 5.") stays whole after it (the gap is the space a flex row drops), so a
+   row is never taller than its line and never loses its numbers. From four rows they tighten so the list stays above
+   the foot, and the line keeps the small print's floor (22 px from a 1128 px frame up); from seven, tighter still, the
+   line at that floor.
+   Ten rows do not fit even so (at a 1192 px frame they cross the foot by 5 px and the title by 11), so the slide shows
+   the first eight and a last line, "y 2 más" (.quests__more; services/presentation.py, DECK_QUESTIONNAIRE_ROWS) */
 .deck .quests__list { gap: 2.4cqw; }
 .deck .quests__row { gap: 0.8cqw; }
-.deck .quests__text { font-size: 2.6cqw; line-height: 1.2; color: var(--ink); }
+.deck .quests__text { display: flex; gap: 0.25em; font-size: 2.6cqw; line-height: 1.2; color: var(--ink); white-space: nowrap; overflow: hidden; }
+.deck .quests__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .deck .quests__row .ruler { height: 1.8cqw; }
 .deck .quests__list:has(li:nth-child(4)) { gap: 1.2cqw; }
 .deck .quests__list:has(li:nth-child(4)) .quests__row { gap: 0.45cqw; }
 .deck .quests__list:has(li:nth-child(4)) .quests__text { font-size: max(1.77cqw, min(22px, 1.95cqw)); }
 .deck .quests__list:has(li:nth-child(4)) .ruler { height: 1.15cqw; }
+.deck .quests__list:has(li:nth-child(7)) { gap: 0.45cqw; }
+.deck .quests__list:has(li:nth-child(7)) .quests__row { gap: 0.15cqw; }
+.deck .quests__list:has(li:nth-child(7)) .quests__text { font-size: max(1.46cqw, min(22px, 1.95cqw)); }
+.deck .quests__list:has(li:nth-child(7)) .ruler { height: 0.6cqw; }
+.deck .quests__more { margin-top: 0.45cqw; font-size: max(1.46cqw, min(22px, 1.95cqw)); line-height: 1.2; color: var(--ink-2); }
 
 .deck-counts { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.4cqw 6.25cqw; }
 .deck-counts li { padding-top: 1.25cqw; border-top: var(--b-control) solid var(--line); }

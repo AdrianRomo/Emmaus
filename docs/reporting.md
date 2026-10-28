@@ -137,9 +137,9 @@ The template renders only the dict returned by `build_deck()` in `events/service
 | 4 | "Necesidades de seguimiento" | Requested, waiting for a leader, attended, and to be decided, all from the **latest cutoff's released values**, suppressed. Shows "—" before the first cutoff ("Estas cifras aparecerán con el primer corte de seguimiento.") |
 | 5 | "Próximos pasos" | Up to 5 deterministic steps |
 
-With several questionnaires (`deck.progress.questionnaires`, copied by `build_deck` with only each row's title and counts, plus `partial`) the headline slide says "con los N cuestionarios" and its key "a medias", and a "Por cuestionario" slide follows it: one line and one ruler per questionnaire ("«Primer cuestionario»: 320 de 400."), the same foot as the others. The deck then has six slides; the slide numbers, the feet and the presenter's bar count them.
+With several questionnaires (`deck.progress.questionnaires`, copied by `build_deck` with only each row's title and counts, plus `partial`) the headline slide says "Llevamos 120 de 400." with "Con los 2 cuestionarios." on a line of its own under it (in the headline the sentence took four lines and pushed the key under the foot), and its key says "a medias"; a "Por cuestionario" slide follows it: one line and one ruler per questionnaire ("«Primer cuestionario»: 320 de 400."), the same foot as the others. Each row is one line: a long title ends in "…" and its count stays whole. From seven rows they tighten, the line at the 22 px floor; ten do not fit even so, so the slide lists the first eight (`DECK_QUESTIONNAIRE_ROWS`) and a last line says "y 2 más" (`questionnaire_rows`, `questionnaires_more`). The deck then has six slides; the slide numbers, the feet and the presenter's bar count them. An event without camperos has no "Por cuestionario" slide: five slides, as with one questionnaire.
 
-Participation counts on slides 1 to 3 are exact: they are operational, not personal. A team name typed by an administrador is shown as is, so it should not contain a person's name.
+Participation counts on slides 1 to 3 (1 to 4 with several questionnaires) are exact: they are operational, not personal. A team name typed by an administrador is shown as is, so it should not contain a person's name.
 
 ## Small-group suppression
 

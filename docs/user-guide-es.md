@@ -219,7 +219,7 @@ Con varios cuestionarios, cada pantalla dice cuántos de ellos lleva cada quien:
 
 * La etiqueta de cada campero dice "0 de 2 cuestionarios", "1 de 2 cuestionarios" o "2 de 2 cuestionarios", y "En curso, 1 de 2" mientras responde uno. La pestaña y el filtro "Sin entrevista" se llaman **"Sin terminar"**.
 * Los conteos dicen "con los 2 cuestionarios" ("Llevamos 120 de 400 con los 2 cuestionarios.") y separan a los que van **"a medias"** de los que no han empezado ("30 sin iniciar y 12 a medias").
-* Cada bloque de avance, de "Mi inicio" a "Resumen general" y cada corte, suma **"Por cuestionario"**: una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400, 5 en curso."). Las filas de cada coordinador y de cada equipo lo dicen en una línea ("«Primer cuestionario»: 25 de 31, «Segundo cuestionario»: 10 de 31."). El PDF trae la tabla "Por cuestionario" y la presentación una diapositiva más.
+* Cada bloque de avance, de "Mi inicio" a "Resumen general" y cada corte, suma **"Por cuestionario"**: una línea y una barra por cuestionario ("«Primer cuestionario»: 320 de 400, 5 en curso."). Las filas de cada coordinador lo dicen en una línea ("«Primer cuestionario»: 25 de 31, «Segundo cuestionario»: 10 de 31."); las de cada equipo la llevan solo en un corte guardado: en "Resumen general" y "Avance", en vivo, las filas de los equipos no la tienen. El PDF trae la tabla "Por cuestionario" y la presentación una diapositiva más.
 
 ### 11. Respuestas confidenciales
 

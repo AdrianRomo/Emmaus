@@ -39,6 +39,8 @@ GLOSSARY_LINES = [f"<b>{escape(name)}:</b> {escape(text)}" for name, text in DEF
 SEVERAL_LINES = [f"<b>{escape(name)}:</b> {escape(text)}" for name, text in SEVERAL_QUESTIONNAIRE_DEFINITIONS]
 GLOSSARY = set(GLOSSARY_LINES)
 QUEST = '<li class="quests__row"><p class="quests__text">{}</p>'
+# The deck's row: the title in its own span (it ends in "…" on the row's one line, the count stays; Q2 fix, D)
+DECK_QUEST = '<li class="quests__row"><p class="quests__text"><span class="quests__name">«{}»:</span> {}.</p>'
 NEW_WORDS = ("Por cuestionario", "a medias", "con los", "table__sub", 'class="quests')
 
 
@@ -243,12 +245,13 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
             feet = re.findall(r'<div class="slide__foot"><span>(.*?)</span><span>(.*?)</span></div>', html)
             self.assertEqual([number for _, number in feet], [f"{n} de 6" for n in range(1, 7)])
             self.assertIn('data-deck-count aria-live="polite">1 de 6</span>', html)
-            self.assertIn('<h2 class="voice deck-headline">Llevamos 1 de 5 con los 2 cuestionarios.</h2>', slides[1][2])
+            # "con los 2 cuestionarios" on a line of its own: in the headline it took four lines at 400 camperos (Q2 fix, C)
+            self.assertIn('<h2 class="voice deck-headline">Llevamos 1 de 5.</h2>\n        <p class="deck-sub deck-sub--several">Con los 2 cuestionarios.</p>', slides[1][2])
             self.assertIn('<li><span class="key__mark" aria-hidden="true"></span>2 sin iniciar y 1 a medias</li>', slides[1][2])
             third = slides[2][2]
             self.assertIn('<h2 class="voice slide__title">Por cuestionario</h2>', third)
-            self.assertIn(QUEST.format("«Primer cuestionario»: 3 de 5."), third)
-            self.assertIn(QUEST.format("«Segundo cuestionario»: 1 de 5."), third)
+            self.assertIn(DECK_QUEST.format("Primer cuestionario", "3 de 5"), third)
+            self.assertIn(DECK_QUEST.format("Segundo cuestionario", "1 de 5"), third)
             self.assertEqual(third.count('class="ruler"'), 2)
             privacy = feet[2][0]
             self.assertTrue(privacy.startswith("Solo totales"), privacy)
@@ -306,7 +309,8 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
         self.assertLess(paragraphs.index("Llevábamos 1 de 5 con los 2 cuestionarios."), paragraphs.index("Por cuestionario"))
         self.assertLess(paragraphs.index("Por cuestionario"), paragraphs.index("¿Cuánto faltaba?"))
         quests = next(rows for rows in tables if rows[0] == ["Cuestionario", "Completadas", "En curso", "Avance"])
-        self.assertEqual(quests[1:], [["Primer cuestionario", 3, 0, "60 %"], ["Segundo cuestionario", 1, 1, "20 %"]])
+        # the title is a Paragraph, so a long one wraps in its column (Q2 fix, F)
+        self.assertEqual([[row[0].getPlainText(), *row[1:]] for row in quests[1:]], [["Primer cuestionario", 3, 0, "60 %"], ["Segundo cuestionario", 1, 1, "20 %"]])
         line = "<br/><font size='8.5' color='#5A6872'>{}</font>"
         self.assertIn("Equipo Norte" + line.format("«Primer cuestionario»: 2 de 4, «Segundo cuestionario»: 0 de 4."), paragraphs)
         self.assertIn("Equipo Sur" + line.format("«Primer cuestionario»: 1 de 1, «Segundo cuestionario»: 1 de 1."), paragraphs)

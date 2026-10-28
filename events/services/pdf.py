@@ -420,11 +420,14 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
             ),
         ]
         if questionnaires:
+            # The title is a Paragraph so a long one wraps inside its column (a bare string runs over "Completadas"); the
+            # figures stay level with its first line, as in the teams table's two-line names.
             quest_rows = [["Cuestionario", "Completadas", "En curso", "Avance"]]
             for q in questionnaires:
-                quest_rows.append([q.get("title", ""), q.get("completed", 0), q.get("in_progress", 0), _pct(q.get("percent"))])
+                name = Paragraph(escape(q.get("title", "")), styles["cell"])
+                quest_rows.append([name, q.get("completed", 0), q.get("in_progress", 0), _pct(q.get("percent"))])
             quest_table = Table(quest_rows, colWidths=[width * 0.55] + [width * 0.15] * 3, repeatRows=1)
-            quest_table.setStyle(TableStyle(_table_style()))
+            quest_table.setStyle(TableStyle(_table_style() + [("VALIGN", (0, 1), (-1, -1), "TOP")]))
             story += [Spacer(1, 10), Paragraph("Por cuestionario", styles["figlabel"]), Spacer(1, 2), quest_table]
     else:
         story.append(Paragraph("Todavía no había camperos registrados.", styles["headline"]))
@@ -435,7 +438,7 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
     story += _section("¿Cuánto faltaba?", width, styles)
     fu = payload["follow_ups"]
     figures = [
-        ("Pendientes", str(progress["pending"]), f"incluye {progress['in_progress']} en curso"),
+        ("Pendientes", str(progress["pending"]), f"incluye {progress['in_progress']} en curso" + (f", {partial} a medias" if partial else "")),
         ("Ritmo", f"{rate['per_hour']:g}", "por hora, últimas 2 horas"),
         ("Seguimientos abiertos", str(fu.get("open_total", fu["pending"] + fu["in_progress"])), ""),
     ]

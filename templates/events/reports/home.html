@@ -47,7 +47,7 @@
     {% endif %}
     <dl class="figures">
       <div><dt>Avance</dt><dd class="figures__value">{{ p.percent|pct }}</dd>{% if delta and delta.percent is not None %}<dd class="figures__note">{% if delta.percent %}De {{ delta.percent_before|pct }} a {{ p.percent|pct }} desde el corte anterior{% else %}Igual que en el corte anterior{% endif %}</dd>{% endif %}</div>
-      <div><dt>Pendientes</dt><dd class="figures__value">{{ p.pending }}</dd><dd class="figures__note">incluye {{ p.in_progress }} en curso</dd></div>
+      <div><dt>Pendientes</dt><dd class="figures__value">{{ p.pending }}</dd><dd class="figures__note">incluye {{ p.in_progress }} en curso{% if p.partial %}, {{ p.partial }} a medias{% endif %}</dd></div>
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ latest.data.follow_ups.open_total }}</dd></div>
     </dl>
   </div>

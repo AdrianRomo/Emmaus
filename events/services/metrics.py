@@ -369,6 +369,39 @@ def group_progress(participants, field: str, event: Event | None = None) -> Grou
     return GroupProgress(groups, links)
 
 
+def sum_rows(rows: list[dict]) -> dict:
+    """The camperos of a page's rows (``coordinators()`` or ``teams()`` rows, each a ``Progress.as_dict()``) added up, in
+    the same shape: ``eligible``, ``completed``, ``in_progress``, ``partial``, ``not_started``, ``pending``, ``percent``
+    and ``questionnaires`` (each questionnaire's counts summed by id, in the rows' order). What a sentence or a key under
+    those rows counts: a scope's own progress also holds the camperos in no row (the event's camperos without a
+    coordinador). Rows of a cutoff saved before several questionnaires have no ``partial`` nor ``questionnaires``."""
+    total = Progress(
+        eligible=sum(row["eligible"] for row in rows),
+        completed=sum(row["completed"] for row in rows),
+        in_progress=sum(row["in_progress"] for row in rows),
+        partial=sum(row.get("partial") or 0 for row in rows),
+    )
+    by_id: dict = {}
+    for row in rows:
+        for quest in row.get("questionnaires") or []:
+            entry = by_id.setdefault(quest["id"], {"id": quest["id"], "title": quest["title"], "order": quest.get("order"), "completed": 0, "in_progress": 0})
+            entry["completed"] += quest["completed"]
+            entry["in_progress"] += quest["in_progress"]
+    total.questionnaires = [
+        {
+            "id": entry["id"],
+            "title": entry["title"],
+            "order": entry["order"],
+            "eligible": total.eligible,
+            "completed": entry["completed"],
+            "in_progress": entry["in_progress"],
+            "percent": percent(entry["completed"], total.eligible),
+        }
+        for entry in by_id.values()
+    ]
+    return total.as_dict()
+
+
 def stale_interviews(participants, *, now: datetime | None = None):
     now = now or timezone.now()
     return Interview.objects.filter(
