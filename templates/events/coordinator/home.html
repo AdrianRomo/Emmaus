@@ -4,6 +4,7 @@
 {% block content %}
 <div class="coord">
   <h1 class="voice coord__hello">Hola, {{ user.first_name|default:user.get_full_name }}.</h1>
+  <p class="coord__role">Tu rol: {{ access.role_label|lower }}.</p>
   {% comment %}Only while no computer is chosen and the event has some; once one is, the bar says "Estás en …".{% endcomment %}
   {% if needs_station %}
     <p class="coord__station">Todavía no eliges computadora. <a href="{% url 'events:choose_station' event.slug %}?siguiente={{ request.path|urlencode }}">Elegir computadora</a></p>

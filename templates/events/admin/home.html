@@ -5,7 +5,7 @@
 <header class="report-head">
   <div class="report-head__text">
     <h1 class="voice report-head__title">{{ event.name }}</h1>
-    <p class="report-head__meta">{{ event.get_kind_display }} {{ event.get_status_display|lower }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if next_cutoff %} Próximo corte a las {{ next_cutoff|date:"H:i" }}.{% endif %}</p>
+    <p class="report-head__meta">{{ event.get_kind_display }} {{ event.get_status_display|lower }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if next_cutoff %} Próximo corte a las {{ next_cutoff|date:"H:i" }}.{% endif %} Tu rol: {{ access.role_label|lower }}.</p>
     {# The time changes every 30 s and is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
     <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
     <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>

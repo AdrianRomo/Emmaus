@@ -5,8 +5,9 @@
   logout form needs csrf_token):
     modifiers        extra classes of <header class="bar ..."> ("bar--stacked": the links on their own row)
     brand, home_url  the church whose logo (or "Emmaus") leads the bar, and where it goes
-    context_line     the event or the church; context_role under it (base.html: the church role)
-    switch_url       the event list: an inline "Campamentos" link in context_line when switch_inline, else a
+    context_line     the event or the church, then the inline "Campamentos" link; context_role on its own line under
+                     both (the event shells: the event role, "Coordinador"; base.html: the church role)
+    switch_url       the event list: an inline "Campamentos" link after context_line when switch_inline, else a
                      button in .bar__end. "?todos=1" is added here: the bare list jumps back to the last event.
     station          "Estás en Computadora 3" (coordinators)
     nav, nav_label   items {label, url, names and/or active}; discipleship_url adds "Discipulado"; help_url
@@ -19,7 +20,7 @@
 <header class="bar{% if modifiers %} {{ modifiers }}{% endif %}">
   <div class="bar__inner">
     {% church_brand brand size="bar" href=home_url %}
-    {% if context_line %}<p class="bar__event">{{ context_line }}{% if context_role %}<span>{{ context_role }}</span>{% endif %}{% if switch_url and switch_inline %} <a href="{{ switch_url }}?todos=1">Campamentos</a>{% endif %}</p>{% endif %}
+    {% if context_line %}<p class="bar__event">{{ context_line }}{% if switch_url and switch_inline %} <a href="{{ switch_url }}?todos=1">Campamentos</a>{% endif %}{% if context_role %}<span>{{ context_role }}</span>{% endif %}</p>{% endif %}
     {% if station %}<p class="here"><span class="here__blaze" aria-hidden="true"></span>Estás en <strong>{{ station.name }}</strong></p>{% endif %}
     {% if nav or discipleship_url or help_url %}<nav class="bar__nav" aria-label="{{ nav_label|default:'Principal' }}">
       {% for item in nav %}<a href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}{% if discipleship_url %}<a href="{{ discipleship_url }}">Discipulado</a>{% endif %}{% if help_url %}<a href="{{ help_url }}"{% if request.resolver_match and request.resolver_match.view_name == help_view %} aria-current="page"{% endif %}>Ayuda</a>{% endif %}
