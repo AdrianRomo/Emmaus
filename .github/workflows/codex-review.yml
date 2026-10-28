@@ -80,6 +80,10 @@ jobs:
             echo "_Advisory: informs the human reviewer and the follow-up routine; it does not block the merge. Exit ${{ steps.review.outputs.rc }} (0 approve, 2 request_changes, 3 needs_human, 1 tool error)._"
           } > "$RUNNER_TEMP/comment.md"
           gh api -X POST "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" -F body=@"$RUNNER_TEMP/comment.md" >/dev/null
-      - name: Fail only when the tool itself failed
+      - name: Fail unless the review ended with a verdict (0 approve, 2 request_changes, 3 needs_human)
         if: steps.key.outputs.present == 'true'
-        run: test "${{ steps.review.outputs.rc }}" != "1"
+        run: |
+          case "${{ steps.review.outputs.rc }}" in
+            0|2|3) echo "verdict exit ${{ steps.review.outputs.rc }}";;
+            *) echo "::error::the review produced no verdict (exit '${{ steps.review.outputs.rc }}')"; exit 1;;
+          esac

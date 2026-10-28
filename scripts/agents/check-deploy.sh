@@ -21,7 +21,8 @@ rc=$?
 set -e
 printf '%s\n' "$out"
 
-ids="$(printf '%s\n' "$out" | grep -oE '\(([a-z_]+\.[EWIC][0-9]+)\)' | tr -d '()' | sort -u | tr '\n' ' ')"
+# No match is a valid outcome (a clean deploy check); grep's exit 1 must not abort the script.
+ids="$(printf '%s\n' "$out" | { grep -oE '\(([a-z_]+\.[EWIC][0-9]+)\)' || true; } | tr -d '()' | sort -u | tr '\n' ' ')"
 unexpected=""
 for id in $ids; do
   case " $accepted " in *" $id "*) ;; *) unexpected="$unexpected $id";; esac
@@ -30,4 +31,4 @@ if [ "$rc" -ne 0 ] || [ -n "$unexpected" ]; then
   echo "check --deploy FAILED: rc=$rc unexpected=[${unexpected# }] accepted=[$accepted]"
   exit 1
 fi
-echo "check --deploy OK: only accepted warnings [${ids% }]"
+if [ -z "${ids% }" ]; then echo "check --deploy OK: no warnings"; else echo "check --deploy OK: only accepted warnings [${ids% }]"; fi

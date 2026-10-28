@@ -53,9 +53,16 @@ DATABASE_URL=sqlite:///x "$agents/run-tests.sh" postgres >/dev/null 2>&1; [ $? -
 if DATABASE_URL=postgres://nobody@127.0.0.1:1/nowhere "$agents/run-tests.sh" sqlite core/test_locale.py -q -k form_field >"$tmp/sqlite.log" 2>&1; then
   ok "run-tests: sqlite ignores an inherited postgres:// URL"; else bad "run-tests: sqlite inherited URL" "$(tail -n 3 "$tmp/sqlite.log")"; fi
 
-# 6. check-deploy.sh accepts only the documented warnings on this tree.
+# 6. check-deploy.sh accepts only the documented warnings on this tree, passes a check with no
+#    warnings at all, and fails on an undocumented id (fake interpreters stand in for manage.py).
 out="$("$agents/check-deploy.sh" 2>&1)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -q "only accepted warnings" <<<"$out"; then ok "check-deploy: documented warnings only"; else bad "check-deploy" "rc=$rc"$'\n'"$out"; fi
+fake python-clean 'echo "System check identified no issues (0 silenced)."; exit 0'
+out="$(PYTHON="$tmp/bin/python-clean" "$agents/check-deploy.sh" 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ] && grep -q "no warnings" <<<"$out"; then ok "check-deploy: a check with no warnings passes"; else bad "check-deploy: no warnings" "rc=$rc"$'\n'"$out"; fi
+fake python-noisy 'echo "?: (security.W999) something new"; echo "?: (security.W005) hsts"; exit 0'
+out="$(PYTHON="$tmp/bin/python-noisy" "$agents/check-deploy.sh" 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && grep -q "unexpected=\[security.W999\]" <<<"$out"; then ok "check-deploy: an undocumented warning fails"; else bad "check-deploy: undocumented warning" "rc=$rc"$'\n'"$out"; fi
 
 # 7. audit-log.sh records the branch of the directory it is called from, not the script's checkout.
 git -C "$tmp" init -q other && (cd "$tmp/other" && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m x && git checkout -q -b v2/issue-999-probe)
