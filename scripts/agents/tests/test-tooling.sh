@@ -78,6 +78,12 @@ out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
 echo "# camp" > events/migrations/0013_x.py && git add -A && git -c user.name=t -c user.email=t@t commit -q -m "camp migration"
 out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && grep -q "events/migrations/0013_x.py" <<<"$out" && ok "migration-scope: an events/ migration on a v2 branch fails" || bad "migration-scope: events migration" "rc=$rc"$'\n'"$out"
+git checkout -q -b v2/issue-2-rename v2/foundation && mkdir -p people/migrations && echo "# moved" > people/migrations/0007_moved.py \
+  && git add -A && git -c user.name=t -c user.email=t@t commit -q -m "new app file" \
+  && git mv people/migrations/0007_moved.py events/migrations/0007_moved.py && git -c user.name=t -c user.email=t@t commit -q -m "moved into events"
+out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && grep -q "events/migrations/0007_moved.py" <<<"$out" && ok "migration-scope: a file renamed into events/migrations/ is caught" || bad "migration-scope: rename" "rc=$rc"$'\n'"$out"
+git checkout -q v2/issue-1-x
 out="$(ALLOW_CAMP_MIGRATIONS=true BASE=v2/foundation "$scope" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] && grep -q "skipped" <<<"$out" && ok "migration-scope: ALLOW_CAMP_MIGRATIONS=true skips with a notice" || bad "migration-scope: allow" "rc=$rc"
 out="$(BASE=origin/missing-base "$scope" 2>&1)"; rc=$?

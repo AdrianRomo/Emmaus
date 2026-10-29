@@ -22,7 +22,8 @@ if ! git rev-parse --verify --quiet "$base" >/dev/null; then
   echo "migration scope: base $base not found; fetch it first"; exit 1
 fi
 merge_base="$(git merge-base "$base" HEAD)"
-added="$(git diff --name-only --diff-filter=A "$merge_base" HEAD -- 'core/migrations/*.py' 'events/migrations/*.py' | grep -v '__init__.py' || true)"
+# --no-renames: a file moved or copied into the guarded directories must count as added, not as a rename.
+added="$(git diff --name-only --no-renames --diff-filter=AC "$merge_base" HEAD -- 'core/migrations/*.py' 'events/migrations/*.py' | grep -v '__init__.py' || true)"
 if [ -n "$added" ]; then
   echo "migration scope FAILED: this branch adds migrations under core/ or events/, which main (the camp) owns while the event runs:"
   printf '  %s\n' $added
