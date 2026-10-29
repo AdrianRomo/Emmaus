@@ -25,13 +25,13 @@ fake_python() { # <name> <pip_audit body>
 
 # 1. A failing step gives overall FAIL and exit 1, and the summary lists every step.
 fake_python python-audit-fails 'echo "No known vulnerabilities found"; exit 1'
-out="$(cd "$root" && PYTHON="$tmp/bin/python-audit-fails" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
+out="$(cd "$root" && ALLOW_CAMP_MIGRATIONS=true PYTHON="$tmp/bin/python-audit-fails" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
 if [ "$rc" -eq 1 ] && grep -q "^overall: FAIL" <<<"$out" && [ "$(grep -cE '^(lint|check|migrations|deploy-check|migration-scope|pip-audit|tests-sqlite|tests-postgres|e2e) ' <<<"$out")" -eq 9 ]; then
   ok "gate: failing step -> overall FAIL, exit 1, 9 step lines"; else bad "gate: failing step" "rc=$rc"$'\n'"$out"; fi
 
 # 2. A passing step whose log matches none of the summary patterns does not truncate the summary.
 fake_python python-audit-quiet 'echo "nothing here matches the summary grep"; exit 0'
-out="$(cd "$root" && PYTHON="$tmp/bin/python-audit-quiet" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
+out="$(cd "$root" && ALLOW_CAMP_MIGRATIONS=true PYTHON="$tmp/bin/python-audit-quiet" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -q "^overall: PASS" <<<"$out" && grep -q "^e2e " <<<"$out"; then
   ok "gate: unmatched log text keeps the summary complete (PASS, exit 0)"; else bad "gate: unmatched log text" "rc=$rc"$'\n'"$out"; fi
 
@@ -80,6 +80,8 @@ out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && grep -q "events/migrations/0013_x.py" <<<"$out" && ok "migration-scope: an events/ migration on a v2 branch fails" || bad "migration-scope: events migration" "rc=$rc"$'\n'"$out"
 out="$(ALLOW_CAMP_MIGRATIONS=true BASE=v2/foundation "$scope" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] && grep -q "skipped" <<<"$out" && ok "migration-scope: ALLOW_CAMP_MIGRATIONS=true skips with a notice" || bad "migration-scope: allow" "rc=$rc"
+out="$(BASE=origin/missing-base "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && grep -q "not found; fetch it first" <<<"$out" && ok "migration-scope: a missing base (shallow checkout) fails clearly" || bad "migration-scope: missing base" "rc=$rc"$'\n'"$out"
 git checkout -q v2/foundation
 out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] && grep -q "not applicable" <<<"$out" && ok "migration-scope: not applicable on the base branch" || bad "migration-scope: base branch" "rc=$rc"

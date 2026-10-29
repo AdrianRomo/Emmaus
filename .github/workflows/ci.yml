@@ -53,7 +53,7 @@ jobs:
       - name: check --deploy with production-like settings (only W005/W021 accepted)
         run: scripts/agents/check-deploy.sh
       - name: Migration scope (no core/ or events/ migrations on v2 branches while the camp runs on main)
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.base_ref == 'v2/foundation'
         env:
           BASE: origin/${{ github.base_ref }}
           ALLOW_CAMP_MIGRATIONS: ${{ contains(github.event.pull_request.labels.*.name, 'area:camp') }}
