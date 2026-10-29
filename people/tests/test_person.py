@@ -72,6 +72,14 @@ class PersonScopingTests(TestCase):
         self.assertEqual(person.full_name, "José María Núñez")
         self.assertEqual((person.first_name, person.last_name), ("José María", "Núñez"))
 
+    def test_normalized_name_follows_a_partial_save_of_the_name(self):
+        person = Person.objects.create(church=self.church_a, first_name="Ana", last_name="Pérez")
+        person.first_name = "  María  José "
+        person.save(update_fields=["first_name"])
+        person.refresh_from_db()
+        self.assertEqual(person.first_name, "María José")
+        self.assertEqual(person.normalized_name, "maria jose perez")
+
     def test_church_cannot_be_deleted_while_it_has_people(self):
         from django.db.models import ProtectedError
 

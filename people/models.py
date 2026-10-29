@@ -71,4 +71,7 @@ class Person(models.Model):
         self.first_name = " ".join(self.first_name.split())
         self.last_name = " ".join(self.last_name.split())
         self.normalized_name = normalize_name(self.full_name)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and {"first_name", "last_name"} & set(update_fields):
+            kwargs["update_fields"] = {*update_fields, "normalized_name"}
         super().save(*args, **kwargs)
