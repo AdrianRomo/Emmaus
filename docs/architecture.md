@@ -42,6 +42,16 @@ Layout:
 * `events/middleware.py`: shared-computer protections.
 * `events/management/commands/`: `run_report_cutoffs`, `purge_expired_event_data`, `seed_camp_demo`, `deactivate_demo_accounts`.
 
+### `people`: persons of a church (next version, additive)
+
+`people` is the first step of the next version (`docs/decisions/0002-target-domain-and-mapping.md`). It
+holds `Person`: a person known to one church, with or without an account (`user`, at most one person per
+church and account) and with no link to any event. Nothing reads it yet except a read-only, superuser-only
+Django admin; `people.persons.persons_for(user)` is the only query path and scopes by every church role the
+user holds. Camperos (`events.EventParticipant`) are not persons; a later step adds a separate,
+human-confirmed link table. Its migrations live under `people/migrations/` so `core` and `events` stay
+frozen while the camp runs on `main` (decision 0005).
+
 ## Data model
 
 ```mermaid
