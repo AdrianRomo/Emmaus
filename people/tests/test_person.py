@@ -8,8 +8,11 @@ from django.db import IntegrityError, connection, transaction
 from django.test import TestCase, TransactionTestCase
 from django.urls import NoReverseMatch, get_resolver, reverse
 
+from django.utils import timezone
+
 from core.models import Church, Role
 from core.services import assign_role
+from events.models import Event, EventMembership, MembershipRole
 from people.models import Person
 from people.persons import persons_for
 
@@ -51,6 +54,20 @@ class PersonScopingTests(TestCase):
         inactive = make_user("inactive@example.org", is_active=False)
         assign_role(inactive, self.church_a, Role.CHURCH_ADMIN)
         self.assertFalse(persons_for(inactive).exists())
+
+    def test_event_roles_alone_cannot_read_people(self):
+        # A coordinator (or even an event administrator) with no church role sees nobody, not even in
+        # the church that runs the event: people are a church matter, events are not (decision 0002).
+        event = Event.objects.create(
+            church=self.church_a, name="Campamento", slug="campamento",
+            starts_on=timezone.localdate(), ends_on=timezone.localdate(),
+        )
+        for role in (MembershipRole.COORDINATOR, MembershipRole.ADMIN):
+            member = make_user(f"{role}@example.org")
+            EventMembership.objects.create(event=event, user=member, role=role)
+            self.assertFalse(persons_for(member).exists())
+            with self.assertRaises(Person.DoesNotExist):
+                persons_for(member).get(pk=self.person_a.pk)
 
     def test_superuser_sees_every_church(self):
         root = User.objects.create_superuser("root@example.org", "root@example.org", "x")
