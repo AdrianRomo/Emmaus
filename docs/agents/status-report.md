@@ -13,9 +13,13 @@ scripts/agents/status-report.py --repo AdrianRomo/Emmaus --stale-days 2
 Sections:
 
 1. **Needs a human** — `agent:needs-human`, `needs:decision`, PRs with changes requested, red CI
-   on `agent:review` PRs, claims older than `--stale-days`.
+   on `agent:review` PRs, Codex `needs_human` or an unanswered `request_changes` (no later
+   `**agent:…**` comment), claims older than `--stale-days`.
 2. **In flight** — `agent:in-progress` with claim age and branch; `agent:review` PRs with CI
-   status (`success` / `failure` / `pending`) and whether Codex's verdict was posted.
+   status (`success` / `failure` / `pending`) and the Codex verdict
+   (`review codex=approve|request_changes|needs_human|stale|none`). The verdict comes from the
+   latest "Independent review" comment (posted by the `Codex review` workflow); a comment for an
+   older head SHA is `stale` and does not count.
 3. **Blocked** — `agent:blocked` with the last comment's first line.
 4. **Ready queue** — `agent:ready` ordered by age, with risk and `exec:local-ok`.
 5. **Recent failures** — the last failed workflow runs on `main` and `v2/foundation`.

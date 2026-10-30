@@ -6,6 +6,7 @@ Reads GitHub only (through `gh`). Usage: status-report.py [--repo OWNER/NAME] [-
 import argparse
 import datetime as dt
 import json
+import re
 import subprocess
 import sys
 
@@ -44,6 +45,27 @@ def ci_state(pr):
     return "success"
 
 
+REVIEW_HEADER = re.compile(r"^### Independent review \(Codex CLI, read-only\) of `([0-9a-fA-F]+)`")
+REVIEW_VERDICT = re.compile(r"verdict=(approve|request_changes|needs_human)\b")
+
+
+def codex_review(comments, head_sha):
+    """Verdict of the latest "Independent review" comment (posted by .github/workflows/codex-review.yml).
+    Returns (verdict, answered): verdict is approve | request_changes | needs_human | stale | none; a
+    comment for another head SHA is stale and does not count. answered is True when an agent comment
+    (`**agent:...**`, written by audit-log.sh) follows the counted review."""
+    reviews = [(i, REVIEW_HEADER.match(c.get("body") or "")) for i, c in enumerate(comments)]
+    reviews = [(i, m) for i, m in reviews if m]
+    if not reviews:
+        return "none", False
+    i, m = reviews[-1]
+    if not (head_sha and head_sha.lower().startswith(m.group(1).lower())):
+        return "stale", False
+    v = REVIEW_VERDICT.search(comments[i]["body"])
+    answered = any((c.get("body") or "").lstrip().startswith("**agent:") for c in comments[i + 1:])
+    return (v.group(1) if v else "none"), answered
+
+
 def is_agent_pr(pr):
     return pr.get("headRefName", "").startswith("v2/issue-") or "agent:review" in labels(pr)
 
@@ -62,7 +84,7 @@ def main():
     issues = gh("issue", "list", "-R", repo, "--state", "open", "--limit", "200",
                 "--json", "number,title,labels,updatedAt,createdAt,url")
     prs = gh("pr", "list", "-R", repo, "--state", "open", "--limit", "100",
-             "--json", "number,title,isDraft,headRefName,baseRefName,labels,statusCheckRollup,reviewDecision,updatedAt,url")
+             "--json", "number,title,isDraft,headRefName,headRefOid,baseRefName,labels,statusCheckRollup,reviewDecision,updatedAt,url")
     failed_runs = gh("run", "list", "-R", repo, "--status", "failure", "--limit", "10",
                      "--json", "databaseId,name,headBranch,conclusion,createdAt,url,event")
     merged = gh("pr", "list", "-R", repo, "--state", "merged", "--limit", "100", "--search", f"merged:>={since}",
@@ -75,9 +97,17 @@ def main():
     agent_prs = [p for p in prs if is_agent_pr(p)]
     for p in agent_prs:
         p["ci"] = ci_state(p)
+        try:
+            pages = gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{p['number']}/comments")
+            comments = [c for page in pages for c in page]
+        except subprocess.CalledProcessError:
+            comments = []
+        p["codex"], p["codex_answered"] = codex_review(comments, p.get("headRefOid"))
     stale = [i for i in by_state["agent:in-progress"] if age_days(i["updatedAt"], now) > a.stale_days]
     red_prs = [p for p in agent_prs if p["ci"] == "failure"]
     changes_requested = [p for p in agent_prs if p.get("reviewDecision") == "CHANGES_REQUESTED"]
+    codex_blocking = [p for p in agent_prs if p["codex"] == "needs_human"
+                      or (p["codex"] == "request_changes" and not p["codex_answered"])]
     merged_agent = [p for p in merged if p["headRefName"].startswith("v2/issue-")]
     closed_agent = [p for p in closed if p["headRefName"].startswith("v2/issue-")]
 
@@ -100,10 +130,11 @@ def main():
             "decisions": [i["number"] for i in decisions],
             "changes_requested_prs": [p["number"] for p in changes_requested],
             "red_ci_prs": [p["number"] for p in red_prs],
+            "codex_verdict_prs": [p["number"] for p in codex_blocking],
             "stale_claims": [i["number"] for i in stale],
         },
         "in_progress": [{"issue": i["number"], "title": i["title"], "age_days": round(age_days(i["updatedAt"], now), 1)} for i in by_state["agent:in-progress"]],
-        "review": [{"pr": p["number"], "title": p["title"], "draft": p["isDraft"], "ci": p["ci"], "review": p.get("reviewDecision") or "none", "url": p["url"]} for p in agent_prs],
+        "review": [{"pr": p["number"], "title": p["title"], "draft": p["isDraft"], "ci": p["ci"], "review": p.get("reviewDecision") or "none", "codex": p["codex"], "url": p["url"]} for p in agent_prs],
         "blocked": [{"issue": i["number"], "title": i["title"]} for i in by_state["agent:blocked"]],
         "ready": [{"issue": i["number"], "title": i["title"], "risk": next((lab for lab in labels(i) if lab.startswith("risk:")), "risk:?"),
                    "local_ok": "exec:local-ok" in labels(i), "age_days": round(age_days(i["createdAt"], now), 1)}
@@ -136,11 +167,13 @@ def main():
         out.append(f"- PR #{p['number']} {p['title']} — changes requested")
     for p in red_prs:
         out.append(f"- PR #{p['number']} {p['title']} — CI red ({p['url']})")
+    for p in codex_blocking:
+        out.append(f"- PR #{p['number']} {p['title']} — Codex review {p['codex']} ({p['url']})")
     for i in stale:
         out.append(issue_line(i) + f" — claimed {age_days(i['updatedAt'], now):.1f} d ago with no update")
     out += ["", "## 2. In flight"]
     out += [f"- #{x['issue']} {x['title']} — in progress, last update {x['age_days']} d ago" for x in report["in_progress"]] or ["- no claims"]
-    out += [f"- PR #{x['pr']} {x['title']} — {'draft' if x['draft'] else 'ready'}, CI {x['ci']}, review {x['review']}" for x in report["review"]] or ["- no agent PRs open"]
+    out += [f"- PR #{x['pr']} {x['title']} — {'draft' if x['draft'] else 'ready'}, CI {x['ci']}, review {x['review']}, review codex={x['codex']}" for x in report["review"]] or ["- no agent PRs open"]
     out += ["", "## 3. Blocked"]
     out += [issue_line(i) for i in by_state["agent:blocked"]] or ["- none"]
     out += ["", "## 4. Ready queue"]

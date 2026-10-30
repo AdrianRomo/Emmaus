@@ -102,5 +102,29 @@ PY
 )"
 [ "$out" = "all ok" ] && ok "status-report: ci_state table (unknown conclusion = failure)" || bad "status-report: ci_state" "$out"
 
+# 9. status-report.py: the Codex CI verdict (latest review comment for the PR's current head).
+out="$("$PYTHON" - "$agents/status-report.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("sr", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+H = "a" * 40
+def review(sha, verdict):
+    return {"body": f"### Independent review (Codex CLI, read-only) of `{sha}`\n\n```\nCODEX REVIEW  verdict={verdict}  findings: high=0 medium=0 low=0\n```"}
+agent = {"body": "**agent:note** · fixed the findings"}
+other = {"body": "looks fine to me"}
+cases = [
+    ("approve", [review(H, "approve")], ("approve", False)),
+    ("request_changes", [other, review(H, "request_changes")], ("request_changes", False)),
+    ("request_changes answered", [review(H, "request_changes"), agent], ("request_changes", True)),
+    ("needs_human", [review(H, "needs_human")], ("needs_human", False)),
+    ("stale", [review("b" * 40, "needs_human")], ("stale", False)),
+    ("latest wins", [review("b" * 40, "needs_human"), review(H, "approve")], ("approve", False)),
+    ("none", [other], ("none", False)),
+]
+bad = [(n, w, m.codex_review(c, H)) for n, c, w in cases if m.codex_review(c, H) != w]
+print("bad:", bad) if bad else print("all ok")
+PY
+)"
+[ "$out" = "all ok" ] && ok "status-report: codex_review verdicts (approve, request_changes, needs_human, stale)" || bad "status-report: codex_review" "$out"
+
 echo "tooling tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
