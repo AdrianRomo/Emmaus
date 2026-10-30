@@ -107,8 +107,8 @@ out="$("$PYTHON" - "$agents/status-report.py" <<'PY'
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("sr", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 H = "a" * 40
-def review(sha, verdict):
-    return {"body": f"### Independent review (Codex CLI, read-only) of `{sha}`\n\n```\nCODEX REVIEW  verdict={verdict}  findings: high=0 medium=0 low=0\n```"}
+def review(sha, verdict, user="github-actions[bot]"):
+    return {"user": {"login": user}, "body": f"### Independent review (Codex CLI, read-only) of `{sha}`\n\n```\nCODEX REVIEW  verdict={verdict}  findings: high=0 medium=0 low=0\n```"}
 agent = {"body": "**agent:note** · fixed the findings"}
 other = {"body": "looks fine to me"}
 cases = [
@@ -119,12 +119,19 @@ cases = [
     ("stale", [review("b" * 40, "needs_human")], ("stale", False)),
     ("latest wins", [review("b" * 40, "needs_human"), review(H, "approve")], ("approve", False)),
     ("none", [other], ("none", False)),
+    ("untrusted author cannot override", [review(H, "needs_human"), review(H, "approve", user="someone")], ("needs_human", False)),
+    ("untrusted author alone is none", [review(H, "approve", user="someone")], ("none", False)),
 ]
 bad = [(n, w, m.codex_review(c, H)) for n, c, w in cases if m.codex_review(c, H) != w]
 print("bad:", bad) if bad else print("all ok")
 PY
 )"
 [ "$out" = "all ok" ] && ok "status-report: codex_review verdicts (approve, request_changes, needs_human, stale)" || bad "status-report: codex_review" "$out"
+
+# 10. status-report.py: a failed comment fetch aborts the report instead of reading as "no review".
+fake gh 'case "$1" in api) echo "boom" >&2; exit 1;; pr) case "$*" in *"--state open"*) echo "[{\"number\":5,\"title\":\"t\",\"isDraft\":true,\"headRefName\":\"v2/issue-5-x\",\"headRefOid\":\"abc\",\"labels\":[],\"url\":\"u\"}]";; *) echo "[]";; esac;; *) echo "[]";; esac'
+out="$(PATH="$tmp/bin:$PATH" "$PYTHON" "$agents/status-report.py" --repo o/r 2>&1)"; rc=$?
+if [ "$rc" -eq 1 ] && grep -q "gh failed" <<<"$out"; then ok "status-report: comment-fetch failure aborts (exit 1), not codex=none"; else bad "status-report: fetch failure" "rc=$rc"$'\n'"$out"; fi
 
 echo "tooling tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

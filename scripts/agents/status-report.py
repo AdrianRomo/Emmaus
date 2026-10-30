@@ -49,12 +49,17 @@ REVIEW_HEADER = re.compile(r"^### Independent review \(Codex CLI, read-only\) of
 REVIEW_VERDICT = re.compile(r"verdict=(approve|request_changes|needs_human)\b")
 
 
+REVIEW_AUTHOR = "github-actions[bot]"
+
+
 def codex_review(comments, head_sha):
     """Verdict of the latest "Independent review" comment (posted by .github/workflows/codex-review.yml).
     Returns (verdict, answered): verdict is approve | request_changes | needs_human | stale | none; a
-    comment for another head SHA is stale and does not count. answered is True when an agent comment
+    comment for another head SHA is stale and does not count. Only comments by the workflow identity
+    (github-actions[bot]) count as reviews; anyone can paste the header. answered is True when an agent comment
     (`**agent:...**`, written by audit-log.sh) follows the counted review."""
-    reviews = [(i, REVIEW_HEADER.match(c.get("body") or "")) for i, c in enumerate(comments)]
+    reviews = [(i, REVIEW_HEADER.match(c.get("body") or "")) for i, c in enumerate(comments)
+               if (c.get("user") or {}).get("login") == REVIEW_AUTHOR]
     reviews = [(i, m) for i, m in reviews if m]
     if not reviews:
         return "none", False
@@ -97,11 +102,9 @@ def main():
     agent_prs = [p for p in prs if is_agent_pr(p)]
     for p in agent_prs:
         p["ci"] = ci_state(p)
-        try:
-            pages = gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{p['number']}/comments")
-            comments = [c for page in pages for c in page]
-        except subprocess.CalledProcessError:
-            comments = []
+        # A failed fetch must not read as "no review": let it abort the report (see the handler below).
+        pages = gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{p['number']}/comments")
+        comments = [c for page in pages for c in page]
         p["codex"], p["codex_answered"] = codex_review(comments, p.get("headRefOid"))
     stale = [i for i in by_state["agent:in-progress"] if age_days(i["updatedAt"], now) > a.stale_days]
     red_prs = [p for p in agent_prs if p["ci"] == "failure"]
