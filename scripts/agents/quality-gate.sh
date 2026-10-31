@@ -34,6 +34,7 @@ run_step lint 120 "${ruff_cmd[@]}" check .
 run_step check 180 env DEBUG=true "$PYTHON" manage.py check
 run_step migrations 180 env DEBUG=true "$PYTHON" manage.py makemigrations --check --dry-run
 run_step deploy-check 180 "$agents_dir/check-deploy.sh"
+run_step migration-scope 60 "$agents_dir/check-migration-scope.sh"
 if "$PYTHON" -c "import pip_audit" 2>/dev/null; then
   run_step pip-audit 300 "$agents_dir/pip-audit.sh"
 else

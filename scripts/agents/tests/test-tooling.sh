@@ -25,13 +25,13 @@ fake_python() { # <name> <pip_audit body>
 
 # 1. A failing step gives overall FAIL and exit 1, and the summary lists every step.
 fake_python python-audit-fails 'echo "No known vulnerabilities found"; exit 1'
-out="$(cd "$root" && PYTHON="$tmp/bin/python-audit-fails" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
-if [ "$rc" -eq 1 ] && grep -q "^overall: FAIL" <<<"$out" && [ "$(grep -cE '^(lint|check|migrations|deploy-check|pip-audit|tests-sqlite|tests-postgres|e2e) ' <<<"$out")" -eq 8 ]; then
-  ok "gate: failing step -> overall FAIL, exit 1, 8 step lines"; else bad "gate: failing step" "rc=$rc"$'\n'"$out"; fi
+out="$(cd "$root" && ALLOW_CAMP_MIGRATIONS=true PYTHON="$tmp/bin/python-audit-fails" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
+if [ "$rc" -eq 1 ] && grep -q "^overall: FAIL" <<<"$out" && [ "$(grep -cE '^(lint|check|migrations|deploy-check|migration-scope|pip-audit|tests-sqlite|tests-postgres|e2e) ' <<<"$out")" -eq 9 ]; then
+  ok "gate: failing step -> overall FAIL, exit 1, 9 step lines"; else bad "gate: failing step" "rc=$rc"$'\n'"$out"; fi
 
 # 2. A passing step whose log matches none of the summary patterns does not truncate the summary.
 fake_python python-audit-quiet 'echo "nothing here matches the summary grep"; exit 0'
-out="$(cd "$root" && PYTHON="$tmp/bin/python-audit-quiet" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
+out="$(cd "$root" && ALLOW_CAMP_MIGRATIONS=true PYTHON="$tmp/bin/python-audit-quiet" "$agents/quality-gate.sh" --skip-tests 2>/dev/null)"; rc=$?
 if [ "$rc" -eq 0 ] && grep -q "^overall: PASS" <<<"$out" && grep -q "^e2e " <<<"$out"; then
   ok "gate: unmatched log text keeps the summary complete (PASS, exit 0)"; else bad "gate: unmatched log text" "rc=$rc"$'\n'"$out"; fi
 
@@ -64,6 +64,34 @@ chmod +x "$tmp/bin/python-no-audit"
 out="$(PATH="$tmp/bin:$PATH" PYTHON="$tmp/bin/python-no-audit" "$agents/pip-audit.sh" 2>&1)"; rc=$?
 if [ "$rc" -eq 1 ] && grep -q "pip_audit is not installed" <<<"$out" && ! grep -q "WRONG ENVIRONMENT" <<<"$out"; then
   ok "pip-audit: missing module fails clearly; PATH pip-audit is never used"; else bad "pip-audit: environment selection" "rc=$rc"$'\n'"$out"; fi
+
+# 4b. check-migration-scope.sh: a branch that adds a core/ or events/ migration fails; a new app passes;
+#     ALLOW_CAMP_MIGRATIONS=true skips; on the base branch itself it is not applicable.
+git -C "$tmp" init -q scope && cd "$tmp/scope" && mkdir -p scripts && cp -r "$agents" scripts/agents && rm -rf scripts/agents/tests \
+  && mkdir -p core/migrations events/migrations && touch core/migrations/__init__.py events/migrations/__init__.py \
+  && git add -A && git -c user.name=t -c user.email=t@t commit -q -m base && git branch -q v2/foundation \
+  && git checkout -q -b v2/issue-1-x && mkdir -p people/migrations && echo "# ok" > people/migrations/0001_initial.py \
+  && git add -A && git -c user.name=t -c user.email=t@t commit -q -m "new app"
+scope="$tmp/scope/scripts/agents/check-migration-scope.sh"
+out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && grep -q "migration scope OK" <<<"$out" && ok "migration-scope: a new app's migration passes" || bad "migration-scope: new app" "rc=$rc"$'\n'"$out"
+echo "# camp" > events/migrations/0013_x.py && git add -A && git -c user.name=t -c user.email=t@t commit -q -m "camp migration"
+out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && grep -q "events/migrations/0013_x.py" <<<"$out" && ok "migration-scope: an events/ migration on a v2 branch fails" || bad "migration-scope: events migration" "rc=$rc"$'\n'"$out"
+git checkout -q -b v2/issue-2-rename v2/foundation && mkdir -p people/migrations && echo "# moved" > people/migrations/0007_moved.py \
+  && git add -A && git -c user.name=t -c user.email=t@t commit -q -m "new app file" \
+  && git mv people/migrations/0007_moved.py events/migrations/0007_moved.py && git -c user.name=t -c user.email=t@t commit -q -m "moved into events"
+out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && grep -q "events/migrations/0007_moved.py" <<<"$out" && ok "migration-scope: a file renamed into events/migrations/ is caught" || bad "migration-scope: rename" "rc=$rc"$'\n'"$out"
+git checkout -q v2/issue-1-x
+out="$(ALLOW_CAMP_MIGRATIONS=true BASE=v2/foundation "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && grep -q "skipped" <<<"$out" && ok "migration-scope: ALLOW_CAMP_MIGRATIONS=true skips with a notice" || bad "migration-scope: allow" "rc=$rc"
+out="$(BASE=origin/missing-base "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 1 ] && grep -q "not found; fetch it first" <<<"$out" && ok "migration-scope: a missing base (shallow checkout) fails clearly" || bad "migration-scope: missing base" "rc=$rc"$'\n'"$out"
+git checkout -q v2/foundation
+out="$(BASE=v2/foundation "$scope" 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && grep -q "not applicable" <<<"$out" && ok "migration-scope: not applicable on the base branch" || bad "migration-scope: base branch" "rc=$rc"
+cd "$root"
 
 # 5. run-tests.sh: backend guards, and sqlite ignores an inherited PostgreSQL URL.
 "$agents/run-tests.sh" postgres >/dev/null 2>&1; [ $? -eq 1 ] && ok "run-tests: postgres without DATABASE_URL refused" || bad "run-tests: postgres without URL"
