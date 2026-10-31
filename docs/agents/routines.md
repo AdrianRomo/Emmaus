@@ -136,6 +136,26 @@ Never merge, never mark ready for review, never push to main or v2/foundation, n
 you did not list. Stop after 60 minutes with a status comment. Never fabricate results.
 ```
 
+## Live routines (created 2026-10-28, after `/web-setup` and the dry run)
+
+| Routine | Id | Schedule (UTC) | State |
+|---|---|---|---|
+| Emmaus dry run: GitHub access from the cloud (one-off) | `trig_015WRTaDz1oqbLqxWw4TJHLZ` | ran once 19:51 | done; report on issue #15 (closed) |
+| Emmaus issue executor | `trig_01Waj4HwReL7xdFStuKyMadR` | `0 13 * * 1-5` (07:00 Mexico City, weekdays; first run 2026-10-29) | enabled |
+| Emmaus PR follow-up | `trig_01P4ahZYAfZq4xkbxzq8q937` | every 6 h (the server pins the minute: `52 */6 * * *`) | enabled |
+
+What the dry run established (session `cse_01CCmkMck1PV8wEubuedPiA9`, 45 s): REST reads, a branch
+push and an issue comment work through the proxy under the owner's identity; GraphQL is refused
+with "GitHub GraphQL is not available from Claude Code sessions"; `gh auth status` prints
+"Failed to log in to github.com using token (GH_TOKEN)" even though every `gh api` call works, so
+the prompts tell the agent to ignore that line. The scratch branch the run pushed was deleted from
+the workstation (the proxy refuses deletions). No MCP connectors are attached to the routines
+(the account's connectors are attached by default on creation; they were cleared afterwards).
+
+Quotas (`policies.md`): the executor claims at most one issue per run and stops when three issues
+are in progress or five agent PRs are open; the follow-up touches at most three PRs per run.
+Disable either one at <https://claude.ai/code/routines> if the queue needs a pause.
+
 ## Observing
 
 `/schedule` → list; `RemoteTrigger list_runs` and `get_run_log` show each run's tool calls,
