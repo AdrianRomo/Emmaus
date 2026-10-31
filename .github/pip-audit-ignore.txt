@@ -1,3 +1,2 @@
 # Vulnerability ids that scripts/agents/pip-audit.sh passes as --ignore-vuln. One per line, each
 # with the issue that removes it. Blank lines and # comments are ignored.
-PYSEC-2026-1845  # pytest 8.4.2 (test-only dependency); fix is pytest>=9.0.3; tracked in the pytest bump issue (decision 0001 follow-up)
