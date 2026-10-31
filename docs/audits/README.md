@@ -10,6 +10,7 @@ exists at a given commit; they are not a specification.
 | `EMMAUS_GAP_ANALYSIS.md` | What the vision needs that the code has, half has, or lacks |
 | `EMMAUS_EVOLUTION_ROADMAP.md` | In what order to evolve it without putting the camp at risk |
 | `EMMAUS_OPEN_QUESTIONS.md` | What only a human can decide, with a proposed default |
+| `BASELINE.md` | The gate numbers (tests, PostgreSQL deselects, browser checks, axe) on a named `v2/foundation` commit, refreshed when they move |
 | `workstreams/*.md` | The five evidence reports the synthesis rests on (A inventory and release, B product and UX, C domain, D security, E gaps), with every claim tagged and line-cited |
 
 Conventions: every claim is tagged **Verified** (file and line read at the audited commit),
