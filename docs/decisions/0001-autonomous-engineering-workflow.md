@@ -124,6 +124,13 @@ What the audit found on 2026-10-28 (verified in the repository and on the hosts)
 - **Phase F.** Metrics: merged-and-verified PRs per session, gate pass rate on first run,
   escalations per issue; reviewed monthly and used to widen or narrow autonomy.
 
+## Amendments
+
+- 2026-10-30: the repository became private. CodeQL (code scanning) needs GitHub Advanced Security on
+  private repositories, so its workflow is removed and its two checks must not be required by the
+  branch rules; GitHub Actions minutes are now billed, so CI cost per push (about 20–30 minutes
+  across the seven jobs) is a factor the owner tracks under Settings → Billing.
+
 ## Reconsider if
 
 - The camp ends and `main` stops being production (then `v2/foundation` may become `main`).
