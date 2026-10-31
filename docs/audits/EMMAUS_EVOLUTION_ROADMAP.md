@@ -92,7 +92,7 @@ Columns: effort, dependencies, risk label, whether a local model may pre-process
 | P0-4 ★ | gate/CI guard against `core`/`events` migrations on v2 PRs during the camp | S | — | low | yes (script draft) |
 | P0-5 | F1 mitigation without code now (no group permissions, minimal superusers, block `/admin/` at the proxy); code fix after Q-S3 | S / M | Q-S3 | high (auth) | no |
 | P0-6 | F2 decision: pastor may or may not widen the level alone; test documenting the choice | S | Q-S1 | high | no |
-| P0-7 | F7: refuse `can_view_sensitive` on accounts without a usable password (after the camp) | S | — | high (camp code) | no |
+| P0-7 | F7: a usable password alone is not enough (an admin can create an unflagged account, activate it from the on-screen link, then grant the flag); require a second administrator's confirmation for every `can_view_sensitive` grant, and a regression test that creates an unflagged account, activates it and then tries the grant (after the camp) | M | Q-S2 | high (camp code) | no |
 | P0-8 | C-13: refuse manual erasure while a safety report is open (after the camp) | S | — | high (camp code) | no |
 | P0-9 | pre-camp operational checklist + edge rate limits (F5/F6) | S | homelab-ops | medium | no |
 | P0-10 | Code scanning on; required checks on both branches | S | owner | low | no |
@@ -145,7 +145,7 @@ Columns: effort, dependencies, risk label, whether a local model may pre-process
 | P3-10 | snapshots store suppressed counts or a raw table readable only by the release job (C-11) | M | — | high (camp code) | no |
 | P3-11 | questionnaire editor: option pickers instead of typed codes; new default version wording (G-05) | M | — | high (camp code) | partial |
 | P3-12 | human-readable per-person export (PDF/CSV beside JSON) (G-06) | S | — | high (camp code) | partial |
-| P3-13 | F1 code fix (ADR 0006), F2/F7/C-13 fixes, `clearsessions`, archived-event closure, 403 keeps the event bar, a11y leftovers batch | M | after the camp | high | partial |
+| P3-13 | F1 code fix (ADR 0006), F2/F7/C-13 fixes, a test of the scheduler's existing `SessionStore.clear_expired()` call, archived-event closure, 403 keeps the event bar, a11y leftovers batch | M | after the camp | high | partial |
 | P3-14 | split runtime/dev requirements; constraints file; multi-stage image; pin `postgres:16` by digest in the repo compose (R-1, R-2) | S | #11 | low | yes |
 
 ### P4 — SaaS readiness
@@ -161,11 +161,13 @@ Columns: effort, dependencies, risk label, whether a local model may pre-process
 
 **Epic: "Foundations, step 1 — `Person` in a new `people` app (additive, invisible, zero camp impact)".** Three PRs, each one session, draft against `v2/foundation`:
 
-1. **Docs PR (`risk:low`)** — P0-3 + ADR 0002: reword AGENTS.md invariants 1–2; the target-domain ADR with the current → target mapping and the "never auto-merge across churches" rule. Companion: P0-4 gate guard against `core`/`events` migrations during the camp.
+1. **Docs PR (`risk:low`, needs the owner's decision on the new wording of invariants 1–2 before merge)** — P0-3 + ADR 0002: reword AGENTS.md invariants 1–2; the target-domain ADR with the current → target mapping and the "never auto-merge across churches" rule. Companion: P0-4 gate guard against `core`/`events` migrations during the camp.
 2. **`people` app PR (`risk:medium`)** — `Person` (`church` FK, `first_name`, `last_name`, `normalized_name`, `email` blank, `phone` blank, `preferred_contact_method` copied from `ParticipantProfile.ContactMethod`, `created_from` in `setup/invitation/team/backfill/manual`, `user` nullable SET_NULL, `merged_into` nullable self-FK, timestamps; `unique (church, user)` where user is set; index `(church, normalized_name)`); `people/persons.py` with `persons_for(user)` (church-scoped queryset); read-only Django admin (superuser only); tests. No view, URL, nav item, change under `events/`, change to `User` creation paths, and no `Person` for any `EventParticipant`.
 3. **Backfill PR (`risk:medium`)** — management command `link_people` (dry-run default, `--apply`, idempotent): one `Person` per `ParticipantProfile` and per distinct `(church, user)` in `UserChurchRole`, carrying phone and contact preference; reverse = no-op (the rows are new); tests.
 
-**Why it is the safest start.** It is the one dependency of every P2 item and of J3/J6, yet it changes no behaviour: no view reads it, so every existing test, the browser gate and the camp screens are untouched; the migrations are in a new app (rule 2) and purely additive; rollback is `migrate people zero`; it touches neither `events/access.py` nor `core/access.py`, so no escalation condition applies; and it settles the identity vocabulary before anyone builds groups on `User`.
+**Why it is the safest start.** It is the one dependency of every P2 item and of J3/J6, yet it changes no behaviour: no view reads it, so every existing test, the browser gate and the camp screens are untouched; the migrations are in a new app (rule 2) and purely additive; rollback is `migrate people zero`; it touches neither `events/access.py` nor `core/access.py`; the only escalation condition it meets is the
+wording of invariants 1–2 itself, which is why the docs PR needs the owner's explicit decision on that
+wording before merge (policies.md, Escalate); and it settles the identity vocabulary before anyone builds groups on `User`.
 
 **Acceptance tests (SQLite and PostgreSQL):**
 1. `test_person_is_church_scoped` — `persons_for(user_of_church_A)` never returns a person of church B, including `get(pk=…)` on the helper queryset.
