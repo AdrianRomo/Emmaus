@@ -40,7 +40,9 @@ Rules:
 - Exactly one `agent:*` label at a time. Every transition is a comment with the evidence (gate
   summary, PR link, failing step, question for the human). `scripts/agents/audit-log.sh` writes
   both the comment and the local log line.
-- Only humans move an issue to `agent:done` (they merge) or close it.
+- Only humans move an issue to `agent:done` (they merge) or close it. Because PRs target
+  `v2/foundation` and not the default branch, GitHub does **not** auto-close `Closes #n` on merge:
+  whoever merges (or the follow-up routine on its next run) closes the issue and labels it `agent:done`.
 - An agent that cannot make the next transition within its budget stops; it does not wait.
 
 ## Session protocol (one task per session)

@@ -156,6 +156,18 @@ PY
 )"
 [ "$out" = "all ok" ] && ok "status-report: codex_review verdicts (approve, request_changes, needs_human, stale)" || bad "status-report: codex_review" "$out"
 
+# 9b. status-report.py: pagination must work on gh 2.46 (no --slurp) and decode concatenated pages.
+grep -q -- "--slurp" "$agents/status-report.py" && bad "status-report: uses gh --slurp (not in gh 2.46)" || ok "status-report: no gh --slurp"
+out="$("$PYTHON" - "$agents/status-report.py" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("sr", sys.argv[1]); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+class R: stdout = '[{"id": 1}, {"id": 2}]\n[{"id": 3}]\n'
+m.subprocess.run = lambda *a, **k: R()
+print([c["id"] for c in m.gh_paginated("x")])
+PY
+)"
+[ "$out" = "[1, 2, 3]" ] && ok "status-report: concatenated pages decoded" || bad "status-report: pagination" "$out"
+
 # 10. status-report.py: a failed comment fetch aborts the report instead of reading as "no review".
 fake gh 'case "$1" in api) echo "boom" >&2; exit 1;; pr) case "$*" in *"--state open"*) echo "[{\"number\":5,\"title\":\"t\",\"isDraft\":true,\"headRefName\":\"v2/issue-5-x\",\"headRefOid\":\"abc\",\"labels\":[],\"url\":\"u\"}]";; *) echo "[]";; esac;; *) echo "[]";; esac'
 out="$(PATH="$tmp/bin:$PATH" "$PYTHON" "$agents/status-report.py" --repo o/r 2>&1)"; rc=$?

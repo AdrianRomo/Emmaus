@@ -18,6 +18,21 @@ def gh(*args):
     return json.loads(res.stdout or "null")
 
 
+def gh_paginated(endpoint):
+    """All items of a paginated list endpoint. `gh api --paginate` prints one JSON array per page,
+    concatenated; the newer gh "slurp" flag would join them but is not in gh 2.46, so decode the stream."""
+    res = subprocess.run(["gh", "api", "--paginate", endpoint], check=True, capture_output=True, text=True)
+    text, items, decoder, pos = res.stdout, [], json.JSONDecoder(), 0
+    while True:
+        while pos < len(text) and text[pos].isspace():
+            pos += 1
+        if pos >= len(text):
+            break
+        value, pos = decoder.raw_decode(text, pos)
+        items.extend(value if isinstance(value, list) else [value])
+    return items
+
+
 def labels(item):
     return {lab["name"] for lab in item.get("labels", [])}
 
@@ -103,8 +118,7 @@ def main():
     for p in agent_prs:
         p["ci"] = ci_state(p)
         # A failed fetch must not read as "no review": let it abort the report (see the handler below).
-        pages = gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{p['number']}/comments")
-        comments = [c for page in pages for c in page]
+        comments = gh_paginated(f"repos/{repo}/issues/{p['number']}/comments?per_page=100")
         p["codex"], p["codex_answered"] = codex_review(comments, p.get("headRefOid"))
     stale = [i for i in by_state["agent:in-progress"] if age_days(i["updatedAt"], now) > a.stale_days]
     red_prs = [p for p in agent_prs if p["ci"] == "failure"]
