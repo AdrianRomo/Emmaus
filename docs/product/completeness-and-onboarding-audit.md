@@ -161,12 +161,11 @@ Status at the end of the round: 1449 tests, all green on SQLite (6 skipped, Post
 ### Remaining verification gaps
 
 - No real volunteers have used the welcomes; the copy was written for them, not tested with them. The step "Elige tu computadora" points at the line above the block, which reads fine in the screenshots and should be watched in a real first camp.
-- PostgreSQL run of the full suite was not possible from this workstation (the dev container's credentials are not in the repo); the 6 concurrency tests are skipped on SQLite as documented. Nothing in this round touches the locked paths.
+- The full suite also ran on PostgreSQL 16 (a throwaway container) before the merge: 1449 tests, OK, none skipped.
 - The Spanish was reviewed by reading, not by a native copy editor.
 
 ## 10. Recommended next steps
 
-1. Run the suite on PostgreSQL before merging (`DATABASE_URL=postgres://…`).
-2. Watch, in the first real camp, whether coordinadores dismiss the welcome before choosing a computer; if so, move the computer step above the role line.
-3. Decide B7 (auto sign-in after the first password) with the safeguarding owner.
-4. When the `v2` person record lands, key `OnboardingState` by that person if accounts and people are ever split; today `auth_user` is the identity on every screen.
+1. Watch, in the first real camp, whether coordinadores dismiss the welcome before choosing a computer; if so, move the computer step above the role line.
+2. Decide B7 (auto sign-in after the first password) with the safeguarding owner.
+3. When the `v2` person record lands, key `OnboardingState` by that person if accounts and people are ever split; today `auth_user` is the identity on every screen.
