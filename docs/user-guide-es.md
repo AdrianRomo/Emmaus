@@ -61,6 +61,12 @@ Para cambiar de campamento, toca **"Campamentos"**: está junto al nombre del ev
 
 Debajo del nombre del campamento y de "Campamentos", la barra dice con qué rol entraste: **Coordinador**, **Tutor**, **Pastor** o **Administrador**. El rol es de cada campamento: si en otro tienes otro, la barra lo dice al cambiar. En un celular la barra no muestra el nombre del campamento; tu rol está en **"Menú"**, junto a tu nombre ("Carla Uno, coordinador"), y en tu pantalla de inicio, debajo del título ("Tu rol: coordinador.").
 
+### La bienvenida de tu rol y "Mi cuenta"
+
+La primera vez que abres tu inicio con un rol (coordinador, tutor, pastor, administración, o tu camino en el discipulado), arriba del panel de lo que sigue hay un recuadro con tu bienvenida: en qué evento estás y cuál es tu rol, qué puedes hacer en cada pantalla y "Primeros pasos", una lista corta que Emmaus lee de los datos reales: "Listo" lo que ya está y "Falta" lo que no, con el enlace a la pantalla donde se hace. Cuando ya no la necesites, toca **"Entendido"**: se guarda para tu usuario, así que no vuelve a aparecer en otra computadora ni en otro día. Si tienes dos roles (por ejemplo, coordinador en un campamento y tutor en otro), cada rol tiene su propia bienvenida.
+
+**"Mi cuenta"** está en la barra de arriba (en un celular, en "Menú"). Ahí ves cada evento en el que participas y tu rol en él, cambias tu nombre (es el que saluda en tu inicio y el que ve tu equipo), cambias tu contraseña sin cerrar la sesión, y vuelves a ver la bienvenida que cerraste con **"Volver a ver"**. El correo con el que entras no se cambia ahí: pídelo a la administración.
+
 ### Unirte al equipo con el código
 
 Si vas a ayudar en un campamento y todavía no tienes acceso, busca la hoja con el código del evento.

@@ -18,7 +18,7 @@
   </div>
   <div class="report-section__body">
     {% if progress.eligible %}
-      <p class="voice headline headline--sentence">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>
+      <p class="voice headline headline--sentence" data-count="llevamos">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>
       <p class="headline__sub">
         {% if not progress.pending %}Ya se completaron todas.
         {% elif finish_at %}Al ritmo de las últimas dos horas terminaríamos hacia las {{ finish_at|date:"H:i" }}.

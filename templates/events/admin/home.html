@@ -14,6 +14,7 @@
     <a class="btn btn--secondary" href="{% url 'events:participants' event.slug %}">Ver camperos</a>
   </div>
 </header>
+{% include "partials/ui/welcome.html" with welcome=welcome %}
 <div id="admin-vivo" data-live-url="{% url 'events:admin_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/admin/_home_live.html" %}
 </div>

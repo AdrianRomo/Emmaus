@@ -27,7 +27,7 @@
   <div class="crew-board__main">
     <section aria-labelledby="avance-equipo">
       {% if progress.eligible %}
-        <h2 id="avance-equipo" class="voice coord__count">Tu equipo lleva {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</h2>
+        <h2 id="avance-equipo" class="voice coord__count" data-count="equipo">Tu equipo lleva {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</h2>
         <p class="coord__count-note">
           {{ progress.percent|pct }} de sus camperos{% if progress.in_progress %}, {{ progress.in_progress }} en curso{% endif %}{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}.
           {% if not progress.pending %}Ya completaron todas.

@@ -48,7 +48,7 @@
 
 <section class="admin-state" aria-labelledby="estado-evento">
   {% if progress.eligible %}
-    <h2 id="estado-evento" class="voice admin-state__title">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</h2>
+    <h2 id="estado-evento" class="voice admin-state__title" data-count="llevamos">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</h2>
     <p class="admin-state__sub">{% if not progress.pending %}Ya se completaron todas.{% else %}{{ progress.in_progress }} en curso, {% if open_claims %}{{ open_claims }} abierta{{ open_claims|pluralize }} ahora en una computadora{% else %}ninguna abierta ahora en una computadora{% endif %}.{% endif %}</p>
     <div class="admin-state__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
     <ul class="key">
@@ -61,9 +61,9 @@
     <h2 id="estado-evento" class="voice admin-state__title">Todavía no hay camperos registrados.</h2>
   {% endif %}
   <dl class="figures admin-state__figures">
-    <div><dt>Camperos</dt><dd class="figures__value">{{ progress.eligible }}</dd><dd class="figures__note">{{ unassigned }} sin coordinador</dd></div>
-    <div><dt>Entrevistas a solas</dt><dd class="figures__value">{{ active_sessions }}</dd><dd class="figures__note"><a href="{% url 'events:sessions' event.slug %}">Ver computadoras en uso</a></dd></div>
-    <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver seguimientos</a></dd></div>
+    <div><dt>Camperos</dt><dd class="figures__value" data-count="camperos">{{ progress.eligible }}</dd><dd class="figures__note">{{ unassigned }} sin coordinador</dd></div>
+    <div><dt>Entrevistas a solas</dt><dd class="figures__value" data-count="a-solas">{{ active_sessions }}</dd><dd class="figures__note"><a href="{% url 'events:sessions' event.slug %}">Ver computadoras en uso</a></dd></div>
+    <div><dt>Seguimientos abiertos</dt><dd class="figures__value" data-count="seguimientos">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver seguimientos</a></dd></div>
     {% if payload.follow_ups.safety_open %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver y atender<span class="visually-hidden"> las situaciones de riesgo</span></a></dd></div>{% endif %}
   </dl>
 </section>

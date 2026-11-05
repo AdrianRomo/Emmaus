@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}{% if form.errors or contact_form.errors %}Error: {% endif %}Mi cuenta{% endblock %}
+{% block content %}
+{% comment %}
+  "Mi cuenta" (/cuenta/, core.views.account): where am I, as a page. First where the person takes part (each event
+  with their role there, and their church role), then their name (the greetings and the team lists use it) and, for a
+  participant of the discipleship module, how to reach them; the e-mail they sign in with, read only; the password;
+  and the welcomes they put away, to read again. Every signed-in person can open it: it is linked from the bar.
+{% endcomment %}
+<div class="narrow">
+  {% if form.errors %}{% include "partials/ui/error_summary.html" with form=form %}{% elif contact_form and contact_form.errors %}{% include "partials/ui/error_summary.html" with form=contact_form %}{% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Mi cuenta" lede="Dónde participas, tu nombre y tu contraseña." %}
+
+  <section class="block" aria-labelledby="donde">
+    <h2 id="donde" class="heading">Dónde participas</h2>
+    {% if role_record %}<p>En <strong>{{ role_record.church.name }}</strong>: {{ role_record.get_role_display|lower }}.</p>{% endif %}
+    {% if rows %}
+      <ul class="rows">
+        {% for row in rows %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ row.event.name }}</p>
+              <p class="row__meta">Tu rol: {{ row.access.role_label|lower }}{% if row.access.can_view_sensitive %}, con acceso confidencial{% endif %}.</p>
+            </div>
+            <a class="btn btn--secondary btn--small" href="{% url 'events:home' row.event.slug %}">Abrir<span class="visually-hidden"> {{ row.event.name }}</span></a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif not role_record %}
+      <p class="empty-line">Aún no formas parte de ningún evento ni de una iglesia. <a href="{% url 'join' %}">Únete con el código del evento</a> o pide a la administración que te agregue al equipo.</p>
+    {% else %}
+      <p class="empty-line">Aún no participas en ningún evento.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="datos">
+    <h2 id="datos" class="heading">Tus datos</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      {% if contact_form %}{% include "partials/ui/fields.html" with form=contact_form %}{% endif %}
+      <p class="aside-note">Entras con el correo <strong>{{ user.email }}</strong>. Para cambiarlo, pide a la administración.</p>
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Guardar mis datos</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="block" aria-labelledby="contrasena">
+    <h2 id="contrasena" class="heading">Contraseña</h2>
+    <p class="more"><a href="{% url 'password_change' %}">Cambiar contraseña</a></p>
+  </section>
+
+  {% if dismissed %}
+  <section class="block" aria-labelledby="bienvenidas">
+    <h2 id="bienvenidas" class="heading">Bienvenidas</h2>
+    <p>Las explicaciones que ya cerraste. Cada una vuelve a aparecer en su inicio si la pides.</p>
+    <ul class="rows">
+      {% for item in dismissed %}
+        <li class="row">
+          <div class="row__main"><p class="row__title">La bienvenida {{ item.label }}</p></div>
+          <form method="post" action="{% url 'welcome_restore' %}">
+            {% csrf_token %}
+            <input type="hidden" name="key" value="{{ item.key }}">
+            <button class="btn btn--secondary btn--small" type="submit">Volver a ver<span class="visually-hidden"> la bienvenida {{ item.label }}</span></button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

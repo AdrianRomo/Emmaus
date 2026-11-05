@@ -1,0 +1,52 @@
+{% load emmaus %}{% comment %}
+  The welcome of a role (core.onboarding.Welcome; built by core/onboarding.py for the church roles and by
+  events/services/welcome.py for the event roles). It answers, for someone new: where am I (title, role line), what can
+  I do here (the role's screens, one line each), what is missing and what do I do next ("Primeros pasos", each step
+  read from the live data: "Listo" or "Falta", with the screen where it is done). It sits above the next-action panel
+  of the role's home, outside any live region, and is drawn as a bordered white block: the tinted panel of the screen
+  stays the one that asks the next question. "Entendido" puts it away for that role (POST; emmaus.js fades it out and
+  moves the focus on); "Mi cuenta" brings it back. Included with `welcome=...`; nothing is drawn without one.
+{% endcomment %}{% if welcome %}
+<section class="welcome" id="bienvenida" aria-labelledby="bienvenida-titulo" data-welcome="{{ welcome.key }}">
+  <div class="welcome__head">
+    <h2 id="bienvenida-titulo" class="voice welcome__title">{{ welcome.title }}</h2>
+    <p class="welcome__role">{{ welcome.role_line }}</p>
+    <p class="welcome__intro">{{ welcome.intro }}</p>
+  </div>
+  <div class="welcome__body">
+    <div class="welcome__can">
+      <h3 class="welcome__heading">Lo que puedes hacer aquí</h3>
+      <ul class="welcome__list">
+        {% for item in welcome.can %}<li><a href="{{ item.url }}">{{ item.label }}</a>: {{ item.text }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% if welcome.steps %}
+    <div class="welcome__steps">
+      <h3 class="welcome__heading">Primeros pasos <span class="count">{{ welcome.done_count }} de {{ welcome.steps|length }}</span></h3>
+      <ul class="welcome__list welcome__checklist">
+        {% for step in welcome.steps %}
+        <li class="welcome__step{% if step.done %} welcome__step--done{% endif %}">
+          {% if step.done %}{% status "completada" "Listo" %}{% elif step.optional %}{% status "pendiente" "Opcional" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
+          <div class="welcome__step-text">
+            <p class="welcome__step-title">{{ step.title }}</p>
+            {% if step.note %}<p class="welcome__step-note">{{ step.note }}</p>{% endif %}
+            {% if not step.done and step.url %}<p class="welcome__step-note"><a href="{{ step.url }}">{{ step.link }}</a></p>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  <div class="welcome__foot">
+    <form method="post" action="{% url 'welcome_dismiss' %}" data-dismiss-panel="bienvenida">
+      {% csrf_token %}
+      <input type="hidden" name="key" value="{{ welcome.key }}">
+      <input type="hidden" name="siguiente" value="{{ request.path }}">
+      <button class="btn btn--secondary btn--small" type="submit">Entendido</button>
+    </form>
+    <p class="welcome__ask">{{ welcome.ask }} <a href="{{ welcome.help_url }}">Ver la ayuda</a>. Esto se puede volver a leer desde <a href="{% url 'account' %}">Mi cuenta</a>.</p>
+  </div>
+</section>
+{% endif %}

@@ -506,3 +506,26 @@ class AIDraft(models.Model):
 
     def __str__(self) -> str:
         return f"Borrador para la pregunta {self.related_question_id}"
+
+
+class OnboardingState(models.Model):
+    """Whether a person has put away the welcome of one of their roles ("Entendido").
+
+    One row per person and key (``core.onboarding.KEYS``: ``rol:coordinador``, ``iglesia:mentor``, ``sin-rol``...).
+    The welcome itself is built from the live data each time (``events/services/welcome.py``, ``core/onboarding.py``):
+    nothing about progress is stored here, only that the person asked not to see the framing again. A missing row
+    means the welcome is shown; ``dismissed_at`` set means it is not; deleting the row shows it again ("Mi cuenta").
+    """
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="onboarding_states")
+    key = models.CharField(max_length=40)
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "bienvenida vista"
+        verbose_name_plural = "bienvenidas vistas"
+        constraints = [models.UniqueConstraint(fields=["user", "key"], name="onboarding_one_state_per_key")]
+
+    def __str__(self) -> str:
+        return f"{self.user_id}: {self.key}"

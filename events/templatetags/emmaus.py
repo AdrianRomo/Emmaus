@@ -382,3 +382,17 @@ def cuarto(value):
     if not text:
         return "Sin cuarto"
     return f"Cuarto {text}" if text[0].isdigit() else text
+
+
+@register.filter
+def nombre(user):
+    """How a greeting names the person: the first name, else the full name, else nothing ("Hola." then, and "Mi cuenta"
+    asks for the name). An account created from a team list or an access request always has one; the Django admin
+    can leave it blank."""
+    if user is None:
+        return ""
+    first = (getattr(user, "first_name", "") or "").strip()
+    if first:
+        return first
+    full = user.get_full_name() if hasattr(user, "get_full_name") else ""
+    return (full or "").strip()

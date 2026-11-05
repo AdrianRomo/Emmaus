@@ -7,7 +7,7 @@ import io
 from dataclasses import dataclass, field
 
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, OuterRef, Q, Subquery
 from django.utils.text import slugify
 
 from ..models import (
@@ -198,6 +198,22 @@ def latest_consent(participant: EventParticipant, kind: str) -> ConsentRecord | 
 def guardian_authorized(participant: EventParticipant) -> bool:
     record = latest_consent(participant, ConsentRecord.Kind.GUARDIAN)
     return bool(record and record.status == ConsentRecord.Status.GRANTED)
+
+
+def minors_without_authorization(participants, event):
+    """Of ``participants`` (already scoped by the caller), the active minors whose latest guardian record is not
+    "otorgado": they cannot be interviewed yet. The same reading as ``guardian_authorized``, in one query."""
+    latest = (
+        ConsentRecord.objects.filter(participant=OuterRef("pk"), kind=ConsentRecord.Kind.GUARDIAN)
+        .order_by("-recorded_at", "-id")
+        .values("status")[:1]
+    )
+    # A minor with no record at all reads NULL: NOT (NULL = 'otorgado') is NULL, so the null case is named apart
+    return (
+        participants.filter(is_active=True, age__lt=event.adult_age)
+        .annotate(guardian_status=Subquery(latest))
+        .filter(Q(guardian_status__isnull=True) | ~Q(guardian_status=ConsentRecord.Status.GRANTED))
+    )
 
 
 # ---- CSV import ------------------------------------------------------------------------

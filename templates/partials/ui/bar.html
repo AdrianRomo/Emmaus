@@ -14,6 +14,7 @@
                      is the last link, "Ayuda", marked on the view named help_view ("ayuda" or "events:ayuda":
                      both routes are named "ayuda", so the bare url name would mark the church's on an event 403)
     role_label, sensitive   the panel's "who": name, role, place, confidential access
+  "Mi cuenta" (core.views.account) sits in .bar__end before the logout and, on phones, under the panel's "who" line.
   DOM order: brand, context, "Estás en", the links, then Menú and the logout. Whitespace is a contract: tests read
   '<div class="bar__inner">' + newline + four spaces + the brand, byte for byte.
 {% endcomment %}
@@ -28,6 +29,7 @@
     <div class="bar__end">
       {% if switch_url and not switch_inline %}<a class="btn btn--small btn--secondary bar__switch" href="{{ switch_url }}?todos=1">Campamentos</a>{% endif %}
       <button class="btn btn--small btn--secondary menu-toggle" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">Menú</button>
+      <a class="btn btn--small btn--link bar__account" href="{% url 'account' %}"{% if request.resolver_match and request.resolver_match.url_name == "account" %} aria-current="page"{% endif %}>Mi cuenta</a>
       <div class="bar__logout">{% include "partials/ui/logout.html" with css="btn--small btn--link" %}</div>
     </div>
   </div>

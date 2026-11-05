@@ -179,9 +179,10 @@ class RedesignedScreenTests(CampFixture):
                 self.assertEqual(response.status_code, 200, url)
                 self.assertContains(response, "css/rotulo.css", msg_prefix=url)
                 self.assertNotContains(response, "emmaus.css", msg_prefix=url)
+        signed_in = {reverse("events:list"), reverse("account"), reverse("password_change")}
         for url in (reverse("login"), reverse("landing"), reverse("password_reset"), reverse("events:list"),
-                    reverse("join"), reverse("event_entry", args=[self.event.join_code])):
-            response = (self.client if url != reverse("events:list") else self.login(self.admin, Client())).get(url)
+                    reverse("join"), reverse("event_entry", args=[self.event.join_code]), reverse("account"), reverse("password_change")):
+            response = (self.client if url not in signed_in else self.login(self.admin, Client())).get(url)
             self.assertContains(response, "css/rotulo.css", msg_prefix=url)
 
     @override_settings(ROOT_URLCONF="core.test_camp_flow")  # the project's routes plus two that fail on purpose

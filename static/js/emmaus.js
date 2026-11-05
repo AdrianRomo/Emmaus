@@ -153,11 +153,18 @@
         // A refresh must not close a table or fold the reader opened (or reopen one they closed).
         var openState = {};
         $all("details[id]", region).forEach(function (d) { openState[d.id] = d.open; });
+        // A figure that changed is marked (rotulo.css fades it in again); the ones that did not stay still
+        var counts = {};
+        $all("[data-count]", region).forEach(function (el) { counts[el.getAttribute("data-count")] = el.textContent; });
         // Arrival motion (the panel, the page head, marks filling in) is for the first load only: from the
         // first replacement on, rotulo.css replays nothing inside this region.
         region.setAttribute("data-live-settled", "");
         region.innerHTML = html;
         $all("details[id]", region).forEach(function (d) { if (d.id in openState) d.open = openState[d.id]; });
+        $all("[data-count]", region).forEach(function (el) {
+          var key = el.getAttribute("data-count");
+          if (key in counts && counts[key] !== el.textContent) el.classList.add("is-changed");
+        });
         applyFolds(region, openState);
         lastOk = new Date();
         setStatus("ok", "Última actualización: " + timeLabel(lastOk));
@@ -287,6 +294,53 @@
     });
   });
   $all("[data-print]").forEach(function (b) { b.addEventListener("click", function () { window.print(); }); });
+
+  /* ---- A panel put away ("Entendido" on the welcome) --------------------- */
+  // form[data-dismiss-panel="<id>"]: the POST goes by fetch (the server answers 204 to it); on success the panel leaves
+  // (rotulo.css, .is-leaving), the focus moves to the page's main region and one status line says it can be read again
+  // from "Mi cuenta". Anything else (offline, a refused request, no fetch) sends the form as usual and the page reloads
+  // without it. With reduced motion the panel just goes.
+  var reducedMotion = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  function motionOff() { return !!(reducedMotion && reducedMotion.matches); }
+  $all("form[data-dismiss-panel]").forEach(function (form) {
+    var panel = doc.getElementById(form.getAttribute("data-dismiss-panel"));
+    if (!panel || !window.fetch || !window.FormData) return;
+    var button = form.querySelector("button[type=submit]");
+    function gone() {
+      panel.remove();
+      var main = doc.getElementById("contenido");
+      if (main) main.focus({ preventScroll: true });
+      if (!copyStatus) {
+        copyStatus = doc.createElement("p");
+        copyStatus.className = "visually-hidden";
+        copyStatus.setAttribute("role", "status");
+        copyStatus.setAttribute("data-copy-status", "");
+        doc.body.appendChild(copyStatus);
+      }
+      announceCopy("Listo. Puedes volver a leer la bienvenida desde Mi cuenta.");
+    }
+    function leave() {
+      if (motionOff()) { gone(); return; }
+      panel.classList.add("is-leaving");
+      var fallback = window.setTimeout(gone, 400);  // past --dur-2 even if no animationend arrives
+      panel.addEventListener("animationend", function () { window.clearTimeout(fallback); gone(); }, { once: true });
+    }
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (button) button.disabled = true;
+      fetch(form.action, {
+        method: "POST", credentials: "same-origin", body: new FormData(form), redirect: "manual",
+        headers: { "X-Requested-With": "fetch", "X-CSRFToken": csrfToken() }
+      }).then(function (response) {
+        if (response.status !== 204 && !response.ok) throw new Error(String(response.status));
+        leave();
+      }).catch(function () {
+        if (button) button.disabled = false;
+        form.classList.remove("is-submitting");
+        form.submit();
+      });
+    });
+  });
 
   /* ---- Staff: "¿Sigues aquí?" before the idle logout (audit A11Y-04) -------- */
   // events.middleware logs a staff session out after data-idle-seconds without a request, and typing is not a request.

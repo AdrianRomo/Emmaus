@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from django import forms
-from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -106,6 +106,47 @@ class TuSetPasswordForm(TuErrorMessagesMixin, SetPasswordForm):
             self.add_error("new_password1", [
                 ValidationError(self.TOO_SIMILAR, code=e.code) if e.code == "password_too_similar" else e for e in error.error_list
             ])
+
+
+class TuPasswordChangeForm(TuSetPasswordForm, PasswordChangeForm):
+    """"Cambiar contraseña" from "Mi cuenta": the current password first, then the two fields of TuSetPasswordForm."""
+
+    error_messages = {**TuSetPasswordForm.error_messages, "password_incorrect": "La contraseña actual no es la correcta. Escríbela otra vez."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["old_password"].label = "Contraseña actual"
+        self.fields["old_password"].error_messages["required"] = "Escribe tu contraseña actual."
+
+
+class AccountForm(TuErrorMessagesMixin, forms.ModelForm):
+    """"Mi cuenta": the name the greetings and the team lists use. The e-mail is how the person signs in and stays as it is."""
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name"]
+        labels = {"first_name": "Nombre", "last_name": "Apellidos"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["first_name"].required = True
+        self.fields["first_name"].error_messages["required"] = "Escribe tu nombre."
+        self.fields["first_name"].widget.attrs["autocomplete"] = "given-name"
+        self.fields["last_name"].widget.attrs["autocomplete"] = "family-name"
+
+
+class ParticipantContactForm(TuErrorMessagesMixin, forms.ModelForm):
+    """"Mi cuenta" of a participant of the discipleship module: how their mentor may reach them."""
+
+    class Meta:
+        model = ParticipantProfile
+        fields = ["preferred_contact_method", "phone_number"]
+        labels = {"preferred_contact_method": "¿Cómo prefieres que te contacten?", "phone_number": "Teléfono"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["phone_number"].required = False
+        self.fields["phone_number"].widget.attrs.update({"autocomplete": "tel", "inputmode": "tel"})
 
 
 class EmailAuthenticationForm(TuErrorMessagesMixin, AuthenticationForm):

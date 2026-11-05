@@ -373,7 +373,7 @@ class CoordinatorScreensTests(ProgressFixture):
         """Defect: Mi inicio saying only "con todo", with no way to see how far each questionnaire went."""
         self.halfway_and_live()
         html = self.page("coord_home")
-        self.assertIn('<h2 id="mi-avance" class="voice coord__count">Llevas 0 de 3 con los 2 cuestionarios.</h2>', html)
+        self.assertIn('<h2 id="mi-avance" class="voice coord__count" data-count="llevas">Llevas 0 de 3 con los 2 cuestionarios.</h2>', html)
         self.assertIn('<p class="coord__count-note">1 en curso, 1 a medias y 1 sin iniciar. <a href="', html)
         self.assertRegex(html, r'</ul>\s*<section class="quests" aria-labelledby="por-cuestionario">')
         self.assertIn('<p class="quests__text">«Primer cuestionario»: 2 de 3.</p>', html)
