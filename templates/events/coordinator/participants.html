@@ -17,6 +17,9 @@
 <p class="hint" id="q-ayuda">Número, cuarto o las primeras letras del nombre y apellido.</p>
 
 <section class="results" aria-labelledby="lista">
+  {% if authorization_pending %}
+    <div class="notice notice--warning"><p>Solo los camperos menores de edad sin autorización registrada. Cuando tengas la autorización firmada de alguien, ábrelo y toca “Marcar como recibida”. <a href="{% url 'events:my_participants' event.slug %}">Ver a todos</a></p></div>
+  {% endif %}
   <h2 id="lista" class="heading">{{ participants|length }} de {{ total }} camperos</h2>
   {% if participants %}
     <ul class="rows">
@@ -43,6 +46,8 @@
     {% endif %}
   {% elif empty_reason == "busqueda" %}
     <p class="empty-line">No encontramos camperos con esa búsqueda. Prueba con su número o con menos letras.</p>
+  {% elif empty_reason == "autorizacion" %}
+    <p class="empty-line">{% if access.is_admin %}Todos los camperos menores de edad tienen su autorización registrada.{% else %}Todos tus camperos menores de edad tienen su autorización registrada.{% endif %}</p>
   {% elif status == "pendiente" %}
     <p class="empty-line">No queda ningún campero sin entrevista.</p>
   {% elif status == "en_curso" %}

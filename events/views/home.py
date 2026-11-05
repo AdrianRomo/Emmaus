@@ -7,6 +7,9 @@ from django.db import transaction
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
+from core.access import get_user_role
+from core.onboarding import for_church_role
+
 from ..access import accessible_events, administered_churches, resolve_access
 from ..forms import EventForm, StationChoiceForm
 from ..models import Event, InterviewStation
@@ -36,7 +39,9 @@ def events_home(request):
         access = resolve_access(request.user, event)
         if access:
             rows.append({"event": event, "access": access})
-    return render(request, "events/events_list.html", {"rows": rows, "can_create": can_create})
+    # The welcome of the church role (or of someone with no role yet), the first time; put away with "Entendido"
+    welcome = for_church_role(request.user, get_user_role(request.user), can_create_event=can_create)
+    return render(request, "events/events_list.html", {"rows": rows, "can_create": can_create, "welcome": welcome})
 
 
 @login_required

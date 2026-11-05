@@ -18,5 +18,6 @@
     {% if switch_url %}<a href="{{ switch_url }}?todos=1">Campamentos</a>{% endif %}
   </nav>
   <p class="menu-panel__who">{{ user.get_full_name|default:user.email }}{% if role_label %}, {{ role_label|lower }}{% endif %}{% if station %}, en {{ station.name }}{% endif %}{% if sensitive %}, con acceso confidencial{% endif %}</p>
+  <p class="menu-panel__account"><a href="{% url 'account' %}">Mi cuenta</a></p>
   {% include "partials/ui/logout.html" with css="btn--secondary" %}
 </div>

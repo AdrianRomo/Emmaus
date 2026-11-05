@@ -4,11 +4,16 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 from core.forms import EmailAuthenticationForm, TuSetPasswordForm
-from core.views import ThrottledLoginView, ThrottledPasswordResetView
+from core.views import AccountPasswordChangeView, ThrottledLoginView, ThrottledPasswordResetView, account, welcome_dismiss, welcome_restore
 from events.views import join as join_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # "Mi cuenta": the name, the e-mail, where the person takes part, the password, and the welcomes they put away
+    path("cuenta/", account, name="account"),
+    path("cuenta/contrasena/cambiar/", AccountPasswordChangeView.as_view(), name="password_change"),
+    path("cuenta/bienvenida/ocultar/", welcome_dismiss, name="welcome_dismiss"),
+    path("cuenta/bienvenida/mostrar/", welcome_restore, name="welcome_restore"),
     path("cuenta/entrar/", ThrottledLoginView.as_view(authentication_form=EmailAuthenticationForm), name="login"),
     path("cuenta/olvide-mi-contrasena/", ThrottledPasswordResetView.as_view(), name="password_reset"),
     path(
