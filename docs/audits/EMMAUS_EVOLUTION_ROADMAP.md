@@ -194,3 +194,53 @@ wording before merge (policies.md, Escalate); and it settles the identity vocabu
 | media | logos only; "Contenido" adds media; no object storage, no `MEDIA_URL` | GB and bandwidth once content exists |
 | backups | hourly 48-dump rotation + daily media tar on the host | dump size × retention × stacks; off-site cost |
 | public hostnames | one-level names, manual tunnel entries | per-tenant hostnames in Phase 4: tunnel vs wildcard |
+
+## 10. After the first camp: retrospective findings and the event-experience track
+
+Added 2026-11-15, the last day of the first real camp, from a read-only review of production (container and scheduler logs, aggregate database queries; nothing changed) and the owner's ideas for future events. Figures are rounded aggregates; no participant data.
+
+### 10.1 What went well
+
+- No application error in four days: no 500, no failed cutoff, the scheduler ticked every 5 minutes and released abandoned locks; web stayed healthy with spare CPU and memory on docker-sandbox.
+- Real adoption under load: ≈ 190 conversations started by ≈ 35 coordinadores, peaking at ≈ 25 completed per hour; corrections were rare (one interview corrected), nothing was discarded.
+- Automatic cutoffs ran on every hourly slot for every scope (the release/suppression path held); a few manual cutoffs and PDF downloads per tutor group.
+- The 275-campero CSV import, verbal consent records, confidential-access auditing and the hourly backup timer all worked as designed.
+
+### 10.2 What to improve before the next camp (issues)
+
+| Issue | Finding | Proposed risk |
+|---|---|---|
+| #45 | P0-1 still open: the camp DB and media have a single copy on docker-sandbox | low (infra), urgent |
+| #46 | ≈ 9 of 10 follow-ups had no owner and ≈ 87 % were pending on the last day | high |
+| #47 | ≈ 8 % of conversations stayed `en curso` for hours; nobody was prompted | high |
+| #48 | "Publicar" a version does not put it in use; the first day ran on an older version | high |
+| #49 | questionnaires edited live on day 2; ≈ 30 % of coordinadores recorded nothing; median capture ≈ 1.5 min → practice mode + readiness checklist | high |
+| #50 | ≈ 55 team members typed by hand; campero import cannot match coordinador nicknames | high |
+| #51 | duplicate an event as a template for the next camp | medium |
+| #52 | no access log, no error alerts, report views not measured; scheduler log overstates cutoffs | low–medium |
+| #53 | no favicon/touch icon/manifest (≈ 240 404s from phones adding the site to the home screen) | low |
+
+### 10.3 Owner ideas for future events: evaluation
+
+Weighed against the vision's guardrails (privacy and safeguarding first, no spiritual scoring, incremental delivery, configuration before custom code, no owned media/chat infrastructure in the MVP), the first camp's evidence (about half of the camperos are minors; camperos have no accounts; staff use phones) and reuse of planned building blocks.
+
+| Issue | Idea | Verdict | Why | Effort | Depends on | Risk |
+|---|---|---|---|---|---|---|
+| #54 | Comentarios después del campamento | **accept — first** | improves every next event; reuses the questionnaire engine; anonymous for camperos | M | — | medium |
+| #55 | Preguntas frecuentes | **accept — quick win** | no personal data; useful before arrival; seeds P3-1 Explorar | S | — | low–medium |
+| #56 | Programa de actividades | **accept** | high value on site; places and slots are reused by #58 and recurring events | M | flag (P1-7) | medium |
+| #57 | Notificaciones importantes (avisos) | **accept — extends P1-8/P2-5** | in-app announcements by audience; e-mail for urgent; push only after #53 | M | #34 | medium |
+| #58 | Croquis y talleres | **accept — second wave** | staff-only; image + named places, not GIS; whereabouts of minors need scoped access | M–L | #56 | medium–high |
+| #59 | Acceso para padres | **accept in two phases** | A: public info, no child data; B: verified `Guardianship`, logistics only, never answers | A S / B L | A: #55–#57; B: P1-2, Q-P10 | A low / B high |
+| #60 | Mejores momentos + galería de camperos (merged) | **conditional — staged** | photos of minors need image consent, moderation, EXIF stripping, storage and purge; start with a linked staff album and staff-written highlights | 1 none / 2 M / 3 L | 3: J2 accounts, Q-P11 | up to high |
+| #61 | Diferentes tipos de eventos | **endorsed — already the direction** | small groups = Phase 2 `groups`; worship meetings = recurring events; needs the leadership decision Q-P8 | — | Q-P8 | decision |
+
+### 10.4 Where the track sits in the phases
+
+The camp → small group journey (J2) stays the first product milestone. The event-experience track runs beside Phase 2 because it is small, valuable for the next camp, and builds pieces Phases 2–3 need anyway (avisos = notifications, agenda = calendar, FAQ = Explorar content):
+
+1. **Before the next camp:** #45, #46, #48, #49, #50, #53 (camp-module changes, landing after the cut-over decided in Q-E3), and #54, #55, #56, #57 behind a per-church flag (rule 4).
+2. **Second wave:** #58, #59 phase A, #60 step 2, #51, #52, #47.
+3. **Phase 3:** #59 phase B and #60 step 3, after the `people` app, campero accounts (J2) and decisions Q-P10/Q-P11.
+
+New data for this track lives in new apps (rule 2 still governs `core`/`events` migrations until the cut-over). For the camp that just ended, run the post-camp survey with an external form this week; the in-app version (#54) is for the next event.
