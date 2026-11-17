@@ -172,11 +172,18 @@ class GroupJoinRequest(models.Model):
 class GroupMeeting(models.Model):
     """One day a group met, as who guides it recorded it: the day, how many were in the group that
     day, and who came (``GroupAttendance``). Never what was said there. Written only by
-    ``groups.services.record_meeting``; read only by the group's guides and the administration."""
+    ``groups.services.record_meeting``; who came is read only by the group's guides, the
+    administration and each person about themselves; the totals also by "Panorama" (``overview``).
+
+    Retention (``prune_attendance``): after ``EMMAUS_ATTENDANCE_IDENTIFIABLE_MONTHS`` the rows that
+    say who came are deleted and ``present_kept`` keeps how many they were; after
+    ``EMMAUS_ATTENDANCE_AGGREGATE_MONTHS`` the meeting itself is deleted."""
 
     group = models.ForeignKey(Group, verbose_name="Grupo", on_delete=models.CASCADE, related_name="meetings")
     date = models.DateField("Día de la reunión")
     expected = models.PositiveSmallIntegerField("Personas en el grupo ese día", default=0)
+    # None while the meeting still has its rows of who came; a number once they were deleted.
+    present_kept = models.PositiveSmallIntegerField("Personas que vinieron (total que se conserva)", null=True, blank=True)
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -189,6 +196,11 @@ class GroupMeeting(models.Model):
 
     def __str__(self) -> str:
         return f"{self.group} · {self.date:%Y-%m-%d}"
+
+    @property
+    def names_deleted(self) -> bool:
+        """Who came is no longer stored: only the totals are (``prune_attendance``)."""
+        return self.present_kept is not None
 
 
 class GroupAttendance(models.Model):

@@ -274,6 +274,8 @@ def group_detail(request, group_id: int):
             "next_meeting": group.next_meeting() if membership else None,
             "can_manage": _can_manage(request, group),
             "members": GroupMembership.objects.filter(group=group, status=ACTIVE).count(),
+            # Only the reader's own rows, and only to them: nobody else's attendance is on this page.
+            "attendance": services.own_attendance(membership) if membership and group.is_active else [],
         },
     )
 
@@ -446,7 +448,7 @@ def group_meetings(request, group_id: int):
             messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
             return redirect("community:group_meetings", group.pk)
         return redirect("community:meeting_record", group.pk, day.isoformat())
-    meetings = list(group.meetings.annotate(present=Count("attendances"))[:12])
+    meetings = list(services.with_present(group.meetings.all())[:12])
     return render(
         request,
         "groups/group_meetings.html",
@@ -466,6 +468,12 @@ def meeting_record(request, group_id: int, day: str):
     if day > timezone.localdate():
         raise Http404
     meeting = GroupMeeting.objects.filter(group=group, date=day).first()
+    if meeting and meeting.names_deleted:
+        # Who came was deleted for its age (prune_attendance): the totals are read, the list is not written again.
+        if request.method == "POST":
+            messages.error(request, services.NAMES_DELETED)
+            return redirect("community:group_meetings", group.pk)
+        return render(request, "groups/meeting_record.html", {"group": group, "day": day, "day_words": _weekday_date(day), "meeting": meeting, "members": []})
     members = list(GroupMembership.objects.filter(group=group, status=ACTIVE).select_related("person"))
     if request.method == "POST":
         try:

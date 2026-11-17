@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Count, F
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from access.models import RoleAssignment, ScopeType
@@ -233,6 +235,33 @@ def decide_request(request: GroupJoinRequest, actor, *, accept: bool) -> GroupJo
 
 
 # ---- meetings -----------------------------------------------------------------------------------
+NAMES_DELETED = "De esta reunión ya solo se conservan los totales: la lista de quién vino se borró por antigüedad."
+# How many meetings a person sees of their own attendance in a group.
+OWN_ATTENDANCE_LIMIT = 8
+
+
+def with_present(meetings):
+    """``meetings`` with ``present``: how many came, from the rows of who came or, once those were
+    deleted (``prune_attendance``), from the total that was kept."""
+    return meetings.annotate(present=Coalesce(F("present_kept"), Count("attendances")))
+
+
+def own_attendance(membership: GroupMembership, limit: int = OWN_ATTENDANCE_LIMIT) -> list[GroupMeeting]:
+    """The last meetings of the group with a list since ``membership`` started, each with ``came``
+    for that one person. Meetings whose names were deleted say nothing about anybody: they are left out."""
+    since = timezone.localtime(membership.start_at).date()
+    meetings = list(
+        GroupMeeting.objects.filter(group_id=membership.group_id, date__gte=since, present_kept__isnull=True)
+        .order_by("-date", "-id")[:limit]
+    )
+    came = set(
+        GroupAttendance.objects.filter(meeting__in=meetings, person_id=membership.person_id).values_list("meeting_id", flat=True)
+    )
+    for meeting in meetings:
+        meeting.came = meeting.pk in came
+    return meetings
+
+
 def record_meeting(group: Group, day, present_ids, actor) -> GroupMeeting:
     """Who came to the group on ``day``. Saving the same day again replaces the list. Only people
     who are in the group now can be marked; the audit row carries the count, never the names."""
@@ -250,6 +279,8 @@ def record_meeting(group: Group, day, present_ids, actor) -> GroupMeeting:
         meeting, created = GroupMeeting.objects.get_or_create(
             group=group, date=day, defaults={"expected": len(members), "recorded_by": actor}
         )
+        if meeting.names_deleted:
+            raise GroupError(NAMES_DELETED)
         if not created:
             meeting.recorded_by = actor
             meeting.save(update_fields=["recorded_by", "updated_at"])

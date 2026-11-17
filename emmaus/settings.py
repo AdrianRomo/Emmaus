@@ -169,6 +169,11 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 12 * 60 * 60
 SESSION_COOKIE_SAMESITE = "Lax"
 EMMAUS_IDLE_LOGOUT_SECONDS = int(os.environ.get("EMMAUS_IDLE_LOGOUT_SECONDS", "1800"))
+# How long group attendance is kept (groups/management/commands/prune_attendance.py). Product defaults, to be
+# checked against each church's privacy notice; they are not legal deadlines. Who came to a meeting is kept for the
+# first period; after it only the meeting's totals remain, and after the second the meeting is deleted too.
+EMMAUS_ATTENDANCE_IDENTIFIABLE_MONTHS = 12
+EMMAUS_ATTENDANCE_AGGREGATE_MONTHS = 24
 X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))
