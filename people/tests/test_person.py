@@ -142,7 +142,10 @@ class MigrationScopeTests(TestCase):
         # 11: core/0011_onboardingstate arrived from main (the camp owns core/ and events/ numbers).
         self.assertEqual(len(core_files), 11, core_files)
         self.assertEqual(len(events_files), 12, events_files)
-        self.assertEqual([p.name for p in (REPO / "people" / "migrations").glob("0*.py")], ["0001_initial.py"])
+        self.assertEqual(
+            sorted(p.name for p in (REPO / "people" / "migrations").glob("0*.py")),
+            ["0001_initial.py", "0002_campusaffiliation.py", "0003_modules_audit_participant_links.py"],
+        )
         with self.assertRaises(SystemExit) as caught:  # pragma: no cover - only when something is missing
             call_command("makemigrations", "--check", "--dry-run", verbosity=0)
             raise SystemExit(0)
@@ -154,7 +157,11 @@ class PeopleMigrationsReverseTests(TransactionTestCase):
         church = Church.objects.create(name="Iglesia", slug="iglesia")
         Person.objects.create(church=church, first_name="Ana")
         call_command("migrate", "people", "zero", verbosity=0)
-        self.assertNotIn("people_person", connection.introspection.table_names())
-        call_command("migrate", "people", verbosity=0)
+        tables = connection.introspection.table_names()
+        self.assertNotIn("people_person", tables)
+        self.assertNotIn("groups_group", tables)  # groups hangs from people: it goes with it
+        self.assertIn("events_eventparticipant", tables)  # the camp's tables are not touched
+        call_command("migrate", verbosity=0)  # everything back, groups included, for the tests that follow
         self.assertIn("people_person", connection.introspection.table_names())
+        self.assertIn("groups_group", connection.introspection.table_names())
         self.assertEqual(Person.objects.count(), 0)

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}Personas de {{ group.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  Who is in a group and who asked to join (groups.views.group_people): for who guides it, and for the church's
+  administration, which also names the guide and adds people. A guide sees only these people, never the church's
+  directory. Contact data is shown because each person either asked to join or is in the group.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:group_detail' group.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="Personas de "|add:group.name lede="Quién pidió unirse y quién ya es parte del grupo." back_url=back back_label="Volver al grupo" %}
+
+  <section class="block" aria-labelledby="solicitudes">
+    <h2 id="solicitudes" class="heading">Solicitudes por decidir</h2>
+    {% if requests %}
+      <ul class="rows">
+        {% for item in requests %}
+          <li class="row row--stack row--attention">
+            <div class="row__main">
+              <p class="row__title">{{ item.person.full_name }}</p>
+              <p class="row__meta">Pidió unirse el {{ item.created_at|day_month }}.{% if item.person.phone %} Teléfono: {{ item.person.phone }}.{% endif %}{% if item.person.email %} Correo: {{ item.person.email }}.{% endif %}</p>
+            </div>
+            <form class="row__end" method="post" action="{% url 'community:request_decide' group.pk item.pk %}">
+              {% csrf_token %}
+              <button class="btn btn--secondary btn--small" type="submit" name="decision" value="declinar">No aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
+              <button class="btn btn--primary btn--small" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="aside-note">Si no aceptas una solicitud, la persona lo verá en su inicio, sin el motivo. Vale la pena hablar con ella.</p>
+    {% else %}
+      <p class="empty-line">No hay solicitudes por decidir.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="integrantes">
+    <h2 id="integrantes" class="heading">En el grupo</h2>
+    {% if members %}
+      <ul class="rows">
+        {% for membership in members %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ membership.person.full_name }}</p>
+              <p class="row__meta">{% if membership.is_leader %}Guía del grupo.{% else %}Integrante desde el {{ membership.start_at|long_date }}.{% endif %}{% if membership.person.phone %} Teléfono: {{ membership.person.phone }}.{% endif %}{% if membership.person.email %} Correo: {{ membership.person.email }}.{% endif %}{% if membership.is_leader and not membership.person.user_id %} Todavía no tiene acceso a Emmaus.{% endif %}</p>
+            </div>
+            {% if membership.person_id != me.pk %}{% if not membership.is_leader or request.is_church_admin %}
+              <a class="btn btn--secondary btn--small" href="{% url 'community:member_remove' group.pk membership.pk %}">Quitar<span class="visually-hidden"> a {{ membership.person.full_name }}</span></a>
+            {% endif %}{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Todavía no hay nadie en el grupo.</p>
+    {% endif %}
+  </section>
+
+  {% if request.is_church_admin and group.is_active %}
+  <section class="block" aria-labelledby="agregar">
+    <h2 id="agregar" class="heading">Agregar a alguien de la iglesia</h2>
+    <form class="search" method="get" role="search" action="{% url 'community:group_people' group.pk %}#agregar">
+      <label class="visually-hidden" for="buscar">Nombre de la persona</label>
+      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+      <button class="btn btn--secondary" type="submit">Buscar</button>
+    </form>
+    <p class="aside-note" id="buscar-ayuda">Escribe su nombre o apellido. Para guiar el grupo necesita tener acceso a Emmaus.</p>
+    {% if query %}
+      {% if found %}
+        <ul class="rows">
+          {% for person in found %}
+            <li class="row row--stack">
+              <div class="row__main">
+                <p class="row__title">{{ person.full_name }}</p>
+                <p class="row__meta">{% if person.user_id %}Con acceso a Emmaus.{% else %}Sin acceso a Emmaus.{% endif %}</p>
+              </div>
+              <form class="row__end" method="post" action="{% url 'community:member_add' group.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="persona" value="{{ person.pk }}">
+                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="integrante">Agregar al grupo<span class="visually-hidden"> a {{ person.full_name }}</span></button>
+                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="lider">Guía del grupo<span class="visually-hidden">: {{ person.full_name }}</span></button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Nadie de la iglesia se llama así, o ya está en el grupo.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

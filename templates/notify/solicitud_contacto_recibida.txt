@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Una persona pidió que alguien de {{ church_name }} se comunique con ella. Entra a Emmaus para ver la solicitud y darle seguimiento:
+
+{{ link }}
+
+Por privacidad, este correo no incluye el nombre de la persona, cómo contactarla ni lo que escribió.
+{% endautoescape %}

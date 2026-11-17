@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Personas{% endblock %}
+{% block content %}
+{% comment %}
+  The church's people, for its administration (people.views.person_list). A person is here whether or not they
+  have an account, and whether or not they went to an event.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}{% url 'people:create' as create %}{% url 'people:from_event_list' as from_event %}
+  {% include "events/rotulo/_page_head.html" with title="Personas" lede="Quienes forman parte de la iglesia, tengan o no acceso a Emmaus." back_url=back back_label="Volver a Mi iglesia" action_url=create action_label="Registrar a una persona" secondary_url=from_event secondary_label="Traer de un evento" %}
+  {% if total %}
+  <form class="search" method="get" role="search">
+    <label class="visually-hidden" for="buscar">Buscar por nombre</label>
+    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Nombre o apellido">
+    <button class="btn btn--secondary" type="submit">Buscar</button>
+  </form>
+  {% endif %}
+  <section class="block" aria-labelledby="lista">
+    <h2 id="lista" class="heading">{% if query %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% else %}{{ total }} persona{{ total|pluralize }}{% endif %}</h2>
+    {% if page.object_list %}
+      <ul class="rows">
+        {% for person in page %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'people:detail' person.pk %}">{{ person.full_name }}</a></p>
+              <p class="row__meta">{% if person.user_id %}Con acceso a Emmaus.{% else %}Sin acceso a Emmaus.{% endif %}</p>
+            </div>
+            <a class="btn btn--secondary btn--small" href="{% url 'people:detail' person.pk %}">Abrir<span class="visually-hidden"> a {{ person.full_name }}</span></a>
+          </li>
+        {% endfor %}
+      </ul>
+      {% include "events/rotulo/_pagination.html" with page=page %}
+    {% elif query %}
+      <p class="empty-line">Nadie se llama así. <a href="{% url 'people:list' %}">Ver a todas las personas</a>.</p>
+    {% else %}
+      <p class="empty-line">Todavía no hay personas registradas. Registra a la primera o trae a quienes fueron a un evento.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

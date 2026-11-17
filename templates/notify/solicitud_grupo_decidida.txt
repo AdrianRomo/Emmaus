@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Ya hay respuesta a tu solicitud para unirte a un grupo en {{ church_name }}. Entra a Emmaus para verla:
+
+{{ link }}
+
+Por privacidad, la respuesta solo se ve en Emmaus.
+{% endautoescape %}

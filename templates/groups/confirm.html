@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block content %}
+{% comment %}One question before something ends (leaving a group, taking somebody out, archiving): yes, or back.{% endcomment %}
+<div class="narrow">
+  {% include "events/rotulo/_page_head.html" with title=title lede=text back_url=back_url %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">{{ action }}</button>
+      <a class="btn btn--link" href="{{ back_url }}">No, volver</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

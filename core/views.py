@@ -238,6 +238,13 @@ def dashboard(request):
     if not role_record:
         if not Church.objects.exists():
             return redirect("initial_setup")
+        # A person of a church that uses the community module, with no role anywhere: their home is "Mi iglesia".
+        from people.flags import enabled
+
+        from .authz import current_church
+
+        if enabled(current_church(request), "community"):
+            return redirect("community:home")
         # No role yet: the event list says so and who can add them (it only lists events they can open).
         return redirect("events:list")
     if role_record.role == Role.PARTICIPANT:
@@ -1034,6 +1041,16 @@ def _safe_next(request, candidate, fallback):
     return fallback
 
 
+def _community_church(request):
+    """The church whose "Mi iglesia" this account can open (the community module on), or None."""
+    from people.flags import enabled
+
+    from .authz import current_church
+
+    church = current_church(request)
+    return church if enabled(church, "community") else None
+
+
 @login_required
 def account(request):
     """Where am I, as a page: your name (the greetings use it), the e-mail you sign in with, every event and church
@@ -1063,6 +1080,7 @@ def account(request):
             "form": form,
             "contact_form": contact_form,
             "role_record": get_user_role(request.user),
+            "community_church": _community_church(request),
             "rows": rows,
             "dismissed": dismissed,
         },

@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     "core",
     "events",
     "people",
+    "access",
+    "groups",
 ]
 
 MIDDLEWARE = [
@@ -185,6 +187,9 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Emmaus <no-reply@example.org>")
+
+# Kill switch for the per-church module flags (decision 0004): false reads every flag as off, whatever the rows say.
+EMMAUS_V2_MODULES = env_bool("EMMAUS_V2_MODULES", True)
 
 LLM_ENABLED = env_bool("LLM_ENABLED", False)
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "").rstrip("/")

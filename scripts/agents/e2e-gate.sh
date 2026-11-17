@@ -2,14 +2,16 @@
 # Browser gate on synthetic data only: migrate and seed a scratch SQLite database, serve it with
 # runserver on a free port, run e2e/station-flow.mjs (shared-computer interview regression) and
 # e2e/review-all.mjs (every screen per role at three widths: axe, overflow, h1, stylesheet, JS errors).
-# Usage: scripts/agents/e2e-gate.sh [--skip-flow] [--skip-review]
+# Last, with the community modules turned on by seed_community_demo, e2e/community-flow.mjs (the camp-to-group journey
+# and every community screen at phone and desktop widths). It runs last because the review must see the modules off.
+# Usage: scripts/agents/e2e-gate.sh [--skip-flow] [--skip-review] [--skip-community]
 # Env: E2E_OUT (results dir), E2E_PORT (default: a free port), PYTHON.
 . "$(dirname "$0")/lib.sh"
 need node; need curl
-skip_flow=false; skip_review=false
+skip_flow=false; skip_review=false; skip_community=false
 for a in "$@"; do case "$a" in
-  --skip-flow) skip_flow=true;; --skip-review) skip_review=true;;
-  -h|--help) sed -n '2,7p' "$0"; exit 0;; *) die "unknown option $a";;
+  --skip-flow) skip_flow=true;; --skip-review) skip_review=true;; --skip-community) skip_community=true;;
+  -h|--help) sed -n '2,9p' "$0"; exit 0;; *) die "unknown option $a";;
 esac; done
 cd "$repo_root"
 [ -d e2e/node_modules/playwright ] && [ -f e2e/node_modules/axe-core/axe.min.js ] \
@@ -60,6 +62,15 @@ if ! $skip_review; then
     grep -E "page/width checks" "$out/review-all.log" || tail -n 2 "$out/review-all.log"
   else
     status=1; log "review-all FAILED (see $out/review-all.log and $out/review/results.json)"; tail -n 5 "$out/review-all.log"
+  fi
+fi
+if ! $skip_community; then
+  log "community-flow.mjs (modules on: camp-to-group journey, axe, overflow, targets)"
+  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo FAILED (see $out/seed.log)"; }
+  if AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" EMMAUS_PASSWORD="$pw" timeout 600 node community-flow.mjs "$out/community" >"$out/community-flow.log" 2>&1; then
+    tail -n 1 "$out/community-flow.log"
+  else
+    status=1; log "community-flow FAILED (see $out/community-flow.log)"; tail -n 8 "$out/community-flow.log"
   fi
 fi
 [ "$status" -eq 0 ] && log "browser gate OK" || log "browser gate FAILED"

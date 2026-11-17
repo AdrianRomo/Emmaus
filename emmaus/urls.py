@@ -35,6 +35,9 @@ urlpatterns = [
         name="password_reset_complete",
     ),
     path("accounts/login/", RedirectView.as_view(pattern_name="login", query_string=True)),
+    # The community modules (decision 0004): each view answers 404 while its church has the module off.
+    path("mi-iglesia/personas/", include("people.urls")),
+    path("mi-iglesia/", include("groups.urls")),
     path("eventos/", include("events.urls")),
     path("estacion/", include("events.kiosk_urls")),
     # The printed sign: "Entra a /unirme/ y escribe el código". Public, outside /eventos/.

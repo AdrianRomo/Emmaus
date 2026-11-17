@@ -1635,3 +1635,17 @@ body.is-presenting:has(.deck--noche) { background: #141b33; }
 .deck--noche .deck-ended { color: #ff9f8c; }
 .deck-controls .live-status { white-space: normal; }  /* the bar's long "sesión terminó" line wraps at 390 px instead of leaving the screen */
 /* ---- end fix/audit-flows ---- */
+
+/* ---------- G5 Comunidad ---------- */
+/* Mi iglesia, the groups and the people directory (templates/groups, templates/people; all on base.html). They are
+   built from the shared components; this section only sets the air between the next-action panel or a notice and
+   the first list under it, which those pages are the first to stack. */
+.sign + .block, .notice + .block, .search + .block { margin-top: var(--s-10); }
+/* A row that ends in more than one control ("No aceptar" and "Aceptar"; "Personas" and "Editar"): on a phone the
+   controls go under the words, side by side and as wide as the row, instead of squeezing the name into a column. */
+@media (max-width: 600px) {
+  .row--stack { flex-direction: column; align-items: stretch; gap: var(--s-3); }
+  .row--stack .row__end { flex-wrap: wrap; justify-content: flex-start; gap: var(--s-3); }
+  .row--stack .row__end .btn, .row--stack .row__end .input { flex: 1 1 8rem; }
+  .row--stack .row__end .status { flex: 1 0 100%; }
+}

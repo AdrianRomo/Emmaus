@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}Mi iglesia{% endblock %}
+{% block content %}
+{% comment %}
+  "Mi iglesia" (/mi-iglesia/, groups.views.home): the home of a person of the church. One next step at most (the
+  panel), then what is theirs: their groups with the next meeting, what they asked for, what is coming in the
+  church, and the events they were part of. Of an event it shows the name, the dates and the place, never anything
+  that was answered there. The administration also gets its two doors at the end.
+{% endcomment %}
+<div class="narrow">
+  {% include "events/rotulo/_page_head.html" with title="Hola, "|add:person.first_name|add:"." lede="Esto es lo tuyo en "|add:church.name|add:"." %}
+
+  {% if sign %}
+  <section class="sign" aria-labelledby="que-sigue">
+    <h2 id="que-sigue" class="sign__title">{{ sign.title }}</h2>
+    <p class="sign__text">{{ sign.text }}</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{{ sign.url }}">{{ sign.action }}</a></div>
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="mis-grupos">
+    <h2 id="mis-grupos" class="heading">Tus grupos</h2>
+    {% if memberships %}
+      <ul class="rows">
+        {% for membership in memberships %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ membership.group.name }}</p>
+              <p class="row__meta">{% if membership.is_leader %}Tú guías este grupo. {% endif %}{% if membership.next_meeting %}Próxima reunión: {{ membership.next_meeting|weekday_date }}{% if membership.group.meeting_time %}, a las {{ membership.group.meeting_time|time:"H:i" }}{% endif %}.{% else %}Todavía no tiene día de reunión.{% endif %}</p>
+            </div>
+            <a class="btn btn--secondary btn--small" href="{% url 'community:group_detail' membership.group.pk %}">Abrir<span class="visually-hidden"> {{ membership.group.name }}</span></a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif my_requests %}
+      <p class="empty-line">Todavía no eres parte de un grupo. Tu solicitud está abajo.</p>
+    {% elif open_groups %}
+      <p class="empty-line">Todavía no eres parte de un grupo.</p>
+    {% else %}
+      <p class="empty-line">Todavía no eres parte de un grupo, y por ahora ningún grupo recibe solicitudes. Pregunta en tu iglesia.</p>
+    {% endif %}
+    {% if memberships and open_groups %}<p class="more"><a href="{% url 'community:groups' %}">Ver todos los grupos</a></p>{% endif %}
+  </section>
+
+  {% if my_requests or declined %}
+  <section class="block" aria-labelledby="solicitudes">
+    <h2 id="solicitudes" class="heading">Lo que pediste</h2>
+    <ul class="rows">
+      {% for item in my_requests %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ item.group.name }}</p>
+            <p class="row__meta">Pediste unirte el {{ item.created_at|day_month }}. Quien guía el grupo te responderá.</p>
+          </div>
+          <div class="row__end">
+            {% status "por_evaluar" "Por decidir" %}
+            <a class="btn btn--secondary btn--small" href="{% url 'community:group_detail' item.group.pk %}">Abrir<span class="visually-hidden"> {{ item.group.name }}</span></a>
+          </div>
+        </li>
+      {% endfor %}
+      {% for item in declined %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ item.group.name }}</p>
+            <p class="row__meta">Esta vez no fue posible unirte. Puedes hablar con quien guía el grupo o buscar otro.</p>
+          </div>
+          <div class="row__end">{% status "descartada" "No aceptada" %}</div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="proximos">
+    <h2 id="proximos" class="heading">Lo que viene en la iglesia</h2>
+    {% if upcoming %}
+      <ul class="rows">
+        {% for event in upcoming %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ event.name }}</p>
+              <p class="row__meta">{{ event.get_kind_display }}, {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.</p>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+      <p class="aside-note">Para inscribirte a un evento, pregunta en tu iglesia. Todavía no se puede hacer desde aquí.</p>
+    {% else %}
+      <p class="empty-line">Por ahora no hay eventos anunciados.</p>
+    {% endif %}
+  </section>
+
+  {% if history %}
+  <section class="block" aria-labelledby="historia">
+    <h2 id="historia" class="heading">Donde has estado</h2>
+    <ul class="rows">
+      {% for link in history %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ link.event.name }}</p>
+            <p class="row__meta">{{ link.event.get_kind_display }}{% if link.event.starts_on %}, {{ link.event.starts_on|date_range:link.event.ends_on }}{% endif %}{% if link.event.location %}, en {{ link.event.location }}{% endif %}.</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Aquí solo aparece que participaste. Lo que respondiste en el evento no se muestra en esta página ni lo ve quien guía tu grupo.</p>
+  </section>
+  {% endif %}
+
+  {% if request.is_church_admin %}
+  <section class="block" aria-labelledby="administrar">
+    <h2 id="administrar" class="heading">Administrar</h2>
+    <ul class="rows">
+      <li class="row">
+        <div class="row__main">
+          <p class="row__title">Grupos</p>
+          <p class="row__meta">Crea grupos, elige quién los guía y revisa sus solicitudes.</p>
+        </div>
+        <a class="btn btn--secondary btn--small" href="{% url 'community:group_admin_list' %}">Administrar<span class="visually-hidden"> grupos</span></a>
+      </li>
+      {% if people_enabled %}
+      <li class="row">
+        <div class="row__main">
+          <p class="row__title">Personas</p>
+          <p class="row__meta">Registra a las personas de la iglesia, trae a quienes fueron a un evento y dales acceso.</p>
+        </div>
+        <a class="btn btn--secondary btn--small" href="{% url 'people:list' %}">Administrar<span class="visually-hidden"> personas</span></a>
+      </li>
+      {% endif %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

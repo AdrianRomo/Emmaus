@@ -74,6 +74,8 @@ def current_role(request):
 
     from events.access import accessible_events
 
+    context["app_nav_label"] = "Discipulado" if nav_items else "Principal"
+    nav_items = _community_nav(request, context) + nav_items
     context["show_events_link"] = role in (Role.CHURCH_ADMIN, Role.PASTOR) or accessible_events(request.user).exists()
     context["app_nav_items"] = nav_items
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
@@ -81,3 +83,42 @@ def current_role(request):
     # No church role (someone who only works in an event): the public pages' church, looked up only if drawn.
     context["brand_church"] = context["theme_church"] or SimpleLazyObject(first_active_church)
     return context
+
+
+def _community_nav(request, context) -> list[dict]:
+    """"Mi iglesia" and "Grupos" lead the bar while the account's church uses the community module
+    (decision 0004); with the module off this returns nothing and the bar is what it always was. A
+    person of the church with no church role gets the church's name in the bar from here."""
+    from people.flags import enabled
+
+    from .authz import Action, current_church, has_scope
+
+    church = current_church(request)
+    if not enabled(church, "community"):
+        return []
+    if context.get("current_church") is None:
+        context["current_church"] = church
+    context["app_nav_label"] = "Principal"
+    context["community_on"] = True  # templates/core/ayuda.html adds the community tasks
+    items = [
+        {"label": "Mi iglesia", "url": reverse("community:home"), "views": ["community:home"]},
+        {
+            "label": "Grupos",
+            "url": reverse("community:groups"),
+            "views": [
+                "community:groups", "community:group_detail", "community:group_people", "community:group_leave",
+                "community:member_remove", "community:group_admin_list", "community:group_create",
+                "community:group_edit", "community:group_archive",
+            ],
+        },
+    ]
+    if enabled(church, "people") and has_scope(request.user, church, "church", church.pk, Action.MANAGE):
+        items.append({"label": "Personas", "url": reverse("people:list"), "views": [
+            "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
+            "people:grant_access", "people:access_link",
+        ]})
+    # The bar marks the current page by url name; these routes are namespaced, so they are marked here.
+    view_name = getattr(getattr(request, "resolver_match", None), "view_name", "")
+    for item in items:
+        item["active"] = view_name in item.pop("views")
+    return items

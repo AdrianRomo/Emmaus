@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Una persona pidió unirse a tu grupo en {{ church_name }}. Entra a Emmaus para ver la solicitud y responderla:
+
+{{ link }}
+
+Por privacidad, este correo no incluye el nombre de la persona ni lo que escribió.
+{% endautoescape %}
