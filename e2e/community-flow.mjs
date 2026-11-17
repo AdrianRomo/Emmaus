@@ -1,6 +1,7 @@
 // The camp-to-group journey in a browser, on synthetic data (seed_community_demo): a former campero signs in on a
 // phone, finds a group and asks to join; the guide accepts; she sees her group and its next meeting. Then every
-// community and people screen per role at phone and desktop widths, with axe, overflow, h1 and JS-error checks.
+// community and people screen per role at phone, tablet and desktop widths, with axe, overflow, h1 and JS-error checks,
+// and the redesigned shell: the rail on wide screens, the tabs and the "Más" panel on a phone, by keyboard too.
 // Usage: AXE=node_modules/axe-core/axe.min.js EMMAUS_URL=http://127.0.0.1:8000 EMMAUS_PASSWORD=... node community-flow.mjs <outdir>
 import { chromium } from "playwright";
 import fs from "node:fs";
@@ -11,6 +12,7 @@ const PASS = process.env.EMMAUS_PASSWORD || "DemoCamp-2026";
 const AXE = fs.readFileSync(process.env.AXE || "node_modules/axe-core/axe.min.js", "utf8");
 const BENIGN_JS_ERROR = /InvalidStateError: Transition was aborted because of invalid state/; // issue #16
 const PHONE = { width: 390, height: 844 };
+const TABLET = { width: 768, height: 1024 };
 const DESKTOP = { width: 1440, height: 900 };
 fs.mkdirSync(out, { recursive: true });
 const problems = [];
@@ -30,14 +32,14 @@ async function session(email, viewport) {
 }
 
 async function audit(page, name) {
-  for (const [label, vp] of [["movil", PHONE], ["escritorio", DESKTOP]]) {
+  for (const [label, vp] of [["movil", PHONE], ["tableta", TABLET], ["escritorio", DESKTOP]]) {
     await page.setViewportSize(vp);
     await page.waitForTimeout(250);
     await page.screenshot({ path: `${out}/${name}-${label}.png`, fullPage: true });
     await page.addScriptTag({ content: AXE });
     const info = await page.evaluate(async () => {
       const r = await axe.run(document, { runOnly: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"] });
-      const small = [...document.querySelectorAll("main a.btn, main button")].filter((el) => {
+      const small = [...document.querySelectorAll("main a.btn, main button, .tabs__item, .rail__link, .rail__who, .rail__account, .row__contact a")].filter((el) => {
         const box = el.getBoundingClientRect();
         return box.width > 0 && box.height < 44;
       }).map((el) => el.textContent.trim().slice(0, 30));
@@ -68,10 +70,30 @@ expect(await page.locator("h1").innerText() === "Hola, Valeria.", "home greeting
 expect(await page.getByText("Campamento de Jóvenes 2025").count() > 0, "home shows the camp she was part of");
 await audit(page, "miembro-inicio");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("a:has-text('Ver los grupos')")]);
+// The shell on a phone: no rail links, the tabs, and "Más" as a dialog that the keyboard can open and leave.
+expect(await page.locator(".rail__nav").isHidden(), "the rail's links are hidden on a phone");
+expect((await page.locator(".tabs__text").allInnerTexts()).join("|") === "Mi iglesia|Grupos|Mi cuenta|Más", "a member's tabs");
+expect(await page.locator(".tabs__item[aria-current=page]").innerText() === "Mi iglesia", "the tab of the current place is marked");
+await page.keyboard.press("Tab");
+expect(await page.evaluate(() => document.activeElement.className) === "skip-link", "the first Tab reaches the skip link");
+await page.locator(".tabs button[data-menu-open]").focus();
+await page.keyboard.press("Enter");
+expect(await page.locator("#menu-panel").isVisible(), "Enter on Más opens the panel");
+expect(await page.evaluate(() => document.getElementById("menu-panel").contains(document.activeElement)), "focus moves into the panel");
+expect(await page.locator("#menu-panel").getByText("Cerrar sesión").count() === 1, "the panel holds the logout");
+await page.keyboard.press("Escape");
+expect(await page.locator("#menu-panel").isHidden(), "Escape closes the panel");
+expect(await page.evaluate(() => document.activeElement.hasAttribute("data-menu-open")), "focus returns to Más");
+const gap = await page.evaluate(() => {
+  window.scrollTo(0, document.body.scrollHeight);
+  return document.querySelector(".tabs").getBoundingClientRect().top - document.querySelector("main").lastElementChild.getBoundingClientRect().bottom;
+});
+expect(gap >= 0, `the tabs cover the end of the page by ${-gap}px`);
+await page.evaluate(() => window.scrollTo(0, 0));
+await Promise.all([page.waitForNavigation(), page.click(".sign a:has-text('Ver los grupos')")]);
 await audit(page, "miembro-grupos");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("a.row__link:has-text('Jóvenes Roca')")]);
+await Promise.all([page.waitForNavigation(), page.click(".row__title a:has-text('Jóvenes Roca')")]);
 expect(await page.getByText("Salón 2 de la iglesia").count() === 0, "the meeting place is hidden from a non-member");
 await audit(page, "miembro-grupo-antes");
 await page.setViewportSize(PHONE);
@@ -88,6 +110,8 @@ await ctx.close();
 // 2. The guide: the panel names the pending requests; accept Valeria.
 ({ ctx, page } = await session("guia.grupo@demo.invalid", DESKTOP));
 expect((await page.locator(".sign__title").innerText()).startsWith("¿Recibes a 2 personas"), "guide's next step");
+expect(await page.locator(".rail__nav").isVisible() && await page.locator(".tabs").isHidden(), "wide screens get the rail, not the tabs");
+expect((await page.locator(".rail .rail__link:has-text('Jóvenes Roca') .badge").textContent()).trim().startsWith("2"), "the rail counts what waits in her group");
 await audit(page, "guia-inicio");
 await Promise.all([page.waitForNavigation(), page.click("a:has-text('Ver solicitudes')")]);
 await audit(page, "guia-personas");
@@ -101,9 +125,17 @@ await ctx.close();
 expect(await page.getByText("Próxima reunión: jueves").count() > 0, "home shows the next meeting");
 await audit(page, "miembro-inicio-con-grupo");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("a:has-text('Abrir')")]);
+await Promise.all([page.waitForNavigation(), page.click(".dates .row__title a:has-text('Jóvenes Roca')")]);
 expect(await page.getByText("Salón 2 de la iglesia").count() > 0, "a member sees where the group meets");
 await audit(page, "miembro-grupo-despues");
+// "Mis datos": she corrects how the church reaches her, and the home stops asking.
+await page.setViewportSize(PHONE);
+await page.goto(BASE + "/mi-iglesia/mis-datos/");
+await audit(page, "miembro-mis-datos");
+await page.setViewportSize(PHONE);
+await page.fill("input[name=phone]", "55 5550 0199");
+await Promise.all([page.waitForNavigation(), page.click("button:has-text('Guardar mis datos')")]);
+expect(await page.getByText("Guardamos tus datos.").count() > 0, "her data is saved");
 await ctx.close();
 
 // 4. The administration: every screen.
@@ -128,7 +160,7 @@ await Promise.all([page.waitForNavigation(), page.click("a.row__link:has-text('R
 expect(await page.getByText("Su mamá, papá o tutor está de acuerdo").count() === 0, "no access form before there is an e-mail");
 await audit(page, "admin-persona");
 await page.goto(BASE + "/mi-iglesia/grupos/administrar/");
-await Promise.all([page.waitForNavigation(), page.click("a:has-text('Personas'):near(:text('Jóvenes Roca'))")]);
+await Promise.all([page.waitForNavigation(), page.click("main li:has-text('Jóvenes Roca') a:has-text('Personas')")]);
 await audit(page, "admin-grupo-personas");
 await ctx.close();
 await browser.close();
