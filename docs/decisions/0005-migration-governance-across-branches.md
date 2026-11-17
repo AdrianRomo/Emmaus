@@ -1,6 +1,6 @@
 # 0005 - Migration governance across `main` and `v2/foundation` while the camp runs
 
-- **Status:** accepted with the gate guard in this PR
+- **Status:** superseded by 0013 on 2026-11-17 (the camp ended; the owner lifted the freeze in issue #68)
 - **Date:** 2026-10-28
 - **Deciders:** owner; drafted from the audit (`docs/audits/workstreams/A-inventory.md` finding M-1, `C-domain.md` C-15)
 
