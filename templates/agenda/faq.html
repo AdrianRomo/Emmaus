@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Preguntas frecuentes de {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  The frequent questions of one event (agenda.views.faq), for the administration: the ones there are, in the order
+  the people of the church read them, and one form to add another.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Preguntas frecuentes" lede=event.name back_url=back back_label="Volver a la página del evento" %}
+
+  <section class="block" aria-labelledby="preguntas">
+    <h2 id="preguntas" class="heading">Lo que se lee en el evento</h2>
+    {% if faqs %}
+      <ul class="rows">
+        {% for item in faqs %}
+          <li class="row row--lead row--stack">
+            <div class="row__main">
+              <p class="row__title">{{ item.question }}</p>
+              <p class="row__meta">{{ item.answer|linebreaksbr }}</p>
+            </div>
+            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:faq_edit' event.slug item.pk %}">Editar<span class="visually-hidden">: {{ item.question }}</span></a></div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Este evento todavía no tiene preguntas frecuentes. Mientras no agregues una, la sección no aparece en el evento.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="agregar">
+    <h2 id="agregar" class="heading">Agregar una pregunta</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Agregar la pregunta</button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

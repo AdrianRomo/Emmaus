@@ -3,14 +3,47 @@
 {% block page_title %}Inscritos en {{ event.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  Who signed up for one event (agenda.views.registrations), for the church's administration only: each person
-  with how to reach them, and from the event's first day on, who came, as large options and one filled button.
-  Who is not marked did not come. Nobody else reads this list.
+  Who signed up for one event or arrived (agenda.views.registrations), for the church's administration only: first
+  the minors who wait for a guardian's authorization, then each person or visitor with how to reach them, and from
+  the event's first day on, who came, as large options and one filled button. Who is not marked did not come.
+  Nobody else reads this list, and the authorization of a guardian is shown nowhere else.
 {% endcomment %}
 <div class="narrow">
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Inscritos en "|add:event.name lede="Quién le avisó a la iglesia que quiere ir, y cómo contactarle." back_url=back back_label="Volver a los eventos" %}
-  <p class="page-head__meta">{% if rows|length == 1 %}1 persona inscrita{% else %}{{ rows|length }} personas inscritas{% endif %}{% if page.capacity %} de {{ page.capacity }} lugar{{ page.capacity|pluralize:"es" }}{% endif %}{% if cancelled == 1 %}, 1 canceló{% elif cancelled %}, {{ cancelled }} cancelaron{% endif %}.{% if recorded %} {% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }} inscrito{{ rows|length|pluralize }}.{% endif %}</p>
+  <div class="block">
+    <p class="page-head__meta">{% if rows|length == 1 %}1 persona inscrita{% else %}{{ rows|length }} personas inscritas{% endif %}{% if waiting|length == 1 %}, 1 pendiente de autorización{% elif waiting %}, {{ waiting|length }} pendientes de autorización{% endif %}{% if page.capacity %} de {{ page.capacity }} lugar{{ page.capacity|pluralize:"es" }}{% endif %}{% if cancelled == 1 %}, 1 canceló{% elif cancelled %}, {{ cancelled }} cancelaron{% endif %}.{% if recorded %} {% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }} inscrito{{ rows|length|pluralize }}.{% endif %}</p>
+  </div>
+
+  {% if started %}
+  <section class="block" aria-labelledby="llego">
+    <h2 id="llego" class="heading">¿Llegó alguien que no se había inscrito?</h2>
+    <p>Regístrala aquí, sea de la iglesia o una visita. No necesita cuenta de Emmaus.</p>
+    <div class="step__actions"><a class="btn btn--secondary" href="{% url 'agenda:walkup' event.slug %}">Registrar a alguien que llegó</a></div>
+  </section>
+  {% endif %}
+
+  {% if waiting %}
+  <section class="block" aria-labelledby="pendientes">
+    <h2 id="pendientes" class="heading">Pendientes de autorización</h2>
+    <p class="aside-note">Son menores de edad. Conservan su lugar, pero su inscripción no está confirmada hasta que registres la autorización de su madre, padre o tutor.</p>
+    <ul class="rows">
+      {% for row in waiting %}
+        <li class="row row--lead row--stack row--attention">
+          {% monogram row.display_name %}
+          <div class="row__main">
+            <p class="row__title">{{ row.display_name }}</p>
+            <p class="row__meta">{% if row.is_guest %}Visita. Llegó{% elif row.registered_by_id %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}.</p>
+            {% include "agenda/_registration_who.html" %}
+          </div>
+          <div class="row__end">
+            <a class="btn btn--secondary btn--small" href="{% url 'agenda:consent' event.slug row.pk %}">Registrar autorización<span class="visually-hidden"> de {{ row.display_name }}</span></a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
 
   <section class="block" aria-labelledby="inscritos">
     <h2 id="inscritos" class="heading">Personas inscritas</h2>
@@ -18,15 +51,21 @@
       <ul class="rows">
         {% for row in rows %}
           <li class="row row--lead row--stack">
-            {% monogram row.person.full_name %}
+            {% monogram row.display_name %}
             <div class="row__main">
-              <p class="row__title">{{ row.person.full_name }}</p>
-              <p class="row__meta">Se inscribió el {{ row.created_at|long_date }}.{% if row.attended %} Vino.{% elif row.attended is not None %} No vino.{% endif %}</p>
-              {% if row.person.phone or row.person.email %}<p class="row__contact">{% if row.person.phone %}<a href="tel:{{ row.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ row.person.full_name }}: </span>{{ row.person.phone }}</a>{% endif %}{% if row.person.email %}<a href="mailto:{{ row.person.email }}"><span class="visually-hidden">Escribir a {{ row.person.full_name }}: </span>{{ row.person.email }}</a>{% endif %}</p>{% endif %}
+              <p class="row__title">{{ row.display_name }}</p>
+              <p class="row__meta">{% if row.is_guest %}Visita. Llegó{% elif row.registered_by_id %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}.{% if row.attended %} Vino.{% elif row.attended is not None %} No vino.{% endif %}</p>
+              {% if row.valid_consent %}<p class="row__meta">Autorizada por {{ row.valid_consent.guardian_name }} ({{ row.valid_consent.get_relationship_display|lower }}) el {{ row.valid_consent.recorded_at|long_date }}. {{ row.valid_consent.get_method_display }}.{% if row.valid_consent.guardian_phone %} Tel. {{ row.valid_consent.guardian_phone }}.{% endif %}</p>{% endif %}
+              {% include "agenda/_registration_who.html" %}
             </div>
+            {% if row.valid_consent %}
+            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:consent_revoke' event.slug row.pk %}">Retirar autorización<span class="visually-hidden"> de {{ row.display_name }}</span></a></div>
+            {% endif %}
           </li>
         {% endfor %}
       </ul>
+    {% elif waiting %}
+      <p class="empty-line">Todavía no hay inscripciones confirmadas.</p>
     {% elif page.published and page.registration_open %}
       <p class="empty-line">Todavía no se inscribe nadie. Avisa en la iglesia que ya se pueden inscribir desde Emmaus.</p>
     {% else %}
@@ -46,8 +85,8 @@
           <div class="choices">
             {% for row in rows %}
             <div class="choice choice--multi">
-              <input class="choice__input" type="checkbox" id="vino-{{ row.person_id }}" name="vino" value="{{ row.person_id }}"{% if row.attended %} checked{% endif %}>
-              <label class="choice__label" for="vino-{{ row.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.person.full_name }}</span></label>
+              <input class="choice__input" type="checkbox" id="vino-{{ row.pk }}" name="vino" value="{{ row.pk }}"{% if row.attended %} checked{% endif %}>
+              <label class="choice__label" for="vino-{{ row.pk }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.display_name }}</span></label>
             </div>
             {% endfor %}
           </div>
@@ -56,7 +95,7 @@
           <button class="btn btn--primary btn--large" type="submit">Guardar la asistencia</button>
         </div>
       </form>
-      <p class="aside-note">Quien no esté marcado queda como que no vino. Si no vino nadie, guarda sin marcar a nadie.</p>
+      <p class="aside-note">Quien no esté marcado queda como que no vino. Si no vino nadie, guarda sin marcar a nadie.{% if waiting %} Quien está pendiente de autorización no aparece aquí hasta que la registres.{% endif %}</p>
     {% else %}
       <p class="empty-line">La asistencia se registra desde el primer día del evento{% if event.starts_on %}, el {{ event.starts_on|long_date }}{% endif %}. Vuelve aquí ese día.</p>
     {% endif %}

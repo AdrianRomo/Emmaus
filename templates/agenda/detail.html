@@ -15,7 +15,7 @@
     <section class="sign sign--lead" aria-labelledby="inscribirme">
       <div>
         <h2 id="inscribirme" class="sign__title">¿Quieres ir a este evento?</h2>
-        <p class="sign__text">Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.</p>
+        <p class="sign__text">{% if page.requires_guardian_consent %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia.{% else %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.{% endif %}</p>
       </div>
       <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}">
         {% csrf_token %}
@@ -24,7 +24,12 @@
     </section>
   {% elif state == "inscrita" %}
     <div class="notice notice--info">
-      <p><strong>Te inscribiste.</strong> Tu iglesia ya sabe que quieres ir{% if not can_cancel %}. El evento ya empezó: si no vas a poder ir, avisa en tu iglesia{% endif %}.</p>
+      <p><strong>Te inscribiste.</strong> Tu iglesia ya sabe que quieres ir{% if not can_cancel %}. El evento ya empezó: si no vas a poder ir, avisa en tu iglesia{% endif %}.{% if authorized %} Autorizada por tu mamá, papá o tutor.{% endif %}</p>
+    </div>
+    {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
+  {% elif state == "pendiente" %}
+    <div class="notice notice--warning">
+      <p><strong>Pendiente de autorización.</strong> {{ pending_text }}</p>
     </div>
     {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
   {% elif notice %}
@@ -42,6 +47,41 @@
       {% if places_left is not None %}<div class="summary-list__row"><dt>Lugares</dt><dd>{% if places_left == 0 %}Ya no hay lugares{% elif places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ places_left }} lugares{% endif %}</dd></div>{% endif %}
     </dl>
   </section>
+
+  {% if schedule %}
+  <section class="block" aria-labelledby="programa">
+    <h2 id="programa" class="heading">Programa</h2>
+    {% for day, items in schedule %}
+      <h3 class="row__title mt-2">{{ day|date:"l j \\d\\e F"|lower|capfirst }}</h3>
+      <ul class="rows">
+        {% for item in items %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ item.title }}</p>
+              <p class="row__meta">{% include "agenda/_schedule_when.html" %}</p>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if faqs %}
+  <section class="block" aria-labelledby="preguntas">
+    <h2 id="preguntas" class="heading">Preguntas frecuentes</h2>
+    <ul class="rows">
+      {% for item in faqs %}
+        <li class="row">
+          <div class="row__main prose">
+            <h3 class="row__title">{{ item.question }}</h3>
+            <p>{{ item.answer|linebreaksbr }}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
 
   {% if request.is_church_admin %}
   <section class="block" aria-labelledby="administrar">
