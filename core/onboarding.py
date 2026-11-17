@@ -143,7 +143,7 @@ def with_name_step(user: User, steps: list[Step]) -> list[Step]:
 
 
 def for_church_role(user: User, role_record: UserChurchRole | None, *, can_create_event: bool) -> Welcome | None:
-    """The welcome of a church role on "Campamentos y eventos" or the discipleship overview. None once put away."""
+    """The welcome of a church role on "Eventos" or the discipleship overview. None once put away."""
     from events.models import Event, EventMembership
 
     role = role_record.role if role_record else None
@@ -163,7 +163,7 @@ def for_church_role(user: User, role_record: UserChurchRole | None, *, can_creat
             ],
             steps=with_name_step(user, [
                 Step("Pide acceso a un evento con su código", False, reverse("join"), "Escribir el código",
-                     "Cuando la administración te dé acceso, el evento aparece en “Campamentos”."),
+                     "Cuando la administración te dé acceso, el evento aparece en “Eventos”."),
             ]),
             ask="Si no tienes un código, pide a la administración de tu iglesia que te agregue al equipo.",
             help_url=reverse("ayuda"),
@@ -179,16 +179,16 @@ def for_church_role(user: User, role_record: UserChurchRole | None, *, can_creat
 
     if role == Role.CHURCH_ADMIN:
         can = [
-            Can("Campamentos", reverse("events:list") + "?todos=1", "cada evento de la iglesia; en cada uno eres administrador."),
+            Can("Eventos", reverse("events:list") + "?todos=1", "cada evento de la iglesia; en cada uno eres administrador."),
             Can("Configuración de la iglesia", reverse("church_settings"), "el nombre, el logotipo, los colores y quién tiene un rol en la iglesia."),
         ]
         if church.discipleship_enabled:
             can.append(Can("Panorama del ministerio", reverse("church_dashboard"), "el discipulado: rutas, participantes, preguntas y seguimientos."))
         steps = [
-            # Pending, it has no link of its own: "Crear campamento" is the one filled button of "Campamentos y eventos"
-            Step("Crea el primer campamento", has_events, "", "",
-                 "Emmaus le prepara un cuestionario y 10 computadoras de entrevista. Es el botón “Crear campamento” de esta página."
-                 if can_create_event else "Quien administra la iglesia lo crea desde “Campamentos y eventos”."),
+            # Pending, it has no link of its own: "Crear evento" is the one filled button of "Eventos"
+            Step("Crea el primer evento", has_events, "", "",
+                 "Emmaus le prepara un cuestionario y 10 computadoras de entrevista. Es el botón “Crear evento” de esta página."
+                 if can_create_event else "Quien administra la iglesia lo crea desde “Eventos”."),
             Step("Agrega a tu equipo", has_team, reverse("events:list") + "?todos=1", "Abrir un evento",
                  "En el evento, en “Equipo”, agregas a cada persona con su rol, o imprimes el código para que pidan acceso."),
             Step("Sube el logotipo de la iglesia", bool(church.logo), reverse("church_settings"), "Ir a Configuración de la iglesia",
@@ -205,11 +205,11 @@ def for_church_role(user: User, role_record: UserChurchRole | None, *, can_creat
         )
 
     if role == Role.PASTOR:
-        can = [Can("Campamentos", reverse("events:list") + "?todos=1", "cada evento de la iglesia; en cada uno lees el “Resumen general”.")]
+        can = [Can("Eventos", reverse("events:list") + "?todos=1", "cada evento de la iglesia; en cada uno lees el “Resumen general”.")]
         if church.discipleship_enabled:
             can.append(Can("Panorama del ministerio", reverse("church_dashboard"), "el discipulado: preguntas para el pastor, seguimientos y quién se quedó callado."))
         steps = [
-            Step("Abre un evento", has_events, reverse("events:list") + "?todos=1", "Ir a Campamentos",
+            Step("Abre un evento", has_events, reverse("events:list") + "?todos=1", "Ir a Eventos",
                  "" if has_events else "Todavía no hay eventos: la administración de la iglesia crea el primero."),
         ]
         return Welcome(

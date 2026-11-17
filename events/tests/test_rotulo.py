@@ -280,7 +280,7 @@ class RedesignedScreenTests(CampFixture):
         self.choose_station()
         response = self.client.get(self.url("interview_search"), {"q": "mar rui"})
         self.assertContains(response, "css/rotulo.css")
-        self.assertContains(response, f'<a href="{reverse("events:list")}?todos=1">Campamentos</a>')
+        self.assertContains(response, f'<a href="{reverse("events:list")}?todos=1">Eventos</a>')
         self.assertContains(response, "Mariana López Ruiz")
 
     def test_my_participants_search_matches_words_in_any_order(self):

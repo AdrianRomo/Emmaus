@@ -15,7 +15,7 @@ Esto se hace una sola vez, cuando Emmaus está recién instalado y todavía no t
 5. Lee el **"Aviso para participantes"**, a la derecha. Lo puedes cambiar después en la configuración de la iglesia; la indicación de llamar al 911 siempre aparece.
 6. Toca **"Crear espacio"**.
 
-Emmaus entra con tu cuenta y te lleva a **"Campamentos y eventos"**, donde lo único que hay que hacer es **"Crear campamento"**: sigue en [Crear el campamento](#1-crear-el-campamento). Desde que existe la iglesia, `/setup/` ya no aparece; las demás personas entran con la cuenta que la administración les crea en **"Equipo"**.
+Emmaus entra con tu cuenta y te lleva a **"Eventos"**, donde lo único que hay que hacer es **"Crear evento"**: sigue en [Crear el campamento](#1-crear-el-campamento). Desde que existe la iglesia, `/setup/` ya no aparece; las demás personas entran con la cuenta que la administración les crea en **"Equipo"**.
 
 ## Palabras que vas a ver
 
@@ -57,9 +57,9 @@ Por seguridad, si dejas Emmaus sin usar unos 30 minutos, se cierra tu sesión y 
 
 En un celular, los enlaces de la barra están en el botón **"Menú"**. En una tableta o una ventana angosta, bajan a una segunda fila de la barra.
 
-Para cambiar de campamento, toca **"Campamentos"**: está junto al nombre del evento en la barra de arriba, y en un celular es lo último de "Menú". Te lleva a **"Campamentos y eventos"**, la lista de los eventos en los que participas.
+Para cambiar de campamento, toca **"Eventos"**: está junto al nombre del evento en la barra de arriba, y en un celular es lo último de "Menú". Te lleva a **"Eventos"**, la lista de los eventos en los que participas.
 
-Debajo del nombre del campamento y de "Campamentos", la barra dice con qué rol entraste: **Coordinador**, **Tutor**, **Pastor** o **Administrador**. El rol es de cada campamento: si en otro tienes otro, la barra lo dice al cambiar. En un celular la barra no muestra el nombre del campamento; tu rol está en **"Menú"**, junto a tu nombre ("Carla Uno, coordinador"), y en tu pantalla de inicio, debajo del título ("Tu rol: coordinador.").
+Debajo del nombre del campamento y de "Eventos", la barra dice con qué rol entraste: **Coordinador**, **Tutor**, **Pastor** o **Administrador**. El rol es de cada campamento: si en otro tienes otro, la barra lo dice al cambiar. En un celular la barra no muestra el nombre del campamento; tu rol está en **"Menú"**, junto a tu nombre ("Carla Uno, coordinador"), y en tu pantalla de inicio, debajo del título ("Tu rol: coordinador.").
 
 ### La bienvenida de tu rol y "Mi cuenta"
 
@@ -98,10 +98,10 @@ Junto a "Preparación" (en un celular, debajo) están la actividad reciente y la
 
 ### 1. Crear el campamento
 
-1. En **"Campamentos y eventos"** (el enlace **"Campamentos"** de la barra), toca **"Crear campamento"**.
+1. En **"Eventos"** (el enlace **"Eventos"** de la barra), toca **"Crear evento"**.
 2. Escribe el nombre, el tipo de actividad, el lugar y las fechas. El **"Nombre corto para la dirección"** se forma solo con el nombre mientras escribes (por ejemplo `jovenes-2026`). Puedes cambiarlo, solo con minúsculas, números y guiones. Si lo dejas como está y otro evento ya lo usa, Emmaus le agrega "-2".
 3. Revisa el **"Estado"**. Empieza en **"En curso"**, y así ya se puede entrevistar. Si todavía estás preparando, elige **"En preparación"**: nadie puede iniciar entrevistas hasta que lo cambies a "En curso" en **"Configuración"**. Al terminar el campamento, cámbialo a **"Terminado"**.
-4. Toca **"Crear campamento"**.
+4. Toca **"Crear evento"**.
 
 Emmaus prepara solo 10 computadoras de entrevista ("Computadora 1" a "Computadora 10") y un primer cuestionario: el último que haya publicado tu iglesia o, si no hay ninguno, el cuestionario de conversación espiritual que trae Emmaus. Si quieres usar más de uno, agrégalos en "Cuestionarios" (ver [10. Cuestionarios](#10-cuestionarios)).
 
@@ -250,7 +250,7 @@ Las preguntas marcadas "Confidencial" tienen su propia regla de quién lee la re
 
 Si tu iglesia tiene logotipo, súbelo y aparece donde hoy dice "Emmaus": en la barra de arriba, en la pantalla para entrar (sobre el título), en la pantalla del campero desde "Hola, …", en cada diapositiva de la presentación y en el encabezado del PDF de los cortes. El título de la pestaña del navegador y el autor del PDF pasan a ser el nombre de tu iglesia. Solo puede subirlo la administración de la iglesia.
 
-1. En **"Campamentos y eventos"** (el enlace **"Campamentos"** de la barra), toca **"Configuración"** en la barra de arriba (es la configuración de la iglesia; la de cada campamento está dentro del campamento). Se abre **"Configuración de la iglesia"**.
+1. En **"Eventos"** (el enlace **"Eventos"** de la barra), toca **"Configuración"** en la barra de arriba (es la configuración de la iglesia; la de cada campamento está dentro del campamento). Se abre **"Configuración de la iglesia"**.
 2. En **"Logotipo"**, elige el archivo: **un PNG con fondo transparente, de hasta 512 KB, con el lado mayor de 32 a 2000 píxeles**. Lo que mejor funciona es el logotipo en **negro sobre transparente**; uno de al menos 640 píxeles de ancho se ve nítido en el proyector. Emmaus no acepta SVG, JPG ni otros formatos: desde tu programa de diseño, exporta o guarda como PNG.
 3. Si tienes una versión en **blanco** (también en PNG, sobre transparente), súbela en **"Logotipo para fondo oscuro"** (es opcional). Se usa en la presentación con **"Modo noche"**. Si no la subes, Emmaus pone tu logotipo de siempre sobre una placa blanca pequeña para que no desaparezca en el fondo oscuro.
 4. Toca **"Guardar cambios"**. Arriba del campo ves cómo quedó: el logotipo sobre blanco y, si subiste la versión en blanco, esa sobre fondo oscuro.

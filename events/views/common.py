@@ -62,7 +62,7 @@ def nav_items(event: Event, access) -> list[dict]:
     def item(label, name, also=()):
         return {"label": label, "url": reverse(f"events:{name}", args=[event.slug]), "names": {name, *also}}
 
-    # "Campamentos" (the event list) is not an item: every bar links it beside the event's name (partials/ui/bar.html).
+    # "Eventos" (the event list) is not an item: every bar links it beside the event's name (partials/ui/bar.html).
     if access.is_admin:
         return [
             item("Inicio", "admin_home"),

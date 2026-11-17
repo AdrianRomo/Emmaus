@@ -20,20 +20,14 @@
     <ol class="promises">
       <li>Abre la dirección de la hoja, que termina en /unirme/, y escribe el código.</li>
       <li>Revisa tu nombre y tu correo, elige qué vas a hacer y toca “Pedir acceso”.</li>
-      <li>Cuando la administración te dé acceso, el evento aparece en “Campamentos”.</li>
+      <li>Cuando la administración te dé acceso, el evento aparece en “Eventos”.</li>
     </ol>
     <p class="more"><a href="{% url 'join' %}">Escribir el código</a></p>
   </section>
   <section class="block" aria-labelledby="tarea-campamento">
-    {% if shell %}
-    <h2 id="tarea-campamento" class="heading">Elige el campamento en “Eventos”</h2>
-    <p>Toca “Eventos” en el menú de la izquierda; en un celular está abajo o en “Más”. Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
+    <h2 id="tarea-campamento" class="heading">Elige el evento en “Eventos”</h2>
+    <p>{% if shell %}Toca “Eventos” en el menú de la izquierda; en un celular está abajo o en “Más”.{% else %}Toca “Eventos” en la barra de arriba; en un celular está en “Menú”.{% endif %} Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
     <p class="more"><a href="{% url 'events:list' %}?todos=1">Ir a Eventos</a></p>
-    {% else %}
-    <h2 id="tarea-campamento" class="heading">Elige el campamento en “Campamentos”</h2>
-    <p>Toca “Campamentos” en la barra de arriba; en un celular está en “Menú”. Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
-    <p class="more"><a href="{% url 'events:list' %}?todos=1">Ir a Campamentos</a></p>
-    {% endif %}
   </section>
   {% if current_church.discipleship_enabled %}
   <section class="block" aria-labelledby="tarea-discipulado">

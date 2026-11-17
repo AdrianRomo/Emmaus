@@ -216,7 +216,7 @@ def initial_setup(request):
         )
         login(request, user)
         messages.success(request, f"{church.name} ya está lista en Emmaus.")
-        # The event list, where the only thing to do is "Crear campamento" (not the discipleship overview).
+        # The event list, where the only thing to do is "Crear evento" (not the discipleship overview).
         return redirect("events:list")
     # What participants of a new church will read (its notice starts as the default); "Qué sigue" asks to read it.
     notice = participant_notice(Church._meta.get_field("basic_disclaimer_text").default)

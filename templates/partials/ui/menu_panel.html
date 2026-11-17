@@ -1,7 +1,7 @@
 {% load brand %}{% comment %}
   The "Menú" panel (included by partials/ui/bar.html, same arguments): a modal dialog (audit A11Y-02). emmaus.js moves
   focus in, keeps Tab inside, makes the page behind it inert, and Escape or "Cerrar menú" give focus back to "Menú".
-  The bar's links in the same order, then "Campamentos" last. Nothing links before the brand in the head: the first
+  The bar's links in the same order, then "Eventos" last. Nothing links before the brand in the head: the first
   focus goes to "Cerrar menú". Whitespace is a contract: '<div class="menu-panel__head">' + newline + four spaces + the
   brand, byte for byte.
 {% endcomment %}
@@ -15,7 +15,7 @@
     {% for item in nav %}<a href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}>{{ item.label }}</a>{% endfor %}
     {% if discipleship_url %}<a href="{{ discipleship_url }}">Discipulado</a>{% endif %}
     {% if help_url %}<a href="{{ help_url }}"{% if request.resolver_match and request.resolver_match.view_name == help_view %} aria-current="page"{% endif %}>Ayuda</a>{% endif %}
-    {% if switch_url %}<a href="{{ switch_url }}?todos=1">Campamentos</a>{% endif %}
+    {% if switch_url %}<a href="{{ switch_url }}?todos=1">Eventos</a>{% endif %}
   </nav>
   <p class="menu-panel__who">{{ user.get_full_name|default:user.email }}{% if role_label %}, {{ role_label|lower }}{% endif %}{% if station %}, en {{ station.name }}{% endif %}{% if sensitive %}, con acceso confidencial{% endif %}</p>
   <p class="menu-panel__account"><a href="{% url 'account' %}">Mi cuenta</a></p>

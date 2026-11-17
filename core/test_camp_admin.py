@@ -37,7 +37,7 @@ class FirstAccountTests(TestCase):
         page = self.client.get(reverse("events:list")).content.decode()
         signs = re.findall(r'<section class="sign"[^>]*>(.*?)</section>', page, re.S)
         self.assertEqual(len(signs), 1)
-        self.assertIn("Crear campamento", signs[0])
+        self.assertIn("Crear evento", signs[0])
 
     def test_the_setup_page_is_role_neutral_and_keeps_the_notice_and_911(self):
         html = self.client.get(reverse("initial_setup")).content.decode()
