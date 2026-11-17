@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Administrar los devocionales{% endblock %}
+{% block content %}
+{% comment %}
+  Every devotional of the church (resources.views.devotional_admin), newest day first: drafts, scheduled and
+  published. It says nothing about who read them: that belongs to each person.
+{% endcomment %}
+<div class="narrow">
+  {% url 'resources:devotional_today' as back %}{% url 'resources:devotional_create' as create %}
+  {% include "events/rotulo/_page_head.html" with title="Administrar los devocionales" lede="Un devocional por día. Un borrador solo lo ve la administración; uno publicado se lee desde su día." back_url=back back_label="Volver al devocional de hoy" action_url=create action_label="Escribir un devocional" %}
+  {% if devotionals %}
+    <ul class="dates rows">
+      {% for devotional in devotionals %}
+        <li class="row row--lead row--stack">
+          {% date_block devotional.date %}
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'resources:devotional_detail' devotional.pk %}">{{ devotional.title }}</a></p>
+            <p class="row__meta">{% if devotional.state == "borrador" %}Borrador para el {{ devotional.date|weekday_date }}: nadie lo ve todavía.{% elif devotional.state == "programado" %}Se publica el {{ devotional.date|weekday_date }}.{% else %}Publicado el {{ devotional.date|long_date }}.{% endif %}</p>
+          </div>
+          <div class="row__end">
+            {% if devotional.state == "borrador" %}{% status "borrador" "Borrador" %}{% elif devotional.state == "programado" %}{% status "por_evaluar" "Programado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}
+            <a class="btn btn--secondary btn--small" href="{% url 'resources:devotional_edit' devotional.pk %}">Editar<span class="visually-hidden"> el devocional del {{ devotional.date|weekday_date }}</span></a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Todavía no hay devocionales. Escribe el primero: puedes guardarlo como borrador y publicarlo después.</p>
+  {% endif %}
+</div>
+{% endblock %}
