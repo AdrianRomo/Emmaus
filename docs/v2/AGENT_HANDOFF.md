@@ -7,9 +7,10 @@ Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rul
 | Branch | Base | Holds | State |
 |---|---|---|---|
 | `v2/slice-1-camp-to-group` | `origin/v2/foundation` (f72d4f6) | People, groups, flags, the first community slice (10 commits) | Local only. Gate passed 2026-11-17 on e422cf0 |
-| `v2/redesign-santuario-shell` | the branch above (98f9bf3) | Santuario: tokens, shell, Mi iglesia, groups, "Mis datos", meetings and attendance, these documents | Local only. Worktree `../Emmaus.worktrees/redesign-santuario`. Gate result in `PROGRESS.md` |
+| `v2/redesign-santuario-shell` | the branch above (98f9bf3) | Santuario: tokens, shell, Mi iglesia, groups, "Mis datos", meetings and attendance, the camp in the shell, "Eventos", and the merged modules `notices`, `agenda`, `resources`; these documents | Local only. Worktree `../Emmaus.worktrees/redesign-santuario`. Gate result in `PROGRESS.md` |
+| `v2/redesign-avisos`, `v2/redesign-eventos-personas`, `v2/redesign-recursos` | the redesign branch | One module each, built by a sub-agent in its own worktree and **already merged** into the redesign branch | Local only; the worktrees and branches can be removed |
 
-Nothing is pushed and no pull request is open: `PROGRESS.md`, "Needs the owner", says why.
+Nothing is pushed and no pull request is open: issue #64 asks the owner.
 The second branch is stacked on the first; it cannot be reviewed or merged before it.
 
 ## How to run it
@@ -47,30 +48,59 @@ symlink is untracked on purpose). The community journey alone:
   view name to the right set in `core/shell.py` so the rail marks the place, and add a row to
   `SCREEN_MATRIX.md`.
 
+## How the three newer modules are put together
+
+Each is its own app with its own migration, behind the `community` flag (no new flag), with every
+write in `services.py` and one audit row per write. They do not touch `events`, `core`, `people`
+or `groups` models: the CI gate `migration-scope` forbids `core/` and `events/` migrations
+(decision 0005; issue #68 asks to lift it).
+
+| App | What | Read from the home and the shell through |
+|---|---|---|
+| `notices` | Avisos for the church or one group, with a date to appear, a date to expire and a read state | `notices.services.for_home`, `unread_count` |
+| `agenda` | `EventPage` beside `events.Event` (published, description, hour, sign-up, capacity) and `EventRegistration` (sign-up, attendance) | `agenda.services.upcoming_for` |
+| `resources` | `Devotional` (one per church and day) with a private read mark; `MediaItem` as links by series and speaker | `resources.services.today_devotional`, `latest_media` |
+
+A PostgreSQL-only lesson from this round: `select_for_update()` with `select_related()` over a
+nullable foreign key fails there and passes on SQLite. Use `select_for_update(of=("self",))`, and
+run `quality-gate.sh --postgres` before believing a module's own SQLite run.
+
 ## Next, in order
 
-1. **The camp inside the shell** (matrix wave 2; audit R13). The largest visible inconsistency left.
-   Design note first: an event becomes a place in the rail with the role's links under it; the bar
-   and its byte-level tests stay for the module-off path. Risk: high (invariant 5); keep
-   `station-flow.mjs` and `review-all.mjs` green and add a modules-on run of the review.
-2. **Look at every camp and discipleship screen with the module on** at three widths; only the
-   event administration's home and the event list were looked at. Fix what the new tokens disturb.
-3. **Events for people** (P3-8, #61): an event that is not a camp, a member-facing page,
-   "Inscribirme", "Mis eventos", then check-in. Needs a short decision record before code.
-4. **Avisos** (#57) on Mi iglesia, with the notification preferences they need.
-5. **The pastor's view of groups and attendance**, blocked on Q-C3 (do pastors see every group?).
-6. Small: `tenant_integrity` checks for groups, meetings and links; day and sede filters in Grupos
-   once a church has enough groups; a first-run welcome for a member (`core/onboarding.py` has the
-   pattern for roles); a meeting's seed in `seed_community_demo`.
+Decisions are open as issues #64 to #71; without an answer, follow this order and skip what is blocked.
+
+1. **Look at the coordinator, tutor, interview and campero screens with the module on**, signed in
+   as an account with both a church role and an event role (the seed has none: add one). The
+   automated review passes; nobody has looked.
+2. **A simple event that is not a camp** (blocked on #68): creation without the interview set-up,
+   and "Eventos donde sirves" telling a camp from a service.
+3. **Walk-ups at an event** (#69, recommended first): the administration adds someone at the door.
+4. **The pastor's view of groups, attendance and sign-ups** (blocked on #66).
+5. **Volunteer scheduling («Servir»)**: teams, dates, accept or decline, unavailability. Needs a
+   scope for ministries in `access` (decision 0003), so write a short decision record first.
+6. **A first-run welcome for a member** (`core/onboarding.py` has the pattern for roles).
+7. Small: `tenant_integrity` checks for groups, meetings, notices, registrations, devotionals;
+   pagination where lists stop at 50 or 200; day and sede filters in Grupos; a WhatsApp share link
+   on a notice (#70).
+8. Not started and waiting on decisions: guardians and households (#67), check-in for children,
+   photos (#60), giving (#71).
 
 ## Open questions for the owner
 
-Q-C1 to Q-C4 in `docs/decisions/0008`, unchanged, plus:
+Q-C1 to Q-C4 in `docs/decisions/0008`, unchanged. The rest are GitHub issues, each with the default
+that is in place until answered:
 
-- **Q-S1.** Is the serif voice (Newsreader) wanted on the camp's own screens too? Today it is, for a
-  church on the new modules, except on the projector deck.
-- **Q-S2.** "Eventos" replaces "Campamentos" in the shell. Keep both words, or move the page title too?
-- **Q-S3.** Attendance is visible to the group's guides and the administration only. Should a member
-  see their own? Should a pastor see totals per group?
-- **Q-S4.** One flag (`community`) turns on the modules and the new look together. A separate flag
-  for the look would let a church try one without the other; it was judged not worth a column yet.
+| Issue | Decision |
+|---|---|
+| #64 | Push the branches and open draft PRs? |
+| #65 | Keep the serif titles on the camp's own screens? |
+| #66 | Who may read group attendance? |
+| #67 | Minors signing up for events, and guardian accounts |
+| #68 | Lift the migration freeze on `events` and `core`? |
+| #69 | Waiting list, household sign-up, walk-ups, payments |
+| #70 | Should a notice also go out by e-mail or WhatsApp? |
+| #71 | Order and scope of the modules that are not built |
+| #72 | (bug, camp) Atrio's bar wraps a long event name for a pastor at 1440 px |
+
+Answered on 2026-11-17: the word is **"Eventos"** everywhere. Still without an issue, low stakes:
+one flag (`community`) turns on the modules and the new look together.
