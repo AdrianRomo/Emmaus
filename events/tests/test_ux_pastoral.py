@@ -83,7 +83,7 @@ class PastorOrderTests(CampFixture):
     def test_the_headline_is_a_sentence_between_the_title_and_the_sections(self):
         self.login(self.pastor)
         html = self.client.get(self.url("pastor_home")).content.decode()
-        self.assertIn('<p class="voice headline headline--sentence">Llevamos 0 de 5 entrevistas.</p>', html)
+        self.assertIn('<p class="voice headline headline--sentence" data-count="llevamos">Llevamos 0 de 5 entrevistas.</p>', html)
         css = stylesheet()
         self.assertEqual(declarations(css, ".headline--sentence").get("font-size"), "clamp(1.75rem, 1.4rem + 1.2vw, 2.25rem)")
         self.assertEqual(declarations(css, ".headline").get("font-size"), "clamp(2rem, 1.4rem + 1.8vw, var(--t-h1))")  # elsewhere unchanged

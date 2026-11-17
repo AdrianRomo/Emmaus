@@ -139,7 +139,8 @@ class MigrationScopeTests(TestCase):
     def test_core_and_events_migrations_unchanged(self):
         core_files = sorted(p.name for p in (REPO / "core" / "migrations").glob("0*.py"))
         events_files = sorted(p.name for p in (REPO / "events" / "migrations").glob("0*.py"))
-        self.assertEqual(len(core_files), 10, core_files)
+        # 11: core/0011_onboardingstate arrived from main (the camp owns core/ and events/ numbers).
+        self.assertEqual(len(core_files), 11, core_files)
         self.assertEqual(len(events_files), 12, events_files)
         self.assertEqual([p.name for p in (REPO / "people" / "migrations").glob("0*.py")], ["0001_initial.py"])
         with self.assertRaises(SystemExit) as caught:  # pragma: no cover - only when something is missing

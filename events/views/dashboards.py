@@ -28,6 +28,7 @@ from ..models import (
 )
 from ..services import audit
 from ..services import event_questionnaires as eq
+from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews, sum_rows
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
@@ -107,6 +108,7 @@ def tutor_home(request, event, access):
     }
     if is_fragment(request):
         return render(request, "events/tutor/_home_live.html", context)
+    context["welcome"] = welcome_svc.for_tutor(event, access)  # outside the live region: the full page only
     return render(request, "events/tutor/home.html", context)
 
 
@@ -291,6 +293,8 @@ def pastor_home(request, event, access):
     }
     if is_fragment(request):
         return render(request, "events/pastor/_home_live.html", context)
+    # The pastor's welcome, outside the live region; an administrador reading this page has their own on "Inicio"
+    context["welcome"] = welcome_svc.for_pastor(event, access) if access.is_pastor else None
     return render(request, "events/pastor/home.html", context)
 
 
@@ -696,5 +700,7 @@ def admin_home(request, event, access):
     context["step_groups"] = [group for group in ({"listos": False, "steps": pending}, {"listos": True, "steps": ready}) if group["steps"]]
     if is_fragment(request):
         return render(request, "events/admin/_home_live.html", context)
+    # The welcome frames "Preparación" (the checklist itself stays there); outside the live region: the full page only
+    context["welcome"] = welcome_svc.for_admin(event, access, steps_done=len(ready), steps_total=len(steps))
     return render(request, "events/admin/home.html", context)
 

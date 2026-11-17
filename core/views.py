@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.contrib.auth.views import LoginView, PasswordResetView
+from django.contrib.auth.views import LoginView, PasswordChangeView, PasswordResetView
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Case, Count, IntegerField, Max, Q, Value, When
@@ -18,9 +18,12 @@ from django.http import (
 )
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.views.decorators.http import require_safe
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST, require_safe
 
+from . import onboarding
 from .access import (
     can_answer_question,
     get_user_role,
@@ -33,6 +36,7 @@ from .access import (
 )
 from .forms import (
     AcceptInvitationForm,
+    AccountForm,
     AIDraftReviewForm,
     AssignMentorForm,
     ChurchSettingsForm,
@@ -40,12 +44,14 @@ from .forms import (
     InitialSetupForm,
     InvitationForm,
     LessonForm,
+    ParticipantContactForm,
     ParticipantFollowUpForm,
     ParticipantQuestionForm,
     PastoralNoteForm,
     PathForm,
     QuestionResponseForm,
     ReflectionQuestionForm,
+    TuPasswordChangeForm,
     TuPasswordResetForm,
 )
 from .logos import logo_meta
@@ -404,6 +410,7 @@ def participant_dashboard(request):
             "questions": questions,
             "answers": answers,
             "follow_ups": follow_ups,
+            "welcome": onboarding.for_church_role(request.user, get_user_role(request.user), can_create_event=False),
         },
     )
 
@@ -541,6 +548,7 @@ def mentor_dashboard(request):
             # Listed after them, so the mentor sees where those went.
             "with_pastor": questions.filter(status=ParticipantQuestion.Status.ESCALATED).order_by("created_at"),
             "follow_ups": follow_ups,
+            "welcome": onboarding.for_church_role(request.user, get_user_role(request.user), can_create_event=False),
         },
     )
 
@@ -758,6 +766,8 @@ def church_dashboard(request):
             church=church, status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS]
         ).select_related("participant", "assigned_to")[:6],
         "recent_notes": PastoralNote.objects.filter(church=church).select_related("participant", "author")[:5],
+        # The church role's welcome, the same one the event list shows, until "Entendido"
+        "welcome": onboarding.for_church_role(request.user, role_record, can_create_event=role_record.role == Role.CHURCH_ADMIN),
     }
     return render(request, "core/church_dashboard.html", context)
 
@@ -1013,6 +1023,87 @@ class ThrottledPasswordResetView(PasswordResetView):
             f"Créala con este enlace:\n\n{link}\n\nSi no lo pediste, ignora este correo.",
             [user.email],
         )
+
+
+# ---- "Mi cuenta" and the welcomes ---------------------------------------------------------------------------------
+
+
+def _safe_next(request, candidate, fallback):
+    if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return candidate
+    return fallback
+
+
+@login_required
+def account(request):
+    """Where am I, as a page: your name (the greetings use it), the e-mail you sign in with, every event and church
+    role you hold (each with its screen), your password, and the welcomes you put away, to see them again."""
+    from events.access import accessible_events, resolve_access
+
+    profile = getattr(request.user, "participant_profile", None)
+    form = AccountForm(request.POST or None, instance=request.user, prefix="cuenta")
+    contact_form = ParticipantContactForm(request.POST or None, instance=profile, prefix="contacto") if profile else None
+    if request.method == "POST" and form.is_valid() and (contact_form is None or contact_form.is_valid()):
+        with transaction.atomic():
+            form.save()
+            if contact_form is not None:
+                contact_form.save()
+        messages.success(request, "Guardamos tus datos.")
+        return redirect("account")
+    rows = []
+    for event in accessible_events(request.user).order_by("-starts_on", "name"):
+        access = resolve_access(request.user, event)
+        if access:
+            rows.append({"event": event, "access": access})
+    dismissed = [{"key": key, "label": onboarding.KEY_LABELS.get(key, key)} for key in onboarding.dismissed_keys(request.user)]
+    return render(
+        request,
+        "core/account.html",
+        {
+            "form": form,
+            "contact_form": contact_form,
+            "role_record": get_user_role(request.user),
+            "rows": rows,
+            "dismissed": dismissed,
+        },
+    )
+
+
+class AccountPasswordChangeView(PasswordChangeView):
+    """"Cambiar contraseña" from "Mi cuenta": Django's own view, with the tú-voice form, back to "Mi cuenta" with a message."""
+
+    template_name = "registration/password_change.html"
+    form_class = TuPasswordChangeForm
+    success_url = reverse_lazy("account")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Tu contraseña cambió. Sigues dentro de Emmaus.")
+        return super().form_valid(form)
+
+
+@login_required
+@require_POST
+def welcome_dismiss(request):
+    """"Entendido" on a welcome: never shown again for that key. 204 to the page's own fetch, else back to the page."""
+    key = request.POST.get("key", "")
+    if key not in onboarding.KEYS:
+        return HttpResponseBadRequest("clave desconocida")
+    onboarding.dismiss(request.user, key)
+    if request.headers.get("X-Requested-With") == "fetch":
+        return HttpResponse(status=204)
+    return redirect(_safe_next(request, request.POST.get("siguiente"), reverse("dashboard")))
+
+
+@login_required
+@require_POST
+def welcome_restore(request):
+    """"Volver a ver" on "Mi cuenta": the welcome of that key shows again on its home."""
+    key = request.POST.get("key", "")
+    if key not in onboarding.KEYS:
+        return HttpResponseBadRequest("clave desconocida")
+    onboarding.restore(request.user, key)
+    messages.success(request, "Listo. La verás la próxima vez que abras ese inicio.")
+    return redirect("account")
 
 
 @login_required

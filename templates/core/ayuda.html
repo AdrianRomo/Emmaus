@@ -37,6 +37,7 @@
     <p class="more"><a href="{% url 'dashboard' %}">Ir al discipulado</a></p>
   </section>
   {% endif %}
+  <p class="block">Tu nombre, tu contraseña, cada evento en el que participas y la bienvenida de tu rol están en <a href="{% url 'account' %}">Mi cuenta</a>.</p>
   <p class="block">¿Algo no está aquí? Pregunta a {% if is_church_admin %}quien instaló Emmaus{% elif current_church %}la administración de tu iglesia{% else %}la administración del evento{% endif %}.</p>
 </div>
 {% endblock %}

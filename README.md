@@ -16,6 +16,7 @@ The interface is Mexican Spanish throughout and every screen uses one design sys
 | Tutor | **Mi equipo** | Progress per assigned coordinador, interrupted interviews, follow-ups, filters, team cutoffs |
 | Pastor | **Resumen general** | Five questions answered in order, team progress, privacy-suppressed answer totals, deterministic next steps, **Modo presentación** |
 | Administración | **Inicio** | Events, team and roles, tutor assignments, CSV import with duplicate review, a campero table sorted by any column, questionnaires (several per event, answered in a fixed or any order, each with its versions), who reads confidential answers (the pastor can set it too), cutoffs, audit log, open sessions |
+| Everyone with an account | **Mi cuenta** | The first time in a role, a welcome on its home (where am I, what can I do, what is missing, what next: built from live data, put away with "Entendido"); "Mi cuenta" lists every event and role, edits the name, changes the password and brings a welcome back |
 
 Cutoffs ("cortes de seguimiento") are immutable snapshots generated every two hours (configurable). Each one can be viewed, compared with the previous one, presented full screen, or downloaded as a PDF.
 
@@ -56,6 +57,8 @@ cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… 
 | `docs/design-research.md` | Real screens from Planning Center, Tally, Airtable, GOV.UK, Mobbin and Refero, then (v3) 32 church, camp, discipleship and calm-product tools: what to adapt, what not to copy, what we could not access, and the three directions that led to "Atrio" |
 | `docs/design-direction.md` | The two retired directions ("Cuaderno de campo", "Rótulo") and why each was retired; "Atrio": why it won, its patterns and principles, what it kept from Rótulo, the landing page copy and the church's logo |
 | `docs/design-system.md` | "Atrio" tokens, components, chart rules, screens, language, accessibility, motion and how to make a new screen |
+| `docs/design/motion-system.md` | The thirteen motion rules: tokens, keyframes, when each applies and when it does not, reduced motion, how to add one |
+| `docs/product/completeness-and-onboarding-audit.md` | Product completeness audit (2026-11-04): capabilities, journeys per role, gaps, the welcome per role and "Mi cuenta", backlog with status |
 | `docs/ux-review.md` | Sixteen screenshot review rounds at three widths (round 16 is Atrio), axe results and what is still open |
 | `docs/architecture.md` | Apps, models, concurrency model, live updates, PDF, static files |
 | `docs/roles-and-permissions.md` | Role resolution, permission matrix, field-level visibility |
