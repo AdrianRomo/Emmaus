@@ -273,7 +273,7 @@ def accessible_events(user: User | AnonymousUser) -> QuerySet[Event]:
     if not getattr(user, "is_authenticated", False):
         return Event.objects.none()
     if user.is_superuser:
-        return Event.objects.all().select_related("church")
+        return Event.objects.filter(camp_tools=True).select_related("church")
     church_ids = UserChurchRole.objects.filter(user=user, role__in=[Role.CHURCH_ADMIN, Role.PASTOR]).values_list(
         "church_id", flat=True
     )
@@ -285,6 +285,7 @@ def accessible_events(user: User | AnonymousUser) -> QuerySet[Event]:
         )
         .exclude(Q(id__in=removed) & ~Q(church_id__in=admin_church_ids))  # same rule as resolve_access
         .exclude(status=Event.Status.ARCHIVED)
+        .filter(camp_tools=True)  # a simple event has no camp screens: it lives in the agenda
         .distinct()
         .select_related("church")
     )

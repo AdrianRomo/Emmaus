@@ -28,7 +28,8 @@ def event_view(*roles):
         @login_required
         @wraps(view)
         def wrapped(request, slug, *args, **kwargs):
-            event = get_object_or_404(Event.objects.select_related("church"), slug=slug)
+            # A simple event (camp_tools off) has none of these screens: it is managed in the agenda.
+            event = get_object_or_404(Event.objects.select_related("church"), slug=slug, camp_tools=True)
             access = resolve_access(request.user, event)
             if access is None or (roles and access.role not in roles):
                 raise PermissionDenied

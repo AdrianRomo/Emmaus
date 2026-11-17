@@ -139,9 +139,10 @@ class MigrationScopeTests(TestCase):
     def test_core_and_events_migrations_unchanged(self):
         core_files = sorted(p.name for p in (REPO / "core" / "migrations").glob("0*.py"))
         events_files = sorted(p.name for p in (REPO / "events" / "migrations").glob("0*.py"))
-        # 11: core/0011_onboardingstate arrived from main (the camp owns core/ and events/ numbers).
+        # 11: core/0011_onboardingstate arrived from main. 13: events/0013_event_camp_tools, the first
+        # migration after the freeze was lifted (decision 0013). A new one here is a reviewed, additive change.
         self.assertEqual(len(core_files), 11, core_files)
-        self.assertEqual(len(events_files), 12, events_files)
+        self.assertEqual(len(events_files), 13, events_files)
         self.assertEqual(
             sorted(p.name for p in (REPO / "people" / "migrations").glob("0*.py")),
             ["0001_initial.py", "0002_campusaffiliation.py", "0003_modules_audit_participant_links.py"],

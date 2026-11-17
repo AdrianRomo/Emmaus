@@ -29,6 +29,8 @@ ACTION_LABELS = {
     "recurso_publicado": "Publicó un recurso",
     "recurso_modificado": "Modificó un recurso",
     "recurso_retirado": "Retiró un recurso",
+    "evento_sencillo_creado": "Creó un evento de la iglesia",
+    "evento_sencillo_datos": "Modificó los datos de un evento",
     "evento_publicado": "Publicó un evento para la iglesia",
     "evento_pagina": "Modificó la página de un evento",
     "evento_inscripcion": "Se inscribió a un evento",

@@ -33,7 +33,7 @@ def find_event_by_key(text) -> Event | None:
     value = unicodedata.normalize("NFKC", " ".join(str(text or "").split()))  # also strips the ends
     if not value or len(value) > MAX_KEY_LENGTH or "\x00" in value:
         return None
-    events = Event.objects.exclude(status=Event.Status.ARCHIVED).select_related("church")
+    events = Event.objects.filter(camp_tools=True).exclude(status=Event.Status.ARCHIVED).select_related("church")
     event = events.filter(join_code__iexact=value.upper()).first()
     if event is not None:
         return event

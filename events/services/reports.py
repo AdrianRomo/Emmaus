@@ -177,7 +177,7 @@ def generate_snapshot(event: Event, scope: Scope, *, trigger: str, cutoff_at: da
 def run_due_cutoffs(now: datetime | None = None) -> list[ReportSnapshot]:
     now = now or timezone.now()
     created = []
-    for event in Event.objects.filter(status=Event.Status.ACTIVE, reports_enabled=True):
+    for event in Event.objects.filter(status=Event.Status.ACTIVE, reports_enabled=True, camp_tools=True):
         slot = latest_due_slot(event, now)
         if slot is None:
             continue

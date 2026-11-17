@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if event %}Datos de {{ event.name }}{% else %}Crear un evento{% endif %}{% endblock %}
+{% block content %}
+{% comment %}
+  A simple event of the church (agenda.simple): its name, kind, place and days. Its page, the sign-ups, the
+  programme and the questions are the next step. A camp, with camperos and interviews, is created in "Eventos donde sirves".
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'agenda:admin_list' as back %}
+  {% if event %}
+    {% include "events/rotulo/_page_head.html" with title="Datos del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Crear un evento" lede="Un culto especial, una convivencia, una noche de alabanza. Después escribes su página y decides si las personas se inscriben." back_url=back back_label="Volver a los eventos" %}
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">{% if event %}Guardar los datos{% else %}Crear el evento{% endif %}</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  {% if not event %}<p class="aside-note">¿Es un campamento o un retiro con entrevistas y camperos? Créalo en <a href="{% url 'events:create' %}">Eventos donde sirves</a>.</p>{% endif %}
+</div>
+{% endblock %}
