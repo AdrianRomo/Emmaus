@@ -8,6 +8,11 @@ of last year with a few camperos and no answers, three groups, and four accounts
 * the guide of a group, who holds nothing else anywhere,
 * the church's administrator.
 
+With ``--panorama`` it also adds what the pastor's page counts: a pastor who is not an administrator, people in
+two groups, weeks of meetings with their lists (one group stopped recording five weeks ago) and a finished event
+with sign-ups and attendance. It is opt-in because the browser gate (``e2e/community-flow.mjs``) counts on the
+plain seed.
+
 Idempotent: every object is looked up by a fixed key. The password comes from --password or EMMAUS_DEMO_PASSWORD.
 """
 
@@ -35,6 +40,16 @@ ADMIN = ("admin.comunidad@demo.invalid", "Alma", "Cisneros Rey")
 LEADER = ("guia.grupo@demo.invalid", "Gabriel", "Ortega Luna")
 MEMBER = ("valeria.soto@demo.invalid", "Valeria", "Soto Marín")
 ASKED = ("emilio.vargas@demo.invalid", "Emilio", "Vargas Peña")
+PASTOR = ("pastor.iglesia@demo.invalid", "Ernesto", "Salas Mejía")
+# --panorama: people without an account, and how many of each group came, oldest meeting first (weeks ago, how many).
+PANORAMA_PEOPLE = [
+    ("Hugo", "Paredes Lima"), ("Itzel", "Carmona Ruiz"), ("Joaquín", "Zavala Ortiz"), ("Karla", "Montes Ibarra"),
+    ("Lorenzo", "Beltrán Soto"), ("Mariana", "Quiroz Peña"), ("Noé", "Gallardo Cruz"),
+]
+PANORAMA_MEETINGS = {
+    "Estudio de Romanos": (PANORAMA_PEOPLE[:4], [(6, 3), (5, 4), (4, 2), (3, 4), (2, 3), (1, 4)]),
+    "Recién llegados": (PANORAMA_PEOPLE[4:], [(7, 3), (6, 2), (5, 1)]),
+}
 CAMPEROS = [
     ("Valeria Soto Marín", 17), ("Emilio Vargas Peña", 18), ("Renata Aguilar Cruz", 15), ("Santiago Mora Díaz", 16),
     ("Ximena Robles Vega", 14), ("Leonardo Pineda Sol", 19), ("Camila Fuentes Ríos", 16), ("Matías Ochoa Lara", 15),
@@ -57,6 +72,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", default="", help="Contraseña de las cuentas (o EMMAUS_DEMO_PASSWORD). Nunca se muestra.")
+        parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
     def handle(self, *args, **opts):
         if not settings.DEBUG:
@@ -86,10 +102,47 @@ class Command(BaseCommand):
             if not GroupJoinRequest.objects.filter(group=groups[0], person=asked).exists():
                 group_services.request_to_join(groups[0], asked, asked.user)
             self._agenda_and_notices(church, admin, leader, groups[0])
+            if opts["panorama"]:
+                self._panorama(church, admin, password)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
-        for label, (email, *_rest) in (("Administración", ADMIN), ("Guía de un grupo", LEADER),
-                                        ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)):
+        accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
+        if opts["panorama"]:
+            accounts.append(("Pastor (Panorama)", PASTOR))
+        for label, (email, *_rest) in accounts:
             self.stdout.write(f"  {label:<26} {email}")
+
+    def _panorama(self, church, admin, password) -> None:
+        """What "Panorama" counts: a pastor, two groups with weeks of lists, a finished event with attendance."""
+        from agenda.models import EventPage, EventRegistration
+        from groups.models import GroupMeeting
+
+        pastor = self._account(*PASTOR, password)
+        assign_role(pastor, church, Role.PASTOR)
+        people_services.ensure_own_person(pastor, church)
+        today = timezone.localdate()
+        everybody = []
+        for name, (names, meetings) in PANORAMA_MEETINGS.items():
+            group = Group.objects.get(church=church, name=name)
+            people = [
+                Person.objects.get_or_create(church=church, first_name=first, last_name=last, user=None)[0] for first, last in names
+            ]
+            everybody += people
+            for person in people:
+                if not GroupMembership.objects.filter(group=group, person=person, status="activa").exists():
+                    group_services.set_membership(group, person, admin)
+            for weeks, came in meetings:
+                day = group.last_meeting_day(today) - timedelta(weeks=weeks)
+                if not GroupMeeting.objects.filter(group=group, date=day).exists():
+                    group_services.record_meeting(group, day, [person.pk for person in people[:came]], admin)
+        day = today - timedelta(days=23)
+        event, _ = Event.objects.get_or_create(
+            slug="retiro-de-familias-demo",
+            defaults={"church": church, "name": "Retiro de familias", "kind": Event.Kind.OTHER, "location": "Templo principal",
+                      "starts_on": day, "ends_on": day, "reports_enabled": False},
+        )
+        EventPage.objects.get_or_create(event=event, defaults={"published": True, "registration": "abierta", "capacity": 30, "created_by": admin})
+        for index, person in enumerate(everybody):
+            EventRegistration.objects.get_or_create(event=event, person=person, defaults={"attended": index % 3 != 0})
 
     def _agenda_and_notices(self, church, admin, leader, group) -> None:
         """An event the church published with its sign-up open, and two notices: one for everybody, one for a group."""
