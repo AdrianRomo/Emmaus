@@ -4,19 +4,46 @@
 {% block content %}
 {% comment %}
   One notice (notices.views.notice_detail). Opening it marks it read for the person. The body is plain text: it is
-  escaped and only its line breaks are kept. Who may change it (its author, the administration) also reads its state
-  and gets "Editar el aviso" and "Retirar el aviso".
+  escaped and only its line breaks are kept. An important or urgent one says so in a word under its title. An urgent
+  one asks its readers for "Enterado"; who may change it reads how many answered, as a number and never as names, and
+  that the number is not proof that the message arrived. "Compartir por WhatsApp" carries the church's name and this
+  page's address, never the title or the body. Who may change it (its author, the administration) also reads its
+  state and gets "Editar el aviso" and "Retirar el aviso".
 {% endcomment %}
 <div class="narrow">
-  {% url 'notices:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title=notice.title lede=notice.audience|add:"." back_url=back back_label="Volver a los avisos" %}
+  <a class="back-link" href="{% url 'notices:list' %}">Volver a los avisos</a>
+  <header class="page-head">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">{{ notice.title }}</h1>
+      {% if notice.level %}<p class="page-head__meta">{% include "notices/_level.html" %}</p>{% endif %}
+      <p class="lede">{{ notice.audience }}.</p>
+    </div>
+  </header>
   {% if can_edit %}
     {% if notice.state == "programado" %}<div class="notice notice--quiet"><p>Este aviso se publica el {{ notice.publish_on|weekday_date }}. Hasta entonces solo lo ves tú y la administración de la iglesia.</p></div>
     {% elif notice.state == "vencido" %}<div class="notice notice--quiet"><p>Este aviso se dejó de ver después del {{ notice.expires_on|weekday_date }}. Si todavía sirve, edítalo y cambia su último día.</p></div>
     {% elif notice.state == "retirado" %}<div class="notice notice--quiet"><p>Retiraste este aviso: ya nadie lo ve en Mi iglesia. Si hace falta, publica uno nuevo.</p></div>{% endif %}
   {% endif %}
   <div class="block prose">{{ notice.body|linebreaks }}</div>
-  <p class="aside-note">{% if notice.state == "programado" %}Se publica{% else %}Publicado{% endif %} el {{ notice.publish_on|long_date }}{% if notice.expires_on and notice.state != "vencido" %}. Se ve hasta el {{ notice.expires_on|long_date }}{% endif %}.</p>
+  <p class="aside-note">{% if notice.state == "programado" %}Se publica{% else %}{{ published_by }}{% endif %} el {{ notice.publish_on|long_date }}{% if notice.expires_on and notice.state != "vencido" %}. Se ve hasta el {{ notice.expires_on|long_date }}{% endif %}.</p>
+  {% if can_acknowledge %}
+    <form class="block" method="post" action="{% url 'notices:acknowledge' notice.pk %}">
+      {% csrf_token %}
+      <p>Este aviso es urgente. Cuando lo hayas leído, dilo aquí.</p>
+      <div class="step__actions"><button class="btn btn--primary" type="submit">Enterado</button></div>
+    </form>
+  {% elif acknowledged_on %}
+    <p class="aside-note">Dijiste «Enterado» el {{ acknowledged_on|long_date }}.</p>
+  {% endif %}
+  {% if acknowledged_line %}
+    <div class="notice notice--quiet">
+      <p>{{ acknowledged_line }}</p>
+      <p>Ese número cuenta a quienes tocaron el botón aquí, entre las personas con cuenta a quienes va el aviso. No prueba que todas lo hayan recibido: si es una emergencia, avísales también por otro medio.</p>
+    </div>
+  {% endif %}
+  {% if share_url %}
+    <p class="aside-note"><a href="{{ share_url }}" target="_blank" rel="noopener">Compartir por WhatsApp</a> (se abre en otra pestaña). El mensaje solo dice que hay un aviso y lleva el enlace a esta página: para leerlo hay que entrar a Emmaus con su cuenta.</p>
+  {% endif %}
   {% if can_edit and not notice.is_retired %}
     <div class="step__actions">
       <a class="btn btn--secondary" href="{% url 'notices:edit' notice.pk %}">Editar el aviso</a>
