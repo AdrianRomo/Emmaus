@@ -11,6 +11,7 @@
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Página del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
   <p class="aside-note">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}. El nombre, las fechas y el lugar se cambian en la configuración del evento.</p>
+  <div class="block">
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
@@ -19,6 +20,26 @@
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  </div>
+  <section class="block" aria-labelledby="mas">
+    <h2 id="mas" class="heading">Lo demás que se lee en el evento</h2>
+    <ul class="rows">
+      <li class="row row--lead row--stack">
+        <div class="row__main">
+          <p class="row__title">Programa</p>
+          <p class="row__meta">{% if schedule_count == 0 %}Todavía no tiene programa.{% elif schedule_count == 1 %}1 momento.{% else %}{{ schedule_count }} momentos.{% endif %}</p>
+        </div>
+        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:schedule' event.slug %}">Editar el programa</a></div>
+      </li>
+      <li class="row row--lead row--stack">
+        <div class="row__main">
+          <p class="row__title">Preguntas frecuentes</p>
+          <p class="row__meta">{% if faq_count == 0 %}Todavía no tiene preguntas.{% elif faq_count == 1 %}1 pregunta.{% else %}{{ faq_count }} preguntas.{% endif %}</p>
+        </div>
+        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:faq' event.slug %}">Editar las preguntas</a></div>
+      </li>
+    </ul>
+  </section>
   <p class="aside-note">Inscribirse no da ningún acceso ni convierte a nadie en campero: solo le dice a la iglesia quién quiere ir.</p>
 </div>
 {% endblock %}

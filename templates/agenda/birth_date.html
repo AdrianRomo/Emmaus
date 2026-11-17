@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Tu fecha de nacimiento{% endblock %}
+{% block content %}
+{% comment %}
+  The one question a sign-up may ask (agenda.views.register): the date of birth, only when the event asks for a
+  guardian's authorization and the church does not know the date yet. Sending it signs the person up.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'agenda:detail' event.slug as back %}
+  {% include "events/rotulo/_page_head.html" with title="¿Cuál es tu fecha de nacimiento?" lede="Para inscribirte a "|add:event.name|add:" tu iglesia necesita saber si eres mayor de edad." back_url=back back_label="Volver al evento" %}
+  <form method="post" action="{% url 'agenda:register' event.slug %}" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Inscribirme</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia. Tu fecha de nacimiento la ve solo la administración de tu iglesia.</p>
+</div>
+{% endblock %}

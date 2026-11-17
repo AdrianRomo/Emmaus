@@ -1,0 +1,4 @@
+{% load shell %}{% comment %}
+  How to reach who is on a row of "Inscritos", person or visitor, and for a visitor the way into the church's
+  people. Needs: row (EventRegistration), event, people_on.
+{% endcomment %}{% if row.contact_phone or row.contact_email or row.is_guest and people_on %}<p class="row__contact">{% if row.contact_phone %}<a href="tel:{{ row.contact_phone|tel }}"><span class="visually-hidden">Llamar a {{ row.display_name }}: </span>{{ row.contact_phone }}</a>{% endif %}{% if row.contact_email %}<a href="mailto:{{ row.contact_email }}"><span class="visually-hidden">Escribir a {{ row.display_name }}: </span>{{ row.contact_email }}</a>{% endif %}{% if row.is_guest and people_on %}<a href="{% url 'agenda:guest_promote' event.slug row.pk %}">Agregar a personas de la iglesia<span class="visually-hidden">: {{ row.display_name }}</span></a>{% endif %}</p>{% endif %}

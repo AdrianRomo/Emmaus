@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Programa de {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  The programme of one event (agenda.views.schedule), for the administration: each day with its moments by hour,
+  and one form to add another.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Programa" lede=event.name back_url=back back_label="Volver a la página del evento" %}
+
+  <section class="block" aria-labelledby="programa">
+    <h2 id="programa" class="heading">Lo que se lee en el evento</h2>
+    <p class="aside-note">{% if event.starts_on %}El evento es {{ event.starts_on|date_range:event.ends_on }}: cada momento tiene que caer en esos días.{% else %}Este evento todavía no tiene fecha.{% endif %}</p>
+    {% for day, items in days %}
+      <h3 class="row__title mt-2">{{ day|date:"l j \\d\\e F"|lower|capfirst }}</h3>
+      <ul class="rows">
+        {% for item in items %}
+          <li class="row row--lead row--stack">
+            <div class="row__main">
+              <p class="row__title">{{ item.title }}</p>
+              <p class="row__meta">{% include "agenda/_schedule_when.html" %}</p>
+            </div>
+            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:schedule_edit' event.slug item.pk %}">Editar<span class="visually-hidden">: {{ item.title }}</span></a></div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% empty %}
+      <p class="empty-line">Este evento todavía no tiene programa. Mientras no agregues un momento, la sección no aparece en el evento.</p>
+    {% endfor %}
+  </section>
+
+  <section class="block" aria-labelledby="agregar">
+    <h2 id="agregar" class="heading">Agregar un momento</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Agregar al programa</button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

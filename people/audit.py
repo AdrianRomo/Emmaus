@@ -34,6 +34,12 @@ ACTION_LABELS = {
     "evento_inscripcion": "Se inscribió a un evento",
     "evento_inscripcion_cancelada": "Canceló su inscripción a un evento",
     "evento_asistencia": "Registró la asistencia de un evento",
+    "evento_preguntas": "Agregó, modificó o borró una pregunta frecuente de un evento",
+    "evento_programa": "Agregó, modificó o quitó un momento del programa de un evento",
+    "evento_registro_puerta": "Registró a alguien que llegó a un evento",
+    "evento_autorizacion": "Registró la autorización de un tutor para un evento",
+    "evento_autorizacion_retirada": "Retiró la autorización de un tutor para un evento",
+    "evento_visita_persona": "Agregó a una visita de un evento a las personas de la iglesia",
     "equipo_creado": "Creó un equipo",
     "equipo_modificado": "Modificó un equipo",
     "equipo_archivado": "Archivó un equipo",
@@ -48,7 +54,9 @@ ACTION_LABELS = {
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
-ALLOWED_METADATA = frozenset({"module", "value", "group_id", "person_id", "event_id", "role", "source", "minor_confirmed"})
+ALLOWED_METADATA = frozenset({
+    "module", "value", "group_id", "person_id", "event_id", "role", "source", "minor_confirmed", "registration_id", "method",
+})
 
 
 def record_church(church, actor, action: str, summary: str, obj=None, **metadata) -> ChurchAuditEvent:

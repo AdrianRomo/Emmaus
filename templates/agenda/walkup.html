@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Registrar a alguien que llegó a {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  Somebody arrived (agenda.views.walkup): a person of this church found by name, or a visitor written down by
+  name. Nobody needs an account. One form and one filled button; the search is a separate, quiet form.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Registrar a alguien que llegó" lede=event.name back_url=back back_label="Volver a los inscritos" %}
+
+  {% if person %}
+    <div class="notice notice--quiet">
+      <p>Vas a registrar a <strong>{{ person.full_name }}</strong>, que ya es persona de la iglesia.{% if minor_known %} Por su fecha de nacimiento, es menor de edad.{% endif %}</p>
+    </div>
+    <p class="more"><a href="{% url 'agenda:walkup' event.slug %}">Elegir a alguien más o registrar a una visita</a></p>
+  {% else %}
+  <section class="block" aria-labelledby="buscar-titulo">
+    <h2 id="buscar-titulo" class="heading">Si ya es de la iglesia, búscala</h2>
+    <form class="search" method="get" role="search" action="{% url 'agenda:walkup' event.slug %}">
+      <label class="visually-hidden" for="buscar">Nombre de la persona</label>
+      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+      <button class="btn btn--secondary" type="submit">Buscar</button>
+    </form>
+    <p class="aside-note" id="buscar-ayuda">Escribe su nombre o apellido. Solo se buscan personas de tu iglesia que no están en la lista.</p>
+    {% if query %}
+      {% if found %}
+        <ul class="rows">
+          {% for match in found %}
+            <li class="row row--lead row--stack">
+              {% monogram match.full_name %}
+              <div class="row__main"><p class="row__title">{{ match.full_name }}</p></div>
+              <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:walkup' event.slug %}?persona={{ match.pk }}">Elegir<span class="visually-hidden"> a {{ match.full_name }}</span></a></div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">No encontramos a nadie con ese nombre que no esté ya en la lista. Si es una visita, regístrala aquí abajo.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="registrar-titulo">
+    <h2 id="registrar-titulo" class="heading">{% if person %}Registrar su llegada{% else %}Si es una visita, escribe su nombre{% endif %}</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if person %}<input type="hidden" name="persona" value="{{ person.pk }}">{% endif %}
+      {% for field in form.person_fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}
+      {% if form.consent_fields %}
+        <fieldset>
+          <legend class="legend">Si es menor de edad: autorización de su madre, padre o tutor</legend>
+          <p class="hint">Este evento la pide. Si no la registras ahora, déjala vacía: la inscripción quedará pendiente y podrás registrarla después desde la lista.</p>
+          {% for field in form.consent_fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}
+        </fieldset>
+      {% endif %}
+      <div class="step__actions">
+        <button class="btn btn--primary btn--large" type="submit">Registrar que llegó</button>
+        <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+  <p class="aside-note">{% if page.capacity %}Quien llega también ocupa un lugar del evento. {% endif %}Una visita no necesita cuenta de Emmaus: solo queda su nombre en la lista de este evento.</p>
+</div>
+{% endblock %}

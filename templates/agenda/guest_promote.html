@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load shell %}
+{% block page_title %}Agregar a {{ registration.display_name }} a personas de la iglesia{% endblock %}
+{% block content %}
+{% comment %}
+  A visitor of an event becomes a person of the church (agenda.views.guest_promote). First whoever may already
+  be this visitor, so nobody is registered twice; then the one filled button that creates the person.
+{% endcomment %}
+<div class="narrow">
+  {% include "events/rotulo/_page_head.html" with title="Agregar a personas de la iglesia" lede=registration.display_name|add:", visita de "|add:event.name back_url=back back_label="Volver a los inscritos" %}
+
+  {% if similar %}
+  <section class="block" aria-labelledby="parecidas">
+    <h2 id="parecidas" class="heading">¿Ya está en Personas?</h2>
+    <p class="aside-note">Estas personas de la iglesia tienen un nombre o un teléfono parecido. Si es una de ellas, elígela y no se crea otra.</p>
+    <ul class="rows">
+      {% for person in similar %}
+        <li class="row row--lead row--stack">
+          {% monogram person.full_name %}
+          <div class="row__main">
+            <p class="row__title">{{ person.full_name }}</p>
+            {% if person.phone or person.email %}<p class="row__meta">{{ person.phone }}{% if person.phone and person.email %}, {% endif %}{{ person.email }}</p>{% endif %}
+          </div>
+          <form class="row__end" method="post">
+            {% csrf_token %}
+            <input type="hidden" name="persona" value="{{ person.pk }}">
+            <button class="btn btn--secondary btn--small" type="submit">Es esta persona<span class="visually-hidden">: {{ person.full_name }}</span></button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="nueva">
+    <h2 id="nueva" class="heading">{% if similar %}Es alguien nuevo{% else %}Registrarla como persona de la iglesia{% endif %}</h2>
+    <p>Se guardará con el nombre{% if registration.guest_phone %} y el teléfono{% endif %} que escribieron al registrarla: {{ registration.display_name }}{% if registration.guest_phone %}, {{ registration.guest_phone }}{% endif %}. Después puedes completar sus datos en Personas.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Agregar a personas de la iglesia</button>
+        <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      </div>
+    </form>
+  </section>
+  <p class="aside-note">Agregarla no le da acceso a Emmaus ni cambia su inscripción a este evento.</p>
+</div>
+{% endblock %}
