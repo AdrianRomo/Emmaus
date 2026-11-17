@@ -1,8 +1,9 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from core.models import Church, ParticipantProfile
-from events.models import normalize_name
+from events.models import Sede, normalize_name
 
 
 class Person(models.Model):
@@ -75,3 +76,47 @@ class Person(models.Model):
         if update_fields is not None and {"first_name", "last_name"} & set(update_fields):
             kwargs["update_fields"] = {*update_fields, "normalized_name"}
         super().save(*args, **kwargs)
+
+
+class CampusAffiliation(models.Model):
+    """A person's belonging to one sede of their church: several per person, at most one primary.
+
+    Additive and unread (decision 0002, roadmap P1-4): the camp keeps ``EventParticipant.sede``.
+    The sede must be of the person's church (``clean`` and ``people.services.affiliate``, the
+    one write path); a sede with affiliations cannot be deleted (PROTECT), it is deactivated.
+    """
+
+    class Status(models.TextChoices):
+        ACTIVE = "activa", "Activa"
+        INACTIVE = "inactiva", "Inactiva"
+
+    person = models.ForeignKey(
+        Person, verbose_name="Persona", on_delete=models.CASCADE, related_name="campus_affiliations"
+    )
+    sede = models.ForeignKey(Sede, verbose_name="Sede", on_delete=models.PROTECT, related_name="person_affiliations")
+    is_primary = models.BooleanField("Sede principal", default=False)
+    status = models.CharField("Estado", max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    start_date = models.DateField("Desde", null=True, blank=True)
+    end_date = models.DateField("Hasta", null=True, blank=True)
+    created_at = models.DateTimeField("Fecha de registro", auto_now_add=True)
+    updated_at = models.DateTimeField("Última actualización", auto_now=True)
+
+    class Meta:
+        verbose_name = "afiliación a sede"
+        verbose_name_plural = "afiliaciones a sedes"
+        ordering = ["-is_primary", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["person", "sede"], name="campus_affiliation_one_per_person_and_sede"),
+            models.UniqueConstraint(
+                fields=["person"], condition=models.Q(is_primary=True), name="campus_affiliation_one_primary_per_person"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.person} · {self.sede}"
+
+    def clean(self):
+        super().clean()
+        if self.person_id is not None and self.sede_id is not None and self.sede.church_id != self.person.church_id:
+            message = "Esta sede es de otra iglesia. Elige una sede de la iglesia de la persona."
+            raise ValidationError({"sede": ValidationError(message, code="sede_other_church")})

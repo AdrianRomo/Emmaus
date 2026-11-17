@@ -53,6 +53,16 @@ user holds. Camperos (`events.EventParticipant`) are not persons; a later step a
 human-confirmed link table. Its migrations live under `people/migrations/` so `core` and `events` stay
 frozen while the camp runs on `main` (decision 0005).
 
+`CampusAffiliation` (`people/migrations/0002`) says which sedes (`events.Sede`, unchanged) a person
+belongs to: several per person, one row per `(person, sede)`, at most one `is_primary` per person (a
+partial unique constraint, `campus_affiliation_one_primary_per_person`), a status (`activa`/`inactiva`) and
+optional `start_date`/`end_date`. The sede must be of the person's church: `CampusAffiliation.clean()`
+refuses another church's sede, and `people.services.affiliate(person, sede, primary=False)`, the write path
+for callers, applies the same check inside a transaction before it creates or reactivates the row and, with
+`primary=True`, demotes the previous primary. Deleting a person deletes their affiliations; a sede with
+affiliations cannot be deleted (PROTECT), only deactivated. Nothing reads it yet: the camp keeps
+`EventParticipant.sede`, and `persons_for` does not look at affiliations.
+
 ## Data model
 
 ```mermaid
