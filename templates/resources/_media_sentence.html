@@ -1,0 +1,1 @@
+{% load community %}{% comment %}What a resource is, as one sentence. Needs: item.{% endcomment %}{{ item.get_kind_display }}{% if item.speaker %}, de {{ item.speaker }}{% endif %}{% if item.series %}, serie «{{ item.series }}»{% endif %}, {{ item.date|long_date }}.

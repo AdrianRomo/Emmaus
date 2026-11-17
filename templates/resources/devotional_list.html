@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Devocionales anteriores{% endblock %}
+{% block content %}
+{% comment %}
+  The published devotionals up to today (resources.views.devotional_list), newest first, thirty at most. "Leído"
+  marks the ones this person marked, and only for this person.
+{% endcomment %}
+<div class="narrow">
+  {% url 'resources:devotional_today' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Devocionales anteriores" lede="Los más recientes primero. Abre uno para leerlo." back_url=back back_label="Volver al devocional de hoy" %}
+  {% if devotionals %}
+    <ul class="dates rows">
+      {% for devotional in devotionals %}
+        <li class="row row--lead row--stack">
+          {% date_block devotional.date %}
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'resources:devotional_detail' devotional.pk %}">{{ devotional.title }}</a></p>
+            <p class="row__meta">{{ devotional.date|weekday_date|capfirst }}{% if devotional.passage %}, lectura de {{ devotional.passage }}{% endif %}{% if devotional.author_name %}, por {{ devotional.author_name }}{% endif %}.</p>
+          </div>
+          {% if devotional.is_read %}<div class="row__end">{% status "completada" "Leído" %}</div>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Tu iglesia todavía no publica devocionales. Cuando publique el primero, lo vas a encontrar aquí.</p>
+  {% endif %}
+  {% if request.is_church_admin %}<p class="more"><a href="{% url 'resources:devotional_admin' %}">Administrar los devocionales</a></p>{% endif %}
+</div>
+{% endblock %}

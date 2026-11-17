@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Administrar los recursos{% endblock %}
+{% block content %}
+{% comment %}
+  Every resource of the church (resources.views.media_admin): the published ones first, then the retired ones.
+  A retired one is not deleted and is not edited: a new one is added instead.
+{% endcomment %}
+<div class="narrow">
+  {% url 'resources:media_list' as back %}{% url 'resources:media_create' as create %}
+  {% include "events/rotulo/_page_head.html" with title="Administrar los recursos" lede="Emmaus guarda solo el enlace de cada recurso: se abre en el sitio donde está publicado." back_url=back back_label="Volver a Recursos" action_url=create action_label="Agregar un recurso" %}
+  {% if items %}
+    <ul class="rows">
+      {% for item in items %}
+        <li class="row row--lead row--stack">
+          <div class="row__main">
+            <p class="row__title">{{ item.title }}</p>
+            <p class="row__meta">{% include "resources/_media_sentence.html" with item=item %}</p>
+          </div>
+          <div class="row__end">
+            {% if item.is_retired %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}
+              <a class="btn btn--secondary btn--small" href="{% url 'resources:media_edit' item.pk %}">Editar<span class="visually-hidden">: {{ item.title }}</span></a>
+              <a class="btn btn--secondary btn--small" href="{% url 'resources:media_retire' item.pk %}">Retirar el recurso<span class="visually-hidden">: {{ item.title }}</span></a>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Todavía no hay recursos. Agrega el primero: solo necesitas su enlace.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block page_title %}{% if today_page or not devotional %}Devocional de hoy{% else %}{{ devotional.title }}{% endif %}{% endblock %}
+{% block content %}
+{% comment %}
+  One devotional as a page to read (resources.views.devotional_today, devotional_detail). The body is plain text: it
+  is escaped and only its line breaks are kept. "Ya lo leí" is the person's own mark: nobody else ever sees it, and
+  this page shows no count of readers. The administration may open a draft or a scheduled one: it says so and has
+  no "Ya lo leí".
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as home %}{% url 'resources:devotional_list' as archive %}
+  {% if not devotional %}
+    {% include "events/rotulo/_page_head.html" with title="Devocional de hoy" lede="Hoy no hay devocional." back_url=home back_label="Volver a Mi iglesia" %}
+    <p class="empty-line">Tu iglesia no ha publicado un devocional en estos días. Cuando publique uno, lo vas a encontrar aquí. Mientras tanto puedes leer los <a href="{{ archive }}">Devocionales anteriores</a>.</p>
+  {% else %}
+    {% if today_page %}
+      {% if devotional.passage %}
+        {% include "events/rotulo/_page_head.html" with title=devotional.title lede=line meta="Lectura: "|add:devotional.passage back_url=home back_label="Volver a Mi iglesia" %}
+      {% else %}
+        {% include "events/rotulo/_page_head.html" with title=devotional.title lede=line back_url=home back_label="Volver a Mi iglesia" %}
+      {% endif %}
+      {% if not devotional.is_today %}<div class="notice notice--quiet"><p>Hoy no hay devocional nuevo. Este es el más reciente.</p></div>{% endif %}
+    {% elif devotional.passage %}
+      {% include "events/rotulo/_page_head.html" with title=devotional.title lede=line meta="Lectura: "|add:devotional.passage back_url=archive back_label="Volver a los devocionales anteriores" %}
+    {% else %}
+      {% include "events/rotulo/_page_head.html" with title=devotional.title lede=line back_url=archive back_label="Volver a los devocionales anteriores" %}
+    {% endif %}
+    {% if devotional.state == "borrador" %}<div class="notice notice--quiet"><p>Este devocional es un borrador: solo lo ve la administración de la iglesia. Para publicarlo, edítalo y marca «Publicarlo».</p></div>
+    {% elif devotional.state == "programado" %}<div class="notice notice--quiet"><p>Este devocional está programado: las personas de la iglesia lo leerán cuando llegue su día. Hasta entonces solo lo ve la administración.</p></div>{% endif %}
+    <div class="block prose">{{ devotional.body|linebreaks }}</div>
+    {% if devotional.is_readable %}
+      {% if devotional.is_read %}
+        <div class="notice notice--success"><p>Ya lo leíste.</p></div>
+      {% else %}
+        <form method="post" action="{% url 'resources:devotional_read' devotional.pk %}">
+          {% csrf_token %}
+          <div class="step__actions">
+            <button class="btn btn--primary" type="submit">Ya lo leí</button>
+          </div>
+        </form>
+      {% endif %}
+      <p class="aside-note">Esta marca es solo para ti: nadie más ve qué has leído.</p>
+    {% endif %}
+    <p class="more"><a href="{{ archive }}">Devocionales anteriores</a></p>
+  {% endif %}
+  {% if request.is_church_admin %}
+    <p class="more">{% if devotional %}<a href="{% url 'resources:devotional_edit' devotional.pk %}">Editar este devocional</a>, {% endif %}<a href="{% url 'resources:devotional_admin' %}">{% if devotional %}administrar los devocionales{% else %}Administrar los devocionales{% endif %}</a></p>
+  {% endif %}
+</div>
+{% endblock %}
