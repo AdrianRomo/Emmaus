@@ -26,7 +26,7 @@
   </section>
   <section class="block" aria-labelledby="tarea-campamento">
     <h2 id="tarea-campamento" class="heading">Elige el evento en “Eventos”</h2>
-    <p>{% if shell %}Toca “Eventos” en el menú de la izquierda; en un celular está abajo o en “Más”.{% else %}Toca “Eventos” en la barra de arriba; en un celular está en “Menú”.{% endif %} Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
+    <p>{% if shell %}Toca “Eventos donde sirves” en el menú de la izquierda, bajo “A tu cargo”; en un celular está en “Más”.{% else %}Toca “Eventos” en la barra de arriba; en un celular está en “Menú”.{% endif %} Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
     <p class="more"><a href="{% url 'events:list' %}?todos=1">Ir a Eventos</a></p>
   </section>
   {% if current_church.discipleship_enabled %}

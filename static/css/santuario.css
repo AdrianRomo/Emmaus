@@ -335,6 +335,9 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .page--app .figures__value { font-family: var(--font-voz); font-weight: 560; font-variant-numeric: lining-nums; }
 .page--app .figures { margin-bottom: var(--s-10); max-width: var(--w-focus); }
 
+/* A notice's words: paragraphs apart, at the reading measure */
+.prose p + p { margin-top: var(--s-3); }
+
 /* ---------- 9. Print ----------------------------------------------------- */
 @media print {
   .rail, .tabs { display: none !important; }

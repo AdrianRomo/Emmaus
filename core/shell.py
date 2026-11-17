@@ -4,8 +4,9 @@ One navigation for every signed-in page of a church that uses the community modu
 wide screens, a top bar with bottom tabs on phones, and the "Más" panel that holds everything.
 It is built from data here, never in a template, so the three places always agree.
 
-Sections, in order: what is everybody's (Mi iglesia, Grupos, Eventos), the groups the person
-guides ("A tu cargo"), the discipleship module's own links, and the administration. A link is
+Sections, in order: what is everybody's (Mi iglesia, Avisos, Eventos, Grupos), what the person is
+responsible for ("A tu cargo": the groups they guide and the events they work in), the
+discipleship module's own links, and the administration. A link is
 listed only when the view behind it would answer: this module decides what is *shown*, the views
 decide what is *allowed* (decision 0004, rule 4).
 """
@@ -23,6 +24,8 @@ GROUP_WORK_VIEWS = {
 GROUP_ADMIN_VIEWS = {
     "community:group_admin_list", "community:group_create", "community:group_edit", "community:group_archive",
 }
+AGENDA_VIEWS = {"agenda:list", "agenda:detail", "agenda:cancel"}
+AGENDA_ADMIN_VIEWS = {"agenda:admin_list", "agenda:page_edit", "agenda:registrations"}
 PEOPLE_VIEWS = {
     "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
     "people:grant_access", "people:access_link",
@@ -43,7 +46,9 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     discipleship links the bar would have shown (label, url, names)."""
     from groups.access import managed_group_ids
     from groups.models import Group, GroupJoinRequest
+    from notices import services as notices_services
     from people.flags import enabled
+    from people.models import Person
 
     match = getattr(request, "resolver_match", None)
     view = getattr(match, "view_name", "") or ""
@@ -63,25 +68,30 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     working_on = kwargs.get("group_id") if view in GROUP_WORK_VIEWS else None
     in_managed = working_on in {group.pk for group in managed}
 
+    person = Person.objects.filter(church=church, user=request.user, merged_into__isnull=True).first()
+    unread = notices_services.unread_count(person, is_admin=is_admin) if person else 0
     main = [
         _item("Mi iglesia", reverse("community:home"), "inicio", view in {"community:home", "community:profile"}),
+        _item("Avisos", reverse("notices:list"), "avisos", view.startswith("notices:"), unread,
+              "aviso nuevo" if unread == 1 else "avisos nuevos"),
+        _item("Eventos", reverse("agenda:list"), "eventos", view in AGENDA_VIEWS),
         _item("Grupos", reverse("community:groups"), "grupos",
               view in GROUP_VIEWS or (view in GROUP_WORK_VIEWS and not in_managed and not is_admin)),
     ]
-    if show_events:
-        main.append(_item("Eventos", reverse("events:list") + "?todos=1", "eventos", view in {"events:list", "events:create"}))
     sections = [{"label": "", "items": main}]
 
-    if managed:
-        sections.append({
-            "label": "A tu cargo",
-            "items": [
-                _item(group.name, reverse("community:group_people", args=[group.pk]), "guia", working_on == group.pk,
-                      pending.get(group.pk, 0),
-                      "solicitud por decidir" if pending.get(group.pk) == 1 else "solicitudes por decidir")
-                for group in managed
-            ],
-        })
+    # What the person is responsible for: the groups they guide, and the events they work in (the camp's team).
+    serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "servir", view in {"events:list", "events:create"})
+    charge = [
+        _item(group.name, reverse("community:group_people", args=[group.pk]), "guia", working_on == group.pk,
+              pending.get(group.pk, 0),
+              "solicitud por decidir" if pending.get(group.pk) == 1 else "solicitudes por decidir")
+        for group in managed
+    ]
+    if show_events:
+        charge.append(serving)
+    if charge:
+        sections.append({"label": "A tu cargo", "items": charge})
 
     admin_urls = set()
     admin = []
@@ -92,6 +102,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
             "Grupos de la iglesia", reverse("community:group_admin_list"), "grupos",
             view in GROUP_ADMIN_VIEWS or (view in GROUP_WORK_VIEWS and not in_managed),
         ))
+        admin.append(_item("Eventos de la iglesia", reverse("agenda:admin_list"), "eventos", view in AGENDA_ADMIN_VIEWS))
         admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list"}))
         admin_urls = {item["url"] for item in admin}
 
@@ -104,19 +115,19 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     if admin:
         sections.append({"label": "Administración", "items": admin})
 
-    # Phones: the two places everybody has, a third that depends on the person, and "Más" (the panel).
-    tabs = main[:2]
+    # Phones: Mi iglesia, then the two places this person uses most, and "Más" (the panel).
+    home, _notices, events, groups = main
     if managed:
         first = managed[0]
         total = sum(pending.values())
-        tabs.append(_item(
+        tabs = [home, groups, _item(
             "A tu cargo", reverse("community:group_people", args=[first.pk]), "guia", in_managed, total,
             "solicitud por decidir" if total == 1 else "solicitudes por decidir",
-        ))
+        )]
     elif show_events:
-        tabs.append(main[2])
+        tabs = [home, events, {**serving, "label": "Sirves"}]
     else:
-        tabs.append(_item("Mi cuenta", reverse("account"), "cuenta", url_name in {"account", "password_change"}))
+        tabs = [home, events, groups]
 
     name = request.user.get_full_name() or request.user.email
     return {"sections": sections, "tabs": tabs, "name": name, "church": church}

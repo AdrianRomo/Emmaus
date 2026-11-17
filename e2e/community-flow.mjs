@@ -72,7 +72,7 @@ await audit(page, "miembro-inicio");
 await page.setViewportSize(PHONE);
 // The shell on a phone: no rail links, the tabs, and "Más" as a dialog that the keyboard can open and leave.
 expect(await page.locator(".rail__nav").isHidden(), "the rail's links are hidden on a phone");
-expect((await page.locator(".tabs__text").allInnerTexts()).join("|") === "Mi iglesia|Grupos|Mi cuenta|Más", "a member's tabs");
+expect((await page.locator(".tabs__text").allInnerTexts()).join("|") === "Mi iglesia|Eventos|Grupos|Más", "a member's tabs");
 expect(await page.locator(".tabs__item[aria-current=page]").innerText() === "Mi iglesia", "the tab of the current place is marked");
 await page.keyboard.press("Tab");
 expect(await page.evaluate(() => document.activeElement.className) === "skip-link", "the first Tab reaches the skip link");
@@ -90,6 +90,27 @@ const gap = await page.evaluate(() => {
 });
 expect(gap >= 0, `the tabs cover the end of the page by ${-gap}px`);
 await page.evaluate(() => window.scrollTo(0, 0));
+// A notice for the whole church: new on the home, read once opened.
+expect(await page.getByText("El domingo empezamos a las 11").count() > 0, "the home shows the church's notice");
+await Promise.all([page.waitForNavigation(), page.click(".row__title a:has-text('El domingo empezamos a las 11')")]);
+await audit(page, "miembro-aviso");
+await page.goto(BASE + "/mi-iglesia/avisos/");
+expect(await page.locator("main").getByText("Nuevo", { exact: true }).count() === 0, "an opened notice is no longer new");
+await audit(page, "miembro-avisos");
+// An event the church published: she signs up from the phone, and cancels.
+await page.setViewportSize(PHONE);
+await Promise.all([page.waitForNavigation(), page.click(".tabs a:has-text('Eventos')")]);
+await audit(page, "miembro-eventos");
+await page.setViewportSize(PHONE);
+await Promise.all([page.waitForNavigation(), page.click(".row__title a:has-text('Noche de alabanza')")]);
+await audit(page, "miembro-evento");
+await page.setViewportSize(PHONE);
+await Promise.all([page.waitForNavigation(), page.click("button:has-text('Inscribirme')")]);
+expect(await page.locator("main").getByText("Te inscribiste.").count() > 0, "signing up is confirmed on the page");
+await audit(page, "miembro-evento-inscrita");
+await page.goto(BASE + "/mi-iglesia/");
+expect(await page.locator(".dates").getByText("Te inscribiste").count() > 0, "the home says she signed up");
+await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".sign a:has-text('Ver los grupos')")]);
 await audit(page, "miembro-grupos");
 await page.setViewportSize(PHONE);
@@ -101,7 +122,7 @@ await Promise.all([page.waitForNavigation(), page.click("button:has-text('Pedir 
 expect(await page.getByText("Ya pediste unirte.").count() > 0, "request confirmed on screen");
 expect(await page.getByText("le avisamos por correo").count() === 0, "no e-mail is claimed when none can be sent");
 await audit(page, "miembro-grupo-pedido");
-for (const path of ["/mi-iglesia/personas/", "/mi-iglesia/grupos/administrar/"]) {
+for (const path of ["/mi-iglesia/personas/", "/mi-iglesia/grupos/administrar/", "/mi-iglesia/eventos/administrar/", "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/"]) {
   const response = await page.goto(BASE + path);
   expect(response.status() === 403, `member got ${response.status()} on ${path}`);
 }
@@ -156,7 +177,10 @@ const adminPages = [
   ["admin-inicio", "/mi-iglesia/"], ["admin-grupos", "/mi-iglesia/grupos/administrar/"], ["admin-grupo-nuevo", "/mi-iglesia/grupos/nuevo/"],
   ["admin-personas", "/mi-iglesia/personas/"], ["admin-persona-nueva", "/mi-iglesia/personas/nueva/"],
   ["admin-eventos", "/mi-iglesia/personas/desde-un-evento/"], ["admin-evento", "/mi-iglesia/personas/desde-un-evento/jovenes-2025/"],
-  ["admin-cuenta", "/cuenta/"],
+  ["admin-cuenta", "/cuenta/"], ["admin-avisos", "/mi-iglesia/avisos/"], ["admin-aviso-nuevo", "/mi-iglesia/avisos/nuevo/"],
+  ["admin-eventos-iglesia", "/mi-iglesia/eventos/administrar/"], ["admin-evento-pagina", "/mi-iglesia/eventos/noche-de-alabanza-demo/pagina/"],
+  ["admin-evento-inscritos", "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/"], ["admin-eventos-donde-sirve", "/eventos/?todos=1"],
+  ["admin-evento-inicio", "/eventos/jovenes-2025/"],
 ];
 for (const [name, path] of adminPages) {
   const response = await page.goto(BASE + path);

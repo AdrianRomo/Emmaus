@@ -11,18 +11,6 @@
   {% url 'agenda:list' as back %}
   {% include "events/rotulo/_page_head.html" with title=event.name lede=page.description back_url=back back_label="Volver a Eventos" %}
 
-  <section class="block" aria-labelledby="datos">
-    <h2 id="datos" class="heading">Sobre el evento</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Qué es</dt><dd>{{ event.get_kind_display }}</dd></div>
-      <div class="summary-list__row"><dt>Cuándo</dt><dd>{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% elif event.ends_on %}{{ event.ends_on|date_range|capfirst }}{% else %}Todavía no tiene fecha{% endif %}</dd></div>
-      {% if page.starts_at %}<div class="summary-list__row"><dt>Hora</dt><dd>A las {{ page.starts_at|time:"H:i" }}</dd></div>{% endif %}
-      <div class="summary-list__row"><dt>Dónde</dt><dd>{{ event.location|default:"Todavía no se ha dicho" }}</dd></div>
-      {% if page.registration_open and page.registration_closes_on %}<div class="summary-list__row"><dt>Inscripción</dt><dd>Hasta el {{ page.registration_closes_on|long_date }}</dd></div>{% endif %}
-      {% if places_left is not None %}<div class="summary-list__row"><dt>Lugares</dt><dd>{% if places_left == 0 %}Ya no hay lugares{% elif places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ places_left }} lugares{% endif %}</dd></div>{% endif %}
-    </dl>
-  </section>
-
   {% if state == "abierta" %}
     <section class="sign sign--lead" aria-labelledby="inscribirme">
       <div>
@@ -42,6 +30,18 @@
   {% elif notice %}
     <div class="notice notice--quiet"><p>{{ notice }}</p></div>
   {% endif %}
+
+  <section class="block" aria-labelledby="datos">
+    <h2 id="datos" class="heading">Sobre el evento</h2>
+    <dl class="summary-list">
+      {% if event.kind != "otro" %}<div class="summary-list__row"><dt>Qué es</dt><dd>{{ event.get_kind_display }}</dd></div>{% endif %}
+      <div class="summary-list__row"><dt>Cuándo</dt><dd>{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% elif event.ends_on %}{{ event.ends_on|date_range|capfirst }}{% else %}Todavía no tiene fecha{% endif %}</dd></div>
+      {% if page.starts_at %}<div class="summary-list__row"><dt>Hora</dt><dd>A las {{ page.starts_at|time:"H:i" }}</dd></div>{% endif %}
+      <div class="summary-list__row"><dt>Dónde</dt><dd>{{ event.location|default:"Todavía no se ha dicho" }}</dd></div>
+      {% if page.registration_open and page.registration_closes_on %}<div class="summary-list__row"><dt>Inscripción</dt><dd>Hasta el {{ page.registration_closes_on|long_date }}</dd></div>{% endif %}
+      {% if places_left is not None %}<div class="summary-list__row"><dt>Lugares</dt><dd>{% if places_left == 0 %}Ya no hay lugares{% elif places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ places_left }} lugares{% endif %}</dd></div>{% endif %}
+    </dl>
+  </section>
 
   {% if request.is_church_admin %}
   <section class="block" aria-labelledby="administrar">

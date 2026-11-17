@@ -29,6 +29,9 @@ from people.decorators import module_required
 from people.models import Person
 from people.services import ensure_own_person, save_person
 
+from agenda import services as agenda_services
+from notices import services as notices_services
+
 from . import services
 from .access import church_groups, managed_group_ids
 from .forms import GroupForm, MyDataForm
@@ -102,7 +105,9 @@ def home(request):
         .values("group_id", "group__name").annotate(total=Count("id")).order_by("group__name")
     )
     to_decide = list(to_decide)
-    upcoming = Event.objects.filter(church=church, status=Event.Status.ACTIVE, ends_on__gte=today).order_by("starts_on", "name")[:5]
+    # Only what the church published for its people (agenda.EventPage), with this person's sign-up.
+    upcoming = agenda_services.upcoming_for(person, church, today)[:5]
+    notices = notices_services.for_home(person, is_admin=request.is_church_admin)
     history = person.event_links.select_related("event").order_by("-event__starts_on")
     open_groups = church_groups(church).filter(accepts_requests=True).exists()
     any_group = Group.objects.filter(church=church).exists()
@@ -117,7 +122,7 @@ def home(request):
         for membership in memberships if membership.next_meeting
     ]
     agenda += [
-        {"date": max(event.starts_on, today), "today": event.starts_on <= today, "title": event.name, "kind": "event", "event": event}
+        {"date": max(event.starts_on or today, today), "today": (event.starts_on or today) <= today, "title": event.name, "kind": "event", "event": event}
         for event in upcoming
     ]
     agenda.sort(key=lambda row: (row["date"], row["kind"], row["title"]))
@@ -182,6 +187,7 @@ def home(request):
             "open_groups": open_groups,
             "people_enabled": request.is_church_admin and flags.enabled(church, "people"),
             "agenda": agenda[:6],
+            "notices": notices,
             "journey": journey,
             "missing": missing,
             "today": today,

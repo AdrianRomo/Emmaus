@@ -6,6 +6,7 @@ import re
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from core.templatetags.shell import initials, tel
 from groups.tests.base import CommunityFixture
@@ -31,8 +32,9 @@ class ShellTests(CommunityFixture):
         self.assertNotContains(response, '<header class="bar')
         nav = rail(response)
         self.assertIn(">Mi iglesia<", nav)
-        self.assertIn(">Grupos<", nav)
-        for hidden in ("Personas", "Administración", "A tu cargo", "Eventos", "Configuración"):
+        for label in ("Avisos", "Eventos", "Grupos"):
+            self.assertIn(f">{label}<", nav)
+        for hidden in ("Personas", "Administración", "A tu cargo", "Eventos donde sirves", "Configuración"):
             self.assertNotIn(hidden, nav)
         self.assertEqual(nav.count('aria-current="page"'), 1)
 
@@ -49,7 +51,7 @@ class ShellTests(CommunityFixture):
 
     def test_the_administration_gets_its_section_and_no_link_twice(self):
         nav = rail(self.get(self.admin))
-        for label in ("Administración", "Personas", "Grupos de la iglesia", "Configuración", "Eventos"):
+        for label in ("Administración", "Personas", "Grupos de la iglesia", "Eventos de la iglesia", "Configuración", "Eventos donde sirves"):
             self.assertIn(label, nav)
         self.assertEqual(nav.count(f'href="{reverse("church_settings")}"'), 1)
 
@@ -62,7 +64,8 @@ class ShellTests(CommunityFixture):
         for label in ("Mi iglesia", "Grupos", "Mi cuenta", "Ayuda", "Cerrar sesión"):
             self.assertIn(label, panel)
         member = self.get(self.member_user).content.decode()
-        self.assertIn('<span class="tabs__text">Mi cuenta</span>', member)
+        tabs = member[member.index('<nav class="tabs"'):member.index("</nav>", member.index('<nav class="tabs"'))]
+        self.assertEqual(re.findall(r'<span class="tabs__text">([^<]+)</span>', tabs), ["Mi iglesia", "Eventos", "Grupos", "Más"])
 
     def test_every_page_wears_the_shell_and_an_event_is_a_place_in_it(self):
         for name in ("account", "ayuda"):
@@ -85,7 +88,8 @@ class ShellTests(CommunityFixture):
         self.assertEqual(re.findall(r'<span class="tabs__text">([^<]+)</span>', tabs), ["Inicio", "Camperos", "Equipo", "Más"])
         # The list of events marks "Eventos".
         listing = rail(self.client.get(reverse("events:list") + "?todos=1"))
-        self.assertRegex(listing, r'aria-current="page">.*?<span class="rail__text">Eventos</span>')
+        self.assertRegex(listing, r'aria-current="page">.*?<span class="rail__text">Eventos donde sirves</span>')
+        self.assertEqual(listing.count('aria-current="page"'), 1)
 
     def test_an_event_role_without_a_church_role_keeps_the_bar(self):
         self.client.force_login(self.tutor1)
@@ -198,3 +202,35 @@ class PiecesTests(SimpleTestCase):
         self.assertIn('url("../fonts/newsreader-display-latin.woff2")', face)
         self.assertIn("U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026", face)
         self.assertTrue((settings.BASE_DIR / "static" / "fonts" / "OFL-Newsreader.txt").is_file())
+
+
+class HomeModulesTests(CommunityFixture):
+    """What the two newer modules put on Mi iglesia and in the shell."""
+
+    def test_a_notice_shows_on_the_home_and_counts_in_the_rail_until_it_is_read(self):
+        from notices import services as notices
+
+        notice = notices.publish(self.church, self.admin, title="Cambia la hora del domingo", body="Será a las 11.")
+        self.client.force_login(self.member_user)
+        home = self.client.get(reverse("community:home"))
+        self.assertContains(home, "Cambia la hora del domingo")
+        self.assertRegex(rail(home), r'Avisos</span><span class="badge">1<span class="visually-hidden"> aviso nuevo</span>')
+        self.client.get(reverse("notices:detail", args=[notice.pk]))
+        self.assertNotIn('class="badge"', rail(self.client.get(reverse("community:home"))))
+
+    def test_the_home_lists_only_events_the_church_published(self):
+        from agenda import services as agenda
+        from events.models import Event
+
+        day = timezone.localdate() + timezone.timedelta(days=10)
+        hidden = Event.objects.create(church=self.church, name="Retiro sin publicar", slug="retiro-oculto", starts_on=day, ends_on=day)
+        shown = Event.objects.create(church=self.church, name="Noche de alabanza", slug="noche-alabanza", starts_on=day, ends_on=day)
+        agenda.save_page(shown, self.admin, published=True, registration="abierta")
+        self.client.force_login(self.member_user)
+        home = self.client.get(reverse("community:home"))
+        self.assertContains(home, "Noche de alabanza")
+        self.assertContains(home, reverse("agenda:detail", args=[shown.slug]))
+        self.assertContains(home, "Inscribirme")
+        self.assertNotContains(home, hidden.name)
+        agenda.register(shown, self.member, self.member_user)
+        self.assertContains(self.client.get(reverse("community:home")), "Te inscribiste")
