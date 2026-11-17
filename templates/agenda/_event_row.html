@@ -1,0 +1,14 @@
+{% load emmaus community shell %}{% comment %}
+  One event in a list of dates: the day drawn, the name as the way in, one sentence with what it is, when and
+  where, and at the end where this person stands. Needs: event (with page, state).
+{% endcomment %}
+<li class="row row--lead row--stack">
+  {% date_block event.starts_on|default:event.ends_on %}
+  <div class="row__main">
+    <p class="row__title"><a href="{% url 'agenda:detail' event.slug %}">{{ event.name }}</a></p>
+    <p class="row__meta">{{ event.get_kind_display }}, {% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on }}{% else %}{{ event.ends_on|date_range }}{% endif %}{% if event.page.starts_at %}, a las {{ event.page.starts_at|time:"H:i" }}{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}.</p>
+  </div>
+  {% if event.state == "inscrita" %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>
+  {% elif event.state == "abierta" %}<div class="row__end">{% status "en_curso" "Inscripción abierta" %}</div>
+  {% elif event.state == "llena" %}<div class="row__end">{% status "descartada" "Ya no hay lugares" %}</div>{% endif %}
+</li>
