@@ -52,6 +52,12 @@ jobs:
         run: DEBUG=true python manage.py makemigrations --check --dry-run
       - name: check --deploy with production-like settings (only W005/W021 accepted)
         run: scripts/agents/check-deploy.sh
+      - name: Tenant integrity on the synthetic seed (expects zero mismatches)
+        run: |
+          export DEBUG=true DATABASE_URL="sqlite:///$RUNNER_TEMP/integrity.sqlite3"
+          python manage.py migrate --noinput
+          python manage.py seed_camp_demo --participants 20 --password x
+          python manage.py tenant_integrity
 
   agent-tooling:
     name: Agent tooling regression tests
