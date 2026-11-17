@@ -10,7 +10,7 @@
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Página del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
-  <p class="aside-note">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}. El nombre, las fechas y el lugar se cambian en la configuración del evento.</p>
+  <p class="aside-note">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}. {% if event.camp_tools %}El nombre, las fechas y el lugar se cambian en la configuración del evento.{% else %}<a href="{% url 'agenda:event_edit' event.slug %}">Cambiar el nombre, las fechas o el lugar</a>.{% endif %}</p>
   <div class="block">
   <form method="post" novalidate>
     {% csrf_token %}

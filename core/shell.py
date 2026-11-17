@@ -25,8 +25,12 @@ GROUP_WORK_VIEWS = {
 GROUP_ADMIN_VIEWS = {
     "community:group_admin_list", "community:group_create", "community:group_edit", "community:group_archive",
 }
-AGENDA_VIEWS = {"agenda:list", "agenda:detail", "agenda:cancel"}
-AGENDA_ADMIN_VIEWS = {"agenda:admin_list", "agenda:page_edit", "agenda:registrations"}
+AGENDA_VIEWS = {"agenda:list", "agenda:detail", "agenda:cancel", "agenda:register", "feedback:give"}
+AGENDA_ADMIN_VIEWS = {
+    "agenda:admin_list", "agenda:page_edit", "agenda:registrations", "agenda:create", "agenda:event_edit",
+    "agenda:walkup", "agenda:consent", "agenda:consent_revoke", "agenda:guest_promote", "agenda:faq", "agenda:faq_edit",
+    "agenda:faq_delete", "agenda:schedule", "agenda:schedule_edit", "agenda:schedule_delete", "feedback:results",
+}
 DEVOTIONAL_VIEWS = {"resources:devotional_today", "resources:devotional_list", "resources:devotional_detail"}
 RESOURCE_ADMIN_VIEWS = {
     "resources:devotional_admin", "resources:devotional_create", "resources:devotional_edit",

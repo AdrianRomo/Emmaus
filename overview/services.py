@@ -81,7 +81,11 @@ def _events(church, today) -> dict:
     published = (
         Event.objects.filter(church=church, page__published=True)
         .select_related("page")
-        .annotate(last_day=Coalesce("ends_on", "starts_on"), taken=Count("registrations", filter=signed))
+        .annotate(
+            last_day=Coalesce("ends_on", "starts_on"), taken=Count("registrations", filter=signed),
+            # a minor waiting for the authorization holds a place (decision 0010)
+            held=Count("registrations", filter=signed | Q(registrations__status=EventRegistration.Status.PENDING)),
+        )
     )
     upcoming = list(
         published.filter(status=Event.Status.ACTIVE, last_day__gte=today).order_by(F("starts_on").asc(nulls_last=True), "name", "id")
@@ -89,7 +93,7 @@ def _events(church, today) -> dict:
     for event in upcoming:
         capacity = event.page.capacity
         event.capacity = capacity
-        event.places_left = None if capacity is None else max(capacity - event.taken, 0)
+        event.places_left = None if capacity is None else max(capacity - event.held, 0)
         event.takes_sign_ups = event.page.registration_open or event.taken > 0
     finished = list(
         published.filter(last_day__lt=today)

@@ -174,6 +174,7 @@ def admin_list(request):
     )
     for event in events:
         event.published = getattr(event, "page", None) is not None and event.page.published
+        event.ended = event.starts_on is not None and services.has_ended(event)
     return render(request, "agenda/admin_list.html", {"events": events})
 
 

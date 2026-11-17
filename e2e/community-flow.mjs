@@ -217,6 +217,9 @@ const adminPages = [
   ["admin-recurso-nuevo", "/mi-iglesia/recursos/nuevo/"], ["admin-equipos", "/mi-iglesia/servir/equipos/"],
   ["admin-equipo", "/mi-iglesia/servir/equipos/1/"], ["admin-equipo-nuevo", "/mi-iglesia/servir/equipos/nuevo/"],
   ["admin-seguimientos", "/mi-iglesia/acompanar/todos/"], ["admin-seguimiento-nuevo", "/mi-iglesia/acompanar/nuevo/"],
+  ["admin-panorama", "/mi-iglesia/panorama/"], ["admin-evento-preguntas", "/mi-iglesia/eventos/noche-de-alabanza-demo/preguntas/"],
+  ["admin-evento-programa", "/mi-iglesia/eventos/noche-de-alabanza-demo/programa/"],
+  ["admin-evento-opiniones", "/mi-iglesia/opiniones/noche-de-alabanza-demo/resultados/"],
 ];
 for (const [name, path] of adminPages) {
   const response = await page.goto(BASE + path);
@@ -234,6 +237,20 @@ await audit(page, "admin-persona");
 await page.goto(BASE + "/mi-iglesia/grupos/administrar/");
 await Promise.all([page.waitForNavigation(), page.click("main li:has-text('Jóvenes Roca') a:has-text('Personas')")]);
 await audit(page, "admin-grupo-personas");
+// 5. A simple event: created in the agenda, lands on its page, and has none of the camp's screens.
+await page.goto(BASE + "/mi-iglesia/eventos/nuevo/");
+await audit(page, "admin-evento-sencillo-nuevo");
+await page.fill("input[name=name]", "Cena de prueba");
+await page.fill("input[name=starts_on]", new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10));
+await Promise.all([page.waitForNavigation(), page.click("main button:has-text('Crear el evento')")]);
+expect(page.url().endsWith("/mi-iglesia/eventos/cena-de-prueba/pagina/"), `a new simple event lands on its page, not on ${page.url()}`);
+await audit(page, "admin-evento-sencillo-pagina");
+expect((await page.goto(BASE + "/eventos/cena-de-prueba/")).status() === 404, "a simple event has no camp screens");
+await page.goto(BASE + "/mi-iglesia/eventos/cena-de-prueba/datos/");
+await audit(page, "admin-evento-sencillo-datos");
+await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/llego/");
+expect(await page.getByText("todavía no empieza").count() > 0 || (await page.locator("main form").count()) > 0, "the walk-up page answers");
+await audit(page, "admin-evento-llego");
 await ctx.close();
 await browser.close();
 

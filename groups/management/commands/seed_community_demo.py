@@ -72,6 +72,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", default="", help="Contraseña de las cuentas (o EMMAUS_DEMO_PASSWORD). Nunca se muestra.")
+        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante y un evento terminado con opiniones.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
     def handle(self, *args, **opts):
@@ -104,12 +105,56 @@ class Command(BaseCommand):
             self._agenda_and_notices(church, admin, leader, groups[0])
             if opts["panorama"]:
                 self._panorama(church, admin, password)
+            if opts["eventos"]:
+                self._events_extras(church, admin, member)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
             accounts.append(("Pastor (Panorama)", PASTOR))
         for label, (email, *_rest) in accounts:
             self.stdout.write(f"  {label:<26} {email}")
+
+    def _events_extras(self, church, admin, member) -> None:
+        """A simple event that starts today (programme, questions, a visitor, two minors), an important notice and
+        an event that ended with opinions; the member can still give theirs."""
+        from agenda import services as agenda
+        from agenda.models import EventPage, EventRegistration
+        from agenda.simple import create_simple_event
+        from feedback.models import EventFeedback
+        from notices import services as notices
+
+        today = timezone.localdate()
+        event = Event.objects.filter(church=church, name="Convivencia de jóvenes").first()
+        if event is None:
+            event = create_simple_event(church, admin, name="Convivencia de jóvenes", slug="convivencia-de-jovenes-demo",
+                                        kind=Event.Kind.OTHER, location="Salón principal", starts_on=today,
+                                        ends_on=today + timedelta(days=1))
+            agenda.save_page(event, admin, published=True, registration="abierta", capacity=40, starts_at=time(17, 0),
+                             description="Dos tardes para conocernos, comer juntos y cantar.", requires_guardian_consent=True)
+            agenda.save_faq(event, admin, question="¿Tiene costo?", answer="No. Si quieres, trae algo para compartir.", position=1)
+            agenda.save_faq(event, admin, question="¿Puedo llevar a un amigo?", answer="Sí. Al llegar lo registramos en la entrada.", position=2)
+            for day, start, title, place in (
+                (today, time(17, 0), "Bienvenida", "Entrada"), (today, time(17, 30), "Juegos", "Patio"),
+                (today, time(19, 0), "Cena", "Salón principal"), (today + timedelta(days=1), time(18, 0), "Alabanza y mensaje", "Templo"),
+            ):
+                agenda.save_schedule_item(event, admin, day=day, starts_at=start, title=title, place=place)
+            agenda.register_walkup(event, admin, first_name="Visita", last_name="Adulta Demo", phone="55 5550 0101")
+            agenda.register_walkup(event, admin, first_name="Visita", last_name="Menor Pendiente", is_minor=True)
+            agenda.register_walkup(event, admin, first_name="Visita", last_name="Menor Autorizada", is_minor=True, consent={
+                "guardian_name": "Tutora Demo", "relationship": "madre", "method": "papel"})
+            notices.publish(church, admin, title="Cambio de horario", priority="important", by_admin=True,
+                            body="La reunión de jóvenes comenzará a las 6:00 p. m. en lugar de las 5:00 p. m.")
+        day = today - timedelta(days=5)
+        ended, created = Event.objects.get_or_create(
+            slug="cena-de-matrimonios-demo",
+            defaults={"church": church, "name": "Cena de matrimonios", "kind": Event.Kind.OTHER, "location": "Salón principal",
+                      "starts_on": day, "ends_on": day, "camp_tools": False, "join_by_name": False},
+        )
+        if created:
+            EventPage.objects.create(event=ended, published=True, registration="abierta", created_by=admin)
+            EventRegistration.objects.create(event=ended, person=member, attended=True)
+            for rating, recommend, comment in (("muy_bien", "si", ""), ("bien", "si", "Empezar a tiempo."), ("regular", "tal_vez", "Más sillas.")):
+                EventFeedback.objects.create(event=ended, rating=rating, recommend=recommend, comment=comment)
 
     def _panorama(self, church, admin, password) -> None:
         """What "Panorama" counts: a pastor, two groups with weeks of lists, a finished event with attendance."""
