@@ -182,6 +182,28 @@ Every signed-in person, with or without a role, can open `/cuenta/` ("Mi cuenta"
 
 The welcome of a role (`partials/ui/welcome.html`) is built by the view that renders the home, after the same `event_view(*roles)` check, through the same `EventAccess` querysets: a coordinador's steps count their own camperos, a tutor's their team, a pastor's follow-ups come from `access.follow_ups()` (so confidential referrals are left out without the flag), and the administración's welcome receives only the two counts of "Preparación". It never travels in a live fragment. Putting it away (`/cuenta/bienvenida/ocultar/`) and bringing it back (`/cuenta/bienvenida/mostrar/`) are POST only, `login_required`, accept only the keys in `core.onboarding.KEYS` (400 otherwise) and write only the caller's own `core.OnboardingState` row; `siguiente` goes through `url_has_allowed_host_and_scheme`. The data step of `core/0011` marks as put away every role a person already held if they had signed in before, so nobody already working in Emmaus meets a welcome for it.
 
+## Community: people of the church and group roles (next version, behind flags)
+
+These rules apply only where a church has the `community` / `people` modules on (decision 0004); with them off
+nothing in this section exists. Decision 0008 records why.
+
+| Who | How it is decided | What it opens |
+|---|---|---|
+| Person of the church | `people.Person.user` is the account, in the current church | Mi iglesia, the list of groups, a group's public page, "Pedir unirme", leaving a group |
+| Member of a group (`integrante`) | an active `access.RoleAssignment` of the group (`has_scope(group, view)`) | where the group meets and its next meeting |
+| Guide of a group (`lider`) | the same, with `manage` | who asked to join and who is in (with contact data), accept or decline, take a member out |
+| Church administration | `UserChurchRole.role == church_admin` in that church (`has_scope(church, manage)`) | create, edit and archive groups, name guides, add people, decide requests; the people directory, bringing camperos of a finished event, "Dar acceso" |
+
+* Nothing crosses a scope. A guide holds nothing in the church or in any event; a church administrator or
+  pastor holds nothing *in* a group (the administration acts through its church role); an event role (tutor,
+  coordinator, pastor of an event) gives nothing on these screens, and an account that is not a person of the
+  church gets 404 on all of them. A former coordinator who becomes a person of the church is one more person.
+* A group, a person, a request or an event of another church is a 404 for every role, on reads and on writes.
+* Ending a membership, archiving a group or deactivating an account ends the role at once; `start_at` and
+  `end_at` are compared when read.
+* No community screen shows a camp answer, a follow-up or a pastoral note. Of an event a person's home shows
+  the name, the dates and the place.
+
 ## Known gaps
 
 * A **required confidential question** left blank in an "Entrevista a solas" is a dead end for a coordinador without `can_view_sensitive` (at the level `cuidado`; at the other two the coordinador reads and completes it). When the campero taps "Ya terminé" without answering it, `finalize` refuses ("Falta responder “{pregunta}”. Toca “Cambiar” junto a ella."), but the review offers no "Cambiar" on a confidential row and `interview_step` sends that screen back to the review ("Esa pregunta es confidencial y la respondió el campero."), because `can_view_answer` lets the coordinador read a confidential question only while typing it in an assisted interview. The same happens with any required question left blank on a screen that also shows a confidential follow-up (for example "¿Tienes dudas acerca de tu fe?" made required): the review does show "Cambiar" on that row, but the whole screen is refused and the link lands back on the review. Two ways out: someone who can open the interview and has `can_view_sensitive` (an Administrador of the event, or the assigned coordinador, with "Puede leer información confidencial") takes control ("Tomar el control aquí") and completes that screen; or the coordinador hands the computer back to the campero (the "Entregar la computadora" screen, `…/entrevistas/<id>/entregar/`, which no button links to once a capture has happened), the campero answers on the kiosk and taps "Ya terminé" again, and the coordinador recovers the computer and finalizes. A pastor with the flag cannot do it: interview screens are for coordinadores and administradores. The question editor warns about it: on a question that is confidential and required, "Obligatoria" says "Si el campero no la contesta, solo el equipo de cuidado autorizado podrá completarla." (`QuestionForm`; shown on the edit screen and when the form comes back with an error, not after a successful save).

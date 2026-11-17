@@ -47,8 +47,8 @@ Layout:
 
 `people` is the first step of the next version (`docs/decisions/0002-target-domain-and-mapping.md`). It
 holds `Person`: a person known to one church, with or without an account (`user`, at most one person per
-church and account) and with no link to any event. Nothing reads it yet except a read-only, superuser-only
-Django admin; `people.persons.persons_for(user)` is the only query path and scopes by every church role the
+church and account) and with no link to any event. The directory screens (below) and a read-only, superuser-only
+Django admin read it; `people.persons.persons_for(user)` is the staff query path and scopes by every church role the
 user holds. Camperos (`events.EventParticipant`) are not persons; a later step adds a separate,
 human-confirmed link table. Its migrations live under `people/migrations/` so `core` and `events` stay
 frozen while the camp runs on `main` (decision 0005).
@@ -62,6 +62,38 @@ for callers, applies the same check inside a transaction before it creates or re
 `primary=True`, demotes the previous primary. Deleting a person deletes their affiliations; a sede with
 affiliations cannot be deleted (PROTECT), only deactivated. Nothing reads it yet: the camp keeps
 `EventParticipant.sede`, and `persons_for` does not look at affiliations.
+
+Since the first community slice (decision 0008) `people` also holds:
+
+* `ChurchSettings`: the per-church module flags (`people_enabled`, `community_enabled`), read only through
+  `people.flags.enabled(church, module)` and switched with `manage.py set_church_module`. Views use
+  `people.decorators.module_required`, which answers 404 while the flag (or `EMMAUS_V2_MODULES`) is off.
+* `ChurchAuditEvent` and `people.audit.record_church`: the church-level activity log, with closed lists of
+  actions and metadata keys.
+* `EventParticipantLink`: "this campero is this person", one row per campero, made by a church administrator
+  after the event (`people.services.link_participant`, `create_person_from_participant`). The camp's tables
+  and screens do not know it exists; the retention purge deletes it with the campero and never the person.
+* The directory screens under `/mi-iglesia/personas/` (`people/views.py`): register and edit a person, bring
+  the camperos of a finished event, and "Dar acceso" (`people.services.grant_access`: an account with no role).
+
+### `access` and `core/authz.py`: authorization of the new modules
+
+`core/authz.py` is the one entry point for new code (decision 0003): `has_scope(user, church, scope_type,
+scope_id, action)` with the scopes `church`, `event`, `group` and the actions `view`, `manage`. Church and
+event scopes delegate to `UserChurchRole` and to `events.access.resolve_access`, so the camp's answers cannot
+drift (parity tests in `access/tests/test_authz.py`); the group scope reads `access.RoleAssignment`, a
+projection of `groups.GroupMembership` written by `groups.services` in the same transaction and checked by
+`manage.py rebuild_role_assignments --check`. `current_church(request)` picks the church the new screens act
+in. `events/access.py` and `core/access.py` are not edited and keep deciding everything they decided.
+
+### `groups`: Mi iglesia and the groups of a church
+
+`Group`, `GroupMembership` (roles `lider`, `integrante`) and `GroupJoinRequest`, written only through
+`groups/services.py`. `groups/views.py` serves `/mi-iglesia/` (the home of a person of the church), the
+group list and pages, "Pedir unirme", the guide's requests and members, and the administration's group
+screens. Nothing in this app imports `Interview`, `Answer` or `FollowUp` (a test asserts it): a campero's
+answers stay out of a group by construction. `seed_community_demo` builds the synthetic story used by
+`e2e/community-flow.mjs`.
 
 ## Data model
 

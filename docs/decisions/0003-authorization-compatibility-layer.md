@@ -1,6 +1,6 @@
 # 0003 - Authorization compatibility layer: `core/authz.py::has_scope` over the legacy tables, a `RoleAssignment` projection for new scopes
 
-- **Status:** proposed (docs slice P1-1, issue #29); the owner's explicit go on this record is a precondition of issues #31 and #32 (`risk:high`)
+- **Status:** proposed (docs slice P1-1, issue #29); implemented for the church, event and group scopes on 2026-11-17 at the owner's direct request, with the amendments recorded in decision 0008 (rules 2 and 3: the current church also counts churches where the account is a person; only the group scope is projected)
 - **Date:** 2026-10-30
 - **Deciders:** owner; drafted from the audit (`docs/audits/workstreams/C-domain.md` §3, §8; `A-inventory.md` §7.2, §7.4; `D-security.md` §0, F3, F4, §9.2)
 

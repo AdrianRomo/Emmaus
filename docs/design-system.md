@@ -157,6 +157,8 @@ En las listas de camperos, `{% campero_status p %}` dibuja el estado del campero
 ### Renglones (`.rows`, `.row`)
 Nombre a 20 px en 700 (`.row__title`), dato debajo a 16 px (`.row__meta`), el estado y la acción a la derecha (`.row__end`). Separados por líneas de 1 px en `--line`. **Una línea de datos lleva tres datos a lo mucho, en una frase con comas; si hacen falta más, una segunda línea**, nunca un cuarto dato en la primera: "Cuarto 2, 17 años, Mérida" y debajo "#0133, Iglesia Centro". Un dato que no se explica solo lleva su etiqueta: "Responsable: Ana López", "Mentor: Ana López". Antes, cinco a siete datos sin etiqueta en una sola frase no se podían recorrer con la vista (UI-09, LANG-23). `.row--attention` (fondo hundido y una orilla petróleo de 4 px) para lo que espera una decisión. El encabezado de una lista es `.heading`: texto de 22 px en 700 con una línea `--line` de 1.5 px debajo. La portada usa renglones sin acción para sus tres promesas. Una lista que se ordena a mano ("En este evento", en Cuestionarios) lleva en `.row__end` "Subir" y "Bajar" (`.btn--secondary.btn--small`) y "Quitar" (`.btn--link`, con `data-confirm`), cada uno en su propio formulario POST y con texto oculto que nombra el renglón; el primero no lleva "Subir" ni el último "Bajar".
 
+Un renglón que termina en más de un control ("No aceptar" y "Aceptar"; "Personas" y "Editar"), o en un estado más un control, lleva `.row--stack`: en un celular los controles pasan debajo del texto, lado a lado y a lo ancho, en vez de apretar el nombre en una columna angosta. En pantallas anchas no cambia nada.
+
 ### Lista resumen (`.summary-list`)
 Para datos de una persona ("¿Es la persona correcta?") y, con `.summary-list--answers`, para revisar respuestas: la pregunta arriba en gris, la respuesta abajo en negrita, "Cambiar" a la derecha con texto oculto que dice qué se cambia.
 
@@ -293,6 +295,18 @@ La iglesia sube su logotipo en "Configuración de la iglesia" (solo PNG, con fon
 | `events/admin/join_code_sign.html` | `rotulo_shell` (líder) | La hoja para imprimir: el nombre del evento, el código a 96 px en Figtree 800, la dirección y tres pasos. Sin panel; al imprimir no salen la barra ni los botones |
 
 Las partes vivas (`_home_live.html`) se recargan cada 20 o 30 s con `data-live-url`; el indicador `.live-status` queda fuera de la región que se reemplaza.
+
+### Comunidad (módulos `community` y `people`, sobre `base.html`)
+
+| Plantilla | Qué la distingue |
+|---|---|
+| `groups/home.html` ("Mi iglesia") | El inicio de una persona de la iglesia. Un panel a lo mucho, con el siguiente paso: responder solicitudes (quien guía), crear el primer grupo (administración) o buscar un grupo. Luego "Tus grupos" con la próxima reunión, "Lo que pediste", "Lo que viene en la iglesia" y "Donde has estado" (de un evento solo el nombre, las fechas y el lugar) |
+| `groups/groups.html`, `groups/group_detail.html` | La lista de grupos y un grupo. El panel pregunta "¿Quieres unirte a este grupo?" y dice quién verá tus datos; el lugar de reunión solo lo ve quien ya es parte |
+| `groups/group_people.html` | Para quien guía: solicitudes por decidir (`.row--attention`, "No aceptar" y "Aceptar") y quién está en el grupo. La administración además busca y agrega personas |
+| `groups/admin_list.html`, `groups/group_form.html`, `groups/confirm.html` | La administración de grupos y la pregunta antes de salir, quitar o archivar |
+| `people/*.html` | Personas: la lista, la ficha (datos, acceso, eventos, grupos), "Traer personas de un evento" y el enlace para crear contraseña, que se muestra en pantalla y dice que Emmaus no lo envió |
+
+Palabras fijas: **"Mi iglesia"**, **"Grupos"**, **"Personas"**; quien dirige un grupo es **"quien guía el grupo"** o "Guía del grupo" (no "líder"); unirse es **"Pedir unirme"**; una solicitud está **"Por decidir"**, **"Aceptada"** o **"No aceptada"** (no "rechazada"); llevar un campero al directorio es **"Traer a Personas"**; la cuenta es **"acceso a Emmaus"** y se da con **"Dar acceso"**.
 
 ## 5. Lenguaje
 

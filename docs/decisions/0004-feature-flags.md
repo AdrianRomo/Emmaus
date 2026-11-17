@@ -1,6 +1,6 @@
 # 0004 - Feature flags: per-church module flags that gate views, held in `people.ChurchSettings` while the camp runs
 
-- **Status:** proposed (docs slice P1-1, issue #29); issue #33 implements it
+- **Status:** proposed (docs slice P1-1, issue #29); implemented on 2026-11-17 (`people.ChurchSettings`, `people.flags`, `people.decorators`, `EMMAUS_V2_MODULES`). Rule 6's reference is rendered in the same test run from a church with no settings row (`people/tests/test_screens_unchanged.py`), not from the merge base; decision 0008 rule 11 says who turns a module on
 - **Date:** 2026-10-30
 - **Deciders:** owner; drafted from the audit (`docs/audits/workstreams/A-inventory.md` §1.9, §7.3; `C-domain.md` §8; roadmap rule 4)
 
