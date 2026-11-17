@@ -110,7 +110,8 @@ def home(request):
     to_decide = list(to_decide)
     # Only what the church published for its people (agenda.EventPage), with this person's sign-up.
     upcoming = agenda_services.upcoming_for(person, church, today)[:5]
-    notices = notices_services.for_home(person, is_admin=request.is_church_admin)
+    urgent_notices = notices_services.urgent_pending(person, is_admin=request.is_church_admin)
+    notices = notices_services.for_home(person, is_admin=request.is_church_admin, skip=urgent_notices)
     devotional = resources_services.today_devotional(church, person, today)
     serving_dates = serving_services.my_dates(person, today, limit=3)
     accompanying = care_services.open_count(person)
@@ -195,6 +196,7 @@ def home(request):
             "people_enabled": request.is_church_admin and flags.enabled(church, "people"),
             "agenda": agenda[:6],
             "notices": notices,
+            "urgent_notices": urgent_notices,
             "devotional": devotional,
             "serving_dates": serving_dates,
             "accompanying": accompanying,

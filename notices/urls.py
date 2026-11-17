@@ -10,4 +10,5 @@ urlpatterns = [
     path("<int:notice_id>/", views.notice_detail, name="detail"),
     path("<int:notice_id>/editar/", views.notice_edit, name="edit"),
     path("<int:notice_id>/retirar/", views.notice_retire, name="retire"),
+    path("<int:notice_id>/enterado/", views.notice_acknowledge, name="acknowledge"),
 ]

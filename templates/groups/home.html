@@ -16,6 +16,13 @@
 
 <div class="cols">
   <div class="cols__main">
+    {% for notice in urgent_notices %}
+    <section class="notice notice--danger urgent" aria-labelledby="urgente-{{ notice.pk }}">
+      <h2 id="urgente-{{ notice.pk }}" class="notice__title">Aviso urgente: {{ notice.title }}</h2>
+      <p>{{ notice.body|truncatechars:200 }}</p>
+      <p><a href="{% url 'notices:detail' notice.pk %}">Leer el aviso y responder «Enterado»</a></p>
+    </section>
+    {% endfor %}
     {% if sign %}
     <section class="sign sign--lead" aria-labelledby="que-sigue">
       <div>
@@ -39,7 +46,7 @@
               <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
               <p class="row__meta">{% if notice.group %}Para {{ notice.group.name }}{% else %}Para toda la iglesia{% endif %}, {{ notice.publish_on|day_month }}.</p>
             </div>
-            {% if notice.is_unread %}<div class="row__end">{% status "pendiente" "Nuevo" %}</div>{% endif %}
+            {% if notice.level or notice.is_unread %}<div class="row__end">{% include "notices/_level.html" %}{% if notice.is_unread %}{% status "pendiente" "Nuevo" %}{% endif %}</div>{% endif %}
           </li>
         {% endfor %}
       </ul>

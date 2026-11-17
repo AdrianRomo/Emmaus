@@ -3,8 +3,8 @@
 {% block page_title %}Avisos{% endblock %}
 {% block content %}
 {% comment %}
-  Avisos (notices.views.notice_list): what the church and the person's groups want them to know, newest first; the
-  ones not opened yet say "Nuevo". Who may write gets "Publicar un aviso" and, below, everything they published with
+  Avisos (notices.views.notice_list): what the church and the person's groups want them to know, urgent and important ones first (each
+  with its word), then newest first; the ones not opened yet say "Nuevo". Who may write gets "Publicar un aviso" and, below, everything they published with
   its state (scheduled, expired and retired ones too). Opening this list marks nothing as read.
 {% endcomment %}
 <div class="narrow">
@@ -26,7 +26,7 @@
               <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
               <p class="row__meta">{{ notice.audience }}. Publicado el {{ notice.publish_on|weekday_date }}.</p>
             </div>
-            {% if notice.is_unread %}<div class="row__end">{% status "pendiente" "Nuevo" %}</div>{% endif %}
+            {% if notice.level or notice.is_unread %}<div class="row__end">{% include "notices/_level.html" %}{% if notice.is_unread %}{% status "pendiente" "Nuevo" %}{% endif %}</div>{% endif %}
           </li>
         {% endfor %}
       </ul>
@@ -49,7 +49,7 @@
               <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
               <p class="row__meta">{{ notice.audience }}. {% if notice.state == "programado" %}Se publica el {{ notice.publish_on|weekday_date }}.{% elif notice.state == "vencido" %}Se dejó de ver después del {{ notice.expires_on|weekday_date }}.{% elif notice.state == "retirado" %}Ya nadie lo ve.{% else %}Publicado el {{ notice.publish_on|weekday_date }}{% if notice.expires_on %}, se ve hasta el {{ notice.expires_on|weekday_date }}{% endif %}.{% endif %}</p>
             </div>
-            <div class="row__end">{% if notice.state == "programado" %}{% status "borrador" "Programado" %}{% elif notice.state == "vencido" %}{% status "descartada" "Vencido" %}{% elif notice.state == "retirado" %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}</div>
+            <div class="row__end">{% include "notices/_level.html" %}{% if notice.state == "programado" %}{% status "borrador" "Programado" %}{% elif notice.state == "vencido" %}{% status "descartada" "Vencido" %}{% elif notice.state == "retirado" %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}</div>
           </li>
         {% endfor %}
       </ul>

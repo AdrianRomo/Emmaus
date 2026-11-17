@@ -31,7 +31,10 @@ class NoticeTests(CommunityFixture):
         cls.today = timezone.localdate()
 
     def data(self, para, **changes):
-        return {"para": para, "title": "Retiro de noviembre", "body": SECRET, "publish_on": self.today.isoformat(), **changes}
+        return {
+            "para": para, "title": "Retiro de noviembre", "priority": "normal", "body": SECRET,
+            "publish_on": self.today.isoformat(), **changes,
+        }
 
     def church_notice(self, **changes):
         return services.publish(self.church, self.admin, **{"title": "Retiro de noviembre", "body": SECRET, **changes})
@@ -104,7 +107,10 @@ class NoticeTests(CommunityFixture):
     def test_the_author_or_the_administration_edits_and_retires_and_nobody_else(self):
         notice = services.publish(self.church, self.leader_user, group=self.group, title="Cambio de salón", body=SECRET)
         edit, retire = reverse("notices:edit", args=[notice.pk]), reverse("notices:retire", args=[notice.pk])
-        new = {"title": "Cambio de salón y de hora", "body": "Nos vemos a las siete.", "publish_on": self.today.isoformat()}
+        new = {
+            "title": "Cambio de salón y de hora", "priority": "normal", "body": "Nos vemos a las siete.",
+            "publish_on": self.today.isoformat(),
+        }
         for user, expected in ((self.member_user, 403), (self.asked_user, 404), (self.admin_b, 404)):
             self.client.force_login(user)
             for url in (edit, retire):
@@ -290,7 +296,7 @@ class NoticeTests(CommunityFixture):
     def test_what_is_missing_or_backwards_is_said_in_spanish(self):
         self.client.force_login(self.admin)
         response = self.client.post(CREATE, {"para": "iglesia", "title": "", "body": " ", "publish_on": ""})
-        for words in ("Escribe un título para el aviso.", "Escribe el aviso.", "Elige el día en que se publica."):
+        for words in ("Escribe un título para el aviso.", "Elige el nivel del aviso.", "Escribe el aviso.", "Elige el día en que se publica."):
             self.assertContains(response, words)
         yesterday = (self.today - timedelta(days=1)).isoformat()
         response = self.client.post(CREATE, self.data("iglesia", expires_on=yesterday))

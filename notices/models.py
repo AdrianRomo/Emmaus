@@ -21,12 +21,20 @@ class Announcement(models.Model):
         PUBLISHED = "publicado", "Publicado"
         RETIRED = "retirado", "Retirado"
 
+    class Priority(models.TextChoices):
+        """How loud a notice is: a level of the same thing, not another kind of content."""
+
+        NORMAL = "normal", "Normal"
+        IMPORTANT = "important", "Importante"
+        URGENT = "urgent", "Urgente"
+
     church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="announcements")
     group = models.ForeignKey(
         Group, verbose_name="Grupo", on_delete=models.CASCADE, null=True, blank=True, related_name="announcements"
     )
     title = models.CharField("Título", max_length=120)
     body = models.TextField("Aviso")
+    priority = models.CharField("Nivel", max_length=10, choices=Priority.choices, default=Priority.NORMAL)
     publish_on = models.DateField("Se publica el", default=today)
     expires_on = models.DateField("Deja de verse después del", null=True, blank=True)
     status = models.CharField("Estado", max_length=12, choices=Status.choices, default=Status.PUBLISHED)
@@ -60,16 +68,27 @@ class Announcement(models.Model):
         return "publicado"
 
     @property
+    def is_urgent(self) -> bool:
+        return self.priority == self.Priority.URGENT
+
+    @property
+    def level(self) -> str:
+        """The word that goes beside the title: "Importante", "Urgente", or nothing for a normal notice."""
+        return "" if self.priority == self.Priority.NORMAL else self.get_priority_display()
+
+    @property
     def audience(self) -> str:
         return f"Para {self.group.name}" if self.group_id else "Para toda la iglesia"
 
 
 class AnnouncementRead(models.Model):
-    """A person opened a notice. One row per person and notice."""
+    """A person opened a notice. One row per person and notice. ``acknowledged_at``: the day they
+    answered "Enterado" to an urgent one. It says a person tapped a button, never that a message arrived."""
 
     announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name="reads")
     person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="announcement_reads")
     read_at = models.DateTimeField(auto_now_add=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "aviso leído"
