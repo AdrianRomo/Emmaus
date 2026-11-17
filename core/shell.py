@@ -69,7 +69,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
               view in GROUP_VIEWS or (view in GROUP_WORK_VIEWS and not in_managed and not is_admin)),
     ]
     if show_events:
-        main.append(_item("Eventos", reverse("events:list") + "?todos=1", "eventos", view.startswith("events:")))
+        main.append(_item("Eventos", reverse("events:list") + "?todos=1", "eventos", view in {"events:list", "events:create"}))
     sections = [{"label": "", "items": main}]
 
     if managed:

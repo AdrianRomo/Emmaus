@@ -64,17 +64,34 @@ class ShellTests(CommunityFixture):
         member = self.get(self.member_user).content.decode()
         self.assertIn('<span class="tabs__text">Mi cuenta</span>', member)
 
-    def test_every_page_of_base_wears_the_shell_and_the_event_shells_keep_their_bar(self):
+    def test_every_page_wears_the_shell_and_an_event_is_a_place_in_it(self):
         for name in ("account", "ayuda"):
             response = self.get(self.admin, name)
             self.assertContains(response, '<header class="rail">')
             self.assertNotContains(response, '<header class="bar')
-        flags.set_enabled(self.church, "community", True)
         self.client.force_login(self.admin)
-        event_home = self.client.get(reverse("events:admin_home", args=[self.event.slug]))
-        self.assertContains(event_home, 'data-ui="2"')
-        self.assertContains(event_home, '<header class="bar')
-        self.assertNotContains(event_home, '<header class="rail">')
+        response = self.client.get(reverse("events:admin_home", args=[self.event.slug]))
+        self.assertNotContains(response, '<header class="bar')
+        nav = response.content.decode()
+        nav = nav[nav.index('<header class="rail rail--event">'):nav.index("</header>")]
+        self.assertIn('<p class="rail__label" id="rail-evento">Campamento A</p>', nav)
+        self.assertIn("Tu rol: administrador.", nav)
+        for label in ("Inicio", "Camperos", "Equipo", "Cuestionarios", "Reportes", "Configuración"):
+            self.assertIn(f'<span class="rail__text">{label}</span>', nav)
+        self.assertEqual(nav.count('aria-current="page"'), 1)  # the event's "Inicio", not "Eventos"
+        self.assertIn(reverse("events:ayuda", args=[self.event.slug]), nav)
+        tabs = response.content.decode()
+        tabs = tabs[tabs.index('<nav class="tabs"'):tabs.index("</nav>", tabs.index('<nav class="tabs"'))]
+        self.assertEqual(re.findall(r'<span class="tabs__text">([^<]+)</span>', tabs), ["Inicio", "Camperos", "Equipo", "Más"])
+        # The list of events marks "Eventos".
+        listing = rail(self.client.get(reverse("events:list") + "?todos=1"))
+        self.assertRegex(listing, r'aria-current="page">.*?<span class="rail__text">Eventos</span>')
+
+    def test_an_event_role_without_a_church_role_keeps_the_bar(self):
+        self.client.force_login(self.tutor1)
+        response = self.client.get(reverse("events:tutor_home", args=[self.event.slug]))
+        self.assertContains(response, '<header class="bar')
+        self.assertNotContains(response, "santuario.css")
 
     def test_without_the_module_nothing_of_the_redesign_is_served(self):
         with override_settings(EMMAUS_V2_MODULES=False):

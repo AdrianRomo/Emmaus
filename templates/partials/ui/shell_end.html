@@ -1,8 +1,9 @@
 {% load brand shell %}{% comment %}The phone's tabs and the "Más" panel of the redesigned shell (see shell.html). After <main>.{% endcomment %}
 <nav class="tabs" aria-label="Accesos">
   <ul>
-    {% for item in shell.tabs %}<li><a class="tabs__item" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{% icon item.icon %}<span class="tabs__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>
-    {% endfor %}<li><button class="tabs__item" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">{% icon "mas" %}<span class="tabs__text">Más</span></button></li>
+    {% if event_nav %}{% for item in event_nav|slice:":3" %}<li><a class="tabs__item tabs__item--text" href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}><span class="tabs__text">{{ item.label }}</span></a></li>
+    {% endfor %}{% else %}{% for item in shell.tabs %}<li><a class="tabs__item" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{% icon item.icon %}<span class="tabs__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>
+    {% endfor %}{% endif %}<li><button class="tabs__item" type="button" data-menu-open aria-controls="menu-panel" aria-expanded="false">{% icon "mas" %}<span class="tabs__text">Más</span></button></li>
   </ul>
 </nav>
 <div id="menu-panel" class="menu-panel menu-panel--sections" role="dialog" aria-modal="true" aria-labelledby="menu-panel-title" hidden>
@@ -18,11 +19,18 @@
       {% for item in section.items %}<li><a class="rail__link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{% icon item.icon %}<span class="rail__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>
       {% endfor %}
     </ul>
+    {% if forloop.first and event_nav %}
+    <p class="rail__label" id="mas-evento">{{ event.name }}</p>
+    <ul class="menu-panel__list" aria-labelledby="mas-evento">
+      {% for item in event_nav %}<li><a class="rail__link" href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}><span class="rail__text">{{ item.label }}</span></a></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     {% endfor %}
-    <p class="rail__label" id="mas-seccion-cuenta">{{ shell.name }}</p>
+    <p class="rail__label" id="mas-seccion-cuenta">{{ shell.name }}{% if event_nav %}, {{ access.role_label|lower }}{% if station %}, en {{ station.name }}{% endif %}{% if access.can_view_sensitive %}, con acceso confidencial{% endif %}{% endif %}</p>
     <ul class="menu-panel__list" aria-labelledby="mas-seccion-cuenta">
       <li><a class="rail__link" href="{% url 'account' %}">{% icon "cuenta" %}<span class="rail__text">Mi cuenta</span></a></li>
-      <li><a class="rail__link" href="{% url 'ayuda' %}">{% icon "ayuda" %}<span class="rail__text">Ayuda</span></a></li>
+      <li><a class="rail__link" href="{% if shell_help_url %}{{ shell_help_url }}{% else %}{% url 'ayuda' %}{% endif %}">{% icon "ayuda" %}<span class="rail__text">Ayuda</span></a></li>
       <li><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rail__link rail__link--button" type="submit">{% icon "salir" %}<span class="rail__text">Cerrar sesión</span></button></form></li>
     </ul>
   </nav>

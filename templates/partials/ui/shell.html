@@ -7,7 +7,7 @@
   The panel stays a direct child of <body>: emmaus.js makes every other child inert while it is open.
   Never included with "only": the logout form needs csrf_token.
 {% endcomment %}
-<header class="rail">
+<header class="rail{% if event_nav %} rail--event{% endif %}">
   <div class="rail__brand">
     {% url 'dashboard' as shell_home %}{% church_brand brand_church size="bar" href=shell_home %}
     {% if shell.church %}<p class="rail__church">{{ shell.church.name }}</p>{% endif %}
@@ -21,6 +21,16 @@
         {% endfor %}
       </ul>
     </div>
+    {% if forloop.first and event_nav %}
+    <div class="rail__section rail__section--event">
+      <p class="rail__label" id="rail-evento">{{ event.name }}</p>
+      <p class="rail__role">Tu rol: {{ access.role_label|lower }}.{% if station %} Estás en <strong>{{ station.name }}</strong>.{% endif %}</p>
+      <ul aria-labelledby="rail-evento">
+        {% for item in event_nav %}<li><a class="rail__link rail__link--sub" href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}><span class="rail__text">{{ item.label }}</span></a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
     {% endfor %}
   </nav>
   <div class="rail__foot">
@@ -29,7 +39,7 @@
       <span class="rail__who-text"><span class="rail__who-name">{{ shell.name }}</span><span class="rail__who-role">{% if current_role_record %}<span class="visually-hidden">Mi cuenta: </span>{{ current_role_record.get_role_display }}{% else %}Mi cuenta{% endif %}</span></span>
     </a>
     <ul class="rail__quiet">
-      <li><a class="rail__link" href="{% url 'ayuda' %}"{% if request.resolver_match.view_name == "ayuda" %} aria-current="page"{% endif %}>{% icon "ayuda" %}<span class="rail__text">Ayuda</span></a></li>
+      <li><a class="rail__link" href="{% if shell_help_url %}{{ shell_help_url }}{% else %}{% url 'ayuda' %}{% endif %}"{% if request.resolver_match.url_name == "ayuda" %} aria-current="page"{% endif %}>{% icon "ayuda" %}<span class="rail__text">Ayuda</span></a></li>
       <li><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rail__link rail__link--button" type="submit">{% icon "salir" %}<span class="rail__text">Cerrar sesión</span></button></form></li>
     </ul>
   </div>
