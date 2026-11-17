@@ -55,6 +55,31 @@ class ShellTests(CommunityFixture):
             self.assertIn(label, nav)
         self.assertEqual(nav.count(f'href="{reverse("church_settings")}"'), 1)
 
+    def test_panorama_is_listed_for_the_pastor_and_the_administration_only(self):
+        from core.models import Role
+        from core.services import assign_role
+        from events.tests.base import make_user
+
+        pastor = make_user("pastora@prueba.mx", "Paula", "Pastora")
+        assign_role(pastor, self.church, Role.PASTOR)
+        mentor = make_user("mentor@prueba.mx", "Mario", "Mentor")
+        assign_role(mentor, self.church, Role.MENTOR)
+        url = reverse("overview:panorama")
+        # A pastor is not an administrator: the link lives under "A tu cargo", not inside "Administración".
+        nav = rail(self.get(pastor))
+        self.assertIn("A tu cargo", nav)
+        self.assertNotIn("Administración", nav)
+        self.assertEqual(nav.count(f'href="{url}"'), 1)
+        self.assertIn('<span class="rail__text">Panorama</span>', nav)
+        self.assertIn(f'href="{url}"', rail(self.get(self.admin)))
+        # Guiding a group, a mentor's church role, an event role and being a member list nothing.
+        for user in (self.leader_user, self.member_user, mentor, self.coord1):
+            self.assertNotIn(url, self.get(user).content.decode(), user.email)
+        # On the page, Panorama is the one place marked.
+        here = rail(self.get(pastor, "overview:panorama"))
+        self.assertEqual(here.count('aria-current="page"'), 1)
+        self.assertRegex(here, rf'href="{url}" aria-current="page"')
+
     def test_the_phone_gets_tabs_and_the_whole_navigation_in_mas(self):
         html = self.get(self.leader_user).content.decode()
         tabs = html[html.index('<nav class="tabs"'):html.index("</nav>", html.index('<nav class="tabs"'))]

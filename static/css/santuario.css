@@ -346,6 +346,35 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 /* A notice's words: paragraphs apart, at the reading measure */
 .prose p + p { margin-top: var(--s-3); }
 
+/* ---------- 8b. Panorama: the church in totals ---------------------------- */
+/* Plain tables at the size of the text. The caption is the sentence that says what the table counts. */
+:root[data-ui="2"] .panorama .table { font-size: var(--t-body); margin-top: var(--s-4); }
+:root[data-ui="2"] .panorama .table caption { caption-side: top; text-align: left; padding-bottom: var(--s-3); font-size: var(--t-small); color: var(--ink-2); max-width: 70ch; }
+:root[data-ui="2"] .panorama .table th, :root[data-ui="2"] .panorama .table td { vertical-align: top; padding: var(--s-3); }
+:root[data-ui="2"] .panorama .table thead th { font-size: var(--t-small); vertical-align: bottom; }
+:root[data-ui="2"] .panorama .table th:first-child, :root[data-ui="2"] .panorama .table td:first-child { padding-left: 0; }
+:root[data-ui="2"] .panorama .table thead th:first-child { padding-left: var(--s-3); }
+:root[data-ui="2"] .panorama .table tbody th { font-weight: 700; min-width: 9rem; }
+:root[data-ui="2"] .panorama .table__flag { font-weight: 700; }
+:root[data-ui="2"] .panorama .table--after { margin-top: var(--s-10); }
+:root[data-ui="2"] .panorama .trend { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+:root[data-ui="2"] .panorama .figures { margin-bottom: var(--s-8); }
+:root[data-ui="2"] .panorama .empty-line a, :root[data-ui="2"] .panorama .aside-note a { font-weight: 700; }
+/* A person's own attendance on their group's page: a day and one word, nothing to compare */
+:root[data-ui="2"] .own-attendance .row { min-height: 3.25rem; }
+/* In a narrow column a table reads as one block per row: the column heads hide and each cell says its own */
+@container (max-width: 44rem) {
+  :root[data-ui="2"] .table--stack, :root[data-ui="2"] .table--stack caption, :root[data-ui="2"] .table--stack tbody,
+  :root[data-ui="2"] .table--stack tr, :root[data-ui="2"] .table--stack th, :root[data-ui="2"] .table--stack td { display: block; }
+  :root[data-ui="2"] .table--stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :root[data-ui="2"] .table--stack tbody tr { padding: var(--s-4) 0; border-bottom: 1px solid var(--line); }
+  :root[data-ui="2"] .table--stack tbody tr:first-child { border-top: 1px solid var(--line); }
+  :root[data-ui="2"] .panorama .table--stack tbody th, :root[data-ui="2"] .panorama .table--stack td { border: 0; padding: var(--s-1) 0; text-align: left; }
+  :root[data-ui="2"] .panorama .table--stack tbody th { font-size: var(--t-lead); padding-bottom: var(--s-2); }
+  :root[data-ui="2"] .table--stack td[data-label]::before { content: attr(data-label) ": "; font-weight: 700; }
+  :root[data-ui="2"] .table--stack .table__sub, :root[data-ui="2"] .table--stack .table__flag { display: block; }
+}
+
 /* ---------- 9. Print ----------------------------------------------------- */
 @media print {
   .rail, .tabs { display: none !important; }
