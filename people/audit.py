@@ -41,6 +41,10 @@ ACTION_LABELS = {
     "equipo_fecha": "Agregó, modificó o borró una fecha de un equipo",
     "equipo_asignacion": "Pidió a una persona servir en una fecha, o la quitó de ella",
     "equipo_respuesta": "Respondió a una fecha para servir o marcó un día que no puede",
+    "acompanar_creado": "Creó un seguimiento de persona",
+    "acompanar_asignado": "Asignó un seguimiento de persona o cambió su fecha",
+    "acompanar_paso": "Registró un paso de un seguimiento de persona",
+    "acompanar_estado": "Cambió el estado de un seguimiento de persona",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

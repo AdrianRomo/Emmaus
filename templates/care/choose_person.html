@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load shell %}
+{% block page_title %}Crear un seguimiento{% endblock %}
+{% block content %}
+{% comment %}First step of a new follow-up (care.views.create without ?persona=): the administration finds the person by name.{% endcomment %}
+<div class="narrow">
+  {% url 'care:admin_list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="¿A quién hay que buscar?" lede="Busca a la persona por su nombre. Ella no verá el seguimiento." back_url=back back_label="Volver a todos los seguimientos" %}
+  <form class="search" method="get" role="search" action="{% url 'care:create' %}">
+    <label class="visually-hidden" for="buscar">Nombre de la persona</label>
+    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+    <button class="btn btn--secondary" type="submit">Buscar</button>
+  </form>
+  <p class="aside-note" id="buscar-ayuda">Escribe su nombre o apellido. Si todavía no está en Personas, regístrala ahí primero.</p>
+  {% if query %}
+    {% if found %}
+      <ul class="rows">
+        {% for person in found %}
+          <li class="row row--lead row--stack">
+            {% monogram person.full_name %}
+            <div class="row__main">
+              <p class="row__title">{{ person.full_name }}</p>
+            </div>
+            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'care:create' %}?persona={{ person.pk }}">Elegir<span class="visually-hidden"> a {{ person.full_name }}</span></a></div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Nadie de la iglesia se llama así. Revisa cómo lo escribiste o regístrala en Personas.</p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
