@@ -27,6 +27,7 @@
 {% else %}
   {% include "events/rotulo/_page_head.html" with title="Panorama del ministerio" lede="Las preguntas y los seguimientos que esperan, quién se quedó callado y quién espera un mentor, en un solo lugar." meta=church.name action_url=invite_url action_label="Invitar a una persona" %}
 {% endif %}
+{% include "partials/ui/welcome.html" with welcome=welcome %}
 
 <section class="report-section church-report" aria-labelledby="preguntas">
   <div class="report-section__q">

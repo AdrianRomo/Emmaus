@@ -105,7 +105,7 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
         """Defect: the pastor's summary reading "Llevamos 1 de 5 entrevistas." (one questionnaire's words), a key whose
         "sin iniciar" hides the camperos halfway, "Faltan" silent about them, or no line per questionnaire."""
         html = self.html("pastor_home", user=self.pastor)
-        self.assertIn('<p class="voice headline headline--sentence">Llevamos 1 de 5 con los 2 cuestionarios.</p>', html)
+        self.assertIn('<p class="voice headline headline--sentence" data-count="llevamos">Llevamos 1 de 5 con los 2 cuestionarios.</p>', html)
         self.assertIn('<li><span class="key__mark" aria-hidden="true"></span>2 sin iniciar y 1 a medias</li>', html)
         self.assertIn('<dd class="figures__note">incluye 1 en curso, 1 a medias</dd>', html)
         self.assert_event_block(html, "por-cuestionario-resumen")
@@ -123,7 +123,7 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
     def test_admin_home_says_it(self):
         """Defect: the administration's state counting "entrevistas" while the event has two questionnaires."""
         html = self.html("admin_home", user=self.admin)
-        self.assertIn('<h2 id="estado-evento" class="voice admin-state__title">Llevamos 1 de 5 con los 2 cuestionarios.</h2>', html)
+        self.assertIn('<h2 id="estado-evento" class="voice admin-state__title" data-count="llevamos">Llevamos 1 de 5 con los 2 cuestionarios.</h2>', html)
         self.assertIn('<li><span class="key__mark" aria-hidden="true"></span>2 sin iniciar y 1 a medias</li>', html)
         self.assert_event_block(html)
 
@@ -131,7 +131,7 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
         """Defect: the tutor's team sentence without the N or the halfway camperos, or a "Por cuestionario" counting the
         whole event instead of the team."""
         html = self.html("tutor_home", user=self.tutor1)
-        self.assertIn('<h2 id="avance-equipo" class="voice coord__count">Tu equipo lleva 0 de 4 con los 2 cuestionarios.</h2>', html)
+        self.assertIn('<h2 id="avance-equipo" class="voice coord__count" data-count="equipo">Tu equipo lleva 0 de 4 con los 2 cuestionarios.</h2>', html)
         self.assertIn("0 % de sus camperos, 1 en curso, 1 a medias.", html)
         self.assertRegex(html, r'Cada marca es un campero\.\s*</p>\s*<section class="quests" aria-labelledby="por-cuestionario-equipo">')
         self.assertIn(QUEST.format("«Primer cuestionario»: 2 de 4."), html)

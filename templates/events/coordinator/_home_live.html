@@ -3,7 +3,7 @@
   <div class="coord__main">
     {% if progress.eligible %}
     <section class="coord__progress" aria-labelledby="mi-avance">
-      {% comment %}With several questionnaires (progress.questionnaires, one row each): "con los N cuestionarios" = every one; "a medias" (progress.partial) = some done, none live; "sin iniciar" (progress.not_started) leaves them out. One questionnaire: the line it always was.{% endcomment %}<h2 id="mi-avance" class="voice coord__count">Llevas {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</h2>
+      {% comment %}With several questionnaires (progress.questionnaires, one row each): "con los N cuestionarios" = every one; "a medias" (progress.partial) = some done, none live; "sin iniciar" (progress.not_started) leaves them out. One questionnaire: the line it always was.{% endcomment %}<h2 id="mi-avance" class="voice coord__count" data-count="llevas">Llevas {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% endif %}.</h2>
       <p class="coord__count-note">{% if not progress.questionnaires %}{% if progress.in_progress %}{{ progress.in_progress }} en curso y {% endif %}{{ progress.not_started }} sin iniciar.{% else %}{% if progress.in_progress %}{{ progress.in_progress }} en curso{% if progress.partial %}, {% else %} y {% endif %}{% endif %}{% if progress.partial %}{{ progress.partial }} a medias y {% endif %}{{ progress.not_started }} sin iniciar.{% endif %} <a href="{% url 'events:coord_progress' event.slug %}">Ver mi avance</a></p>
       {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
       <ul class="key" aria-hidden="true">
@@ -70,6 +70,15 @@
           <a class="btn btn--secondary btn--small" href="{% url 'events:coord_pending' event.slug %}#por-evaluar">Decidir</a>
         </div>
       {% endif %}
+      {% if minors_pending %}
+        <div class="row row--attention">
+          <div class="row__main">
+            <p class="row__title">{{ minors_pending }} campero{{ minors_pending|pluralize }} menor{{ minors_pending|pluralize:"es" }} de edad sin autorización registrada</p>
+            <p class="row__meta">Sin la autorización de su padre, madre o tutor legal no se {{ minors_pending|pluralize:"le,les" }} puede entrevistar. Cuando la tengas, márcala en su ficha.</p>
+          </div>
+          <a class="btn btn--secondary btn--small" href="{% url 'events:my_participants' event.slug %}?autorizacion=falta">Ver quiénes<span class="visually-hidden"> necesitan autorización</span></a>
+        </div>
+      {% endif %}
       {% if follow_ups %}
         {% comment %}The way back is this page, not the fragment's own request: the fragment is fetched from the same URL.{% endcomment %}
         {% url 'events:coord_home' event.slug as home_url %}
@@ -85,7 +94,7 @@
           {% endfor %}
         </ul>
         <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver todos los seguimientos</a></p>
-      {% elif not to_evaluate %}
+      {% elif not to_evaluate and not minors_pending %}
         <p class="empty-line">Nada espera tu decisión por ahora.</p>
       {% endif %}
     </section>

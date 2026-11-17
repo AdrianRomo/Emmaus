@@ -13,6 +13,7 @@ from ..forms import ParticipantForm
 from ..models import FollowUp, Interview, InterviewStatus, QuestionnaireVersion, normalize_name
 from ..services import event_questionnaires as eq
 from ..services import participants as participant_svc
+from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, progress_for
 from ..services.questionnaire import build_steps
 from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, safe_next
@@ -40,12 +41,15 @@ def _my_context(event, access):
         access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5]
     )
     to_evaluate = mine.filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
+    # Minors whose guardian authorization is not registered cannot be interviewed: "Esperan algo de ti" says how many
+    minors_pending = participant_svc.minors_without_authorization(participants, event).count() if event.requires_guardian_authorization else 0
     return {
         "progress": progress,
         "in_progress": in_progress,
         "next_up": next_up,
         "follow_ups": follow_ups,
         "to_evaluate": to_evaluate,
+        "minors_pending": minors_pending,
     }
 
 
@@ -59,6 +63,8 @@ def coord_home(request, event, access):
     # Outside the live region, so only the full page needs it. Same rule as interview_search: an event
     # without active computers is legitimate and needs no choice.
     context["needs_station"] = context["station"] is None and event.stations.filter(is_active=True).exists()
+    # The welcome (first time in this role) is outside the live region: the full page only, never the fragment
+    context["welcome"] = welcome_svc.for_coordinator(event, access, station=context["station"])
     return render(request, "events/coordinator/home.html", context)
 
 
@@ -78,6 +84,11 @@ def my_participants(request, event, access):
         participants = participants.filter(filters)
     if status in InterviewStatus.values:
         participants = participants.filter(interview_status=status)
+    # "?autorizacion=falta": only the minors whose guardian authorization is not registered (the welcome and
+    # "Esperan algo de ti" link here); nothing when the event does not ask for it
+    authorization_pending = request.GET.get("autorizacion") == "falta" and event.requires_guardian_authorization
+    if authorization_pending:
+        participants = participant_svc.minors_without_authorization(participants, event)
     # What needs action first: an interview left half done, then the ones not started, then the finished ones
     # (the same rank as interview_search); room and name inside each.
     participants = list(
@@ -101,6 +112,8 @@ def my_participants(request, event, access):
         empty_reason = "sin_camperos"
     elif query:
         empty_reason = "busqueda" if not participants else ""
+    elif authorization_pending:
+        empty_reason = "autorizacion" if not participants else ""
     else:
         empty_reason = "filtro" if not participants else ""
     return render(
@@ -113,6 +126,7 @@ def my_participants(request, event, access):
             "tabs": tabs,
             "total": total,
             "empty_reason": empty_reason,
+            "authorization_pending": authorization_pending,
         },
     )
 

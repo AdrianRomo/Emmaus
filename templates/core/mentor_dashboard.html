@@ -4,6 +4,7 @@
 {% block content %}
 {% with people=participants|length waiting=awaiting.count %}
 {% include "events/rotulo/_page_head.html" with title="¿Quién necesita atención hoy?" lede="Primero las preguntas que esperan tu respuesta, luego tus seguimientos y las personas que acompañas." %}
+{% include "partials/ui/welcome.html" with welcome=welcome %}
 
 {% comment %}
   The sign: who has waited longest for the mentor's reply (awaiting: open questions, oldest first; escalated ones

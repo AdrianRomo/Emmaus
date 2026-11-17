@@ -235,7 +235,7 @@ class DoneAndListTests(FlowFixture):
 
     def count_line(self):
         html = self.page("coord_home")
-        head = re.search(r'<h2 id="mi-avance" class="voice coord__count">(.*?)</h2>', html).group(1)
+        head = re.search(r'<h2 id="mi-avance" class="voice coord__count" data-count="llevas">(.*?)</h2>', html).group(1)
         note = re.search(r'<p class="coord__count-note">(.*?) <a href=', html).group(1)
         return head, note
 
@@ -330,7 +330,7 @@ class OneQuestionnaireDoneTests(IsolatedCacheMixin, ServiceHelpers, CampFixture)
         self.begin()
         self.login(self.coord1)
         html = self.client.get(self.url("coord_home")).content.decode()
-        self.assertIn('<h2 id="mi-avance" class="voice coord__count">Llevas 0 de 3.</h2>', html)
+        self.assertIn('<h2 id="mi-avance" class="voice coord__count" data-count="llevas">Llevas 0 de 3.</h2>', html)
         self.assertIn('<p class="coord__count-note">1 en curso y 2 sin iniciar. <a href="', html)
         self.assertNotIn("a medias", html)
 

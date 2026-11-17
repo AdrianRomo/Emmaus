@@ -179,9 +179,12 @@ html:not(.no-js) .no-js-only { display: none; }
   text-decoration: none;
   cursor: pointer;
   transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
-    outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+    outline-color var(--dur-1) var(--ease), outline-width var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease),
+    transform var(--dur-1) var(--ease);
 }
 .btn:hover { background: var(--hundido); }
+/* 13 (motion). The press: the button settles one pixel under the finger and comes back on release */
+.btn:active:not([disabled]):not([aria-disabled="true"]) { transform: translateY(1px); }
 /* The one filled button of a screen: petróleo, 60px tall, no shadow */
 .btn--primary { background: var(--petroleo); border-color: var(--petroleo); color: #fff; min-height: 3.75rem; }
 .btn--primary:hover { background: var(--petroleo-hover); border-color: var(--petroleo-hover); }
@@ -352,6 +355,9 @@ a.wordmark:hover { color: var(--petroleo); }
 .bar__end { display: flex; align-items: center; gap: var(--s-2); }
 .bar__end form { margin: 0; }
 .bar__end .btn { white-space: nowrap; }
+/* "Mi cuenta": a quiet link before the logout; on phones it lives in "Menú" (its own line under the "who" line) */
+.menu-panel__account { margin: 0 0 var(--s-4); }
+.menu-panel__account a { display: inline-block; min-height: 1.5rem; padding: 0.125rem 0; font-weight: 700; }
 .menu-toggle { display: none; }
 /* Many module links (discipleship): they get their own row under the bar */
 .bar--stacked .bar__inner { flex-wrap: wrap; row-gap: 0; padding-top: var(--s-2); }
@@ -395,7 +401,7 @@ a.wordmark:hover { color: var(--petroleo); }
 }
 @media (max-width: 760px) {
   .bar__inner { padding-top: 0; }
-  .bar__nav, .bar__logout, .bar__switch { display: none; }
+  .bar__nav, .bar__logout, .bar__switch, .bar__account { display: none; }
   .menu-toggle { display: inline-flex; }
 }
 @media (max-width: 600px) {
@@ -430,6 +436,37 @@ a.wordmark:hover { color: var(--petroleo); }
   .sign { padding: var(--s-5) var(--s-5) var(--s-6); }
   .search { flex-direction: column; }
   .search .btn, .sign__actions .btn { width: 100%; }
+}
+
+/* ---------- 7b. The welcome (.welcome) ----------------------------------- */
+/* The first time in a role (partials/ui/welcome.html; core/onboarding.py, events/services/welcome.py): a bordered
+   white block above the sign, so the tinted panel stays the one that asks the next question. The title, the role in a
+   sentence, the intro; then two columns, what the role can do here | "Primeros pasos" read from the live data (a
+   "Listo" or "Falta" mark before each); then "Entendido" and whom to ask. Phones stack the columns. */
+.welcome { border: var(--b-control) solid var(--line); border-radius: var(--r-control); padding: var(--s-6) var(--s-8); margin-bottom: var(--s-8); }
+.welcome__title { font-size: var(--t-h2); line-height: 1.12; }
+.welcome__role { margin-top: var(--s-2); font-weight: 700; }
+.welcome__intro { margin-top: var(--s-2); color: var(--ink-2); max-width: 70ch; text-wrap: pretty; }
+.welcome__body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-6) var(--s-12); margin-top: var(--s-6); }
+.welcome__heading { font-size: var(--t-body); font-weight: 700; margin-bottom: var(--s-3); }
+.welcome__heading .count { color: var(--ink-2); font-weight: 400; margin-left: var(--s-2); font-variant-numeric: tabular-nums; }
+.welcome__list { list-style: none; display: grid; gap: var(--s-2); }
+.welcome__list a { font-weight: 700; }
+.welcome__checklist { gap: 0; }
+.welcome__step { display: flex; gap: var(--s-3); align-items: flex-start; padding: var(--s-2) 0; border-top: 1px solid var(--line); }
+.welcome__step:first-child { border-top: 0; }
+.welcome__step .status { flex: none; min-width: 5.25rem; padding-top: 0.125rem; }
+.welcome__step-title { font-weight: 700; }
+.welcome__step--done .welcome__step-title { font-weight: 500; color: var(--ink-2); }
+.welcome__step-note { color: var(--ink-2); font-size: var(--t-small); }
+.welcome__step-note + .welcome__step-note { margin-top: var(--s-1); }
+.welcome__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-6); margin-top: var(--s-6); padding-top: var(--s-5); border-top: 1px solid var(--line); }
+.welcome__foot form { margin: 0; }
+.welcome__ask { color: var(--ink-2); font-size: var(--t-small); max-width: 60ch; }
+@media (max-width: 900px) { .welcome__body { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .welcome { padding: var(--s-5) var(--s-5); }
+  .welcome__foot .btn { width: 100%; }
 }
 
 /* ---------- 8. Lists ----------------------------------------------------- */
@@ -880,8 +917,9 @@ ol.promises li::before {
 .report-section__body .notice { max-width: 65ch; }
 
 /* ---------- 13. Motion ---------------------------------------------------- */
-/* Eight rules, short and purposeful: they say "this is new", "this is yours", "this is loading". Nothing loops and
-   nothing decorates. prefers-reduced-motion turns every one of them off (14). Tokens: --dur-1/2/3, --ease, --rise. */
+/* Thirteen rules, short and purposeful: they say "this is new", "this is yours", "this is loading", "this changed",
+   "this is gone". Nothing loops and nothing decorates. prefers-reduced-motion turns every one of them off (14).
+   Tokens: --dur-1/2/3, --ease, --rise. docs/design/motion-system.md says when each one applies and when it does not. */
 @keyframes atrio-rise { from { opacity: 0; transform: translateY(var(--rise)); } }
 @keyframes atrio-leave { to { opacity: 0; transform: translateY(calc(-1 * var(--rise))); } }
 @keyframes atrio-drop { from { opacity: 0; transform: translateY(calc(-1 * var(--rise))); } }
@@ -900,11 +938,13 @@ ol.promises li::before {
 ::view-transition-old(pregunta) { animation: atrio-leave var(--dur-2) var(--ease) both; }
 ::view-transition-new(pregunta) { animation: atrio-rise var(--dur-2) var(--ease) both; }
 
-/* 2. The next-action panel and the page head arrive with the page */
-.sign, .page-head { animation: atrio-rise var(--dur-3) var(--ease) both; }
+/* 2. The next-action panel, the page head and the welcome arrive with the page */
+.sign, .page-head, .welcome { animation: atrio-rise var(--dur-3) var(--ease) both; }
 
 /* 3. Completed marks fill in on the first load, 8ms apart and 400ms at most (sibling-index(): where it is not
-   supported the delay stays 0 and they fill together). The done marks come first in a tally. */
+   supported the delay stays 0 and they fill together). The done marks come first in a tally. A "Listo" mark of the
+   welcome's first steps fills in the same way: it is the same ordinal data. */
+.welcome__step--done .status__mark { animation: atrio-fill var(--dur-2) var(--ease) both; }
 .tally__mark--done {
   animation: atrio-fill var(--dur-2) var(--ease) both;
   animation-delay: 0ms;
@@ -921,10 +961,24 @@ ol.promises li::before {
 /* 5. The chosen mark answers the tap (the colour changes of controls are their own --dur-1 transitions) */
 .choice > input:checked + .choice__label .choice__mark { animation: atrio-pop var(--dur-2) var(--ease); }
 
+/* 9. "Entendido": the welcome leaves upwards and fades (emmaus.js, [data-dismiss-panel]); the page closes the gap once
+   it is gone, so nothing under it jumps while it is still readable */
+.welcome.is-leaving { animation: atrio-leave var(--dur-2) var(--ease) both; pointer-events: none; }
+
+/* 10. "Menú" opens with the rise of the page; closing is at once, the page behind it never left */
+.menu-panel:not([hidden]) { animation: atrio-rise var(--dur-2) var(--ease) both; }
+
+/* 11. A follow-up question that a chosen option reveals rises into its place (emmaus.js, [data-reveal-for]) */
+.reveal:not([hidden]) { animation: atrio-rise var(--dur-2) var(--ease) both; }
+
+/* 12. A figure that changed on a live refresh fades in again, so the eye finds what moved (emmaus.js marks a
+   [data-count] whose text differs from the one it replaced); the ones that did not change stay still */
+[data-count].is-changed { animation: atrio-fade var(--dur-3) var(--ease) both; }
+
 /* A live region replays nothing: emmaus.js sets data-live-settled before its first replacement */
 [data-live-settled] .sign, [data-live-settled] .page-head, [data-live-settled] .notice,
 [data-live-settled] .fold[open] > :not(summary), [data-live-settled] .tally__mark--done,
-[data-live-settled] .ruler__seg--done { animation: none; }
+[data-live-settled] .ruler__seg--done, [data-live-settled] .reveal:not([hidden]) { animation: none; }
 
 /* 4. Live refresh: while a fetch is in flight the region dims, but only if it takes longer than --dur-2,
    so a fast refresh never flickers; it comes back at once. The status text changes without motion. */

@@ -7,6 +7,7 @@
 {% with title="Hola, "|add:name|add:"." %}
   {% include "events/rotulo/_page_head.html" with title=title lede="Este camino se recorre en compañía. Avanza a tu ritmo, haz preguntas con confianza y avísale a tu iglesia cuando quieras platicar con alguien." meta=profile.church.name %}
 {% endwith %}
+{% include "partials/ui/welcome.html" with welcome=welcome %}
 
 {% comment %}The sign: the lesson that comes next. Only while there is one; yellow appears nowhere else here.{% endcomment %}
 {% if summary.enrollment and current and not current.completed_at %}

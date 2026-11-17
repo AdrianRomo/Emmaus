@@ -256,6 +256,9 @@ class RecentlyCompletedTests(CoordinatorUxFixture):
 
 class CoordinatorHomeWaitsForYouTests(CoordinatorUxFixture):
     def test_nothing_waiting_says_so_in_one_line(self):
+        from events.services.participants import record_guardian_authorization
+
+        record_guardian_authorization(self.p_minor_no_auth, actor=self.coord1)  # Lucía, 13: with it, nothing waits
         self.login(self.coord1)
         for response in (
             self.client.get(self.url("coord_home")),
@@ -263,6 +266,27 @@ class CoordinatorHomeWaitsForYouTests(CoordinatorUxFixture):
         ):
             self.assertContains(response, '<h2 id="seguimientos" class="heading">Esperan algo de ti</h2>', count=1, html=False)
             self.assertContains(response, '<p class="empty-line">Nada espera tu decisión por ahora.</p>', count=1, html=False)
+
+    def test_a_minor_without_authorization_waits_for_you_and_the_list_filters_them(self):
+        """Lucía, 13, has no guardian record: the row says so, in the page and in the fragment, and links the filter."""
+        self.login(self.coord1)
+        href = f'{self.url("my_participants")}?autorizacion=falta'
+        for response in (self.client.get(self.url("coord_home")), self.client.get(self.url("coord_home"), HTTP_X_REQUESTED_WITH="fetch")):
+            self.assertContains(response, "1 campero menor de edad sin autorización registrada", count=1)
+            self.assertContains(response, f'href="{href}"')  # the row; the page's welcome links it too
+            self.assertNotContains(response, "Nada espera tu decisión por ahora.")
+        response = self.client.get(href)
+        self.assertContains(response, "Solo los camperos menores de edad sin autorización registrada.")
+        self.assertContains(response, self.p_minor_no_auth.full_name)
+        self.assertNotContains(response, self.p1.full_name)  # Mariana, 15, has her record
+        self.assertNotContains(response, self.p2.full_name)  # Diego, 19
+        # The administration opens the same list for the whole event, in impersonal words when it is empty
+        from events.services.participants import record_guardian_authorization
+
+        record_guardian_authorization(self.p_minor_no_auth, actor=self.coord1)
+        self.assertContains(self.client.get(href), "Todos tus camperos menores de edad tienen su autorización registrada.")
+        self.login(self.admin)
+        self.assertContains(self.client.get(href), "Todos los camperos menores de edad tienen su autorización registrada.")
 
     def test_a_decision_and_a_follow_up_wait_and_the_follow_up_link_returns_home(self):
         give_interview(self.p1, InterviewStatus.COMPLETED, decision="por_evaluar")

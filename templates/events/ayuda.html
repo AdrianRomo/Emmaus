@@ -157,6 +157,7 @@
     <p class="more"><a href="{% url 'events:my_participants' event.slug %}">Abrir la ficha en Mis camperos</a></p>
   </section>
   {% endif %}
+  <p class="block">Tu nombre, tu contraseña, cada evento en el que participas y la bienvenida de tu rol están en <a href="{% url 'account' %}">Mi cuenta</a>.</p>
   <p class="block">¿Algo no está aquí? Pregunta a {% if access.is_admin %}quien instaló Emmaus{% else %}la administración del evento{% endif %}.</p>
 </div>
 {% endblock %}
