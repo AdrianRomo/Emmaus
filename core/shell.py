@@ -17,7 +17,9 @@ from .authz import Action, has_scope
 GROUP_VIEWS = {
     "community:groups", "community:group_detail", "community:group_leave",
 }
-GROUP_WORK_VIEWS = {"community:group_people", "community:member_remove"}
+GROUP_WORK_VIEWS = {
+    "community:group_people", "community:member_remove", "community:group_meetings", "community:meeting_record",
+}
 GROUP_ADMIN_VIEWS = {
     "community:group_admin_list", "community:group_create", "community:group_edit", "community:group_archive",
 }

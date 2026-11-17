@@ -7,6 +7,7 @@ the church asks ``core.authz.has_scope``: group ``manage`` for its guides, churc
 the administration. No view here reads an interview, an answer or a camp follow-up.
 """
 
+from datetime import date
 from functools import wraps
 
 from django.contrib import messages
@@ -15,6 +16,7 @@ from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import formats
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -30,7 +32,7 @@ from people.services import ensure_own_person, save_person
 from . import services
 from .access import church_groups, managed_group_ids
 from .forms import GroupForm, MyDataForm
-from .models import Group, GroupJoinRequest, GroupMembership
+from .models import Group, GroupJoinRequest, GroupMeeting, GroupMembership
 
 ACTIVE = GroupMembership.Status.ACTIVE
 PENDING = GroupJoinRequest.Status.PENDING
@@ -146,6 +148,17 @@ def home(request):
             "text": "Con un grupo creado, las personas de la iglesia ya pueden pedir unirse.",
             "url": reverse("community:group_create"),
             "action": "Crear un grupo",
+        }
+    elif due := next(
+        ((group, day) for group in (m.group for m in memberships if m.group.pk in managed) if (day := services.meeting_due(group, today))),
+        None,
+    ):
+        group, day = due
+        sign = {
+            "title": f"¿Quién vino a {group.name}?",
+            "text": f"Se reunieron el {_weekday_date(day)} y todavía no pasas lista.",
+            "url": reverse("community:meeting_record", args=[group.pk, day.isoformat()]),
+            "action": "Pasar lista",
         }
     elif not memberships and not my_requests and open_groups:
         sign = {
@@ -388,6 +401,71 @@ def member_remove(request, group_id: int, membership_id: int):
             "action": "Sí, quitar del grupo",
             "back_url": reverse("community:group_people", args=[group.pk]),
         },
+    )
+
+
+# ---- meetings -----------------------------------------------------------------------------------
+def _day(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise Http404 from None
+
+
+def _weekday_date(day: date) -> str:
+    return formats.date_format(day, r"l j \d\e F").lower()
+
+
+@community_view
+def group_meetings(request, group_id: int):
+    """The meetings of a group, for who guides it: the one that waits for its list, then the
+    last ones with how many came. ``?fecha=`` opens the list of any past day."""
+    group = _managed_group(request, group_id)
+    chosen = request.GET.get("fecha", "").strip()
+    if chosen:
+        try:
+            day = date.fromisoformat(chosen)
+        except ValueError:
+            messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
+            return redirect("community:group_meetings", group.pk)
+        return redirect("community:meeting_record", group.pk, day.isoformat())
+    meetings = list(group.meetings.annotate(present=Count("attendances"))[:12])
+    return render(
+        request,
+        "groups/group_meetings.html",
+        {
+            "group": group, "meetings": meetings, "due": services.meeting_due(group),
+            "members": GroupMembership.objects.filter(group=group, status=ACTIVE).count(),
+            "today": timezone.localdate(),
+        },
+    )
+
+
+@community_view
+def meeting_record(request, group_id: int, day: str):
+    """"Pasar lista": who came on one day. Opening a day that already has a list shows it, ready to correct."""
+    group = _managed_group(request, group_id)
+    day = _day(day)
+    if day > timezone.localdate():
+        raise Http404
+    meeting = GroupMeeting.objects.filter(group=group, date=day).first()
+    members = list(GroupMembership.objects.filter(group=group, status=ACTIVE).select_related("person"))
+    if request.method == "POST":
+        try:
+            saved = services.record_meeting(group, day, request.POST.getlist("vino"), request.user)
+        except services.GroupError as error:
+            messages.error(request, error.message)
+            return redirect("community:group_meetings", group.pk)
+        came = "vino 1 persona" if saved.present == 1 else f"vinieron {saved.present} personas"
+        messages.success(request, f"Guardamos la lista del {_weekday_date(day)}: {came} de {saved.expected}.")
+        return redirect("community:group_meetings", group.pk)
+    present = set(meeting.attendances.values_list("person_id", flat=True)) if meeting else set()
+    for membership in members:
+        membership.came = membership.person_id in present
+    return render(
+        request,
+        "groups/meeting_record.html",
+        {"group": group, "day": day, "day_words": _weekday_date(day), "meeting": meeting, "members": members},
     )
 
 

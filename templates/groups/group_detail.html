@@ -68,6 +68,7 @@
     <p>{{ members }} persona{{ members|pluralize }} en el grupo.</p>
     <div class="step__actions">
       <a class="btn btn--secondary" href="{% url 'community:group_people' group.pk %}">Personas y solicitudes</a>
+      <a class="btn btn--secondary" href="{% url 'community:group_meetings' group.pk %}">Reuniones y asistencia</a>
       {% if request.is_church_admin and group.is_active %}<a class="btn btn--link" href="{% url 'community:group_edit' group.pk %}">Editar el grupo</a>{% endif %}
     </div>
   </section>

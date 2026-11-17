@@ -10,15 +10,7 @@
 {% endcomment %}
 <div class="narrow">
   {% url 'community:group_detail' group.pk as back %}
-  <a class="back-link" href="{{ back }}">Volver al grupo</a>
-  <div class="group-head">
-    {% monogram group.name "lg" %}
-    <header class="page-head">
-      <h1 class="voice page-head__title">Personas de {{ group.name }}</h1>
-      <p class="lede">Quién pidió unirse y quién ya es parte del grupo.</p>
-      <p class="page-head__meta">{{ members|length }} persona{{ members|length|pluralize }} en el grupo{% if requests %}, {{ requests|length }} solicitud{{ requests|length|pluralize:"es" }} por decidir{% endif %}{% if group.schedule %}. Se reúnen {{ group.schedule|lower }}{% endif %}.</p>
-    </header>
-  </div>
+  {% include "groups/_work_head.html" with here="personas" lede="Quién pidió unirse y quién ya es parte del grupo." %}
 
   <section class="block" aria-labelledby="solicitudes">
     <h2 id="solicitudes" class="heading">Solicitudes por decidir</h2>

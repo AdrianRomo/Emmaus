@@ -16,7 +16,7 @@ from access.models import RoleAssignment, ScopeType
 from people.audit import record_church
 from people.models import Person
 
-from .models import Group, GroupJoinRequest, GroupMembership
+from .models import Group, GroupAttendance, GroupJoinRequest, GroupMeeting, GroupMembership
 
 SOURCE = "groups.GroupMembership"
 
@@ -230,3 +230,44 @@ def decide_request(request: GroupJoinRequest, actor, *, accept: bool) -> GroupJo
         record_church(group.church, actor, action, f"{verb} la solicitud de {person.full_name} al grupo {group.name}",
                       request, group_id=group.pk, person_id=person.pk)
     return request
+
+
+# ---- meetings -----------------------------------------------------------------------------------
+def record_meeting(group: Group, day, present_ids, actor) -> GroupMeeting:
+    """Who came to the group on ``day``. Saving the same day again replaces the list. Only people
+    who are in the group now can be marked; the audit row carries the count, never the names."""
+    if not group.is_active:
+        raise GroupError("Este grupo está archivado: ya no se pasa lista.")
+    if day > timezone.localdate():
+        raise GroupError("Ese día todavía no llega. Elige el día en que se reunieron.")
+    members = set(
+        GroupMembership.objects.filter(group=group, status=GroupMembership.Status.ACTIVE).values_list("person_id", flat=True)
+    )
+    present = members & {int(value) for value in present_ids if str(value).isdigit()}
+    with transaction.atomic():
+        meeting, _ = GroupMeeting.objects.update_or_create(
+            group=group, date=day, defaults={"expected": len(members), "recorded_by": actor}
+        )
+        meeting.attendances.exclude(person_id__in=present).delete()
+        already = set(meeting.attendances.values_list("person_id", flat=True))
+        GroupAttendance.objects.bulk_create(GroupAttendance(meeting=meeting, person_id=pk) for pk in present - already)
+        record_church(
+            group.church, actor, "grupo_reunion",
+            f"Pasó lista de {group.name} del {day:%d/%m/%Y}: {len(present)} de {len(members)}", meeting, group_id=group.pk,
+        )
+    meeting.present = len(present)
+    return meeting
+
+
+def meeting_due(group: Group, today=None):
+    """The day of the group's last meeting when nobody has said who came: within the last six
+    days, not before the group existed, and not today before the meeting's hour. Else None."""
+    today = today or timezone.localdate()
+    day = group.last_meeting_day(today)
+    if day is None or not group.is_active or day < timezone.localtime(group.created_at).date():
+        return None
+    if day == today and group.meeting_time and timezone.localtime().time() < group.meeting_time:
+        return None
+    if GroupMeeting.objects.filter(group=group, date=day).exists():
+        return None
+    return day

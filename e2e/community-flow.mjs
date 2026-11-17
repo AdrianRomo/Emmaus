@@ -117,6 +117,18 @@ await Promise.all([page.waitForNavigation(), page.click("a:has-text('Ver solicit
 await audit(page, "guia-personas");
 await Promise.all([page.waitForNavigation(), page.click("li:has-text('Valeria Soto') button[value=aceptar]")]);
 expect(await page.getByText("Valeria Soto Marín ya es parte de Jóvenes Roca.").count() > 0, "acceptance message");
+// The guide's other view of the work: meetings. He passes the list of a past day.
+await Promise.all([page.waitForNavigation(), page.click(".filters a:has-text('Reuniones')")]);
+await audit(page, "guia-reuniones");
+const past = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+await page.fill("input[name=fecha]", past);
+await Promise.all([page.waitForNavigation(), page.click("button:has-text('Elegir este día')")]);
+await audit(page, "guia-pasar-lista");
+await page.locator("label:has-text('Valeria Soto Marín')").click();
+expect(await page.locator("input[name=vino]:checked").count() === 1, "one person marked");
+await Promise.all([page.waitForNavigation(), page.click("button:has-text('Guardar la lista')")]);
+expect(await page.getByText("vino 1 persona de 2.").count() > 0, "the list is saved and says how many came");
+expect(await page.getByText("Vino 1 de 2").count() > 0, "the meeting appears with its count");
 expect((await page.goto(BASE + "/mi-iglesia/personas/")).status() === 403, "guide cannot open the directory");
 await ctx.close();
 
