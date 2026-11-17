@@ -13,6 +13,10 @@ Only material questions that the audit could not settle from the code, grouped b
 | Q-P5 | Mi Iglesia navigation: `Inicio · Explorar · Mi actividad · Perfil` (vision §9) or a shorter set? | B §6.2 | the four labels, validated in usability tasks T7–T8 before shipping |
 | Q-P6 | After the camp, should event memberships of a closed event become read-only and hidden after N days? | J2 step 3; today closed events stay readable to everyone with access | read-only after 30 days, hidden from the list after 90, superusers excepted (P3-9) |
 | Q-P7 | Three parked wording decisions from the UX audit: D1 24-hour times, D3 "administrador/administración", D6 "Nombre corto para la dirección" | B-05 | decide with volunteers in tasks T5–T6; no change before the camp |
+| Q-P8 | Which event kinds follow the camp: small groups (current Phase 2 plan), worship meetings, other activities? Do they need questionnaires or only registration, agenda and avisos? Who administers each? (#61) | roadmap §10; ordering of Phases 2–3 | small groups stay the first milestone; worship meetings as recurring events in Phase 3; validated with church leadership |
+| Q-P9 | Who owns a follow-up by default after the camp: the campero's coordinador or the coordinador's tutor? (#46) | most follow-ups had no owner in the first camp | the coordinador, with the tutor seeing the unassigned count |
+| Q-P10 | How is a guardian verified, what may a guardian see, and until what age? (#59) | about half of the camperos are minors; vision §5.4 | staff-made, audited `Guardianship`; logistics of their own child only; never answers, follow-ups or safety reports |
+| Q-P11 | Image consent wording for minors, who moderates photos, and whether campero uploads are worth the moderation load (#60) | photos of minors are the riskiest content the platform could hold | staff-curated photos only until consent and a moderation queue exist |
 
 ## Security and privacy owner
 
