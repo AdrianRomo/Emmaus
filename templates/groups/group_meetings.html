@@ -29,7 +29,7 @@
               <p class="row__title">{% if meeting.present == 1 %}Vino 1 de {{ meeting.expected }}{% else %}Vinieron {{ meeting.present }} de {{ meeting.expected }}{% endif %}</p>
               <p class="row__meta">{{ meeting.date|weekday_date|capfirst }}.</p>
             </div>
-            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'community:meeting_record' group.pk meeting.date.isoformat %}">Ver o corregir<span class="visually-hidden"> la lista del {{ meeting.date|weekday_date }}</span></a></div>
+            {% if meeting.names_deleted %}<div class="row__end"><span class="row__meta">Solo totales</span></div>{% else %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'community:meeting_record' group.pk meeting.date.isoformat %}">Ver o corregir<span class="visually-hidden"> la lista del {{ meeting.date|weekday_date }}</span></a></div>{% endif %}
           </li>
         {% endfor %}
       </ul>

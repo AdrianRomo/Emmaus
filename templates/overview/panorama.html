@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Panorama{% endblock %}
+{% block content %}
+{% comment %}
+  Panorama (overview.views.panorama): how the church is doing, for its pastor and its administration. Totals only:
+  the proper names on this page are of groups, events and teams, never of a person, and no link here leads to a
+  list of who came. Tables are real tables; under 44rem of column they read as one block per row (santuario.css
+  .table--stack), and the roles are written out so that change of display keeps them tables for a screen reader.
+{% endcomment %}
+<div class="panorama">
+  <header class="page-head">
+    <h1 class="voice page-head__title">Panorama</h1>
+    <p class="lede">Cómo va la iglesia al {{ today|long_date }}.</p>
+    <p class="page-head__meta">Aquí hay totales para cuidar a la iglesia, no un registro de cada persona: en esta página no aparece el nombre de nadie.</p>
+  </header>
+
+  <section class="block" aria-labelledby="p-grupos">
+    <h2 id="p-grupos" class="heading">Grupos</h2>
+    {% if groups %}
+    <dl class="figures">
+      <div><dt>Grupos activos</dt><dd class="figures__value">{{ groups|length }}</dd>{% if groups_stale %}<dd class="figures__note">{{ groups_stale }} sin reunión registrada en tres semanas</dd>{% endif %}</div>
+      <div><dt>Personas en grupos</dt><dd class="figures__value">{{ group_people }}</dd>{% if groups_waiting %}<dd class="figures__note">{{ groups_waiting }} grupo{{ groups_waiting|pluralize }} con solicitudes en espera</dd>{% endif %}</div>
+      <div><dt>Se unieron a un grupo</dt><dd class="figures__value">{{ group_joined }}</dd><dd class="figures__note">en los últimos 30 días</dd></div>
+    </dl>
+    <table class="table table--stack" role="table">
+      <caption>Cada grupo: cuántas personas tiene, su última reunión con lista y cuántas personas vinieron a las anteriores.</caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Grupo</th>
+          <th scope="col" role="columnheader" class="num">Personas</th>
+          <th scope="col" role="columnheader">Última reunión con lista</th>
+          <th scope="col" role="columnheader">Asistencia reciente</th>
+          <th scope="col" role="columnheader">Por atender</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup">
+        {% for group in groups %}
+        <tr role="row">
+          <th scope="row" role="rowheader"><a href="{% url 'community:group_detail' group.pk %}">{{ group.name }}</a><span class="table__sub">{{ group.get_kind_display }}</span></th>
+          <td role="cell" class="num" data-label="Personas">{{ group.member_count }}</td>
+          <td role="cell" data-label="Última reunión con lista">
+            {% if group.last %}{% if group.last.present == 1 %}1 de {{ group.last.expected }} personas asistió{% else %}{{ group.last.present }} de {{ group.last.expected }} personas asistieron{% endif %}<span class="table__sub">{{ group.last.date|weekday_date|capfirst }}{% if group.last.date.year != today.year %} de {{ group.last.date.year }}{% endif %}</span>{% else %}Todavía no tiene{% endif %}
+          </td>
+          <td role="cell" data-label="Asistencia reciente">
+            {% if group.trend %}<span class="visually-hidden">Personas que vinieron a las últimas {{ group.trend|length }} reuniones, de la más antigua a la más reciente: </span><span class="trend">{{ group.trend|join:", " }}</span>{% else %}<span class="muted">Falta más de una reunión</span>{% endif %}
+          </td>
+          <td role="cell" data-label="Por atender">
+            {% if group.stale %}<span class="table__flag">{% if group.last %}Sin reunión registrada desde el {% if group.last.date.year == today.year %}{{ group.last.date|day_month }}{% else %}{{ group.last.date|long_date }}{% endif %}{% else %}Sin ninguna reunión registrada{% endif %}</span>{% endif %}
+            {% if group.waiting %}<span class="table__flag">{% if group.waiting == 1 %}1 solicitud espera respuesta{% else %}{{ group.waiting }} solicitudes esperan respuesta{% endif %}</span>{% endif %}
+            {% if not group.stale and not group.waiting %}<span class="muted">Nada por ahora</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="aside-note">Quién vino a cada reunión lo ven solo quienes guían el grupo y la administración. Cada persona ve su propia asistencia en la página de su grupo.</p>
+    {% else %}
+      <p class="empty-line">Todavía no hay grupos activos. {% if is_church_admin %}<a href="{% url 'community:group_create' %}">Crea el primer grupo</a> para que las personas puedan pedir unirse.{% else %}La administración de la iglesia los crea en «Grupos de la iglesia».{% endif %}</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="p-eventos">
+    <h2 id="p-eventos" class="heading">Eventos</h2>
+    {% if upcoming %}
+    <table class="table table--stack" role="table">
+      <caption>Eventos publicados que vienen, con sus inscripciones.</caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Evento</th>
+          <th scope="col" role="columnheader">Cuándo</th>
+          <th scope="col" role="columnheader">Inscripciones</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup">
+        {% for event in upcoming %}
+        <tr role="row">
+          <th scope="row" role="rowheader"><a href="{% url 'agenda:detail' event.slug %}">{{ event.name }}</a></th>
+          <td role="cell" data-label="Cuándo">{{ event.starts_on|date_range:event.ends_on|capfirst|default:"Sin fecha" }}</td>
+          <td role="cell" data-label="Inscripciones">
+            {% if not event.takes_sign_ups %}<span class="muted">No se inscriben desde Emmaus</span>
+            {% elif event.capacity is None %}{{ event.taken }} inscrito{{ event.taken|pluralize }}<span class="table__sub">Sin límite de lugares</span>
+            {% else %}{{ event.taken }} inscrito{{ event.taken|pluralize }} de {{ event.capacity }} lugar{{ event.capacity|pluralize:"es" }}<span class="table__sub">{% if event.places_left == 0 %}Ya no hay lugares{% elif event.places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ event.places_left }} lugares{% endif %}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="empty-line">No hay eventos publicados por venir. {% if is_church_admin %}Publica uno desde <a href="{% url 'agenda:admin_list' %}">Eventos de la iglesia</a>.{% else %}La administración los publica en «Eventos de la iglesia».{% endif %}</p>
+    {% endif %}
+    {% if finished %}
+    <table class="table table--stack table--after" role="table">
+      <caption>Los últimos eventos que terminaron: cuántas personas se inscribieron y cuántas asistieron.</caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Evento</th>
+          <th scope="col" role="columnheader">Cuándo</th>
+          <th scope="col" role="columnheader" class="num">Inscritos</th>
+          <th scope="col" role="columnheader" class="num">Asistieron</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup">
+        {% for event in finished %}
+        <tr role="row">
+          <th scope="row" role="rowheader">{{ event.name }}</th>
+          <td role="cell" data-label="Cuándo">{{ event.starts_on|date_range:event.ends_on|capfirst }}</td>
+          <td role="cell" class="num" data-label="Inscritos">{{ event.taken }}</td>
+          <td role="cell" class="num" data-label="Asistieron">{% if event.marked %}{{ event.came }}{% else %}<span class="muted">Sin registrar</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="p-servir">
+    <h2 id="p-servir" class="heading">Servir</h2>
+    {% if serving_dates %}
+    <table class="table table--stack" role="table">
+      <caption>Las próximas fechas de cada equipo y qué han respondido las personas a quienes se les pidió servir.</caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Equipo</th>
+          <th scope="col" role="columnheader">Fecha</th>
+          <th scope="col" role="columnheader" class="num">Confirmaron</th>
+          <th scope="col" role="columnheader" class="num">Por confirmar</th>
+          <th scope="col" role="columnheader" class="num">No pueden</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup">
+        {% for service in serving_dates %}
+        <tr role="row">
+          <th scope="row" role="rowheader">{{ service.team_name }}</th>
+          <td role="cell" data-label="Fecha">{{ service.date|weekday_date|capfirst }}</td>
+          <td role="cell" class="num" data-label="Confirmaron">{{ service.confirmed }}</td>
+          <td role="cell" class="num" data-label="Por confirmar">{{ service.waiting }}</td>
+          <td role="cell" class="num" data-label="No pueden">{{ service.declined }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="empty-line">Ningún equipo tiene fechas por venir. {% if is_church_admin %}Agrégalas desde <a href="{% url 'serving:team_admin' %}">Equipos de la iglesia</a>.{% else %}Quien coordina cada equipo agrega sus fechas.{% endif %}</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="p-acompanar">
+    <h2 id="p-acompanar" class="heading">Acompañar</h2>
+    {% if care_open %}
+    <dl class="figures">
+      <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ care_open }}</dd></div>
+      <div><dt>Con la fecha vencida</dt><dd class="figures__value">{{ care_late }}</dd></div>
+      <div><dt>Sin responsable</dt><dd class="figures__value">{{ care_unowned }}</dd></div>
+    </dl>
+    <p class="aside-note">Solo totales: aquí no se ve a quién busca la iglesia ni quién es responsable.{% if is_church_admin %} Los seguimientos están en <a href="{% url 'care:admin_list' %}">Seguimiento de personas</a>.{% endif %}</p>
+    {% else %}
+      <p class="empty-line">No hay seguimientos abiertos. {% if is_church_admin %}Si alguien necesita que la busquen, créalo desde <a href="{% url 'care:admin_list' %}">Seguimiento de personas</a>.{% else %}Si alguien necesita que la busquen, pídele a la administración que cree un seguimiento.{% endif %}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

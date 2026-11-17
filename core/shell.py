@@ -5,7 +5,8 @@ wide screens, a top bar with bottom tabs on phones, and the "Más" panel that ho
 It is built from data here, never in a template, so the three places always agree.
 
 Sections, in order: what is everybody's (Mi iglesia, Avisos, Eventos, Grupos), what the person is
-responsible for ("A tu cargo": the groups they guide and the events they work in), the
+responsible for ("A tu cargo": "Panorama" for the pastor and the administration, the groups they
+guide and the events they work in), the
 discipleship module's own links, and the administration. A link is
 listed only when the view behind it would answer: this module decides what is *shown*, the views
 decide what is *allowed* (decision 0004, rule 4).
@@ -36,6 +37,7 @@ SERVING_ADMIN_VIEWS = {
     "serving:team_admin", "serving:team_create", "serving:team", "serving:team_edit", "serving:team_archive",
     "serving:member_remove", "serving:date_create", "serving:date_detail", "serving:date_delete",
 }
+OVERVIEW_VIEWS = {"overview:panorama"}
 CARE_VIEWS = {"care:mine", "care:detail"}
 CARE_ADMIN_VIEWS = {"care:admin_list", "care:create", "care:edit", "care:cancel"}
 PEOPLE_VIEWS = {
@@ -60,6 +62,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     from groups.models import Group, GroupJoinRequest
     from care import services as care_services
     from notices import services as notices_services
+    from overview.access import can_see_overview
     from serving import services as serving_services
     from people.flags import enabled
     from people.models import Person
@@ -106,6 +109,9 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
               "solicitud por decidir" if pending.get(group.pk) == 1 else "solicitudes por decidir")
         for group in managed
     ]
+    # The pastor (who may not be an administrator) and the administration look after the whole church: its totals.
+    if can_see_overview(request.user, church):
+        charge.insert(0, _item("Panorama", reverse("overview:panorama"), "camino", view in OVERVIEW_VIEWS))
     if show_events:
         charge.append(serving)
     if person and serving_services.has_teams(person):

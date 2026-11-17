@@ -62,6 +62,18 @@
     {% if not membership and not can_manage %}<p class="aside-note">El lugar de reunión lo ven solo quienes ya son parte del grupo.</p>{% endif %}
   </section>
 
+  {% if attendance %}
+  <section class="block" aria-labelledby="asistencia">
+    <h2 id="asistencia" class="heading">Tu asistencia</h2>
+    <ul class="rows own-attendance">
+      {% for meeting in attendance %}
+        <li class="row"><span class="row__main">{{ meeting.date|weekday_date|capfirst }}</span><span class="row__end">{% if meeting.came %}<strong>Fuiste</strong>{% else %}No fuiste{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Esto lo ves solo tú. Quien guía el grupo pasa la lista; si algo no coincide, díselo.</p>
+  </section>
+  {% endif %}
+
   {% if can_manage %}
   <section class="block" aria-labelledby="guiar">
     <h2 id="guiar" class="heading">Para quien guía el grupo</h2>

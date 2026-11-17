@@ -43,6 +43,7 @@ urlpatterns = [
     path("mi-iglesia/avisos/", include("notices.urls")),
     path("mi-iglesia/eventos/", include("agenda.urls")),
     path("mi-iglesia/opiniones/", include("feedback.urls")),
+    path("mi-iglesia/panorama/", include("overview.urls")),
     path("mi-iglesia/", include("groups.urls")),
     path("eventos/", include("events.urls")),
     path("estacion/", include("events.kiosk_urls")),
