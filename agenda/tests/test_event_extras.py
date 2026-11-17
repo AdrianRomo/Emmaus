@@ -763,3 +763,65 @@ class ExtrasAccessTests(ExtrasFixture):
     def test_signed_out_goes_to_sign_in(self):
         for path in self.paths():
             self.assertEqual(self.client.get(path).status_code, 302, path)
+
+
+class ReviewFixesTests(ExtrasFixture):
+    """What an independent review found in this slice (docs/v2/PROGRESS.md, wave 4)."""
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+
+    def test_a_visitor_recognized_as_a_known_minor_goes_back_to_waiting(self):
+        self.require_consent()
+        self.start()
+        self.born(self.member, 15)
+        row = services.register_walkup(self.retiro, self.admin, first_name="Diego", last_name="Hernández")
+        self.assertEqual((row.status, row.attended), ("inscrita", True))
+        services.promote_guest(row, self.admin, existing=self.member)
+        row.refresh_from_db()
+        self.assertEqual((row.person, row.status, row.attended), (self.member, "pendiente", None))
+        services.record_consent(row, self.admin, **CONSENT)
+        row.refresh_from_db()
+        self.assertEqual(row.status, "inscrita")
+
+    def test_an_adult_visitor_recognized_keeps_the_place_confirmed(self):
+        self.require_consent()
+        self.start()
+        self.born(self.member, 30)
+        row = services.register_walkup(self.retiro, self.admin, first_name="Diego", last_name="Hernández")
+        services.promote_guest(row, self.admin, existing=self.member)
+        row.refresh_from_db()
+        self.assertEqual((row.status, row.attended), ("inscrita", True))
+
+    def test_turning_the_rule_on_makes_known_minors_wait(self):
+        self.born(self.member, 15)
+        self.born(self.asked, 30)
+        minor = services.register(self.retiro, self.member, self.member_user)
+        adult = services.register(self.retiro, self.asked, self.asked_user)
+        self.assertEqual(minor.status, "inscrita")
+        services.save_page(self.retiro, self.admin, requires_guardian_consent=True)
+        minor.refresh_from_db()
+        adult.refresh_from_db()
+        self.assertEqual((minor.status, adult.status), ("pendiente", "inscrita"))
+        services.record_consent(minor, self.admin, **CONSENT)
+        services.save_page(self.retiro, self.admin, description="Otra vez")  # saving again asks nothing new
+        minor.refresh_from_db()
+        self.assertEqual(minor.status, "inscrita")
+
+    def test_saving_attendance_from_an_old_page_keeps_who_arrived_meanwhile(self):
+        first = services.register(self.retiro, self.member, self.member_user)
+        self.start()
+        page = self.client.get(self.url("registrations"))
+        self.assertContains(page, f'name="lista" value="{first.pk}"')
+        late = services.register_walkup(self.retiro, self.admin, first_name="Llegó", last_name="Después")
+        self.client.post(self.url("registrations"), {"lista": [first.pk], "vino": []})
+        first.refresh_from_db()
+        late.refresh_from_db()
+        self.assertEqual((first.attended, late.attended), (False, True))
+
+    def test_a_simple_event_is_not_offered_to_bring_camperos_from(self):
+        from events.models import Event
+
+        Event.objects.filter(pk=self.retiro.pk).update(camp_tools=False, status=Event.Status.CLOSED)
+        self.move(self.retiro, -5, -3)
+        self.assertEqual(self.client.get(reverse("people:from_event", args=[self.retiro.slug])).status_code, 404)

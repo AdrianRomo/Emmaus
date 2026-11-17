@@ -2,7 +2,8 @@
 # Migration governance on the v2 branches (docs/decisions/0013, which replaces 0005 now that the
 # camp ended): a branch aimed at v2/foundation may add migrations in any app, core/ and events/
 # included, as long as they are additive. A migration that removes, renames or runs raw SQL can lose
-# the first camp's data, so it fails here until a human labels the PR `risk:high`.
+# the first camp's data, so it fails here until a human labels the PR `risk:high`. So does a RunPython
+# with no reverse and any change to a migration that already existed. Not checked: an AlterField that narrows a column.
 #   Usage: scripts/agents/check-migration-scope.sh [--base origin/v2/foundation]
 #   Exit 0 when every added migration is additive, 1 otherwise, 0 with a notice when the current
 #   branch IS the base or main. ALLOW_DESTRUCTIVE_MIGRATIONS=true skips the check (CI sets it from
@@ -23,14 +24,18 @@ if ! git rev-parse --verify --quiet "$base" >/dev/null; then
 fi
 merge_base="$(git merge-base "$base" HEAD)"
 # --no-renames: a file moved or copied into a migrations directory counts as added, not as a rename.
-added="$(git diff --name-only --no-renames --diff-filter=ACM "$merge_base" HEAD -- '*/migrations/*.py' | grep -v '__init__.py' || true)"
-bad=""
+added="$(git diff --name-only --no-renames --diff-filter=AC "$merge_base" HEAD -- '*/migrations/*.py' | grep -v '__init__.py' || true)"
+# A migration that already existed on the base may be applied somewhere: changing or deleting it is never additive.
+touched="$(git diff --name-only --no-renames --diff-filter=MD "$merge_base" HEAD -- '*/migrations/*.py' | grep -v '__init__.py' || true)"
+bad="$touched"
 for file in $added; do
   [ -f "$file" ] || continue
-  if grep -Eq 'migrations\.(RemoveField|DeleteModel|RenameField|RenameModel|AlterModelTable|RunSQL)\b' "$file"; then bad="$bad $file"; fi
+  if grep -Eq 'migrations\.(RemoveField|DeleteModel|RenameField|RenameModel|AlterModelTable|RunSQL)\b' "$file"; then bad="$bad $file"; continue; fi
+  # RunPython rewrites data: it needs a way back (a reverse function, or RunPython.noop said out loud).
+  if grep -q 'migrations\.RunPython' "$file" && ! grep -Eq 'reverse_code|RunPython\([^)]*,[^)]*\)' "$file"; then bad="$bad $file"; fi
 done
 if [ -n "$bad" ]; then
-  echo "migration scope FAILED: these migrations remove, rename or run raw SQL, which can lose existing data:"
+  echo "migration scope FAILED: these migrations remove, rename, run raw SQL, rewrite data with no way back, or change a migration that already existed:"
   printf '  %s\n' $bad
   echo "Make the change additive (add, backfill, stop reading; drop in a later release), or have a human label the PR risk:high after a dump (docs/decisions/0013)."
   exit 1

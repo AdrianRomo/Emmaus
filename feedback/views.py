@@ -31,4 +31,4 @@ def give(request, slug: str):
 @church_admin_view
 def results(request, slug: str):
     event = get_object_or_404(Event, church=request.church, slug=slug)
-    return render(request, "feedback/results.html", {"event": event, "results": services.results(event), "open": services.is_open(event)})
+    return render(request, "feedback/results.html", {"event": event, "results": services.results(event)})

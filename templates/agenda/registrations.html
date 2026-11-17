@@ -85,7 +85,7 @@
           <div class="choices">
             {% for row in rows %}
             <div class="choice choice--multi">
-              <input class="choice__input" type="checkbox" id="vino-{{ row.pk }}" name="vino" value="{{ row.pk }}"{% if row.attended %} checked{% endif %}>
+              <input type="hidden" name="lista" value="{{ row.pk }}"><input class="choice__input" type="checkbox" id="vino-{{ row.pk }}" name="vino" value="{{ row.pk }}"{% if row.attended %} checked{% endif %}>
               <label class="choice__label" for="vino-{{ row.pk }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.display_name }}</span></label>
             </div>
             {% endfor %}

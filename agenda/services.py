@@ -284,7 +284,18 @@ def save_page(event: Event, actor, **fields) -> EventPage:
         if page.published and event.starts_on is None:
             raise AgendaError("Este evento no tiene fecha de inicio. Ponla en la configuración del evento y después publícalo.",
                               code="no_date")
+        asked_before = bool(page.pk) and EventPage.objects.filter(pk=page.pk, requires_guardian_consent=True).exists()
         page.save()
+        if page.requires_guardian_consent and not asked_before:
+            # The rule starts now: who is known to be a minor and has no authorization waits for it.
+            confirmed = EventRegistration.objects.select_for_update(of=("self",)).filter(event=event, status=ACTIVE).select_related("person")
+            for row in confirmed:
+                minor = row.guest_is_minor if row.person_id is None else bool(
+                    row.person.birth_date and is_minor_at(event, row.person.birth_date))
+                if minor and row.valid_consent is None:
+                    row.status = PENDING
+                    row.attended, row.checked_in_at, row.checked_in_by = None, None, None
+                    row.save(update_fields=["status", "attended", "checked_in_at", "checked_in_by"])
         if page.published and not was_published:
             action, summary = "evento_publicado", f"Publicó el evento {event.name} para la iglesia"
         elif was_published and not page.published:
@@ -295,7 +306,7 @@ def save_page(event: Event, actor, **fields) -> EventPage:
     return page
 
 
-def record_attendance(event: Event, present_ids, actor) -> Attendance:
+def record_attendance(event: Event, present_ids, actor, shown_ids=None) -> Attendance:
     """Who came, among the confirmed registrations; ``present_ids`` are registration ids (a visitor
     has no person). Saving again replaces the answer of everybody: who is not marked did not come.
     A registration that waits for a guardian is not on this list and cannot be marked. The audit
@@ -303,11 +314,17 @@ def record_attendance(event: Event, present_ids, actor) -> Attendance:
     if not has_started(event):
         raise AgendaError("El evento todavía no empieza. La asistencia se registra desde su primer día.", code="not_started")
     wanted = {int(value) for value in present_ids if str(value).isdigit()}
+    # ``shown_ids``: the rows the screen listed. Somebody registered meanwhile by another person of
+    # the team was not on it, and keeps the mark they have.
+    shown = None if shown_ids is None else {int(value) for value in shown_ids if str(value).isdigit()}
     with transaction.atomic():
         rows = list(EventRegistration.objects.select_for_update().filter(event=event, status=ACTIVE))
         now = timezone.now()
         present = 0
         for row in rows:
+            if shown is not None and row.pk not in shown:
+                present += bool(row.attended)
+                continue
             came = row.pk in wanted
             present += came
             if row.attended is came:
@@ -526,7 +543,15 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
         registration.person = person
         registration.guest_first_name = registration.guest_last_name = registration.guest_phone = ""
         registration.guest_is_minor = False
-        registration.save(update_fields=["person", "guest_first_name", "guest_last_name", "guest_phone", "guest_is_minor"])
+        # The row now belongs to somebody whose date of birth the church knows: a minor without an
+        # authorization goes back to waiting, whatever the visitor's row said (decision 0010).
+        page = EventPage.objects.filter(event=event).first()
+        if (page is not None and page.requires_guardian_consent and registration.status == ACTIVE
+                and person.birth_date and is_minor_at(event, person.birth_date) and registration.valid_consent is None):
+            registration.status = PENDING
+            registration.attended, registration.checked_in_at, registration.checked_in_by = None, None, None
+        registration.save(update_fields=["person", "guest_first_name", "guest_last_name", "guest_phone", "guest_is_minor",
+                                         "status", "attended", "checked_in_at", "checked_in_by"])
         record_church(event.church, actor, "evento_visita_persona",
                       f"Agregó a {person.full_name}, visita de {event.name}, a las personas de la iglesia",
                       registration, event_id=event.pk, **_who(registration))

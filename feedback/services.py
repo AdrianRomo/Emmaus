@@ -1,13 +1,13 @@
 """Opinions about an event that ended. Who may give one: a person of the church who was signed up
-and was not marked as absent, once, during the 30 days after the event's last day. Reading: totals
-for the administration, and the comments only from ``MIN_TO_SHOW`` opinions on, so that a comment
-cannot be traced to the one person who answered."""
+and was not marked as absent, once, during the ``OPEN_DAYS`` after the event's last day. Reading: totals
+and comments for the administration, only once those days passed (results that grew answer by
+answer would show each new one) and only from ``MIN_TO_SHOW`` opinions on."""
 
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count
+from django.db.models import Count, Exists, OuterRef
 from django.utils import timezone
 
 from agenda.models import EventRegistration
@@ -15,7 +15,7 @@ from events.models import Event
 
 from .models import EventFeedback, FeedbackGiven
 
-OPEN_DAYS = 30
+OPEN_DAYS = 14
 MIN_TO_SHOW = 3
 ACTIVE = EventRegistration.Status.ACTIVE
 
@@ -49,12 +49,9 @@ def pending_for(person, church, today=None) -> list[Event]:
     """The events of ``church`` this person can still give an opinion on, most recent first."""
     today = today or timezone.localdate()
     since = today - timedelta(days=OPEN_DAYS)
-    events = (
-        Event.objects.filter(church=church, registrations__person=person, registrations__status=ACTIVE)
-        .exclude(registrations__person=person, registrations__attended=False)
-        .exclude(feedback_given__person=person)
-        .distinct()
-    )
+    went = EventRegistration.objects.filter(event=OuterRef("pk"), person=person, status=ACTIVE).exclude(attended=False)
+    given = FeedbackGiven.objects.filter(event=OuterRef("pk"), person=person)
+    events = Event.objects.filter(Exists(went), ~Exists(given), church=church)
     return sorted((e for e in events if is_open(e, today) and _last_day(e) >= since), key=_last_day, reverse=True)
 
 
@@ -71,19 +68,22 @@ def give(person, event: Event, *, rating: str, recommend: str, comment: str = ""
         raise FeedbackError("Ya habías dado tu opinión de este evento. Gracias.") from None
 
 
-def results(event: Event) -> dict:
-    """Totals per answer, and the comments once there are enough opinions to hide whose each is."""
+def results(event: Event, today=None) -> dict:
+    """Totals per answer and the comments, once nobody can answer any more and there are enough
+    opinions to hide whose each is. Before that: only how many arrived."""
     rows = EventFeedback.objects.filter(event=event)
     total = rows.count()
-    by_rating = dict(rows.values_list("rating").annotate(n=Count("id")))
-    by_recommend = dict(rows.values_list("recommend").annotate(n=Count("id")))
-    enough = total >= MIN_TO_SHOW
+    by_rating = dict(rows.values_list("rating").annotate(n=Count("pk")))
+    by_recommend = dict(rows.values_list("recommend").annotate(n=Count("pk")))
+    still_open = is_open(event, today)
+    enough = total >= MIN_TO_SHOW and not still_open
+    closes_on = _last_day(event) + timedelta(days=OPEN_DAYS) if still_open else None
     return {
         "total": total,
         "enough": enough,
-        "missing": max(MIN_TO_SHOW - total, 0),
+        "open": still_open,
+        "closes_on": closes_on,
         "ratings": [(label, by_rating.get(value, 0)) for value, label in EventFeedback.Rating.choices] if enough else [],
         "recommends": [(label, by_recommend.get(value, 0)) for value, label in EventFeedback.Recommend.choices] if enough else [],
-        # Shuffled by the database's id order would follow the order of arrival: sort by text instead.
         "comments": sorted(c for c in rows.exclude(comment="").values_list("comment", flat=True)) if enough else [],
     }

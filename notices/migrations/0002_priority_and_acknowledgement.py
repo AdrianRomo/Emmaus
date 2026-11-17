@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='announcement',
             name='priority',
-            field=models.CharField(choices=[('normal', 'Normal'), ('important', 'Importante'), ('urgent', 'Urgente')], default='normal', max_length=10, verbose_name='Nivel'),
+            field=models.CharField(choices=[('normal', 'Normal'), ('important', 'Importante'), ('urgent', 'Urgente')], db_default='normal', default='normal', max_length=10, verbose_name='Nivel'),
         ),
         migrations.AddField(
             model_name='announcementread',

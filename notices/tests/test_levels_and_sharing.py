@@ -267,7 +267,11 @@ class LevelTests(LevelFixture):
         services.acknowledge(other_admin_notice, self.admin_person)
         self.assertEqual(services.acknowledgement_count(other_admin_notice), (0, 1))  # the member; the guide wrote it
         self.client.force_login(self.admin)
-        self.assertContains(self.client.get(detail(other_admin_notice)), "0 de 1 persona dijo «Enterado».")
+        # With one or two readers the number would say who: the page does not give it.
+        page = self.client.get(detail(other_admin_notice))
+        self.assertNotContains(page, "0 de 1 persona")
+        self.assertContains(page, "es para menos de 3 personas con cuenta")
+        self.assertContains(self.client.get(detail(church_wide)), "0 de 4 personas dijeron «Enterado».")
 
     def test_enterado_is_only_for_an_urgent_notice_the_person_may_read(self):
         grouped = self.notice(URGENT, group=self.group)

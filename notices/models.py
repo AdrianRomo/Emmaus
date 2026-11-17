@@ -34,7 +34,7 @@ class Announcement(models.Model):
     )
     title = models.CharField("Título", max_length=120)
     body = models.TextField("Aviso")
-    priority = models.CharField("Nivel", max_length=10, choices=Priority.choices, default=Priority.NORMAL)
+    priority = models.CharField("Nivel", max_length=10, choices=Priority.choices, default=Priority.NORMAL, db_default=Priority.NORMAL)
     publish_on = models.DateField("Se publica el", default=today)
     expires_on = models.DateField("Deja de verse después del", null=True, blank=True)
     status = models.CharField("Estado", max_length=12, choices=Status.choices, default=Status.PUBLISHED)

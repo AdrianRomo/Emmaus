@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load community %}
 {% block page_title %}Opiniones de {{ event.name }}{% endblock %}
 {% block content %}
 {% comment %}
@@ -8,10 +9,12 @@
 <div class="narrow">
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Opiniones del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
-  {% if results.total == 0 %}
-    <p class="empty-line">{% if open %}Todavía nadie opina. Quien fue al evento ve la invitación en Mi iglesia durante 30 días.{% else %}Nadie dio su opinión de este evento.{% endif %}</p>
+  {% if results.open %}
+    <p class="empty-line">{% if results.total == 0 %}Todavía nadie opina{% elif results.total == 1 %}Ya llegó 1 opinión{% else %}Ya llegaron {{ results.total }} opiniones{% endif %}. Quien fue al evento puede opinar hasta el {{ results.closes_on|long_date }}; después de ese día aquí verás los resultados, todos juntos, para que nadie sepa de quién es cada opinión.</p>
+  {% elif results.total == 0 %}
+    <p class="empty-line">Nadie dio su opinión de este evento.</p>
   {% elif not results.enough %}
-    <p class="empty-line">{% if results.total == 1 %}Hay 1 opinión{% else %}Hay {{ results.total }} opiniones{% endif %}. Se muestran cuando haya al menos 3, para que nadie sepa de quién es cada una.</p>
+    <p class="empty-line">{% if results.total == 1 %}Hubo 1 opinión{% else %}Hubo {{ results.total }} opiniones{% endif %}. Se muestran solo cuando son al menos 3, para que nadie sepa de quién es cada una.</p>
   {% else %}
     <p class="prose">{{ results.total }} personas dieron su opinión. Se guardan sin nombre.</p>
     <section class="block" aria-labelledby="como-estuvo">

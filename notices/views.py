@@ -87,6 +87,8 @@ def _share_url(request, notice: Announcement) -> str:
 
 def _acknowledged_line(notice: Announcement) -> str:
     done, total = services.acknowledgement_count(notice)
+    if total < 3:  # with one or two readers the number would say who
+        return "Este aviso es para menos de 3 personas con cuenta: aquí no se cuenta cuántas dijeron «Enterado»."
     if total == 1:
         return f"{done} de 1 persona dijo «Enterado»."
     return f"{done} de {total} personas dijeron «Enterado»."

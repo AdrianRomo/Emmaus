@@ -177,7 +177,7 @@ def _over_events(request):
 
 
 def _event_access(request, slug: str):
-    event = get_object_or_404(Event, slug=slug, church=request.church)
+    event = get_object_or_404(Event, slug=slug, church=request.church, camp_tools=True)
     access = resolve_access(request.user, event)
     if access is None or not access.can_manage_event:
         raise PermissionDenied

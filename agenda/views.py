@@ -223,7 +223,7 @@ def registrations(request, slug: str):
     event = _event(request, slug)
     if request.method == "POST":
         try:
-            saved = services.record_attendance(event, request.POST.getlist("vino"), request.user)
+            saved = services.record_attendance(event, request.POST.getlist("vino"), request.user, request.POST.getlist("lista") or None)
         except services.AgendaError as error:
             messages.error(request, error.message)
         else:
