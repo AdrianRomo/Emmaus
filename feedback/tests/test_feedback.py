@@ -105,3 +105,11 @@ class FeedbackTests(AgendaFixture):
         self.assertEqual(dict(services.results(self.retiro)["ratings"]), {"Muy bien": 0, "Bien": 2, "Regular": 0, "Mal": 1})
         for name in (self.member.first_name, self.member.last_name):
             self.assertNotContains(response, name)
+
+    def test_mi_iglesia_invites_who_went_until_they_answer(self):
+        self.client.force_login(self.member_user)
+        self.assertNotContains(self.client.get(reverse("community:home")), "Dar mi opinión")
+        self.end()
+        self.assertContains(self.client.get(reverse("community:home")), "¿Cómo estuvo Retiro de jóvenes?")
+        self.client.post(self.url(), ANSWER)
+        self.assertNotContains(self.client.get(reverse("community:home")), "Dar mi opinión")

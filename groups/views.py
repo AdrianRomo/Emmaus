@@ -23,6 +23,7 @@ from django.views.decorators.http import require_POST
 from core import notify
 from core.authz import Action, has_scope
 from events.models import normalize_name
+from feedback import services as feedback_services
 from events.services import throttle
 from people import flags
 from people.decorators import module_required
@@ -115,6 +116,7 @@ def home(request):
     devotional = resources_services.today_devotional(church, person, today)
     serving_dates = serving_services.my_dates(person, today, limit=3)
     accompanying = care_services.open_count(person)
+    opinions = feedback_services.pending_for(person, church, today)
     media = resources_services.latest_media(church)
     history = person.event_links.select_related("event").order_by("-event__starts_on")
     open_groups = church_groups(church).filter(accepts_requests=True).exists()
@@ -200,6 +202,7 @@ def home(request):
             "devotional": devotional,
             "serving_dates": serving_dates,
             "accompanying": accompanying,
+            "opinions": opinions,
             "media": media,
             "journey": journey,
             "missing": missing,

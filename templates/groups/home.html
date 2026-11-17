@@ -211,8 +211,15 @@
     {% endif %}
   </div>
 
-  {% if missing or accompanying %}
+  {% if missing or accompanying or opinions %}
   <div class="cols__side">
+    {% for event in opinions %}
+    <section class="quiet" aria-labelledby="opinion-{{ event.pk }}">
+      <h2 id="opinion-{{ event.pk }}" class="quiet__title">¿Cómo estuvo {{ event.name }}?</h2>
+      <p class="quiet__text">Tres preguntas. Tu opinión se guarda sin tu nombre.</p>
+      <a class="btn btn--secondary btn--small" href="{% url 'feedback:give' event.slug %}">Dar mi opinión<span class="visually-hidden"> de {{ event.name }}</span></a>
+    </section>
+    {% endfor %}
     {% if accompanying %}
     <section class="quiet" aria-labelledby="acompanas">
       <h2 id="acompanas" class="quiet__title">{% if accompanying == 1 %}Hay 1 persona que te toca buscar{% else %}Hay {{ accompanying }} personas que te toca buscar{% endif %}</h2>
