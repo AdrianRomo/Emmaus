@@ -1,0 +1,37 @@
+{% load brand shell %}{% comment %}
+  The shell of the redesigned experience (core/shell.py builds `shell`; docs/v2/DESIGN_SYSTEM.md, "El marco").
+  Three direct children of <body>, in reading order, plus <main> between them (base.html):
+    .rail        wide screens: the side navigation. Phones: the top bar (the church and "Mi cuenta").
+    .tabs        phones only: the two or three places a person uses most, and "Más".
+    #menu-panel  "Más": everything, as a modal dialog (emmaus.js: focus trap, Escape, the page behind inert).
+  The panel stays a direct child of <body>: emmaus.js makes every other child inert while it is open.
+  Never included with "only": the logout form needs csrf_token.
+{% endcomment %}
+<header class="rail">
+  <div class="rail__brand">
+    {% url 'dashboard' as shell_home %}{% church_brand brand_church size="bar" href=shell_home %}
+    {% if shell.church %}<p class="rail__church">{{ shell.church.name }}</p>{% endif %}
+  </div>
+  <nav class="rail__nav" aria-label="Principal">
+    {% for section in shell.sections %}
+    <div class="rail__section">
+      {% if section.label %}<p class="rail__label" id="rail-seccion-{{ forloop.counter }}">{{ section.label }}</p>{% endif %}
+      <ul{% if section.label %} aria-labelledby="rail-seccion-{{ forloop.counter }}"{% endif %}>
+        {% for item in section.items %}<li><a class="rail__link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{% icon item.icon %}<span class="rail__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </nav>
+  <div class="rail__foot">
+    <a class="rail__who" href="{% url 'account' %}"{% if request.resolver_match.url_name == "account" %} aria-current="page"{% endif %}>
+      {% monogram shell.name "sm" %}
+      <span class="rail__who-text"><span class="rail__who-name">{{ shell.name }}</span><span class="rail__who-role">{% if current_role_record %}<span class="visually-hidden">Mi cuenta: </span>{{ current_role_record.get_role_display }}{% else %}Mi cuenta{% endif %}</span></span>
+    </a>
+    <ul class="rail__quiet">
+      <li><a class="rail__link" href="{% url 'ayuda' %}"{% if request.resolver_match.view_name == "ayuda" %} aria-current="page"{% endif %}>{% icon "ayuda" %}<span class="rail__text">Ayuda</span></a></li>
+      <li><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rail__link rail__link--button" type="submit">{% icon "salir" %}<span class="rail__text">Cerrar sesión</span></button></form></li>
+    </ul>
+  </div>
+  <a class="rail__account" href="{% url 'account' %}">{% monogram shell.name "sm" %}<span class="visually-hidden">Mi cuenta</span></a>
+</header>

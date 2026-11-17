@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Mis datos{% endblock %}
+{% block content %}
+{% comment %}
+  "Mis datos" (groups.views.profile): a person of the church corrects how the church reaches them. One form, one
+  filled button. The name and the date of birth are the administration's; the page says who to ask.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Mis datos" lede="Así te encuentra tu iglesia. Solo los ven quien guía tu grupo y la administración." back_url=back back_label="Volver a Mi iglesia" %}
+  {% include "partials/ui/error_summary.html" %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar mis datos</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Tu nombre en la iglesia es {{ person.full_name }}. Si hay que corregirlo, pídelo a la administración de tu iglesia. La contraseña y el correo con el que entras se cambian en <a href="{% url 'account' %}">Mi cuenta</a>.</p>
+</div>
+{% endblock %}

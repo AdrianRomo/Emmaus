@@ -25,15 +25,17 @@ from events.services import throttle
 from people import flags
 from people.decorators import module_required
 from people.models import Person
-from people.services import ensure_own_person
+from people.services import ensure_own_person, save_person
 
 from . import services
 from .access import church_groups, managed_group_ids
-from .forms import GroupForm
+from .forms import GroupForm, MyDataForm
 from .models import Group, GroupJoinRequest, GroupMembership
 
 ACTIVE = GroupMembership.Status.ACTIVE
 PENDING = GroupJoinRequest.Status.PENDING
+# The words of the filter are plurals; the model's are the singular a group page shows.
+GROUP_KIND_FILTERS = [("pequeno", "Grupos pequeños"), ("estudio", "Estudios bíblicos"), ("otro", "Otros grupos")]
 
 
 def community_view(view_func):
@@ -103,6 +105,31 @@ def home(request):
     open_groups = church_groups(church).filter(accepts_requests=True).exists()
     any_group = Group.objects.filter(church=church).exists()
 
+    # What is coming, in one list by day: the meetings of the person's groups and the church's events.
+    agenda = [
+        {
+            "date": membership.next_meeting, "today": membership.next_meeting == today, "title": membership.group.name,
+            "kind": "group", "time": membership.group.meeting_time, "place": membership.group.meeting_place,
+            "url": reverse("community:group_detail", args=[membership.group.pk]),
+        }
+        for membership in memberships if membership.next_meeting
+    ]
+    agenda += [
+        {"date": max(event.starts_on, today), "today": event.starts_on <= today, "title": event.name, "kind": "event", "event": event}
+        for event in upcoming
+    ]
+    agenda.sort(key=lambda row: (row["date"], row["kind"], row["title"]))
+
+    # The way so far, newest first: the groups the person is in and the events they were part of.
+    journey = [
+        {"date": timezone.localtime(membership.start_at).date(), "now": True, "membership": membership}
+        for membership in memberships
+    ]
+    journey += [{"date": link.event.starts_on, "now": False, "event": link.event} for link in history if link.event.starts_on]
+    journey.sort(key=lambda row: row["date"], reverse=True)
+
+    missing = [label for label, value in (("tu teléfono", person.phone), ("tu correo", person.email)) if not value]
+
     sign = None
     if to_decide:
         total = sum(row["total"] for row in to_decide)
@@ -141,20 +168,52 @@ def home(request):
             "history": history,
             "open_groups": open_groups,
             "people_enabled": request.is_church_admin and flags.enabled(church, "people"),
+            "agenda": agenda[:6],
+            "journey": journey,
+            "missing": missing,
+            "today": today,
         },
     )
+
+
+@community_view
+def profile(request):
+    """"Mis datos": the person corrects how the church reaches them. Only their own row, and only
+    the contact fields: the name on record and the date of birth are the administration's."""
+    form = MyDataForm(request.POST or None, instance=request.person)
+    if request.method == "POST" and form.is_valid():
+        save_person(form.save(commit=False), request.user, created=False)
+        messages.success(request, "Guardamos tus datos.")
+        return redirect("community:home")
+    return render(request, "groups/profile.html", {"form": form, "person": request.person})
 
 
 # ---- discovery ----------------------------------------------------------------------------------
 @community_view
 def groups(request):
+    """The groups of the church. First the person's own, then where they asked, then the ones that
+    receive people, last the ones that do not. ``?tipo=`` keeps one kind, when the church has several."""
     person = request.person
     mine = set(GroupMembership.objects.filter(person=person, status=ACTIVE).values_list("group_id", flat=True))
     asked = set(GroupJoinRequest.objects.filter(person=person, status=PENDING).values_list("group_id", flat=True))
     rows = _with_leaders(church_groups(request.church).select_related("sede").order_by("name", "id"))
     for group in rows:
         group.state = "mine" if group.pk in mine else "asked" if group.pk in asked else "open" if group.is_open else "closed"
-    return render(request, "groups/groups.html", {"groups": rows})
+    rows.sort(key=lambda group: ("mine", "asked", "open", "closed").index(group.state))
+    kinds = [
+        {"value": value, "label": label, "count": sum(1 for group in rows if group.kind == value)}
+        for value, label in GROUP_KIND_FILTERS
+    ]
+    kinds = [kind for kind in kinds if kind["count"]]
+    chosen = request.GET.get("tipo", "")
+    if chosen not in {kind["value"] for kind in kinds}:
+        chosen = ""
+    shown = [group for group in rows if not chosen or group.kind == chosen]
+    return render(
+        request,
+        "groups/groups.html",
+        {"groups": shown, "total": len(rows), "kinds": kinds if len(kinds) > 1 else [], "chosen": chosen},
+    )
 
 
 def _group(request, group_id: int, *, include_archived: bool = False) -> Group:

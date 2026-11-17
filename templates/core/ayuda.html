@@ -25,9 +25,15 @@
     <p class="more"><a href="{% url 'join' %}">Escribir el código</a></p>
   </section>
   <section class="block" aria-labelledby="tarea-campamento">
+    {% if shell %}
+    <h2 id="tarea-campamento" class="heading">Elige el campamento en “Eventos”</h2>
+    <p>Toca “Eventos” en el menú de la izquierda; en un celular está abajo o en “Más”. Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
+    <p class="more"><a href="{% url 'events:list' %}?todos=1">Ir a Eventos</a></p>
+    {% else %}
     <h2 id="tarea-campamento" class="heading">Elige el campamento en “Campamentos”</h2>
     <p>Toca “Campamentos” en la barra de arriba; en un celular está en “Menú”. Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
     <p class="more"><a href="{% url 'events:list' %}?todos=1">Ir a Campamentos</a></p>
+    {% endif %}
   </section>
   {% if current_church.discipleship_enabled %}
   <section class="block" aria-labelledby="tarea-discipulado">
@@ -41,7 +47,7 @@
   <section class="block" aria-labelledby="tarea-grupo">
     <h2 id="tarea-grupo" class="heading">Únete a un grupo de la iglesia</h2>
     <ol class="promises">
-      <li>Toca “Grupos” en la barra de arriba; en un celular está en “Menú”.</li>
+      <li>Toca “Grupos” en el menú de la izquierda; en un celular está abajo.</li>
       <li>Abre el grupo que te interese y toca “Pedir unirme”.</li>
       <li>Quien guía el grupo te responde. La respuesta aparece en “Mi iglesia”.</li>
     </ol>
@@ -49,8 +55,13 @@
   </section>
   <section class="block" aria-labelledby="tarea-guiar">
     <h2 id="tarea-guiar" class="heading">Si guías un grupo, responde las solicitudes</h2>
-    <p>Cuando alguien pide unirse, lo ves al entrar a “Mi iglesia”. Toca “Ver solicitudes” y elige “Aceptar” o “No aceptar”. Vale la pena hablar con la persona antes de no aceptarla.</p>
+    <p>Cuando alguien pide unirse, lo ves al entrar a “Mi iglesia” y junto al nombre de tu grupo, en “A tu cargo”. Toca “Ver solicitudes” y elige “Aceptar” o “No aceptar”. Ahí mismo están el teléfono y el correo de cada persona: vale la pena hablar con ella antes de no aceptarla.</p>
     <p class="more"><a href="{% url 'community:home' %}">Ir a Mi iglesia</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-datos">
+    <h2 id="tarea-datos" class="heading">Corrige tu teléfono o tu correo</h2>
+    <p>En “Mis datos” dices cómo te encuentra tu iglesia: tu teléfono, tu correo y cómo prefieres que te contacten. Los ve quien guía tu grupo y la administración. Tu nombre lo corrige la administración.</p>
+    <p class="more"><a href="{% url 'community:profile' %}">Ir a Mis datos</a></p>
   </section>
   {% endif %}
   <p class="block">Tu nombre, tu contraseña, cada evento en el que participas y la bienvenida de tu rol están en <a href="{% url 'account' %}">Mi cuenta</a>.</p>

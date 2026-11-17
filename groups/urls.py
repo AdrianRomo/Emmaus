@@ -6,6 +6,7 @@ app_name = "community"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("mis-datos/", views.profile, name="profile"),
     path("grupos/", views.groups, name="groups"),
     path("grupos/administrar/", views.group_admin_list, name="group_admin_list"),
     path("grupos/nuevo/", views.group_create, name="group_create"),

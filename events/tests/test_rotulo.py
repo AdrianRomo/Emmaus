@@ -347,7 +347,12 @@ class AtrioFoundationTests(SimpleTestCase):
         for retired in ("Recursive", "Atkinson", "CASL", "--font-voice"):
             self.assertNotIn(retired, css)
         fonts = settings.BASE_DIR / "static" / "fonts"
-        self.assertEqual(sorted(p.name for p in fonts.iterdir()), ["OFL-Figtree.txt", "figtree-latin.woff2"])
+        # Atrio's sheet has one family. The serif of the redesign's titles lives in santuario.css, which only a church
+        # that uses the new modules loads (core/test_shell.py).
+        self.assertEqual(
+            sorted(p.name for p in fonts.iterdir()),
+            ["OFL-Figtree.txt", "OFL-Newsreader.txt", "figtree-latin.woff2", "newsreader-display-latin.woff2"],
+        )
         pdf_fonts = settings.BASE_DIR / "events" / "fonts"
         self.assertEqual(sorted(p.name for p in pdf_fonts.iterdir()),
                          ["Figtree-Bold.ttf", "Figtree-ExtraBold.ttf", "Figtree-Regular.ttf", "OFL-Figtree.txt"])

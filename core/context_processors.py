@@ -15,7 +15,10 @@ def current_role(request):
     # brand_church: whose logo the bar of base.html shows (core.templatetags.brand). Event shells use event.church.
     if not request.user.is_authenticated:
         church = first_active_church()
-        return {"theme_church": church, "brand_church": church}
+        # The public pages wear the redesigned look when the church they speak for uses the community module.
+        from people.flags import enabled
+
+        return {"theme_church": church, "brand_church": church, "ui_v2": enabled(church, "community")}
     context = get_role_context(request.user)
     role = context.get("current_role")
     nav_items = []
@@ -75,8 +78,16 @@ def current_role(request):
     from events.access import accessible_events
 
     context["app_nav_label"] = "Discipulado" if nav_items else "Principal"
+    module_items = nav_items
     nav_items = _community_nav(request, context) + nav_items
     context["show_events_link"] = role in (Role.CHURCH_ADMIN, Role.PASTOR) or accessible_events(request.user).exists()
+    if context.get("community_on"):
+        # The redesigned shell (core/shell.py) replaces the bar on every page of base.html; the event's own
+        # shells keep their bar for now and wear the new tokens (docs/v2/SCREEN_MATRIX.md).
+        from .shell import build_shell
+
+        context["ui_v2"] = True
+        context["shell"] = build_shell(request, context["current_church"], module_items, context["show_events_link"])
     context["app_nav_items"] = nav_items
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
     context["theme_church"] = context.get("current_church")

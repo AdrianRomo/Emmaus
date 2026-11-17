@@ -1,135 +1,143 @@
 {% extends "base.html" %}
-{% load emmaus community %}
+{% load emmaus community shell %}
 {% block page_title %}Mi iglesia{% endblock %}
 {% block content %}
 {% comment %}
-  "Mi iglesia" (/mi-iglesia/, groups.views.home): the home of a person of the church. One next step at most (the
-  panel), then what is theirs: their groups with the next meeting, what they asked for, what is coming in the
-  church, and the events they were part of. Of an event it shows the name, the dates and the place, never anything
-  that was answered there. The administration also gets its two doors at the end.
+  "Mi iglesia" (/mi-iglesia/, groups.views.home): the home of a person of the church. It answers, in this order:
+  what do I do next (one panel, at most), what is coming (the meetings of my groups and the church's events, by
+  day), what am I part of, what did I ask for, and where have I been. Of an event it shows the name, the dates and
+  the place, never anything that was answered there. Beside it, quietly: the data the church is
+  missing to reach them. What a guide or the administration works on is in the shell (core/shell.py). A section with nothing to say is not drawn.
 {% endcomment %}
-<div class="narrow">
-  {% include "events/rotulo/_page_head.html" with title="Hola, "|add:person.first_name|add:"." lede="Esto es lo tuyo en "|add:church.name|add:"." %}
+<header class="page-head hero">
+  <h1 class="voice page-head__title hero__title">Hola, {{ person.first_name }}.</h1>
+  <p class="lede">Hoy es {{ today|weekday_date }}. Esto es lo tuyo en {{ church.name }}.</p>
+</header>
 
-  {% if sign %}
-  <section class="sign" aria-labelledby="que-sigue">
-    <h2 id="que-sigue" class="sign__title">{{ sign.title }}</h2>
-    <p class="sign__text">{{ sign.text }}</p>
-    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{{ sign.url }}">{{ sign.action }}</a></div>
-  </section>
-  {% endif %}
-
-  <section class="block" aria-labelledby="mis-grupos">
-    <h2 id="mis-grupos" class="heading">Tus grupos</h2>
-    {% if memberships %}
-      <ul class="rows">
-        {% for membership in memberships %}
-          <li class="row">
-            <div class="row__main">
-              <p class="row__title">{{ membership.group.name }}</p>
-              <p class="row__meta">{% if membership.is_leader %}Tú guías este grupo. {% endif %}{% if membership.next_meeting %}Próxima reunión: {{ membership.next_meeting|weekday_date }}{% if membership.group.meeting_time %}, a las {{ membership.group.meeting_time|time:"H:i" }}{% endif %}.{% else %}Todavía no tiene día de reunión.{% endif %}</p>
-            </div>
-            <a class="btn btn--secondary btn--small" href="{% url 'community:group_detail' membership.group.pk %}">Abrir<span class="visually-hidden"> {{ membership.group.name }}</span></a>
-          </li>
-        {% endfor %}
-      </ul>
-    {% elif my_requests %}
-      <p class="empty-line">Todavía no eres parte de un grupo. Tu solicitud está abajo.</p>
-    {% elif open_groups %}
-      <p class="empty-line">Todavía no eres parte de un grupo.</p>
-    {% else %}
-      <p class="empty-line">Todavía no eres parte de un grupo, y por ahora ningún grupo recibe solicitudes. Pregunta en tu iglesia.</p>
+<div class="cols">
+  <div class="cols__main">
+    {% if sign %}
+    <section class="sign sign--lead" aria-labelledby="que-sigue">
+      <div>
+        <h2 id="que-sigue" class="sign__title">{{ sign.title }}</h2>
+        <p class="sign__text">{{ sign.text }}</p>
+      </div>
+      <div class="sign__actions"><a class="btn btn--on-dark btn--large" href="{{ sign.url }}">{{ sign.action }}</a></div>
+    </section>
     {% endif %}
-    {% if memberships and open_groups %}<p class="more"><a href="{% url 'community:groups' %}">Ver todos los grupos</a></p>{% endif %}
-  </section>
 
-  {% if my_requests or declined %}
-  <section class="block" aria-labelledby="solicitudes">
-    <h2 id="solicitudes" class="heading">Lo que pediste</h2>
-    <ul class="rows">
-      {% for item in my_requests %}
-        <li class="row">
-          <div class="row__main">
-            <p class="row__title">{{ item.group.name }}</p>
-            <p class="row__meta">Pediste unirte el {{ item.created_at|day_month }}. Quien guía el grupo te responderá.</p>
-          </div>
-          <div class="row__end">
-            {% status "por_evaluar" "Por decidir" %}
-            <a class="btn btn--secondary btn--small" href="{% url 'community:group_detail' item.group.pk %}">Abrir<span class="visually-hidden"> {{ item.group.name }}</span></a>
-          </div>
-        </li>
-      {% endfor %}
-      {% for item in declined %}
-        <li class="row">
-          <div class="row__main">
-            <p class="row__title">{{ item.group.name }}</p>
-            <p class="row__meta">Esta vez no fue posible unirte. Puedes hablar con quien guía el grupo o buscar otro.</p>
-          </div>
-          <div class="row__end">{% status "descartada" "No aceptada" %}</div>
-        </li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endif %}
-
-  <section class="block" aria-labelledby="proximos">
-    <h2 id="proximos" class="heading">Lo que viene en la iglesia</h2>
-    {% if upcoming %}
-      <ul class="rows">
-        {% for event in upcoming %}
-          <li class="row">
-            <div class="row__main">
-              <p class="row__title">{{ event.name }}</p>
-              <p class="row__meta">{{ event.get_kind_display }}, {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.</p>
-            </div>
-          </li>
-        {% endfor %}
-      </ul>
-      <p class="aside-note">Para inscribirte a un evento, pregunta en tu iglesia. Todavía no se puede hacer desde aquí.</p>
-    {% else %}
-      <p class="empty-line">Por ahora no hay eventos anunciados.</p>
-    {% endif %}
-  </section>
-
-  {% if history %}
-  <section class="block" aria-labelledby="historia">
-    <h2 id="historia" class="heading">Donde has estado</h2>
-    <ul class="rows">
-      {% for link in history %}
-        <li class="row">
-          <div class="row__main">
-            <p class="row__title">{{ link.event.name }}</p>
-            <p class="row__meta">{{ link.event.get_kind_display }}{% if link.event.starts_on %}, {{ link.event.starts_on|date_range:link.event.ends_on }}{% endif %}{% if link.event.location %}, en {{ link.event.location }}{% endif %}.</p>
-          </div>
-        </li>
-      {% endfor %}
-    </ul>
-    <p class="aside-note">Aquí solo aparece que participaste. Lo que respondiste en el evento no se muestra en esta página ni lo ve quien guía tu grupo.</p>
-  </section>
-  {% endif %}
-
-  {% if request.is_church_admin %}
-  <section class="block" aria-labelledby="administrar">
-    <h2 id="administrar" class="heading">Administrar</h2>
-    <ul class="rows">
-      <li class="row">
-        <div class="row__main">
-          <p class="row__title">Grupos</p>
-          <p class="row__meta">Crea grupos, elige quién los guía y revisa sus solicitudes.</p>
-        </div>
-        <a class="btn btn--secondary btn--small" href="{% url 'community:group_admin_list' %}">Administrar<span class="visually-hidden"> grupos</span></a>
-      </li>
-      {% if people_enabled %}
-      <li class="row">
-        <div class="row__main">
-          <p class="row__title">Personas</p>
-          <p class="row__meta">Registra a las personas de la iglesia, trae a quienes fueron a un evento y dales acceso.</p>
-        </div>
-        <a class="btn btn--secondary btn--small" href="{% url 'people:list' %}">Administrar<span class="visually-hidden"> personas</span></a>
-      </li>
+    <section class="block" aria-labelledby="proximos">
+      <h2 id="proximos" class="heading">Lo que viene</h2>
+      {% if agenda %}
+        <ul class="dates rows">
+          {% for item in agenda %}
+            <li class="row row--lead{% if item.today %} row--today{% endif %}">
+              {% date_block item.date %}
+              <div class="row__main">
+                {% if item.kind == "group" %}
+                  <p class="row__title"><a href="{{ item.url }}">{{ item.title }}</a></p>
+                  <p class="row__meta">{% if item.today %}Hoy se reúne tu grupo{% else %}Tu grupo se reúne el {{ item.date|weekday_date }}{% endif %}{% if item.time %}, a las {{ item.time|time:"H:i" }}{% endif %}{% if item.place %}, en {{ item.place }}{% endif %}.</p>
+                {% else %}
+                  <p class="row__title">{{ item.title }}</p>
+                  <p class="row__meta">{{ item.event.get_kind_display }}, {{ item.event.starts_on|date_range:item.event.ends_on }}{% if item.event.location %}, en {{ item.event.location }}{% endif %}.</p>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if upcoming %}<p class="aside-note">Para inscribirte a un evento, pregunta en tu iglesia. Todavía no se puede hacer desde aquí.</p>{% endif %}
+      {% else %}
+        <p class="empty-line">Por ahora no hay eventos anunciados{% if memberships %} y tus grupos todavía no tienen día de reunión{% endif %}.</p>
       {% endif %}
-    </ul>
-  </section>
+    </section>
+
+    <section class="block" aria-labelledby="mis-grupos">
+      <div class="heading-row">
+        <h2 id="mis-grupos" class="heading">Tus grupos</h2>
+        {% if memberships and open_groups %}<a href="{% url 'community:groups' %}">Ver todos los grupos</a>{% endif %}
+      </div>
+      {% if memberships %}
+        <ul class="rows">
+          {% for membership in memberships %}
+            <li class="row row--lead">
+              {% monogram membership.group.name %}
+              <div class="row__main">
+                <p class="row__title"><a href="{% url 'community:group_detail' membership.group.pk %}">{{ membership.group.name }}</a></p>
+                <p class="row__meta">{% if membership.is_leader %}Tú guías este grupo. {% endif %}{% if membership.next_meeting %}Próxima reunión: {{ membership.next_meeting|weekday_date }}{% if membership.group.meeting_time %}, a las {{ membership.group.meeting_time|time:"H:i" }}{% endif %}.{% else %}Todavía no tiene día de reunión.{% endif %}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% elif my_requests %}
+        <p class="empty-line">Todavía no eres parte de un grupo. Tu solicitud está abajo.</p>
+      {% elif open_groups %}
+        <p class="empty-line">Todavía no eres parte de un grupo. <a href="{% url 'community:groups' %}">Ver los grupos de la iglesia</a></p>
+      {% else %}
+        <p class="empty-line">Todavía no eres parte de un grupo, y por ahora ningún grupo recibe solicitudes. Pregunta en tu iglesia.</p>
+      {% endif %}
+    </section>
+
+    {% if my_requests or declined %}
+    <section class="block" aria-labelledby="solicitudes">
+      <h2 id="solicitudes" class="heading">Lo que pediste</h2>
+      <ul class="rows">
+        {% for item in my_requests %}
+          <li class="row row--lead row--stack">
+            {% monogram item.group.name %}
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'community:group_detail' item.group.pk %}">{{ item.group.name }}</a></p>
+              <p class="row__meta">Pediste unirte el {{ item.created_at|day_month }}. Quien guía el grupo te responderá.</p>
+            </div>
+            <div class="row__end">{% status "por_evaluar" "Por decidir" %}</div>
+          </li>
+        {% endfor %}
+        {% for item in declined %}
+          <li class="row row--lead row--stack">
+            {% monogram item.group.name %}
+            <div class="row__main">
+              <p class="row__title">{{ item.group.name }}</p>
+              <p class="row__meta">Esta vez no fue posible unirte. Puedes hablar con quien guía el grupo o buscar otro.</p>
+            </div>
+            <div class="row__end">{% status "descartada" "No aceptada" %}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if history %}
+    <section class="block" aria-labelledby="historia">
+      <h2 id="historia" class="heading">Donde has estado</h2>
+      <ol class="camino">
+        {% for step in journey %}
+          {% if step.membership %}
+          <li class="camino__step camino__step--now">
+            <p class="camino__when">Desde el {{ step.date|long_date }}</p>
+            <p class="camino__what">{{ step.membership.group.name }}</p>
+            <p class="camino__note">{% if step.membership.is_leader %}Guías este grupo.{% else %}Eres parte de este grupo.{% endif %}</p>
+          </li>
+          {% else %}
+          <li class="camino__step">
+            <p class="camino__when">{{ step.event.starts_on|date_range:step.event.ends_on|capfirst }}</p>
+            <p class="camino__what">{{ step.event.name }}</p>
+            <p class="camino__note">{{ step.event.get_kind_display }}{% if step.event.location %}, en {{ step.event.location }}{% endif %}.</p>
+          </li>
+          {% endif %}
+        {% endfor %}
+      </ol>
+      <p class="aside-note">De un evento, aquí solo aparece que participaste. Lo que respondiste en el evento no se muestra en esta página ni lo ve quien guía tu grupo.</p>
+    </section>
+    {% endif %}
+  </div>
+
+  {% if missing %}
+  <div class="cols__side">
+    <section class="quiet" aria-labelledby="tus-datos">
+      <h2 id="tus-datos" class="quiet__title">A tu iglesia le falta {{ missing|join:" y " }}</h2>
+      <p class="quiet__text">Con eso, quien guía tu grupo puede avisarte de una reunión o de un cambio.</p>
+      <a class="btn btn--secondary btn--small" href="{% url 'community:profile' %}">Completar mis datos</a>
+    </section>
+  </div>
   {% endif %}
 </div>
 {% endblock %}
