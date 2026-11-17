@@ -24,6 +24,11 @@ ACTION_LABELS = {
     "aviso_publicado": "Publicó un aviso",
     "aviso_modificado": "Modificó un aviso",
     "aviso_retirado": "Retiró un aviso",
+    "evento_publicado": "Publicó un evento para la iglesia",
+    "evento_pagina": "Modificó la página de un evento",
+    "evento_inscripcion": "Se inscribió a un evento",
+    "evento_inscripcion_cancelada": "Canceló su inscripción a un evento",
+    "evento_asistencia": "Registró la asistencia de un evento",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

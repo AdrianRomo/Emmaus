@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "access",
     "groups",
     "notices",
+    "agenda",
 ]
 
 MIDDLEWARE = [
