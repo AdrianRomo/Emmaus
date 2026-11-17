@@ -31,6 +31,13 @@ RESOURCE_ADMIN_VIEWS = {
     "resources:devotional_admin", "resources:devotional_create", "resources:devotional_edit",
     "resources:media_admin", "resources:media_create", "resources:media_edit", "resources:media_retire",
 }
+SERVING_VIEWS = {"serving:home"}
+SERVING_ADMIN_VIEWS = {
+    "serving:team_admin", "serving:team_create", "serving:team", "serving:team_edit", "serving:team_archive",
+    "serving:member_remove", "serving:date_create", "serving:date_detail", "serving:date_delete",
+}
+CARE_VIEWS = {"care:mine", "care:detail"}
+CARE_ADMIN_VIEWS = {"care:admin_list", "care:create", "care:edit", "care:cancel"}
 PEOPLE_VIEWS = {
     "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
     "people:grant_access", "people:access_link",
@@ -51,7 +58,9 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     discipleship links the bar would have shown (label, url, names)."""
     from groups.access import managed_group_ids
     from groups.models import Group, GroupJoinRequest
+    from care import services as care_services
     from notices import services as notices_services
+    from serving import services as serving_services
     from people.flags import enabled
     from people.models import Person
 
@@ -90,7 +99,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     sections = [{"label": "", "items": main}, {"label": "Para crecer", "items": reading}]
 
     # What the person is responsible for: the groups they guide, and the events they work in (the camp's team).
-    serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "servir", view in {"events:list", "events:create"})
+    serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "equipo", view in {"events:list", "events:create"})
     charge = [
         _item(group.name, reverse("community:group_people", args=[group.pk]), "guia", working_on == group.pk,
               pending.get(group.pk, 0),
@@ -99,6 +108,14 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     ]
     if show_events:
         charge.append(serving)
+    if person and serving_services.has_teams(person):
+        waiting = serving_services.pending_count(person)
+        charge.append(_item("Servir", reverse("serving:home"), "servir", view in SERVING_VIEWS, waiting,
+                            "fecha por confirmar" if waiting == 1 else "fechas por confirmar"))
+    accompanying = care_services.open_count(person) if person else 0
+    if accompanying:
+        charge.append(_item("Acompañar", reverse("care:mine"), "acompanar", view in CARE_VIEWS, accompanying,
+                            "persona que acompañas" if accompanying == 1 else "personas que acompañas"))
     if charge:
         sections.append({"label": "A tu cargo", "items": charge})
 
@@ -112,6 +129,11 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
             view in GROUP_ADMIN_VIEWS or (view in GROUP_WORK_VIEWS and not in_managed),
         ))
         admin.append(_item("Eventos de la iglesia", reverse("agenda:admin_list"), "eventos", view in AGENDA_ADMIN_VIEWS))
+        admin.append(_item("Equipos de la iglesia", reverse("serving:team_admin"), "servir", view in SERVING_ADMIN_VIEWS))
+        loose = care_services.unassigned_count(church)
+        admin.append(_item("Seguimiento de personas", reverse("care:admin_list"), "acompanar",
+                           view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
+                           "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
         admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional", view in RESOURCE_ADMIN_VIEWS))
         admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list"}))
         admin_urls = {item["url"] for item in admin}

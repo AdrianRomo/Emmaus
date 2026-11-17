@@ -85,6 +85,27 @@
       {% endif %}
     </section>
 
+    {% if serving_dates %}
+    <section class="block" aria-labelledby="servicio">
+      <div class="heading-row">
+        <h2 id="servicio" class="heading">Tus fechas para servir</h2>
+        <a href="{% url 'serving:home' %}">Ver todo en Servir</a>
+      </div>
+      <ul class="dates rows">
+        {% for assignment in serving_dates %}
+          <li class="row row--lead row--stack">
+            {% date_block assignment.service_date.date %}
+            <div class="row__main">
+              <p class="row__title">{{ assignment.service_date.what }}</p>
+              <p class="row__meta">{{ assignment.service_date.team.name }}, {{ assignment.service_date.date|weekday_date }}{% if assignment.service_date.starts_at %}, a las {{ assignment.service_date.starts_at|time:"H:i" }}{% endif %}{% if assignment.service_date.place %}, en {{ assignment.service_date.place }}{% endif %}.</p>
+            </div>
+            <div class="row__end">{% if assignment.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}<a class="btn btn--secondary btn--small" href="{% url 'serving:home' %}">Responder<span class="visually-hidden"> si puedes servir el {{ assignment.service_date.date|weekday_date }}</span></a>{% endif %}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
     <section class="block" aria-labelledby="mis-grupos">
       <div class="heading-row">
         <h2 id="mis-grupos" class="heading">Tus grupos</h2>
@@ -183,13 +204,22 @@
     {% endif %}
   </div>
 
-  {% if missing %}
+  {% if missing or accompanying %}
   <div class="cols__side">
+    {% if accompanying %}
+    <section class="quiet" aria-labelledby="acompanas">
+      <h2 id="acompanas" class="quiet__title">{% if accompanying == 1 %}Hay 1 persona que te toca buscar{% else %}Hay {{ accompanying }} personas que te toca buscar{% endif %}</h2>
+      <p class="quiet__text">Tu iglesia te pidió acompañarlas. Ahí está cómo contactarlas.</p>
+      <a class="btn btn--secondary btn--small" href="{% url 'care:mine' %}">Ver a quién acompañas</a>
+    </section>
+    {% endif %}
+    {% if missing %}
     <section class="quiet" aria-labelledby="tus-datos">
       <h2 id="tus-datos" class="quiet__title">A tu iglesia le falta {{ missing|join:" y " }}</h2>
       <p class="quiet__text">Con eso, quien guía tu grupo puede avisarte de una reunión o de un cambio.</p>
       <a class="btn btn--secondary btn--small" href="{% url 'community:profile' %}">Completar mis datos</a>
     </section>
+    {% endif %}
   </div>
   {% endif %}
 </div>

@@ -30,8 +30,10 @@ from people.models import Person
 from people.services import ensure_own_person, save_person
 
 from agenda import services as agenda_services
+from care import services as care_services
 from notices import services as notices_services
 from resources import services as resources_services
+from serving import services as serving_services
 
 from . import services
 from .access import church_groups, managed_group_ids
@@ -110,6 +112,8 @@ def home(request):
     upcoming = agenda_services.upcoming_for(person, church, today)[:5]
     notices = notices_services.for_home(person, is_admin=request.is_church_admin)
     devotional = resources_services.today_devotional(church, person, today)
+    serving_dates = serving_services.my_dates(person, today, limit=3)
+    accompanying = care_services.open_count(person)
     media = resources_services.latest_media(church)
     history = person.event_links.select_related("event").order_by("-event__starts_on")
     open_groups = church_groups(church).filter(accepts_requests=True).exists()
@@ -192,6 +196,8 @@ def home(request):
             "agenda": agenda[:6],
             "notices": notices,
             "devotional": devotional,
+            "serving_dates": serving_dates,
+            "accompanying": accompanying,
             "media": media,
             "journey": journey,
             "missing": missing,

@@ -22,6 +22,8 @@ ICONS = {
     "servir": '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
     "devocional": '<path d="M12 6.5C10 5 7.5 4.5 4.5 4.5v13c3 0 5.5.5 7.5 2 2-1.5 4.5-2 7.5-2v-13c-3 0-5.5.5-7.5 2z"/><path d="M12 6.5v13"/>',
     "recursos": '<circle cx="12" cy="12" r="8.5"/><path d="M10.2 8.8v6.4l5.3-3.2z"/>',
+    "equipo": '<path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-6h6v6"/>',
+    "acompanar": '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.5"/><path d="M2.5 19a5.5 5.5 0 0 1 11 0"/><path d="M15 19a4.5 4.5 0 0 1 6.5-4"/>',
     "guia": '<path d="M12 3l2.2 5.3 5.8.5-4.4 3.8 1.3 5.6L12 15.2 7.1 18.2l1.3-5.6L4 8.8l5.8-.5z"/>',
     "camino": '<path d="M6 20c0-5 12-4 12-9a3 3 0 0 0-6 0"/><circle cx="6" cy="20" r="1.25"/><circle cx="12" cy="11" r="1.25"/>',
     "ajustes": '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',

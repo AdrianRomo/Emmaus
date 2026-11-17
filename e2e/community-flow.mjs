@@ -107,6 +107,16 @@ expect(await page.locator("main").getByText("Ya lo leíste.").count() > 0, "read
 await page.goto(BASE + "/mi-iglesia/recursos/");
 expect(await page.locator("main a[href^='https://www.youtube.com']").getAttribute("rel") === "noopener noreferrer", "a resource opens on the other site, without a referrer");
 await audit(page, "miembro-recursos");
+// Serving: her team asked her for a date; she confirms it from the phone.
+await page.goto(BASE + "/mi-iglesia/");
+expect(await page.getByText("Tus fechas para servir").count() > 0, "the home shows the date her team asked for");
+await page.goto(BASE + "/mi-iglesia/servir/");
+await audit(page, "miembro-servir");
+await page.setViewportSize(PHONE);
+await Promise.all([page.waitForNavigation(), page.click("button:has-text('Confirmar')")]);
+expect(await page.locator("main").getByText("Confirmaste").count() > 0, "confirming a date is said back");
+expect((await page.goto(BASE + "/mi-iglesia/servir/equipos/1/")).status() === 403, "who serves cannot open the team's page");
+expect((await page.goto(BASE + "/mi-iglesia/acompanar/1/")).status() === 403, "a follow-up is closed to who does not own it");
 // An event the church published: she signs up from the phone.
 await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".tabs a:has-text('Eventos')")]);
@@ -148,6 +158,18 @@ await Promise.all([page.waitForNavigation(), page.click("a:has-text('Ver solicit
 await audit(page, "guia-personas");
 await Promise.all([page.waitForNavigation(), page.click("li:has-text('Valeria Soto') button[value=aceptar]")]);
 expect(await page.getByText("Valeria Soto Marín ya es parte de Jóvenes Roca.").count() > 0, "acceptance message");
+// He coordinates a team and was asked to accompany somebody: both are under "A tu cargo".
+await page.goto(BASE + "/mi-iglesia/servir/equipos/1/");
+expect(await page.locator("main").getByText("1 de 1 confirmaron").count() > 0, "the coordinator reads who confirmed");
+await audit(page, "guia-equipo");
+await page.goto(BASE + "/mi-iglesia/acompanar/");
+await audit(page, "guia-acompanar");
+await Promise.all([page.waitForNavigation(), page.click("main a:has-text('Emilio Vargas')")]);
+await audit(page, "guia-seguimiento");
+await page.locator("label:has-text('Le llamé')").click();
+await Promise.all([page.waitForNavigation(), page.click("button:has-text('Guardar lo que hice')")]);
+expect(await page.locator("main").getByText("En proceso").count() > 0, "the first step moves the follow-up to «En proceso»");
+await page.goto(BASE + "/mi-iglesia/grupos/1/personas/");
 // The guide's other view of the work: meetings. He passes the list of a past day.
 await Promise.all([page.waitForNavigation(), page.click(".filters a:has-text('Reuniones')")]);
 await audit(page, "guia-reuniones");
@@ -192,7 +214,9 @@ const adminPages = [
   ["admin-evento-inscritos", "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/"], ["admin-eventos-donde-sirve", "/eventos/?todos=1"],
   ["admin-evento-inicio", "/eventos/jovenes-2025/"], ["admin-devocionales", "/mi-iglesia/recursos/devocional/administrar/"],
   ["admin-devocional-nuevo", "/mi-iglesia/recursos/devocional/nuevo/"], ["admin-recursos", "/mi-iglesia/recursos/administrar/"],
-  ["admin-recurso-nuevo", "/mi-iglesia/recursos/nuevo/"],
+  ["admin-recurso-nuevo", "/mi-iglesia/recursos/nuevo/"], ["admin-equipos", "/mi-iglesia/servir/equipos/"],
+  ["admin-equipo", "/mi-iglesia/servir/equipos/1/"], ["admin-equipo-nuevo", "/mi-iglesia/servir/equipos/nuevo/"],
+  ["admin-seguimientos", "/mi-iglesia/acompanar/todos/"], ["admin-seguimiento-nuevo", "/mi-iglesia/acompanar/nuevo/"],
 ];
 for (const [name, path] of adminPages) {
   const response = await page.goto(BASE + path);

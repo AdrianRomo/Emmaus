@@ -123,6 +123,22 @@ class Command(BaseCommand):
                 church, admin, kind="predicacion", title="La vid y las ramas", speaker="Ernesto Salas", series="Juan",
                 date=timezone.localdate() - timedelta(days=2), url="https://www.youtube.com/watch?v=demo-emmaus", description="",
             )
+        from care import services as care
+        from care.models import FollowUp
+        from serving import services as serving
+        from serving.models import Team
+
+        member = Person.objects.get(church=church, user__email=MEMBER[0])
+        asked = Person.objects.get(church=church, user__email=ASKED[0])
+        if not Team.objects.filter(church=church).exists():
+            team = serving.save_team(church, admin, name="Bienvenida", description="Recibimos a quien llega a la reunión.")
+            serving.set_member(team, leader, admin, role="coordina")
+            serving.set_member(team, member, admin, role="sirve")
+            sunday = timezone.localdate() + timedelta(days=5)
+            service = serving.save_date(team, leader.user, date=sunday, what="Bienvenida en la reunión", starts_at=time(10, 30), place="Entrada principal")
+            serving.assign(service, member, leader.user)
+        if not FollowUp.objects.filter(church=church).exists():
+            care.create(church, admin, person=asked, reason="grupo", owner=leader, due_on=timezone.localdate() + timedelta(days=3))
         if not Announcement.objects.filter(church=church).exists():
             notices.publish(church, admin, title="El domingo empezamos a las 11",
                             body="Por el cambio de horario, la reunión del domingo empieza a las 11 de la mañana.\n\nLlega unos minutos antes.")
