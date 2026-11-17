@@ -38,6 +38,10 @@ class Announcement(models.Model):
     publish_on = models.DateField("Se publica el", default=today)
     expires_on = models.DateField("Deja de verse después del", null=True, blank=True)
     status = models.CharField("Estado", max_length=12, choices=Status.choices, default=Status.PUBLISHED)
+    # An urgent notice asks for "Enterado" once per version. A change of what it says that matters
+    # makes a new version (``services.update``); ``changed_at`` is when the last one was made.
+    version = models.PositiveIntegerField("Versión", default=1, db_default=1)
+    changed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -83,12 +87,15 @@ class Announcement(models.Model):
 
 class AnnouncementRead(models.Model):
     """A person opened a notice. One row per person and notice. ``acknowledged_at``: the day they
-    answered "Enterado" to an urgent one. It says a person tapped a button, never that a message arrived."""
+    answered "Enterado" to an urgent one, and ``acknowledged_version`` the version of the notice they
+    answered to: the answer counts only while that is the notice's version. Only the latest answer is
+    kept. It says a person tapped a button, never that a message arrived."""
 
     announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name="reads")
     person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="announcement_reads")
     read_at = models.DateTimeField(auto_now_add=True)
     acknowledged_at = models.DateTimeField(null=True, blank=True)
+    acknowledged_version = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
         verbose_name = "aviso leído"

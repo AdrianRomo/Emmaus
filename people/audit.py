@@ -24,6 +24,7 @@ ACTION_LABELS = {
     "aviso_publicado": "Publicó un aviso",
     "aviso_modificado": "Modificó un aviso",
     "aviso_retirado": "Retiró un aviso",
+    "aviso_enterado_pedido": "Pidió «Enterado» otra vez en un aviso urgente",
     "devocional_publicado": "Publicó un devocional",
     "devocional_modificado": "Modificó un devocional",
     "recurso_publicado": "Publicó un recurso",
