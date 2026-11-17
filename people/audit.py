@@ -21,6 +21,9 @@ ACTION_LABELS = {
     "grupo_integrante_agregado": "Agregó a una persona a un grupo",
     "grupo_integrante_salio": "Sacó a una persona de un grupo o la persona salió",
     "grupo_reunion": "Pasó lista de una reunión de un grupo",
+    "aviso_publicado": "Publicó un aviso",
+    "aviso_modificado": "Modificó un aviso",
+    "aviso_retirado": "Retiró un aviso",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

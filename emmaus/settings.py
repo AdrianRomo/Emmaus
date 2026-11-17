@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "people",
     "access",
     "groups",
+    "notices",
 ]
 
 MIDDLEWARE = [

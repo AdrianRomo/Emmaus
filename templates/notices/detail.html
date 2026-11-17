@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}{{ notice.title }}{% endblock %}
+{% block content %}
+{% comment %}
+  One notice (notices.views.notice_detail). Opening it marks it read for the person. The body is plain text: it is
+  escaped and only its line breaks are kept. Who may change it (its author, the administration) also reads its state
+  and gets "Editar el aviso" and "Retirar el aviso".
+{% endcomment %}
+<div class="narrow">
+  {% url 'notices:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title=notice.title lede=notice.audience|add:"." back_url=back back_label="Volver a los avisos" %}
+  {% if can_edit %}
+    {% if notice.state == "programado" %}<div class="notice notice--quiet"><p>Este aviso se publica el {{ notice.publish_on|weekday_date }}. Hasta entonces solo lo ves tú y la administración de la iglesia.</p></div>
+    {% elif notice.state == "vencido" %}<div class="notice notice--quiet"><p>Este aviso se dejó de ver después del {{ notice.expires_on|weekday_date }}. Si todavía sirve, edítalo y cambia su último día.</p></div>
+    {% elif notice.state == "retirado" %}<div class="notice notice--quiet"><p>Retiraste este aviso: ya nadie lo ve en Mi iglesia. Si hace falta, publica uno nuevo.</p></div>{% endif %}
+  {% endif %}
+  <div class="block prose">{{ notice.body|linebreaks }}</div>
+  <p class="aside-note">{% if notice.state == "programado" %}Se publica{% else %}Publicado{% endif %} el {{ notice.publish_on|long_date }}{% if notice.expires_on and notice.state != "vencido" %}. Se ve hasta el {{ notice.expires_on|long_date }}{% endif %}.</p>
+  {% if can_edit and not notice.is_retired %}
+    <div class="step__actions">
+      <a class="btn btn--secondary" href="{% url 'notices:edit' notice.pk %}">Editar el aviso</a>
+      <a class="btn btn--link" href="{% url 'notices:retire' notice.pk %}">Retirar el aviso</a>
+    </div>
+    <p class="aside-note">Este aviso se lee aquí, en Mi iglesia. Emmaus no lo envía por correo.</p>
+  {% endif %}
+</div>
+{% endblock %}
