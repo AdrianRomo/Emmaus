@@ -109,6 +109,20 @@ class Command(BaseCommand):
             event, admin, published=True, registration="abierta", capacity=40, starts_at=time(19, 0),
             description="Una noche para cantar y orar juntos. Trae a alguien de tu familia.",
         )
+        from resources import services as resources
+        from resources.models import Devotional, MediaItem
+
+        if not Devotional.objects.filter(church=church, date=timezone.localdate()).exists():
+            resources.save_devotional(
+                church, admin, date=timezone.localdate(), title="Permanecer", passage="Juan 15:1-8", author_name="Alma Cisneros",
+                body="Jesús no pide que demos fruto a la fuerza. Pide que permanezcamos en él.\n\nHoy, antes de empezar, quédate un minuto en silencio.",
+                publish=True,
+            )
+        if not MediaItem.objects.filter(church=church).exists():
+            resources.save_media(
+                church, admin, kind="predicacion", title="La vid y las ramas", speaker="Ernesto Salas", series="Juan",
+                date=timezone.localdate() - timedelta(days=2), url="https://www.youtube.com/watch?v=demo-emmaus", description="",
+            )
         if not Announcement.objects.filter(church=church).exists():
             notices.publish(church, admin, title="El domingo empezamos a las 11",
                             body="Por el cambio de horario, la reunión del domingo empieza a las 11 de la mañana.\n\nLlega unos minutos antes.")

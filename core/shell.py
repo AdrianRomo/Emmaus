@@ -26,6 +26,11 @@ GROUP_ADMIN_VIEWS = {
 }
 AGENDA_VIEWS = {"agenda:list", "agenda:detail", "agenda:cancel"}
 AGENDA_ADMIN_VIEWS = {"agenda:admin_list", "agenda:page_edit", "agenda:registrations"}
+DEVOTIONAL_VIEWS = {"resources:devotional_today", "resources:devotional_list", "resources:devotional_detail"}
+RESOURCE_ADMIN_VIEWS = {
+    "resources:devotional_admin", "resources:devotional_create", "resources:devotional_edit",
+    "resources:media_admin", "resources:media_create", "resources:media_edit", "resources:media_retire",
+}
 PEOPLE_VIEWS = {
     "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
     "people:grant_access", "people:access_link",
@@ -78,7 +83,11 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
         _item("Grupos", reverse("community:groups"), "grupos",
               view in GROUP_VIEWS or (view in GROUP_WORK_VIEWS and not in_managed and not is_admin)),
     ]
-    sections = [{"label": "", "items": main}]
+    reading = [
+        _item("Devocional", reverse("resources:devotional_today"), "devocional", view in DEVOTIONAL_VIEWS),
+        _item("Recursos", reverse("resources:media_list"), "recursos", view == "resources:media_list"),
+    ]
+    sections = [{"label": "", "items": main}, {"label": "Para crecer", "items": reading}]
 
     # What the person is responsible for: the groups they guide, and the events they work in (the camp's team).
     serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "servir", view in {"events:list", "events:create"})
@@ -103,6 +112,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
             view in GROUP_ADMIN_VIEWS or (view in GROUP_WORK_VIEWS and not in_managed),
         ))
         admin.append(_item("Eventos de la iglesia", reverse("agenda:admin_list"), "eventos", view in AGENDA_ADMIN_VIEWS))
+        admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional", view in RESOURCE_ADMIN_VIEWS))
         admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list"}))
         admin_urls = {item["url"] for item in admin}
 

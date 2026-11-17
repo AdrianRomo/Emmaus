@@ -46,6 +46,19 @@
     </section>
     {% endif %}
 
+    {% if devotional %}
+    <section class="block" aria-labelledby="devocional">
+      <h2 id="devocional" class="heading">{% if devotional.is_today %}Devocional de hoy{% else %}El devocional más reciente{% endif %}</h2>
+      <div class="meeting">
+        {% date_block devotional.date %}
+        <div>
+          <p class="meeting__title"><a href="{% url 'resources:devotional_today' %}">{{ devotional.title }}</a></p>
+          <p class="meeting__meta">{% if devotional.passage %}Lectura: {{ devotional.passage }}. {% endif %}{% if devotional.is_read %}Ya lo leíste.{% else %}Toma unos minutos.{% endif %}</p>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
     <section class="block" aria-labelledby="proximos">
       <h2 id="proximos" class="heading">Lo que viene</h2>
       {% if agenda %}
@@ -120,6 +133,25 @@
               <p class="row__meta">Esta vez no fue posible unirte. Puedes hablar con quien guía el grupo o buscar otro.</p>
             </div>
             <div class="row__end">{% status "descartada" "No aceptada" %}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if media %}
+    <section class="block" aria-labelledby="recursos">
+      <div class="heading-row">
+        <h2 id="recursos" class="heading">Recursos recientes</h2>
+        <a href="{% url 'resources:media_list' %}">Ver todos los recursos</a>
+      </div>
+      <ul class="rows">
+        {% for item in media %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{{ item.title }}</p>
+              <p class="row__meta">{{ item.get_kind_display }}{% if item.speaker %}, de {{ item.speaker }}{% endif %}{% if item.series %}, serie «{{ item.series }}»{% endif %}, {{ item.date|long_date }}.</p>
+            </div>
           </li>
         {% endfor %}
       </ul>

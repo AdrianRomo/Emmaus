@@ -97,7 +97,17 @@ await audit(page, "miembro-aviso");
 await page.goto(BASE + "/mi-iglesia/avisos/");
 expect(await page.locator("main").getByText("Nuevo", { exact: true }).count() === 0, "an opened notice is no longer new");
 await audit(page, "miembro-avisos");
-// An event the church published: she signs up from the phone, and cancels.
+// The devotional of the day: she reads it and says so; the mark is hers alone.
+await page.goto(BASE + "/mi-iglesia/");
+await Promise.all([page.waitForNavigation(), page.click(".meeting__title a:has-text('Permanecer')")]);
+await audit(page, "miembro-devocional");
+await page.setViewportSize(PHONE);
+await Promise.all([page.waitForNavigation(), page.click("button:has-text('Ya lo leí')")]);
+expect(await page.locator("main").getByText("Ya lo leíste.").count() > 0, "reading the devotional is confirmed");
+await page.goto(BASE + "/mi-iglesia/recursos/");
+expect(await page.locator("main a[href^='https://www.youtube.com']").getAttribute("rel") === "noopener noreferrer", "a resource opens on the other site, without a referrer");
+await audit(page, "miembro-recursos");
+// An event the church published: she signs up from the phone.
 await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".tabs a:has-text('Eventos')")]);
 await audit(page, "miembro-eventos");
@@ -180,7 +190,9 @@ const adminPages = [
   ["admin-cuenta", "/cuenta/"], ["admin-avisos", "/mi-iglesia/avisos/"], ["admin-aviso-nuevo", "/mi-iglesia/avisos/nuevo/"],
   ["admin-eventos-iglesia", "/mi-iglesia/eventos/administrar/"], ["admin-evento-pagina", "/mi-iglesia/eventos/noche-de-alabanza-demo/pagina/"],
   ["admin-evento-inscritos", "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/"], ["admin-eventos-donde-sirve", "/eventos/?todos=1"],
-  ["admin-evento-inicio", "/eventos/jovenes-2025/"],
+  ["admin-evento-inicio", "/eventos/jovenes-2025/"], ["admin-devocionales", "/mi-iglesia/recursos/devocional/administrar/"],
+  ["admin-devocional-nuevo", "/mi-iglesia/recursos/devocional/nuevo/"], ["admin-recursos", "/mi-iglesia/recursos/administrar/"],
+  ["admin-recurso-nuevo", "/mi-iglesia/recursos/nuevo/"],
 ];
 for (const [name, path] of adminPages) {
   const response = await page.goto(BASE + path);

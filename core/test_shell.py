@@ -234,3 +234,19 @@ class HomeModulesTests(CommunityFixture):
         self.assertNotContains(home, hidden.name)
         agenda.register(shown, self.member, self.member_user)
         self.assertContains(self.client.get(reverse("community:home")), "Te inscribiste")
+
+    def test_the_devotional_of_the_day_is_on_the_home_and_nobody_else_learns_who_read_it(self):
+        from resources import services as resources
+
+        resources.save_devotional(self.church, self.admin, date=timezone.localdate(), title="Permanecer", body="Quédate.", publish=True)
+        self.client.force_login(self.member_user)
+        home = self.client.get(reverse("community:home"))
+        self.assertContains(home, "Devocional de hoy")
+        self.assertContains(home, "Toma unos minutos.")
+        self.assertIn(">Devocional<", rail(home))
+        resources.mark_read(resources.today_devotional(self.church, self.member), self.member)
+        self.assertContains(self.client.get(reverse("community:home")), "Ya lo leíste.")
+        self.client.force_login(self.admin)
+        admin_home = self.client.get(reverse("community:home"))
+        self.assertContains(admin_home, "Toma unos minutos.")  # her own state, not the member's
+        self.assertNotContains(admin_home, "Diego")

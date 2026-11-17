@@ -329,6 +329,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 /* The next meeting, for who is already part: the day drawn, then where */
 .meeting { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-4) var(--s-5); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); }
 .meeting__title { font-weight: 700; font-size: var(--t-lead); line-height: 1.3; }
+.meeting__title a { color: var(--ink); text-decoration-color: var(--line-strong); }
 .meeting__meta { font-size: var(--t-small); color: var(--ink-2); }
 
 /* Figures of a workspace: Atrio's, with the number in the serif */
