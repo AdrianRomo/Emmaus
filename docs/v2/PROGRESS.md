@@ -2,6 +2,84 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-17 — Redesign, wave 1: Santuario, the shell, Mi iglesia, groups and meetings (branch `v2/redesign-santuario-shell`)
+
+Stacked on `v2/slice-1-camp-to-group`. The owner's directive of this date asks for a product-wide
+redesign; this entry is what of it exists. What does not is listed below and in `UX_AUDIT.md`.
+
+### Shipped (working, tested, for churches with the `community` module on; nothing changes with it off)
+
+| Piece | Where |
+|---|---|
+| Santuario: a token and component layer over Atrio, a serif voice for titles, the arch monogram | `static/css/santuario.css`, `docs/v2/DESIGN_SYSTEM.md` |
+| The shell: side rail, phone tabs, "Más"; sections by what the person may open; "A tu cargo" with the count that waits | `core/shell.py`, `templates/partials/ui/shell*.html` |
+| Mi iglesia rebuilt: one next step, "Lo que viene" by day, groups, requests, the way so far, missing contact data | `groups/views.py::home`, `templates/groups/home.html` |
+| "Mis datos": a person corrects their own phone, e-mail and preferred contact | `groups/views.py::profile` |
+| Groups: own first, filter by kind, the group page, the guide's work with tappable contact data | `templates/groups/` |
+| Meetings and attendance: "Pasar lista", "Reuniones", the home's "¿Quién vino a …?" | `groups/models.py` (migration `groups/0002`), `groups/services.py::record_meeting` |
+| Help page tasks for the new navigation and "Mis datos" | `templates/core/ayuda.html` |
+| Reference research, UX audit, screen matrix, handoff | `docs/v2/` |
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `bdc6ef4`, 2026-11-17T08:43Z (the commit after it
+holds these documents and two corrected figures in a stylesheet comment):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                1  System check identified no issues (0 silenced).
+migrations      PASS                0  No changes detected
+deploy-check    PASS                1  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: no core/ or events/ migration added since f72d4f6
+pip-audit       PASS                2  No known vulnerabilities found
+tests-sqlite    PASS               93  1610 passed, 6 skipped
+tests-postgres  PASS              153  1605 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              237  browser gate OK
+overall: PASS
+```
+
+The community journey in that run: "community flow OK: 102 checks, 0 problems".
+
+- Browser, modules on (`e2e/community-flow.mjs`): the camp-to-group journey, the phone's tabs and
+  "Más" by keyboard, "Mis datos", and passing a list, with axe (WCAG 2.0–2.2 A and AA), horizontal
+  overflow, one `h1` and 44 px targets at 390, 768 and 1440 px on every community and people screen.
+- Looked at as rendered screenshots in this session: Mi iglesia (guide, former camper) at 390, 768
+  and 1440; Grupos, a group, the guide's "Personas" and "Reuniones", "Pasar lista", Mi cuenta, the
+  event list, sign-in and the event administration's home at one or more widths. `SCREEN_MATRIX.md`
+  says which, and which screens were **not** looked at with the module on.
+- Found and fixed while looking: a row with two buttons overflowed by 60 px at 768 px beside the
+  rail (rows now stack by the column's width); pages started on different lines (now anchored to
+  the rail); the home repeated the rail's "A tu cargo" and "Administrar" (removed from the home).
+- Not verified: anything on the sandbox or production hosts; real e-mail; a real church logo in the
+  rail (the seed has none; the slot is Atrio's `church_brand`); a screen reader by ear.
+
+### Not done, and why
+
+- **The camp is not inside the shell.** Entering an event shows Atrio's bar (with the new colours
+  and titles for church-role accounts). It is the next wave; it touches invariant 5.
+- **No events for members, announcements, devotionals, media, photos, notifications, serving,
+  check-in, giving.** None has a model yet. The home shows only what is real.
+- **Guardian accounts**: not built (Q-C2 is open).
+- **Discipleship and most camp screens were not looked at with the module on**; they pass their
+  tests and the modules-off browser review, which does not load the new stylesheet.
+- **Codex review** not run. **Per-task rules stretched again** on the owner's instruction: one
+  branch for several pieces, well over 400 changed lines.
+- **A dependency by another name**: one font file (Newsreader, OFL, 35 KB). No package was added.
+
+### Needs the owner
+
+1. Nothing is pushed. The earlier note said "until the owner says so"; the new directive asks for
+   pull requests, and the first branch is 7,000 lines the owner had asked whether to split. Say
+   "push" and both go up as drafts (slice 1 against `v2/foundation`, this one stacked on it).
+2. Q-S1 to Q-S4 in `AGENT_HANDOFF.md` (the serif on camp screens, "Eventos" vs "Campamentos", who
+   sees attendance, one flag or two).
+3. Q-C1 to Q-C4 of slice 1, unchanged.
+
+### Next
+
+`AGENT_HANDOFF.md`, "Next, in order".
+
 ## 2026-11-17 — Slice 1: a former campero joins a group (branch `v2/slice-1-camp-to-group`)
 
 ### What was found first
