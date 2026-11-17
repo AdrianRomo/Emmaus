@@ -34,6 +34,11 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Devocional (de hoy, anteriores, uno) | `/mi-iglesia/recursos/devocional/…` | Every person | New | prose, dates | `resources/tests`, `test_shell` | e2e-C | 390 |
 | Recursos | `/mi-iglesia/recursos/` | Every person | New | rows, filters | `resources/tests` | e2e-C | 1440 |
 | Devocionales y recursos (administrar, escribir, agregar, retirar) | `…/devocional/administrar/`, `…/recursos/administrar/`… | Administration | New | rows, Atrio form | `resources/tests` | e2e-C | 1440 (devocionales) |
+| Servir (mis fechas, mis equipos, días que no puedo) | `/mi-iglesia/servir/` | Who is in a team | New | dates, row--attention, mono | `serving/tests` | e2e-C | 390, 1440 |
+| Un equipo, una fecha, agregar una fecha | `…/servir/equipos/<id>/`, `…/fechas/…` | Who coordinates it, administration | New | work head, dates, choices | `serving/tests` | e2e-C (equipo) | 390, 1440 (equipo) |
+| Equipos de la iglesia (crear, editar, archivar, personas) | `…/servir/equipos/…` | Administration | New | rows, Atrio form | `serving/tests` | e2e-C | 1440 |
+| Personas que acompañas, un seguimiento | `/mi-iglesia/acompanar/…` | The follow-up's owner | New | mono, summary-list, choices | `care/tests` | e2e-C | 390, 1440 |
+| Seguimiento de personas (todos, nuevo, editar, cancelar) | `…/acompanar/todos/`, `…/nuevo/`… | Administration | New | filters, rows, choices | `care/tests` | e2e-C | 390 (nuevo), 1440 (todos) |
 | Personas (lista, ficha, alta, editar) | `/mi-iglesia/personas/…` | Administration | In the shell | Atrio | `test_people_views` | e2e-C | 390, 1440 (lista, ficha) |
 | Traer personas de un evento | `…/desde-un-evento/…` | Administration | In the shell | Atrio | `test_people_views` | e2e-C | — |
 | Dar acceso, enlace | `…/acceso/…` | Administration | In the shell | Atrio | `test_people_views` | — | — |
@@ -58,7 +63,7 @@ with only an event role, and every church without the module, get the "module of
 |---|---|---|---|---|---|
 | Administración del evento (19) | `shell_leader` | Administrator | In the shell: the event is a place in the rail | Unchanged | Unit (`test_shell`); e2e-R off and on; visual 390, 1024, 1440 of the home |
 | Pastor (2), supervisión (7), reportes (2) | `shell_leader` | Pastor, leaders | In the shell | Unchanged | Unit; e2e-R off and on; not looked at one by one |
-| Coordinador (4), tutor (1) | `shell_coordinator`, `shell_leader` | Event roles | In the shell only when the account also has a church role; else the bar | Unchanged | Unit; e2e-R off and on (these accounts hold no church role in the seed, so "on" shows them the bar) |
+| Coordinador (4), tutor (1) | `shell_coordinator`, `shell_leader` | Event roles | In the shell when the account is also a person of the church; else the bar | Unchanged | Unit; e2e-R off and on (in the seed these accounts are not people of the church, so "on" shows them the bar); visual, by hand with a person added: the coordinator's home at 390, 1024, 1440, "Mis camperos" and the tutor's home at 390 and 1440 |
 | Entrevista (10), campero (6) | `shell_focus`, `shell_kiosk` | Coordinator, campero | Tokens only: no navigation by design | Unchanged | Unit; `station-flow.mjs`; not looked at with the module on |
 | Presentación (1) | skeleton | Leaders, on a projector | Tokens only; the deck keeps Figtree | Unchanged | Unit; e2e-R |
 | Unirse con código (3) | `base.html` | Anyone | Tokens only | Unchanged | Unit; e2e-R |
@@ -71,10 +76,10 @@ stylesheet, JavaScript errors), with the redesigned shell on every screen of the
 
 1. **Done.** Tokens, shell, Mi iglesia, groups, the guide's work, meetings.
 2. **Done.** The camp inside the shell; "Eventos" as the word; a modules-on review of every screen.
-   Left from it: look at the coordinator's, tutor's, interview and campero screens one by one with
-   the module on, with an account that holds both a church role and an event role.
+   Left from it: look at the interview and the campero's screens with the module on, and add a
+   coordinator who is also a person of the church to the seed so the automated review sees it too.
 3. **Done in a first version.** Avisos, events for people (sign-up, attendance), the devotional of
-   the day, resources.
+   the day, resources, serving (teams and dates), accompanying (follow-ups of people).
 3b. **Then, with each module.** Atrio's tables, figures, charts and reports get their Santuario
    treatment when the pastor's view of groups and events is built (issue #66).
 4. **Last.** When every church is on the new modules, fold `santuario.css` into `rotulo.css` and

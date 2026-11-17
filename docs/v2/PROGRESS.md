@@ -2,6 +2,61 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-17, last — Redesign, wave 3: serving and accompanying (same branch)
+
+### Shipped (working, tested, for churches with the `community` module on)
+
+| Piece | Where |
+|---|---|
+| Servir: teams, who coordinates and who serves, dates, "Confirmar" / "No puedo", days a person cannot | app `serving` |
+| Acompañar: the administration asks one person to look for another by a date; steps from four fixed kinds; no free text | app `care` |
+| "A tu cargo" holds Servir and Acompañar with their counts; the administration gets "Equipos de la iglesia" and "Seguimiento de personas" | `core/shell.py` |
+| Mi iglesia shows the next dates to serve and a quiet panel for who has people to look for | `groups/views.py::home` |
+| "Pedir que alguien la acompañe" on a person's page | `templates/people/person_detail.html` |
+
+Both modules were built by sub-agents from a written specification, merged, wired, seeded and
+checked here in a browser. The coordinator's and the tutor's screens were also looked at inside the
+shell (an event role whose account is a person of the church), which wave 2 had left open.
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `9b60887`, 2026-11-17T10:48Z (the commit after it
+holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                1  System check identified no issues (0 silenced).
+migrations      PASS                0  No changes detected
+deploy-check    PASS                1  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: no core/ or events/ migration added since f72d4f6
+pip-audit       PASS                0  No known vulnerabilities found
+tests-sqlite    PASS              117  1734 passed, 6 skipped
+tests-postgres  PASS              189  1729 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              457  browser gate OK
+overall: PASS
+```
+
+- The community journey in that run: 213 checks, 0 problems. It now also confirms a date to
+  serve, checks that who serves cannot open the team's page or somebody's follow-up, reads the
+  coordinator's count, and records a step on a follow-up.
+- A second independent review (read-only sub-agent) of the two modules found no authorization or
+  tenant-isolation defect and five others, fixed in `9b60887` with tests: the administration's
+  count told an administrator that a follow-up about herself existed; moving a date asked again
+  who had said no and could not the new day; a member being removed could keep a date given at
+  the same moment; a non-numeric id was a server error; a dead link on one's own page.
+- Looked at as rendered screenshots: Servir (390, 1440), a team (390, 1440), a follow-up (390,
+  1440), the coordinator's home in the shell (390, 1024, 1440).
+- Not verified: the same as wave 2.
+
+### Not done, and why
+
+Unchanged from wave 2, minus serving and follow-ups: the pastor's view of engagement, guardians and
+households, check-in for children, photos, FAQ, the programme, giving and notifications outside
+Emmaus are not built; an event that is not a camp is still created by the camp's form (#68).
+`serving` decides who coordinates by its own rows, not through `has_scope` (handoff, item 4).
+Nothing is pushed (#64).
+
 ## 2026-11-17, later — Redesign, wave 2: "Eventos", the camp in the shell, notices, events for people, devotionals and resources (same branch)
 
 The owner answered the first round: Emmaus is a church system, the word is "Eventos", keep going,

@@ -69,10 +69,12 @@ One navigation in three places that always agree, because one function builds th
 | "Más" | `#menu-panel`: everything, as a modal dialog (the existing `emmaus.js` behaviour: focus moves in, Tab stays, Escape closes, focus returns) |
 
 Sections, in order, each only when it has something: what is everybody's (**Mi iglesia**,
-**Avisos** with the count of new ones, **Eventos**, **Grupos**), **A tu cargo** (each group the
-person guides, with a count of requests waiting, and **Eventos donde sirves** for the team of an
-event), **Discipulado** (the module's existing links), **Administración** (Personas, Grupos de la
-iglesia, Eventos de la iglesia, Configuración). Tabs: Mi iglesia, Eventos, Grupos for a member;
+**Avisos** with the count of new ones, **Eventos**, **Grupos**), **Para crecer** (Devocional,
+Recursos), **A tu cargo** (each group the person guides, with a count of requests waiting;
+**Eventos donde sirves** for the team of an event; **Servir** for who is in a team, with the dates
+that wait for an answer; **Acompañar** for who was asked to look for somebody), **Discipulado**
+(the module's existing links), **Administración** (Personas, Grupos de la iglesia, Eventos de la
+iglesia, Equipos de la iglesia, Seguimiento de personas, Devocionales y recursos, Configuración). Tabs: Mi iglesia, Eventos, Grupos for a member;
 Mi iglesia, Grupos, A tu cargo for a guide; Mi iglesia, Eventos, Sirves for event staff.
 
 **Inside an event** the event is a place in the rail: its name, "Tu rol: …", and the role's links
@@ -86,7 +88,7 @@ Rules:
 - The shell decides what is *shown*; the views decide what is *allowed* (decision 0004, rule 4).
 - The current place is lifted to white with a 3 px mark in `--mark` and `aria-current="page"`;
   exactly one place is marked.
-- Icons are a closed family of thirteen (24 px grid, 1.75 px strokes), only in the navigation, always
+- Icons are a closed family of seventeen (24 px grid, 1.75 px strokes), only in the navigation, always
   beside their word, `aria-hidden`. Nothing else in the product has an icon.
 - Pages are anchored to the rail, not centred: every page starts on the same line.
 - The interview and the campero's screens (`shell_focus`, `shell_kiosk`) have no navigation by

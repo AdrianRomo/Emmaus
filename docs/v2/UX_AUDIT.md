@@ -23,7 +23,7 @@ This file covers what those could not: the product as a church platform.
 | R12 | **The help page described the old bar** ("en la barra de arriba; en un celular está en Menú") | `core/ayuda.html` | Fixed for the community tasks and the event list |
 | R13 | **Event screens and church screens are two shells.** Entering an event from the new shell shows Atrio's bar again (with the new tokens) | `events/rotulo/shell_*.html` | Fixed for church-role accounts: the event is a place in the rail. Event-only accounts keep the bar |
 | R14 | **No member-facing events.** A member reads "Para inscribirte a un evento, pregunta en tu iglesia" | home | Fixed in a first version: the church publishes an event, a person signs up, the administration checks who came (`agenda`). Creating an event that is not a camp still goes through the camp's form (issue #68) |
-| R15 | **No announcements, devotionals, media, photos, notifications, serving.** The directive's home lists them | — | Announcements: fixed (`notices`). Devotionals and media: see `PROGRESS.md`. Photos, notifications outside Emmaus and serving: **open** (issue #71) |
+| R15 | **No announcements, devotionals, media, photos, notifications, serving.** The directive's home lists them | — | Announcements: fixed (`notices`). Devotionals and media: see `PROGRESS.md`. Serving: fixed (`serving`). Photos and notifications outside Emmaus: **open** (issue #71) |
 | R16 | **Tables on a phone scroll sideways** in the camp's administration | `ux-review.md` | Unchanged (Atrio's decision) |
 
 ## 2. The fifteen journeys of the directive
@@ -39,7 +39,7 @@ This file covers what those could not: the product as a church platform.
 | 5 | Registering for an event | **Shipped** (one person, free events) | Mi iglesia or Eventos → the event → "Inscribirme" → "Te inscribiste"; cancel until it starts | `agenda/tests/test_agenda.py`, e2e part 1 |
 | 6 | Viewing and confirming event attendance | **Partial** | The administration marks who came from "Inscritos". A person does not confirm or see their own attendance; no check-in station | `agenda/tests/test_agenda.py` |
 | 7 | Guardian managing a child's information | **Not built** | Only the guardian confirmation before a minor's account exists | decision 0008, Q-C2 |
-| 8 | Volunteer reviewing assignments | **Not built** | — | blueprint P2 |
+| 8 | Volunteer reviewing assignments | **Shipped** (first version) | Mi iglesia or "Servir" → "Confirmar" or "No puedo"; days they cannot; who coordinates sees the answers | `serving/tests`, e2e parts 1 and 2 |
 | 9 | Coordinator reviewing questionnaire results | **v1, unchanged** | The camp's screens, now in the new tokens | `events/tests/` |
 | 10 | Tutor following up with assigned people | **v1, unchanged** | — | `events/tests/` |
 | 11 | Pastor reviewing church engagement | **Partial** | The camp's summary and the discipleship panorama exist; nothing yet reads groups or attendance for a pastor (Q-C3 is open) | — |
@@ -47,6 +47,8 @@ This file covers what those could not: the product as a church platform.
 | 13 | Correcting missing profile information | **Shipped** | The home's quiet panel → "Mis datos" → saved → the panel is gone | `core/test_shell.py::MyDataTests`, e2e part 3 |
 | 14 | Discovering a devotional or sermon | **Not built** | — | R15 |
 | 15 | A returning camper continues into church life | **Shipped** | Linked from Personas → access → Mi iglesia shows the camp in "Donde has estado" and offers a group | `groups/tests/test_journey.py` |
+
+Also built, not in the directive's list: **accompanying somebody** (the administration asks one person to look for another by a date; that person records "Le llamé" and marks it attended; no text about the conversation is ever stored; `care/tests`, e2e part 2).
 
 Also built, not in the directive's list: **reading a notice** (home or Avisos → the notice → no longer "Nuevo"; `notices/tests/`, e2e part 1).
 
@@ -63,4 +65,6 @@ New in the first round, not in the directive's list: **a guide records who came 
   own pages never show who came.
 - The audit row of a list carries a count and the group's id, never a name.
 - Notices: the whole church's are written by the administration, a group's by who guides it; a group's notice is read by its members, its guides and the administration only. The audit row has no title and no body.
+- Serving: who serves sees only their own dates and answers; who coordinates a team sees its people and their answers; a team gives no role anywhere else. Decided by rows, not through `has_scope` (a known deviation from decision 0003, written in the module).
+- Accompanying: only the owner of a follow-up and the administration see it; the person it is about never does. The module has no free-text field, and its audit rows name nobody.
 - Events: a person sees only what the church published; a sign-up creates no camp participant, no membership and no role; "Inscritos" and the event's page editor are the administration's.

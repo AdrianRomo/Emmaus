@@ -7,8 +7,8 @@ Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rul
 | Branch | Base | Holds | State |
 |---|---|---|---|
 | `v2/slice-1-camp-to-group` | `origin/v2/foundation` (f72d4f6) | People, groups, flags, the first community slice (10 commits) | Local only. Gate passed 2026-11-17 on e422cf0 |
-| `v2/redesign-santuario-shell` | the branch above (98f9bf3) | Santuario: tokens, shell, Mi iglesia, groups, "Mis datos", meetings and attendance, the camp in the shell, "Eventos", and the merged modules `notices`, `agenda`, `resources`; these documents | Local only. Worktree `../Emmaus.worktrees/redesign-santuario`. Gate result in `PROGRESS.md` |
-| `v2/redesign-avisos`, `v2/redesign-eventos-personas`, `v2/redesign-recursos` | the redesign branch | One module each, built by a sub-agent in its own worktree and **already merged** into the redesign branch | Local only; the worktrees and branches can be removed |
+| `v2/redesign-santuario-shell` | the branch above (98f9bf3) | Santuario: tokens, shell, Mi iglesia, groups, "Mis datos", meetings and attendance, the camp in the shell, "Eventos", and the merged modules `notices`, `agenda`, `resources`, `serving`, `care`; these documents | Local only. Worktree `../Emmaus.worktrees/redesign-santuario`. Gate result in `PROGRESS.md` |
+| `v2/redesign-avisos`, `v2/redesign-eventos-personas`, `v2/redesign-recursos`, `v2/redesign-servir`, `v2/redesign-seguimiento` | the redesign branch | One module each, built by a sub-agent in its own worktree and **already merged** into the redesign branch | Local only; the worktrees and branches can be removed |
 
 Nothing is pushed and no pull request is open: issue #64 asks the owner.
 The second branch is stacked on the first; it cannot be reviewed or merged before it.
@@ -48,7 +48,7 @@ symlink is untracked on purpose). The community journey alone:
   view name to the right set in `core/shell.py` so the rail marks the place, and add a row to
   `SCREEN_MATRIX.md`.
 
-## How the three newer modules are put together
+## How the five newer modules are put together
 
 Each is its own app with its own migration, behind the `community` flag (no new flag), with every
 write in `services.py` and one audit row per write. They do not touch `events`, `core`, `people`
@@ -60,6 +60,8 @@ or `groups` models: the CI gate `migration-scope` forbids `core/` and `events/` 
 | `notices` | Avisos for the church or one group, with a date to appear, a date to expire and a read state | `notices.services.for_home`, `unread_count` |
 | `agenda` | `EventPage` beside `events.Event` (published, description, hour, sign-up, capacity) and `EventRegistration` (sign-up, attendance) | `agenda.services.upcoming_for` |
 | `resources` | `Devotional` (one per church and day) with a private read mark; `MediaItem` as links by series and speaker | `resources.services.today_devotional`, `latest_media` |
+| `serving` | `Team`, `TeamMembership` (coordina / sirve), `ServiceDate`, `Assignment` (por confirmar / confirmó / no puede), `Unavailable` | `serving.services.my_dates`, `pending_count`, `has_teams` |
+| `care` | `FollowUp` about a person with an owner, a date and a state; `FollowUpStep` from four fixed kinds; **no free text anywhere** | `care.services.open_count`, `unassigned_count` |
 
 A PostgreSQL-only lesson from this round: `select_for_update()` with `select_related()` over a
 nullable foreign key fails there and passes on SQLite. Use `select_for_update(of=("self",))`, and
@@ -69,21 +71,20 @@ run `quality-gate.sh --postgres` before believing a module's own SQLite run.
 
 Decisions are open as issues #64 to #71; without an answer, follow this order and skip what is blocked.
 
-1. **Look at the coordinator, tutor, interview and campero screens with the module on**, signed in
-   as an account with both a church role and an event role (the seed has none: add one). The
-   automated review passes; nobody has looked.
-2. **A simple event that is not a camp** (blocked on #68): creation without the interview set-up,
+1. **A simple event that is not a camp** (blocked on #68): creation without the interview set-up,
    and "Eventos donde sirves" telling a camp from a service.
-3. **Walk-ups at an event** (#69, recommended first): the administration adds someone at the door.
-4. **The pastor's view of groups, attendance and sign-ups** (blocked on #66).
-5. **Volunteer scheduling («Servir»)**: teams, dates, accept or decline, unavailability. Needs a
-   scope for ministries in `access` (decision 0003), so write a short decision record first.
-6. **A first-run welcome for a member** (`core/onboarding.py` has the pattern for roles).
-7. Small: `tenant_integrity` checks for groups, meetings, notices, registrations, devotionals;
-   pagination where lists stop at 50 or 200; day and sede filters in Grupos; a WhatsApp share link
-   on a notice (#70).
-8. Not started and waiting on decisions: guardians and households (#67), check-in for children,
-   photos (#60), giving (#71).
+2. **Walk-ups at an event** (#69, recommended first): the administration adds someone at the door.
+3. **The pastor's view of groups, attendance, sign-ups and serving** (blocked on #66).
+4. **Serving through `has_scope`**: `serving` decides who coordinates by its own rows; decision 0003
+   wants every decision in `core.authz`. Add a ministry scope to `access` with a decision record.
+5. **A first-run welcome for a member** (`core/onboarding.py` has the pattern for roles), and a
+   coordinator who is also a person of the church in the seed, so the automated modules-on review
+   sees an event role inside the shell (it was checked by hand).
+6. Small: `tenant_integrity` checks for every new table; pagination where lists stop at 50, 100 or
+   200; day and sede filters in Grupos; a WhatsApp share link on a notice (#70); a compact list of
+   a date's people in `serving`; look at the interview and campero screens with the module on.
+7. Not started and waiting on decisions: guardians and households (#67), check-in for children,
+   photos (#60), FAQ (#55), programme (#56), post-event survey (#54), giving (#71).
 
 ## Open questions for the owner
 
