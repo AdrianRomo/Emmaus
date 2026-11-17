@@ -4,21 +4,30 @@ and carries the group's id; it never carries the title or the body.
 
 Callers have already answered who may write (``notices.views``); these functions enforce what
 holds whoever asks: the group is of the same church and active, the dates make sense, the body fits,
-and only the administration (``by_admin``) makes a notice urgent.
+and only who holds a church role the church's policy names (``people.policy.urgent_notice_roles``;
+today the administration) makes a notice urgent. That one is answered here, from the actor's own
+role in that church, not taken from the caller.
 
 A notice has a level (``Announcement.Priority``). The louder ones come first in every list; an
 urgent one also waits at the top of "Mi iglesia" until the person answers "Enterado" or it expires.
 That answer is a mark on ``AnnouncementRead``: it is counted for the author and never listed by name.
+
+An urgent notice has versions. An answer is to one version and counts only while that is the
+notice's version. Who changes the words of an urgent notice that people may have read says whether
+the information changed: if it did, the version goes up, everybody is asked again and the count
+starts over; if it was a detail, the answers stay (decision 0015).
 """
 
 from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Case, Exists, IntegerField, OuterRef, Q, QuerySet, When
+from django.db.models import Case, Exists, F, IntegerField, OuterRef, Q, QuerySet, When
 from django.utils import timezone
 
+from core.models import Role, UserChurchRole
 from groups.models import Group, GroupMembership
+from people import policy
 from people.audit import record_church
 from people.models import Person
 
@@ -73,22 +82,30 @@ def for_home(person: Person, *, is_admin: bool, limit: int = 3, skip=()) -> list
 
 
 def urgent_pending(person: Person, *, is_admin: bool, limit: int = 3) -> list[Announcement]:
-    """The urgent notices the person may read and has not answered "Enterado" to. Not their own:
-    who published it does not need to be told."""
-    answered = AnnouncementRead.objects.filter(announcement=OuterRef("pk"), person=person, acknowledged_at__isnull=False)
+    """The urgent notices the person may read and has not answered "Enterado" to, in the version
+    they have now. Not their own: who published it does not need to be told."""
+    answered = _answers().filter(announcement=OuterRef("pk"), person=person)
     notices = visible_to(person, is_admin=is_admin).filter(priority=Priority.URGENT).exclude(Exists(answered))
     if person.user_id:
         notices = notices.exclude(created_by_id=person.user_id)
     return list(notices[:limit])
 
 
+def _answers() -> QuerySet[AnnouncementRead]:
+    """The "Enterado" that count: those given to the version the notice has now."""
+    return AnnouncementRead.objects.filter(acknowledged_at__isnull=False, acknowledged_version=F("announcement__version"))
+
+
 def acknowledged_at(notice: Announcement, person: Person):
-    """When the person answered "Enterado" to this notice, or None."""
-    return (
-        AnnouncementRead.objects.filter(announcement=notice, person=person)
-        .values_list("acknowledged_at", flat=True)
-        .first()
-    )
+    """When the person answered "Enterado" to this notice as it is now, or None."""
+    return _answers().filter(announcement=notice, person=person).values_list("acknowledged_at", flat=True).first()
+
+
+def read_before_it_changed(notice: Announcement, person: Person) -> bool:
+    """The person had opened the notice before its last change that asked for "Enterado" again."""
+    if notice.changed_at is None:
+        return False
+    return AnnouncementRead.objects.filter(announcement=notice, person=person, read_at__lt=notice.changed_at).exists()
 
 
 def _addressed_to(notice: Announcement) -> QuerySet[Person]:
@@ -109,7 +126,7 @@ def acknowledgement_count(notice: Announcement) -> tuple[int, int]:
     """(how many answered "Enterado", how many the notice is for and have an account). Numbers
     only: nobody reads who has not answered. It is not a proof of delivery and no screen says so."""
     people = _addressed_to(notice)
-    answered = AnnouncementRead.objects.filter(announcement=notice, acknowledged_at__isnull=False, person__in=people)
+    answered = _answers().filter(announcement=notice, person__in=people)
     return answered.count(), people.count()
 
 
@@ -128,20 +145,27 @@ def mark_read(notice: Announcement, person: Person) -> bool:
     return created
 
 
-def acknowledge(notice: Announcement, person: Person) -> bool:
-    """The person answered "Enterado" to an urgent notice. Idempotent; True the first time. Like
-    reading, it is the person's own mark and leaves no audit row."""
-    if not notice.is_urgent:
+def acknowledge(notice: Announcement, person: Person, *, version: int | None = None) -> bool:
+    """The person answered "Enterado" to an urgent notice, in the version it has now. Idempotent;
+    True the first time for that version. An answer to an earlier version is replaced: only the
+    latest is kept. ``version``: the one the person had in front of them; if the notice changed
+    since, the answer is refused, because it would be to words they have not read. Like reading, it
+    is the person's own mark and leaves no audit row."""
+    current = Announcement.objects.filter(pk=notice.pk).values_list("priority", "version").first()
+    if current is None or current[0] != Priority.URGENT:
         raise NoticeError("Este aviso no pide respuesta.", code="priority")
+    if version is not None and version != current[1]:
+        raise NoticeError("Este aviso cambió mientras lo leías. Léelo otra vez y toca «Enterado».", code="changed")
     mark_read(notice, person)
-    rows = AnnouncementRead.objects.filter(announcement=notice, person=person, acknowledged_at__isnull=True)
-    return bool(rows.update(acknowledged_at=timezone.now()))
+    rows = AnnouncementRead.objects.filter(announcement=notice, person=person).filter(
+        Q(acknowledged_at__isnull=True) | Q(acknowledged_version__isnull=True) | ~Q(acknowledged_version=current[1])
+    )
+    return bool(rows.update(acknowledged_at=timezone.now(), acknowledged_version=current[1]))
 
 
 # ---- writing ------------------------------------------------------------------------------------
 def _clean(title: str, body: str, publish_on, expires_on) -> tuple[str, str]:
-    title = " ".join((title or "").split())
-    body = (body or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    title, body = clean_title(title), clean_body(body)
     if not title:
         raise NoticeError("Escribe un título para el aviso.", code="title")
     if len(title) > 120:
@@ -157,13 +181,46 @@ def _clean(title: str, body: str, publish_on, expires_on) -> tuple[str, str]:
     return title, body
 
 
-def _level(priority, by_admin: bool) -> str:
+def may_publish_urgent(user, church) -> bool:
+    """Whether ``user`` holds, in ``church``, a church role its policy lets publish urgent notices."""
+    if user is None or church is None or not getattr(user, "is_authenticated", False) or not user.is_active:
+        return False
+    role = UserChurchRole.objects.filter(church=church, user=user).values_list("role", flat=True).first()
+    return role is not None and role in policy.urgent_notice_roles(church)
+
+
+def _level(priority, actor, church) -> str:
     priority = priority or Priority.NORMAL
     if priority not in Priority.values:
         raise NoticeError("Elige el nivel del aviso.", code="priority")
-    if priority == Priority.URGENT and not by_admin:
-        raise NoticeError("Solo la administración de la iglesia publica avisos urgentes.", code="priority")
+    if priority == Priority.URGENT and not may_publish_urgent(actor, church):
+        if policy.urgent_notice_roles(church) == {Role.CHURCH_ADMIN}:
+            raise NoticeError("Solo la administración de la iglesia publica avisos urgentes.", code="priority")
+        raise NoticeError("En esta iglesia no tienes permiso para publicar avisos urgentes.", code="priority")
     return priority
+
+
+def asks_on_change(notice: Announcement) -> bool:
+    """Whether changing the words of this notice needs the answer to "¿Cambió la información?":
+    it is urgent and somebody may have read it (its day has come) or has answered "Enterado"."""
+    if not notice.is_urgent:
+        return False
+    if notice.publish_on <= timezone.localdate():
+        return True
+    return _answers().filter(announcement=notice).exists()
+
+
+def clean_title(title: str) -> str:
+    return " ".join((title or "").split())
+
+
+def clean_body(body: str) -> str:
+    """A browser sends each line break as two characters; a person counts one."""
+    return (body or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+
+
+def words_changed(notice: Announcement, title: str, body: str) -> bool:
+    return (clean_title(title), clean_body(body)) != (notice.title, notice.body)
 
 
 def _whom(notice: Announcement) -> str:
@@ -178,14 +235,14 @@ def _audit(notice: Announcement, actor, action: str, verb: str) -> None:
 
 def publish(
     church, actor, *, title: str, body: str, group: Group | None = None, publish_on=None, expires_on=None,
-    priority: str = Priority.NORMAL, by_admin: bool = False,
+    priority: str = Priority.NORMAL,
 ) -> Announcement:
     """A new notice, for the whole church or for ``group``. With a ``publish_on`` that has not come,
-    nobody reads it until that day. Who publishes has read it already. ``by_admin``: the caller
-    answered that ``actor`` is the church's administration; without it an urgent notice is refused."""
+    nobody reads it until that day. Who publishes has read it already. An urgent one is refused
+    unless ``actor`` holds in ``church`` a role its policy allows (``may_publish_urgent``)."""
     publish_on = publish_on or timezone.localdate()
     title, body = _clean(title, body, publish_on, expires_on)
-    priority = _level(priority, by_admin)
+    priority = _level(priority, actor, church)
     if group is not None and (group.church_id != church.pk or not group.is_active):
         raise NoticeError("Ese grupo ya no recibe avisos. Elige otro.", code="group")
     with transaction.atomic():
@@ -202,22 +259,52 @@ def publish(
 
 def update(
     notice: Announcement, actor, *, title: str, body: str, publish_on, expires_on=None,
-    priority: str | None = None, by_admin: bool = False,
+    priority: str | None = None, material: bool | None = None,
 ) -> Announcement:
     """Correct a notice. Who it is for does not change; a retired notice is not edited. ``priority``
-    None keeps its level (a guide correcting a notice the administration made urgent)."""
+    None keeps its level (a guide correcting a notice the administration made urgent).
+
+    ``material`` answers "¿Cambió la información?" and is needed when the title or the body of an
+    urgent notice changes, it stays urgent and ``asks_on_change``: True makes a new version (every
+    "Enterado" given stops counting and everybody is asked again), False keeps the answers, None is
+    refused. In any other edit it is not heard. A notice that becomes urgent starts with no answers."""
     title, body = _clean(title, body, publish_on, expires_on)
-    if priority is not None:
-        priority = _level(priority, by_admin)
     with transaction.atomic():
         notice = Announcement.objects.select_for_update(of=("self",)).select_related("church", "group").get(pk=notice.pk)
+        if priority is not None:
+            priority = _level(priority, actor, notice.church)
         if notice.is_retired:
             raise NoticeError("Este aviso ya está retirado. Publica uno nuevo.", code="retired")
+        was_urgent = notice.is_urgent
+        stays_urgent = was_urgent and priority in (None, Priority.URGENT)
+        asks_again = False
+        if stays_urgent and words_changed(notice, title, body) and asks_on_change(notice):
+            if material is None:
+                raise NoticeError(
+                    "Cambiaste lo que dice un aviso urgente. Elige si cambió la información, para saber si pedimos «Enterado» otra vez.",
+                    code="material",
+                )
+            asks_again = bool(material)
         notice.title, notice.body, notice.publish_on, notice.expires_on = title, body, publish_on, expires_on
         if priority is not None:
             notice.priority = priority
-        notice.save(update_fields=["title", "body", "priority", "publish_on", "expires_on", "updated_at"])
+        if asks_again:
+            notice.version += 1
+            notice.changed_at = timezone.now()
+        elif notice.is_urgent and not was_urgent:
+            # Urgent again after not being it: what was answered then was to another moment of the notice.
+            notice.changed_at = None
+            AnnouncementRead.objects.filter(announcement=notice).update(acknowledged_version=None)
+        notice.save(
+            update_fields=["title", "body", "priority", "publish_on", "expires_on", "version", "changed_at", "updated_at"]
+        )
         _audit(notice, actor, "aviso_modificado", "Modificó")
+        if asks_again:
+            metadata = {"group_id": notice.group_id} if notice.group_id else {}
+            record_church(
+                notice.church, actor, "aviso_enterado_pedido",
+                f"Cambió la información de un aviso urgente para {_whom(notice)} y pidió «Enterado» otra vez", notice, **metadata,
+            )
     return notice
 
 

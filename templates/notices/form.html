@@ -3,7 +3,8 @@
 {% block content %}
 {% comment %}
   Publishing or correcting a notice (notices.views.notice_create, notice_edit). "Para quién" offers only what this
-  person may write to and is asked once: an existing notice says who it is for and does not change it.
+  person may write to and is asked once: an existing notice says who it is for and does not change it. Correcting an
+  urgent notice that people may have read also asks "¿Cambió la información?" (two radios, NoticeForm.material).
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
