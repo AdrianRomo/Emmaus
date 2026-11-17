@@ -39,6 +39,14 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Equipos de la iglesia (crear, editar, archivar, personas) | `…/servir/equipos/…` | Administration | New | rows, Atrio form | `serving/tests` | e2e-C | 1440 |
 | Personas que acompañas, un seguimiento | `/mi-iglesia/acompanar/…` | The follow-up's owner | New | mono, summary-list, choices | `care/tests` | e2e-C | 390, 1440 |
 | Seguimiento de personas (todos, nuevo, editar, cancelar) | `…/acompanar/todos/`, `…/nuevo/`… | Administration | New | filters, rows, choices | `care/tests` | e2e-C | 390 (nuevo), 1440 (todos) |
+| Panorama | `/mi-iglesia/panorama/` | Church pastor, administration | New (wave 4) | figures, table--stack | `overview/tests` | e2e-C | 390, 1440 |
+| Tu asistencia (en la página del grupo) | `/mi-iglesia/grupos/<id>/` | The member, about themselves | New (wave 4) | rows | `groups/tests/test_own_attendance` | — (agent: axe at 390, 768, 1440) | 768 (agent) |
+| Crear un evento, datos del evento | `/mi-iglesia/eventos/nuevo/`, `…/<slug>/datos/` | Administration | New (wave 4) | Atrio form | `agenda/tests/test_simple` | e2e-C | 390, 1440 (list) |
+| Preguntas frecuentes, programa (administrar) | `…/<slug>/preguntas/`, `…/programa/` | Administration | New (wave 4) | rows, Atrio form | `agenda/tests/test_event_extras` | e2e-C | agent: 390, 1440 |
+| Registrar a alguien que llegó, autorización, agregar a personas | `…/<slug>/inscritos/llego/`, `…/autorizacion/`… | Administration | New (wave 4) | choices, Atrio form | `agenda/tests/test_event_extras` | e2e-C (llegó) | 1440 (inscritos); agent: 390 |
+| Opinar de un evento, gracias | `/mi-iglesia/opiniones/<slug>/` | Who went | New (wave 4) | Atrio form | `feedback/tests` | — | — (loaded at 390, 1440, not looked at) |
+| Opiniones del evento | `…/opiniones/<slug>/resultados/` | Administration | New (wave 4) | summary-list, rows | `feedback/tests` | e2e-C | — (loaded, not looked at) |
+| Aviso con nivel, «Enterado», compartir por WhatsApp | `/mi-iglesia/avisos/<id>/` | Every person; counts for who published | Changed (wave 4) | notice, status | `notices/tests/test_levels_and_sharing` | — (agent: axe at 390, 1440) | 390 (home, by me); agent: detail |
 | Personas (lista, ficha, alta, editar) | `/mi-iglesia/personas/…` | Administration | In the shell | Atrio | `test_people_views` | e2e-C | 390, 1440 (lista, ficha) |
 | Traer personas de un evento | `…/desde-un-evento/…` | Administration | In the shell | Atrio | `test_people_views` | e2e-C | — |
 | Dar acceso, enlace | `…/acceso/…` | Administration | In the shell | Atrio | `test_people_views` | — | — |

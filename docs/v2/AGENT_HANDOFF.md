@@ -6,12 +6,13 @@ Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rul
 
 | Branch | Base | Holds | State |
 |---|---|---|---|
-| `v2/slice-1-camp-to-group` | `origin/v2/foundation` (f72d4f6) | People, groups, flags, the first community slice (10 commits) | Local only. Gate passed 2026-11-17 on e422cf0 |
-| `v2/redesign-santuario-shell` | the branch above (98f9bf3) | Santuario: tokens, shell, Mi iglesia, groups, "Mis datos", meetings and attendance, the camp in the shell, "Eventos", and the merged modules `notices`, `agenda`, `resources`, `serving`, `care`; these documents | Local only. Worktree `../Emmaus.worktrees/redesign-santuario`. Gate result in `PROGRESS.md` |
-| `v2/redesign-avisos`, `v2/redesign-eventos-personas`, `v2/redesign-recursos`, `v2/redesign-servir`, `v2/redesign-seguimiento` | the redesign branch | One module each, built by a sub-agent in its own worktree and **already merged** into the redesign branch | Local only; the worktrees and branches can be removed |
+| `v2/slice-1-camp-to-group` | `origin/v2/foundation` (f72d4f6) | People, groups, flags, the first community slice (10 commits) | Pushed. Draft PR #73 |
+| `v2/redesign-santuario-shell` | the branch above | Santuario: tokens, shell, Mi iglesia, groups, "Mis datos", meetings and attendance, the camp in the shell, "Eventos", and the modules `notices`, `agenda`, `resources`, `serving`, `care` | Pushed. Draft PR #74 |
+| `v2/wave-4-decisions` | the branch above | The owner's decisions (0009–0014), the lifted migration freeze, simple events, FAQ, programme, walk-ups, minors waiting for an authorization, notice levels and WhatsApp sharing, Panorama, a member's own attendance, retention, opinions after an event | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate result in `PROGRESS.md`; its PR is named there |
+| `v2/redesign-*`, `v2/wave-4-agenda`, `v2/wave-4-avisos`, `v2/wave-4-panorama` | | One module each, built by a sub-agent in its own worktree and **already merged** | Local only; the worktrees and branches can be removed |
 
-Nothing is pushed and no pull request is open: issue #64 asks the owner.
-The second branch is stacked on the first; it cannot be reviewed or merged before it.
+The owner decided on 2026-11-17 (issue #64): stacked draft pull requests, nothing merged, nothing
+deployed. Each branch is stacked on the one above; review them in order.
 
 ## How to run it
 
@@ -27,6 +28,11 @@ $P manage.py runserver 127.0.0.1:8765     # with the reloader: --noreload serves
 Accounts (synthetic, password `DemoCamp-2026`): `valeria.soto@demo.invalid` (former camper, no
 group), `emilio.vargas@demo.invalid` (request pending), `guia.grupo@demo.invalid` (guides two
 groups), `admin.comunidad@demo.invalid` (church administration).
+
+For a fuller demonstration add `--panorama --eventos` to `seed_community_demo`: a pastor who is not
+an administrator (`pastor.iglesia@demo.invalid`), weeks of group lists, a simple event that starts
+today with a programme, questions, a visitor and two minors (one waiting for the authorization),
+an important notice, and an event that ended with opinions. The browser gate uses the plain seed.
 
 Gates: `PYTHON=$P scripts/agents/quality-gate.sh --postgres --e2e`. The browser gate needs
 `e2e/node_modules`; in a worktree, symlink it to the main checkout's (never `git add -A`: the
@@ -51,9 +57,11 @@ symlink is untracked on purpose). The community journey alone:
 ## How the five newer modules are put together
 
 Each is its own app with its own migration, behind the `community` flag (no new flag), with every
-write in `services.py` and one audit row per write. They do not touch `events`, `core`, `people`
-or `groups` models: the CI gate `migration-scope` forbids `core/` and `events/` migrations
-(decision 0005; issue #68 asks to lift it).
+write in `services.py` and one audit row per write. Until wave 4 they could not touch `events` or
+`core` (decision 0005). **Decision 0013 lifted that**: additive migrations are allowed there, and
+`events/0013` (`Event.camp_tools`) is the first. The gate fails a migration that removes, renames,
+runs raw SQL, has a `RunPython` with no way back, or changes a migration that already existed,
+unless the PR carries `risk:high`.
 
 | App | What | Read from the home and the shell through |
 |---|---|---|
@@ -61,6 +69,8 @@ or `groups` models: the CI gate `migration-scope` forbids `core/` and `events/` 
 | `agenda` | `EventPage` beside `events.Event` (published, description, hour, sign-up, capacity) and `EventRegistration` (sign-up, attendance) | `agenda.services.upcoming_for` |
 | `resources` | `Devotional` (one per church and day) with a private read mark; `MediaItem` as links by series and speaker | `resources.services.today_devotional`, `latest_media` |
 | `serving` | `Team`, `TeamMembership` (coordina / sirve), `ServiceDate`, `Assignment` (por confirmar / confirmó / no puede), `Unavailable` | `serving.services.my_dates`, `pending_count`, `has_teams` |
+| `overview` | "Panorama": totals for the church roles pastor and administration; no models | `overview.access.can_see_overview`, `overview.services.build` (10 queries) |
+| `feedback` | `EventFeedback` (random key, no person, day only) and `FeedbackGiven` (who answered, no date); results after 14 days and from 3 answers | `feedback.services.pending_for`, `results` |
 | `care` | `FollowUp` about a person with an owner, a date and a state; `FollowUpStep` from four fixed kinds; **no free text anywhere** | `care.services.open_count`, `unassigned_count` |
 
 A PostgreSQL-only lesson from this round: `select_for_update()` with `select_related()` over a
@@ -69,39 +79,45 @@ run `quality-gate.sh --postgres` before believing a module's own SQLite run.
 
 ## Next, in order
 
-Decisions are open as issues #64 to #71; without an answer, follow this order and skip what is blocked.
+The owner's order is decision 0014. Built from it: the pastor's dashboard, FAQ and programme,
+walk-ups (the first half of visitor follow-up), opinions after an event, serving, media links, the
+hand-written devotional. What is left, in order:
 
-1. **A simple event that is not a camp** (blocked on #68): creation without the interview set-up,
-   and "Eventos donde sirves" telling a camp from a service.
-2. **Walk-ups at an event** (#69, recommended first): the administration adds someone at the door.
-3. **The pastor's view of groups, attendance, sign-ups and serving** (blocked on #66).
-4. **Serving through `has_scope`**: `serving` decides who coordinates by its own rows; decision 0003
+1. **Visitor follow-up, second half**: from a visitor added to Personas, one tap to "Pedir que
+   alguien la acompañe" (the button exists on the person's page; the walk-up row should offer it).
+2. **Waiting list** (decision 0011, "next"): offer a freed place with an expiry and a confirmation;
+   never turn a pending registration into a confirmed one silently.
+3. **Notices by e-mail with each person's preferences** (decision 0012, "next"); `core/notify.py`
+   is the content-free sender to build on.
+4. **Church settings for policies** (decision 0014): who publishes urgent notices, whether minors
+   need an authorization by default, the retention periods. Today they are constants.
+5. **Serving through `has_scope`**: `serving` decides who coordinates by its own rows; decision 0003
    wants every decision in `core.authz`. Add a ministry scope to `access` with a decision record.
-5. **A first-run welcome for a member** (`core/onboarding.py` has the pattern for roles), and a
-   coordinator who is also a person of the church in the seed, so the automated modules-on review
-   sees an event role inside the shell (it was checked by hand).
-6. Small: `tenant_integrity` checks for every new table; pagination where lists stop at 50, 100 or
-   200; day and sede filters in Grupos; a WhatsApp share link on a notice (#70); a compact list of
-   a date's people in `serving`; look at the interview and campero screens with the module on.
-7. Not started and waiting on decisions: guardians and households (#67), check-in for children,
-   photos (#60), FAQ (#55), programme (#56), post-event survey (#54), giving (#71).
+6. **Fold `agenda.EventPage` into `events`** now that 0013 allows it, as its own reviewed change;
+   a button to turn a simple event into a camp.
+7. Small: a first-run welcome for a member; a coordinator who is also a person of the church in
+   the seed; `tenant_integrity` checks for every new table; pagination; a minimum group size on
+   Panorama; an audit row for `prune_attendance`; `core/onboarding.py:176` counts a simple event as
+   "the first event"; look at the interview and campero screens with the module on.
+8. Later, each with its approval (decision 0014): guardian accounts and households, reading
+   plans, moderated photos, children's check-in, payments recorded by staff, giving.
+
+**Release gates. Do not enable in production before the issue is closed:** minors' registration
+(#75, including that a member types their own date of birth unverified) and named pastoral access
+to attendance (#76, not built; also the retention periods before `prune_attendance` is scheduled).
 
 ## Open questions for the owner
 
-Q-C1 to Q-C4 in `docs/decisions/0008`, unchanged. The rest are GitHub issues, each with the default
-that is in place until answered:
+Q-C1 to Q-C4 in `docs/decisions/0008`, unchanged. Issues #64 and #66–#71 are answered and closed;
+their answers are decisions 0009–0014. Open:
 
-| Issue | Decision |
+| Issue | What |
 |---|---|
-| #64 | Push the branches and open draft PRs? |
 | #65 | Keep the serif titles on the camp's own screens? |
-| #66 | Who may read group attendance? |
-| #67 | Minors signing up for events, and guardian accounts |
-| #68 | Lift the migration freeze on `events` and `core`? |
-| #69 | Waiting list, household sign-up, walk-ups, payments |
-| #70 | Should a notice also go out by e-mail or WhatsApp? |
-| #71 | Order and scope of the modules that are not built |
 | #72 | (bug, camp) Atrio's bar wraps a long event name for a pastor at 1440 px |
+| #75 | Release gate: church leadership approves the authorization policy for minors |
+| #76 | Release gate: named pastoral access to attendance, and the retention periods |
+| #77 | Small defaults taken while building wave 4, to confirm or change |
 
 Answered on 2026-11-17: the word is **"Eventos"** everywhere. Still without an issue, low stakes:
 one flag (`community`) turns on the modules and the new look together.
