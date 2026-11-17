@@ -245,17 +245,25 @@ def record_meeting(group: Group, day, present_ids, actor) -> GroupMeeting:
     )
     present = members & {int(value) for value in present_ids if str(value).isdigit()}
     with transaction.atomic():
-        meeting, _ = GroupMeeting.objects.update_or_create(
+        # The first list of a day fixes how many were in the group that day. A correction changes only the people
+        # the guide can see now (the current members): who came and has left the group since keeps their row.
+        meeting, created = GroupMeeting.objects.get_or_create(
             group=group, date=day, defaults={"expected": len(members), "recorded_by": actor}
         )
-        meeting.attendances.exclude(person_id__in=present).delete()
+        if not created:
+            meeting.recorded_by = actor
+            meeting.save(update_fields=["recorded_by", "updated_at"])
+        meeting.attendances.filter(person_id__in=members).exclude(person_id__in=present).delete()
         already = set(meeting.attendances.values_list("person_id", flat=True))
         GroupAttendance.objects.bulk_create(GroupAttendance(meeting=meeting, person_id=pk) for pk in present - already)
+        meeting.present = meeting.attendances.count()
+        meeting.expected = max(meeting.expected, meeting.present)
+        if not created:
+            meeting.save(update_fields=["expected", "updated_at"])
         record_church(
             group.church, actor, "grupo_reunion",
-            f"Pasó lista de {group.name} del {day:%d/%m/%Y}: {len(present)} de {len(members)}", meeting, group_id=group.pk,
+            f"Pasó lista de {group.name} del {day:%d/%m/%Y}: {meeting.present} de {meeting.expected}", meeting, group_id=group.pk,
         )
-    meeting.present = len(present)
     return meeting
 
 

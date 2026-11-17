@@ -38,6 +38,6 @@
 {% endif %}
   {% include "partials/ui/messages.html" %}
   {% block content %}{% endblock %}
-</main>
-{% if user.is_authenticated and shell %}{% include "partials/ui/shell_end.html" %}{% endif %}
+</main>{% if user.is_authenticated and shell %}
+{% include "partials/ui/shell_end.html" %}{% endif %}
 {% endblock %}

@@ -362,8 +362,8 @@ def group_people(request, group_id: int):
     return render(
         request,
         "groups/group_people.html",
-        {"group": group, "requests": requests, "members": members, "query": query, "found": found,
-         "me": request.person},
+        {"group": group, "requests": requests, "members": members, "member_count": len(members), "query": query,
+         "found": found, "me": request.person},
     )
 
 
@@ -446,7 +446,7 @@ def group_meetings(request, group_id: int):
         "groups/group_meetings.html",
         {
             "group": group, "meetings": meetings, "due": services.meeting_due(group),
-            "members": GroupMembership.objects.filter(group=group, status=ACTIVE).count(),
+            "member_count": GroupMembership.objects.filter(group=group, status=ACTIVE).count(),
             "today": timezone.localdate(),
         },
     )

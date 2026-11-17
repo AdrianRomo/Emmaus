@@ -45,6 +45,25 @@ class MeetingTests(CommunityFixture):
         self.assertEqual(list(meeting.attendances.values_list("person_id", flat=True)), [self.leader.pk])
         self.assertEqual(GroupMeeting.objects.filter(group=self.group).count(), 1)
 
+    def test_correcting_a_list_keeps_who_came_and_left_the_group_since(self):
+        self.client.force_login(self.leader_user)
+        self.client.post(self.url(self.yesterday), {"vino": [self.member.pk, self.leader.pk]})
+        services.end_membership(GroupMembership.objects.get(group=self.group, person=self.member), self.admin)
+        page = self.client.get(self.url(self.yesterday))
+        self.assertNotContains(page, "Diego Hernández Cruz")  # no longer in the group: not on the form
+        response = self.client.post(self.url(self.yesterday), {"vino": [self.leader.pk]}, follow=True)
+        meeting = GroupMeeting.objects.get(group=self.group, date=self.yesterday)
+        self.assertEqual(set(meeting.attendances.values_list("person_id", flat=True)), {self.member.pk, self.leader.pk})
+        self.assertEqual(meeting.expected, 2)  # how many were in the group that day, not today
+        self.assertContains(response, "vinieron 2 personas de 2.")
+
+    def test_a_group_with_nobody_says_zero_people(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("community:group_people", args=[self.other_group.pk]))
+        self.assertContains(response, "0 personas en el grupo")
+        self.assertNotContains(response, "QuerySet")
+        self.assertContains(self.client.get(self.url(group=self.other_group)), "0 personas en el grupo")
+
     def test_only_people_of_the_group_can_be_marked(self):
         self.client.force_login(self.leader_user)
         self.client.post(self.url(self.yesterday), {"vino": [self.asked.pk, self.member_b.pk, "x", self.member.pk]})

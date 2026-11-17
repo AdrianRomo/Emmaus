@@ -146,13 +146,15 @@ class MyDataTests(CommunityFixture):
         self.client.force_login(self.member_user)
         self.assertEqual(self.client.get(reverse("community:profile")).status_code, 404)
 
-    def test_an_email_of_somebody_else_in_the_church_is_refused(self):
+    def test_the_form_never_says_whose_an_email_is(self):
+        """Open to every person of the church: "somebody else has it" would tell them who is on the list."""
         type(self.asked).objects.filter(pk=self.asked.pk).update(email="pia@prueba.mx")
         self.client.force_login(self.member_user)
         response = self.client.post(
-            reverse("community:profile"), {"phone": "", "email": "pia@prueba.mx", "preferred_contact_method": "email"}
+            reverse("community:profile"), {"phone": "", "email": "pia@prueba.mx", "preferred_contact_method": "email"}, follow=True
         )
-        self.assertContains(response, "Otra persona de la iglesia ya tiene este correo.")
+        self.assertNotContains(response, "ya tiene este correo")
+        self.assertContains(response, "Guardamos tus datos.")
 
 
 class GroupListTests(CommunityFixture):

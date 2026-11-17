@@ -58,8 +58,6 @@ class MyDataForm(TuErrorMessagesMixin, forms.ModelForm):
         self.fields["email"].widget.attrs["autocomplete"] = "email"
 
     def clean_email(self):
-        email = self.cleaned_data["email"].strip().lower()
-        taken = Person.objects.filter(church=self.instance.church, email__iexact=email, merged_into__isnull=True)
-        if email and taken.exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("Otra persona de la iglesia ya tiene este correo. Pregunta en la administración de tu iglesia.")
-        return email
+        # No "somebody else has this e-mail" here: this form is open to every person of the church, and that
+        # answer would tell them who is on the church's list. The administration's form keeps the check.
+        return self.cleaned_data["email"].strip().lower()

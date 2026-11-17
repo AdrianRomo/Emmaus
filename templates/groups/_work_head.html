@@ -1,7 +1,7 @@
 {% load shell %}{% comment %}
   The head of a group's work pages (who guides it, and the administration): the way back, the arch and the name,
   one line of facts, and the two views of the work, "Personas" and "Reuniones" (`here` marks the current one).
-  Needs: group, members (a list or a number), here, lede; optional requests.
+  Needs: group, member_count, here, lede; optional requests.
 {% endcomment %}
 <a class="back-link" href="{% url 'community:group_detail' group.pk %}">Volver al grupo</a>
 <div class="group-head">
@@ -9,7 +9,7 @@
   <header class="page-head">
     <h1 class="voice page-head__title">{% if here == "personas" %}Personas de {{ group.name }}{% else %}Reuniones de {{ group.name }}{% endif %}</h1>
     <p class="lede">{{ lede }}</p>
-    <p class="page-head__meta">{% with total=members|length|default:members %}{{ total }} persona{{ total|pluralize }} en el grupo{% endwith %}{% if requests %}, {{ requests|length }} solicitud{{ requests|length|pluralize:"es" }} por decidir{% endif %}{% if group.schedule %}. Se reúnen {{ group.schedule|lower }}{% endif %}.</p>
+    <p class="page-head__meta">{{ member_count }} persona{{ member_count|pluralize }} en el grupo{% if requests %}, {{ requests|length }} solicitud{{ requests|length|pluralize:"es" }} por decidir{% endif %}{% if group.schedule %}. Se reúnen {{ group.schedule|lower }}{% endif %}.</p>
   </header>
 </div>
 <ul class="filters" aria-label="Lo que haces en este grupo">

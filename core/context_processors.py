@@ -87,7 +87,7 @@ def current_role(request):
         from .shell import build_shell
 
         context["ui_v2"] = True
-        context["shell"] = build_shell(request, context["current_church"], module_items, context["show_events_link"])
+        context["shell"] = build_shell(request, context["shell_church"], module_items, context["show_events_link"])
     context["app_nav_items"] = nav_items
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
     context["theme_church"] = context.get("current_church")
@@ -111,6 +111,7 @@ def _community_nav(request, context) -> list[dict]:
         context["current_church"] = church
     context["app_nav_label"] = "Principal"
     context["community_on"] = True  # templates/core/ayuda.html adds the community tasks
+    context["shell_church"] = church  # the church the community views act in (core.authz), not the first role's
     items = [
         {"label": "Mi iglesia", "url": reverse("community:home"), "views": ["community:home"]},
         {
