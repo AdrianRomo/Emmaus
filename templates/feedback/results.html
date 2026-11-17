@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block page_title %}Opiniones de {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  What people thought of one event (feedback.views.results), for the administration: totals per answer and the
+  comments, without names, from three opinions on.
+{% endcomment %}
+<div class="narrow">
+  {% url 'agenda:admin_list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Opiniones del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
+  {% if results.total == 0 %}
+    <p class="empty-line">{% if open %}Todavía nadie opina. Quien fue al evento ve la invitación en Mi iglesia durante 30 días.{% else %}Nadie dio su opinión de este evento.{% endif %}</p>
+  {% elif not results.enough %}
+    <p class="empty-line">{% if results.total == 1 %}Hay 1 opinión{% else %}Hay {{ results.total }} opiniones{% endif %}. Se muestran cuando haya al menos 3, para que nadie sepa de quién es cada una.</p>
+  {% else %}
+    <p class="prose">{{ results.total }} personas dieron su opinión. Se guardan sin nombre.</p>
+    <section class="block" aria-labelledby="como-estuvo">
+      <h2 id="como-estuvo" class="heading">¿Cómo estuvo?</h2>
+      <dl class="summary-list">
+        {% for label, count in results.ratings %}<div class="summary-list__row"><dt>{{ label }}</dt><dd>{{ count }}</dd></div>{% endfor %}
+      </dl>
+    </section>
+    <section class="block" aria-labelledby="invitaria">
+      <h2 id="invitaria" class="heading">¿Invitarían a alguien la próxima vez?</h2>
+      <dl class="summary-list">
+        {% for label, count in results.recommends %}<div class="summary-list__row"><dt>{{ label }}</dt><dd>{{ count }}</dd></div>{% endfor %}
+      </dl>
+    </section>
+    <section class="block" aria-labelledby="mejorar">
+      <h2 id="mejorar" class="heading">Qué mejorarían</h2>
+      {% if results.comments %}
+        <ul class="rows">
+          {% for comment in results.comments %}<li class="row"><div class="row__main"><p>{{ comment }}</p></div></li>{% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Nadie escribió un comentario.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}

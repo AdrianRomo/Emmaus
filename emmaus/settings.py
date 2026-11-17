@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "resources",
     "serving",
     "care",
+    "feedback",
 ]
 
 MIDDLEWARE = [
