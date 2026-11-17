@@ -142,7 +142,7 @@ class Command(BaseCommand):
             agenda.register_walkup(event, admin, first_name="Visita", last_name="Menor Pendiente", is_minor=True)
             agenda.register_walkup(event, admin, first_name="Visita", last_name="Menor Autorizada", is_minor=True, consent={
                 "guardian_name": "Tutora Demo", "relationship": "madre", "method": "papel"})
-            notices.publish(church, admin, title="Cambio de horario", priority="important", by_admin=True,
+            notices.publish(church, admin, title="Cambio de horario", priority="important",
                             body="La reunión de jóvenes comenzará a las 6:00 p. m. en lugar de las 5:00 p. m.")
         day = today - timedelta(days=5)
         ended, created = Event.objects.get_or_create(
