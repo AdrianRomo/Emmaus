@@ -163,6 +163,7 @@ def remove_member(team: Team, person, actor, today=None) -> None:
     already happened stays as it was."""
     today = today or timezone.localdate()
     with transaction.atomic():
+        Team.objects.select_for_update().get(pk=team.pk)  # with assign(): no date is given to who is leaving
         membership = TeamMembership.objects.select_for_update().filter(team=team, person=person, status=ACTIVE).first()
         if membership is None:
             return
@@ -215,7 +216,9 @@ def save_date(team: Team, actor, *, service_date: ServiceDate | None = None, dat
                     f"{blocked.person.first_name} marcó que ese día no puede. Quítale la fecha antes de cambiar el día.",
                     code="unavailable",
                 )
-            asked.update(status=PENDING, responded_at=None)
+            # Everybody is asked again for the new day, except who said no and cannot that day either.
+            cannot = Unavailable.objects.filter(date=date).values_list("person_id", flat=True)
+            asked.exclude(person_id__in=cannot).update(status=PENDING, responded_at=None)
         service_date.date, service_date.starts_at, service_date.what, service_date.place = date, starts_at, what, place
         service_date.save(update_fields=["date", "starts_at", "what", "place", "updated_at"])
         record_church(service_date.team.church, actor, "equipo_fecha", f"Modificó una fecha del equipo {service_date.team.name}", service_date)
@@ -237,6 +240,7 @@ def assign(service_date: ServiceDate, person, actor, today=None) -> Assignment:
     with transaction.atomic():
         service_date = _open_date(service_date, today)
         team = service_date.team
+        Team.objects.select_for_update().get(pk=team.pk)  # with remove_member()
         if not TeamMembership.objects.filter(team=team, person=person, status=ACTIVE).exists():
             raise ServingError(f"{person.first_name} no es parte del equipo {team.name}.", code="not_member")
         existing = Assignment.objects.select_for_update().filter(service_date=service_date, person=person).first()

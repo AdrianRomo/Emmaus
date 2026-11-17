@@ -308,7 +308,8 @@ def team_archive(request, team_id: int):
 def member_add(request, team_id: int):
     """The administration puts a person of the church in a team, to serve or to coordinate it."""
     team = _team(request, team_id)
-    person = get_object_or_404(Person, pk=request.POST.get("persona") or 0, church=request.church, merged_into__isnull=True)
+    chosen = request.POST.get("persona", "")
+    person = get_object_or_404(Person, pk=int(chosen) if chosen.isdigit() else 0, church=request.church, merged_into__isnull=True)
     role = COORDINATOR if request.POST.get("rol") == "coordina" else TeamMembership.Role.SERVES
     try:
         services.set_member(team, person, request.user, role=role)

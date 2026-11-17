@@ -252,3 +252,16 @@ class HomeModulesTests(CommunityFixture):
         admin_home = self.client.get(reverse("community:home"))
         self.assertContains(admin_home, "Toma unos minutos.")  # her own state, not the member's
         self.assertNotContains(admin_home, "Diego")
+
+    def test_the_administration_s_count_never_tells_her_of_a_follow_up_about_herself(self):
+        from care import services as care
+
+        care.create(self.church, self.leader_user, person=self.admin_person, reason="contacto")
+        care.create(self.church, self.admin, person=self.member, reason="visita")
+        self.client.force_login(self.admin)
+        nav = rail(self.client.get(reverse("community:home")))
+        self.assertRegex(nav, r'Seguimiento de personas</span><span class="badge">1<span')
+        self.assertEqual(care.unassigned_count(self.church), 2)
+        own_page = self.client.get(reverse("people:detail", args=[self.admin_person.pk]))
+        self.assertNotContains(own_page, "Pedir que alguien la acompañe")
+        self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "Pedir que alguien la acompañe")

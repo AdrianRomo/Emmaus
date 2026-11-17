@@ -276,6 +276,25 @@ class UnavailableTests(ServingFixture):
 
 
 class DateTests(ServingFixture):
+    def test_moving_a_date_does_not_ask_again_who_said_no_and_cannot_the_new_day(self):
+        new_day = self.week + timedelta(days=7)
+        said_no = services.assign(self.day, self.member, self.leader_user)
+        services.respond(said_no, False, self.member_user)
+        services.set_unavailable(self.member, new_day, self.member_user)
+        asked_again = services.assign(self.day, self.asked, self.leader_user)
+        services.respond(asked_again, True, self.asked_user)
+        services.save_date(self.team, self.leader_user, service_date=self.day, date=new_day, what="Bienvenida del domingo")
+        said_no.refresh_from_db()
+        asked_again.refresh_from_db()
+        self.assertEqual(said_no.status, "declinada")
+        self.assertEqual(asked_again.status, "pendiente")  # an answer was for the day it had
+        self.assertEqual(services.pending_count(self.member), 0)
+
+    def test_a_person_that_is_not_a_number_is_not_a_server_error(self):
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse("serving:member_add", args=[self.team.pk]), {"persona": "abc", "rol": "sirve"})
+        self.assertEqual(response.status_code, 404)
+
     def setUp(self):
         self.client.force_login(self.leader_user)
 

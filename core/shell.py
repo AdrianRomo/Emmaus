@@ -130,7 +130,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
         ))
         admin.append(_item("Eventos de la iglesia", reverse("agenda:admin_list"), "eventos", view in AGENDA_ADMIN_VIEWS))
         admin.append(_item("Equipos de la iglesia", reverse("serving:team_admin"), "servir", view in SERVING_ADMIN_VIEWS))
-        loose = care_services.unassigned_count(church)
+        loose = care_services.unassigned_count(church, person)
         admin.append(_item("Seguimiento de personas", reverse("care:admin_list"), "acompanar",
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))

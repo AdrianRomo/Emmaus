@@ -48,9 +48,13 @@ def open_count(person: Person) -> int:
     return _open_of(person).count()
 
 
-def unassigned_count(church) -> int:
-    """Open follow-ups nobody is responsible for: what the administration has to hand to somebody."""
-    return FollowUp.objects.filter(church=church, status__in=FollowUp.OPEN, owner__isnull=True).count()
+def unassigned_count(church, viewer: Person | None = None) -> int:
+    """Open follow-ups nobody is responsible for: what the administration has to hand to somebody.
+    Never one about ``viewer``: the count would tell them it exists (they cannot open it either)."""
+    rows = FollowUp.objects.filter(church=church, status__in=FollowUp.OPEN, owner__isnull=True)
+    if viewer is not None:
+        rows = rows.exclude(person=viewer)
+    return rows.count()
 
 
 # ---- writing ------------------------------------------------------------------------------------
