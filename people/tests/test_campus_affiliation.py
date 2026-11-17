@@ -181,7 +181,7 @@ class CampusAffiliationMigrationTests(TransactionTestCase):
         self.assertNotIn("people_campusaffiliation", tables)
         self.assertIn("people_person", tables)
 
-        call_command("migrate", "people", verbosity=0)
+        call_command("migrate", verbosity=0)  # all apps: groups hangs from people 0002 and went back with it
         self.assertIn("people_campusaffiliation", connection.introspection.table_names())
         self.assertEqual(CampusAffiliation.objects.count(), 0)
         # People and sedes survive the rollback; only the affiliation table went.

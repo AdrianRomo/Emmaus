@@ -21,6 +21,7 @@ class Person(models.Model):
         TEAM = "team", "Equipo de un evento"
         BACKFILL = "backfill", "Cuentas existentes"
         MANUAL = "manual", "Registro manual"
+        EVENT = "event", "Un evento"
 
     ContactMethod = ParticipantProfile.ContactMethod
 
@@ -120,3 +121,93 @@ class CampusAffiliation(models.Model):
         if self.person_id is not None and self.sede_id is not None and self.sede.church_id != self.person.church_id:
             message = "Esta sede es de otra iglesia. Elige una sede de la iglesia de la persona."
             raise ValidationError({"sede": ValidationError(message, code="sede_other_church")})
+
+
+class ChurchSettings(models.Model):
+    """Per-church module flags (decision 0004). Read only through ``people.flags.enabled``.
+
+    One row per church, created by the first write: a church with no row has every module off.
+    They move to ``Church`` when the camp's schema may change (decision 0004, rule 8).
+    """
+
+    church = models.OneToOneField(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="module_settings")
+    people_enabled = models.BooleanField("Usar el módulo de personas", default=False, db_default=False)
+    community_enabled = models.BooleanField("Usar el módulo de comunidad", default=False, db_default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "módulos de la iglesia"
+        verbose_name_plural = "módulos de las iglesias"
+
+    def __str__(self) -> str:
+        return f"Módulos de {self.church}"
+
+
+class ChurchAuditEvent(models.Model):
+    """What happened in a church outside an event (issue #35): a person created or linked, a module
+    switched, a group decision. Written only by ``people.audit.record_church``.
+
+    ``summary`` and ``metadata`` never hold an e-mail, a phone or free text typed by a person.
+    Interim home: ``events.AuditEvent`` gains a church column when the camp's schema may change.
+    """
+
+    church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="audit_events")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    actor_label = models.CharField(max_length=160)
+    action = models.SlugField(max_length=48)
+    summary = models.CharField(max_length=300)
+    object_type = models.CharField(max_length=48, blank=True)
+    object_id = models.CharField(max_length=64, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "movimiento de la iglesia"
+        verbose_name_plural = "movimientos de la iglesia"
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["church", "-created_at"], name="church_audit_recent_idx")]
+
+    def __str__(self) -> str:
+        return f"{self.actor_label}: {self.summary}"
+
+
+class EventParticipantLink(models.Model):
+    """"This campero is this person": confirmed by an administrator, one at a time, after the event.
+
+    A separate table on purpose (decision 0002): the camp's ``EventParticipant`` gains no column and
+    no camp screen reads this. One campero is one person; one person is one campero per event. The
+    person and the event are always of the same church (``people.services.link_participant``, the one
+    write path). The retention purge deletes the campero and, with it, this row; never the person.
+    Nothing here opens a camp answer: group and church screens read only the event's name and dates.
+    """
+
+    participant = models.OneToOneField(
+        "events.EventParticipant", verbose_name="Campero", on_delete=models.CASCADE, related_name="person_link"
+    )
+    person = models.ForeignKey(Person, verbose_name="Persona", on_delete=models.CASCADE, related_name="event_links")
+    # Denormalised from participant.event so "one campero per event per person" is a database rule.
+    event = models.ForeignKey("events.Event", verbose_name="Evento", on_delete=models.CASCADE, related_name="person_links")
+    linked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name="Vinculó", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    linked_at = models.DateTimeField("Fecha del vínculo", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "vínculo de campero y persona"
+        verbose_name_plural = "vínculos de camperos y personas"
+        ordering = ["-linked_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["person", "event"], name="participant_link_one_per_person_and_event"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.person} · {self.event}"
+
+    def clean(self):
+        super().clean()
+        if self.participant_id is None or self.person_id is None:
+            return
+        if self.participant.event.church_id != self.person.church_id:
+            raise ValidationError(
+                {"person": ValidationError("Esta persona es de otra iglesia.", code="person_other_church")}
+            )

@@ -15,6 +15,7 @@
   <section class="block" aria-labelledby="donde">
     <h2 id="donde" class="heading">Dónde participas</h2>
     {% if role_record %}<p>En <strong>{{ role_record.church.name }}</strong>: {{ role_record.get_role_display|lower }}.</p>{% endif %}
+    {% if community_church %}<p>Eres parte de <strong>{{ community_church.name }}</strong>. Tus grupos y lo que viene están en <a href="{% url 'community:home' %}">Mi iglesia</a>.</p>{% endif %}
     {% if rows %}
       <ul class="rows">
         {% for row in rows %}
@@ -27,6 +28,7 @@
           </li>
         {% endfor %}
       </ul>
+    {% elif community_church %}
     {% elif not role_record %}
       <p class="empty-line">Aún no formas parte de ningún evento ni de una iglesia. <a href="{% url 'join' %}">Únete con el código del evento</a> o pide a la administración que te agregue al equipo.</p>
     {% else %}

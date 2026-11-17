@@ -37,6 +37,22 @@
     <p class="more"><a href="{% url 'dashboard' %}">Ir al discipulado</a></p>
   </section>
   {% endif %}
+  {% if community_on %}
+  <section class="block" aria-labelledby="tarea-grupo">
+    <h2 id="tarea-grupo" class="heading">Únete a un grupo de la iglesia</h2>
+    <ol class="promises">
+      <li>Toca “Grupos” en la barra de arriba; en un celular está en “Menú”.</li>
+      <li>Abre el grupo que te interese y toca “Pedir unirme”.</li>
+      <li>Quien guía el grupo te responde. La respuesta aparece en “Mi iglesia”.</li>
+    </ol>
+    <p class="more"><a href="{% url 'community:groups' %}">Ver los grupos</a></p>
+  </section>
+  <section class="block" aria-labelledby="tarea-guiar">
+    <h2 id="tarea-guiar" class="heading">Si guías un grupo, responde las solicitudes</h2>
+    <p>Cuando alguien pide unirse, lo ves al entrar a “Mi iglesia”. Toca “Ver solicitudes” y elige “Aceptar” o “No aceptar”. Vale la pena hablar con la persona antes de no aceptarla.</p>
+    <p class="more"><a href="{% url 'community:home' %}">Ir a Mi iglesia</a></p>
+  </section>
+  {% endif %}
   <p class="block">Tu nombre, tu contraseña, cada evento en el que participas y la bienvenida de tu rol están en <a href="{% url 'account' %}">Mi cuenta</a>.</p>
   <p class="block">¿Algo no está aquí? Pregunta a {% if is_church_admin %}quien instaló Emmaus{% elif current_church %}la administración de tu iglesia{% else %}la administración del evento{% endif %}.</p>
 </div>

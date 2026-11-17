@@ -20,3 +20,11 @@ def persons_for(user: User | AnonymousUser) -> QuerySet[Person]:
         return Person.objects.all()
     churches = UserChurchRole.objects.filter(user=user).values("church_id")
     return Person.objects.filter(church_id__in=churches)
+
+
+def own_person(user: User | AnonymousUser, church) -> Person | None:
+    """The person ``user`` is in ``church`` (``Person.user``), or None. This is what makes somebody
+    "of the church" for the community screens: no church role is needed, and an event role is not enough."""
+    if not getattr(user, "is_authenticated", False) or not user.is_active or church is None:
+        return None
+    return Person.objects.filter(church=church, user=user, merged_into__isnull=True).first()

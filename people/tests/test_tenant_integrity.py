@@ -67,7 +67,7 @@ class TenantIntegrityTests(CampFixture):
         interview = Interview.objects.create(event=cls.event, participant=cls.p1, version=cls.version)
         FollowUp.objects.create(event=cls.event, participant=cls.p1, interview=interview)
         snapshot(cls.event, cls.m_tutor1)
-        Person.objects.create(church=cls.church, first_name="Ada", last_name="Admin", user=cls.admin)
+        Person.objects.create(church=cls.church, first_name="Ada", last_name="Admin", user=cls.admin, created_from=Person.CreatedFrom.BACKFILL)
         Person.objects.create(church=cls.church, first_name="Sin", last_name="Cuenta")
 
     # One builder per check: each writes exactly one row that disagrees, bypassing the services.
@@ -95,7 +95,10 @@ class TenantIntegrityTests(CampFixture):
 
     def break_person_user_without_church_role(self):
         # The outsider holds an event role in event B, never a church role.
-        Person.objects.create(church=self.church, first_name="Óscar", last_name="Externo", user=self.outsider)
+        Person.objects.create(church=self.church, first_name="Óscar", last_name="Externo", user=self.outsider,
+                              created_from=Person.CreatedFrom.BACKFILL)
+        # A member of the church (registered by hand, with an account and no role) is not a finding.
+        Person.objects.create(church=self.church, first_name="Marta", last_name="Miembro", user=self.other_coord)
 
     def assert_counted_alone_and_fails(self, key):
         getattr(self, f"break_{key}")()
@@ -156,7 +159,8 @@ class TenantIntegrityTests(CampFixture):
     def test_person_whose_account_has_no_role_in_its_church_is_only_a_warning(self):
         self.break_person_user_without_church_role()
         # The admin's role is in church A; the same account as a person of church B has no role there.
-        Person.objects.create(church=self.church_b, first_name="Ada", last_name="Admin", user=self.admin)
+        Person.objects.create(church=self.church_b, first_name="Ada", last_name="Admin", user=self.admin,
+                              created_from=Person.CreatedFrom.BACKFILL)
         payload, code = json_counts()
         self.assertEqual(mismatches(payload), {k: 2 if k in WARNING_KEYS else 0 for k in KEYS})
         self.assertEqual(payload["checks"]["person_user_without_church_role"]["severity"], "warning")

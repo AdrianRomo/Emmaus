@@ -66,8 +66,10 @@ def checks() -> tuple[Check, ...]:
               ~Q(event=F("participant__event"))),
         Check("snapshot_tutor_event", "Cortes de equipo con un tutor de otro evento", ReportSnapshot,
               Q(tutor__isnull=False), ~Q(tutor__event=F("event"))),
-        Check("person_user_without_church_role", "Personas con cuenta sin rol en su iglesia", Person,
-              Q(user__isnull=False), Q(no_church_role), severity=WARNING),
+        Check("person_user_without_church_role", "Personas creadas por un rol que ya no tienen rol", Person,
+              # Only people created from a church role ("Cuentas existentes"): a person registered by hand or
+              # brought from an event has an account and no role by design (they are a member of the church).
+              Q(user__isnull=False, created_from=Person.CreatedFrom.BACKFILL), Q(no_church_role), severity=WARNING),
     )
 
 
@@ -93,7 +95,7 @@ class Command(BaseCommand):
     help = (
         "Cuenta los registros que mezclan iglesias o eventos y que la base de datos no puede rechazar. "
         "Solo lee y solo muestra conteos (nunca nombres ni identificadores). Termina con error (1) si "
-        "encuentra alguno; las personas con cuenta sin rol en su iglesia son solo un aviso."
+        "encuentra alguno; las personas creadas por un rol que ya no lo tienen son solo un aviso."
     )
 
     def add_arguments(self, parser):

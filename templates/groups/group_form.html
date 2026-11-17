@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if group %}Editar {{ group.name }}{% else %}Crear un grupo{% endif %}{% endblock %}
+{% block content %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% if group %}
+    {% url 'community:group_detail' group.pk as back %}
+    {% include "events/rotulo/_page_head.html" with title="Editar el grupo" back_url=back back_label="Volver al grupo" %}
+  {% else %}
+    {% url 'community:group_admin_list' as back %}
+    {% include "events/rotulo/_page_head.html" with title="Crear un grupo" lede="Lo que escribas aquí es lo que lee alguien que busca un grupo. Después eliges quién lo guía." back_url=back back_label="Volver a los grupos" %}
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">{% if group %}Guardar cambios{% else %}Crear grupo{% endif %}</button>
+      {% if group %}<a class="btn btn--link" href="{% url 'community:group_archive' group.pk %}">Archivar el grupo</a>{% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

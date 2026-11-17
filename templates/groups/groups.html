@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Grupos{% endblock %}
+{% block content %}
+{% comment %}
+  The groups of the church (groups.views.groups): what anybody of the church may read about each one. Where a
+  group meets is not here: only its members see it.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Grupos" lede="Un grupo es un lugar para conocer a otros y crecer acompañado. Elige uno y pide unirte." back_url=back back_label="Volver a Mi iglesia" %}
+  {% if groups %}
+    <ul class="rows">
+      {% for group in groups %}
+        <li class="row{% if group.state != "open" %} row--stack{% endif %}">
+          <div class="row__main">
+            <p class="row__title"><a class="row__link" href="{% url 'community:group_detail' group.pk %}">{{ group.name }}</a></p>
+            <p class="row__meta">{{ group.get_kind_display }}{% if group.schedule %}, {{ group.schedule|lower }}{% endif %}{% if group.sede %}, sede {{ group.sede.name }}{% endif %}.</p>
+            {% if group.audience %}<p class="row__meta">Para quién: {{ group.audience }}.</p>{% endif %}
+            {% if group.leader_names %}<p class="row__meta">Lo guía{{ group.leader_names|length|pluralize:"n" }}: {{ group.leader_names|join:", " }}.</p>{% endif %}
+          </div>
+          <div class="row__end">
+            {% if group.state == "mine" %}{% status "completada" "Eres parte" %}{% elif group.state == "asked" %}{% status "por_evaluar" "Ya pediste unirte" %}{% elif group.state == "closed" %}{% status "descartada" "No recibe solicitudes" %}{% endif %}
+            <a class="btn btn--secondary btn--small" href="{% url 'community:group_detail' group.pk %}">Ver<span class="visually-hidden"> {{ group.name }}</span></a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Todavía no hay grupos en la iglesia. Cuando haya uno, aparecerá aquí.</p>
+  {% endif %}
+  {% if request.is_church_admin %}<p class="more"><a href="{% url 'community:group_admin_list' %}">Administrar los grupos</a></p>{% endif %}
+</div>
+{% endblock %}

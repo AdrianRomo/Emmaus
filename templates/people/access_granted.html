@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block page_title %}Acceso creado{% endblock %}
+{% block content %}
+{% comment %}
+  After "Dar acceso" (people.views): the account exists and has no password. The one-time link is shown here and
+  only here; nothing was e-mailed, and the page says so instead of pretending.
+{% endcomment %}
+<div class="narrow">
+<section class="confirm" aria-labelledby="creado">
+  <h1 id="creado" class="voice confirm__title">{{ person.first_name }} ya puede entrar a Emmaus</h1>
+  <p class="confirm__text">Para entrar necesita crear su contraseña con este enlace (vence en unos días). Emmaus no se lo envió: mándaselo tú.</p>
+</section>
+<div class="field admin-link">
+  <label class="label" for="enlace">Enlace para crear contraseña</label>
+  <input class="input" id="enlace" value="{{ link }}" readonly>
+</div>
+<button class="btn btn--secondary" type="button" data-copy="enlace" data-copy-done="Enlace copiado">Copiar enlace</button>
+<div class="field admin-link">
+  <label class="label" for="mensaje">Mensaje listo para enviar</label>
+  <textarea class="input" id="mensaje" rows="6" readonly>Hola, {{ person.first_name }}: ya tienes tu espacio de {{ church.name }} en Emmaus. Ahí puedes ver los grupos de la iglesia y pedir unirte. Crea tu contraseña con este enlace (vence en unos días):
+{{ link }}
+Si tienes dudas, avísame.</textarea>
+</div>
+<button class="btn btn--secondary" type="button" data-copy="mensaje" data-copy-done="Mensaje copiado">Copiar mensaje</button>
+<p class="aside-note">Compártelo solo con {{ person.first_name }}. Si se pierde, puedes generar otro desde su página.</p>
+<div class="step__actions">
+  <a class="btn btn--primary" href="{% url 'people:detail' person.pk %}">Volver a {{ person.first_name }}</a>
+  <a class="btn btn--link" href="{% url 'people:list' %}">Ver a todas las personas</a>
+</div>
+</div>
+{% endblock %}
