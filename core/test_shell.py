@@ -4,7 +4,7 @@ that a church without the community module keeps Atrio's bar and stylesheet unto
 import re
 
 from django.conf import settings
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -290,3 +290,28 @@ class HomeModulesTests(CommunityFixture):
         own_page = self.client.get(reverse("people:detail", args=[self.admin_person.pk]))
         self.assertNotContains(own_page, "Pedir que alguien la acompañe")
         self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "Pedir que alguien la acompañe")
+
+
+class IconTests(TestCase):
+    """Issue #53: what browsers and phones ask for at the root answers, and every page links it."""
+
+    def test_the_root_icons_redirect_to_the_static_files(self):
+        for path, target in (("/favicon.ico", "img/favicon.ico"), ("/apple-touch-icon.png", "img/apple-touch-icon.png"),
+                             ("/apple-touch-icon-precomposed.png", "img/apple-touch-icon.png")):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 302, path)
+            self.assertTrue(response["Location"].endswith(target), response["Location"])
+
+    def test_the_sign_in_page_links_the_icons_and_the_manifest(self):
+        import json
+        from pathlib import Path
+
+        from django.conf import settings
+
+        page = self.client.get("/cuenta/entrar/", follow=True)
+        self.assertContains(page, 'rel="apple-touch-icon"')
+        self.assertContains(page, 'rel="manifest"')
+        manifest = json.loads((Path(settings.BASE_DIR) / "static" / "manifest.webmanifest").read_text())
+        self.assertEqual(manifest["name"], "Emmaus")
+        for icon in manifest["icons"]:
+            self.assertTrue((Path(settings.BASE_DIR) / "static" / icon["src"]).is_file(), icon["src"])

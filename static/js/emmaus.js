@@ -5,6 +5,19 @@
   var doc = document;
   doc.documentElement.classList.remove("no-js");
 
+  // The page-to-page transition (rotulo.css, @view-transition) is cosmetic. When the browser gives it up (the window
+  // changed size, the tab went to the background) its promises reject, and an unhandled rejection is a JavaScript
+  // error for whoever watches the console (issue #16). Nothing is lost: the new page is already there.
+  ["pagereveal", "pageswap"].forEach(function (type) {
+    window.addEventListener(type, function (event) {
+      var transition = event.viewTransition;
+      if (!transition) return;
+      [transition.ready, transition.finished, transition.updateCallbackDone].forEach(function (promise) {
+        if (promise && promise.catch) promise.catch(function () {});
+      });
+    });
+  });
+
   function $(sel, root) { return (root || doc).querySelector(sel); }
   function $all(sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); }
   function csrfToken() {
