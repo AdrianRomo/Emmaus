@@ -34,6 +34,10 @@ ACTION_LABELS = {
     "evento_inscripcion": "Se inscribió a un evento",
     "evento_inscripcion_cancelada": "Canceló su inscripción a un evento",
     "evento_asistencia": "Registró la asistencia de un evento",
+    "acompanar_creado": "Creó un seguimiento de persona",
+    "acompanar_asignado": "Asignó un seguimiento de persona o cambió su fecha",
+    "acompanar_paso": "Registró un paso de un seguimiento de persona",
+    "acompanar_estado": "Cambió el estado de un seguimiento de persona",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
