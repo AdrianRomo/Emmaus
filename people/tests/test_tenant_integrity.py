@@ -199,7 +199,7 @@ class TenantIntegrityTests(CampFixture):
 class SeedsHaveNoMismatchesTests(TestCase):
     def test_synthetic_seeds_yield_zero(self):
         with override_settings(DEBUG=True):
-            call_command("seed_camp_demo", "--participants", "20", "--hours", "1", password="x", stdout=StringIO())
+            call_command("seed_camp_demo", "--participants", "20", "--hours", "30", password="x", stdout=StringIO())
             call_command("seed_dev_data", password="x", stdout=StringIO())
         payload, code = json_counts()
         self.assertEqual((code, payload["ok"]), (0, True))
