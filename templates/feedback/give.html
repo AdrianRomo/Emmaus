@@ -9,7 +9,7 @@
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'community:home' as back %}
   {% include "events/rotulo/_page_head.html" with title="¿Cómo estuvo?" lede=event.name back_url=back back_label="Volver a Mi iglesia" %}
-  <p class="aside-note">Tu opinión se guarda sin tu nombre. Le sirve a tu iglesia para preparar el siguiente evento.</p>
+  <p class="aside-note">Tu opinión se guarda sin tu nombre y sin nada que la una a ti. Emmaus solo recuerda, con una clave que no se puede leer, que ya respondiste, para que nadie responda dos veces. Tu iglesia lee todas las opiniones juntas cuando se cierra el plazo.</p>
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}

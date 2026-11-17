@@ -3,7 +3,6 @@ import uuid
 from django.db import models
 
 from events.models import Event
-from people.models import Person
 
 
 class EventFeedback(models.Model):
@@ -35,10 +34,16 @@ class EventFeedback(models.Model):
 
 
 class FeedbackGiven(models.Model):
-    """That a person already gave their opinion of an event. No date and no link to the opinion."""
+    """That somebody already gave their opinion of an event, so nobody answers twice. It holds no
+    person: ``token`` is a keyed hash of the event and the person (``feedback.services.token_for``)
+    that cannot be read back into who it was. It has no date and no link to the opinion.
+
+    The real guarantee, as the screens say it: the opinion is stored with nothing that ties it to
+    the person. What remains knowable, only to somebody with the database AND the server's secret,
+    is whether a given person answered; never what."""
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="feedback_given")
-    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="feedback_given")
+    token = models.CharField(max_length=64)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["event", "person"], name="feedback_given_once")]
+        constraints = [models.UniqueConstraint(fields=["event", "token"], name="feedback_given_once")]

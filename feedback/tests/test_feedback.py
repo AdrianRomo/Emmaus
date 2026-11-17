@@ -34,7 +34,7 @@ class FeedbackTests(AgendaFixture):
         self.end()
         self.assertEqual(services.pending_for(self.member, self.church), [self.retiro])
         self.client.force_login(self.member_user)
-        self.assertContains(self.client.get(self.url()), "Tu opinión se guarda sin tu nombre")
+        self.assertContains(self.client.get(self.url()), "sin nada que la una a ti")
         self.assertRedirects(self.client.post(self.url(), ANSWER), self.url())
         row = EventFeedback.objects.get()
         self.assertEqual((row.event, row.rating, row.recommend, row.comment), (self.retiro, "bien", "si", "Más sillas."))
@@ -91,30 +91,64 @@ class FeedbackTests(AgendaFixture):
         self.assertEqual(self.client.get(self.url("results")).status_code, 403)
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(self.url("results")), "Todavía nadie opina")
-        for rating, recommend, comment in (("mal", "no", "Comentario secreto"), ("bien", "si", ""), ("bien", "tal_vez", "Empezar a tiempo")):
+        answers = (("mal", "no", "Comentario secreto"), ("bien", "si", ""), ("bien", "tal_vez", "Empezar a tiempo"),
+                   ("muy_bien", "si", ""), ("bien", "si", ""))
+        for rating, recommend, comment in answers:
             EventFeedback.objects.create(event=self.retiro, rating=rating, recommend=recommend, comment=comment)
         # While people can still answer, only how many arrived: results that grow would show each new answer.
         response = self.client.get(self.url("results"))
-        self.assertContains(response, "Ya llegaron 3 opiniones")
+        self.assertContains(response, "Ya llegaron 5 opiniones")
         self.assertNotContains(response, "Comentario secreto")
         self.assertNotContains(response, "Regular")
         self.end(days_ago=15)
         response = self.client.get(self.url("results"))
-        self.assertContains(response, "3 personas dieron su opinión")
+        self.assertContains(response, "5 personas dieron su opinión")
         self.assertContains(response, "Comentario secreto")
         self.assertContains(response, "Empezar a tiempo")
-        self.assertEqual(dict(services.results(self.retiro)["ratings"]), {"Muy bien": 0, "Bien": 2, "Regular": 0, "Mal": 1})
+        self.assertEqual(dict(services.results(self.retiro)["ratings"]), {"Muy bien": 1, "Bien": 3, "Regular": 0, "Mal": 1})
         for name in (self.member.first_name, self.member.last_name):
             self.assertNotContains(response, name)
+        # Four is under the church's minimum reporting size: an event that never reaches it shows no answer.
         EventFeedback.objects.filter(comment="Empezar a tiempo").delete()
         response = self.client.get(self.url("results"))
-        self.assertContains(response, "Hubo 2 opiniones")
+        self.assertContains(response, "Hubo 4 opiniones")
+        self.assertContains(response, "al menos 5")
         self.assertNotContains(response, "Comentario secreto")
+        self.assertEqual(services.results(self.retiro)["comments"], [])
 
     def test_the_order_of_the_opinions_does_not_follow_the_order_of_who_answered(self):
         self.assertEqual(EventFeedback._meta.pk.get_internal_type(), "UUIDField")
         self.assertFalse([f.name for f in EventFeedback._meta.get_fields() if "DateTime" in f.get_internal_type()])
         self.assertFalse([f.name for f in FeedbackGiven._meta.get_fields() if "Date" in f.get_internal_type()])
+
+    def test_who_answered_is_kept_as_a_keyed_hash_not_as_a_person(self):
+        self.assertEqual(sorted(f.name for f in FeedbackGiven._meta.get_fields()), ["event", "id", "token"])
+        self.end()
+        services.give(self.member, self.retiro, rating="bien", recommend="si")
+        token = FeedbackGiven.objects.get().token
+        self.assertEqual(len(token), 64)
+        self.assertNotIn(str(self.member.pk), [token])
+        self.assertEqual(token, services.token_for(self.retiro, self.member))
+        self.assertNotEqual(token, services.token_for(self.retiro, self.asked))
+        self.assertNotEqual(token, services.token_for(self.retiro_b, self.member))
+        with self.settings(SECRET_KEY="otra-clave-de-prueba"):
+            self.assertNotEqual(token, services.token_for(self.retiro, self.member))
+
+    def test_asking_to_be_contacted_is_apart_from_the_opinion(self):
+        from care.models import FollowUp
+
+        self.end()
+        self.client.force_login(self.member_user)
+        self.client.post(self.url(), ANSWER)
+        thanks = self.client.get(self.url())
+        self.assertContains(thanks, "Quiero que alguien me busque")
+        self.assertRedirects(self.client.post(reverse("feedback:contact")), reverse("community:home"))
+        self.client.post(reverse("feedback:contact"))
+        follow_up = FollowUp.objects.get(person=self.member)
+        self.assertEqual((follow_up.reason, follow_up.owner, follow_up.church), ("contacto", None, self.church))
+        self.assertFalse([f.name for f in FollowUp._meta.get_fields() if f.name in {"event", "feedback"}])
+        self.assertNotContains(self.client.get(self.url()), "Quiero que alguien me busque")
+        self.assertEqual(self.client.get(reverse("feedback:contact")).status_code, 405)
 
     def test_somebody_else_marked_absent_does_not_hide_the_invitation(self):
         EventRegistration.objects.create(event=self.retiro, person=self.asked, attended=False)

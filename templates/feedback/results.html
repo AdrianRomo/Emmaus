@@ -14,9 +14,9 @@
   {% elif results.total == 0 %}
     <p class="empty-line">Nadie dio su opinión de este evento.</p>
   {% elif not results.enough %}
-    <p class="empty-line">{% if results.total == 1 %}Hubo 1 opinión{% else %}Hubo {{ results.total }} opiniones{% endif %}. Se muestran solo cuando son al menos 3, para que nadie sepa de quién es cada una.</p>
+    <p class="empty-line">{% if results.total == 1 %}Hubo 1 opinión{% else %}Hubo {{ results.total }} opiniones{% endif %}. Se muestran solo cuando son al menos {{ results.minimum }}, para que nadie sepa de quién es cada una.</p>
   {% else %}
-    <p class="prose">{{ results.total }} personas dieron su opinión. Se guardan sin nombre.</p>
+    <p class="prose">{{ results.total }} personas dieron su opinión. Se guardan sin nombre y sin nada que las una a quien las dio.</p>
     <section class="block" aria-labelledby="como-estuvo">
       <h2 id="como-estuvo" class="heading">¿Cómo estuvo?</h2>
       <dl class="summary-list">
