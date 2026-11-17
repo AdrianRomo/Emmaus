@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "notices",
     "agenda",
     "resources",
+    "serving",
 ]
 
 MIDDLEWARE = [

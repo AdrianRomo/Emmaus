@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Servir{% endblock %}
+{% block content %}
+{% comment %}
+  Servir (serving.views.home): what one person is asked to do. First the dates that wait for their answer or that
+  they already answered, then the teams they are in (with who coordinates, by name only), then the days they said
+  they cannot serve. Nobody else's answer, contact data or unavailable days are here.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Servir" lede="Las fechas en las que tu iglesia cuenta contigo, y los equipos donde sirves." back_url=back back_label="Volver a Mi iglesia" %}
+
+  {% if not memberships and not dates %}
+    <div class="notice notice--quiet">
+      <p><strong>Todavía no estás en ningún equipo.</strong> A los equipos te agrega la administración de tu iglesia. Si quieres servir, dile a tu pastor o a quien coordina el equipo que te interesa, y cuando te agreguen verás aquí tus fechas.</p>
+    </div>
+  {% else %}
+  <section class="block" aria-labelledby="tus-fechas">
+    <h2 id="tus-fechas" class="heading">Tus fechas</h2>
+    {% if dates %}
+      <ul class="dates rows">
+        {% for assignment in dates %}{% with day=assignment.service_date %}
+          <li class="row row--lead row--stack{% if assignment.asks %} row--attention{% endif %}" id="fecha-{{ assignment.pk }}">
+            {% date_block day.date %}
+            <div class="row__main">
+              <p class="row__title">{{ day.what }}</p>
+              <p class="row__meta">Equipo {{ day.team.name }}, {{ day.date|weekday_date }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+            </div>
+            {% if assignment.asks %}
+              <form class="row__end" method="post" action="{% url 'serving:respond' assignment.pk %}">
+                {% csrf_token %}
+                <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar">No puedo<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
+                <button class="btn btn--primary btn--small" type="submit" name="respuesta" value="aceptar">Confirmar<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
+              </form>
+            {% else %}
+              <div class="row__end">
+                {% if assignment.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}{% status "descartada" "Dijiste que no puedes" %}{% endif %}
+                {% if assignment.can_change %}<a class="btn btn--link btn--small" href="{% url 'serving:home' %}?cambiar={{ assignment.pk }}#fecha-{{ assignment.pk }}">Cambiar<span class="visually-hidden"> tu respuesta del {{ day.date|weekday_date }}</span></a>{% endif %}
+              </div>
+            {% endif %}
+          </li>
+        {% endwith %}{% endfor %}
+      </ul>
+      <p class="aside-note">Puedes cambiar tu respuesta hasta un día antes. Después, avisa a quien coordina el equipo.</p>
+    {% else %}
+      <p class="empty-line">No tienes fechas por ahora. Cuando quien coordina tu equipo te pida servir un día, aparecerá aquí para que confirmes.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="tus-equipos">
+    <h2 id="tus-equipos" class="heading">Tus equipos</h2>
+    {% if memberships %}
+      <ul class="rows">
+        {% for membership in memberships %}
+          <li class="row row--lead row--stack">
+            {% monogram membership.team.name %}
+            <div class="row__main">
+              <p class="row__title">{% if membership.can_open %}<a href="{% url 'serving:team' membership.team.pk %}">{{ membership.team.name }}</a>{% else %}{{ membership.team.name }}{% endif %}</p>
+              <p class="row__meta">{% if membership.is_coordinator %}Tú coordinas el equipo.{% elif membership.coordinator_names %}Coordina el equipo: {{ membership.coordinator_names|join:", " }}.{% else %}Todavía nadie coordina el equipo.{% endif %}</p>
+              {% if membership.team.description %}<p class="row__meta">{{ membership.team.description }}</p>{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Ya no estás en ningún equipo. Si quieres volver a servir, dilo en tu iglesia.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="dias">
+    <h2 id="dias" class="heading">Días que no puedes</h2>
+    <p class="aside-note">Marca los días que no vas a estar. Vale para todos tus equipos: ese día nadie te pedirá servir.</p>
+    <form method="post" action="{% url 'serving:unavailable_add' %}">
+      {% csrf_token %}
+      <label class="label" for="dia">Día que no puedes</label>
+      <div class="search">
+        <input class="input" id="dia" type="date" name="dia" min="{{ today|date:'Y-m-d' }}" required>
+        <button class="btn btn--secondary" type="submit">Marcar este día</button>
+      </div>
+    </form>
+    {% if days %}
+      <ul class="rows">
+        {% for day in days %}
+          <li class="row row--stack">
+            <div class="row__main"><p class="row__title">{{ day.date|weekday_date|capfirst }}</p></div>
+            <form class="row__end" method="post" action="{% url 'serving:unavailable_remove' day.pk %}">
+              {% csrf_token %}
+              <button class="btn btn--secondary btn--small" type="submit">Quitar<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">No has marcado ningún día.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% if request.is_church_admin %}<p class="more"><a href="{% url 'serving:team_admin' %}">Equipos de la iglesia</a></p>{% endif %}
+</div>
+{% endblock %}

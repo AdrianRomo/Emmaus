@@ -37,6 +37,7 @@ urlpatterns = [
     path("accounts/login/", RedirectView.as_view(pattern_name="login", query_string=True)),
     # The community modules (decision 0004): each view answers 404 while its church has the module off.
     path("mi-iglesia/personas/", include("people.urls")),
+    path("mi-iglesia/servir/", include("serving.urls")),
     path("mi-iglesia/recursos/", include("resources.urls")),
     path("mi-iglesia/avisos/", include("notices.urls")),
     path("mi-iglesia/eventos/", include("agenda.urls")),

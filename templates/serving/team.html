@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Equipo {{ team.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  The work of who coordinates a team (serving.views.team), and of the church's administration, which also adds
+  people and names who coordinates. First the dates that are coming, each with who was asked and what they
+  answered; then who is in the team. Contact data is shown, and can be tapped, because each person is in the team.
+  A person who only serves never reaches this page.
+{% endcomment %}
+<div class="narrow">
+  <a class="back-link" href="{% url 'serving:home' %}">Volver a Servir</a>
+  <div class="group-head">
+    {% monogram team.name "lg" %}
+    <header class="page-head">
+      <h1 class="voice page-head__title">Equipo {{ team.name }}</h1>
+      {% if team.description %}<p class="lede">{{ team.description }}</p>{% endif %}
+      <p class="page-head__meta">{{ member_count }} persona{{ member_count|pluralize }} en el equipo{% if dates %}, {{ dates|length }} fecha{{ dates|length|pluralize }} por venir{% endif %}.</p>
+    </header>
+  </div>
+  {% if not team.is_active %}<div class="notice notice--quiet"><p>Este equipo está archivado: sus fechas ya no aparecen para nadie.</p></div>{% endif %}
+
+  <section class="block" aria-labelledby="fechas">
+    <h2 id="fechas" class="heading">Próximas fechas</h2>
+    {% if dates %}
+      <ul class="dates rows">
+        {% for day in dates %}
+          <li class="row row--lead row--stack">
+            {% date_block day.date %}
+            <div class="row__main">
+              <p class="row__title">{% if team.is_active %}<a href="{% url 'serving:date_detail' day.pk %}">{{ day.what }}</a>{% else %}{{ day.what }}{% endif %}</p>
+              <p class="row__meta">{{ day.date|weekday_date|capfirst }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+              {% if day.people %}
+                <p class="row__meta">{{ day.confirmed }} de {{ day.people|length }} confirmaron.</p>
+                {% for row in day.people %}<p class="row__meta">{{ row.person.full_name }}: {% if row.status == "aceptada" %}{% status "completada" "Confirmó" %}{% elif row.status == "declinada" %}{% status "descartada" "No puede" %}{% else %}{% status "por_evaluar" "Por confirmar" %}{% endif %}</p>{% endfor %}
+              {% else %}
+                <p class="row__meta">Todavía no le pides a nadie servir ese día.</p>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Todavía no hay fechas. Agrega la primera y elige quién sirve ese día: cada persona la verá en «Tus fechas» y te dirá si puede.</p>
+    {% endif %}
+    {% if team.is_active %}
+      <div class="step__actions"><a class="btn btn--primary" href="{% url 'serving:date_create' team.pk %}">Agregar una fecha</a></div>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="integrantes">
+    <h2 id="integrantes" class="heading">En el equipo</h2>
+    {% if members %}
+      <ul class="rows">
+        {% for membership in members %}
+          <li class="row row--lead row--stack">
+            {% monogram membership.person.full_name %}
+            <div class="row__main">
+              <p class="row__title">{{ membership.person.full_name }}</p>
+              <p class="row__meta">{{ membership.get_role_display }}.{% if membership.is_coordinator and not membership.person.user_id %} Todavía no tiene acceso a Emmaus.{% endif %}</p>
+              {% if membership.person.phone or membership.person.email %}<p class="row__contact">{% if membership.person.phone %}<a href="tel:{{ membership.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ membership.person.full_name }}: </span>{{ membership.person.phone }}</a>{% endif %}{% if membership.person.email %}<a href="mailto:{{ membership.person.email }}"><span class="visually-hidden">Escribir a {{ membership.person.full_name }}: </span>{{ membership.person.email }}</a>{% endif %}</p>{% endif %}
+            </div>
+            {% if request.is_church_admin and team.is_active %}
+              <form class="row__end" method="post" action="{% url 'serving:member_add' team.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="persona" value="{{ membership.person_id }}">
+                {% if membership.is_coordinator %}
+                  <button class="btn btn--secondary btn--small" type="submit" name="rol" value="sirve">Que solo sirva<span class="visually-hidden">: {{ membership.person.full_name }}</span></button>
+                {% else %}
+                  <button class="btn btn--secondary btn--small" type="submit" name="rol" value="coordina">Que coordine<span class="visually-hidden">: {{ membership.person.full_name }}</span></button>
+                {% endif %}
+                <a class="btn btn--secondary btn--small" href="{% url 'serving:member_remove' team.pk membership.pk %}">Quitar<span class="visually-hidden"> a {{ membership.person.full_name }}</span></a>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Todavía no hay nadie en el equipo.{% if not request.is_church_admin %} La administración de la iglesia es quien agrega a las personas.{% endif %}</p>
+    {% endif %}
+    {% if not request.is_church_admin %}<p class="aside-note">Para agregar o quitar a alguien del equipo, pídeselo a la administración de tu iglesia.</p>{% endif %}
+  </section>
+
+  {% if request.is_church_admin and team.is_active %}
+  <section class="block" aria-labelledby="agregar">
+    <h2 id="agregar" class="heading">Agregar a alguien de la iglesia</h2>
+    <form class="search" method="get" role="search" action="{% url 'serving:team' team.pk %}#agregar">
+      <label class="visually-hidden" for="buscar">Nombre de la persona</label>
+      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+      <button class="btn btn--secondary" type="submit">Buscar</button>
+    </form>
+    <p class="aside-note" id="buscar-ayuda">Escribe su nombre o apellido. Para coordinar el equipo o confirmar sus fechas necesita tener acceso a Emmaus.</p>
+    {% if query %}
+      {% if found %}
+        <ul class="rows">
+          {% for person in found %}
+            <li class="row row--lead row--stack">
+              {% monogram person.full_name %}
+              <div class="row__main">
+                <p class="row__title">{{ person.full_name }}</p>
+                <p class="row__meta">{% if person.user_id %}Con acceso a Emmaus.{% else %}Sin acceso a Emmaus.{% endif %}</p>
+              </div>
+              <form class="row__end" method="post" action="{% url 'serving:member_add' team.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="persona" value="{{ person.pk }}">
+                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="sirve">Sirve<span class="visually-hidden"> en el equipo: {{ person.full_name }}</span></button>
+                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="coordina">Coordina<span class="visually-hidden"> el equipo: {{ person.full_name }}</span></button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Nadie de la iglesia se llama así, o ya está en el equipo.</p>
+      {% endif %}
+    {% endif %}
+    <p class="more"><a href="{% url 'serving:team_edit' team.pk %}">Editar el equipo</a></p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

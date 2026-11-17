@@ -34,6 +34,13 @@ ACTION_LABELS = {
     "evento_inscripcion": "Se inscribió a un evento",
     "evento_inscripcion_cancelada": "Canceló su inscripción a un evento",
     "evento_asistencia": "Registró la asistencia de un evento",
+    "equipo_creado": "Creó un equipo",
+    "equipo_modificado": "Modificó un equipo",
+    "equipo_archivado": "Archivó un equipo",
+    "equipo_integrante": "Agregó o quitó a una persona de un equipo, o cambió quién lo coordina",
+    "equipo_fecha": "Agregó, modificó o borró una fecha de un equipo",
+    "equipo_asignacion": "Pidió a una persona servir en una fecha, o la quitó de ella",
+    "equipo_respuesta": "Respondió a una fecha para servir o marcó un día que no puede",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
