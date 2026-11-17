@@ -22,7 +22,7 @@ from django.views.decorators.http import require_POST
 
 from core import notify
 from core.authz import Action, has_scope
-from events.models import Event, normalize_name
+from events.models import normalize_name
 from events.services import throttle
 from people import flags
 from people.decorators import module_required

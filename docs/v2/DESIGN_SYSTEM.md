@@ -69,21 +69,28 @@ One navigation in three places that always agree, because one function builds th
 | "Más" | `#menu-panel`: everything, as a modal dialog (the existing `emmaus.js` behaviour: focus moves in, Tab stays, Escape closes, focus returns) |
 
 Sections, in order, each only when it has something: what is everybody's (**Mi iglesia**,
-**Grupos**, **Eventos** for who works in an event), **A tu cargo** (each group the person guides,
-with a count of requests waiting), **Discipulado** (the module's existing links), **Administración**
-(Personas, Grupos de la iglesia, Configuración). The third tab is "A tu cargo" for a guide,
-"Eventos" for event staff, "Mi cuenta" otherwise.
+**Avisos** with the count of new ones, **Eventos**, **Grupos**), **A tu cargo** (each group the
+person guides, with a count of requests waiting, and **Eventos donde sirves** for the team of an
+event), **Discipulado** (the module's existing links), **Administración** (Personas, Grupos de la
+iglesia, Eventos de la iglesia, Configuración). Tabs: Mi iglesia, Eventos, Grupos for a member;
+Mi iglesia, Grupos, A tu cargo for a guide; Mi iglesia, Eventos, Sirves for event staff.
+
+**Inside an event** the event is a place in the rail: its name, "Tu rol: …", and the role's links
+(the ones Atrio's bar held), without icons. On a phone the first three are the tabs. Under 1101 px
+an event uses the top bar and the tabs even on a tablet, because its tables and two-column reports
+were laid out for the window's width. An account with only an event role (no church role) keeps
+Atrio's bar: it has no church to take the shell from.
 
 Rules:
 
 - The shell decides what is *shown*; the views decide what is *allowed* (decision 0004, rule 4).
 - The current place is lifted to white with a 3 px mark in `--mark` and `aria-current="page"`;
   exactly one place is marked.
-- Icons are a closed family of eleven (24 px grid, 1.75 px strokes), only in the navigation, always
+- Icons are a closed family of thirteen (24 px grid, 1.75 px strokes), only in the navigation, always
   beside their word, `aria-hidden`. Nothing else in the product has an icon.
 - Pages are anchored to the rail, not centred: every page starts on the same line.
-- The event shells (`shell_coordinator`, `shell_leader`, focus, kiosk) keep Atrio's bar and wear
-  the new tokens. Moving them into the shell is the next step of the migration (`SCREEN_MATRIX.md`).
+- The interview and the campero's screens (`shell_focus`, `shell_kiosk`) have no navigation by
+  design and keep their own bar.
 
 ## 4. Components added
 
@@ -118,8 +125,11 @@ of the window: beside the rail the column is narrow long before the window is.
 
 ## 6. Words fixed here
 
-**"Eventos"** is the shell's word for the list of events (Atrio's bar says "Campamentos"; the
-page's title stays "Campamentos y eventos"). **"A tu cargo"** is where a guide finds their groups.
+**"Eventos"** is the word for events everywhere since 2026-11-17 (the owner's decision: Emmaus is
+a church system, the camp was its first event); the bar, the page and the help say it too, and
+"Crear evento" replaces "Crear campamento". "Eventos" in the shell is what the church published for
+its people; **"Eventos donde sirves"** is the list a team member works from; **"Eventos de la
+iglesia"** is the administration's. A notice is an **"aviso"**; signing up is **"Inscribirme"**. **"A tu cargo"** is where a guide finds their groups.
 **"Más"** is the phone's panel. **"Mis datos"** is how the church reaches a person; **"Mi cuenta"**
 is how they sign in. **"Pasar lista"** is recording who came; a meeting says "Vinieron 5 de 8".
 

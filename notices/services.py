@@ -121,7 +121,7 @@ def update(notice: Announcement, actor, *, title: str, body: str, publish_on, ex
     """Correct a notice. Who it is for does not change; a retired notice is not edited."""
     title, body = _clean(title, body, publish_on, expires_on)
     with transaction.atomic():
-        notice = Announcement.objects.select_for_update().select_related("church", "group").get(pk=notice.pk)
+        notice = Announcement.objects.select_for_update(of=("self",)).select_related("church", "group").get(pk=notice.pk)
         if notice.is_retired:
             raise NoticeError("Este aviso ya está retirado. Publica uno nuevo.", code="retired")
         notice.title, notice.body, notice.publish_on, notice.expires_on = title, body, publish_on, expires_on
@@ -133,7 +133,7 @@ def update(notice: Announcement, actor, *, title: str, body: str, publish_on, ex
 def retire(notice: Announcement, actor) -> Announcement:
     """Nobody reads it any more. Nothing is deleted. Idempotent."""
     with transaction.atomic():
-        notice = Announcement.objects.select_for_update().select_related("church", "group").get(pk=notice.pk)
+        notice = Announcement.objects.select_for_update(of=("self",)).select_related("church", "group").get(pk=notice.pk)
         if notice.is_retired:
             return notice
         notice.status = Announcement.Status.RETIRED

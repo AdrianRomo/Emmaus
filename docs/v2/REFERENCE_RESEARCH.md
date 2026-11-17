@@ -52,3 +52,46 @@ fetches (the earlier session saw the same). Everything about ChurchSuite below i
 
 Nothing was copied: no layout, wording, icon or asset. The patterns above are common product ideas;
 their Emmaus form is described in `DESIGN_SYSTEM.md`.
+
+## Second pass — rendered public pages with REA (2026-11-17)
+
+**Method.** REA's `inspect_web_page` against a throwaway headless browser profile: the accessibility
+tree of nine public pages of Subsplash and Planning Center (added as a third reference, because its
+member surface is publicly documented). No sign-in, no form submitted, no screenshot or asset kept.
+ChurchSuite's hosts were not touched: they refuse automated access and that was not worked around.
+Two Subsplash URLs were 404 (`/product/church-app`, `/product/giving`); one Planning Center help
+article rendered empty. No Latin American product was observed: two searches found only translated
+US products, so anything said here about LATAM is judgement, not evidence.
+
+**Evidence levels.** **REA** = read in the rendered page's accessibility tree. **search** = a
+search-result summary, page not opened.
+
+| Area | Pattern | Product | Evidence |
+|---|---|---|---|
+| Sign-up | Two modes per event: head-count only, or one form per person; "Add person" for more | Subsplash | search |
+| Sign-up | Categories of attendee with their own form; caps; households; a waiting list for a full event | Planning Center | REA |
+| Sign-up | Staff register walk-ups and record cash or cheque | Subsplash | REA |
+| "Mine" | One list of the person's own things: sign-ups, group requests, serving requests | Planning Center | REA |
+| Check-in | Three modes: a volunteer's station (name search, new person on the spot), a parent's self check-in, a classroom roster | Planning Center | REA |
+| Check-in | Pre-check from the phone from an hour before; a code on the phone matches the child's label and expires at check-out or two hours after | Subsplash | REA |
+| Check-in | The guardian's copy leaves out the child's room and contact details | Planning Center | REA |
+| Media | Tagged by series, speaker, topic and passage; "continue" for the person; notes with blanks to fill | both | REA |
+| Devotional | No reading plan or "today" card found in either | both | absence |
+| Notices | Audience, read state, schedule and expiry: not described publicly by either | both | absence |
+| Giving | One-time or recurring, funds, statements in the profile | Planning Center | REA |
+| Navigation | Leaders reach the admin product through a door from the member app; they do not see admin screens inside it | Planning Center | REA |
+| Accessibility | Both marketing sites have gaps: unnamed images (Planning Center), no `main` landmark and a heading order that starts below `h1` (Subsplash) | both | REA |
+
+### Decisions taken from it
+
+| Decision | Why | State |
+|---|---|---|
+| A sign-up is one tap for the signed-in person, with the facts above the button | Common to all three; the church here has no ticket types yet | Built (`agenda`) |
+| No waiting list, no household sign-up, no walk-ups, no payments in the first version | Each needs a product answer; filed as issue #69 | Not built |
+| "Mi iglesia" is the one list of the person's own things: groups, requests, sign-ups, notices | Planning Center's "Me"; Emmaus already worked this way | Built |
+| Notices carry audience, a date to appear, a date to expire and a read state | Neither reference documents these; the camp's team asked for them (#57) | Built (`notices`) |
+| A devotional of the day, with a private "ya lo leí" and no streaks or totals | Not found in the references; invariant 7 forbids scoring anything spiritual | In progress (`resources`) |
+| Media as links by series and speaker, opened on the other site | Hosting video is out of scope (blueprint P4) and the site's CSP forbids embeds | In progress (`resources`) |
+| The administration's tools are a section of the same shell, not another product | A church administrator here is also a member; one frame is simpler than a door | Built (`core/shell.py`) |
+| Child check-in waits for households and the guardians decision; when built, the pick-up code pattern is a safety requirement, not an option | Subsplash and Planning Center agree on it | Not built (issue #67) |
+| Pages keep landmarks, one `h1` and named images; checked by axe in the gate | The references' own gaps | Built |
