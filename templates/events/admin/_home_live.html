@@ -16,7 +16,7 @@
   {% if risk %}
   <a class="decision decision--riesgo" href="{% url 'events:follow_ups' event.slug %}">
     <span class="decision__cifra" data-count="riesgo">{{ risk }}</span>
-    <span class="decision__texto"><span class="decision__titulo">{{ risk|pluralize:"Situación de riesgo abierta,Situaciones de riesgo abiertas" }}</span><span class="decision__nota"><span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Urgente</span></span></span>
+    <span class="decision__texto"><span class="decision__titulo">{{ risk|pluralize:"Situación de riesgo abierta,Situaciones de riesgo abiertas" }}</span></span>
     <span class="decision__ir" aria-hidden="true"></span>
   </a>
   {% endif %}
