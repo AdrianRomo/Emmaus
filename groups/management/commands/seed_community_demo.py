@@ -160,7 +160,8 @@ class Command(BaseCommand):
                 (today, time(19, 0), "Cena", "Salón principal"), (today + timedelta(days=1), time(18, 0), "Alabanza y mensaje", "Templo"),
             ):
                 agenda.save_schedule_item(event, admin, day=day, starts_at=start, title=title, place=place)
-            agenda.register_walkup(event, admin, first_name="Visita", last_name="Adulta Demo", phone="55 5550 0101")
+            agenda.register_walkup(event, admin, first_name="Visita", last_name="Adulta Demo", phone="55 5550 0101",
+                                   seen_adult=True)
             agenda.register_walkup(event, admin, first_name="Visita", last_name="Menor Pendiente", is_minor=True)
             agenda.register_walkup(event, admin, first_name="Visita", last_name="Menor Autorizada", is_minor=True, consent={
                 "guardian_name": "Tutora Demo", "relationship": "madre", "method": "papel", "allows_participation": True,

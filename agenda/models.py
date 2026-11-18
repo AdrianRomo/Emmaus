@@ -84,6 +84,9 @@ class EventRegistration(models.Model):
     # What the team said at the door: "es menor de edad". For a visitor it is all the church knows;
     # for a person of the church it counts only while the date of birth is unknown.
     guest_is_minor = models.BooleanField("Es menor de edad", default=False, db_default=False)
+    # The team saw this visitor at the door and said "es mayor de edad". Without it, in an event that
+    # asks, a visitor nobody marked as a minor waits for that look (decision 0015: no age is assumed).
+    guest_age_checked = models.BooleanField("Es mayor de edad, visto por el equipo", default=False, db_default=False)
     # Who wrote this row for somebody else (a walk-up). None: the person signed up by themselves.
     registered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)

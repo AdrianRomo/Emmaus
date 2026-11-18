@@ -189,6 +189,11 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
     last_name = forms.CharField(label="Apellidos", max_length=120, required=False)
     phone = forms.CharField(label="Teléfono", max_length=40, required=False)
     is_minor = forms.BooleanField(label="Es menor de edad", required=False)
+    # For a visitor at an event that asks: an explicit choice, nothing preselected. No age is assumed.
+    age = forms.ChoiceField(
+        label="¿Es mayor o menor de edad?", choices=[("adulto", "Es mayor de edad"), ("menor", "Es menor de edad")],
+        widget=forms.RadioSelect, help_text="Dilo por lo que ves en la entrada. Si dudas, pregunta su edad.",
+    )
     guardian_name = forms.CharField(label="Nombre de su madre, padre o tutor", max_length=160, required=False)
     relationship = forms.ChoiceField(
         label="¿Quién autoriza?", choices=GuardianConsent.Relationship.choices, widget=forms.RadioSelect, required=False
@@ -235,6 +240,11 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
             for name in ("first_name", "last_name"):
                 self.fields[name].widget.attrs["autocomplete"] = "off"
             self.fields["phone"].widget.attrs.update({"inputmode": "tel", "autocomplete": "off"})
+        if person is None and requires_consent:
+            del self.fields["is_minor"]
+            self.fields["age"].error_messages["required"] = "Elige si es mayor o menor de edad."
+        else:
+            del self.fields["age"]
         if not requires_consent or minor_known is False:
             for name in self.CONSENT:
                 del self.fields[name]
@@ -245,7 +255,7 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
 
     @property
     def person_fields(self):
-        return [self[name] for name in ("first_name", "last_name", "phone", "is_minor") if name in self.fields]
+        return [self[name] for name in ("first_name", "last_name", "phone", "is_minor", "age") if name in self.fields]
 
     @property
     def consent_fields(self):
@@ -258,6 +268,9 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
     def clean(self):
         cleaned = super().clean()
         cleaned["is_minor"] = self.minor_known if self.minor_known is not None else bool(cleaned.get("is_minor"))
+        cleaned["seen_adult"] = False
+        if "age" in self.fields:
+            cleaned["is_minor"], cleaned["seen_adult"] = cleaned.get("age") == "menor", cleaned.get("age") == "adulto"
         if self.page_blocks and not cleaned.get("override"):
             self.add_error("override", "Marca «Registrar de todos modos» si decides registrarla aunque la página del evento diga otra cosa.")
         if services.FULL_RULE in self.blocks and not cleaned.get("override_full"):
@@ -270,8 +283,9 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
         cleaned["consent"] = None
         if given or purposes or cleaned.get("guardian_phone"):
             if not cleaned["is_minor"]:
-                self.add_error("is_minor" if "is_minor" in self.fields else None,
-                               "La autorización es solo para menores de edad. Marca «Es menor de edad» o deja la autorización vacía.")
+                where = "is_minor" if "is_minor" in self.fields else "age" if "age" in self.fields else None
+                if where != "age" or "age" not in self.errors:
+                    self.add_error(where, "La autorización es solo para menores de edad. Marca «Es menor de edad» o deja la autorización vacía.")
             elif len(given) < 3:
                 missing = {
                     "guardian_name": "Escribe el nombre de quien autoriza.",
@@ -322,3 +336,16 @@ class AnnulForm(TuErrorMessagesMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["reason"].error_messages["required"] = "Elige por qué anulas este registro."
+
+
+class GuestAgeForm(TuErrorMessagesMixin, forms.Form):
+    """What the team saw of a visitor whose age nobody said when they were written down."""
+
+    age = forms.ChoiceField(
+        label="¿Es mayor o menor de edad?",
+        choices=[("adulto", "La vi en la puerta: es mayor de edad"), ("menor", "Es menor de edad")], widget=forms.RadioSelect,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["age"].error_messages["required"] = "Elige si es mayor o menor de edad."

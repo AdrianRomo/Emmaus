@@ -29,6 +29,7 @@ from .forms import (
     EventFaqForm,
     EventPageForm,
     EventScheduleItemForm,
+    GuestAgeForm,
     WalkUpForm,
 )
 from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem
@@ -305,7 +306,7 @@ def walkup(request, slug: str):
             registration = services.register_walkup(
                 event, request.user, person=person, first_name=data.get("first_name", ""),
                 last_name=data.get("last_name", ""), phone=data.get("phone", ""), is_minor=data["is_minor"],
-                consent=data["consent"], override=data["overrides"], override_reason=data.get("override_reason", ""),
+                seen_adult=data["seen_adult"], consent=data["consent"], override=data["overrides"], override_reason=data.get("override_reason", ""),
             )
         except services.AgendaError as error:
             form.add_error(None, error.message)
@@ -399,6 +400,31 @@ def confirm_age(request, slug: str, registration_id: int):
             return redirect(_back_to_list(event))
     return render(request, "agenda/confirm_age.html", {"event": event, "registration": registration, "person": person,
                                                        "form": form, "back": _back_to_list(event)})
+
+
+@church_admin_view
+def guest_age(request, slug: str, registration_id: int):
+    """A visitor written down while the event did not ask waits in "Edad por confirmar": the team says what it saw."""
+    event = _event(request, slug)
+    registration = _registration(event, registration_id, status=PENDING, pending_reason=AGE, person__isnull=True)
+    form = GuestAgeForm(request.POST if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            registration = services.confirm_guest_age(registration, request.user, is_minor=form.cleaned_data["age"] == "menor")
+        except services.AgendaError as error:
+            form.add_error(None, error.message)
+        else:
+            if registration.is_active:
+                messages.success(request, f"Listo. El registro de {registration.display_name} quedó confirmado.")
+            else:
+                messages.info(
+                    request,
+                    f"{registration.display_name} es menor de edad. Su registro queda pendiente hasta que registres la "
+                    "autorización de su madre, padre o tutor.",
+                )
+            return redirect(_back_to_list(event))
+    return render(request, "agenda/guest_age.html", {"event": event, "registration": registration, "form": form,
+                                                     "back": _back_to_list(event)})
 
 
 @church_admin_view
