@@ -1,112 +1,147 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Mi camino{% endblock %}
 {% block content %}
+{% comment %}
+  The participant's home: the lesson that comes next is the one action (the sign, only while there is one), then the
+  path drawn lesson by lesson (done, where you are, ahead), who walks with you, and what you asked and wrote. With
+  the redesign the path is a list of steps; in Atrio (a church without the community module) it is the ruler.
+  A section with nothing in it is not drawn.
+{% endcomment %}
 {% url 'ask_question' as ask_url %}
 {% with name=profile.user.first_name|default:profile.user.get_full_name|default:profile.user.email current=summary.current_progress %}
 {% with title="Hola, "|add:name|add:"." %}
-  {% include "events/rotulo/_page_head.html" with title=title lede="Este camino se recorre en compañía. Avanza a tu ritmo, haz preguntas con confianza y avísale a tu iglesia cuando quieras platicar con alguien." meta=profile.church.name %}
+  {% include "events/rotulo/_page_head.html" with title=title %}
 {% endwith %}
 {% include "partials/ui/welcome.html" with welcome=welcome %}
 
-{% comment %}The sign: the lesson that comes next. Only while there is one; yellow appears nowhere else here.{% endcomment %}
 {% if summary.enrollment and current and not current.completed_at %}
-  <section class="sign" aria-labelledby="siguiente-paso">
-    <h2 id="siguiente-paso" class="sign__title">{{ current.lesson.title }}</h2>
-    <p class="sign__text">Tu siguiente paso es la lección {{ current.lesson.order }} de {{ summary.total_lessons }}. Tómate tu tiempo: puedes guardar tu reflexión y volver después.</p>
-    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'participant_lesson' current.lesson.id %}">Continuar lección</a></div>
+  <section class="sign{% if ui_v2 %} sign--lead{% endif %}" aria-labelledby="siguiente-paso">
+    <div>
+      <h2 id="siguiente-paso" class="sign__title">{{ current.lesson.title }}</h2>
+      <p class="sign__text">Lección {{ current.lesson.order }} de {{ summary.total_lessons }}</p>
+    </div>
+    <div class="sign__actions"><a class="btn {% if ui_v2 %}btn--on-dark{% else %}btn--primary{% endif %} btn--large" href="{% url 'participant_lesson' current.lesson.id %}">{% if summary.completed_lessons %}Continuar lección{% else %}Empezar lección{% endif %}</a></div>
   </section>
 {% elif summary.enrollment and current %}
   {% comment %}The path is done: no sign, one line with the next step there is.{% endcomment %}
   <p class="disc-done">Terminaste la ruta. Si quieres platicar, <a href="{% url 'request_follow_up' %}">pide una conversación</a>.</p>
 {% endif %}
 
-<div class="split disc-camino">
-  <section aria-labelledby="tu-ruta">
-    <h2 id="tu-ruta" class="heading">Tu ruta de discipulado</h2>
-    {% if summary.enrollment %}
-      <p class="disc-path">{{ summary.enrollment.path.title }}</p>
-      {% if summary.enrollment.path.description %}<p class="prose muted">{{ summary.enrollment.path.description }}</p>{% endif %}
-      <div class="disc-path__progress">
-        {% ruler summary.completed_lessons 0 summary.total_lessons %}
-        {% if current and current.completed_at %}
-          <p class="disc-path__note">{% if summary.total_lessons == 1 %}Terminaste la lección.{% else %}Terminaste las {{ summary.total_lessons }} lecciones.{% endif %} <a href="{% url 'participant_lesson' current.lesson.id %}">Volver a leer “{{ current.lesson.title }}”</a></p>
+<div class="{% if ui_v2 %}cols{% else %}split{% endif %} disc-camino">
+  <div{% if ui_v2 %} class="cols__main"{% endif %}>
+    <section class="block" aria-labelledby="tu-ruta">
+      <h2 id="tu-ruta" class="heading">Tu ruta</h2>
+      {% if summary.enrollment %}
+        <p class="disc-path">{{ summary.enrollment.path.title }}</p>
+        {% if summary.enrollment.path.description %}<p class="prose muted">{{ summary.enrollment.path.description }}</p>{% endif %}
+        {% if ui_v2 %}
+          <div class="disc-path__progress">{% include "core/rotulo/_avance.html" with summary=summary %}</div>
+          {% comment %}The path, lesson by lesson. A finished lesson and the one that comes next open; those ahead wait.{% endcomment %}
+          <ol class="steps disc-steps">
+            {% for step in summary.enrollment.lesson_progress.all %}
+              {% if step.completed_at %}
+                <li class="steps__item steps__item--done">
+                  <span class="steps__mark" aria-hidden="true"></span>
+                  <p class="steps__text steps__title">{% if step.lesson.is_active %}<a href="{% url 'participant_lesson' step.lesson_id %}">{{ step.lesson.title }}</a>{% else %}{{ step.lesson.title }}{% endif %}<span class="visually-hidden">, terminada</span></p>
+                </li>
+              {% elif step.lesson_id == current.lesson_id %}
+                <li class="steps__item disc-steps__now" aria-current="step">
+                  <span class="steps__mark" aria-hidden="true">{{ step.lesson.order }}</span>
+                  <p class="steps__text steps__title"><a href="{% url 'participant_lesson' step.lesson_id %}">{{ step.lesson.title }}</a></p>
+                  <span class="chip chip--info">Aquí vas</span>
+                </li>
+              {% else %}
+                <li class="steps__item disc-steps__ahead">
+                  <span class="steps__mark" aria-hidden="true">{{ step.lesson.order }}</span>
+                  <p class="steps__text steps__title">{{ step.lesson.title }}<span class="visually-hidden">, más adelante</span></p>
+                </li>
+              {% endif %}
+            {% endfor %}
+          </ol>
         {% else %}
-          <p class="disc-path__note">Llevas {{ summary.completed_lessons }} de {{ summary.total_lessons }} lecci{{ summary.total_lessons|pluralize:"ón,ones" }} terminada{{ summary.total_lessons|pluralize }}.</p>
+          <div class="disc-path__progress">
+            {% ruler summary.completed_lessons 0 summary.total_lessons %}
+            {% if current and current.completed_at %}
+              <p class="disc-path__note">{% if summary.total_lessons == 1 %}Terminaste la lección.{% else %}Terminaste las {{ summary.total_lessons }} lecciones.{% endif %} <a href="{% url 'participant_lesson' current.lesson.id %}">Volver a leer “{{ current.lesson.title }}”</a></p>
+            {% else %}
+              <p class="disc-path__note">Llevas {{ summary.completed_lessons }} de {{ summary.total_lessons }} lecci{{ summary.total_lessons|pluralize:"ón,ones" }} terminada{{ summary.total_lessons|pluralize }}.</p>
+            {% endif %}
+          </div>
         {% endif %}
-      </div>
-    {% else %}
-      {% comment %}No enrollment means the church has no active path: opening this page enrolls in one when there is.{% endcomment %}
-      <p class="empty-line">Tu iglesia todavía no tiene una ruta activa. Cuando la tenga, aparecerá aquí.</p>
-    {% endif %}
-  </section>
-
-  <div class="disc-side">
-    <section aria-labelledby="compania">
-      <h2 id="compania" class="heading">Alguien puede acompañarte</h2>
-      {% if profile.assigned_mentor %}
-        <p>Tu mentor es <strong>{{ profile.assigned_mentor.get_full_name|default:profile.assigned_mentor.email }}</strong>.</p>
       {% else %}
-        <p>Tu iglesia todavía no te asigna un mentor. Aun así, puedes hacer preguntas o pedir una conversación.</p>
+        {% comment %}No enrollment means the church has no active path: opening this page enrolls in one when there is.{% endcomment %}
+        <p class="empty-line">Tu iglesia todavía no tiene una ruta activa.</p>
       {% endif %}
-      <div class="btn-row disc-actions"><a class="btn btn--secondary" href="{% url 'request_follow_up' %}">Pedir una conversación</a></div>
     </section>
-    <section aria-labelledby="bienvenidas">
-      <h2 id="bienvenidas" class="heading">Tus preguntas son bienvenidas</h2>
-      <p>Tu pregunta la leerán líderes de confianza de tu iglesia que pueden acompañarte en persona.</p>
-      <div class="btn-row disc-actions">
-        <a class="btn{% if summary.enrollment and current and not current.completed_at %} btn--secondary{% else %} btn--primary{% endif %}" href="{{ ask_url }}">Haz una pregunta</a>
-        <a class="btn btn--link" href="{% url 'participant_questions' %}">Preguntas que has hecho</a>
-      </div>
-    </section>
-  </div>
-</div>
 
-<div class="split disc-camino">
-  <section aria-labelledby="reflexiones">
-    <h2 id="reflexiones" class="heading">Reflexiones recientes</h2>
+    {% if questions or follow_ups %}
+    <section class="block" aria-labelledby="conversaciones">
+      {% url 'participant_questions' as questions_url %}
+      {% include "core/rotulo/_titulo_lista.html" with id="conversaciones" title="Preguntas y conversaciones" url=questions_url link="Ver todas" link_hidden=" tus preguntas" %}
+      <ul class="rows">
+        {% for question in questions %}
+          <li class="row row--stack">
+            <div class="row__main">
+              <p class="row__title"><a class="row__link" href="{% url 'participant_question_detail' question.id %}">{{ question.question_text|truncatewords:18 }}</a></p>
+              {% if ui_v2 %}
+                <ul class="meta"><li>{% icon "calendario" "sm" %}<span class="visually-hidden">Enviada el </span>{{ question.created_at|date:"j b" }}</li></ul>
+              {% else %}
+                <p class="row__meta">Enviada el {{ question.created_at|fecha_corta }}.</p>
+              {% endif %}
+            </div>
+            <div class="row__end">{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}</div>
+          </li>
+        {% endfor %}
+        {% for follow_up in follow_ups %}
+          <li class="row row--stack">
+            <div class="row__main">
+              <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
+              <p class="row__meta">Pediste platicar</p>
+            </div>
+            <div class="row__end">{% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}</div>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if not ui_v2 %}<p class="more"><a href="{{ questions_url }}">Ver todas tus preguntas</a></p>{% endif %}
+    </section>
+    {% endif %}
+
     {% if answers %}
+    <section class="block" aria-labelledby="reflexiones">
+      <h2 id="reflexiones" class="heading">Reflexiones recientes</h2>
       <ul class="rows">
         {% for answer in answers %}
           <li class="row">
             <div class="row__main">
-              <p class="row__title">{{ answer.lesson.title }}</p>
+              <p class="row__title">{% if answer.lesson.is_active %}<a class="row__link" href="{% url 'participant_lesson' answer.lesson_id %}">{{ answer.question.question_text }}</a>{% else %}{{ answer.question.question_text }}{% endif %}</p>
               <p class="row__meta">{{ answer.answer_text|truncatewords:28 }}</p>
             </div>
           </li>
         {% endfor %}
       </ul>
-    {% else %}
-      <p class="empty-line">Todavía no hay reflexiones. Cuando guardes tus respuestas de reflexión, aparecerán aquí como señales de tu camino.</p>
+    </section>
     {% endif %}
-  </section>
-  <section aria-labelledby="conversaciones">
-    <h2 id="conversaciones" class="heading">Preguntas y conversaciones</h2>
-    {% if questions or follow_ups %}
-      <ul class="rows">
-        {% for question in questions %}
-          <li class="row">
-            <div class="row__main">
-              <p class="row__title"><a class="row__link" href="{% url 'participant_question_detail' question.id %}">{{ question.question_text|truncatewords:18 }}</a></p>
-              <p class="row__meta">Enviada el {{ question.created_at|fecha_corta }}.</p>
-            </div>
-            {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
-          </li>
-        {% endfor %}
-        {% for follow_up in follow_ups %}
-          <li class="row">
-            <div class="row__main">
-              <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
-              <p class="row__meta">Solicitud de conversación.</p>
-            </div>
-            {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p class="empty-line">Todavía no has hecho preguntas. Cuando hagas una pregunta, aquí aparecerán las respuestas de los líderes de tu iglesia.</p>
-    {% endif %}
-  </section>
+  </div>
+
+  <div class="{% if ui_v2 %}cols__side{% else %}disc-side{% endif %}">
+    <section{% if ui_v2 %} class="quiet"{% endif %} aria-labelledby="compania">
+      <h2 id="compania" class="{% if ui_v2 %}quiet__title{% else %}heading{% endif %}">Tu mentor</h2>
+      {% if profile.assigned_mentor %}
+        {% with mentor=profile.assigned_mentor.get_full_name|default:profile.assigned_mentor.email %}
+          {% if ui_v2 %}<p class="disc-who">{% monogram mentor "sm" %}<strong>{{ mentor }}</strong></p>{% else %}<p><strong>{{ mentor }}</strong></p>{% endif %}
+        {% endwith %}
+      {% else %}
+        <p{% if ui_v2 %} class="quiet__text"{% endif %}>Tu iglesia todavía no te asigna uno.</p>
+      {% endif %}
+      <div class="btn-row disc-actions"><a class="btn btn--secondary{% if ui_v2 %} btn--small{% endif %}" href="{% url 'request_follow_up' %}">Pedir una conversación</a></div>
+    </section>
+    <section{% if ui_v2 %} class="quiet"{% endif %} aria-labelledby="bienvenidas">
+      <h2 id="bienvenidas" class="{% if ui_v2 %}quiet__title{% else %}heading{% endif %}">¿Tienes una pregunta?</h2>
+      <p{% if ui_v2 %} class="quiet__text"{% endif %}>La leerán líderes de confianza de tu iglesia.</p>
+      <div class="btn-row disc-actions"><a class="btn btn--secondary{% if ui_v2 %} btn--small{% endif %}" href="{{ ask_url }}">Haz una pregunta</a></div>
+    </section>
+  </div>
 </div>
 {% endwith %}
 {% endblock %}

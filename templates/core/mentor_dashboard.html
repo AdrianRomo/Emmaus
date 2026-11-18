@@ -1,83 +1,79 @@
 {% extends "base.html" %}
-{% load core_extras emmaus %}
+{% load core_extras emmaus shell %}
 {% block page_title %}Mentoría{% endblock %}
 {% block content %}
 {% with people=participants|length waiting=awaiting.count %}
-{% include "events/rotulo/_page_head.html" with title="¿Quién necesita atención hoy?" lede="Primero las preguntas que esperan tu respuesta, luego tus seguimientos y las personas que acompañas." %}
+{% include "events/rotulo/_page_head.html" with title="Mentoría" %}
 {% include "partials/ui/welcome.html" with welcome=welcome %}
 
 {% comment %}
   The sign: who has waited longest for the mentor's reply (awaiting: open questions, oldest first; escalated ones
-  already reached a pastor). Yellow appears nowhere else here.
+  already reached a pastor).
 {% endcomment %}
 {% if waiting %}
   {% with question=awaiting.first %}
     <section class="sign" aria-labelledby="que-hago">
       <h2 id="que-hago" class="sign__title">{{ question.participant.get_full_name|default:question.participant.email }} espera tu respuesta</h2>
-      <p class="sign__text">Preguntó el {{ question.created_at|fecha_larga|lower }}.{% if waiting > 1 %} En total {{ waiting }} preguntas esperan tu respuesta.{% endif %}</p>
+      <p class="sign__text">Preguntó el {{ question.created_at|fecha_larga|lower }}.</p>
       <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'question_detail' question.id %}">Responder</a></div>
     </section>
   {% endwith %}
 {% endif %}
 
-<section class="disc-summary" aria-labelledby="acompanas">
-  <h2 id="acompanas" class="voice coord__count">{% if people %}Acompañas a {{ people }} persona{{ people|pluralize }}.{% else %}Todavía no acompañas a nadie.{% endif %}</h2>
-</section>
-
 {% comment %}
   Three lists in the order a mentor acts: the questions that wait for them (and, after them, those already with a
-  pastor), the follow-ups in their name, their people. The ids are the old bar anchors, kept for any saved link.
+  pastor), the follow-ups in their name, their people with how far each one is. The ids are the old bar anchors,
+  kept for any saved link.
 {% endcomment %}
 <div class="coord__lists disc-lists">
   <div class="coord__side">
     <section id="open-questions" aria-labelledby="esperan">
       <h2 id="esperan" class="heading">Esperan tu respuesta{% if waiting %} <span class="count">{{ waiting }}</span>{% endif %}</h2>
       {% if not waiting %}
-        <p class="empty-line">Ninguna pregunta espera respuesta.{% if with_pastor %} Las que se pasaron al pastor siguen aquí hasta que les respondan.{% else %} Cuando tus participantes pregunten algo, aparecerá aquí.{% endif %}</p>
+        <p class="empty-line">Ninguna pregunta espera respuesta.</p>
       {% endif %}
       {% if awaiting or with_pastor %}
         <ul class="rows">
           {% for question in awaiting %}
-            <li class="row">
-              <div class="row__main">
-                <p class="row__title"><a class="row__link" href="{% url 'question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
-                <p class="row__meta">{{ question.question_text|truncatewords:18 }}</p>
-              </div>
-              {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
-            </li>
+            {% url 'question_detail' question.id as question_url %}
+            {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
           {% endfor %}
           {% for question in with_pastor %}
-            <li class="row">
-              <div class="row__main">
-                <p class="row__title"><a class="row__link" href="{% url 'question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
-                <p class="row__meta">{{ question.question_text|truncatewords:18 }}</p>
-              </div>
-              {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
-            </li>
+            {% url 'question_detail' question.id as question_url %}
+            {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
           {% endfor %}
         </ul>
       {% endif %}
     </section>
 
     <section aria-labelledby="pendientes">
-      <h2 id="pendientes" class="heading">Seguimientos pendientes{% if follow_ups %} <span class="count">{{ follow_ups|length }}</span>{% endif %}</h2>
+      {% url 'follow_up_list' as follow_ups_url %}
       {% if follow_ups %}
+        {% include "core/rotulo/_titulo_lista.html" with id="pendientes" title="Seguimientos pendientes" count=follow_ups|length url=follow_ups_url link="Ver todos" link_hidden=" los seguimientos" %}
         <ul class="rows">
           {% for follow_up in follow_ups %}
-            <li class="row">
+            {% with name=follow_up.participant.get_full_name|default:follow_up.participant.email %}
+            <li class="row row--lead row--stack">
+              {% if ui_v2 %}{% monogram name "sm" %}{% endif %}
               <div class="row__main">
-                <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+                <p class="row__title">{{ name }}</p>
                 <p class="row__meta">{{ follow_up.reason|truncatewords:18 }}</p>
-                <p class="row__meta">Creado {{ follow_up.created_ago }}.</p>
+                {% if ui_v2 %}
+                  <ul class="meta"><li>{% icon "reloj" "sm" %}<span class="visually-hidden">Creado </span>{{ follow_up.created_ago }}</li></ul>
+                {% else %}
+                  <p class="row__meta">Creado {{ follow_up.created_ago }}.</p>
+                {% endif %}
               </div>
-              {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+              <div class="row__end">{% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}</div>
             </li>
+            {% endwith %}
           {% endfor %}
         </ul>
       {% else %}
-        <p class="empty-line">No tienes seguimientos pendientes. Cuando alguien pida platicar o te asignen uno, aparecerá aquí.</p>
+        {% include "core/rotulo/_titulo_lista.html" with id="pendientes" title="Seguimientos pendientes" url=follow_ups_url link="Ver todos" link_hidden=" los seguimientos" %}
+        <p class="empty-line">Sin seguimientos pendientes.</p>
       {% endif %}
-      <p class="more"><a href="{% url 'follow_up_list' %}">Ver todos los seguimientos</a></p>
+      {% if not ui_v2 %}<p class="more"><a href="{{ follow_ups_url }}">Ver todos los seguimientos</a></p>{% endif %}
     </section>
   </div>
 
@@ -87,19 +83,28 @@
       {% if participants %}
         <ul class="rows">
           {% for profile in participants %}
-            {% with progress=profile.progress_summary %}
-              <li class="row disc-person">
+            {% with progress=profile.progress_summary name=profile.user.get_full_name|default:profile.user.email %}
+              <li class="row row--lead disc-person">
+                {% if ui_v2 %}{% monogram name "sm" %}{% endif %}
                 <div class="row__main">
-                  <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ profile.user.get_full_name|default:profile.user.email }}</a></p>
-                  <p class="row__meta">Última actividad {{ profile.activity_ago }}, {% if progress.enrollment %}{{ progress.completed_lessons }} de {{ progress.total_lessons }} lecci{{ progress.total_lessons|pluralize:"ón,ones" }}{% else %}sin ruta{% endif %}.</p>
-                  {% if progress.enrollment %}{% ruler progress.completed_lessons 0 progress.total_lessons %}{% endif %}
+                  <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ name }}</a></p>
+                  {% if ui_v2 %}
+                    <ul class="meta">
+                      <li>{% icon "reloj" "sm" %}<span class="visually-hidden">Última actividad </span>{{ profile.activity_ago }}</li>
+                      {% if not progress.enrollment %}<li>Sin ruta</li>{% endif %}
+                    </ul>
+                    {% if progress.enrollment %}{% include "core/rotulo/_avance.html" with summary=progress %}{% endif %}
+                  {% else %}
+                    <p class="row__meta">Última actividad {{ profile.activity_ago }}, {% if progress.enrollment %}{{ progress.completed_lessons }} de {{ progress.total_lessons }} lecci{{ progress.total_lessons|pluralize:"ón,ones" }}{% else %}sin ruta{% endif %}.</p>
+                    {% if progress.enrollment %}{% ruler progress.completed_lessons 0 progress.total_lessons %}{% endif %}
+                  {% endif %}
                 </div>
               </li>
             {% endwith %}
           {% endfor %}
         </ul>
       {% else %}
-        <p class="empty-line">Todavía no tienes participantes asignados. Cuando la administración o un pastor te asigne participantes, aparecerán aquí.</p>
+        <p class="empty-line">Todavía no acompañas a nadie.</p>
       {% endif %}
     </section>
   </div>

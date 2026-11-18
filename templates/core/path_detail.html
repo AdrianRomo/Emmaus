@@ -1,42 +1,55 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}{{ path.title }}{% endblock %}
 {% block content %}
+{% comment %}
+  One path, for whoever writes it: its lessons in order. A lesson's title opens it to edit; its reflection
+  questions are folded under it, with the way to add one. The description is the path's own (the participant reads
+  it on "Mi camino"), so it is the one sentence under the title.
+{% endcomment %}
 {% url 'path_list' as back_url %}
 {% url 'lesson_create' path.id as lesson_url %}
 {% url 'path_edit' path.id as edit_url %}
 {% include "events/rotulo/_page_head.html" with title=path.title lede=path.description back_url=back_url back_label="Rutas de discipulado" action_url=lesson_url action_label="Agregar lección" secondary_url=edit_url secondary_label="Editar ruta" %}
-<p class="interview-meta">{% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %} <span>{% if path.is_default %}Ruta predeterminada{% else %}Ruta de discipulado{% endif %}{% if path.target_audience %}, para: {{ path.target_audience }}{% endif %}.</span></p>
+<p class="interview-meta">{% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %}{% if path.is_default %} <span>Predeterminada</span>{% endif %}{% if path.target_audience %} <span>Para: {{ path.target_audience }}</span>{% endif %}</p>
 
 {% with lessons=path.lessons.all %}
 <section class="disc-list path-lessons" aria-labelledby="lecciones">
-  <h2 id="lecciones" class="heading">Lecciones <span class="count">{{ lessons|length }}</span></h2>
   {% if lessons %}
+    <h2 id="lecciones" class="heading">Lecciones <span class="count">{{ lessons|length }}</span></h2>
     <ol class="rows">
       {% for lesson in lessons %}
-        <li class="row">
+        {% with count=lesson.reflection_questions.all|length %}
+        <li class="row row--stack">
           <div class="row__main">
-            <h3 class="row__title">Lección {{ lesson.order }}: {{ lesson.title }}</h3>
-            {% if lesson.scripture_references %}<p class="row__meta">{{ lesson.scripture_references }}</p>{% endif %}
-            {% if lesson.reflection_questions.all %}
-              <p class="path-lessons__label">Preguntas de reflexión</p>
-              <ol class="path-lessons__questions">
-                {% for question in lesson.reflection_questions.all %}<li>{{ question.question_text }}</li>{% endfor %}
-              </ol>
-            {% else %}
-              <p class="row__meta">Esta lección todavía no tiene preguntas de reflexión. Agrega preguntas que ayuden a reflexionar con honestidad, sin que se sienta como tarea.</p>
+            <h3 class="row__title"><a class="row__link" href="{% url 'lesson_edit' lesson.id %}">{{ lesson.order }}. {{ lesson.title }}</a></h3>
+            {% if lesson.scripture_references %}
+              {% if ui_v2 %}<ul class="meta"><li>{% icon "lectura" "sm" %}{{ lesson.scripture_references }}</li></ul>{% else %}<p class="row__meta">{{ lesson.scripture_references }}</p>{% endif %}
             {% endif %}
-            <p class="path-lessons__actions">
-              <a class="btn btn--secondary btn--small" href="{% url 'lesson_edit' lesson.id %}">Editar lección<span class="visually-hidden"> {{ lesson.order }}, {{ lesson.title }}</span></a>
-              <a class="btn btn--link btn--small" href="{% url 'reflection_question_create' lesson.id %}">Agregar pregunta<span class="visually-hidden"> a la lección {{ lesson.order }}, {{ lesson.title }}</span></a>
-            </p>
+            {% if count %}
+              <details class="fold fold--inline">
+                <summary>{{ count }} pregunta{{ count|pluralize }} de reflexión</summary>
+                <ol class="path-lessons__questions">
+                  {% for question in lesson.reflection_questions.all %}<li>{{ question.question_text }}</li>{% endfor %}
+                </ol>
+                <p class="path-lessons__actions"><a class="btn btn--secondary btn--small" href="{% url 'reflection_question_create' lesson.id %}">Agregar pregunta<span class="visually-hidden"> a la lección {{ lesson.order }}, {{ lesson.title }}</span></a></p>
+              </details>
+            {% else %}
+              <p class="row__meta path-lessons__none">Sin preguntas de reflexión. <a href="{% url 'reflection_question_create' lesson.id %}">Agregar pregunta<span class="visually-hidden"> a la lección {{ lesson.order }}, {{ lesson.title }}</span></a></p>
+            {% endif %}
           </div>
-          {% if lesson.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %}
+          <div class="row__end">{% if lesson.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %}</div>
         </li>
+        {% endwith %}
       {% endfor %}
     </ol>
   {% else %}
-    <p class="empty-line">Esta ruta todavía no tiene lecciones. Las lecciones dan a los participantes un siguiente paso claro. <a href="{{ lesson_url }}">Agrega la primera lección</a>.</p>
+    <h2 id="lecciones" class="visually-hidden">Lecciones</h2>
+    {% if ui_v2 %}
+      {% include "partials/ui/empty.html" with title="Sin lecciones todavía" action_url=lesson_url action_label="Agregar lección" %}
+    {% else %}
+      <p class="empty-line">Sin lecciones todavía. <a href="{{ lesson_url }}">Agrega la primera lección</a>.</p>
+    {% endif %}
   {% endif %}
 </section>
 {% endwith %}
