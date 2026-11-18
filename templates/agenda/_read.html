@@ -1,0 +1,38 @@
+{% load shell %}{% comment %}
+  What is read about an event besides its facts, the same for a person of the church (detail.html) and for anybody
+  with the address (public.html): the programme by day, each moment with its hour drawn, and the frequent
+  questions, each one folded under its question. Needs: event, schedule (days with their moments), faqs.
+{% endcomment %}
+{% if schedule %}
+<section class="block" aria-labelledby="programa">
+  <h2 id="programa" class="heading">Programa</h2>
+  {% for day, items in schedule %}
+    {% if schedule|length > 1 or event.ends_on and event.ends_on != event.starts_on %}<h3 class="day-label">{{ day|date:"l j \\d\\e F"|lower|capfirst }}</h3>{% endif %}
+    <ul class="rows programa">
+      {% for item in items %}
+        <li class="row row--lead">
+          <span class="hora">{{ item.starts_at|time:"H:i" }}</span>
+          <div class="row__main">
+            <p class="row__title">{{ item.title }}</p>
+            {% include "agenda/_schedule_when.html" %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if faqs %}
+<section class="block" aria-labelledby="preguntas">
+  <h2 id="preguntas" class="heading">Preguntas frecuentes</h2>
+  <div class="faq">
+    {% for item in faqs %}
+      <details class="fold">
+        <summary>{{ item.question }}</summary>
+        <p class="faq__answer">{{ item.answer|linebreaksbr }}</p>
+      </details>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

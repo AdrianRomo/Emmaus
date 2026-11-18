@@ -88,6 +88,7 @@ def event_list(request):
         {
             "mine": [event for event in events if event.my_place or event.my_wait],
             "coming": [event for event in events if not (event.my_place or event.my_wait)],
+            "today": timezone.localdate(),  # the day that is drawn filled
         },
     )
 
@@ -150,7 +151,7 @@ def accept_offer(request, slug: str):
         what_next = services.AGE_NEXT if registration.waits_for == AGE else services.PENDING_NEXT
         messages.info(request, f"Aceptaste tu lugar en {event.name}. {what_next}")
     else:
-        messages.success(request, f"Listo. Aceptaste tu lugar: te inscribiste a {event.name}.")
+        messages.success(request, f"Aceptaste tu lugar en {event.name}.")
     return redirect("agenda:detail", event.slug)
 
 
@@ -220,7 +221,7 @@ def register(request, slug: str):
         what_next = services.AGE_NEXT if registration.waits_for == AGE else services.PENDING_NEXT
         messages.info(request, f"Recibimos tu inscripción a {event.name}. {what_next}")
     else:
-        messages.success(request, f"Listo. Te inscribiste a {event.name}. Tu iglesia ya sabe que quieres ir.")
+        messages.success(request, f"Te inscribiste a {event.name}.")
     return redirect("agenda:detail", event.slug)
 
 
@@ -267,7 +268,14 @@ def admin_list(request):
     for event in events:
         event.published = getattr(event, "page", None) is not None and event.page.published
         event.ended = event.starts_on is not None and services.has_ended(event)
-    return render(request, "agenda/admin_list.html", {"events": events})
+    # Two lists on the screen: what is coming, the nearest first (an event without a day at the end), and what
+    # already happened, the most recent first.
+    dated = sorted((event for event in events if event.starts_on and not event.ended), key=lambda event: (event.starts_on, event.pk))
+    upcoming = dated + [event for event in events if event.starts_on is None]
+    return render(
+        request, "agenda/admin_list.html",
+        {"events": events, "upcoming": upcoming, "past": [event for event in events if event.ended], "today": timezone.localdate()},
+    )
 
 
 @church_admin_view
@@ -287,7 +295,7 @@ def page_edit(request, slug: str):
             if saved.published and not was_published:
                 messages.success(request, f"Publicaste {event.name} para la iglesia.")
             else:
-                messages.success(request, "Guardamos la página del evento.")
+                messages.success(request, "Guardado.")
             return redirect("agenda:admin_list")
     return render(
         request,
@@ -362,6 +370,8 @@ def registrations(request, slug: str):
             "listed": services.waiting_rows(event),
             # Why the list does not move right now, for the line at the top and the note of the list.
             "list_block": services.list_block(event, EventPage.objects.filter(event=event).first()),
+            # The places in use, for the bar: who is in, who waits for a confirmation and an offered place.
+            "taken": services.taken(event),
             "cancelled": EventRegistration.objects.filter(
                 event=event, status=EventRegistration.Status.CANCELLED, annulled_reason="", waiting_outcome=""
             ).count(),
@@ -513,7 +523,7 @@ def guest_age(request, slug: str, registration_id: int):
             form.add_error(None, error.message)
         else:
             if registration.is_active:
-                messages.success(request, f"Listo. El registro de {registration.display_name} quedó confirmado.")
+                messages.success(request, f"El registro de {registration.display_name} quedó confirmado.")
             else:
                 messages.info(
                     request,
@@ -614,7 +624,7 @@ def guest_promote(request, slug: str, registration_id: int):
             # The second half of receiving a visitor: offer, once, that somebody walks with them.
             return redirect("agenda:visit_follow_up", event.slug, registration.pk)
         else:
-            messages.success(request, f"Listo. Esta inscripción ahora es de {person.full_name}.")
+            messages.success(request, f"Esta inscripción ahora es de {person.full_name}.")
         return redirect(_back_to_list(event))
     return render(
         request,
@@ -645,7 +655,7 @@ def visit_follow_up(request, slug: str, registration_id: int):
             messages.error(request, error.message)
             return redirect(back)
         if created:
-            messages.success(request, f"Listo. Pediste que alguien acompañe a {name}. Todavía no tiene responsable: elígelo en el seguimiento.")
+            messages.success(request, f"Pediste que alguien acompañe a {name}. Todavía no tiene responsable: elígelo en el seguimiento.")
         else:
             messages.info(request, f"Ya hay un seguimiento abierto de {name}. No se creó otro.")
         return redirect("care:detail", follow_up.pk)
@@ -682,12 +692,12 @@ def faq_edit(request, slug: str, faq_id: int):
     if request.method == "POST" and form.is_valid():
         # The form validates; the service writes (``item`` is re-read so the form's assignment is not what is saved).
         services.save_faq(event, request.user, EventFaq.objects.get(pk=item.pk), **form.cleaned_data)
-        messages.success(request, "Guardamos la pregunta.")
+        messages.success(request, "Guardado.")
         return redirect("agenda:faq", event.slug)
     return render(
         request,
         "agenda/item_form.html",
-        {"event": event, "form": form, "title": "Editar la pregunta", "back": reverse("agenda:faq", args=[event.slug]),
+        {"event": event, "form": form, "title": "Editar pregunta", "back": reverse("agenda:faq", args=[event.slug]),
          "back_label": "Volver a las preguntas", "delete_url": reverse("agenda:faq_delete", args=[event.slug, item.pk]),
          "delete_label": "Borrar esta pregunta"},
     )
@@ -739,12 +749,12 @@ def schedule_edit(request, slug: str, item_id: int):
         except services.AgendaError as error:
             form.add_error(None, error.message)
         else:
-            messages.success(request, "Guardamos el programa.")
+            messages.success(request, "Guardado.")
             return redirect("agenda:schedule", event.slug)
     return render(
         request,
         "agenda/item_form.html",
-        {"event": event, "form": form, "title": "Editar el momento del programa",
+        {"event": event, "form": form, "title": "Editar momento",
          "back": reverse("agenda:schedule", args=[event.slug]), "back_label": "Volver al programa",
          "delete_url": reverse("agenda:schedule_delete", args=[event.slug, item.pk]), "delete_label": "Quitar del programa"},
     )
