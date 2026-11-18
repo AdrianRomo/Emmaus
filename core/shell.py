@@ -145,7 +145,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
         admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional", view in RESOURCE_ADMIN_VIEWS))
-        admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list"}))
+        admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"}))
         admin_urls = {item["url"] for item in admin}
 
     module = [

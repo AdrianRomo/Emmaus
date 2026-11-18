@@ -380,7 +380,13 @@ def church_settings(request):
         return redirect("church_settings")
     # The previews show what is saved: a rejected upload already sits on the form's instance.
     logo_church = Church.objects.get(pk=church.pk) if form.is_bound else church
-    return render(request, "core/church_settings.html", {"form": form, "logo_church": logo_church})
+    # "Políticas de la iglesia" exists only while the church uses the community module (decision 0004).
+    from people.flags import enabled
+
+    policies_url = reverse("church_policies") if enabled(church, "community") else ""
+    return render(
+        request, "core/church_settings.html", {"form": form, "logo_church": logo_church, "policies_url": policies_url}
+    )
 
 
 def ensure_participant_enrolled(user: User):

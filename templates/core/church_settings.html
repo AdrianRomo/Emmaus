@@ -69,6 +69,11 @@
     <div class="step__actions">
       <button class="btn btn--primary" type="submit">Guardar cambios</button>
     </div>
-  </form>
+  </form>{% if policies_url %}
+  <section class="block" aria-labelledby="politicas">
+    <h2 id="politicas" class="heading">Políticas de la iglesia</h2>
+    <p>Lo que tu iglesia decide sobre la privacidad de los totales, las opiniones, los avisos urgentes, los menores de edad y la asistencia.</p>
+    <p class="more"><a href="{{ policies_url }}">Ver las políticas de la iglesia</a></p>
+  </section>{% endif %}
 </div>
 {% endblock %}
