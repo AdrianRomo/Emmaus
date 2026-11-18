@@ -16,7 +16,7 @@ from ..models import Event, InterviewStation
 from ..services import audit
 from ..services.event_questionnaires import use_version
 from ..services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, create_questionnaire_from_definition
-from .common import COORDINATOR, EVERYONE, event_view, remember_station, role_home_url, safe_next
+from .common import EVERYONE, event_view, remember_station, role_home_url, safe_next
 
 
 @login_required
@@ -90,4 +90,6 @@ def choose_station(request, event, access):
         remember_station(request, event, form.cleaned_data["station"])
         messages.success(request, f"Esta computadora quedó registrada como {form.cleaned_data['station'].name}.")
         return redirect(next_url)
-    return render(request, "events/choose_station.html", {"form": form, "next_url": next_url, "shell": "bar" if access.role == COORDINATOR else "rail"})
+    # No "shell" key here: the name is the redesigned shell's (core.context_processors), and a string in its place
+    # drew an empty rail on this page, also for a church that keeps Atrio's bar.
+    return render(request, "events/choose_station.html", {"form": form, "next_url": next_url})

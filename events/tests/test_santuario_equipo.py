@@ -77,6 +77,23 @@ class TeamScreensInTheShellTests(CampFixture):
                     self.assertNotContains(response, '<header class="bar')
                     self.assertEqual(len(re.findall(r"<h1\b", main_of(response))), 1)
 
+    def test_the_station_page_keeps_the_navigation_of_whoever_opens_it(self):
+        """Defect: the view passed its own "shell" (a leftover string), which replaced the redesigned shell's data:
+        the rail was drawn empty, and a church with the module off got that empty rail instead of Atrio's bar."""
+        self.client.force_login(self.coord1)
+        page = self.client.get(self.url("choose_station")).content.decode()
+        rail = page[page.index('<header class="rail rail--event">'):page.index("</header>")]
+        self.assertIn('<span class="rail__text">Mis camperos</span>', rail)
+        self.assertIn("Tu rol: coordinador.", rail)
+        self.assertIn("Carla Uno", rail)
+        flags.set_enabled(self.church, "community", False)
+        page = self.client.get(self.url("choose_station"))
+        self.assertContains(page, '<header class="bar')
+        self.assertNotContains(page, 'class="rail')
+        self.assertNotContains(page, "page--app")
+        self.client.force_login(self.coord2)  # an event role and no person: Atrio too
+        self.assertContains(self.client.get(self.url("choose_station")), '<header class="bar')
+
     def test_the_live_fragments_answer_too(self):
         for user, name in ((self.coord1, "coord_home"), (self.coord1, "coord_progress"), (self.tutor1, "tutor_home"), (self.pastor, "pastor_home"), (self.pastor, "progress")):
             self.client.force_login(user)
