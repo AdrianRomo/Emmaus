@@ -129,3 +129,29 @@ def tel(value: str) -> str:
     text = str(value or "").strip()
     digits = re.sub(r"\D", "", text)
     return ("+" if text.startswith("+") else "") + digits
+
+
+def sky_of(hour) -> str:
+    """The light of a gathering's hour, for its arch: the sky means time of day, nothing else. ``hour`` is a time
+    (or None: a gathering without an hour gets a quiet stone)."""
+    if hour is None:
+        return "sin-hora"
+    h = hour.hour
+    if h < 11:
+        return "manana"
+    if h < 14:
+        return "mediodia"
+    if h < 18:
+        return "tarde"
+    if h < 20:
+        return "atardecer"
+    return "noche"
+
+
+@register.simple_tag
+def event_arch(hour=None, size=""):
+    """The arch of a gathering (santuario.css, "People and gatherings"): the sky of its hour. Decorative
+    (``aria-hidden``): the hour and the title are written beside it. ``size``: "" (48px), "sm" (40px), "lg" (56px).
+    When the church can upload a photo of the gathering, it goes inside the arch instead of the sky."""
+    css = f"arco arco--{size}" if size else "arco"
+    return format_html('<span class="{}" aria-hidden="true"><span class="cielo luz-{}"></span></span>', css, sky_of(hour))

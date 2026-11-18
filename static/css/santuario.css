@@ -1,897 +1,824 @@
 /* ==========================================================================
-   Emmaus · "Santuario", second edition (docs/v2/DESIGN_SYSTEM.md)
+   Emmaus · "Ventanas" (docs/v2/DESIGN_SYSTEM.md, docs/v2/CRAFT.md)
    --------------------------------------------------------------------------
-   One rule above the others: a screen is understood without reading it.
-   A title that names the place, one filled action, and the content drawn as
-   things (a day, a person, a state), not explained in sentences.
+   One quiet system. Open rows on a light ground; only what needs this person
+   now is raised. A gathering appears in a small arch that holds the church's
+   photo or, without one, the sky of its hour. A person is a circle, an action
+   a capsule, a field a rounded rectangle.
 
-   The place it comes from is the same as Atrio's: the white of lime, the grey
-   of cantera stone, petróleo for action, chile for risk, the arch of the door
-   for a person or a group. Two colours are added for state only: nopal for
-   what is done, ámbar for what waits. Nothing has a shadow and nothing has a
-   gradient: depth is a layer of colour and a hairline.
+   Every colour maps to a token: tinta (text, done), tinta-2 (metadata,
+   outlines), cal (ground), blanco (raised, fields), tinte (actions and
+   selection: the church's colour), vela (attention: unanswered, undecided,
+   important), chile (risk and errors only). Art and marks are mixed from them.
 
-   Loaded after rotulo.css, and only for a church that uses the new modules
-   (templates/layout/skeleton.html, <html data-ui="2">). It removes nothing:
-   every Atrio class keeps working under it.
-   Breakpoints are Atrio's: 600px, 760px (the rail becomes tabs), 900px, 1100px.
+   Loaded after rotulo.css and only for a church that uses the new modules
+   (templates/layout/skeleton.html, <html data-ui="2">). It restyles Atrio's
+   classes and removes none.
+   Breakpoints: 600px, 760px (the rail becomes tabs), 1100px, 1280px.
 
-   1 Tokens · 2 Type · 3 Shell · 4 Page · 5 Buttons · 6 Forms · 7 Surfaces
-   8 State · 9 Lists · 10 Data · 11 Feedback · 12 Screens · 13 Doors
-   14 Motion · 15 Preferences and print
+   1 Faces · 2 Tokens · 3 Base · 4 Shell · 5 Page · 6 Buttons · 7 Forms
+   8 Surfaces · 9 Rows · 10 People and gatherings · 11 State · 12 Data
+   13 Feedback · 14 Screens · 15 Motion · 16 Preferences and print
    ========================================================================== */
 
-/* Newsreader (OFL, static/fonts/OFL-Newsreader.txt): the optical size fixed at 36, weights 400 to 600, a
-   199-character latin subset, 35 KB. Only titles use it, so it is not preloaded: a title may arrive in the
-   fallback and settle, the text never waits for it. */
+/* ---------- 1. Faces ------------------------------------------------------ */
+/* Mona Sans (OFL, static/fonts/OFL-MonaSans.txt): widths 98-112 %, weights 400-700, latin subset, 66 KB. Width is the
+   hierarchy: titles wide, interface normal. Source Serif 4 italic (OFL): one weight, for a verse only, 16 KB. */
 @font-face {
-  font-family: "Newsreader";
-  src: url("../fonts/newsreader-display-latin.woff2") format("woff2");
-  font-weight: 400 600;
-  font-style: normal;
-  font-display: swap;
-  unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026;
-}
-
-/* Instrument Sans (OFL, static/fonts/OFL-InstrumentSans.txt): the one family of the product inside the shell and at
-   the door. Weights 400 to 700, widths 88 to 100, a latin subset, 60 KB. */
-@font-face {
-  font-family: "Instrument Sans";
-  src: url("../fonts/instrument-sans-latin.woff2") format("woff2");
+  font-family: "Mona Sans";
+  src: url("../fonts/mona-sans-latin.woff2") format("woff2");
   font-weight: 400 700;
-  font-stretch: 88% 100%;
+  font-stretch: 98% 112%;
   font-style: normal;
   font-display: swap;
 }
+@font-face {
+  font-family: "Source Serif 4";
+  src: url("../fonts/source-serif-italic-latin.woff2") format("woff2");
+  font-weight: 440;
+  font-style: italic;
+  font-display: swap;
+}
 
-/* ---------- 1. Tokens ---------------------------------------------------- */
-/* The same specificity as the church's own colours (skeleton.html writes them after this sheet, so they win) */
+/* ---------- 2. Tokens ----------------------------------------------------- */
+/* The same specificity as the church's own colours (skeleton.html writes --petroleo, --mark, --page, --surface,
+   --ink, --ink-3 and --line after this sheet, so they win). Every derived value is mixed from those. */
 :root[data-ui="2"] {
-  --page: #fbfaf8;           /* cal: limewash, barely warm. Ink on it 15.6:1 */
-  --surface: #ffffff;
-  --hundido: #f3f1ed;        /* cantera: the stone of the atrium, for what is quiet. --ink-3 on it 5.1:1 */
-  --line: #e9e6e0;
-  --noche: #0f3640;          /* the one filled panel of a home, and what floats over the page; white on it 12.9:1 */
-  --noche-2: #c9dde1;        /* secondary text on noche, 9.2:1 */
-  --nopal: #24693f;          /* done, confirmed; 6.6:1 on white, 5.7:1 on its tint */
-  --nopal-tint: #e4f1e7;
-  --ambar: #7d4b00;          /* waits for somebody; 7.0:1 on white, 6.1:1 on its tint */
-  --ambar-tint: #faefd8;
-  /* Tints follow the church's own colour when it has one */
-  --petroleo-tint: color-mix(in srgb, var(--petroleo) 11%, #ffffff);
-  --hover: color-mix(in srgb, var(--hundido) 60%, var(--surface));
-  --line-control: color-mix(in srgb, var(--ink) 24%, var(--surface));
+  --ink: #1b2140;            /* tinta: text, done. 15.0:1 on --page */
+  --ink-2: #5d6173;          /* tinta-2: metadata, outlines. 5.7:1 on --page, 5.9:1 on white */
+  --ink-3: #5d6173;          /* no lighter text exists */
+  --page: #f7f6f4;           /* cal */
+  --surface: #ffffff;        /* blanco: raised, fields */
+  --petroleo: #a01f58;       /* tinte: actions and selection. 6.9:1 on white; white on it 6.9:1 */
+  --petroleo-hover: #8a1a4c;
+  --mark: var(--petroleo);
+  --ambar: #9c5208;          /* vela: attention. 5.6:1 on --ambar-tint, 5.9:1 on white */
+  --ambar-tint: #fbead2;
+  --chile: #b8321c;          /* risk and errors only */
+  --chile-tint: #fbe6e1;
+  --nopal: var(--ink);       /* "done" is ink: the system needs no green */
+  --nopal-tint: color-mix(in srgb, var(--ink) 7%, var(--surface));
 
-  --font-voz: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  --r-card: 14px;            /* a thing: a card, a list, a table */
-  --r-panel: 18px;           /* a place: the next step, a sheet */
-  --r-pill: 999px;
-  --rail-w: 16.5rem;
+  --hundido: color-mix(in srgb, var(--ink) 5%, var(--page));       /* the rail, a quiet field */
+  --petroleo-tint: color-mix(in srgb, var(--petroleo) 8%, var(--surface));
+  --line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --line-strong: color-mix(in srgb, var(--ink) 24%, transparent);
+  --line-control: color-mix(in srgb, var(--ink) 58%, var(--surface)); /* 3.8:1: a control's edge */
+  --fill: color-mix(in srgb, var(--ink) 6%, transparent);
+  --fill-2: color-mix(in srgb, var(--ink) 10%, transparent);
+  --hover: var(--surface);
+  --elevacion: 0 1px 2px rgb(27 33 64 / 0.06), 0 14px 34px -18px rgb(27 33 64 / 0.34);
+  --raya: repeating-linear-gradient(135deg, var(--petroleo) 0 2px, var(--petroleo-tint) 2px 4px); /* "in progress" */
+
+  --font-ui: "Mona Sans", "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-voz: var(--font-ui);
+  --font-verso: "Source Serif 4", Georgia, serif;
+
+  --r-control: 12px;         /* a field */
+  --r-card: 14px;            /* a row's hover, a notice */
+  --r-panel: 20px;           /* the raised surface, a sheet */
+  --r-pill: 999px;           /* an action, a filter, a mark */
+  --rail-w: 15.5rem;
   --tabs-h: 4rem;
-  --w-app: 70rem;
+  --lead: 3rem;              /* the leading column of every row: an avatar, an arch, a day, an icon */
   --dur-4: 420ms;
   --ease-out: cubic-bezier(.16, 1, .3, 1);
-
-  /* The sizes Atrio wrote by hand, as tokens, so the shell can tighten them */
-  --control-primary: 3.75rem;
-  --control-field: 3.5rem;
-  --t-field: var(--t-lead);
-
-  /* The closed family of small marks, drawn as masks so they take the colour of their text */
-  --i-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E");
-  --i-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
-  --i-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5M12 7.6v.1'/%3E%3C/svg%3E");
-  --i-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4l9 16H3z'/%3E%3Cpath d='M12 10v4.5M12 17.2v.1'/%3E%3C/svg%3E");
-  --i-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.25' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
-  --i-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M16 16l4.5 4.5'/%3E%3C/svg%3E");
-  --i-arch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 21V11a7 7 0 0 1 14 0v10'/%3E%3Cpath d='M3 21h18'/%3E%3C/svg%3E");
-}
-
-/* Inside the shell a person works: the type and the controls are a step tighter than at the door (sign-in, the
-   public pages) and in the campero's and the interview's screens, which keep Atrio's larger scale. */
-:root[data-ui="2"] body:has(> .rail) {
-  --t-caption: 0.875rem;     /* 14 */
-  --t-small: 0.9375rem;      /* 15 */
-  --t-body: 1.0625rem;       /* 17 */
-  --t-lead: 1.125rem;        /* 18 */
-  --t-h3: 1.1875rem;         /* 19 */
-  --t-h2: 1.375rem;          /* 22 */
-  --t-h1: 2.125rem;          /* 34 */
-  --t-display: 2.5rem;
-  --control: 2.75rem;        /* 44 */
-  --control-primary: 3rem;
+  --control-primary: 3.125rem;
   --control-field: 3rem;
   --t-field: 1.0625rem;
-  --w-focus: 40rem;
-  --font-ui: "Instrument Sans", "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-}
-/* The door (sign-in, the public pages) speaks in the same family; the campero's and the interview's screens keep
-   Figtree, which they were fitted to */
-:root[data-ui="2"] body:has(> .bar--public), :root[data-ui="2"] body:has(> .page--lead), :root[data-ui="2"] body:has(> .sitio) {
-  --font-ui: "Instrument Sans", "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-family: var(--font-ui);
+
+  /* Small marks drawn as masks, so they take the colour of their text */
+  --i-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E");
+  --i-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  --i-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5M12 7.6v.1'/%3E%3C/svg%3E");
+  --i-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4l9 16H3z'/%3E%3Cpath d='M12 10v4.5M12 17.2v.1'/%3E%3C/svg%3E");
+  --i-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
+  --i-search: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M16 16l4.5 4.5'/%3E%3C/svg%3E");
+  --i-arch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 21V11a7 7 0 0 1 14 0v10'/%3E%3Cpath d='M3 21h18'/%3E%3C/svg%3E");
 }
 
-/* ---------- 2. Type ------------------------------------------------------ */
-/* One serif line per screen: the title, what Emmaus says to a person. Everything a person reads to decide or to
-   act (section titles, labels, data, buttons) is Figtree. */
+/* The type scale: 13 caption · 15 meta · 17 body · 20 heading · 24 title (32 from 1100px) · 48 numeral.
+   Inside the shell and at the door. The interview's and the campero's screens keep Atrio's larger sizes (they are
+   read from a step away on a shared laptop) in the same family. */
+:root[data-ui="2"] {
+  --t-caption: 0.8125rem;
+  --t-small: 0.9375rem;
+  --t-body: 1.0625rem;
+  --t-lead: 1.0625rem;
+  --t-h3: 1.25rem;
+  --t-h2: 1.25rem;
+  --t-h1: 1.5rem;
+  --t-display: 2rem;
+  --control: 2.75rem;
+}
+:root[data-ui="2"] body:not(:has(> .rail)):has(.kiosk, .step, .question, .interview, .focusbar) {
+  --t-caption: 0.9375rem; --t-small: 1rem; --t-body: 1.125rem; --t-lead: 1.25rem; --t-h3: 1.375rem; --t-h2: 1.625rem;
+  --t-h1: 2.75rem; --t-display: 2.75rem; --control: 3rem; --control-primary: 3.75rem; --control-field: 3.5rem; --t-field: 1.25rem;
+}
+@media (min-width: 1100px) {
+  :root[data-ui="2"] { --t-h1: 2rem; }
+}
+
+/* ---------- 3. Base ------------------------------------------------------- */
+:root[data-ui="2"] body { font-family: var(--font-ui); font-weight: 430; line-height: 1.45; }
 .voice, .sign__title, .confirm__title {
-  font-family: var(--font-ui); font-weight: 650; letter-spacing: -0.018em; word-spacing: 0.06em;
+  font-family: var(--font-ui); font-weight: 700; font-stretch: 110%; letter-spacing: -0.02em;
 }
-/* The serif is kept for what is read slowly: the title of a devotional, a day of a reading plan */
-.lectura__title { font-family: var(--font-voz); font-weight: 500; letter-spacing: -0.01em; font-stretch: normal; }
-.page-head__title { line-height: 1.08; }
 /* The projector's deck was fitted to Figtree 800, glyph by glyph: it keeps it */
-.deck .voice, .deck .sign__title { font-family: "Figtree", system-ui, sans-serif; font-weight: 800; letter-spacing: normal; font-stretch: normal; }
+.deck, .deck .voice, .deck .sign__title { font-family: "Figtree", system-ui, sans-serif; font-weight: 800; font-stretch: normal; letter-spacing: normal; }
+.verso { font-family: var(--font-verso); font-style: italic; font-weight: 440; font-size: 1.25rem; line-height: 1.4; color: var(--ink); text-wrap: pretty; }
+:root[data-ui="2"] strong, :root[data-ui="2"] b { font-weight: 650; }
 .icon { flex: none; width: 1.5rem; height: 1.5rem; }
-.icon--sm { width: 1.125rem; height: 1.125rem; }
+.icon--sm { width: 1.25rem; height: 1.25rem; stroke-width: 2.1; }
+:root[data-ui="2"] .muted { color: var(--ink-2); }
+:root[data-ui="2"] .optional { color: var(--ink-2); }
+/* Numbers that are compared line up; prose numbers do not */
+.num, .figures__value, .badge, .count, .date-block__day, td.num { font-variant-numeric: tabular-nums; }
 
-/* ---------- 3. The shell ------------------------------------------------- */
-body:has(> .rail) {
-  display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: start;
-}
+/* ---------- 4. Shell ------------------------------------------------------ */
+body:has(> .rail) { display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: start; }
 .rail {
-  grid-column: 1; grid-row: 1;
-  position: sticky; top: 0; height: 100vh; height: 100dvh;
-  display: flex; flex-direction: column; gap: var(--s-4);
-  padding: var(--s-5) var(--s-3) var(--s-3);
-  background: var(--hundido); border-right: 1px solid var(--line);
+  grid-column: 1; grid-row: 1; position: sticky; top: 0; height: 100vh; height: 100dvh;
+  display: flex; flex-direction: column; gap: var(--s-5); padding: var(--s-6) var(--s-3) var(--s-4);
+  background: var(--hundido); border-right: 0;
+  view-transition-name: marco;
 }
 body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .rail__brand { padding: 0 var(--s-3); }
-.rail__church { margin-top: var(--s-1); font-size: var(--t-caption); color: var(--ink-2); line-height: 1.3; }
-/* With the logo drawn, the name under it would say the same thing twice */
+.rail__brand .wordmark, .rail__brand .brand { font-size: var(--t-h3); font-weight: 720; font-stretch: 112%; letter-spacing: -0.02em; }
+.rail__church { margin-top: 0.125rem; font-size: var(--t-small); color: var(--ink-2); line-height: 1.3; }
 .rail__brand:has(.brand) .rail__church { display: none; }
-/* The places scroll between the church and the person: neither ever leaves the screen */
 .rail__nav {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
-  display: flex; flex-direction: column; gap: var(--s-4); margin-inline: calc(-1 * var(--s-1)); padding-inline: var(--s-1);
+  display: flex; flex-direction: column; gap: var(--s-5); margin-inline: calc(-1 * var(--s-1)); padding-inline: var(--s-1);
 }
 .rail ul, .tabs ul, .menu-panel__list { list-style: none; }
-.rail__label {
-  padding: 0 var(--s-3) var(--s-1); font-size: var(--t-caption); font-weight: 700; color: var(--ink-3);
-}
+.rail__label { padding: 0 var(--s-3) var(--s-1); font-size: var(--t-small); font-weight: 650; color: var(--ink-2); }
 .rail__link {
-  display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 2.75rem;
-  padding: var(--s-2) var(--s-3); border: 0; border-radius: var(--r-control);
-  background: none; color: var(--ink-2); font: inherit; font-size: var(--t-small); font-weight: 500; line-height: 1.25;
-  text-align: left; text-decoration: none; cursor: pointer;
-  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), outline-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
-}
-.rail__link .icon { width: 1.375rem; height: 1.375rem; color: var(--ink-3); transition: color var(--dur-1) var(--ease); }
-.rail__link:hover { background: color-mix(in srgb, var(--surface) 65%, transparent); color: var(--ink); }
-.rail__link:hover .icon { color: var(--ink-2); }
-.rail__link:focus-visible, .rail__who:focus-visible { outline-offset: -3px; }
-.rail__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-/* "Estás aquí": the place is lifted to white and marked in the church's colour */
-.rail__link[aria-current="page"] {
-  background: var(--surface); color: var(--ink); font-weight: 700; box-shadow: inset 3px 0 0 var(--mark);
-}
-.rail__link[aria-current="page"] .icon { color: var(--mark); }
-.rail__foot { flex: none; padding-top: var(--s-2); border-top: 1px solid var(--line); }
-.rail__who {
-  display: flex; align-items: center; gap: var(--s-3); min-height: 3.5rem; padding: var(--s-2) var(--s-3);
-  border-radius: var(--r-control); color: var(--ink); text-decoration: none;
+  display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 2.75rem; padding: 0 var(--s-3);
+  border: 0; border-radius: var(--r-control); background: none; color: var(--ink); font: inherit;
+  font-size: var(--t-small); font-weight: 540; line-height: 1.25; text-align: left; text-decoration: none; cursor: pointer;
   transition: background-color var(--dur-1) var(--ease);
 }
-.rail__who:hover, .rail__who[aria-current="page"] { background: var(--surface); }
-.rail__who-text { display: grid; min-width: 0; line-height: 1.25; }
-.rail__who-name { font-size: var(--t-small); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail__link .icon { width: 1.375rem; height: 1.375rem; color: var(--ink-2); }
+.rail__link:hover { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.rail__link:active { background: var(--fill-2); }
+.rail__link:focus-visible, .rail__who:focus-visible { outline-offset: -3px; }
+.rail__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.rail__link[aria-current="page"] { background: var(--surface); font-weight: 650; box-shadow: none; }
+.rail__link[aria-current="page"] .icon { color: var(--mark); }
+.rail__foot { flex: none; padding-top: var(--s-2); border-top: 1px solid var(--line); }
+.rail__who { display: flex; align-items: center; gap: var(--s-3); min-height: 3.5rem; padding: var(--s-2) var(--s-3); border-radius: var(--r-card); color: var(--ink); text-decoration: none; }
+.rail__who:hover, .rail__who[aria-current="page"] { background: color-mix(in srgb, var(--surface) 60%, transparent); }
+.rail__who-text { display: grid; min-width: 0; line-height: 1.3; }
+.rail__who-name { font-size: var(--t-small); font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail__who-role { font-size: var(--t-caption); color: var(--ink-2); }
-/* "Ayuda" and "Cerrar sesión" share a line: the foot is two rows, whatever the role */
 .rail__quiet { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--s-1); }
 .rail__quiet form { margin: 0; }
-.rail__quiet .rail__link { gap: var(--s-2); padding-inline: var(--s-2); font-size: var(--t-caption); }
+.rail__quiet .rail__link { gap: var(--s-2); padding-inline: var(--s-2); font-size: var(--t-caption); color: var(--ink-2); }
 .rail__quiet .rail__link .icon { width: 1.25rem; height: 1.25rem; }
 .rail__account { display: none; }
+.rail__role { padding: 0 var(--s-3) var(--s-2); font-size: var(--t-small); color: var(--ink-2); line-height: 1.35; }
+.rail__section--event { padding: var(--s-3) 0 var(--s-2); border-block: 1px solid var(--line); }
+.rail__section--event .rail__label { color: var(--ink); font-size: var(--t-small); }
 
-/* A count that waits for the person: the only filled circle of the system */
+/* A count that waits for this person: a neutral capsule. Colour is kept for what blocks. */
 .badge {
-  flex: none; display: inline-grid; place-items: center; min-width: 1.375rem; height: 1.375rem; padding: 0 0.375rem;
-  border-radius: var(--r-pill); background: var(--petroleo); color: #ffffff;
-  font-size: 0.8125rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+  flex: none; display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.375rem; padding: 0 0.4375rem;
+  border-radius: var(--r-pill); background: var(--fill-2); color: var(--ink);
+  font-size: var(--t-caption); font-weight: 700; line-height: 1;
 }
 
-/* Between two pages the rail and the tabs stay where they are; only the page changes (rotulo.css §13, rule 1) */
-.rail { view-transition-name: marco; }
 .tabs { display: none; view-transition-name: accesos; }
 .page--app {
-  /* One measure for every page, centred in what the rail leaves: every page starts on the same line */
-  width: 100%; max-width: var(--w-app); margin-inline: auto;
-  padding: var(--s-10) clamp(1.5rem, 4vw, 3.5rem) var(--s-20);
+  width: 100%; max-width: 46rem; margin-inline: auto;
+  padding: var(--s-10) clamp(1.25rem, 4vw, 3rem) var(--s-20);
   container-type: inline-size;
 }
-.page--app-wide { max-width: 88rem; }
-.page--app > .narrow { margin-inline: 0; }
+.page--app-wide, .page--app:has(> .cols, > .tablero, > .hoy--ancho) { max-width: 72rem; }
+.page--app > .narrow { margin-inline: 0; max-width: none; }
 
-/* "Más": every place, as a sheet of grouped lists */
+/* "Más": every place, as grouped rows on the ground */
 .menu-panel--sections { background: var(--page); }
 .menu-panel--sections .rail__label { margin-top: var(--s-5); padding-inline: var(--s-1); }
-.menu-panel--sections .menu-panel__list {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden;
-}
-.menu-panel--sections .rail__link {
-  min-height: 3.25rem; padding-inline: var(--s-4); font-size: var(--t-body); color: var(--ink);
-  border-bottom: 1px solid var(--line); border-radius: 0;
-}
-.menu-panel--sections li:last-child .rail__link { border-bottom: 0; }
-.menu-panel--sections .rail__link[aria-current="page"] { background: var(--petroleo-tint); box-shadow: none; }
+.menu-panel--sections .menu-panel__list { border-top: 1px solid var(--line); }
+.menu-panel--sections .rail__link { min-height: 3.25rem; padding-inline: var(--s-1); font-size: var(--t-body); border-bottom: 1px solid var(--line); border-radius: 0; }
+.menu-panel--sections .rail__link[aria-current="page"] { background: none; color: var(--mark); }
 .menu-panel--sections .rail__link:focus-visible { outline-offset: -3px; }
 
 @media (max-width: 1100px) {
-  :root[data-ui="2"] { --rail-w: 14.5rem; }
+  :root[data-ui="2"] { --rail-w: 14rem; }
   .rail__quiet { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 @media (max-width: 760px) {
   body:has(> .rail) { display: block; }
   .rail {
     position: static; height: auto; flex-direction: row; align-items: center; justify-content: space-between;
-    gap: var(--s-4); padding: var(--s-2) var(--s-4); min-height: 3.5rem;
-    background: var(--surface); border-right: 0; border-bottom: 1px solid var(--line);
+    gap: var(--s-4); padding: var(--s-2) var(--s-4); min-height: 3.5rem; background: var(--page);
   }
   .rail__brand { padding: 0; min-width: 0; }
-  .rail__church { display: none; }
-  .rail__nav, .rail__foot { display: none; }
+  .rail__church, .rail__nav, .rail__foot { display: none; }
   .rail__account { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; text-decoration: none; }
+  /* Solid, never see-through: nothing shows behind the tabs */
   .tabs {
-    display: block; position: fixed; inset: auto 0 0 0; z-index: 40;
-    background: var(--surface); border-top: 1px solid var(--line);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    display: block; position: fixed; inset: auto 0 0 0; z-index: 40; background: var(--page);
+    border-top: 1px solid var(--line); padding: 0.375rem 0.5rem env(safe-area-inset-bottom, 0px);
   }
   .tabs ul { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   .tabs__item {
-    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1875rem;
-    width: 100%; height: var(--tabs-h); padding: var(--s-1); border: 0; background: none;
-    color: var(--ink-2); font: inherit; font-size: 0.8125rem; font-weight: 500; line-height: 1.15;
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem;
+    width: 100%; min-height: 3.25rem; padding: 0.25rem; border: 0; border-radius: var(--r-control); background: none;
+    color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 560; line-height: 1.2;
     text-align: center; text-decoration: none; cursor: pointer;
   }
-  /* The place a person is in: its mark sits on a tinted pill, as on the phone they already know */
-  .tabs__item .icon { box-sizing: content-box; padding: 0.125rem 0.875rem; border-radius: var(--r-pill); transition: background-color var(--dur-2) var(--ease), color var(--dur-1) var(--ease); }
-  .tabs__item[aria-current="page"] { color: var(--ink); font-weight: 700; }
-  .tabs__item[aria-current="page"] .icon { background: var(--petroleo-tint); color: var(--mark); }
-  .tabs__item--text[aria-current="page"] { box-shadow: inset 0 3px 0 var(--mark); }
+  .tabs__item:active { background: var(--fill); }
+  .tabs__item[aria-current="page"] { color: var(--mark); font-weight: 650; }
+  .tabs__item[aria-current="page"] .icon { color: var(--mark); }
   .tabs__item:focus-visible { outline-offset: -3px; }
-  .tabs__item .badge { position: absolute; top: 0.375rem; left: calc(50% + 0.625rem); }
-  .page--app { padding: var(--s-5) var(--s-4) calc(var(--tabs-h) + var(--s-12) + env(safe-area-inset-bottom, 0px)); }
+  .tabs__item .badge { position: absolute; top: 0.125rem; left: calc(50% + 0.375rem); box-shadow: 0 0 0 2px var(--page); }
+  .page--app { padding: var(--s-3) var(--s-4) calc(var(--tabs-h) + var(--s-10) + env(safe-area-inset-bottom, 0px)); }
 }
-/* Inside an event the pages are the camp's: tables and two-column reports that need the window's width. So an
-   event keeps the rail only from 1101px; under it, the top bar and the tabs, as on a phone. */
+/* Inside an event the camp's tables need the window's width: the rail only from 1101px */
 @media (min-width: 761px) and (max-width: 1100px) {
   body:has(> .rail--event) { display: block; }
   body:has(> .rail--event) .rail {
     position: static; height: auto; flex-direction: row; align-items: center; justify-content: space-between;
-    gap: var(--s-4); padding: var(--s-2) var(--s-4); min-height: 3.5rem;
-    background: var(--surface); border-right: 0; border-bottom: 1px solid var(--line);
+    gap: var(--s-4); padding: var(--s-2) var(--s-4); min-height: 3.5rem; background: var(--page);
   }
   body:has(> .rail--event) .rail__brand { padding: 0; min-width: 0; }
-  body:has(> .rail--event) .rail__church { display: none; }
-  body:has(> .rail--event) .rail__nav, body:has(> .rail--event) .rail__foot { display: none; }
+  body:has(> .rail--event) :is(.rail__church, .rail__nav, .rail__foot) { display: none; }
   body:has(> .rail--event) .rail__account { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; text-decoration: none; }
-  body:has(> .rail--event) .tabs {
-    display: block; position: fixed; inset: auto 0 0 0; z-index: 40;
-    background: var(--surface); border-top: 1px solid var(--line);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
+  body:has(> .rail--event) .tabs { display: block; position: fixed; inset: auto 0 0 0; z-index: 40; background: var(--page); border-top: 1px solid var(--line); padding: 0.375rem 0.5rem env(safe-area-inset-bottom, 0px); }
   body:has(> .rail--event) .tabs ul { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-  body:has(> .rail--event) .tabs__item {
-    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1875rem;
-    width: 100%; height: var(--tabs-h); padding: var(--s-1); border: 0; background: none;
-    color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 500; line-height: 1.15;
-    text-align: center; text-decoration: none; cursor: pointer;
-  }
-  body:has(> .rail--event) .tabs__item .icon { box-sizing: content-box; padding: 0.125rem 0.875rem; border-radius: var(--r-pill); }
-  body:has(> .rail--event) .tabs__item[aria-current="page"] { color: var(--ink); font-weight: 700; }
-  body:has(> .rail--event) .tabs__item[aria-current="page"] .icon { background: var(--petroleo-tint); color: var(--mark); }
-  body:has(> .rail--event) .tabs__item--text[aria-current="page"] { box-shadow: inset 0 3px 0 var(--mark); }
-  body:has(> .rail--event) .tabs__item:focus-visible { outline-offset: -3px; }
-  body:has(> .rail--event) .page--app { padding: var(--s-6) var(--s-5) calc(var(--tabs-h) + var(--s-12) + env(safe-area-inset-bottom, 0px)); }
+  body:has(> .rail--event) .tabs__item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; width: 100%; min-height: 3.25rem; padding: 0.25rem; border: 0; border-radius: var(--r-control); background: none; color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 560; line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; }
+  body:has(> .rail--event) .tabs__item[aria-current="page"] { color: var(--mark); font-weight: 650; }
+  body:has(> .rail--event) .tabs__item[aria-current="page"] .icon { color: var(--mark); }
+  body:has(> .rail--event) .page--app { padding: var(--s-6) var(--s-5) calc(var(--tabs-h) + var(--s-10) + env(safe-area-inset-bottom, 0px)); }
 }
 
-/* An event as a place in the rail: its name, the person's role in it, and the role's pages */
-.rail__role { padding: 0 var(--s-3) var(--s-2); font-size: var(--t-caption); color: var(--ink-2); line-height: 1.35; }
-.rail__link--sub { padding-left: var(--s-3); }
-.rail__section--event { padding: var(--s-3) 0 var(--s-2); border-block: 1px solid var(--line); }
-.rail__section--event .rail__label { color: var(--ink); font-size: var(--t-small); }
-.tabs__item--text { padding-inline: var(--s-2); }
-
-/* ---------- 4. The page -------------------------------------------------- */
-/* The head of a page: where I came from (a quiet line), where I am (the one serif line), and at most one
-   filled action beside it. A page explains itself with what it shows, so a lede is the exception. */
-.page--app .back-link {
-  font-size: var(--t-small); font-weight: 600; color: var(--ink-2); text-decoration: none;
-}
-.page--app .back-link:hover { color: var(--ink); text-decoration: underline; }
+/* ---------- 5. Page ------------------------------------------------------- */
+/* Where I came from (one quiet line), where I am (the title), at most one filled action beside it. */
+.page--app .back-link { font-size: var(--t-small); font-weight: 600; color: var(--mark); text-decoration: none; }
+.page--app .back-link:hover { text-decoration: underline; text-underline-offset: 0.2em; }
 .page--app .back-link::before {
-  width: 1rem; height: 1rem; border: 0; margin: 0; transform: scaleX(-1);
+  width: 1rem; height: 1rem; border: 0; margin: 0 0.125rem 0 -0.25rem; transform: scaleX(-1);
   background: currentColor; -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat;
 }
 .page--app .page-head { margin-bottom: var(--s-6); }
-.page--app .page-head--actions { align-items: center; }
-.page--app .page-head__title { font-size: clamp(1.75rem, 1.45rem + 1.2vw, var(--t-h1)); max-width: 26ch; }
-.page--app .lede { margin-top: var(--s-2); font-size: var(--t-body); max-width: 56ch; }
-.page--app .page-head__meta { margin-top: var(--s-2); }
+.page--app .page-head--actions { align-items: center; gap: var(--s-4) var(--s-6); }
+.page--app .page-head__title { font-size: var(--t-h1); line-height: 1.2; max-width: 28ch; }
+.page--app .lede { margin-top: var(--s-1); font-size: var(--t-small); color: var(--ink-2); max-width: 56ch; }
+.page--app .page-head__meta { margin-top: var(--s-1); font-size: var(--t-small); }
 @media (max-width: 600px) {
   .page--app .page-head__actions { width: 100%; }
   .page--app .page-head__actions .btn { flex: 1 1 auto; }
 }
 
-/* Section titles are Figtree: a tool's labels, not a voice. No rule under them: the thing that follows has its
-   own edge. */
+/* A section's title is a tool's label: Figtree's role taken by Mona Sans at 20/26, a step wider */
 .page--app .heading {
-  font-family: var(--font-ui); font-size: var(--t-h3); font-weight: 700; letter-spacing: -0.005em; line-height: 1.25;
-  padding-bottom: 0; border-bottom: 0;
+  font-family: var(--font-ui); font-size: var(--t-h3); font-weight: 650; font-stretch: 106%; letter-spacing: -0.01em;
+  line-height: 1.3; padding-bottom: 0; border-bottom: 0;
 }
-.page--app .block + .block { margin-top: var(--s-10); }
-.page--app .heading + * { margin-top: var(--s-3); }
-.heading-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-1) var(--s-4); }
+.page--app .heading + * { margin-top: var(--s-2); }
+.page--app .block + .block { margin-top: var(--s-8); }
+.heading-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-1) var(--s-4); }
 .heading-row + * { margin-top: var(--s-2); }
-.heading-row a {
-  font-size: var(--t-small); font-weight: 700; display: inline-flex; align-items: center; min-height: 2.75rem;
-  text-decoration: none;
+.heading-row a { display: inline-flex; align-items: center; min-height: 2.75rem; font-size: var(--t-small); font-weight: 600; color: var(--mark); text-decoration: none; }
+.heading-row a:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+.heading .count, .heading-row .count { margin-left: var(--s-2); font-size: var(--t-small); font-weight: 500; font-stretch: 100%; letter-spacing: 0; color: var(--ink-2); }
+
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 22rem); gap: var(--s-8) var(--s-12); align-items: start; }
+.cols__main, .cols__side { min-width: 0; }
+.cols__side { display: grid; gap: var(--s-8); }
+@media (max-width: 1280px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr)); gap: var(--s-4) var(--s-6); list-style: none; }
+
+/* ---------- 6. Buttons ---------------------------------------------------- */
+/* A capsule. One filled per screen (the church's colour); the rest outlined in tinta-2; a text action in the
+   church's colour. Every button is 44px at least and keeps its label on one line. */
+:root[data-ui="2"] .btn {
+  --spin: var(--ink);
+  min-height: var(--control); padding: 0 1.25rem; gap: var(--s-2);
+  border: 1.5px solid var(--ink-2); border-radius: var(--r-pill); background: none; color: var(--ink);
+  font-size: var(--t-small); font-weight: 620; font-stretch: 102%; line-height: 1.25; white-space: nowrap;
+  transition: background-color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
-.heading-row a:hover { text-decoration: underline; }
-.heading .count, .heading-row .count {
-  display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.5rem; margin-left: var(--s-2); padding: 0 0.4375rem;
-  border-radius: var(--r-pill); background: var(--hundido); color: var(--ink-2);
-  font-size: var(--t-caption); font-weight: 700; vertical-align: 0.1em;
+:root[data-ui="2"] .btn:hover { background: var(--fill); }
+:root[data-ui="2"] .btn:active:not([disabled]):not([aria-disabled="true"]) { transform: scale(0.97); background: var(--fill-2); }
+:root[data-ui="2"] .btn--primary { --spin: #ffffff; min-height: var(--control); padding-inline: 1.5rem; border-color: var(--petroleo); background: var(--petroleo); color: #ffffff; font-size: var(--t-small); }
+:root[data-ui="2"] .btn--primary:hover { border-color: var(--petroleo-hover); background: var(--petroleo-hover); }
+:root[data-ui="2"] .btn--primary:active:not([disabled]) { background: color-mix(in srgb, var(--petroleo) 80%, black); }
+:root[data-ui="2"] .btn--secondary { background: none; }
+:root[data-ui="2"] .btn--danger { --spin: #ffffff; border-color: var(--chile); background: var(--chile); color: #ffffff; }
+:root[data-ui="2"] .btn--danger:hover { border-color: #962812; background: #962812; }
+:root[data-ui="2"] .btn--danger-outline { border-color: var(--chile); color: var(--chile); }
+:root[data-ui="2"] .btn--danger-outline:hover { background: var(--chile-tint); }
+:root[data-ui="2"] .btn--link { --spin: var(--petroleo); border-color: transparent; padding-inline: 0.75rem; color: var(--petroleo); text-decoration: none; }
+:root[data-ui="2"] .btn--link:hover { background: var(--petroleo-tint); text-decoration: none; }
+:root[data-ui="2"] .btn--small { min-height: var(--control); padding-inline: 1rem; font-size: var(--t-small); }
+:root[data-ui="2"] .btn--large { min-height: var(--control-primary); padding-inline: 1.75rem; font-size: var(--t-body); }
+:root[data-ui="2"] .btn--on-dark { border-color: #ffffff; background: #ffffff; color: var(--ink); }
+:root[data-ui="2"] .btn .icon { width: 1.25rem; height: 1.25rem; margin-left: -0.25rem; }
+:root[data-ui="2"] .btn[disabled], :root[data-ui="2"] .btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+:root[data-ui="2"] .link-button { color: var(--petroleo); font-weight: 600; }
+/* Busy: the label gives way to a spinner of the button's own colour; the button keeps its width */
+:root[data-ui="2"] .btn[aria-busy="true"], :root[data-ui="2"] form.is-submitting .btn--primary { position: relative; color: transparent; opacity: 1; pointer-events: none; }
+:root[data-ui="2"] .btn[aria-busy="true"]::after, :root[data-ui="2"] form.is-submitting .btn--primary::after {
+  content: ""; position: absolute; inset: 0; margin: auto; width: 1.125rem; height: 1.125rem; border-radius: 50%;
+  border: 2.25px solid color-mix(in srgb, var(--spin) 30%, transparent); border-top-color: var(--spin);
+  animation: santuario-spin 0.7s linear infinite;
+}
+@media (max-width: 600px) {
+  :root[data-ui="2"] .sign__actions .btn, :root[data-ui="2"] .form-actions .btn--primary { width: 100%; }
 }
 
-/* Main column and a side column; one column under 1100px */
-.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 20rem); gap: var(--s-10) var(--s-10); align-items: start; }
-.cols__main { min-width: 0; }
-.cols__side { display: grid; gap: var(--s-5); min-width: 0; }
-@media (max-width: 1100px) {
-  .cols { grid-template-columns: minmax(0, 1fr); gap: var(--s-8); }
+/* ---------- 7. Forms ------------------------------------------------------ */
+/* The label says what goes in the field; a hint only for a format nobody could guess. */
+:root[data-ui="2"] .label, :root[data-ui="2"] .legend { font-size: var(--t-small); font-weight: 620; margin-bottom: var(--s-2); }
+:root[data-ui="2"] .hint { font-size: var(--t-small); color: var(--ink-2); margin: calc(-1 * var(--s-1)) 0 var(--s-2); }
+:root[data-ui="2"] :is(.input, .textarea, select, .field input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), .field textarea) {
+  min-height: var(--control-field); padding: 0.6875rem 0.875rem; border: 1.5px solid var(--line-control); border-radius: var(--r-control);
+  background: var(--surface); font-size: var(--t-field); line-height: 1.35;
 }
-/* A grid of things of the same kind (events, groups, teams): as many columns as fit */
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr)); gap: var(--s-4); list-style: none; }
-.grid--2 { grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
-
-/* ---------- 5. Buttons --------------------------------------------------- */
-/* One filled button per screen says what the screen is for. The rest are white with a hairline: present, quiet. */
-.btn { border-width: 1px; border-color: var(--line-control); font-size: var(--t-small); padding-inline: 1.125rem; }
-.btn:hover { background: var(--hover); border-color: color-mix(in srgb, var(--ink) 40%, var(--surface)); }
-.btn--primary { min-height: var(--control-primary); padding-inline: 1.5rem; border-color: var(--petroleo); font-size: var(--t-body); }
-.btn--primary:hover { border-color: var(--petroleo-hover); }
-.btn--danger { border-color: var(--chile); }
-.btn--danger:hover { border-color: #962812; }
-.btn--danger-outline { border-color: color-mix(in srgb, var(--chile) 55%, var(--surface)); }
-.btn--danger-outline:hover { border-color: var(--chile); }
-.btn--link { border-color: transparent; }
-.btn--link:hover { border-color: transparent; }
-.btn--large { font-size: var(--t-body); }
-.btn--small { padding-inline: 0.875rem; }
-.btn .icon { width: 1.25rem; height: 1.25rem; margin-left: -0.125rem; }
-body:has(> .rail) .btn--large { min-height: 3.25rem; }
-/* Sent, waiting for the answer: the button says so by itself */
-form.is-submitting .btn--primary, .btn[aria-busy="true"] { position: relative; color: transparent; opacity: 1; pointer-events: none; }
-form.is-submitting .btn--primary::after, .btn[aria-busy="true"]::after {
-  content: ""; position: absolute; inset: 0; margin: auto; width: 1.25rem; height: 1.25rem; border-radius: 50%;
-  border: 2.5px solid rgb(255 255 255 / 0.35); border-top-color: #ffffff; animation: santuario-spin 0.7s linear infinite;
+:root[data-ui="2"] :is(.textarea, .field textarea) { min-height: 8rem; line-height: 1.45; }
+:root[data-ui="2"] :is(.input, .textarea, select, .field input, .field textarea):focus-visible { border-color: var(--petroleo); outline: 3px solid color-mix(in srgb, var(--petroleo) 35%, transparent); outline-offset: 0; box-shadow: none; }
+:root[data-ui="2"] :is(.input, .field input, .field textarea)::placeholder { color: var(--ink-2); opacity: 1; }
+:root[data-ui="2"] .field { margin-bottom: var(--s-5); }
+:root[data-ui="2"] .field--error { border-left: 0; padding-left: 0; }
+:root[data-ui="2"] .field--error :is(input, textarea, select) { border-color: var(--chile); }
+:root[data-ui="2"] .error-message { font-size: var(--t-small); font-weight: 600; color: var(--chile); }
+:root[data-ui="2"] .error-summary { border: 0; border-radius: var(--r-card); background: var(--chile-tint); padding: var(--s-4) var(--s-5); }
+:root[data-ui="2"] .error-summary h2 { font-size: var(--t-body); font-weight: 650; }
+/* Checkboxes and radios: drawn marks of 22px inside a 44px target */
+:root[data-ui="2"] .check { gap: var(--s-3); padding: 0.6875rem 0; align-items: flex-start; }
+:root[data-ui="2"] .check input[type="checkbox"], :root[data-ui="2"] .check input[type="radio"], :root[data-ui="2"] .admin-table input[type="checkbox"] {
+  appearance: none; flex: none; display: grid; place-items: center; width: 1.375rem; height: 1.375rem; margin: 0.0625rem 0 0;
+  border: 1.5px solid var(--line-control); border-radius: 6px; background: var(--surface); cursor: pointer;
 }
-.btn--on-dark { background: #ffffff; border-color: #ffffff; color: var(--noche); }
-.btn--on-dark:hover { background: var(--petroleo-tint); border-color: var(--petroleo-tint); }
-
-/* ---------- 6. Forms ----------------------------------------------------- */
-/* The label says what goes in the field. A hint is the exception, for a format nobody could guess. */
-.label, .legend { font-weight: 600; font-size: var(--t-small); margin-bottom: var(--s-2); }
-.hint { font-size: var(--t-caption); margin-top: calc(-1 * var(--s-1)); }
-.input, .textarea, select,
-.field input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), .field textarea {
-  min-height: var(--control-field); border-width: 1px; font-size: var(--t-field);
+:root[data-ui="2"] .check input[type="radio"] { border-radius: 50%; }
+:root[data-ui="2"] .check input[type="checkbox"]::after, :root[data-ui="2"] .admin-table input[type="checkbox"]::after {
+  content: ""; width: 0.875rem; height: 0.875rem; background: #ffffff; opacity: 0;
+  -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat;
 }
-.field textarea, .textarea { min-height: 7rem; }
-.input:hover, .textarea:hover, select:hover,
-.field input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):hover, .field textarea:hover { border-color: var(--ink-2); }
-.input::placeholder, .field input::placeholder, .field textarea::placeholder { color: var(--ink-3); opacity: 1; }
-body:has(> .rail) .field { margin-bottom: var(--s-5); }
-body:has(> .rail) .search__input { min-height: var(--control-primary); font-size: var(--t-field); }
-body:has(> .rail) .filter-bar .btn { min-height: var(--control-field); }
-.check { gap: var(--s-3); padding: var(--s-2) 0; }
-.check input { width: 1.375rem; height: 1.375rem; margin-top: 0.125rem; }
-.check__text { font-weight: 600; font-size: var(--t-body); padding-top: 0; }
-.check__text small { margin-top: 0.125rem; font-size: var(--t-caption); }
-.error-message { font-size: var(--t-small); }
-.error-summary { border-width: 1px; border-radius: var(--r-card); background: var(--chile-tint); padding: var(--s-4) var(--s-5); }
-.error-summary h2 { font-size: var(--t-body); }
-/* A group of fields that belong together: one thing on the page, with its name */
-.form-section { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s-5) var(--s-5) var(--s-2); }
-.form-section + .form-section { margin-top: var(--s-5); }
-.form-section__title { font-size: var(--t-h3); font-weight: 700; line-height: 1.25; margin-bottom: var(--s-4); }
-.form-section > .field:last-child { margin-bottom: var(--s-3); }
-.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); margin-top: var(--s-6); }
-@media (max-width: 600px) { .form-actions .btn--primary { width: 100%; } }
-/* The search of a list: one field with its mark, wide enough for a name; the button stays beside it on a phone */
-.page--app .search { margin-top: 0; max-width: 32rem; flex-direction: row; }
+:root[data-ui="2"] .check input[type="radio"]::after { content: ""; width: 0.625rem; height: 0.625rem; border-radius: 50%; background: #ffffff; opacity: 0; }
+:root[data-ui="2"] :is(.check, .admin-table) input:checked { border-color: var(--petroleo); background: var(--petroleo); }
+:root[data-ui="2"] :is(.check, .admin-table) input:checked::after { opacity: 1; }
+:root[data-ui="2"] .check__text { font-weight: 500; font-size: var(--t-body); padding-top: 0; }
+:root[data-ui="2"] .check__text small { margin-top: 0.125rem; font-size: var(--t-small); color: var(--ink-2); }
+/* Choices (questionnaires, attendance): one per row, the whole row is the target */
+:root[data-ui="2"] .choice__label { border-width: 1.5px; border-color: var(--line-control); border-radius: var(--r-control); background: var(--surface); }
+:root[data-ui="2"] .choice > input:checked + .choice__label { border-color: var(--petroleo); background: var(--petroleo-tint); }
+:root[data-ui="2"] .choice > input:checked + .choice__label .choice__mark { border-color: var(--petroleo); }
+:root[data-ui="2"] .choice--multi > input:checked + .choice__label .choice__mark { background: var(--petroleo); }
+/* A group of fields with its name: a section of the form, not a box */
+.form-section + .form-section { margin-top: var(--s-8); }
+.form-section__title { font-size: var(--t-h3); font-weight: 650; font-stretch: 106%; letter-spacing: -0.01em; margin-bottom: var(--s-3); }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); margin-top: var(--s-8); }
+/* The search of a list: a capsule field with its mark */
+.page--app .search { position: relative; display: flex; flex-direction: row; gap: var(--s-2); margin-top: 0; max-width: 30rem; }
 .page--app .search .btn { width: auto; flex: none; }
-.page--app .search__input {
-  padding-left: 2.75rem;
-  background: var(--surface) var(--i-search) 0.875rem center / 1.25rem no-repeat;
+.page--app .search__input { min-height: var(--control); padding-left: 2.75rem; border-radius: var(--r-pill); font-size: var(--t-small); }
+.page--app .search::before {
+  content: ""; position: absolute; left: 0.9375rem; top: calc(var(--control) / 2 - 0.625rem); width: 1.25rem; height: 1.25rem; z-index: 1;
+  background: var(--ink-2); -webkit-mask: var(--i-search) center / contain no-repeat; mask: var(--i-search) center / contain no-repeat; pointer-events: none;
 }
-@supports (mask: none) or (-webkit-mask: none) {
-  .page--app .search { position: relative; }
-  .page--app .search__input { background-image: none; }
-  .page--app .search::before {
-    content: ""; position: absolute; left: 0.875rem; top: calc(var(--control-primary) / 2 - 0.625rem); width: 1.25rem; height: 1.25rem;
-    background: var(--ink-3); -webkit-mask: var(--i-search) center / contain no-repeat; mask: var(--i-search) center / contain no-repeat; pointer-events: none;
-  }
-}
+:root[data-ui="2"] .filter-bar .btn { min-height: var(--control-field); }
 
-/* ---------- 7. Surfaces -------------------------------------------------- */
-/* A card is one thing (an event, a group, a person's summary). Never a decoration around text. */
-.card {
-  position: relative; display: flex; flex-direction: column; gap: var(--s-3); min-width: 0;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s-4) var(--s-5);
-  transition: border-color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease), transform var(--dur-2) var(--ease);
+/* ---------- 8. Surfaces --------------------------------------------------- */
+/* The ground is the page. Raised (white, the one elevation) is only for what needs this person now: the next
+   step of a screen. At most one per screen. */
+:root[data-ui="2"] .sign, :root[data-ui="2"] .sign--lead {
+  display: block; background: var(--surface); color: var(--ink); border-radius: var(--r-panel); box-shadow: var(--elevacion);
+  padding: var(--s-4) var(--s-5) var(--s-5); border: 0;
 }
-.card__title { font-size: var(--t-lead); font-weight: 700; line-height: 1.3; }
-.card__title a { color: var(--ink); text-decoration: none; }
-/* The whole card is the way in; what else can be pressed inside it stays on top */
-.card__title a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
-.card:has(.card__title a):hover { border-color: var(--line-control); }
-.card:has(.card__title a:focus-visible) { outline: 3px solid var(--ink); outline-offset: 2px; }
-.card__title a:focus-visible { outline: none; box-shadow: none; }
-.card .btn, .card form, .card .card__actions a { position: relative; z-index: 1; }
-.card__foot { margin-top: auto; padding-top: var(--s-2); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-3); }
-.card--row { flex-direction: row; align-items: center; gap: var(--s-4); }
-.card--row > .card__body { flex: 1; min-width: 0; }
-
-/* A quiet panel of the side column: cantera, no border. Never holds the screen's main action. */
-.quiet { padding: var(--s-4) var(--s-5) var(--s-5); background: var(--hundido); border-radius: var(--r-card); }
-.quiet__title { font-size: var(--t-body); font-weight: 700; line-height: 1.3; }
-.quiet__text { margin-top: var(--s-1); font-size: var(--t-small); color: var(--ink-2); }
+:root[data-ui="2"] .sign__title, :root[data-ui="2"] .sign--lead .sign__title { font-size: var(--t-h3); line-height: 1.3; font-weight: 650; font-stretch: 106%; letter-spacing: -0.012em; }
+:root[data-ui="2"] .sign__text, :root[data-ui="2"] .sign--lead .sign__text { margin-top: 0.125rem; font-size: var(--t-small); color: var(--ink-2); }
+:root[data-ui="2"] .sign__actions { margin-top: var(--s-4); gap: var(--s-3); }
+:root[data-ui="2"] .sign--lead :focus-visible { outline-color: var(--ink); box-shadow: 0 0 0 2px #ffffff; }
+:root[data-ui="2"] .sign .btn--on-dark { border-color: var(--petroleo); background: var(--petroleo); color: #ffffff; --spin: #ffffff; }
+.sign__kind { display: flex; align-items: center; gap: 0.4375rem; margin-bottom: var(--s-1); font-size: var(--t-small); font-weight: 600; color: var(--ink-2); }
+.sign__who { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s-4); }
+/* Two answers share the row, 50/50 */
+.sign__actions--pair { display: grid; grid-template-columns: 1fr 1fr; }
+.sign__actions--pair .btn { width: 100%; }
+/* Quiet things of a side column: open, a title and one action */
+.quiet { padding: 0; background: none; border-radius: 0; }
+.quiet__title { font-size: var(--t-body); font-weight: 620; line-height: 1.3; }
+.quiet__text { margin-top: 0.125rem; font-size: var(--t-small); color: var(--ink-2); }
 .quiet .btn { margin-top: var(--s-3); }
-.quiet .status { margin-top: var(--s-3); white-space: normal; }
-
-/* The next step. On a home it is the one filled panel (night petróleo); on any other screen it keeps the tint. */
-.sign { border-radius: var(--r-panel); }
-body:has(> .rail) .sign { padding: var(--s-5) var(--s-6) var(--s-6); }
-body:has(> .rail) .sign__title { font-size: clamp(1.375rem, 1.2rem + 0.8vw, 1.75rem); line-height: 1.15; }
-body:has(> .rail) .sign__text { font-size: var(--t-body); margin-top: var(--s-1); }
-body:has(> .rail) .sign__actions { margin-top: var(--s-4); }
-.sign--lead {
-  background: var(--noche); color: #ffffff;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-4) var(--s-8);
+.card { position: relative; display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; }
+.card__title { font-size: var(--t-body); font-weight: 620; line-height: 1.3; }
+.card__title a { color: var(--ink); text-decoration: none; }
+.card__title a::after { content: ""; position: absolute; inset: 0; }
+.card .btn, .card form { position: relative; z-index: 1; }
+/* A notice inside a page: a soft field with its mark. Vela for what needs attention, chile for risk. */
+:root[data-ui="2"] .notice {
+  position: relative; margin: var(--s-4) 0; padding: var(--s-3) var(--s-4) var(--s-3) 3rem; border: 0; border-radius: var(--r-card);
+  background: var(--fill); color: var(--ink); font-size: var(--t-small);
 }
-body:has(> .rail) .sign--lead { padding: var(--s-6) var(--s-8); }
-body:has(> .rail) .sign--lead .sign__title { font-size: clamp(1.5rem, 1.25rem + 1vw, 2rem); line-height: 1.12; }
-.sign--lead .sign__text { color: var(--noche-2); }
-body:has(> .rail) .sign--lead .sign__actions { margin-top: 0; }
-/* The focus ring is ink with a white gap: on noche the gap is the ring */
-.sign--lead :focus-visible { outline-color: #ffffff; box-shadow: 0 0 0 2px var(--noche); }
-@media (max-width: 760px) {
-  .sign--lead { grid-template-columns: minmax(0, 1fr); }
-  body:has(> .rail) .sign--lead { padding: var(--s-5); }
-  .sign--lead .btn { width: 100%; }
-}
-
-/* A notice inside a page: a soft panel with its mark. Chile only for risk. */
-.notice {
-  position: relative; border: 1px solid var(--line); border-left-width: 1px; border-radius: var(--r-card);
-  padding: var(--s-3) var(--s-4) var(--s-3) 3rem; font-size: var(--t-small);
-}
-.notice::before {
-  content: ""; position: absolute; left: var(--s-4); top: calc(var(--s-3) + 0.0625rem); width: 1.375rem; height: 1.375rem;
+:root[data-ui="2"] .notice::before {
+  content: ""; position: absolute; left: var(--s-4); top: calc(var(--s-3) + 0.0625rem); width: 1.25rem; height: 1.25rem;
   background: var(--ink-2); -webkit-mask: var(--i-info) center / contain no-repeat; mask: var(--i-info) center / contain no-repeat;
 }
-.notice--info, .notice--success { border-color: color-mix(in srgb, var(--petroleo) 22%, var(--surface)); }
-.notice--info::before { background: var(--petroleo); }
-.notice--success { background: var(--nopal-tint); border-color: color-mix(in srgb, var(--nopal) 25%, var(--surface)); }
-.notice--success::before { background: var(--nopal); -webkit-mask-image: var(--i-check); mask-image: var(--i-check); }
-.notice--warning { background: var(--ambar-tint); border-color: color-mix(in srgb, var(--ambar) 25%, var(--surface)); }
-.notice--warning::before { background: var(--ambar); -webkit-mask-image: var(--i-alert); mask-image: var(--i-alert); }
-.notice--danger { border-color: color-mix(in srgb, var(--chile) 30%, var(--surface)); }
-.notice--danger::before { background: var(--chile); -webkit-mask-image: var(--i-alert); mask-image: var(--i-alert); }
-.notice__title { font-size: var(--t-body); }
+:root[data-ui="2"] .notice--success::before { background: var(--ink); -webkit-mask-image: var(--i-check); mask-image: var(--i-check); }
+:root[data-ui="2"] .notice--warning { background: var(--ambar-tint); }
+:root[data-ui="2"] .notice--warning::before { background: var(--ambar); -webkit-mask-image: var(--i-alert); mask-image: var(--i-alert); }
+:root[data-ui="2"] .notice--danger { background: var(--chile-tint); }
+:root[data-ui="2"] .notice--danger::before { background: var(--chile); -webkit-mask-image: var(--i-alert); mask-image: var(--i-alert); }
+:root[data-ui="2"] .notice__title { font-size: var(--t-body); font-weight: 650; }
+:root[data-ui="2"] .notice p + p { margin-top: 0.125rem; }
 
-/* ---------- 8. State ----------------------------------------------------- */
-/* A state is a word on a small pill with a dot. Four meanings and no more: done (nopal), moving (petróleo),
-   waits for somebody (ámbar), risk (chile). Not started and closed are stone. The word always says it too. */
-.status, .chip {
-  display: inline-flex; align-items: center; gap: 0.375rem; min-height: 1.625rem; padding: 0.125rem 0.625rem 0.125rem 0.5rem;
-  border-radius: var(--r-pill); background: var(--hundido); color: var(--ink-2);
-  font-size: var(--t-caption); font-weight: 600; line-height: 1.2; white-space: nowrap;
-}
-.status__mark, .chip::before {
-  content: ""; flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; border: 0; background: var(--line-strong);
-}
-.status--pending .status__mark { background: none; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
-.status--done, .chip--done, .chip--ok { background: var(--nopal-tint); color: var(--nopal); }
-.status--done .status__mark, .chip--done::before, .chip--ok::before { background: var(--nopal); }
-.status--progress, .chip--progress, .chip--info { background: var(--petroleo-tint); color: var(--petroleo-hover); }
-.status--progress .status__mark, .chip--progress::before, .chip--info::before { background: var(--petroleo); }
-.status--review, .chip--wait { background: var(--ambar-tint); color: var(--ambar); }
-.status--review .status__mark, .chip--wait::before { background: var(--ambar); }
-.status--risk, .chip--alert, .chip--risk { background: var(--chile-tint); color: var(--chile); }
-.status--risk .status__mark, .chip--alert::before, .chip--risk::before { background: var(--chile); }
-.status--closed .status__mark, .chip--pending::before { background: var(--line-strong); }
-.chip--plain::before { display: none; }
-.chip--plain { padding-left: 0.625rem; }
-
-/* Facts about a thing, each with its mark: when, at what time, where, how many. Read at a glance, in any order. */
-.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-4); list-style: none; font-size: var(--t-small); color: var(--ink-2); }
-.meta > li, .meta > span { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; }
-.meta .icon { width: 1.125rem; height: 1.125rem; color: var(--ink-3); }
-.meta a { font-weight: 600; }
-.meta--stack { flex-direction: column; align-items: flex-start; gap: var(--s-2); }
-
-/* ---------- 9. Lists ----------------------------------------------------- */
-/* A list is one white sheet with a hairline between its rows, as in the settings of a phone. A row that leads
-   somewhere is pressed anywhere on it and says so with a chevron; there is no "Abrir" button. */
-.page--app .rows { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); }
-.page--app .heading + .rows, .page--app .heading + .dates, .heading-row + .rows, .heading-row + .dates { border-top: 1px solid var(--line); }
+/* ---------- 9. Rows ------------------------------------------------------- */
+/* A list is open rows on the ground, with a hairline that starts where the text starts. A row whose title is its
+   only way out is pressed anywhere and draws its chevron; there is no "Abrir" button. */
+.page--app .rows { background: none; border: 0; margin-inline: calc(-1 * var(--s-3)); }
 .page--app .rows > .row {
-  position: relative; padding: var(--s-3) var(--s-4); min-height: 3.75rem; border-bottom: 1px solid var(--line);
+  position: relative; display: flex; align-items: center; gap: var(--s-4); min-height: 4rem;
+  padding: var(--s-3); border: 0; border-radius: var(--r-card);
   transition: background-color var(--dur-1) var(--ease);
 }
-.page--app .rows > .row:first-child { border-radius: calc(var(--r-card) - 1px) calc(var(--r-card) - 1px) 0 0; }
-.page--app .rows > .row:last-child { border-bottom: 0; border-radius: 0 0 calc(var(--r-card) - 1px) calc(var(--r-card) - 1px); }
-.page--app .rows > .row:only-child { border-radius: calc(var(--r-card) - 1px); }
-.page--app .row__title { font-size: var(--t-body); }
-.page--app .row__meta { font-size: var(--t-small); }
-.row--lead { align-items: center; gap: var(--s-3); }
-.row--lead .row__main { flex: 1; }
+.page--app .rows > .row + .row::before {
+  content: ""; position: absolute; top: 0; right: var(--s-3); left: var(--s-3); border-top: 1px solid var(--line);
+}
+.page--app .rows > .row--lead + .row::before, .page--app .rows > .row + .row--lead::before { left: calc(var(--s-3) + var(--lead) + var(--s-4)); }
+.page--app .row__main { flex: 1; min-width: 0; display: grid; gap: 0.125rem; }
+.page--app .row__title { font-size: var(--t-body); font-weight: 620; line-height: 1.3; }
+.page--app .row__meta { font-size: var(--t-small); line-height: 1.35; color: var(--ink-2); }
+.page--app .row__end { display: flex; align-items: center; gap: var(--s-3); flex: none; }
+/* A text action at the end of a row: its words, not its padding, end on the margin */
+.page--app .row__end > .btn--link:last-child { margin-right: -0.75rem; }
 .row__title a { color: var(--ink); text-decoration: none; }
-.row__title a:hover { color: var(--ink); }
-.row__meta + .row__meta { margin-top: 0.125rem; }
-.row__contact { margin-top: var(--s-1); display: flex; flex-wrap: wrap; gap: 0 var(--s-5); font-size: var(--t-small); }
-.row__contact a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 700; overflow-wrap: anywhere; }
-/* The row is the link when its title is its only way out: the title's link covers the row */
-.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))) .row__title a::after {
-  content: ""; position: absolute; inset: 0; border-radius: inherit;
-}
+.row--lead > :first-child:not(.row__main) { flex: none; display: grid; place-items: center; width: var(--lead); }
+.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))) .row__title a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary)))::after {
-  content: ""; flex: none; width: 1.125rem; height: 1.125rem; background: var(--line-strong);
+  content: ""; flex: none; width: 1.25rem; height: 1.25rem; background: var(--ink-2);
   -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat;
-  transition: transform var(--dur-2) var(--ease), background-color var(--dur-1) var(--ease);
 }
-.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))):hover { background: var(--hover); }
-.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))):hover::after { transform: translateX(2px); background: var(--ink-2); }
+.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))):hover { background: var(--surface); }
+.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))):active { background: var(--fill-2); }
+.page--app .rows > .row:hover::before, .page--app .rows > .row:hover + .row::before { opacity: 0; }
 .page--app .rows > .row:has(.row__title a:focus-visible) { outline: 3px solid var(--ink); outline-offset: -3px; }
 .page--app .rows > .row .row__title a:focus-visible { outline: none; box-shadow: none; }
-.page--app .rows > .row:has(.row__title a) :is(.row__contact a, .row__meta a) { position: relative; z-index: 1; }
-/* A row that waits for a decision: tinted, with its edge in petróleo */
-.page--app .rows > .row--attention, .page--app .row--attention {
-  background: color-mix(in srgb, var(--petroleo) 5%, var(--surface)); box-shadow: inset 3px 0 0 var(--petroleo);
-  margin: 0; border-left: 0; padding: var(--s-3) var(--s-4);
+.page--app .rows > .row :is(.row__contact a, .row__meta a) { position: relative; z-index: 1; }
+.row__contact { margin-top: 0.125rem; display: flex; flex-wrap: wrap; gap: 0 var(--s-5); font-size: var(--t-small); }
+.row__contact a { display: inline-flex; align-items: center; gap: var(--s-1); min-height: 2.75rem; font-weight: 600; color: var(--petroleo); overflow-wrap: anywhere; text-decoration: none; }
+/* Waits for a decision: a vela dot before the title. The tint stays for the raised surface. */
+.page--app .rows > .row--attention, .page--app .row--attention { background: none; box-shadow: none; border: 0; margin: 0; padding: var(--s-3); }
+.page--app .row--attention .row__title::before, .row--unread .row__title::before {
+  content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: var(--s-2); border-radius: 50%; vertical-align: 0.12em;
 }
-.page--app :not(.rows) > .row--attention { border: 1px solid var(--line); border-radius: var(--r-card); }
-/* Beside the rail the column is narrow long before the window is: rows that end in controls stack by the
-   column's width (Atrio's .row--stack does it by the window's, at 600px) */
+.page--app .row--attention .row__title::before { background: var(--ambar); }
+.row--unread .row__title::before { background: var(--mark); }
 @container (max-width: 38rem) {
   .row--stack { flex-wrap: wrap; align-items: flex-start; }
   .row--stack .row__main { flex: 1 1 12rem; }
-  .row--stack .row__end { flex: 1 0 100%; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--s-3); }
-  .row--stack .row__end .btn { flex: 1 1 8rem; }
-  /* A state keeps its own width, and a row that already wrapped does not draw its chevron on a line of its own */
-  .row--stack .row__end .status, .row--stack .row__end .chip { flex: 0 0 auto; }
+  .row--stack .row__end { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; gap: var(--s-2); }
+  .row--lead.row--stack .row__end { padding-left: calc(var(--lead) + var(--s-4)); }
   .page--app .rows > .row--stack:has(.row__end)::after { display: none; }
 }
-/* In a column of middle width (a tablet beside the rail) the buttons sit under the words at their own width, in
-   line with them; only on a phone do they take the whole row */
-@container (min-width: 26rem) and (max-width: 38rem) {
-  .row--stack .row__end .btn { flex: 0 1 auto; }
-  .row--lead.row--stack:has(> .date-block) .row__end { padding-left: calc(3.25rem + var(--s-3)); }
-  .row--lead.row--stack:has(> .mono) .row__end { padding-left: calc(2.5rem + var(--s-3)); }
-}
-@media (max-width: 600px) {
-  .row--lead.row--stack { flex-direction: row; }
-}
+@media (max-width: 600px) { .row--lead.row--stack { flex-direction: row; } }
 :root[data-ui="2"] .row--below { flex-direction: column; align-items: stretch; gap: var(--s-3); }
 :root[data-ui="2"] .row--below .row__main { flex: none; align-self: stretch; }
 :root[data-ui="2"] .row--below .row__end { flex: none; align-self: stretch; flex-wrap: wrap; justify-content: flex-start; gap: var(--s-2); }
-:root[data-ui="2"] .row--below .row__end .btn { flex: 0 1 auto; }
-:root[data-ui="2"] .more + .rows { margin-top: var(--s-6); }
 :root[data-ui="2"] .row__form { display: contents; }
-
-/* What is known about one thing (a person, an event): label and value, on the same sheet as a list */
-.page--app .summary-list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); }
-.page--app .summary-list__row { padding: var(--s-3) var(--s-4); }
-.page--app .summary-list__row:last-child { border-bottom: 0; }
+/* What is known about one thing: label and value on the ground, hairlines between */
+.page--app .summary-list { background: none; border: 0; }
+.page--app .summary-list__row { padding: var(--s-3) 0; border-bottom: 1px solid var(--line); }
 .page--app .summary-list dt { font-size: var(--t-small); font-weight: 600; color: var(--ink-2); }
-.page--app .summary-list--answers dt { font-weight: 400; }
+.page--app .summary-list dd { font-size: var(--t-body); }
 
-/* Identity: a person or a group, as the door of the atrium: round above, square on the ground. Decorative,
-   always beside the written name. */
+/* ---------- 10. People and gatherings ------------------------------------ */
+/* A person: a circle with initials, one neutral tone for everybody (a colour would mean something it does not).
+   Decorative: the name is always written beside it. */
 .mono {
-  flex: none; display: inline-grid; place-items: center; width: 2.5rem; height: 3rem;
-  border-radius: 1.25rem 1.25rem 0.375rem 0.375rem;
-  background: var(--petroleo-tint); color: var(--petroleo-hover);
-  font-family: var(--font-ui); font-size: 0.9375rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em;
+  --d: 2.5rem; flex: none; display: inline-grid; place-items: center; width: var(--d); height: var(--d); border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 11%, var(--surface)); color: var(--ink);
+  font-family: var(--font-ui); font-size: 0.9375rem; font-weight: 650; font-stretch: 104%; line-height: 1; letter-spacing: 0.01em;
 }
-.mono--sm { width: 2rem; height: 2.375rem; border-radius: 1rem 1rem 0.3125rem 0.3125rem; font-size: 0.8125rem; }
-.mono--lg { width: 4.25rem; height: 5.125rem; border-radius: 2.125rem 2.125rem 0.5rem 0.5rem; font-family: var(--font-voz); font-size: 1.75rem; font-weight: 560; }
-.rail .mono { background: var(--surface); }
+.mono--sm { --d: 2rem; font-size: var(--t-caption); }
+.mono--lg { --d: 3.5rem; font-size: 1.25rem; }
+.rail .mono { --d: 2.25rem; font-size: var(--t-caption); }
+/* People going: overlapping circles, then their names in words */
+.gente { display: flex; align-items: center; min-width: 0; }
+.gente .mono { --d: 2rem; font-size: var(--t-caption); box-shadow: 0 0 0 2px var(--page); position: relative; }
+.gente .mono + .mono { margin-left: -0.25rem; }
+.gente__quienes { margin-left: var(--s-3); font-size: var(--t-small); line-height: 1.35; color: var(--ink); }
 
-/* The day, drawn: weekday, number, month. Today's is filled. The row's text does not repeat it. */
-.dates { list-style: none; }
+/* A gathering: the arch. It holds the church's photo of the gathering when there is one (none can be uploaded
+   yet), else the sky of its hour (core.templatetags.shell.event_arch). The sky means time of day, nothing else. */
+.arco { --w: 3rem; position: relative; flex: none; display: block; width: var(--w); aspect-ratio: 5 / 7; margin: 0; overflow: hidden;
+  border-radius: calc(var(--w) / 2) calc(var(--w) / 2) 4px 4px; background: var(--fill); }
+.arco > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.arco::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 12%, transparent); pointer-events: none; }
+.arco--lg { --w: 3.5rem; }
+.arco--sm { --w: 2.5rem; }
+.cielo {
+  --sx: 50%; --sy: 30%; position: absolute; inset: 0;
+  background:
+    radial-gradient(circle at var(--sx) var(--sy), var(--disco) 0 calc(var(--w) * .11), var(--halo) calc(var(--w) * .11 + .5px), transparent calc(var(--w) * .42)),
+    linear-gradient(180deg, var(--c1), var(--c2) 72%, var(--c3));
+}
+.luz-manana    { --c1: color-mix(in srgb, var(--ink) 20%, white); --c2: color-mix(in srgb, var(--ambar-tint) 55%, white); --c3: color-mix(in srgb, var(--ambar) 34%, white); --disco: #fff; --halo: rgb(255 255 255 / .45); --sx: 30%; --sy: 40%; }
+.luz-mediodia  { --c1: color-mix(in srgb, var(--ink) 16%, white); --c2: color-mix(in srgb, var(--ink) 5%, white); --c3: color-mix(in srgb, var(--ambar-tint) 70%, white); --disco: #fff; --halo: rgb(255 255 255 / .5); --sx: 50%; --sy: 22%; }
+.luz-tarde     { --c1: var(--ambar-tint); --c2: color-mix(in srgb, var(--ambar) 38%, white); --c3: color-mix(in srgb, var(--ambar) 72%, white); --disco: #fff; --halo: rgb(255 255 255 / .35); --sx: 66%; --sy: 62%; }
+.luz-atardecer { --c1: color-mix(in srgb, var(--ink) 82%, var(--petroleo)); --c2: color-mix(in srgb, var(--petroleo) 62%, white); --c3: color-mix(in srgb, var(--ambar) 42%, white); --disco: var(--ambar-tint); --halo: rgb(251 234 210 / .3); --sx: 40%; --sy: 90%; }
+.luz-noche     { --c1: var(--ink); --c2: color-mix(in srgb, var(--ink) 86%, white); --c3: color-mix(in srgb, var(--ink) 72%, white); --disco: var(--page); --halo: rgb(247 246 244 / .12); --sx: 64%; --sy: 30%; }
+.luz-sin-hora  { --c1: color-mix(in srgb, var(--ink) 14%, white); --c2: color-mix(in srgb, var(--ink) 9%, white); --c3: color-mix(in srgb, var(--ink) 14%, white); --disco: transparent; --halo: transparent; }
+
+/* An event, compact: the arch, when, the title, where; then who is going and the action */
+.evento { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s-4); align-items: start; }
+.evento__texto { display: grid; gap: 0.125rem; min-width: 0; }
+.evento__cuando { font-size: var(--t-small); font-weight: 640; color: var(--ink); }
+.evento__titulo { font-size: var(--t-h3); line-height: 1.3; font-weight: 650; font-stretch: 106%; letter-spacing: -0.012em; }
+.evento__titulo a { color: var(--ink); text-decoration: none; }
+.evento__titulo a:hover { text-decoration: underline; text-underline-offset: 0.18em; }
+.evento__donde { font-size: var(--t-small); color: var(--ink-2); }
+.evento__pie { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-top: var(--s-3); }
+.evento__pie .gente { flex: 1 1 12rem; }
+.evento > .arco { --w: var(--lead); }
+@media (min-width: 1100px) {
+  .evento__pie { grid-column: 2; justify-content: flex-start; gap: var(--s-6); }
+  .evento__pie .gente { flex: none; }
+}
+
+/* The day, drawn: weekday over the number. Only today is filled (ink). */
 .date-block {
-  flex: none; display: grid; justify-items: center; align-content: center; width: 3.25rem; min-height: 3.5rem; padding: var(--s-1) 0;
-  border-radius: var(--r-control); background: var(--hundido); color: var(--ink); line-height: 1;
+  flex: none; display: grid; justify-items: center; align-content: center; width: var(--lead); min-height: var(--lead); padding: 0.25rem 0;
+  border-radius: var(--r-control); background: var(--fill); color: var(--ink); line-height: 1;
 }
-.date-block__weekday, .date-block__month { font-size: 0.75rem; font-weight: 600; color: var(--ink-2); }
-.date-block__day { margin: 0.125rem 0; font-family: var(--font-ui); font-size: 1.375rem; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; letter-spacing: -0.01em; }
-.dates .row--today .date-block, .date-block--today { background: var(--petroleo); color: #ffffff; }
-.dates .row--today .date-block__weekday, .dates .row--today .date-block__month,
-.date-block--today .date-block__weekday, .date-block--today .date-block__month { color: #ffffff; }
+.date-block__weekday { order: -1; font-size: var(--t-caption); font-weight: 600; color: var(--ink-2); }
+.date-block__day { margin-top: 0.125rem; font-size: var(--t-h3); font-weight: 700; font-stretch: 104%; letter-spacing: -0.01em; }
+.date-block__month { display: none; }
+.dates .row--today .date-block, .date-block--today { background: var(--ink); color: #ffffff; }
+.dates .row--today .date-block__weekday, .date-block--today .date-block__weekday { color: color-mix(in srgb, #ffffff 80%, transparent); }
 
-/* The way so far: what a person has been part of, newest first. A real sequence, so it is drawn as a line. */
-.camino { list-style: none; margin-top: var(--s-4); }
+/* The way so far: a real sequence, drawn as a line */
+.camino { list-style: none; margin-top: var(--s-3); }
 .camino__step { position: relative; padding: 0 0 var(--s-5) var(--s-8); }
-.camino__step::before {
-  content: ""; position: absolute; left: 0.3125rem; top: 0.375rem; width: 0.75rem; height: 0.75rem;
-  border-radius: 50%; background: var(--page); border: 2px solid var(--petroleo);
-}
-.camino__step::after { content: ""; position: absolute; left: 0.625rem; top: 1.375rem; bottom: 0; width: 2px; background: var(--line); }
+.camino__step::before { content: ""; position: absolute; left: 0.3125rem; top: 0.375rem; width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--page); border: 2px solid var(--ink); }
+.camino__step::after { content: ""; position: absolute; left: 0.6875rem; top: 1.375rem; bottom: 0; width: 1.5px; background: var(--line-strong); }
 .camino__step:last-child { padding-bottom: 0; }
 .camino__step:last-child::after { display: none; }
-.camino__step--now::before { background: var(--petroleo); }
-.camino__when { font-size: var(--t-caption); color: var(--ink-2); }
-.camino__what { font-size: var(--t-body); font-weight: 700; line-height: 1.3; }
+.camino__step--now::before { background: var(--ink); }
+.camino__when { font-size: var(--t-small); color: var(--ink-2); }
+.camino__what { font-size: var(--t-body); font-weight: 620; line-height: 1.3; }
 .camino__note { font-size: var(--t-small); color: var(--ink-2); }
 
-/* ---------- 10. Data ----------------------------------------------------- */
-/* Views of the same list: a row of pills. The current one is filled. */
-.page--app .filters { gap: var(--s-2); margin-bottom: var(--s-5); border-bottom: 0; }
+/* ---------- 11. State ----------------------------------------------------- */
+/* A state is its word with a small arch mark: filled ink = done, striped (the church's colour) = in progress,
+   outline = not started, half = waits for a decision, chile = risk, a grey fill = closed. Vela (amber) is kept for
+   what blocks somebody: a missing authorization, a missing coordinator, «Importante». */
+.status {
+  display: inline-flex; align-items: center; gap: 0.5rem; min-height: 0; padding: 0; background: none;
+  font-size: var(--t-small); font-weight: 560; line-height: 1.3; color: var(--ink); white-space: nowrap;
+}
+.status__mark { flex: none; display: inline-block; width: 0.625rem; height: 1rem; border: 0; border-radius: 99px 99px 1.5px 1.5px; background: none; box-shadow: inset 0 0 0 1.5px var(--ink-2); }
+.status--done .status__mark { background: var(--ink); box-shadow: none; }
+.status--progress .status__mark { background: var(--raya); box-shadow: inset 0 0 0 1px var(--petroleo); }
+.status--review .status__mark { box-shadow: inset 0 -0.5rem 0 var(--ink-2), inset 0 0 0 1.5px var(--ink-2); }
+.status--risk { color: var(--chile); font-weight: 650; }
+.status--risk .status__mark { background: var(--chile); box-shadow: none; }
+/* «Importante»: the one state drawn as a capsule, in vela, wherever a notice appears */
+.status--important { min-height: 1.625rem; padding: 0 0.625rem 0 0.5rem; border-radius: var(--r-pill); background: var(--ambar-tint); color: var(--ambar); font-size: var(--t-caption); font-weight: 650; }
+.status--important .status__mark { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ambar); box-shadow: none; }
+.status--closed { color: var(--ink-2); }
+.status--closed .status__mark { background: var(--fill-2); box-shadow: none; }
+/* A chip: the same word-with-mark; only attention gets its capsule */
+.chip { display: inline-flex; align-items: center; gap: 0.375rem; font-size: var(--t-small); font-weight: 560; line-height: 1.3; color: var(--ink); white-space: nowrap; }
+.chip::before { content: ""; flex: none; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ink-2); }
+.chip--done::before, .chip--ok::before { background: var(--ink); }
+.chip--progress::before, .chip--info::before { background: var(--mark); }
+.chip--wait, .chip--alert, .chip--risk, .tag--importante {
+  min-height: 1.625rem; padding: 0 0.625rem 0 0.5rem; border-radius: var(--r-pill); font-size: var(--t-caption); font-weight: 650;
+}
+.chip--wait { background: var(--ambar-tint); color: var(--ambar); }
+.chip--wait::before { background: var(--ambar); }
+.chip--alert, .chip--risk { background: var(--chile-tint); color: var(--chile); }
+.chip--alert::before, .chip--risk::before { background: var(--chile); }
+.chip--plain::before { display: none; }
+/* Facts with their mark: when, at what time, where, how many */
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-4); list-style: none; font-size: var(--t-small); color: var(--ink-2); }
+.meta > li, .meta > span { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; }
+.meta .icon { width: 1.125rem; height: 1.125rem; color: var(--ink-2); }
+.meta a { font-weight: 600; color: var(--petroleo); }
+
+/* ---------- 12. Data ------------------------------------------------------ */
+/* Views of one list: capsules with their count; the current one is filled ink */
+.page--app .filters { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-bottom: var(--s-4); border-bottom: 0; list-style: none; }
 .page--app .filters a {
-  min-height: 2.75rem; padding: 0 var(--s-4); border-radius: var(--r-pill); border: 1px solid var(--line);
-  background: var(--surface); color: var(--ink-2); font-size: var(--t-small); font-weight: 600; box-shadow: none;
-  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
-}
-.page--app .filters a:hover { box-shadow: none; background: var(--hover); color: var(--ink); }
-.page--app .filters a[aria-current="page"] { background: var(--ink); border-color: var(--ink); color: #ffffff; font-weight: 700; box-shadow: none; }
-.page--app .filters a[aria-current="page"] .count { color: #ffffff; opacity: 0.8; }
-.page--app .filters a:focus-visible { outline-offset: 2px; }
-
-/* Figures: a number somebody decides with, on its own tile. The number is Figtree: data reads as data. */
-.page--app .figures { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: var(--s-3); margin-bottom: var(--s-8); }
-.page--app .figures > div { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s-4); }
-.page--app .figures dt { font-size: var(--t-caption); font-weight: 600; }
-.page--app .figures__value { font-family: var(--font-ui); font-size: 1.875rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums; }
-.page--app .figures dd:not(.figures__value) { font-size: var(--t-caption); color: var(--ink-2); }
-
-/* Tables: for what is compared across columns, never for a list. One sheet, a quiet head, rows that answer. */
-.page--app .table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); }
-.page--app .table th { background: none; color: var(--ink-2); font-size: var(--t-caption); font-weight: 700; padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
-.page--app .table td { padding: var(--s-3) var(--s-4); }
-.page--app .table tbody th[scope="row"] { color: var(--ink); font-size: inherit; }
-.page--app .table-wrap .table tbody tr:last-child > * { border-bottom: 0; }
-.page--app .table tbody tr { transition: background-color var(--dur-1) var(--ease); }
-.page--app .table tbody tr:hover { background: var(--hover); }
-/* In a narrow column a table reads as one block per row: the column heads hide and each cell says its own */
-@container (max-width: 44rem) {
-  :root[data-ui="2"] .table--stack, :root[data-ui="2"] .table--stack caption, :root[data-ui="2"] .table--stack tbody,
-  :root[data-ui="2"] .table--stack tr, :root[data-ui="2"] .table--stack th, :root[data-ui="2"] .table--stack td { display: block; }
-  :root[data-ui="2"] .table--stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  :root[data-ui="2"] .table--stack tbody tr { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); }
-  :root[data-ui="2"] .table--stack tbody tr:last-child { border-bottom: 0; }
-  :root[data-ui="2"] .table--stack tbody th, :root[data-ui="2"] .table--stack td { border: 0; padding: var(--s-1) 0; text-align: left; }
-  :root[data-ui="2"] .table--stack tbody th { font-size: var(--t-body); padding-bottom: var(--s-1); }
-  :root[data-ui="2"] .table--stack td[data-label]::before { content: attr(data-label); display: inline-block; min-width: 8.5rem; margin-right: var(--s-2); color: var(--ink-2); font-size: var(--t-caption); font-weight: 600; }
-  :root[data-ui="2"] .table--stack .table__sub, :root[data-ui="2"] .table--stack .table__flag { display: block; }
-}
-
-/* How much of something: a bar that fills. The number beside it says it too. */
-.meter { display: flex; align-items: center; gap: var(--s-3); font-size: var(--t-small); font-variant-numeric: tabular-nums; }
-.meter__track { flex: 1; min-width: 3rem; height: 0.5rem; border-radius: var(--r-pill); background: var(--hundido); overflow: hidden; }
-.meter__fill { display: block; height: 100%; border-radius: var(--r-pill); background: var(--petroleo); transform-origin: left; animation: santuario-grow var(--dur-4) var(--ease-out) both; }
-.meter__fill--done { background: var(--nopal); }
-/* A level in five small marks (Panorama: how many came, said without a number that could point at a person) */
-.level { display: inline-flex; align-items: center; gap: 0.1875rem; vertical-align: -0.0625em; }
-.level > i { width: 0.375rem; height: 0.875rem; border-radius: 2px; background: var(--line); }
-.level > i.on { background: var(--petroleo); }
-
-.pager { margin-top: var(--s-4); max-width: none; }
-.pager__where { font-size: var(--t-caption); text-align: center; }
-
-/* ---------- 11. Feedback ------------------------------------------------- */
-/* Nothing here yet: the arch, what is missing in a few words, and the way to add the first one */
-.empty {
-  display: grid; justify-items: center; gap: var(--s-2); padding: var(--s-10) var(--s-5);
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); text-align: center;
-}
-.empty::before {
-  content: ""; width: 2.75rem; height: 2.75rem; margin-bottom: var(--s-1); background: var(--line-strong);
-  -webkit-mask: var(--i-arch) center / contain no-repeat; mask: var(--i-arch) center / contain no-repeat;
-}
-.empty__title { font-size: var(--t-body); font-weight: 700; }
-.empty__text { font-size: var(--t-small); color: var(--ink-2); max-width: 36ch; text-wrap: pretty; }
-.empty .btn { margin-top: var(--s-3); }
-.page--app .empty-line {
-  position: relative; padding: var(--s-4) var(--s-4) var(--s-4) 3.25rem; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-card); font-size: var(--t-small); color: var(--ink-2);
-}
-.page--app .empty-line::before {
-  content: ""; position: absolute; left: var(--s-4); top: 50%; width: 1.5rem; height: 1.5rem; margin-top: -0.75rem; background: var(--line-strong);
-  -webkit-mask: var(--i-arch) center / contain no-repeat; mask: var(--i-arch) center / contain no-repeat;
-}
-.page--app .empty-line a { font-weight: 700; }
-
-/* A note that has to stay (who sees this, what happens with it): one small line with its mark */
-.page--app .aside-note { position: relative; padding-left: 1.75rem; font-size: var(--t-caption); max-width: 62ch; }
-.page--app .aside-note::before {
-  content: ""; position: absolute; left: 0; top: 0.0625rem; width: 1.125rem; height: 1.125rem; background: var(--ink-3);
-  -webkit-mask: var(--i-info) center / contain no-repeat; mask: var(--i-info) center / contain no-repeat;
-}
-
-/* What just happened, said once: it arrives at the top of the page, and leaves by itself when it was good news
-   (emmaus.js adds .is-toast; without scripts it is a notice in the page). */
-.messages.is-toast {
-  position: fixed; z-index: 70; top: var(--s-4); right: var(--s-4); width: min(24rem, calc(100vw - 2rem)); margin: 0;
-  display: grid; gap: var(--s-2);
-}
-.messages.is-toast .notice {
-  margin: 0; padding: var(--s-3) 3rem var(--s-3) 3rem; background: var(--noche); border-color: var(--noche); color: #ffffff;
-  font-size: var(--t-small); font-weight: 600; border-radius: var(--r-card);
-  animation: santuario-toast var(--dur-3) var(--ease-out) both;
-}
-.messages.is-toast .notice::before { background: #ffffff; top: 50%; margin-top: -0.6875rem; }
-.messages.is-toast .notice--danger { background: var(--chile); border-color: var(--chile); }
-.messages.is-toast .notice--warning { background: var(--ambar); border-color: var(--ambar); }
-.messages.is-toast .notice a { color: #ffffff; }
-.messages.is-toast .notice.is-leaving { animation: santuario-toast-out var(--dur-2) var(--ease) both; }
-.toast__close {
-  position: absolute; right: 0.25rem; top: 50%; margin-top: -1.375rem; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: var(--r-control);
-  background: none; color: #ffffff; cursor: pointer;
-}
-.toast__close::before {
-  content: ""; position: absolute; inset: 0; margin: auto; width: 1.125rem; height: 1.125rem; background: currentColor;
-  -webkit-mask: var(--i-close) center / contain no-repeat; mask: var(--i-close) center / contain no-repeat;
-}
-.toast__close:focus-visible { outline-color: #ffffff; outline-offset: -4px; box-shadow: none; }
-@media (max-width: 760px) {
-  .messages.is-toast { top: var(--s-2); right: var(--s-3); left: var(--s-3); width: auto; }
-}
-
-/* A dialog (Atrio's, used by the idle warnings; and emmaus.js [data-confirm], the question before something that
-   cannot be undone: the question, "Cancelar", and a button with the words of the one that was pressed). The page
-   behind it goes under a veil of night; no shadow. */
-.dialog { width: min(28rem, calc(100vw - 2rem)); border: 1px solid var(--line-control); border-radius: var(--r-panel); background: var(--surface); }
-.dialog[open] { animation: atrio-rise var(--dur-2) var(--ease) both; }
-.dialog::backdrop { background: rgb(15 54 64 / 0.5); animation: atrio-fade var(--dur-2) var(--ease) both; }
-.dialog__body h2 { font-family: var(--font-ui); font-size: var(--t-h3); font-weight: 700; }
-.dialog__text { font-size: var(--t-lead); font-weight: 600; line-height: 1.4; text-wrap: pretty; }
-.dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-3); }
-.dialog__actions .btn { min-height: 3rem; }
-@media (max-width: 600px) { .dialog__actions .btn { flex: 1 1 100%; } }
-
-/* The next page is on its way: a thin line at the top, only when the answer takes a moment (emmaus.js) */
-.nav-progress {
-  position: fixed; z-index: 90; top: 0; left: 0; right: 0; height: 3px; background: var(--petroleo);
-  transform-origin: left; animation: santuario-load 8s cubic-bezier(.1, .7, .1, 1) both; pointer-events: none;
-}
-
-/* Waiting for data: the shape of what comes, breathing */
-.skeleton { border-radius: var(--r-control); background: var(--hundido); color: transparent; animation: santuario-breathe 1.4s ease-in-out infinite; }
-
-/* Something secondary, folded: the title is the handle, a chevron says which way */
-.page--app .fold > summary { border-top: 0; padding: var(--s-2) 0; min-height: 2.75rem; font-size: var(--t-small); color: var(--ink-2); }
-.page--app .fold > summary:hover { color: var(--ink); }
-.page--app .fold > summary::before {
-  width: 1rem; height: 1rem; border: 0; transform: none; background: currentColor;
-  -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat;
-}
-.page--app .fold[open] > summary::before { transform: rotate(90deg); }
-/* A heading inside a fold's handle keeps heading navigation for a screen reader and looks like the handle */
-.fold__title { font: inherit; display: inline; }
-.page--app .fold > * + * { margin-top: var(--s-3); }
-.page--app .details summary { font-size: var(--t-small); }
-
-/* Steps of something with an order (first steps, a checklist): each with its mark, the done ones quiet */
-.steps { list-style: none; display: grid; gap: 0; }
-.steps__item { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
-.steps__item:first-child { border-top: 0; }
-.steps__mark {
-  flex: none; width: 1.5rem; height: 1.5rem; margin-top: 0.0625rem; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-strong);
-}
-.steps__item--done .steps__mark { background: var(--nopal); box-shadow: none; position: relative; }
-.steps__item--done .steps__mark::after {
-  content: ""; position: absolute; inset: 0.25rem; background: #ffffff;
-  -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat;
-}
-.steps__text { flex: 1; min-width: 0; }
-.steps__title { font-weight: 600; line-height: 1.35; }
-.steps__title a { color: var(--ink); }
-.steps__item--done .steps__title { color: var(--ink-2); font-weight: 500; }
-.steps__note { font-size: var(--t-small); color: var(--ink-2); }
-
-/* ---------- 12. Screens -------------------------------------------------- */
-/* Mi iglesia: the greeting is the one large serif line of the product */
-.hero { margin-bottom: var(--s-6); }
-.page--app .hero__title { font-size: clamp(2rem, 1.5rem + 2.4vw, 3rem); line-height: 1.05; max-width: none; }
-.hero .lede { margin-top: var(--s-2); }
-
-/* Today: what the church says and what it reads, side by side; one under the other on a phone */
-.today { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); gap: var(--s-4); margin-bottom: var(--s-8); }
-.sign + .today, .welcome + .today, .urgent + .today { margin-top: var(--s-6); }
-.today__card { gap: var(--s-1); padding: var(--s-3) var(--s-5) var(--s-4); }
-.today__card > .heading { display: flex; align-items: center; min-height: 2.75rem; }
-/* A list inside a card: no sheet of its own, the card is the sheet */
-.page--app .rows--plain { background: none; border: 0; border-radius: 0; }
-.page--app .rows--plain > .row { padding-inline: 0; border-radius: 0; }
-.page--app .rows--plain > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))):hover { background: none; }
-.page--app .rows--plain > .row:hover .row__title a { text-decoration: underline; }
-.card .rows--plain .row__title a::after { inset: 0; }
-/* Not read yet: a dot before the title, and the title a step heavier */
-.row--unread .row__title::before {
-  content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: var(--s-2); border-radius: 50%;
-  background: var(--petroleo); vertical-align: 0.12em;
-}
-.card .meeting--plain { padding: 0; border: 0; background: none; }
-.today__card > .heading-row { min-height: 2.75rem; }
-.card .more { margin-top: var(--s-2); font-size: var(--t-small); }
-
-/* The welcome of a role: three doors and, when the role has them, its first steps. It leaves with one press. */
-:root[data-ui="2"] .welcome {
-  position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel);
-  padding: var(--s-5) var(--s-6) var(--s-5); margin-bottom: var(--s-6);
-}
-:root[data-ui="2"] .welcome__title { font-size: var(--t-h2); padding-right: 6.5rem; }
-:root[data-ui="2"] .welcome__role { margin-top: var(--s-1); font-size: var(--t-small); font-weight: 500; color: var(--ink-2); }
-:root[data-ui="2"] .welcome__body { margin-top: var(--s-4); gap: var(--s-5) var(--s-8); }
-:root[data-ui="2"] .welcome__body > :only-child { grid-column: 1 / -1; }
-:root[data-ui="2"] .welcome__heading { font-size: var(--t-small); color: var(--ink-2); margin-bottom: var(--s-2); }
-.welcome__doors { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--s-2); align-content: start; }
-.welcome__doors a {
-  display: flex; align-items: center; gap: var(--s-3); min-height: 3.25rem; padding: var(--s-2) var(--s-4); border-radius: var(--r-control);
-  background: var(--hundido); color: var(--ink); font-weight: 700; text-decoration: none;
+  display: inline-flex; align-items: center; gap: var(--s-2); min-height: var(--control); padding: 0 var(--s-4);
+  border: 1.5px solid var(--line-control); border-radius: var(--r-pill); background: none; color: var(--ink);
+  font-size: var(--t-small); font-weight: 600; text-decoration: none; box-shadow: none;
   transition: background-color var(--dur-1) var(--ease);
 }
-.welcome__doors a:hover { background: var(--petroleo-tint); }
-.welcome__doors a::after {
-  content: ""; flex: none; width: 1.125rem; height: 1.125rem; margin-left: auto; background: var(--ink-3);
-  -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat;
+.page--app .filters a:hover { background: var(--fill); box-shadow: none; }
+.page--app .filters a[aria-current="page"] { border-color: var(--ink); background: var(--ink); color: #ffffff; box-shadow: none; }
+.page--app .filters a .count { color: inherit; font-weight: 700; opacity: 0.75; }
+.page--app .filters a:focus-visible { outline-offset: 2px; }
+/* A number somebody decides with: large, ink, its label under it. No box. */
+.page--app .figures { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: var(--s-5) var(--s-6); margin-bottom: var(--s-8); }
+.page--app .figures > div { border: 0; padding: 0; background: none; }
+.page--app .figures dt { font-size: var(--t-small); font-weight: 560; color: var(--ink-2); }
+.page--app .figures__value { font-family: var(--font-ui); font-size: 2rem; line-height: 1.15; font-weight: 700; font-stretch: 112%; letter-spacing: -0.02em; color: var(--ink); }
+.page--app .figures dd:not(.figures__value) { font-size: var(--t-small); color: var(--ink-2); }
+/* Tables: for what is compared across columns. A quiet head, rows of 52px, hover lifts the row to white. */
+.page--app .table-wrap { background: none; border: 0; margin-inline: calc(-1 * var(--s-2)); }
+.page--app .table { font-size: var(--t-small); line-height: 1.35; }
+.page--app .table th { height: 2.5rem; padding: 0 var(--s-3); background: none; border-bottom: 1px solid var(--line-strong); color: var(--ink-2); font-size: var(--t-caption); font-weight: 650; vertical-align: bottom; padding-bottom: var(--s-2); white-space: nowrap; }
+.page--app .table td { height: 3.25rem; padding: var(--s-2) var(--s-3); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.page--app .table tbody th[scope="row"] { height: 3.25rem; color: var(--ink); font-size: var(--t-small); font-weight: 620; vertical-align: middle; border-bottom: 1px solid var(--line); }
+.page--app .table tbody tr { transition: background-color var(--dur-1) var(--ease); }
+.page--app .table tbody tr:hover { background: var(--surface); }
+.page--app .admin-table--marked tr.is-attention td { background: none; }
+.page--app .admin-table--marked tr.is-attention td:first-child { box-shadow: inset 3px 0 0 var(--ambar); }
+@container (max-width: 44rem) {
+  :root[data-ui="2"] :is(.table--stack, .table--stack caption, .table--stack tbody, .table--stack tr, .table--stack th, .table--stack td) { display: block; height: auto; }
+  :root[data-ui="2"] .table--stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :root[data-ui="2"] .table--stack tbody tr { padding: var(--s-3) var(--s-2); border-bottom: 1px solid var(--line); }
+  :root[data-ui="2"] :is(.table--stack tbody th, .table--stack td) { border: 0; padding: 0.125rem 0; text-align: left; }
+  :root[data-ui="2"] .table--stack tbody th { font-size: var(--t-body); padding-bottom: var(--s-1); }
+  :root[data-ui="2"] .table--stack td[data-label]::before { content: attr(data-label); display: inline-block; min-width: 8.5rem; margin-right: var(--s-2); color: var(--ink-2); font-size: var(--t-small); }
 }
-:root[data-ui="2"] .welcome__foot { margin: 0; padding: 0; border: 0; }
-:root[data-ui="2"] .welcome__foot form { position: absolute; top: var(--s-3); right: var(--s-3); }
+/* How much of something: a bar that fills once; the number beside it says it too */
+.meter { display: flex; align-items: center; gap: var(--s-3); font-size: var(--t-small); }
+.meter__track { flex: 1; min-width: 3rem; height: 0.5rem; border-radius: var(--r-pill); background: var(--fill-2); overflow: hidden; }
+.meter__fill { display: block; height: 100%; border-radius: var(--r-pill); background: var(--ink); transform-origin: left; animation: santuario-grow var(--dur-4) var(--ease-out) both; }
+.level { display: inline-flex; align-items: center; gap: 0.1875rem; vertical-align: -0.0625em; }
+.level > i { width: 0.375rem; height: 0.875rem; border-radius: 99px 99px 1px 1px; background: var(--fill-2); }
+.level > i.on { background: var(--ink); }
+/* Progress of a camp's interviews: one arch per campero (Atrio's tally, in the system's shape) */
+:root[data-ui="2"] .tally { gap: 0.1875rem; }
+:root[data-ui="2"] .tally__mark { width: 0.625rem; height: 1.75rem; border: 0; border-radius: 99px 99px 1.5px 1.5px; background: var(--fill-2); }
+:root[data-ui="2"] .tally__mark--done { background: var(--ink); }
+:root[data-ui="2"] .tally__mark--progress { background: var(--raya); box-shadow: inset 0 0 0 1px var(--petroleo); }
+:root[data-ui="2"] .ruler { height: 0.75rem; border-radius: var(--r-pill); background: var(--fill-2); box-shadow: none; overflow: hidden; }
+:root[data-ui="2"] .ruler__seg--done { background: var(--ink); }
+:root[data-ui="2"] .ruler__seg--progress { background: var(--raya); }
+:root[data-ui="2"] .key__mark { border-radius: 99px 99px 1px 1px; }
+.pager { margin-top: var(--s-4); max-width: none; }
+.pager__where { font-size: var(--t-small); text-align: center; color: var(--ink-2); }
 
-/* A group */
+/* ---------- 13. Feedback -------------------------------------------------- */
+/* Nothing here yet: the arch, what is missing in a few words, and the way to add the first one */
+.empty { display: grid; justify-items: start; gap: var(--s-1); padding: var(--s-6) 0; background: none; border: 0; text-align: left; }
+.empty::before { content: ""; width: 2.25rem; height: 2.25rem; margin-bottom: var(--s-2); background: var(--ink-2);
+  -webkit-mask: var(--i-arch) center / contain no-repeat; mask: var(--i-arch) center / contain no-repeat; }
+.empty__title { font-size: var(--t-body); font-weight: 620; }
+.empty__text { font-size: var(--t-small); color: var(--ink-2); max-width: 40ch; }
+.empty .btn { margin-top: var(--s-3); }
+.page--app .empty-line { padding: var(--s-3) 0; background: none; border: 0; font-size: var(--t-small); color: var(--ink-2); }
+.page--app .empty-line a { font-weight: 600; color: var(--petroleo); }
+/* A note that has to stay (who sees this, what happens with it): one line with its mark */
+.page--app .aside-note { position: relative; padding-left: 1.625rem; font-size: var(--t-small); color: var(--ink-2); max-width: 62ch; }
+.page--app .aside-note::before { content: ""; position: absolute; left: 0; top: 0.125rem; width: 1.125rem; height: 1.125rem; background: var(--ink-2);
+  -webkit-mask: var(--i-info) center / contain no-repeat; mask: var(--i-info) center / contain no-repeat; }
+/* An action that could not be saved: one line under its buttons (emmaus.js, "Actions in place") */
+.inline-error { flex-basis: 100%; grid-column: 1 / -1; margin-top: var(--s-2); font-size: var(--t-small); font-weight: 600; color: var(--chile); }
+/* What just happened: toasts at the top, ink, leaving by themselves when it was good news */
+.messages.is-toast { position: fixed; z-index: 70; top: var(--s-4); right: var(--s-4); width: min(24rem, calc(100vw - 2rem)); margin: 0; display: grid; gap: var(--s-2); }
+:root[data-ui="2"] .messages.is-toast .notice {
+  margin: 0; padding: var(--s-3) 3rem var(--s-3) 3rem; background: var(--ink); color: #ffffff; font-size: var(--t-small); font-weight: 600;
+  border-radius: var(--r-card); animation: santuario-toast var(--dur-3) var(--ease-out) both;
+}
+:root[data-ui="2"] .messages.is-toast .notice::before { background: #ffffff; top: 50%; margin-top: -0.625rem; }
+:root[data-ui="2"] .messages.is-toast .notice--danger { background: var(--chile); }
+:root[data-ui="2"] .messages.is-toast .notice--warning { background: var(--ambar); }
+:root[data-ui="2"] .messages.is-toast .notice a { color: #ffffff; }
+:root[data-ui="2"] .messages.is-toast .notice.is-leaving { animation: santuario-toast-out var(--dur-2) var(--ease) both; }
+.toast__close { position: absolute; right: 0.25rem; top: 50%; margin-top: -1.375rem; width: 2.75rem; height: 2.75rem; padding: 0; border: 0; border-radius: var(--r-control); background: none; color: #ffffff; cursor: pointer; }
+.toast__close::before { content: ""; position: absolute; inset: 0; margin: auto; width: 1.125rem; height: 1.125rem; background: currentColor;
+  -webkit-mask: var(--i-close) center / contain no-repeat; mask: var(--i-close) center / contain no-repeat; }
+.toast__close:focus-visible { outline-color: #ffffff; outline-offset: -4px; box-shadow: none; }
+@media (max-width: 760px) { .messages.is-toast { top: var(--s-2); right: var(--s-3); left: var(--s-3); width: auto; } }
+/* A dialog: a sheet from the bottom on a phone, centred above 760px. The page goes under a veil of ink. */
+:root[data-ui="2"] .dialog { width: min(28rem, calc(100vw - 2rem)); border: 0; border-radius: var(--r-panel); background: var(--page); color: var(--ink); padding: 0; }
+:root[data-ui="2"] .dialog[open] { animation: santuario-sheet var(--dur-3) var(--ease-out) both; }
+:root[data-ui="2"] .dialog::backdrop { background: rgb(27 33 64 / 0.38); animation: atrio-fade var(--dur-2) var(--ease) both; }
+:root[data-ui="2"] .dialog__body { padding: var(--s-6) var(--s-5) var(--s-4); }
+:root[data-ui="2"] .dialog__body h2 { font-family: var(--font-ui); font-size: var(--t-h3); font-weight: 650; }
+.dialog__text { font-size: var(--t-body); font-weight: 560; line-height: 1.45; text-wrap: pretty; }
+:root[data-ui="2"] .dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2); padding: 0 var(--s-5) var(--s-5); }
+@media (max-width: 760px) {
+  :root[data-ui="2"] .dialog { width: 100%; max-width: 100%; margin: auto 0 0; border-radius: var(--r-panel) var(--r-panel) 0 0; padding-bottom: env(safe-area-inset-bottom, 0px); }
+  :root[data-ui="2"] .dialog__actions { flex-direction: column-reverse; }
+  :root[data-ui="2"] .dialog__actions .btn { width: 100%; min-height: var(--control-primary); }
+}
+.nav-progress { position: fixed; z-index: 90; top: 0; left: 0; right: 0; height: 3px; background: var(--mark); transform-origin: left; animation: santuario-load 8s cubic-bezier(.1, .7, .1, 1) both; pointer-events: none; }
+.skeleton { border-radius: var(--r-control); background: var(--fill); color: transparent; animation: santuario-breathe 1.4s ease-in-out infinite; }
+/* Something secondary, folded: the handle with its chevron */
+.page--app .fold > summary { border-top: 0; padding: var(--s-2) 0; min-height: 2.75rem; font-size: var(--t-small); font-weight: 600; color: var(--ink); }
+.page--app .fold > summary::before { width: 1.125rem; height: 1.125rem; border: 0; transform: none; background: var(--ink-2);
+  -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat; transition: transform var(--dur-2) var(--ease); }
+.page--app .fold[open] > summary::before { transform: rotate(90deg); }
+.page--app .fold > * + * { margin-top: var(--s-3); }
+.fold__title { font: inherit; display: inline; }
+.page--app .details summary { font-size: var(--t-small); color: var(--petroleo); }
+/* Steps with an order (first steps): each with its mark; the done ones quiet */
+.steps { list-style: none; display: grid; }
+.steps__item { display: flex; align-items: flex-start; gap: var(--s-3); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
+.steps__item:first-child { border-top: 0; }
+.steps__mark { flex: none; width: 1.375rem; height: 1.375rem; margin-top: 0.0625rem; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--line-control); position: relative; }
+.steps__item--done .steps__mark { background: var(--ink); box-shadow: none; }
+.steps__item--done .steps__mark::after { content: ""; position: absolute; inset: 0.25rem; background: #ffffff; -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat; }
+.steps__text { flex: 1; min-width: 0; }
+.steps__title { font-weight: 600; line-height: 1.35; }
+.steps__title a { color: var(--petroleo); }
+.steps__item--done .steps__title { color: var(--ink-2); font-weight: 500; }
+.steps__note { font-size: var(--t-small); color: var(--ink-2); }
+:root[data-ui="2"] .welcome { border: 0; border-radius: 0; background: none; padding: 0; margin-bottom: var(--s-5); animation: none; }
+:root[data-ui="2"] .welcome > summary .count { font-weight: 400; color: var(--ink-2); margin-left: var(--s-1); }
+:root[data-ui="2"] .welcome .steps { max-width: 36rem; }
+:root[data-ui="2"] .welcome__foot { margin: 0; padding: 0; border: 0; display: block; }
+
+/* ---------- 14. Screens --------------------------------------------------- */
+/* "Mi iglesia": the church and the day as a compact header; what waits raised; today; what comes. One column on a
+   phone; from 1280px a second column for what is read, not done. */
+.hoy__cabecera { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-1) var(--s-4); margin-bottom: var(--s-5); }
+.hoy__iglesia { font-size: var(--t-h1); line-height: 1.2; font-weight: 700; font-stretch: 112%; letter-spacing: -0.02em; }
+.hoy__fecha { font-size: var(--t-small); color: var(--ink-2); }
+.hoy .block { margin-top: var(--s-7, 1.75rem); }
+.hoy .sign + .block, .hoy .urgent + .block { margin-top: var(--s-6); }
+@media (min-width: 1280px) {
+  .hoy--ancho { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; column-gap: var(--s-12); align-items: start; }
+  .hoy--ancho > .hoy__cabecera { grid-column: 1 / -1; }
+  .hoy__lateral > .block:first-child { margin-top: 0; }
+}
+/* What waits, on a wide screen: the words on the left, the answer on the right */
+@media (min-width: 1100px) {
+  .ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-3) var(--s-6); }
+  .ask > .sign__actions { margin-top: 0; }
+  .ask > .sign__actions--pair { grid-template-columns: repeat(2, minmax(8.5rem, auto)); }
+  .ask > .respuesta { grid-column: 1 / -1; margin-left: calc(var(--lead) + var(--s-4)); }
+}
+/* Several things wait at once: one raised surface, a hairline between them */
+.esperan > .ask + .ask { margin-top: var(--s-4); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+.ask > .sign__who > :first-child { width: var(--lead); justify-self: center; }
+.hoy__evento + .hoy__evento { margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--line); }
+.hoy .heading + .evento, .hoy .heading + .sign, .hoy .heading + .lectura { margin-top: var(--s-3); }
+.sugerencia { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--fill); color: var(--ink-2); }
+.hoy__marca { display: grid; place-items: center; }
+.hoy__punto { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--mark); }
+.page--app .row__title--leido { font-weight: 480; }
+.row__meta--con-marca { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); }
+.lectura__titulo { font-size: var(--t-body); font-weight: 620; }
+.lectura__titulo a { color: var(--ink); text-decoration: none; }
+.lectura__titulo a:hover { text-decoration: underline; text-underline-offset: 0.18em; }
+.lectura__pie { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); font-size: var(--t-small); color: var(--ink-2); }
+/* The serving request answered: the answer as a line, and how to change it */
+.respuesta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-2) var(--s-4); margin-top: var(--s-3); padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.respuesta__estado { display: inline-flex; align-items: center; gap: var(--s-2); font-size: var(--t-small); font-weight: 620; }
+.respuesta__estado::before { content: ""; width: 1.25rem; height: 1.25rem; background: currentColor; -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat; }
+.respuesta--no .respuesta__estado::before { -webkit-mask-image: var(--i-close); mask-image: var(--i-close); }
+.respuesta .fold > summary { min-height: 2.75rem; color: var(--petroleo); }
+.respuesta .fold > summary::before { display: none; }
+.respuesta .fold[open] { flex-basis: 100%; }
+.respuesta .fold[open] > summary { display: none; }
+.lectura { display: grid; gap: var(--s-2); }
+.lectura .verso { max-width: 32ch; }
+
+/* The coordinator's workspace: the interrupted interview raised; what waits for a decision as rows with their count;
+   the queue; progress. One column under 1280px. */
+.tablero { display: grid; gap: 0 var(--s-12); align-items: start; }
+@media (min-width: 1280px) {
+  .tablero { grid-template-columns: minmax(0, 1fr) 22rem; grid-template-areas: "retomar esperan" "cola avance"; }
+  .tablero__retomar { grid-area: retomar; } .tablero__esperan { grid-area: esperan; } .tablero__cola { grid-area: cola; } .tablero__avance { grid-area: avance; }
+}
+.decision { display: grid; grid-template-columns: var(--lead) minmax(0, 1fr) auto; align-items: center; gap: var(--s-4); min-height: 4rem; padding: var(--s-3) 0; border-bottom: 1px solid var(--line); }
+.decision__cifra { font-size: 1.75rem; line-height: 1; font-weight: 700; font-stretch: 112%; letter-spacing: -0.02em; color: var(--ink); text-align: center; font-variant-numeric: tabular-nums; }
+.avance__cifra { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s-1) var(--s-3); }
+.avance__n { font-size: 3rem; line-height: 1.05; font-weight: 700; font-stretch: 112%; letter-spacing: -0.03em; }
+.avance__n span { font-weight: 430; color: var(--ink-2); }
+.compu { display: inline-flex; align-items: center; gap: var(--s-2); min-height: var(--control); padding: 0 0.3125rem 0 0.875rem; border: 1.5px solid transparent; border-radius: var(--r-pill); background: var(--ambar-tint); color: var(--ambar); font-size: var(--t-small); font-weight: 600; text-decoration: none; }
+.compu__verbo { display: inline-flex; align-items: center; min-height: 2rem; padding: 0 0.75rem; border-radius: var(--r-pill); background: var(--surface); font-weight: 680; }
+.compu--elegida { background: none; border-color: var(--ink-2); color: var(--ink); }
+.compu--elegida .compu__verbo { background: var(--fill); }
+
+/* A group: the circle beside the title; the next meeting for who is part */
 .group-head { display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-6); }
 .group-head .page-head { margin-bottom: 0; min-width: 0; }
-@media (max-width: 600px) {
-  .group-head .mono--lg { width: 3.25rem; height: 4rem; border-radius: 1.625rem 1.625rem 0.375rem 0.375rem; font-size: 1.375rem; }
-}
-/* The next meeting, for who is already part: the day drawn, then where */
-.meeting { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) var(--s-4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); position: relative; }
-.meeting__title { font-weight: 700; font-size: var(--t-body); line-height: 1.3; }
+.meeting { position: relative; display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) 0; background: none; border: 0; }
+.meeting__title { font-weight: 620; font-size: var(--t-body); line-height: 1.3; }
 .meeting__title a { color: var(--ink); text-decoration: none; }
-.meeting__title a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.meeting__title a::after { content: ""; position: absolute; inset: 0; }
 .meeting__meta { font-size: var(--t-small); color: var(--ink-2); }
-.meeting:has(.meeting__title a):hover { border-color: var(--line-control); }
-
-/* A person's contact line that stands before a section, not inside a row */
 .page--app p.row__contact + .block, .page--app p.row__contact + section { margin-top: var(--s-8); }
-/* An option that cannot be chosen (a person who marked the day): quiet, not hidden */
-.choice:has(input:disabled) { background: var(--hundido); }
+.choice:has(input:disabled) { background: var(--fill); }
 .choice:has(input:disabled) .choice__label { color: var(--ink-2); cursor: not-allowed; }
-/* A notice's words: paragraphs apart, at the reading measure */
 .prose p + p { margin-top: var(--s-3); }
 
 /* Panorama: the church in totals */
-:root[data-ui="2"] .panorama .table caption { caption-side: top; text-align: left; padding: var(--s-3) var(--s-4) 0; font-size: var(--t-caption); color: var(--ink-2); }
+:root[data-ui="2"] .panorama .table caption { caption-side: top; text-align: left; padding: 0 0 var(--s-2); font-size: var(--t-small); color: var(--ink-2); }
 :root[data-ui="2"] .panorama .table th, :root[data-ui="2"] .panorama .table td { vertical-align: top; }
-:root[data-ui="2"] .panorama .table thead th { vertical-align: bottom; }
-:root[data-ui="2"] .panorama .table tbody th { font-weight: 700; min-width: 9rem; }
-:root[data-ui="2"] .panorama .table__flag { font-weight: 700; }
+:root[data-ui="2"] .panorama .table tbody th { min-width: 9rem; }
 :root[data-ui="2"] .panorama .table td.num { white-space: nowrap; }
-:root[data-ui="2"] .panorama .table--after { margin-top: 0; }
-:root[data-ui="2"] .panorama .trend { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-:root[data-ui="2"] .panorama .empty-line a, :root[data-ui="2"] .panorama .aside-note a { font-weight: 700; }
 :root[data-ui="2"] .own-attendance .row { min-height: 3.25rem; }
-
 /* An urgent notice at the top of "Mi iglesia" */
 :root[data-ui="2"] .urgent .notice__title { font-size: var(--t-body); line-height: 1.3; }
 :root[data-ui="2"] .urgent + .urgent { margin-top: var(--s-3); }
-:root[data-ui="2"] .urgent + .sign { margin-top: var(--s-5); }
-:root[data-ui="2"] .aside-note + form.block { margin-top: var(--s-6); }
 :root[data-ui="2"] .break-anywhere { overflow-wrap: anywhere; }
-
 /* The public page of an event (templates/agenda/public.html): read without an account, mostly on a phone */
-:root[data-ui="2"] .public-event__church { font-size: var(--t-small); font-weight: 700; color: var(--ink-2); margin-bottom: var(--s-2); }
-@media (max-width: 760px) {
-  :root[data-ui="2"] .public-event .step__actions .btn { width: 100%; }
-}
-:root[data-ui="2"] .more + .block, :root[data-ui="2"] .aside-note + .public-link { margin-top: var(--s-10); }
+:root[data-ui="2"] .public-event__church { font-size: var(--t-small); font-weight: 650; color: var(--ink-2); margin-bottom: var(--s-2); }
+@media (max-width: 760px) { :root[data-ui="2"] .public-event .step__actions .btn { width: 100%; } }
 
 /* The church's public home (templates/sitio/public.html, issue #87): no bar and no rail, the page is the
    church's. One column at the reading measure; the arch with the church's initials (or its logo) is the only
@@ -951,9 +878,9 @@ p.sitio__leaves { margin-top: var(--s-2); }
   .sitio__foot { max-width: 72rem; padding-inline: var(--s-10); }
 }
 
-/* ---------- 12b. Screens, by area ----------------------------------------- */
-/* What a single screen needs beyond the components above. Keep each area between its two marks. */
 
+/* ---------- 14b. Screens, by area ---------------------------------------- */
+/* What a single screen needs beyond the components above, one block per area of the product. */
 /* area: grupos */
 /* A group's head (templates/groups/group_detail.html, _work_head.html): the arch and the name are the page head;
    the administration's one quiet action sits beside them, and under them on a phone */
@@ -1483,172 +1410,38 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] .sign:has(> #buscar-titulo) .search + .sign__text { margin-top: var(--s-3); }
 /* end: evento-entrevista */
 
-/* ---------- 13. Doors ---------------------------------------------------- */
-/* Sign-in, a forgotten password, joining with a code, an error: one thing to do, in the middle of the page,
-   on a white sheet. They keep Atrio's larger type: a door is read from farther away. */
-
-/* ---------- 14. Motion --------------------------------------------------- */
-/* Motion answers a person or says that something changed. Nothing moves to decorate. Atrio's thirteen rules stay
-   (rotulo.css §13); these are added: a toast arrives and leaves, a bar fills once, a busy button turns, the line
-   of a slow page runs, a row's chevron leans towards where it leads. */
+/* ---------- 15. Motion ---------------------------------------------------- */
+/* Motion answers a person or shows what changed (docs/v2/CRAFT.md §4). Atrio's rules stay (rotulo.css §13). Added:
+   a toast arrives and leaves, a sheet rises, a bar fills once, a busy button turns, a slow page draws its line, a
+   region that changed state crossfades (emmaus.js, view transition "accion"). */
 @keyframes santuario-spin { to { transform: rotate(360deg); } }
 @keyframes santuario-grow { from { transform: scaleX(0); } }
 @keyframes santuario-toast { from { opacity: 0; transform: translateY(-0.75rem); } }
 @keyframes santuario-toast-out { to { opacity: 0; transform: translateY(-0.5rem); } }
+@keyframes santuario-sheet { from { opacity: 0; transform: translateY(0.75rem); } }
 @keyframes santuario-load { from { transform: scaleX(0); } 20% { transform: scaleX(0.55); } to { transform: scaleX(0.95); } }
 @keyframes santuario-breathe { 50% { opacity: 0.55; } }
+::view-transition-group(accion) { animation-duration: var(--dur-2); animation-timing-function: var(--ease); }
+::view-transition-old(accion), ::view-transition-new(accion) { animation-duration: var(--dur-2); height: 100%; object-fit: none; object-position: top; }
+/* The page head no longer rises on every page: a page arrives by the crossfade alone */
+:root[data-ui="2"] .page-head { animation: none; }
 
-/* ---------- 15. Preferences and print ------------------------------------ */
+/* ---------- 16. Preferences and print ------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .meter__fill, .messages.is-toast .notice, .messages.is-toast .notice.is-leaving, .skeleton, .dialog[open], .dialog::backdrop { animation: none; }
   .nav-progress { animation: none; transform: scaleX(0.6); }
-  form.is-submitting .btn--primary::after, .btn[aria-busy="true"]::after { animation-duration: 2.4s; }
-  .page--app .rows > .row::after, .card { transition: none; }
+  :root[data-ui="2"] .btn[aria-busy="true"]::after, :root[data-ui="2"] form.is-submitting .btn--primary::after { animation-duration: 2.4s; }
+  :root[data-ui="2"] .btn:active:not([disabled]) { transform: none; }
 }
 @media (forced-colors: active) {
-  .mono, .quiet, .badge, .status, .chip, .date-block, .meter__track, .steps__mark { border: 1px solid CanvasText; }
-  .page--app .rows > .row::after, .notice::before, .empty::before, .page--app .empty-line::before, .page--app .aside-note::before,
-  .page--app .back-link::before, .toast__close::before, .page--app .fold > summary::before { background: CanvasText; }
-  .level > i.on, .meter__fill { background: Highlight; }
+  .mono, .badge, .date-block, .meter__track, .steps__mark, .status__mark, .arco, .sign, .sign--lead { border: 1px solid CanvasText; }
+  .page--app .rows > .row::after, :root[data-ui="2"] .notice::before, .empty::before, .page--app .aside-note::before,
+  .page--app .back-link::before, .toast__close::before, .page--app .fold > summary::before, .respuesta__estado::before { background: CanvasText; }
+  .level > i.on, .meter__fill, .status--done .status__mark { background: Highlight; }
 }
 @media print {
   .rail, .tabs, .messages.is-toast, .nav-progress { display: none !important; }
   body:has(> .rail) { display: block; }
+  :root[data-ui="2"] .sign { box-shadow: none; border: 1px solid #000; }
   .sitio-preview, .sitio__foot { display: none; }
-}
-
-/* ==========================================================================
-   16. Open composition (the course correction of 2026-11-18)
-   --------------------------------------------------------------------------
-   A page is paper, not a board of cards. Things are set on it in rows between
-   hairlines; a container is drawn only for what floats (a toast, a dialog) or
-   for a field. One thing may be heavy on a screen: what waits for the person.
-   These rules come last on purpose: they take the boxes off the components
-   above. Nothing here adds a surface.
-   ========================================================================== */
-body:has(> .rail) { font-family: var(--font-ui); word-spacing: 0.04em; }
-.rail { border-right: 0; }
-.rail__link { border-radius: 9px; min-height: 2.75rem; }
-.rail__link[aria-current="page"] { box-shadow: none; }
-.rail__label { font-weight: 600; }
-.page--app { padding-top: var(--s-12); }
-@media (max-width: 760px) { .page--app { padding-top: var(--s-5); } }
-
-/* Titles: one family; the size and the weight do the work */
-.page--app .page-head__title { font-size: clamp(1.75rem, 1.5rem + 1vw, 2.125rem); line-height: 1.12; }
-.page--app .heading { font-size: var(--t-small); font-weight: 650; letter-spacing: 0; padding-bottom: var(--s-2); border-bottom: 1px solid var(--line); }
-.page--app .heading + * { margin-top: 0; }
-.heading-row { align-items: baseline; border-bottom: 1px solid var(--line); }
-.heading-row .heading, .page--app .heading-row .heading { border-bottom: 0; }
-.heading-row + * { margin-top: 0; }
-.heading-row a { min-height: 2.75rem; font-weight: 500; }
-.page--app .block + .block { margin-top: var(--s-10); }
-
-/* Buttons: a filled pill for the one action, a quiet pill for the rest */
-.btn { border-radius: var(--r-pill); border-color: transparent; background: var(--hundido); font-weight: 600; }
-.btn:hover { background: color-mix(in srgb, var(--ink) 9%, var(--page)); border-color: transparent; }
-.btn--primary { background: var(--petroleo); border-color: var(--petroleo); font-weight: 600; }
-.btn--primary:hover { background: var(--petroleo-hover); border-color: var(--petroleo-hover); }
-.btn--secondary { background: var(--hundido); }
-.btn--danger { background: var(--chile); }
-.btn--danger-outline { background: none; border-color: color-mix(in srgb, var(--chile) 45%, var(--page)); }
-.btn--link { background: none; border-radius: var(--r-control); }
-.btn--link:hover { background: none; }
-.btn--on-dark { background: #ffffff; }
-
-/* Lists: rows on the page, between hairlines */
-.page--app .rows { background: none; border: 0; border-radius: 0; }
-.page--app .rows > .row, .page--app .rows > .row:first-child, .page--app .rows > .row:last-child, .page--app .rows > .row:only-child { padding-inline: 0; border-radius: 0; }
-.page--app .rows > .row:last-child { border-bottom: 1px solid var(--line); }
-.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))):hover { background: none; }
-.page--app .rows > .row:has(.row__title a):hover .row__title a { color: var(--petroleo); }
-.page--app .row__title { font-weight: 600; }
-.page--app .rows > .row--attention, .page--app .row--attention { background: none; box-shadow: none; padding-inline: 0; }
-.page--app :not(.rows) > .row--attention { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
-.page--app .summary-list { background: none; border: 0; border-radius: 0; }
-.page--app .summary-list__row { padding-inline: 0; }
-.page--app .summary-list__row:last-child { border-bottom: 1px solid var(--line); }
-
-/* What used to be a card is the thing itself */
-.card { background: none; border: 0; border-radius: 0; padding: 0; }
-.quiet { background: none; padding: var(--s-4) 0 0; border-top: 1px solid var(--line); border-radius: 0; }
-.meeting { background: none; border: 0; border-radius: 0; padding: var(--s-3) 0; }
-.form-section { background: none; border: 0; border-radius: 0; padding: 0; }
-.form-section + .form-section { margin-top: var(--s-10); }
-.form-section__title { font-size: var(--t-small); font-weight: 650; padding-bottom: var(--s-2); margin-bottom: var(--s-5); border-bottom: 1px solid var(--line); }
-.page--app .figures > div { background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: var(--s-3) 0 0; }
-.page--app .figures__value { font-weight: 650; }
-.page--app .table-wrap { background: none; border: 0; border-radius: 0; }
-.page--app .table th:first-child, .page--app .table td:first-child { padding-left: 0; }
-.page--app .table th { border-bottom: 1px solid var(--ink); color: var(--ink); }
-.page--app .table tbody tr:hover { background: none; }
-.page--app .empty-line { padding: var(--s-4) 0; background: none; border: 0; border-radius: 0; color: var(--ink-3); }
-.page--app .empty-line::before { display: none; }
-.empty { background: none; border: 0; justify-items: start; text-align: left; padding: var(--s-8) 0; }
-.empty::before { margin-bottom: var(--s-2); }
-.notice { border: 0; border-radius: 12px; }
-:root[data-ui="2"] .welcome { border: 0; border-radius: 0; background: none; padding: 0; margin-bottom: var(--s-5); animation: none; }
-:root[data-ui="2"] .welcome > summary .count { font-weight: 400; color: var(--ink-3); margin-left: var(--s-1); }
-:root[data-ui="2"] .welcome .steps { margin-top: 0; max-width: 36rem; }
-:root[data-ui="2"] .welcome__foot { margin: 0; padding: 0; border: 0; display: block; }
-
-/* States: a word with its dot; the tint is kept for what waits and for risk */
-.status, .chip { background: none; padding: 0; min-height: 0; font-weight: 600; }
-.status--review, .chip--wait { background: none; }
-.status--done, .chip--done, .chip--ok, .status--progress, .chip--progress, .chip--info, .status--risk, .chip--alert, .chip--risk { background: none; }
-
-/* A day: only today is filled; any other day is its number and its weekday, set as text */
-.date-block { width: 2.75rem; min-height: 2.75rem; background: none; border-radius: 10px; }
-.date-block__month { display: none; }
-.date-block__day { font-size: 1.1875rem; font-weight: 650; margin: 0; }
-.date-block__weekday { order: -1; font-size: 0.6875rem; font-weight: 600; color: var(--ink-3); }
-.dates .row--today .date-block, .date-block--today { background: var(--petroleo); }
-
-/* What waits for the person: the one heavy thing of a screen. A rule in ink above it, who or what it is about,
-   and its action named by its outcome. No panel. */
-.sign, body:has(> .rail) .sign, body:has(> .rail) .sign--lead {
-  background: none; color: var(--ink); border-radius: 0; padding: var(--s-4) 0 var(--s-5); border-top: 2px solid var(--ink);
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-1) var(--s-6);
-}
-body:has(> .rail) .sign__title, body:has(> .rail) .sign--lead .sign__title { font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem); line-height: 1.2; font-weight: 600; letter-spacing: -0.015em; }
-body:has(> .rail) .sign__text, .sign--lead .sign__text { color: var(--ink-2); font-size: var(--t-small); margin-top: 0.125rem; }
-body:has(> .rail) .sign__actions { margin-top: 0; }
-.sign__kind { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.4375rem; font-size: var(--t-caption); font-weight: 600; color: var(--ambar); margin-bottom: var(--s-1); }
-.sign__kind::before { content: ""; width: 0.4375rem; height: 0.4375rem; border-radius: 50%; background: currentColor; }
-.sign__who { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
-.sign--lead :focus-visible { outline-color: var(--ink); box-shadow: 0 0 0 2px #ffffff; }
-.sign .btn--on-dark { background: var(--petroleo); border-color: var(--petroleo); color: #ffffff; }
-.sign .btn--on-dark:hover { background: var(--petroleo-hover); }
-@media (max-width: 760px) {
-  .sign, body:has(> .rail) .sign, body:has(> .rail) .sign--lead { grid-template-columns: minmax(0, 1fr); padding: var(--s-4) 0 var(--s-5); }
-  body:has(> .rail) .sign__actions { margin-top: var(--s-3); }
-  .sign__actions .btn { width: 100%; min-height: 3.125rem; }
-}
-
-/* The home: "Hoy", then the days */
-.hoy__date { font-size: var(--t-caption); color: var(--ink-3); }
-.page--app .hero__title { font-size: clamp(1.875rem, 1.6rem + 1vw, 2.125rem); }
-.hero { margin-bottom: var(--s-6); }
-.hoy { max-width: 40rem; }
-.hoy .block { margin-top: var(--s-8); }
-.dia { display: flex; align-items: baseline; gap: var(--s-2); }
-.dia span { font-weight: 400; color: var(--ink-3); }
-.hoy-lista > .row { display: grid; grid-template-columns: 3rem minmax(0, 1fr) auto auto; align-items: center; gap: 0 var(--s-3); }
-.hoy__lead { font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.hoy__lead .icon { display: block; width: 1.25rem; height: 1.25rem; color: var(--ink-3); }
-.hoy__dot { display: block; width: 0.5rem; height: 0.5rem; margin-left: 0.25rem; border-radius: 50%; background: var(--petroleo); }
-.hoy-lista .row__main { grid-column: 2; }
-.hoy-lista .row__end { grid-column: 3; }
-.page--app .hoy-lista > .row::after { grid-column: 4; }
-.hoy-lista .tag { font-size: var(--t-caption); font-weight: 600; color: var(--ambar); }
-
-@media (max-width: 600px) {
-  .hoy-lista > .row { gap: 0 var(--s-2); grid-template-columns: 2.75rem minmax(0, 1fr) auto auto; }
-  .hoy-lista .btn--small { padding-inline: 0.875rem; }
-}
-
-/* Tabs: solid, never see-through, so nothing shows behind them */
-@media (max-width: 760px) {
-  .tabs { background: var(--page); }
-  .rail { background: var(--page); border-bottom: 0; }
 }

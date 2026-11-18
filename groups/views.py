@@ -164,7 +164,7 @@ def home(request):
             .select_related("person", "group").first() if total == 1 else None
         )
         sign = {
-            "kind": "Espera tu respuesta",
+            "kind": "",
             "who": one.person.full_name if one else "",
             "title": f"{one.person.full_name} quiere unirse a {one.group.name}" if one else f"{total} personas quieren unirse a tus grupos",
             "text": "",
@@ -206,29 +206,47 @@ def home(request):
         request.user, church, person.first_name, has_group=bool(memberships), open_groups=open_groups,
         guided=(guided.name, reverse("community:group_people", args=[guided.pk])) if guided else None,
     )
-    # "Hoy" and the days after it, as one list: what the church says today (notices not read yet, the devotional),
-    # then every meeting, event and date to serve under its day. One place to look, in the order it happens.
-    rows = [{"date": today, "kind": "notice", "notice": notice, "order": 0} for notice in notices]
-    if devotional:
-        rows.append({"date": today, "kind": "devotional", "devotional": devotional, "order": 1})
-    if reading:
-        rows.append({"date": today, "kind": "reading", "plan": reading[0], "day": reading[1], "order": 1})
-    rows += [{**item, "order": 2, "time": item.get("time") or (item["event"].page.starts_at if item["kind"] == "event" else None)} for item in agenda[:6]]
-    rows += [
-        {"date": a.service_date.date, "kind": "serving", "assignment": a, "order": 2, "time": a.service_date.starts_at}
-        for a in serving_dates
+    # What waits for this person's answer: the dates their teams asked them to serve. One answered a moment ago stays
+    # here, showing the answer and how to change it, so the answer never vanishes from under the finger; after that
+    # it lives in the list of what comes.
+    just_now = timezone.now() - timezone.timedelta(minutes=15)
+    asks = [
+        a for a in serving_services.all_my_dates(person, today)
+        if a.status == serving_services.PENDING or (a.responded_at and a.responded_at >= just_now)
+    ][:3]
+    for a in asks:
+        a.pending = a.status == serving_services.PENDING
+        a.can_change = not a.pending and a.service_date.date > today  # an answer changes until the day before
+    asked = {a.pk for a in asks}
+    # A suggestion (find a group) is not something that waits for an answer: it goes with the groups, unraised.
+    suggestion = sign if sign and sign["action"] == "Ver los grupos" else None
+    if suggestion:
+        sign = None
+    # Today and what comes after, apart: today is presented; the rest is a list.
+    for item in agenda:
+        item["time"] = item.get("time") or (item["event"].page.starts_at if item["kind"] == "event" else None)
+    serving_rows = [
+        {"date": a.service_date.date, "today": a.service_date.date == today, "kind": "serving", "assignment": a,
+         "time": a.service_date.starts_at, "title": a.service_date.what}
+        for a in serving_dates if a.pk not in asked
     ]
-    rows.sort(key=lambda row: (row["date"], row["order"], str(row.get("time") or "")))
-    days = []
-    for row in rows:
-        if not days or days[-1]["date"] != row["date"]:
-            days.append({"date": row["date"], "today": row["date"] == today, "rows": []})
-        days[-1]["rows"].append(row)
+    coming = sorted(agenda[:6] + serving_rows, key=lambda row: (row["date"], str(row.get("time") or ""), row["title"]))
+    today_rows = [row for row in coming if row["date"] == today]
+    later_rows = [row for row in coming if row["date"] != today][:5]
+    # The devotional's first words, the church's own writing (never Bible text: decision 0014), set as its voice
+    opening = ""
+    if devotional:
+        text = " ".join(devotional.body.split())
+        opening = text if len(text) <= 120 else text[:120].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
     return render(
         request,
         "groups/home.html",
         {
-            "days": days,
+            "asks": asks,
+            "suggestion": suggestion,
+            "today_rows": today_rows,
+            "later_rows": later_rows,
+            "opening": opening,
             "church": church,
             "person": person,
             "welcome": welcome,

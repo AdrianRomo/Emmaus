@@ -232,6 +232,18 @@ class PiecesTests(SimpleTestCase):
         self.assertEqual(initials("ana.lopez@demo.invalid"), "AL")
         self.assertEqual(initials(""), "")
 
+    def test_the_sky_of_an_arch_is_the_hour_and_nothing_else(self):
+        from datetime import time
+
+        from core.templatetags.shell import event_arch, sky_of
+
+        self.assertEqual([sky_of(time(h)) for h in (7, 12, 17, 19, 21)], ["manana", "mediodia", "tarde", "atardecer", "noche"])
+        self.assertEqual(sky_of(None), "sin-hora")
+        self.assertEqual(
+            str(event_arch(time(17, 0), "sm")),
+            '<span class="arco arco--sm" aria-hidden="true"><span class="cielo luz-tarde"></span></span>',
+        )
+
     def test_tel(self):
         self.assertEqual(tel("55 1111 2222"), "5511112222")
         self.assertEqual(tel("+52 (55) 1111-2222"), "+525511112222")
@@ -241,14 +253,25 @@ class PiecesTests(SimpleTestCase):
         self.assertEqual(css.count("{"), css.count("}"))
         self.assertIn(':root[data-ui="2"] {', css)
         self.assertNotRegex(css, r"(?m)^:root\s*\{")  # never a bare :root: the church's own colours must win
-        self.assertNotIn("linear-gradient", css)
-        self.assertNotIn("box-shadow: 0 ", css.replace("box-shadow: 0 0 0 2px", ""))  # no depth shadows, as in Atrio
+        # Gradients only where they carry information: the sky of a gathering's hour (.cielo, .luz-*) and the
+        # stripes of "in progress". Nowhere as decoration.
+        informative = re.sub(r"[^{}]*\.(?:cielo|luz-[a-z-]+)[^{}]*\{[^{}]*\}", "", css)
+        informative = re.sub(r"--raya:[^;]*;", "", informative)  # the stripes of "in progress", one token
+        self.assertNotIn("gradient", informative)
+        # One elevation, a token, for the raised surface; no other depth shadow (a 2px ring is not depth)
+        self.assertEqual(len(re.findall(r"--elevacion:", css)), 1)
+        self.assertNotIn("box-shadow: 0 ", css.replace("box-shadow: 0 0 0 2px", ""))
 
-    def test_the_serif_range_is_what_the_file_was_cut_to(self):
-        face = re.search(r"@font-face\s*\{(.*?)\}", SHEET.read_text(), re.S).group(1)
-        self.assertIn('url("../fonts/newsreader-display-latin.woff2")', face)
-        self.assertIn("U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026", face)
-        self.assertTrue((settings.BASE_DIR / "static" / "fonts" / "OFL-Newsreader.txt").is_file())
+    def test_the_faces_are_the_self_hosted_subsets_with_their_licences(self):
+        faces = re.findall(r"@font-face\s*\{(.*?)\}", SHEET.read_text(), re.S)
+        self.assertEqual(len(faces), 2)
+        self.assertIn('url("../fonts/mona-sans-latin.woff2")', faces[0])
+        self.assertIn("font-stretch: 98% 112%", faces[0])
+        self.assertIn('url("../fonts/source-serif-italic-latin.woff2")', faces[1])
+        for face in faces:
+            self.assertIn("font-display: swap", face)
+        for licence in ("OFL-MonaSans.txt", "OFL-SourceSerif4.txt"):
+            self.assertTrue((settings.BASE_DIR / "static" / "fonts" / licence).is_file())
 
 
 class HomeModulesTests(CommunityFixture):

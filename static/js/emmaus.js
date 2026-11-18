@@ -887,6 +887,13 @@
             return response.text().then(function (html) {
               var fresh = new window.DOMParser().parseFromString(html, "text/html");
               var answered = new URL(response.url, window.location.href);
+              if (!response.redirected && answered.pathname !== window.location.pathname) {
+                // The server answered with a page of its own (a form to complete): show it as it is, since asking for
+                // it again would repeat the action
+                window.history.pushState(null, "", answered.href);
+                doc.open(); doc.write(html); doc.close();
+                return;
+              }
               if (answered.pathname !== window.location.pathname) {
                 // One more step on another page: go there, and carry its message
                 try {

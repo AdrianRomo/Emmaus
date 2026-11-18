@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.paging import first_rows
 from events.models import Event, normalize_name
 from events.services import throttle
@@ -222,7 +223,9 @@ def register(request, slug: str):
         messages.info(request, f"Recibimos tu inscripción a {event.name}. {what_next}")
     else:
         messages.success(request, f"Te inscribiste a {event.name}.")
-    return redirect("agenda:detail", event.slug)
+    # Back to where «Inscribirme» was pressed ("Mi iglesia", Eventos), so that page shows the new state; an error
+    # above always goes to the event's page, which says what to do
+    return redirect(safe_next(request, request.POST.get("siguiente"), reverse("agenda:detail", args=[event.slug])))
 
 
 @community_view
