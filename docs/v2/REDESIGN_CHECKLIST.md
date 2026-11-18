@@ -59,12 +59,12 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 | Devocional, recursos, planes de lectura | `resources/` | done | merged `d2ef40e`; «Marcar como leído» in place | «Marcar como leído» in place |
 | Servir | `serving/` | done | merged `0304f2e`; one drawing of an answered date `ed7aacd` | |
 | Acompañar | `care/` | done | merged `0304f2e`; privacy unchanged | |
-| Personas | `people/` | wip | |
-| Panorama | `overview/` | wip | Privacy thresholds untouched |
-| Opiniones, políticas, página pública | `feedback/`, `policies/`, `sitio/` | wip | |
-| Cuenta, entrar, contraseñas, portada, unirme, errores, ayuda | `registration/`, `errors/`, `core/` | wip | Shared with module-off |
-| Configuración de la iglesia, usuarios | `core/` | wip | Shared |
-| Discipulado | `core/` | wip | Shared |
+| Personas | `people/` | done | merged `6303cd8` | |
+| Panorama | `overview/` | done | merged `6303cd8`; thresholds untouched | Privacy thresholds untouched |
+| Opiniones, políticas, página pública | `feedback/`, `policies/`, `sitio/` | done | merged `6303cd8` | |
+| Cuenta, entrar, contraseñas, portada, unirme, errores, ayuda | `registration/`, `errors/`, `core/` | done | merged `71f3a36`; error pages unchanged on purpose | Shared with module-off |
+| Configuración de la iglesia, usuarios | `core/` | done | merged `6303cd8` | Shared |
+| Discipulado | `core/` | done | merged `71f3a36` | Shared |
 | Evento: administración | `events/admin/` | done | merged `0ebcd48` | Shared |
 | Evento: coordinador (rest), tutor, pastor, supervisión, reportes | `events/` | done | merged `c9e5857`, `0ebcd48` | Shared |
 | Evento: entrevista y campero | `events/interview/`, `events/kiosk/` | wip | Privacy and consent text stays |
@@ -78,3 +78,22 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 4. No event photos until issue #60 is decided: the arch shows the sky of the hour; the slot is ready.
 5. Accounts that only work in events wear the shell of the event's church.
 6. No push, no pull request, no deploy without the owner's word.
+
+## Open decisions for the owner (found during the rollout; nothing below was changed)
+
+1. Notices linked to the gathering they change (a notice «17:00 → 18:00» does not change the event): a new
+   capability (review #24).
+2. Decision 0010 (#75): an adult's typed birth date still waits for the team's confirmation; a pending
+   sign-up offers «Cancelar mi inscripción» (existing behaviour, kept) — confirm both.
+3. The sign-in error tells everyone «pide ayuda a la administración del evento», church members too. It is
+   shared with the camp's sign-in (module-off output must not change), so it was left. Suggested: «Si no
+   puedes entrar, pide ayuda a quien te dio acceso.»
+4. The landing's promise («Platicar con cada joven, sin perder a nadie») speaks of camp to every visitor.
+5. An interview step's «Continuar» with no answer chosen: whatever the interview area reports (what is
+   required is the owner's rule).
+6. «Nadie sirve el …» shows on the team page; counting it in the rail or on a coordinator's home needs a
+   decision on who must see it first.
+7. New words to confirm: «Hoy en la iglesia», «Ver cómo inscribirme», «Más de la iglesia», «Mis datos» in Mi
+   cuenta, «Lo que preguntaste» / «Lo que escribiste», «También esperan tu respuesta» / «Con el pastor».
+8. Event photos (#60): the arch shows the sky of the hour until the church decides.
+
