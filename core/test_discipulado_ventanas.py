@@ -97,14 +97,15 @@ class DiscipleshipVentanasTests(EmmausFixture):
 
     def test_a_follow_up_is_marked_as_attended_in_place(self):
         main = self.page(self.mentor, reverse("follow_up_list"))
-        region = f"seguimiento-{self.follow_up.id}"
-        self.assertIn(f'id="{region}"', main)
-        self.assertIn(f'data-inline="{region}"', main)
-        response = self.client.post(reverse("complete_follow_up", args=[self.follow_up.id]))
+        action = reverse("complete_follow_up", args=[self.follow_up.id])
+        self.assertIn('<section id="lista-seguimientos"', main)
+        self.assertIn(f'action="{action}" data-inline="lista-seguimientos"', main)
+        response = self.client.post(action)
         self.assertRedirects(response, reverse("follow_up_list"), fetch_redirect_response=False)
         after = main_of(self.client.get(reverse("follow_up_list")))
-        self.assertIn(f'id="{region}"', after)  # the row stays, in its new state, without the button
-        self.assertNotIn(f'data-inline="{region}"', after)
+        self.assertIn('<section id="lista-seguimientos"', after)  # the list stays, the row in its new state
+        self.assertNotIn(f'action="{action}"', after)
+        self.assertIn("Atendido", after)
 
     def test_with_the_module_off_the_screens_are_what_they_were(self):
         flags.set_enabled(self.church, "community", False)
