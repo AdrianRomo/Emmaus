@@ -144,10 +144,11 @@ class MigrationScopeTests(TestCase):
         # 15: events/0015_practice_participant (issue #49). 12: core/0012_scheduler_heartbeat, one new table for the
         # scheduler's heartbeat (issue #80). 16: events/0016_follow_up_decision_change, one new table for «Cambiar decisión
         # de seguimiento»; 17: events/0017_answer_declined, two boolean columns with a database default («Prefiero no
-        # responder» stored apart from a blank) — both owner decisions of 2026-11-18. A new one here is a reviewed,
-        # additive change.
+        # responder» stored apart from a blank) — both owner decisions of 2026-11-18; 18: events/0018_follow_up_decision_change_
+        # reopened, the choices of FollowUpDecisionChange.care only (no column changes: «reabierto», no more «cancelado»).
+        # A new one here is a reviewed, additive change.
         self.assertEqual(len(core_files), 12, core_files)
-        self.assertEqual(len(events_files), 17, events_files)
+        self.assertEqual(len(events_files), 18, events_files)
         self.assertEqual(
             sorted(p.name for p in (REPO / "people" / "migrations").glob("0*.py")),
             ["0001_initial.py", "0002_campusaffiliation.py", "0003_modules_audit_participant_links.py",

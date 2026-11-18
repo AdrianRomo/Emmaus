@@ -1,17 +1,18 @@
-"""«Cambiar decisión de seguimiento» (services.follow_up_decision): the owner's decision of 2026-11-18.
+"""«Cambiar decisión de seguimiento» (services.follow_up_decision): the owner's decisions of 2026-11-18.
 
 A decision already taken («necesita seguimiento» / «no necesita seguimiento») is changed by the campero's coordinador or
 an administrador of the event, on its own page, with a brief reason. Who, when, both decisions and the reason are kept
-and shown on the interview's record; the activity log keeps all but the reason. To «necesita»: the ordinary care
-follow-up, once. To «no necesita»: cancelled if nobody started it, otherwise left open and flagged for whoever attends
-it, who closes it with its own form. Confidential referrals and safety reports are never touched. The first decision of
-an interview left «Por decidir» stays as it was.
-"""
+and shown on the interview's record; the activity log keeps all but the reason. To «necesita»: the ordinary care task is
+created once, or reopened when it was closed (attended or cancelled), its closing kept in its history. To «no necesita»:
+an open task is never closed by the change; it is marked «Decisión cambiada» in every list of follow-ups and on its page,
+with «Revisar» for its owner, who closes it with its own form. Nothing other roles see depends on a confidential note.
+Confidential referrals and safety reports are never touched. The first decision of «Por decidir» stays as it was."""
 
 from __future__ import annotations
 
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
 from events.access import resolve_access
 from events.models import AuditEvent, FollowUp, FollowUpDecisionChange, Interview, InterviewStatus
@@ -19,6 +20,7 @@ from events.services import follow_up_decision as decision_svc
 from events.services import follow_ups
 from events.services import interviews as svc
 from people import flags
+from people.tests.test_screens_unchanged import masked
 
 from .base import CampFixture
 from .test_ux_coordinator import give_interview
@@ -194,7 +196,7 @@ class RecordTests(ChangeFixture):
         page = client.get(self.record)
         self.assertEqual(
             [m.message for m in page.context["messages"]],
-            ["Cambiaste la decisión de Mariana López Ruiz: ya no necesita seguimiento. Se canceló su seguimiento, que nadie había empezado."],
+            ["Cambiaste la decisión de Mariana López Ruiz: ya no necesita seguimiento. Su seguimiento sigue abierto hasta que quien lo atiende lo revise y lo cierre."],
         )
 
     def test_the_record_shows_the_history_to_whoever_sees_it_and_the_action_to_whoever_may_use_it(self):
@@ -208,14 +210,21 @@ class RecordTests(ChangeFixture):
         self.assertIn("Ada Admin. Motivo: Se registró por error.", tutor)
         self.assertIn(f"Carla Uno. Motivo: {REASON}", tutor)
         self.assertLess(tutor.index("Se registró por error."), tutor.index(REASON))  # newest first
-        self.assertIn("Se canceló su seguimiento: nadie lo había empezado.", tutor)
+        self.assertIn("Su seguimiento siguió abierto para que quien lo atiende lo revise y lo cierre.", tutor)
+        self.assertIn("Se creó su seguimiento.", tutor)
         self.assertNotIn("Cambiar decisión de seguimiento", tutor)
         coordinator = self.section(self.as_user(self.coord1).get(self.record).content.decode())
         self.assertIn(f'<p class="more"><a href="{self.page}">Cambiar decisión de seguimiento</a></p>', coordinator)
 
 
 class CareFollowUpTests(ChangeFixture):
-    def test_to_required_creates_the_ordinary_follow_up_once(self):
+    def close(self, follow_up, status, user=None):
+        """Its owner (Carla, its default owner) closes it with its own form, as on its page."""
+        return self.as_user(user or self.coord1).post(
+            self.url("follow_up_detail", follow_up.pk), {"status": status, "assigned_to": follow_up.assigned_to_id or ""}
+        )
+
+    def test_to_required_creates_the_ordinary_task_once_and_never_two(self):
         self.post(self.coord1, "requerido")
         follow_up = self.ordinary().get()
         self.assertEqual(
@@ -223,126 +232,289 @@ class CareFollowUpTests(ChangeFixture):
             ("pendiente", "criterio_coordinador", self.coord1, self.coord1, self.p1),  # its default owner, as the first decision
         )
         self.post(self.coord1, "requerido")  # a second tab sending the same change
-        self.assertEqual(self.ordinary().count(), 1)
-        self.post(self.coord1, "no_requerido")  # nobody started it: cancelled
-        self.post(self.coord1, "requerido")  # a new one, never two open
-        self.assertEqual(self.ordinary().count(), 2)
-        self.assertEqual(self.ordinary().exclude(status="cancelado").count(), 1)
-
-    def test_a_cancelled_one_is_not_reopened_beside_the_new_one(self):
-        self.post(self.coord1, "requerido")
-        first = self.ordinary().get()
         self.post(self.coord1, "no_requerido")
         self.post(self.coord1, "requerido")
-        response = self.as_user(self.coord1).post(self.url("follow_up_detail", first.pk), {"status": "pendiente", "assigned_to": self.coord1.pk})
-        self.assertContains(response, "Su entrevista ya tiene otro seguimiento. Continúa en ese.")
-        first.refresh_from_db()
-        self.assertEqual(first.status, "cancelado")
-        self.assertEqual(self.ordinary().exclude(status="cancelado").count(), 1)
-
-    def test_one_already_there_is_kept_not_doubled(self):
-        self.post(self.coord1, "requerido")
-        follow_up = self.ordinary().get()
-        FollowUp.objects.filter(pk=follow_up.pk).update(status="en_proceso")
-        self.post(self.coord1, "no_requerido")
-        self.post(self.coord1, "requerido")
-        self.assertEqual(list(self.ordinary().values_list("pk", "status")), [(follow_up.pk, "en_proceso")])
+        self.assertEqual(list(self.ordinary().values_list("pk", "status")), [(follow_up.pk, "pendiente")])
         self.assertEqual(FollowUpDecisionChange.objects.first().care, "sin_cambio")
 
-    def test_an_attended_one_stays_as_it_was(self):
+    def test_to_not_required_never_closes_an_open_task_whatever_was_done_on_it(self):
         self.post(self.coord1, "requerido")
         follow_up = self.ordinary().get()
-        FollowUp.objects.filter(pk=follow_up.pk).update(status="atendido")
-        self.post(self.coord1, "no_requerido")
-        self.post(self.coord1, "requerido")
-        self.assertEqual(list(self.ordinary().values_list("pk", "status")), [(follow_up.pk, "atendido")])
-
-    def test_to_not_required_before_care_work_cancels_it_and_says_why(self):
-        self.post(self.coord1, "requerido")
-        follow_up = self.ordinary().get()
-        self.post(self.admin, "no_requerido", reason="Se marcó por error.")
-        follow_up.refresh_from_db()
-        self.assertEqual(follow_up.status, "cancelado")
-        row = AuditEvent.objects.get(action="seguimiento", object_type="FollowUp", object_id=str(follow_up.pk))
-        self.assertEqual((row.actor, row.metadata), (self.admin, {"status": "cancelado"}))
-        self.assertNotIn("error", row.summary)
-        html = self.as_user(self.coord1).get(self.url("follow_up_detail", follow_up.pk)).content.decode()
-        self.assertIn("Se canceló porque cambió la decisión de su entrevista", html)
-        self.assertIn("Nadie lo había empezado. Ada Admin la cambió a «no necesita seguimiento» el", html)
-        self.assertIn("Motivo: Se marcó por error.", html)
-
-    def test_what_counts_as_care_work_started(self):
-        self.post(self.coord1, "requerido")
-        follow_up = self.ordinary().get()
-        self.assertFalse(decision_svc.care_started(follow_up))  # given its default owner when created: not work
-        for started in ({"status": "en_proceso"}, {"resolution_note": "Hablé con su familia."}, {"details": "Algo"}):
-            FollowUp.objects.filter(pk=follow_up.pk).update(**started)
+        for status in ("pendiente", "en_proceso"):
+            FollowUp.objects.filter(pk=follow_up.pk).update(status=status)
+            self.post(self.admin, "no_requerido")
             follow_up.refresh_from_db()
-            self.assertTrue(decision_svc.care_started(follow_up), started)
-            FollowUp.objects.filter(pk=follow_up.pk).update(status="pendiente", resolution_note="", details="")
-            follow_up.refresh_from_db()
-        self.assertFalse(decision_svc.care_started(follow_up))
-        # Saved on its own screens (here, who attends it, from its row in the list): somebody worked on it.
-        self.as_user(self.tutor1).post(self.url("follow_up_assign", follow_up.pk), {"assigned_to": self.tutor1.pk})
-        self.assertTrue(decision_svc.care_started(follow_up))
+            self.assertEqual(follow_up.status, status)
+            self.assertEqual(FollowUpDecisionChange.objects.first().care, "abierto")
+            self.assertIn(follow_up.pk, decision_svc.waiting_on_owner([follow_up]))
+            self.post(self.admin, "requerido")
+        self.assertFalse(AuditEvent.objects.filter(action="seguimiento", object_id=str(follow_up.pk)).exists())
 
-    def test_after_care_work_it_stays_open_flagged_and_its_owner_resolves_it(self):
+    def test_marked_for_its_owner_who_reviews_and_closes_it(self):
         self.post(self.coord1, "requerido")
         follow_up = self.ordinary().get()
-        owner = self.as_user(self.coord1)  # Carla attends it (its default owner) and starts it
+        owner = self.as_user(self.coord1)  # Carla attends it: its default owner
         detail = self.url("follow_up_detail", follow_up.pk)
-        owner.post(detail, {"status": "en_proceso", "assigned_to": self.coord1.pk})
         self.post(self.admin, "no_requerido", reason="Ya lo acompaña su pastor.")
-        follow_up.refresh_from_db()
-        self.assertEqual(follow_up.status, "en_proceso")  # never cancelled once started
-        self.assertEqual(FollowUpDecisionChange.objects.first().care, "abierto")
         listed = owner.get(self.url("follow_ups") + "?responsable=mio").content.decode()
         self.assertIn("Decisión cambiada", listed)
         self.assertIn("Su entrevista cambió a «no necesita seguimiento»: Ada Admin,", listed)
         self.assertIn("Motivo: Ya lo acompaña su pastor.", listed)
+        self.assertIn(f'href="{detail}?siguiente=', listed)
+        self.assertIn('#decision-cambiada">Revisar<span class="visually-hidden"> el seguimiento de Mariana López Ruiz</span></a>', listed)
         page = owner.get(detail).content.decode()
         self.assertIn('<div class="notice notice--warning" id="decision-cambiada">', page)
-        self.assertIn("Ada Admin la cambió a «no necesita seguimiento» el", page)
+        self.assertIn("Su entrevista ya no necesita seguimiento", page)
+        self.assertIn("Ada Admin cambió la decisión el", page)
         self.assertIn("Motivo: Ya lo acompaña su pastor.", page)
-        self.assertIn("en «Estado» elige «Atendido» o «Cancelado» y guarda.", page)
-        # Resolved with its own form, audited as every update of a follow-up.
-        owner.post(detail, {"status": "atendido", "assigned_to": self.coord1.pk})
+        self.assertIn("Revísalo y ciérralo: en «Estado» elige «Atendido» o «Cancelado» y guarda.", page)
+        # Closed with its own form, audited as every update of a follow-up.
+        self.close(follow_up, "atendido")
         follow_up.refresh_from_db()
         self.assertEqual(follow_up.status, "atendido")
         self.assertEqual(
             list(AuditEvent.objects.filter(action="seguimiento", object_id=str(follow_up.pk)).values_list("actor", "metadata")),
-            [(self.coord1.pk, {"status": "atendido"}), (self.coord1.pk, {"status": "en_proceso"})],
+            [(self.coord1.pk, {"status": "atendido"})],
         )
         self.assertNotIn("Decisión cambiada", owner.get(self.url("follow_ups") + "?estado=todos").content.decode())
         self.assertNotIn("decision-cambiada", owner.get(detail).content.decode())
 
-    def test_whoever_cannot_update_it_reads_the_change_without_the_instruction(self):
+    def test_somebody_else_sees_the_mark_without_the_next_action(self):
         self.post(self.coord1, "requerido")
-        follow_up = self.ordinary().get()
-        FollowUp.objects.filter(pk=follow_up.pk).update(status="en_proceso")
         self.post(self.coord1, "no_requerido")
-        # Every role that sees an ordinary follow-up may update it; one that may not reads the same note, without
-        # the instruction. Here: the template given a viewer without can_manage.
+        listed = self.as_user(self.tutor1).get(self.url("follow_ups")).content.decode()
+        self.assertIn("Decisión cambiada", listed)
+        self.assertNotIn(">Revisar<", listed)
         from django.template.loader import render_to_string
 
-        follow_up.refresh_from_db()
+        follow_up = self.ordinary().get()
         html = render_to_string(
-            "events/supervision/_decision_change_note.html",
-            {"decision_change": decision_svc.note_for(follow_up), "can_manage": False},
+            "events/supervision/_decision_change_note.html", {"decision_change": decision_svc.note_for(follow_up), "can_manage": False}
         )
-        self.assertIn("Carla Uno la cambió a «no necesita seguimiento»", html)
+        self.assertIn("Carla Uno cambió la decisión el", html)
         self.assertNotIn("elige «Atendido»", html)
 
-    def test_back_to_required_clears_the_flag(self):
+    def test_back_to_required_clears_the_mark(self):
         self.post(self.coord1, "requerido")
         follow_up = self.ordinary().get()
-        FollowUp.objects.filter(pk=follow_up.pk).update(status="en_proceso")
         self.post(self.coord1, "no_requerido")
         self.assertIn(follow_up.pk, decision_svc.waiting_on_owner([follow_up]))
         self.post(self.coord1, "requerido")
         follow_up.refresh_from_db()
         self.assertEqual(decision_svc.waiting_on_owner([follow_up]), {})
-        self.assertIsNone(decision_svc.note_for(follow_up))
+        self.assertNotIn("Decisión cambiada", self.as_user(self.coord1).get(self.url("follow_ups")).content.decode())
+
+    def test_needed_again_after_atendido_reopens_the_same_task_and_keeps_its_closing(self):
+        self.post(self.coord1, "requerido")
+        follow_up = self.ordinary().get()
+        self.close(follow_up, "atendido")
+        FollowUp.objects.filter(pk=follow_up.pk).update(resolution_note="Nota sintética del equipo de cuidado.")
+        follow_up.refresh_from_db()
+        closed_at = follow_up.resolved_at
+        self.post(self.coord1, "no_requerido")  # closed: it stays as it is
+        self.assertEqual(FollowUpDecisionChange.objects.first().care, "sin_cambio")
+        client = self.as_user(self.admin)
+        page = client.get(self.page).content.decode()
+        self.assertIn("Su seguimiento está atendido: si la cambias, se reabrirá y volverá a la lista de quien lo atiende.", page)
+        client.post(self.page, {"decision": "requerido", "reason": "Volvió a pedir hablar con un líder."})
+        self.assertEqual(
+            [m.message for m in client.get(self.record).context["messages"]],
+            ["Cambiaste la decisión de Mariana López Ruiz: ahora necesita seguimiento. Se reabrió su seguimiento."],
+        )
+        follow_up.refresh_from_db()
+        self.assertEqual(self.ordinary().count(), 1)  # the same task, never a second one
+        self.assertEqual(
+            (follow_up.status, follow_up.assigned_to, follow_up.resolved_at, follow_up.resolution_note),
+            ("pendiente", self.coord1, None, "Nota sintética del equipo de cuidado."),  # its owner's queue; the note stays
+        )
+        self.assertEqual(FollowUpDecisionChange.objects.first().care, "reabierto")
+        reopened = AuditEvent.objects.filter(action="seguimiento", object_id=str(follow_up.pk)).first()
+        self.assertEqual(
+            (reopened.actor, reopened.metadata),
+            (self.admin, {"status": "pendiente", "reabierto": "atendido", "cerrado": closed_at.isoformat()}),
+        )
+        self.assertIn(
+            "Se reabrió su seguimiento y volvió a la lista de quien lo atiende.",
+            self.history(self.as_user(self.tutor1).get(self.record).content.decode()),
+        )
+        owner = self.as_user(self.coord1)
+        self.assertIn("Mariana López Ruiz", owner.get(self.url("follow_ups") + "?responsable=mio").content.decode())  # back in the queue
+        detail = owner.get(self.url("follow_up_detail", follow_up.pk)).content.decode()
+        self.assertIn("Se reabrió porque su entrevista volvió a necesitar seguimiento", detail)
+        self.assertIn("Motivo: Volvió a pedir hablar con un líder.", detail)
+        history = detail.split('aria-labelledby="historial-seguimiento"')[1].split("</section>")[0]
+        titles = [chunk.split("</p>")[0] for chunk in history.split('<p class="row__title">')[1:]]
+        self.assertEqual(titles, ["Registrado", "Atendido", "Reabierto: su entrevista volvió a necesitar seguimiento (estaba atendido)"])
+        self.assertIn("Carla Uno", history.split("Atendido")[1])  # who closed it
+        self.assertNotIn("Nota sintética", detail)  # Carla has no confidential access: the note stays confidential
+
+    def test_needed_again_after_its_owner_cancelled_it_reopens_it(self):
+        self.post(self.coord1, "requerido")
+        follow_up = self.ordinary().get()
+        self.post(self.coord1, "no_requerido")
+        self.close(follow_up, "cancelado")
+        self.post(self.coord1, "requerido")
+        follow_up.refresh_from_db()
+        self.assertEqual(list(self.ordinary().values_list("pk", "status")), [(follow_up.pk, "pendiente")])
+        self.assertEqual(FollowUpDecisionChange.objects.first().care, "reabierto")
+        self.assertEqual(
+            [h["label"] for h in decision_svc.task_history(follow_up)],
+            ["Registrado", "Cancelado", "Reabierto: su entrevista volvió a necesitar seguimiento (estaba cancelado)"],
+        )
+
+    def test_a_closing_nobody_audited_is_still_in_the_history(self):
+        self.post(self.coord1, "requerido")
+        follow_up = self.ordinary().get()
+        closed = timezone.now()
+        FollowUp.objects.filter(pk=follow_up.pk).update(status="atendido", resolved_at=closed)  # as the demo seed leaves it
+        self.post(self.coord1, "no_requerido")
+        self.post(self.coord1, "requerido")
+        follow_up.refresh_from_db()
+        history = decision_svc.task_history(follow_up)
+        self.assertEqual([h["label"] for h in history][:2], ["Registrado", "Atendido"])
+        self.assertEqual((history[1]["when"], history[1]["who"]), (closed, ""))
+
+    def test_a_task_never_reopened_shows_no_history(self):
+        self.post(self.coord1, "requerido")
+        follow_up = self.ordinary().get()
+        self.close(follow_up, "atendido")
+        self.assertEqual(decision_svc.task_history(follow_up), [])
+        self.assertNotIn("historial-seguimiento", self.as_user(self.coord1).get(self.url("follow_up_detail", follow_up.pk)).content.decode())
+
+    def test_what_the_change_page_says_it_will_do(self):
+        client = self.as_user(self.coord1)
+        self.assertContains(client.get(self.page), "Si la cambias, se creará su seguimiento.")
+        self.post(self.coord1, "requerido")
+        self.assertContains(client.get(self.page), "Su seguimiento sigue abierto: si la cambias, quien lo atiende lo revisará y lo cerrará.")
+        self.close(self.ordinary().get(), "atendido")
+        self.assertContains(client.get(self.page), "Su seguimiento ya está cerrado y seguirá como está.")
+
+    def test_a_cancelled_one_is_not_reopened_beside_another(self):
+        # Data from before tasks were reopened: a cancelled one and a newer one of the same interview.
+        self.post(self.coord1, "requerido")
+        first = self.ordinary().get()
+        FollowUp.objects.filter(pk=first.pk).update(status="cancelado")
+        follow_ups.create(event=self.event, participant=self.p1, interview=self.done, kind=CARE, created_by=self.coord1)
+        response = self.close(first, "pendiente")
+        self.assertContains(response, "Su entrevista ya tiene otro seguimiento. Continúa en ese.")
+        first.refresh_from_db()
+        self.assertEqual(first.status, "cancelado")
+        self.assertEqual(self.ordinary().exclude(status="cancelado").count(), 1)
+
+
+class ConfidentialNoteTests(ChangeFixture):
+    """Owner decision 2: whether a confidential note exists has no effect on what other roles see."""
+
+    def pages(self, follow_up):
+        """What the people without confidential access see of this campero's task, its interview and their lists."""
+        views = [
+            (self.coord1, self.url("follow_up_detail", follow_up.pk)), (self.coord1, self.url("follow_ups")),
+            (self.coord1, self.url("coord_home")), (self.coord1, self.record), (self.coord1, self.url("participant_detail", self.p1.public_id)),
+            (self.tutor1, self.url("follow_up_detail", follow_up.pk)), (self.tutor1, self.url("tutor_home")), (self.tutor1, self.url("pending")),
+            (self.pastor, self.url("follow_ups")), (self.admin, self.url("follow_up_detail", follow_up.pk)), (self.admin, self.page),
+        ]
+        rendered = []
+        for user, url in views:
+            response = self.viewers[user].get(url)
+            self.assertEqual(response.status_code, 200, url)
+            rendered.append(masked(response))
+        return rendered
+
+    def note(self, follow_up, text):
+        """The care team writes (or clears) the closing note, leaving the status and the owner as they are."""
+        follow_up.refresh_from_db()
+        self.as_user(self.care).post(
+            self.url("follow_up_detail", follow_up.pk),
+            {"status": follow_up.status, "assigned_to": follow_up.assigned_to_id, "resolution_note": text},
+        )
+        follow_up.refresh_from_db()
+        self.assertEqual(follow_up.resolution_note, text)
+
+    def test_a_note_never_changes_the_change_nor_what_others_see(self):
+        self.viewers = {user: self.as_user(user) for user in (self.coord1, self.tutor1, self.pastor, self.admin)}
+        self.post(self.coord1, "requerido")
+        follow_up = self.ordinary().get()
+        self.note(follow_up, "Nota sintética: hablamos el viernes.")
+        self.post(self.coord1, "no_requerido")  # with a note: the same as without one
+        self.assertEqual(FollowUpDecisionChange.objects.first().care, "abierto")
+        follow_up.refresh_from_db()
+        self.assertEqual(follow_up.status, "pendiente")
+        with_note = self.pages(follow_up)
+        self.note(follow_up, "")
+        self.assertEqual(self.pages(follow_up), with_note)
+        # Reopened: the same, with and without a note
+        self.close_as_owner(follow_up)
+        self.post(self.coord1, "requerido")
+        without = self.pages(follow_up)
+        self.note(follow_up, "Otra nota sintética.")
+        self.assertEqual(self.pages(follow_up), without)
+        self.assertFalse(any("nota sintética" in page.lower() for page in without + self.pages(follow_up)))
+
+    def close_as_owner(self, follow_up):
+        self.as_user(self.coord1).post(self.url("follow_up_detail", follow_up.pk), {"status": "atendido", "assigned_to": self.coord1.pk})
+
+
+class ListsMarkTests(ChangeFixture):
+    """Owner decision 1: «Decisión cambiada» on every list of follow-ups a role already sees, both modes; «Revisar»
+    for the task's owner only."""
+
+    def setUp(self):
+        super().setUp()
+        self.post(self.coord1, "requerido")
+        self.follow_up = self.ordinary().get()  # Carla attends it
+        self.post(self.admin, "no_requerido")
+        self.detail = self.url("follow_up_detail", self.follow_up.pk)
+
+    def review(self, back):
+        return (
+            f'<a class="btn btn--secondary btn--small" href="{self.detail}?siguiente={back}#decision-cambiada">Revisar'
+            '<span class="visually-hidden"> el seguimiento de Mariana López Ruiz</span></a>'
+        )
+
+    def check(self):
+        coord = self.as_user(self.coord1)
+        tutor = self.as_user(self.tutor1)
+        for user, client, url, back in (  # the way back is the list it was opened from
+            (self.coord1, coord, self.url("coord_home"), self.url("coord_home")),
+            (self.coord1, coord, self.url("participant_detail", self.p1.public_id), self.url("participant_detail", self.p1.public_id)),
+            (self.coord1, coord, self.url("follow_ups"), self.url("follow_ups")),
+        ):
+            html = client.get(url).content.decode()
+            self.assertIn("Decisión cambiada", html, url)
+            self.assertIn(self.review(back), html, url)  # the owner's next action
+        for url in (self.url("tutor_home"), self.url("pending"), self.url("follow_ups"), self.url("participant_detail", self.p1.public_id)):
+            html = tutor.get(url).content.decode()
+            self.assertIn("Decisión cambiada", html, url)
+            self.assertNotIn(">Revisar<", html, url)  # not theirs
+        # Given to the tutor, the next action is theirs
+        FollowUp.objects.filter(pk=self.follow_up.pk).update(assigned_to=self.tutor1)
+        html = tutor.get(self.url("tutor_home")).content.decode()
+        self.assertIn(self.review(self.url("tutor_home")), html)
+        self.assertNotIn(">Revisar<", coord.get(self.url("coord_home")).content.decode())
+
+    def test_without_the_redesign(self):
+        self.check()
+
+    def test_with_the_redesign(self):
+        flags.set_enabled(self.church, "community", True)
+        self.assertTrue(self.as_user(self.coord1).get(self.url("coord_home")).context["ui_v2"])
+        self.check()
+
+    def test_the_owners_review_comes_first_on_a_short_list(self):
+        # Six newer open tasks of Carla's camperos: «Tus seguimientos» shows five, the newest; hers to review is first.
+        for participant in (self.p2, self.p_minor_no_auth) * 3:
+            follow_ups.create(event=self.event, participant=participant, kind=CARE, created_by=self.coord1)
+        html = self.as_user(self.coord1).get(self.url("coord_home")).content.decode()
+        self.assertIn(">Revisar<", html)
+        rows = html.split('id="seguimientos"')[1].split("</ul>")[0]  # «Esperan algo de ti» without the redesign
+        self.assertLess(rows.index("Mariana López Ruiz"), rows.index("Diego Hernández Cruz"))
+        self.assertEqual(rows.count('<li class="row">'), 5)
+
+    def test_nothing_is_marked_while_the_decision_needs_it(self):
+        self.post(self.admin, "requerido")
+        for user, url in ((self.coord1, self.url("coord_home")), (self.tutor1, self.url("tutor_home")), (self.tutor1, self.url("pending")),
+                          (self.coord1, self.url("follow_ups")), (self.coord1, self.url("participant_detail", self.p1.public_id))):
+            self.assertNotIn("Decisión cambiada", self.as_user(user).get(url).content.decode(), url)
 
 
 class ConfidentialAndSafetyUntouchedTests(ChangeFixture):

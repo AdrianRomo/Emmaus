@@ -1224,8 +1224,8 @@ class FollowUpDecisionChange(models.Model):
     class Care(models.TextChoices):
         CREATED = "creado", "Se creó su seguimiento."
         KEPT = "sin_cambio", "Su seguimiento siguió como estaba."
-        CANCELLED = "cancelado", "Se canceló su seguimiento: nadie lo había empezado."
-        LEFT_OPEN = "abierto", "Su seguimiento ya se había empezado y siguió abierto para quien lo atiende."
+        LEFT_OPEN = "abierto", "Su seguimiento siguió abierto para que quien lo atiende lo revise y lo cierre."
+        REOPENED = "reabierto", "Se reabrió su seguimiento y volvió a la lista de quien lo atiende."
 
     WORDS = {"requerido": "necesita seguimiento", "no_requerido": "no necesita seguimiento"}
 

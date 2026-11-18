@@ -354,7 +354,7 @@ Si el campero pidió apoyo en una pregunta confidencial, el equipo de cuidado au
 
 Si marcaste "Por decidir", después ve a **"Entrevistas pendientes"** → **"Seguimiento por decidir"** → **"Decidir"** (también está en "Esperan algo de ti", en "Mi inicio"), y toca **"Sí requiere seguimiento"** o **"No requiere seguimiento"**. Al guardar, Emmaus te regresa a "Entrevistas pendientes".
 
-Si después cambia lo que decidiste, abre la entrevista del campero y toca **"Cambiar decisión de seguimiento"**. Escribe brevemente por qué la cambias y confirma. Queda en **"Cambios de la decisión de seguimiento"**, con tu nombre, la fecha y el motivo. Si ahora necesita seguimiento, Emmaus crea su seguimiento (solo uno). Si ya no lo necesita y nadie lo había empezado, se cancela; si ya se había empezado, sigue abierto y quien lo atiende ve el cambio para cerrarlo. Lo pueden hacer su coordinador y la administración.
+Si después cambia lo que decidiste, abre la entrevista del campero y toca **"Cambiar decisión de seguimiento"**. Escribe brevemente por qué la cambias y confirma. Queda en **"Cambios de la decisión de seguimiento"**, con tu nombre, la fecha y el motivo. Si ahora necesita seguimiento, Emmaus crea su seguimiento o, si ya estaba cerrado, lo reabre (nunca hay dos). Si ya no lo necesita, su seguimiento sigue abierto con la marca **"Decisión cambiada"**: quien lo atiende ve **"Revisar"** en su lista, lo revisa y lo cierra. Lo pueden hacer su coordinador y la administración.
 
 ### Entrevista a solas: el campero responde en la computadora
 

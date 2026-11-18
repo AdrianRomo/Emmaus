@@ -1,9 +1,10 @@
 # Runbook: the «Ventanas» redesign (branch `v2/redesign-claridad`)
 
 What changed, where it lives, how to see it, how to revert it. Nothing here was pushed, merged into
-`v2/foundation` or `main`, or deployed. No new dependencies. Two additive migrations, both from the owner's
-decisions of 2026-11-18: `events/0016_follow_up_decision_change` (a new table) and `events/0017_answer_declined`
-(two boolean columns with a database default). The redesign itself changes no data.
+`v2/foundation` or `main`, or deployed. No new dependencies. Three additive migrations, all from the owner's
+decisions of 2026-11-18: `events/0016_follow_up_decision_change` (a new table), `events/0017_answer_declined`
+(two boolean columns with a database default) and `events/0018_follow_up_decision_change_reopened` (choices only,
+no SQL). The redesign itself changes no data.
 
 ## What changed
 
@@ -60,11 +61,13 @@ PYTHON=$P bash scripts/agents/e2e-gate.sh                       # browser gate: 
 
 - Interview questions are all optional; «Prefiero no responder» on every question, stored apart from a blank;
   «Antes de empezar» requires «Sí, es {nombre}» and the applicable authorizations (`d19861f`, `dfae14b`).
-- «Cambiar decisión de seguimiento», audited, with the care task handled as decided (`95cf6b3`).
+- «Cambiar decisión de seguimiento», audited, with the care task handled as decided (`95cf6b3`); then the owner's
+  answers: never closed by the change, marked «Decisión cambiada» on every list with «Revisar» for its owner,
+  reopened when needed again (migration `events/0018`, choices only).
 - A camp administrator's ordinary sign-in opens the one camp underway; several, a chooser (`388765c`).
 - One sign-in error across Emmaus (`0f8117d`).
 Reverting any of them: `git revert -m 1 <merge>` or `git revert <commit>`; for the two merges with migrations,
-first `manage.py migrate events 0015` (then 0016 only, if keeping the follow-up correction) on a copy, and check
+first `manage.py migrate events 0015` (or 0016 or 0018, if keeping the follow-up correction) on a copy, and check
 nothing depends on the dropped columns (declines on text questions read as «Sin responder» afterwards).
 
 ## How to revert
