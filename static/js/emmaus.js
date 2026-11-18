@@ -318,11 +318,12 @@
     cancel.focus();
     return true;
   }
-  $all("[data-confirm]").forEach(function (el) {
-    el.addEventListener("click", function (e) {
-      if (askInDialog(el, e)) return;
-      if (!window.confirm(el.getAttribute("data-confirm"))) e.preventDefault();
-    });
+  // Delegated: a button that arrives with an action in place (a region replaced) asks too
+  doc.addEventListener("click", function (e) {
+    var el = e.target && e.target.closest ? e.target.closest("[data-confirm]") : null;
+    if (!el || e.defaultPrevented) return;
+    if (askInDialog(el, e)) return;
+    if (!window.confirm(el.getAttribute("data-confirm"))) e.preventDefault();
   });
 
   /* ---- Error summary focus ----------------------------------------------- */

@@ -179,6 +179,8 @@ def home(request):
                 {
                     "who": r.person.full_name,
                     "title": f"{r.person.full_name} quiere unirse a {r.group.name}",
+                    "group": r.group.name,
+                    "asked_on": r.created_at,
                     "decide": reverse("community:request_decide", args=[r.group_id, r.pk]),
                     "url": reverse("community:group_people", args=[r.group_id]),
                 }

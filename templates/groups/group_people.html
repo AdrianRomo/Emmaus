@@ -29,7 +29,7 @@
           </div>
           <form class="row__end" method="post" action="{% url 'community:request_decide' group.pk item.pk %}" data-inline="gente" data-inline-also="cabeza-grupo">
             {% csrf_token %}
-            <button class="btn btn--secondary btn--small" type="submit" name="decision" value="declinar">No aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
+            <button class="btn btn--secondary btn--small" type="submit" name="decision" value="declinar" data-confirm="¿No aceptar a {{ item.person.full_name }} en {{ group.name }}? Lo verá en su inicio, sin el motivo." data-confirm-label="No aceptar">No aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
             <button class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
           </form>
         </li>
