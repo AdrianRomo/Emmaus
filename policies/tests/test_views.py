@@ -1,6 +1,6 @@
 """Políticas de la iglesia: the form, the review before a sensitive change, the audit rows, and who may."""
 
-from django.test import override_settings
+from django.test import Client, override_settings
 from django.urls import reverse
 
 from core.models import Role
@@ -100,16 +100,22 @@ class ChurchPoliciesTests(CommunityFixture):
         self.assertFalse(ChurchPolicy.objects.exists())
 
     def test_the_write_path_refuses_what_the_form_would_refuse(self):
-        wanted = services.current(self.church)
-        for field, value in [("min_reporting_size", 4), ("min_reporting_size", True), ("attendance_aggregate_months", 61),
-                             ("urgent_notice_pastors", "sí"), ("attendance_aggregate_months", 12 - 1)]:
-            with self.assertRaises(services.PolicyError):
-                services.save(self.church, self.admin, {**wanted, field: value})
+        for field, old, value in [
+            ("min_reporting_size", 5, 4), ("min_reporting_size", 5, True), ("attendance_aggregate_months", 24, 61),
+            ("urgent_notice_pastors", False, "sí"), ("attendance_aggregate_months", 24, 11),
+        ]:
+            with self.assertRaises(services.PolicyError, msg=(field, value)):
+                services.save(self.church, self.admin, {field: (old, value)})
+        with self.assertRaises(services.PolicyError):  # the totals under the names
+            services.save(self.church, self.admin, {"attendance_identifiable_months": (12, 24), "attendance_aggregate_months": (24, 20)})
         with self.assertRaises(services.PolicyError):
-            services.save(self.church, self.admin, {**wanted, "attendance_identifiable_months": 24, "attendance_aggregate_months": 20})
+            services.save(self.church, self.admin, {})
         with self.assertRaises(services.PolicyError):
-            services.save(self.church, self.admin, {"min_reporting_size": 6})
+            services.save(self.church, self.admin, {"otra_cosa": (1, 2)})
+        with self.assertRaises(services.StaleReview):  # 1 is not False: the value shown must be the value in force
+            services.save(self.church, self.admin, {"min_reporting_size": (6, 7)})
         self.assertFalse(ChurchPolicy.objects.exists())
+        self.assertFalse(self.audit().exists())
 
     # ---- the review -----------------------------------------------------------------------------
     def test_a_sensitive_change_is_reviewed_first_and_saved_only_when_confirmed(self):
@@ -188,6 +194,96 @@ class ChurchPoliciesTests(CommunityFixture):
         self.assertTemplateUsed(page, "policies/review.html")
         self.assertEqual(policy.feedback_open_days(self.church), 14)
         self.assertContains(page, "Antes: 14 días.")
+
+    # ---- two administrators at once ------------------------------------------------------------
+    def second_admin(self) -> Client:
+        user = make_user("otra-admin@prueba.mx", "Olga", "Otra")
+        assign_role(user, self.church, Role.CHURCH_ADMIN)
+        self._person(self.church, user)
+        client = Client()
+        client.force_login(user)
+        return client
+
+    def confirm_as(self, client, **changes):
+        page = client.post(URL, data(**changes))
+        self.assertTemplateUsed(page, "policies/review.html")
+        return client.post(URL, {"paso": "confirmar", "revision": page.context["token"]}, follow=True)
+
+    def test_a_stale_review_never_writes_back_a_value_it_did_not_show(self):
+        """A reviews one field with the form of before; B raises the minimum; A confirms: it stays raised."""
+        other = self.second_admin()
+        page = self.client.post(URL, data(urgent_notice_pastors="on"))  # A's form still says 5
+        self.assertEqual([change.field for change in page.context["changes"]], ["urgent_notice_pastors"])
+        self.assertEqual(self.client.session["policy_review"]["fields"], {"urgent_notice_pastors": [False, True]})
+        self.confirm_as(other, min_reporting_size=15)
+        response = self.client.post(URL, {"paso": "confirmar", "revision": page.context["token"]}, follow=True)
+        self.assertContains(response, "Guardamos el cambio.")
+        row = ChurchPolicy.objects.get(church=self.church)
+        self.assertEqual((row.min_reporting_size, row.urgent_notice_pastors), (15, True))
+        self.assertEqual(policy.min_reporting_size(self.church), 15)
+        self.assertEqual(
+            sorted((event.metadata["policy"], event.metadata["value"]) for event in self.audit()),
+            [("min_reporting_size", 15), ("urgent_notice_pastors", True)],
+        )
+
+    def test_every_untouched_field_changed_meanwhile_is_preserved(self):
+        other = self.second_admin()
+        page = self.client.post(URL, data(min_reporting_size=8))
+        self.confirm_as(other, attendance_identifiable_months=9, attendance_aggregate_months=30, minors_need_consent_by_default="on")
+        other.post(URL, data(feedback_open_days=20, attendance_identifiable_months=9, attendance_aggregate_months=30,
+                             minors_need_consent_by_default="on"))
+        self.client.post(URL, {"paso": "confirmar", "revision": page.context["token"]})
+        self.assertEqual(services.current(self.church), {
+            "min_reporting_size": 8, "feedback_open_days": 20, "urgent_notice_pastors": False,
+            "minors_need_consent_by_default": True, "attendance_identifiable_months": 9, "attendance_aggregate_months": 30,
+        })
+
+    def test_a_change_to_the_same_field_meanwhile_shows_the_review_again_and_saves_nothing(self):
+        other = self.second_admin()
+        page = self.client.post(URL, data(min_reporting_size=8, urgent_notice_pastors="on"))
+        self.confirm_as(other, min_reporting_size=15)
+        before = self.audit().count()
+        again = self.client.post(URL, {"paso": "confirmar", "revision": page.context["token"]})
+        self.assertTemplateUsed(again, "policies/review.html")
+        self.assertContains(again, "Alguien cambió estas políticas mientras revisabas. Revisa otra vez.")
+        self.assertContains(again, "Antes: 15 personas.")  # today's value, not the 5 of the first review
+        self.assertContains(again, "<strong>8 personas</strong>")
+        row = ChurchPolicy.objects.get(church=self.church)
+        self.assertEqual((row.min_reporting_size, row.urgent_notice_pastors), (15, False))  # not even the field that was current
+        self.assertEqual(self.audit().count(), before)
+        self.assertNotEqual(again.context["token"], page.context["token"])
+        self.client.post(URL, {"paso": "confirmar", "revision": page.context["token"]})  # the old review is spent
+        self.assertEqual(ChurchPolicy.objects.get(church=self.church).min_reporting_size, 15)
+        # Having seen 15 → 8, the person may still confirm it.
+        page = self.client.post(URL, data(min_reporting_size=8, urgent_notice_pastors="on"))
+        self.client.post(URL, {"paso": "confirmar", "revision": page.context["token"]})
+        row.refresh_from_db()
+        self.assertEqual((row.min_reporting_size, row.urgent_notice_pastors), (8, True))
+
+    def test_a_review_that_no_longer_makes_sense_goes_back_to_the_form(self):
+        other = self.second_admin()
+        page = self.client.post(URL, data(min_reporting_size=15))
+        self.confirm_as(other, min_reporting_size=15)  # somebody already did it
+        response = self.client.post(URL, {"paso": "confirmar", "revision": page.context["token"]}, follow=True)
+        self.assertRedirects(response, URL)
+        self.assertContains(response, "Alguien cambió estas políticas mientras revisabas.")
+        self.assertEqual(self.audit().count(), 1)
+        page = self.client.post(URL, data(attendance_aggregate_months=13))  # fine against names kept 12 months
+        self.confirm_as(other, min_reporting_size=15, attendance_identifiable_months=20)
+        response = self.client.post(URL, {"paso": "confirmar", "revision": page.context["token"]}, follow=True)
+        self.assertRedirects(response, URL)  # 13 months of totals under 20 of names: nothing to review
+        self.assertEqual(policy.attendance_retention(self.church), (20, 24))
+
+    def test_a_change_saved_elsewhere_is_read_by_the_next_request(self):
+        """Another worker saved: this process's counter did not move (a queryset update moves nothing
+        either). The next request builds its own church object and asks the table."""
+        self.assertEqual(self.client.get(URL).context["form"].initial["min_reporting_size"], 5)
+        ChurchPolicy.objects.create(church=self.church)
+        seen = policy.min_reporting_size(self.church)
+        ChurchPolicy.objects.filter(church=self.church).update(min_reporting_size=15)
+        self.assertEqual(self.client.get(URL).context["form"].initial["min_reporting_size"], 15)
+        self.assertEqual(policy.min_reporting_size(type(self.church).objects.get(pk=self.church.pk)), 15)
+        self.assertEqual(policy.min_reporting_size(self.church), seen)  # only the object that had already read
 
     # ---- the audit ------------------------------------------------------------------------------
     def test_every_value_changed_leaves_one_audit_row_in_words(self):

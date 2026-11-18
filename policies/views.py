@@ -8,6 +8,11 @@ in the address, so there is no other church to ask for. Three steps at one addre
   opinions) is not saved: it is kept in the session and the review page lists it, from → to.
 * ``POST`` with ``paso=confirmar``: saves what the review page showed, and only that. Without a
   review of this church in the session, or with another review's token, nothing is saved.
+
+The session keeps only the fields that were reviewed, each with the value that was shown as
+"Antes". If any of them is no longer that value when the confirmation arrives (somebody else
+changed it), nothing is saved and the review is shown again with today's values. A field that was
+not in the review is never written by the confirmation.
 """
 
 import secrets
@@ -22,6 +27,7 @@ from .forms import ChurchPolicyForm
 
 SESSION_KEY = "policy_review"
 NO_REVIEW = "No se guardó nada: primero revisa los cambios y después confírmalos."
+STALE = "Alguien cambió estas políticas mientras revisabas. Revisa otra vez."
 
 
 def _saved(request, changed) -> None:
@@ -32,11 +38,43 @@ def _saved(request, changed) -> None:
 
 
 def _pending(request) -> dict | None:
-    """The review waiting in the session, when it is a review of this church."""
+    """The reviewed fields waiting in the session, ``{field: (old, new)}`` under ``fields``, when
+    it is a review of this church and has the shape ``_review`` wrote."""
     kept = request.session.get(SESSION_KEY)
-    if not isinstance(kept, dict) or kept.get("church") != request.church.pk or not isinstance(kept.get("values"), dict):
+    if not isinstance(kept, dict) or kept.get("church") != request.church.pk:
         return None
-    return kept
+    fields = kept.get("fields")
+    if not isinstance(fields, dict) or not fields or set(fields) - set(services.FIELDS):
+        return None
+    if not all(isinstance(pair, (list, tuple)) and len(pair) == 2 for pair in fields.values()):
+        return None
+    return {"token": str(kept.get("token", "")), "fields": {field: tuple(pair) for field, pair in fields.items()}}
+
+
+def _review(request, changed):
+    """Keep what is about to be shown, and show it."""
+    token = secrets.token_urlsafe(16)
+    request.session[SESSION_KEY] = {
+        "church": request.church.pk, "token": token,
+        "fields": {change.field: [change.old, change.new] for change in changed},
+    }
+    return render(request, "policies/review.html", {"changes": changed, "token": token})
+
+
+def _review_again(request, asked: dict):
+    """Somebody changed a policy meanwhile: nothing was saved. The same request, against the
+    values in force now; back to the form when it no longer makes sense."""
+    church = request.church
+    messages.error(request, STALE)
+    wanted = {**services.current(church), **asked}
+    try:
+        services.check(wanted)
+    except services.PolicyError:
+        return redirect("church_policies")
+    changed = [change for change in services.changes(church, wanted) if change.field in asked]
+    if not changed:
+        return redirect("church_policies")
+    return _review(request, changed)
 
 
 @church_admin_view
@@ -46,37 +84,35 @@ def church_policies(request):
         kept = _pending(request)
         request.session.pop(SESSION_KEY, None)
         token = request.POST.get("revision", "")
-        if kept is None or not token or not secrets.compare_digest(str(kept.get("token", "")), token):
+        if kept is None or not token or not secrets.compare_digest(kept["token"], token):
             messages.error(request, NO_REVIEW)
             return redirect("church_policies")
-        form = ChurchPolicyForm(kept["values"])  # the values that were reviewed, checked again
-        if not form.is_valid():
-            messages.error(request, NO_REVIEW)
-            return redirect("church_policies")
-        changed = services.save(church, request.user, form.cleaned_data)
-        if changed:
-            _saved(request, changed)
-        else:
-            messages.info(request, "No había nada que cambiar.")
+        try:
+            changed = services.save(church, request.user, kept["fields"])
+        except (services.StaleReview, services.PolicyError):
+            return _review_again(request, {field: new for field, (_old, new) in kept["fields"].items()})
+        _saved(request, changed)
         return redirect("church_policies")
 
     if request.method == "POST":
         form = ChurchPolicyForm(request.POST)
         if form.is_valid():
-            wanted = form.cleaned_data
-            changed = services.changes(church, wanted)
+            changed = services.changes(church, form.cleaned_data)
+            request.session.pop(SESSION_KEY, None)
             if not changed:
-                request.session.pop(SESSION_KEY, None)
                 messages.info(request, "No cambiaste nada: las políticas siguen como estaban.")
                 return redirect("church_policies")
-            if not any(change.sensitive for change in changed):
-                request.session.pop(SESSION_KEY, None)
-                _saved(request, services.save(church, request.user, wanted))
-                return redirect("church_policies")
-            token = secrets.token_urlsafe(16)
-            request.session[SESSION_KEY] = {"church": church.pk, "token": token, "values": wanted}
-            return render(request, "policies/review.html", {"changes": changed, "token": token})
+            if any(change.sensitive for change in changed):
+                return _review(request, changed)
+            try:
+                _saved(request, services.save(church, request.user, {c.field: (c.old, c.new) for c in changed}))
+            except (services.StaleReview, services.PolicyError):
+                messages.error(request, STALE)
+            return redirect("church_policies")
     else:
+        initial = services.current(church)
         kept = _pending(request) if "editar" in request.GET else None
-        form = ChurchPolicyForm(initial=kept["values"] if kept else services.current(church))
+        if kept:
+            initial.update({field: new for field, (_old, new) in kept["fields"].items()})
+        form = ChurchPolicyForm(initial=initial)
     return render(request, "policies/form.html", {"form": form})
