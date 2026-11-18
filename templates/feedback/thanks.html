@@ -1,14 +1,18 @@
 {% extends "base.html" %}
 {% block page_title %}Gracias por tu opinión{% endblock %}
 {% block content %}
+{% comment %}
+  After the three questions (feedback.views.give, for who already answered). What is kept, said once more; and,
+  apart from the opinion, a way to ask the church to reach out.
+{% endcomment %}
 <div class="narrow">
   {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Gracias por tu opinión" lede=event.name back_url=back back_label="Volver a Mi iglesia" %}
-  <p class="prose">La guardamos sin tu nombre y sin nada que la una a ti. Tu iglesia las leerá todas juntas cuando se cierre el plazo para opinar.</p>
+  {% include "events/rotulo/_page_head.html" with title="Gracias por tu opinión" back_url=back back_label="Volver a Mi iglesia" %}
+  <p class="aside-note">La guardamos sin tu nombre y sin nada que la una a ti. Tu iglesia las leerá todas juntas cuando se cierre el plazo para opinar.</p>
   {% if not asked %}
-  <section class="quiet" aria-labelledby="que-me-busquen">
+  <section class="quiet opinion-more" aria-labelledby="que-me-busquen">
     <h2 id="que-me-busquen" class="quiet__title">¿Quieres platicar con alguien de tu iglesia?</h2>
-    <p class="quiet__text">Esto va aparte de tu opinión: tu iglesia sabrá que lo pediste tú, pero no qué opinaste.</p>
+    <p class="quiet__text">Va aparte de tu opinión: tu iglesia sabrá que lo pediste tú, pero no qué opinaste.</p>
     <form method="post" action="{% url 'feedback:contact' %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Quiero que alguien me busque</button></form>
   </section>
   {% endif %}

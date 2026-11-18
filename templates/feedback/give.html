@@ -3,17 +3,23 @@
 {% block content %}
 {% comment %}
   Three questions after an event (feedback.views.give). The answer is stored without the person's name: the
-  administration reads totals, and the comments only when at least three people answered.
+  administration reads totals, and the comments only when enough people answered. The note says what is kept, and
+  it says it before the questions: it is not shortened to less than those three facts.
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="¿Cómo estuvo?" lede=event.name back_url=back back_label="Volver a Mi iglesia" %}
-  <p class="aside-note">Tu opinión se guarda sin tu nombre y sin nada que la una a ti. Emmaus solo recuerda, con una clave que no se puede leer, que ya respondiste, para que nadie responda dos veces. Tu iglesia lee todas las opiniones juntas cuando se cierra el plazo.</p>
-  <form method="post" novalidate>
+  <a class="back-link" href="{{ back }}">Volver a Mi iglesia</a>
+  <header class="page-head">
+    <h1 class="voice page-head__title">Tu opinión de {{ event.name }}</h1>
+  </header>
+  <p class="aside-note">Se guarda sin tu nombre y sin nada que la una a ti. Emmaus solo recuerda, con una clave que no se puede leer, que ya respondiste, para que nadie responda dos veces. Tu iglesia lee todas las opiniones juntas cuando se cierra el plazo.</p>
+  <form class="block" method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <section class="form-section" aria-label="Tres preguntas">
+      {% include "partials/ui/fields.html" with form=form %}
+    </section>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Enviar mi opinión</button>
       <a class="btn btn--link" href="{{ back }}">Ahora no</a>
     </div>
