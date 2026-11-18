@@ -1293,6 +1293,84 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* A questionnaire: the note of a section sits on its questions, not against them */
 .page--app .admin-section__desc + .rows { margin-top: var(--s-3); }
 .page--app .admin-versions__how { margin-top: var(--s-4); }
+
+/* Camperos (admin/participants.html): the search, the views as capsules (a second line for the sede), the table that
+   becomes rows in a narrow column, and the bar of the marked rows. On a phone each line of capsules scrolls
+   sideways, so the first campero is on the first screen. */
+.camperos__filtrar { display: grid; gap: var(--s-3); margin-bottom: var(--s-6); }
+.page--app .camperos__buscar { max-width: 30rem; }
+/* The capsule of form.search: the field rule of section 7 (:is() with ".field input:not(...)") outweighs it */
+:root[data-ui="2"] .page--app .camperos__buscar input.input.search__input { min-height: var(--control); padding-left: 2.75rem; border-radius: var(--r-pill); font-size: var(--t-small); }
+.page--app .camperos__vistas { margin: 0; }
+@media (max-width: 600px) {
+  .page--app .camperos__vistas { flex-wrap: nowrap; overflow-x: auto; margin: -0.375rem calc(-1 * var(--s-4)); padding: 0.375rem var(--s-4); scrollbar-width: none; }
+  .page--app .camperos__vistas::-webkit-scrollbar { display: none; }
+  .page--app .camperos__vistas > li { flex: none; }
+  .camperos__filtrar { gap: var(--s-2); margin-bottom: var(--s-4); }
+}
+.page--app .camperos .heading-row + * { margin-top: var(--s-2); }
+.page--app .camperos__tabla { margin-top: var(--s-2); }
+.page--app .camperos thead :is(a, .camperos__th) { display: inline-flex; align-items: center; min-height: 1.5rem; color: inherit; text-decoration: none; }
+.page--app .camperos thead a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 0.2em; }
+.page--app .camperos .camperos__marca-col { width: 3.25rem; padding-right: 0; }
+.camperos__marca { display: grid; place-items: center; width: 2.75rem; height: 2.75rem; margin: -0.375rem 0 -0.375rem -0.6875rem; cursor: pointer; }
+.page--app .camperos__nombre a { color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 0.18em; }
+.page--app .camperos__nombre a:hover { text-decoration-color: currentColor; }
+.camperos__dato { display: block; font-weight: 430; color: var(--ink-2); }
+.camperos__anos, .camperos__con { display: none; }
+/* "Falta" under its column's head; "Falta la autorización" in a block, where no head says what is missing */
+.camperos__que { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.camperos td.camperos__cuarto { white-space: nowrap; }
+.page--app .camperos tbody tr:has([data-seleccion-fila]:checked) { background: var(--petroleo-tint); }
+/* "Marcar a todos los de esta página": its box on the column of the rows' boxes (only with JavaScript) */
+.camperos__todas { display: inline-flex; align-items: center; gap: var(--s-3); min-height: 2.75rem; padding-left: 0.25rem; font-size: var(--t-small); font-weight: 600; cursor: pointer; }
+.camperos__todas input[type="checkbox"] {
+  appearance: none; flex: none; display: grid; place-items: center; width: 1.375rem; height: 1.375rem; margin: 0;
+  border: 1.5px solid var(--line-control); border-radius: 6px; background: var(--surface); cursor: pointer;
+}
+.camperos__todas input[type="checkbox"]::after { content: ""; width: 0.875rem; height: 0.875rem; background: #ffffff; opacity: 0; -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat; }
+.camperos__todas input:is(:checked, :indeterminate) { border-color: var(--petroleo); background: var(--petroleo); }
+.camperos__todas input:checked::after { opacity: 1; }
+.camperos__todas input:indeterminate::after { opacity: 1; height: 0.125rem; border-radius: 1px; -webkit-mask: none; mask: none; }
+/* A narrow column: each campero is a block. The name and its number, then where, how old and with whom as one line,
+   then the interview and the authorization, each with its mark; the box at the left of the block. */
+@container (max-width: 44rem) {
+  :root[data-ui="2"] .camperos .table--stack tbody tr { position: relative; padding: var(--s-3) var(--s-2); }
+  :root[data-ui="2"] .camperos .table--stack tbody tr:has(.camperos__marca-col) { padding-left: 3.25rem; }
+  :root[data-ui="2"] .camperos .table--stack .camperos__marca-col { position: absolute; left: 0.25rem; top: var(--s-2); width: auto; padding: 0; }
+  .camperos .table--stack .camperos__marca { margin: 0; }
+  :root[data-ui="2"] .camperos .table--stack :is(.camperos__cuarto, .camperos__edad, .camperos__coord) { display: inline; padding: 0; font-size: var(--t-small); color: var(--ink-2); text-align: left; }
+  .camperos .table--stack :is(.camperos__cuarto, .camperos__edad)::after { content: ", "; }
+  .camperos .table--stack .camperos__coord::after { content: "\A"; white-space: pre; }
+  .camperos .table--stack .camperos__coord .chip { vertical-align: 0.0625rem; }
+  .camperos .table--stack :is(.camperos__anos, .camperos__con) { display: inline; }
+  .camperos .table--stack .camperos__que { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  :root[data-ui="2"] .camperos .table--stack :is(.camperos__estado, .camperos__autorizacion) { display: inline-flex; margin: var(--s-2) var(--s-4) 0 0; padding: 0; }
+  :root[data-ui="2"] .camperos .table--stack .camperos__autorizacion:empty { display: none; }
+}
+/* The marked rows' bar: solid ink, at the bottom of the screen while the list is in view (above the tabs where they
+   are), in its place under the table at the end, so it never covers the last row. Without JavaScript it is simply
+   there, under the table. */
+.seleccion {
+  position: sticky; bottom: var(--s-4); z-index: 30; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--s-2) var(--s-4); margin-top: var(--s-4); padding: var(--s-3) var(--s-3) var(--s-3) var(--s-5);
+  border-radius: var(--r-panel); background: var(--ink); color: #ffffff;
+}
+.no-js .seleccion { position: static; }
+.seleccion__cuenta { font-size: var(--t-small); font-weight: 600; font-variant-numeric: tabular-nums; }
+.seleccion__accion { display: flex; flex: 1 1 24rem; justify-content: flex-end; gap: var(--s-2); min-width: 0; }
+.seleccion__quien { flex: 0 1 22rem; min-width: 0; color: var(--ink); }
+/* On ink the ring is white (the field's own focus rule of section 7 is outweighed here on purpose) */
+.seleccion :focus-visible, :root[data-ui="2"] .seleccion select.seleccion__quien:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; box-shadow: none; }
+@media (max-width: 1100px) { body:has(> .rail--ancha) .seleccion { bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom, 0px) + var(--s-2)); } }
+@media (max-width: 760px) {
+  .seleccion { bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom, 0px) + var(--s-2)); padding-left: var(--s-4); }
+  .seleccion__accion { flex-basis: 100%; }
+  .seleccion__quien { flex: 1 1 auto; }
+}
+
+.page--app .camperos > p.more { margin-top: var(--s-2); }
+.page--app .camperos > :not(p.more) + p.more { margin-top: var(--s-6); }
 /* end: evento-administracion */
 
 /* area: evento-equipo */
