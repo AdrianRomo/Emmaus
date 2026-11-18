@@ -371,6 +371,9 @@ class MediaTests(ResourcesFixture):
         empty = self.client.get(MEDIA, {"q": "camino", "tipo": "musica"})
         self.assertContains(empty, "No encontramos recursos")
         self.assertContains(empty, 'href="?q=camino"')
+        self.assertContains(empty, '<input type="hidden" name="tipo" value="musica">', html=True)
+        series_page = self.client.get(MEDIA, {"serie": "Cartas"})
+        self.assertContains(series_page, '<input type="hidden" name="serie" value="Cartas">', html=True)
         self.assertEqual(empty.context["total"], 1)
         self.assertEqual({kind["value"]: kind["count"] for kind in empty.context["kinds"]}, {"musica": 0, "predicacion": 1})
 
