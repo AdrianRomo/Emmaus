@@ -354,7 +354,11 @@ class MediaTests(ResourcesFixture):
     def test_search_only_finds_published_media_of_the_members_church(self):
         self.client.force_login(self.member_user)
         match = self.media(title="Camino nuevo", speaker="Ana Torres", series="Cartas")
-        services.retire_media(self.media(title="Camino anterior"), self.admin)
+        other = self.media(title="La vid")
+        services.retire_media(self.media(title="Camino anterior", kind="musica"), self.admin)
+        saved_filter = self.client.get(MEDIA, {"tipo": "musica"})
+        self.assertCountEqual(saved_filter.context["items"], [match, other])
+        self.assertContains(self.client.get(MEDIA, {"q": "desconocido"}), "No encontramos recursos")
         self.media(church=self.church_b, actor=self.admin_b, title="Camino ajeno")
         for query in ("camino", "torres", "cartas"):
             response = self.client.get(MEDIA, {"q": query})

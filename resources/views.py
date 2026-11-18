@@ -141,7 +141,8 @@ def media_list(request):
         kinds = []
     series = " ".join(request.GET.get("serie", "").split())[:120]
     chosen = request.GET.get("tipo", "")
-    if series or chosen not in MediaItem.Kind.values:
+    valid_kinds = MediaItem.Kind.values if query else counts
+    if series or chosen not in valid_kinds:
         chosen = ""
     items = published
     if series:
