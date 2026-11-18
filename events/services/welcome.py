@@ -20,7 +20,7 @@ from core.onboarding import (
     with_name_step,
 )
 
-from ..models import FollowUp, Interview, ReportSnapshot
+from ..models import FollowUp, Interview, InterviewStatus, ReportSnapshot
 from .participants import minors_without_authorization
 
 
@@ -47,7 +47,9 @@ def for_coordinator(event, access, *, station) -> Welcome | None:
         "" if has_people else "Regístralos tú o pide a la administración del evento que te los asigne.",
     ))
     if has_people and event.requires_guardian_authorization:
-        minors = minors_without_authorization(participants, event).count()
+        # The ones not interviewed yet, as Mi inicio counts them: an authorization withdrawn after an interview leaves it
+        # as it is, so an interviewed minor is not one who «no se puede entrevistar»
+        minors = minors_without_authorization(participants, event).filter(interview_status=InterviewStatus.PENDING).count()
         steps.append(Step(
             "Registra la autorización de tus camperos menores de edad", minors == 0,
             _url("my_participants", event, "?autorizacion=falta"), "Ver quiénes la necesitan",
