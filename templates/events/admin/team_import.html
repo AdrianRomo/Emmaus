@@ -1,0 +1,79 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors or problems %}Error: {% endif %}Importar equipo{% endblock %}
+{% block content %}
+{% url 'events:team' event.slug as back_url %}
+{% if preview %}
+  {% include "events/rotulo/_page_head.html" with title="Importar equipo" back_url=back_url back_label="Equipo" %}
+  <section aria-labelledby="revision">
+    <h2 id="revision" class="heading">Revisa antes de importar</h2>
+    <p class="lede">Archivo: {{ preview.name }}. Nada se guarda ni se envía hasta que confirmes.</p>
+    <dl class="figures admin-figures">
+      <div><dt>Filas</dt><dd class="figures__value">{{ summary.total }}</dd></div>
+      <div><dt>Personas nuevas</dt><dd class="figures__value">{{ summary.new }}</dd><dd class="figures__note">se agregan al equipo</dd></div>
+      <div><dt>Sin cambios</dt><dd class="figures__value">{{ summary.unchanged }}</dd><dd class="figures__note">ya tienen acceso o se les retiró</dd></div>
+      <div><dt>Con errores</dt><dd class="figures__value">{{ summary.errors }}</dd><dd class="figures__note">no se importarán</dd></div>
+    </dl>
+    <form method="post" class="admin-import">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="confirm">
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Filas del archivo">
+        <table class="table admin-table admin-table--marked">
+          <thead><tr><th>Importar</th><th class="num">Fila</th><th>Nombre</th><th>Revisión</th><th>Correo</th><th>Rol</th><th>Equipo</th><th>Tutor</th></tr></thead>
+          <tbody>{% for row in rows %}
+            <tr{% if row.errors %} class="is-error"{% endif %}>
+              <td>{% if row.is_new %}<input type="checkbox" name="include" value="{{ row.line }}" aria-label="Importar fila {{ row.line }}" checked>{% endif %}</td>
+              <td class="num">{{ row.line }}</td><td>{{ row.full_name }}</td>
+              <td class="table__review">{% for e in row.errors %}<span class="table__error">{{ e }}</span>{% endfor %}{% if not row.errors %}{% if row.is_new %}<span class="table__flag">Se agrega</span>{% else %}<span class="table__flag">Sin cambios</span>{% endif %}{% for n in row.notes %}<span class="muted">{{ n }}</span> {% endfor %}{% endif %}</td>
+              <td>{{ row.email }}</td><td>{{ row.role_label|default:"—" }}</td><td>{{ row.team_name|default:"—" }}</td><td>{{ row.tutor_label|default:"—" }}</td>
+            </tr>
+          {% endfor %}</tbody>
+        </table>
+      </div>
+      {% if summary.new %}
+        <p class="aside-note">Cada persona nueva entra con el rol que dice su fila y sin acceso a información confidencial: ese acceso se da en Equipo, Editar, una persona a la vez. {% if email_configured %}Al confirmar le enviamos a cada una un correo con su enlace para crear su contraseña.{% else %}No hay correo configurado: al confirmar verás el enlace de cada persona para compartirlo tú.{% endif %}</p>
+        <div class="step__actions"><button class="btn btn--primary" type="submit">Agregar a las personas marcadas</button></div>
+      {% else %}
+        <p class="aside-note">Este archivo no agrega a nadie: todas las personas ya están en el equipo o su fila tiene errores.</p>
+      {% endif %}
+    </form>
+    <form method="post" class="admin-import__cancel">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn btn--link" type="submit">Cancelar y subir otro archivo</button></form>
+  </section>
+  {% comment %}Another file without cancelling first, as in "Importar camperos": it sends no "action".{% endcomment %}
+  <section class="admin-upload" aria-labelledby="otro-archivo">
+    <h2 id="otro-archivo" class="heading">¿Otro archivo?</h2>
+    <p>Tienes un archivo por revisar: {{ preview.name }}. Si subes otro, reemplaza a este.</p>
+    {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
+    {% include "partials/ui/error_summary.html" with form=form %}
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/field.html" with field=form.file %}
+      <button class="btn btn--secondary" type="submit">Revisar otro archivo</button>
+    </form>
+  </section>
+{% else %}
+  {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Importar equipo" lede="Elige el archivo con las personas del equipo." back_url=back_url back_label="Equipo" %}
+  <div class="split admin-split">
+    <form method="post" enctype="multipart/form-data" novalidate class="admin-upload">
+      {% csrf_token %}
+      {% include "partials/ui/field.html" with field=form.file %}
+      <button class="btn btn--primary" type="submit">Revisar archivo</button>
+    </form>
+    <aside aria-labelledby="como-preparar">
+      <h2 id="como-preparar" class="heading">Cómo preparar el archivo</h2>
+      <p class="text-sm">En Excel o Google Sheets usa una fila de encabezados con estos nombres:</p>
+      <div class="table-wrap" tabindex="0" role="region" aria-label="Ejemplo de archivo">
+        <table class="table admin-table"><thead><tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            <tr><td>Teresa Molina Vega</td><td>teresa@ejemplo.com</td><td>tutor</td><td>Equipo Monte Sion</td><td></td></tr>
+            <tr><td>Carlos Ruiz Peña</td><td>carlos@ejemplo.com</td><td>coordinador</td><td></td><td>teresa@ejemplo.com</td></tr>
+          </tbody></table>
+      </div>
+      <p class="text-sm mt-4">“Rol” acepta coordinador, tutor o pastor. “Equipo” es el nombre del equipo de un tutor. En la fila de un coordinador, “Tutor” dice quién lo supervisa: su correo, su nombre completo o el nombre de su equipo. Guarda la hoja de cálculo como <strong>CSV (UTF-8)</strong>, con {{ max_rows }} personas como máximo.</p>
+      <p class="text-sm mt-2">Quien ya está en el equipo se queda como está: puedes subir el mismo archivo otra vez sin repetir a nadie. El archivo no da el rol de administrador ni acceso a información confidencial.</p>
+      <p class="more"><a href="{% url 'events:team_import_sample' event.slug %}" download>Descargar archivo de ejemplo</a> (CSV con los encabezados y tres filas).</p>
+    </aside>
+  </div>
+{% endif %}
+{% endblock %}

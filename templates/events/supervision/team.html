@@ -4,6 +4,7 @@
 {% block content %}
 {% if can_manage %}{% url 'events:member_add' event.slug as add_url %}{% url 'events:assignments' event.slug as assign_url %}{% endif %}
 {% include "events/rotulo/_page_head.html" with title="Equipo" lede="Quién supervisa a quién en este evento." action_url=add_url action_label="Agregar persona" secondary_url=assign_url secondary_label="Asignar tutores" %}
+{% if can_manage %}<p class="more"><a href="{% url 'events:team_import' event.slug %}">Importar el equipo desde un archivo</a></p>{% endif %}
 
 {% if can_manage %}
   {% comment %}What the church prints on the sign, and what to do with the people who used it.{% endcomment %}
