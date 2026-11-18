@@ -221,7 +221,6 @@ const adminPages = [
   ["admin-evento-programa", "/mi-iglesia/eventos/noche-de-alabanza-demo/programa/"],
   ["admin-evento-opiniones", "/mi-iglesia/opiniones/noche-de-alabanza-demo/resultados/"],
   ["admin-politicas", "/mi-iglesia/politicas/"], ["admin-avisos-correo", "/mi-iglesia/avisos/correo/"],
-  ["admin-evento-duplicar", "/mi-iglesia/eventos/noche-de-alabanza-demo/duplicar/"],
 ];
 for (const [name, path] of adminPages) {
   const response = await page.goto(BASE + path);
@@ -250,6 +249,9 @@ await audit(page, "admin-evento-sencillo-pagina");
 expect((await page.goto(BASE + "/eventos/cena-de-prueba/")).status() === 404, "a simple event has no camp screens");
 await page.goto(BASE + "/mi-iglesia/eventos/cena-de-prueba/datos/");
 await audit(page, "admin-evento-sencillo-datos");
+await page.goto(BASE + "/mi-iglesia/eventos/cena-de-prueba/duplicar/");
+await audit(page, "admin-evento-sencillo-duplicar");
+expect((await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/duplicar/")).status() === 404, "a camp is not duplicated as a simple event");
 await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/llego/");
 expect(await page.getByText("todavía no empieza").count() > 0 || (await page.locator("main form").count()) > 0, "the walk-up page answers");
 await audit(page, "admin-evento-llego");
