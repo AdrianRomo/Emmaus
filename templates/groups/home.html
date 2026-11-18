@@ -174,7 +174,7 @@
       <h2 id="solicitudes" class="heading">Lo que pediste</h2>
       <ul class="rows">
         {% for item in my_requests %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead">
             {% monogram item.group.name %}
             <div class="row__main">
               <p class="row__title"><a href="{% url 'community:group_detail' item.group.pk %}">{{ item.group.name }}</a></p>
@@ -184,7 +184,7 @@
           </li>
         {% endfor %}
         {% for item in declined %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead">
             {% monogram item.group.name %}
             <div class="row__main">
               <p class="row__title">{{ item.group.name }}</p>

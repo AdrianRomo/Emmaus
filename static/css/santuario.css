@@ -541,8 +541,11 @@ body:has(> .rail) .sign--lead .sign__actions { margin-top: 0; }
 @container (max-width: 38rem) {
   .row--stack { flex-wrap: wrap; align-items: flex-start; }
   .row--stack .row__main { flex: 1 1 12rem; }
-  .row--stack .row__end { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; gap: var(--s-3); }
+  .row--stack .row__end { flex: 1 0 100%; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: var(--s-3); }
   .row--stack .row__end .btn { flex: 1 1 8rem; }
+  /* A state keeps its own width, and a row that already wrapped does not draw its chevron on a line of its own */
+  .row--stack .row__end .status, .row--stack .row__end .chip { flex: 0 0 auto; }
+  .page--app .rows > .row--stack:has(.row__end)::after { display: none; }
 }
 /* In a column of middle width (a tablet beside the rail) the buttons sit under the words at their own width, in
    line with them; only on a phone do they take the whole row */
