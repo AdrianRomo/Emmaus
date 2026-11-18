@@ -8,7 +8,7 @@
     {% if ui_v2 %}
     {% comment %}The rail already says the event and the role: here only what changes (the state, where, the next cutoff), as facts.{% endcomment %}
     <ul class="meta report-head__meta">
-      <li>{% if event.status == "activo" %}{% status "en_curso" event.get_status_display %}{% elif event.status == "cerrado" %}{% status "completada" event.get_status_display %}{% elif event.status == "archivado" %}{% status "archivado" event.get_status_display %}{% else %}{% status "pendiente" event.get_status_display %}{% endif %}</li>
+      {% now "Y-m-d" as today %}<li>{% if event.status == "archivado" %}{% status "archivado" event.get_status_display %}{% elif event.status == "cerrado" %}{% status "completada" "Terminó" %}{% elif event.ends_on|default:event.starts_on and event.ends_on|default:event.starts_on|date:"Y-m-d" < today %}{% status "completada" "Terminó" %}{% elif event.status == "activo" %}{% status "en_curso" event.get_status_display %}{% else %}{% status "pendiente" event.get_status_display %}{% endif %}</li>
       {% if event.location %}<li>{% icon "lugar" "sm" %}{{ event.location }}</li>{% endif %}
       {% if next_cutoff %}<li>{% icon "reloj" "sm" %}Próximo corte: {{ next_cutoff|date:"H:i" }}</li>{% endif %}
     </ul>

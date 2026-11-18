@@ -5,7 +5,9 @@
   what blocks the interviews (procedures, questionnaire, no camperos, access requests) or, when nothing does, the
   camperos without a coordinator, assigned right there (admin.participants_assign: one choice per row, each
   coordinator with the camperos it already has). A choice made there survives the refresh (form[data-conserva],
-  emmaus.js). Then how the event is going, the interviews left half done, the steps and the activity, as without it.
+  emmaus.js). Then how the interviews go (the coordinator's progress: numeral, marks, key) with three counts, the
+  interviews left half done (rows as on the coordinator's home: a quiet «Descartar», whose page asks first, and
+  «Retomar»), the steps with their state marks, and the activity.
 {% endcomment %}
 {% with unassigned=payload.attention.unassigned_participants without_tutor=payload.attention.coordinators_without_tutor risk=payload.follow_ups.safety_open %}
 {% if risk or minors_missing %}
@@ -90,83 +92,109 @@
   </section>
 {% endif %}
 
-<section class="admin-state" aria-labelledby="estado-evento">
+{% comment %}How the interviews go: the numeral, the line of marks and its key, as on the coordinator's home; then three counts.{% endcomment %}
+<section class="block tablero__avance admin-avance" aria-labelledby="estado-evento">
+  <div class="heading-row">
+    <h2 id="estado-evento" class="heading">Entrevistas</h2>
+    <a href="{% url 'events:progress' event.slug %}">Ver avance</a>
+  </div>
   {% if progress.eligible %}
-    <h2 id="estado-evento" class="voice admin-state__title" data-count="llevamos">Llevamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</h2>
-    {% comment %}The key under the ruler counts the ones in progress: this line only adds what it cannot say.{% endcomment %}
-    {% if not progress.pending %}<p class="admin-state__sub">Ya se completaron todas.</p>{% elif open_claims %}<p class="admin-state__sub">{{ open_claims }} abierta{{ open_claims|pluralize }} ahora en una computadora.</p>{% endif %}
-    <div class="admin-state__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
-    <ul class="key">
-      <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
-      <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
-      <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar{% if progress.partial %} y {{ progress.partial }} a medias{% endif %}</li>
-    </ul>{% if progress.questionnaires %}
-    {% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
+  <p class="avance__cifra"><span class="avance__n" data-count="llevamos">{{ progress.completed }} <span>de {{ progress.eligible }}</span></span></p>
+  {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
+  <ul class="key" aria-hidden="true">
+    <li><span class="key__mark key__mark--done"></span>{{ progress.completed }} hecha{{ progress.completed|pluralize }}</li>
+    {% if progress.in_progress %}<li><span class="key__mark key__mark--progress"></span>{{ progress.in_progress }} en curso</li>{% endif %}
+    <li><span class="key__mark"></span>{{ progress.not_started }} sin iniciar{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</li>
+  </ul>
+  {% if progress.questionnaires %}{% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
   {% else %}
-    <h2 id="estado-evento" class="voice admin-state__title">Todavía no hay camperos registrados.</h2>
+  <p class="empty-line">Todavía no hay camperos.</p>
   {% endif %}
-  <dl class="figures admin-state__figures">
-    <div><dt>Camperos</dt><dd class="figures__value" data-count="camperos">{{ progress.eligible }}</dd><dd class="figures__note">{{ unassigned }} sin coordinador</dd></div>
-    <div><dt>Entrevistas a solas</dt><dd class="figures__value" data-count="a-solas">{{ active_sessions }}</dd><dd class="figures__note"><a href="{% url 'events:sessions' event.slug %}">Ver computadoras en uso</a></dd></div>
-    <div><dt>Seguimientos abiertos</dt><dd class="figures__value" data-count="seguimientos">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver seguimientos</a></dd></div>
+  <dl class="figures admin-cifras">
+    <div><dt>Camperos</dt><dd class="figures__value" data-count="camperos">{{ progress.eligible }}</dd><dd>{{ unassigned }} sin coordinador</dd></div>
+    <div><dt>Entrevistas a solas</dt><dd class="figures__value" data-count="a-solas">{{ active_sessions }}</dd><dd><a href="{% url 'events:sessions' event.slug %}">Computadoras en uso</a></dd></div>
+    <div><dt>Seguimientos abiertos</dt><dd class="figures__value" data-count="seguimientos">{{ payload.follow_ups.open_total }}</dd><dd><a href="{% url 'events:follow_ups' event.slug %}">Seguimientos</a></dd></div>
   </dl>
 </section>
 
-{% include "events/admin/_stalled_interviews.html" %}
-
-<div class="split admin-split">
-  {% comment %}
-    The steps come from the view (_preparation_steps): how many are ready, the pending ones first, then the ready
-    ones in a fold that starts closed. Its id keeps it as the reader left it across the 30 s refresh (emmaus.js).
-    The page and the fragment render this same file.
-  {% endcomment %}
-  <section aria-labelledby="preparacion">
-    <h2 id="preparacion" class="heading">Preparación</h2>
-    <p class="admin-steps__summary">{% if steps_done == steps_total %}Todo listo: {{ steps_total }} de {{ steps_total }} pasos.{% else %}{{ steps_done }} de {{ steps_total }} pasos listos.{% endif %}</p>
-    {% for group in step_groups %}
-    {% if group.listos %}<details class="fold admin-steps__done" id="preparacion-listos"><summary>{{ steps_done }} paso{{ steps_done|pluralize }} listo{{ steps_done|pluralize }}</summary>{% endif %}
-    <ul class="rows admin-rows">
-      {% for step in group.steps %}
-      <li class="row{% if step.attention %} row--attention{% endif %}"{% if step.id %} id="{{ step.id }}"{% endif %}>
-        <div class="row__main">
-          <p class="row__title">{{ step.title }}</p>
-          {% for line in step.meta %}<p class="row__meta">{{ line }}</p>{% endfor %}
-        </div>
-        <div class="row__end">
-          {% if step.state == "listo" %}{% status "completada" "Listo" %}{% elif step.state == "revisar" %}{% status "revisar" %}{% elif step.state == "esperando" %}{% status "pendiente" "Esperando" %}{% elif step.state == "apagados" %}{% status "pendiente" "Apagados" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
-          <a class="btn btn--secondary btn--small" href="{{ step.url }}">{{ step.label }}{% if step.label_hidden %}<span class="visually-hidden"> {{ step.label_hidden }}</span>{% endif %}</a>
-        </div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% if group.listos %}</details>{% endif %}
+{% if stalled_total %}
+<section class="block" aria-labelledby="entrevistas-interrumpidas">
+  <h2 id="entrevistas-interrumpidas" class="heading">Sin terminar <span class="count">{{ stalled_total }}</span></h2>
+  <ul class="rows admin-detenidas">
+    {% for iv in stalled_interviews %}
+    <li class="row row--lead row--stack">
+      {% monogram iv.participant.full_name %}
+      <div class="row__main">
+        <p class="row__title">{{ iv.participant.full_name }}</p>
+        <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, {{ iv.station.name|default:"computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
+      </div>
+      {% if access.can_conduct_interviews and iv.participant.is_active %}
+      <div class="row__end">
+        <a class="btn btn--link btn--quieto" href="{% url 'events:interview_discard' event.slug iv.public_id %}">Descartar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+        <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+      </div>
+      {% endif %}
+    </li>
     {% endfor %}
-  </section>
+  </ul>
+  {% if stalled_total > stalled_interviews|length %}<p class="more"><a href="{% url 'events:pending' event.slug %}#interrumpidas">Ver las {{ stalled_total }}</a></p>{% endif %}
+  <p class="aside-note">Al descartar se borran sus respuestas.</p>
+</section>
+{% endif %}
 
-  <div class="admin-side">
-    <section aria-labelledby="actividad-admin">
+{% comment %}
+  The steps come from the view (_preparation_steps): the pending ones first, the ready ones in a fold that starts closed
+  (its id keeps it as the reader left it across the 30 s refresh, emmaus.js). The state is its mark and word; vela is
+  kept for what blocks somebody, so no step wears the dot.
+{% endcomment %}
+<section class="block" aria-labelledby="preparacion">
+  <h2 id="preparacion" class="heading">Preparación <span class="count">{{ steps_done }} de {{ steps_total }} listos</span></h2>
+  {% for group in step_groups %}
+  {% if group.listos %}<details class="fold admin-pasos__listos" id="preparacion-listos"><summary>{{ steps_done }} paso{{ steps_done|pluralize }} listo{{ steps_done|pluralize }}</summary>{% endif %}
+  <ul class="rows admin-pasos">
+    {% for step in group.steps %}
+    <li class="row row--lead row--stack"{% if step.id %} id="{{ step.id }}"{% endif %}>
+      <span class="admin-pasos__icono">{% if step.key == "procedimientos" %}{% icon "candado" %}{% elif step.key == "cuestionario" %}{% icon "plan" %}{% elif step.key == "camperos" or step.key == "coordinadores" %}{% icon "personas" %}{% elif step.key == "equipo" or step.key == "tutores" %}{% icon "grupos" %}{% elif step.key == "acceso" %}{% icon "cuenta" %}{% elif step.key == "computadoras" %}{% icon "computadora" %}{% elif step.key == "seguimientos" %}{% icon "acompanar" %}{% elif step.key == "practica" %}{% icon "lista" %}{% else %}{% icon "reloj" %}{% endif %}</span>
+      <div class="row__main">
+        <p class="row__title">{{ step.title }}</p>
+        {% for line in step.meta %}<p class="row__meta">{{ line }}</p>{% endfor %}
+      </div>
+      <div class="row__end">
+        {% if step.state == "listo" %}{% status "completada" "Listo" %}{% elif step.state == "revisar" %}{% status "revisar" %}{% elif step.state == "esperando" %}{% status "pendiente" "Esperando" %}{% elif step.state == "apagados" %}{% status "descartada" "Apagados" %}{% else %}{% status "pendiente" "Falta" %}{% endif %}
+        <a class="btn btn--secondary btn--small" href="{{ step.url }}">{{ step.label }}{% if step.label_hidden %}<span class="visually-hidden"> {{ step.label_hidden }}</span>{% endif %}</a>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if group.listos %}</details>{% endif %}
+  {% endfor %}
+</section>
+
+<div class="split admin-registro">
+  <section aria-labelledby="actividad-admin">
+    <div class="heading-row">
       <h2 id="actividad-admin" class="heading">Actividad reciente</h2>
-      {% if recent %}
-        <ul class="rows admin-log">{% for a in recent %}
-          <li class="row"><div class="row__main"><p class="row__title">{{ a.shown_summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
-        {% endfor %}</ul>
-      {% else %}
-        <p class="empty-line">Sin actividad todavía.</p>
-      {% endif %}
-      <p class="more"><a href="{% url 'events:audit' event.slug %}">Ver todo el registro de actividad</a></p>
-    </section>
-    <section aria-labelledby="descargas">
-      <h2 id="descargas" class="heading">Descargas recientes</h2>
-      {% if exports %}
-        <ul class="rows admin-log">{% for a in exports %}
-          <li class="row"><div class="row__main"><p class="row__title">{{ a.summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
-        {% endfor %}</ul>
-      {% else %}
-        <p class="empty-line">Nadie ha descargado datos.</p>
-      {% endif %}
-      <p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a>{% if access.is_admin and access.can_view_sensitive %} o <a href="{% url 'events:answers_export' event.slug %}">descargar las respuestas</a>{% endif %}</p>
-    </section>
-  </div>
+      <a href="{% url 'events:audit' event.slug %}">Ver todo<span class="visually-hidden"> el registro de actividad</span></a>
+    </div>
+    {% if recent %}
+    <ul class="rows">{% for a in recent %}
+      <li class="row row--lead">{% monogram a.actor_label "sm" %}<div class="row__main"><p class="row__title">{{ a.shown_summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
+    {% endfor %}</ul>
+    {% else %}
+    <p class="empty-line">Sin actividad todavía.</p>
+    {% endif %}
+  </section>
+  <section aria-labelledby="descargas">
+    <h2 id="descargas" class="heading">Descargas recientes</h2>
+    {% if exports %}
+    <ul class="rows">{% for a in exports %}
+      <li class="row row--lead">{% monogram a.actor_label "sm" %}<div class="row__main"><p class="row__title">{{ a.summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|since }}</p></div></li>
+    {% endfor %}</ul>
+    {% else %}
+    <p class="empty-line">Nadie ha descargado datos.</p>
+    {% endif %}
+    <p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a>{% if access.is_admin and access.can_view_sensitive %} o <a href="{% url 'events:answers_export' event.slug %}">descargar las respuestas</a>{% endif %}</p>
+  </section>
 </div>
 {% endwith %}{% else %}{% include "events/_now_next.html" %}
 {% comment %}

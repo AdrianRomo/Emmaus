@@ -1251,6 +1251,8 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* Rows that wait inside a sheet ("Preparación"): Atrio rounded each one by itself; here the sheet has the corners */
 .page--app .admin-rows > .row--attention:not(:first-child, :last-child) { border-radius: 0; }
 .page--app .page-head + .admin-events, .page--app .welcome + .admin-events { margin-top: 0; }
+/* Eventos donde sirves: an event without a date keeps the day's slot with the calendar's mark */
+.admin-eventos__sin-fecha .icon { color: var(--ink-2); }
 
 /* The same lists on a phone: the name and its lines take the width, the chevron stays beside them and the state (or
    the buttons) goes under them; beside them it left the text half a column, and the chevron fell to a line of its own */
@@ -1384,7 +1386,20 @@ p.sitio__leaves { margin-top: var(--s-2); }
    assigned on the raised surface, a choice at the end of each row */
 .decision--riesgo .decision__cifra { color: var(--chile); }
 .decision--riesgo .decision__nota .status { font-size: var(--t-small); }
-.page--app .admin-esperan + :is(.sign, .admin-state) { margin-top: var(--s-6); }
+.page--app .admin-esperan + :is(.sign, .admin-state, .block) { margin-top: var(--s-6); }
+/* How the interviews go (the coordinator's progress, at the event's size: above 80 camperos the marks are a ruler).
+   The three counts under it use the system's numeral: proportional figures, as «250 de 400», not a column of digits. */
+.page--app .admin-avance .ruler { margin: var(--s-3) 0 var(--s-2); }
+.page--app .admin-avance .key + .quests { margin-top: var(--s-5); }
+.page--app .admin-cifras { margin: var(--s-6) 0 0; }
+.page--app .admin-cifras .figures__value { font-variant-numeric: normal; }
+.page--app .admin-cifras dd a { font-weight: 600; color: var(--petroleo); }
+.admin-pasos__icono .icon { color: var(--ink-2); }
+/* The rows inside the event take their text's width (evento-equipo): these lists put their end under the text in a
+   narrow column, so the text keeps its line beside the mark */
+.rail--event ~ .page--app .rows:is(.admin-detenidas, .admin-pasos) > .row.row--stack > .row__main { flex: 1 1 12rem; }
+.page--app .admin-pasos__listos { margin-top: var(--s-2); }
+.page--app .admin-registro { margin-top: var(--s-8); }
 .page--app .admin-asignar__filas { margin-top: var(--s-3); }
 .page--app .admin-asignar__filas > .row { align-items: center; }
 .admin-asignar__filas select { width: 16rem; max-width: 100%; }

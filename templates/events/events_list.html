@@ -1,8 +1,43 @@
 {% extends "base.html" %}
 {% load emmaus shell community %}
-{% block page_title %}Eventos{% endblock %}
+{% block page_title %}{% if ui_v2 %}Eventos donde sirves{% else %}Eventos{% endif %}{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% now "Y-m-d" as today %}
 {% comment %}
+  The redesign ("Ventanas"): the events where this person serves (the rail's «Eventos donde sirves»), each a row that
+  leads into it, its day in the leading slot. An event whose last day has passed says «Terminó» even while its stored
+  status is still «En curso» (it is set by hand); nothing is saved here.
+{% endcomment %}
+{% if can_create %}{% url 'events:create' as create_url %}{% endif %}
+{% if rows %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos donde sirves" action_url=create_url action_label="Crear evento" %}
+  {% include "partials/ui/welcome.html" with welcome=welcome %}
+  <ul class="rows admin-eventos" aria-label="Eventos donde sirves">
+    {% for row in rows %}{% with event=row.event %}
+    <li class="row row--lead">
+      {% if event.starts_on %}{% date_block event.starts_on %}{% else %}<span class="admin-eventos__sin-fecha">{% icon "calendario" %}</span>{% endif %}
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'events:home' event.slug %}">{{ event.name }}</a></p>
+        <p class="row__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% if event.location %}, {% endif %}{% endif %}{{ event.location }}</p>
+        <p class="row__meta">{{ row.access.role_label }}</p>
+      </div>
+      <div class="row__end">
+        {% if event.status == "archivado" %}{% status "archivado" event.get_status_display %}{% elif event.status == "cerrado" %}{% status "completada" "Terminó" %}{% elif event.ends_on|default:event.starts_on and event.ends_on|default:event.starts_on|date:"Y-m-d" < today %}{% status "completada" "Terminó" %}{% elif event.status == "activo" %}{% status "en_curso" event.get_status_display %}{% else %}{% status "pendiente" event.get_status_display %}{% endif %}
+      </div>
+    </li>
+    {% endwith %}{% endfor %}
+  </ul>
+{% elif can_create %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos donde sirves" %}
+  {% include "partials/ui/welcome.html" with welcome=welcome %}
+  {% include "partials/ui/empty.html" with title="Todavía no hay eventos" action_url=create_url action_label="Crear evento" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos donde sirves" %}
+  {% include "partials/ui/welcome.html" with welcome=welcome %}
+  {% url 'join' as join_url %}
+  {% include "partials/ui/empty.html" with title="Todavía no sirves en ningún evento" action_url=join_url action_label="Unirme con el código del evento" %}
+{% endif %}
+{% else %}{% comment %}
   The events a person works in (events.views.home.events_home). A row is the way into its event: no "Abrir" button
   beside the name. With the module on its data are facts with their mark; without it, Atrio's sentences.
 {% endcomment %}
@@ -53,4 +88,4 @@
   </section>
 {% endif %}
 </div>
-{% endblock %}
+{% endif %}{% endblock %}
