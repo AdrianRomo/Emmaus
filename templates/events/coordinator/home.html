@@ -23,7 +23,8 @@
 {% if procedures_pending %}
   <div class="notice notice--warning"><p>Todavía no se pueden iniciar entrevistas: la administración debe confirmar los procedimientos.</p></div>
 {% endif %}
-{% include "partials/ui/welcome.html" with welcome=welcome %}
+{# The first steps come first only while nothing is in progress; with an interview to resume, resuming comes first #}
+{% if not in_progress %}{% include "partials/ui/welcome.html" with welcome=welcome %}{% endif %}
 
 <section class="sign tablero__ahora" aria-labelledby="que-hago">
   {% if in_progress %}
@@ -71,6 +72,7 @@
 <div id="inicio-vivo" data-live-url="{% url 'events:coord_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
   {% include "events/coordinator/_home_live.html" %}
 </div>
+{% if in_progress %}{% include "partials/ui/welcome.html" with welcome=welcome %}{% endif %}
 {% else %}<div class="coord">
   <h1 class="voice coord__hello">Hola{% if user|nombre %}, {{ user|nombre }}{% endif %}.</h1>
   <p class="coord__role">Tu rol: {{ access.role_label|lower }}.</p>
