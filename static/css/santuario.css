@@ -943,7 +943,57 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* end: evento-equipo */
 
 /* area: evento-entrevista */
+/* The interview and the campero's screens (shell_focus, shell_kiosk: .focus) have no rail: one task per screen, on a
+   shared laptop, often read by a teenager. They keep Atrio's larger type and its 48px controls; what follows only
+   repairs what the shared restyle changed on them. Nothing here reaches a page with the rail, except where it says. */
 
+/* What a person presses or must read to go on keeps its size: buttons (the step's one is 20px), the consent box
+   and a discard's reasons (28px), an error under a question (18px) */
+:root[data-ui="2"] .focus .btn { font-size: var(--t-body); }
+:root[data-ui="2"] .focus .btn--large { font-size: var(--t-lead); }
+:root[data-ui="2"] .focus .btn--small { font-size: var(--t-small); }
+:root[data-ui="2"] .focus .check input { width: 1.75rem; height: 1.75rem; margin-top: 0; }
+:root[data-ui="2"] .focus .check__text { padding-top: 0.125rem; }
+:root[data-ui="2"] .focus .error-message { font-size: var(--t-body); }
+
+/* A message of the page before ("Recuperaste la computadora") arrived as a toast over the bar's way out, "Guardar y
+   salir". Here it arrives under the bar, at the column's edge, and follows the window only once the bar has left */
+:root[data-ui="2"] .focus .messages.is-toast {
+  position: sticky; top: var(--s-3); right: auto; left: auto; width: min(24rem, 100%); height: 0;
+  margin: calc(-1 * var(--s-5)) 0 var(--s-5) auto; align-content: start;
+}
+@media (max-width: 600px) {
+  :root[data-ui="2"] .focus .messages.is-toast { margin-block: calc(-1 * var(--s-3)) var(--s-3); }
+}
+
+/* A step. On a phone its button is a bar stuck to the bottom of the window: the page's colour with a hairline, not
+   a white band between two limewashed ones. The reason of a correction stands apart from the last option. */
+@media (max-width: 600px) {
+  :root[data-ui="2"] .step .step__actions { background: var(--page); }
+}
+:root[data-ui="2"] .step > .field { margin-top: var(--s-8); }
+
+/* "Cambiar" and "Corregir" beside an answer: 44px to press. The padding of an inline box moves no text. */
+:root[data-ui="2"] .summary-list--answers .summary-list__action a { padding-block: calc((2.75rem - 1.2em) / 2); }
+
+/* The review's "Si algo no salió como se esperaba": its two ways out are a button and a link inside a row's title,
+   and the rule that makes a row's title quiet took the chile of one and the underline of the other */
+:root[data-ui="2"] .other-actions .row__title a.btn--danger-outline { color: var(--chile); }
+:root[data-ui="2"] .other-actions .row__title a.row__link {
+  position: relative; z-index: 1; display: inline-block; text-decoration: underline;
+  padding-block: calc((2.75rem - 1.3em) / 2); margin-block: calc((1.3em - 2.75rem) / 2);
+}
+
+/* Done: the one filled panel of these screens is the night petróleo of a home's, with its corners */
+:root[data-ui="2"] .confirm { background: var(--noche); border-radius: var(--r-panel); }
+
+/* "¿Sigues aquí?": a sheet over the page, with a sheet's corners and a hairline */
+:root[data-ui="2"] .focus .dialog, :root[data-ui="2"] .focus ~ .dialog { border: 1px solid var(--line); border-radius: var(--r-panel); }
+
+/* "¿A quién vas a entrevistar?" (with the rail): the field is the panel's one action, so it stands apart from the
+   line above it and from the link under it */
+:root[data-ui="2"] .sign:has(> #buscar-titulo) .search { margin-top: var(--s-4); }
+:root[data-ui="2"] .sign:has(> #buscar-titulo) .search + .sign__text { margin-top: var(--s-3); }
 /* end: evento-entrevista */
 
 /* ---------- 13. Doors ---------------------------------------------------- */

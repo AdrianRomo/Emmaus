@@ -45,7 +45,7 @@
       </ul>
       {% if query %}<p class="more"><a href="{% url 'events:interview_search' event.slug %}">Borrar búsqueda</a></p>{% endif %}
     {% elif query %}
-      <p class="empty-line">No encontramos a nadie con “{{ query }}”. Prueba con su número o con menos letras. Si no está registrado, toca “Registrar campero”.</p>
+      <p class="empty-line">No encontramos a nadie con “{{ query }}”. Prueba con su número o con menos letras.</p>
     {% elif access.is_coordinator %}
       {% comment %}LANG-15: without a search the list holds every campero in scope, so an empty one means there are none.{% endcomment %}
       <p class="empty-line">Todavía no tienes camperos. Registra al primero o pide a la administración que te los asigne.</p>
