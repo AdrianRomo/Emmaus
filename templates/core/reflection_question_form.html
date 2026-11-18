@@ -4,15 +4,15 @@
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'path_detail' lesson.path_id as back_url %}
-  {% with meta="Lección: "|add:lesson.title %}
-    {% include "events/rotulo/_page_head.html" with title="Agregar pregunta de reflexión" lede="Escribe una pregunta que invite a reflexionar con honestidad y que ayude a los mentores a saber cómo animar a la persona." meta=meta back_url=back_url back_label=lesson.path.title %}
+  {% with meta="Lección "|add:lesson.title %}
+    {% include "events/rotulo/_page_head.html" with title="Nueva pregunta de reflexión" meta=meta back_url=back_url back_label=lesson.path.title %}
   {% endwith %}
   <form method="post">
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="step__actions form-actions">
       <button class="btn btn--primary" type="submit">Guardar pregunta</button>
-      <a class="btn btn--link" href="{% url 'path_detail' lesson.path_id %}">Volver a la ruta</a>
+      <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
     </div>
   </form>
 </div>

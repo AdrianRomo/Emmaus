@@ -1,0 +1,6 @@
+{% comment %}
+  The two views of the church's questions: all of them, and those passed to the pastor. current: "todas" or "pastor".
+{% endcomment %}<ul class="filters">
+  <li><a href="{% url 'questions_inbox' %}"{% if current == "todas" %} aria-current="page"{% endif %}>Todas</a></li>
+  <li><a href="{% url 'escalations' %}"{% if current == "pastor" %} aria-current="page"{% endif %}>Para el pastor</a></li>
+</ul>

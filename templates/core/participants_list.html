@@ -1,38 +1,52 @@
 {% extends "base.html" %}
-{% load emmaus core_extras %}
+{% load emmaus core_extras shell %}
 {% block page_title %}Participantes{% endblock %}
 {% block content %}
-{% url 'create_invitation' as invite_url %}
-{% comment %}A pastor invites only where the church lets leaders invite (create_invitation answers 403 otherwise).{% endcomment %}
-{% if is_church_admin or current_church.leaders_can_invite_participants %}
-  {% include "events/rotulo/_page_head.html" with title="Participantes" lede="Las personas de tu iglesia en el discipulado." action_url=invite_url action_label="Invitar participante" %}
-{% else %}
-  {% include "events/rotulo/_page_head.html" with title="Participantes" lede="Las personas de tu iglesia en el discipulado." %}
-{% endif %}
-{% comment %}Who needs someone first: without a mentor, then whoever has gone longest without activity (the view orders them).{% endcomment %}
+{% comment %}
+  The church's participants, for the pastor and the administration. Who needs someone first: without a mentor,
+  then whoever has gone longest without activity (the view orders them). A pastor invites only where the church
+  lets leaders invite (create_invitation answers 403 otherwise).
+{% endcomment %}
+{% if is_church_admin or current_church.leaders_can_invite_participants %}{% url 'create_invitation' as invite_url %}{% endif %}
+{% include "events/rotulo/_page_head.html" with title="Participantes" action_url=invite_url action_label="Invitar participante" %}
 <section class="disc-list participant-progress" aria-labelledby="lista">
-  <h2 id="lista" class="heading">{{ profiles|length }} participante{{ profiles|length|pluralize }}</h2>
   {% if profiles %}
+    <h2 id="lista" class="heading">{{ profiles|length }} participante{{ profiles|length|pluralize }}</h2>
     <ul class="rows">
       {% for profile in profiles %}
         {% with name=profile.user.get_full_name|default:profile.user.email summary=profile.progress_summary %}
-        <li class="row">
+        <li class="row row--lead row--stack">
+          {% if ui_v2 %}{% monogram name "sm" %}{% endif %}
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'participant_detail' profile.id %}">{{ name }}</a></p>
-            <p class="row__meta">{% if profile.assigned_mentor %}Mentor: {{ profile.assigned_mentor|display_name }}{% else %}Sin mentor{% endif %}, {% if summary.enrollment %}{{ summary.completed_lessons }} de {{ summary.total_lessons }} lecci{{ summary.total_lessons|pluralize:"ón,ones" }}{% else %}sin ruta{% endif %}, última actividad {{ profile.activity_ago }}.</p>
-            {% if summary.enrollment %}
-              <div class="participant-progress__line">{% ruler summary.completed_lessons 0 summary.total_lessons %}</div>
+            {% if ui_v2 %}
+              <ul class="meta">
+                {% if profile.assigned_mentor %}<li>{% icon "guia" "sm" %}<span class="visually-hidden">Mentor: </span>{{ profile.assigned_mentor|display_name }}</li>{% endif %}
+                <li>{% icon "reloj" "sm" %}<span class="visually-hidden">Última actividad </span>{{ profile.activity_ago }}</li>
+                {% if not summary.enrollment %}<li>Sin ruta</li>{% endif %}
+              </ul>
+              {% if summary.enrollment %}{% include "core/rotulo/_avance.html" with summary=summary %}{% endif %}
+            {% else %}
+              <p class="row__meta">{% if profile.assigned_mentor %}Mentor: {{ profile.assigned_mentor|display_name }}{% else %}Sin mentor{% endif %}, {% if summary.enrollment %}{{ summary.completed_lessons }} de {{ summary.total_lessons }} lecci{{ summary.total_lessons|pluralize:"ón,ones" }}{% else %}sin ruta{% endif %}, última actividad {{ profile.activity_ago }}.</p>
+              {% if summary.enrollment %}
+                <div class="participant-progress__line">{% ruler summary.completed_lessons 0 summary.total_lessons %}</div>
+              {% endif %}
             {% endif %}
           </div>
           {% if not profile.assigned_mentor %}
-            <a class="btn btn--secondary btn--small" href="{% url 'assign_mentor' profile.id %}">Asignar mentor<span class="visually-hidden"> a {{ name }}</span></a>
+            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'assign_mentor' profile.id %}">Asignar mentor<span class="visually-hidden"> a {{ name }}</span></a></div>
           {% endif %}
         </li>
         {% endwith %}
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">Todavía no hay participantes. Aparecerán aquí cuando acepten su invitación.</p>
+    <h2 id="lista" class="visually-hidden">Participantes</h2>
+    {% if ui_v2 %}
+      {% include "partials/ui/empty.html" with title="Sin participantes todavía" action_url=invite_url action_label="Invitar participante" %}
+    {% else %}
+      <p class="empty-line">Sin participantes todavía.</p>
+    {% endif %}
   {% endif %}
 </section>
 {% endblock %}
