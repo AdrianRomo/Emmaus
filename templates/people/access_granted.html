@@ -1,32 +1,37 @@
 {% extends "base.html" %}
+{% load shell %}
 {% block page_title %}Acceso creado{% endblock %}
 {% block content %}
 {% comment %}
   After "Dar acceso" (people.views): the account exists and has no password. The one-time link is shown here and
-  only here; nothing was e-mailed, and the page says so instead of pretending. The message ready to send comes
-  first, with the screen's one filled button; the bare link is under it.
+  only here; nothing was e-mailed, and the page says so instead of pretending. Drawn as the event team's «ya forma
+  parte del equipo» (events/admin/member_created.html): the title says what happened, then the message ready to
+  send with the screen's one filled button, then the bare link; who it is for stays said.
 {% endcomment %}
 <div class="narrow">
-<section class="confirm" aria-labelledby="creado">
-  <h1 id="creado" class="voice confirm__title">{{ person.first_name }} ya puede entrar a Emmaus</h1>
-  <p class="confirm__text">Para entrar necesita crear su contraseña con este enlace (vence en unos días). Emmaus no se lo envió: mándaselo tú.</p>
-</section>
-<div class="field admin-link">
-  <label class="label" for="mensaje">Mensaje listo para enviar</label>
-  <textarea class="input" id="mensaje" rows="6" readonly>Hola, {{ person.first_name }}: ya tienes tu espacio de {{ church.name }} en Emmaus. Ahí puedes ver los grupos de la iglesia y pedir unirte. Crea tu contraseña con este enlace (vence en unos días):
+  {% url 'people:detail' person.pk as back %}
+  {% with title=person.first_name|add:" ya puede entrar a Emmaus" back_label="Volver a "|add:person.first_name %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back back_label=back_label %}
+  {% endwith %}
+  <p class="aside-note">Para entrar necesita crear su contraseña con este enlace (vence en unos días). Emmaus no se lo envió: mándaselo tú.</p>
+  <section class="form-section acceso-enlace" aria-labelledby="f-mensaje">
+    <h2 id="f-mensaje" class="form-section__title">Un mensaje listo para enviar</h2>
+    <div class="field admin-link">
+      <label class="label" for="mensaje">Mensaje</label>
+      <textarea class="input" id="mensaje" rows="6" readonly>Hola, {{ person.first_name }}: ya tienes tu espacio de {{ church.name }} en Emmaus. Ahí puedes ver los grupos de la iglesia y pedir unirte. Crea tu contraseña con este enlace (vence en unos días):
 {{ link }}
 Si tienes dudas, avísame.</textarea>
-</div>
-<button class="btn btn--primary" type="button" data-copy="mensaje" data-copy-done="Mensaje copiado">Copiar mensaje</button>
-<div class="field admin-link">
-  <label class="label" for="enlace">Solo el enlace</label>
-  <input class="input" id="enlace" value="{{ link }}" readonly>
-</div>
-<button class="btn btn--secondary" type="button" data-copy="enlace" data-copy-done="Enlace copiado">Copiar enlace</button>
-<p class="aside-note">Compártelo solo con {{ person.first_name }}. Si se pierde, puedes generar otro desde su página.</p>
-<div class="form-actions">
-  <a class="btn btn--secondary" href="{% url 'people:detail' person.pk %}">Volver a {{ person.first_name }}</a>
-  <a class="btn btn--link" href="{% url 'people:list' %}">Ver a todas las personas</a>
-</div>
+    </div>
+    <button class="btn btn--primary" type="button" data-copy="mensaje" data-copy-done="Mensaje copiado">{% icon "copiar" %}Copiar mensaje</button>
+  </section>
+  <section class="form-section" aria-labelledby="f-enlace">
+    <h2 id="f-enlace" class="form-section__title">O solo el enlace</h2>
+    <div class="field admin-link">
+      <label class="label" for="enlace">Enlace para crear su contraseña</label>
+      <input class="input" id="enlace" value="{{ link }}" readonly>
+    </div>
+    <button class="btn btn--secondary" type="button" data-copy="enlace" data-copy-done="Enlace copiado">{% icon "copiar" %}Copiar enlace</button>
+  </section>
+  <p class="aside-note acceso-solo">Compártelo solo con {{ person.first_name }}. Si se pierde, puedes generar otro desde su página.</p>
 </div>
 {% endblock %}
