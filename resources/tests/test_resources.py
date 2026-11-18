@@ -351,6 +351,32 @@ class MediaTests(ResourcesFixture):
         self.assertNotContains(page, "Administrar los recursos")
         self.assertNotContains(page, "Agregar un recurso")
 
+    def test_search_only_finds_published_media_of_the_members_church(self):
+        self.client.force_login(self.member_user)
+        match = self.media(title="Camino nuevo", speaker="Ana Torres", series="Cartas")
+        library = self.client.get(MEDIA)
+        self.assertContains(library, f'<form method="get" action="{MEDIA}" role="search">')
+        self.assertContains(library, '<label for="resource-search">Buscar por título, persona o serie</label>', html=True)
+        self.assertContains(library, '<input id="resource-search" type="search" name="q" maxlength="160" value="">', html=True)
+        other = self.media(title="La vid")
+        services.retire_media(self.media(title="Camino anterior", kind="musica"), self.admin)
+        saved_filter = self.client.get(MEDIA, {"tipo": "musica"})
+        self.assertCountEqual(saved_filter.context["items"], [match, other])
+        self.assertContains(self.client.get(MEDIA, {"q": "desconocido"}), "No encontramos recursos")
+        self.media(church=self.church_b, actor=self.admin_b, title="Camino ajeno")
+        for query in ("camino", "torres", "cartas", "cam\x00ino"):
+            response = self.client.get(MEDIA, {"q": query})
+            self.assertEqual(list(response.context["items"]), [match])
+        self.media(title="Alabanza", kind="musica")
+        empty = self.client.get(MEDIA, {"q": "camino", "tipo": "musica"})
+        self.assertContains(empty, "No encontramos recursos")
+        self.assertContains(empty, 'href="?q=camino"')
+        self.assertContains(empty, '<input type="hidden" name="tipo" value="musica">', html=True)
+        series_page = self.client.get(MEDIA, {"serie": "Cartas"})
+        self.assertContains(series_page, '<input type="hidden" name="serie" value="Cartas">', html=True)
+        self.assertEqual(empty.context["total"], 1)
+        self.assertEqual({kind["value"]: kind["count"] for kind in empty.context["kinds"]}, {"musica": 0, "predicacion": 1})
+
     def test_the_filters_by_kind_and_by_series(self):
         self.client.force_login(self.member_user)
         page = self.client.get(MEDIA)
