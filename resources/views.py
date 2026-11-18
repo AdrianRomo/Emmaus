@@ -10,7 +10,7 @@ Resources open on the site that hosts them, as plain links: nothing is embedded.
 """
 
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -132,7 +132,10 @@ def devotional_edit(request, devotional_id: int):
 @community_view
 def media_list(request):
     published = services.published_media(request.church)
-    counts = dict(published.order_by().values_list("kind").annotate(total=Count("id")))
+    query = request.GET.get("q", "").replace("\x00", "").strip()[:160]
+    match = Q(title__icontains=query) | Q(speaker__icontains=query) | Q(series__icontains=query) if query else None
+    items = published.filter(match) if match is not None else published
+    counts = dict(published.order_by().values_list("kind").annotate(total=Count("id", filter=match)))
     kinds = [{"value": value, "label": label, "count": counts[value]} for value, label in KIND_FILTERS if value in counts]
     if len(kinds) < 2:
         kinds = []
@@ -140,7 +143,6 @@ def media_list(request):
     chosen = request.GET.get("tipo", "")
     if series or chosen not in {kind["value"] for kind in kinds}:
         chosen = ""
-    items = published
     if series:
         items = items.filter(series__iexact=series)
     elif chosen:
@@ -150,6 +152,7 @@ def media_list(request):
         "resources/media_list.html",
         {
             "items": paginate(request, items),
+            "query": query,
             "kinds": [] if series else kinds,
             "chosen": chosen,
             "series": series,
