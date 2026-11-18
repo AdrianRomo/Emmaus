@@ -256,7 +256,7 @@ expect(await page.getByText("Renata Aguilar").count() === 0, "a campero is not a
 await page.goto(BASE + "/mi-iglesia/personas/desde-un-evento/jovenes-2025/");
 await Promise.all([page.waitForNavigation(), page.click("li:has-text('Renata Aguilar Cruz') button")]);
 await page.goto(BASE + "/mi-iglesia/personas/?q=renata");
-await Promise.all([page.waitForNavigation(), page.click("a.row__link:has-text('Renata Aguilar Cruz')")]);
+await act(page, "main .row__title a:has-text('Renata Aguilar Cruz')");
 expect(await page.getByText("Su mamá, papá o tutor está de acuerdo").count() === 0, "no access form before there is an e-mail");
 await audit(page, "admin-persona");
 await page.goto(BASE + "/mi-iglesia/grupos/administrar/");
