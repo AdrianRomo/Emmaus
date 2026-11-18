@@ -5,7 +5,7 @@
 {% if ui_v2 %}{% now "Y-m-d" as today %}
 {% comment %}
   The redesign ("Ventanas"): the events where this person serves (the rail's «Eventos donde sirves»), each a row that
-  leads into it, its day in the leading slot. An event whose last day has passed says «Terminó» even while its stored
+  leads into it, its day in the leading slot. An event whose first day is ahead says «Próximo», and one whose last day has passed says «Terminó», even while its stored
   status is still «En curso» (it is set by hand); nothing is saved here.
 {% endcomment %}
 {% if can_create %}{% url 'events:create' as create_url %}{% endif %}
@@ -22,7 +22,7 @@
         <p class="row__meta">{{ row.access.role_label }}</p>
       </div>
       <div class="row__end">
-        {% if event.status == "archivado" %}{% status "archivado" event.get_status_display %}{% elif event.status == "cerrado" %}{% status "completada" "Terminó" %}{% elif event.ends_on|default:event.starts_on and event.ends_on|default:event.starts_on|date:"Y-m-d" < today %}{% status "completada" "Terminó" %}{% elif event.status == "activo" %}{% status "en_curso" event.get_status_display %}{% else %}{% status "pendiente" event.get_status_display %}{% endif %}
+        {% if event.status == "archivado" %}{% status "archivado" event.get_status_display %}{% elif event.status == "cerrado" %}{% status "completada" "Terminó" %}{% elif event.ends_on|default:event.starts_on and event.ends_on|default:event.starts_on|date:"Y-m-d" < today %}{% status "completada" "Terminó" %}{% elif event.status == "activo" and event.starts_on and event.starts_on|date:"Y-m-d" > today %}{% status "pendiente" "Próximo" %}{% elif event.status == "activo" %}{% status "en_curso" event.get_status_display %}{% else %}{% status "pendiente" event.get_status_display %}{% endif %}
       </div>
     </li>
     {% endwith %}{% endfor %}
