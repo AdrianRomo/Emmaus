@@ -50,7 +50,7 @@
     <h2 id="que-hago" class="sign__title"><label for="buscar">¿A quién vas a entrevistar?</label></h2>
     <form class="search tablero__buscar" method="get" action="{% url 'events:interview_search' event.slug %}" role="search">
       <input class="input search__input" id="buscar" type="search" name="q" autocomplete="off" spellcheck="false" placeholder="Número o nombre: “mat jim”">
-      <button class="btn btn--primary" type="submit">Buscar</button>
+      <button class="btn btn--secondary" type="submit">Buscar</button>
     </form>
   {% elif progress.eligible %}
     <h2 id="que-hago" class="sign__title">Terminaste tus {{ progress.completed }} entrevistas</h2>

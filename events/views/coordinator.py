@@ -44,6 +44,7 @@ def _my_context(event, access):
     next_up = list(
         eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by("room", "full_name")[:6]
     )
+    _mark_missing_authorization(next_up, participants, event)
     follow_ups = list(
         access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5]
     )
@@ -288,6 +289,18 @@ def _is_uuid(value) -> bool:
     return True
 
 
+def _mark_missing_authorization(rows, participants, event) -> None:
+    """Each campero of ``rows`` gets ``falta_autorizacion``: a minor whose guardian authorization is not registered
+    (the same reading as the administration's list); the redesign says it on the row, apart from the interview."""
+    blocked = set()
+    if event.requires_guardian_authorization and rows:
+        blocked = set(
+            participant_svc.minors_without_authorization(participants.filter(pk__in=[p.pk for p in rows]), event).values_list("pk", flat=True)
+        )
+    for p in rows:
+        p.falta_autorizacion = p.pk in blocked
+
+
 @event_view(COORDINATOR)
 def coord_pending(request, event, access):
     if request.method == "POST":
@@ -308,6 +321,8 @@ def coord_pending(request, event, access):
     ).select_related("participant", "version").order_by("-started_at", "-pk")
     if request.GET.get("decidir") == "siguiente":
         return _next_decision(request, event, access, to_evaluate)
+    not_started = list(not_started)
+    _mark_missing_authorization(not_started + (partial or []), participants, event)
     return render(
         request,
         "events/coordinator/pending.html",

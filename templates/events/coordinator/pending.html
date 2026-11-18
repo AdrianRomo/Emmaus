@@ -53,7 +53,7 @@
   <ul class="rows">{% for p in not_started %}
     <li class="row row--lead">
       {% monogram p.full_name %}
-      <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años{% if p.questionnaire_total > 1 %}, {% campero_status p %}{% endif %}</p></div>
+      <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años{% if p.questionnaire_total > 1 %}, {% campero_status p %}{% endif %}</p>{% if p.falta_autorizacion %}<p class="row__meta"><span class="chip chip--wait">Falta la autorización</span></p>{% endif %}</div>
       <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
     </li>
   {% endfor %}</ul>
@@ -67,7 +67,7 @@
   <ul class="rows">{% for p in partial %}
     <li class="row row--lead">
       {% monogram p.full_name %}
-      <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {% campero_status p %}</p></div>
+      <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {% campero_status p %}</p>{% if p.falta_autorizacion %}<p class="row__meta"><span class="chip chip--wait">Falta la autorización</span></p>{% endif %}</div>
       <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
     </li>
   {% endfor %}</ul>

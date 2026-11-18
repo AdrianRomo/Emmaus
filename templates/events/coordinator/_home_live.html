@@ -74,8 +74,9 @@
         <div class="row__main">
           <p class="row__title">{{ p.full_name }}</p>
           <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años{% if p.questionnaire_total > 1 %}, {% campero_status p %}{% endif %}</p>
+          {% if p.falta_autorizacion %}<p class="row__meta"><span class="chip chip--wait">Falta la autorización</span></p>{% endif %}
         </div>
-        <div class="row__end"><a class="btn {% if forloop.first and not in_progress %}btn--primary{% else %}btn--secondary{% endif %} btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
+        <div class="row__end"><a class="btn {% if forloop.first and not in_progress and not p.falta_autorizacion %}btn--primary{% else %}btn--secondary{% endif %} btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
       </li>
       {% endfor %}
     </ul>

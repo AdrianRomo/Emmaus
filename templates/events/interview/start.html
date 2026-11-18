@@ -46,7 +46,7 @@
       <p class="details__body">{{ privacy_notice|linebreaksbr }}</p>
     </details>
     {% for r in requirements %}
-      {% if r.satisfied %}<p class="autorizada checks__autorizada">{% icon "check" "sm" %}Autorización de padre, madre o tutor legal: registrada.</p>{% endif %}
+      {% if r.satisfied %}<p class="autorizada checks__autorizada">{% icon "check" "sm" %}Autorización de padre, madre o tutor legal: registrada.</p>{% elif r.key == "guardian" %}<p class="notice notice--warning checks__autorizada"><span class="notice__title">En el registro: falta la autorización de padre, madre o tutor legal.</span></p>{% endif %}
     {% endfor %}
     {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
   </section>
