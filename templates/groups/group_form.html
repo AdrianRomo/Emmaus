@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if group %}Editar {{ group.name }}{% else %}Crear un grupo{% endif %}{% endblock %}
 {% block content %}
+{% comment %}
+  A group's data, for the administration (groups.views.group_create, group_edit), in two things: what somebody who
+  looks for a group reads, and when and where it meets. What only a group that meets every two weeks or once a
+  month needs is folded, and opens by itself when that rhythm is chosen, a value is there or the form sends back
+  an error in it. Who guides the group is named afterwards, on its people page.
+{% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if group %}
@@ -8,14 +14,36 @@
     {% include "events/rotulo/_page_head.html" with title="Editar el grupo" back_url=back back_label="Volver al grupo" %}
   {% else %}
     {% url 'community:group_admin_list' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Crear un grupo" lede="Lo que escribas aquí es lo que lee alguien que busca un grupo. Después eliges quién lo guía." back_url=back back_label="Volver a los grupos" %}
+    {% include "events/rotulo/_page_head.html" with title="Crear un grupo" back_url=back back_label="Volver a los grupos" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <section class="form-section" aria-labelledby="seccion-grupo">
+      <h2 id="seccion-grupo" class="form-section__title">El grupo</h2>
+      {% include "partials/ui/field.html" with field=form.name %}
+      {% include "partials/ui/field.html" with field=form.kind %}
+      {% include "partials/ui/field.html" with field=form.description %}
+      {% include "partials/ui/field.html" with field=form.audience %}
+      {% if form.sede %}{% include "partials/ui/field.html" with field=form.sede %}{% endif %}
+      {% include "partials/ui/field.html" with field=form.accepts_requests %}
+    </section>
+    <section class="form-section" aria-labelledby="seccion-reuniones">
+      <h2 id="seccion-reuniones" class="form-section__title">Reuniones</h2>
+      {% include "partials/ui/field.html" with field=form.meeting_frequency %}
+      {% include "partials/ui/field.html" with field=form.meeting_day %}
+      {% include "partials/ui/field.html" with field=form.meeting_time %}
+      {% include "partials/ui/field.html" with field=form.meeting_place %}
+      <details class="fold"{% if form.meeting_frequency.value == "quincenal" or form.meeting_frequency.value == "mensual" or form.meeting_anchor.value or form.meeting_week.value or form.meeting_anchor.errors or form.meeting_week.errors %} open{% endif %}>
+        <summary>Cada dos semanas o una vez al mes</summary>
+        {% include "partials/ui/field.html" with field=form.meeting_anchor %}
+        {% include "partials/ui/field.html" with field=form.meeting_week %}
+      </details>
+    </section>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if group %}Guardar cambios{% else %}Crear grupo{% endif %}</button>
-      {% if group %}<a class="btn btn--link" href="{% url 'community:group_archive' group.pk %}">Archivar el grupo</a>{% endif %}
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      {% if group %}<a class="btn btn--danger-outline" href="{% url 'community:group_archive' group.pk %}">Archivar el grupo</a>{% endif %}
     </div>
   </form>
 </div>

@@ -1,17 +1,27 @@
-{% load shell %}{% comment %}
+{% load emmaus community shell %}{% comment %}
   The head of a group's work pages (who guides it, and the administration): the way back, the arch and the name,
-  one line of facts, and the two views of the work, "Personas" and "Reuniones" (`here` marks the current one).
-  Needs: group, member_count, here, lede; optional requests.
+  how many people and when they meet as facts, and the two views of the work as pills, "Personas" and "Reuniones"
+  (`here` marks the current one; the title says it too, for a screen reader). The administration also gets the way
+  to the group's data. Needs: group, member_count, here.
 {% endcomment %}
 <a class="back-link" href="{% url 'community:group_detail' group.pk %}">Volver al grupo</a>
-<div class="group-head">
-  {% monogram group.name "lg" %}
-  <header class="page-head">
-    <h1 class="voice page-head__title">{% if here == "personas" %}Personas de {{ group.name }}{% else %}Reuniones de {{ group.name }}{% endif %}</h1>
-    <p class="lede">{{ lede }}</p>
-    <p class="page-head__meta">{{ member_count }} persona{{ member_count|pluralize }} en el grupo{% if requests %}, {{ requests|length }} solicitud{{ requests|length|pluralize:"es" }} por decidir{% endif %}{% if group.schedule %}. Se reúnen {{ group.schedule|lower }}{% endif %}.</p>
-  </header>
-</div>
+<header class="page-head{% if request.is_church_admin and group.is_active %} page-head--actions{% endif %}">
+  <div class="group-head">
+    {% monogram group.name "lg" %}
+    <div class="page-head__text">
+      <h1 class="voice page-head__title"><span class="visually-hidden">{% if here == "personas" %}Personas de {% else %}Reuniones de {% endif %}</span>{{ group.name }}</h1>
+      <ul class="meta page-head__meta">
+        {% if not group.is_active %}<li>{% status "archivado" %}</li>{% endif %}
+        <li>{% icon "personas" "sm" %}{{ member_count }} persona{{ member_count|pluralize }}</li>
+        {% with when=group|rhythm %}
+        {% if when.days %}<li>{% icon "calendario" "sm" %}{{ when.days }}</li>{% endif %}
+        {% if when.time %}<li>{% icon "reloj" "sm" %}{{ when.time|time:"H:i" }}</li>{% endif %}
+        {% endwith %}
+      </ul>
+    </div>
+  </div>
+  {% if request.is_church_admin and group.is_active %}<div class="page-head__actions"><a class="btn btn--secondary" href="{% url 'community:group_edit' group.pk %}">Editar el grupo</a></div>{% endif %}
+</header>
 <ul class="filters" aria-label="Lo que haces en este grupo">
   <li><a href="{% url 'community:group_people' group.pk %}"{% if here == "personas" %} aria-current="page"{% endif %}>Personas</a></li>
   <li><a href="{% url 'community:group_meetings' group.pk %}"{% if here == "reuniones" %} aria-current="page"{% endif %}>Reuniones</a></li>

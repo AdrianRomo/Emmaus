@@ -1,0 +1,12 @@
+{% load community shell %}{% comment %}
+  What a group says about itself, as facts with their mark, inside a <ul class="meta">: when it meets, at what
+  time, its sede, who it is for and who guides it. Needs: group (with leader_names). Optional: `full` also says
+  what is still missing (no day, no guide); `place` adds where it meets. Where a group meets is often a home: pass
+  `place` only for a member of the group or for who manages it, never in a list anybody of the church reads.
+{% endcomment %}{% with when=group|rhythm %}
+{% if when.days %}<li>{% icon "calendario" "sm" %}{{ when.days }}</li>{% elif full %}<li>{% icon "calendario" "sm" %}Sin día de reunión</li>{% endif %}
+{% if when.time %}<li>{% icon "reloj" "sm" %}{{ when.time|time:"H:i" }}</li>{% endif %}
+{% endwith %}{% if group.sede %}<li>{% icon "lugar" "sm" %}Sede {{ group.sede.name }}</li>{% endif %}
+{% if place %}<li>{% icon "lugar" "sm" %}{{ group.meeting_place|default:"Sin lugar todavía" }}</li>{% endif %}
+{% if group.audience %}<li>{% icon "personas" "sm" %}<span class="visually-hidden">Para </span>{{ group.audience }}</li>{% endif %}
+{% if group.leader_names %}<li>{% icon "guia" "sm" %}Guía{{ group.leader_names|length|pluralize }}: {{ group.leader_names|join:", " }}</li>{% elif full %}<li>{% icon "guia" "sm" %}Sin guía todavía</li>{% endif %}

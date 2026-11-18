@@ -196,7 +196,7 @@ class PagedListsTests(CommunityFixture):
         )
         self.client.force_login(self.member_user)
         page = self.client.get(reverse("community:group_detail", args=[self.group.pk]))
-        self.assertContains(page, "Las últimas 8 de 10 reuniones con lista desde que eres parte del grupo.")
+        self.assertContains(page, "Las últimas 8 de 10 reuniones.")
         GroupMeeting.objects.filter(group=self.group, date__gt=self.today + timedelta(days=7)).delete()
         page = self.client.get(reverse("community:group_detail", args=[self.group.pk]))
         self.assertNotContains(page, "Las últimas 8 de")

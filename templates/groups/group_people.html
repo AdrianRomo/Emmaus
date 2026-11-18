@@ -4,60 +4,59 @@
 {% block content %}
 {% comment %}
   The work of who guides a group (groups.views.group_people), and of the church's administration, which also names
-  the guide and adds people. First what waits for a decision, then who is in. A guide sees only these people, never
-  the church's directory. Contact data is shown, and can be tapped to call or write, because each person either
-  asked to join or is in the group.
+  the guide and adds people. First what waits for a decision (drawn only when something waits), then who is in. A
+  guide sees only these people, never the church's directory. Contact data is shown, and can be tapped to call or
+  write, because each person either asked to join or is in the group.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:group_detail' group.pk as back %}
-  {% include "groups/_work_head.html" with here="personas" lede="Quién pidió unirse y quién ya es parte del grupo." %}
+  {% include "groups/_work_head.html" with here="personas" %}
 
+  {% if requests %}
   <section class="block" aria-labelledby="solicitudes">
-    <h2 id="solicitudes" class="heading">Solicitudes por decidir</h2>
-    {% if requests %}
-      <ul class="rows">
-        {% for item in requests %}
-          <li class="row row--lead row--stack row--attention">
-            {% monogram item.person.full_name %}
-            <div class="row__main">
-              <p class="row__title">{{ item.person.full_name }}</p>
-              <p class="row__meta">Pidió unirse el {{ item.created_at|day_month }}.</p>
-              {% if item.person.phone or item.person.email %}<p class="row__contact">{% if item.person.phone %}<a href="tel:{{ item.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ item.person.full_name }}: </span>{{ item.person.phone }}</a>{% endif %}{% if item.person.email %}<a href="mailto:{{ item.person.email }}"><span class="visually-hidden">Escribir a {{ item.person.full_name }}: </span>{{ item.person.email }}</a>{% endif %}</p>{% endif %}
-            </div>
-            <form class="row__end" method="post" action="{% url 'community:request_decide' group.pk item.pk %}">
-              {% csrf_token %}
-              <button class="btn btn--secondary btn--small" type="submit" name="decision" value="declinar">No aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
-              <button class="btn btn--primary btn--small" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
-            </form>
-          </li>
-        {% endfor %}
-      </ul>
-      <p class="aside-note">Si no aceptas una solicitud, la persona lo verá en su inicio, sin el motivo. Vale la pena hablar con ella.</p>
-    {% else %}
-      <p class="empty-line">No hay solicitudes por decidir.</p>
-    {% endif %}
+    <h2 id="solicitudes" class="heading">Solicitudes <span class="count">{{ requests|length }}</span></h2>
+    <ul class="rows">
+      {% for item in requests %}
+        <li class="row row--lead row--stack row--attention">
+          {% monogram item.person.full_name %}
+          <div class="row__main">
+            <p class="row__title">{{ item.person.full_name }}</p>
+            <ul class="meta"><li>{% icon "calendario" "sm" %}Pidió unirse el {{ item.created_at|day_month }}</li></ul>
+            {% if item.person.phone or item.person.email %}<p class="row__contact">{% if item.person.phone %}<a href="tel:{{ item.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ item.person.full_name }}: </span>{{ item.person.phone }}</a>{% endif %}{% if item.person.email %}<a href="mailto:{{ item.person.email }}"><span class="visually-hidden">Escribir a {{ item.person.full_name }}: </span>{{ item.person.email }}</a>{% endif %}</p>{% endif %}
+          </div>
+          <form class="row__end" method="post" action="{% url 'community:request_decide' group.pk item.pk %}">
+            {% csrf_token %}
+            <button class="btn btn--secondary btn--small" type="submit" name="decision" value="declinar">No aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
+            <button class="btn btn--primary btn--small" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Si no aceptas, la persona lo verá en su inicio, sin el motivo. Vale la pena hablar con ella.</p>
   </section>
+  {% endif %}
 
   <section class="block" aria-labelledby="integrantes">
-    <h2 id="integrantes" class="heading">En el grupo</h2>
+    <h2 id="integrantes" class="heading">En el grupo{% if members %} <span class="count">{{ member_count }}</span>{% endif %}</h2>
     {% if members %}
-      <ul class="rows">
+      <ul class="rows group-rows">
         {% for membership in members %}
           <li class="row row--lead row--stack">
             {% monogram membership.person.full_name %}
             <div class="row__main">
               <p class="row__title">{{ membership.person.full_name }}</p>
-              <p class="row__meta">{% if membership.is_leader %}Guía del grupo.{% else %}Integrante desde el {{ membership.start_at|long_date }}.{% endif %}{% if membership.is_leader and not membership.person.user_id %} Todavía no tiene acceso a Emmaus.{% endif %}</p>
+              <ul class="meta">
+                {% if membership.is_leader %}<li>{% icon "guia" "sm" %}Guía</li>{% if not membership.person.user_id %}<li>{% status "pendiente" "Sin acceso a Emmaus" %}</li>{% endif %}{% else %}<li>{% icon "calendario" "sm" %}Desde el {{ membership.start_at|long_date }}</li>{% endif %}
+              </ul>
               {% if membership.person.phone or membership.person.email %}<p class="row__contact">{% if membership.person.phone %}<a href="tel:{{ membership.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ membership.person.full_name }}: </span>{{ membership.person.phone }}</a>{% endif %}{% if membership.person.email %}<a href="mailto:{{ membership.person.email }}"><span class="visually-hidden">Escribir a {{ membership.person.full_name }}: </span>{{ membership.person.email }}</a>{% endif %}</p>{% endif %}
             </div>
             {% if membership.person_id != me.pk %}{% if not membership.is_leader or request.is_church_admin %}
-              <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'community:member_remove' group.pk membership.pk %}">Quitar<span class="visually-hidden"> a {{ membership.person.full_name }}</span></a></div>
+              <div class="row__end"><a class="btn btn--link btn--small" href="{% url 'community:member_remove' group.pk membership.pk %}">Quitar<span class="visually-hidden"> a {{ membership.person.full_name }}</span></a></div>
             {% endif %}{% endif %}
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-line">Todavía no hay nadie en el grupo.</p>
+      <p class="empty-line">Sin personas todavía.</p>
     {% endif %}
   </section>
 
@@ -65,27 +64,26 @@
   <section class="block" aria-labelledby="agregar">
     <h2 id="agregar" class="heading">Agregar a alguien de la iglesia</h2>
     <form class="search" method="get" role="search" action="{% url 'community:group_people' group.pk %}#agregar">
-      <label class="visually-hidden" for="buscar">Nombre de la persona</label>
-      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+      <label class="visually-hidden" for="buscar">Buscar por nombre</label>
+      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Buscar por nombre">
       <button class="btn btn--secondary" type="submit">Buscar</button>
     </form>
-    <p class="aside-note" id="buscar-ayuda">Escribe su nombre o apellido. Para guiar el grupo necesita tener acceso a Emmaus.</p>
     {% if query %}
       {% if found %}
-        {% if found_total > found|length %}<p class="list-count">Estas son las primeras {{ found|length }} de {{ found_total }} personas con ese nombre. Escribe más del nombre para encontrar a quien buscas.</p>{% endif %}
+        {% if found_total > found|length %}<p class="list-count">Estas son las primeras {{ found|length }} de {{ found_total }} personas con ese nombre. Escribe más del nombre.</p>{% endif %}
         <ul class="rows">
           {% for person in found %}
             <li class="row row--lead row--stack">
               {% monogram person.full_name %}
               <div class="row__main">
                 <p class="row__title">{{ person.full_name }}</p>
-                <p class="row__meta">{% if person.user_id %}Con acceso a Emmaus.{% else %}Sin acceso a Emmaus.{% endif %}</p>
+                <ul class="meta"><li>{% if person.user_id %}{% status "completada" "Con acceso" %}{% else %}{% status "pendiente" "Sin acceso" %}{% endif %}</li></ul>
               </div>
               <form class="row__end" method="post" action="{% url 'community:member_add' group.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="persona" value="{{ person.pk }}">
-                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="integrante">Agregar al grupo<span class="visually-hidden"> a {{ person.full_name }}</span></button>
-                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="lider">Guía del grupo<span class="visually-hidden">: {{ person.full_name }}</span></button>
+                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="integrante">Agregar<span class="visually-hidden"> a {{ person.full_name }} al grupo</span></button>
+                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="lider">Nombrar guía<span class="visually-hidden"> a {{ person.full_name }}</span></button>
               </form>
             </li>
           {% endfor %}

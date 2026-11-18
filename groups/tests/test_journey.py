@@ -118,7 +118,7 @@ class CampToGroupJourneyTests(CommunityFixture):
         """Scenario 8, and invariant 7: the notice names nobody and says nothing of the decision."""
         self.client.force_login(self.member_user)
         response = self.client.post(reverse("community:group_request", args=[self.group.pk]), follow=True)
-        self.assertContains(response, "le avisamos por correo a quien lo guía")
+        self.assertContains(response, "Le avisamos por correo a quien lo guía.")
         self.assertEqual(mail.outbox[0].to, [self.leader_user.email])
         self.assertNotIn("Diego", mail.outbox[0].body + mail.outbox[0].subject)
         request = GroupJoinRequest.objects.get(group=self.group, person=self.member)

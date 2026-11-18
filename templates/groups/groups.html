@@ -4,12 +4,13 @@
 {% block content %}
 {% comment %}
   The groups of the church (groups.views.groups): what anybody of the church may read about each one. The person's
-  own come first, then where they asked, then the ones that receive people. Where a group meets is not here: only
-  its members see it. The filter by kind appears only when the church has more than one kind.
+  own come first, then where they asked, then the ones that receive people. Each row is the way into its group and
+  ends in its state, one pill. Where a group meets is not here: only its members see it. The filter by kind appears
+  only when the church has more than one kind.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Grupos" lede="Un grupo es un lugar para conocer a otros y crecer acompañado. Elige uno y pide unirte." back_url=back back_label="Volver a Mi iglesia" %}
+  {% if request.is_church_admin %}{% url 'community:group_admin_list' as manage %}{% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Grupos" secondary_url=manage secondary_label="Administrar los grupos" %}
   {% if kinds %}
     <ul class="filters" aria-label="Tipo de grupo">
       <li><a href="{% url 'community:groups' %}"{% if not chosen %} aria-current="page"{% endif %}>Todos <span class="count">{{ total }}</span></a></li>
@@ -18,25 +19,23 @@
     </ul>
   {% endif %}
   {% if groups %}
-    <ul class="rows">
+    <ul class="rows group-rows">
       {% for group in groups %}
         <li class="row row--lead row--stack">
           {% monogram group.name %}
           <div class="row__main">
             <p class="row__title"><a href="{% url 'community:group_detail' group.pk %}">{{ group.name }}</a></p>
-            <p class="row__meta">{{ group.get_kind_display }}{% if group.schedule %}, {{ group.schedule|lower }}{% endif %}{% if group.sede %}, sede {{ group.sede.name }}{% endif %}.</p>
-            {% if group.audience %}<p class="row__meta">Para quién: {{ group.audience }}.</p>{% endif %}
-            {% if group.leader_names %}<p class="row__meta">Lo guía{{ group.leader_names|length|pluralize:"n" }}: {{ group.leader_names|join:", " }}.</p>{% endif %}
+            <ul class="meta">{% include "groups/_facts.html" %}</ul>
           </div>
-          <div class="row__end">
-            {% if group.state == "mine" %}{% status "completada" "Eres parte" %}{% elif group.state == "asked" %}{% status "por_evaluar" "Ya pediste unirte" %}{% elif group.state == "closed" %}{% status "descartada" "No recibe solicitudes" %}{% else %}<a class="btn btn--secondary btn--small" href="{% url 'community:group_detail' group.pk %}">Conocer<span class="visually-hidden"> {{ group.name }}</span></a>{% endif %}
-          </div>
+          <div class="row__end">{% if group.state == "mine" %}{% status "completada" "Eres parte" %}{% elif group.state == "asked" %}{% status "por_evaluar" "Pediste unirte" %}{% elif group.state == "closed" %}{% status "descartada" "Cerrado" %}{% else %}{% status "en_curso" "Recibe personas" %}{% endif %}</div>
         </li>
       {% endfor %}
     </ul>
+  {% elif request.is_church_admin %}
+    {% url 'community:group_create' as create %}
+    {% include "partials/ui/empty.html" with title="Sin grupos todavía" action_url=create action_label="Crear un grupo" %}
   {% else %}
-    <p class="empty-line">Todavía no hay grupos en la iglesia. Cuando haya uno, aparecerá aquí.</p>
+    <p class="empty-line">Sin grupos por ahora.</p>
   {% endif %}
-  {% if request.is_church_admin %}<p class="more"><a href="{% url 'community:group_admin_list' %}">Administrar los grupos</a></p>{% endif %}
 </div>
 {% endblock %}

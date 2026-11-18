@@ -361,9 +361,9 @@ def group_request(request, group_id: int):
             )
         # The message never claims an e-mail that did not go out (core.notify).
         if outcome == notify.SENT:
-            messages.success(request, f"Listo. Pediste unirte a {group.name} y le avisamos por correo a quien lo guía.")
+            messages.success(request, f"Pediste unirte a {group.name}. Le avisamos por correo a quien lo guía.")
         else:
-            messages.success(request, f"Listo. Pediste unirte a {group.name}. Quien lo guía verá tu solicitud cuando entre a Emmaus.")
+            messages.success(request, f"Pediste unirte a {group.name}. Quien lo guía verá tu solicitud cuando entre a Emmaus.")
     return redirect("community:group_detail", group.pk)
 
 
@@ -500,7 +500,8 @@ def group_meetings(request, group_id: int):
             messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
             return redirect("community:group_meetings", group.pk)
         return redirect("community:meeting_record", group.pk, day.isoformat())
-    meetings = paginate(request, services.with_present(group.meetings.all()))
+    # Newest first, said here: an annotated (grouped) queryset does not take the model's own ordering.
+    meetings = paginate(request, services.with_present(group.meetings.all()).order_by("-date", "-id"))
     return render(
         request,
         "groups/group_meetings.html",
@@ -534,7 +535,7 @@ def meeting_record(request, group_id: int, day: str):
             messages.error(request, error.message)
             return redirect("community:group_meetings", group.pk)
         came = "vino 1 persona" if saved.present == 1 else f"vinieron {saved.present} personas"
-        messages.success(request, f"Guardamos la lista del {_weekday_date(day)}: {came} de {saved.expected}.")
+        messages.success(request, f"Lista guardada: {came} de {saved.expected}.")
         return redirect("community:group_meetings", group.pk)
     present = set(meeting.attendances.values_list("person_id", flat=True)) if meeting else set()
     for membership in members:
@@ -563,7 +564,7 @@ def group_create(request):
         group = form.save(commit=False)
         group.church = request.church
         services.save_group(group, request.user, created=True)
-        messages.success(request, f"Creaste el grupo {group.name}. Ahora elige quién lo guía.")
+        messages.success(request, "Grupo creado. Ahora elige quién lo guía.")
         return redirect("community:group_people", group.pk)
     return render(request, "groups/group_form.html", {"form": form, "group": None})
 
@@ -574,7 +575,7 @@ def group_edit(request, group_id: int):
     form = GroupForm(request.POST or None, instance=group, church=request.church)
     if request.method == "POST" and form.is_valid():
         services.save_group(form.save(commit=False), request.user, created=False)
-        messages.success(request, "Guardamos los cambios.")
+        messages.success(request, "Guardado.")
         return redirect("community:group_detail", group.pk)
     return render(request, "groups/group_form.html", {"form": form, "group": group})
 

@@ -10,6 +10,8 @@ from groups.models import GroupMeeting, GroupMembership
 
 from .base import CommunityFixture
 
+CAME = '<span class="status__mark" aria-hidden="true"></span>Fuiste</span>'  # the pill of a day the person came
+
 
 class OwnAttendanceTests(CommunityFixture):
     @classmethod
@@ -40,9 +42,9 @@ class OwnAttendanceTests(CommunityFixture):
         self.assertContains(response, "Tu asistencia")
         html = response.content.decode()
         section = html[html.index('id="asistencia"'):html.index("Esto lo ves solo tú")]
-        self.assertEqual(section.count("<strong>Fuiste</strong>"), 1)
+        self.assertEqual(section.count(CAME), 1)  # each day ends in one pill: "Fuiste" or "No fuiste"
         self.assertEqual(section.count("No fuiste"), 1)
-        self.assertLess(section.index("No fuiste"), section.index("<strong>Fuiste</strong>"))  # newest first
+        self.assertLess(section.index("No fuiste"), section.index(CAME))  # newest first
         # Nobody else is on the page, and nothing compares or scores.
         for absent in ("Nora", "Sin Cuenta", "%", "racha", "seguidas", "promedio", " de 3", "reuniones/"):
             self.assertNotIn(absent, section, absent)
@@ -62,7 +64,7 @@ class OwnAttendanceTests(CommunityFixture):
         for user in (self.asked_user, self.admin, self.coord1):
             self.assertNotContains(self.page(user), "Tu asistencia", msg_prefix=user.email)
         # Who guides the group is in it: they read their own, like anybody.
-        self.assertContains(self.page(self.leader_user), "<strong>Fuiste</strong>")
+        self.assertContains(self.page(self.leader_user), CAME)
         # Somebody who left reads nothing.
         services.end_membership(self.membership, self.admin)
         self.assertNotContains(self.page(self.member_user), "Tu asistencia")

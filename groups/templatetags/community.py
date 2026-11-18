@@ -1,3 +1,5 @@
+import copy
+
 from django import template
 from django.utils import formats
 
@@ -39,6 +41,17 @@ def day_month(value) -> str:
 def long_date(value) -> str:
     """"17 de noviembre de 2026"."""
     return formats.date_format(value, LONG).lower() if value else ""
+
+
+@register.filter
+def rhythm(group) -> dict:
+    """A group's ``schedule`` as two facts, for a screen that draws the day and the hour each with its mark:
+    ``days`` ("Los jueves, cada dos semanas", "Sin día fijo", or "" when the day is not set) and ``time`` (None
+    when the schedule says no hour). The words are the model's: the same sentence, without its hour."""
+    plain = copy.copy(group)
+    plain.meeting_time = None
+    days = plain.schedule
+    return {"days": days, "time": group.meeting_time if group.schedule != days else None}
 
 
 @register.simple_tag(takes_context=True)

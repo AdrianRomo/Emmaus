@@ -57,12 +57,20 @@ class MeetingTests(CommunityFixture):
         self.assertEqual(meeting.expected, 2)  # how many were in the group that day, not today
         self.assertContains(response, "vinieron 2 personas de 2.")
 
+    def test_the_lists_are_newest_first(self):
+        """The list counts who came, a grouped query, and that drops the model's own order: the view asks for it."""
+        for days in (21, 7, 14):  # written out of order, as a guide who fills in a week that was missing
+            services.record_meeting(self.group, self.today - timedelta(days=days), [self.member.pk], self.leader_user)
+        self.client.force_login(self.leader_user)
+        listed = [meeting.date for meeting in self.client.get(self.url()).context["meetings"]]
+        self.assertEqual(listed, [self.today - timedelta(days=days) for days in (7, 14, 21)])
+
     def test_a_group_with_nobody_says_zero_people(self):
         self.client.force_login(self.admin)
         response = self.client.get(reverse("community:group_people", args=[self.other_group.pk]))
-        self.assertContains(response, "0 personas en el grupo")
+        self.assertContains(response, "</svg>0 personas</li>")  # the head's fact, with its mark
         self.assertNotContains(response, "QuerySet")
-        self.assertContains(self.client.get(self.url(group=self.other_group)), "0 personas en el grupo")
+        self.assertContains(self.client.get(self.url(group=self.other_group)), "</svg>0 personas</li>")
 
     def test_only_people_of_the_group_can_be_marked(self):
         self.client.force_login(self.leader_user)
