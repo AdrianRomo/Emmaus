@@ -260,8 +260,54 @@
       window.setTimeout(function () { form.classList.remove("is-submitting"); }, 8000);
     });
   });
+  // [data-confirm="<question>"] on a button or a link asks before it acts. Where the redesign is served and the browser
+  // has <dialog>, the question is Emmaus's own dialog: the question, "Cancelar", and a button with the very words of
+  // the one that was pressed (red when that one is). Focus starts on "Cancelar", Escape cancels, and focus goes back to
+  // where it was. Anywhere else it is the browser's confirm, as before.
+  function askInDialog(el, e) {
+    if (doc.documentElement.getAttribute("data-ui") !== "2" || typeof HTMLDialogElement === "undefined") return false;
+    var form = el.form || null;
+    if (form && typeof form.requestSubmit !== "function") return false;
+    if (!form && !el.href) return false;
+    e.preventDefault();
+    var dialog = doc.createElement("dialog");
+    dialog.className = "dialog";
+    dialog.setAttribute("aria-labelledby", "dialogo-pregunta");
+    var bodyBox = doc.createElement("div");
+    bodyBox.className = "dialog__body";
+    var text = doc.createElement("p");
+    text.className = "dialog__text";
+    text.id = "dialogo-pregunta";
+    text.textContent = el.getAttribute("data-confirm");
+    bodyBox.appendChild(text);
+    var actions = doc.createElement("div");
+    actions.className = "dialog__actions";
+    var cancel = doc.createElement("button");
+    cancel.type = "button";
+    cancel.className = "btn btn--secondary";
+    cancel.textContent = "Cancelar";
+    var ok = doc.createElement("button");
+    ok.type = "button";
+    ok.className = "btn " + (/btn--danger/.test(el.className) ? "btn--danger" : "btn--primary");
+    ok.textContent = (el.getAttribute("data-confirm-label") || el.textContent || "Continuar").trim();
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    dialog.appendChild(bodyBox);
+    dialog.appendChild(actions);
+    doc.body.appendChild(dialog);
+    cancel.addEventListener("click", function () { dialog.close(); });
+    ok.addEventListener("click", function () {
+      dialog.close();
+      if (form) form.requestSubmit(el); else window.location.href = el.href;
+    });
+    dialog.addEventListener("close", function () { dialog.remove(); el.focus(); });
+    dialog.showModal();
+    cancel.focus();
+    return true;
+  }
   $all("[data-confirm]").forEach(function (el) {
     el.addEventListener("click", function (e) {
+      if (askInDialog(el, e)) return;
       if (!window.confirm(el.getAttribute("data-confirm"))) e.preventDefault();
     });
   });

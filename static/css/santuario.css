@@ -172,7 +172,9 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
   font-size: 0.8125rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
 }
 
-.tabs { display: none; }
+/* Between two pages the rail and the tabs stay where they are; only the page changes (rotulo.css §13, rule 1) */
+.rail { view-transition-name: marco; }
+.tabs { display: none; view-transition-name: accesos; }
 .page--app {
   /* One measure for every page, centred in what the rail leaves: every page starts on the same line */
   width: 100%; max-width: var(--w-app); margin-inline: auto;
@@ -709,6 +711,18 @@ body:has(> .rail) .sign--lead .sign__actions { margin-top: 0; }
   .messages.is-toast { top: var(--s-2); right: var(--s-3); left: var(--s-3); width: auto; }
 }
 
+/* A dialog (Atrio's, used by the idle warnings; and emmaus.js [data-confirm], the question before something that
+   cannot be undone: the question, "Cancelar", and a button with the words of the one that was pressed). The page
+   behind it goes under a veil of night; no shadow. */
+.dialog { width: min(28rem, calc(100vw - 2rem)); border: 1px solid var(--line-control); border-radius: var(--r-panel); background: var(--surface); }
+.dialog[open] { animation: atrio-rise var(--dur-2) var(--ease) both; }
+.dialog::backdrop { background: rgb(15 54 64 / 0.5); animation: atrio-fade var(--dur-2) var(--ease) both; }
+.dialog__body h2 { font-family: var(--font-ui); font-size: var(--t-h3); font-weight: 700; }
+.dialog__text { font-size: var(--t-lead); font-weight: 600; line-height: 1.4; text-wrap: pretty; }
+.dialog__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-3); }
+.dialog__actions .btn { min-height: 3rem; }
+@media (max-width: 600px) { .dialog__actions .btn { flex: 1 1 100%; } }
+
 /* The next page is on its way: a thin line at the top, only when the answer takes a moment (emmaus.js) */
 .nav-progress {
   position: fixed; z-index: 90; top: 0; left: 0; right: 0; height: 3px; background: var(--petroleo);
@@ -963,7 +977,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 
 /* ---------- 15. Preferences and print ------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  .meter__fill, .messages.is-toast .notice, .messages.is-toast .notice.is-leaving, .skeleton { animation: none; }
+  .meter__fill, .messages.is-toast .notice, .messages.is-toast .notice.is-leaving, .skeleton, .dialog[open], .dialog::backdrop { animation: none; }
   .nav-progress { animation: none; transform: scaleX(0.6); }
   form.is-submitting .btn--primary::after, .btn[aria-busy="true"]::after { animation-duration: 2.4s; }
   .page--app .rows > .row::after, .card { transition: none; }
