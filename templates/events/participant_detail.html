@@ -56,7 +56,7 @@
           <li class="row row--lead">
             <span class="admin-icono">{% icon "lista" %}</span>
             <div class="row__main">
-              <p class="row__title"><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">Ver respuestas</a></p>
+              <p class="row__title"><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">Sus respuestas</a></p>
               <p class="row__meta row__meta--con-marca">{% status interview.status %}<span>{{ interview.get_mode_display }}, iniciada {{ interview.started_at|fecha_corta }}{% if interview.completed_at %}, completada {{ interview.completed_at|fecha_corta }}{% endif %}</span></p>
             </div>
           </li>

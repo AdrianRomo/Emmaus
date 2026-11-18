@@ -340,8 +340,8 @@ class RecordsTests(VentanasFixture):
     def test_a_record_opens_its_interview_from_the_row(self):
         done = give_interview(self.p2, InterviewStatus.COMPLETED)
         html = main_of(self.client.get(self.url("participant_detail", self.p2.public_id)))
-        self.assertIn(f'<a href="{self.url("interview_detail", done.public_id)}">Ver respuestas</a>', html)
-        self.assertNotIn("Ver respuestas", html)
+        self.assertIn(f'<a href="{self.url("interview_detail", done.public_id)}">Sus respuestas</a>', html)  # names what opens
+        self.assertNotIn("Ver respuestas", html)  # the row is the link: no «Ver» button
 
     def test_the_authorization_pages_keep_every_word(self):
         attest = main_of(self.client.get(self.url("guardian_authorization", self.p_minor_no_auth.public_id)))
