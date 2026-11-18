@@ -5,9 +5,9 @@
 {% load shell %}
 {% comment %}
   The redesign ("Ventanas"): one column in the order of the work under an index; each form saves its own section (the
-  one filled button is the procedures' «Confirmar» while it waits). The computers are rows whose switch acts in place
-  (form[data-inline="computadoras"]: the view returns to this page). The other pages of the configuration close it as
-  rows that lead there. The two forms that edit the event warn before leaving with unsaved changes (data-guard).
+  one filled button is the procedures' «Confirmar» while it waits). The computers are rows with their switch (the view
+  returns to #computadoras; not in place: its forms carry a field named "action", which hides form.action from
+  emmaus.js). The other pages of the configuration close it as rows that lead there. The two forms that edit the event warn before leaving with unsaved changes (data-guard).
 {% endcomment %}
 {% include "events/rotulo/_page_head.html" with title="Configuración" %}
 <nav class="page-toc" aria-label="Secciones">
@@ -96,11 +96,11 @@
       <div class="row__main"><p class="row__title">{{ s.name }}</p></div>
       <div class="row__end">
         {% if s.is_active %}{% status "completada" "Disponible" %}{% else %}{% status "descartada" "Fuera de uso" %}{% endif %}
-        <form method="post" action="{% url 'events:stations' event.slug %}" data-inline="computadoras">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="station" value="{{ s.id }}"><button class="btn btn--secondary btn--small" type="submit">{% if s.is_active %}Poner fuera de uso{% else %}Volver a usar{% endif %}<span class="visually-hidden"> {{ s.name }}</span></button></form>
+        <form method="post" action="{% url 'events:stations' event.slug %}">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="station" value="{{ s.id }}"><button class="btn btn--secondary btn--small" type="submit">{% if s.is_active %}Poner fuera de uso{% else %}Volver a usar{% endif %}<span class="visually-hidden"> {{ s.name }}</span></button></form>
       </div>
     </li>
   {% endfor %}</ul>
-  <form method="post" action="{% url 'events:stations' event.slug %}" class="admin-ajuste__accion" data-inline="computadoras">{% csrf_token %}<input type="hidden" name="action" value="add"><button class="btn btn--secondary" type="submit">{% icon "agregar" %}Agregar computadora</button></form>
+  <form method="post" action="{% url 'events:stations' event.slug %}" class="admin-ajuste__accion">{% csrf_token %}<input type="hidden" name="action" value="add"><button class="btn btn--secondary" type="submit">{% icon "agregar" %}Agregar computadora</button></form>
   <p class="aside-note">Pega en cada computadora una etiqueta con su número.</p>
 </section>
 
