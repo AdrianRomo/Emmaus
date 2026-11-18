@@ -169,6 +169,18 @@ class ContentTests(PanoramaFixture):
         late = care.create(cls.church, cls.admin, person=cls.member, reason="visita", owner=None, due_on=cls.today + timedelta(days=1))
         type(late).objects.filter(pk=late.pk).update(due_on=cls.today - timedelta(days=2))
 
+    def test_a_group_is_an_arch_and_nothing_on_the_page_is_a_person_s_circle(self):
+        # «Ventanas»: a group is a gathering (an arch); the page names no person, so no circle is drawn at all. The
+        # follow-ups are their icon, never initials in a circle.
+        html = self.get(self.church_pastor).content.decode()
+        page = html[html.index('<div class="panorama">'):html.index("</main>")]
+        drawn = re.findall(r'<span class="(mono[^"]*)" aria-hidden="true">', page)
+        self.assertTrue(drawn)
+        self.assertEqual(set(drawn), {"mono mono--grupo"})
+        for heading, name in (("p-atender", ">Jóvenes Roca<"), ("p-grupos", ">Jóvenes Roca</a>")):
+            self.assertIn('class="mono mono--grupo"', row_of(html, heading, name))
+        self.assertIn('<span class="hoy__icono" aria-hidden="true">', row_of(html, "p-atender", "Seguimientos"))
+
     def test_groups_in_totals(self):
         data = services.build(self.church, None, self.today)
         self.assertEqual([group.name for group in data["groups"]], ["Estudio de Romanos", "Jóvenes Roca"])

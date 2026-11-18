@@ -5,7 +5,8 @@
 {% comment %}
   Panorama (overview.views.panorama): how the church is doing, for its pastor and its administration. A dashboard:
   first what waits for somebody, then the groups, the events, who serves and who is being looked for, each as
-  things (a row, a tile, a bar) and not as sentences.
+  things (a row, a tile, a bar) and not as sentences. A group is its arch (a gathering), never a person's circle;
+  the follow-ups are their icon.
   PRIVACY. Totals only: the proper names on this page are of groups, events and teams, never of a person, and no
   link leads to a list of who came. Every number is drawn exactly as overview.services returns it: a number when
   it is one, its words on a neutral pill when the service gave words, "Menos de N" or "No se muestra" when it
@@ -27,7 +28,7 @@
     <ul class="rows">
       {% if care_late or care_unowned %}
       <li class="row row--lead row--stack row--attention">
-        <span class="mono mono--sm" aria-hidden="true">{% icon "acompanar" "sm" %}</span>
+        <span class="hoy__icono" aria-hidden="true">{% icon "acompanar" %}</span>
         <div class="row__main">
           <p class="row__title">{% if is_church_admin %}<a href="{% url 'care:admin_list' %}">Seguimientos</a>{% else %}Seguimientos{% endif %}</p>
         </div>
@@ -39,7 +40,7 @@
       {% endif %}
       {% for group in groups %}{% if group.waiting %}
       <li class="row row--lead row--stack row--attention">
-        {% monogram group.name "sm" %}
+        {% monogram group.name "" "grupo" %}
         <div class="row__main">
           <p class="row__title"><a href="{% if is_church_admin %}{% url 'community:group_people' group.pk %}{% else %}{% url 'community:group_detail' group.pk %}{% endif %}">{{ group.name }}<span class="visually-hidden">: solicitudes</span></a></p>
         </div>
@@ -48,7 +49,7 @@
       {% endif %}{% endfor %}
       {% for group in groups %}{% if group.missing %}
       <li class="row row--lead row--stack row--attention">
-        {% monogram group.name "sm" %}
+        {% monogram group.name "" "grupo" %}
         <div class="row__main">
           <p class="row__title"><a href="{% url 'community:group_detail' group.pk %}">{{ group.name }}<span class="visually-hidden">: listas</span></a></p>
           <p class="meta"><span>{% icon "calendario" "sm" %}{% if group.missing == 1 %}{{ group.missing_day|weekday_date|capfirst }}{% else %}La última, {{ group.missing_day|weekday_date }}{% endif %}{% if group.missing_day.year != today.year %} de {{ group.missing_day.year }}{% endif %}</span></p>
@@ -74,7 +75,7 @@
     <ul class="rows">
       {% for group in groups %}
       <li class="row row--lead row--stack">
-        {% monogram group.name %}
+        {% monogram group.name "" "grupo" %}
         <div class="row__main">
           <p class="row__title"><a href="{% url 'community:group_detail' group.pk %}">{{ group.name }}</a></p>
           <p class="meta">
