@@ -78,8 +78,8 @@ class DevotionalTests(ResourcesFixture):
         self.assertContains(page, '<h1 class="voice page-head__title">La vid verdadera</h1>', html=True)
         # Its day (today), its passage and who signs it, each a fact with its mark.
         self.assertContains(page, f'{icon("calendario", "sm")}Hoy, {weekday_date(self.today)}</li>')
-        self.assertContains(page, f'{icon("personas", "sm")}Ana López</li>')
-        self.assertContains(page, f'{icon("lectura", "sm")}Juan 15:1-8</li>')
+        self.assertContains(page, f'{icon("personas", "sm")}<span class="visually-hidden">Escrito por </span>Ana López</li>')
+        self.assertContains(page, f'{icon("lectura", "sm")}<span class="visually-hidden">Lectura: </span>Juan 15:1-8</li>')
         self.assertContains(page, '<div class="block prose">')
         self.assertContains(page, "La rama no da fruto por sí misma.")
         self.assertContains(page, "Marcar como leído</button>")

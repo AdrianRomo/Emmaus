@@ -105,7 +105,7 @@ class FaqTests(ExtrasFixture):
         text = detail.content.decode()
         self.assertLess(text.index("¿A qué hora salimos?"), text.index("¿Qué llevo?"))
         # Each question is folded with its answer under it.
-        self.assertContains(detail, '<details class="fold"><summary>¿Qué llevo?</summary><p class="faq__answer">Ropa cómoda.</p></details>', html=True)
+        self.assertContains(detail, '<details class="fold"><summary><h3 class="fold__title">¿Qué llevo?</h3></summary><p class="faq__answer">Ropa cómoda.</p></details>', html=True)
         self.assertNotContains(detail, "iglesia B?")
         self.assertNotContains(detail, "Editar")
 
