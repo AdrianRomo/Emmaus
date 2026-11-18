@@ -367,6 +367,8 @@ class MediaTests(ResourcesFixture):
         empty = self.client.get(MEDIA, {"q": "camino", "tipo": "musica"})
         self.assertContains(empty, "No encontramos recursos")
         self.assertContains(empty, 'href="?q=camino"')
+        self.assertEqual(empty.context["total"], 1)
+        self.assertEqual({kind["value"]: kind["count"] for kind in empty.context["kinds"]}, {"musica": 0, "predicacion": 1})
 
     def test_the_filters_by_kind_and_by_series(self):
         self.client.force_login(self.member_user)
