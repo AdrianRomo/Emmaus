@@ -907,7 +907,32 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* What a single screen needs beyond the components above. Keep each area between its two marks. */
 
 /* area: grupos */
-
+/* A group's head (templates/groups/group_detail.html, _work_head.html): the arch and the name are the page head;
+   the administration's one quiet action sits beside them, and under them on a phone */
+.page-head > .group-head { margin-bottom: 0; flex: 1 1 16rem; min-width: 0; }
+.group-head > .page-head__text { min-width: 0; }
+/* What the group says about itself, then its facts: a step apart, and the facts with room to be read one by one */
+.group-about { margin-bottom: var(--s-6); }
+.group-about .lede { margin-top: 0; }
+.group-about .meta, .group-rows .meta { gap: var(--s-1) var(--s-5); }
+.group-about .lede + .meta, .group-about .meta + .aside-note { margin-top: var(--s-3); }
+/* The state of my request, in the panel where the action was: the pill and the day, then the way to take it back */
+.sign > .meta { margin-top: var(--s-2); }
+/* A list of groups (groups.html, admin_list.html): each row ends in its state, one pill. In a narrow column the
+   pill goes under the facts at its own size and the chevron stays on the first line. (Atrio stretches a status to
+   the row's width under 600px, and the chevron of a stacked row falls to a line of its own: every `.row--stack`
+   that ends in a pill has both, see the report.) */
+.group-rows .row__end .status { flex: none; }
+@container (max-width: 38rem) {
+  .page--app .group-rows > .row--stack { align-items: center; }
+  .page--app .group-rows > .row--stack::after { order: 1; }
+  .group-rows > .row--stack > .row__end { order: 2; padding-left: calc(2.5rem + var(--s-3)); }
+}
+/* The lists of a group's meetings (group_meetings.html): how many came, said in the title and drawn under it */
+.meeting-rows .meter { max-width: 14rem; margin-top: var(--s-2); }
+/* One day and its button (group_meetings.html): side by side, the day as wide as a date needs */
+.day-pick { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.day-pick .input { flex: 1 1 12rem; max-width: 16rem; }
 /* end: grupos */
 
 /* area: eventos */

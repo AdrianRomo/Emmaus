@@ -1,12 +1,16 @@
 {% extends "base.html" %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block content %}
-{% comment %}One question before something ends (leaving a group, taking somebody out, archiving): yes, or back.{% endcomment %}
+{% comment %}
+  One question before something ends (leaving a group, taking somebody out, archiving; other apps render it too,
+  with the same four values): the question, what the action does in one or two sentences (`text`: never dropped),
+  the button that does it, and the way back, once.
+{% endcomment %}
 <div class="narrow">
-  {% include "events/rotulo/_page_head.html" with title=title lede=text back_url=back_url %}
+  {% include "events/rotulo/_page_head.html" with title=title lede=text %}
   <form method="post">
     {% csrf_token %}
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{{ action }}</button>
       <a class="btn btn--link" href="{{ back_url }}">No, volver</a>
     </div>

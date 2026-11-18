@@ -12,22 +12,23 @@ class GroupForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = Group
         fields = ["name", "kind", "description", "audience", "sede", "meeting_frequency", "meeting_day", "meeting_week", "meeting_anchor", "meeting_time", "meeting_place", "accepts_requests"]
-        labels = {"meeting_week": "Si es una vez al mes, cuál"}
-        help_texts = {
-            "meeting_frequency": "Con esto Emmaus sabe qué días toca reunión y no pide la lista de una semana en que no se reunieron.",
-            "meeting_day": "Si no tienen día fijo, déjalo en «Todavía no se sabe».",
-            "meeting_week": "Solo si se reúnen una vez al mes. Con jueves, «El segundo del mes» es el segundo jueves de cada mes.",
-            "meeting_anchor": "Solo si se reúnen cada dos semanas: así Emmaus sabe qué semanas les toca. Puede ser la reunión pasada o la que viene.",
-            "description": "Dos o tres frases. Es lo que lee alguien que busca un grupo.",
-            "audience": "Por ejemplo: jóvenes de 15 a 18 años.",
-            "meeting_time": "En formato de 24 horas, por ejemplo 19:30.",
-            "meeting_place": "Solo lo ven quienes ya son parte del grupo.",
-            "accepts_requests": "Si lo apagas, el grupo sigue en la lista pero nadie puede pedir unirse.",
+        # Short labels: the form's two sections ("El grupo", "Reuniones") already say what each field is about.
+        labels = {
+            "name": "Nombre",
+            "kind": "Tipo",
+            "meeting_frequency": "Cada cuándo",
+            "meeting_day": "Día",
+            "meeting_anchor": "Si es cada dos semanas, una fecha en que sí se reúnen",
+            "meeting_week": "Si es una vez al mes, cuál",
         }
+        # One hint only, and it is not about the format: who sees where the group meets (often a home).
+        help_texts = {"meeting_place": "Solo lo ven quienes ya son parte del grupo."}
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3, "maxlength": 600}),
+            "audience": forms.TextInput(attrs={"placeholder": "Por ejemplo: jóvenes de 15 a 18 años"}),
             "meeting_anchor": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-            "meeting_time": forms.TimeInput(format="%H:%M", attrs={"inputmode": "numeric", "placeholder": "19:30"}),
+            # The phone's own clock: nobody has to be told how to write an hour.
+            "meeting_time": forms.TimeInput(format="%H:%M", attrs={"type": "time"}),
         }
 
     def __init__(self, *args, church, **kwargs):
@@ -83,11 +84,9 @@ class MyDataForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = Person
         fields = ["phone", "email", "preferred_contact_method"]
+        # Who sees these and which e-mail is the one to sign in are said once on the page (templates/groups/profile.html),
+        # not under each field.
         labels = {"preferred_contact_method": "¿Cómo prefieres que te contacten?"}
-        help_texts = {
-            "phone": "Lo ve quien guía tu grupo y la administración de la iglesia.",
-            "email": "Aquí te escribe la iglesia. No cambia el correo con el que entras a Emmaus.",
-        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
