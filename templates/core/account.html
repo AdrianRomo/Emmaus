@@ -1,8 +1,116 @@
 {% extends "base.html" %}
-{% load emmaus shell %}
+{% load emmaus shell community %}
 {% block page_title %}{% if form.errors or contact_form.errors %}Error: {% endif %}Mi cuenta{% endblock %}
 {% block content %}
-{% comment %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): «Mi cuenta», the person's own data and choices. The name (and, for a participant of the
+  discipleship module, how to reach them) is the one form, with the one filled button; the e-mail they sign in with
+  (read only) and the password; where they take part, drawn as everywhere (a church as its arch, an event by its
+  day) with their role there; the welcomes they put away, each brought back in place; and on a phone, the way out.
+{% endcomment %}
+<div class="narrow">
+  {% if form.errors %}{% include "partials/ui/error_summary.html" with form=form %}{% elif contact_form and contact_form.errors %}{% include "partials/ui/error_summary.html" with form=contact_form %}{% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Mi cuenta" %}
+
+  <form class="block" method="post" novalidate>
+    {% csrf_token %}
+    <section class="form-section" aria-labelledby="datos">
+      <h2 id="datos" class="heading form-section__title">Tus datos</h2>
+      {% include "partials/ui/fields.html" with form=form %}
+      {% if contact_form %}{% include "partials/ui/fields.html" with form=contact_form %}{% endif %}
+    </section>
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">Guardar cambios</button>
+    </div>
+  </form>
+
+  <section class="block" aria-labelledby="para-entrar">
+    <h2 id="para-entrar" class="heading">Correo y contraseña</h2>
+    <ul class="rows">
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "correo" %}</span>
+        <div class="row__main">
+          <p class="row__title break-anywhere">{{ user.email }}</p>
+          <p class="row__meta">Para cambiar tu correo, pide a la administración.</p>
+        </div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "candado" %}</span>
+        <div class="row__main"><p class="row__title"><a href="{% url 'password_change' %}">Cambiar contraseña</a></p></div>
+      </li>
+      {% if community_church %}
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "telefono" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'community:profile' %}">Mis datos</a></p>
+          <p class="row__meta">Tu teléfono y cómo prefieres que te contacte tu iglesia</p>
+        </div>
+      </li>
+      {% endif %}
+    </ul>
+  </section>
+
+  <section class="block" aria-labelledby="donde">
+    <h2 id="donde" class="heading">Dónde participas</h2>
+    {% if role_record or community_church or rows %}
+      <ul class="rows">
+        {% if community_church %}
+          <li class="row row--lead">
+            {% monogram community_church.name "" "grupo" %}
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'community:home' %}">{{ community_church.name }}</a></p>
+              {% if role_record and role_record.church_id == community_church.pk %}<p class="row__meta">{{ role_record.get_role_display }}</p>{% endif %}
+            </div>
+          </li>
+        {% endif %}
+        {% if role_record and role_record.church_id != community_church.pk %}
+          <li class="row row--lead">
+            {% monogram role_record.church.name "" "grupo" %}
+            <div class="row__main">
+              <p class="row__title">{{ role_record.church.name }}</p>
+              <p class="row__meta">{{ role_record.get_role_display }}</p>
+            </div>
+          </li>
+        {% endif %}
+        {% for row in rows %}{% with event=row.event %}
+          <li class="row row--lead">
+            {% if event.starts_on %}{% date_block event.starts_on %}{% else %}<span class="hoy__icono" aria-hidden="true">{% icon "calendario" %}</span>{% endif %}
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'events:home' event.slug %}">{{ event.name }}</a></p>
+              {% if event.starts_on %}<p class="row__meta">{{ event.starts_on|date_range:event.ends_on|capfirst }}</p>{% endif %}
+              <p class="row__meta">{{ row.access.role_label }}{% if row.access.can_view_sensitive %}, con acceso confidencial{% endif %}</p>
+            </div>
+          </li>
+        {% endwith %}{% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Aún no formas parte de ningún evento ni de una iglesia. <a href="{% url 'join' %}">Únete con el código de un evento</a></p>
+    {% endif %}
+  </section>
+
+  {% if dismissed %}
+  <section class="block" id="bienvenidas" aria-labelledby="bienvenidas-titulo">
+    <h2 id="bienvenidas-titulo" class="heading">Bienvenidas</h2>
+    <ul class="rows">
+      {% for item in dismissed %}
+        <li class="row row--lead row--stack">
+          <span class="hoy__icono" aria-hidden="true">{% icon "inicio" %}</span>
+          <div class="row__main"><p class="row__title">La bienvenida {{ item.label }}</p></div>
+          <form class="row__end" method="post" action="{% url 'welcome_restore' %}?clave={{ item.key|urlencode }}" data-inline="bienvenidas">
+            {% csrf_token %}
+            <input type="hidden" name="key" value="{{ item.key }}">
+            <button class="btn btn--secondary btn--small" type="submit">Volver a ver<span class="visually-hidden"> la bienvenida {{ item.label }}</span></button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% comment %}On a wide screen the rail already says "Cerrar sesión" beside this page: santuario.css shows this one on a phone only.{% endcomment %}
+  <div class="block account-out">{% include "partials/ui/logout.html" with css="btn--secondary" %}</div>
+</div>
+{% else %}{% comment %}
   "Mi cuenta" (/cuenta/, core.views.account): who I am and how I sign in. The name (the greetings and the team lists
   use it) and, for a participant of the discipleship module, how to reach them; the e-mail they sign in with, read
   only, and the password; where the person takes part (their church and each event, with the role there and whether
@@ -104,4 +212,4 @@
   <div class="block account-out">{% include "partials/ui/logout.html" with css="btn--secondary" %}</div>
   {% endif %}
 </div>
-{% endblock %}
+{% endif %}{% endblock %}
