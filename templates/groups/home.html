@@ -71,7 +71,7 @@
 
 {% if today_rows %}
 <section class="block" aria-labelledby="hoy-titulo">
-  <h2 id="hoy-titulo" class="heading">Hoy</h2>
+  <h2 id="hoy-titulo" class="heading">Hoy en la iglesia</h2>
   {% for row in today_rows %}
   <div class="evento hoy__evento"{% if row.kind == "event" %} id="ev-{{ row.event.slug }}"{% endif %}>
     {% event_arch row.time %}

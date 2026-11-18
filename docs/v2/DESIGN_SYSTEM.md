@@ -46,17 +46,20 @@ Counts are neutral (`.badge`: ink on `--fill-2`). Colour is never the only signa
 
 ## 3. Type
 
-Mona Sans (OFL, 66 KB subset, widths 98–112 %); width is the hierarchy. Source Serif 4 italic only
-for a devotional's words (`.verso`). Inside the shell and at the door:
+Mona Sans (OFL, 66 KB subset); two widths: 100 % for everything, 110 % for the page's title, the counts
+that decide and the wordmark. Its default figures everywhere: its tabular figures draw a slashed zero.
+Source Serif 4 italic only for a devotional's words (`.verso`). Three weights: 430, 600, 700. Inside the
+shell and at the door:
 
 | Step | Size / line | Weight, width | Use |
 |---|---|---|---|
 | caption | 13/16 | 600 | Table heads, tab labels, counts. Never body or metadata |
-| small | 15/20 | 430–620 | Metadata, labels, buttons |
-| body | 17/24 | 430 · 620 titles | Text, row titles |
-| heading | 20/26 | 650, 106 % | Section titles (`.heading`), the raised question |
-| title | 24/30 → 32/38 from 1100px | 700, 110 % | The page's one title (`.voice`) |
-| numeral | 28–48 | 700, 112 %, tabular | Counts that decide (`.decision__cifra`, `.avance__n`) |
+| small | 15/20 | 430 · 600 | Metadata, labels, buttons |
+| body | 17/24 | 430 · 600 titles | Text, row titles |
+| heading | 18/24 | 700 | Section titles (`.heading`) |
+| question | 22/28 | 600 | The raised surface's question (`.sign__title`) |
+| title | 28/34 → 32/38 from 1100px | 700, 110 % | The page's one title (`.voice`); nothing on the page is larger |
+| numeral | 28–48 | 700, 110 % | Counts that decide (`.decision__cifra`, `.avance__n`) |
 
 The interview's and the campero's screens keep Atrio's larger sizes in the same family; the
 projector's deck keeps Figtree. Names wrap, never ellipsis.
@@ -117,8 +120,10 @@ are open.
 
 ## 7. State
 
-`{% status code word %}`: the word with a small arch mark. Filled ink = done; stripes (`--raya`) =
-in progress; outline = not started; half = waits for a decision; grey = closed; chile = risk.
+`{% status code word %}`: the word with a 14px circle. Filled ink = done; half filled = in progress;
+grey ring = not started; ink ring with its centre = waits for a decision; filled grey = closed; filled
+chile = risk. The camp's line of arches and its key use the same half for in progress (`--raya`).
+A guardian's authorization is never a state circle: a check with «Autorizada», or vela «Falta».
 `status--important` (via `notices/_level.html`) is the one capsule, in vela. One or two words:
 "Hecha", "En curso", "Por decidir", "Leído".
 

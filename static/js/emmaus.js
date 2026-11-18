@@ -841,7 +841,9 @@
     // Without this script, without fetch, or with a modifier key, the form is sent as always.
     var inlineErrors = {
       network: "No se pudo guardar: parece que no hay conexión. Intenta otra vez.",
-      server: "No se pudo guardar. Intenta otra vez; si sigue pasando, recarga la página."
+      server: "No se pudo guardar. Intenta otra vez; si sigue pasando, recarga la página.",
+      // A request that took too long may have been saved: say only what is known
+      unknown: "Tardó demasiado y no sabemos si se guardó. Revisa antes de intentarlo otra vez."
     };
     function inlineFailed(form, busy, kind) {
       busy.removeAttribute("aria-busy");
@@ -873,22 +875,43 @@
       // The places and their counts are drawn from the same page the server answered with
       var nav = $(".rail__nav"), freshNav = fresh.querySelector(".rail__nav");
       if (nav && freshNav) nav.replaceWith(freshNav);
-      $all(".tabs a.tabs__item").forEach(function (tab) {
-        var twin = fresh.querySelector('.tabs a.tabs__item[href="' + tab.getAttribute("href") + '"]');
-        if (twin) tab.replaceWith(twin);
-      });
+      // Tabs by position: a tab's own address can change with what waits (the guide's tab opens the group with requests)
+      var tabs = $all(".tabs a.tabs__item"), freshTabs = Array.prototype.slice.call(fresh.querySelectorAll(".tabs a.tabs__item"));
+      if (tabs.length === freshTabs.length) tabs.forEach(function (tab, i) { tab.replaceWith(freshTabs[i]); });
       var panelNav = $("#menu-panel nav"), freshPanelNav = fresh.querySelector("#menu-panel nav");
       if (panelNav && freshPanelNav) panelNav.replaceWith(freshPanelNav);
     }
-    function settle(region, fresh, regionId) {
+    function settle(region, fresh, regionId, form, note) {
       var next = fresh.getElementById(regionId);
       var focusInside = region.contains(doc.activeElement);
+      var action = form ? form.getAttribute("action") : "";
       function swap() {
-        if (next) region.replaceWith(next); else region.remove();
-        syncCounts(fresh);
         var said = $all(".messages .notice p", fresh).map(function (p) { return p.textContent.trim(); }).join(" ");
         var problem = fresh.querySelector(".messages .notice--danger, .messages .notice--warning");
+        // When the thing acted on leaves (a request decided, a row gone), a line keeps the trace of what was done
+        // where it was; when it stays (an answer that can change), its new state says it and no line is added
+        var left = action && !(next && next.querySelector('form[action="' + action + '"]'));
+        var trace = null;
+        if ((note || (said && left)) && !problem) {
+          trace = doc.createElement("p");
+          trace.className = note ? "hecho hecho--nota" : "hecho";
+          trace.textContent = note || said;
+        }
+        if (next) {
+          region.replaceWith(next);
+          if (trace) next.insertBefore(trace, next.firstChild);
+        } else {
+          if (trace) region.parentNode.insertBefore(trace, region);
+          region.remove();
+        }
+        // Other places of the page that show the same facts (a count in a header): data-inline-also="<id> <id>"
+        ((form && form.getAttribute("data-inline-also")) || "").split(/\s+/).forEach(function (id) {
+          var mine = id && doc.getElementById(id), theirs = id && fresh.getElementById(id);
+          if (mine && theirs) mine.replaceWith(theirs);
+        });
+        syncCounts(fresh);
         if (problem) showToast(problem);  // a refusal is said where it cannot be missed
+        if (note) said = note;
         announcer.textContent = "";
         window.setTimeout(function () { announcer.textContent = said; }, 60);
         if (next && focusInside) {
@@ -949,12 +972,16 @@
           if (busy && busy.name) data.append(busy.name, busy.value);
         }
         $all(".inline-error", form).forEach(function (l) { l.remove(); });
+        $all(".hecho").forEach(function (l) { l.remove(); });
         $all(".is-fallido", form).forEach(function (b) { b.classList.remove("is-fallido"); });
         $all("button", form).forEach(function (b) { if (b !== busy) b.disabled = true; });
         if (busy) busy.setAttribute("aria-busy", "true");
-        // A request that hangs is given up after 12 seconds and said like a lost connection: nothing spins forever
+        // A request that hangs is given up after 12 seconds: nothing spins forever. It may have been saved, so the page
+        // is asked again and shows what is really there, with a line that says so; only when the browser knows it is
+        // offline is the connection named.
         var controller = window.AbortController ? new window.AbortController() : null;
-        var giveUp = controller ? window.setTimeout(function () { controller.abort(); }, 12000) : null;
+        var timedOut = false;
+        var giveUp = controller ? window.setTimeout(function () { timedOut = true; controller.abort(); }, 12000) : null;
         window.fetch(form.action, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" }, signal: controller ? controller.signal : undefined })
           .then(function (response) {
             window.clearTimeout(giveUp);
@@ -978,9 +1005,20 @@
                 window.location.assign(answered.href);
                 return;
               }
-              settle(region, fresh, regionId);
+              settle(region, fresh, regionId, form);
             });
-          }, function () { window.clearTimeout(giveUp); inlineFailed(form, busy, "network"); });
+          }, function () {
+            window.clearTimeout(giveUp);
+            if (!timedOut || navigator.onLine === false) { inlineFailed(form, busy, "network"); return; }
+            window.fetch(window.location.href, { credentials: "same-origin", cache: "no-store" })
+              .then(function (response) { if (!response.ok) throw new Error("status"); return response.text(); })
+              .then(function (html) {
+                var fresh = new window.DOMParser().parseFromString(html, "text/html");
+                if (!fresh.getElementById(regionId) && doc.getElementById(regionId)) throw new Error("gone");
+                settle(region, fresh, regionId, form, "Tardó demasiado; esto es lo que quedó guardado. Si no ves tu respuesta, inténtalo otra vez.");
+              })
+              .catch(function () { inlineFailed(form, busy, "unknown"); });
+          });
       }, true);
     }
 
