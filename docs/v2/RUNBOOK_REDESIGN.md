@@ -62,6 +62,14 @@ PYTHON=$P bash scripts/agents/e2e-gate.sh                       # browser gate: 
 - Without reverting code: turning the community module off for a church (`people.flags.set_enabled(church,
   "community", False)`) serves that church the old screens (`data-ui` is not set), byte for byte.
 
+## Comparing with the product before the redesign
+
+The baseline is `origin/v2/foundation` (`519e738`, where this branch forked; the local `v2/foundation` ref is
+stale at `509b596` and predates the community module). A detached checkout of it sits at
+`../Emmaus.worktrees/baseline` (remove with `git worktree remove ../Emmaus.worktrees/baseline`). Both versions
+share migrations and seeds, so one seeded database copied twice gives an identical before/after
+(`REVIEW_2026-11-18.md`, «Acceptance review»).
+
 ## Left running / scratch
 
 - Dev servers used during the work were stopped; the review and critique servers on 8880–8882 are scratch
