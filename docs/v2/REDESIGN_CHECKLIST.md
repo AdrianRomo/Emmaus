@@ -35,7 +35,8 @@ $P manage.py runserver 127.0.0.1:8791
 - [x] B. Foundation: «Ventanas» tokens, type, shell, components, motion; CRAFT.md; actions in place
 - [x] B2. Representative screens: Mi iglesia (member, guide) and the coordinator's workspace, with the
   serving interaction verified in a browser (busy, offline failure, confirmed, changed)
-- [ ] C. Every surface, by area, on the new system
+- [x] B3. Adversarial review (three reviewers + home critic), ranked report `REVIEW_2026-11-18.md`, fixes
+- [ ] C. Every surface, by area, on the new system (wave 1 running)
 - [ ] D. Visual review at 360 / 390 / 820 / 1440, fixes
 - [ ] E. Consistency pass
 - [ ] F. Gates: ruff, Django checks, pytest, e2e (axe), deploy check
@@ -49,21 +50,22 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 | Foundation (CSS, JS, shell, partials) | `static/`, `partials/ui`, `core/shell.py` | done | |
 | Mi iglesia | `groups/home.html` | done | Reference screen |
 | Coordinator home | `events/coordinator/home.html`, `_home_live.html` | done | Reference screen |
-| Grupos (member, guide, administration), Mis datos | `groups/` | todo | Copy work from the earlier pass is merged |
-| Eventos for people, public event page | `agenda/` | todo | |
-| Eventos administration (page, inscritos, programa, preguntas, menores) | `agenda/` | todo | Consent wording untouched |
-| Avisos | `notices/` | todo | «Enterado» in place |
-| Devocional, recursos, planes de lectura | `resources/` | todo | «Marcar como leído» in place |
-| Servir | `serving/` | todo | |
-| Acompañar | `care/` | todo | |
+| Camper administration (list, bulk assignment, home's urgent part, record's authorization) | `events/admin/participants.html`, `_home_live.html`, `participant_detail.html` | done | Reference screen; merged `ba97839` |
+| Grupos (member, guide, administration), Mis datos | `groups/` | wip | Copy work from the earlier pass is merged |
+| Eventos for people, public event page | `agenda/` | wip | |
+| Eventos administration (page, inscritos, programa, preguntas, menores) | `agenda/` | wip | Consent wording untouched |
+| Avisos | `notices/` | wip | «Enterado» in place |
+| Devocional, recursos, planes de lectura | `resources/` | wip | «Marcar como leído» in place |
+| Servir | `serving/` | wip | |
+| Acompañar | `care/` | wip | |
 | Personas | `people/` | todo | |
 | Panorama | `overview/` | todo | Privacy thresholds untouched |
 | Opiniones, políticas, página pública | `feedback/`, `policies/`, `sitio/` | todo | |
 | Cuenta, entrar, contraseñas, portada, unirme, errores, ayuda | `registration/`, `errors/`, `core/` | todo | Shared with module-off |
 | Configuración de la iglesia, usuarios | `core/` | todo | Shared |
 | Discipulado | `core/` | todo | Shared |
-| Evento: administración | `events/admin/` | todo | Shared |
-| Evento: coordinador (rest), tutor, pastor, supervisión, reportes | `events/` | todo | Shared |
+| Evento: administración | `events/admin/` | wip | Shared |
+| Evento: coordinador (rest), tutor, pastor, supervisión, reportes | `events/` | wip | Shared |
 | Evento: entrevista y campero | `events/interview/`, `events/kiosk/` | todo | Privacy and consent text stays |
 
 ## Decisions taken (defaults; the owner may change them)
