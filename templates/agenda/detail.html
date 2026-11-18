@@ -3,137 +3,103 @@
 {% block page_title %}{{ event.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  One event, for the people of the church (agenda.views.detail): what it is, when and where, and then one thing
-  only: the panel to sign up, the word that says the person already did, or a quiet sentence that says why not.
+  One event, for the people of the church (agenda.views.detail): what it is (the church's own sentence), when and
+  where as facts beside the day drawn, and then one thing only: the panel to sign up, the panel that says where
+  the person stands and what comes next, or a quiet sentence that says why there is no button.
   Signing up tells the church "I want to come" and nothing else: it gives no role and opens no other screen.
+  The words about minors, a guardian's authorization and the age are policy (issue #75): they are not shortened.
 {% endcomment %}
 <div class="narrow">
   {% url 'agenda:list' as back %}
   {% include "events/rotulo/_page_head.html" with title=event.name lede=page.description back_url=back back_label="Volver a Eventos" %}
 
+  <div class="meeting event-facts">
+    {% if event.starts_on or event.ends_on %}{% date_block event.starts_on|default:event.ends_on %}{% endif %}
+    <ul class="meta meta--stack" aria-label="Sobre el evento">
+      {% if event.kind != "otro" %}<li><span class="chip chip--plain">{{ event.get_kind_display }}</span></li>{% endif %}
+      <li>{% icon "calendario" "sm" %}{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% elif event.ends_on %}{{ event.ends_on|date_range|capfirst }}{% else %}Sin fecha todavía{% endif %}</li>
+      {% if page.starts_at %}<li>{% icon "reloj" "sm" %}{{ page.starts_at|time:"H:i" }}</li>{% endif %}
+      <li>{% icon "lugar" "sm" %}{{ event.location|default:"Lugar por confirmar" }}</li>
+      {% if page.registration_open and page.registration_closes_on %}<li>{% icon "lista" "sm" %}Inscripción hasta el {{ page.registration_closes_on|long_date }}</li>{% endif %}
+      {% if places_left is not None %}<li>{% icon "personas" "sm" %}{% if places_left == 0 %}Ya no hay lugares{% elif places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ places_left }} lugares{% endif %}</li>{% endif %}
+    </ul>
+  </div>
+
   {% if state == "abierta" %}
-    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p><strong>No respondiste a tiempo.</strong> El lugar que te ofrecimos venció. Ahora hay lugares: si todavía quieres ir, inscríbete.</p></div>{% endif %}
-    <section class="sign sign--lead" aria-labelledby="inscribirme">
-      <div>
-        <h2 id="inscribirme" class="sign__title">¿Quieres ir a este evento?</h2>
-        <p class="sign__text">{% if page.requires_guardian_consent %}Inscribirte le avisa a tu iglesia que quieres ir. Este evento cuida a los menores de edad: el equipo de la iglesia confirma tu edad y, si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia.{% else %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.{% endif %}</p>
-      </div>
+    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p class="notice__title">No respondiste a tiempo.</p><p>El lugar que te ofrecimos venció. Ahora hay lugares: si todavía quieres ir, inscríbete.</p></div>{% endif %}
+    <section class="sign" aria-labelledby="inscribirme">
+      <h2 id="inscribirme" class="sign__title">¿Quieres ir a este evento?</h2>
+      <p class="sign__text">{% if page.requires_guardian_consent %}Inscribirte le avisa a tu iglesia que quieres ir. Este evento cuida a los menores de edad: el equipo de la iglesia confirma tu edad y, si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia.{% else %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.{% endif %}</p>
       <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}">
         {% csrf_token %}
-        <button class="btn btn--on-dark btn--large" type="submit">Inscribirme</button>
+        <button class="btn btn--primary btn--large" type="submit">Inscribirme</button>
       </form>
     </section>
   {% elif state == "inscrita" %}
-    <div class="notice notice--info">
-      <p><strong>Te inscribiste.</strong> Tu iglesia ya sabe que quieres ir{% if not can_cancel %}. El evento ya empezó: si no vas a poder ir, avisa en tu iglesia{% endif %}.{% if authorized %} Autorizada por tu mamá, papá o tutor.{% endif %}</p>
+    <div class="notice notice--success">
+      <p class="notice__title">Te inscribiste.</p>
+      {% if not can_cancel %}<p>El evento ya empezó: si no vas a poder ir, avisa en tu iglesia.</p>{% endif %}
+      {% if authorized %}<p>Autorizada por tu mamá, papá o tutor.</p>{% endif %}
     </div>
     {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
   {% elif state == "pendiente" %}
     <div class="notice notice--warning">
-      {% if waits_for == "age" %}<p><strong>Falta confirmar tu edad.</strong> {{ age_text }} Acércate con el equipo de tu iglesia: te dirá qué necesita ver.</p>
-      {% elif withdrawn %}<p><strong>Sin autorización.</strong> Por ahora no tienes autorización para participar en este evento. {{ pending_text }}</p>
-      {% else %}<p><strong>Pendiente de autorización.</strong> {{ pending_text }}</p>{% endif %}
+      {% if waits_for == "age" %}<p class="notice__title">Falta confirmar tu edad.</p><p>{{ age_text }} Acércate con el equipo de tu iglesia: te dirá qué necesita ver.</p>
+      {% elif withdrawn %}<p class="notice__title">Sin autorización.</p><p>Por ahora no tienes autorización para participar en este evento. {{ pending_text }}</p>
+      {% else %}<p class="notice__title">Pendiente de autorización.</p><p>{{ pending_text }}</p>{% endif %}
     </div>
     {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
   {% elif state == "ofrecido" %}
     {# A place of the waiting list, held for this person until the deadline. Accepting is a sign-up: the same rules decide. #}
-    <section class="sign sign--lead" aria-labelledby="lugar-ofrecido">
-      <div>
-        <h2 id="lugar-ofrecido" class="sign__title">Te ofrecimos un lugar</h2>
-        <p class="sign__text">Se liberó un lugar y te toca a ti. Lo guardamos para ti hasta el {{ registration.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }}; después se lo ofrecemos a la siguiente persona de la lista.{% if page.requires_guardian_consent %} Este evento cuida a los menores de edad: al aceptar, el equipo de la iglesia confirma tu edad y, si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice.{% endif %}</p>
-      </div>
+    <section class="sign" aria-labelledby="lugar-ofrecido">
+      <h2 id="lugar-ofrecido" class="sign__title">Te ofrecimos un lugar</h2>
+      <p class="sign__text">Lo guardamos para ti hasta el {{ registration.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }}. Después se lo ofrecemos a la siguiente persona de la lista.{% if page.requires_guardian_consent %} Este evento cuida a los menores de edad: al aceptar, el equipo de la iglesia confirma tu edad y, si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice.{% endif %}</p>
       <form class="sign__actions" method="post" action="{% url 'agenda:accept_offer' event.slug %}">
         {% csrf_token %}
-        <button class="btn btn--on-dark btn--large" type="submit">Aceptar mi lugar</button>
+        <button class="btn btn--primary btn--large" type="submit">Aceptar mi lugar</button>
+        <a class="btn btn--link" href="{% url 'agenda:leave_waiting' event.slug %}">No voy a usar el lugar</a>
       </form>
     </section>
-    <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">No voy a usar el lugar</a></p>
   {% elif state == "ofrecido_pausa" %}
     {# An offer that cannot be accepted right now: the event started, or the administration closed the sign-up from Emmaus. #}
     <div class="notice notice--warning">
-      {% if list_block == "empezo" %}<p><strong>El evento ya empezó.</strong> El lugar que te ofrecimos ya no se puede aceptar desde aquí. Si quieres ir, pregunta en tu iglesia.</p>
-      {% else %}<p><strong>Te ofrecimos un lugar, pero por ahora no se puede aceptar.</strong> La inscripción desde Emmaus está cerrada: pregunta en tu iglesia. El lugar se guarda para ti hasta el {{ registration.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }}.</p>{% endif %}
+      {% if list_block == "empezo" %}<p class="notice__title">El evento ya empezó.</p><p>El lugar que te ofrecimos ya no se puede aceptar desde aquí. Si quieres ir, pregunta en tu iglesia.</p>
+      {% else %}<p class="notice__title">Te ofrecimos un lugar, pero por ahora no se puede aceptar.</p><p>La inscripción desde Emmaus está cerrada: pregunta en tu iglesia. El lugar se guarda para ti hasta el {{ registration.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }}.</p>{% endif %}
     </div>
     <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">No voy a usar el lugar</a></p>
   {% elif state == "en_espera" %}
     <div class="notice notice--info">
-      {% if list_block == "empezo" %}<p><strong>Estás en la lista de espera.</strong> El evento ya empezó y ya no se ofrecen lugares desde la lista. Si quieres ir, pregunta en tu iglesia.</p>
-      {% elif list_block %}<p><strong>Estás en la lista de espera.</strong> {{ position_text }} Por ahora la lista está detenida: la inscripción desde Emmaus está cerrada. Pregunta en tu iglesia.</p>
-      {% else %}<p><strong>Estás en la lista de espera.</strong> {{ position_text }} Todavía no tienes lugar: cuando se libere uno y te toque, te lo ofrecemos aquí y tendrás {{ offer_hours }} horas para aceptarlo.</p>{% endif %}
+      <p class="notice__title">Estás en la lista de espera.</p>
+      {% if list_block == "empezo" %}<p>El evento ya empezó y ya no se ofrecen lugares desde la lista. Si quieres ir, pregunta en tu iglesia.</p>
+      {% elif list_block %}<p>{{ position_text }} Por ahora la lista está detenida: la inscripción desde Emmaus está cerrada. Pregunta en tu iglesia.</p>
+      {% else %}<p>{{ position_text }} Todavía no tienes lugar: cuando se libere uno y te toque, te lo ofrecemos aquí y tendrás {{ offer_hours }} horas para aceptarlo.</p>{% endif %}
     </div>
     <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">Salir de la lista de espera</a></p>
   {% elif state == "lista" %}
-    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p><strong>No respondiste a tiempo.</strong> El lugar que te ofrecimos venció y pasó a la siguiente persona de la lista. Si todavía quieres ir, puedes anotarte otra vez.</p></div>
-    {% elif list_outcome == "retirada" %}<div class="notice notice--quiet"><p><strong>Ya no estás en la lista de espera.</strong> La administración de tu iglesia te quitó de la lista. Si tienes dudas, pregunta en tu iglesia.</p></div>{% endif %}
-    <section class="sign sign--lead" aria-labelledby="lista-espera">
-      <div>
-        <h2 id="lista-espera" class="sign__title">Ya no hay lugares, pero hay lista de espera</h2>
-        <p class="sign__text">Si te anotas, quedas en la lista en el orden en que llegaste. Anotarte no te inscribe: cuando se libere un lugar y te toque, te lo ofrecemos y tendrás {{ offer_hours }} horas para aceptarlo.</p>
-      </div>
+    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p class="notice__title">No respondiste a tiempo.</p><p>El lugar que te ofrecimos venció y pasó a la siguiente persona de la lista. Si todavía quieres ir, puedes anotarte otra vez.</p></div>
+    {% elif list_outcome == "retirada" %}<div class="notice notice--quiet"><p class="notice__title">Ya no estás en la lista de espera.</p><p>La administración de tu iglesia te quitó de la lista. Si tienes dudas, pregunta en tu iglesia.</p></div>{% endif %}
+    <section class="sign" aria-labelledby="lista-espera">
+      <h2 id="lista-espera" class="sign__title">Ya no hay lugares, pero hay lista de espera</h2>
+      <p class="sign__text">Quedas en la lista en el orden en que llegaste. Anotarte no te inscribe: cuando se libere un lugar y te toque, te lo ofrecemos y tendrás {{ offer_hours }} horas para aceptarlo.</p>
       <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}">
         {% csrf_token %}
-        <button class="btn btn--on-dark btn--large" type="submit">Anotarme en la lista de espera</button>
+        <button class="btn btn--primary btn--large" type="submit">Anotarme en la lista de espera</button>
       </form>
     </section>
   {% elif notice %}
-    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p><strong>No respondiste a tiempo.</strong> El lugar que te ofrecimos venció y pasó a la siguiente persona de la lista.</p></div>{% endif %}
+    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p class="notice__title">No respondiste a tiempo.</p><p>El lugar que te ofrecimos venció y pasó a la siguiente persona de la lista.</p></div>{% endif %}
     <div class="notice notice--quiet"><p>{{ notice }}</p></div>
   {% endif %}
 
-  <section class="block" aria-labelledby="datos">
-    <h2 id="datos" class="heading">Sobre el evento</h2>
-    <dl class="summary-list">
-      {% if event.kind != "otro" %}<div class="summary-list__row"><dt>Qué es</dt><dd>{{ event.get_kind_display }}</dd></div>{% endif %}
-      <div class="summary-list__row"><dt>Cuándo</dt><dd>{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% elif event.ends_on %}{{ event.ends_on|date_range|capfirst }}{% else %}Todavía no tiene fecha{% endif %}</dd></div>
-      {% if page.starts_at %}<div class="summary-list__row"><dt>Hora</dt><dd>A las {{ page.starts_at|time:"H:i" }}</dd></div>{% endif %}
-      <div class="summary-list__row"><dt>Dónde</dt><dd>{{ event.location|default:"Todavía no se ha dicho" }}</dd></div>
-      {% if page.registration_open and page.registration_closes_on %}<div class="summary-list__row"><dt>Inscripción</dt><dd>Hasta el {{ page.registration_closes_on|long_date }}</dd></div>{% endif %}
-      {% if places_left is not None %}<div class="summary-list__row"><dt>Lugares</dt><dd>{% if places_left == 0 %}Ya no hay lugares{% elif places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ places_left }} lugares{% endif %}</dd></div>{% endif %}
-    </dl>
-  </section>
-
-  {% if schedule %}
-  <section class="block" aria-labelledby="programa">
-    <h2 id="programa" class="heading">Programa</h2>
-    {% for day, items in schedule %}
-      <h3 class="row__title mt-2">{{ day|date:"l j \\d\\e F"|lower|capfirst }}</h3>
-      <ul class="rows">
-        {% for item in items %}
-          <li class="row">
-            <div class="row__main">
-              <p class="row__title">{{ item.title }}</p>
-              <p class="row__meta">{% include "agenda/_schedule_when.html" %}</p>
-            </div>
-          </li>
-        {% endfor %}
-      </ul>
-    {% endfor %}
-  </section>
-  {% endif %}
-
-  {% if faqs %}
-  <section class="block" aria-labelledby="preguntas">
-    <h2 id="preguntas" class="heading">Preguntas frecuentes</h2>
-    <ul class="rows">
-      {% for item in faqs %}
-        <li class="row">
-          <div class="row__main prose">
-            <h3 class="row__title">{{ item.question }}</h3>
-            <p>{{ item.answer|linebreaksbr }}</p>
-          </div>
-        </li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endif %}
+  {% include "agenda/_read.html" %}
 
   {% if request.is_church_admin %}
   <section class="block" aria-labelledby="administrar">
-    <h2 id="administrar" class="heading">Para la administración</h2>
-    <div class="step__actions">
-      <a class="btn btn--secondary" href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a>
-      <a class="btn btn--secondary" href="{% url 'agenda:registrations' event.slug %}">Inscritos</a>
-    </div>
+    <h2 id="administrar" class="heading">Administración</h2>
+    <ul class="rows">
+      <li class="row"><div class="row__main"><p class="row__title"><a href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a></p></div></li>
+      <li class="row"><div class="row__main"><p class="row__title"><a href="{% url 'agenda:registrations' event.slug %}">Inscritos</a></p></div></li>
+    </ul>
   </section>
   {% endif %}
 </div>

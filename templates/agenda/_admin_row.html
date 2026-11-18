@@ -1,0 +1,25 @@
+{% load emmaus community shell %}{% comment %}
+  One event in "Eventos de la iglesia": the day drawn, the name as the way into its page, how many signed up and
+  who waits for the team as facts, whether the people of the church see it as a pill, and under them the other
+  pages of the event, by name. Needs: event (with page, signed, waiting_age, waiting, published, ended), today.
+{% endcomment %}
+<li class="row row--lead row--stack{% if event.starts_on == today %} row--today{% endif %}">
+  {% if event.starts_on %}{% date_block event.starts_on %}{% else %}<span class="date-block" aria-hidden="true"><span class="date-block__weekday">sin</span><span class="date-block__day">–</span><span class="date-block__month">fecha</span></span>{% endif %}
+  <div class="row__main">
+    <p class="row__title"><a href="{% url 'agenda:page_edit' event.slug %}">{{ event.name }}</a></p>
+    <ul class="meta">
+      {% if event.kind != "otro" %}<li>{{ event.get_kind_display }}</li>{% endif %}
+      {% if not event.starts_on %}<li class="visually-hidden">Sin fecha todavía</li>{% elif event.ends_on and event.ends_on != event.starts_on %}<li>{% icon "calendario" "sm" %}{{ event.starts_on|date_range:event.ends_on }}</li>{% else %}<li class="visually-hidden">{{ event.starts_on|date_range }}</li>{% endif %}
+      <li>{% icon "personas" "sm" %}{% if event.signed == 0 %}Sin inscritos{% elif event.signed == 1 %}1 persona inscrita{% else %}{{ event.signed }} personas inscritas{% endif %}{% if event.published and event.page.capacity %} de {{ event.page.capacity }} lugar{{ event.page.capacity|pluralize:"es" }}{% endif %}</li>
+      {% if event.waiting_age %}<li><span class="chip chip--wait">{{ event.waiting_age }} con edad por confirmar</span></li>{% endif %}
+      {% if event.waiting == 1 %}<li><span class="chip chip--wait">1 pendiente de autorización</span></li>{% elif event.waiting %}<li><span class="chip chip--wait">{{ event.waiting }} pendientes de autorización</span></li>{% endif %}
+    </ul>
+    <p class="row__contact">
+      <a href="{% url 'agenda:registrations' event.slug %}">Inscritos<span class="visually-hidden"> en {{ event.name }}</span></a>
+      {% if not event.camp_tools %}<a href="{% url 'agenda:event_edit' event.slug %}">Datos<span class="visually-hidden"> de {{ event.name }}</span></a>
+      <a href="{% url 'agenda:duplicate' event.slug %}">Duplicar<span class="visually-hidden"> {{ event.name }}</span></a>{% endif %}
+      {% if event.ended %}<a href="{% url 'feedback:results' event.slug %}">Opiniones<span class="visually-hidden"> de {{ event.name }}</span></a>{% endif %}
+    </p>
+  </div>
+  <div class="row__end">{% if event.published %}{% status "publicada" "Publicada" %}{% else %}{% status "pendiente" "Sin publicar" %}{% endif %}</div>
+</li>

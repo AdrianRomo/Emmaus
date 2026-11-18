@@ -21,27 +21,28 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
             "published", "public", "description", "starts_at", "registration", "capacity", "waiting_list", "registration_closes_on",
             "requires_guardian_consent",
         ]
+        labels = {"description": "Descripción", "registration": "¿Se inscriben desde Emmaus?"}
         help_texts = {
+            # Protected words (decision 0010, issue #75): what the public page shows and what it never shows.
             "public": (
                 "Para compartir el evento con mamás, papás y tutores que no tienen cuenta. La página pública dice de qué "
                 "se trata, cuándo, dónde, el programa y las preguntas frecuentes. Nunca muestra quién se inscribió ni "
                 "cuántos lugares quedan, y solo funciona mientras el evento esté publicado."
             ),
+            # A business rule of the waiting list (decision 0011): nobody is signed up without confirming it.
             "waiting_list": (
-                "Quien se inscriba cuando ya no haya lugares queda en lista de espera, en orden. Cuando se libera un "
-                "lugar, Emmaus se lo ofrece a la primera persona de la lista y ella decide si lo acepta: nadie queda "
-                "inscrito sin confirmarlo."
+                "Cuando se libera un lugar, Emmaus se lo ofrece a la primera persona de la lista y ella decide si lo "
+                "acepta: nadie queda inscrito sin confirmarlo."
             ),
+            # Protected words: the minors' safeguard.
             "requires_guardian_consent": (
                 "La inscripción de un menor queda pendiente hasta que la administración registre la autorización, y la "
                 "de quien no tiene la edad confirmada por el equipo, hasta que la confirmes. Al encenderlo se revisan "
                 "todas las inscripciones que ya hay."
             ),
-            "published": "Las personas de la iglesia lo verán en Eventos. Mientras esté apagado, solo lo ve la administración.",
-            "description": "Dos o tres frases. Es lo que lee alguien que decide si va.",
-            "starts_at": "En formato de 24 horas, por ejemplo 19:30.",
-            "capacity": "Cuántas personas se pueden inscribir. Déjalo vacío si no hay límite.",
-            "registration_closes_on": "Después de este día ya nadie se puede inscribir. Déjalo vacío si no hay fecha límite.",
+            "published": "Aparece en Eventos. Apagado, solo lo ve la administración.",
+            "starts_at": "24 horas, por ejemplo 19:30.",
+            "capacity": "Vacío: sin límite.",
         }
         widgets = {
             "description": forms.Textarea(attrs={"rows": 4, "maxlength": 800}),
@@ -104,7 +105,7 @@ class EventFaqForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = EventFaq
         fields = ["question", "answer", "position"]
-        help_texts = {"position": "Las preguntas se muestran de menor a mayor."}
+        help_texts = {"position": "Se muestran de menor a mayor."}
         widgets = {
             "answer": forms.Textarea(attrs={"rows": 4, "maxlength": 1200}),
             "position": forms.NumberInput(attrs={"inputmode": "numeric", "min": 1}),
@@ -122,8 +123,8 @@ class EventFaqForm(TuErrorMessagesMixin, forms.ModelForm):
 class EventScheduleItemForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = EventScheduleItem
-        fields = ["day", "starts_at", "ends_at", "title", "place"]
-        help_texts = {"starts_at": "En formato de 24 horas, por ejemplo 19:30."}
+        fields = ["title", "day", "starts_at", "ends_at", "place"]
+        help_texts = {"starts_at": "24 horas, por ejemplo 19:30."}
         widgets = {
             "day": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
             "starts_at": forms.TimeInput(format="%H:%M", attrs={"inputmode": "numeric", "placeholder": "19:30"}),

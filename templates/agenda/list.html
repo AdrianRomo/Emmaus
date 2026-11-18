@@ -7,8 +7,8 @@
   signed up, then everything else that is coming. An event the administration has not published is not here.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Eventos" lede="Lo que tu iglesia prepara para ti. Entra a un evento para saber más y, si se puede, inscribirte." back_url=back back_label="Volver a Mi iglesia" %}
+  {% if request.is_church_admin %}{% url 'agenda:admin_list' as manage %}{% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos" secondary_url=manage secondary_label="Administrar los eventos" %}
 
   {% if mine %}
   <section class="block" aria-labelledby="mis-inscripciones">
@@ -20,17 +20,16 @@
   {% endif %}
 
   <section class="block" aria-labelledby="lo-que-viene">
-    <h2 id="lo-que-viene" class="heading">Lo que viene en la iglesia</h2>
+    <h2 id="lo-que-viene" class="heading{% if not mine %} visually-hidden{% endif %}">Lo que viene</h2>
     {% if coming %}
       <ul class="dates rows">
         {% for event in coming %}{% include "agenda/_event_row.html" %}{% endfor %}
       </ul>
     {% elif mine %}
-      <p class="empty-line">Por ahora no hay más eventos. Cuando tu iglesia publique otro, aparecerá aquí.</p>
+      <p class="empty-line">Sin más eventos por ahora.</p>
     {% else %}
-      <p class="empty-line">Todavía no hay eventos publicados. Cuando tu iglesia publique uno, aparecerá aquí y podrás inscribirte. Mientras tanto, pregunta en tu iglesia qué viene.</p>
+      <p class="empty-line">Sin eventos por ahora.</p>
     {% endif %}
   </section>
-  {% if request.is_church_admin %}<p class="more"><a href="{% url 'agenda:admin_list' %}">Administrar los eventos</a></p>{% endif %}
 </div>
 {% endblock %}
