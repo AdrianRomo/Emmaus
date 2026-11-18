@@ -13,7 +13,8 @@ in "Mis datos", and a preference that includes the notice's level (``EmailPrefer
 When: once per version of a notice, from the day it can be read. Publishing sends after its
 transaction commits (``schedule``), so a failure to send never undoes or breaks a publish; a notice
 kept for a later day, what is left above ``SEND_CAP`` or the time budget, and what failed are sent
-by ``manage.py send_notice_emails``. A version's round ends when everybody it was for has a row
+by the scheduler's pass every few minutes (``send_due``; ``core.scheduler``) and by
+``manage.py send_notice_emails``. A version's round ends when everybody it was for has a row
 (``Announcement.emailed_version``): who arrives later is not mailed old notices. A change that asks
 for "Enterado" again is a new version and a new round; an urgent level given later reopens the round
 for who had not been mailed.
@@ -267,6 +268,35 @@ def deliver(notice_id: int, base_url: str, *, limit: int = SEND_CAP, budget_seco
         # meanwhile has people this call never looked at: its round stays open for the next pass.
         Announcement.objects.filter(pk=notice.pk, version=version, priority=priority).update(emailed_version=version)
     return done
+
+
+def send_due(base_url: str, *, days: int = WINDOW_DAYS, budget_seconds: float | None = None) -> dict:
+    """Every open round (``open_rounds``): the notices whose day came, what a publish left above its
+    cap or its budget, and what failed. What ``send_notice_emails --apply`` and the scheduler's pass
+    run. Counts only: ``notices`` looked at, ``sent``, ``failed``, ``left``, and ``not_configured``
+    when the server has no e-mail (then nothing was sent and the rest was not looked at).
+    ``budget_seconds`` bounds the whole call, so that a mail server that hangs cannot hold the
+    scheduler: what is left waits for the next call."""
+    started = time.monotonic()
+    notices = [notice for notice in open_rounds(days) if is_mailable(notice)]
+    totals = {"notices": len(notices), "sent": 0, "failed": 0, "left": 0, "not_configured": False}
+    for notice in notices:
+        while True:
+            remaining = None if budget_seconds is None else budget_seconds - (time.monotonic() - started)
+            if remaining is not None and remaining <= 0:
+                totals["left"] += waiting_count(notice)
+                break
+            done = deliver(notice.pk, base_url, budget_seconds=remaining)
+            if done.not_configured:
+                totals["not_configured"] = True
+                return totals
+            totals["sent"] += done.sent
+            totals["failed"] += done.failed
+            # Again only while a full batch went out: what is left then is the part above the cap.
+            if not done.left or done.failed or not done.sent:
+                totals["left"] += done.left
+                break
+    return totals
 
 
 def schedule(notice: Announcement, base_url: str | None) -> None:

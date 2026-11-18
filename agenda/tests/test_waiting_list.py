@@ -554,6 +554,31 @@ class ExpiryTests(WaitingFixture):
         self.assertEqual(ChurchAuditEvent.objects.filter(action="evento_lista_vencida").count(), 1)
         self.assertEqual(ChurchAuditEvent.objects.filter(action="evento_lista_oferta").count(), 2)
 
+    @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE.rstrip("/"))
+    def test_the_scheduler_pass_releases_offers_and_mails_the_next_one(self):
+        """Issue #80: nobody opens the event and nobody runs the command; the scheduler's pass does it."""
+        out = StringIO()
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("run_scheduled_jobs", stdout=out)
+        self.assertIn("lista de espera: 1 lugares liberados, 1 ofrecidos", out.getvalue())
+        for name in ("Gala", "Guía", "Pía", "Pidió", "Retiro", "@"):
+            self.assertNotIn(name, out.getvalue())
+        self.released()
+        self.assertEqual([(message.to, message.subject) for message in mail.outbox], [([self.asked.email], SUBJECT)])
+        again = StringIO()
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("run_scheduled_jobs", stdout=again)
+        self.assertIn("lista de espera: 0 lugares liberados, 0 ofrecidos", again.getvalue())
+        self.released()
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE.rstrip("/"))
+    def test_the_command_mails_with_the_address_of_the_setting(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            printed = self.run_command("--apply")
+        self.assertNotIn("no se envió ningún correo", printed)
+        self.assertEqual([message.to for message in mail.outbox], [[self.asked.email]])
+
     def test_the_command_refuses_a_base_url_that_is_not_an_address(self):
         from django.core.management.base import CommandError
 

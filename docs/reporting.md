@@ -176,6 +176,6 @@ The presentation uses its own shorter list (`build_deck`) with the same threshol
 
 ## Running the scheduler
 
-* Production: the `scheduler` service in `docker-compose.prod.yml` runs `python manage.py run_report_cutoffs --loop 300`. A failing pass is logged and the loop continues; restarting is safe.
+* Production: the `scheduler` service in `docker-compose.prod.yml` runs `python manage.py run_scheduled_jobs --loop 300`, whose pass starts with the whole `run_report_cutoffs` pass (unchanged). A failing pass is logged and the loop continues; restarting is safe.
 * Cron instead: run `python manage.py run_report_cutoffs` (one pass) every 5 minutes, for example `*/5 * * * * cd /app && python manage.py run_report_cutoffs`.
 * Development: `make cutoffs` runs one pass in the dev container.

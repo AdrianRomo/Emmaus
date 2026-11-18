@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.urls import reverse
 
 from core.notify import FAILED, NOT_CONFIGURED, SENT, notify
+from core.scheduler import base_url_for
 from events.models import Event
 from events.services import audit
 from events.services.follow_ups import owners_to_remind
@@ -25,15 +26,17 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--event", help="Nombre corto de un evento. Sin él: todos los eventos terminados.")
-        parser.add_argument("--base-url", default="", help="Dirección pública de Emmaus, por ejemplo https://emmaus.ejemplo.org. Necesaria con --apply.")
+        parser.add_argument("--base-url", default="", help="Dirección pública de Emmaus, por ejemplo https://emmaus.ejemplo.org. Sin ella se usa EMMAUS_PUBLIC_BASE_URL; con --apply hace falta una de las dos.")
         parser.add_argument("--apply", action="store_true", help="Enviar de verdad.")
 
     def handle(self, *args, **options):
-        apply, base_url = options["apply"], options["base_url"].strip()
+        apply, base_url = options["apply"], base_url_for(options["base_url"])
         if apply:
             parts = urlsplit(base_url)
             if parts.scheme not in ("http", "https") or not parts.hostname:
-                raise CommandError("Con --apply hace falta --base-url con la dirección pública de Emmaus (https://…).")
+                raise CommandError(
+                    "Con --apply hace falta la dirección pública de Emmaus (https://…): --base-url, o EMMAUS_PUBLIC_BASE_URL en el servidor."
+                )
         events = Event.objects.filter(camp_tools=True).select_related("church")
         if options["event"]:
             events = events.filter(slug=options["event"])

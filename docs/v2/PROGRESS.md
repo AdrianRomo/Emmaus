@@ -117,9 +117,11 @@ overall: PASS
 
 ### Not done, and why
 
-- Commands that exist and are **not scheduled anywhere**: `send_notice_emails`,
-  `expire_waiting_offers`, `remind_follow_up_owners`, `prune_attendance`, `resettle_registrations`
-  (run once after deploying). Scheduling is host work.
+- Commands that exist and are **not scheduled anywhere**: `remind_follow_up_owners`,
+  `prune_attendance`, `resettle_registrations` (run once after deploying). Since wave 8 the
+  `scheduler` service runs `send_notice_emails` and `expire_waiting_offers` on every pass
+  (`run_scheduled_jobs`, issue #80; `docs/deployment.md`, "Scheduled jobs"); alerting on
+  `scheduler_status` is host work.
 - #52 stays open for shipping the log lines and alerting on the host.
 - Defaults taken without asking are in issue #80; the one that most changes the product is how
   quiet Panorama became under the strict privacy rule.

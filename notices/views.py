@@ -10,6 +10,8 @@ a link is not the rule: each view asks again.
 E-mail (``notices.email``): who chose it on "Avisos por correo" is told that there is a notice and
 where, never what it says. Publishing hands the address of this Emmaus down from the request; who may
 change a notice reads how many e-mails went out, as a number under the church's minimum reporting size.
+A notice kept for a later day is mailed by the scheduler's pass: the form and the notice's page say that
+no e-mail will go out that day while that pass is not running (``core.scheduler.notice_mail_problem``).
 
 "Compartir por WhatsApp" hands the person a message to send themselves. It carries the church's
 name and the address of the notice's page, which asks for the account and answers by the same rules
@@ -28,6 +30,7 @@ from django.utils import formats, timezone
 
 from core.authz import Action, has_scope
 from core.paging import paginate
+from core.scheduler import notice_mail_problem
 from groups.access import church_groups, managed_group_ids
 from groups.models import Group
 from groups.views import community_view
@@ -38,6 +41,19 @@ from events.services.team import email_is_configured
 from . import email, services
 from .forms import WHOLE_CHURCH, EmailPreferenceForm, NoticeForm
 from .models import Announcement
+
+
+# The scheduler's pass is what mails a notice kept for a later day (``core.scheduler``). While it is not
+# running, or the server lacks its public address, nothing here says that an e-mail will go out that day.
+NOT_SENDING = "Ahora mismo Emmaus no está enviando los correos de los avisos programados."
+NOT_SENDING_THIS = (
+    "Si eso no cambia, el día que se publique este aviso se verá en Emmaus, pero no saldrá ningún correo."
+    " Avísale a quien administra el servidor de Emmaus."
+)
+NOT_SENDING_NEW = (
+    "Si eliges un día posterior para publicarlo, ese día se verá en Emmaus, pero no saldrá ningún correo."
+    " Si lo publicas hoy, el correo sí sale."
+)
 
 
 def _can_write_to_group(request, group: Group) -> bool:
@@ -116,7 +132,12 @@ def _emailed_lines(notice: Announcement) -> list[str]:
     if not sent and not email_is_configured():
         return ["No hay correo configurado: este aviso solo se ve en Emmaus."]
     if not sent and notice.state != "publicado":
-        return ["No ha salido ningún correo por este aviso."] if notice.state == "programado" else []
+        if notice.state != "programado":
+            return []
+        # Kept for a later day: only the scheduler's pass can mail it then. Promise it only while that pass runs.
+        if notice_mail_problem():
+            return ["No ha salido ningún correo por este aviso.", f"{NOT_SENDING} {NOT_SENDING_THIS}"]
+        return ["No ha salido ningún correo por este aviso. El día que se publique, Emmaus le enviará el correo a quien lo eligió."]
     if not sent and email.will_not_be_mailed(notice):
         # Published while the server had no e-mail, or before e-mails existed, and its days have passed.
         return [
@@ -144,6 +165,18 @@ def _emailed_lines(notice: Announcement) -> list[str]:
         " esta página. Un correo enviado no es un correo leído."
     )
     return lines
+
+
+def _scheduled_mail_warning(notice: Announcement | None) -> str:
+    """What the form says when a notice kept for a later day would not be e-mailed on its day: the
+    server has e-mail (a notice published today is mailed from here) and nothing is sending the rest.
+    Empty when the pass runs, when there is no e-mail at all (the form already says so) and when
+    the notice being corrected is not waiting for its day."""
+    if notice is not None and notice.state != "programado":
+        return ""
+    if not email_is_configured() or not notice_mail_problem():
+        return ""
+    return f"{NOT_SENDING} {NOT_SENDING_THIS if notice is not None else NOT_SENDING_NEW}"
 
 
 def _base_url(request) -> str:
@@ -258,7 +291,11 @@ def notice_create(request):
             else:
                 messages.success(request, f"Publicaste el aviso p{notice.audience[1:]}.")
             return redirect("notices:detail", notice.pk)
-    return render(request, "notices/form.html", {"form": form, "notice": None, "email_configured": email_is_configured()})
+    return render(
+        request,
+        "notices/form.html",
+        {"form": form, "notice": None, "email_configured": email_is_configured(), "scheduled_mail_warning": _scheduled_mail_warning(None)},
+    )
 
 
 @community_view
@@ -285,7 +322,7 @@ def notice_edit(request, notice_id: int):
             else:
                 messages.success(request, "Guardamos los cambios.")
             return redirect("notices:detail", notice.pk)
-    return render(request, "notices/form.html", {"form": form, "notice": notice})
+    return render(request, "notices/form.html", {"form": form, "notice": notice, "scheduled_mail_warning": _scheduled_mail_warning(notice)})
 
 
 @community_view

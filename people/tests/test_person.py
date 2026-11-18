@@ -141,8 +141,9 @@ class MigrationScopeTests(TestCase):
         events_files = sorted(p.name for p in (REPO / "events" / "migrations").glob("0*.py"))
         # 11: core/0011_onboardingstate arrived from main. 13: events/0013_event_camp_tools, the first
         # migration after the freeze was lifted (decision 0013); 14: events/0014_membership_aliases (issue #50);
-        # 15: events/0015_practice_participant (issue #49). A new one here is a reviewed, additive change.
-        self.assertEqual(len(core_files), 11, core_files)
+        # 15: events/0015_practice_participant (issue #49). 12: core/0012_scheduler_heartbeat, one new table for the
+        # scheduler's heartbeat (issue #80). A new one here is a reviewed, additive change.
+        self.assertEqual(len(core_files), 12, core_files)
         self.assertEqual(len(events_files), 15, events_files)
         self.assertEqual(
             sorted(p.name for p in (REPO / "people" / "migrations").glob("0*.py")),
