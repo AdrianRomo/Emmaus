@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 from events.models import Event, normalize_name
 from events.services import throttle
 from groups.views import church_admin_view, community_view
-from people import flags
+from people import flags, policy
 from people.models import Person
 
 from . import services
@@ -203,7 +203,9 @@ def page_edit(request, slug: str):
     event = _event(request, slug)
     page = EventPage.objects.filter(event=event).first()
     was_published = bool(page and page.published)
-    form = EventPageForm(request.POST or None, instance=page or EventPage(event=event), event=event)
+    form = EventPageForm(request.POST or None, instance=page or EventPage(event=event, requires_guardian_consent=policy.minors_consent_default(event.church)),
+        event=event,
+    )
     if request.method == "POST" and form.is_valid():
         try:
             saved = services.save_page(event, request.user, **form.cleaned_data)

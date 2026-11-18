@@ -11,13 +11,14 @@ nothing left to do. It prints counts and never a name. Nothing schedules it: an 
 
 from datetime import date
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models import Count
 from django.utils import timezone
 
+from core.models import Church
 from groups.models import GroupAttendance, GroupMeeting
+from people import policy
 
 
 def months_before(day: date, months: int) -> date:
@@ -33,10 +34,11 @@ def months_before(day: date, months: int) -> date:
     raise ValueError("No such month.")  # pragma: no cover
 
 
-def prune(today: date, *, apply: bool) -> dict[str, int]:
-    """Counts of what is (or would be) done. One transaction when ``apply``."""
-    identifiable = settings.EMMAUS_ATTENDANCE_IDENTIFIABLE_MONTHS
-    aggregate = settings.EMMAUS_ATTENDANCE_AGGREGATE_MONTHS
+def prune(today: date, *, apply: bool, church=None) -> dict[str, int]:
+    """Counts of what is (or would be) done. One transaction when ``apply``. With ``church``, only
+    its groups and by its own periods (``people.policy.attendance_retention``); without, every
+    group by the product's periods."""
+    identifiable, aggregate = policy.attendance_retention(church)
     if identifiable < 1 or aggregate < identifiable:
         raise CommandError(
             "Revisa EMMAUS_ATTENDANCE_IDENTIFIABLE_MONTHS y EMMAUS_ATTENDANCE_AGGREGATE_MONTHS: "
@@ -45,10 +47,12 @@ def prune(today: date, *, apply: bool) -> dict[str, int]:
     names_before = months_before(today, identifiable)
     meetings_before = months_before(today, aggregate)
     with transaction.atomic():
-        expired = GroupMeeting.objects.filter(date__lt=meetings_before)
-        aged = GroupMeeting.objects.filter(date__lt=names_before, date__gte=meetings_before, present_kept__isnull=True)
+        meetings = GroupMeeting.objects.filter(group__church=church) if church is not None else GroupMeeting.objects.all()
+        rows = GroupAttendance.objects.filter(meeting__group__church=church) if church is not None else GroupAttendance.objects.all()
+        expired = meetings.filter(date__lt=meetings_before)
+        aged = meetings.filter(date__lt=names_before, date__gte=meetings_before, present_kept__isnull=True)
         to_totals = list(aged.select_for_update().order_by("id"))
-        names = GroupAttendance.objects.filter(
+        names = rows.filter(
             meeting__date__lt=names_before, meeting__date__gte=meetings_before, meeting__present_kept__isnull=True
         )
         came = dict(names.values_list("meeting_id").annotate(total=Count("id")).order_by())
@@ -56,7 +60,7 @@ def prune(today: date, *, apply: bool) -> dict[str, int]:
             "meetings_to_totals": len(to_totals),
             "names_deleted": sum(came.values()),
             "meetings_deleted": expired.count(),
-            "names_deleted_with_meetings": GroupAttendance.objects.filter(meeting__date__lt=meetings_before).count(),
+            "names_deleted_with_meetings": rows.filter(meeting__date__lt=meetings_before).count(),
         }
         if apply:
             # The names go and the totals are written in the same transaction: a meeting never loses both.
@@ -80,14 +84,19 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         apply = opts["apply"]
-        result = prune(timezone.localdate(), apply=apply)
+        today = timezone.localdate()
         verb = "Se hizo" if apply else "Se haría (ensayo: no se escribió nada; usa --apply para aplicarlo)"
         self.stdout.write(f"{verb}:")
-        self.stdout.write(
-            f"  Reuniones de más de {settings.EMMAUS_ATTENDANCE_IDENTIFIABLE_MONTHS} meses que conservan solo sus totales: "
-            f"{result['meetings_to_totals']} (registros de quién vino borrados: {result['names_deleted']})"
-        )
-        self.stdout.write(
-            f"  Reuniones de más de {settings.EMMAUS_ATTENDANCE_AGGREGATE_MONTHS} meses borradas: "
-            f"{result['meetings_deleted']} (registros de quién vino borrados con ellas: {result['names_deleted_with_meetings']})"
-        )
+        # Church by church: each one keeps its attendance for its own periods (Políticas de la iglesia).
+        for church in Church.objects.order_by("id"):
+            identifiable, aggregate = policy.attendance_retention(church)
+            result = prune(today, apply=apply, church=church)
+            self.stdout.write(f"  Iglesia {church.pk}:")
+            self.stdout.write(
+                f"    Reuniones de más de {identifiable} meses que conservan solo sus totales: "
+                f"{result['meetings_to_totals']} (registros de quién vino borrados: {result['names_deleted']})"
+            )
+            self.stdout.write(
+                f"    Reuniones de más de {aggregate} meses borradas: "
+                f"{result['meetings_deleted']} (registros de quién vino borrados con ellas: {result['names_deleted_with_meetings']})"
+            )

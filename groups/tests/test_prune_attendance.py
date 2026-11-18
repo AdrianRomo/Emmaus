@@ -9,7 +9,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from groups import services
-from groups.management.commands.prune_attendance import months_before
+from groups.management.commands.prune_attendance import months_before, prune
+from people import policy
 from groups.models import GroupAttendance, GroupMeeting
 
 from .base import CommunityFixture
@@ -51,7 +52,9 @@ class PruneAttendanceTests(CommunityFixture):
         output = run()
         self.assertEqual(self.state(), before)
         self.assertIn("ensayo", output)
-        self.assertIn("solo sus totales: 3 (registros de quién vino borrados: 3)", output)
+        # Church by church, each by its own periods (people.policy.attendance_retention)
+        self.assertIn("solo sus totales: 2 (registros de quién vino borrados: 2)", output)
+        self.assertIn("solo sus totales: 1 (registros de quién vino borrados: 1)", output)
         self.assertIn("meses borradas: 1 (registros de quién vino borrados con ellas: 1)", output)
 
     def test_apply_keeps_the_totals_and_deletes_the_names(self):
@@ -124,3 +127,19 @@ class PruneAttendanceTests(CommunityFixture):
         self.client.force_login(self.member_user)
         html = self.client.get(reverse("community:group_detail", args=[self.group.pk])).content.decode()
         self.assertEqual((html.count("<strong>Fuiste</strong>"), html.count("No fuiste")), (1, 0))
+
+
+class PruneByChurchPolicyTests(PruneAttendanceTests):
+    """A church that chose to keep names for fewer months loses them sooner; the other church does not."""
+
+    def test_each_church_follows_its_own_periods(self):
+        from policies.models import ChurchPolicy
+
+        ChurchPolicy.objects.create(church=self.recent.group.church, attendance_identifiable_months=6, attendance_aggregate_months=12)
+        policy.forget(self.recent.group.church)
+        other_before = GroupAttendance.objects.filter(meeting=self.other_church).count()
+        result = prune(timezone.localdate(), apply=False, church=self.other_church.group.church)
+        self.assertEqual(result["meetings_to_totals"], 1)
+        mine = prune(timezone.localdate(), apply=False, church=self.recent.group.church)
+        self.assertGreaterEqual(mine["meetings_deleted"], 1)
+        self.assertEqual(GroupAttendance.objects.filter(meeting=self.other_church).count(), other_before)
