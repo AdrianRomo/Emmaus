@@ -12,12 +12,14 @@
   {% url 'community:home' as back %}{% url 'resources:media_list' as all %}
   {% include "events/rotulo/_page_head.html" with title="Recursos" lede="Predicaciones, música y estudios de tu iglesia. Cada uno se abre en el sitio donde está publicado." back_url=back back_label="Volver a Mi iglesia" %}
   <form method="get" action="{{ all }}" role="search">
-    <label for="resource-search">Buscar por título, persona o serie</label>
-    <input id="resource-search" type="search" name="q" maxlength="160" value="{{ query }}">
+    <label class="label" for="resource-search">Buscar por título, persona o serie</label>
+    <div class="list-search">
+      <input class="input" id="resource-search" type="search" name="q" maxlength="160" value="{{ query }}" autocomplete="off" spellcheck="false">
+      <button class="btn btn--secondary" type="submit">Buscar</button>
+    </div>
     {% if chosen %}<input type="hidden" name="tipo" value="{{ chosen }}">{% endif %}
     {% if series %}<input type="hidden" name="serie" value="{{ series }}">{% endif %}
-    <button class="btn btn--secondary" type="submit">Buscar</button>
-    {% if query or chosen %}<a href="{{ all }}">Ver todos los recursos</a>{% endif %}
+    {% if query or chosen %}<p class="more"><a href="{{ all }}">Ver todos los recursos</a></p>{% endif %}
   </form>
   {% if series %}
     <div class="notice notice--quiet"><p>Estás viendo la serie «{{ series }}». <a href="{{ all }}">Ver todos los recursos</a></p></div>
