@@ -9,16 +9,12 @@
       <h2 id="t-interrumpidas" class="heading">Entrevistas interrumpidas <span class="count">{{ stale|length }}</span></h2>
       <p class="hint">Llevan {% stale_minutes %} minutos o más sin cambios.</p>
       {% if stale %}
-        <ul class="rows">{% for iv in stale %}
-          <li class="row">
-            <div class="row__main">
-              <p class="row__title">{{ iv.participant.full_name }}</p>
-              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, {{ iv.station.name|default:"computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
-            </div>
-            {% status "en_curso" "Interrumpida" %}
-          </li>
-        {% endfor %}</ul>
-        <p class="aside-note">Pide al coordinador que la retome desde “Mi inicio”. Si no puede, la administración la puede liberar.</p>
+        {% comment %}Per coordinador (issue #47), the one waiting longest first. Only who conducts interviews gets "Retomar" and "Descartar" (the administración here; each coordinador on "Mi inicio").{% endcomment %}
+        {% for group in stale_groups %}
+          <h3 class="heading mt-6">{% if group.coordinator %}<a href="{% url 'events:coordinator_detail' event.slug group.coordinator.id %}">{{ group.coordinator.display_name }}</a>{% else %}Sin coordinador{% endif %} <span class="count">{{ group.rows|length }}</span></h3>
+          {% include "events/rotulo/_interrupted_rows.html" with rows=group.rows %}
+        {% endfor %}
+        <p class="aside-note">{% if access.can_conduct_interviews %}Retómalas o descártalas aquí, o pide a su coordinador que lo haga desde “Mi inicio”. Nada se descarta solo.{% else %}Pide a cada coordinador que las retome o las descarte desde “Mi inicio”. Si no puede, la administración lo hace desde su inicio.{% endif %}</p>
       {% else %}<p class="empty-line">No hay entrevistas interrumpidas.</p>{% endif %}
     </section>
 

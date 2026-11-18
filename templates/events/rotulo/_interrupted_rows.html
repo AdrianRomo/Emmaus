@@ -1,0 +1,23 @@
+{% load emmaus %}
+{% comment %}
+  Interviews left half done (issue #47): who, where and since when, and for whoever may conduct interviews
+  (coordinador, administración) the two actions that already existed: "Retomar" (interview_resume) and "Descartar"
+  (interview_discard, which asks for the reason and confirms). Nothing here discards by itself.
+  rows: Interview with participant, station and version; each has ``stalled`` (metrics.mark_stalled).
+  show_coordinator: name the campero's coordinador (the lists a leader reads).
+{% endcomment %}
+<ul class="rows">{% for iv in rows %}
+  <li class="row row--stack">
+    <div class="row__main">
+      <p class="row__title">{{ iv.participant.full_name }}</p>
+      <p class="row__meta">{% if show_coordinator %}{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, {% endif %}{{ iv.station.name|default:"computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
+    </div>
+    <div class="row__end">
+      {% if iv.stalled %}{% status "en_curso" "Interrumpida" %}{% else %}{% status "en_curso" %}{% endif %}
+      {% if access.can_conduct_interviews and iv.participant.is_active %}
+        <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+        <a class="btn btn--danger-outline btn--small" href="{% url 'events:interview_discard' event.slug iv.public_id %}">Descartar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+      {% endif %}
+    </div>
+  </li>
+{% endfor %}</ul>

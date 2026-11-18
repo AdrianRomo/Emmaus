@@ -31,7 +31,7 @@ from ..services import audit
 from ..services import event_questionnaires as eq
 from ..services import follow_ups as follow_up_svc
 from ..services import welcome as welcome_svc
-from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews, sum_rows
+from ..services.metrics import build_payload, coordinator_scope, local_tz, mark_stalled, scope_for_access, stale_interviews, sum_rows
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
 from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, safe_next
@@ -195,7 +195,12 @@ def interviews(request, event, access):
 @event_view(TUTOR, PASTOR, ADMIN)
 def pending(request, event, access):
     participants = access.participants()
+    # Grouped by coordinador, the one with the oldest first (issue #47); a tutor's ``participants`` are their team's.
     stale = stale_interviews(participants).select_related("participant__coordinator__user", "conducted_by", "station", "version")
+    by_coordinator: dict = {}
+    for interview in mark_stalled(stale.order_by("last_activity_at")):
+        by_coordinator.setdefault(interview.participant.coordinator, []).append(interview)
+    stale_groups = [{"coordinator": coordinator, "rows": rows} for coordinator, rows in by_coordinator.items()]
     in_progress = access.interviews().filter(status=Interview.Status.IN_PROGRESS).exclude(pk__in=stale.values("pk"))
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
@@ -226,6 +231,7 @@ def pending(request, event, access):
         "events/supervision/pending.html",
         {
             "stale": stale,
+            "stale_groups": stale_groups,
             "in_progress": in_progress,
             "to_evaluate": to_evaluate,
             "follow_ups": follow_ups,
@@ -695,6 +701,9 @@ def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state
     return steps
 
 
+STALLED_SHOWN = 10  # the administration home lists the oldest ones; "Pendientes" has them all
+
+
 @event_view(ADMIN)
 def admin_home(request, event, access):
     payload = build_payload(scope_for_access(access), include_safety=True)
@@ -753,6 +762,10 @@ def admin_home(request, event, access):
         "stations": event.stations.filter(is_active=True).count(),
         "pending_requests": AccessRequest.objects.filter(event=event, status=AccessRequest.Status.PENDING).count(),
     }
+    # Interviews left half done, to resolve before the event ends (issue #47; events/admin/_stalled_interviews.html)
+    stalled = stale_interviews(access.participants()).select_related("participant__coordinator__user", "station", "version")
+    context["stalled_total"] = stalled.count()
+    context["stalled_interviews"] = mark_stalled(stalled.order_by("last_activity_at")[:STALLED_SHOWN]) if context["stalled_total"] else []
     # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)
     steps = _preparation_steps(
         event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,
