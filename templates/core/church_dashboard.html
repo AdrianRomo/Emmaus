@@ -140,7 +140,7 @@
       {% include "core/rotulo/_titulo_lista.html" with id="notas" title="Notas recientes" url=notes_url link="Ver todas" link_hidden=" las notas pastorales" %}
       <ul class="rows">
         {% for note in recent_notes %}
-          <li class="row">
+          <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}{% monogram note.participant.get_full_name|default:note.participant.email "sm" %}{% endif %}
             <div class="row__main">
               <p class="row__title">{{ note.participant.get_full_name|default:note.participant.email }}</p>
               <p class="row__meta">{{ note.body|truncatewords:16 }}</p>

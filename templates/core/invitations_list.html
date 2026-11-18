@@ -8,7 +8,8 @@
   One row per invitation: the e-mail, its role (and mentor, for a participant), when it was sent and its state. A
   pending one's personal link stays folded under "Ver enlace": a readonly field to read or select it, and "Copiar
   enlace" (emmaus.js copies the value of the element whose id is in data-copy; without a clipboard it selects it).
-  Used or expired links are not in the page at all.
+  Used or expired links are not in the page at all. With the redesign each row is led by the circle of the person
+  invited (the row specification).
 {% endcomment %}
 <section class="disc-list disc-invites" aria-labelledby="lista">
   {% if rows %}
@@ -17,7 +18,7 @@
     <ul class="rows">
       {% for row in rows %}
         {% with invitation=row.invitation %}
-        <li class="row row--stack">
+        <li class="row{% if ui_v2 %} row--lead{% endif %} row--stack">{% if ui_v2 %}{% monogram invitation.email %}{% endif %}
           <div class="row__main">
             <p class="row__title">{{ invitation.email }}</p>
             {% if ui_v2 %}

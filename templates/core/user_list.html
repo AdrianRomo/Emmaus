@@ -22,7 +22,7 @@
         <ul class="rows">
           {% for role in group.list %}{% with account=role.user name=role.user.get_full_name %}
             <li class="row{% if ui_v2 %} row--lead{% endif %}">
-              {% if ui_v2 %}{% monogram name|default:account.email "sm" %}{% endif %}
+              {% if ui_v2 %}{% monogram name|default:account.email %}{% endif %}
               <div class="row__main">
                 <p class="row__title break-anywhere">{{ name|default:account.email }}</p>
                 {% if name %}{% if ui_v2 %}<ul class="meta"><li class="break-anywhere">{% icon "correo" "sm" %}{{ account.email }}</li></ul>{% else %}<p class="row__meta">{{ account.email }}</p>{% endif %}{% endif %}
