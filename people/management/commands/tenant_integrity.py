@@ -62,7 +62,7 @@ class Check:
 @dataclass(frozen=True)
 class Result:
     check: Check
-    checked: int
+    checked: int | None  # None: a private table whose size is not printed
     mismatched: int
     ids: tuple = ()  # primary keys of the first rows that disagree, only with --ids
 
@@ -194,8 +194,13 @@ def collect(with_ids: bool = False) -> list[Result]:
         if with_ids and mismatched:
             mismatch = check.mismatch if check.applies is None else check.applies & check.mismatch
             ids = tuple(check.model._base_manager.filter(mismatch).order_by("pk").values_list("pk", flat=True)[:ID_LIMIT])
-        results.append(Result(check, counts[f"{check.key}_checked"], mismatched, ids))
+        # What a person reads is theirs alone: the size of those tables is not printed, even to who operates Emmaus.
+        checked = None if check.key in PRIVATE_SIZES else counts[f"{check.key}_checked"]
+        results.append(Result(check, checked, mismatched, ids))
     return results
+
+
+PRIVATE_SIZES = frozenset({"devotional_read_person_church", "reading_plan_progress_person_church", "reading_plan_day_read_plan"})
 
 
 class Command(BaseCommand):
@@ -257,7 +262,7 @@ class Command(BaseCommand):
         self.stdout.write("Integridad entre iglesias y eventos (solo lectura, solo conteos)")
         self.stdout.write(f"  {'Revisión':<{width}}  {'Revisados':>9}  {'Discrepancias':>13}  Estado")
         for r in results:
-            self.stdout.write(f"  {label(r):<{width}}  {r.checked:>9}  {r.mismatched:>13}  {status(r)}")
+            self.stdout.write(f"  {label(r):<{width}}  {"—" if r.checked is None else r.checked:>9}  {r.mismatched:>13}  {status(r)}")
             if r.ids:
                 more = "" if r.mismatched <= len(r.ids) else f" (los primeros {len(r.ids)})"
                 table = r.check.model._meta.label

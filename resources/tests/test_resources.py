@@ -562,3 +562,12 @@ class WhoMayTests(ResourcesFixture):
             response = self.client.get(url)
             self.assertIn(response.status_code, (302, 404), url)
             self.assertNotContains(response, "La vid verdadera", status_code=response.status_code)
+
+
+class SeriesFilterNulTests(ResourcesFixture):
+    def test_a_nul_in_the_series_filter_is_dropped(self):
+        """PostgreSQL refuses NUL in a text parameter: the filter must never carry one (review of wave 8)."""
+        self.client.force_login(self.member_user)
+        response = self.client.get(MEDIA, {"serie": "Car\x00tas"})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("\x00", response.context["series"])

@@ -130,7 +130,7 @@ class TenantIntegrityTests(CampFixture):
         self.assertEqual(code, 0)
         for key in ("participant_sede_church", "participant_coordinator_event", "snapshot_tutor_event", *WARNING_KEYS):
             entry = payload["checks"][key]
-            self.assertEqual((entry["checked"], entry["mismatched"]), (0, 0), key)
+            self.assertEqual((entry["checked"] or 0, entry["mismatched"]), (0, 0), key)
 
     def test_runs_in_one_query_per_table(self):
         tables = {check.model for check in checks()}

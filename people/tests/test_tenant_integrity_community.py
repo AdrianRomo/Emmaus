@@ -22,6 +22,7 @@ from groups.tests.base import CommunityFixture
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.management.commands.tenant_integrity import ID_LIMIT, camp_checks, checks, community_checks
 from people.models import CampusAffiliation, EventParticipantLink, Person
+from people.management.commands.tenant_integrity import PRIVATE_SIZES
 from resources.models import (
     Devotional, DevotionalRead, MediaItem, ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress,
 )
@@ -189,6 +190,9 @@ class CommunityIntegrityTests(CommunityFixture):
         self.assertEqual(code, 0)
         self.assertEqual(mismatches(payload), dict.fromkeys(ALL_KEYS, 0))
         for key in KEYS:
+            if key in PRIVATE_SIZES:  # what a person reads: the table's size is never printed
+                self.assertIsNone(payload["checks"][key]["checked"], key)
+                continue
             self.assertGreater(payload["checks"][key]["checked"], 0, key)
         self.assertEqual((payload["ok"], payload["errors"], payload["warnings"]), (True, 0, 0))
         out, message, code = run_integrity("--ids")
@@ -345,7 +349,7 @@ class EmptyDatabaseTests(TestCase):
         self.assertEqual((code, payload["ok"], payload["errors"], payload["warnings"]), (0, True, 0, 0))
         self.assertEqual(list(payload["checks"]), ALL_KEYS)
         for key, entry in payload["checks"].items():
-            self.assertEqual((entry["checked"], entry["mismatched"]), (0, 0), key)
+            self.assertEqual((entry["checked"] or 0, entry["mismatched"]), (0, 0), key)
         out, message, code = run_integrity()
         self.assertEqual((message, code), ("", 0))
         self.assertIn("Resultado: sin discrepancias.", out)

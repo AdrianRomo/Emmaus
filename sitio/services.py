@@ -72,8 +72,10 @@ class Content:
             self.church.name, self.church.contact_email, self.home.welcome, self.home.address, self.home.map_url,
             self.home.contact_phone,
             *(f"{t.pk}|{t.weekday}|{t.time}|{t.name}|{t.place}|{t.position}" for day in self.days for t in day["times"]),
-            *(f"e{event.pk}|{event.name}|{event.starts_on}|{event.ends_on}" for event in self.events),
-            *(f"m{item.pk}|{item.title}|{item.speaker}|{item.series}|{item.date}|{item.url}" for item in self.media),
+            bool(getattr(self.church, "logo", None)),
+            *(f"e{event.pk}|{event.name}|{event.starts_on}|{event.ends_on}|{event.location}|{getattr(getattr(event, 'page', None), 'starts_at', '')}"
+              for event in self.events),
+            *(f"m{item.pk}|{item.kind}|{item.title}|{item.speaker}|{item.series}|{item.date}|{item.url}" for item in self.media),
         ]
         return hashlib.sha256("\x1f".join(str(part) for part in parts).encode()).hexdigest()
 
