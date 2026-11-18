@@ -1,14 +1,19 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Aceptar invitación{% endblock %}
 {% block content %}
-<div class="narrow">
+{% comment %}
+  The link of an invitation (core.views.accept_invitation). What it grants is said as three facts, not as
+  sentences: the church, the role and the e-mail the person will sign in with (it cannot be changed here). A
+  participant also reads what the church uses Emmaus for, and accepts the two notices of the form.
+{% endcomment %}
+<div class="narrow door">
   {% include "partials/ui/error_summary.html" with form=form %}
-  <header class="page-head">
-    <h1 class="voice page-head__title">Acepta tu invitación a Emmaus</h1>
-    <p class="lede">Vas a entrar con el rol de <strong>{{ invitation.get_role_display }}</strong>. Cuando crees tu contraseña, Emmaus te llevará a tu espacio.</p>
-    <p class="page-head__meta">Invitación de {{ invitation.church.name }}.</p>
-  </header>
-  <p>Vas a entrar con el correo <strong>{{ invitation.email }}</strong> y la contraseña que elijas aquí.</p>
+  {% include "events/rotulo/_page_head.html" with title="Acepta tu invitación" %}
+  <dl class="summary-list">
+    <div class="summary-list__row"><dt>Iglesia</dt><dd>{{ invitation.church.name }}</dd></div>
+    <div class="summary-list__row"><dt>Tu rol</dt><dd>{{ invitation.get_role_display }}</dd></div>
+    <div class="summary-list__row"><dt>Tu correo</dt><dd class="break-anywhere">{{ invitation.email }}</dd></div>
+  </dl>
   {% if invitation.role == "participant" %}
     <div class="notice">
       <p>Tu iglesia puede usar Emmaus para guiarte en las lecciones, recibir tus preguntas y coordinar un acompañamiento personal con líderes de confianza.</p>

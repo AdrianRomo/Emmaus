@@ -1,12 +1,17 @@
 {% extends "base.html" %}
+{% load shell %}
 {% block page_title %}Personas con acceso{% endblock %}
 {% block content %}
+{% comment %}
+  Who holds a role in this church (core.views.user_list), grouped by role with its count. A person is their name
+  and the e-mail they sign in with; an account with no name is its e-mail, said once.
+{% endcomment %}
 {% url 'create_invitation' as invite_url %}
 {% if is_church_admin %}
   {% url 'church_settings' as back_url %}
-  {% include "events/rotulo/_page_head.html" with title="Personas con acceso" lede="Pastores, mentores, administración y participantes vinculados a tu iglesia." back_url=back_url back_label="Configuración" action_url=invite_url action_label="Invitar a una persona" %}
+  {% include "events/rotulo/_page_head.html" with title="Personas con acceso" back_url=back_url back_label="Configuración" action_url=invite_url action_label="Invitar a una persona" %}
 {% else %}
-  {% include "events/rotulo/_page_head.html" with title="Personas con acceso" lede="Pastores, mentores, administración y participantes vinculados a tu iglesia." action_url=invite_url action_label="Invitar a una persona" %}
+  {% include "events/rotulo/_page_head.html" with title="Personas con acceso" action_url=invite_url action_label="Invitar a una persona" %}
 {% endif %}
 {% if roles %}
   {% regroup roles by get_role_display as groups %}
@@ -15,11 +20,12 @@
       <section class="block" aria-labelledby="rol-{{ forloop.counter }}">
         <h2 id="rol-{{ forloop.counter }}" class="heading">{{ group.grouper }} <span class="count">{{ group.list|length }}</span></h2>
         <ul class="rows">
-          {% for role in group.list %}{% with account=role.user %}
-            <li class="row">
+          {% for role in group.list %}{% with account=role.user name=role.user.get_full_name %}
+            <li class="row{% if ui_v2 %} row--lead{% endif %}">
+              {% if ui_v2 %}{% monogram name|default:account.email "sm" %}{% endif %}
               <div class="row__main">
-                <p class="row__title">{{ account.get_full_name|default:account.email }}</p>
-                <p class="row__meta">{{ account.email }}</p>
+                <p class="row__title break-anywhere">{{ name|default:account.email }}</p>
+                {% if name %}{% if ui_v2 %}<ul class="meta"><li class="break-anywhere">{% icon "correo" "sm" %}{{ account.email }}</li></ul>{% else %}<p class="row__meta">{{ account.email }}</p>{% endif %}{% endif %}
               </div>
             </li>
           {% endwith %}{% endfor %}
@@ -28,6 +34,6 @@
     {% endfor %}
   </div>
 {% else %}
-  <p class="empty-line">Todavía no hay personas. Invita a líderes y participantes para empezar a usar Emmaus.</p>
+  <p class="empty-line">Sin personas todavía.</p>
 {% endif %}
 {% endblock %}

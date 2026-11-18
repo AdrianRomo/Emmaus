@@ -927,7 +927,93 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* end: panorama-opiniones-politicas-sitio */
 
 /* area: cuenta-puertas */
+/* The doors (section 13 names them): sign-in, a forgotten password, joining with a code, an invitation, an error.
+   Signed out there is no shell, so <main> is not .page--app: the wordmark or the church's logo in the middle, one
+   white sheet with one thing to do, and what is secondary, quiet, under it (.door-foot). Signed in, the same
+   templates are pages of the shell and take none of this. A sheet is an .auth-card (Atrio's one-column page) or,
+   for a page Atrio draws on the left (.narrow), a .door. */
+:root[data-ui="2"] body:has(> main:not(.page--app) > :is(.auth-card, .door)) > .bar--public { background: none; border-bottom: 0; }
+:root[data-ui="2"] body:has(> main:not(.page--app) > :is(.auth-card, .door)) > .bar--public .bar__inner {
+  justify-content: center; min-height: 0; padding-block: var(--s-12) 0;
+}
+/* Each door says its own way in where there is one: the bar's "Entrar" beside the wordmark would be a second */
+:root[data-ui="2"] body:has(> main:not(.page--app) > :is(.auth-card, .door)) > .bar--public .bar__end { display: none; }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card:not(.auth-card--left, .door-foot), .door) {
+  max-width: 30rem; margin-inline: auto; padding: var(--s-8);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel);
+}
+/* The church's logo leads sign-in and the landing from inside the card (base.html then draws no bar): it stands
+   above the sheet, where the wordmark stands on every other door. 4.5rem is the slot's height (.brand__logo--auth). */
+:root[data-ui="2"] main:not(.page--app) > .auth-card:has(> .auth-card__brand) { position: relative; margin-top: calc(4.5rem + var(--s-6)); }
+:root[data-ui="2"] main:not(.page--app) > .auth-card > .auth-card__brand { position: absolute; inset: auto 0 calc(100% + var(--s-6)) 0; margin: 0; }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .page-head { margin-bottom: var(--s-6); }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) :is(.page-head__title, .confirm__title) {
+  font-size: clamp(1.75rem, 1.5rem + 1.2vw, 2.25rem); line-height: 1.1; max-width: none;
+}
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) :is(.lede, .confirm__text) { font-size: var(--t-body); color: var(--ink-2); max-width: none; }
+/* One filled button, as wide as the fields; what else can be done is a centred line under it */
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .step__actions { flex-direction: column; align-items: stretch; gap: var(--s-2); margin-top: var(--s-8); }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .page-head + .step__actions { margin-top: 0; }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .btn--primary { width: 100%; }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .auth-card__link { display: flex; justify-content: center; text-align: center; }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .search { flex-direction: column; max-width: none; }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .field:last-child { margin-bottom: 0; }
+/* Done (a request sent, a password ready): the sheet with nopal's mark, not Atrio's filled panel inside a sheet */
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .confirm { margin: 0; padding: 0; border-radius: 0; background: none; color: var(--ink); }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .confirm__title::before {
+  content: ""; display: block; width: 2.5rem; height: 2.5rem; margin: 0 0 var(--s-3) -0.25rem; background: var(--nopal);
+  -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat;
+}
+/* Under the sheet: a safety note, the other way in, the way back. Read last, never in the way. */
+:root[data-ui="2"] main:not(.page--app) > .door-foot { margin-top: var(--s-5); padding-inline: var(--s-4); text-align: center; }
+:root[data-ui="2"] main:not(.page--app) > .door-foot .aside-note { max-width: none; margin-top: var(--s-2); }
+/* Padding on an inline box widens the target and moves no line (as Atrio's .more a) */
+:root[data-ui="2"] main:not(.page--app) > .door-foot a { padding-block: 0.375rem; font-weight: 700; }
+:root[data-ui="2"] main:not(.page--app) > .door-foot .rows { margin-top: 0; }
+:root[data-ui="2"] main:not(.page--app) > .door-foot .row {
+  justify-content: center; min-height: 0; padding: var(--s-2) 0; border-bottom: 0; font-size: var(--t-small); color: var(--ink-2);
+}
+:root[data-ui="2"] main:not(.page--app) > .door-foot .rows + .aside-note { margin-top: var(--s-4); padding-top: var(--s-4); border-top: 1px solid var(--line); }
+@media (max-width: 600px) {
+  :root[data-ui="2"] body:has(> main:not(.page--app) > :is(.auth-card, .door)) > .bar--public .bar__inner { padding-block: var(--s-8) 0; }
+  :root[data-ui="2"] main:not(.page--app) > :is(.auth-card:not(.auth-card--left, .door-foot), .door) { padding: var(--s-6) var(--s-5); }
+}
+/* The same templates inside the shell (changing the password, the code of an event, an error): a page like the
+   others, on the line every page starts on */
+:root[data-ui="2"] .page--app > .auth-card { margin-inline: 0; }
 
+/* Mi cuenta: on a wide screen the rail says "Cerrar sesión" beside the page; on a phone it is inside "Más", so the
+   page ends with it */
+@media (min-width: 761px) {
+  :root[data-ui="2"] .account-out { display: none; }
+}
+
+/* Ayuda: one sheet of questions; each opens in place. The question is the handle, its chevron at the end. */
+:root[data-ui="2"] .help { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+:root[data-ui="2"] .help > .fold + .fold { border-top: 1px solid var(--line); }
+:root[data-ui="2"] .help > .fold > summary {
+  flex-direction: row-reverse; justify-content: space-between; min-height: 3.5rem; padding: var(--s-3) var(--s-4);
+  font-size: var(--t-body); font-weight: 600; color: var(--ink); transition: background-color var(--dur-1) var(--ease);
+}
+:root[data-ui="2"] .help > .fold > summary:hover { background: var(--hover); }
+:root[data-ui="2"] .help > .fold > summary:focus-visible { outline-offset: -3px; }
+:root[data-ui="2"] .help > .fold > summary::before { width: 1.125rem; height: 1.125rem; background: var(--line-strong); }
+:root[data-ui="2"] .help > .fold[open] > summary { font-weight: 700; }
+:root[data-ui="2"] .help > .fold > :not(summary) { margin: 0 var(--s-4) var(--s-3); max-width: 60ch; }
+:root[data-ui="2"] .help > .fold > :last-child { margin-bottom: var(--s-5); }
+:root[data-ui="2"] .help .promises { gap: var(--s-3); }
+:root[data-ui="2"] .help .promises li { font-size: var(--t-body); }
+:root[data-ui="2"] .help + .aside-note { margin-top: var(--s-5); }
+
+/* Configuración de la iglesia: the contrast rule of a group of colours, said once under the group */
+:root[data-ui="2"] .theme-colors { margin-top: var(--s-4); }
+:root[data-ui="2"] .theme-colors__rule { margin: 0 0 var(--s-3); max-width: 60ch; }
+:root[data-ui="2"] .form-section > .fold:last-child { margin-bottom: var(--s-2); }
+
+@media (forced-colors: active) {
+  :root[data-ui="2"] .help > .fold > summary::before,
+  :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .confirm__title::before { background: CanvasText; }
+}
 /* end: cuenta-puertas */
 
 /* area: discipulado */

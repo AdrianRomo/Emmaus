@@ -4,61 +4,73 @@
 {% comment %}
   "Ayuda" outside an event (audit UX-17): base.html's bar links here for everyone signed in, with or without a church
   role. Inside an event the bar links the event's own help (events/ayuda.html), five tasks for that role.
+  Help is found, not read: one folded question per task (<details class="fold">), the commonest first: the church's
+  tasks where the church uses the community module, the way in and the events everywhere else. It names only the
+  places of the navigation, never a button of another screen, so a renamed button cannot make it lie.
 {% endcomment %}
 <div class="narrow">
-  {% include "events/rotulo/_page_head.html" with title="Ayuda" lede="Lo más común en Emmaus, en pocos pasos." %}
-  <section class="block" aria-labelledby="tarea-entrar">
-    <h2 id="tarea-entrar" class="heading">Entra y sal de Emmaus</h2>
+  {% include "events/rotulo/_page_head.html" with title="Ayuda" %}
+  <div class="help">
+  {% if community_on %}
+  <details class="fold" id="tarea-grupo">
+    <summary>Únete a un grupo de la iglesia</summary>
+    <ol class="promises">
+      <li>Toca “Grupos” en el menú; en un celular está abajo.</li>
+      <li>Abre el grupo que te interese y pide unirte.</li>
+      <li>Quien guía el grupo te responde en “Mi iglesia”.</li>
+    </ol>
+    <p class="more"><a href="{% url 'community:groups' %}">Ver los grupos</a></p>
+  </details>
+  <details class="fold" id="tarea-datos">
+    <summary>Corrige tu teléfono o tu correo</summary>
+    <p>Están en “Mis datos”, con cómo prefieres que te contacten. Los ve quien guía tu grupo y la administración. Tu nombre lo corrige la administración.</p>
+    <p class="more"><a href="{% url 'community:profile' %}">Ir a Mis datos</a></p>
+  </details>
+  {% endif %}
+  <details class="fold" id="tarea-entrar">
+    <summary>Entra y sal de Emmaus</summary>
     <ol class="promises">
       <li>Escribe tu correo y tu contraseña, y toca “Entrar”.</li>
-      <li>Si olvidaste tu contraseña, toca “¿Olvidaste tu contraseña?” en la pantalla de entrada.</li>
+      <li>Si olvidaste tu contraseña, toca “¿Olvidaste tu contraseña?” en esa pantalla.</li>
       <li>Al terminar, toca “Cerrar sesión”, sobre todo en una computadora compartida.</li>
     </ol>
-  </section>
-  <section class="block" aria-labelledby="tarea-codigo">
-    <h2 id="tarea-codigo" class="heading">Únete a un evento con el código</h2>
+  </details>
+  <details class="fold" id="tarea-cuenta">
+    <summary>Cambia tu nombre o tu contraseña</summary>
+    <p>Están en “Mi cuenta”, con cada evento en el que participas y la bienvenida de tu rol.</p>
+    <p class="more"><a href="{% url 'account' %}">Ir a Mi cuenta</a></p>
+  </details>
+  {% if community_on %}
+  <details class="fold" id="tarea-guiar">
+    <summary>Si guías un grupo, responde las solicitudes</summary>
+    <p>Cuando alguien pide unirse lo ves en “Mi iglesia” y junto a tu grupo, en “A tu cargo”. Ahí están su teléfono y su correo: vale la pena hablar con la persona antes de no aceptarla.</p>
+    <p class="more"><a href="{% url 'community:home' %}">Ir a Mi iglesia</a></p>
+  </details>
+  {% endif %}
+  <details class="fold" id="tarea-codigo">
+    <summary>Únete a un evento con el código</summary>
     <ol class="promises">
       <li>Abre la dirección de la hoja, que termina en /unirme/, y escribe el código.</li>
-      <li>Revisa tu nombre y tu correo, elige qué vas a hacer y toca “Pedir acceso”.</li>
+      <li>Elige qué vas a hacer y toca “Pedir acceso”.</li>
       <li>Cuando la administración te dé acceso, el evento aparece en “Eventos”.</li>
     </ol>
     <p class="more"><a href="{% url 'join' %}">Escribir el código</a></p>
-  </section>
-  <section class="block" aria-labelledby="tarea-campamento">
-    <h2 id="tarea-campamento" class="heading">Elige el evento en “Eventos”</h2>
-    <p>{% if shell %}Toca “Eventos donde sirves” en el menú de la izquierda, bajo “A tu cargo”; en un celular está en “Más”.{% else %}Toca “Eventos” en la barra de arriba; en un celular está en “Menú”.{% endif %} Ahí están los eventos en los que participas. Toca el nombre del que vas a trabajar.</p>
+  </details>
+  {% if show_events_link or not shell %}
+  <details class="fold" id="tarea-campamento">
+    <summary>Abre un evento donde sirves</summary>
+    <p>{% if shell %}Toca “Eventos donde sirves”, bajo “A tu cargo”; en un celular está en “Más”.{% else %}Toca “Eventos” en la barra de arriba; en un celular está en “Menú”.{% endif %} Luego toca el nombre del evento.</p>
     <p class="more"><a href="{% url 'events:list' %}?todos=1">Ir a Eventos</a></p>
-  </section>
+  </details>
+  {% endif %}
   {% if current_church.discipleship_enabled %}
-  <section class="block" aria-labelledby="tarea-discipulado">
-    <h2 id="tarea-discipulado" class="heading">Sigue tu camino o acompaña a tus participantes</h2>
-    <p>Si participas, en “Mi camino” ves tu lección y haces tus preguntas.</p>
-    <p>Si acompañas, en “Inicio” ves a tus participantes y lo que preguntan.</p>
+  <details class="fold" id="tarea-discipulado">
+    <summary>Sigue tu camino o acompaña a tus participantes</summary>
+    <p>Si participas, en “Mi camino” ves tu lección y haces tus preguntas. Si acompañas, en “Inicio” ves a tus participantes y lo que preguntan.</p>
     <p class="more"><a href="{% url 'dashboard' %}">Ir al discipulado</a></p>
-  </section>
+  </details>
   {% endif %}
-  {% if community_on %}
-  <section class="block" aria-labelledby="tarea-grupo">
-    <h2 id="tarea-grupo" class="heading">Únete a un grupo de la iglesia</h2>
-    <ol class="promises">
-      <li>Toca “Grupos” en el menú de la izquierda; en un celular está abajo.</li>
-      <li>Abre el grupo que te interese y toca “Pedir unirme”.</li>
-      <li>Quien guía el grupo te responde. La respuesta aparece en “Mi iglesia”.</li>
-    </ol>
-    <p class="more"><a href="{% url 'community:groups' %}">Ver los grupos</a></p>
-  </section>
-  <section class="block" aria-labelledby="tarea-guiar">
-    <h2 id="tarea-guiar" class="heading">Si guías un grupo, responde las solicitudes</h2>
-    <p>Cuando alguien pide unirse, lo ves al entrar a “Mi iglesia” y junto al nombre de tu grupo, en “A tu cargo”. Toca “Ver solicitudes” y elige “Aceptar” o “No aceptar”. Ahí mismo están el teléfono y el correo de cada persona: vale la pena hablar con ella antes de no aceptarla.</p>
-    <p class="more"><a href="{% url 'community:home' %}">Ir a Mi iglesia</a></p>
-  </section>
-  <section class="block" aria-labelledby="tarea-datos">
-    <h2 id="tarea-datos" class="heading">Corrige tu teléfono o tu correo</h2>
-    <p>En “Mis datos” dices cómo te encuentra tu iglesia: tu teléfono, tu correo y cómo prefieres que te contacten. Los ve quien guía tu grupo y la administración. Tu nombre lo corrige la administración.</p>
-    <p class="more"><a href="{% url 'community:profile' %}">Ir a Mis datos</a></p>
-  </section>
-  {% endif %}
-  <p class="block">Tu nombre, tu contraseña, cada evento en el que participas y la bienvenida de tu rol están en <a href="{% url 'account' %}">Mi cuenta</a>.</p>
-  <p class="block">¿Algo no está aquí? Pregunta a {% if is_church_admin %}quien instaló Emmaus{% elif current_church %}la administración de tu iglesia{% else %}la administración del evento{% endif %}.</p>
+  </div>
+  <p class="aside-note">¿Algo no está aquí? Pregunta a {% if is_church_admin %}quien instaló Emmaus{% elif current_church %}la administración de tu iglesia{% else %}la administración del evento{% endif %}.</p>
 </div>
 {% endblock %}
