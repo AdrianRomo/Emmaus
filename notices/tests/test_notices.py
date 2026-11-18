@@ -48,7 +48,7 @@ class NoticeTests(CommunityFixture):
         page = self.client.get(CREATE)
         self.assertContains(page, "Toda la iglesia")
         self.assertContains(page, "Jóvenes Roca")
-        self.assertContains(page, "Emmaus no lo envía por correo")
+        self.assertNotContains(page, "Emmaus no lo envía por correo")
         response = self.client.post(CREATE, self.data("iglesia"), follow=True)
         notice = Announcement.objects.get()
         self.assertRedirects(response, detail(notice))

@@ -39,6 +39,11 @@ SUBJECTS: dict[str, str] = {
     "solicitud_contacto_recibida": "Emmaus: hay una solicitud de contacto nueva",
     # To whoever attends open follow-ups of an event (remind_follow_up_owners). Never how many, whose or why.
     "seguimientos_pendientes": "Emmaus: tienes seguimientos por atender",
+    # To a person a notice of their church is for, if they chose it (notices.email). Never its title, its
+    # text, its group or its author; an important notice uses the same words as a normal one.
+    "aviso_publicado": "Emmaus: hay un aviso nuevo de tu iglesia",
+    # The same for an urgent notice, and again when what it says changed. "Urgente" is all it tells.
+    "aviso_urgente": "Emmaus: hay un aviso urgente de tu iglesia",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.

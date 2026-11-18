@@ -25,7 +25,10 @@ TEMPLATES = Path(settings.BASE_DIR) / "templates" / "notify"
 LOCMEM = "django.core.mail.backends.locmem.EmailBackend"
 CONSOLE = "django.core.mail.backends.console.EmailBackend"
 
-KINDS = {"solicitud_grupo_recibida", "solicitud_grupo_decidida", "solicitud_contacto_recibida", "seguimientos_pendientes"}
+KINDS = {
+    "solicitud_grupo_recibida", "solicitud_grupo_decidida", "solicitud_contacto_recibida", "seguimientos_pendientes",
+    "aviso_publicado", "aviso_urgente",
+}
 LINK = "https://emmaus.example.org/grupos/solicitudes/"
 CONTEXT = {"church_name": "Iglesia Fe & Esperanza", "link": LINK}
 
@@ -58,6 +61,22 @@ EXPECTED_BODIES = {
         "Entra a Emmaus para ver cuáles son y atenderlos:\n\n"
         f"{LINK}\n\n"
         "Por privacidad, este correo no incluye nombres, motivos ni respuestas."
+    ),
+    "aviso_publicado": (
+        "Hola:\n\n"
+        "Hay un aviso nuevo para ti en Iglesia Fe & Esperanza. "
+        "Entra a Emmaus con tu cuenta para leerlo:\n\n"
+        f"{LINK}\n\n"
+        "Por privacidad, este correo no incluye el aviso: solo se lee en Emmaus. "
+        "En «Mis datos» eliges qué avisos te llegan por correo."
+    ),
+    "aviso_urgente": (
+        "Hola:\n\n"
+        "Hay un aviso urgente para ti en Iglesia Fe & Esperanza. "
+        "Entra a Emmaus con tu cuenta para leerlo y responder «Enterado»:\n\n"
+        f"{LINK}\n\n"
+        "Por privacidad, este correo no incluye el aviso: solo se lee en Emmaus. "
+        "En «Mis datos» eliges qué avisos te llegan por correo."
     ),
 }
 
@@ -103,6 +122,15 @@ class RenderTests(SimpleTestCase):
         subject, body = render("solicitud_grupo_decidida", CONTEXT)
         for word in ("aprob", "acept", "rechaz", "negad", "bienvenid"):
             self.assertNotIn(word, f"{subject}\n{body}".lower(), word)
+
+    def test_a_notice_mail_says_only_that_there_is_one_and_only_the_urgent_one_says_its_level(self):
+        subject, body = render("aviso_publicado", CONTEXT)
+        for word in ("urgente", "importante", "grupo", "título"):
+            self.assertNotIn(word, f"{subject}\n{body}".replace(LINK, "").lower(), word)
+        subject, body = render("aviso_urgente", CONTEXT)
+        self.assertIn("urgente", subject)
+        for word in ("importante", "grupo", "título"):
+            self.assertNotIn(word, f"{subject}\n{body}".replace(LINK, "").lower(), word)
 
     def test_templates_use_only_the_church_name_and_the_link(self):
         for path in sorted(TEMPLATES.glob("*.txt")):
