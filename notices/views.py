@@ -93,6 +93,11 @@ def _acknowledged_line(notice: Announcement) -> tuple[str, bool]:
     smallest = policy.min_reporting_size(notice.church)
     if total < smallest:  # with so few readers the number would say who
         return f"Este aviso es para menos de {smallest} personas con cuenta: aquí no se cuenta cuántas dijeron «Enterado».", False
+    # A number that leaves fewer than the minimum on either side says who: "5 de 6" names the one who has not.
+    if 0 < done < smallest:
+        return f"Menos de {smallest} de {total} personas han dicho «Enterado».", True
+    if 0 < total - done < smallest:
+        return f"Casi todas las {total} personas dijeron «Enterado».", True
     return f"{done} de {total} personas dijeron «Enterado».", True
 
 

@@ -43,7 +43,11 @@ class FeedbackGiven(models.Model):
     is whether a given person answered; never what."""
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="feedback_given")
-    token = models.CharField(max_length=64)
+    token = models.CharField(max_length=64, default="", db_default="")
+    # Not used any more: the first version of this table named the person. Migration 0002 turns each
+    # of those rows into a token and empties this column; a later release drops it (decision 0013:
+    # add, stop reading, drop later).
+    person = models.ForeignKey("people.Person", on_delete=models.CASCADE, null=True, blank=True, related_name="+")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["event", "token"], name="feedback_given_once")]

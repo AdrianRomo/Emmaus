@@ -243,7 +243,7 @@ class LevelTests(LevelFixture):
         for person in (self.member, self.leader):
             services.acknowledge(notice, person)
         page = self.client.get(detail(notice))
-        self.assertContains(page, "2 de 6 personas dijeron «Enterado».")
+        self.assertContains(page, "Menos de 5 de 6 personas han dicho «Enterado».")
         for name in ("Diego", "Gala", "Pía", "Nora"):  # numbers, never who did or did not
             self.assertNotContains(page, name)
         # A reader gets the button and never the count.
@@ -292,7 +292,7 @@ class LevelTests(LevelFixture):
             self.assertNotContains(page, f"de {total} persona")
         self.more_people(1)  # five: the count is given
         page = self.client.get(detail(church_wide))
-        self.assertContains(page, "1 de 5 personas dijeron «Enterado».")
+        self.assertContains(page, "Menos de 5 de 5 personas han dicho «Enterado».")
         self.assertNotContains(page, "menos de 5")
         self.assertContains(self.client.get(detail(grouped)), hidden)  # the group is still two
         with mock.patch("people.policy.min_reporting_size", return_value=7):  # a church that asks for more

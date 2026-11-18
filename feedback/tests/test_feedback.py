@@ -122,10 +122,12 @@ class FeedbackTests(AgendaFixture):
         self.assertFalse([f.name for f in FeedbackGiven._meta.get_fields() if "Date" in f.get_internal_type()])
 
     def test_who_answered_is_kept_as_a_keyed_hash_not_as_a_person(self):
-        self.assertEqual(sorted(f.name for f in FeedbackGiven._meta.get_fields()), ["event", "id", "token"])
+        # ``person`` is the column of the table's first version: nothing writes it any more (migration 0002).
+        self.assertEqual(sorted(f.name for f in FeedbackGiven._meta.get_fields()), ["event", "id", "person", "token"])
         self.end()
         services.give(self.member, self.retiro, rating="bien", recommend="si")
         token = FeedbackGiven.objects.get().token
+        self.assertIsNone(FeedbackGiven.objects.get().person_id)
         self.assertEqual(len(token), 64)
         self.assertNotIn(str(self.member.pk), [token])
         self.assertEqual(token, services.token_for(self.retiro, self.member))

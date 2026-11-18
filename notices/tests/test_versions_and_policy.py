@@ -6,7 +6,7 @@ from unittest import mock
 
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
-from django.test import TransactionTestCase
+from django.test import SimpleTestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -88,7 +88,7 @@ class VersionTests(Fixture):
 
         self.client.force_login(self.admin)
         page = self.client.get(detail(notice))
-        self.assertContains(page, "1 de 6 personas dijeron «Enterado».")
+        self.assertContains(page, "Menos de 5 de 6 personas han dicho «Enterado».")
         self.assertNotContains(page, "la cuenta empezó de nuevo")
         response = self.client.post(edit(notice), self.data(body=AT_SEVEN, material="si"), follow=True)
         self.assertRedirects(response, detail(notice))
@@ -152,7 +152,7 @@ class VersionTests(Fixture):
         response = self.client.post(edit(notice), self.data(body="La salida será a las 5:00 p. m. en punto.", material="no"), follow=True)
         self.assertContains(response, "Guardamos los cambios.")
         self.assertNotContains(response, "pedimos «Enterado» otra vez")
-        self.assertContains(response, "1 de 6 personas dijeron «Enterado».")
+        self.assertContains(response, "Menos de 5 de 6 personas han dicho «Enterado».")
         notice.refresh_from_db()
         self.assertEqual((notice.version, notice.changed_at, notice.body), (1, None, "La salida será a las 5:00 p. m. en punto."))
         self.assertEqual(self.waiting(self.member), [])
@@ -438,3 +438,24 @@ class MigrationTests(TransactionTestCase):
             self.assertEqual(list(services._answers().values_list("pk", flat=True)), [answered.pk])
         finally:
             MigrationExecutor(connection).migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
+
+
+class CountMaskTests(SimpleTestCase):
+    """A count that leaves fewer than the minimum on either side says who (review of wave 5)."""
+
+    def line(self, done, total):
+        from unittest import mock
+
+        from notices import views
+
+        notice = mock.Mock()
+        with mock.patch.object(views.services, "acknowledgement_count", return_value=(done, total)):
+            return views._acknowledged_line(notice)[0]
+
+    def test_neither_the_few_who_answered_nor_the_few_who_did_not_are_counted(self):
+        self.assertEqual(self.line(0, 12), "0 de 12 personas dijeron «Enterado».")
+        self.assertEqual(self.line(3, 12), "Menos de 5 de 12 personas han dicho «Enterado».")
+        self.assertEqual(self.line(6, 12), "6 de 12 personas dijeron «Enterado».")
+        self.assertEqual(self.line(11, 12), "Casi todas las 12 personas dijeron «Enterado».")
+        self.assertEqual(self.line(12, 12), "12 de 12 personas dijeron «Enterado».")
+        self.assertIn("menos de 5 personas con cuenta", self.line(2, 4))
