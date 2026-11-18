@@ -3,23 +3,47 @@ the number of groups, and nothing that identifies a person: no name, no id of a 
 per person leaves this module.
 
 **The minimum reporting size** (decisions 0009 and 0015; ``people.policy.min_reporting_size``, 5).
-A total over very few people says who, so a number that fails the rule never leaves this module: the
-attribute is ``None`` and a flag beside it says why, and the template writes words in its place.
+A total over very few people says who, so a number that fails the rule never leaves this module:
+what leaves is ``None`` or words, and the template writes them.
+
+*A whole* (the people of a group, the people a list was taken over, the sign-ups of an event, the
+people asked to serve on a date) is shown only when it is at least the minimum.
+
+*A part of a whole* (who came out of who was expected, who attended out of who signed up, each
+answer out of the people asked, who joined lately out of the people in groups) goes through one
+function, ``share``. The exact number is shown only when **the part and its complement (whole −
+part) are both at least the minimum**: "2 de 12" counts a few people, and "11 de 12" counts the one
+who was absent. Otherwise words, chosen so that neither says a number:
+
+* whole of 9 or more: "Menos de 5" (the part is 0 to 4) or "Casi todas" (the complement is 0 to 4);
+* whole of 5 to 8, where those two ranges would overlap and "Casi todas" of five would mean
+  "all five": "Menos de la mitad" or "La mitad o más";
+* whole under the minimum: nothing ("Sin desglose de asistencia por privacidad", "Menos de 5").
+
+So an exact part needs a whole of at least twice the minimum. *Parts that add up to the whole* (the
+three answers of a serving date) are exact only when all of them pass; if one does not, the others
+read "5 o más", because two exact parts would give the third by subtraction (``shares``).
+
+Where this applies:
 
 1. *A small group* (fewer active members than the minimum) shows no number at all: "Menos de 5"
    for its people, no last attendance, no trend.
-2. *A meeting* whose list was taken over fewer people than the minimum (``expected``) shows no
-   attendance, and is left out of the trend, whatever the size of the group today.
-3. *The figures of the whole church* ("Personas en grupos", "Se unieron a un grupo") count only the
-   people of the groups that meet the minimum, and the page says how many small groups were left
-   out. Every exact number on the page is then about those groups alone, so no subtraction between
-   figures reaches a small group. A figure that is itself under the minimum reads "Menos de 5".
-4. *A finished event* with fewer sign-ups than the minimum shows "Menos de 5" for both columns; with
-   enough sign-ups, an attendance under the minimum still reads "Menos de 5".
-5. *A serving date* for which fewer people than the minimum were asked shows no answer counts.
+2. *A meeting* whose list was taken over fewer people than the minimum shows no attendance and is
+   left out of the trend. The others show their attendance, and the trend, through ``share``.
+3. *The figures of the whole church* count only the people of the groups that meet the minimum, and
+   the page says how many small groups were left out: every number on the page is then about those
+   groups alone, so no subtraction between figures reaches a small group. "Se unieron a un grupo"
+   is a part of "Personas en grupos".
+4. *An event*, coming or finished, with fewer sign-ups than the minimum reads "Menos de 5" and its
+   free places are told without a number (the same figure must not be exact the day before it is
+   hidden). Free places are also told without a number when they would count the few minors who
+   wait for an authorization. Who attended a finished event is a part of its sign-ups.
+5. *A serving date* for which fewer people than the minimum were asked shows no answers; the
+   others show each answer as a part of the people asked.
 
-Counts that are not about what people did are left as they are: how many groups, how many requests
-wait, the places of an event that is still coming, the open follow-ups.
+What no rule of this kind can hide: a number that crosses the minimum from one day to the next says
+that it crossed. Counts that are not about what people did are left as they are: how many groups,
+how many requests wait, the open follow-ups.
 """
 
 from __future__ import annotations
@@ -45,6 +69,34 @@ JOINED_DAYS = 30
 FINISHED_EVENTS = 5
 DATES_PER_TEAM = 3
 MAX_DATES = 60
+
+
+def share(part: int, whole: int, minimum: int) -> dict | None:
+    """A part of a whole, as the page may tell it (the module's docstring has the rule): None when the
+    whole is under the minimum, else ``level`` and ``label``, with the number in ``value`` only when the
+    part and its complement are both at least the minimum."""
+    if whole < minimum:
+        return None
+    if part >= minimum and whole - part >= minimum:
+        return {"level": "exact", "value": part, "label": str(part)}
+    if whole < 2 * minimum - 1:
+        # Too few for two ranges of ``minimum`` values each: halves, so that no word means "all" or "none".
+        return {"level": "under_half", "value": None, "label": "Menos de la mitad"} if part * 2 < whole else {"level": "half_up", "value": None, "label": "La mitad o más"}
+    if part < minimum:
+        return {"level": "few", "value": None, "label": f"Menos de {minimum}"}
+    return {"level": "most", "value": None, "label": "Casi todas"}
+
+
+def shares(parts: list[int], minimum: int) -> list[str] | None:
+    """Parts that add up to their whole, each as the page may tell it. Exact only when every one of them
+    is: with one in words, two exact numbers would give it away by subtraction, so they read "5 o más"."""
+    whole = sum(parts)
+    told = [share(part, whole, minimum) for part in parts]
+    if told[0] is None:
+        return None
+    if all(one["level"] == "exact" for one in told):
+        return [one["label"] for one in told]
+    return [f"{minimum} o más" if one["level"] == "exact" else one["label"] for one in told]
 
 
 def missing_lists(group, last_recorded, today) -> tuple[int, object]:
@@ -106,14 +158,15 @@ def _groups(church, today, minimum) -> dict:
         for meeting in recorded:
             if meeting["shown"]:
                 kept = meeting["present_kept"]
-                shown.append({"date": meeting["date"], "expected": meeting["expected"], "present": came.get(meeting["id"], 0) if kept is None else kept})
+                present = came.get(meeting["id"], 0) if kept is None else kept
+                shown.append({"date": meeting["date"], "expected": meeting["expected"], "share": share(present, meeting["expected"], minimum)})
         group.small = group.pk not in reported
         group.member_count = None if group.small else members[group.pk]
         group.waiting = waiting.get(group.pk, 0)
         last = recorded[-1] if recorded else None
         # The day of the last list is always told; how many came only when the meeting met the minimum.
-        group.last = (shown[-1] if last["shown"] else {"date": last["date"], "expected": None, "present": None}) if last else None
-        group.trend = [meeting["present"] for meeting in shown] if len(shown) > 1 else []
+        group.last = (shown[-1] if last["shown"] else {"date": last["date"], "expected": None, "share": None}) if last else None
+        group.trend = [meeting["share"]["label"].lower() for meeting in shown] if len(shown) > 1 else []
         group.missing, group.missing_day = missing_lists(group, last["date"] if last else None, today)
         # The next meeting is the one after the last list: today's meeting, once it has its list, is not "next".
         after = max(today, last["date"] + timedelta(days=1)) if last else today
@@ -123,7 +176,8 @@ def _groups(church, today, minimum) -> dict:
         "groups": groups,
         "groups_small": small,
         "group_people": _figure(people["total"], minimum),
-        "group_joined": _figure(people["joined"], minimum),
+        # A part of the people in groups: None with the whole, else a number or words (``share``).
+        "group_joined": joined["label"] if (joined := share(people["joined"], people["total"], minimum)) else None,
         "groups_missing": sum(1 for group in groups if group.missing),
         "groups_waiting": sum(1 for group in groups if group.waiting),
     }
@@ -151,8 +205,15 @@ def _events(church, today, minimum) -> dict:
     for event in upcoming:
         capacity = event.page.capacity
         event.capacity = capacity
-        event.places_left = None if capacity is None else max(capacity - event.held, 0)
         event.takes_sign_ups = event.page.registration_open or event.taken > 0
+        # Rule 4. Free places count who holds one: exact only beside an exact number of sign-ups, and not when the
+        # difference between the two would count a few minors who wait for their authorization.
+        left = None if capacity is None else max(capacity - event.held, 0)
+        waiting = event.held - event.taken
+        event.taken = _figure(event.taken, minimum)
+        event.places_left = left if event.taken is not None and (waiting == 0 or waiting >= minimum) else None
+        event.places_word = "" if left is None else ("Hay lugares" if left else "Ya no hay lugares")
+        event.held = None
     finished = list(
         published.filter(last_day__lt=today)
         .annotate(
@@ -162,8 +223,9 @@ def _events(church, today, minimum) -> dict:
         .order_by("-last_day", "-id")[:FINISHED_EVENTS]
     )
     for event in finished:  # rule 4
+        came = share(event.came, event.taken, minimum)
         event.taken = _figure(event.taken, minimum)
-        event.came = None if event.taken is None else _figure(event.came, minimum)
+        event.came = came["label"] if came else None
         event.marked, event.held = bool(event.marked), None
     return {"upcoming": upcoming, "finished": finished}
 
@@ -185,9 +247,9 @@ def _serving(church, today, minimum) -> dict:
     for service in dates:
         shown[service.team_id] = shown.get(service.team_id, 0) + 1
         if shown[service.team_id] <= DATES_PER_TEAM:
-            service.few = service.confirmed + service.waiting + service.declined < minimum  # rule 5
-            if service.few:
-                service.confirmed = service.waiting = service.declined = None
+            told = shares([service.confirmed, service.waiting, service.declined], minimum)  # rule 5
+            service.few = told is None
+            service.confirmed, service.waiting, service.declined = told or (None, None, None)
             rows.append(service)
     rows.sort(key=lambda service: (service.team_name.lower(), service.team_id, service.date, service.pk))
     return {"serving_dates": rows}
