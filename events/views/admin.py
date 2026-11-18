@@ -4,6 +4,7 @@ import copy
 
 import csv
 import json
+import uuid
 from datetime import timedelta
 
 from django import forms
@@ -12,18 +13,19 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Count, F, Prefetch, Q
+from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
+from django.utils.http import urlencode, urlsafe_base64_encode
 
 from core.models import UserChurchRole
 from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.services import send_email_safely
 
 from ..access import resolve_access
@@ -44,6 +46,7 @@ from ..forms import (
 from ..models import (
     AccessRequest,
     AuditEvent,
+    ConsentRecord,
     Event,
     EventMembership,
     EventParticipant,
@@ -134,14 +137,14 @@ def _participant_ordering(key: str, direction: str) -> list:
     return ordering
 
 
-def _participant_columns(params, key: str, direction: str, *, with_sede: bool) -> list[dict]:
+def _participant_columns(params, key: str, direction: str, *, with_sede: bool, spec=None) -> list[dict]:
     """The table's headers: each one a link that sorts by it (the active one flips its direction), keeping the
     search and the filters and starting again at page 1."""
     kept = params.copy()
     for name in ("orden", "dir", "pagina"):
         kept.pop(name, None)
     columns = []
-    for column, label, css in PARTICIPANT_COLUMNS:
+    for column, label, css in spec or PARTICIPANT_COLUMNS:
         if column == "sede" and not with_sede:
             continue
         active = column == key
@@ -160,6 +163,89 @@ def _participant_columns(params, key: str, direction: str, *, with_sede: bool) -
     return columns
 
 
+def _sede_filter(qs, sede: str):
+    if sede == "ninguna":
+        return qs.filter(sede__isnull=True)
+    if sede.isascii() and sede.isdigit():
+        return qs.filter(sede_id=int(sede))
+    return qs
+
+
+# The views of "Camperos" with the redesign (ui_v2): one capsule each, with its count. Each one is the list under one
+# filter (and the search and the sede, which it keeps); "Todos" is the camperos taking part. "autorizacion" only when
+# the event asks for a guardian's authorization, "sin_coordinador" only for who sees the whole event.
+PARTICIPANT_VIEWS = [  # (key, query parameter, value, label); the interview's three come from eq.status_choices
+    ("todos", "", "", "Todos"),
+    ("sin_coordinador", "coordinador", "ninguno", "Sin coordinador"),
+    ("autorizacion", "autorizacion", "falta", "Menores sin autorización"),
+    ("estado", "estado", None, None),
+    ("no_participan", "participa", "no", "No participan"),
+]
+VIEW_PARAMS = ("estado", "coordinador", "participa", "autorizacion")
+
+
+def _participant_views(request, event, access, searched, selected: dict) -> list[dict]:
+    """The capsules over the list: each with the rows choosing it shows (under the search and the sede chosen) and
+    the link that chooses it, keeping the search, the sede and the order. The current one is the view whose filter
+    alone is on; an older link with two filters (or one coordinator) leaves none current."""
+    scoped = _sede_filter(searched, selected["sede"])
+    active = Q(is_active=True)
+    counts = scoped.order_by().aggregate(
+        todos=Count("id", filter=active),
+        sin_coordinador=Count("id", filter=active & Q(coordinator__isnull=True)),
+        no_participan=Count("id", filter=Q(is_active=False)),
+        **{f"estado_{value}": Count("id", filter=active & Q(interview_status=value)) for value in InterviewStatus.values},
+    )
+    if event.requires_guardian_authorization:
+        counts["autorizacion"] = participant_svc.minors_without_authorization(scoped, event).count()
+    kept = request.GET.copy()
+    for name in (*VIEW_PARAMS, "pagina"):
+        kept.pop(name, None)
+    current = {name: selected[name] for name in VIEW_PARAMS if selected[name] and not (name == "participa" and selected[name] == "si")}
+    views = []
+    for key, param, value, label in PARTICIPANT_VIEWS:
+        if key == "autorizacion" and not event.requires_guardian_authorization:
+            continue
+        if key == "sin_coordinador" and not access.sees_whole_event:
+            continue
+        choices = eq.status_choices(event) if key == "estado" else [(value, label)]
+        for choice, words in choices:
+            query = kept.copy()
+            if param:
+                query[param] = choice
+            view = {
+                "label": words,
+                "count": counts[f"estado_{choice}" if key == "estado" else key],
+                "url": "?" + query.urlencode(),
+                "current": current == ({param: choice} if param else {}),
+            }
+            if key == "no_participan" and not view["count"] and not view["current"]:
+                continue  # nobody withdrawn: no capsule for an empty list
+            views.append(view)
+    return views
+
+
+def _sede_capsules(request, sede_options: list[dict], selected_sede: str) -> list[dict]:
+    """The sede capsules: "Todas las sedes" and each sede of the filter, keeping every other parameter."""
+    if not sede_options:
+        return []
+    kept = request.GET.copy()
+    for name in ("sede", "pagina"):
+        kept.pop(name, None)
+    capsules = [{"label": "Todas las sedes", "count": sum(o["count"] for o in sede_options), "url": "?" + kept.urlencode(), "current": not selected_sede}]
+    for option in sede_options:
+        if option["value"] == "ninguna" and not option["count"] and selected_sede != "ninguna":
+            continue  # every campero here has a sede
+        query = kept.copy()
+        query["sede"] = option["value"]
+        capsules.append({"label": option["name"], "count": option["count"], "url": "?" + query.urlencode(), "current": selected_sede == option["value"]})
+    return capsules
+
+
+# The table with the redesign: the number goes under the name, the church group and the sede leave the columns
+PARTICIPANT_COLUMNS_V2 = [("nombre", "Nombre", ""), ("cuarto", "Cuarto", ""), ("edad", "Edad", "num"), ("coordinador", "Coordinador", ""), ("entrevista", "Entrevista", "")]
+
+
 @event_view(ADMIN, MembershipRole.PASTOR, MembershipRole.TUTOR)
 def participants(request, event, access):
     qs = access.participants(include_inactive=True).select_related("coordinator__user", "sede")
@@ -168,12 +254,18 @@ def participants(request, event, access):
     coordinator = request.GET.get("coordinador", "")
     active = request.GET.get("participa", "si")
     sede = request.GET.get("sede", "")
+    # "?autorizacion=falta": the minors whose guardian authorization is not registered (the coordinator's list has
+    # the same filter); nothing when the event does not ask for it
+    authorization = "falta" if request.GET.get("autorizacion") == "falta" and event.requires_guardian_authorization else ""
     if query:
         filters = Q(normalized_name__contains=normalize_name(query)) | Q(room__iexact=query) | Q(church_group__icontains=query)
         number = query.lstrip("#")
         if number.isascii() and number.isdigit():  # "²".isdigit() is True and int("²") raises
             filters |= Q(number=int(number))
+            if number == query:  # a bare number is a room's too: "5" finds "Cabaña 5" (and "Cuarto 05"), never "Cabaña 15"
+                filters |= Q(room__iendswith=f" {number}") | Q(room__iendswith=f" {int(number)}")
         qs = qs.filter(filters)
+    searched = qs
     if status in InterviewStatus.values:
         qs = qs.filter(interview_status=status)
     if coordinator == "ninguno":
@@ -184,14 +276,20 @@ def participants(request, event, access):
         qs = qs.filter(is_active=True)
     elif active == "no":
         qs = qs.filter(is_active=False)
+    if authorization:
+        qs = participant_svc.minors_without_authorization(qs, event)
     sede_options = _sede_options(event, access, qs)  # counted under every filter but its own
-    if sede == "ninguna":
-        qs = qs.filter(sede__isnull=True)
-    elif sede.isascii() and sede.isdigit():
-        qs = qs.filter(sede_id=int(sede))
+    qs = _sede_filter(qs, sede)
     sort_key, sort_dir = _participant_sort(request.GET)
     qs = eq.annotate_questionnaire_progress(qs, event)  # "1 de 2 cuestionarios" for a campero partly done
+    if event.requires_guardian_authorization:  # the "Autorización" column: the latest guardian record of each row
+        qs = qs.annotate(
+            guardian=Subquery(
+                ConsentRecord.objects.filter(participant=OuterRef("pk"), kind=ConsentRecord.Kind.GUARDIAN).order_by("-recorded_at", "-id").values("status")[:1]
+            )
+        )
     page = Paginator(qs.order_by(*_participant_ordering(sort_key, sort_dir)), 50).get_page(request.GET.get("pagina"))
+    selected = {"estado": status, "coordinador": coordinator, "participa": active, "sede": sede, "autorizacion": authorization}
     return render(
         request,
         "events/admin/participants.html",
@@ -199,15 +297,80 @@ def participants(request, event, access):
             "page": page,
             "columns": _participant_columns(request.GET, sort_key, sort_dir, with_sede=bool(sede_options)),
             "query": query,
-            "selected": {"estado": status, "coordinador": coordinator, "participa": active, "sede": sede},
+            "selected": selected,
             "sede_options": sede_options,
             "status_choices": eq.status_choices(event),
             "coordinators": access.coordinators(),
             "can_manage": access.is_admin,
             "querystring": request.GET.urlencode(),
             "total": access.participants().count(),
+            # With the redesign (ui_v2) only
+            "views": _participant_views(request, event, access, searched, selected),
+            "sede_capsules": _sede_capsules(request, sede_options, sede),
+            "columns_v2": _participant_columns(request.GET, sort_key, sort_dir, with_sede=False, spec=PARTICIPANT_COLUMNS_V2),
+            "filtered": bool(query or any(selected[name] for name in VIEW_PARAMS if name != "participa") or sede or active != "si"),
+            # The search keeps the view, the sede and the order; "Quitar filtros" keeps only the order
+            "kept_filters": [(name, request.GET[name]) for name in (*VIEW_PARAMS, "sede", "orden", "dir") if request.GET.get(name)],
+            "clear_url": f"?{urlencode({'orden': sort_key, 'dir': sort_dir})}" if sort_key else request.path,
+            "asks_authorization": event.requires_guardian_authorization,
+            "assignable": list(participant_svc.assignable_coordinators(access)) if access.is_admin else [],
         },
     )
+
+
+def _uuid_or_none(value: str):
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        return None
+
+
+@require_POST
+@event_view(ADMIN)
+def participants_assign(request, event, access):
+    """Assign a coordinator to several camperos at once: the marked rows of Camperos (``campero`` + one
+    ``coordinador``) or the rows of the administration home (``coordinador-<public_id>``, one choice each). Only
+    camperos this person sees taking part in this event (an id of another event, a withdrawn or the practice campero
+    is ignored) and only active coordinators of this event; each change is one ``update_participant``, with its audit
+    row. Back to the page it came from, with its filters (``siguiente``)."""
+    back = safe_next(request, request.POST.get("siguiente"), reverse("events:participants", args=[event.slug]))
+    wanted = {}  # public_id -> the membership id asked for
+    chosen = request.POST.get("coordinador", "")
+    for raw in request.POST.getlist("campero"):
+        if (public_id := _uuid_or_none(raw)) is not None:
+            wanted[public_id] = chosen
+    per_row = False
+    for key, value in request.POST.items():
+        if key.startswith("coordinador-"):
+            per_row = True
+            if value and (public_id := _uuid_or_none(key.removeprefix("coordinador-"))) is not None:
+                wanted[public_id] = value
+    if not wanted:
+        messages.error(request, "Elige el coordinador de al menos un campero." if per_row else "Marca al menos un campero.")
+        return redirect(back)
+    coordinators = {m.pk: m for m in access.coordinators().filter(is_active=True)}
+    choice = {public_id: coordinators.get(int(raw)) if raw.isascii() and raw.isdigit() else None for public_id, raw in wanted.items()}
+    targets = list(access.participants().filter(public_id__in=list(wanted)).select_related("coordinator__user").order_by("number"))
+    done = {}  # membership -> how many changed
+    with transaction.atomic():
+        for participant in targets:
+            membership = choice[participant.public_id]
+            if membership is None or participant.coordinator_id == membership.pk:
+                continue
+            participant_svc.update_participant(participant, actor=request.user, coordinator=membership)
+            done[membership] = done.get(membership, 0) + 1
+    total = sum(done.values())
+    if total:
+        camperos = "1 campero" if total == 1 else f"{total} camperos"
+        names = f" a {next(iter(done)).display_name}" if len(done) == 1 else ""
+        messages.success(request, f"Asignaste {camperos}{names}.")
+    elif not targets:
+        messages.error(request, "Marca al menos un campero.")
+    elif any(choice[p.public_id] is not None for p in targets):
+        messages.info(request, "Nada cambió: ya tenían ese coordinador.")
+    else:
+        messages.error(request, "Elige un coordinador.")
+    return redirect(back)
 
 
 @event_view(ADMIN)
@@ -1266,8 +1429,8 @@ def _sede_options(event, access, filtered) -> list[dict]:
     sedes = [s for s in Sede.objects.filter(church_id=event.church_id) if s.pk in offered or s.pk in in_use]
     if not sedes:
         return []
-    options = [{"value": str(s.pk), "label": f"{s.name} ({counts.get(s.pk, 0)})"} for s in sedes]
-    options.append({"value": "ninguna", "label": f"Sin sede ({counts.get(None, 0)})"})
+    options = [{"value": str(s.pk), "label": f"{s.name} ({counts.get(s.pk, 0)})", "name": s.name, "count": counts.get(s.pk, 0)} for s in sedes]
+    options.append({"value": "ninguna", "label": f"Sin sede ({counts.get(None, 0)})", "name": "Sin sede", "count": counts.get(None, 0)})
     return options
 
 

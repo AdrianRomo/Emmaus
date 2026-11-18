@@ -7,7 +7,7 @@ import io
 from dataclasses import dataclass, field
 
 from django.db import IntegrityError, transaction
-from django.db.models import Max, OuterRef, Q, Subquery
+from django.db.models import Count, Max, OuterRef, Q, Subquery
 from django.utils.text import slugify
 
 from ..models import (
@@ -214,6 +214,17 @@ def minors_without_authorization(participants, event):
         participants.filter(is_active=True, age__lt=event.adult_age)
         .annotate(guardian_status=Subquery(latest))
         .filter(Q(guardian_status__isnull=True) | ~Q(guardian_status=ConsentRecord.Status.GRANTED))
+    )
+
+
+def assignable_coordinators(access):
+    """The active coordinators of the event of ``access``, each with ``load``: how many camperos taking part they have
+    now (the practice campero never counts). The choices of "Asignar" on Camperos and on the administration home."""
+    return (
+        access.coordinators()
+        .filter(is_active=True)
+        .annotate(load=Count("assigned_participants", filter=Q(assigned_participants__is_active=True, assigned_participants__is_practice=False)))
+        .order_by("user__first_name", "user__last_name", "pk")
     )
 
 
