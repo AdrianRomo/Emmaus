@@ -1,25 +1,36 @@
 {% extends "base.html" %}
-{% load community %}
-{% block page_title %}Traer personas de un evento{% endblock %}
+{% load emmaus community shell %}
+{% block page_title %}Traer de un evento{% endblock %}
 {% block content %}
+{% comment %}
+  The finished events whose camperos can become people of the church (people.views.from_event_list): how many of
+  each are already in Personas and how many are left. The row is the way in while somebody is left.
+{% endcomment %}
 <div class="narrow">
   {% url 'people:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Traer personas de un evento" lede="Quienes participaron en un evento pueden seguir en la iglesia como personas. Se hace cuando el evento ya terminó, una persona a la vez." back_url=back back_label="Volver a Personas" %}
+  {% include "events/rotulo/_page_head.html" with title="Traer de un evento" back_url=back back_label="Volver a Personas" %}
   {% if rows %}
     <ul class="rows">
       {% for row in rows %}
         <li class="row">
           <div class="row__main">
-            <p class="row__title">{{ row.event.name }}</p>
-            <p class="row__meta">{% if row.event.starts_on %}{{ row.event.starts_on|date_range:row.event.ends_on|capfirst }}. {% endif %}{{ row.linked }} de {{ row.total }} ya {{ row.linked|pluralize:"está,están" }} en Personas.</p>
+            <p class="row__title">{% if row.missing %}<a href="{% url 'people:from_event' row.event.slug %}">{{ row.event.name }}</a>{% else %}{{ row.event.name }}{% endif %}</p>
+            <ul class="meta">
+              {% if row.event.starts_on %}<li>{% icon "calendario" "sm" %}{{ row.event.starts_on|date_range:row.event.ends_on|capfirst }}</li>{% endif %}
+              <li>{% icon "personas" "sm" %}{{ row.linked }} de {{ row.total }} en Personas</li>
+              {% if row.missing %}<li><span class="chip chip--wait">{{ row.missing }} por traer</span></li>{% elif row.total %}<li>{% status "completada" "Completo" %}</li>{% endif %}
+            </ul>
           </div>
-          {% if row.missing %}<a class="btn btn--secondary btn--small" href="{% url 'people:from_event' row.event.slug %}">Ver a quienes faltan<span class="visually-hidden"> de {{ row.event.name }}</span></a>{% endif %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">Todavía no hay eventos terminados. Cuando un evento termine, aparecerá aquí.</p>
+    <p class="empty-line">Sin eventos terminados todavía.</p>
   {% endif %}
   <p class="aside-note">Solo pasan el nombre y la sede. La edad, el cuarto y lo que cada quien respondió se quedan en el evento.</p>
+  <details class="fold">
+    <summary>¿Cómo funciona?</summary>
+    <p>Quienes participaron en un evento pueden seguir en la iglesia como personas. Se hace cuando el evento ya terminó, una persona a la vez.</p>
+  </details>
 </div>
 {% endblock %}

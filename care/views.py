@@ -157,7 +157,7 @@ def edit(request, follow_up_id: int):
         except services.CareError as error:
             form.add_error(error.code if error.code in form.fields else None, error.message)
         else:
-            messages.success(request, "Guardamos los cambios.")
+            messages.success(request, "Guardado.")
             return redirect("care:detail", follow_up.pk)
     return render(request, "care/form.html", {"form": form, "about": follow_up.person, "follow_up": follow_up})
 
@@ -171,7 +171,7 @@ def step(request, follow_up_id: int):
     except services.CareError as error:
         messages.error(request, error.message)
     else:
-        messages.success(request, "Guardamos lo que hiciste.")
+        messages.success(request, "Guardado.")
     return redirect("care:detail", follow_up.pk)
 
 
@@ -188,7 +188,7 @@ def status(request, follow_up_id: int):
         messages.error(request, error.message)
         return redirect("care:detail", follow_up.pk)
     if wanted == Status.DONE:
-        messages.success(request, "Marcaste el seguimiento como atendido.")
+        messages.success(request, "Marcado como atendido.")
         return redirect("care:mine" if follow_up.is_mine else "care:admin_list")
     messages.success(request, "El seguimiento está en proceso.")
     return redirect("care:detail", follow_up.pk)

@@ -6,17 +6,18 @@
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if team %}
     {% url 'serving:team' team.pk as back %}
-    {% include "events/rotulo/_page_head.html" with title="Editar el equipo" back_url=back back_label="Volver al equipo" %}
+    {% include "events/rotulo/_page_head.html" with title="Editar el equipo" back_url=back back_label="Volver al equipo "|add:team.name %}
   {% else %}
     {% url 'serving:team_admin' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Crear un equipo" lede="Después agregas a las personas y eliges quién lo coordina." back_url=back back_label="Volver a los equipos" %}
+    {% include "events/rotulo/_page_head.html" with title="Crear un equipo" back_url=back back_label="Volver a los equipos" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if team %}Guardar cambios{% else %}Crear equipo{% endif %}</button>
-      {% if team %}<a class="btn btn--link" href="{% url 'serving:team_archive' team.pk %}">Archivar el equipo</a>{% else %}<a class="btn btn--link" href="{{ back }}">Cancelar</a>{% endif %}
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      {% if team %}<a class="btn btn--danger-outline" href="{% url 'serving:team_archive' team.pk %}">Archivar el equipo</a>{% endif %}
     </div>
   </form>
 </div>

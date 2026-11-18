@@ -83,7 +83,7 @@ def person_edit(request, person_id: int):
     form = PersonForm(request.POST or None, instance=person, church=request.church)
     if request.method == "POST" and form.is_valid():
         services.save_person(form.save(commit=False), request.user, created=False)
-        messages.success(request, "Guardamos los cambios.")
+        messages.success(request, "Guardado.")
         return redirect("people:detail", person.pk)
     return render(request, "people/person_form.html", {"form": form, "person": person})
 

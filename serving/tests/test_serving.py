@@ -123,7 +123,7 @@ class JourneyTests(ServingFixture):
         day = ServiceDate.objects.get(team=team)
         self.assertEqual((day.date, day.starts_at, day.place), (self.week, time(9, 30), "Salón 3"))
         page = self.client.get(self.url("team", team.pk))
-        self.assertContains(page, "0 de 1 confirmaron.")
+        self.assertContains(page, "0 de 1 confirmaron")
         self.assertContains(page, "Por confirmar")
 
         # The member reads the date and confirms.
@@ -132,9 +132,10 @@ class JourneyTests(ServingFixture):
         self.assertContains(page, "<h1", count=1)
         self.assertContains(page, "Tus fechas")
         self.assertContains(page, "Salón de niños")
-        self.assertContains(page, "a las 9:30, en Salón 3.")
+        self.assertContains(page, "09:30")
+        self.assertContains(page, "Salón 3")
         self.assertContains(page, "row--attention")
-        self.assertContains(page, "Coordina el equipo: Gala Guía.")
+        self.assertContains(page, "Coordina Gala Guía")
         assignment = Assignment.objects.get(service_date=day, person=self.member)
         response = self.client.post(self.url("respond", assignment.pk), {"respuesta": "aceptar"})
         self.assertRedirects(response, self.url("home"))
@@ -149,13 +150,13 @@ class JourneyTests(ServingFixture):
         # Who coordinates sees the answer.
         self.client.force_login(self.leader_user)
         page = self.client.get(self.url("team", team.pk))
-        self.assertContains(page, "1 de 1 confirmaron.")
+        self.assertContains(page, "1 de 1 confirmaron")
         self.assertContains(page, "Confirmó")
 
     def test_someone_in_no_team_reads_how_to_join(self):
         self.client.force_login(self.coord1)
         page = self.client.get(self.url("home"))
-        self.assertContains(page, "Todavía no estás en ningún equipo.")
+        self.assertContains(page, "Todavía no estás en ningún equipo")
         self.assertContains(page, "la administración de tu iglesia")
         self.assertNotContains(page, "Tus fechas")
         self.assertNotContains(page, "Equipos de la iglesia")
@@ -257,7 +258,7 @@ class UnavailableTests(ServingFixture):
 
         self.client.force_login(self.leader_user)
         page = self.client.get(self.url("date_detail", self.day.pk))
-        self.assertContains(page, "(ese día no puede)")
+        self.assertContains(page, "Ese día no puede")
         self.assertContains(page, f'value="{self.member.pk}" disabled')
         page = self.client.post(self.url("date_detail", self.day.pk), self.date_post(self.member, self.asked))
         self.assertContains(page, "Diego marcó que ese día no puede.")
@@ -390,7 +391,7 @@ class PermissionTests(ServingFixture):
         type(self.leader).objects.filter(pk=self.leader.pk).update(phone="55 9999 0000")
         self.client.force_login(self.asked_user)
         page = self.client.get(self.url("home"))
-        self.assertContains(page, "Coordina el equipo: Gala Guía.")
+        self.assertContains(page, "Coordina Gala Guía")
         self.assertContains(page, "Dijiste que no puedes")
         for hidden in ("Diego", "55 1111 2222", "diego@prueba.mx", "guia@prueba.mx", "55 9999 0000", "tel:", "mailto:",
                        "Por confirmar", "No puede", "confirmaron", self.url("team", self.team.pk)):
@@ -596,7 +597,7 @@ class ServiceFunctionTests(ServingFixture):
         self.client.force_login(self.member_user)
         page = self.client.get(self.url("home"))
         self.assertNotContains(page, "Bienvenida del domingo")
-        self.assertContains(page, "Todavía no estás en ningún equipo.")
+        self.assertContains(page, "Todavía no estás en ningún equipo")
         self.assertEqual(self.client.post(self.url("respond", assignment.pk), {"respuesta": "aceptar"}).status_code, 404)
         self.client.force_login(self.leader_user)
         self.assertEqual(self.client.get(self.url("team", self.team.pk)).status_code, 404)

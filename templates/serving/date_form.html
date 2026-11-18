@@ -5,38 +5,44 @@
 {% comment %}
   One date of a team (serving.views.date_create and date_detail): when, what is needed, and who serves, as large
   options, saved together with one filled button. Who marked that day as one they cannot serve cannot be chosen;
-  who was asked before marking it stays chosen, with the note, until the coordinator takes them out.
+  who was asked before marking it stays chosen, with the note, until the coordinator takes them out. What each
+  person already answered is the pill at the end of their option.
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'serving:team' team.pk as back %}
   {% if service_date %}
-    {% include "events/rotulo/_page_head.html" with title="Editar la fecha" lede="Equipo "|add:team.name back_url=back back_label="Volver al equipo" %}
+    {% include "events/rotulo/_page_head.html" with title="Editar la fecha" back_url=back back_label="Volver al equipo "|add:team.name %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Agregar una fecha" lede="Equipo "|add:team.name back_url=back back_label="Volver al equipo" %}
+    {% include "events/rotulo/_page_head.html" with title="Agregar una fecha" back_url=back back_label="Volver al equipo "|add:team.name %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
+    <section class="form-section" aria-labelledby="la-fecha">
+      <h2 id="la-fecha" class="form-section__title">La fecha</h2>
+      {% include "partials/ui/fields.html" with form=form %}
+    </section>
     {% if members %}
-    <fieldset>
-      <legend class="legend">¿Quién sirve ese día?</legend>
-      <div class="choices">
-        {% for membership in members %}
-        <div class="choice choice--multi">
-          <input class="choice__input" type="checkbox" id="sirve-{{ membership.person_id }}" name="sirve" value="{{ membership.person_id }}"{% if membership.checked and not membership.blocked %} checked{% endif %}{% if membership.blocked %} disabled{% endif %}>
-          <label class="choice__label" for="sirve-{{ membership.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ membership.person.full_name }}{% if membership.blocked %} <span class="muted">(ese día no puede)</span>{% endif %}{% if membership.assignment %}<span class="choice__sub">{% if membership.assignment.status == "aceptada" %}Confirmó.{% elif membership.assignment.status == "declinada" %}No puede.{% else %}Por confirmar.{% endif %}{% if membership.busy %} Después marcó que ese día no puede.{% endif %}</span>{% endif %}</span></label>
+    <section class="form-section">
+      <fieldset>
+        <legend class="legend form-section__title">¿Quién sirve ese día?</legend>
+        <div class="choices">
+          {% for membership in members %}
+          <div class="choice choice--multi">
+            <input class="choice__input" type="checkbox" id="sirve-{{ membership.person_id }}" name="sirve" value="{{ membership.person_id }}"{% if membership.checked and not membership.blocked %} checked{% endif %}{% if membership.blocked %} disabled{% endif %}>
+            <label class="choice__label" for="sirve-{{ membership.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ membership.person.full_name }}{% if membership.blocked %}<span class="choice__sub">Ese día no puede</span>{% elif membership.busy %}<span class="choice__sub">Después marcó que ese día no puede.</span>{% endif %}</span>{% if membership.assignment %}{% if membership.assignment.status == "aceptada" %}{% status "completada" "Confirmó" %}{% elif membership.assignment.status == "declinada" %}{% status "descartada" "No puede" %}{% else %}{% status "por_evaluar" "Por confirmar" %}{% endif %}{% endif %}</label>
+          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-      </div>
-    </fieldset>
-    <p class="aside-note">Cada persona que elijas verá la fecha en «Tus fechas» y dirá si puede. Si cambias el día, se les pregunta otra vez.</p>
+      </fieldset>
+    </section>
+    {% if service_date %}<p class="aside-note">Si cambias el día, se les pregunta otra vez.</p>{% endif %}
     {% else %}
-      <p class="empty-line">Todavía no hay nadie en el equipo. Puedes guardar la fecha y elegir quién sirve cuando la administración de la iglesia agregue a las personas.</p>
+      <p class="empty-line">Sin personas en el equipo todavía. Las agrega la administración de tu iglesia.</p>
     {% endif %}
-    <div class="step__actions">
-      <button class="btn btn--primary btn--large" type="submit">Guardar la fecha</button>
-      {% if service_date %}<a class="btn btn--link" href="{% url 'serving:date_delete' service_date.pk %}">Borrar la fecha</a>{% else %}<a class="btn btn--link" href="{{ back }}">Cancelar</a>{% endif %}
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">Guardar la fecha</button>
+      {% if service_date %}<a class="btn btn--danger-outline" href="{% url 'serving:date_delete' service_date.pk %}">Borrar la fecha</a>{% else %}<a class="btn btn--link" href="{{ back }}">Cancelar</a>{% endif %}
     </div>
   </form>
 </div>

@@ -1,40 +1,41 @@
 {% extends "base.html" %}
-{% load emmaus community %}
+{% load emmaus community shell %}
 {% block page_title %}{{ person.full_name }}{% endblock %}
 {% block content %}
 {% comment %}
-  One person of the church, for its administration (people.views.person_detail): how to reach them, whether they
-  can sign in, the events they were part of (name and dates only) and their groups. Giving access creates an
-  account with no role anywhere: being a person of the church is all it means.
+  One person of the church, for its administration (people.views.person_detail): the arch and the name, whether
+  they can sign in (a pill), how to reach them (links), the events they were part of (name and dates only) and
+  their groups. Giving access creates an account with no role anywhere: being a person of the church is all it means.
 {% endcomment %}
 <div class="narrow">
-  {% url 'people:list' as back %}{% url 'people:edit' person.pk as edit %}
-  {% include "events/rotulo/_page_head.html" with title=person.full_name back_url=back back_label="Volver a Personas" secondary_url=edit secondary_label="Editar los datos" %}
+  {% url 'people:edit' person.pk as edit %}
+  <a class="back-link" href="{% url 'people:list' %}">Volver a Personas</a>
+  <div class="group-head group-head--actions">
+    {% monogram person.full_name "lg" %}
+    <header class="page-head">
+      <h1 class="voice page-head__title">{{ person.full_name }}</h1>
+      <ul class="meta page-head__meta">
+        <li>{% if person.user_id %}{% status "completada" "Con acceso" %}{% else %}{% status "pendiente" "Sin acceso" %}{% endif %}</li>
+        {% if can_get_link %}<li><span class="chip chip--wait">Falta su contraseña</span></li>{% endif %}
+        {% if not person.phone and not person.email %}<li>Sin teléfono ni correo</li>{% endif %}
+      </ul>
+      {% if person.phone or person.email %}<p class="row__contact">{% if person.phone %}<a href="tel:{{ person.phone|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ person.full_name }}: </span>{{ person.phone }}</a>{% endif %}{% if person.email %}<a href="mailto:{{ person.email }}">{% icon "correo" "sm" %}<span class="visually-hidden">Escribir a {{ person.full_name }}: </span>{{ person.email }}</a>{% endif %}</p>{% endif %}
+    </header>
+    <div class="group-head__actions"><a class="btn btn--secondary" href="{{ edit }}">Editar<span class="visually-hidden"> los datos</span></a></div>
+  </div>
 
-  <section class="block" aria-labelledby="datos">
-    <h2 id="datos" class="heading">Datos</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Correo</dt><dd>{{ person.email|default:"Sin correo" }}</dd></div>
-      <div class="summary-list__row"><dt>Teléfono</dt><dd>{{ person.phone|default:"Sin teléfono" }}</dd></div>
-      {% if person.birth_date %}<div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{{ person.birth_date|long_date }}. {% if person.birth_date_verified %}Edad confirmada por el equipo el {{ person.birth_date_verified_at|long_date }}: {{ person.get_birth_date_verified_method_display|lower }}.{% else %}Edad sin confirmar por el equipo.{% endif %}</dd></div>{% endif %}
-      <div class="summary-list__row"><dt>Se registró desde</dt><dd>{{ person.get_created_from_display }}</dd></div>
-    </dl>
-  </section>
-
+  {% if not person.user_id or can_get_link %}
   <section class="block" aria-labelledby="acceso">
     <h2 id="acceso" class="heading">Acceso a Emmaus</h2>
     {% if person.user_id %}
-      <p>{{ person.first_name }} entra con el correo <strong>{{ person.user.email }}</strong>.{% if can_get_link %} Todavía no ha creado su contraseña.{% endif %}</p>
-      {% if can_get_link %}
-        <form method="post" action="{% url 'people:access_link' person.pk %}">
-          {% csrf_token %}
-          <div class="step__actions"><button class="btn btn--secondary" type="submit">Generar otro enlace para crear su contraseña</button></div>
-        </form>
-      {% endif %}
+      <form method="post" action="{% url 'people:access_link' person.pk %}">
+        {% csrf_token %}
+        <button class="btn btn--secondary" type="submit">Generar otro enlace para crear su contraseña</button>
+      </form>
     {% elif not person.email %}
-      <p class="empty-line">Sin acceso. Para dárselo, primero <a href="{{ edit }}">escribe su correo</a>: con él va a entrar.</p>
+      <p class="empty-line">Para darle acceso, primero <a href="{{ edit }}">escribe su correo</a>: con él va a entrar.</p>
     {% else %}
-      <p>Sin acceso. Si se lo das, podrá entrar con <strong>{{ person.email }}</strong>, ver los grupos y pedir unirse. No tendrá ningún rol en eventos ni en la administración.</p>
+      <p>Podrá entrar con <strong class="break-anywhere">{{ person.email }}</strong>, ver los grupos y pedir unirse. No tendrá ningún rol en eventos ni en la administración.</p>
       <form method="post" action="{% url 'people:grant_access' person.pk %}">
         {% csrf_token %}
         {% if needs_guardian %}
@@ -45,22 +46,27 @@
             </label>
           </div>
         {% endif %}
-        <div class="step__actions"><button class="btn btn--primary" type="submit">Dar acceso</button></div>
+        <div class="form-actions"><button class="btn btn--primary" type="submit">Dar acceso</button></div>
       </form>
     {% endif %}
   </section>
+  {% endif %}
 
   <section class="block" aria-labelledby="eventos">
     <h2 id="eventos" class="heading">Eventos en los que estuvo</h2>
     {% if links %}
       <ul class="rows">
         {% for link in links %}
-          <li class="row">
+          <li class="row row--lead row--stack">
             <div class="row__main">
               <p class="row__title">{{ link.event.name }}</p>
-              <p class="row__meta">{{ link.event.get_kind_display }}{% if link.event.starts_on %}, {{ link.event.starts_on|date_range:link.event.ends_on }}{% endif %}. Vinculado el {{ link.linked_at|long_date }}.</p>
+              <ul class="meta">
+                <li>{{ link.event.get_kind_display }}</li>
+                {% if link.event.starts_on %}<li>{% icon "calendario" "sm" %}{{ link.event.starts_on|date_range:link.event.ends_on|capfirst }}</li>{% endif %}
+                <li>{% icon "check" "sm" %}Vinculado el {{ link.linked_at|long_date }}</li>
+              </ul>
             </div>
-            <form method="post" action="{% url 'people:unlink' person.pk link.pk %}">
+            <form class="row__end" method="post" action="{% url 'people:unlink' person.pk link.pk %}">
               {% csrf_token %}
               <button class="btn btn--secondary btn--small" type="submit">Quitar vínculo<span class="visually-hidden"> con {{ link.event.name }}</span></button>
             </form>
@@ -69,7 +75,7 @@
       </ul>
       <p class="aside-note">Quitar un vínculo no borra nada del evento ni a la persona. Sirve si se vinculó a quien no era.</p>
     {% else %}
-      <p class="empty-line">No está vinculada con ningún evento. Si fue a uno, <a href="{% url 'people:from_event_list' %}">búscala en ese evento</a>.</p>
+      <p class="empty-line">Sin eventos. Si fue a uno, <a href="{% url 'people:from_event_list' %}">búscala en ese evento</a>.</p>
     {% endif %}
   </section>
 
@@ -78,18 +84,28 @@
     {% if memberships %}
       <ul class="rows">
         {% for membership in memberships %}
-          <li class="row">
+          <li class="row row--lead">
+            {% monogram membership.group.name "sm" %}
             <div class="row__main">
               <p class="row__title">{{ membership.group.name }}</p>
-              <p class="row__meta">{{ membership.get_role_display }}.</p>
+              <ul class="meta"><li>{% if membership.is_leader %}{% icon "guia" "sm" %}{% endif %}{{ membership.get_role_display }}</li></ul>
             </div>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-line">No es parte de ningún grupo.</p>
+      <p class="empty-line">Sin grupos.</p>
     {% endif %}
   </section>
+  <section class="block" aria-labelledby="datos">
+    <h2 id="datos" class="heading">Datos</h2>
+    <dl class="summary-list">
+      {% if person.user_id %}<div class="summary-list__row"><dt>Entra con</dt><dd class="break-anywhere">{{ person.user.email }}</dd></div>{% endif %}
+      {% if person.birth_date %}<div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{{ person.birth_date|long_date|capfirst }} {% if person.birth_date_verified %}{% status "completada" "Edad confirmada" %} <span class="muted">Por el equipo el {{ person.birth_date_verified_at|long_date }}: {{ person.get_birth_date_verified_method_display|lower }}.</span>{% else %}{% status "pendiente" "Edad sin confirmar" %}{% endif %}</dd></div>{% endif %}
+      <div class="summary-list__row"><dt>Se registró desde</dt><dd>{{ person.get_created_from_display }}</dd></div>
+    </dl>
+  </section>
+
   {% if community_on and person.user_id != user.pk %}<p class="more"><a href="{% url 'care:create' %}?persona={{ person.pk }}">Pedir que alguien la acompañe</a></p>{% endif %}
 </div>
 {% endblock %}

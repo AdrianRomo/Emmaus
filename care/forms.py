@@ -21,11 +21,10 @@ class FollowUpForm(TuErrorMessagesMixin, forms.Form):
     reason = forms.ChoiceField(label="¿Por qué hay que buscarla?", choices=FollowUp.Reason.choices, widget=forms.RadioSelect)
     owner = forms.ModelChoiceField(
         label="Responsable", queryset=Person.objects.none(), required=False, empty_label="Sin responsable por ahora",
-        help_text="Solo aparecen las personas de la iglesia que tienen acceso a Emmaus. Nadie más verá este seguimiento.",
+        help_text="Solo quienes tienen acceso a Emmaus. Nadie más verá este seguimiento.",
     )
     due_on = forms.DateField(
         label="Para cuándo", required=False, widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-        help_text="Déjalo vacío si no hay una fecha.",
     )
 
     def __init__(self, *args, church, about: Person, with_reason: bool = True, **kwargs):

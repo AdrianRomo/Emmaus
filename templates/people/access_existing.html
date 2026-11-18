@@ -3,21 +3,22 @@
 {% block content %}
 {% comment %}
   An account already uses this person's e-mail (for example, somebody who served in an event team). Emmaus never
-  joins the two by itself: the administrator says yes here, and it is recorded.
+  joins the two by itself: the administrator says yes here, and it is recorded. The title cannot ask the question,
+  so this page keeps its lede.
 {% endcomment %}
 <div class="narrow">
   {% url 'people:detail' person.pk as back %}
   {% include "events/rotulo/_page_head.html" with title="Ya existe una cuenta con ese correo" lede="¿Es la misma persona?" back_url=back back_label="Volver a la persona" %}
-  <p>Alguien ya entra a Emmaus con <strong>{{ person.email }}</strong>. Si es {{ person.full_name }}, vincúlalas: seguirá entrando con su contraseña de siempre y verá además Mi iglesia. Lo que ya podía hacer en eventos no cambia.</p>
-  <p class="aside-note">Si no es la misma persona, vuelve y corrige el correo.</p>
+  <p>Alguien ya entra a Emmaus con <strong class="break-anywhere">{{ person.email }}</strong>. Si es {{ person.full_name }}, vincúlalas: seguirá entrando con su contraseña de siempre y verá además Mi iglesia. Lo que ya podía hacer en eventos no cambia.</p>
   <form method="post" action="{% url 'people:grant_access' person.pk %}">
     {% csrf_token %}
     <input type="hidden" name="vincular_cuenta" value="si">
     <input type="hidden" name="tutor_de_acuerdo" value="{{ tutor_de_acuerdo }}">
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Sí, es la misma persona</button>
       <a class="btn btn--link" href="{{ back }}">No, volver</a>
     </div>
   </form>
+  <p class="aside-note">Si no es la misma persona, vuelve y corrige el correo.</p>
 </div>
 {% endblock %}
