@@ -20,8 +20,8 @@
     <span class="decision__ir" aria-hidden="true"></span>
   </a>
   {% endif %}
-  {# Interviewed or in progress without a current authorization is allowed by policy (an authorization withdrawn
-     after: «se podrá terminar»; completed ones do not change): a fact on the list and the record, not a decision #}
+  {% comment %}Interviewed or in progress without a current authorization is allowed by policy (an authorization withdrawn
+     after: «se podrá terminar»; completed ones do not change): a fact on the list and the record, not a decision{% endcomment %}
   {% if minors_waiting %}
   <a class="decision decision--bloqueo" href="{% url 'events:participants' event.slug %}?autorizacion=falta&amp;estado=pendiente">
     <span class="decision__cifra" data-count="sin-autorizacion">{{ minors_waiting }}</span>
