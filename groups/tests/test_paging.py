@@ -178,8 +178,7 @@ class PagedListsTests(CommunityFixture):
     def test_names_under_a_search_box_say_how_many_matched(self):
         self.client.force_login(self.admin)
         for url, shown, said in (
-            (reverse("community:group_people", args=[self.group.pk]) + "?q=zoe", 10,
-             "Estas son las primeras {} de 60 personas con ese nombre."),
+            (reverse("community:group_people", args=[self.group.pk]) + "?q=zoe", 10, "Primeras {} de 60. Escribe más del nombre."),
             (reverse("care:create") + "?q=zoe", 10, "Primeras {} de 60. Escribe más del nombre."),
         ):
             page = self.client.get(url)

@@ -2,12 +2,13 @@
   The head of a group's work pages (who guides it, and the administration): the way back, the arch and the name,
   how many people and when they meet as facts, and the two views of the work as pills, "Personas" and "Reuniones"
   (`here` marks the current one; the title says it too, for a screen reader). The administration also gets the way
-  to the group's data. Needs: group, member_count, here.
+  to the group's data. Needs: group, member_count, here. The header is id="cabeza-grupo": a decision in place on the
+  people page replaces it too (data-inline-also), so its count agrees with the list.
 {% endcomment %}
 <a class="back-link" href="{% url 'community:group_detail' group.pk %}">Volver al grupo</a>
-<header class="page-head{% if request.is_church_admin and group.is_active %} page-head--actions{% endif %}">
+<header class="page-head{% if request.is_church_admin and group.is_active %} page-head--actions{% endif %}" id="cabeza-grupo">
   <div class="group-head">
-    {% monogram group.name "lg" %}
+    {% monogram group.name "lg" "grupo" %}
     <div class="page-head__text">
       <h1 class="voice page-head__title"><span class="visually-hidden">{% if here == "personas" %}Personas de {% else %}Reuniones de {% endif %}</span>{{ group.name }}</h1>
       <ul class="meta page-head__meta">

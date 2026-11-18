@@ -103,7 +103,7 @@ class RhythmOnThePagesTests(CommunityFixture):
         self.assertNotContains(home, "Sin día de reunión")  # the row says the next meeting's day
         detail = self.client.get(reverse("community:group_detail", args=[group.pk]))
         self.assertContains(detail, "Los jueves, cada dos semanas" if last.weekday() == 3 else ", cada dos semanas")
-        self.assertContains(detail, '<h2 id="reunion" class="meeting__title">Próxima reunión</h2>')
+        self.assertContains(detail, '<h2 id="reunion" class="heading">Próxima reunión</h2>')
 
     def test_a_group_without_a_fixed_day_is_never_asked(self):
         group = self.rhythm(meeting_frequency="variable", meeting_day=None)
@@ -113,7 +113,7 @@ class RhythmOnThePagesTests(CommunityFixture):
         self.assertNotContains(home, "¿Quién vino a")
         self.assertContains(home, "Sin día fijo")
         detail = self.client.get(reverse("community:group_detail", args=[group.pk]))
-        self.assertContains(detail, '<h2 id="reunion" class="meeting__title">Sin día fijo</h2>')
+        self.assertContains(detail, '<h2 id="reunion" class="heading">Sin día fijo</h2>')
         self.assertContains(detail, "Quien guía el grupo te avisará")
         meetings = self.client.get(reverse("community:group_meetings", args=[group.pk]))
         # No day to ask about: choosing the day is the way to pass the list, and the section says just that.
@@ -174,8 +174,8 @@ class RhythmFormTests(CommunityFixture):
         self.client.post(url, {**data, "meeting_week": "2", "meeting_time": "19:30"})
         self.group.refresh_from_db()
         self.assertEqual((self.group.meeting_frequency, self.group.meeting_week), ("mensual", 2))
-        # The day and the hour are two facts, each with its mark, on the group's page and in the list.
-        for name, args in (("community:group_detail", [self.group.pk]), ("community:groups", [])):
-            page = self.client.get(reverse(name, args=args))
-            self.assertContains(page, "</svg>El segundo jueves de cada mes</li>")
-            self.assertContains(page, "</svg>19:30</li>")
+        # The day and the hour are two facts, each with its mark, on the group's page; the list says them in one line.
+        page = self.client.get(reverse("community:group_detail", args=[self.group.pk]))
+        self.assertContains(page, "</svg>El segundo jueves de cada mes</li>")
+        self.assertContains(page, "</svg>19:30</li>")
+        self.assertContains(self.client.get(reverse("community:groups")), "El segundo jueves de cada mes a las 19:30</p>")

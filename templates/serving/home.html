@@ -3,10 +3,13 @@
 {% block page_title %}Servir{% endblock %}
 {% block content %}
 {% comment %}
-  Servir (serving.views.home): what one person is asked to do. First the dates that wait for their answer or that
-  they already answered (the day drawn, the team, the time and the place as facts, the answer as two buttons and,
-  once given, as a pill), then the teams they are in (with who coordinates, by name only), then the days they said
-  they cannot serve. Nobody else's answer, contact data or unavailable days are here.
+  Servir (serving.views.home): what one person is asked to do. Their dates (the day drawn, what is needed, the
+  team, the time and the place), each its own region: a date that waits is answered in place with the home's two
+  answers; an answered one says the answer and, until the day before, «Cambiar respuesta» opens the other answer in
+  place, with «Dejarlo así» to close it again. The handle stays where it was and keeps the focus, and after an
+  answer the focus comes back to it (data-inline-focus). ?cambiar=<id> opens it from a link. Then the teams they
+  are in (who coordinates, by name only) and the days they cannot serve. Nobody else's answer, contact data or
+  unavailable days are here.
 {% endcomment %}
 <div class="narrow">
   {% url 'serving:team_admin' as teams %}
@@ -17,40 +20,47 @@
   {% endif %}
 
   {% if not memberships and not dates %}
-    {% include "partials/ui/empty.html" with title="Todavía no estás en ningún equipo" text="¿Quieres servir? Díselo a tu pastor: a los equipos te agrega la administración de tu iglesia." %}
+    {% include "partials/ui/empty.html" with title="Todavía no estás en ningún equipo" text="Para servir, díselo a tu pastor o a la administración de tu iglesia." %}
   {% else %}
   <section class="block" aria-labelledby="tus-fechas">
     <h2 id="tus-fechas" class="heading">Tus fechas</h2>
     {% if dates %}
       <ul class="dates rows my-dates">
         {% for assignment in dates %}{% with day=assignment.service_date %}
-          <li class="row row--lead row--stack{% if assignment.asks %} row--attention{% endif %}{% if day.date == today %} row--today{% endif %}" id="fecha-{{ assignment.pk }}">
+          <li class="row row--lead row--stack{% if assignment.status == 'pendiente' %} row--attention{% endif %}{% if day.date == today %} row--today{% endif %}" id="fecha-{{ assignment.pk }}">
             {% date_block day.date %}
             <div class="row__main">
-              <p class="row__title">{{ day.what }}</p>
-              <ul class="meta">
-                <li class="visually-hidden">{% if day.date == today %}Hoy{% else %}{{ day.date|weekday_date }}{% endif %}</li>
-                <li>{% icon "servir" "sm" %}{{ day.team.name }}</li>
-                {% if day.starts_at %}<li>{% icon "reloj" "sm" %}{{ day.starts_at|time:"H:i" }}</li>{% endif %}
-                {% if day.place %}<li>{% icon "lugar" "sm" %}{{ day.place }}</li>{% endif %}
-              </ul>
+              <p class="row__title"{% if assignment.status == "pendiente" or not assignment.can_change %} data-inline-focus tabindex="-1"{% endif %}>{{ day.what }}</p>
+              <p class="row__meta"><span class="visually-hidden">{% if day.date == today %}Hoy{% else %}{{ day.date|weekday_date|capfirst }}{% endif %}. </span>Equipo {{ day.team.name }}{% if day.starts_at %}, {{ day.starts_at|time:"H:i" }}{% endif %}{% if day.place %}, {{ day.place }}{% endif %}</p>
             </div>
-            {% if assignment.asks %}
+            {% if assignment.status == "pendiente" %}
               <form class="row__end" method="post" action="{% url 'serving:respond' assignment.pk %}" data-inline="fecha-{{ assignment.pk }}">
                 {% csrf_token %}
-                <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar">No puedo<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
-                <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="aceptar">Sí, puedo<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
+                <button class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" type="submit" name="respuesta" value="aceptar">Sí, puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
+                <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar">No puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
               </form>
             {% else %}
               <div class="row__end">
                 {% if assignment.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}{% status "descartada" "Dijiste que no puedes" %}{% endif %}
-                {% if assignment.can_change %}<a class="btn btn--link btn--small" href="{% url 'serving:home' %}?cambiar={{ assignment.pk }}#fecha-{{ assignment.pk }}">Cambiar<span class="visually-hidden"> tu respuesta del {{ day.date|weekday_date }}</span></a>{% endif %}
+                {% if assignment.can_change %}
+                <details class="fold cambiar"{% if assignment.asks %} open{% endif %}>
+                  <summary data-inline-focus><span class="cambiar__abrir">Cambiar respuesta</span><span class="cambiar__cerrar">Dejarlo así</span><span class="visually-hidden"> del {{ day.date|weekday_date }}</span></summary>
+                  <form method="post" action="{% url 'serving:respond' assignment.pk %}" data-inline="fecha-{{ assignment.pk }}">
+                    {% csrf_token %}
+                    {% if assignment.status == "aceptada" %}
+                    <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar">Ya no puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
+                    {% else %}
+                    <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="aceptar">Sí, puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
+                    {% endif %}
+                  </form>
+                </details>
+                {% endif %}
               </div>
             {% endif %}
           </li>
         {% endwith %}{% endfor %}
       </ul>
-      <p class="aside-note">Puedes cambiar tu respuesta hasta un día antes. Después, avisa a quien coordina el equipo.</p>
+      <p class="aside-note">Puedes cambiar tu respuesta hasta un día antes; después, avisa a quien coordina el equipo.</p>
     {% else %}
       <p class="empty-line">Sin fechas por ahora.</p>
     {% endif %}
@@ -62,12 +72,10 @@
     <ul class="rows">
       {% for membership in memberships %}
         <li class="row row--lead">
-          {% monogram membership.team.name %}
+          {% monogram membership.team.name "" "grupo" %}
           <div class="row__main">
             <p class="row__title">{% if membership.can_open %}<a href="{% url 'serving:team' membership.team.pk %}">{{ membership.team.name }}</a>{% else %}{{ membership.team.name }}{% endif %}</p>
-            <ul class="meta">
-              {% if membership.is_coordinator %}<li>{% icon "guia" "sm" %}Lo coordinas</li>{% elif membership.coordinator_names %}<li>{% icon "guia" "sm" %}Coordina{{ membership.coordinator_names|length|pluralize:"n" }} {{ membership.coordinator_names|join:", " }}</li>{% else %}<li>Nadie lo coordina todavía</li>{% endif %}
-            </ul>
+            <p class="row__meta">{% if membership.is_coordinator %}Lo coordinas{% elif membership.coordinator_names %}Coordina{{ membership.coordinator_names|length|pluralize:"n" }} {{ membership.coordinator_names|join:", " }}{% else %}Nadie lo coordina todavía{% endif %}</p>
             {% if membership.team.description %}<p class="row__meta">{{ membership.team.description }}</p>{% endif %}
           </div>
         </li>
@@ -76,8 +84,9 @@
   </section>
   {% endif %}
 
-  <section class="block" aria-labelledby="dias">
-    <h2 id="dias" class="heading">Días que no puedes</h2>
+  {# Taking a day out acts in place: the section is the region that changes (data-inline="dias") #}
+  <section class="block" aria-labelledby="dias-titulo" id="dias">
+    <h2 id="dias-titulo" class="heading">Días que no puedes</h2>
     <form class="day-form" method="post" action="{% url 'serving:unavailable_add' %}">
       {% csrf_token %}
       <label class="visually-hidden" for="dia">Día que no puedes</label>
@@ -85,11 +94,12 @@
       <button class="btn btn--secondary" type="submit">Marcar este día</button>
     </form>
     {% if days %}
-      <ul class="rows">
+      <ul class="dates rows">
         {% for day in days %}
-          <li class="row">
+          <li class="row row--lead">
+            {% date_block day.date %}
             <div class="row__main"><p class="row__title">{{ day.date|weekday_date|capfirst }}</p></div>
-            <form class="row__end" method="post" action="{% url 'serving:unavailable_remove' day.pk %}">
+            <form class="row__end" method="post" action="{% url 'serving:unavailable_remove' day.pk %}" data-inline="dias">
               {% csrf_token %}
               <button class="btn btn--secondary btn--small" type="submit">Quitar<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
             </form>

@@ -177,6 +177,10 @@ def team(request, team_id: int):
     for service_date in dates:
         service_date.people = sorted(service_date.assignments.all(), key=lambda row: (row.person.full_name, row.pk))
         service_date.confirmed = sum(1 for row in service_date.people if row.status == Assignment.Status.ACCEPTED)
+        waiting = sum(1 for row in service_date.people if row.status == Assignment.Status.PENDING)
+        # Nobody serves that day: somebody was asked and every one asked said no (none confirmed, none still to
+        # answer: a pending answer may still be a yes). A date nobody was asked for says so on its own row.
+        service_date.nobody = bool(service_date.people) and not service_date.confirmed and not waiting
     members = list(TeamMembership.objects.filter(team=team, status=ACTIVE).select_related("person").order_by("role", *MEMBER_ORDER))
     query, found, found_total = request.GET.get("q", "").strip(), [], 0
     if request.is_church_admin and query:
@@ -190,7 +194,8 @@ def team(request, team_id: int):
         request,
         "serving/team.html",
         {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found,
-         "found_total": found_total},
+         "found_total": found_total, "today": today,
+         "uncovered": [service_date for service_date in dates if service_date.nobody] if team.is_active else []},
     )
 
 

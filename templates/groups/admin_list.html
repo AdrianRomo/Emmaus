@@ -4,30 +4,28 @@
 {% block content %}
 {% comment %}
   Every group of the church, for its administration (groups.views.group_admin_list): active ones first, then the
-  archived. A row is the way into the group's people (where requests are decided, people added and the guide
-  named); its data is edited from there. A group with requests that wait is marked and says how many.
+  archived. A row is the group's arch and the way into its people (where requests are decided, people added and the
+  guide named); its data is edited from there. A group with requests that wait is marked and says how many; one
+  without a guide says so in vela (nobody answers its requests).
 {% endcomment %}
 <div class="narrow">
   {% url 'community:group_create' as create %}
   {% include "events/rotulo/_page_head.html" with title="Grupos de la iglesia" action_url=create action_label="Crear un grupo" %}
   {% if groups %}
-    <ul class="rows group-rows">
+    <ul class="rows">
       {% for group in groups %}
-        <li class="row row--lead row--stack{% if group.pending_count and group.is_active %} row--attention{% endif %}">
-          {% monogram group.name %}
+        <li class="row row--lead{% if group.pending_count and group.is_active %} row--attention{% endif %}">
+          {% monogram group.name "" "grupo" %}
           <div class="row__main">
             <p class="row__title"><a href="{% url 'community:group_people' group.pk %}">{{ group.name }}<span class="visually-hidden">: personas</span></a></p>
-            <ul class="meta">
-              <li>{% icon "personas" "sm" %}{{ group.member_count }} persona{{ group.member_count|pluralize }}</li>
-              <li>{% icon "guia" "sm" %}{% if group.leader_names %}Guía{{ group.leader_names|length|pluralize }}: {{ group.leader_names|join:", " }}{% else %}Sin guía todavía{% endif %}</li>
-            </ul>
+            <p class="row__meta">{{ group.member_count }} persona{{ group.member_count|pluralize }}{% if group.leader_names %}. Guía{{ group.leader_names|length|pluralize }}: {{ group.leader_names|join:", " }}{% endif %}</p>
+            {% if not group.is_active %}<p class="row__meta row__meta--con-marca">{% status "archivado" %}</p>{% elif group.pending_count or not group.accepts_requests or not group.leader_names %}<p class="row__meta row__meta--con-marca">{% if not group.leader_names %}<span class="chip chip--wait">Sin guía</span>{% endif %}{% if group.pending_count %}{% status "por_evaluar" group.pending_count|stringformat:"d"|add:" por decidir" %}{% endif %}{% if not group.accepts_requests %}{% status "descartada" "Cerrado" %}{% endif %}</p>{% endif %}
           </div>
-          {% if not group.is_active %}<div class="row__end">{% status "archivado" %}</div>{% elif group.pending_count or not group.accepts_requests %}<div class="row__end">{% if group.pending_count %}{% status "por_evaluar" group.pending_count|stringformat:"d"|add:" por decidir" %}{% endif %}{% if not group.accepts_requests %}{% status "descartada" "Cerrado" %}{% endif %}</div>{% endif %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    {% include "partials/ui/empty.html" with title="Sin grupos todavía" action_url=create action_label="Crear un grupo" %}
+    <p class="empty-line">Sin grupos todavía.</p>
   {% endif %}
 </div>
 {% endblock %}

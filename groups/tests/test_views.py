@@ -220,4 +220,69 @@ class GroupRulesTests(CommunityFixture):
             reverse("community:member_add", args=[group.pk]), {"persona": self.no_account.pk, "rol": "lider"}, follow=True
         )
         self.assertContains(response, "Todavía no tiene acceso a Emmaus")
-        self.assertContains(self.client.get(reverse("community:groups")), "Guía: Nora Sin Cuenta</li>")
+        self.assertContains(self.client.get(reverse("community:groups")), "Guía: Nora Sin Cuenta</p>")
+
+
+class WhereADecisionReturnsTests(CommunityFixture):
+    """A decision taken elsewhere ("Mi iglesia"'s raised card, a suggestion, a search) returns there when the form
+    says so in ``siguiente`` (core.nav.safe_next): emmaus.js then reads the changed region from that page. Another
+    site is never followed, and without ``siguiente`` each view keeps the page it always returned to."""
+
+    HOME = "/mi-iglesia/?desde=tarjeta"
+    AWAY = "https://otro-sitio.example/robar/"
+
+    def test_the_guide_decides_and_returns_to_siguiente(self):
+        self.client.force_login(self.leader_user)
+        url = reverse("community:request_decide", args=[self.group.pk, self.pending.pk])
+        response = self.client.post(url, {"decision": "declinar", "siguiente": self.HOME})
+        self.assertRedirects(response, self.HOME, fetch_redirect_response=False)
+        self.pending.refresh_from_db()
+        self.assertEqual(self.pending.status, GroupJoinRequest.Status.DECLINED)
+
+    def test_an_off_site_siguiente_is_ignored_and_the_default_kept(self):
+        people = reverse("community:group_people", args=[self.group.pk])
+        self.client.force_login(self.leader_user)
+        url = reverse("community:request_decide", args=[self.group.pk, self.pending.pk])
+        self.assertRedirects(self.client.post(url, {"decision": "aceptar", "siguiente": self.AWAY}), people, fetch_redirect_response=False)
+        detail = reverse("community:group_detail", args=[self.other_group.pk])
+        self.client.force_login(self.member_user)
+        request_url = reverse("community:group_request", args=[self.other_group.pk])
+        self.assertRedirects(self.client.post(request_url, {"siguiente": self.AWAY}), detail, fetch_redirect_response=False)
+        withdraw_url = reverse("community:group_withdraw", args=[self.other_group.pk])
+        self.assertRedirects(self.client.post(withdraw_url, {"siguiente": "//otro-sitio.example/"}), detail, fetch_redirect_response=False)
+
+    def test_without_siguiente_each_view_returns_where_it_always_did(self):
+        self.client.force_login(self.leader_user)
+        url = reverse("community:request_decide", args=[self.group.pk, self.pending.pk])
+        self.assertRedirects(self.client.post(url, {"decision": "aceptar"}), reverse("community:group_people", args=[self.group.pk]),
+                             fetch_redirect_response=False)
+        detail = reverse("community:group_detail", args=[self.other_group.pk])
+        self.client.force_login(self.member_user)
+        self.assertRedirects(self.client.post(reverse("community:group_request", args=[self.other_group.pk])), detail,
+                             fetch_redirect_response=False)
+        self.assertRedirects(self.client.post(reverse("community:group_withdraw", args=[self.other_group.pk])), detail,
+                             fetch_redirect_response=False)
+
+    def test_a_member_asks_and_withdraws_from_another_page(self):
+        self.client.force_login(self.member_user)
+        response = self.client.post(reverse("community:group_request", args=[self.other_group.pk]), {"siguiente": self.HOME})
+        self.assertRedirects(response, self.HOME, fetch_redirect_response=False)
+        self.assertTrue(GroupJoinRequest.objects.filter(group=self.other_group, person=self.member, status=GroupJoinRequest.Status.PENDING).exists())
+        response = self.client.post(reverse("community:group_withdraw", args=[self.other_group.pk]), {"siguiente": self.HOME})
+        self.assertRedirects(response, self.HOME, fetch_redirect_response=False)
+
+    def test_the_administration_adds_somebody_and_returns_to_its_search(self):
+        self.client.force_login(self.admin)
+        search = reverse("community:group_people", args=[self.group.pk]) + "?q=nora"
+        response = self.client.post(reverse("community:member_add", args=[self.group.pk]), {"persona": self.member.pk, "siguiente": search})
+        self.assertRedirects(response, search, fetch_redirect_response=False)
+        response = self.client.post(reverse("community:member_add", args=[self.group.pk]), {"persona": self.coord_person.pk, "siguiente": self.AWAY})
+        self.assertRedirects(response, reverse("community:group_people", args=[self.group.pk]), fetch_redirect_response=False)
+
+    def test_the_decision_says_which_answer_and_who(self):
+        self.client.force_login(self.leader_user)
+        url = reverse("community:request_decide", args=[self.group.pk, self.pending.pk])
+        response = self.client.post(url, {"decision": "declinar"}, follow=True)
+        self.assertContains(response, "No aceptaste a Pía Pidió en Jóvenes Roca.")
+        # The head's count is a region a decision also replaces, and the decision form names it
+        self.assertContains(response, 'id="cabeza-grupo"')
