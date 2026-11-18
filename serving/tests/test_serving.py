@@ -15,6 +15,7 @@ from groups.tests.base import CommunityFixture
 from people import flags
 from people.models import ChurchAuditEvent
 from serving import services
+from serving.access import managed_team_ids
 from serving.models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
 
 
@@ -591,7 +592,7 @@ class ServiceFunctionTests(ServingFixture):
         self.assertEqual(services.my_dates(self.member), [])
         self.assertEqual(services.pending_count(self.member), 0)
         self.assertFalse(services.has_teams(self.member))
-        self.assertEqual(services.coordinated_teams(self.leader), [])
+        self.assertEqual(managed_team_ids(self.leader_user, self.church), [])
         self.client.force_login(self.member_user)
         page = self.client.get(self.url("home"))
         self.assertNotContains(page, "Bienvenida del domingo")
@@ -603,18 +604,21 @@ class ServiceFunctionTests(ServingFixture):
         with self.assertRaises(services.ServingError):
             services.set_member(self.team, self.coord_person, self.admin)
 
-    def test_coordinated_teams_and_has_teams(self):
-        self.assertEqual(services.coordinated_teams(self.leader), [self.team])
-        self.assertEqual(services.coordinated_teams(self.member), [])
-        self.assertEqual(services.coordinated_teams(self.admin_person), [])
+    def test_managed_teams_and_has_teams(self):
+        def managed(user, church=None):
+            return sorted(managed_team_ids(user, church or self.church))
+
+        self.assertEqual(managed(self.leader_user), [self.team.pk])
+        self.assertEqual(managed(self.member_user), [])
+        self.assertEqual(managed(self.admin), [])
         self.assertTrue(services.has_teams(self.leader))
         self.assertTrue(services.has_teams(self.member))
         self.assertFalse(services.has_teams(self.coord_person))
         services.set_member(self.other_team, self.leader, self.admin, role="coordina")
-        self.assertEqual(services.coordinated_teams(self.leader), [self.other_team, self.team])
+        self.assertEqual(managed(self.leader_user), sorted([self.other_team.pk, self.team.pk]))
         services.remove_member(self.team, self.leader, self.admin)
-        self.assertEqual(services.coordinated_teams(self.leader), [self.other_team])
+        self.assertEqual(managed(self.leader_user), [self.other_team.pk])
         services.set_member(self.other_team, self.leader, self.admin, role="sirve")
-        self.assertEqual(services.coordinated_teams(self.leader), [])
+        self.assertEqual(managed(self.leader_user), [])
         self.assertTrue(services.has_teams(self.leader))
-        self.assertEqual(services.coordinated_teams(self.member_b), [self.team_b])
+        self.assertEqual(managed(self.member_b_user, self.church_b), [self.team_b.pk])

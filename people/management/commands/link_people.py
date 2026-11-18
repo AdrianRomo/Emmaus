@@ -13,6 +13,10 @@ counts only, never a name, an e-mail or a phone.
 Names come from ``User.first_name`` / ``last_name`` as they are; only when both are empty, from the
 local part of the e-mail (or of the username when there is no e-mail). A name longer than the
 person's field is cut to fit and counted. Without ``--apply`` nothing is written.
+
+Undoing it deletes people, and with them (by cascade) their memberships of groups and teams. The
+role rows derived from those memberships go too (``access.sources``); ``rebuild_role_assignments
+--apply`` afterwards is the proof that nothing was left behind.
 """
 
 from collections import Counter
@@ -25,6 +29,7 @@ from core.models import Church, ParticipantProfile, UserChurchRole
 from people.models import Person
 
 ROLLBACK = 'Person.objects.filter(created_from="backfill").delete()'
+AFTER_ROLLBACK = "Después corre: python manage.py rebuild_role_assignments --apply"
 NAME_LIMIT = Person._meta.get_field("first_name").max_length
 
 
@@ -98,7 +103,7 @@ class Command(BaseCommand):
         "del perfil y con su teléfono y medio de contacto preferido, y por cada cuenta con un rol en una iglesia "
         "que todavía no tenga persona ahí. Nunca crea personas para camperos ni lee tablas de eventos. Volver a "
         "correrlo no cambia nada. Solo muestra conteos, nunca nombres. Sin --apply solo muestra lo que crearía. "
-        f"Para deshacerlo, en python manage.py shell: from people.models import Person; {ROLLBACK}"
+        f"Para deshacerlo, en python manage.py shell: from people.models import Person; {ROLLBACK}. {AFTER_ROLLBACK}"
     )
 
     def add_arguments(self, parser):
@@ -149,5 +154,5 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Listo. Se crearon {new} persona(s) con origen «Cuentas existentes»."))
         if new:
             self.stdout.write(
-                f"Para deshacerlo, en python manage.py shell: from people.models import Person; {ROLLBACK}"
+                f"Para deshacerlo, en python manage.py shell: from people.models import Person; {ROLLBACK}. {AFTER_ROLLBACK}"
             )

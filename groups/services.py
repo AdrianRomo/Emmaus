@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, F
+from django.db.models import Count, F, OuterRef
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from access.models import RoleAssignment, ScopeType
+from access.sources import account_changed
 from people.audit import record_church
 from people.models import Person
 
@@ -30,16 +31,29 @@ class GroupError(ValidationError):
 # ---- the projection -----------------------------------------------------------------------------
 def sync_assignment(membership: GroupMembership) -> RoleAssignment | None:
     """Write (or delete) the role row derived from ``membership``. A person without an account
-    holds nothing: there is nobody to sign in as them."""
-    user_id = membership.person.user_id
-    if user_id is None:
-        RoleAssignment.objects.filter(source_table=SOURCE, source_id=membership.pk).delete()
-        return None
+    holds nothing: there is nobody to sign in as them.
+
+    The row is derived from the membership and the person's account as they are in the database
+    now, read under a lock on the membership: never from what the caller loaded earlier, which a
+    concurrent service or a link of the account may have changed since."""
+    source_id = membership.pk
+    with transaction.atomic():
+        membership = (
+            GroupMembership.objects.select_for_update(of=("self",)).select_related("group", "person")
+            .filter(pk=source_id).first()
+        )
+        if membership is None or membership.person.user_id is None:
+            RoleAssignment.objects.filter(source_table=SOURCE, source_id=source_id).delete()
+            return None
+        return _write_assignment(membership)
+
+
+def _write_assignment(membership: GroupMembership) -> RoleAssignment:
     row, _ = RoleAssignment.objects.update_or_create(
         source_table=SOURCE,
         source_id=membership.pk,
         defaults={
-            "subject_user_id": user_id,
+            "subject_user_id": membership.person.user_id,
             "church_id": membership.group.church_id,
             "scope_type": ScopeType.GROUP,
             "scope_id": membership.group_id,
@@ -52,10 +66,21 @@ def sync_assignment(membership: GroupMembership) -> RoleAssignment | None:
     return row
 
 
-def sync_person_assignments(sender, instance: Person, **kwargs) -> None:
-    """``post_save`` of ``Person``: the account may have been linked or unlinked."""
-    for membership in GroupMembership.objects.filter(person=instance).select_related("group", "person"):
-        sync_assignment(membership)
+def sync_person_assignments(sender, instance: Person, created=False, raw=False, **kwargs) -> None:
+    """``post_save`` of ``Person``, only when its account was linked, unlinked or replaced."""
+    if not account_changed(instance, created, raw):
+        return
+    with transaction.atomic():
+        for membership in GroupMembership.objects.filter(person=instance).order_by("group_id", "pk"):
+            sync_assignment(membership)
+
+
+def live_memberships():
+    """``access.sources``: the membership a role row came from, when it still grants what the row says."""
+    return GroupMembership.objects.filter(
+        pk=OuterRef("source_id"), group_id=OuterRef("scope_id"), group__church_id=OuterRef("church_id"),
+        status=GroupMembership.Status.ACTIVE, role=OuterRef("role"), person__user_id=OuterRef("subject_user_id"),
+    )
 
 
 def expected_assignments() -> dict[int, dict]:
