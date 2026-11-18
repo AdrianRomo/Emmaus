@@ -19,12 +19,12 @@
     <h2 id="p-grupos" class="heading">Grupos</h2>
     {% if groups %}
     <dl class="figures">
-      <div><dt>Grupos activos</dt><dd class="figures__value">{{ groups|length }}</dd>{% if groups_stale %}<dd class="figures__note">{{ groups_stale }} sin reunión registrada en tres semanas</dd>{% endif %}</div>
-      <div><dt>Personas en grupos</dt><dd class="figures__value">{{ group_people }}</dd>{% if groups_waiting %}<dd class="figures__note">{{ groups_waiting }} grupo{{ groups_waiting|pluralize }} con solicitudes en espera</dd>{% endif %}</div>
-      <div><dt>Se unieron a un grupo</dt><dd class="figures__value">{{ group_joined }}</dd><dd class="figures__note">en los últimos 30 días</dd></div>
+      <div><dt>Grupos activos</dt><dd class="figures__value">{{ groups|length }}</dd>{% if groups_missing %}<dd class="figures__note">{{ groups_missing }} con asistencia por registrar</dd>{% endif %}</div>
+      <div><dt>Personas en grupos</dt><dd class="figures__value">{% if group_people is None %}Menos de {{ minimum }}{% else %}{{ group_people }}{% endif %}</dd>{% if groups_small %}<dd class="figures__note">Sin contar {% if groups_small == 1 %}1 grupo{% else %}{{ groups_small }} grupos{% endif %} de menos de {{ minimum }} personas</dd>{% endif %}{% if groups_waiting %}<dd class="figures__note">{{ groups_waiting }} grupo{{ groups_waiting|pluralize }} con solicitudes en espera</dd>{% endif %}</div>
+      <div><dt>Se unieron a un grupo</dt><dd class="figures__value">{% if group_joined is None %}Menos de {{ minimum }}{% else %}{{ group_joined }}{% endif %}</dd><dd class="figures__note">en los últimos 30 días{% if groups_small %}, en los grupos de {{ minimum }} personas o más{% endif %}</dd></div>
     </dl>
     <table class="table table--stack" role="table">
-      <caption>Cada grupo: cuántas personas tiene, su última reunión con lista y cuántas personas vinieron a las anteriores.</caption>
+      <caption>Cada grupo: cuántas personas tiene, su última reunión con lista y cuántas personas vinieron a las anteriores. De un grupo de menos de {{ minimum }} personas no se muestra la asistencia.</caption>
       <thead role="rowgroup">
         <tr role="row">
           <th scope="col" role="columnheader">Grupo</th>
@@ -38,17 +38,19 @@
         {% for group in groups %}
         <tr role="row">
           <th scope="row" role="rowheader"><a href="{% url 'community:group_detail' group.pk %}">{{ group.name }}</a><span class="table__sub">{{ group.get_kind_display }}</span></th>
-          <td role="cell" class="num" data-label="Personas">{{ group.member_count }}</td>
+          <td role="cell" class="num" data-label="Personas">{% if group.small %}Menos de {{ minimum }}{% else %}{{ group.member_count }}{% endif %}</td>
           <td role="cell" data-label="Última reunión con lista">
-            {% if group.last %}{% if group.last.present == 1 %}1 de {{ group.last.expected }} personas asistió{% else %}{{ group.last.present }} de {{ group.last.expected }} personas asistieron{% endif %}<span class="table__sub">{{ group.last.date|weekday_date|capfirst }}{% if group.last.date.year != today.year %} de {{ group.last.date.year }}{% endif %}</span>{% else %}Todavía no tiene{% endif %}
+            {% if not group.last %}Todavía no tiene{% elif group.last.present is None %}Sin desglose de asistencia por privacidad{% elif group.last.present == 1 %}1 de {{ group.last.expected }} personas asistió{% else %}{{ group.last.present }} de {{ group.last.expected }} personas asistieron{% endif %}
+            {% if group.last %}<span class="table__sub">{{ group.last.date|weekday_date|capfirst }}{% if group.last.date.year != today.year %} de {{ group.last.date.year }}{% endif %}</span>{% endif %}
+            {% if group.next_day %}<span class="table__sub">Próxima reunión: {{ group.next_day|weekday_date }}</span>{% elif group.meeting_frequency == "variable" %}<span class="table__sub">Sin día fijo</span>{% elif not group.has_fixed_day %}<span class="table__sub">Sin día de reunión todavía</span>{% endif %}
           </td>
           <td role="cell" data-label="Asistencia reciente">
-            {% if group.trend %}<span class="visually-hidden">Personas que vinieron a las últimas {{ group.trend|length }} reuniones, de la más antigua a la más reciente: </span><span class="trend">{{ group.trend|join:", " }}</span>{% else %}<span class="muted">Falta más de una reunión</span>{% endif %}
+            {% if group.small %}<span class="muted">No se muestra</span>{% elif group.trend %}<span class="visually-hidden">Personas que vinieron a las últimas {{ group.trend|length }} reuniones, de la más antigua a la más reciente: </span><span class="trend">{{ group.trend|join:", " }}</span>{% else %}<span class="muted">Falta más de una reunión</span>{% endif %}
           </td>
           <td role="cell" data-label="Por atender">
-            {% if group.stale %}<span class="table__flag">{% if group.last %}Sin reunión registrada desde el {% if group.last.date.year == today.year %}{{ group.last.date|day_month }}{% else %}{{ group.last.date|long_date }}{% endif %}{% else %}Sin ninguna reunión registrada{% endif %}</span>{% endif %}
+            {% if group.missing == 1 %}<span class="table__flag">Falta registrar la asistencia del {{ group.missing_day|weekday_date }}{% if group.missing_day.year != today.year %} de {{ group.missing_day.year }}{% endif %}</span>{% elif group.missing %}<span class="table__flag">Faltan {% if group.missing >= 3 %}3 o más{% else %}{{ group.missing }}{% endif %} reuniones por registrar, la última el {{ group.missing_day|weekday_date }}{% if group.missing_day.year != today.year %} de {{ group.missing_day.year }}{% endif %}</span>{% endif %}
             {% if group.waiting %}<span class="table__flag">{% if group.waiting == 1 %}1 solicitud espera respuesta{% else %}{{ group.waiting }} solicitudes esperan respuesta{% endif %}</span>{% endif %}
-            {% if not group.stale and not group.waiting %}<span class="muted">Nada por ahora</span>{% endif %}
+            {% if not group.missing and not group.waiting %}<span class="muted">Nada por ahora</span>{% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -105,8 +107,8 @@
         <tr role="row">
           <th scope="row" role="rowheader">{{ event.name }}</th>
           <td role="cell" data-label="Cuándo">{{ event.starts_on|date_range:event.ends_on|capfirst }}</td>
-          <td role="cell" class="num" data-label="Inscritos">{{ event.taken }}</td>
-          <td role="cell" class="num" data-label="Asistieron">{% if event.marked %}{{ event.came }}{% else %}<span class="muted">Sin registrar</span>{% endif %}</td>
+          <td role="cell" class="num" data-label="Inscritos">{% if event.taken is None %}Menos de {{ minimum }}{% else %}{{ event.taken }}{% endif %}</td>
+          <td role="cell" class="num" data-label="Asistieron">{% if event.taken is None %}Menos de {{ minimum }}{% elif not event.marked %}<span class="muted">Sin registrar</span>{% elif event.came is None %}Menos de {{ minimum }}{% else %}{{ event.came }}{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -133,9 +135,10 @@
         <tr role="row">
           <th scope="row" role="rowheader">{{ service.team_name }}</th>
           <td role="cell" data-label="Fecha">{{ service.date|weekday_date|capfirst }}</td>
-          <td role="cell" class="num" data-label="Confirmaron">{{ service.confirmed }}</td>
+          {% if service.few %}<td role="cell" colspan="3" data-label="Respuestas"><span class="muted">Se le pidió a menos de {{ minimum }} personas: sin desglose por privacidad</span></td>
+          {% else %}<td role="cell" class="num" data-label="Confirmaron">{{ service.confirmed }}</td>
           <td role="cell" class="num" data-label="Por confirmar">{{ service.waiting }}</td>
-          <td role="cell" class="num" data-label="No pueden">{{ service.declined }}</td>
+          <td role="cell" class="num" data-label="No pueden">{{ service.declined }}</td>{% endif %}
         </tr>
         {% endfor %}
       </tbody>
