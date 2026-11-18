@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 from django.db import transaction
 
-from ..models import Event, EventMembership, InterviewStation, TutorAssignment
+from ..models import Event, EventMembership, InterviewStation, MembershipAlias, TutorAssignment
 from . import audit
 from .event_questionnaires import links_for, use_version
 
@@ -30,6 +30,7 @@ RELATIONS = {
     "stations": COPIED,
     "memberships": WITH_TEAM,  # without confidential access; each person is told again
     "tutor_assignments": WITH_TEAM,
+    "membership_aliases": WITH_TEAM,  # the names the church's lists use for each coordinator (issue #50)
     "access_requests": NEVER,
     "participants": NEVER,  # camperos; with them go consents, sessions and person links
     "interviews": NEVER,  # with them go answers and their revisions
@@ -135,4 +136,8 @@ def _copy_team(source: Event, copy: Event, actor) -> list[EventMembership]:
         tutor, coordinator = added.get(assignment.tutor_id), added.get(assignment.coordinator_id)
         if tutor and coordinator:
             TutorAssignment.objects.create(event=copy, tutor=tutor, coordinator=coordinator, created_by=actor)
+    # The names the church's lists use for each coordinator (issue #50) go with the team: the next camp's list
+    # is written by the same people. The audit row of each copied member already says "copiado".
+    for alias in MembershipAlias.objects.filter(event=source, membership_id__in=added):
+        MembershipAlias.objects.create(event=copy, membership=added[alias.membership_id], alias=alias.alias, created_by=actor)
     return list(added.values())

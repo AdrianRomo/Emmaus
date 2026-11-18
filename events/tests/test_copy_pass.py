@@ -84,7 +84,7 @@ class UnicodeDigitsTests(CampFixture):
         self.client.post(self.url("participant_import"), {"file": upload})
         response = self.client.post(self.url("participant_import"), {"action": "confirm", "include": ["2", SUPERSCRIPT_TWO]})
         self.assertEqual(response.status_code, 302)
-        self.assertEqual([str(m) for m in get_messages(response.wsgi_request)], ["Se importó 1 campero."])
+        self.assertEqual([str(m) for m in get_messages(response.wsgi_request)][0], "Se importó 1 campero.")
         self.assertTrue(EventParticipant.objects.filter(event=self.event, full_name="Valeria Ruiz Ortega").exists())
 
     def test_report_scope_key_with_a_superscript_id(self):

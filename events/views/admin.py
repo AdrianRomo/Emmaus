@@ -212,11 +212,52 @@ def participant_import(request, event, access):
     preview = request.session.get(IMPORT_SESSION_KEY)
     if preview and preview.get("event") != event.id:
         preview = None
-    if request.method == "POST" and request.POST.get("action") == "confirm" and preview:
+    # Coordinador cells that matched nobody (a nickname): the administrator says who each one is before the review.
+    # A preview stored before this step existed has no "mapping" key and no unmatched values: it goes on as before.
+    unmatched = participant_svc.unmatched_coordinators(preview["rows"]) if preview else []
+    needs_mapping = bool(unmatched) and preview.get("mapping") is None
+    if request.method == "POST" and request.POST.get("action") == "map" and preview and unmatched:
+        choices, remember = {}, set()
+        for index, item in enumerate(unmatched):
+            chosen = request.POST.get(f"coordinador_{index}", "")
+            choices[item["key"]] = int(chosen) if chosen.isascii() and chosen.isdigit() else None
+            if request.POST.get(f"recordar_{index}"):
+                remember.add(item["key"])
+        mapping = participant_svc.apply_mapping(event, preview["rows"], choices)  # the session's rows; no database write
+        for key, entry in mapping.items():
+            entry["save"] = bool(entry["id"]) and key in remember
+        preview["mapping"] = mapping
+        request.session[IMPORT_SESSION_KEY] = preview
+        return redirect("events:participant_import", slug=event.slug)
+    if request.method == "POST" and request.POST.get("action") == "remap" and preview:
+        preview["mapping"] = None
+        request.session[IMPORT_SESSION_KEY] = preview
+        return redirect("events:participant_import", slug=event.slug)
+    if request.method == "POST" and request.POST.get("action") == "confirm" and preview and not needs_mapping:
         include = {int(line) for line in request.POST.getlist("include") if line.isascii() and line.isdigit()}
-        result = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
+        with transaction.atomic():
+            result = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
+            saved, refused = 0, []
+            for entry in (preview.get("mapping") or {}).values():
+                membership = EventMembership.objects.filter(pk=entry["id"], event=event).select_related("user").first() if entry.get("save") else None
+                if membership is None:
+                    continue
+                ok, why = participant_svc.save_alias(membership, entry["value"], actor=request.user)
+                saved += ok
+                if why:
+                    refused.append(why)
         request.session.pop(IMPORT_SESSION_KEY, None)
-        messages.success(request, result.message)
+        text = result.message
+        if saved:
+            text += (" Guardamos 1 nombre para la próxima importación." if saved == 1
+                     else f" Guardamos {saved} nombres para la próxima importación.")
+        messages.success(request, text)
+        for why in refused:
+            messages.warning(request, why)
+        if result.coordinator_note:
+            # The list of camperos, filtered to those with no coordinator (these and any from before)
+            messages.warning(request, result.coordinator_note)
+            return redirect(reverse("events:participants", args=[event.slug]) + "?coordinador=ninguno")
         return redirect("events:participants", slug=event.slug)
     if request.method == "POST" and request.POST.get("action") == "cancel":
         request.session.pop(IMPORT_SESSION_KEY, None)
@@ -226,7 +267,7 @@ def participant_import(request, event, access):
     if request.method == "POST" and request.POST.get("action") != "confirm" and form.is_valid():
         rows, problems = participant_svc.parse_import(event, form.cleaned_data["file"].read())
         if not problems:
-            preview = {"event": event.id, "rows": [r.as_session() for r in rows], "name": form.cleaned_data["file"].name}
+            preview = {"event": event.id, "rows": [r.as_session() for r in rows], "name": form.cleaned_data["file"].name, "mapping": None}
             request.session[IMPORT_SESSION_KEY] = preview
             return redirect("events:participant_import", slug=event.slug)
     summary = None
@@ -237,12 +278,15 @@ def participant_import(request, event, access):
             "valid": sum(1 for r in rows if not r["errors"]),
             "errors": sum(1 for r in rows if r["errors"]),
             "duplicates": sum(1 for r in rows if r["duplicate_of"] or r["duplicate_in_file"]),
+            "no_coordinator": sum(1 for r in rows if not r["errors"] and not r["coordinator_id"]),
         }
-    return render(
-        request,
-        "events/admin/import.html",
-        {"form": form, "problems": problems, "preview": preview, "summary": summary},
-    )
+    context = {"form": form, "problems": problems, "preview": preview, "summary": summary, "needs_mapping": needs_mapping}
+    if needs_mapping:
+        context["unmatched"] = unmatched
+        context["coordinators"] = access.coordinators().filter(is_active=True).select_related("user")
+    elif preview:
+        context["mapping"] = list((preview.get("mapping") or {}).values())
+    return render(request, "events/admin/import.html", context)
 
 
 @event_view(ADMIN)
@@ -478,6 +522,20 @@ def _activation_link(request, user) -> str:
     return request.build_absolute_uri(reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token}))
 
 
+def _invite(request, event, user) -> tuple[str, bool, bool]:
+    """The one invitation path of an event team ("Agregar persona", an approved request, the team import): a fresh
+    link to create the password, sent by e-mail when e-mail is configured. Returns (link, sent, configured); the
+    caller says an e-mail went out only when ``sent``."""
+    created_link = _activation_link(request, user)
+    configured = team_svc.email_is_configured()
+    sent = configured and send_email_safely(
+        f"Te invitaron a {event.name} en Emmaus",
+        f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}. Crea tu contraseña aquí:\n{created_link}\n\nSi no esperabas este correo, ignóralo.",
+        [user.email],
+    )
+    return created_link, bool(sent), configured
+
+
 def _member_added(request, event, added):
     """After "Agregar persona" or an approved request: a new account gets its link (by e-mail and on screen).
 
@@ -486,13 +544,7 @@ def _member_added(request, event, added):
     """
     membership, user = added.membership, added.user
     if added.is_new or _can_issue_activation_link(event, user):
-        created_link = _activation_link(request, user)
-        configured = team_svc.email_is_configured()
-        sent = configured and send_email_safely(
-            f"Te invitaron a {event.name} en Emmaus",
-            f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}. Crea tu contraseña aquí:\n{created_link}\n\nSi no esperabas este correo, ignóralo.",
-            [user.email],
-        )
+        created_link, sent, configured = _invite(request, event, user)
         if sent:
             delivery = " Le enviamos un correo para crear su contraseña."
         elif not configured:
@@ -653,6 +705,12 @@ def member_edit(request, event, access, membership_id):
             raise PermissionDenied
         link = _activation_link(request, membership.user)
         audit.record(request.user, event, "integrante_modificado", f"Generó un enlace para crear contraseña de {membership.display_name}", membership)
+    elif request.method == "POST" and request.POST.get("action") == "alias_delete":
+        alias_id = request.POST.get("alias") or ""
+        alias = get_object_or_404(membership.aliases, pk=int(alias_id) if alias_id.isascii() and alias_id.isdigit() else 0)
+        participant_svc.delete_alias(alias, actor=request.user)
+        messages.success(request, f"Quitamos «{alias.alias}». La próxima importación ya no lo reconocerá.")
+        return redirect("events:member_edit", slug=event.slug, membership_id=membership.pk)
     elif request.method == "POST" and form.is_valid():
         if membership.user_id == request.user.id and not form.cleaned_data["is_active"]:
             form.add_error("is_active", "No puedes desactivar tu propio acceso.")
@@ -678,7 +736,8 @@ def member_edit(request, event, access, membership_id):
                     )
             messages.success(request, "Cambios guardados.")
             return redirect("events:team", slug=event.slug)
-    return render(request, "events/admin/member_form.html", {"form": form, "membership": membership, "link": link, "can_link": can_link})
+    return render(request, "events/admin/member_form.html", {"form": form, "membership": membership, "link": link, "can_link": can_link,
+                                                             "aliases": list(membership.aliases.all())})
 
 
 @event_view(ADMIN)

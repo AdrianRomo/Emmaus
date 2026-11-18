@@ -1,0 +1,35 @@
+{% extends rotulo_shell %}
+{% block page_title %}Equipo importado{% endblock %}
+{% block content %}
+<section class="confirm" aria-labelledby="importado">
+  <h1 id="importado" class="voice confirm__title">{% if people|length == 1 %}1 persona ya forma parte del equipo{% else %}{{ people|length }} personas ya forman parte del equipo{% endif %}</h1>
+  <p class="confirm__text">{% if counts.sent %}{% if counts.sent == 1 %}A 1 le enviamos un correo{% else %}A {{ counts.sent }} les enviamos un correo{% endif %} para crear su contraseña. {% endif %}{% if counts.failed %}{% if counts.failed == 1 %}1 correo no se pudo enviar{% else %}{{ counts.failed }} correos no se pudieron enviar{% endif %}: comparte tú el enlace. {% endif %}{% if counts.not_configured %}No hay correo configurado: comparte tú el enlace de cada persona. {% endif %}{% if unchanged %}{% if unchanged == 1 %}1 persona del archivo ya tenía su lugar y quedó sin cambios.{% else %}{{ unchanged }} personas del archivo ya tenían su lugar y quedaron sin cambios.{% endif %}{% endif %}</p>
+</section>
+{% if without_tutor %}
+  <div class="notice notice--warning" role="status"><p>Sin tutor, porque no importaste la fila de su tutor: {{ without_tutor|join:", " }}. Asígnalo en <a href="{% url 'events:assignments' event.slug %}">Asignar tutores</a>.</p></div>
+{% endif %}
+<section aria-labelledby="personas">
+  <h2 id="personas" class="heading">Personas agregadas</h2>
+  {% if links %}<p class="aside-note">Estos enlaces solo se muestran ahora. Comparte cada uno solo con su persona; si alguno se pierde, genera otro desde su ficha en Equipo.</p>{% endif %}
+  <ul class="rows admin-rows">{% for p in people %}
+    <li class="row">
+      <div class="row__main">
+        <p class="row__title">{{ p.membership.display_name }}</p>
+        <p class="row__meta">{{ p.membership.get_role_display }}, {{ p.membership.user.email }}</p>
+        <p class="row__meta">{% if p.delivery == "sent" %}Le enviamos un correo para crear su contraseña.{% elif p.delivery == "failed" %}<strong>No pudimos enviarle el correo.</strong> Copia el enlace y compártelo con esta persona.{% elif p.delivery == "not_configured" %}No hay correo configurado: copia el enlace y compártelo con esta persona.{% elif p.delivery == "elsewhere" %}Esta cuenta ya existe y la administra otra iglesia o el sistema; pide a esa administración que le dé acceso.{% else %}Puede entrar con su contraseña de siempre.{% endif %}</p>
+        {% if p.link %}
+          <div class="field admin-link">
+            <label class="label" for="enlace-{{ forloop.counter }}">Enlace para crear contraseña de {{ p.membership.display_name }}</label>
+            <input class="input" id="enlace-{{ forloop.counter }}" value="{{ p.link }}" readonly>
+          </div>
+          <button class="btn btn--secondary btn--small" type="button" data-copy="enlace-{{ forloop.counter }}" data-copy-done="Enlace copiado">Copiar enlace<span class="visually-hidden"> de {{ p.membership.display_name }}</span></button>
+        {% endif %}
+      </div>
+    </li>
+  {% endfor %}</ul>
+</section>
+<div class="step__actions">
+  <a class="btn btn--primary" href="{% url 'events:team' event.slug %}">Ver equipo</a>
+  <a class="btn btn--link" href="{% url 'events:assignments' event.slug %}">Asignar tutores</a>
+</div>
+{% endblock %}

@@ -38,6 +38,7 @@ RELATIONS = {
     # A simple event has none of the camp's rows; the copy cannot have them either.
     "memberships": NEVER,
     "tutor_assignments": NEVER,
+    "membership_aliases": NEVER,  # nicknames of a camp's coordinators (issue #50): a simple event has no camp team
     "access_requests": NEVER,
     "stations": NEVER,
     "participants": NEVER,
