@@ -550,6 +550,13 @@ body:has(> .rail) .sign--lead .sign__actions { margin-top: 0; }
 :root[data-ui="2"] .more + .rows { margin-top: var(--s-6); }
 :root[data-ui="2"] .row__form { display: contents; }
 
+/* What is known about one thing (a person, an event): label and value, on the same sheet as a list */
+.page--app .summary-list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); }
+.page--app .summary-list__row { padding: var(--s-3) var(--s-4); }
+.page--app .summary-list__row:last-child { border-bottom: 0; }
+.page--app .summary-list dt { font-size: var(--t-small); font-weight: 600; color: var(--ink-2); }
+.page--app .summary-list--answers dt { font-weight: 400; }
+
 /* Identity: a person or a group, as the door of the atrium: round above, square on the ground. Decorative,
    always beside the written name. */
 .mono {
