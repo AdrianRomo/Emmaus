@@ -6,6 +6,11 @@
 {% if can_edit %}{% url 'events:participant_edit' event.slug participant.public_id as edit_url %}{% endif %}
 {% if live_interview %}
   {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
+{% elif ui_v2 and participant.is_minor and event.requires_guardian_authorization and not guardian_ok %}{% comment %}
+  The authorization is missing: registering it is the one filled action below; starting the interview stays (its
+  consent step asks to confirm the signed authorization) but does not come first.
+{% endcomment %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" action_quiet=True secondary_url=edit_url secondary_label="Corregir datos" %}
 {% else %}
   {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
 {% endif %}
@@ -15,7 +20,7 @@
   vela with the way to register it; when the interview is already done it is said plainly too. No rule changes here.
 {% endcomment %}{% if guardian_ok %}<p class="ficha__autorizacion"><span class="autorizada">{% icon "check" "sm" %}Autorizada</span><span class="visually-hidden">: autorización de padre, madre o tutor legal registrada</span></p>{% else %}<div class="notice notice--warning ficha__autorizacion">
   <p class="notice__title">{% if participant.interview_status == "completada" %}Entrevistado sin autorización vigente{% else %}Falta la autorización de padre, madre o tutor legal{% endif %}</p>
-  {% if can_edit %}<p><a class="btn btn--secondary btn--small" href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a></p>{% endif %}
+  {% if can_edit %}<p><a class="btn {% if live_interview %}btn--secondary{% else %}btn--primary{% endif %} btn--small" href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a></p>{% endif %}
 </div>{% endif %}{% endif %}<div class="split">
   <section aria-labelledby="datos">
     <h2 id="datos" class="heading">Datos del campero</h2>
@@ -70,9 +75,14 @@
       <p><a class="btn btn--secondary btn--danger-outline" href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p>
       {% if access.is_admin %}
         {% if access.can_view_sensitive %}<p class="more"><a href="{% url 'events:participant_data_export' event.slug participant.public_id %}">Descargar todos sus datos</a></p>{% endif %}
-        {% if ui_v2 %}<p class="ficha__eliminar"><a class="btn btn--danger-outline" href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>{% else %}<p class="more"><a href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>{% endif %}
+        {% if not ui_v2 %}<p class="more"><a href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>{% endif %}
       {% endif %}
-    </section>
+    </section>{% if ui_v2 and access.is_admin %}
+    <section class="block ficha__eliminar" aria-labelledby="eliminar">
+      <h2 id="eliminar" class="heading">Eliminar sus datos</h2>
+      <p class="aside-note">Se borran su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. No se puede deshacer; antes se pide confirmar.</p>
+      <p><a class="btn btn--danger-outline" href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>
+    </section>{% endif %}
   </div>
 </div>
 {% endblock %}
