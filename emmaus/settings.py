@@ -57,6 +57,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Outermost: it times the whole request and sees the final status. One line per request, no path (issue #52).
+    "core.request_log.RequestLogMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "events.middleware.PrivateResponseMiddleware",
@@ -190,8 +192,16 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
     # Request bodies (questionnaire answers) are never logged: no handler here prints POST data.
-    "loggers": {"django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False}},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # core.request_log: one JSON line per request (URL name, method, status, ms, role) and one per unhandled
+        # exception (URL name, method, class name). Their own levels, so LOG_LEVEL=WARNING does not silence the metrics.
+        "emmaus.request": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "emmaus.error": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
 }
+# Off switch for both lines. On unless a test run, which turns it on where it tests it.
+EMMAUS_REQUEST_LOG = env_bool("EMMAUS_REQUEST_LOG", not TESTING)
 
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
