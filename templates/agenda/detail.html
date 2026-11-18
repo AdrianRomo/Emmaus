@@ -12,6 +12,7 @@
   {% include "events/rotulo/_page_head.html" with title=event.name lede=page.description back_url=back back_label="Volver a Eventos" %}
 
   {% if state == "abierta" %}
+    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p><strong>No respondiste a tiempo.</strong> El lugar que te ofrecimos venció. Ahora hay lugares: si todavía quieres ir, inscríbete.</p></div>{% endif %}
     <section class="sign sign--lead" aria-labelledby="inscribirme">
       <div>
         <h2 id="inscribirme" class="sign__title">¿Quieres ir a este evento?</h2>
@@ -34,7 +35,39 @@
       {% else %}<p><strong>Pendiente de autorización.</strong> {{ pending_text }}</p>{% endif %}
     </div>
     {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
+  {% elif state == "ofrecido" %}
+    {# A place of the waiting list, held for this person until the deadline. Accepting is a sign-up: the same rules decide. #}
+    <section class="sign sign--lead" aria-labelledby="lugar-ofrecido">
+      <div>
+        <h2 id="lugar-ofrecido" class="sign__title">Te ofrecimos un lugar</h2>
+        <p class="sign__text">Se liberó un lugar y te toca a ti. Lo guardamos para ti hasta el {{ registration.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }}; después se lo ofrecemos a la siguiente persona de la lista.{% if page.requires_guardian_consent %} Este evento cuida a los menores de edad: al aceptar, el equipo de la iglesia confirma tu edad y, si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice.{% endif %}</p>
+      </div>
+      <form class="sign__actions" method="post" action="{% url 'agenda:accept_offer' event.slug %}">
+        {% csrf_token %}
+        <button class="btn btn--on-dark btn--large" type="submit">Aceptar mi lugar</button>
+      </form>
+    </section>
+    <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">No voy a usar el lugar</a></p>
+  {% elif state == "en_espera" %}
+    <div class="notice notice--info">
+      <p><strong>Estás en la lista de espera.</strong> {{ position_text }} Todavía no tienes lugar: cuando se libere uno y te toque, te lo ofrecemos aquí y tendrás {{ offer_hours }} horas para aceptarlo.</p>
+    </div>
+    <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">Salir de la lista de espera</a></p>
+  {% elif state == "lista" %}
+    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p><strong>No respondiste a tiempo.</strong> El lugar que te ofrecimos venció y pasó a la siguiente persona de la lista. Si todavía quieres ir, puedes anotarte otra vez.</p></div>
+    {% elif list_outcome == "retirada" %}<div class="notice notice--quiet"><p><strong>Ya no estás en la lista de espera.</strong> La administración de tu iglesia te quitó de la lista. Si tienes dudas, pregunta en tu iglesia.</p></div>{% endif %}
+    <section class="sign sign--lead" aria-labelledby="lista-espera">
+      <div>
+        <h2 id="lista-espera" class="sign__title">Ya no hay lugares, pero hay lista de espera</h2>
+        <p class="sign__text">Si te anotas, quedas en la lista en el orden en que llegaste. Anotarte no te inscribe: cuando se libere un lugar y te toque, te lo ofrecemos y tendrás {{ offer_hours }} horas para aceptarlo.</p>
+      </div>
+      <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}">
+        {% csrf_token %}
+        <button class="btn btn--on-dark btn--large" type="submit">Anotarme en la lista de espera</button>
+      </form>
+    </section>
   {% elif notice %}
+    {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p><strong>No respondiste a tiempo.</strong> El lugar que te ofrecimos venció y pasó a la siguiente persona de la lista.</p></div>{% endif %}
     <div class="notice notice--quiet"><p>{{ notice }}</p></div>
   {% endif %}
 

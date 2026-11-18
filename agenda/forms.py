@@ -18,10 +18,20 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = EventPage
         fields = [
-            "published", "description", "starts_at", "registration", "capacity", "registration_closes_on",
+            "published", "public", "description", "starts_at", "registration", "capacity", "waiting_list", "registration_closes_on",
             "requires_guardian_consent",
         ]
         help_texts = {
+            "public": (
+                "Para compartir el evento con mamás, papás y tutores que no tienen cuenta. La página pública dice de qué "
+                "se trata, cuándo, dónde, el programa y las preguntas frecuentes. Nunca muestra quién se inscribió ni "
+                "cuántos lugares quedan, y solo funciona mientras el evento esté publicado."
+            ),
+            "waiting_list": (
+                "Quien se inscriba cuando ya no haya lugares queda en lista de espera, en orden. Cuando se libera un "
+                "lugar, Emmaus se lo ofrece a la primera persona de la lista y ella decide si lo acepta: nadie queda "
+                "inscrito sin confirmarlo."
+            ),
             "requires_guardian_consent": (
                 "La inscripción de un menor queda pendiente hasta que la administración registre la autorización, y la "
                 "de quien no tiene la edad confirmada por el equipo, hasta que la confirmes. Al encenderlo se revisan "

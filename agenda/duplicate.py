@@ -51,7 +51,8 @@ RELATIONS = {
 }
 
 EVENT_FIELDS = ("kind", "location", "time_zone")
-PAGE_FIELDS = ("description", "starts_at", "registration", "capacity", "requires_guardian_consent")
+# ``waiting_list`` is configuration; ``public``, like ``published``, is never copied: somebody reads the page first.
+PAGE_FIELDS = ("description", "starts_at", "registration", "capacity", "requires_guardian_consent", "waiting_list")
 
 
 @dataclass

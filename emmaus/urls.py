@@ -61,6 +61,8 @@ urlpatterns = [
     path("mi-iglesia/panorama/", include("overview.urls")),
     path("mi-iglesia/politicas/", include("policies.urls")),
     path("mi-iglesia/", include("groups.urls")),
+    # The public page of one event of the church (decision 0010, phase A): no account, nothing about people.
+    path("evento/", include("agenda.public_urls")),
     path("eventos/", include("events.urls")),
     path("estacion/", include("events.kiosk_urls")),
     # The printed sign: "Entra a /unirme/ y escribe el código". Public, outside /eventos/.

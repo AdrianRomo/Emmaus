@@ -44,6 +44,9 @@ SUBJECTS: dict[str, str] = {
     "aviso_publicado": "Emmaus: hay un aviso nuevo de tu iglesia",
     # The same for an urgent notice, and again when what it says changed. "Urgente" is all it tells.
     "aviso_urgente": "Emmaus: hay un aviso urgente de tu iglesia",
+    # To somebody on an event's waiting list: a place was freed and is held for them (agenda.services). Never
+    # which event beyond the link to its page, never until when, never who left the place.
+    "lugar_ofrecido": "Emmaus: se liberó un lugar en un evento",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.
