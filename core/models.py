@@ -529,3 +529,24 @@ class OnboardingState(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user_id}: {self.key}"
+
+
+class SchedulerHeartbeat(models.Model):
+    """When each scheduled job last ran, so that a pass that stopped can be seen (``core.scheduler``).
+
+    One row per job name. ``last_started_at`` is written when a pass starts the job, ``last_ok_at`` when it ends
+    without an error, ``last_error`` holds the class name of the last error (never its message, which can quote
+    data) and is emptied by the next good pass. No row means the job never ran here.
+    """
+
+    job = models.CharField(max_length=40, unique=True)
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_ok_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=80, blank=True, default="", db_default="")
+
+    class Meta:
+        verbose_name = "latido del programador"
+        verbose_name_plural = "latidos del programador"
+
+    def __str__(self) -> str:
+        return self.job

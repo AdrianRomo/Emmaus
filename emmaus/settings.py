@@ -34,6 +34,38 @@ if not SECRET_KEY:
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", "localhost,127.0.0.1")
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
+
+def public_base_url(raw: str, *, debug: bool, allowed_hosts: list[str]) -> str:
+    """The address people reach this Emmaus at (``https://emmaus.ejemplo.org``), for the links of the e-mails a
+    command sends: a command has no request to read it from. Empty means "not said". Refused at startup, because a
+    wrong value would put a wrong link in every e-mail: anything but https (http only with DEBUG), a path, a query,
+    a user, or a host that ``ALLOWED_HOSTS`` would not answer."""
+    value = (raw or "").strip()
+    if not value:
+        return ""
+    name = "EMMAUS_PUBLIC_BASE_URL"
+    try:
+        parts = urlparse(value)
+        host, port = parts.hostname, parts.port
+    except ValueError:
+        raise ImproperlyConfigured(f"{name} is not an address.") from None
+    if parts.scheme not in (("http", "https") if debug else ("https",)) or not host:
+        raise ImproperlyConfigured(f"{name} must be https://<host> (http only with DEBUG=true).")
+    if parts.path not in ("", "/") or parts.params or parts.query or parts.fragment or parts.username or parts.password:
+        raise ImproperlyConfigured(f"{name} must be only the scheme and the host: no path, query or user.")
+    if "*" not in allowed_hosts and not any(
+        host == pattern.lower() or (pattern.startswith(".") and (host.endswith(pattern.lower()) or host == pattern[1:].lower()))
+        for pattern in allowed_hosts
+    ):
+        raise ImproperlyConfigured(f"The host of {name} must be one of ALLOWED_HOSTS.")
+    return f"{parts.scheme}://{host}" + (f":{port}" if port else "")
+
+
+EMMAUS_PUBLIC_BASE_URL = public_base_url(os.environ.get("EMMAUS_PUBLIC_BASE_URL", ""), debug=DEBUG, allowed_hosts=ALLOWED_HOSTS)
+# The scheduler's community jobs (core/management/commands/run_scheduled_jobs.py): the e-mails of notices whose day
+# came and the waiting-list offers that expired. False leaves the cutoffs pass exactly as it was.
+EMMAUS_SCHEDULED_COMMUNITY_JOBS = env_bool("EMMAUS_SCHEDULED_COMMUNITY_JOBS", True)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -198,6 +230,8 @@ LOGGING = {
         # exception (URL name, method, class name). Their own levels, so LOG_LEVEL=WARNING does not silence the metrics.
         "emmaus.request": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "emmaus.error": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        # core.scheduler: one JSON line per scheduled job and pass (job, ok, ms, counts or an exception class name).
+        "emmaus.scheduler": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
 # Off switch for both lines. On unless a test run, which turns it on where it tests it.
