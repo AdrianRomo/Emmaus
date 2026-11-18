@@ -71,10 +71,13 @@ def has_scope(user, church: Church | None, scope_type: str, scope_id, action: st
         return True if action == Action.VIEW else access.can_manage_event
 
     from access.models import RoleAssignment, in_force
+    from access.sources import backed_by_source
 
+    # One query: the role rows in force that their source membership still backs (decision 0016, rule 7).
     roles = set(
         RoleAssignment.objects.filter(
-            in_force(), subject_user=user, church=church, scope_type=scope_type, scope_id=scope_id
+            in_force(), backed_by_source(scope_type), subject_user=user, church=church, scope_type=scope_type,
+            scope_id=scope_id,
         ).values_list("role", flat=True)
     )
     if not roles:

@@ -16,12 +16,13 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import OuterRef
 from django.utils import timezone
 
 from access.models import RoleAssignment, ScopeType
+from access.sources import account_changed
 from people.audit import record_church
 
-from .access import managed_team_ids
 from .models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
 
 SOURCE = "serving.TeamMembership"
@@ -61,20 +62,47 @@ def _assignment_fields(membership: TeamMembership) -> dict:
 
 def sync_assignment(membership: TeamMembership) -> RoleAssignment | None:
     """Write (or delete) the role row derived from ``membership``. A person without an account
-    holds nothing: there is nobody to sign in as them."""
-    if membership.person.user_id is None:
-        RoleAssignment.objects.filter(source_table=SOURCE, source_id=membership.pk).delete()
-        return None
-    row, _ = RoleAssignment.objects.update_or_create(
-        source_table=SOURCE, source_id=membership.pk, defaults=_assignment_fields(membership)
-    )
+    holds nothing: there is nobody to sign in as them.
+
+    The row is derived from the membership, its team and the person's account as they are in the
+    database now, read under a lock on the membership: never from what the caller loaded earlier,
+    which a concurrent service or a link of the account may have changed since. Callers hold the
+    team's lock first (the services do; ``sync_person_assignments`` takes it), so the order is
+    always team, then membership."""
+    source_id = membership.pk
+    with transaction.atomic():
+        membership = (
+            TeamMembership.objects.select_for_update(of=("self",)).select_related("team", "person")
+            .filter(pk=source_id).first()
+        )
+        if membership is None or membership.person.user_id is None:
+            RoleAssignment.objects.filter(source_table=SOURCE, source_id=source_id).delete()
+            return None
+        row, _ = RoleAssignment.objects.update_or_create(
+            source_table=SOURCE, source_id=source_id, defaults=_assignment_fields(membership)
+        )
     return row
 
 
-def sync_person_assignments(sender, instance, **kwargs) -> None:
-    """``post_save`` of ``Person``: the account may have been linked or unlinked."""
-    for membership in TeamMembership.objects.filter(person=instance).select_related("team", "person"):
-        sync_assignment(membership)
+def sync_person_assignments(sender, instance, created=False, raw=False, **kwargs) -> None:
+    """``post_save`` of ``Person``, only when its account was linked, unlinked or replaced. It takes
+    the locks the services take, in their order (each team, then its membership), so it can never
+    write back a role that ``remove_member``, ``set_member`` or ``archive_team`` is ending."""
+    if not account_changed(instance, created, raw):
+        return
+    with transaction.atomic():
+        team_ids = sorted(set(TeamMembership.objects.filter(person=instance).values_list("team_id", flat=True)))
+        list(Team.objects.select_for_update().filter(pk__in=team_ids).order_by("pk"))
+        for membership in TeamMembership.objects.filter(person=instance, team_id__in=team_ids).order_by("team_id", "pk"):
+            sync_assignment(membership)
+
+
+def live_memberships():
+    """``access.sources``: the membership a role row came from, when it still grants what the row says."""
+    return TeamMembership.objects.filter(
+        pk=OuterRef("source_id"), team_id=OuterRef("scope_id"), team__church_id=OuterRef("church_id"),
+        team__status=Team.Status.ACTIVE, status=ACTIVE, role=OuterRef("role"), person__user_id=OuterRef("subject_user_id"),
+    )
 
 
 def expected_assignments() -> dict[int, dict]:
@@ -107,14 +135,6 @@ def all_my_dates(person, today=None) -> list[Assignment]:
 def pending_count(person, today=None) -> int:
     """How many dates from today on still wait for this person's answer."""
     return _upcoming(person, today).filter(status=PENDING).count()
-
-
-def coordinated_teams(person) -> list[Team]:
-    """The active teams this person coordinates: what ``has_scope`` answers ``manage`` for."""
-    if person.user_id is None:
-        return []
-    ids = managed_team_ids(person.user, person.church)
-    return list(Team.objects.filter(pk__in=ids, church=person.church, status=Team.Status.ACTIVE).order_by("name", "id"))
 
 
 def has_teams(person) -> bool:
@@ -171,8 +191,7 @@ def archive_team(team: Team, actor) -> Team:
             return team
         team.status = Team.Status.ARCHIVED
         team.save(update_fields=["status", "updated_at"])
-        for membership in TeamMembership.objects.filter(team=team).select_related("person"):
-            membership.team = team
+        for membership in TeamMembership.objects.filter(team=team).order_by("pk"):
             sync_assignment(membership)  # every role in the team ends with it
         record_church(team.church, actor, "equipo_archivado", f"Archivó el equipo {team.name}", team)
     return team

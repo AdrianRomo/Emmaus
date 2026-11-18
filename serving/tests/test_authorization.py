@@ -61,7 +61,6 @@ class TeamScopeTests(Fixture):
         self.assertFalse(self.manages(self.leader_user, self.team))
         self.assertFalse(has_scope(self.leader_user, self.church, "ministry", self.team.pk, "view"))
         self.assertEqual(managed_team_ids(self.leader_user, self.church), [])
-        self.assertEqual(services.coordinated_teams(self.leader), [])
         self.client.force_login(self.leader_user)
         for url in (self.url("team", self.team.pk), self.url("date_create", self.team.pk),
                     self.url("date_detail", self.day.pk), self.url("date_delete", self.day.pk)):
@@ -140,7 +139,6 @@ class TeamScopeTests(Fixture):
     def test_a_coordinator_without_an_account_holds_no_row(self):
         membership = services.set_member(self.other_team, self.no_account, self.admin, role="coordina")
         self.assertFalse(RoleAssignment.objects.filter(source_table=services.SOURCE, source_id=membership.pk).exists())
-        self.assertEqual(services.coordinated_teams(self.no_account), [])
 
 
 class ProjectionTests(Fixture):
@@ -224,7 +222,9 @@ class ProjectionTests(Fixture):
             subject_user=self.member_user, church=self.church, scope_type="ministry", scope_id=self.other_team.pk,
             role="coordina", source_table="nadie.Nada", source_id=1,
         )
-        self.assertTrue(has_scope(self.member_user, self.church, "ministry", self.team.pk, "manage"))
+        # A row that says more than its membership grants nothing even before the repair (decision 0016, rule 7).
+        self.assertFalse(has_scope(self.member_user, self.church, "ministry", self.team.pk, "manage"))
+        self.assertEqual(managed_team_ids(self.member_user, self.church), [])
         with self.assertRaises(SystemExit):
             call_command("rebuild_role_assignments", "--check", stdout=StringIO())
         out = StringIO()
