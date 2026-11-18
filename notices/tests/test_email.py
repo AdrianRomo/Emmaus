@@ -6,9 +6,11 @@ from unittest import mock
 
 from django.core import mail
 from django.core.management import call_command
+from django.core.mail.backends import locmem
 from django.core.management.base import CommandError
-from django.db import IntegrityError, transaction
-from django.test import override_settings
+from django.db import IntegrityError, connection, transaction
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -32,6 +34,19 @@ PROFILE = reverse("community:profile")
 TITLE = "Retiro de noviembre"
 SECRET = "La llave está bajo la maceta azul"
 Choice = EmailPreference.Choice
+
+
+class CountingBackend(locmem.EmailBackend):
+    """A mail server that counts how many times it is connected to."""
+
+    opened = closed = 0
+
+    def open(self):
+        type(self).opened += 1
+        return True
+
+    def close(self):
+        type(self).closed += 1
 
 
 def detail(notice):
@@ -462,8 +477,7 @@ class NoticeEmailTests(CommunityFixture):
         self.assertFalse(NoticeEmail.objects.exists())
 
     def test_the_command_leaves_old_notices_alone(self):
-        old = self.publish(priority="urgent", publish_on=self.today - timedelta(days=10))
-        Announcement.objects.filter(pk=old.pk).update(updated_at=timezone.now() - timedelta(days=10))
+        self.publish(priority="urgent", publish_on=self.today - timedelta(days=10))
         call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
         self.assertEqual(mail.outbox, [])
         call_command("send_notice_emails", "--apply", "--base-url", BASE, "--days", "30", stdout=StringIO())
@@ -557,3 +571,133 @@ class NoticeEmailTests(CommunityFixture):
         page = self.client.get(detail(notice))
         self.assertContains(page, "Salió un correo a casi todas las 10 personas")
         self.assertContains(page, "Cuenta desde el último cambio que pidió «Enterado» otra vez.")
+
+    # ---- review of wave 6 -------------------------------------------------------------------------
+    def test_correcting_a_word_of_an_old_notice_does_not_make_the_command_mail_it(self):
+        # Published before e-mails existed, or without e-mail on the server: its round never ended.
+        old = self.publish(priority="urgent", publish_on=self.today - timedelta(days=30))
+        self.assertIsNone(old.emailed_version)
+        call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
+        self.assertEqual(mail.outbox, [])
+        services.update(old, self.admin, title=TITLE, body=SECRET + ".", publish_on=old.publish_on, material=False)
+        self.assertGreater(Announcement.objects.get().updated_at, timezone.now() - timedelta(minutes=1))
+        out = StringIO()
+        call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=out)
+        self.assertIn("avisos revisados: 0", out.getvalue())
+        self.assertEqual(mail.outbox, [])
+        self.assertFalse(NoticeEmail.objects.exists())
+
+    def test_a_change_of_the_information_or_becoming_urgent_puts_an_old_notice_back_in_the_window(self):
+        long_ago = self.today - timedelta(days=30)
+        changed = self.publish(priority="urgent", publish_on=long_ago)
+        raised = self.publish(priority="normal", publish_on=long_ago, title="Otro aviso")
+        self.assertEqual(list(email.open_rounds()), [])
+        services.update(changed, self.admin, title=TITLE, body="Otro lugar", publish_on=long_ago, material=True)
+        services.update(raised, self.admin, title="Otro aviso", body=SECRET, publish_on=long_ago, priority="urgent")
+        self.assertEqual(set(email.open_rounds()), {changed, raised})
+        call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
+        self.assertEqual(len(mail.outbox), 8)
+        self.assertEqual({message.subject for message in mail.outbox}, {SUBJECTS["aviso_urgente"]})
+
+    def test_a_notice_published_without_email_is_mailed_inside_the_window_and_never_after(self):
+        self.client.force_login(self.admin)
+        with self.settings(EMAIL_BACKEND=CONSOLE):
+            self.post(CREATE, self.data("iglesia", priority="urgent"))
+        notice = Announcement.objects.get()
+        self.assertEqual(mail.outbox, [])
+        self.assertFalse(email.will_not_be_mailed(notice))
+        # E-mail is configured four days later: the notice's days have passed.
+        Announcement.objects.filter(pk=notice.pk).update(publish_on=self.today - timedelta(days=4))
+        call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
+        self.assertEqual(mail.outbox, [])
+        page = self.client.get(detail(notice))
+        self.assertContains(page, "No salió ningún correo por este aviso y ya no saldrá ninguno")
+        self.assertNotContains(page, "Hasta ahora")
+        # Two days later it would still have gone out.
+        Announcement.objects.filter(pk=notice.pk).update(publish_on=self.today - timedelta(days=2))
+        call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
+        self.assertEqual(len(mail.outbox), 4)
+
+    @override_settings(EMAIL_BACKEND="notices.tests.test_email.CountingBackend")
+    def test_one_call_uses_one_connection_and_closes_it(self):
+        CountingBackend.opened = CountingBackend.closed = 0
+        notice = self.publish(priority="urgent")
+        self.assertEqual(self.deliver(notice).sent, 4)
+        self.assertEqual(len(mail.outbox), 4)
+        self.assertEqual((CountingBackend.opened, CountingBackend.closed), (1, 1))
+        # Also when the sender breaks half-way.
+        CountingBackend.opened = CountingBackend.closed = 0
+        other = self.publish(priority="urgent")
+        with mock.patch.object(email, "notify", side_effect=RuntimeError("broke")), self.assertRaises(RuntimeError):
+            self.deliver(other)
+        self.assertEqual((CountingBackend.opened, CountingBackend.closed), (1, 1))
+
+    @override_settings(EMAIL_BACKEND="notices.tests.test_email.CountingBackend")
+    def test_after_a_mail_that_failed_the_next_one_starts_on_a_new_connection(self):
+        CountingBackend.opened = CountingBackend.closed = 0
+        notice = self.publish(priority="urgent")
+        with mock.patch.object(email, "notify", side_effect=["failed", "sent", "sent", "sent"]):
+            done = self.deliver(notice)
+        self.assertEqual((done.sent, done.failed), (3, 1))
+        self.assertEqual((CountingBackend.opened, CountingBackend.closed), (2, 2))
+
+    def test_a_mail_left_pending_by_a_sender_that_died_is_sent_later_and_only_once(self):
+        notice = self.publish(priority="urgent")
+        row = NoticeEmail.objects.create(announcement=notice, version=1, person=self.member)  # claimed, never sent
+        self.assertEqual(self.deliver(notice).sent, 3)  # a fresh claim belongs to a sender that may be alive
+        self.assertNotIn("diego@prueba.mx", self.mailed())
+        self.assertIsNone(Announcement.objects.get().emailed_version)
+        self.assertFalse(email._claim(notice, 1, self.member.pk))
+        old = timezone.now() - timedelta(minutes=email.PENDING_STALE_MINUTES + 1)
+        NoticeEmail.objects.filter(pk=row.pk).update(created_at=old)
+        self.assertTrue(email._claim(notice, 1, self.member.pk))  # one writer takes it...
+        self.assertFalse(email._claim(notice, 1, self.member.pk))  # ...and the next one finds it taken
+        NoticeEmail.objects.filter(pk=row.pk).update(created_at=old)
+        mail.outbox.clear()
+        call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
+        call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
+        self.assertEqual(self.mailed(), ["diego@prueba.mx"])
+        self.assertEqual(NoticeEmail.objects.get(pk=row.pk).outcome, "sent")
+        self.assertEqual(Announcement.objects.get().emailed_version, 1)
+
+    def test_a_slow_round_does_not_close_the_one_that_becoming_urgent_opened(self):
+        self.choose(self.member, Choice.ALL)
+        notice = self.publish()  # normal: only Diego
+        real = email.notify
+
+        def becomes_urgent_meanwhile(*args, **kwargs):
+            # While this round sends, the administration makes the notice urgent (its own sending is slow or failed).
+            services.update(notice, self.admin, title=TITLE, body=SECRET, publish_on=self.today, priority="urgent")
+            return real(*args, **kwargs)
+
+        with mock.patch.object(email, "notify", side_effect=becomes_urgent_meanwhile):
+            done = self.deliver(notice)
+        self.assertEqual((done.sent, done.left), (1, 0))
+        self.assertIsNone(Announcement.objects.get().emailed_version)  # the urgent round is still open
+        mail.outbox.clear()
+        self.deliver(notice)
+        self.assertEqual(self.mailed(), sorted(["guia@prueba.mx", "pidio@prueba.mx", self.coord1.email]))
+        self.assertEqual(Announcement.objects.get().emailed_version, 1)
+
+
+class EmailMigrationTests(TransactionTestCase):
+    def test_notices_already_published_are_not_mailed_after_the_migration(self):
+        executor = MigrationExecutor(connection)
+        before = [("notices", "0004_email_preferences_and_deliveries")]
+        after = [("notices", "0005_close_rounds_of_existing_notices")]
+        try:
+            executor.migrate(before)
+            apps = executor.loader.project_state(before).apps
+            church = apps.get_model("core", "Church").objects.create(name="Iglesia de prueba", slug="iglesia-de-prueba")
+            notices = apps.get_model("notices", "Announcement").objects
+            today = timezone.localdate()
+            past = notices.create(church=church, title="Ya publicado", body="x", publish_on=today - timedelta(days=40), version=3)
+            current = notices.create(church=church, title="De hoy", body="x", publish_on=today)
+            later = notices.create(church=church, title="Para después", body="x", publish_on=today + timedelta(days=2))
+            executor = MigrationExecutor(connection)
+            executor.migrate(after)
+            marks = dict(Announcement.objects.values_list("pk", "emailed_version"))
+            self.assertEqual(marks, {past.pk: 3, current.pk: 1, later.pk: None})
+            self.assertEqual(list(email.open_rounds(days=365)), [])
+        finally:
+            MigrationExecutor(connection).migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())

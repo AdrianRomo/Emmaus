@@ -45,6 +45,9 @@ class Announcement(models.Model):
     # The version whose round of e-mails is finished (``notices.email``): nobody else is mailed for it,
     # so who joins the church or a group later is not mailed old notices. Empty: the round is open.
     emailed_version = models.PositiveIntegerField(null=True, blank=True)
+    # When a round was opened again without a new version (the notice became urgent), so that the
+    # command still finds it inside its window of days.
+    email_reopened_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

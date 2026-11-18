@@ -18,9 +18,16 @@ by ``manage.py send_notice_emails``. A version's round ends when everybody it wa
 for "Enterado" again is a new version and a new round; an urgent level given later reopens the round
 for who had not been mailed.
 
+The command only looks at rounds that opened in the last ``WINDOW_DAYS`` days (``in_window``): the
+notice's day, a change of its information, or becoming urgent. Correcting a detail of an old notice
+opens nothing. So a notice published while the server had no e-mail is mailed if e-mail is
+configured within those days, and never after them: its page says that no e-mail will go out.
+
 Nobody is mailed twice for a version: the ``NoticeEmail`` row is written before the e-mail is handed
-over and its unique constraint lets one writer win (``_claim``). A process that dies between the row
-and the e-mail leaves that one person unmailed: missing one is the safe side.
+over and its unique constraint lets one writer win (``_claim``). A row left "pending" by a process
+that died (a worker killed while the mail server hung) may be taken again after
+``PENDING_STALE_MINUTES``, by one writer, like a row that failed. One call uses one connection to
+the mail server, which gives up after ``settings.EMAIL_TIMEOUT`` seconds.
 """
 
 from __future__ import annotations
@@ -30,12 +37,14 @@ import time
 from datetime import timedelta
 from dataclasses import dataclass
 
+from django.core import mail
 from django.db import IntegrityError, transaction
 from django.db.models import F, Q, QuerySet
 from django.urls import reverse
 from django.utils import timezone
 
 from core.notify import NOT_CONFIGURED, SENT, notify
+from events.services.team import email_is_configured
 from people import flags
 from people.models import Person
 
@@ -55,6 +64,11 @@ SEND_CAP = 2000
 # Seconds a publish may spend sending before it leaves the rest to the command: the person who
 # publishes is waiting for the page, and the web server gives a request 60 seconds.
 PUBLISH_BUDGET_SECONDS = 20
+# Days after a round opens during which the command still sends it.
+WINDOW_DAYS = 3
+# A "pending" row this old belongs to a sender that died: no live one waits longer than the mail
+# server's timeout for a single mail.
+PENDING_STALE_MINUTES = 10
 # The preferences that include each level. No row counts as "Solo los urgentes".
 _WANTED = {
     Priority.URGENT: {Choice.URGENT, Choice.IMPORTANT, Choice.ALL},
@@ -105,9 +119,15 @@ def recipients(notice: Announcement) -> QuerySet[Person]:
     return people.filter(chosen)
 
 
+def _retriable() -> Q:
+    """The rows that may be taken again: the mail failed, or its sender died before saying how it went."""
+    stale = timezone.now() - timedelta(minutes=PENDING_STALE_MINUTES)
+    return Q(outcome=Outcome.FAILED) | Q(outcome=Outcome.PENDING, created_at__lt=stale)
+
+
 def _waiting(notice: Announcement) -> QuerySet[Person]:
-    """The recipients with no row for this version, or with one that failed."""
-    done = NoticeEmail.objects.filter(announcement=notice, version=notice.version).exclude(outcome=Outcome.FAILED)
+    """The recipients with no row for this version, or with one that may be taken again."""
+    done = NoticeEmail.objects.filter(announcement=notice, version=notice.version).exclude(_retriable())
     return recipients(notice).exclude(pk__in=done.values("person_id")).order_by("pk")
 
 
@@ -118,20 +138,40 @@ def waiting_count(notice: Announcement) -> int:
     return _waiting(notice).count()
 
 
-def open_rounds(days: int) -> QuerySet[Announcement]:
-    """The notices that can be read today, published or changed in the last ``days`` days, whose
-    round of e-mails has not ended. The window keeps an old notice from being mailed the day e-mail
-    is configured."""
-    today = timezone.localdate()
+def _window(days: int) -> Q:
+    """The round opened in the last ``days`` days: the notice's day came, its information changed
+    (a new version) or it became urgent. Not ``updated_at``: correcting a detail opens nothing."""
     since = timezone.now() - timedelta(days=days)
+    return (
+        Q(publish_on__gte=timezone.localdate() - timedelta(days=days))
+        | Q(changed_at__gte=since)
+        | Q(email_reopened_at__gte=since)
+    )
+
+
+def in_window(notice: Announcement, days: int = WINDOW_DAYS) -> bool:
+    return Announcement.objects.filter(_window(days), pk=notice.pk).exists()
+
+
+def open_rounds(days: int = WINDOW_DAYS) -> QuerySet[Announcement]:
+    """The notices that can be read today whose round of e-mails has not ended and opened in the
+    last ``days`` days. The window keeps an old notice from being mailed the day e-mail is
+    configured, or the day somebody corrects a word in it."""
+    today = timezone.localdate()
     return (
         Announcement.objects.filter(status=Announcement.Status.PUBLISHED, publish_on__lte=today)
         .filter(Q(expires_on__isnull=True) | Q(expires_on__gte=today))
-        .filter(Q(publish_on__gte=today - timedelta(days=days)) | Q(updated_at__gte=since))
+        .filter(_window(days))
         .exclude(emailed_version=F("version"))
         .select_related("church", "group")
         .order_by("pk")
     )
+
+
+def will_not_be_mailed(notice: Announcement) -> bool:
+    """The round never ended and the command no longer looks at it: no e-mail will go out for this
+    notice as it is (published without e-mail on the server, or before e-mails existed)."""
+    return notice.emailed_version != notice.version and notice.state == "publicado" and not in_window(notice)
 
 
 def _claim(notice: Announcement, version: int, person_id: int) -> bool:
@@ -141,9 +181,10 @@ def _claim(notice: Announcement, version: int, person_id: int) -> bool:
             NoticeEmail.objects.create(announcement=notice, version=version, person_id=person_id)
         return True
     except IntegrityError:
-        # A row exists. Only one that failed may be tried again, and only by one writer.
-        retry = NoticeEmail.objects.filter(announcement=notice, version=version, person_id=person_id, outcome=Outcome.FAILED)
-        return bool(retry.update(outcome=Outcome.PENDING))
+        # A row exists. Only one that failed, or whose sender died, may be tried again, and only by
+        # one writer: the update is conditional on the row's state and age, and restarts its age.
+        retry = NoticeEmail.objects.filter(_retriable(), announcement=notice, version=version, person_id=person_id)
+        return bool(retry.update(outcome=Outcome.PENDING, created_at=timezone.now()))
 
 
 def _release(notice: Announcement, version: int, person_id: int) -> None:
@@ -155,6 +196,22 @@ def link_to(notice_id: int, base_url: str) -> str:
     return f"{base_url.rstrip('/')}{reverse('notices:detail', args=[notice_id])}"
 
 
+def _open(connection) -> None:
+    """Open the connection every e-mail of this call travels on. If the server does not answer,
+    each e-mail tries by itself and is recorded as failed."""
+    try:
+        connection.open()
+    except Exception:
+        logger.exception("The mail server could not be reached.")
+
+
+def _close(connection) -> None:
+    try:
+        connection.close()
+    except Exception:
+        logger.exception("The connection to the mail server did not close cleanly.")
+
+
 def deliver(notice_id: int, base_url: str, *, limit: int = SEND_CAP, budget_seconds: float | None = None) -> Round:
     """Send this version's e-mails to who is still waiting, at most ``limit`` of them and for at
     most ``budget_seconds``. Safe to call again and from two places at once."""
@@ -162,38 +219,53 @@ def deliver(notice_id: int, base_url: str, *, limit: int = SEND_CAP, budget_seco
     notice = Announcement.objects.select_related("church", "group").filter(pk=notice_id).first()
     if notice is None or notice.emailed_version == notice.version or not is_mailable(notice):
         return done
-    version = notice.version
+    version, priority = notice.version, notice.priority
     kind = KIND_URGENT if notice.is_urgent else KIND_NOTICE
     context = {"church_name": notice.church.name, "link": link_to(notice.pk, base_url)}
     waiting = list(_waiting(notice).values_list("pk", "email")[: limit + 1])
+    if not email_is_configured():
+        done.not_configured, done.left = True, len(waiting)
+        return done
     started = time.monotonic()
     handled = 0
-    for person_id, address in waiting[:limit]:
-        if budget_seconds is not None and time.monotonic() - started > budget_seconds:
-            break
-        handled += 1
-        if not _claim(notice, version, person_id):
-            continue
-        try:
-            outcome = notify(kind, address, context)
-        except ValueError:
-            # A church name or an address ``core.notify`` refuses. Its message names no value.
-            logger.exception("A notice e-mail could not be written.")
-            outcome = "failed"
-        if outcome == NOT_CONFIGURED:
-            _release(notice, version, person_id)
-            done.not_configured = True
-            done.left = len(waiting)
-            return done
-        sent = outcome == SENT
-        NoticeEmail.objects.filter(announcement=notice, version=version, person_id=person_id).update(
-            outcome=Outcome.SENT if sent else Outcome.FAILED
-        )
-        done.sent += sent
-        done.failed += not sent
-    done.left = len(waiting) - handled + done.failed
+    connection = mail.get_connection()
+    _open(connection)
+    try:
+        for person_id, address in waiting[:limit]:
+            if budget_seconds is not None and time.monotonic() - started > budget_seconds:
+                break
+            handled += 1
+            if not _claim(notice, version, person_id):
+                continue
+            try:
+                outcome = notify(kind, address, context, connection=connection)
+            except ValueError:
+                # A church name or an address ``core.notify`` refuses. Its message names no value.
+                logger.exception("A notice e-mail could not be written.")
+                outcome = "failed"
+            if outcome == NOT_CONFIGURED:  # the setting changed under us: nothing was handed over
+                _release(notice, version, person_id)
+                done.not_configured, done.left = True, len(waiting)
+                return done
+            sent = outcome == SENT
+            NoticeEmail.objects.filter(announcement=notice, version=version, person_id=person_id).update(
+                outcome=Outcome.SENT if sent else Outcome.FAILED
+            )
+            done.sent += sent
+            done.failed += not sent
+            if not sent:  # the connection may be the thing that broke: the next e-mail starts on a new one
+                _close(connection)
+                _open(connection)
+    finally:
+        _close(connection)
+    # A row still "pending" is another sender's, alive or dead: either way that person has no e-mail
+    # yet, and the round must stay open so that the row can be taken again if its sender died.
+    others = NoticeEmail.objects.filter(announcement=notice, version=version, outcome=Outcome.PENDING).count()
+    done.left = len(waiting) - handled + done.failed + others
     if not done.left:
-        Announcement.objects.filter(pk=notice.pk, version=version).update(emailed_version=version)
+        # Only if the notice is still what this round was computed for. One that became urgent
+        # meanwhile has people this call never looked at: its round stays open for the next pass.
+        Announcement.objects.filter(pk=notice.pk, version=version, priority=priority).update(emailed_version=version)
     return done
 
 

@@ -209,6 +209,9 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587") or 587)
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+# Seconds a connection to the mail server may block. Without it one hung server holds a web request (a publish
+# that mails a notice, an offer from a waiting list) until the worker is killed.
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10") or 10)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Emmaus <no-reply@example.org>")
 
 # Kill switch for the per-church module flags (decision 0004): false reads every flag as off, whatever the rows say.

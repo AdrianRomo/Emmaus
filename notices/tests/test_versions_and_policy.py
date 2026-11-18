@@ -417,7 +417,7 @@ class MigrationTests(TransactionTestCase):
         executor = MigrationExecutor(connection)
         before = [("notices", "0002_priority_and_acknowledgement")]
         # Up to the newest migration: the asserts below read with today's models, which need today's columns.
-        after = [("notices", "0004_email_preferences_and_deliveries")]
+        after = [node for node in executor.loader.graph.leaf_nodes() if node[0] == "notices"]
         try:
             executor.migrate(before)
             apps = executor.loader.project_state(before).apps
