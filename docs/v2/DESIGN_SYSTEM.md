@@ -58,8 +58,8 @@ shell and at the door:
 | body | 17/24 | 430 · 600 titles | Text, row titles |
 | heading | 18/24 | 700 | Section titles (`.heading`) |
 | question | 22/28 | 600 | The raised surface's question (`.sign__title`) |
-| title | 28/34 → 32/38 from 1100px | 700, 110 % | The page's one title (`.voice`); nothing on the page is larger |
-| numeral | 28–48 | 700, 110 % | Counts that decide (`.decision__cifra`, `.avance__n`) |
+| title | 28/34 → 32/38 from 1100px | 700, 110 % | The page's one title (`.voice`); no other words on the page are larger |
+| numeral | 28–48 | 700, 110 % | Counts that decide (`.decision__cifra`, `.avance__n`): a figure, the one thing that may be larger than the title |
 
 The interview's and the campero's screens keep Atrio's larger sizes in the same family; the
 projector's deck keeps Figtree. Names wrap, never ellipsis.
