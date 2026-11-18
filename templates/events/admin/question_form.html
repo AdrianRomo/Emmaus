@@ -11,7 +11,16 @@
   {% endif %}
 {% endwith %}{% endwith %}
 <div class="split admin-split">
-  <form method="post" novalidate>{% csrf_token %}{% include "partials/ui/fields.html" with form=form %}
+  {% comment %}Field by field: "Respuestas que la muestran" goes right under the question it depends on (the form declares it last).{% endcomment %}
+  <form method="post" novalidate>{% csrf_token %}{% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% include "partials/ui/field.html" with field=form.text %}
+    {% include "partials/ui/field.html" with field=form.help_text %}
+    {% include "partials/ui/field.html" with field=form.kind %}
+    {% include "partials/ui/field.html" with field=form.sensitivity %}
+    {% include "partials/ui/field.html" with field=form.required %}
+    {% include "partials/ui/field.html" with field=form.order %}
+    {% include "partials/ui/field.html" with field=form.condition_question %}
+    {% include "partials/ui/field.html" with field=form.condition_codes %}
     <div class="step__actions">
       <button class="btn btn--primary" type="submit">Guardar pregunta</button>
       <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
