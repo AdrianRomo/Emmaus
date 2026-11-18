@@ -356,6 +356,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 :root[data-ui="2"] .panorama .table thead th:first-child { padding-left: var(--s-3); }
 :root[data-ui="2"] .panorama .table tbody th { font-weight: 700; min-width: 9rem; }
 :root[data-ui="2"] .panorama .table__flag { font-weight: 700; }
+:root[data-ui="2"] .panorama .table td.num { white-space: nowrap; } /* "Menos de 5" stays on one line */
 :root[data-ui="2"] .panorama .table--after { margin-top: var(--s-10); }
 :root[data-ui="2"] .panorama .trend { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 :root[data-ui="2"] .panorama .figures { margin-bottom: var(--s-8); }

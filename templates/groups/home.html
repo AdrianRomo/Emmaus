@@ -125,7 +125,7 @@
               {% monogram membership.group.name %}
               <div class="row__main">
                 <p class="row__title"><a href="{% url 'community:group_detail' membership.group.pk %}">{{ membership.group.name }}</a></p>
-                <p class="row__meta">{% if membership.is_leader %}Tú guías este grupo. {% endif %}{% if membership.next_meeting %}Próxima reunión: {{ membership.next_meeting|weekday_date }}{% if membership.group.meeting_time %}, a las {{ membership.group.meeting_time|time:"H:i" }}{% endif %}.{% else %}Todavía no tiene día de reunión.{% endif %}</p>
+                <p class="row__meta">{% if membership.is_leader %}Tú guías este grupo. {% endif %}{% if membership.next_meeting %}Próxima reunión: {{ membership.next_meeting|weekday_date }}{% if membership.group.meeting_time %}, a las {{ membership.group.meeting_time|time:"H:i" }}{% endif %}.{% elif membership.group.meeting_frequency == 'variable' %}No tiene día fijo.{% else %}Todavía no tiene día de reunión.{% endif %}</p>
               </div>
             </li>
           {% endfor %}
