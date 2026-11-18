@@ -3,7 +3,7 @@
 {% if stalled %}
   <section aria-labelledby="entrevistas-interrumpidas">
     <h2 id="entrevistas-interrumpidas" class="heading">Tienes {{ stalled|length }} entrevista{{ stalled|length|pluralize }} sin terminar</h2>
-    <p class="hint">{{ stalled|length|pluralize:"Lleva,Llevan" }} {% stale_minutes %} minutos o más sin cambios. {{ stalled|length|pluralize:"Retómala,Retómalas" }} o, si ya no se {{ stalled|length|pluralize:"va,van" }} a terminar, {{ stalled|length|pluralize:"descártala,descártalas" }}: al descartar se borran sus respuestas.</p>
+    <p class="hint">{{ stalled|length|pluralize:"Lleva,Llevan" }} {% stale_minutes %} minutos o más sin cambios. Al descartar se borran sus respuestas.</p>
     {% include "events/rotulo/_interrupted_rows.html" with rows=stalled %}
   </section>
 {% endif %}
@@ -39,7 +39,7 @@
         </ul>
         {% with left=progress.not_started|add:progress.partial %}{% if left > next_up|length %}<p class="more"><a href="{% url 'events:coord_pending' event.slug %}">{% if progress.not_started and progress.partial %}Ver los {{ progress.not_started }} sin iniciar y {{ progress.partial }} a medias{% elif progress.partial %}Ver los {{ progress.partial }} a medias{% else %}Ver los {{ progress.not_started }} sin iniciar{% endif %}</a></p>{% endif %}{% endwith %}
       {% elif progress.eligible %}
-        <p class="empty-line">No hay entrevistas por iniciar. Cuando registres o te asignen camperos aparecerán aquí.</p>
+        <p class="empty-line">Nadie por entrevistar.</p>
       {% else %}
         {% comment %}The sign above already says what to do without camperos: here only that the list is empty.{% endcomment %}
         <p class="empty-line">Sin camperos por entrevistar.</p>
@@ -73,7 +73,7 @@
         <div class="row row--attention">
           <div class="row__main">
             <p class="row__title">{{ to_evaluate }} entrevista{{ to_evaluate|pluralize }} espera{{ to_evaluate|pluralize:"n" }} tu decisión</p>
-            <p class="row__meta">Decide si necesita{{ to_evaluate|pluralize:"n" }} seguimiento.</p>
+            <p class="row__meta">¿Necesita{{ to_evaluate|pluralize:"n" }} seguimiento?</p>
           </div>
           <a class="btn btn--secondary btn--small" href="{% url 'events:coord_pending' event.slug %}#por-evaluar">Decidir</a>
         </div>
@@ -103,7 +103,7 @@
         </ul>
         <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver todos los seguimientos</a></p>
       {% elif not to_evaluate and not minors_pending %}
-        <p class="empty-line">Nada espera tu decisión por ahora.</p>
+        <p class="empty-line">Nada por ahora.</p>
       {% endif %}
     </section>
   </div>

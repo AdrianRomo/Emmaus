@@ -198,7 +198,7 @@ class AyudaPageTests(MarcoFixture):
                 html = self.page(getattr(self, username), self.url("ayuda"), station=username == "coord1")
                 self.assertEqual(len(TASK.findall(html)), 5)
                 self.assertEqual(len(re.findall(r"<h1\b", html)), 1)
-                self.assertIn("Lo más común en Campamento A, en cinco pasos cortos.", html)
+                self.assertNotIn('<p class="lede">', html)  # the five tasks are the page: no sentence under the title
                 self.assertIn(f'<a href="{self.url("ayuda")}" aria-current="page">Ayuda</a>', html)
                 self.assertEqual(chrome(html).count('aria-current="page"'), 2)  # Ayuda, in the bar and in the panel
                 closing = "quien instaló Emmaus" if username == "admin" else "la administración del evento"

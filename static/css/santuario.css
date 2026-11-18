@@ -939,7 +939,125 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* end: evento-administracion */
 
 /* area: evento-equipo */
+/* The camp's working screens of the team (coordinator, tutor, pastor, supervision, reports), inside the shell.
+   Their templates are shared with churches that keep Atrio, so the classes are Atrio's and every rule here applies
+   only beside the event's rail (.rail--event ~ .page--app). */
 
+/* One serif line per screen, the page title, at the size of every other page's. The questions of a report are
+   section titles and "Llevamos 243 de 400" is a figure: both are Figtree. */
+.rail--event ~ .page--app :is(.coord__hello, .crew-head__title, .report-head__title) {
+  font-size: clamp(1.75rem, 1.45rem + 1.2vw, var(--t-h1)); line-height: 1.08;
+}
+.rail--event ~ .page--app :is(.report-section__title, .headline, .coord__count) { font-family: var(--font-ui); letter-spacing: -0.015em; }
+.rail--event ~ .page--app .report-section__title { font-size: var(--t-h2); font-weight: 700; line-height: 1.2; }
+.rail--event ~ .page--app :is(.headline, .coord__count) { font-weight: 800; }
+.rail--event ~ .page--app .report-section__answer { margin-top: var(--s-2); font-size: var(--t-body); }
+.rail--event ~ .page--app .headline__sub { font-size: var(--t-body); }
+/* "Tu rol: coordinador." is in the rail, under the event's name, while the rail is on screen */
+@media (min-width: 1101px) {
+  .rail--event ~ .page--app :is(.coord__role, .crew-head__meta, .own-role) { display: none; }
+}
+.rail--event ~ .page--app .report-head { align-items: center; margin-bottom: var(--s-8); }
+.rail--event ~ .page--app .report-head__text { flex: 1 1 18rem; min-width: 0; }
+.rail--event ~ .page--app .report-head__meta.meta { margin-top: var(--s-2); }
+.rail--event ~ .page--app .report-head__text > .live-status { margin-top: var(--s-1); }
+.rail--event ~ .page--app .crew-head { margin-bottom: var(--s-6); }
+.rail--event ~ .page--app .coord__hello { margin-bottom: var(--s-4); }
+
+/* A row's end sits at its end. Atrio pushed it there with space-between, which the row's chevron (a third item
+   of the row) breaks: the text takes the room instead. */
+.rail--event ~ .page--app .rows > .row > .row__main { flex: 1 1 auto; }
+.rail--event ~ .page--app .rows > .row > .btn { flex: none; }
+.rail--event ~ .page--app .rows > .row > .empty-line { flex: 1; padding: 0; border: 0; background: none; }
+.rail--event ~ .page--app .rows > .row > .empty-line::before { display: none; }
+/* On a phone a row that ends in one button keeps it beside the name (Atrio sent it under, a third line per
+   campero); a row that is a link keeps its chevron at its edge when its state goes under the text; and the state
+   of a row that ends in two buttons is a pill above them, not a bar as wide as the row. */
+@media (max-width: 600px) {
+  .rail--event ~ .page--app .results .rows > .row:has(> .btn) { flex-wrap: nowrap; }
+  .rail--event ~ .page--app .results .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))) { padding-right: 2.75rem; }
+  .rail--event ~ .page--app .results .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary)))::after { position: absolute; right: var(--s-4); top: 50%; margin-top: -0.5625rem; }
+  .rail--event ~ .page--app .row--stack .row__end:has(> .status) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rail--event ~ .page--app .row--stack .row__end > .status { grid-column: 1 / -1; justify-self: start; }
+}
+/* What waits for the person: apart from the list under it, and its button never breaks in two lines */
+.rail--event ~ .page--app .row--attention + .row--attention, .rail--event ~ .page--app .row--attention + .rows,
+.rail--event ~ .page--app .row--attention + .more { margin-top: var(--s-2); }
+.rail--event ~ .page--app .row--attention > .btn { flex: none; white-space: nowrap; }
+/* In a side column a name, its line and a state do not fit side by side: the state goes under them and the
+   chevron stays at the row's edge */
+.rail--event ~ .page--app .crew-board__side .rows > .row:has(> .status) { flex-wrap: wrap; row-gap: var(--s-1); padding-right: 2.75rem; }
+.rail--event ~ .page--app .crew-board__side .rows > .row:has(> .status) > .row__main { flex: 1 1 100%; }
+.rail--event ~ .page--app .crew-board__side .rows > .row:has(> .status)::after { position: absolute; right: var(--s-4); top: 50%; margin-top: -0.5625rem; }
+@container (max-width: 58rem) {
+  .rail--event ~ .page--app .coord__side .rows > .row:has(> .status) { flex-wrap: wrap; row-gap: var(--s-1); padding-right: 2.75rem; }
+  .rail--event ~ .page--app .coord__side .rows > .row:has(> .status) > .row__main { flex: 1 1 100%; }
+  .rail--event ~ .page--app .coord__side .rows > .row:has(> .status)::after { position: absolute; right: var(--s-4); top: 50%; margin-top: -0.5625rem; }
+}
+.rail--event ~ .page--app .coord__lists { gap: var(--s-10) var(--s-10); }
+.rail--event ~ .page--app .coord__side, .rail--event ~ .page--app .crew-board__side { gap: var(--s-8); }
+.rail--event ~ .page--app .crew-board { grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr); gap: var(--s-10) var(--s-10); }
+.rail--event ~ .page--app .crew-board__main > * + * { margin-top: var(--s-10); }
+@media (max-width: 900px) { .rail--event ~ .page--app .crew-board { grid-template-columns: minmax(0, 1fr); } }
+
+/* Lists that Atrio drew as ruled lines are a sheet too: a coordinator with their marks, a team with its ruler,
+   a matter of the agenda */
+.rail--event ~ .page--app :is(.crew, .teams, .agenda) { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); }
+.rail--event ~ .page--app .crew__row { padding: var(--s-4); }
+/* Beside the side column of "Mi equipo" the marks go under the name, as on a phone: a team in one line of marks */
+.rail--event ~ .page--app .crew-board__main .crew__row { grid-template-columns: minmax(0, 1fr) auto; }
+.rail--event ~ .page--app .crew-board__main .crew__marks { grid-column: 1 / -1; grid-row: 2; }
+.rail--event ~ .page--app .teams__row { padding: var(--s-3) var(--s-4) var(--s-4); }
+.rail--event ~ .page--app :is(.crew__row, .teams__row, .agenda li):last-child { border-bottom: 0; }
+.rail--event ~ .page--app :is(.crew__name, .teams__name) { font-size: var(--t-body); }
+.rail--event ~ .page--app .crew__name a { color: var(--ink); text-decoration: none; }
+.rail--event ~ .page--app .crew__name a:hover { text-decoration: underline; }
+.rail--event ~ .page--app .agenda li { padding: var(--s-3) var(--s-4) var(--s-3) 3.75rem; }
+.rail--event ~ .page--app .agenda li::before { left: var(--s-4); top: var(--s-3); border-width: 0; border-radius: 50%; background: var(--hundido); color: var(--ink-2); }
+.rail--event ~ .page--app .agenda__text { line-height: 1.35; }
+/* A chart and a summary of answers are things on the page: their marks were drawn against white */
+.rail--event ~ .page--app :is(.chart, .outcome) { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s-4) var(--s-4) var(--s-3); min-width: 0; }
+.rail--event ~ .page--app .outcomes { gap: var(--s-4); }
+.rail--event ~ .page--app .chart + .chart, .rail--event ~ .page--app .block > .chart { margin-top: var(--s-4); }
+.rail--event ~ .page--app .chart .table-wrap { border: 0; border-radius: 0; }
+.rail--event ~ .page--app .chart .details { margin-bottom: 0; }
+.rail--event ~ .page--app .tally { margin-block: var(--s-3) var(--s-2); }
+.rail--event ~ .page--app .figures__alert { border-color: color-mix(in srgb, var(--chile) 35%, var(--surface)) !important; border-width: 1px !important; background: var(--chile-tint); }
+
+/* A report: the question beside its evidence while there is room for both; a table takes the whole measure */
+.rail--event ~ .page--app .report-section { grid-template-columns: minmax(12rem, 17rem) minmax(0, 1fr); gap: var(--s-5) var(--s-10); padding: var(--s-8) 0 var(--s-10); }
+.rail--event ~ .page--app .report-section__body > * + * { margin-top: var(--s-6); }
+.rail--event ~ .page--app .report-section__body > .key + .teams, .rail--event ~ .page--app .report-section__body > .key { margin-top: var(--s-3); }
+.rail--event ~ .page--app .report-section:has(.table--nowrap, .table__actions) { grid-template-columns: minmax(0, 1fr); }
+@container (max-width: 52rem) {
+  .rail--event ~ .page--app .report-section { grid-template-columns: minmax(0, 1fr); padding: var(--s-6) 0 var(--s-8); }
+}
+
+/* A campero's record: the authorization's action sits under its value, so its label keeps a label's width */
+.rail--event ~ .page--app .summary-list:not(.summary-list--answers):has(.summary-list__action) .summary-list__row { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+.rail--event ~ .page--app .summary-list:not(.summary-list--answers) .summary-list__action { grid-column: 2; text-align: left; }
+.rail--event ~ .page--app .summary-list__action:empty { display: none; }
+@media (max-width: 600px) {
+  .rail--event ~ .page--app .summary-list:not(.summary-list--answers):has(.summary-list__action) .summary-list__row { grid-template-columns: minmax(0, 1fr); }
+  .rail--event ~ .page--app .summary-list:not(.summary-list--answers) .summary-list__action { grid-column: 1; }
+}
+
+/* Follow-ups (supervision/follow_ups.html, the longest list of the product): who, the facts, the state, and at
+   the end who attends it. One line per follow-up while the column is wide; under that the end goes below the
+   text, in line with it. */
+.rail--event ~ .page--app .results--wide { max-width: none; }
+.rail--event ~ .page--app .results--wide .rows > .row { gap: var(--s-3); }
+.rail--event ~ .page--app .results--wide .row > .check { flex: none; align-self: stretch; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; margin: 0 0 0 calc(-1 * var(--s-2)); padding: 0; }
+.rail--event ~ .page--app .results--wide .rows > .row > .row__main { flex: 1 1 14rem; }
+.rail--event ~ .page--app .results--wide .row__end { flex: none; flex-wrap: nowrap; gap: var(--s-3); }
+.rail--event ~ .page--app #asignar-varios { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-bottom: var(--s-3); }
+.rail--event ~ .page--app #asignar-varios .hint { margin: 0; font-size: var(--t-small); }
+@container (max-width: 56rem) {
+  .rail--event ~ .page--app .results--wide .rows > .row { flex-wrap: wrap; }
+  .rail--event ~ .page--app .results--wide .row__end { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; }
+  .rail--event ~ .page--app .results--wide .row:has(> .check) > .row__end { padding-left: calc(2.75rem + var(--s-1)); }
+  .rail--event ~ .page--app .results--wide .row > .check { align-self: flex-start; }
+}
 /* end: evento-equipo */
 
 /* area: evento-entrevista */

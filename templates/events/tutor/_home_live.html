@@ -33,7 +33,6 @@
           {% if not progress.pending %}Ya completaron todas.
           {% elif payload.throughput.eta_minutes %}Al ritmo de las últimas dos horas, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltan alrededor de <span class="nowrap">{{ payload.throughput.eta_minutes|duration }}</span>.
           {% endif %}
-          Cada marca es un campero.
         </p>{% if progress.questionnaires %}
         {% include "events/rotulo/_questionnaire_progress.html" with progress=progress quests_id="por-cuestionario-equipo" %}{% endif %}
       {% else %}
@@ -72,7 +71,7 @@
         {% comment %}How many nobody attends, with the list where they are assigned (issue #46). Said only when there are follow-ups.{% endcomment %}
         {% if follow_ups_unassigned %}<p class="more"><a href="{% url 'events:follow_ups' event.slug %}?estado=abiertos&amp;responsable=ninguno">{{ follow_ups_unassigned }} sin responsable: asígnalo{{ follow_ups_unassigned|pluralize }}</a></p>{% else %}<p class="aside-note">Todos tienen responsable.</p>{% endif %}
       {% else %}
-        <p class="empty-line">No hay seguimientos abiertos. Cuando un campero pida acompañamiento aparecerá aquí.</p>
+        <p class="empty-line">Sin seguimientos abiertos.</p>
       {% endif %}
     </section>
 
@@ -83,7 +82,7 @@
           <p>{{ n }} entrevista{{ n|pluralize }} espera{{ n|pluralize:"n" }} que su coordinador decida el seguimiento.</p>
           <p class="more"><a href="{% url 'events:pending' event.slug %}#por-evaluar">Ver las entrevistas por decidir</a></p>
         {% else %}
-          <p class="empty-line">Ninguna entrevista espera esa decisión.</p>
+          <p class="empty-line">Nada por decidir.</p>
         {% endif %}
       {% endwith %}
     </section>
@@ -110,8 +109,8 @@
 
     <section aria-labelledby="cortes">
       <h2 id="cortes" class="heading">Cortes</h2>
-      <p>{% if last_snapshot %}El último corte fue a las {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Aún no hay cortes.{% endif %}
-        {% if next_cutoff %}El próximo será a las {{ next_cutoff|date:"H:i" }}.{% else %}No hay otro programado.{% endif %}</p>
+      <p>{% if last_snapshot %}Último: {{ last_snapshot.cutoff_at|date:"H:i" }}.{% else %}Aún no hay cortes.{% endif %}
+        {% if next_cutoff %}Próximo: {{ next_cutoff|date:"H:i" }}.{% else %}No hay otro programado.{% endif %}</p>
       <p class="more"><a href="{% url 'events:reports' event.slug %}">Ver reportes de mi equipo</a></p>
     </section>
   </div>

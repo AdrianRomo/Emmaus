@@ -26,19 +26,19 @@
         <p class="sign__text">Sus respuestas están guardadas hasta donde se quedó{% if iv.station %}, en {{ iv.station.name }}{% endif %}.</p>
         <div class="sign__actions">
           <a class="btn btn--primary btn--large" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar entrevista</a>
-          <a class="sign__link" href="{% url 'events:interview_search' event.slug %}">Mejor entrevistar a otro campero</a>
+          <a class="sign__link" href="{% url 'events:interview_search' event.slug %}">Entrevistar a otro campero</a>
         </div>
       {% endwith %}
     {% elif progress.pending %}
       <h2 id="que-hago" class="sign__title"><label for="buscar">¿A quién vas a entrevistar?</label></h2>
-      <p class="sign__text" id="buscar-ayuda">Escribe su número o las primeras letras de su nombre y apellido, por ejemplo “mat jim”.</p>
+      <p class="sign__text" id="buscar-ayuda">Su número, o las primeras letras de su nombre y apellido: “mat jim”.</p>
       <form class="search" method="get" action="{% url 'events:interview_search' event.slug %}" role="search">
         <input class="input search__input" id="buscar" type="search" name="q" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
         <button class="btn btn--primary btn--large" type="submit">Buscar</button>
       </form>
     {% elif progress.eligible %}
       <h2 id="que-hago" class="sign__title">¡Terminaste!</h2>
-      <p class="sign__text">Las {{ progress.completed }} entrevistas de tus camperos están completas. Gracias por tu tiempo.</p>
+      <p class="sign__text">Completaste las {{ progress.completed }} entrevistas de tus camperos. Gracias.</p>
     {% else %}
       <h2 id="que-hago" class="sign__title">Todavía no tienes camperos asignados</h2>
       <p class="sign__text">Registra al primero o pide a la administración que te los asigne.</p>

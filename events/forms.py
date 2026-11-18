@@ -212,7 +212,7 @@ class ParticipantForm(SpanishErrorsMixin, forms.ModelForm):
             "room": forms.TextInput(attrs={"autocomplete": "off"}),
             "church_group": forms.TextInput(attrs={"autocomplete": "off", "list": "church-groups"}),
         }
-        labels = {"full_name": "Nombre completo del campero"}
+        labels = {"full_name": "Nombre completo"}
 
     def __init__(self, *args, event: Event, can_choose_coordinator: bool, show_guardian: bool = True, **kwargs):
         super().__init__(*args, **kwargs)
@@ -267,7 +267,7 @@ class ParticipantForm(SpanishErrorsMixin, forms.ModelForm):
 class ParticipantAdminForm(ParticipantForm):
     class Meta(ParticipantForm.Meta):
         fields = ["full_name", "age", "room", "church_group", "sede", "coordinator", "is_active", "withdrawn_reason"]
-        labels = {"full_name": "Nombre completo del campero", "is_active": "Sigue participando en el evento"}
+        labels = {"full_name": "Nombre completo", "is_active": "Sigue participando en el evento"}
 
 
 class InterviewStartForm(forms.Form):

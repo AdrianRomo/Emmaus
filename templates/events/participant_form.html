@@ -6,9 +6,9 @@
 {% include "partials/ui/error_summary.html" with form=form %}
 {% if creating %}
   {% if access.is_coordinator %}
-    {% include "events/rotulo/_page_head.html" with title="Registrar campero" lede="Quedará asignado a ti. Solo pedimos lo necesario." %}
+    {% include "events/rotulo/_page_head.html" with title="Registrar campero" lede="Quedará asignado a ti." %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Registrar campero" lede="Puedes asignarlo a un coordinador ahora o después. Solo pedimos lo necesario." %}
+    {% include "events/rotulo/_page_head.html" with title="Registrar campero" %}
   {% endif %}
 {% else %}
   {% url 'events:participant_detail' event.slug participant.public_id as back_url %}

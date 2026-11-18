@@ -133,7 +133,7 @@ class TwoQuestionnairesTests(PageHelpers, ProgressFixture):
         html = self.html("tutor_home", user=self.tutor1)
         self.assertIn('<h2 id="avance-equipo" class="voice coord__count" data-count="equipo">Tu equipo lleva 0 de 4 con los 2 cuestionarios.</h2>', html)
         self.assertIn("0 % de sus camperos, 1 en curso, 1 a medias.", html)
-        self.assertRegex(html, r'Cada marca es un campero\.\s*</p>\s*<section class="quests" aria-labelledby="por-cuestionario-equipo">')
+        self.assertRegex(html, r'1 a medias\.\s*</p>\s*<section class="quests" aria-labelledby="por-cuestionario-equipo">')
         self.assertIn(QUEST.format("«Primer cuestionario»: 2 de 4."), html)
         self.assertIn(QUEST.format("«Segundo cuestionario»: 0 de 4, 1 en curso."), html)
 

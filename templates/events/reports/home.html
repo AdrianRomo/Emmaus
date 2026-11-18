@@ -1,11 +1,14 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Reportes{% endblock %}
 {% block content %}
 <header class="report-head">
   <div class="report-head__text">
     <h1 class="voice report-head__title">Reportes {{ event.of_kind }}</h1>
-    <p class="report-head__meta">Cortes {{ event.get_report_interval_minutes_display|lower }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}. {% if next_cutoff %}Próximo corte a las {{ next_cutoff|date:"H:i" }} del {{ next_cutoff|fecha_larga|lower }}.{% else %}No hay cortes programados.{% endif %}</p>
+    {% if ui_v2 %}<ul class="meta report-head__meta">
+      <li>{% icon "reloj" "sm" %}Cortes {{ event.get_report_interval_minutes_display|lower }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}</li>
+      <li>{% icon "calendario" "sm" %}{% if next_cutoff %}Próximo corte: {{ next_cutoff|date:"H:i" }}, {{ next_cutoff|fecha_larga|lower }}{% else %}No hay cortes programados{% endif %}</li>
+    </ul>{% else %}<p class="report-head__meta">Cortes {{ event.get_report_interval_minutes_display|lower }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}. {% if next_cutoff %}Próximo corte a las {{ next_cutoff|date:"H:i" }} del {{ next_cutoff|fecha_larga|lower }}.{% else %}No hay cortes programados.{% endif %}</p>{% endif %}
   </div>
   <div class="report-head__actions">
     <form method="post" action="{% url 'events:report_generate' event.slug %}">{% csrf_token %}<input type="hidden" name="scope" value="{{ scope_key }}"><button class="btn btn--primary" type="submit">Generar corte ahora</button></form>
@@ -58,7 +61,7 @@
 <section class="report-section" aria-labelledby="historial">
   <div class="report-section__q">
     <h2 id="historial" class="voice report-section__title">Historial</h2>
-    <p class="report-section__answer">{% if history_total %}{{ history_total }} corte{{ history_total|pluralize }}, del más reciente al más antiguo.{% if history_page.paginator.num_pages > 1 %} {{ history_page.paginator.per_page }} por página.{% endif %}{% else %}Todavía no hay cortes.{% endif %}</p>
+    <p class="report-section__answer">{% if history_total %}{{ history_total }} corte{{ history_total|pluralize }}.{% else %}Todavía no hay cortes.{% endif %}</p>
   </div>
   <div class="report-section__body">
     {% if history_total %}
@@ -76,7 +79,7 @@
       </table></div>
       {% include "events/rotulo/_pagination.html" with page=history_page %}
     {% else %}
-      <p class="empty-line">Los cortes se generan solos durante el horario configurado. También puedes generar uno ahora.</p>
+      <p class="empty-line">Se generan solos en el horario configurado.</p>
     {% endif %}
   </div>
 </section>

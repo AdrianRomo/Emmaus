@@ -1,8 +1,8 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Seguimiento{% endblock %}
 {% block content %}
-{% include "events/rotulo/_page_head.html" with title="Seguimiento" lede="Camperos que pidieron o necesitan acompañamiento. Asigna un líder a cada uno." %}
+{% include "events/rotulo/_page_head.html" with title="Seguimiento" %}
 <ul class="filters" aria-label="Estados">
   <li><a href="?estado=abiertos{% if responsable != "todos" %}&amp;responsable={{ responsable }}{% endif %}"{% if status == "abiertos" %} aria-current="page"{% endif %}>Abiertos</a></li>
   {% for value, label in status_choices %}<li><a href="?estado={{ value }}{% if responsable != "todos" %}&amp;responsable={{ responsable }}{% endif %}"{% if status == value %} aria-current="page"{% endif %}>{{ label }} <span class="count">{{ counts|get_item:value|default:0 }}</span></a></li>{% endfor %}
@@ -14,7 +14,12 @@
   <li><a href="?estado={{ status|urlencode }}&amp;responsable=ninguno"{% if responsable == "ninguno" %} aria-current="page"{% endif %}>Sin asignar <span class="count">{{ unassigned_count }}</span></a></li>
   <li><a href="?estado={{ status|urlencode }}&amp;responsable=mio"{% if responsable == "mio" %} aria-current="page"{% endif %}>Míos <span class="count">{{ mine_count }}</span></a></li>
 </ul>
-<section class="results" aria-label="Seguimientos">
+{% comment %}
+  With the redesign (ui_v2) a row is read at a glance: who, then the facts with their mark (what kind, the campero's
+  coordinator, since when), the state as a pill and, at the end, who attends it: the selector when this person may
+  assign, a fact when not. Without it the row is what it was.
+{% endcomment %}
+<section class="results{% if ui_v2 %} results--wide{% endif %}" aria-label="Seguimientos">
   {% if follow_ups %}
     <h2 class="heading">{{ total }} seguimiento{{ total|pluralize }}</h2>
     {% if total > shown %}<p class="aside-note">Mostrando {{ shown }} de {{ total }}. Usa los filtros para ver los demás.</p>{% endif %}
@@ -27,8 +32,13 @@
         {% if can_bulk_assign and f.can_assign and f.is_open %}<label class="check" for="marcar-{{ f.id }}"><input type="checkbox" id="marcar-{{ f.id }}" form="asignar-varios" name="seguimiento" value="{{ f.id }}"><span class="visually-hidden">Marcar el seguimiento de {{ f.participant.full_name }}</span></label>{% endif %}
         <div class="row__main">
           <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.get_full_path|urlencode }}">{{ f.participant.full_name }}</a></p>
-          <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.participant.coordinator.display_name|default:"sin coordinador" }}, {{ f.created_at|since }}</p>
-          <p class="row__meta">{% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name|default:f.assigned_to.email }}{% else %}Sin asignar{% endif %}</p>
+          {% if ui_v2 %}<ul class="meta">
+            <li>{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</li>
+            <li>{% icon "guia" "sm" %}{{ f.participant.coordinator.display_name|default:"Sin coordinador" }}</li>
+            <li>{% icon "reloj" "sm" %}{{ f.created_at|since|capfirst }}</li>
+            {% if not f.can_assign or not f.is_open %}<li>{% icon "personas" "sm" %}{% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name|default:f.assigned_to.email }}{% else %}Sin asignar{% endif %}</li>{% endif %}
+          </ul>{% else %}<p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.participant.coordinator.display_name|default:"sin coordinador" }}, {{ f.created_at|since }}</p>
+          <p class="row__meta">{% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name|default:f.assigned_to.email }}{% else %}Sin asignar{% endif %}</p>{% endif %}
         </div>
         <div class="row__end">
           {% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Urgente</span>{% endif %}
@@ -42,7 +52,7 @@
   {% elif responsable == "mio" %}
     <p class="empty-line">{% if status == "todos" %}No tienes seguimientos asignados.{% else %}No tienes seguimientos asignados en esta lista.{% endif %}</p>
   {% else %}
-    <p class="empty-line">No hay seguimientos en esta lista. Cuando un coordinador marque que un campero necesita seguimiento aparecerá aquí.</p>
+    <p class="empty-line">Sin seguimientos en esta lista.</p>
   {% endif %}
 </section>
 {% endblock %}

@@ -2,7 +2,7 @@
 {% load emmaus %}
 {% block page_title %}Pendientes{% endblock %}
 {% block content %}
-{% include "events/rotulo/_page_head.html" with title="Pendientes" lede="Lo que necesita una decisión o un empujón, en orden de urgencia." %}
+{% include "events/rotulo/_page_head.html" with title="Pendientes" %}
 <div class="split">
   <div>
     <section class="block" id="interrumpidas" aria-labelledby="t-interrumpidas">
@@ -14,7 +14,7 @@
           <h3 class="heading mt-6">{% if group.coordinator %}<a href="{% url 'events:coordinator_detail' event.slug group.coordinator.id %}">{{ group.coordinator.display_name }}</a>{% else %}Sin coordinador{% endif %} <span class="count">{{ group.rows|length }}</span></h3>
           {% include "events/rotulo/_interrupted_rows.html" with rows=group.rows %}
         {% endfor %}
-        <p class="aside-note">{% if access.can_conduct_interviews %}Retómalas o descártalas aquí, o pide a su coordinador que lo haga desde “Mi inicio”. Nada se descarta solo.{% else %}Pide a cada coordinador que las retome o las descarte desde “Mi inicio”. Si no puede, la administración lo hace desde su inicio.{% endif %}</p>
+        <p class="aside-note">{% if access.can_conduct_interviews %}Su coordinador también puede hacerlo desde “Mi inicio”. Nada se descarta solo.{% else %}Pide a cada coordinador que las retome o las descarte desde “Mi inicio”. Si no puede, la administración lo hace desde su inicio.{% endif %}</p>
       {% else %}<p class="empty-line">No hay entrevistas interrumpidas.</p>{% endif %}
     </section>
 
