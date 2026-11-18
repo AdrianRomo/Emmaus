@@ -63,6 +63,7 @@ urlpatterns = [
     path(E + "administracion/", dashboards.admin_home, name="admin_home"),
     path(E + "administracion/practica/", practice.practice, name="practice"),  # the practice campero (issue #49)
     path(E + "participantes/", admin.participants, name="participants"),
+    path(E + "participantes/asignar/", admin.participants_assign, name="participants_assign"),
     path(E + "participantes/importar/", admin.participant_import, name="participant_import"),
     path(E + "participantes/exportar/", admin.participant_export, name="participant_export"),
     path(E + "respuestas/exportar/", admin.answers_export, name="answers_export"),

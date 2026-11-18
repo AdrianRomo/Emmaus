@@ -30,6 +30,7 @@ from ..models import (
 from ..services import audit
 from ..services import event_questionnaires as eq
 from ..services import follow_ups as follow_up_svc
+from ..services import participants as participant_svc
 from ..services import practice as practice_svc
 from ..services import readiness as readiness_svc
 from ..services import welcome as welcome_svc
@@ -37,6 +38,9 @@ from ..services.metrics import build_payload, coordinator_scope, local_tz, mark_
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
 from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, programme_now, safe_next
+
+
+UNASSIGNED_SHOWN = 10  # the camperos without a coordinator on the administration home, assigned in place
 
 
 def _last_snapshot(access):
@@ -869,6 +873,14 @@ def admin_home(request, event, access):
     context["stalled_total"] = stalled.count()
     context["stalled_interviews"] = mark_stalled(stalled.order_by("last_activity_at")[:STALLED_SHOWN]) if context["stalled_total"] else []
     context["newer_versions"] = eq.newer_unused_versions(event)  # issue #48; drawn by events/admin/_newer_versions.html
+    # With the redesign (ui_v2): the minors without a registered guardian authorization (all of them, interviewed or
+    # not: the count of Camperos' "Menores sin autorización"), and the first camperos without a coordinator, each one
+    # assigned on the raised surface (admin.participants_assign) with every coordinator's load beside them
+    context["minors_missing"] = (
+        participant_svc.minors_without_authorization(access.participants(), event).count() if event.requires_guardian_authorization else 0
+    )
+    context["unassigned_rows"] = list(access.participants().filter(coordinator__isnull=True).order_by("room", "full_name")[:UNASSIGNED_SHOWN]) if unassigned else []
+    context["assignable"] = list(participant_svc.assignable_coordinators(access)) if unassigned else []
     # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)
     steps = _preparation_steps(
         event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,
