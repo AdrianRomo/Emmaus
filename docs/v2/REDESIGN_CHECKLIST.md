@@ -37,7 +37,9 @@ $P manage.py runserver 127.0.0.1:8791
   serving interaction verified in a browser (busy, offline failure, confirmed, changed)
 - [x] B3. Adversarial review (three reviewers + home critic), ranked report `REVIEW_2026-11-18.md`, fixes
 - [x] B4. Independent after-state critique; its ten defects fixed
-- [ ] C. Every surface, by area, on the new system (wave 1 merged; wave 2 running)
+- [x] C. Every surface, by area, on the new system (two waves, merged)
+- [x] D. Visual review at 360 / 390 / 820 / 1093 / 1440, fixes (final critique `REVIEW_2026-11-18.md`)
+- [x] E. Consistency pass (one drawing per object, row buttons, links, traces)
 - [ ] D. Visual review at 360 / 390 / 820 / 1440, fixes
 - [ ] E. Consistency pass
 - [ ] F. Gates: ruff, Django checks, pytest, e2e (axe), deploy check
@@ -67,7 +69,7 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 | Discipulado | `core/` | done | merged `71f3a36` | Shared |
 | Evento: administración | `events/admin/` | done | merged `0ebcd48` | Shared |
 | Evento: coordinador (rest), tutor, pastor, supervisión, reportes | `events/` | done | merged `c9e5857`, `0ebcd48` | Shared |
-| Evento: entrevista y campero | `events/interview/`, `events/kiosk/` | wip | Privacy and consent text stays |
+| Evento: entrevista y campero | `events/interview/`, `events/kiosk/` | done | merged `5199698`; consent and safety wording untouched | Privacy and consent text stays |
 
 ## Decisions taken (defaults; the owner may change them)
 
@@ -96,4 +98,12 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 7. New words to confirm: «Hoy en la iglesia», «Ver cómo inscribirme», «Más de la iglesia», «Mis datos» in Mi
    cuenta, «Lo que preguntaste» / «Lo que escribiste», «También esperan tu respuesta» / «Con el pastor».
 8. Event photos (#60): the arch shows the sky of the hour until the church decides.
+9. Interview questions are all optional in the demo questionnaire («Saltar pregunta» says so): should any be
+   required? May campers skip in the kiosk, or only choose «Prefiero no responder»?
+10. The administration home says minors without authorization «no se les puede entrevistar», while the
+    consent step lets the coordinator confirm a signed authorization they have seen. Which is the rule?
+11. During a camp, should the camp's administration land on the camp's home? The running camp also shows
+    in «Eventos de la iglesia» as «Sin publicar… sin inscritos» (it has 400 camperos, not sign-ups).
+12. The take-over message for the computer that lost control says «Vuelve a abrirla desde tu inicio»
+    while the page offers «Continuar aquí» (a service message shared with the camp).
 

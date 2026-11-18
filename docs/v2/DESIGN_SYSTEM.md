@@ -138,7 +138,12 @@ A guardian's authorization is never a state circle: a check with «Autorizada»,
   could guess. A one-field form says its error once, at the field (the error summary stays for screen
   readers only).
 - **Checks and radios**: drawn 22px marks inside a 44px target.
-- **Filters**: capsules with their count; the current one filled ink.
+- **Links**: a link inside a sentence is the church's colour, underlined; a way to a whole list at a
+  section's head («Ver todos») is the church's colour without underline; a way back («Volver a…») carries
+  a chevron before it; a row's title is the row's link (ink, no underline); a name in a table that opens
+  its record is ink, underlined.
+- **Filters**: capsules with their count; the current one filled ink. Secondary filters (a sede) fold
+  under one line («Sede: todas»).
 - **Search**: a capsule field with its mark (`form.search`).
 - **Forms**: `.form-section` with `.form-section__title`; `.form-actions` at the end with the one
   primary. Advanced options in `<details class="fold">`.
