@@ -1873,7 +1873,10 @@ p.sitio__leaves { margin-top: var(--s-2); }
 
 /* What an action in place did, where the thing it acted on was (it left the list): one quiet line with a check */
 .hecho { display: flex; align-items: flex-start; gap: var(--s-2); margin: 0 0 var(--s-4); font-size: var(--t-small); line-height: 1.35; color: var(--ink); }
-.hecho--nota::before { display: none; }  /* not known to be done (a request that took too long): no check */
+.hecho--nota::before { display: none; }
+/* In a list, the line stands where the row was, as tall as it was (nothing moves under the finger) */
+.rows > li.hecho { align-items: center; margin: 0; padding: var(--s-3) var(--s-4); color: var(--ink-2); }
+.rows > li.hecho::before { margin-top: 0; }  /* not known to be done (a request that took too long): no check */
 .hecho::before { margin-top: 0.1rem; content: ""; flex: none; width: 1rem; height: 1rem; background: var(--ink); -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat; }
 
 /* The error summary's links lead to their fields: a 44px target each, like every control */

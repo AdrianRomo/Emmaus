@@ -885,25 +885,50 @@
       var next = fresh.getElementById(regionId);
       var focusInside = region.contains(doc.activeElement);
       var action = form ? form.getAttribute("action") : "";
+      // The row the action was taken on (a request, a follow-up to decide): where it was, how tall, and what it was
+      var row = form ? form.closest("li, .row") : null;
+      if (row && !region.contains(row)) row = null;
+      var path = [];
+      if (row && row !== region) {
+        for (var n = row; n !== region; n = n.parentNode) path.unshift(Array.prototype.indexOf.call(n.parentNode.children, n));
+      }
+      var box = row ? row.getBoundingClientRect() : null;
+      var title = row ? row.querySelector(".row__title a[href], a.row__link[href]") : null;
+      var titleHref = title ? title.getAttribute("href") : "";
       function swap() {
-        var said = $all(".messages .notice p", fresh).map(function (p) { return p.textContent.trim(); }).join(" ");
+        var said = $all(".messages .notice", fresh).map(function (n) { return n.textContent.replace(/\s+/g, " ").trim(); }).join(" ");
         var problem = fresh.querySelector(".messages .notice--danger, .messages .notice--warning");
-        // When the thing acted on leaves (a request decided, a row gone), a line keeps the trace of what was done
-        // where it was; when it stays (an answer that can change), its new state says it and no line is added
-        var left = action && !(next && next.querySelector('form[action="' + action + '"]'));
+        // A trace of what was done only when the thing acted on left (a request decided, a follow-up answered): when
+        // it stays (an event signed up for, a day read, an answer that can change), its new state says it. The line
+        // takes the row's place and height, so nothing moves under the finger that pressed.
+        // A row is known by its title's link (forms of a list often share one action); without one, by its form
+        var stayed = titleHref && next && next.querySelector('a[href="' + titleHref.replace(/"/g, '\\"') + '"]');
+        var left = (row && row !== region && titleHref) ? !stayed : (action && !(next && next.querySelector('form[action="' + action + '"]')));
+        var rowLeft = row && row !== region && left;
         var trace = null;
-        if ((note || (said && left)) && !problem) {
-          trace = doc.createElement("p");
+        if (!problem && (note || (said && left && (rowLeft || !row)))) {
+          trace = doc.createElement(row && row.tagName === "LI" && rowLeft && !note ? "li" : "p");
           trace.className = note ? "hecho hecho--nota" : "hecho";
           trace.textContent = note || said;
         }
+        var placed = false;
         if (next) {
           region.replaceWith(next);
-          if (trace) next.insertBefore(trace, next.firstChild);
+          if (trace && rowLeft && !note) {
+            var parent = next;
+            for (var i = 0; i < path.length - 1 && parent; i++) parent = parent.children[path[i]];
+            if (parent && parent.tagName === row.parentNode.tagName) {
+              parent.insertBefore(trace, parent.children[path[path.length - 1]] || null);
+              if (box) trace.style.minHeight = Math.round(box.height) + "px";
+              placed = true;
+            }
+          }
+          if (trace && !placed) next.insertBefore(trace, next.firstChild);
         } else {
           if (trace) region.parentNode.insertBefore(trace, region);
           region.remove();
         }
+        if (placed && box) window.scrollBy(0, trace.getBoundingClientRect().top - box.top);
         // Other places of the page that show the same facts (a count in a header): data-inline-also="<id> <id>"
         ((form && form.getAttribute("data-inline-also")) || "").split(/\s+/).forEach(function (id) {
           var mine = id && doc.getElementById(id), theirs = id && fresh.getElementById(id);
