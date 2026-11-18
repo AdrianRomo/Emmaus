@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{{ heading }}{% endblock %}
+{% block content %}
+{% comment %}
+  Writing or correcting one day of a plan (resources.plan_views.plan_day_create, plan_day_edit): the reference and
+  the church's own words. The text of the Bible is never written here.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'resources:plan_days' plan.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title=heading lede=plan.title back_url=back back_label="Volver al plan" %}
+  {% if plan.is_published %}<div class="notice notice--quiet"><p>Este plan ya está publicado: lo que guardes se ve de inmediato y queda bajo la confirmación que se dio al publicarlo.</p></div>{% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar el día</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

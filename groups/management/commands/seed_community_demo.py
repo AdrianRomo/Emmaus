@@ -182,6 +182,38 @@ class Command(BaseCommand):
             for rating, recommend, comment in answers:
                 EventFeedback.objects.create(event=ended, rating=rating, recommend=recommend, comment=comment)
 
+        self._reading_plan(church, admin)
+
+    def _reading_plan(self, church, admin) -> None:
+        """One published three-day plan, written for this demo: references and our own words, no Bible text."""
+        from resources import plans
+        from resources.models import ReadingPlan
+
+        if ReadingPlan.objects.filter(church=church).exists():
+            return
+        plan = plans.save_plan(
+            church, admin, title="Tres días para permanecer",
+            description="Tres lecturas cortas del evangelio de Juan para empezar el día con calma.",
+            author_line="Preparado por el equipo pastoral",
+        )
+        days = (
+            ("La vid y las ramas", "Juan 15:1-8",
+             "Una rama no se esfuerza por dar fruto: lo da porque está unida a la vid.\n\n"
+             "Antes de pensar en todo lo que tienes que hacer hoy, piensa en con quién lo vas a hacer.",
+             "¿En qué parte de tu día te cuesta más acordarte de que no vas solo?"),
+            ("Permanecer en su amor", "Juan 15:9-17",
+             "Jesús habla de amigos, no de empleados. A un amigo se le cuenta lo que pasa y se le escucha.\n\n"
+             "Hoy busca un momento sin prisa para hablar con él como hablas con alguien que te quiere.",
+             "¿A quién de tu iglesia podrías tratar hoy como amigo y no solo como conocido?"),
+            ("La paz que deja", "Juan 14:25-31",
+             "La paz de la que habla este pasaje no depende de que todo salga bien. Es saber que alguien se queda contigo.\n\n"
+             "Si algo te preocupa hoy, dilo en voz baja y déjalo un rato en sus manos.",
+             "¿Qué preocupación puedes soltar hoy, aunque sea por unas horas?"),
+        )
+        for title, reference, reflection, question in days:
+            plans.save_day(plan, admin, title=title, reference=reference, reflection=reflection, question=question)
+        plans.publish_plan(plan, admin, confirmed=True)
+
     def _panorama(self, church, admin, password) -> None:
         """What "Panorama" counts: a pastor, the groups of PANORAMA_GROUPS with their lists, a finished event with
         attendance."""

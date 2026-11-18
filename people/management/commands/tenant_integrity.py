@@ -38,7 +38,7 @@ from feedback.models import FeedbackGiven
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.models import CampusAffiliation, EventParticipantLink, Person
-from resources.models import DevotionalRead
+from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
 from serving.models import Assignment, Team, TeamMembership
 
 ERROR = "error"
@@ -120,6 +120,10 @@ def community_checks() -> tuple[Check, ...]:
         # resources
         Check("devotional_read_person_church", "Lecturas de un devocional de otra iglesia", DevotionalRead, None,
               ~Q(person__church=F("devotional__church"))),
+        Check("reading_plan_progress_person_church", "Planes de lectura empezados por una persona de otra iglesia",
+              ReadingPlanProgress, None, ~Q(person__church=F("plan__church"))),
+        Check("reading_plan_day_read_plan", "Días leídos de un plan distinto al que la persona empezó", ReadingPlanDayRead, None,
+              ~Q(day__plan=F("progress__plan"))),
         # serving
         Check("team_membership_person_church", "Integrantes de un equipo de otra iglesia", TeamMembership, None,
               ~Q(person__church=F("team__church"))),

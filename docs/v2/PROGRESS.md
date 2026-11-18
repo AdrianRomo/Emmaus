@@ -2,6 +2,40 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## Wave 8 — Reading plans written by the church (issue #84, branch `v2/wave-8-planes`)
+
+"Planes de lectura" under "Para crecer": several days in order, each with a Scripture reference, an
+optional reflection and an optional question, all written by the church. Code: `resources/plans.py`
+(every rule and write), `resources/plan_views.py`, migration `resources/0002_reading_plans`.
+
+Rules, each with a test in `resources/tests/test_plans.py`:
+
+- **No Bible text.** Only references and the church's words are stored; nothing is fetched. The day
+  form says so. No free-text answer from a member exists anywhere.
+- **Publishing** needs the administration's confirmation ("Confirmo que este plan lo escribió nuestra
+  iglesia o que tenemos permiso para publicarlo"), stored as `rights_confirmed_by` / `rights_confirmed_at`,
+  and at least one day. It is audited. A published plan's days can be corrected and days can be added
+  (audited, under the same confirmation); a day is removed only while the plan is a draft.
+- **Retiring.** A retired plan disappears, by list and by address, for everybody who had not started
+  it, and nobody can start it. Whoever had started it (finished or not) keeps every day, the marks,
+  "Ya lo leí" and the line on Mi iglesia. Leaving a retired plan is final. The administration can
+  publish it again with a new confirmation.
+- **Pace.** Days are never tied to a date. Resuming goes to the first day without a mark. The last
+  mark shows "Terminaste este plan": no score, streak, percentage or comparison.
+- **Privacy.** Progress is the reader's alone: the administration's pages, Panorama and the audit log
+  carry nothing derived from it (byte-compared in the tests), there is no count of any kind, the
+  tables are not in the Django admin, and nothing is e-mailed or notified.
+- **Tenants.** Another church's plan, day or progress is a 404; `tenant_integrity` has two new checks
+  (`reading_plan_progress_person_church`, `reading_plan_day_read_plan`).
+
+Seed: `seed_community_demo --eventos` adds one published three-day plan; the plain seed is unchanged.
+
+Revert: revert the commit, or `manage.py migrate resources 0001` (drops the four new tables and
+nothing else) before removing the code. `EMMAUS_V2_MODULES=false` hides every screen at once.
+
+Not built: reordering days, deleting a plan, more than one plan in the "Continuar" line (the most
+recently started unfinished one is shown).
+
 ## 2026-11-18, last — Wave 7: the deviation closed and the small list (branch `v2/wave-7`)
 
 Wave 6 (pull request #81) is merged into `v2/foundation`; issues #49 and #50 are closed. Every

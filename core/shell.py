@@ -36,9 +36,15 @@ AGENDA_ADMIN_VIEWS = {
     "agenda:waiting_remove", "agenda:visit_follow_up",
 }
 DEVOTIONAL_VIEWS = {"resources:devotional_today", "resources:devotional_list", "resources:devotional_detail"}
+PLAN_VIEWS = {
+    "resources:plan_list", "resources:plan_detail", "resources:plan_start", "resources:plan_leave", "resources:plan_day",
+    "resources:plan_day_read",
+}
 RESOURCE_ADMIN_VIEWS = {
     "resources:devotional_admin", "resources:devotional_create", "resources:devotional_edit",
     "resources:media_admin", "resources:media_create", "resources:media_edit", "resources:media_retire",
+    "resources:plan_admin", "resources:plan_create", "resources:plan_edit", "resources:plan_days", "resources:plan_day_create",
+    "resources:plan_day_edit", "resources:plan_day_delete", "resources:plan_publish", "resources:plan_retire",
 }
 SERVING_VIEWS = {"serving:home"}
 SERVING_ADMIN_VIEWS = {
@@ -105,6 +111,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     ]
     reading = [
         _item("Devocional", reverse("resources:devotional_today"), "devocional", view in DEVOTIONAL_VIEWS),
+        _item("Planes de lectura", reverse("resources:plan_list"), "plan", view in PLAN_VIEWS),
         _item("Recursos", reverse("resources:media_list"), "recursos", view == "resources:media_list"),
     ]
     sections = [{"label": "", "items": main}, {"label": "Para crecer", "items": reading}]

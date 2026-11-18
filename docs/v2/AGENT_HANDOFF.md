@@ -72,7 +72,7 @@ unless the PR carries `risk:high`.
 |---|---|---|
 | `notices` | Avisos for the church or one group, with a date to appear, a date to expire and a read state | `notices.services.for_home`, `unread_count` |
 | `agenda` | `EventPage` beside `events.Event` (published, description, hour, sign-up, capacity) and `EventRegistration` (sign-up, attendance) | `agenda.services.upcoming_for` |
-| `resources` | `Devotional` (one per church and day) with a private read mark; `MediaItem` as links by series and speaker | `resources.services.today_devotional`, `latest_media` |
+| `resources` | `Devotional` (one per church and day) with a private read mark; `MediaItem` as links by series and speaker; `ReadingPlan` and its days (references and the church's own words, never Bible text; published only with the stored confirmation of authorship or permission) with a private progress (`ReadingPlanProgress`, `ReadingPlanDayRead`: no count, no admin page, not in the Django admin) | `resources.services.today_devotional`, `latest_media`, `resources.plans.current_for` |
 | `serving` | `Team`, `TeamMembership` (coordina / sirve), `ServiceDate`, `Assignment` (por confirmar / confirmó / no puede), `Unavailable` | `serving.services.my_dates`, `pending_count`, `has_teams` |
 | `overview` | "Panorama": totals for the church roles pastor and administration; no models | `overview.access.can_see_overview`, `overview.services.build` (10 queries) |
 | `feedback` | `EventFeedback` (random key, no person, day only) and `FeedbackGiven` (who answered, no date); results after 14 days and from 3 answers | `feedback.services.pending_for`, `results` |
