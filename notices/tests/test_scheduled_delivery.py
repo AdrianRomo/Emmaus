@@ -9,10 +9,13 @@ what the people who publish read while nothing is sending those e-mails.
 
 from datetime import datetime, time, timedelta
 from io import StringIO
+from smtplib import SMTPRecipientsRefused
 from unittest import mock
 
 from django.core import mail
 from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.core.mail.backends import locmem
 from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -20,7 +23,7 @@ from django.utils import timezone
 from core.models import SchedulerHeartbeat
 from core.scheduler import NOTICE_MAIL
 from groups.tests.base import CommunityFixture
-from notices import email
+from notices import email, services
 from notices.models import Announcement, EmailPreference, NoticeEmail
 from people.models import Person
 
@@ -32,6 +35,17 @@ CREATE = reverse("notices:create")
 Choice = EmailPreference.Choice
 NOT_SENDING = "Ahora mismo Emmaus no está enviando los correos de los avisos programados."
 PROMISE = "El día que se publique, Emmaus le enviará el correo a quien lo eligió."
+
+
+class OneAddressRefused(locmem.EmailBackend):
+    """A mail server that works and refuses one address."""
+
+    refused = "coord1@prueba.mx"
+
+    def send_messages(self, messages):
+        if any(self.refused in message.to for message in messages):
+            raise SMTPRecipientsRefused({self.refused: (550, b"no such user")})
+        return super().send_messages(messages)
 
 
 @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE)
@@ -78,7 +92,10 @@ class ScheduledDeliveryTests(CommunityFixture):
         """One pass of the scheduler (what the ``scheduler`` service runs every 300 seconds)."""
         out = StringIO()
         with self.at(day, hour, minute):
-            call_command("run_scheduled_jobs", stdout=out)
+            try:
+                call_command("run_scheduled_jobs", stdout=out)
+            except CommandError:  # a job of the pass failed: the line says which
+                pass
         return out.getvalue()
 
     def mailed(self) -> list[str]:
@@ -136,10 +153,12 @@ class ScheduledDeliveryTests(CommunityFixture):
         self.assertIn("correos de avisos: 0 enviados, 1 fallidos, 1 pendientes", failed)
         self.assertEqual(mail.outbox, [])
         self.assertEqual(NoticeEmail.objects.get().outcome, "failed")
-        # The job ran, and says so: the mail that failed is in its counts, not in its heartbeat.
-        self.assertEqual(SchedulerHeartbeat.objects.get(job=NOTICE_MAIL).last_error, "")
+        # Nothing got through: the pass says so, and so does its heartbeat until an e-mail goes out.
+        self.assertIn("(ningún correo está saliendo)", failed)
+        self.assertEqual(SchedulerHeartbeat.objects.get(job=NOTICE_MAIL).last_error, "AllSendsFailed")
 
         self.assertIn("correos de avisos: 1 enviados, 0 fallidos, 0 pendientes", self.run_pass(self.tomorrow, 0, 10))
+        self.assertEqual(SchedulerHeartbeat.objects.get(job=NOTICE_MAIL).last_error, "")
         self.run_pass(self.tomorrow, 0, 15)
         self.assertEqual(self.mailed(), [self.eligible.email])
         delivery = NoticeEmail.objects.get()
@@ -216,3 +235,96 @@ class ScheduledDeliveryTests(CommunityFixture):
         # A notice that is already published is mailed from the request: its form says nothing about the scheduler.
         Announcement.objects.filter(pk=notice.pk).update(publish_on=self.today)
         self.assertNotContains(self.page(edit, self.today, 9, 31), NOT_SENDING)
+
+    # ---- a mail server that keeps refusing ----------------------------------------------------------
+    def status(self, day, hour, minute):
+        out = StringIO()
+        with self.at(day, hour, minute):
+            try:
+                call_command("scheduler_status", stdout=out)
+            except CommandError as error:
+                return error.returncode, out.getvalue()
+        return 0, out.getvalue()
+
+    @override_settings(EMAIL_BACKEND=FAILING)
+    def test_a_refused_mail_is_tried_later_and_later_and_five_times_at_most(self):
+        notice = self.schedule_for_tomorrow()
+        url = reverse("notices:detail", args=[notice.pk])
+
+        def attempts():
+            return NoticeEmail.objects.get().attempts
+
+        # (hour, minute) of each pass tomorrow, and the attempts made by then: 00:05, then 5 minutes,
+        # 30 minutes, 3 hours and 12 hours after the attempt before. Every other pass tries nothing.
+        passes = [
+            ((0, 5), 1), ((0, 9), 1), ((0, 10), 2), ((0, 15), 2), ((0, 39), 2), ((0, 40), 3),
+            ((3, 39), 3), ((3, 40), 4), ((15, 39), 4), ((15, 40), 5), ((15, 45), 5), ((23, 55), 5),
+        ]
+        tried_before = 0
+        for (hour, minute), expected in passes:
+            if expected > tried_before:
+                with self.assertLogs("core.services", "ERROR"):
+                    self.run_pass(self.tomorrow, hour, minute)
+            else:
+                self.assertIn("correos de avisos: 0 enviados, 0 fallidos", self.run_pass(self.tomorrow, hour, minute))
+            self.assertEqual(attempts(), expected, (hour, minute))
+            tried_before = expected
+        # Given up: the row is final, the round is over and the days after try nothing.
+        notice.refresh_from_db()
+        self.assertEqual(NoticeEmail.objects.get().outcome, "failed")
+        self.assertEqual(notice.emailed_version, notice.version)
+        for days in (1, 2):
+            self.assertIn("correos de avisos: 0 enviados, 0 fallidos, 0 pendientes", self.run_pass(self.tomorrow + timedelta(days=days)))
+        self.assertEqual(attempts(), 5)
+        self.assertEqual(mail.outbox, [])
+        page = self.page(url, self.tomorrow + timedelta(days=2))
+        self.assertContains(page, "Algunos correos no se pudieron enviar. Emmaus lo intentó varias veces y ya no lo intentará de nuevo.")
+
+    def test_while_every_mail_is_refused_nothing_is_promised_and_the_status_fails(self):
+        """Wrong credentials: the job runs and nothing gets through. That is not a job that works."""
+        self.run_pass(self.today, 8, 55)
+        waiting = self.schedule_for_tomorrow(priority="urgent")
+        waiting_url = reverse("notices:detail", args=[waiting.pk])
+        self.assertContains(self.page(waiting_url, self.today, 9, 1), PROMISE)
+        # A notice for today that the publish could not mail (no address at hand) is left for the pass.
+        with self.at(self.today, 9, 2):
+            services.publish(self.church, self.admin, title="Hoy", body="Texto", priority="urgent")
+        with self.settings(EMAIL_BACKEND=FAILING), self.assertLogs("core.services", "ERROR"):
+            failed = self.run_pass(self.today, 9, 5)
+        self.assertIn("correos de avisos: 0 enviados, 2 fallidos, 2 pendientes (ningún correo está saliendo)", failed)
+        code, printed = self.status(self.today, 9, 6)
+        self.assertEqual(code, 0)  # it ended well ten minutes ago: not late yet, and the error is in sight
+        with self.settings(EMAIL_BACKEND=FAILING):
+            # The next passes try nothing (the mails wait) or fail again: neither counts as working.
+            self.run_pass(self.today, 9, 7)
+            with self.assertLogs("core.services", "ERROR"):
+                self.run_pass(self.today, 9, 10)
+            self.run_pass(self.today, 9, 15)
+            code, printed = self.status(self.today, 9, 16)
+            self.assertEqual(code, 1)
+            self.assertIn("avisos_correo: SIN CORRER", printed)
+            self.assertIn("último error: AllSendsFailed", printed)
+            page = self.page(waiting_url, self.today, 9, 16)
+            self.assertContains(page, NOT_SENDING)
+            self.assertNotContains(page, PROMISE)
+            self.assertContains(self.page(CREATE, self.today, 9, 16), NOT_SENDING)
+        # The server takes mail again: the retry goes out and the promise is back.
+        self.assertIn("correos de avisos: 2 enviados, 0 fallidos, 0 pendientes", self.run_pass(self.today, 9, 40))
+        self.assertEqual(self.status(self.today, 9, 41)[0], 0)
+        self.assertContains(self.page(waiting_url, self.today, 9, 41), PROMISE)
+
+    def test_one_address_the_server_refuses_is_not_a_job_that_stopped(self):
+        with self.at(self.today, 9, 2):
+            services.publish(self.church, self.admin, title="Hoy", body="Texto", priority="urgent")
+        with self.settings(EMAIL_BACKEND=f"{__name__}.OneAddressRefused"):
+            with self.assertLogs("core.services", "ERROR"):
+                first = self.run_pass(self.today, 9, 5)
+            self.assertIn("correos de avisos: 1 enviados, 1 fallidos, 1 pendientes", first)
+            self.assertNotIn("ningún correo", first)
+            with self.assertLogs("core.services", "ERROR"):
+                retry = self.run_pass(self.today, 9, 10)  # the retry fails alone: one address, not the server
+            self.assertIn("correos de avisos: 0 enviados, 1 fallidos, 1 pendientes", retry)
+            self.assertNotIn("ningún correo", retry)
+            self.assertEqual(SchedulerHeartbeat.objects.get(job=NOTICE_MAIL).last_error, "")
+            self.assertEqual(self.status(self.today, 9, 11)[0], 0)
+        self.assertEqual(self.mailed(), [self.eligible.email])

@@ -37,27 +37,44 @@ CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
 
 def public_base_url(raw: str, *, debug: bool, allowed_hosts: list[str]) -> str:
     """The address people reach this Emmaus at (``https://emmaus.ejemplo.org``), for the links of the e-mails a
-    command sends: a command has no request to read it from. Empty means "not said". Refused at startup, because a
-    wrong value would put a wrong link in every e-mail: anything but https (http only with DEBUG), a path, a query,
-    a user, or a host that ``ALLOWED_HOSTS`` would not answer."""
+    command sends: a command has no request to read it from. Empty means "not said", and is valid. Refused at
+    startup, because a wrong value would put a wrong link in every e-mail: anything but https (http only with
+    DEBUG), a path, a query, a user, or a host that ``ALLOWED_HOSTS`` would not answer. The message says which rule
+    failed and never repeats the value."""
     value = (raw or "").strip()
     if not value:
         return ""
-    name = "EMMAUS_PUBLIC_BASE_URL"
+
+    def refuse(rule: str) -> ImproperlyConfigured:
+        return ImproperlyConfigured(
+            f"EMMAUS_PUBLIC_BASE_URL {rule} Write only the scheme and the host (https://emmaus.example.org), "
+            "or leave it empty: Emmaus starts without it, and the scheduler then sends no e-mail about scheduled notices."
+        )
+
     try:
         parts = urlparse(value)
         host, port = parts.hostname, parts.port
     except ValueError:
-        raise ImproperlyConfigured(f"{name} is not an address.") from None
-    if parts.scheme not in (("http", "https") if debug else ("https",)) or not host:
-        raise ImproperlyConfigured(f"{name} must be https://<host> (http only with DEBUG=true).")
-    if parts.path not in ("", "/") or parts.params or parts.query or parts.fragment or parts.username or parts.password:
-        raise ImproperlyConfigured(f"{name} must be only the scheme and the host: no path, query or user.")
+        raise refuse("is not an address (its host or its port cannot be read).") from None
+    if parts.scheme not in ("http", "https"):
+        raise refuse("must start with https://.")
+    if parts.scheme == "http" and not debug:
+        raise refuse("must be https: http is only accepted with DEBUG=true.")
+    if not host:
+        raise refuse("has no host.")
+    if parts.username or parts.password:
+        raise refuse("must not carry a user or a password.")
+    if parts.path not in ("", "/"):
+        raise refuse("must not have a path after the host.")
+    if parts.params or parts.query or parts.fragment:
+        raise refuse("must not have a query (?…) or a fragment (#…).")
+    # urlparse hands an IPv6 literal over without its brackets; ALLOWED_HOSTS and a link both write them.
+    host = f"[{host}]" if ":" in host else host
     if "*" not in allowed_hosts and not any(
         host == pattern.lower() or (pattern.startswith(".") and (host.endswith(pattern.lower()) or host == pattern[1:].lower()))
         for pattern in allowed_hosts
     ):
-        raise ImproperlyConfigured(f"The host of {name} must be one of ALLOWED_HOSTS.")
+        raise refuse("names a host that is not in ALLOWED_HOSTS.")
     return f"{parts.scheme}://{host}" + (f":{port}" if port else "")
 
 

@@ -9,7 +9,7 @@ from django.core import mail
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import connection
+from django.db import OperationalError, connection
 from django.test import SimpleTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -42,6 +42,32 @@ class PublicBaseUrlTests(SimpleTestCase):
         self.assertEqual(self.check("https://a.prueba.mx", hosts=[".prueba.mx"]), "https://a.prueba.mx")
         self.assertEqual(self.check("https://otra.mx", hosts=["*"]), "https://otra.mx")
 
+    def test_an_ipv6_address_keeps_its_brackets(self):
+        self.assertEqual(self.check("https://[::1]", hosts=["[::1]"]), "https://[::1]")
+        self.assertEqual(self.check("https://[::1]:8443/", hosts=["[::1]"]), "https://[::1]:8443")
+        self.assertEqual(self.check("https://[2001:DB8::1]", hosts=["*"]), "https://[2001:db8::1]")
+        with self.assertRaises(ImproperlyConfigured):
+            self.check("https://[::1]", hosts=["::1"])
+
+    def test_the_message_says_which_rule_failed_and_that_empty_is_valid(self):
+        for raw, rule in (
+            ("emmaus.prueba.mx", "must start with https://"),
+            ("http://emmaus.prueba.mx", "http is only accepted with DEBUG=true"),
+            ("https://", "has no host"),
+            ("https://u:p@emmaus.prueba.mx", "must not carry a user or a password"),
+            ("https://emmaus.prueba.mx/emmaus", "must not have a path"),
+            ("https://emmaus.prueba.mx/?a=1", "must not have a query"),
+            ("https://otra.mx", "not in ALLOWED_HOSTS"),
+            ("https://emmaus.prueba.mx:puerto", "is not an address"),
+        ):
+            with self.subTest(raw=raw), self.assertRaises(ImproperlyConfigured) as caught:
+                self.check(raw)
+            message = str(caught.exception)
+            self.assertIn(rule, message)
+            self.assertIn("or leave it empty", message)
+            if raw != "https://":  # the advice itself starts that way
+                self.assertNotIn(raw, message)
+
     def test_http_only_with_debug(self):
         self.assertEqual(self.check("http://localhost:8000", debug=True, hosts=["localhost"]), "http://localhost:8000")
         with self.assertRaises(ImproperlyConfigured):
@@ -68,8 +94,12 @@ class PublicBaseUrlTests(SimpleTestCase):
 @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE)
 class SchedulerPassTests(CommunityFixture):
     def run_pass(self) -> str:
-        out = StringIO()
-        call_command("run_scheduled_jobs", stdout=out)
+        """What one pass prints. ``self.code``: 0, or the code the command ended with."""
+        out, self.code = StringIO(), 0
+        try:
+            call_command("run_scheduled_jobs", stdout=out)
+        except CommandError as error:
+            self.code = error.returncode
         return out.getvalue()
 
     def heartbeat(self, job) -> SchedulerHeartbeat:
@@ -92,6 +122,7 @@ class SchedulerPassTests(CommunityFixture):
         self.assertEqual(
             {key: lines[1][key] for key in ("notices", "sent", "failed", "left")}, {"notices": 0, "sent": 0, "failed": 0, "left": 0}
         )
+        self.assertEqual(self.code, 0)
         self.assertEqual({key: lines[2][key] for key in ("released", "offered")}, {"released": 0, "offered": 0})
         for job in scheduler.JOBS:
             beat = self.heartbeat(job)
@@ -121,7 +152,8 @@ class SchedulerPassTests(CommunityFixture):
                 command.waiting_offers_summary()
             return len(queries)
 
-        # Each job: its heartbeat twice (started, ended) and what it asks to learn there is nothing to do.
+        # Each job: its heartbeat twice (started, ended) and one question to learn there is nothing to do;
+        # the notice e-mails also read whether their last pass got nothing through.
         self.assertEqual(community_queries(), 7)
         # Notices whose round ended, in two churches, cost nothing more.
         for church, author in ((self.church, self.admin), (self.church_b, self.admin_b)):
@@ -132,8 +164,15 @@ class SchedulerPassTests(CommunityFixture):
 
     def test_a_job_that_fails_stops_nothing_else_and_leaves_only_its_class_name(self):
         with mock.patch("notices.email.send_due", side_effect=RuntimeError("secreto@prueba.mx")), \
-                self.assertLogs("emmaus.scheduler") as logs, self.assertLogs("core.scheduler", "ERROR"):
+                self.assertLogs("emmaus.scheduler") as logs, self.assertLogs("core.scheduler", "ERROR") as plain:
             printed = self.run_pass()
+        self.assertEqual(self.code, 1)  # run once, for cron: a failed job is an error, after all of them ran
+        # The ordinary log says where it failed and what kind of error, never the error's message.
+        logged = "\n".join(record.getMessage() for record in plain.records) + "".join(plain.output)
+        self.assertIn("RuntimeError", logged)
+        self.assertIn("run_scheduled_jobs.py", logged)
+        self.assertNotIn("secreto", logged)
+        self.assertTrue(all(record.exc_info is None for record in plain.records))
         self.assertIn(CUTOFFS_LINE, printed)
         self.assertIn("correos de avisos: error · lista de espera: 0 lugares liberados, 0 ofrecidos", printed)
         beat = self.heartbeat(scheduler.NOTICE_MAIL)
@@ -145,19 +184,46 @@ class SchedulerPassTests(CommunityFixture):
         self.assertNotIn("secreto", printed + "".join(record.getMessage() for record in logs.records))
         # The next good pass clears the error.
         self.run_pass()
+        self.assertEqual(self.code, 0)
         self.assertEqual(self.heartbeat(scheduler.NOTICE_MAIL).last_error, "")
+
+    def test_a_heartbeat_that_cannot_be_written_stops_no_job(self):
+        """The table is missing (an image started before migrate, or after ``migrate core 0011``): everything still runs."""
+        email.set_preference(self.member, EmailPreference.Choice.ALL)
+        services.publish(self.church, self.admin, title="Retiro", body="Texto")
+        with mock.patch("core.scheduler._mark", side_effect=OperationalError("no such table: core_schedulerheartbeat")), \
+                self.assertLogs("core.scheduler", "ERROR") as plain, self.assertLogs("emmaus.scheduler", "INFO") as lines:
+            printed = self.run_pass()
+        self.assertEqual(self.code, 0)
+        self.assertIn(CUTOFFS_LINE, printed)
+        self.assertIn("correos de avisos: 1 enviados, 0 fallidos, 0 pendientes · lista de espera: 0 lugares liberados", printed)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True, True, True])
+        self.assertEqual(len(plain.records), 6)  # each write, by its class name only
+        self.assertTrue(all("OperationalError" in line and "no such table" not in line for line in plain.output))
+        self.assertFalse(SchedulerHeartbeat.objects.exists())
+
+    def test_a_heartbeat_that_cannot_be_read_is_a_job_that_is_not_known_to_run(self):
+        self.run_pass()
+        self.assertEqual(scheduler.notice_mail_problem(), "")
+        with mock.patch("core.scheduler.SchedulerHeartbeat.objects.filter", side_effect=OperationalError("x")):
+            self.assertEqual(scheduler.notice_mail_problem(), scheduler.NEVER)
+            self.assertEqual(scheduler.last_error(scheduler.NOTICE_MAIL), "")
 
     def test_the_cutoffs_failing_do_not_stop_the_community_jobs_nor_the_other_way(self):
         target = "events.management.commands.run_report_cutoffs.Command.run_once"
-        with mock.patch(target, side_effect=RuntimeError("x")), self.assertLogs("core.scheduler", "ERROR"), \
+        with mock.patch(target, side_effect=RuntimeError("x")), self.assertLogs("core.scheduler", "ERROR") as plain, \
                 self.assertLogs("emmaus.scheduler"):
             printed = self.run_pass()
+        self.assertEqual(self.code, 1)  # as run_report_cutoffs, run once, always did
+        self.assertIsNotNone(plain.records[0].exc_info)  # the cutoffs keep the traceback they always logged
         self.assertIn("cortes: error · correos de avisos: 0 enviados", printed)
         self.assertEqual(self.heartbeat(scheduler.CUTOFFS).last_error, "RuntimeError")
         self.assertIsNotNone(self.heartbeat(scheduler.NOTICE_MAIL).last_ok_at)
         with mock.patch("agenda.services.expire_offers", side_effect=RuntimeError("x")), self.assertLogs("core.scheduler", "ERROR"), \
                 self.assertLogs("emmaus.scheduler"):
             printed = self.run_pass()
+        self.assertEqual(self.code, 1)
         self.assertIn(CUTOFFS_LINE, printed)
         self.assertIn("lista de espera: error", printed)
         self.assertEqual(self.heartbeat(scheduler.CUTOFFS).last_error, "")
@@ -232,7 +298,7 @@ class SchedulerStatusTests(CommunityFixture):
         call_command("run_scheduled_jobs", stdout=StringIO())
         with self.later(20):
             with mock.patch("notices.email.send_due", side_effect=ValueError("secreto")), self.assertLogs("core.scheduler", "ERROR"), \
-                    self.assertLogs("emmaus.scheduler"):
+                    self.assertLogs("emmaus.scheduler"), self.assertRaises(CommandError):
                 call_command("run_scheduled_jobs", stdout=StringIO())
             code, printed, error = self.status()
         self.assertEqual(code, 1)

@@ -145,6 +145,10 @@ class NoticeEmail(models.Model):
     person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="notice_emails")
     outcome = models.CharField(max_length=10, choices=Outcome.choices, default=Outcome.PENDING, db_default=Outcome.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
+    # How many times the e-mail was handed to the mail server and when it last was: a mail that fails is tried
+    # again later and later, and no more after ``notices.email.MAX_ATTEMPTS``. 0: a row from before the counter.
+    attempts = models.PositiveSmallIntegerField(default=0, db_default=0)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "correo de un aviso"
