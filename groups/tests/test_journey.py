@@ -43,7 +43,7 @@ class CampToGroupJourneyTests(CommunityFixture):
 
         self.client.force_login(self.leader_user)
         leader_home = self.client.get(reverse("community:home"))
-        self.assertContains(leader_home, "2 personas quieren unirse a tus grupos")
+        self.assertContains(leader_home, "Diego Hernández Cruz quiere unirse a Jóvenes Roca")  # each request raised on its own
         people = self.client.get(reverse("community:group_people", args=[self.group.pk]))
         self.assertContains(people, "Diego Hernández Cruz")
         self.assertContains(people, "55 1111 2222")

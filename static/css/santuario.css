@@ -802,7 +802,9 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 }
 /* Several things wait at once: one raised surface, a hairline between them */
 .esperan > .ask + .ask { margin-top: var(--s-4); padding-top: var(--s-4); border-top: 1px solid var(--line); }
-.ask > .sign__who > :first-child { width: var(--lead); justify-self: center; }
+.ask > .sign__who > .mono:first-child { width: var(--lead); justify-self: center; }
+.ask > .sign__who > :only-child { grid-column: 1 / -1; }  /* no one to draw: the words take the whole width */
+.ask + .ask { margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--line); }
 .hoy__evento + .hoy__evento { margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--line); }
 .hoy .heading + .evento, .hoy .heading + .sign, .hoy .heading + .lectura { margin-top: var(--s-3); }
 .hoy__icono { display: grid; place-items: center; width: var(--lead); color: var(--ink-2); }

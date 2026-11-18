@@ -159,11 +159,13 @@ def home(request):
     if to_decide:
         total = sum(row["total"] for row in to_decide)
         first = to_decide[0]
-        # One request: who asks and for which group, so the guide knows it before opening it.
-        one = (
+        # Up to three requests: each one raised with who asks and for which group, answered right here (in place);
+        # more than three: one line that leads to them.
+        few = list(
             GroupJoinRequest.objects.filter(group_id__in=managed, status=PENDING, group__status=Group.Status.ACTIVE)
-            .select_related("person", "group").first() if total == 1 else None
-        )
+            .select_related("person", "group").order_by("created_at", "pk")[:3]
+        ) if total <= 3 else []
+        one = few[0] if total == 1 else None
         sign = {
             "kind": "",
             "who": one.person.full_name if one else "",
@@ -171,8 +173,17 @@ def home(request):
             "text": "",
             "url": reverse("community:group_people", args=[first["group_id"]]),
             "action": "Ver solicitud" if one else "Ver solicitudes",
-            # One request is decided right here, in place (the view returns to this page: siguiente)
+            # Each request decided right here, in place (the view returns to this page: siguiente)
             "decide": reverse("community:request_decide", args=[one.group_id, one.pk]) if one else "",
+            "requests": [
+                {
+                    "who": r.person.full_name,
+                    "title": f"{r.person.full_name} quiere unirse a {r.group.name}",
+                    "decide": reverse("community:request_decide", args=[r.group_id, r.pk]),
+                    "url": reverse("community:group_people", args=[r.group_id]),
+                }
+                for r in few
+            ],
         }
     elif request.is_church_admin and not any_group:
         sign = {

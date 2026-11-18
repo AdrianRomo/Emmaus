@@ -173,11 +173,12 @@ await ctx.close();
 
 // 2. The guide: the panel names the pending requests; accept Valeria.
 ({ ctx, page } = await session("guia.grupo@demo.invalid", DESKTOP));
-expect((await page.locator(".sign__title").innerText()).startsWith("2 personas quieren unirse"), "guide's next step");
+const asks = await page.locator(".ask .sign__title").allInnerTexts();
+expect(asks.length === 2 && asks.some((t) => t.startsWith("Valeria Soto Marín quiere unirse")), `each request raised on its own card: ${asks.join(" | ")}`);
 expect(await page.locator(".rail__nav").isVisible() && await page.locator(".tabs").isHidden(), "wide screens get the rail, not the tabs");
 expect((await page.locator(".rail .rail__link:has-text('Jóvenes Roca') .badge").textContent()).trim().startsWith("2"), "the rail counts what waits in her group");
 await audit(page, "guia-inicio");
-await Promise.all([page.waitForNavigation(), page.click("a:has-text('Ver solicitudes')")]);
+await act(page, ".ask:has-text('Valeria Soto Marín') a:has-text('Ver solicitud')");
 await audit(page, "guia-personas");
 await act(page, "li:has-text('Valeria Soto') button[value=aceptar]");
 expect(await page.locator("main .hecho").getByText("Valeria Soto Marín ya es parte de Jóvenes Roca.").count() > 0, "acceptance leaves its line where the request was");

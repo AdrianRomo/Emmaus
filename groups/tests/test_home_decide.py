@@ -1,5 +1,5 @@
-"""Mi iglesia, for who guides a group: one request is decided on the raised card itself, in place (the decision
-returns to the home through a safe ``siguiente``); several requests lead to the group's people, as before."""
+"""Mi iglesia, for who guides a group: up to three requests are raised one by one and decided on their own card, in
+place (the decision returns to the home through a safe ``siguiente``); more than three lead to the group's people."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class GuideDecidesOnTheHomeTests(CommunityFixture):
         self.assertIn('<input type="hidden" name="siguiente" value="/mi-iglesia/">', page)
         self.assertIn(">No aceptar<", page)
         self.assertIn(">Aceptar<", page)
-        self.assertIn(f'href="{reverse("community:group_people", args=[self.group.pk])}">Ver solicitud</a>', page)  # contact first, if wanted
+        self.assertIn(f'href="{reverse("community:group_people", args=[self.group.pk])}">Ver solicitud<span class="visually-hidden"> de ', page)  # contact first, if wanted
 
     def test_accepting_from_the_card_returns_to_the_home(self):
         self.client.force_login(self.leader_user)
@@ -33,9 +33,12 @@ class GuideDecidesOnTheHomeTests(CommunityFixture):
         self.assertTrue(GroupMembership.objects.filter(group=self.group, person=self.asked, end_at__isnull=True).exists())
         self.assertNotIn("quiere unirse", self.home())
 
-    def test_several_requests_lead_to_the_list(self):
-        services.request_to_join(self.group, self.member, self.member_user)
+    def test_two_requests_are_two_cards_each_answered_on_its_own(self):
+        second, _ = services.request_to_join(self.group, self.member, self.member_user)
         page = self.home()
-        self.assertIn("2 personas quieren unirse a tus grupos", page)
-        self.assertNotIn("sign__actions--pair", page)
+        self.assertEqual(page.count("sign__actions--pair"), 2)
+        for request in (self.pending, second):
+            self.assertIn(f'action="{reverse("community:request_decide", args=[self.group.pk, request.pk])}" data-inline="principal"', page)
+        self.assertEqual(page.count("btn--primary btn--large"), 1)  # one filled «Aceptar»: the first
+        self.assertNotIn("personas quieren unirse", page)
         self.assertEqual(GroupJoinRequest.objects.filter(group=self.group, status="pendiente").count(), 2)
