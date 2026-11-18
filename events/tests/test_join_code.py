@@ -34,6 +34,7 @@ from events.models import (
 )
 from events.services.audit import ACTION_LABELS
 from events.services.join import find_event_by_key
+from events.services.team import describe_account
 
 from .base import PASSWORD, CampFixture, make_user
 from .test_ui import ENGLISH, analyse
@@ -766,20 +767,67 @@ class ExistingAccountTests(JoinFixture):
     def test_the_row_says_whose_account_the_email_is_and_what_it_can_do_here(self):
         self.church_pastor()
         request = self.pending(email="Pastora@Prueba.mx", name="Juan Desconocido", role=MembershipRole.COORDINATOR)
-        self.assertIn("Ya tiene cuenta: Paula Pastora; acceso actual en este evento: pastor; iglesia: Iglesia de prueba", self.row(request))
+        row = self.row(request)
+        self.assertIn("Ya tiene cuenta en esta iglesia: Paula Pastora; acceso actual en este evento: pastor", row)
+        self.assertNotIn(self.church.name, row)
         new = self.pending(email="nadie@nuevo.mx", name="Nadie Nuevo")
         self.assertNotIn("Ya tiene cuenta", self.row(new))
 
-    def test_the_row_names_another_church_or_none(self):
+    def test_the_row_describes_every_kind_of_account_of_this_church(self):
+        from people.models import Person
+
+        member = make_user("miembro@prueba.mx", "Mina", "Miembro")
+        Person.objects.create(church=self.church, user=member, first_name="Mina", last_name="Miembro")
+        former = make_user("antes@prueba.mx", "Ana", "Antes")
+        EventMembership.objects.create(event=self.other_event, user=former, role=MembershipRole.TUTOR, is_active=False)
+        root = User.objects.create_superuser("raiz@prueba.mx", "raiz@prueba.mx", PASSWORD, first_name="Raíz", last_name="Local")
+        assign_role(root, self.church, Role.MENTOR)
+        cases = [
+            ("miembro@prueba.mx", "Ya tiene cuenta en esta iglesia: Mina Miembro; acceso actual en este evento: ninguno"),
+            ("antes@prueba.mx", "Ya tiene cuenta en esta iglesia: Ana Antes; acceso actual en este evento: ninguno"),
+            ("coord1@prueba.mx", "Ya tiene cuenta en esta iglesia: Carla Uno; acceso actual en este evento: coordinador"),
+            # A superuser who is also somebody of this church reads by the role held here, not by being a superuser.
+            ("raiz@prueba.mx", "Ya tiene cuenta en esta iglesia: Raíz Local; acceso actual en este evento: ninguno"),
+        ]
+        for email, text in cases:
+            with self.subTest(email=email):
+                self.assertEqual(describe_account(self.event, email), text)
+        self.assertIn(cases[0][1], self.row(self.pending(email="Miembro@Prueba.mx", name="Otro Nombre")))
+        self.assertTrue(User.objects.get(pk=root.pk).is_superuser)
+
+    def test_the_row_says_nothing_about_an_account_from_outside_this_church(self):
+        """Issue from the wave-6 review: the list told an event administrator that an address anybody
+        can type has an account, under which name, and whether it belongs to another church."""
+        from people.models import Person
+
         other = Church.objects.create(name="Iglesia Vecina", slug="iglesia-vecina")
         foreign = make_user("vecina@otra.mx", "Vera", "Vecina")
         assign_role(foreign, other, Role.CHURCH_ADMIN)
-        loose = make_user("suelto@prueba.mx", "Saúl", "Suelto")
-        a = self.pending(email="vecina@otra.mx", name="Vera Vecina")
-        b = self.pending(email="suelto@prueba.mx", name="Saúl Suelto")
-        self.assertIn("Ya tiene cuenta: Vera Vecina; acceso actual en este evento: ninguno; iglesia: otra iglesia", self.row(a))
-        self.assertIn("Ya tiene cuenta: Saúl Suelto; acceso actual en este evento: ninguno; iglesia: ninguna", self.row(b))
-        self.assertIsNotNone(loose)
+        Person.objects.create(church=other, user=foreign, first_name="Vera", last_name="Vecina")
+        elsewhere = Event.objects.create(church=other, name="Retiro vecino", slug="retiro-vecino", starts_on=timezone.localdate(),
+                                         ends_on=timezone.localdate())
+        staff = make_user("staff@otra.mx", "Estela", "Staff")
+        EventMembership.objects.create(event=elsewhere, user=staff, role=MembershipRole.ADMIN)
+        make_user("suelto@prueba.mx", "Saúl", "Suelto")
+        User.objects.create_superuser("root@prueba.mx", "root@prueba.mx", PASSWORD, first_name="Raíz", last_name="Total")
+        unknown = self.pending(email="nadie@nuevo.mx", name="Persona Solicitante")
+
+        def anonymous(request) -> str:
+            row = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', "", self.row(request))
+            return row.replace(request.email, "CORREO").replace(str(request.pk), "N")
+
+        expected = anonymous(unknown)
+        for email in ("vecina@otra.mx", "staff@otra.mx", "suelto@prueba.mx", "root@prueba.mx", "ROOT@prueba.mx"):
+            with self.subTest(email=email):
+                self.assertEqual(describe_account(self.event, email), "")
+                unknown.delete()
+                unknown = self.pending(email=email, name="Persona Solicitante")
+                row = self.row(unknown)
+                # Nothing beyond what the requester typed: the same row an address without an account gets.
+                self.assertEqual(anonymous(unknown).lower(), expected.lower())
+                for secret in ("Ya tiene cuenta", "Iglesia", "Vecina", "Vera", "Estela", "Saúl", "Suelto", "Raíz", "Total",
+                               "acceso actual"):
+                    self.assertNotIn(secret, row)
 
     def assert_refused(self, request, name, role, response):
         request.refresh_from_db()
@@ -819,7 +867,7 @@ class ExistingAccountTests(JoinFixture):
         foreign = make_user("vecina@otra.mx", "Vera", "Vecina")
         assign_role(foreign, other, Role.CHURCH_ADMIN)
         request = self.pending(email="vecina@otra.mx", name="Vera Vecina")
-        self.assertIn("iglesia: otra iglesia", self.row(request))
+        self.assertNotIn("Ya tiene cuenta", self.row(request))
         self.client.post(self.url("access_request_approve", request.pk), {"role": "tutor"})
         self.assertEqual(AccessRequest.objects.get(pk=request.pk).status, "aprobada")
         self.assertEqual(resolve_access(foreign, self.event).role, "tutor")

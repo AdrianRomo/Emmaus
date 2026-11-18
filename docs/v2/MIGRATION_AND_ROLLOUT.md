@@ -43,6 +43,12 @@ python manage.py rebuild_role_assignments --check
 python manage.py tenant_integrity
 ```
 
+Wave 7 (decision 0016): wherever serving teams already exist, run
+`python manage.py rebuild_role_assignments --apply` once right after `migrate`. Who coordinates a
+team is read from `access.RoleAssignment` from then on; until the command runs, a coordinator gets a
+403 on their team (the administration is not affected). Revert: redeploy the previous image; the
+extra rows are read by nothing there.
+
 Manual check, on a phone: sign in as `valeria.soto@demo.invalid` → lands on Mi iglesia, sees
 "Campamento de Jóvenes 2025" under "Donde has estado" → Ver los grupos → Jóvenes Roca → Pedir
 unirme. Sign in as `guia.grupo@demo.invalid` → Ver solicitudes → Aceptar. Back as Valeria: the

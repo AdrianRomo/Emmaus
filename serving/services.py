@@ -1,15 +1,15 @@
 """Servir: the church's volunteer teams, their dates, who is asked to serve and what they answer.
 
-Each write is one transaction that changes the rows and stores one church audit row with ids and
-fixed words only. Callers have already answered who may ask (``serving.views``); these functions
-enforce the rules that hold whoever asks, and raise ``ServingError`` with a sentence ready for the
-screen.
+Each write is one transaction that changes the rows, the ``access.RoleAssignment`` row derived
+from a membership (decisions 0003 and 0016) and stores one church audit row with ids and fixed
+words only. Callers have already answered who may ask (``serving.views``, through
+``core.authz.has_scope``); these functions enforce the rules that hold whoever asks, and raise
+``ServingError`` with a sentence ready for the screen.
 
-Known deviation from decision 0003: this module does not go through ``core.authz.has_scope`` or
-``access.RoleAssignment``. Who coordinates a team is an active ``TeamMembership`` with the role
-"coordina"; a ministry scope in ``access`` needs a new scope type and a migration there, and is to
-be resolved later. Nothing here creates a ``RoleAssignment``, a ``UserChurchRole``, a group
-membership or an event membership: being in a team gives nothing else anywhere.
+Who coordinates a team is answered by the projection: scope ``ministry``, the team's id, the role
+"coordina", in force while the membership is active and the team is not archived. Nothing here
+creates a ``UserChurchRole``, a group membership or an event membership: being in a team gives
+nothing outside that team.
 """
 
 from __future__ import annotations
@@ -18,9 +18,13 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from access.models import RoleAssignment, ScopeType
 from people.audit import record_church
 
+from .access import managed_team_ids
 from .models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
+
+SOURCE = "serving.TeamMembership"
 
 ACTIVE = TeamMembership.Status.ACTIVE
 COORDINATOR = TeamMembership.Role.COORDINATOR
@@ -36,6 +40,47 @@ TOO_LATE = "Tu respuesta se puede cambiar hasta un día antes. Si ya no puedes s
 
 class ServingError(ValidationError):
     """A rule of the team refused the action; the message is ready for the screen."""
+
+
+# ---- the projection -----------------------------------------------------------------------------
+def _assignment_fields(membership: TeamMembership) -> dict:
+    """The role row a membership stands for. It grants while the membership is active and the team
+    is not archived: nobody keeps coordinating a team that stopped serving."""
+    in_force = membership.status == ACTIVE and membership.team.is_active
+    return {
+        "subject_user_id": membership.person.user_id,
+        "church_id": membership.team.church_id,
+        "scope_type": ScopeType.MINISTRY,
+        "scope_id": membership.team_id,
+        "role": membership.role,
+        "status": RoleAssignment.Status.ACTIVE if in_force else RoleAssignment.Status.INACTIVE,
+        "start_at": membership.created_at,
+        "end_at": None,
+    }
+
+
+def sync_assignment(membership: TeamMembership) -> RoleAssignment | None:
+    """Write (or delete) the role row derived from ``membership``. A person without an account
+    holds nothing: there is nobody to sign in as them."""
+    if membership.person.user_id is None:
+        RoleAssignment.objects.filter(source_table=SOURCE, source_id=membership.pk).delete()
+        return None
+    row, _ = RoleAssignment.objects.update_or_create(
+        source_table=SOURCE, source_id=membership.pk, defaults=_assignment_fields(membership)
+    )
+    return row
+
+
+def sync_person_assignments(sender, instance, **kwargs) -> None:
+    """``post_save`` of ``Person``: the account may have been linked or unlinked."""
+    for membership in TeamMembership.objects.filter(person=instance).select_related("team", "person"):
+        sync_assignment(membership)
+
+
+def expected_assignments() -> dict[int, dict]:
+    """What the projection must hold, keyed by membership id (``rebuild_role_assignments``)."""
+    memberships = TeamMembership.objects.filter(person__user__isnull=False).select_related("team", "person")
+    return {membership.pk: _assignment_fields(membership) for membership in memberships}
 
 
 # ---- what a person sees -------------------------------------------------------------------------
@@ -65,21 +110,16 @@ def pending_count(person, today=None) -> int:
 
 
 def coordinated_teams(person) -> list[Team]:
-    """The active teams this person coordinates."""
-    return list(
-        Team.objects.filter(
-            status=Team.Status.ACTIVE, memberships__person=person, memberships__status=ACTIVE, memberships__role=COORDINATOR
-        ).order_by("name", "id")
-    )
+    """The active teams this person coordinates: what ``has_scope`` answers ``manage`` for."""
+    if person.user_id is None:
+        return []
+    ids = managed_team_ids(person.user, person.church)
+    return list(Team.objects.filter(pk__in=ids, church=person.church, status=Team.Status.ACTIVE).order_by("name", "id"))
 
 
 def has_teams(person) -> bool:
     """The person is an active member of any active team."""
     return TeamMembership.objects.filter(person=person, status=ACTIVE, team__status=Team.Status.ACTIVE).exists()
-
-
-def coordinates(person, team) -> bool:
-    return TeamMembership.objects.filter(team=team, person=person, status=ACTIVE, role=COORDINATOR).exists()
 
 
 def coordinator_names(team_ids) -> dict[int, list[str]]:
@@ -131,6 +171,9 @@ def archive_team(team: Team, actor) -> Team:
             return team
         team.status = Team.Status.ARCHIVED
         team.save(update_fields=["status", "updated_at"])
+        for membership in TeamMembership.objects.filter(team=team).select_related("person"):
+            membership.team = team
+            sync_assignment(membership)  # every role in the team ends with it
         record_church(team.church, actor, "equipo_archivado", f"Archivó el equipo {team.name}", team)
     return team
 
@@ -152,6 +195,7 @@ def set_member(team: Team, person, actor, role: str = SERVES) -> TeamMembership:
             membership = TeamMembership(team=team, person=person)
         membership.role, membership.status = role, ACTIVE
         membership.save()
+        sync_assignment(membership)
         words = "coordina" if role == COORDINATOR else "sirve en"
         record_church(team.church, actor, "equipo_integrante", f"{person.full_name} ahora {words} el equipo {team.name}",
                       team, person_id=person.pk, role=role)
@@ -163,12 +207,14 @@ def remove_member(team: Team, person, actor, today=None) -> None:
     already happened stays as it was."""
     today = today or timezone.localdate()
     with transaction.atomic():
-        Team.objects.select_for_update().get(pk=team.pk)  # with assign(): no date is given to who is leaving
+        team = Team.objects.select_for_update().get(pk=team.pk)  # with assign(): no date is given to who is leaving
         membership = TeamMembership.objects.select_for_update().filter(team=team, person=person, status=ACTIVE).first()
         if membership is None:
             return
+        membership.team = team
         membership.status = TeamMembership.Status.INACTIVE
         membership.save(update_fields=["status", "updated_at"])
+        sync_assignment(membership)
         Assignment.objects.filter(person=person, service_date__team=team, service_date__date__gte=today).delete()
         record_church(team.church, actor, "equipo_integrante", f"Quitó a {person.full_name} del equipo {team.name}",
                       team, person_id=person.pk, role="ninguno")

@@ -92,8 +92,8 @@ list, e-mail notices, church policies, the public event page and the camp issues
    v2 runs where the first camp's data lives; scheduling the commands listed in `PROGRESS.md`
    (wave 6); shipping the request log and alerting (#52); `resettle_registrations` once after deploy.
 2. **Answers to #80**, above all Panorama's privacy rule and the door's override.
-3. **Serving through `has_scope`** (decision 0003): `serving` still decides who coordinates by its
-   own rows.
+3. ~~**Serving through `has_scope`**~~ done in wave 7 (decision 0016): who coordinates a team is the
+   `ministry` scope of `access.RoleAssignment`, projected from `serving.TeamMembership`.
 4. **Fold `agenda.EventPage` into `events`** as its own reviewed change (decision 0013).
 5. **Multi-church accounts** (#32, #37): high risk, needs the owner and a supervised session; it
    becomes necessary before a second church is onboarded.
