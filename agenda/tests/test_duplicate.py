@@ -7,10 +7,11 @@ from datetime import date, time, timedelta
 
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
 from agenda import duplicate as dup
 from agenda import services
-from agenda.models import EventFaq, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
+from agenda.models import EventFaq, EventNotice, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
 from events.models import AuditEvent, Event, Sede
 from events.services import duplicate as camp_dup
 from feedback.models import EventFeedback, FeedbackGiven
@@ -47,6 +48,9 @@ class DuplicateSimpleFixture(AgendaFixture):
         )
         EventFaq.objects.create(event=cls.noche, question="¿Hay estacionamiento?", answer="Sí, atrás del templo.", position=1)
         EventFaq.objects.create(event=cls.noche, question="¿Puedo llevar niños?", answer="Sí.", position=2)
+        # Dated news of the original (issue #96): one in force and one retired. A copy starts without any.
+        EventNotice.objects.create(event=cls.noche, title="El estacionamiento abre a las 18:00", body="Entren por atrás.")
+        EventNotice.objects.create(event=cls.noche, title="Aviso retirado", body="Ya no aplica.", retired_at=timezone.now())
         item = lambda day, hour, title, **kw: EventScheduleItem.objects.create(  # noqa: E731
             event=cls.noche, day=cls.first + timedelta(days=day), starts_at=time(hour, 0), title=title, **kw
         )
@@ -85,7 +89,7 @@ class WhatIsCopiedTests(DuplicateSimpleFixture):
     def test_each_table_is_copied_on_purpose_or_empty_in_the_copy(self):
         new_day = self.today + timedelta(days=60)
         before = {accessor: count(self.noche, accessor) for accessor in dup.RELATIONS}
-        for accessor in ("page", "faqs", "schedule_items", "registrations", "feedback", "feedback_given"):
+        for accessor in ("page", "faqs", "public_notices", "schedule_items", "registrations", "feedback", "feedback_given"):
             self.assertGreater(before[accessor], 0, accessor)
         copy = self.copy(starts_on=new_day.isoformat())
         expected = {"page": 1, "faqs": 2, "schedule_items": 3}
@@ -94,6 +98,10 @@ class WhatIsCopiedTests(DuplicateSimpleFixture):
                 self.assertEqual(count(copy, accessor), 0, f"{accessor} must be empty in the copy")
             else:
                 self.assertEqual(count(copy, accessor), expected[accessor], accessor)
+        # A public notice is news of the original only: the copy has no row, in force or retired, and no row moved.
+        self.assertEqual(EventNotice.objects.filter(event=copy).count(), 0)
+        self.assertEqual(EventNotice.objects.filter(event=self.noche).count(), 2)
+        self.assertEqual(EventNotice.objects.count(), 2)
         self.assertFalse(GuardianConsent.objects.filter(registration__event=copy).exists())
         self.assertFalse(AuditEvent.objects.filter(event=copy).exists())
         # the original, untouched

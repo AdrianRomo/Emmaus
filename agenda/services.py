@@ -16,6 +16,7 @@ or the same event then wait for each other instead of deadlocking on PostgreSQL.
 from __future__ import annotations
 
 import logging
+import unicodedata
 from collections import namedtuple
 from datetime import date, timedelta
 
@@ -32,7 +33,7 @@ from people import services as people_services
 from people.audit import record_church
 from people.models import Person
 
-from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
+from .models import EventFaq, EventNotice, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
 
 ACTIVE = EventRegistration.Status.ACTIVE
 PENDING = EventRegistration.Status.PENDING
@@ -1305,6 +1306,79 @@ def delete_faq(faq: EventFaq, actor) -> None:
         record_church(event.church, actor, "evento_preguntas", f"Borró una pregunta frecuente de {event.name}", faq,
                       event_id=event.pk)
         faq.delete()
+
+
+# ---- public notices (issue #96) -------------------------------------------------------------------
+PUBLIC_NOTICES_SHOWN = 20
+
+
+def public_notices(event: Event):
+    """What a reader sees: the notices in force, newest first, the latest ones only. No table of people."""
+    return EventNotice.objects.filter(event=event, retired_at__isnull=True).order_by("-published_at", "-id")[:PUBLIC_NOTICES_SHOWN]
+
+
+def visible_text(text: str) -> str:
+    """``text`` without what nobody sees: spaces, line breaks, control and format characters (a zero-width space,
+    a byte-order mark). Only to tell whether somebody wrote anything; what is stored is what was typed."""
+    return "".join(ch for ch in text if unicodedata.category(ch)[0] not in "ZC")
+
+
+def _locked_notice(notice: EventNotice) -> EventNotice:
+    """The row as it is now, locked: what the caller holds may be older than what another administrator did."""
+    return EventNotice.objects.select_for_update().select_related("event__church").get(pk=notice.pk)
+
+
+def save_public_notice(event: Event, actor, notice: EventNotice | None = None, *, title: str, body: str) -> EventNotice:
+    """Publish a notice, or change one in force. The audit row says which notice and of which event, never its text.
+    A notice somebody retired meanwhile is gone (``AgendaError`` with the code ``retired``): it is never brought back."""
+    title, body = " ".join(title.split()), body.strip()
+    if not visible_text(title) or not visible_text(body):
+        raise AgendaError("Escribe el título y el aviso.", code="empty")
+    title = title[:120]
+    with transaction.atomic():
+        if notice is None:
+            notice = EventNotice.objects.create(event=event, created_by=actor, title=title, body=body)
+            record_church(event.church, actor, "evento_aviso_publico_publicado", f"Publicó un aviso público en {event.name}",
+                          notice, event_id=event.pk)
+            return notice
+        if notice.event_id != event.pk:
+            raise ValueError("The notice belongs to another event.")
+        notice = _locked_notice(notice)
+        if notice.retired:
+            raise AgendaError("Este aviso ya se retiró.", code="retired")
+        if (notice.title, notice.body) == (title, body):
+            return notice
+        notice.title, notice.body, notice.edited_at = title, body, timezone.now()
+        notice.save(update_fields=["title", "body", "edited_at", "updated_at"])
+        record_church(event.church, actor, "evento_aviso_publico_modificado", f"Modificó un aviso público de {event.name}",
+                      notice, event_id=event.pk)
+    return notice
+
+
+def retire_public_notice(notice: EventNotice, actor) -> EventNotice:
+    """Take a notice off the pages. The row stays, for the administration only, until somebody deletes it."""
+    with transaction.atomic():
+        notice = _locked_notice(notice)
+        if notice.retired:
+            return notice
+        event = notice.event
+        notice.retired_at = timezone.now()
+        notice.save(update_fields=["retired_at", "updated_at"])
+        record_church(event.church, actor, "evento_aviso_publico_retirado", f"Retiró un aviso público de {event.name}", notice,
+                      event_id=event.pk)
+    return notice
+
+
+def delete_public_notice(notice: EventNotice, actor) -> None:
+    """Delete a retired notice for good: its text is gone. The audit row keeps which notice it was, by id."""
+    with transaction.atomic():
+        notice = _locked_notice(notice)
+        if not notice.retired:
+            raise AgendaError("Primero retira el aviso.", code="in_force")
+        event = notice.event
+        record_church(event.church, actor, "evento_aviso_publico_borrado", f"Borró un aviso público retirado de {event.name}",
+                      notice, event_id=event.pk)
+        notice.delete()
 
 
 def schedule_day_error(event: Event, day: date) -> str | None:

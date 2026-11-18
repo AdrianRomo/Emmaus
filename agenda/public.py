@@ -1,10 +1,10 @@
 """The public page of one event: guardian access, phase A (decision 0010).
 
 Anybody with the address reads what the event is, without an account: its name, what kind of event
-it is, the dates, the hour, the place, the description, the programme, the frequent questions,
+it is, the dates, the hour, the place, the description, its public notices, the programme, the frequent questions,
 whether people sign up from Emmaus, and the church's name to ask. NEVER anything about people: no
 names, no counts, no places left, no waiting list, no internal ids. The view queries the event, its
-page, its questions and its programme, and no table of people.
+page, its public notices, its questions and its programme, and no table of people.
 
 One answer for everything that is not such a page (no event with that address, another status, no
 page, not published, not public, over, the church not using the module): the same 404, so the
@@ -17,6 +17,7 @@ reader a session cookie and a database write per view.
 """
 
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from django.http import Http404
 from django.shortcuts import render
@@ -52,6 +53,26 @@ def public_path(event: Event) -> str:
     return reverse("evento:detail", args=[event.slug])
 
 
+def notices_path(event: Event) -> str:
+    """Where the event's public notices are read: the public page, at its «Avisos»."""
+    return public_path(event) + "#avisos"
+
+
+def notices_share_url(church_name: str, link: str) -> str:
+    """A WhatsApp message that says there is news and where: the church and the link. Never the notice's
+    title or text, and not the event's name: the message travels through groups nobody controls."""
+    text = f"{church_name}: hay un aviso nuevo de un evento. No necesitas cuenta para leerlo: {link}"
+    return "https://wa.me/?text=" + quote(text, safe="")
+
+
+def notice_zone(event: Event):
+    """The time zone the hours of the notices are said in: the event's, or the server's if it names none that exists."""
+    try:
+        return ZoneInfo(event.time_zone)
+    except (KeyError, ValueError, OSError):  # ZoneInfoNotFoundError is a KeyError; an empty name, a ValueError
+        return timezone.get_current_timezone()
+
+
 def share_url(church_name: str, link: str) -> str:
     """A WhatsApp message the administration sends: the church and where to read about an event.
     Not the event's name, and nothing about who goes."""
@@ -82,6 +103,9 @@ def event(request, slug: str):
             "sign_up": sign_up,
             "member_path": reverse("agenda:detail", args=[event.slug]),
             "faqs": EventFaq.objects.filter(event=event),
+            # Public notices (issue #96): title, text and when. Never who wrote them.
+            "notices": services.public_notices(event),
+            "notice_zone": notice_zone(event),
             "schedule": services.schedule_by_day(event),
             # The page wears the event's church, whoever reads it: never the reader's own church or shell.
             "brand_church": event.church,

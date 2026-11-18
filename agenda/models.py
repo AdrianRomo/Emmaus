@@ -327,3 +327,33 @@ class EventScheduleItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.title} ({self.day})"
+
+
+class EventNotice(models.Model):
+    """One public notice of an event (issue #96): news for anybody with the event's public address, without an
+    account ("el camión sale a las 7"). Writing one publishes it; ``retired_at`` takes it off every page for good.
+    It is never a ``notices.Announcement``: a notice for the members cannot become public by changing a column.
+    Nothing about people belongs in it, and the page never shows who wrote it."""
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="public_notices")
+    title = models.CharField("Título", max_length=120)
+    body = models.TextField("Aviso")
+    published_at = models.DateTimeField(default=timezone.now)
+    # When the title or the text last changed after it was published: readers are told that it changed.
+    edited_at = models.DateTimeField(null=True, blank=True)
+    retired_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "aviso público de un evento"
+        verbose_name_plural = "avisos públicos de eventos"
+        ordering = ["-published_at", "-id"]
+        indexes = [models.Index(fields=["event", "-published_at"], name="agenda_notice_event_recent")]
+
+    def __str__(self) -> str:
+        return f"Aviso público {self.pk} de {self.event}"
+
+    @property
+    def retired(self) -> bool:
+        return self.retired_at is not None

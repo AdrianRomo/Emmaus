@@ -43,6 +43,13 @@
     <ul class="rows">
       <li class="row row--lead row--stack">
         <div class="row__main">
+          <p class="row__title">Avisos públicos</p>
+          <p class="row__meta">{% if notice_count == 0 %}Todavía no tiene avisos.{% elif notice_count == 1 %}1 aviso.{% else %}{{ notice_count }} avisos.{% endif %} Los lee cualquiera con el enlace del evento, sin cuenta.</p>
+        </div>
+        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:public_notices' event.slug %}">Editar los avisos</a></div>
+      </li>
+      <li class="row row--lead row--stack">
+        <div class="row__main">
           <p class="row__title">Programa</p>
           <p class="row__meta">{% if schedule_count == 0 %}Todavía no tiene programa.{% elif schedule_count == 1 %}1 momento.{% else %}{{ schedule_count }} momentos.{% endif %}</p>
         </div>

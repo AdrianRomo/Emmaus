@@ -2,6 +2,33 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-18, afternoon — Public notices of an event (issue #96, first slice; branch `v2/issue-96-public-event-notices`)
+
+The owner's roadmap review (#90, merged as #100) chose, for parents without an account (#59), notices
+that are explicitly published for one event and read by anybody with the event's public address.
+
+- **Built:** `agenda.EventNotice` (`agenda/0006`, one `CreateModel`); the administration's screen
+  `…/eventos/<slug>/avisos-publicos/` (publish, edit, retire, and "Borrar para siempre" for a retired
+  one); the section "Avisos" on `/evento/<slug>/#avisos` and on the members' page of the event (latest
+  20 in force, hour in the event's zone, an "Editado" mark); a WhatsApp link that carries the church's
+  name and the address, never the text. A members' notice (`notices.Announcement`) is another table and
+  cannot reach a public page.
+- **Not built, on purpose:** subscriptions, any e-mail to an address without an account, any other
+  channel. Those stay in #96 for the leadership (purpose, expiry).
+- **Rules kept:** the public view asks no table of people and sets no cookie; one identical 404 while
+  the page is not public; audit rows carry ids, never the text; a duplicated event starts with no notices.
+- **Review (independent, read-only):** no way to read a notice one should not, no authorization hole.
+  Fixed before the commit: an edit from a stale copy brought a retired notice back; an unknown time zone
+  answered 500 on three pages; the share link was offered with no notice in force; the copy implied that
+  something is sent. Added after the review: deleting a retired notice for good.
+- **Test defect fixed, older than this change:** four tests of `core/test_scheduler.py::SchedulerPassTests`
+  failed in the half hour after each even hour from 08:00 to 22:00 (Mexico City), because the fixture
+  leaves a camp with automatic cutoffs on. Proven with a shifted clock on the base and on this branch.
+- **Gate:** lint, check, migrations, deploy-check, pip-audit PASS; SQLite 2612 passed, 6 skipped;
+  PostgreSQL 2607 passed, 11 deselected; e2e PASS, community flow 300 checks, 0 problems.
+- **Not verified:** two real transactions racing on PostgreSQL (the lock is tested with a stale copy
+  only); the delete confirmation, the edit form and a date with its year were not looked at as images.
+
 ## 2026-11-18, morning — Wave 8: new issues #83–#87 and the owner's comment on #80 (branch `v2/wave-8`)
 
 Wave 7 (pull request #82) is merged. Another session delivered #83 (search in Recursos) as pull

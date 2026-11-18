@@ -28,12 +28,13 @@ from .forms import (
     ConfirmAgeForm,
     ConsentForm,
     EventFaqForm,
+    EventNoticeForm,
     EventPageForm,
     EventScheduleItemForm,
     GuestAgeForm,
     WalkUpForm,
 )
-from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem
+from .models import EventFaq, EventNotice, EventPage, EventRegistration, EventScheduleItem
 
 ACTIVE = EventRegistration.Status.ACTIVE
 PENDING = EventRegistration.Status.PENDING
@@ -130,6 +131,9 @@ def detail(request, slug: str):
             "list_outcome": services.last_list_outcome(event, request.person) if registration is None else "",
             "faqs": EventFaq.objects.filter(event=event),
             "schedule": services.schedule_by_day(event),
+            # The event's public notices (issue #96): who is going reads them here too.
+            "notices": services.public_notices(event),
+            "notice_zone": public.notice_zone(event),
         },
     )
 
@@ -297,6 +301,7 @@ def page_edit(request, slug: str):
             # The address anybody can read, when the page is public and published, and a message to share it.
             **_public_links(request, event, page),
             "faq_count": EventFaq.objects.filter(event=event).count(),
+            "notice_count": EventNotice.objects.filter(event=event, retired_at__isnull=True).count(),
             "schedule_count": EventScheduleItem.objects.filter(event=event).count(),
         },
     )
@@ -706,6 +711,108 @@ def faq_delete(request, slug: str, faq_id: int):
         "groups/confirm.html",
         {"title": "¿Quieres borrar esta pregunta?", "text": item.question, "action": "Sí, borrar la pregunta",
          "back_url": reverse("agenda:faq", args=[event.slug])},
+    )
+
+
+# ---- public notices (issue #96) -------------------------------------------------------------------
+def _notices_url(event: Event) -> str:
+    return reverse("agenda:public_notices", args=[event.slug])
+
+
+@church_admin_view
+def public_notices(request, slug: str):
+    event = _event(request, slug)
+    form = EventNoticeForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        services.save_public_notice(event, request.user, **form.cleaned_data)
+        messages.success(request, "Publicaste el aviso.")
+        return redirect("agenda:public_notices", event.slug)
+    notices = list(EventNotice.objects.filter(event=event))
+    page = EventPage.objects.filter(event=event).first()
+    context = {
+        "event": event, "form": form, "back": _page_url(event), "notice_zone": public.notice_zone(event), "notices": notices,
+        "in_force": sum(1 for notice in notices if not notice.retired), "shown": services.PUBLIC_NOTICES_SHOWN,
+        "is_public": public.is_public(event, page),
+        # Whether the people of the church read them on the event's page in Emmaus (``_seen_event``'s rule for a member).
+        "members_read": page is not None and page.published and event.status == Event.Status.ACTIVE,
+    }
+    if context["is_public"]:
+        # Where anybody reads them, and a message that says only that there is news: the church and the link.
+        link = request.build_absolute_uri(public.notices_path(event))
+        context.update(public_link=link, share_url=public.notices_share_url(request.church.name, link))
+    return render(request, "agenda/public_notices.html", context)
+
+
+def _notice(event: Event, notice_id: int, *, retired: bool) -> EventNotice:
+    return get_object_or_404(EventNotice, event=event, pk=notice_id, retired_at__isnull=not retired)
+
+
+@church_admin_view
+def public_notice_edit(request, slug: str, notice_id: int):
+    event = _event(request, slug)
+    item = _notice(event, notice_id, retired=False)
+    form = EventNoticeForm(request.POST or None, instance=item)
+    if request.method == "POST" and form.is_valid():
+        try:
+            # The form validates; the service reads the row again, locked, and writes it.
+            services.save_public_notice(event, request.user, item, **form.cleaned_data)
+        except EventNotice.DoesNotExist as error:  # deleted while this form was open
+            raise Http404 from error
+        except services.AgendaError as error:
+            if error.code == "retired":  # somebody retired it while this form was open: it is gone
+                raise Http404 from error
+            form.add_error(None, error.message)
+        else:
+            messages.success(request, "Guardamos el aviso.")
+            return redirect("agenda:public_notices", event.slug)
+    return render(
+        request,
+        "agenda/item_form.html",
+        {"event": event, "form": form, "title": "Editar el aviso público", "back": _notices_url(event),
+         "back_label": "Volver a los avisos públicos",
+         "delete_url": reverse("agenda:public_notice_retire", args=[event.slug, item.pk]), "delete_label": "Retirar este aviso"},
+    )
+
+
+@church_admin_view
+def public_notice_retire(request, slug: str, notice_id: int):
+    event = _event(request, slug)
+    item = _notice(event, notice_id, retired=False)
+    if request.method == "POST":
+        try:
+            services.retire_public_notice(item, request.user)
+        except EventNotice.DoesNotExist as error:
+            raise Http404 from error
+        messages.success(request, "Retiraste el aviso. Ya no se lee en la página del evento.")
+        return redirect("agenda:public_notices", event.slug)
+    return render(
+        request,
+        "groups/confirm.html",
+        {"title": "¿Quieres retirar este aviso?",
+         "text": f"«{item.title}» deja de leerse en la página del evento y no se puede volver a publicar. La administración "
+                 "de la iglesia sigue viendo su texto en esta sección hasta que lo borres para siempre.",
+         "action": "Sí, retirar el aviso", "back_url": _notices_url(event)},
+    )
+
+
+@church_admin_view
+def public_notice_delete(request, slug: str, notice_id: int):
+    """Only a retired notice: what is in force is retired first, so nothing public disappears in one step."""
+    event = _event(request, slug)
+    item = _notice(event, notice_id, retired=True)
+    if request.method == "POST":
+        try:
+            services.delete_public_notice(item, request.user)
+        except (services.AgendaError, EventNotice.DoesNotExist) as error:
+            raise Http404 from error
+        messages.success(request, "Borraste el aviso para siempre.")
+        return redirect("agenda:public_notices", event.slug)
+    return render(
+        request,
+        "groups/confirm.html",
+        {"title": "¿Quieres borrar este aviso para siempre?",
+         "text": f"«{item.title}» ya está retirado. Al borrarlo, su texto desaparece de Emmaus y no se puede recuperar.",
+         "action": "Sí, borrar para siempre", "back_url": _notices_url(event)},
     )
 
 

@@ -1,0 +1,22 @@
+{% load tz community %}{% comment %}
+  The public notices of one event (issue #96), newest first: the title, the text and when it was published, in the
+  event's time zone. Never who wrote it. Shared by the public page (agenda.public.event) and the event's page for
+  the people of the church (agenda.views.detail). Nothing at all when there are none.
+{% endcomment %}{% if notices %}
+  <section class="block" aria-labelledby="avisos">
+    <h2 id="avisos" class="heading">Avisos</h2>
+    {% timezone notice_zone %}
+    <ul class="rows">
+      {% for item in notices %}
+        <li class="row">
+          <div class="row__main prose">
+            <h3 class="row__title">{{ item.title }}</h3>
+            <p>{{ item.body|linebreaksbr }}</p>
+            <p class="row__meta">Publicado el <time datetime="{{ item.published_at|date:'c' }}">{{ item.published_at|day_and_hour }}</time>{% if item.edited_at %}. Editado el <time datetime="{{ item.edited_at|date:'c' }}">{{ item.edited_at|day_and_hour }}</time>{% endif %}.</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% endtimezone %}
+  </section>
+{% endif %}
