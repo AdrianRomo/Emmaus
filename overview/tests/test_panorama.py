@@ -201,7 +201,7 @@ class ContentTests(PanoramaFixture):
             self.assertNotContains(response, told)
         # The request that waits is first on the page, and for the pastor it leads to the group, not to its people.
         waiting = row_of(html, "p-atender", ">Jóvenes Roca<")
-        self.assertIn('<span class="chip chip--wait">1 solicitud</span>', waiting)
+        self.assertIn('<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>1 solicitud</span>', waiting)
         self.assertIn(f'href="{reverse("community:group_detail", args=[self.group.pk])}"', waiting)
         # The group without any meeting, created today, is not pointed out.
         self.assertIn("Sin listas todavía", row_of(html, "p-grupos", ">Estudio de Romanos</a>"))
@@ -240,7 +240,7 @@ class ContentTests(PanoramaFixture):
             html = self.get(user).content.decode()
             self.assertLess(html.index('id="p-atender"'), html.index('id="p-grupos"'))
             care_row = row_of(html, "p-atender", "Seguimientos")
-            self.assertIn('<span class="chip chip--risk">1 con la fecha vencida</span>', care_row)
+            self.assertIn('<span class="chip chip--wait">1 con la fecha vencida</span>', care_row)  # vela, as on «Seguimiento»
             self.assertIn('<span class="chip chip--wait">1 sin responsable</span>', care_row)
             self.assertEqual(f'href="{reverse("care:admin_list")}"' in care_row, linked, user.email)
         # The administration (the last page read) decides a request where the group's people are; nothing here

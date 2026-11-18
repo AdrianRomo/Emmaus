@@ -1099,7 +1099,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
    neutral pill (.chip--plain) when the service gave words or kept the number back. */
 .panorama .page-head .aside-note { margin-top: var(--s-3); }
 .panorama .figures { margin-bottom: var(--s-5); }
-/* Words in place of a number: the figure's own size and edge, no capsule (a plain chip has none to pad) */
+/* Words in place of a number: on the figure's edge, a step smaller than a numeral, with no capsule to pad */
 .panorama .figures__value .chip--plain { display: inline; min-height: 0; padding: 0; font-size: var(--t-h3); font-weight: 700; white-space: normal; }
 /* A group's last meetings, one mark each, the oldest first: tall when half or more came, short when fewer, and
    the number itself when the service gave it. The words are beside the marks for a screen reader. */
@@ -1151,7 +1151,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* Giving one (feedback/give.html): what is kept, then the questions, a step apart */
 .opinion-give .aside-note + form { margin-top: var(--s-6); }
 /* Configuración (core/church_settings.html): the other places of the configuration, one line each, centred on their mark */
-.ajustes > .row > .row__main { align-self: center; }
+.ajustes > .row { align-items: center; }
 /* Página pública, the administration's screen: the actions of the publication under its state, a step away */
 .sitio-admin .step__actions { margin-top: var(--s-4); }
 .sitio-admin .meta + .admin-link { margin-top: var(--s-4); }

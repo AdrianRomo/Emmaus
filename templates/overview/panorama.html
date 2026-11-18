@@ -1,12 +1,13 @@
 {% extends "base.html" %}
-{% load community shell panorama %}
+{% load community emmaus shell panorama %}
 {% block page_title %}Panorama{% endblock %}
 {% block content %}
 {% comment %}
   Panorama (overview.views.panorama): how the church is doing, for its pastor and its administration. A dashboard:
   first what waits for somebody, then the groups, the events, who serves and who is being looked for, each as
   things (a row, a tile, a bar) and not as sentences. A group is its arch (a gathering), never a person's circle;
-  the follow-ups are their icon.
+  the follow-ups are their icon. A state is drawn as everywhere else: a request that waits is «Por decidir»'s mark
+  (as on «Grupos de la iglesia»), a follow-up past its day or without an owner is vela (as on «Seguimiento»).
   PRIVACY. Totals only: the proper names on this page are of groups, events and teams, never of a person, and no
   link leads to a list of who came. Every number is drawn exactly as overview.services returns it: a number when
   it is one, its words on a neutral pill when the service gave words, "Menos de N" or "No se muestra" when it
@@ -33,7 +34,7 @@
           <p class="row__title">{% if is_church_admin %}<a href="{% url 'care:admin_list' %}">Seguimientos</a>{% else %}Seguimientos{% endif %}</p>
         </div>
         <div class="row__end">
-          {% if care_late %}<span class="chip chip--risk">{{ care_late }} con la fecha vencida</span>{% endif %}
+          {% if care_late %}<span class="chip chip--wait">{{ care_late }} con la fecha vencida</span>{% endif %}
           {% if care_unowned %}<span class="chip chip--wait">{{ care_unowned }} sin responsable</span>{% endif %}
         </div>
       </li>
@@ -44,7 +45,7 @@
         <div class="row__main">
           <p class="row__title"><a href="{% if is_church_admin %}{% url 'community:group_people' group.pk %}{% else %}{% url 'community:group_detail' group.pk %}{% endif %}">{{ group.name }}<span class="visually-hidden">: solicitudes</span></a></p>
         </div>
-        <div class="row__end"><span class="chip chip--wait">{% if group.waiting == 1 %}1 solicitud{% else %}{{ group.waiting }} solicitudes{% endif %}</span></div>
+        <div class="row__end">{% if group.waiting == 1 %}{% status "por_evaluar" "1 solicitud" %}{% else %}{% status "por_evaluar" group.waiting|stringformat:"d"|add:" solicitudes" %}{% endif %}</div>
       </li>
       {% endif %}{% endfor %}
       {% for group in groups %}{% if group.missing %}
