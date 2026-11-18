@@ -383,9 +383,12 @@ def church_settings(request):
     # "Políticas de la iglesia" exists only while the church uses the community module (decision 0004).
     from people.flags import enabled
 
-    policies_url = reverse("church_policies") if enabled(church, "community") else ""
+    community = enabled(church, "community")
+    policies_url = reverse("church_policies") if community else ""
+    public_home_url = reverse("sitio:edit") if community else ""  # the church's public home (issue #87)
     return render(
-        request, "core/church_settings.html", {"form": form, "logo_church": logo_church, "policies_url": policies_url}
+        request, "core/church_settings.html",
+        {"form": form, "logo_church": logo_church, "policies_url": policies_url, "public_home_url": public_home_url},
     )
 
 

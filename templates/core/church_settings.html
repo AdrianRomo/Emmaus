@@ -74,6 +74,11 @@
     <h2 id="politicas" class="heading">Políticas de la iglesia</h2>
     <p>Lo que tu iglesia decide sobre la privacidad de los totales, las opiniones, los avisos urgentes, los menores de edad y la asistencia.</p>
     <p class="more"><a href="{{ policies_url }}">Ver las políticas de la iglesia</a></p>
+  </section>{% endif %}{% if public_home_url %}
+  <section class="block" aria-labelledby="pagina-publica">
+    <h2 id="pagina-publica" class="heading">Página pública de la iglesia</h2>
+    <p>Lo que lee quien todavía no tiene cuenta: cuándo se reúnen, dónde, cómo preguntar, los eventos públicos y los recursos que elijas. Nada se muestra hasta que la publiques.</p>
+    <p class="more"><a href="{{ public_home_url }}">Ver la página pública de la iglesia</a></p>
   </section>{% endif %}
 </div>
 {% endblock %}

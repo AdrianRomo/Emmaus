@@ -22,9 +22,10 @@ from groups.tests.base import CommunityFixture
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.management.commands.tenant_integrity import ID_LIMIT, camp_checks, checks, community_checks
 from people.models import CampusAffiliation, EventParticipantLink, Person
-from resources.models import Devotional, DevotionalRead
+from resources.models import Devotional, DevotionalRead, MediaItem
 from serving import services as serving
 from serving.models import Assignment, ServiceDate, TeamMembership
+from sitio.models import PublicMedia
 
 from .test_tenant_integrity import json_counts, mismatches, run_integrity
 
@@ -59,6 +60,9 @@ class CommunityIntegrityTests(CommunityFixture):
         cls.devotional = Devotional.objects.create(church=cls.church, date=today, title="Hoy", body="Texto")
         cls.devotional_b = Devotional.objects.create(church=cls.church_b, date=today, title="Hoy B", body="Texto")
         DevotionalRead.objects.create(devotional=cls.devotional, person=cls.leader)
+        cls.media = MediaItem.objects.create(church=cls.church, title="Predicación", url="https://videos.invalid/a")
+        cls.media_b = MediaItem.objects.create(church=cls.church_b, title="Predicación B", url="https://videos.invalid/b")
+        PublicMedia.objects.create(item=cls.media, church=cls.church)
         cls.team = serving.save_team(cls.church, cls.admin, name="Bienvenida")
         cls.team_b = serving.save_team(cls.church_b, cls.admin_b, name="Equipo B")
         serving.set_member(cls.team, cls.leader, cls.admin, role="coordina")
@@ -119,6 +123,10 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def break_devotional_read_person_church(self):
         return DevotionalRead.objects.create(devotional=self.devotional_b, person=self.member)
+
+    def break_public_media_item_church(self):
+        # Church A marks a resource of church B as public: the page of neither shows it, and this counts it.
+        return PublicMedia.objects.create(item=self.media_b, church=self.church)
 
     def break_team_membership_person_church(self):
         return TeamMembership.objects.create(team=self.team_b, person=self.asked)  # no service: no role row either
@@ -235,6 +243,9 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_devotional_read_person_church(self):
         self.assert_counted_alone_and_fails("devotional_read_person_church")
+
+    def test_public_media_item_church(self):
+        self.assert_counted_alone_and_fails("public_media_item_church")
 
     def test_team_membership_person_church(self):
         self.assert_counted_alone_and_fails("team_membership_person_church")

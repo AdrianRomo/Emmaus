@@ -134,7 +134,7 @@ class TenantIntegrityTests(CampFixture):
 
     def test_runs_in_one_query_per_table(self):
         tables = {check.model for check in checks()}
-        self.assertEqual(len(tables), 24)
+        self.assertEqual(len(tables), 25)  # 24 until wave 8 added sitio.PublicMedia
         with self.assertNumQueries(len(tables)):
             run_integrity("--json")
 
