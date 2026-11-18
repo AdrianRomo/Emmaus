@@ -259,14 +259,15 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
     color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 500; line-height: 1.15;
     text-align: center; text-decoration: none; cursor: pointer;
   }
+  body:has(> .rail--event) .tabs__item .icon { box-sizing: content-box; padding: 0.125rem 0.875rem; border-radius: var(--r-pill); }
   body:has(> .rail--event) .tabs__item[aria-current="page"] { color: var(--ink); font-weight: 700; }
+  body:has(> .rail--event) .tabs__item[aria-current="page"] .icon { background: var(--petroleo-tint); color: var(--mark); }
   body:has(> .rail--event) .tabs__item--text[aria-current="page"] { box-shadow: inset 0 3px 0 var(--mark); }
   body:has(> .rail--event) .tabs__item:focus-visible { outline-offset: -3px; }
   body:has(> .rail--event) .page--app { padding: var(--s-6) var(--s-5) calc(var(--tabs-h) + var(--s-12) + env(safe-area-inset-bottom, 0px)); }
 }
 
-/* An event as a place in the rail: its name, the person's role in it, and the role's links (no icons: they are
-   the pages of one place) */
+/* An event as a place in the rail: its name, the person's role in it, and the role's pages */
 .rail__role { padding: 0 var(--s-3) var(--s-2); font-size: var(--t-caption); color: var(--ink-2); line-height: 1.35; }
 .rail__link--sub { padding-left: var(--s-3); }
 .rail__section--event { padding: var(--s-3) 0 var(--s-2); border-block: 1px solid var(--line); }

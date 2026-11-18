@@ -43,6 +43,7 @@ ICONS = {
     "candado": '<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
     "lista": '<path d="M10 6.5h9.5M10 12h9.5M10 17.5h9.5"/><path d="M4 6.5l1.2 1.2 2-2.4M4 12l1.2 1.2 2-2.4M4 17.5l1.2 1.2 2-2.4"/>',
     "lectura": '<path d="M12 6.5C10 5 7.5 4.5 4.5 4.5v13c3 0 5.5.5 7.5 2 2-1.5 4.5-2 7.5-2v-13c-3 0-5.5.5-7.5 2z"/><path d="M12 6.5v13"/>',
+    "reporte": '<path d="M4 20h16"/><path d="M7 20v-7M12 20V6M17 20v-10"/>',
     "info": '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>',
     "alerta": '<path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.2v.1"/>',
     "check": '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
@@ -69,6 +70,26 @@ def icon(name: str, size: str = ""):
         "icon icon--sm" if size == "sm" else "icon",
         mark_safe(ICONS[name]),
     )
+
+
+# The pages of an event, by the name of their first view (events.views.common.nav_items)
+EVENT_NAV_ICONS = {
+    "admin_home": "inicio", "coord_home": "inicio", "tutor_home": "inicio", "pastor_home": "inicio",
+    "participants": "personas", "my_participants": "personas", "coordinators": "grupos", "team": "grupos",
+    "questionnaires": "plan", "interviews": "lista", "coord_pending": "lista", "pending": "lista",
+    "follow_ups": "acompanar", "reports": "reporte", "progress": "camino", "coord_progress": "camino",
+    "settings": "ajustes",
+}
+
+
+@register.filter
+def nav_icon(item) -> str:
+    """The icon of one of an event's pages in the rail and the tabs; the event's own mark when unknown."""
+    names = item.get("names", ()) if hasattr(item, "get") else ()
+    for name, icon_name in EVENT_NAV_ICONS.items():
+        if name in names:
+            return icon_name
+    return "eventos"
 
 
 SMALL_WORDS = {"de", "del", "la", "las", "los", "el", "y", "e", "en", "a", "con", "para"}
