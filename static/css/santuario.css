@@ -1053,13 +1053,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 
 /* Servir, my dates: the answer I gave and «Cambiar respuesta» share a line, the handle at the end of it. Opened,
    the handle stays where it was and says «Dejarlo así»; the other answer comes under it, at the same end. */
-.my-dates .row__end:has(.cambiar) { align-items: flex-start; }
 .my-dates .row__end .status { flex: none; min-height: var(--control); }
-.cambiar { flex: none; margin-left: auto; text-align: right; }
-.page--app .cambiar > summary { justify-content: flex-end; gap: var(--s-2); color: var(--petroleo); }
-.page--app .cambiar > summary::after { margin-left: 0; }
-.cambiar:not([open]) .cambiar__cerrar, .cambiar[open] .cambiar__abrir { display: none; }
-.page--app .cambiar > form { margin-top: var(--s-1); }
 /* Servir, a day I cannot: the day and its button on one line */
 .day-form { display: flex; flex-wrap: wrap; gap: var(--s-3); max-width: 32rem; }
 .day-form .input { flex: 1 1 11rem; width: auto; }

@@ -144,7 +144,7 @@ class JourneyTests(ServingFixture):
         self.assertIsNotNone(assignment.responded_at)
         page = self.client.get(self.url("home"))
         self.assertContains(page, "Confirmaste")
-        self.assertContains(page, "Cambiar")
+        self.assertContains(page, ">Ya no puedo<")  # the other answer, in place, until the day before
         self.assertNotContains(page, "row--attention")
 
         # Who coordinates sees the answer.
@@ -206,12 +206,12 @@ class AnswerTests(ServingFixture):
     def test_decline_and_change_the_answer(self):
         self.assertContains(self.respond("declinar"), "Dijiste que no puedes")
         self.assertEqual(self.status(), "declinada")
-        # ?cambiar= opens «Cambiar respuesta» on that date: the other answer, and «Dejarlo así» to close it again.
+        # An answered date offers the other answer in place, one tap (as on "Mi iglesia"); an old ?cambiar= link
+        # lands on the same page.
         page = self.client.get(self.url("home"), {"cambiar": self.assignment.pk})
-        self.assertContains(page, '<details class="fold cambiar" open>')
-        self.assertContains(page, 'value="aceptar"')
-        self.assertContains(page, "Dejarlo así")
+        self.assertContains(page, 'value="aceptar" data-inline-focus>Sí, puedo')
         self.assertNotContains(page, 'value="declinar"')
+        self.assertNotContains(page, "fold cambiar")
         self.respond("aceptar")
         self.assertEqual(self.status(), "aceptada")
         self.assertEqual(self.client.post(self.url("respond", self.assignment.pk), {"respuesta": "otra"}).status_code, 404)

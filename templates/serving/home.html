@@ -5,9 +5,9 @@
 {% comment %}
   Servir (serving.views.home): what one person is asked to do. Their dates (the day drawn, what is needed, the
   team, the time and the place), each its own region: a date that waits is answered in place with the home's two
-  answers; an answered one says the answer and, until the day before, «Cambiar respuesta» opens the other answer in
-  place, with «Dejarlo así» to close it again. The handle stays where it was and keeps the focus, and after an
-  answer the focus comes back to it (data-inline-focus). ?cambiar=<id> opens it from a link. Then the teams they
+  answers; an answered one says the answer and, until the day before, the other answer in place, one tap, exactly
+  as on "Mi iglesia" (one drawing of an answered date); after an answer the focus lands on the answer that is now
+  there (data-inline-focus). Then the teams they
   are in (who coordinates, by name only) and the days they cannot serve. Nobody else's answer, contact data or
   unavailable days are here.
 {% endcomment %}
@@ -43,17 +43,14 @@
               <div class="row__end">
                 {% if assignment.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}{% status "descartada" "Dijiste que no puedes" %}{% endif %}
                 {% if assignment.can_change %}
-                <details class="fold cambiar"{% if assignment.asks %} open{% endif %}>
-                  <summary data-inline-focus><span class="cambiar__abrir">Cambiar respuesta</span><span class="cambiar__cerrar">Dejarlo así</span><span class="visually-hidden"> del {{ day.date|weekday_date }}</span></summary>
-                  <form method="post" action="{% url 'serving:respond' assignment.pk %}" data-inline="fecha-{{ assignment.pk }}">
-                    {% csrf_token %}
-                    {% if assignment.status == "aceptada" %}
-                    <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar">Ya no puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
-                    {% else %}
-                    <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="aceptar">Sí, puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
-                    {% endif %}
-                  </form>
-                </details>
+                <form method="post" action="{% url 'serving:respond' assignment.pk %}" data-inline="fecha-{{ assignment.pk }}">
+                  {% csrf_token %}
+                  {% if assignment.status == "aceptada" %}
+                  <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar" data-inline-focus>Ya no puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
+                  {% else %}
+                  <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="aceptar" data-inline-focus>Sí, puedo<span class="visually-hidden"> servir el {{ day.date|weekday_date }}</span></button>
+                  {% endif %}
+                </form>
                 {% endif %}
               </div>
             {% endif %}
