@@ -66,6 +66,10 @@ MODULE_ICONS = {
 }
 
 
+# The drawing of a folded section's line (a long rail folds the sections that do not hold the current page)
+SECTION_ICONS = {"Para crecer": "devocional", "A tu cargo": "guia", "Discipulado": "camino", "Administración": "ajustes"}
+
+
 def _item(label, url, icon, active=False, badge=0, badge_label=""):
     return {"label": label, "url": url, "icon": icon, "active": active, "badge": badge, "badge_label": badge_label}
 
@@ -168,6 +172,15 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
         sections.append({"label": "Discipulado", "items": module})
     if admin:
         sections.append({"label": "Administración", "items": admin})
+
+    # A long rail (more than 8 places: a guide's 9, an administration's 16) does not fit a laptop's height (768px): each labelled section that does not
+    # hold the current page folds into one line (its label, with a dot when something inside waits); the section of
+    # the current page stays open. The event's own rail folds the church apart (shell.html, event_nav).
+    if sum(len(section["items"]) for section in sections) > 8:
+        for section in sections:
+            if section["label"] and not any(item["active"] for item in section["items"]):
+                section["fold"] = True
+                section["icon"] = SECTION_ICONS.get(section["label"], "mas")
 
     # Phones: Mi iglesia, then the two places this person uses most, and "Más" (the panel).
     home, _notices, events, groups = main

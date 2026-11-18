@@ -38,6 +38,14 @@
         </ul>
       </div>{% endif %}
     {% endif %}
+    {% elif section.fold and not event_nav %}
+    <details class="rail__mas rail__section">
+      <summary class="rail__link">{% icon section.icon %}<span class="rail__text">{{ section.label }}</span></summary>
+      <ul>
+        {% for item in section.items %}<li><a class="rail__link" href="{{ item.url }}">{% icon item.icon %}<span class="rail__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>
+        {% endfor %}
+      </ul>
+    </details>
     {% else %}
     <div class="rail__section">
       {% if section.label %}<p class="rail__label" id="rail-seccion-{{ forloop.counter }}">{{ section.label }}</p>{% endif %}
