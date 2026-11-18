@@ -57,6 +57,7 @@ ACTION_LABELS = {
     "acompanar_asignado": "Asignó un seguimiento de persona o cambió su fecha",
     "acompanar_paso": "Registró un paso de un seguimiento de persona",
     "acompanar_estado": "Cambió el estado de un seguimiento de persona",
+    "politica_cambiada": "Cambió una política de la iglesia",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -65,6 +66,8 @@ ALLOWED_METADATA = frozenset({
     # Fixed words only: which rule of the event a walk-up went over and why; why a row was annulled; what the
     # team said at the door about a visitor's age; where a registration stands after a review.
     "override", "reason", "minor", "standing",
+    # A church policy (policies.services.save): which one, by its column, and the number or yes/no before ("value" is after).
+    "policy", "previous",
 })
 
 

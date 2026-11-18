@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Políticas de la iglesia{% endblock %}
+{% block content %}
+{% comment %}
+  What a church decides for itself (decision 0015; policies.views.church_policies). One form. A change
+  to anything but the days of the opinions goes to the review page before it is saved. The periods of
+  the attendance are product defaults still to be validated (issue #76), and nothing prunes by itself.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'church_settings' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Políticas de la iglesia" lede="Lo que tu iglesia decide sobre la privacidad, las opiniones, los avisos urgentes, los menores de edad y la asistencia. Algunas tienen un mínimo que Emmaus no deja bajar, porque cuida a las personas." back_url=back back_label="Volver a Configuración" %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <section class="block" aria-labelledby="politica-totales">
+      <h2 id="politica-totales" class="heading">Privacidad de los totales</h2>
+      {% include "partials/ui/field.html" with field=form.min_reporting_size %}
+    </section>
+
+    <section class="block" aria-labelledby="politica-opiniones">
+      <h2 id="politica-opiniones" class="heading">Opiniones de los eventos</h2>
+      {% include "partials/ui/field.html" with field=form.feedback_open_days %}
+    </section>
+
+    <section class="block" aria-labelledby="politica-avisos">
+      <h2 id="politica-avisos" class="heading">Avisos urgentes</h2>
+      {% include "partials/ui/field.html" with field=form.urgent_notice_pastors %}
+    </section>
+
+    <section class="block" aria-labelledby="politica-menores">
+      <h2 id="politica-menores" class="heading">Menores de edad</h2>
+      {% include "partials/ui/field.html" with field=form.minors_need_consent_by_default %}
+    </section>
+
+    <section class="block" aria-labelledby="politica-asistencia">
+      <h2 id="politica-asistencia" class="heading">Conservación de la asistencia</h2>
+      <div class="notice notice--quiet">
+        <p>Estos tiempos son los que Emmaus propone: revísalos con el aviso de privacidad de tu iglesia antes de darlos por buenos. Hoy nada se borra solo: el borrado lo corre a mano quien opera Emmaus.</p>
+      </div>
+      {% include "partials/ui/field.html" with field=form.attendance_identifiable_months %}
+      {% include "partials/ui/field.html" with field=form.attendance_aggregate_months %}
+    </section>
+
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Revisar los cambios</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Antes de guardar verás qué cambia. Cada cambio queda anotado en los movimientos de la iglesia, con quién lo hizo.</p>
+</div>
+{% endblock %}
