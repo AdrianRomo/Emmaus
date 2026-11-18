@@ -37,7 +37,7 @@
     <p>Se guardará con el nombre{% if registration.guest_phone %} y el teléfono{% endif %} que escribieron al registrarla: {{ registration.display_name }}{% if registration.guest_phone %}, {{ registration.guest_phone }}{% endif %}. Después puedes completar sus datos en Personas.</p>
     <form method="post">
       {% csrf_token %}
-      <div class="step__actions">
+      <div class="form-actions">
         <button class="btn btn--primary" type="submit">Agregar a personas de la iglesia</button>
         <a class="btn btn--link" href="{{ back }}">Cancelar</a>
       </div>

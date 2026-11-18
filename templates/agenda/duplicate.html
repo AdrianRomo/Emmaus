@@ -15,10 +15,10 @@
     <p>Nunca se copian las inscripciones, las autorizaciones, la asistencia ni las opiniones. {{ source.name }} queda exactamente como está.</p>
     {% if moments %}<p>Si no escribes el día, el programa no se copia.</p>{% endif %}
   </div>
-  <form method="post" novalidate class="mt-6">
+  <form class="block" method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Crear el evento nuevo</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>

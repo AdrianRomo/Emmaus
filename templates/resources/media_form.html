@@ -21,6 +21,6 @@
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  {% if item %}<p class="more"><a href="{% url 'resources:media_retire' item.pk %}">Retirar el recurso</a></p>{% endif %}
+  {% if item %}<p class="block"><a class="btn btn--link btn--quieto plan__dejar" href="{% url 'resources:media_retire' item.pk %}">Retirar el recurso</a></p>{% endif %}
 </div>
 {% endblock %}

@@ -3,11 +3,12 @@
 {% block page_title %}Eventos de la iglesia{% endblock %}
 {% block content %}
 {% comment %}
-  Every event of the church (agenda.views.admin_list), for its administration: what is coming, the nearest first,
-  and then what already happened. A row leads to the event's page; its other pages are named under it.
-  Until an event is published only the administration sees it: the pill says which ones.
+  Every event of the church (agenda.views.admin_list), for its administration, on the row specification: what is
+  coming, the nearest first, and then what already happened. A row leads to the event's page (its data, programme,
+  questions, «Duplicar» and opinions are there); its one trailing action is «Inscritos». Until an event is published
+  only the administration sees it: its state word says which ones.
 {% endcomment %}
-<div class="narrow agenda">
+<div class="narrow">
   {% url 'agenda:create' as create %}
   {% include "events/rotulo/_page_head.html" with title="Eventos de la iglesia" action_url=create action_label="Crear un evento" %}
   {% if events %}

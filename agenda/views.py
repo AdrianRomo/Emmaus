@@ -51,6 +51,10 @@ STATE_NOTICES = {
     "llena": services.FULL + " Si quieres ir, pregunta en tu iglesia.",
 }
 
+# The date of birth a sign-up asks for, refused: what happened and how to fix it, in one line each.
+BIRTH_DATE_FUTURE = "Esa fecha todavía no llega. Escribe el día en que naciste, por ejemplo 14/03/2009."
+BIRTH_DATE_TOO_OLD = "Esa fecha es de hace más de 120 años. Revisa el año, por ejemplo 14/03/2009."
+
 
 def _event(request, slug: str) -> Event:
     return get_object_or_404(Event, church=request.church, slug=slug)
@@ -205,7 +209,12 @@ def register(request, slug: str):
             try:
                 services.set_birth_date(request.person, typed, request.user)
             except services.AgendaError as error:
-                form.add_error("birth_date", error.message)
+                # What happened and how to fix it, in one line: a day that has not come, or one too long ago.
+                if error.code == "birth_date":
+                    message = BIRTH_DATE_FUTURE if typed > timezone.localdate() else BIRTH_DATE_TOO_OLD
+                else:
+                    message = error.message
+                form.add_error("birth_date", message)
         if not form.is_bound or form.errors:
             return render(request, "agenda/birth_date.html", {"form": form, "event": event})
     try:

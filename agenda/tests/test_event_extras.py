@@ -57,7 +57,7 @@ class FaqTests(ExtrasFixture):
         page = self.client.get(self.url("page_edit"))
         self.assertContains(page, self.url("faq"))
         self.assertContains(page, self.url("schedule"))
-        self.assertContains(page, "Todavía no tiene preguntas.")
+        self.assertContains(page, "Todavía no tiene preguntas")
         empty = self.client.get(self.url("faq"))
         self.assertContains(empty, "<h1", count=1)
         self.assertContains(empty, "Agregar la pregunta", count=1)
@@ -75,7 +75,7 @@ class FaqTests(ExtrasFixture):
         self.assertTrue(EventFaq.objects.filter(pk=first.pk).exists())
         self.client.post(self.url("faq_delete", first.pk))
         self.assertFalse(EventFaq.objects.filter(pk=first.pk).exists())
-        self.assertContains(self.client.get(self.url("page_edit")), "1 pregunta.")
+        self.assertContains(self.client.get(self.url("page_edit")), '<p class="row__meta">1 pregunta</p>')
         audits = ChurchAuditEvent.objects.filter(action="evento_preguntas")
         self.assertEqual(audits.count(), 4)
         for audit in audits:
@@ -394,7 +394,13 @@ class MinorSignUpTests(ExtrasFixture):
         self.assertContains(asked, "queda pendiente hasta que el equipo de la iglesia confirme tu edad")
         self.assertFalse(EventRegistration.objects.exists())
         future = (self.today + timedelta(days=1)).strftime("%d/%m/%Y")
-        for bad, message in (("ayer", "Escribe la fecha así"), (future, "Revisa la fecha de nacimiento.")):
+        # Each refusal says what happened and how to fix it, in one line (review 2026-11-18)
+        for bad, message in (
+            ("ayer", "No entendimos esa fecha. Escríbela con día, mes y año, por ejemplo 14/03/2009."),
+            ("31/02/2009", "Ese día no existe en el calendario. Revisa el día y el mes, por ejemplo 14/03/2009."),
+            (future, "Esa fecha todavía no llega. Escribe el día en que naciste, por ejemplo 14/03/2009."),
+            ("01/01/1880", "Esa fecha es de hace más de 120 años. Revisa el año, por ejemplo 14/03/2009."),
+        ):
             self.assertContains(self.client.post(self.url("register"), {"birth_date": bad}), message)
         self.assertFalse(EventRegistration.objects.exists())
         self.member.refresh_from_db()
@@ -403,7 +409,7 @@ class MinorSignUpTests(ExtrasFixture):
         response = self.client.post(self.url("register"), {"birth_date": "14/03/1990"}, follow=True)
         self.assertContains(response, AGE_TEXT)
         self.assertContains(response, '<p class="notice__title">Falta confirmar tu edad.</p>')
-        self.assertNotContains(response, '<p class="notice__title">Te inscribiste.</p>')
+        self.assertNotContains(response, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>')
         self.member.refresh_from_db()
         self.assertEqual((self.member.birth_date, self.member.birth_date_verified), (date(1990, 3, 14), False))
         row = EventRegistration.objects.get()
@@ -444,7 +450,7 @@ class MinorSignUpTests(ExtrasFixture):
         self.assertContains(response, PENDING_TEXT)
         self.assertContains(response, '<p class="notice__title">Pendiente de autorización.</p>')
         self.assertContains(response, "Cancelar mi inscripción")
-        self.assertNotContains(response, '<p class="notice__title">Te inscribiste.</p>')
+        self.assertNotContains(response, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>')
         self.assertNotContains(response, '<section class="sign"')  # no panel to sign up again
         row = EventRegistration.objects.get()
         self.assertEqual((row.status, row.attended, row.registered_by), ("pendiente", None, None))
@@ -537,14 +543,16 @@ class ConsentTests(ExtrasFixture):
         self.verified(self.leader)
         services.register(self.retiro, self.leader, self.leader_user)
         page = self.client.get(self.url("registrations"))
-        self.assertContains(page, "1 persona inscrita, 1 pendiente de autorización.")
+        self.assertContains(page, f'<li>{icon("personas", "sm")}1 persona inscrita</li>')
+        self.assertContains(page, '<li><span class="chip chip--wait">1 pendiente de autorización</span></li>')
         self.assertContains(page, "Registrar autorización", count=1)
         text = page.content.decode()
         self.assertLess(text.index("Pendientes de autorización"), text.index("Personas inscritas"))
         self.assertLess(text.index("Diego Hernández Cruz"), text.index("Gala Guía"))
-        row_facts = self.client.get(reverse("agenda:admin_list")).content.decode().split("Retiro de jóvenes</a>", 1)[1].split("</ul>", 1)[0]
-        self.assertIn(f'<li>{icon("personas", "sm")}1 persona inscrita</li>', row_facts)
-        self.assertIn('<li><span class="chip chip--wait">1 pendiente de autorización</span></li>', row_facts)
+        row_facts = self.client.get(reverse("agenda:admin_list")).content.decode().split("Retiro de jóvenes</a>", 1)[1].split("</li>", 1)[0]
+        self.assertIn("1 persona inscrita", row_facts)
+        self.assertIn('<span class="chip chip--wait">1 pendiente de autorización</span>', row_facts)
+        self.assertIn("row--attention", self.client.get(reverse("agenda:admin_list")).content.decode())
         form = self.client.get(self.url("consent", row.pk))
         self.assertContains(form, "<h1", count=1)
         self.assertContains(form, "Registrar la autorización", count=1)
@@ -601,8 +609,8 @@ class ConsentTests(ExtrasFixture):
             for secret in ("Marta", "Tutora", "9999", "Formato firmado"):
                 self.assertNotContains(page, secret)
         detail = self.client.get(self.url())
-        self.assertContains(detail, '<p class="notice__title">Te inscribiste.</p>')
-        self.assertContains(detail, "<p>Autorizada por tu mamá, papá o tutor.</p>")
+        self.assertContains(detail, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>')
+        self.assertContains(detail, "<li>Autorizada por tu mamá, papá o tutor.</li>")
         # An adult's registration says nothing about authorizations.
         self.born(self.leader, 30)
         services.register(self.retiro, self.leader, self.leader_user)

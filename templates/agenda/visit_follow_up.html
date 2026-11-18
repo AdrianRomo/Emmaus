@@ -9,7 +9,7 @@
 <div class="narrow">
   {% if open_url %}
     {% include "events/rotulo/_page_head.html" with title="Ya hay un seguimiento abierto" lede=registration.display_name|add:" ya tiene un seguimiento sin cerrar. No hace falta crear otro." back_url=back back_label="Volver a los inscritos" %}
-    <div class="step__actions">
+    <div class="form-actions">
       <a class="btn btn--primary" href="{{ open_url }}">Ver el seguimiento</a>
       <a class="btn btn--link" href="{{ back }}">Volver a los inscritos</a>
     </div>
@@ -17,7 +17,7 @@
     {% include "events/rotulo/_page_head.html" with title="¿Quieres pedir que alguien acompañe a "|add:registration.display_name|add:"?" lede="Vino por primera vez. Se crea un seguimiento con ese motivo y sin responsable; después eliges quién le busca y para cuándo." back_url=back back_label="Volver a los inscritos" %}
     <form method="post">
       {% csrf_token %}
-      <div class="step__actions">
+      <div class="form-actions">
         <button class="btn btn--primary" type="submit">Sí, pedir que alguien le acompañe</button>
         <a class="btn btn--link" href="{{ back }}">Ahora no</a>
       </div>

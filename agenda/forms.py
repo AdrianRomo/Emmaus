@@ -1,3 +1,5 @@
+import re
+
 from django import forms
 from django.core.validators import MaxLengthValidator
 
@@ -94,11 +96,21 @@ class BirthDateForm(TuErrorMessagesMixin, forms.Form):
         widget=forms.DateInput(format="%d/%m/%Y", attrs={"inputmode": "numeric", "autocomplete": "bday"}),
     )
 
+    # What happened and how to fix it, one line each (review 2026-11-18): a date written the right way that the
+    # calendar does not have (31/02/2009) is not a format problem, and is not answered as one.
+    NOT_UNDERSTOOD = "No entendimos esa fecha. Escríbela con día, mes y año, por ejemplo 14/03/2009."
+    NO_SUCH_DAY = "Ese día no existe en el calendario. Revisa el día y el mes, por ejemplo 14/03/2009."
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["birth_date"].error_messages.update({
-            "invalid": "Escribe la fecha así: día/mes/año, por ejemplo 14/03/2009.",
-        })
+        self.fields["birth_date"].error_messages.update({"invalid": self.NOT_UNDERSTOOD})
+
+    def clean(self):
+        cleaned = super().clean()
+        typed = str(self.data.get("birth_date", "")).strip()
+        if "birth_date" in self.errors and re.fullmatch(r"\d{1,2}/\d{1,2}/\d{4}", typed):
+            self.errors["birth_date"] = self.error_class([self.NO_SUCH_DAY])
+        return cleaned
 
 
 class EventFaqForm(TuErrorMessagesMixin, forms.ModelForm):

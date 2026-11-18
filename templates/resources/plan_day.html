@@ -1,15 +1,26 @@
 {% extends "base.html" %}
+{% load emmaus %}
 {% block page_title %}Día {{ day.position }}{% if day.title %}: {{ day.title }}{% endif %}, {{ plan.title }}{% endblock %}
 {% block content %}
 {% comment %}
-  One day of a plan as a page to read (resources.plan_views.plan_day). Only the reference is shown: the passage is
-  read in the person's own Bible. The reflection and the question are the church's own plain text, escaped. The
-  question is for thinking: there is no box to answer it. "Ya lo leí" is the person's own mark.
+  One day of a plan as a page to read (resources.plan_views.plan_day). Only the reference is shown, in the serif italic
+  of a verse (.verso): the passage is read in the person's own Bible. The reflection and the question are the church's
+  own plain text, escaped. The question is for thinking: there is no box to answer it. "Ya lo leí" is the person's own
+  mark and acts in place (#leido; plan_views.plan_day_read returns to this page, or to the plan's page once every day
+  is read): it becomes the word "Leído".
 {% endcomment %}
 <div class="narrow">
   {% url 'resources:plan_detail' plan.pk as back %}
-  {% include "events/rotulo/_page_head.html" with title=heading lede=line meta=reading back_url=back back_label="Volver al plan" %}
-  {% if preview %}<div class="notice notice--quiet"><p>{% if plan.is_draft %}Este plan es un borrador: solo lo ve la administración de la iglesia.{% else %}Este plan está retirado: solo lo abre quien ya lo había empezado, y la administración.{% endif %}</p></div>{% endif %}
+  <a class="back-link" href="{{ back }}">Volver al plan</a>
+  <header class="page-head">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">{{ heading }}</h1>
+      <p class="lede">{{ line }}</p>
+      <p class="verso devocional__verso"><span class="visually-hidden">Lectura: </span>{{ day.reference }}</p>
+      <p class="page-head__meta">Léela en tu Biblia: aquí va solo la cita.</p>
+    </div>
+  </header>
+  {% if preview %}<p class="aside-note">{% if plan.is_draft %}Este plan es un borrador: solo lo ve la administración de la iglesia.{% else %}Este plan está retirado: solo lo abre quien ya lo había empezado, y la administración.{% endif %}</p>{% endif %}
   {% if day.reflection %}<div class="block prose">{{ day.reflection|linebreaks }}</div>{% endif %}
   {% if day.question %}
     <section class="block" aria-labelledby="para-pensar">
@@ -18,23 +29,21 @@
     </section>
   {% endif %}
   {% if started %}
-    {% if day.is_read %}
-      <div class="notice notice--success"><p>Ya lo leíste.</p></div>
-    {% else %}
-      <form method="post" action="{% url 'resources:plan_day_read' plan.pk day.position %}">
-        {% csrf_token %}
-        <div class="step__actions">
-          <button class="btn btn--primary" type="submit">Ya lo leí</button>
-        </div>
-      </form>
-    {% endif %}
+    <div id="leido" class="block lectura__marca">
+      {% if day.is_read %}
+        <p class="reading__done" data-inline-focus tabindex="-1">{% status "completada" "Leído" %}</p>
+      {% else %}
+        <form class="form-actions" method="post" action="{% url 'resources:plan_day_read' plan.pk day.position %}" data-inline="leido">
+          {% csrf_token %}
+          <button class="btn btn--primary btn--large" type="submit">Ya lo leí</button>
+        </form>
+      {% endif %}
+    </div>
     <p class="aside-note">Esta marca es solo para ti: nadie más ve qué has leído.</p>
   {% elif not preview %}
-    <form method="post" action="{% url 'resources:plan_start' plan.pk %}">
+    <form class="block form-actions" method="post" action="{% url 'resources:plan_start' plan.pk %}">
       {% csrf_token %}
-      <div class="step__actions">
-        <button class="btn btn--primary" type="submit">Empezar este plan</button>
-      </div>
+      <button class="btn btn--primary btn--large" type="submit">Empezar este plan</button>
     </form>
     <p class="aside-note">Todavía no empiezas este plan. Si lo empiezas, puedes marcar lo que vas leyendo; solo tú lo ves.</p>
   {% endif %}

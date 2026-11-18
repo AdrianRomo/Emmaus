@@ -10,7 +10,6 @@ from django.urls import reverse
 from agenda import services
 from agenda.models import EventPage, EventRegistration, GuardianConsent
 from agenda.tests.test_event_extras import AGE_TEXT, CONSENT, PENDING_TEXT, ExtrasFixture
-from core.templatetags.shell import icon
 from events.models import Event
 from groups.forms import MyDataForm
 from people import policy
@@ -23,7 +22,7 @@ WAITS_CONSENT = ("pendiente", "consent")
 CALL = {**CONSENT, "method": "verificado"}
 OVERRIDE = {"override_reason": "llego"}
 # How the event's page titles a registration that waits, or is confirmed (the notice's first line).
-SIGNED_UP = '<p class="notice__title">Te inscribiste.</p>'
+SIGNED_UP = '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>'
 WAITS_CONSENT_TITLE = '<p class="notice__title">Pendiente de autorización.</p>'
 # The age on a person's page, as a pill: confirmed by the team, or not.
 AGE_CONFIRMED = '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Edad confirmada</span>'
@@ -214,17 +213,19 @@ class TurningTheRuleOnTests(SafeguardFixture):
         for audit in reviewed:
             self.assertLessEqual(set(audit.metadata), {"event_id", "registration_id", "person_id", "standing"})
         page = self.client.get(self.url("registrations"))
-        self.assertContains(page, "3 personas inscritas, 3 con edad por confirmar, 4 pendientes de autorización.")
+        self.assertContains(page, "3 personas inscritas")
+        self.assertContains(page, '<li><span class="chip chip--wait">3 con edad por confirmar</span></li>')
+        self.assertContains(page, '<li><span class="chip chip--wait">4 pendientes de autorización</span></li>')
         text = page.content.decode()
         self.assertLess(text.index("Edad por confirmar"), text.index("Pendientes de autorización"))
         self.assertLess(text.index("Pendientes de autorización"), text.index("Personas inscritas"))
         self.assertContains(page, "Confirmar edad", count=3)
         self.assertContains(page, "Nadie dijo si es mayor o menor de edad.", count=1)
         self.assertContains(page, "Nota de contacto", count=1)
-        row_facts = self.client.get(reverse("agenda:admin_list")).content.decode().split("Retiro de jóvenes</a>", 1)[1].split("</ul>", 1)[0]
-        self.assertIn(f'<li>{icon("personas", "sm")}3 personas inscritas</li>', row_facts)
-        self.assertIn('<li><span class="chip chip--wait">3 con edad por confirmar</span></li>', row_facts)
-        self.assertIn('<li><span class="chip chip--wait">4 pendientes de autorización</span></li>', row_facts)
+        row_facts = self.client.get(reverse("agenda:admin_list")).content.decode().split("Retiro de jóvenes</a>", 1)[1].split("</li>", 1)[0]
+        self.assertIn("3 personas inscritas", row_facts)
+        self.assertIn('<span class="chip chip--wait">3 con edad por confirmar</span>', row_facts)
+        self.assertIn('<span class="chip chip--wait">4 pendientes de autorización</span>', row_facts)
 
     def test_saving_the_page_again_keeps_asking(self):
         """Not only the moment the rule is turned on: while the page asks, every save settles every row."""
@@ -455,7 +456,8 @@ class AgeVerificationTests(SafeguardFixture):
         young = services.register(self.retiro, self.asked, self.asked_user)
         page = self.client.get(self.url("registrations"))
         self.assertContains(page, "Edad por confirmar", count=1)
-        self.assertContains(page, "0 personas inscritas, 3 con edad por confirmar.")
+        self.assertContains(page, "0 personas inscritas")
+        self.assertContains(page, '<li><span class="chip chip--wait">3 con edad por confirmar</span></li>')
         self.assertContains(page, "Confirmar edad", count=3)
         self.assertContains(page, "Tenemos una fecha de nacimiento que el equipo no ha confirmado.", count=1)
         self.assertContains(page, "No tenemos su fecha de nacimiento.", count=2)
@@ -618,7 +620,7 @@ class AnnulTests(SafeguardFixture):
         audit = ChurchAuditEvent.objects.get(action="evento_registro_anulado")
         self.assertEqual((audit.actor, audit.metadata), (self.admin, {"event_id": self.retiro.pk, "registration_id": guest.pk, "reason": "duplicado"}))
         # Out of every list and every count: not even among who cancelled.
-        self.assertContains(response, "1 persona inscrita de 2 lugares.")
+        self.assertContains(response, "1 persona inscrita de 2 lugares</li>")
         self.assertNotContains(response, "Vera Visita</p>")
         self.assertNotContains(response, "cancel")
         self.assertNotContains(response, f'id="vino-{guest.pk}"')

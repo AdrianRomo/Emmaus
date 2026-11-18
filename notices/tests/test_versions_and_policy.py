@@ -40,7 +40,7 @@ WITH_PASTORS = frozenset({Role.CHURCH_ADMIN.value, Role.PASTOR.value})
 def answered_on(html: str) -> list[str]:
     """The days this person said «Enterado», as the page draws them: the word on a pill, then its day."""
     return re.findall(
-        r'<ul class="meta reading__done">\s*<li><span class="status status--done"><span class="status__mark" aria-hidden="true">'
+        r'<ul class="meta reading__done"[^>]*>\s*<li><span class="status status--done"><span class="status__mark" aria-hidden="true">'
         r'</span>Enterado</span></li>\s*<li><svg [^>]*>.*?</svg>([^<]+)</li>',
         html,
         re.S,
@@ -150,7 +150,7 @@ class VersionTests(Fixture):
         page = self.client.get(detail(notice))
         # Asked as for anybody: the level's word under the title and the one button, without "read it again".
         self.assertContains(page, "</span>Urgente</span></li>")
-        self.assertContains(page, '<button class="btn btn--primary" type="submit">Enterado</button>', html=True)
+        self.assertContains(page, '<button class="btn btn--primary btn--large" type="submit">Enterado</button>', html=True)
         self.assertNotContains(page, CHANGED)
         # Who had opened it without answering is told.
         other = self.urgent(title="Otro aviso")
