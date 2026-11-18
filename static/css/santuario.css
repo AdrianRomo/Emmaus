@@ -810,7 +810,9 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .hoy__icono { display: grid; place-items: center; width: var(--lead); color: var(--ink-2); }
 .hoy .respuestas { margin-top: var(--s-3); }
 .sign + .respuestas { margin-top: var(--s-4); }
-.lectura .verso { margin: var(--s-1) 0; max-width: 40ch; font-size: 1.125rem; }
+/* The devotional on the home as on its page: the passage in the verse's serif italic, its words upright */
+.lectura .verso { margin: var(--s-1) 0 0; max-width: 40ch; font-size: 1.0625rem; }
+.lectura .lectura__inicio { max-width: 52ch; color: var(--ink-2); }
 .sugerencia { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--fill); color: var(--ink-2); }
 .hoy__marca { display: grid; place-items: center; }
 .hoy__punto { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ink); }

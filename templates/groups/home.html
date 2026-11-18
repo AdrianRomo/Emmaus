@@ -215,8 +215,9 @@
       <span class="hoy__icono" aria-hidden="true">{% icon "lectura" %}</span>
       <div class="row__main">
         <p class="row__title"><a href="{% url 'resources:devotional_today' %}">{{ devotional.title }}</a></p>
-        {% if opening %}<p class="verso">{{ opening }}</p>{% endif %}
-        <p class="row__meta row__meta--con-marca"><span>{{ devotional.passage }}</span>{% if devotional.is_read %}{% status "completada" "Leído" %}{% endif %}</p>
+        {% if devotional.passage %}<p class="verso"><span class="visually-hidden">Lectura: </span>{{ devotional.passage }}</p>{% endif %}
+        {% if opening %}<p class="row__meta lectura__inicio">{{ opening }}</p>{% endif %}
+        {% if devotional.is_read %}<p class="row__meta">{% status "completada" "Leído" %}</p>{% endif %}
       </div>
     </li>
     {% endif %}
