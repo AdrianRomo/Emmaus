@@ -7,9 +7,8 @@ Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rul
 | Branch | Base | Holds | State |
 |---|---|---|---|
 | `v2/foundation` | | Everything through wave 4: pull requests #73, #74 and #78 are merged | The base. Never merged into `main`; nothing is deployed |
-| `v2/wave-5-safeguards` | `v2/foundation` | Decision 0015 built (minors, notice versions, Panorama privacy and rhythm, manual registrations, opinions) and issues #46, #47, #48, #51, #53, #72, #16 | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate in `PROGRESS.md`; its pull request is named there |
-| `v2/wave-6-*` | wave 5 | In progress: e-mail notices, church policies screen, #49, #50 | One worktree each |
-| older `v2/redesign-*`, `v2/wave-4-*`, `v2/wave-5-<slice>` | | Merged | Local only; the worktrees and branches can be removed |
+| `v2/wave-6` | `v2/foundation` (waves 1 to 5 merged: #73, #74, #78, #79) | E-mail notices, church policies, waiting list, public event page, visitor follow-up, #49, #50, #52's application half | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate in `PROGRESS.md`; its pull request is named there |
+| older `v2/redesign-*`, `v2/wave-4-*`, `v2/wave-5-*`, `v2/wave-6-<slice>` | | Merged | Local only; the worktrees and branches can be removed |
 
 The owner said on 2026-11-18 to merge pull requests as needed. The rule followed: only into
 `v2/foundation`, only when the branch's required checks pass on the pull request (never with
@@ -85,32 +84,29 @@ run `quality-gate.sh --postgres` before believing a module's own SQLite run.
 
 ## Next, in order
 
-The owner's order is decision 0014. Built from it: the pastor's dashboard, FAQ and programme,
-walk-ups (the first half of visitor follow-up), opinions after an event, serving, media links, the
-hand-written devotional. What is left, in order:
+The owner's order is decision 0014; decisions 0015 and issue #80 hold what was answered and what
+is still a default. Built through wave 6: everything in 0014 up to and including the waiting
+list, e-mail notices, church policies, the public event page and the camp issues #46–#51. Left:
 
-1. **Visitor follow-up, second half**: from a visitor added to Personas, one tap to "Pedir que
-   alguien la acompañe" (the button exists on the person's page; the walk-up row should offer it).
-2. **Waiting list** (decision 0011, "next"): offer a freed place with an expiry and a confirmation;
-   never turn a pending registration into a confirmed one silently.
-3. **Notices by e-mail with each person's preferences** (decision 0012, "next"); `core/notify.py`
-   is the content-free sender to build on.
-4. **Church settings for policies** (decision 0014): who publishes urgent notices, whether minors
-   need an authorization by default, the retention periods. Today they are constants.
-5. **Serving through `has_scope`**: `serving` decides who coordinates by its own rows; decision 0003
-   wants every decision in `core.authz`. Add a ministry scope to `access` with a decision record.
-6. **Fold `agenda.EventPage` into `events`** now that 0013 allows it, as its own reviewed change;
-   a button to turn a simple event into a camp.
-7. Small: a first-run welcome for a member; a coordinator who is also a person of the church in
-   the seed; `tenant_integrity` checks for every new table; pagination; a minimum group size on
-   Panorama; an audit row for `prune_attendance`; `core/onboarding.py:176` counts a simple event as
-   "the first event"; look at the interview and campero screens with the module on.
-8. Later, each with its approval (decision 0014): guardian accounts and households, reading
-   plans, moderated photos, children's check-in, payments recorded by staff, giving.
+1. **Host work, with the owner**: off-site backups and a restore drill (#45) before anything from
+   v2 runs where the first camp's data lives; scheduling the commands listed in `PROGRESS.md`
+   (wave 6); shipping the request log and alerting (#52); `resettle_registrations` once after deploy.
+2. **Answers to #80**, above all Panorama's privacy rule and the door's override.
+3. **Serving through `has_scope`** (decision 0003): `serving` still decides who coordinates by its
+   own rows.
+4. **Fold `agenda.EventPage` into `events`** as its own reviewed change (decision 0013).
+5. **Multi-church accounts** (#32, #37): high risk, needs the owner and a supervised session; it
+   becomes necessary before a second church is onboarded.
+6. Small: the access-requests list tells which church a requester's account belongs to; a first-run
+   welcome for a member; `tenant_integrity` checks for the new tables; pagination; "ahora y
+   después" on the camp's homes; a survey for the camp's team; a church's own logo as the icon.
+7. Later, each with its approval (decision 0014): guardian accounts and households (phase B,
+   behind #75), reading plans, moderated photos (#60), the site map and workshops (#58),
+   children's check-in, payments recorded by staff, giving.
 
 **Release gates. Do not enable in production before the issue is closed:** minors' registration
-(#75, including that a member types their own date of birth unverified) and named pastoral access
-to attendance (#76, not built; also the retention periods before `prune_attendance` is scheduled).
+(#75: the authorization's wording, accepted evidence and retention are provisional) and the
+retention periods of attendance (#76; no individual pastoral access is built).
 
 ## Open questions for the owner
 
@@ -122,6 +118,7 @@ closed; their answers are decisions 0009–0015. Open (see also the triage notes
 |---|---|
 | #75 | Release gate: church leadership approves the authorization policy for minors |
 | #76 | Release gate: named pastoral access to attendance, and the retention periods |
+| #80 | Defaults taken in waves 5 and 6, to confirm or change |
 
 Answered on 2026-11-17: the word is **"Eventos"** everywhere. Still without an issue, low stakes:
 one flag (`community`) turns on the modules and the new look together.

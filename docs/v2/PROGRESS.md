@@ -2,6 +2,74 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-18, later — Wave 6: what was "next", and camp issues #49, #50, #52 (branch `v2/wave-6`)
+
+Wave 5 (pull request #79) is merged into `v2/foundation`; issues #16, #46, #47, #48, #51, #53 and
+#72 are closed.
+
+### Shipped
+
+| Piece | Source | Where |
+|---|---|---|
+| Notices by e-mail, by each person's preference ("Solo los urgentes" by default): a content-free mail, never twice for the same version; `send_notice_emails` for scheduled notices | 0012 | `notices/email.py` |
+| "Políticas de la iglesia": a church's own choices, platform floors enforced on read and on write, a review before saving, one audit row per change | 0015 | app `policies`, `people/policy.py` |
+| The church's policies reach the event page's default and the retention of attendance (church by church) | 0015 | `agenda`, `prune_attendance` |
+| Waiting list: a freed place is offered, with a deadline; accepting goes through `standing`; `expire_waiting_offers` | 0011 | `agenda` |
+| A public event page without signing in: the event, its programme and FAQ, nothing about people | 0010, phase A | `agenda/public.py`, `/evento/<slug>/` |
+| "Pedir que alguien le acompañe" for a visitor | 0014 | `agenda`, `care` |
+| The team's CSV import with a review before saving, and nicknames of coordinadores in the campero import | #50 | `events` |
+| A practice campero that never counts, an eleven-step computed "Preparación", "ya practicó" in Equipo | #49 | `events` |
+| One JSON line per request (route name, method, status, ms, coarse role) and one per unhandled exception | #52, application half | `core/request_log.py` |
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `3c113a4`, 2026-11-18T02:20Z (the commit
+after it holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                1  System check identified no issues (0 silenced).
+migrations      PASS                0  No changes detected
+deploy-check    PASS                1  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: 6 migration(s) added or changed since f3550e5, all additive
+pip-audit       PASS                2  No known vulnerabilities found
+tests-sqlite    PASS              233  2393 passed, 6 skipped
+tests-postgres  PASS              355  2388 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              475  browser gate OK
+overall: PASS
+```
+
+- The community journey in that run: 256 checks, 0 problems. A first run failed in the browser
+  stage on a step I had added myself (it asked to duplicate a camp as a simple event, which is
+  correctly a 404).
+- An independent read-only review found no leak of the practice campero, no way onto the confirmed
+  list without `standing`, nothing about people on the public page, and thirteen defects, all fixed
+  with tests before this gate. The serious ones: the team import (and "Agregar persona", which
+  already had it) could show on screen the activation link of an account another church had
+  created; a stale policy review could write back a privacy minimum somebody had just raised; the
+  church's minors policy did not reach simple events; editing an old notice mailed everybody;
+  sending had no timeout; the waiting list kept moving after sign-up was switched off.
+- Looked at by me as screenshots: Inscritos with a pending minor (1440), Políticas de la iglesia
+  (390), Panorama as a pastor (1440). The agents looked at their own screens on their own scratch
+  databases; every new page passed axe at 390 and 1440.
+- Not verified: real SMTP (timeouts, a hung server); two real connections on PostgreSQL for the
+  waiting list, the policy review and the e-mail claims; the frozen and started sentences of the
+  waiting list by eye; the practice label on the kiosk screens; anything on a host.
+
+### Not done, and why
+
+- Commands that exist and are **not scheduled anywhere**: `send_notice_emails`,
+  `expire_waiting_offers`, `remind_follow_up_owners`, `prune_attendance`, `resettle_registrations`
+  (run once after deploying). Scheduling is host work.
+- #52 stays open for shipping the log lines and alerting on the host.
+- Defaults taken without asking are in issue #80; the one that most changes the product is how
+  quiet Panorama became under the strict privacy rule.
+- Known leftovers: the access-requests list still tells an event's administrator which church a
+  requester's existing account belongs to; `django.request` still prints "Not Found: /path".
+- Not started: #58 (site map and workshops), #60 (photos, needs approval), guardian accounts
+  (phase B, behind #75), households, check-in, payments, giving, #32 and #37 (multi-church session).
+
 ## 2026-11-18 — Wave 5: safeguards from the owner's second round, and seven older issues (branch `v2/wave-5-safeguards`)
 
 The owner answered #75, #76 and #77 (decision 0015), asked to keep closing issues and to merge
