@@ -1,5 +1,10 @@
 """Panorama: who opens it, that it counts and never names, that a total over very few people is never shown, that
-a list is missing only when the group's own rhythm had a meeting, and that it costs the same with two groups or twelve."""
+a list is missing only when the group's own rhythm had a meeting, and that it costs the same with two groups or twelve.
+
+The page draws its totals (rows, tiles, a bar, marks) instead of writing them in sentences, so these tests read it
+one piece at a time: ``section`` (from a heading to the next), ``row_of`` (one row or one tile) and ``totals``
+(the named totals inside it). A number is a number; words the service gave instead of a number are on a neutral
+pill (``pill``), and so is a total it kept back."""
 
 import re
 from datetime import date, datetime, time, timedelta
@@ -26,6 +31,40 @@ from people.models import Person
 from serving import services as serving
 
 URL = reverse("overview:panorama")
+
+
+def pill(words: str) -> str:
+    """A total told in words, as the page draws it (``overview.templatetags.panorama.told``)."""
+    return f'<span class="chip chip--plain">{words}</span>'
+
+
+def section(html: str, heading: str) -> str:
+    """One section of the page: from the id of its heading to the next section."""
+    start = html.index(f'id="{heading}"')
+    end = html.find("<section", start)
+    return html[start:end if end != -1 else html.index("</main>")]
+
+
+def row_of(html: str, heading: str, name: str) -> str:
+    """The whole row (or tile) of ``name`` in one section: its ``<li>``, from the tag to its end. A row of this
+    page holds no list of its own, so the first ``</li>`` after the name is its end; this fails if that stops
+    being true, instead of reading a row cut short."""
+    part = section(html, heading)
+    at = part.index(name)
+    row = part[part.rindex("<li", 0, at):part.index("</li>", at)]
+    assert row.count("<li") == 1, "a row holds a list: row_of would cut it short"
+    return row
+
+
+def totals(html: str) -> dict:
+    """The named totals of a row, a tile or a section, each as the page draws it:
+    ``{"Inscritos": "6", "Asistieron": pill("La mitad o más")}``."""
+    return dict(re.findall(r"<dt>([^<]+)</dt><dd[^>]*>(.*?)</dd>", html))
+
+
+def numbers(row: str) -> list[str]:
+    """Every number a person reads in a row (markup and its attributes left out)."""
+    return re.findall(r"\d+", re.sub(r"<[^>]+>", " ", row))
 
 
 class PanoramaFixture(CommunityFixture):
@@ -139,13 +178,23 @@ class ContentTests(PanoramaFixture):
                          ("under_half", None, 7, self.today - timedelta(weeks=1)))
         self.assertEqual((data["group_people"], data["group_joined"]), (7, "La mitad o más"))
         response = self.get(self.church_pastor)
-        self.assertContains(response, "Asistió menos de la mitad de 7 personas")
-        self.assertContains(response, ">menos de la mitad · menos de la mitad · menos de la mitad<")
+        html = response.content.decode()
+        row = row_of(html, "p-grupos", ">Jóvenes Roca</a>")
+        self.assertIn(pill("Menos de la mitad") + " de 7 personas", row)
+        self.assertIn(">menos de la mitad · menos de la mitad · menos de la mitad<", row)
+        self.assertIn("<i></i><i></i><i></i>", row)  # three meetings, three short marks: no mark says more than its band
+        self.assertNotIn('class="on"', row)
+        self.assertEqual(numbers(row)[0], "7")  # "7 personas": the group meets the minimum
         for told in ("2 de 7", "3, 1, 2", ">7</dd><dd class=\"figures__note\">de las personas"):
             self.assertNotContains(response, told)
-        self.assertContains(response, "1 solicitud espera respuesta")
-        self.assertContains(response, "Todavía no tiene")  # the group without any meeting, created today: not pointed out
-        self.assertNotContains(response, "por registrar")
+        # The request that waits is first on the page, and for the pastor it leads to the group, not to its people.
+        waiting = row_of(html, "p-atender", ">Jóvenes Roca<")
+        self.assertIn('<span class="chip chip--wait">1 solicitud</span>', waiting)
+        self.assertIn(f'href="{reverse("community:group_detail", args=[self.group.pk])}"', waiting)
+        # The group without any meeting, created today, is not pointed out.
+        self.assertIn("Sin listas todavía", row_of(html, "p-grupos", ">Estudio de Romanos</a>"))
+        for words in ("Falta 1 lista", "Faltan "):
+            self.assertNotContains(response, words)
 
     def test_people_who_left_or_joined_long_ago_are_not_counted_as_new(self):
         GroupMembership.objects.filter(person=self.member).update(start_at=timezone.now() - timedelta(days=45))
@@ -155,18 +204,41 @@ class ContentTests(PanoramaFixture):
 
     def test_events_serving_and_care_in_totals(self):
         response = self.get(self.church_pastor)
-        self.assertContains(response, "Menos de 5 inscritos de 40 lugares")
-        self.assertContains(response, "Hay lugares")
+        html = response.content.decode()
+        coming = row_of(html, "p-eventos", ">Noche de alabanza</a>")
+        self.assertIn(pill("Menos de 5") + " inscritos de 40 lugares", coming)
+        self.assertIn("Hay lugares", coming)
+        self.assertNotIn("meter", coming)  # no bar without a number: a bar would be a guess
         self.assertNotContains(response, "2 inscritos")
         self.assertNotContains(response, "Quedan 38")
         self.assertNotContains(response, "Evento sin publicar")
-        html = response.content.decode()
-        done = html[html.index("Retiro de matrimonios"):]
-        self.assertRegex(done, r'(?s)^.*?data-label="Inscritos">6</td>\s*<td[^>]*data-label="Asistieron">La mitad o más</td>')
-        team = html[html.index(">Bienvenida</th>"):]
-        self.assertRegex(team, r'(?s)^.*?data-label="Confirmaron">Menos de la mitad</td>.*?data-label="Por confirmar">La mitad o más</td>.*?data-label="No pueden">Menos de la mitad</td>')
+        self.assertEqual(totals(row_of(html, "p-terminaron", "Retiro de matrimonios")), {"Inscritos": "6", "Asistieron": pill("La mitad o más")})
+        self.assertEqual(
+            totals(row_of(html, "p-servir", ">Bienvenida</h3>")),
+            {"Confirmaron": pill("Menos de la mitad"), "Por confirmar": pill("La mitad o más"), "No pueden": pill("Menos de la mitad")},
+        )
         data = services.build(self.church, None, self.today)
         self.assertEqual((data["care_open"], data["care_late"], data["care_unowned"]), (2, 1, 1))
+        self.assertEqual(totals(section(html, "p-acompanar")), {"Seguimientos abiertos": "2", "Con la fecha vencida": "1", "Sin responsable": "1"})
+
+    def test_what_waits_is_first_and_leads_to_where_it_is_solved(self):
+        # Follow-ups without an owner or past their day, as two counts and no name. The pastor cannot open the
+        # administration's list, so for her the row is not a link; for the administration it is.
+        for user, linked in ((self.church_pastor, False), (self.admin, True)):
+            html = self.get(user).content.decode()
+            self.assertLess(html.index('id="p-atender"'), html.index('id="p-grupos"'))
+            care_row = row_of(html, "p-atender", "Seguimientos")
+            self.assertIn('<span class="chip chip--risk">1 con la fecha vencida</span>', care_row)
+            self.assertIn('<span class="chip chip--wait">1 sin responsable</span>', care_row)
+            self.assertEqual(f'href="{reverse("care:admin_list")}"' in care_row, linked, user.email)
+        # The administration (the last page read) decides a request where the group's people are; nothing here
+        # leads to who came.
+        waiting = row_of(html, "p-atender", ">Jóvenes Roca<")
+        self.assertIn(f'href="{reverse("community:group_people", args=[self.group.pk])}"', waiting)
+        for link in set(re.findall(r'href="(/[^"#]*)"', html[html.index('<div class="panorama">'):html.index("</main>")])):
+            for private in ("/reuniones/", "/inscritos/"):
+                self.assertNotIn(private, link)
+            self.assertIn(self.client.get(link).status_code, (200, 302), link)
 
     def test_a_follow_up_about_the_reader_is_never_counted(self):
         reader = Person.objects.get(church=self.church, user=self.admin)
@@ -177,10 +249,11 @@ class ContentTests(PanoramaFixture):
     def test_an_empty_church_is_told_what_to_do(self):
         type(self.group_b).objects.filter(pk=self.group_b.pk).update(status="archivado")
         response = self.get(self.admin_b)
-        for words in ("Todavía no hay grupos activos", "No hay eventos publicados por venir", "Ningún equipo tiene fechas por venir", "No hay seguimientos abiertos"):
+        for words in ("Nada por atender", "Sin grupos activos todavía", "Sin eventos publicados por venir", "Ningún equipo tiene fechas por venir", "Sin seguimientos abiertos"):
             self.assertContains(response, words)
         self.assertContains(response, reverse("community:group_create"))
-        self.assertNotContains(response, "<table")
+        for drawn in ('class="rows', 'class="figures"', 'class="grid"', "chip"):  # no list, no tile and no pill about nothing
+            self.assertNotContains(response, drawn)
 
     def test_nothing_of_another_church_is_counted(self):
         groups.set_membership(self.group_b, self.member_b, self.admin_b)
@@ -198,7 +271,9 @@ class ContentTests(PanoramaFixture):
         GroupMeeting.objects.filter(pk=meeting.pk).update(present_kept=6)
         data = services.build(self.church, None, self.today)
         self.assertEqual(data["groups"][1].trend, ["menos de la mitad", "menos de la mitad", "la mitad o más"])
-        self.assertContains(self.get(self.church_pastor), "Asistió la mitad o más de 7 personas")
+        row = row_of(self.get(self.church_pastor).content.decode(), "p-grupos", ">Jóvenes Roca</a>")
+        self.assertIn(pill("La mitad o más") + " de 7 personas", row)
+        self.assertIn('<i></i><i></i><i class="on"></i>', row)
 
 
 class PrivacyTests(ContentTests):
@@ -295,11 +370,17 @@ class MinimumReportingSizeTests(PanoramaFixture):
         for user in (self.church_pastor, self.admin):
             html = self.get(user).content.decode()
             page = html[html.index('<div class="panorama">'):html.index("</main>")]
-            row = page[page.index("Dúo de lectura"):]
-            row = row[:row.index("</tr>")]
-            self.assertIn('data-label="Personas">Menos de 5</td>', row)
-            self.assertIn("Sin desglose de asistencia por privacidad", row)
-            self.assertNotRegex(row, r">\s*[0-9]")  # not one number in the row: only the day of its last list, in words after the weekday
+            row = row_of(page, "p-grupos", ">Dúo de lectura</a>")
+            self.assertIn(pill("Menos de 5") + '<span class="visually-hidden"> personas</span>', row)
+            self.assertIn(pill("No se muestra"), row)
+            self.assertNotIn("level", row)           # no mark of any meeting
+            self.assertNotIn("panorama__last", row)  # and nothing about its last list but the day
+            self.assertNotRegex(row, r">\s*[0-9]")
+            # Not one number in the row but the minimum itself ("Menos de 5") and two days of the calendar: the day of
+            # its last list and the day of its next meeting. Nothing that counts people.
+            day = self.today - timedelta(days=2)
+            calendar = [str(day.day)] + ([str(day.year)] if day.year != self.today.year else []) + [str(duo.next_day.day)]
+            self.assertEqual(numbers(row), ["5", *calendar])
             for told in ("1 de 2", "2 de 2", "de 2 personas", ">2<", ">2, 1<", ">1, 2<", "2 personas"):
                 self.assertNotIn(told, page, told)
 
@@ -317,7 +398,7 @@ class MinimumReportingSizeTests(PanoramaFixture):
         data = services.build(self.church, None, self.today)
         # "Se unieron" is a part of "Personas en grupos": one of eight is told in words.
         self.assertEqual((data["group_people"], data["group_joined"]), (8, "Menos de la mitad"))
-        self.assertContains(self.get(self.church_pastor), '<dd class="figures__value">Menos de la mitad</dd>', count=1)
+        self.assertContains(self.get(self.church_pastor), f'<dd class="figures__value">{pill("Menos de la mitad")}</dd>', count=1)
 
     def test_a_church_of_small_groups_only_sees_no_number_of_people(self):
         groups.set_membership(self.group_b, self.member_b, self.admin_b)
@@ -341,15 +422,23 @@ class MinimumReportingSizeTests(PanoramaFixture):
         html = self.get(self.church_pastor).content.decode()
         self.assertNotIn("de 4 personas", html)
         self.assertNotIn("de 3 personas", html)
+        row = row_of(html, "p-grupos", ">Jóvenes Roca</a>")
+        self.assertIn(pill("Sin desglose por privacidad"), row)
+        self.assertNotIn("level", row)
 
     def test_a_group_that_shrank_under_the_minimum_shows_nothing_of_its_past(self):
         for membership in GroupMembership.objects.filter(group=self.group, person__in=self.extras):
             groups.end_membership(membership, self.admin)
         roca = services.build(self.church, None, self.today)["groups"][-1]
         self.assertEqual((roca.small, roca.member_count, roca.trend, roca.last["share"]), (True, None, [], None))
-        response = self.get(self.church_pastor)
-        for told in ("personas asistieron", "Asistió", "Asistieron menos", "Asistieron casi"):
-            self.assertNotContains(response, told)
+        # Not one group of the page says anything of who came: no mark, no band, no "de N personas".
+        html = self.get(self.church_pastor).content.decode()
+        for name in ("Dúo de lectura", "Estudio de Romanos", "Jóvenes Roca"):
+            row = row_of(html, "p-grupos", f">{name}</a>")
+            for told in ("level", "panorama__last", "La mitad", "Menos de la mitad", "Casi todas"):
+                self.assertNotIn(told, row, (name, told))
+            self.assertNotRegex(row, r"de \d+ personas")
+        self.assertIn(pill("No se muestra"), row_of(html, "p-grupos", ">Jóvenes Roca</a>"))
 
     def test_small_events_and_small_serving_dates(self):
         past = self.today - timedelta(days=8)
@@ -374,14 +463,12 @@ class MinimumReportingSizeTests(PanoramaFixture):
         date_row = data["serving_dates"][0]
         self.assertEqual((date_row.few, date_row.confirmed, date_row.waiting, date_row.declined), (True, None, None, None))
         html = self.get(self.church_pastor).content.decode()
-        breakfast = html[html.index("Desayuno de varones"):]
-        self.assertRegex(breakfast, r'(?s)^.*?data-label="Inscritos">Menos de 5</td>\s*<td[^>]*data-label="Asistieron">Menos de 5</td>')
-        vigil = html[html.index("Vigilia de jóvenes"):]
-        self.assertRegex(vigil, r'(?s)^.*?data-label="Inscritos">7</td>\s*<td[^>]*data-label="Asistieron">Menos de la mitad</td>')
-        sound = html[html.index(">Sonido</th>"):]
-        sound = sound[:sound.index("</tr>")]
-        self.assertIn("Se le pidió a menos de 5 personas", sound)
+        self.assertEqual(totals(row_of(html, "p-terminaron", "Desayuno de varones")), {"Inscritos": pill("Menos de 5"), "Asistieron": pill("Menos de 5")})
+        self.assertEqual(totals(row_of(html, "p-terminaron", "Vigilia de jóvenes")), {"Inscritos": "7", "Asistieron": pill("Menos de la mitad")})
+        sound = row_of(html, "p-servir", ">Sonido</h3>")
+        self.assertIn("Se le pidió a menos de 5 personas: sin desglose por privacidad", sound)
         self.assertNotIn("Confirmaron", sound)
+        self.assertEqual(totals(sound), {})
 
 
 class PartOfAWholeTests(PanoramaFixture):
@@ -447,14 +534,15 @@ class PartOfAWholeTests(PanoramaFixture):
             self.meeting(days_ago, present)
         self.meeting(2, 5, expected=6)  # "5 de 6": one was absent
         html = self.get(self.church_pastor).content.decode()
-        row = html[html.index(">Asamblea</a>"):]
-        row = row[:row.index("</tr>")]
-        self.assertIn("Asistió la mitad o más de 6 personas", row)
+        row = row_of(html, "p-grupos", ">Asamblea</a>")
+        self.assertIn(pill("La mitad o más") + " de 6 personas", row)
         self.assertIn(">menos de 5 · casi todas · 7 · menos de 5 · la mitad o más<", row)
+        # The same five meetings as marks: short, tall, the number the service gave, short, tall.
+        self.assertIn('<i></i><i class="on"></i><b>7</b><i></i><i class="on"></i>', row)
         for told in ("5 de 6", "2 de 12", "11 de 12", "1 de 12", "2, 11", "1, 2", "11,"):
             self.assertNotIn(told, html, told)
         # With few present and with few absent, in words; with enough of both, the number.
-        for present, sentence in ((2, "Asistieron menos de 5 de 12 personas"), (11, "Asistieron casi todas, de 12 personas"), (7, "7 de 12 personas asistieron")):
+        for present, sentence in ((2, pill("Menos de 5") + " de 12 personas"), (11, pill("Casi todas") + " de 12 personas"), (7, ">7 de 12 personas<")):
             GroupMeeting.objects.filter(group=self.big, date=self.today - timedelta(days=2)).delete()
             self.meeting(2, present)
             html = self.get(self.church_pastor).content.decode()
@@ -466,28 +554,26 @@ class PartOfAWholeTests(PanoramaFixture):
         self.published("Cena de gala", -6, signed=10, attended=9)
         self.published("Tarde de campo", -5, signed=12, attended=6)
         html = self.get(self.church_pastor).content.decode()
-        gala = html[html.index("Cena de gala"):]
-        self.assertRegex(gala, r'(?s)^.*?data-label="Inscritos">10</td>\s*<td[^>]*data-label="Asistieron">Casi todas</td>')
-        self.assertNotRegex(gala[:gala.index("</tr>")], r'data-label="Asistieron">\s*9')
-        field = html[html.index("Tarde de campo"):]
-        self.assertRegex(field, r'(?s)^.*?data-label="Inscritos">12</td>\s*<td[^>]*data-label="Asistieron">6</td>')
+        # Nine of ten came: "Casi todas", never the 9 that would count the one who did not.
+        self.assertEqual(totals(row_of(html, "p-terminaron", "Cena de gala")), {"Inscritos": "10", "Asistieron": pill("Casi todas")})
+        self.assertEqual(totals(row_of(html, "p-terminaron", "Tarde de campo")), {"Inscritos": "12", "Asistieron": "6"})
 
     def test_finding_3_an_event_reads_the_same_before_and_after_its_last_day(self):
         event = self.published("Taller de padres", 3, signed=3, capacity=20)
         html = self.get(self.church_pastor).content.decode()
-        self.assertIn("Menos de 5 inscritos de 20 lugares", html)
+        self.assertIn(pill("Menos de 5") + " inscritos de 20 lugares", html)
         self.assertIn("Hay lugares", html)
+        self.assertNotIn("meter", html)
         for told in ("3 inscritos", "Quedan 17", "17 lugares"):
             self.assertNotIn(told, html, told)
         # The day after: the finished table says the same, so two days side by side tell nothing more.
         past = self.today - timedelta(days=1)
         Event.objects.filter(pk=event.pk).update(starts_on=past, ends_on=past)
         html = self.get(self.church_pastor).content.decode()
-        done = html[html.index("Taller de padres"):]
-        self.assertRegex(done, r'(?s)^.*?data-label="Inscritos">Menos de 5</td>\s*<td[^>]*data-label="Asistieron">Menos de 5</td>')
+        self.assertEqual(totals(row_of(html, "p-terminaron", "Taller de padres")), {"Inscritos": pill("Menos de 5"), "Asistieron": pill("Menos de 5")})
         # A full small event says it is full, as its public page does, and nothing else.
         self.published("Mesa chica", 4, signed=3, capacity=3)
-        self.assertContains(self.get(self.church_pastor), "Menos de 5 inscritos de 3 lugares")
+        self.assertContains(self.get(self.church_pastor), pill("Menos de 5") + " inscritos de 3 lugares")
         # With enough sign-ups the numbers are exact, unless the free places would count a few minors who wait.
         self.published("Congreso", 5, signed=8, capacity=20)
         self.published("Campamento chico", 6, signed=8, capacity=20, pending=2)
@@ -495,6 +581,10 @@ class PartOfAWholeTests(PanoramaFixture):
         self.assertIn("8 inscritos de 20 lugares", html)
         self.assertEqual(html.count("Quedan 12 lugares"), 1)
         self.assertNotIn("Quedan 10 lugares", html)
+        # The bar is the same number, drawn: 8 of 20, for the two events that show it and for no other.
+        self.assertEqual(html.count('class="meter__fill" style="width:40%"'), 2)
+        self.assertEqual(html.count("meter__fill"), 2)
+        self.assertNotIn("meter", row_of(html, "p-eventos", ">Mesa chica</a>"))
 
     def test_finding_4_each_answer_of_a_serving_date_is_a_part_of_who_was_asked(self):
         team = serving.save_team(self.church, self.admin, name="Estacionamiento", description="")
@@ -507,12 +597,41 @@ class PartOfAWholeTests(PanoramaFixture):
             elif index == 6:
                 type(assignment).objects.filter(pk=assignment.pk).update(status="declinada")
         html = self.get(self.church_pastor).content.decode()
-        row = html[html.index(">Estacionamiento</th>"):]
-        row = row[:row.index("</tr>")]
+        row = row_of(html, "p-servir", ">Estacionamiento</h3>")
         # 6 confirmed, 5 waiting, 1 cannot: the one is in words, and so are the others, or 12 - 6 - 5 would give it.
-        self.assertRegex(row, r'(?s)data-label="Confirmaron">5 o más</td>.*?data-label="Por confirmar">5 o más</td>.*?data-label="No pueden">Menos de 5</td>')
-        self.assertNotRegex(row, r'data-label="No pueden">\s*1<')
-        self.assertNotRegex(row, r'data-label="(Confirmaron|Por confirmar)">\s*[0-9]+<')
+        self.assertEqual(totals(row), {"Confirmaron": pill("5 o más"), "Por confirmar": pill("5 o más"), "No pueden": pill("Menos de 5")})
+        for exact in ("<dd>1<", "<dd>5<", "<dd>6<"):
+            self.assertNotIn(exact, row)
+
+
+class DrawingTests(PanoramaFixture):
+    """The two helpers that draw (``overview.templatetags.panorama``) add nothing to what ``services`` decided."""
+
+    def test_a_total_is_drawn_as_it_was_told(self):
+        from overview.templatetags.panorama import told
+
+        self.assertEqual(told(12, 5), "12")
+        self.assertEqual(told("7", 5), "7")
+        self.assertEqual(told(None, 5), pill("Menos de 5"))  # kept back: said so, never a blank
+        self.assertEqual(told(None, 8), pill("Menos de 8"))  # the church's own minimum
+        for words in ("Casi todas", "La mitad o más", "Menos de la mitad", "Menos de 5", "5 o más"):
+            self.assertEqual(told(words, 5), pill(words))
+        self.assertEqual(told("<b>", 5), pill("&lt;b&gt;"))
+
+    def test_a_mark_never_says_more_than_its_band(self):
+        from overview.templatetags.panorama import trend_mark
+
+        for minimum in (5, 8):
+            for whole in range(minimum, 45):
+                for part in range(whole + 1):
+                    one = services.share(part, whole, minimum)
+                    mark = trend_mark(one["label"].lower())  # as ``group.trend`` carries it
+                    if one["level"] == "exact":
+                        self.assertEqual((mark, one["label"]), ("exact", str(part)))
+                    else:
+                        # Tall only when half or more came, short only when fewer: true of every value in the band.
+                        self.assertEqual(mark, "high" if one["level"] in ("half_up", "most") else "low", (part, whole))
+                        self.assertEqual(mark == "high", part * 2 >= whole, (part, whole, one["label"]))
 
 
 TUESDAY = date(2026, 11, 17)
@@ -595,10 +714,13 @@ class MissingListsTests(PanoramaFixture):
         self.assertEqual(state["Sin calendario"], (0, None, None))
         self.assertEqual(data["groups_missing"], 2)
         html = self.get(self.church_pastor).content.decode()
-        self.assertIn("2 con asistencia por registrar", html)
-        self.assertIn("Falta registrar la asistencia del ", html)
-        self.assertIn("Faltan 3 o más reuniones por registrar, la última el ", html)
-        self.assertIn("Próxima reunión: ", html)
-        self.assertIn("Sin día fijo", html)
+        # The two groups, by name, in the list of what waits; each row leads to the group, never to its lists.
+        waits = section(html, "p-atender")
+        missing = dict(re.findall(r'>([^<>]+)<span class="visually-hidden">: listas</span>.*?<span class="chip chip--wait">([^<]+)</span>', waits, flags=re.S))
+        self.assertEqual(missing, {"Jóvenes Roca": "Falta 1 lista", "Estudio de Romanos": "Faltan 3 o más listas"})
+        self.assertIn("La última, ", waits)
+        self.assertNotIn("/reuniones/", waits)
+        self.assertIn("Próxima: ", row_of(html, "p-grupos", ">Oración mensual</a>"))
+        self.assertIn("Sin día fijo", row_of(html, "p-grupos", ">Sin calendario</a>"))
         for blame in ("tres semanas", "Sin reunión registrada", "olvid", "atrasad", "No hubo reunión"):
             self.assertNotIn(blame, html, blame)
