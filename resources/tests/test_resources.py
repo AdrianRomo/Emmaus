@@ -354,6 +354,10 @@ class MediaTests(ResourcesFixture):
     def test_search_only_finds_published_media_of_the_members_church(self):
         self.client.force_login(self.member_user)
         match = self.media(title="Camino nuevo", speaker="Ana Torres", series="Cartas")
+        library = self.client.get(MEDIA)
+        self.assertContains(library, f'<form method="get" action="{MEDIA}" role="search">')
+        self.assertContains(library, '<label for="resource-search">Buscar por título, persona o serie</label>', html=True)
+        self.assertContains(library, '<input id="resource-search" type="search" name="q" maxlength="160" value="">', html=True)
         other = self.media(title="La vid")
         services.retire_media(self.media(title="Camino anterior", kind="musica"), self.admin)
         saved_filter = self.client.get(MEDIA, {"tipo": "musica"})
