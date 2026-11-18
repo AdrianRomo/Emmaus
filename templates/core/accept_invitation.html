@@ -1,7 +1,57 @@
 {% extends "base.html" %}
+{% load brand %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Aceptar invitación{% endblock %}
 {% block content %}
-{% comment %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): the invitation's church above the title; what it grants as two facts (the role, and the
+  e-mail the person will sign in with, which cannot be changed here); then the account. A participant also says how
+  to reach them and, beside the two notices they accept, reads what the church uses Emmaus for (in these words).
+{% endcomment %}
+<div class="narrow door">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <header class="page-head">
+    <div class="page-head__text">
+      {% include "core/_door_church.html" with church=invitation.church %}
+      <h1 class="voice page-head__title">Acepta tu invitación</h1>
+    </div>
+  </header>
+  <dl class="summary-list">
+    {% if user.is_authenticated or invitation.church|has_logo %}<div class="summary-list__row"><dt>Iglesia</dt><dd>{{ invitation.church.name }}</dd></div>{% endif %}
+    <div class="summary-list__row"><dt>Tu rol</dt><dd>{{ invitation.get_role_display }}</dd></div>
+    <div class="summary-list__row"><dt>Tu correo</dt><dd class="break-anywhere">{{ invitation.email }}</dd></div>
+  </dl>
+  <form method="post" novalidate class="mt-8">
+    {% csrf_token %}
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% if invitation.role == "participant" %}
+    <section class="form-section" aria-labelledby="tu-cuenta">
+      <h2 id="tu-cuenta" class="form-section__title">Tu cuenta</h2>
+      {% include "partials/ui/field.html" with field=form.full_name %}
+      {% include "partials/ui/field.html" with field=form.password1 %}
+      {% include "partials/ui/field.html" with field=form.password2 %}
+    </section>
+    <section class="form-section" aria-labelledby="contacto">
+      <h2 id="contacto" class="form-section__title">Cómo contactarte</h2>
+      {% include "partials/ui/field.html" with field=form.preferred_contact_method %}
+      {% include "partials/ui/field.html" with field=form.phone_number %}
+    </section>
+    <section class="form-section" aria-labelledby="aviso">
+      <h2 id="aviso" class="form-section__title">Antes de crear tu cuenta</h2>
+      <div class="notice">
+        <p>Tu iglesia puede usar Emmaus para guiarte en las lecciones, recibir tus preguntas y coordinar un acompañamiento personal con líderes de confianza.</p>
+      </div>
+      {% include "partials/ui/field.html" with field=form.accept_privacy %}
+      {% include "partials/ui/field.html" with field=form.accept_emergency_disclaimer %}
+    </section>
+    {% else %}
+    {% for field in form.visible_fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}
+    {% endif %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Crear mi cuenta</button>
+    </div>
+  </form>
+</div>
+{% else %}{% comment %}
   The link of an invitation (core.views.accept_invitation). What it grants is said as three facts, not as
   sentences: the church, the role and the e-mail the person will sign in with (it cannot be changed here). A
   participant also reads what the church uses Emmaus for, and accepts the two notices of the form.
@@ -27,4 +77,4 @@
     </div>
   </form>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

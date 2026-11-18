@@ -2,7 +2,102 @@
 {% load emmaus %}
 {% block page_title %}{% if can_answer and response_form.errors or draft_form.errors %}Error: {% endif %}Pregunta de {{ question.participant.get_full_name|default:question.participant.email }}{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% load shell community %}{% comment %}
+  The redesign ("Ventanas"): one question and its answers. The participant reads «Tu pregunta», the answers with who
+  wrote them, and the church's safety notice, whole. A leader reads it precisely: its state, how carefully to treat it
+  (pastoral care in chile, never softened) and when; answers personally (the one filled button); passes it to the
+  pastor (what that does is said once); and, folded, the AI draft with its warning, word for word.
+{% endcomment %}
 {% with asker=question.participant.get_full_name|default:question.participant.email %}
+{% if is_participant %}{% url 'participant_questions' as back_url %}<a class="back-link" href="{{ back_url }}">Mis preguntas</a>{% elif is_mentor %}{% url 'mentor_dashboard' as back_url %}<a class="back-link" href="{{ back_url }}">Inicio</a>{% else %}{% url 'questions_inbox' as back_url %}<a class="back-link" href="{{ back_url }}">Preguntas</a>{% endif %}
+{% if can_answer %}{% include "partials/ui/error_summary.html" with form=response_form %}{% endif %}
+{% if draft_form.errors %}{% include "partials/ui/error_summary.html" with form=draft_form %}{% endif %}
+<header class="page-head">
+  <div class="page-head__text">
+    <h1 class="voice page-head__title">{% if is_participant %}Tu pregunta{% else %}Pregunta de {{ asker }}{% endif %}</h1>
+    <p class="page-head__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}{% include "core/rotulo/_cuidado.html" %}<span>Enviada el {{ question.created_at|long_date }}, a las {{ question.created_at|time:"H:i" }}</span></p>
+  </div>
+</header>
+<div class="block prose disc-hilo__pregunta">{{ question.question_text|linebreaks }}</div>
+
+<section class="block" aria-labelledby="respuestas">
+  <h2 id="respuestas" class="heading">Respuestas de los líderes</h2>
+  {% if question.responses.all %}
+    <ol class="rows disc-hilo">
+      {% for response in question.responses.all %}{% with who=response.responder.get_full_name|default:response.responder.email %}
+        <li class="row row--lead">
+          {% monogram who %}
+          <div class="row__main">
+            <p class="row__title">{{ who }}</p>
+            <p class="row__meta">{{ response.created_at|long_date|capfirst }}, a las {{ response.created_at|time:"H:i" }}</p>
+            <div class="prose disc-hilo__texto">{{ response.response_body|linebreaks }}</div>
+          </div>
+        </li>
+      {% endwith %}{% endfor %}
+    </ol>
+  {% else %}
+    <p class="empty-line">Todavía no hay respuesta. La respuesta aparecerá aquí cuando alguien de la iglesia conteste.</p>
+  {% endif %}
+</section>
+
+{% if can_answer %}
+<form class="block" method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="action" value="respond">
+  <section class="form-section" aria-labelledby="responder">
+    <h2 id="responder" class="heading form-section__title">Responde personalmente</h2>
+    {% include "partials/ui/fields.html" with form=response_form %}
+  </section>
+  <div class="form-actions"><button class="btn btn--primary" type="submit">Responder</button></div>
+</form>
+
+<form class="block" method="post" aria-labelledby="al-pastor">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="escalate">
+  <h2 id="al-pastor" class="heading">Pasar al pastor</h2>
+  <p class="aside-note">Si esta pregunta necesita atención pastoral, pásala al pastor: la verán los pastores de tu iglesia.</p>
+  <div class="form-actions"><button class="btn btn--secondary" type="submit">Pasar al pastor</button></div>
+</form>
+
+<details class="fold block" id="borrador"{% if draft_form.errors %} open{% endif %}>
+  <summary>Borrador con IA</summary>
+  <p class="aside-note">Úsalo solo como punto de partida. Tu cuidado personal importa más que el borrador.</p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="generate_ai">
+    <button class="btn btn--link disc-borrador__generar" type="submit">Generar borrador</button>
+  </form>
+  {% for draft, form in draft_forms %}
+    {% if draft.status != "draft" %}
+    <div class="disc-borrador">
+      <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=draft.status label=draft.get_status_display %}<span>Generado con IA el {{ draft.created_at|fecha_corta }}. Ya se revisó{% if draft.reviewed_at %} el {{ draft.reviewed_at|fecha_corta }}{% endif %}.</span></p>
+    </div>
+    {% else %}
+    <form method="post" class="disc-borrador" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="action" value="review_ai">
+      <input type="hidden" name="draft_id" value="{{ draft.id }}">
+      <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=draft.status label=draft.get_status_display %}<span>Generado con IA el {{ draft.created_at|fecha_corta }}.</span></p>
+      <div class="notice notice--warning">
+        <p>Revísalo con cuidado antes de enviarlo. Este borrador no tiene autoridad espiritual y una persona del equipo de líderes debe editarlo o aprobarlo.</p>
+      </div>
+      <div class="prose">{{ draft.generated_text|linebreaks }}</div>
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="form-actions"><button class="btn btn--secondary" type="submit">Enviar mi decisión</button></div>
+    </form>
+    {% endif %}
+  {% empty %}
+    <p class="empty-line">Todavía no hay borradores con IA. Genera un borrador solo si te ayuda a preparar una respuesta humana y cuidadosa.</p>
+  {% endfor %}
+</details>
+{% endif %}
+
+<aside class="notice block" aria-label="Aviso de seguridad">
+  <p class="notice__title">Un aviso importante</p>
+  {% for paragraph in question_disclaimer %}<p>{{ paragraph|linebreaksbr }}</p>{% endfor %}
+</aside>
+{% endwith %}
+{% else %}{% with asker=question.participant.get_full_name|default:question.participant.email %}
 {% if is_participant %}{% url 'participant_questions' as back_url %}{% elif is_mentor %}{% url 'mentor_dashboard' as back_url %}{% else %}{% url 'questions_inbox' as back_url %}{% endif %}
 {% if can_answer %}{% include "partials/ui/error_summary.html" with form=response_form %}{% endif %}
 {% if draft_form.errors %}{% include "partials/ui/error_summary.html" with form=draft_form %}{% endif %}
@@ -102,4 +197,4 @@
   </div>
 {% endif %}
 {% endwith %}
-{% endblock %}
+{% endif %}{% endblock %}

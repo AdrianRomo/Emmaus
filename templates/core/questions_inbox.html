@@ -2,7 +2,24 @@
 {% load emmaus %}
 {% block page_title %}Preguntas{% endblock %}
 {% block content %}
-<div class="disc-list">
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): every question of the church, newest first. The two views as capsules; each question a row that opens it.
+{% endcomment %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas" %}
+{% include "core/rotulo/_preguntas_vistas.html" with current="todas" %}
+<section aria-label="Todas las preguntas">
+  {% if questions %}
+    <ul class="rows">
+      {% for question in questions %}
+        {% url 'church_question_detail' question.id as question_url %}
+        {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Sin preguntas todavía.</p>
+  {% endif %}
+</section>
+{% else %}<div class="disc-list">
 {% include "events/rotulo/_page_head.html" with title="Preguntas" %}
 {% include "core/rotulo/_preguntas_vistas.html" with current="todas" %}
 <section aria-label="Todas las preguntas">
@@ -18,4 +35,4 @@
   {% endif %}
 </section>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

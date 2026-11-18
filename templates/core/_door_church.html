@@ -1,0 +1,5 @@
+{% load brand %}{% comment %}
+  Whose door this is, signed out and with the module on: the church's name above the title, where the church has
+  no logo (with one, the logo already stands above the sheet: base.html's bar, or the sign-in page's own slot).
+  Signed in, the rail names the church. church: the church the page speaks for.
+{% endcomment %}{% if church and not user.is_authenticated and not church|has_logo %}<p class="public-event__church">{{ church.name }}</p>{% endif %}

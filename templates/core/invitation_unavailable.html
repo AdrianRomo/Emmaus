@@ -1,10 +1,22 @@
 {% extends "base.html" %}
 {% block page_title %}Invitación no disponible{% endblock %}
 {% block content %}
-<div class="narrow door">
+{% if ui_v2 %}<div class="narrow door">
+  <header class="page-head">
+    <div class="page-head__text">
+      {% include "core/_door_church.html" with church=brand_church %}
+      <h1 class="voice page-head__title">Esta invitación ya no funciona</h1>
+      <p class="lede">Venció o ya se usó. Pide otra a un líder de tu iglesia.</p>
+    </div>
+  </header>
+  <div class="step__actions">
+    <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar</a>
+  </div>
+</div>
+{% else %}<div class="narrow door">
   {% include "events/rotulo/_page_head.html" with title="Esta invitación ya no funciona" lede="Venció o ya se usó. Pide otra a un líder de tu iglesia." %}
   <div class="step__actions">
     <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar</a>
   </div>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}
