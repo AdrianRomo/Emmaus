@@ -73,5 +73,15 @@ if ! $skip_community; then
     status=1; log "community-flow FAILED (see $out/community-flow.log)"; tail -n 8 "$out/community-flow.log"
   fi
 fi
+if ! $skip_review && ! $skip_community; then
+  # The same review again, now that the church of the camp uses the new modules: its church-role accounts get the
+  # redesigned shell and stylesheet on every screen, the camp's included.
+  log "review-all.mjs again, modules on (the redesigned shell over every screen)"
+  if AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" timeout 1200 node review-all.mjs "$out/urls.json" "$out/review-on" >"$out/review-all-on.log" 2>&1; then
+    grep -E "page/width checks" "$out/review-all-on.log" || tail -n 2 "$out/review-all-on.log"
+  else
+    status=1; log "review-all (modules on) FAILED (see $out/review-all-on.log and $out/review-on/results.json)"; tail -n 8 "$out/review-all-on.log"
+  fi
+fi
 [ "$status" -eq 0 ] && log "browser gate OK" || log "browser gate FAILED"
 exit "$status"

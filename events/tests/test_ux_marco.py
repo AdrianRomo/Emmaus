@@ -33,7 +33,7 @@ MENU_BUTTON = (
 )
 LINK = re.compile(r'<a href="([^"]*)"[^>]*>([^<]*)</a>')
 TASK = re.compile(r'<h2 id="tarea-[\w-]+" class="heading">')
-OLD_NAMES = ("Cambiar de evento", "Campamentos y eventos")
+OLD_NAMES = ("Cambiar de evento", "Campamentos y eventos", "Campamentos")  # the list of events is "Eventos" since 2026-11-17
 MARKED_AYUDA = re.compile(r'<a href="([^"]+)" aria-current="page">Ayuda</a>')
 
 
@@ -114,7 +114,7 @@ class CampamentosTests(MarcoFixture):
         for name, html in self.event_pages():
             for old in OLD_NAMES:
                 self.assertNotIn(old, html, name)
-        # events_list.html keeps "Campamentos y eventos" as its title (another package); its bar does not say it
+        # events_list.html keeps "Eventos" as its title (another package); its bar does not say it
         for name, html in self.base_pages():
             for old in OLD_NAMES:
                 self.assertNotIn(old, chrome(html), name)
@@ -125,19 +125,19 @@ class CampamentosTests(MarcoFixture):
             with self.subTest(page=name):
                 # The role on its own line, after the link (test_rol_visible)
                 role = name.capitalize()
-                self.assertIn(f'<p class="bar__event">Campamento A <a href="{everything}">Campamentos</a><span>{role}</span></p>', html)
-                self.assertEqual(panel_links(html)[-1], (everything, "Campamentos"))
+                self.assertIn(f'<p class="bar__event">Campamento A <a href="{everything}">Eventos</a><span>{role}</span></p>', html)
+                self.assertEqual(panel_links(html)[-1], (everything, "Eventos"))
         for name, html in self.base_pages():
             with self.subTest(page=name):
-                self.assertIn(f'<a class="btn btn--small btn--secondary bar__switch" href="{everything}">Campamentos</a>', html)
-                self.assertEqual(panel_links(html)[-1], (everything, "Campamentos"))
+                self.assertIn(f'<a class="btn btn--small btn--secondary bar__switch" href="{everything}">Eventos</a>', html)
+                self.assertEqual(panel_links(html)[-1], (everything, "Eventos"))
 
     def test_no_bar_links_the_bare_list(self):
         """The bare list jumps back to the last event (events_home): the admin's nav item and base.html's button did."""
         bare = f'href="{reverse("events:list")}"'
         for name, html in self.event_pages() + self.base_pages():
             self.assertNotIn(bare, chrome(html), name)
-        self.assertNotIn("Campamentos", [label for _, label in bar_links(self.page(self.admin, self.url("admin_home")))])
+        self.assertNotIn("Eventos", [label for _, label in bar_links(self.page(self.admin, self.url("admin_home")))])
 
     def test_campamentos_reaches_the_list_after_working_in_an_event(self):
         """base.html's button linked the bare list, which sent a church admin back to the last event."""
@@ -255,7 +255,7 @@ class ChurchAyudaTests(MarcoFixture):
         html = self.page(self.coord1, reverse("ayuda"))
         self.assertEqual(len(re.findall(r"<h1\b", html)), 1)
         self.assertIn("Únete a un evento con el código", html)
-        self.assertIn(f'<a href="{reverse("events:list")}?todos=1">Ir a Campamentos</a>', html)
+        self.assertIn(f'<a href="{reverse("events:list")}?todos=1">Ir a Eventos</a>', html)
         self.assertEqual(len(TASK.findall(html)), 3)
         self.assertIn(f'<a href="{reverse("ayuda")}" aria-current="page">Ayuda</a>', html)
 

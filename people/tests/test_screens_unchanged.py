@@ -18,9 +18,11 @@ NEW_WORDS = ("Mi iglesia", "/mi-iglesia/")
 
 
 def masked(response) -> str:
-    # The CSRF token and the idle countdown (seconds left in the session) change between two requests by themselves.
+    # The CSRF token, the idle countdown (seconds left in the session) and any clock change between two requests by themselves.
     html = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', "", response.content.decode())
-    return re.sub(r'data-idle-remaining="\d+"', "", html)
+    html = re.sub(r'data-idle-remaining="\d+"', "", html)
+    # A clock on a screen ("Última actualización", a chart's "a las 03:47"): two renders can straddle a minute.
+    return re.sub(r"\b\d\d:\d\d(:\d\d)?\b", "HH:MM", html)
 
 
 class ScreensUnchangedTests(CampFixture):

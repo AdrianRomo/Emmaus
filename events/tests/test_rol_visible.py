@@ -1,6 +1,6 @@
 """The signed-in user's role is visible ("it gets confusing when they log in").
 
-Every event screen's bar says the event role on its own line, under the event's name and its "Campamentos" link
+Every event screen's bar says the event role on its own line, under the event's name and its "Eventos" link
 (partials/ui/bar.html, context_role from both event shells). Each role's home says it once more as a sentence,
 "Tu rol: coordinador.", the formula of the event list's rows. The kiosk has no bar and says no role; base.html keeps
 the church role under the church's name.
@@ -52,7 +52,7 @@ class RoleInTheBarTests(MarcoFixture):
             with self.subTest(role=label):
                 self.assertRegex(
                     bar_event(html),
-                    rf'^<p class="bar__event">Campamento A <a href="{re.escape(everything)}">Campamentos</a>'
+                    rf'^<p class="bar__event">Campamento A <a href="{re.escape(everything)}">Eventos</a>'
                     rf"<span>{label}</span></p>$",
                 )
 

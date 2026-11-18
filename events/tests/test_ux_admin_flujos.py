@@ -143,7 +143,7 @@ class EventSlugTests(CampFixture):
         self.assertEqual(Event.objects.count(), 2)
 
     def test_addresses_the_site_already_uses_count_as_taken(self):
-        """/eventos/nuevo/ is "Crear campamento" and /eventos/cuenta/… the session ping: both are routed before an
+        """/eventos/nuevo/ is "Crear evento" and /eventos/cuenta/… the session ping: both are routed before an
         event's address, so an event called "Nuevo" would open the create form."""
         for name in ("Nuevo", "Cuenta"):
             form = EventForm(data=event_data(name=name))

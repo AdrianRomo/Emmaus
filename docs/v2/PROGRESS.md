@@ -2,6 +2,222 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-17, last — Redesign, wave 3: serving and accompanying (same branch)
+
+### Shipped (working, tested, for churches with the `community` module on)
+
+| Piece | Where |
+|---|---|
+| Servir: teams, who coordinates and who serves, dates, "Confirmar" / "No puedo", days a person cannot | app `serving` |
+| Acompañar: the administration asks one person to look for another by a date; steps from four fixed kinds; no free text | app `care` |
+| "A tu cargo" holds Servir and Acompañar with their counts; the administration gets "Equipos de la iglesia" and "Seguimiento de personas" | `core/shell.py` |
+| Mi iglesia shows the next dates to serve and a quiet panel for who has people to look for | `groups/views.py::home` |
+| "Pedir que alguien la acompañe" on a person's page | `templates/people/person_detail.html` |
+
+Both modules were built by sub-agents from a written specification, merged, wired, seeded and
+checked here in a browser. The coordinator's and the tutor's screens were also looked at inside the
+shell (an event role whose account is a person of the church), which wave 2 had left open.
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `9b60887`, 2026-11-17T10:48Z (the commit after it
+holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                1  System check identified no issues (0 silenced).
+migrations      PASS                0  No changes detected
+deploy-check    PASS                1  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: no core/ or events/ migration added since f72d4f6
+pip-audit       PASS                0  No known vulnerabilities found
+tests-sqlite    PASS              117  1734 passed, 6 skipped
+tests-postgres  PASS              189  1729 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              457  browser gate OK
+overall: PASS
+```
+
+- The community journey in that run: 213 checks, 0 problems. It now also confirms a date to
+  serve, checks that who serves cannot open the team's page or somebody's follow-up, reads the
+  coordinator's count, and records a step on a follow-up.
+- A second independent review (read-only sub-agent) of the two modules found no authorization or
+  tenant-isolation defect and five others, fixed in `9b60887` with tests: the administration's
+  count told an administrator that a follow-up about herself existed; moving a date asked again
+  who had said no and could not the new day; a member being removed could keep a date given at
+  the same moment; a non-numeric id was a server error; a dead link on one's own page.
+- Looked at as rendered screenshots: Servir (390, 1440), a team (390, 1440), a follow-up (390,
+  1440), the coordinator's home in the shell (390, 1024, 1440).
+- Not verified: the same as wave 2.
+
+### Not done, and why
+
+Unchanged from wave 2, minus serving and follow-ups: the pastor's view of engagement, guardians and
+households, check-in for children, photos, FAQ, the programme, giving and notifications outside
+Emmaus are not built; an event that is not a camp is still created by the camp's form (#68).
+`serving` decides who coordinates by its own rows, not through `has_scope` (handoff, item 4).
+Nothing is pushed (#64).
+
+## 2026-11-17, later — Redesign, wave 2: "Eventos", the camp in the shell, notices, events for people, devotionals and resources (same branch)
+
+The owner answered the first round: Emmaus is a church system, the word is "Eventos", keep going,
+and put what needs a decision in issues. This entry is what was added; the entry below is wave 1.
+
+### Shipped (working, tested, for churches with the `community` module on unless it says otherwise)
+
+| Piece | Where |
+|---|---|
+| "Eventos" replaces "Campamentos" in the bar, the page, the welcomes, the help and the user guide; "Crear evento" (**for every church, module on or off**) | templates, `core/onboarding.py`, `docs/user-guide-es.md` |
+| An event is a place in the shell: its name, the person's role, the role's links; tabs on a phone; under 1101 px the top bar and tabs | `events/rotulo/shell_*.html`, `partials/ui/shell*.html` |
+| Avisos: for the whole church (administration) or one group (who guides it); appear and expire by date; "Nuevo" until opened; a count in the menu | app `notices` |
+| Events for people: the administration publishes an event's page; a person signs up and cancels; capacity; "Inscritos" with contact data and attendance | app `agenda` |
+| The devotional of the day with a private "Ya lo leí"; resources (sermons, music, studies) as links by series and speaker | app `resources` |
+| Mi iglesia shows notices, the devotional, published events with "Inscribirme", and recent resources | `groups/views.py::home` |
+| A second research pass with REA on rendered public pages, and the decisions taken from it | `REFERENCE_RESEARCH.md` |
+| The browser gate reviews every existing screen a second time with the modules on | `scripts/agents/e2e-gate.sh` |
+
+Three of the modules were built by sub-agents in their own worktrees from a written specification,
+then merged, wired into the home and the shell, seeded, and checked here in a browser.
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `dbbdb31`, 2026-11-17T10:07Z (the commit after it
+holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                0  System check identified no issues (0 silenced).
+migrations      PASS                0  No changes detected
+deploy-check    PASS                0  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: no core/ or events/ migration added since f72d4f6
+pip-audit       PASS                3  No known vulnerabilities found
+tests-sqlite    PASS              103  1686 passed, 6 skipped
+tests-postgres  PASS              168  1681 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              440  browser gate OK
+overall: PASS
+```
+
+The community journey in that run: 175 checks, 0 problems.
+
+- Two gate runs in between **failed, and were right to**. First: editing or retiring a notice
+  crashed on PostgreSQL (a row lock over a nullable join; SQLite does not notice), and an import was
+  left unused (fixed in `131b735`). Second: slice 1's byte-identity test compared two renders of a
+  screen with a clock and they straddled a minute (the test masks clocks now, `dbbdb31`).
+- An independent review of the whole change by a sub-agent (read-only) found no authorization or
+  tenant-isolation defect and five others, all fixed in `1f73713` with tests: a group with nobody
+  printed a QuerySet; correcting a past list deleted who came and has since left, and rewrote that
+  day's head-count; stray newlines with the module off; "Mis datos" told whether an e-mail was
+  somebody else's; the shell could be built for another of the account's churches.
+- With the module off, 14 pages for five roles were rendered on `v2/slice-1-camp-to-group` and on
+  this branch from the same database and compared: the same bytes, apart from the "Eventos" words.
+- Browser, modules on: the journey now also reads a notice, reads the devotional, opens the
+  resources, signs up for an event, passes a group's list, and audits every new screen at 390, 768
+  and 1440 px (axe WCAG 2.0–2.2 A and AA, overflow, one `h1`, 44 px targets).
+- The modules-on pass of `review-all.mjs`: 243 page/width checks, the same three rows flagged as in
+  the modules-off pass (the page that is a 403 on purpose).
+- Looked at as rendered screenshots: the home with every new section (390, 1440), an event's page
+  (390), the devotional (390), the event administration's home in the shell (390, 1024, 1440).
+  `SCREEN_MATRIX.md` says the rest.
+- Not verified: the sandbox or production hosts; e-mail; two real PostgreSQL connections racing
+  for the last place of an event (the order lock, count, insert is tested, on SQLite); the
+  coordinator's, tutor's, interview and campero screens by eye with the module on.
+
+### Not done, and why
+
+- **Not the whole product.** Volunteer scheduling, follow-up tasks, the pastor's view of
+  engagement, guardians and households, check-in for children, photos, FAQ, the event programme,
+  giving, notifications outside Emmaus: not built. Issue #71 proposes an order.
+- **An event that is not a camp** is still created by the camp's form (issue #68).
+- **Nothing pushed, no pull request** (issue #64). **Codex review** not run.
+- **Per-task rules stretched**, as before: one branch, several modules, far over 400 lines.
+
+### Needs the owner
+
+Issues #64 to #71 (decisions, each with the default now in place) and #72 (a bug in Atrio's bar,
+seen on the way). Q-C1 to Q-C4 of slice 1 are unchanged.
+
+### Next
+
+`AGENT_HANDOFF.md`, "Next, in order".
+
+## 2026-11-17 — Redesign, wave 1: Santuario, the shell, Mi iglesia, groups and meetings (branch `v2/redesign-santuario-shell`)
+
+Stacked on `v2/slice-1-camp-to-group`. The owner's directive of this date asks for a product-wide
+redesign; this entry is what of it exists. What does not is listed below and in `UX_AUDIT.md`.
+
+### Shipped (working, tested, for churches with the `community` module on; nothing changes with it off)
+
+| Piece | Where |
+|---|---|
+| Santuario: a token and component layer over Atrio, a serif voice for titles, the arch monogram | `static/css/santuario.css`, `docs/v2/DESIGN_SYSTEM.md` |
+| The shell: side rail, phone tabs, "Más"; sections by what the person may open; "A tu cargo" with the count that waits | `core/shell.py`, `templates/partials/ui/shell*.html` |
+| Mi iglesia rebuilt: one next step, "Lo que viene" by day, groups, requests, the way so far, missing contact data | `groups/views.py::home`, `templates/groups/home.html` |
+| "Mis datos": a person corrects their own phone, e-mail and preferred contact | `groups/views.py::profile` |
+| Groups: own first, filter by kind, the group page, the guide's work with tappable contact data | `templates/groups/` |
+| Meetings and attendance: "Pasar lista", "Reuniones", the home's "¿Quién vino a …?" | `groups/models.py` (migration `groups/0002`), `groups/services.py::record_meeting` |
+| Help page tasks for the new navigation and "Mis datos" | `templates/core/ayuda.html` |
+| Reference research, UX audit, screen matrix, handoff | `docs/v2/` |
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `bdc6ef4`, 2026-11-17T08:43Z (the commit after it
+holds these documents and two corrected figures in a stylesheet comment):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                1  System check identified no issues (0 silenced).
+migrations      PASS                0  No changes detected
+deploy-check    PASS                1  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: no core/ or events/ migration added since f72d4f6
+pip-audit       PASS                2  No known vulnerabilities found
+tests-sqlite    PASS               93  1610 passed, 6 skipped
+tests-postgres  PASS              153  1605 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              237  browser gate OK
+overall: PASS
+```
+
+The community journey in that run: "community flow OK: 102 checks, 0 problems".
+
+- Browser, modules on (`e2e/community-flow.mjs`): the camp-to-group journey, the phone's tabs and
+  "Más" by keyboard, "Mis datos", and passing a list, with axe (WCAG 2.0–2.2 A and AA), horizontal
+  overflow, one `h1` and 44 px targets at 390, 768 and 1440 px on every community and people screen.
+- Looked at as rendered screenshots in this session: Mi iglesia (guide, former camper) at 390, 768
+  and 1440; Grupos, a group, the guide's "Personas" and "Reuniones", "Pasar lista", Mi cuenta, the
+  event list, sign-in and the event administration's home at one or more widths. `SCREEN_MATRIX.md`
+  says which, and which screens were **not** looked at with the module on.
+- Found and fixed while looking: a row with two buttons overflowed by 60 px at 768 px beside the
+  rail (rows now stack by the column's width); pages started on different lines (now anchored to
+  the rail); the home repeated the rail's "A tu cargo" and "Administrar" (removed from the home).
+- Not verified: anything on the sandbox or production hosts; real e-mail; a real church logo in the
+  rail (the seed has none; the slot is Atrio's `church_brand`); a screen reader by ear.
+
+### Not done, and why
+
+- **The camp is not inside the shell.** Entering an event shows Atrio's bar (with the new colours
+  and titles for church-role accounts). It is the next wave; it touches invariant 5.
+- **No events for members, announcements, devotionals, media, photos, notifications, serving,
+  check-in, giving.** None has a model yet. The home shows only what is real.
+- **Guardian accounts**: not built (Q-C2 is open).
+- **Discipleship and most camp screens were not looked at with the module on**; they pass their
+  tests and the modules-off browser review, which does not load the new stylesheet.
+- **Codex review** not run. **Per-task rules stretched again** on the owner's instruction: one
+  branch for several pieces, well over 400 changed lines.
+- **A dependency by another name**: one font file (Newsreader, OFL, 35 KB). No package was added.
+
+### Needs the owner
+
+1. Nothing is pushed. The earlier note said "until the owner says so"; the new directive asks for
+   pull requests, and the first branch is 7,000 lines the owner had asked whether to split. Say
+   "push" and both go up as drafts (slice 1 against `v2/foundation`, this one stacked on it).
+2. Q-S1 to Q-S4 in `AGENT_HANDOFF.md` (the serif on camp screens, "Eventos" vs "Campamentos", who
+   sees attendance, one flag or two).
+3. Q-C1 to Q-C4 of slice 1, unchanged.
+
+### Next
+
+`AGENT_HANDOFF.md`, "Next, in order".
+
 ## 2026-11-17 — Slice 1: a former campero joins a group (branch `v2/slice-1-camp-to-group`)
 
 ### What was found first

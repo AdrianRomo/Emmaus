@@ -7,6 +7,7 @@ the church asks ``core.authz.has_scope``: group ``manage`` for its guides, churc
 the administration. No view here reads an interview, an answer or a camp follow-up.
 """
 
+from datetime import date
 from functools import wraps
 
 from django.contrib import messages
@@ -15,25 +16,34 @@ from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import formats
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core import notify
 from core.authz import Action, has_scope
-from events.models import Event, normalize_name
+from events.models import normalize_name
 from events.services import throttle
 from people import flags
 from people.decorators import module_required
 from people.models import Person
-from people.services import ensure_own_person
+from people.services import ensure_own_person, save_person
+
+from agenda import services as agenda_services
+from care import services as care_services
+from notices import services as notices_services
+from resources import services as resources_services
+from serving import services as serving_services
 
 from . import services
 from .access import church_groups, managed_group_ids
-from .forms import GroupForm
-from .models import Group, GroupJoinRequest, GroupMembership
+from .forms import GroupForm, MyDataForm
+from .models import Group, GroupJoinRequest, GroupMeeting, GroupMembership
 
 ACTIVE = GroupMembership.Status.ACTIVE
 PENDING = GroupJoinRequest.Status.PENDING
+# The words of the filter are plurals; the model's are the singular a group page shows.
+GROUP_KIND_FILTERS = [("pequeno", "Grupos pequeños"), ("estudio", "Estudios bíblicos"), ("otro", "Otros grupos")]
 
 
 def community_view(view_func):
@@ -98,10 +108,41 @@ def home(request):
         .values("group_id", "group__name").annotate(total=Count("id")).order_by("group__name")
     )
     to_decide = list(to_decide)
-    upcoming = Event.objects.filter(church=church, status=Event.Status.ACTIVE, ends_on__gte=today).order_by("starts_on", "name")[:5]
+    # Only what the church published for its people (agenda.EventPage), with this person's sign-up.
+    upcoming = agenda_services.upcoming_for(person, church, today)[:5]
+    notices = notices_services.for_home(person, is_admin=request.is_church_admin)
+    devotional = resources_services.today_devotional(church, person, today)
+    serving_dates = serving_services.my_dates(person, today, limit=3)
+    accompanying = care_services.open_count(person)
+    media = resources_services.latest_media(church)
     history = person.event_links.select_related("event").order_by("-event__starts_on")
     open_groups = church_groups(church).filter(accepts_requests=True).exists()
     any_group = Group.objects.filter(church=church).exists()
+
+    # What is coming, in one list by day: the meetings of the person's groups and the church's events.
+    agenda = [
+        {
+            "date": membership.next_meeting, "today": membership.next_meeting == today, "title": membership.group.name,
+            "kind": "group", "time": membership.group.meeting_time, "place": membership.group.meeting_place,
+            "url": reverse("community:group_detail", args=[membership.group.pk]),
+        }
+        for membership in memberships if membership.next_meeting
+    ]
+    agenda += [
+        {"date": max(event.starts_on or today, today), "today": (event.starts_on or today) <= today, "title": event.name, "kind": "event", "event": event}
+        for event in upcoming
+    ]
+    agenda.sort(key=lambda row: (row["date"], row["kind"], row["title"]))
+
+    # The way so far, newest first: the groups the person is in and the events they were part of.
+    journey = [
+        {"date": timezone.localtime(membership.start_at).date(), "now": True, "membership": membership}
+        for membership in memberships
+    ]
+    journey += [{"date": link.event.starts_on, "now": False, "event": link.event} for link in history if link.event.starts_on]
+    journey.sort(key=lambda row: row["date"], reverse=True)
+
+    missing = [label for label, value in (("tu teléfono", person.phone), ("tu correo", person.email)) if not value]
 
     sign = None
     if to_decide:
@@ -119,6 +160,17 @@ def home(request):
             "text": "Con un grupo creado, las personas de la iglesia ya pueden pedir unirse.",
             "url": reverse("community:group_create"),
             "action": "Crear un grupo",
+        }
+    elif due := next(
+        ((group, day) for group in (m.group for m in memberships if m.group.pk in managed) if (day := services.meeting_due(group, today))),
+        None,
+    ):
+        group, day = due
+        sign = {
+            "title": f"¿Quién vino a {group.name}?",
+            "text": f"Se reunieron el {_weekday_date(day)} y todavía no pasas lista.",
+            "url": reverse("community:meeting_record", args=[group.pk, day.isoformat()]),
+            "action": "Pasar lista",
         }
     elif not memberships and not my_requests and open_groups:
         sign = {
@@ -141,20 +193,57 @@ def home(request):
             "history": history,
             "open_groups": open_groups,
             "people_enabled": request.is_church_admin and flags.enabled(church, "people"),
+            "agenda": agenda[:6],
+            "notices": notices,
+            "devotional": devotional,
+            "serving_dates": serving_dates,
+            "accompanying": accompanying,
+            "media": media,
+            "journey": journey,
+            "missing": missing,
+            "today": today,
         },
     )
+
+
+@community_view
+def profile(request):
+    """"Mis datos": the person corrects how the church reaches them. Only their own row, and only
+    the contact fields: the name on record and the date of birth are the administration's."""
+    form = MyDataForm(request.POST or None, instance=request.person)
+    if request.method == "POST" and form.is_valid():
+        save_person(form.save(commit=False), request.user, created=False)
+        messages.success(request, "Guardamos tus datos.")
+        return redirect("community:home")
+    return render(request, "groups/profile.html", {"form": form, "person": request.person})
 
 
 # ---- discovery ----------------------------------------------------------------------------------
 @community_view
 def groups(request):
+    """The groups of the church. First the person's own, then where they asked, then the ones that
+    receive people, last the ones that do not. ``?tipo=`` keeps one kind, when the church has several."""
     person = request.person
     mine = set(GroupMembership.objects.filter(person=person, status=ACTIVE).values_list("group_id", flat=True))
     asked = set(GroupJoinRequest.objects.filter(person=person, status=PENDING).values_list("group_id", flat=True))
     rows = _with_leaders(church_groups(request.church).select_related("sede").order_by("name", "id"))
     for group in rows:
         group.state = "mine" if group.pk in mine else "asked" if group.pk in asked else "open" if group.is_open else "closed"
-    return render(request, "groups/groups.html", {"groups": rows})
+    rows.sort(key=lambda group: ("mine", "asked", "open", "closed").index(group.state))
+    kinds = [
+        {"value": value, "label": label, "count": sum(1 for group in rows if group.kind == value)}
+        for value, label in GROUP_KIND_FILTERS
+    ]
+    kinds = [kind for kind in kinds if kind["count"]]
+    chosen = request.GET.get("tipo", "")
+    if chosen not in {kind["value"] for kind in kinds}:
+        chosen = ""
+    shown = [group for group in rows if not chosen or group.kind == chosen]
+    return render(
+        request,
+        "groups/groups.html",
+        {"groups": shown, "total": len(rows), "kinds": kinds if len(kinds) > 1 else [], "chosen": chosen},
+    )
 
 
 def _group(request, group_id: int, *, include_archived: bool = False) -> Group:
@@ -279,8 +368,8 @@ def group_people(request, group_id: int):
     return render(
         request,
         "groups/group_people.html",
-        {"group": group, "requests": requests, "members": members, "query": query, "found": found,
-         "me": request.person},
+        {"group": group, "requests": requests, "members": members, "member_count": len(members), "query": query,
+         "found": found, "me": request.person},
     )
 
 
@@ -329,6 +418,71 @@ def member_remove(request, group_id: int, membership_id: int):
             "action": "Sí, quitar del grupo",
             "back_url": reverse("community:group_people", args=[group.pk]),
         },
+    )
+
+
+# ---- meetings -----------------------------------------------------------------------------------
+def _day(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise Http404 from None
+
+
+def _weekday_date(day: date) -> str:
+    return formats.date_format(day, r"l j \d\e F").lower()
+
+
+@community_view
+def group_meetings(request, group_id: int):
+    """The meetings of a group, for who guides it: the one that waits for its list, then the
+    last ones with how many came. ``?fecha=`` opens the list of any past day."""
+    group = _managed_group(request, group_id)
+    chosen = request.GET.get("fecha", "").strip()
+    if chosen:
+        try:
+            day = date.fromisoformat(chosen)
+        except ValueError:
+            messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
+            return redirect("community:group_meetings", group.pk)
+        return redirect("community:meeting_record", group.pk, day.isoformat())
+    meetings = list(group.meetings.annotate(present=Count("attendances"))[:12])
+    return render(
+        request,
+        "groups/group_meetings.html",
+        {
+            "group": group, "meetings": meetings, "due": services.meeting_due(group),
+            "member_count": GroupMembership.objects.filter(group=group, status=ACTIVE).count(),
+            "today": timezone.localdate(),
+        },
+    )
+
+
+@community_view
+def meeting_record(request, group_id: int, day: str):
+    """"Pasar lista": who came on one day. Opening a day that already has a list shows it, ready to correct."""
+    group = _managed_group(request, group_id)
+    day = _day(day)
+    if day > timezone.localdate():
+        raise Http404
+    meeting = GroupMeeting.objects.filter(group=group, date=day).first()
+    members = list(GroupMembership.objects.filter(group=group, status=ACTIVE).select_related("person"))
+    if request.method == "POST":
+        try:
+            saved = services.record_meeting(group, day, request.POST.getlist("vino"), request.user)
+        except services.GroupError as error:
+            messages.error(request, error.message)
+            return redirect("community:group_meetings", group.pk)
+        came = "vino 1 persona" if saved.present == 1 else f"vinieron {saved.present} personas"
+        messages.success(request, f"Guardamos la lista del {_weekday_date(day)}: {came} de {saved.expected}.")
+        return redirect("community:group_meetings", group.pk)
+    present = set(meeting.attendances.values_list("person_id", flat=True)) if meeting else set()
+    for membership in members:
+        membership.came = membership.person_id in present
+    return render(
+        request,
+        "groups/meeting_record.html",
+        {"group": group, "day": day, "day_words": _weekday_date(day), "meeting": meeting, "members": members},
     )
 
 

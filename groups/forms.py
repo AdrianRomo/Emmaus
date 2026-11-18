@@ -3,6 +3,8 @@ from django import forms
 from core.forms import TuErrorMessagesMixin
 from events.models import Sede
 
+from people.models import Person
+
 from .models import Group
 
 
@@ -34,3 +36,28 @@ class GroupForm(TuErrorMessagesMixin, forms.ModelForm):
             self.fields["sede"].empty_label = "Toda la iglesia"
         else:
             del self.fields["sede"]
+
+
+class MyDataForm(TuErrorMessagesMixin, forms.ModelForm):
+    """"Mis datos": what a person may correct about themselves, how the church reaches them. The
+    name on record and the date of birth stay with the administration (the date decides whether a
+    guardian has to confirm, decision 0008)."""
+
+    class Meta:
+        model = Person
+        fields = ["phone", "email", "preferred_contact_method"]
+        labels = {"preferred_contact_method": "¿Cómo prefieres que te contacten?"}
+        help_texts = {
+            "phone": "Lo ve quien guía tu grupo y la administración de la iglesia.",
+            "email": "Aquí te escribe la iglesia. No cambia el correo con el que entras a Emmaus.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["phone"].widget.attrs.update({"inputmode": "tel", "autocomplete": "tel"})
+        self.fields["email"].widget.attrs["autocomplete"] = "email"
+
+    def clean_email(self):
+        # No "somebody else has this e-mail" here: this form is open to every person of the church, and that
+        # answer would tell them who is on the church's list. The administration's form keeps the check.
+        return self.cleaned_data["email"].strip().lower()

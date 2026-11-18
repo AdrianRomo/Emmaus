@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% load emmaus %}
-{% block page_title %}Campamentos y eventos{% endblock %}
+{% block page_title %}Eventos{% endblock %}
 {% block content %}
 {% if can_create %}{% url 'events:create' as create_url %}{% endif %}
 <div class="narrow">
 {% if rows %}
-  {% include "events/rotulo/_page_head.html" with title="Campamentos y eventos" lede="Elige el evento en el que vas a trabajar." action_url=create_url action_label="Crear campamento" %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos" lede="Elige el evento en el que vas a trabajar." action_url=create_url action_label="Crear evento" %}
   {% include "partials/ui/welcome.html" with welcome=welcome %}
   <section class="results" aria-labelledby="lista-eventos">
     <h2 id="lista-eventos" class="heading">Tus eventos <span class="count">{{ rows|length }}</span></h2>
@@ -26,16 +26,16 @@
     </ul>
   </section>
 {% elif can_create %}
-  {% include "events/rotulo/_page_head.html" with title="Campamentos y eventos" %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos" %}
   {% include "partials/ui/welcome.html" with welcome=welcome %}
   {% comment %}Nothing to choose yet: creating the first camp is the one thing to do, so it gets the sign.{% endcomment %}
   <section class="sign" aria-labelledby="primer-evento">
-    <h2 id="primer-evento" class="sign__title">Todavía no hay campamentos</h2>
-    <p class="sign__text">Crea el primer campamento. Emmaus le prepara un cuestionario de conversación espiritual y 10 computadoras de entrevista.</p>
-    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{{ create_url }}">Crear campamento</a></div>
+    <h2 id="primer-evento" class="sign__title">Todavía no hay eventos</h2>
+    <p class="sign__text">Crea el primer evento. Emmaus le prepara un cuestionario de conversación espiritual y 10 computadoras de entrevista.</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{{ create_url }}">Crear evento</a></div>
   </section>
 {% else %}
-  {% include "events/rotulo/_page_head.html" with title="Campamentos y eventos" %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos" %}
   {% include "partials/ui/welcome.html" with welcome=welcome %}
   <section class="results" aria-labelledby="sin-eventos">
     <h2 id="sin-eventos" class="heading">Aún no formas parte de ningún evento</h2>

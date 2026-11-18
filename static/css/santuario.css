@@ -1,0 +1,353 @@
+/* ==========================================================================
+   Emmaus · "Santuario": the next step of Atrio (docs/v2/DESIGN_SYSTEM.md)
+   --------------------------------------------------------------------------
+   Atrio is the open door of the church. Santuario is what is behind it: the
+   same white of lime, the same petróleo for action and chile for risk, and
+   three things Atrio did not have: the warm grey of cantera stone for what is
+   quiet, a serif voice for what is said to a person, and the arch of the door
+   as the shape of every person and every group.
+
+   Loaded after rotulo.css, and only for a church that uses the new modules
+   (templates/layout/skeleton.html, <html data-ui="2">). It changes tokens,
+   adds the application shell and the components of the community screens,
+   and removes nothing: every Atrio class keeps working under it.
+   Breakpoints are Atrio's: 600px, 760px (the rail becomes tabs), 900px, 1100px.
+   ========================================================================== */
+
+/* Newsreader (OFL, static/fonts/OFL-Newsreader.txt): the optical size fixed at 36, weights 400 to 600, a
+   199-character latin subset, 35 KB. Only titles use it, so it is not preloaded: a title may arrive in the
+   fallback and settle, the text never waits for it. */
+@font-face {
+  font-family: "Newsreader";
+  src: url("../fonts/newsreader-display-latin.woff2") format("woff2");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026;
+}
+
+/* ---------- 1. Tokens ---------------------------------------------------- */
+/* The same specificity as the church's own colours (skeleton.html writes them after this sheet, so they win) */
+:root[data-ui="2"] {
+  --page: #faf8f5;           /* cal: limewash, a white that is not paper-cold. Ink on it 15.3:1 */
+  --surface: #ffffff;
+  --hundido: #f1ede8;        /* cantera: the stone of the atrium, for what is quiet. --ink-3 on it 4.9:1 */
+  --line: #e3ddd6;
+  --noche: #0f3640;          /* the one filled panel of a home; white on it 12.9:1 */
+  --noche-2: #c9dde1;        /* secondary text on noche, 9.2:1 */
+
+  --font-voz: "Newsreader", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --r-panel: 16px;           /* panels and the rail's current place; controls keep --r-control */
+  --rail-w: 17rem;
+  --tabs-h: 4.25rem;
+}
+
+/* ---------- 2. The voice ------------------------------------------------- */
+/* What Emmaus says to a person (titles, questions, greetings) is set in the serif at 560: lighter on the page
+   than Figtree 800 and warmer. Everything a person reads to decide or to act stays in Figtree. */
+.voice, .sign__title, .confirm__title {
+  font-family: var(--font-voz); font-weight: 560; letter-spacing: -0.012em;
+}
+.page-head__title { line-height: 1.06; }
+/* The projector's deck was fitted to Figtree 800, glyph by glyph: it keeps it */
+.deck .voice, .deck .sign__title { font-family: var(--font-ui); font-weight: 800; letter-spacing: normal; }
+
+/* ---------- 3. The shell ------------------------------------------------- */
+.icon { flex: none; width: 1.5rem; height: 1.5rem; }
+
+body:has(> .rail) {
+  display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); align-items: start;
+}
+.rail {
+  grid-column: 1; grid-row: 1;
+  position: sticky; top: 0; height: 100vh; height: 100dvh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--s-6);
+  padding: var(--s-6) var(--s-4) var(--s-4);
+  background: var(--hundido); border-right: 1px solid var(--line);
+}
+body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
+.rail__brand { padding: 0 var(--s-3); }
+.rail__church { margin-top: var(--s-2); font-size: var(--t-small); color: var(--ink-2); line-height: 1.3; }
+/* With the logo drawn, the name under it would say the same thing twice */
+.rail__brand:has(.brand) .rail__church { display: none; }
+.rail__nav { display: flex; flex-direction: column; gap: var(--s-5); }
+.rail ul, .tabs ul, .menu-panel__list { list-style: none; }
+.rail__label {
+  padding: 0 var(--s-3) var(--s-1); font-size: var(--t-caption); font-weight: 700; color: var(--ink-2);
+}
+.rail__link {
+  display: flex; align-items: center; gap: var(--s-3); width: 100%; min-height: 2.75rem;
+  padding: var(--s-2) var(--s-3); border: 0; border-radius: var(--r-control);
+  background: none; color: var(--ink); font: inherit; font-size: var(--t-small); font-weight: 500; line-height: 1.25;
+  text-align: left; text-decoration: none; cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease), outline-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+.rail__link .icon { color: var(--ink-3); }
+.rail__link:hover { background: rgb(255 255 255 / 0.6); }
+.rail__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* "Estás aquí": the place is lifted to white and marked in the church's colour */
+.rail__link[aria-current="page"] {
+  background: var(--surface); font-weight: 700; box-shadow: inset 3px 0 0 var(--mark);
+}
+.rail__link[aria-current="page"] .icon { color: var(--mark); }
+.rail__foot { margin-top: auto; padding-top: var(--s-4); border-top: 1px solid var(--line); }
+.rail__who {
+  display: flex; align-items: center; gap: var(--s-3); min-height: 3.5rem; padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-control); color: var(--ink); text-decoration: none;
+}
+.rail__who:hover, .rail__who[aria-current="page"] { background: var(--surface); }
+.rail__who-text { display: grid; min-width: 0; line-height: 1.25; }
+.rail__who-name { font-size: var(--t-small); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail__who-role { font-size: var(--t-caption); color: var(--ink-2); }
+.rail__quiet form { margin: 0; }
+.rail__account { display: none; }
+
+/* A count that waits for the person: the only filled circle of the system */
+.badge {
+  flex: none; display: inline-grid; place-items: center; min-width: 1.5rem; height: 1.5rem; padding: 0 0.375rem;
+  border-radius: 999px; background: var(--petroleo); color: #ffffff;
+  font-size: 0.875rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums;
+}
+
+.tabs { display: none; }
+.page--app {
+  /* Anchored to the rail, not centred: every page starts on the same line, whatever its width */
+  max-width: 76rem; margin-inline: 0; padding: var(--s-10) var(--s-10) var(--s-20) clamp(2.5rem, 6vw, 6rem);
+  container-type: inline-size;
+}
+
+.menu-panel--sections { background: var(--page); }
+.menu-panel--sections .rail__label { margin-top: var(--s-6); padding-inline: 0; }
+.menu-panel--sections .rail__link { min-height: 3.25rem; padding-inline: var(--s-2); font-size: var(--t-body); border-bottom: 1px solid var(--line); border-radius: 0; }
+.menu-panel--sections .rail__link[aria-current="page"] { background: none; }
+.menu-panel--sections .rail__link:focus-visible { outline-offset: -3px; }
+
+@media (max-width: 1100px) {
+  :root[data-ui="2"] { --rail-w: 14.5rem; }
+  .page--app { padding-inline: var(--s-8); }
+}
+.page--app > .narrow { margin-inline: 0; }
+@media (max-width: 760px) {
+  body:has(> .rail) { display: block; }
+  .rail {
+    position: static; height: auto; overflow: visible; flex-direction: row; align-items: center; justify-content: space-between;
+    gap: var(--s-4); padding: var(--s-2) var(--s-4); min-height: 3.75rem;
+    background: var(--surface); border-right: 0; border-bottom: 1px solid var(--line);
+  }
+  .rail__brand { padding: 0; min-width: 0; }
+  .rail__church { display: none; }
+  .rail__nav, .rail__foot { display: none; }
+  .rail__account { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; text-decoration: none; }
+  .tabs {
+    display: block; position: fixed; inset: auto 0 0 0; z-index: 40;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .tabs ul { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .tabs__item {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem;
+    width: 100%; height: var(--tabs-h); padding: var(--s-1); border: 0; background: none;
+    color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 500; line-height: 1.15;
+    text-align: center; text-decoration: none; cursor: pointer; box-shadow: inset 0 3px 0 transparent;
+  }
+  .tabs__item[aria-current="page"] { color: var(--ink); font-weight: 700; box-shadow: inset 0 3px 0 var(--mark); }
+  .tabs__item[aria-current="page"] .icon { color: var(--mark); }
+  .tabs__item:focus-visible { outline-offset: -3px; }
+  .tabs__item .badge { position: absolute; top: 0.375rem; left: calc(50% + 0.5rem); }
+  .page--app { padding: var(--s-6) var(--s-4) calc(var(--tabs-h) + var(--s-12) + env(safe-area-inset-bottom, 0px)); }
+}
+/* Inside an event the pages are the camp's: tables and two-column reports that need the window's width. So an
+   event keeps the rail only from 1101px; under it, the top bar and the tabs, as on a phone. */
+@media (min-width: 761px) and (max-width: 1100px) {
+  body:has(> .rail--event) { display: block; }
+  body:has(> .rail--event) .rail {
+    position: static; height: auto; overflow: visible; flex-direction: row; align-items: center; justify-content: space-between;
+    gap: var(--s-4); padding: var(--s-2) var(--s-4); min-height: 3.75rem;
+    background: var(--surface); border-right: 0; border-bottom: 1px solid var(--line);
+  }
+
+  body:has(> .rail--event) .rail__brand { padding: 0; min-width: 0; }
+  body:has(> .rail--event) .rail__church { display: none; }
+  body:has(> .rail--event) .rail__nav, body:has(> .rail--event) .rail__foot { display: none; }
+  body:has(> .rail--event) .rail__account { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; text-decoration: none; }
+  body:has(> .rail--event) .tabs {
+    display: block; position: fixed; inset: auto 0 0 0; z-index: 40;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  body:has(> .rail--event) .tabs ul { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  body:has(> .rail--event) .tabs__item {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem;
+    width: 100%; height: var(--tabs-h); padding: var(--s-1); border: 0; background: none;
+    color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 500; line-height: 1.15;
+    text-align: center; text-decoration: none; cursor: pointer; box-shadow: inset 0 3px 0 transparent;
+  }
+
+  body:has(> .rail--event) .tabs__item[aria-current="page"] { color: var(--ink); font-weight: 700; box-shadow: inset 0 3px 0 var(--mark); }
+  body:has(> .rail--event) .tabs__item[aria-current="page"] .icon { color: var(--mark); }
+  body:has(> .rail--event) .tabs__item:focus-visible { outline-offset: -3px; }
+  body:has(> .rail--event) .tabs__item .badge { position: absolute; top: 0.375rem; left: calc(50% + 0.5rem); }
+  body:has(> .rail--event) .page--app { padding: var(--s-6) var(--s-4) calc(var(--tabs-h) + var(--s-12) + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* An event as a place in the rail: its name, the person's role in it, and the role's links (no icons: they are
+   the pages of one place) */
+.rail__role { padding: 0 var(--s-3) var(--s-2); font-size: var(--t-caption); color: var(--ink-2); line-height: 1.35; }
+.rail__link--sub { padding-left: var(--s-3); }
+.rail__section--event { padding: var(--s-3) 0 var(--s-2); border-block: 1px solid var(--line); }
+.page--app-wide { max-width: 90rem; }
+.tabs__item--text { padding-inline: var(--s-2); }
+/* A phone's step button sticks to the bottom (rotulo.css §10): above the tabs, not under them */
+
+/* ---------- 4. Identity: the arch ---------------------------------------- */
+/* A person or a group, as the door of the atrium: round above, square on the ground. Decorative, always beside
+   the written name. */
+.mono {
+  flex: none; display: inline-grid; place-items: center; width: 2.75rem; height: 3.25rem;
+  border-radius: 1.375rem 1.375rem 0.375rem 0.375rem;
+  background: var(--petroleo-tint); color: var(--petroleo-hover);
+  font-family: var(--font-voz); font-size: 1.125rem; font-weight: 600; line-height: 1; letter-spacing: 0.01em;
+}
+.mono--sm { width: 2.25rem; height: 2.625rem; border-radius: 1.125rem 1.125rem 0.3125rem 0.3125rem; font-size: 0.9375rem; }
+.mono--lg { width: 4.5rem; height: 5.5rem; border-radius: 2.25rem 2.25rem 0.5rem 0.5rem; font-size: 1.875rem; font-weight: 560; }
+.rail .mono { background: var(--surface); }
+
+/* ---------- 5. Page furniture -------------------------------------------- */
+/* Section titles under the shell speak in the serif too, without Atrio's rule under them: the list that follows
+   draws its own first line. */
+.page--app .heading {
+  font-family: var(--font-voz); font-size: 1.625rem; font-weight: 560; letter-spacing: -0.01em; line-height: 1.2;
+  padding-bottom: 0; border-bottom: 0;
+}
+.page--app .heading + .rows, .page--app .heading + .dates, .page--app .heading + .summary-list { border-top: 1px solid var(--line); }
+.page--app .block + .block { margin-top: var(--s-12); }
+.heading-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-1) var(--s-4); }
+.heading-row + * { margin-top: var(--s-3); }
+.heading-row + .rows, .heading-row + .dates { border-top: 1px solid var(--line); }
+.heading-row a { font-size: var(--t-small); font-weight: 700; display: inline-flex; align-items: center; min-height: 2.75rem; }
+
+/* Main column and a quiet column beside it; one column under 1100px */
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 19rem; gap: var(--s-12) var(--s-12); align-items: start; }
+.cols__main { min-width: 0; max-width: var(--w-focus); }
+.cols__side { display: grid; gap: var(--s-6); }
+@media (max-width: 1100px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .cols__side { max-width: var(--w-focus); }
+}
+
+/* A quiet panel of the side column: cantera, no border. Never holds the screen's main action. */
+.quiet { padding: var(--s-5) var(--s-5) var(--s-6); background: var(--hundido); border-radius: var(--r-panel); }
+.quiet__title { font-size: var(--t-body); font-weight: 700; line-height: 1.3; }
+.quiet__text { margin-top: var(--s-2); font-size: var(--t-small); color: var(--ink-2); }
+.quiet .btn { margin-top: var(--s-4); }
+.quiet .status { margin-top: var(--s-3); white-space: normal; }
+
+/* ---------- 6. The home's next step -------------------------------------- */
+/* The one filled panel of a home: night petróleo, the question in the serif, one white button. On any other
+   screen the next step keeps Atrio's tint (.sign). */
+.sign--lead {
+  background: var(--noche); color: #ffffff; border-radius: var(--r-panel);
+  padding: var(--s-8) var(--s-8) var(--s-8);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--s-5) var(--s-8);
+}
+.sign--lead .sign__title { font-size: clamp(1.75rem, 1.4rem + 1.2vw, 2.375rem); line-height: 1.1; }
+.sign--lead .sign__text { color: var(--noche-2); }
+.sign--lead .sign__actions { margin-top: 0; }
+.btn--on-dark { background: #ffffff; border-color: #ffffff; color: var(--noche); min-height: 3.75rem; }
+.btn--on-dark:hover { background: var(--petroleo-tint); border-color: var(--petroleo-tint); }
+/* The focus ring is ink with a white gap: on noche the gap is the ring */
+.sign--lead :focus-visible { outline-color: #ffffff; box-shadow: 0 0 0 2px var(--noche); }
+@media (max-width: 760px) {
+  .sign--lead { grid-template-columns: minmax(0, 1fr); padding: var(--s-6) var(--s-5); }
+  .sign--lead .btn { width: 100%; }
+}
+@media (forced-colors: active) { .mono, .quiet, .badge { border: 1px solid CanvasText; } }
+
+.hero { margin-bottom: var(--s-8); }
+.hero__title { font-size: clamp(2.25rem, 1.5rem + 3vw, 3.5rem); line-height: 1.04; }
+.hero .lede { margin-top: var(--s-3); }
+
+/* ---------- 7. Lists of people, groups and days -------------------------- */
+/* A row led by an arch or a date; the text keeps Atrio's two lines */
+.row--lead { align-items: flex-start; gap: var(--s-4); padding: var(--s-4) 0; }
+.row--lead .row__main { flex: 1; align-self: center; }
+.row--lead .row__end { align-self: center; }
+.row__title a { color: var(--ink); text-decoration-color: var(--line-strong); }
+.row__title a:hover { color: var(--petroleo); }
+.row__meta + .row__meta { margin-top: 0.125rem; }
+.row__contact { margin-top: var(--s-1); display: flex; flex-wrap: wrap; gap: 0 var(--s-5); font-size: var(--t-small); }
+.row__contact a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 700; }
+.page--app .row--attention { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--petroleo); padding: var(--s-4) var(--s-5); }
+.row__contact a { overflow-wrap: anywhere; }
+/* Beside the rail the column is narrow long before the window is: rows that end in controls stack by the
+   column's width (Atrio's .row--stack does it by the window's, at 600px) */
+@container (max-width: 38rem) {
+  .row--stack { flex-wrap: wrap; align-items: flex-start; }
+  .row--stack .row__main { flex: 1 1 12rem; }
+  .row--stack .row__end { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; gap: var(--s-3); }
+  .row--stack .row__end .btn { flex: 1 1 8rem; }
+}
+@media (max-width: 600px) {
+  .row--lead.row--stack { flex-direction: row; }
+}
+
+/* Agenda: one row per day that matters. The date is drawn (weekday, number, month) and said again in the text. */
+.dates { list-style: none; }
+.date-block {
+  flex: none; display: grid; justify-items: center; align-content: center; width: 3.5rem; min-height: 4rem; padding: var(--s-1) 0;
+  border-radius: var(--r-control); background: var(--hundido); color: var(--ink); line-height: 1;
+}
+.date-block__weekday, .date-block__month { font-size: 0.875rem; font-weight: 500; color: var(--ink-2); }
+.date-block__day { margin: 0.125rem 0; font-family: var(--font-voz); font-size: 1.625rem; font-weight: 560; font-variant-numeric: lining-nums; }
+.dates .row--today .date-block { background: var(--petroleo); color: #ffffff; }
+.dates .row--today .date-block__weekday, .dates .row--today .date-block__month { color: #ffffff; }
+
+/* The way so far: what a person has been part of, newest first. A real sequence, so it is drawn as a line. */
+.camino { list-style: none; margin-top: var(--s-4); }
+.camino__step { position: relative; padding: 0 0 var(--s-6) var(--s-8); }
+.camino__step::before {
+  content: ""; position: absolute; left: 0.3125rem; top: 0.5rem; width: 0.75rem; height: 0.75rem;
+  border-radius: 50%; background: var(--page); border: 2px solid var(--petroleo);
+}
+.camino__step::after { content: ""; position: absolute; left: 0.625rem; top: 1.5rem; bottom: 0; width: 2px; background: var(--line); }
+.camino__step:last-child { padding-bottom: 0; }
+.camino__step:last-child::after { display: none; }
+.camino__step--now::before { background: var(--petroleo); }
+.camino__when { font-size: var(--t-small); color: var(--ink-2); }
+.camino__what { font-size: var(--t-lead); font-weight: 700; line-height: 1.3; }
+.camino__note { font-size: var(--t-small); color: var(--ink-2); }
+
+/* ---------- 8. A group --------------------------------------------------- */
+.group-head { display: flex; align-items: flex-start; gap: var(--s-5); margin-bottom: var(--s-8); }
+.group-head .page-head { margin-bottom: 0; min-width: 0; }
+.group-head .mono { margin-top: var(--s-1); }
+@media (max-width: 600px) {
+  .group-head { gap: var(--s-4); }
+  .group-head .mono--lg { width: 3.25rem; height: 4rem; border-radius: 1.625rem 1.625rem 0.375rem 0.375rem; font-size: 1.375rem; }
+}
+/* The next meeting, for who is already part: the day drawn, then where */
+.meeting { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-4) var(--s-5); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); }
+.meeting__title { font-weight: 700; font-size: var(--t-lead); line-height: 1.3; }
+.meeting__title a { color: var(--ink); text-decoration-color: var(--line-strong); }
+.meeting__meta { font-size: var(--t-small); color: var(--ink-2); }
+
+/* Figures of a workspace: Atrio's, with the number in the serif */
+.page--app .figures__value { font-family: var(--font-voz); font-weight: 560; font-variant-numeric: lining-nums; }
+.page--app .figures { margin-bottom: var(--s-10); max-width: var(--w-focus); }
+
+/* A person's contact line that stands before a section, not inside a row */
+.page--app p.row__contact + .block, .page--app p.row__contact + section { margin-top: var(--s-8); }
+
+/* An option that cannot be chosen (a person who marked the day): quiet, not hidden */
+.choice:has(input:disabled) { background: var(--hundido); }
+.choice:has(input:disabled) .choice__label { color: var(--ink-2); cursor: not-allowed; }
+
+/* A notice's words: paragraphs apart, at the reading measure */
+.prose p + p { margin-top: var(--s-3); }
+
+/* ---------- 9. Print ----------------------------------------------------- */
+@media print {
+  .rail, .tabs { display: none !important; }
+  body:has(> .rail) { display: block; }
+}

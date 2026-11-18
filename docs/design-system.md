@@ -4,6 +4,8 @@ Todas las pantallas de Emmaus usan este sistema: la portada, el coordinador y la
 
 Atrio es la puerta abierta del templo: blanco, un solo color de acción, frases como títulos y el logotipo de la iglesia como único adorno. Cambió los tokens y el trato de cada componente, no la estructura: los nombres de clase, los marcos, las vistas y el JavaScript son los de Rótulo. Por eso la hoja **conserva su nombre**, `static/css/rotulo.css`, los marcos siguen en `templates/events/rotulo/` y la variable de plantilla sigue siendo `rotulo_shell`.
 
+**Desde el 17 de noviembre de 2026**, una iglesia que usa los módulos nuevos (`community`) recibe además **Santuario**, una capa sobre Atrio: otros tonos de fondo, una letra con remates para los títulos, el marco con menú lateral y pestañas, y los componentes de las pantallas de comunidad. Está en `docs/v2/DESIGN_SYSTEM.md` y en `static/css/santuario.css`. Con el módulo apagado, todo lo de este documento sigue igual.
+
 | | |
 |---|---|
 | Hoja de estilo | `static/css/rotulo.css`: tokens y componentes compartidos, y al final una sección por área (liderazgo, administración, público, discipulado, reportes y presentación) con lo que solo esa área necesita |
@@ -298,11 +300,15 @@ Las partes vivas (`_home_live.html`) se recargan cada 20 o 30 s con `data-live-u
 
 ### Comunidad (módulos `community` y `people`, sobre `base.html`)
 
+Estas pantallas se rediseñaron con Santuario (`docs/v2/DESIGN_SYSTEM.md`, `docs/v2/SCREEN_MATRIX.md`); la tabla dice qué hace cada una.
+
 | Plantilla | Qué la distingue |
 |---|---|
 | `groups/home.html` ("Mi iglesia") | El inicio de una persona de la iglesia. Un panel a lo mucho, con el siguiente paso: responder solicitudes (quien guía), crear el primer grupo (administración) o buscar un grupo. Luego "Tus grupos" con la próxima reunión, "Lo que pediste", "Lo que viene en la iglesia" y "Donde has estado" (de un evento solo el nombre, las fechas y el lugar) |
 | `groups/groups.html`, `groups/group_detail.html` | La lista de grupos y un grupo. El panel pregunta "¿Quieres unirte a este grupo?" y dice quién verá tus datos; el lugar de reunión solo lo ve quien ya es parte |
-| `groups/group_people.html` | Para quien guía: solicitudes por decidir (`.row--attention`, "No aceptar" y "Aceptar") y quién está en el grupo. La administración además busca y agrega personas |
+| `groups/group_people.html` | Para quien guía: solicitudes por decidir (`.row--attention`, "No aceptar" y "Aceptar") y quién está en el grupo, con el teléfono y el correo como enlaces. La administración además busca y agrega personas |
+| `groups/group_meetings.html`, `groups/meeting_record.html` | "Reuniones": la lista que falta en el panel, las reuniones con lista ("Vinieron 5 de 8") y "Pasar lista", una opción grande por persona y un solo botón. Solo quien guía y la administración |
+| `groups/profile.html` ("Mis datos") | La persona corrige su teléfono, su correo y cómo prefiere que la contacten |
 | `groups/admin_list.html`, `groups/group_form.html`, `groups/confirm.html` | La administración de grupos y la pregunta antes de salir, quitar o archivar |
 | `people/*.html` | Personas: la lista, la ficha (datos, acceso, eventos, grupos), "Traer personas de un evento" y el enlace para crear contraseña, que se muestra en pantalla y dice que Emmaus no lo envió |
 

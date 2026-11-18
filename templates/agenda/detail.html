@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}{{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  One event, for the people of the church (agenda.views.detail): what it is, when and where, and then one thing
+  only: the panel to sign up, the word that says the person already did, or a quiet sentence that says why not.
+  Signing up tells the church "I want to come" and nothing else: it gives no role and opens no other screen.
+{% endcomment %}
+<div class="narrow">
+  {% url 'agenda:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title=event.name lede=page.description back_url=back back_label="Volver a Eventos" %}
+
+  {% if state == "abierta" %}
+    <section class="sign sign--lead" aria-labelledby="inscribirme">
+      <div>
+        <h2 id="inscribirme" class="sign__title">¿Quieres ir a este evento?</h2>
+        <p class="sign__text">Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.</p>
+      </div>
+      <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}">
+        {% csrf_token %}
+        <button class="btn btn--on-dark btn--large" type="submit">Inscribirme</button>
+      </form>
+    </section>
+  {% elif state == "inscrita" %}
+    <div class="notice notice--info">
+      <p><strong>Te inscribiste.</strong> Tu iglesia ya sabe que quieres ir{% if not can_cancel %}. El evento ya empezó: si no vas a poder ir, avisa en tu iglesia{% endif %}.</p>
+    </div>
+    {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
+  {% elif notice %}
+    <div class="notice notice--quiet"><p>{{ notice }}</p></div>
+  {% endif %}
+
+  <section class="block" aria-labelledby="datos">
+    <h2 id="datos" class="heading">Sobre el evento</h2>
+    <dl class="summary-list">
+      {% if event.kind != "otro" %}<div class="summary-list__row"><dt>Qué es</dt><dd>{{ event.get_kind_display }}</dd></div>{% endif %}
+      <div class="summary-list__row"><dt>Cuándo</dt><dd>{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% elif event.ends_on %}{{ event.ends_on|date_range|capfirst }}{% else %}Todavía no tiene fecha{% endif %}</dd></div>
+      {% if page.starts_at %}<div class="summary-list__row"><dt>Hora</dt><dd>A las {{ page.starts_at|time:"H:i" }}</dd></div>{% endif %}
+      <div class="summary-list__row"><dt>Dónde</dt><dd>{{ event.location|default:"Todavía no se ha dicho" }}</dd></div>
+      {% if page.registration_open and page.registration_closes_on %}<div class="summary-list__row"><dt>Inscripción</dt><dd>Hasta el {{ page.registration_closes_on|long_date }}</dd></div>{% endif %}
+      {% if places_left is not None %}<div class="summary-list__row"><dt>Lugares</dt><dd>{% if places_left == 0 %}Ya no hay lugares{% elif places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ places_left }} lugares{% endif %}</dd></div>{% endif %}
+    </dl>
+  </section>
+
+  {% if request.is_church_admin %}
+  <section class="block" aria-labelledby="administrar">
+    <h2 id="administrar" class="heading">Para la administración</h2>
+    <div class="step__actions">
+      <a class="btn btn--secondary" href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a>
+      <a class="btn btn--secondary" href="{% url 'agenda:registrations' event.slug %}">Inscritos</a>
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Eventos{% endblock %}
+{% block content %}
+{% comment %}
+  Eventos (agenda.views.event_list): what the church published for its people. First where this person already
+  signed up, then everything else that is coming. An event the administration has not published is not here.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos" lede="Lo que tu iglesia prepara para ti. Entra a un evento para saber más y, si se puede, inscribirte." back_url=back back_label="Volver a Mi iglesia" %}
+
+  {% if mine %}
+  <section class="block" aria-labelledby="mis-inscripciones">
+    <h2 id="mis-inscripciones" class="heading">Tus inscripciones</h2>
+    <ul class="dates rows">
+      {% for event in mine %}{% include "agenda/_event_row.html" %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="lo-que-viene">
+    <h2 id="lo-que-viene" class="heading">Lo que viene en la iglesia</h2>
+    {% if coming %}
+      <ul class="dates rows">
+        {% for event in coming %}{% include "agenda/_event_row.html" %}{% endfor %}
+      </ul>
+    {% elif mine %}
+      <p class="empty-line">Por ahora no hay más eventos. Cuando tu iglesia publique otro, aparecerá aquí.</p>
+    {% else %}
+      <p class="empty-line">Todavía no hay eventos publicados. Cuando tu iglesia publique uno, aparecerá aquí y podrás inscribirte. Mientras tanto, pregunta en tu iglesia qué viene.</p>
+    {% endif %}
+  </section>
+  {% if request.is_church_admin %}<p class="more"><a href="{% url 'agenda:admin_list' %}">Administrar los eventos</a></p>{% endif %}
+</div>
+{% endblock %}

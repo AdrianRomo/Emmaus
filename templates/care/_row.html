@@ -1,0 +1,11 @@
+{% load emmaus community shell %}
+{% comment %}One follow-up as a row: who it is about, why and by when as a sentence, and its state. ``show_owner`` for the administration's list.{% endcomment %}
+<li class="row row--lead row--stack{% if item.is_overdue or show_owner and item.is_open and not item.owner_id %} row--attention{% endif %}">
+  {% monogram item.person.full_name %}
+  <div class="row__main">
+    <p class="row__title"><a href="{% url 'care:detail' item.pk %}">{{ item.person.full_name }}</a></p>
+    <p class="row__meta">{{ item.get_reason_display }}. {% if item.due_on %}Para el {{ item.due_on|weekday_date }}.{% else %}Sin fecha.{% endif %}{% if item.is_overdue %} Ya pasó la fecha.{% endif %}</p>
+    {% if show_owner %}<p class="row__meta">{% if item.owner_id %}Responsable: {{ item.owner.full_name }}.{% else %}Sin responsable.{% endif %}</p>{% endif %}
+  </div>
+  <div class="row__end">{% status item.status_mark item.get_status_display %}</div>
+</li>

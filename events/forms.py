@@ -42,7 +42,7 @@ class EventForm(SpanishErrorsMixin, forms.ModelForm):
     """
 
     required_messages = {"name": "Escribe el nombre del evento."}
-    # Routed before an event's address (events/urls.py): /eventos/nuevo/ is "Crear campamento", /eventos/cuenta/… the
+    # Routed before an event's address (events/urls.py): /eventos/nuevo/ is "Crear evento", /eventos/cuenta/… the
     # session ping. An event with one of these would open that page instead of its own.
     RESERVED_SLUGS = frozenset({"nuevo", "cuenta"})
 

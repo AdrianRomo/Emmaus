@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Avisos{% endblock %}
+{% block content %}
+{% comment %}
+  Avisos (notices.views.notice_list): what the church and the person's groups want them to know, newest first; the
+  ones not opened yet say "Nuevo". Who may write gets "Publicar un aviso" and, below, everything they published with
+  its state (scheduled, expired and retired ones too). Opening this list marks nothing as read.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}{% url 'notices:create' as create %}
+  {% if can_write %}
+    {% include "events/rotulo/_page_head.html" with title="Avisos" lede="Lo que tu iglesia y tus grupos quieren que sepas." back_url=back back_label="Volver a Mi iglesia" action_url=create action_label="Publicar un aviso" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Avisos" lede="Lo que tu iglesia y tus grupos quieren que sepas." back_url=back back_label="Volver a Mi iglesia" %}
+  {% endif %}
+
+  <section class="block" aria-labelledby="para-ti">
+    <h2 id="para-ti" class="heading">Avisos para ti</h2>
+    {% if notices %}
+      <ul class="dates rows">
+        {% for notice in notices %}
+          <li class="row row--lead row--stack">
+            {% date_block notice.publish_on %}
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
+              <p class="row__meta">{{ notice.audience }}. Publicado el {{ notice.publish_on|weekday_date }}.</p>
+            </div>
+            {% if notice.is_unread %}<div class="row__end">{% status "pendiente" "Nuevo" %}</div>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif can_write %}
+      <p class="empty-line">No hay avisos por ahora. Si tienes algo que decir, publica un aviso.</p>
+    {% else %}
+      <p class="empty-line">No hay avisos por ahora. Cuando tu iglesia o tu grupo publiquen uno, lo vas a encontrar aquí.</p>
+    {% endif %}
+  </section>
+
+  {% if can_write %}
+  <section class="block" aria-labelledby="publicaste">
+    <h2 id="publicaste" class="heading">Avisos que publicaste</h2>
+    {% if published %}
+      <ul class="dates rows">
+        {% for notice in published %}
+          <li class="row row--lead row--stack">
+            {% date_block notice.publish_on %}
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
+              <p class="row__meta">{{ notice.audience }}. {% if notice.state == "programado" %}Se publica el {{ notice.publish_on|weekday_date }}.{% elif notice.state == "vencido" %}Se dejó de ver después del {{ notice.expires_on|weekday_date }}.{% elif notice.state == "retirado" %}Ya nadie lo ve.{% else %}Publicado el {{ notice.publish_on|weekday_date }}{% if notice.expires_on %}, se ve hasta el {{ notice.expires_on|weekday_date }}{% endif %}.{% endif %}</p>
+            </div>
+            <div class="row__end">{% if notice.state == "programado" %}{% status "borrador" "Programado" %}{% elif notice.state == "vencido" %}{% status "descartada" "Vencido" %}{% elif notice.state == "retirado" %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}</div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Todavía no publicas ningún aviso. <a href="{{ create }}">Publicar un aviso</a></p>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

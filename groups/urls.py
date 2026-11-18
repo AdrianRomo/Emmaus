@@ -6,6 +6,7 @@ app_name = "community"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("mis-datos/", views.profile, name="profile"),
     path("grupos/", views.groups, name="groups"),
     path("grupos/administrar/", views.group_admin_list, name="group_admin_list"),
     path("grupos/nuevo/", views.group_create, name="group_create"),
@@ -14,6 +15,8 @@ urlpatterns = [
     path("grupos/<int:group_id>/retirar-solicitud/", views.group_withdraw, name="group_withdraw"),
     path("grupos/<int:group_id>/salir/", views.group_leave, name="group_leave"),
     path("grupos/<int:group_id>/personas/", views.group_people, name="group_people"),
+    path("grupos/<int:group_id>/reuniones/", views.group_meetings, name="group_meetings"),
+    path("grupos/<int:group_id>/reuniones/<str:day>/", views.meeting_record, name="meeting_record"),
     path("grupos/<int:group_id>/personas/agregar/", views.member_add, name="member_add"),
     path("grupos/<int:group_id>/personas/<int:membership_id>/quitar/", views.member_remove, name="member_remove"),
     path("grupos/<int:group_id>/solicitudes/<int:request_id>/", views.request_decide, name="request_decide"),

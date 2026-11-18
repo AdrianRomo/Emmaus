@@ -12,12 +12,13 @@ Idempotent: every object is looked up by a fixed key. The password comes from --
 """
 
 import os
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.utils import timezone
 
 from core.models import Church, Role
 from core.services import assign_role
@@ -84,10 +85,65 @@ class Command(BaseCommand):
                     group_services.set_membership(group, leader, admin, role=GroupMembership.Role.LEADER)
             if not GroupJoinRequest.objects.filter(group=groups[0], person=asked).exists():
                 group_services.request_to_join(groups[0], asked, asked.user)
+            self._agenda_and_notices(church, admin, leader, groups[0])
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         for label, (email, *_rest) in (("Administración", ADMIN), ("Guía de un grupo", LEADER),
                                         ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)):
             self.stdout.write(f"  {label:<26} {email}")
+
+    def _agenda_and_notices(self, church, admin, leader, group) -> None:
+        """An event the church published with its sign-up open, and two notices: one for everybody, one for a group."""
+        from agenda import services as agenda
+        from notices import services as notices
+        from notices.models import Announcement
+
+        day = timezone.localdate() + timedelta(days=12)
+        event, _ = Event.objects.get_or_create(
+            slug="noche-de-alabanza-demo",
+            defaults={"church": church, "name": "Noche de alabanza", "kind": Event.Kind.OTHER, "location": "Templo principal",
+                      "starts_on": day, "ends_on": day, "reports_enabled": False},
+        )
+        Event.objects.filter(pk=event.pk).update(starts_on=day, ends_on=day, status=Event.Status.ACTIVE)
+        event.refresh_from_db()
+        agenda.save_page(
+            event, admin, published=True, registration="abierta", capacity=40, starts_at=time(19, 0),
+            description="Una noche para cantar y orar juntos. Trae a alguien de tu familia.",
+        )
+        from resources import services as resources
+        from resources.models import Devotional, MediaItem
+
+        if not Devotional.objects.filter(church=church, date=timezone.localdate()).exists():
+            resources.save_devotional(
+                church, admin, date=timezone.localdate(), title="Permanecer", passage="Juan 15:1-8", author_name="Alma Cisneros",
+                body="Jesús no pide que demos fruto a la fuerza. Pide que permanezcamos en él.\n\nHoy, antes de empezar, quédate un minuto en silencio.",
+                publish=True,
+            )
+        if not MediaItem.objects.filter(church=church).exists():
+            resources.save_media(
+                church, admin, kind="predicacion", title="La vid y las ramas", speaker="Ernesto Salas", series="Juan",
+                date=timezone.localdate() - timedelta(days=2), url="https://www.youtube.com/watch?v=demo-emmaus", description="",
+            )
+        from care import services as care
+        from care.models import FollowUp
+        from serving import services as serving
+        from serving.models import Team
+
+        member = Person.objects.get(church=church, user__email=MEMBER[0])
+        asked = Person.objects.get(church=church, user__email=ASKED[0])
+        if not Team.objects.filter(church=church).exists():
+            team = serving.save_team(church, admin, name="Bienvenida", description="Recibimos a quien llega a la reunión.")
+            serving.set_member(team, leader, admin, role="coordina")
+            serving.set_member(team, member, admin, role="sirve")
+            sunday = timezone.localdate() + timedelta(days=5)
+            service = serving.save_date(team, leader.user, date=sunday, what="Bienvenida en la reunión", starts_at=time(10, 30), place="Entrada principal")
+            serving.assign(service, member, leader.user)
+        if not FollowUp.objects.filter(church=church).exists():
+            care.create(church, admin, person=asked, reason="grupo", owner=leader, due_on=timezone.localdate() + timedelta(days=3))
+        if not Announcement.objects.filter(church=church).exists():
+            notices.publish(church, admin, title="El domingo empezamos a las 11",
+                            body="Por el cambio de horario, la reunión del domingo empieza a las 11 de la mañana.\n\nLlega unos minutos antes.")
+            notices.publish(church, leader.user, group=group, title="Esta semana nos vemos en el Salón 3",
+                            body="El Salón 2 estará ocupado. Nos vemos a la misma hora en el Salón 3.")
 
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})

@@ -267,7 +267,7 @@ class PublicResponseMiddlewareTests(SimpleTestCase):
 
 class EventListLogoTests(MediaRootMixin, CampFixture):
     def test_the_church_admin_finds_the_church_settings_in_the_bar(self):
-        """docs/user-guide-es.md: "Campamentos y eventos", then "Configuración" in the bar opens the church settings."""
+        """docs/user-guide-es.md: "Eventos", then "Configuración" in the bar opens the church settings."""
         client = self.login(self.admin, Client())
         response = client.get(reverse("events:list"))
         self.assertContains(response, f'<a href="{reverse("church_settings")}">Configuración</a>')

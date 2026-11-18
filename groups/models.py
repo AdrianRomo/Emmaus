@@ -86,6 +86,13 @@ class Group(models.Model):
         today = today or timezone.localdate()
         return today + timedelta(days=(self.meeting_day - today.weekday()) % 7)
 
+    def last_meeting_day(self, today: date | None = None) -> date | None:
+        """The most recent date the group was due to meet, today included; None when the day is not set."""
+        if self.meeting_day is None:
+            return None
+        today = today or timezone.localdate()
+        return today - timedelta(days=(today.weekday() - self.meeting_day) % 7)
+
 
 class GroupMembership(models.Model):
     """A person in a group, as leader or member. Written only by ``groups.services``, which also
@@ -160,3 +167,40 @@ class GroupJoinRequest(models.Model):
     @property
     def is_pending(self) -> bool:
         return self.status == self.Status.PENDING
+
+
+class GroupMeeting(models.Model):
+    """One day a group met, as who guides it recorded it: the day, how many were in the group that
+    day, and who came (``GroupAttendance``). Never what was said there. Written only by
+    ``groups.services.record_meeting``; read only by the group's guides and the administration."""
+
+    group = models.ForeignKey(Group, verbose_name="Grupo", on_delete=models.CASCADE, related_name="meetings")
+    date = models.DateField("Día de la reunión")
+    expected = models.PositiveSmallIntegerField("Personas en el grupo ese día", default=0)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "reunión de grupo"
+        verbose_name_plural = "reuniones de grupos"
+        ordering = ["-date", "-id"]
+        constraints = [models.UniqueConstraint(fields=["group", "date"], name="group_meeting_one_per_day")]
+
+    def __str__(self) -> str:
+        return f"{self.group} · {self.date:%Y-%m-%d}"
+
+
+class GroupAttendance(models.Model):
+    """A person came to a meeting. Only who came has a row; who did not is the rest of the group."""
+
+    meeting = models.ForeignKey(GroupMeeting, verbose_name="Reunión", on_delete=models.CASCADE, related_name="attendances")
+    person = models.ForeignKey(Person, verbose_name="Persona", on_delete=models.CASCADE, related_name="group_attendances")
+
+    class Meta:
+        verbose_name = "asistencia a una reunión"
+        verbose_name_plural = "asistencias a reuniones"
+        constraints = [models.UniqueConstraint(fields=["meeting", "person"], name="group_attendance_one_per_person")]
+
+    def __str__(self) -> str:
+        return f"{self.person} en {self.meeting}"

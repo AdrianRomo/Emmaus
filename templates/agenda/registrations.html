@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Inscritos en {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  Who signed up for one event (agenda.views.registrations), for the church's administration only: each person
+  with how to reach them, and from the event's first day on, who came, as large options and one filled button.
+  Who is not marked did not come. Nobody else reads this list.
+{% endcomment %}
+<div class="narrow">
+  {% url 'agenda:admin_list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Inscritos en "|add:event.name lede="Quién le avisó a la iglesia que quiere ir, y cómo contactarle." back_url=back back_label="Volver a los eventos" %}
+  <p class="page-head__meta">{% if rows|length == 1 %}1 persona inscrita{% else %}{{ rows|length }} personas inscritas{% endif %}{% if page.capacity %} de {{ page.capacity }} lugar{{ page.capacity|pluralize:"es" }}{% endif %}{% if cancelled == 1 %}, 1 canceló{% elif cancelled %}, {{ cancelled }} cancelaron{% endif %}.{% if recorded %} {% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }} inscrito{{ rows|length|pluralize }}.{% endif %}</p>
+
+  <section class="block" aria-labelledby="inscritos">
+    <h2 id="inscritos" class="heading">Personas inscritas</h2>
+    {% if rows %}
+      <ul class="rows">
+        {% for row in rows %}
+          <li class="row row--lead row--stack">
+            {% monogram row.person.full_name %}
+            <div class="row__main">
+              <p class="row__title">{{ row.person.full_name }}</p>
+              <p class="row__meta">Se inscribió el {{ row.created_at|long_date }}.{% if row.attended %} Vino.{% elif row.attended is not None %} No vino.{% endif %}</p>
+              {% if row.person.phone or row.person.email %}<p class="row__contact">{% if row.person.phone %}<a href="tel:{{ row.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ row.person.full_name }}: </span>{{ row.person.phone }}</a>{% endif %}{% if row.person.email %}<a href="mailto:{{ row.person.email }}"><span class="visually-hidden">Escribir a {{ row.person.full_name }}: </span>{{ row.person.email }}</a>{% endif %}</p>{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% elif page.published and page.registration_open %}
+      <p class="empty-line">Todavía no se inscribe nadie. Avisa en la iglesia que ya se pueden inscribir desde Emmaus.</p>
+    {% else %}
+      <p class="empty-line">Todavía no se inscribe nadie. Para que puedan hacerlo, publica el evento y abre la inscripción en <a href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a>.</p>
+    {% endif %}
+  </section>
+
+  {% if rows %}
+  <section class="block" aria-labelledby="asistencia">
+    <h2 id="asistencia" class="heading">Asistencia</h2>
+    {% if started %}
+      {% if recorded %}<div class="notice notice--quiet"><p>Ya guardaste la asistencia. Puedes corregirla y guardarla otra vez.</p></div>{% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <fieldset>
+          <legend class="legend">Marca a quienes vinieron</legend>
+          <div class="choices">
+            {% for row in rows %}
+            <div class="choice choice--multi">
+              <input class="choice__input" type="checkbox" id="vino-{{ row.person_id }}" name="vino" value="{{ row.person_id }}"{% if row.attended %} checked{% endif %}>
+              <label class="choice__label" for="vino-{{ row.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.person.full_name }}</span></label>
+            </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+        <div class="step__actions">
+          <button class="btn btn--primary btn--large" type="submit">Guardar la asistencia</button>
+        </div>
+      </form>
+      <p class="aside-note">Quien no esté marcado queda como que no vino. Si no vino nadie, guarda sin marcar a nadie.</p>
+    {% else %}
+      <p class="empty-line">La asistencia se registra desde el primer día del evento{% if event.starts_on %}, el {{ event.starts_on|long_date }}{% endif %}. Vuelve aquí ese día.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+  <p class="aside-note">Esta lista la ve solo la administración de la iglesia.</p>
+</div>
+{% endblock %}

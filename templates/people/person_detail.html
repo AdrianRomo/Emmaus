@@ -90,5 +90,6 @@
       <p class="empty-line">No es parte de ningún grupo.</p>
     {% endif %}
   </section>
+  {% if community_on and person.user_id != user.pk %}<p class="more"><a href="{% url 'care:create' %}?persona={{ person.pk }}">Pedir que alguien la acompañe</a></p>{% endif %}
 </div>
 {% endblock %}

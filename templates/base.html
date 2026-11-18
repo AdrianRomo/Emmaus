@@ -2,7 +2,7 @@
 {% load emmaus brand %}
 {% comment %}
   Base for the discipleship module, sign-in, errors and the event list (Rótulo). Signed in: the shared bar
-  (partials/ui/bar.html) whose module links sit on their own row, then "Ayuda"; "Campamentos" is a button.
+  (partials/ui/bar.html) whose module links sit on their own row, then "Ayuda"; "Eventos" is a button.
   Signed out: just the wordmark and "Entrar".
   The wordmark's slot shows the church's logo when it has one (brand_church, core.context_processors). The
   sign-in page and the landing lead with the logo above their title instead, and then have no bar at all: the
@@ -11,7 +11,10 @@
 {% block title %}{% block page_title %}Emmaus{% endblock %} · {% brand_name brand_church %}{% endblock %}
 {% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
 {% block body %}
-{% if user.is_authenticated %}
+{% if user.is_authenticated and shell %}
+{% include "partials/ui/shell.html" %}
+<main id="contenido" class="page page--app" tabindex="-1">
+{% elif user.is_authenticated %}
 {% url 'dashboard' as bar_home_url %}{% url 'ayuda' as bar_help_url %}{% if show_events_link %}{% url 'events:list' as bar_events_url %}{% endif %}
 {% include "partials/ui/bar.html" with modifiers="bar--stacked" brand=brand_church home_url=bar_home_url context_line=current_church.name context_role=current_role_record.get_role_display switch_url=bar_events_url station=None nav=app_nav_items nav_label=app_nav_label help_url=bar_help_url help_view="ayuda" role_label=current_role_record.get_role_display %}
 <main id="contenido" class="page page--wide" tabindex="-1">
@@ -35,5 +38,6 @@
 {% endif %}
   {% include "partials/ui/messages.html" %}
   {% block content %}{% endblock %}
-</main>
+</main>{% if user.is_authenticated and shell %}
+{% include "partials/ui/shell_end.html" %}{% endif %}
 {% endblock %}

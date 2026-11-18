@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if follow_up %}Cambiar responsable o fecha{% else %}Crear un seguimiento{% endif %}{% endblock %}
+{% block content %}
+{% comment %}
+  A new follow-up about one person, or the owner and the date of an existing one (care.views.create, edit).
+  The reason is one of six fixed sentences and is asked once. There is nowhere to write a note, on purpose.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% if follow_up %}
+    {% url 'care:detail' follow_up.pk as back %}
+    {% include "events/rotulo/_page_head.html" with title="Cambiar responsable o fecha" lede="Seguimiento de persona: "|add:about.full_name|add:"." back_url=back back_label="Volver al seguimiento" %}
+  {% else %}
+    {% url 'care:create' as back %}
+    {% include "events/rotulo/_page_head.html" with title="Seguimiento de persona: "|add:about.full_name lede="Elige por qué hay que buscarla y quién lo hará. Ella no lo verá, y Emmaus no le envía nada a nadie." back_url=back back_label="Elegir a otra persona" %}
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% if not follow_up %}
+      <input type="hidden" name="persona" value="{{ about.pk }}">
+      <div class="field{% if form.reason.errors %} field--error{% endif %}" id="campo-reason">
+        <fieldset id="id_reason" tabindex="-1"{% if form.reason.errors %} aria-describedby="id_reason-error"{% endif %}>
+          <legend class="legend">{{ form.reason.label }}</legend>
+          {% if form.reason.errors %}<span class="error-message" id="id_reason-error">{{ form.reason.errors.0 }}</span>{% endif %}
+          <div class="choices">
+            {% for value, label in reasons %}
+            <div class="choice">
+              <input class="choice__input" type="radio" id="motivo-{{ value }}" name="reason" value="{{ value }}"{% if form.reason.value == value %} checked{% endif %}>
+              <label class="choice__label" for="motivo-{{ value }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ label }}</span></label>
+            </div>
+            {% endfor %}
+          </div>
+        </fieldset>
+      </div>
+    {% endif %}
+    {% include "partials/ui/field.html" with field=form.owner %}
+    {% include "partials/ui/field.html" with field=form.due_on %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">{% if follow_up %}Guardar cambios{% else %}Crear el seguimiento{% endif %}</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Aquí no se escribe nada de lo que la persona platique: solo a quién hay que buscar, quién lo hará y para cuándo.</p>
+</div>
+{% endblock %}
