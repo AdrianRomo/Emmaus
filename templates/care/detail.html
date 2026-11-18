@@ -3,32 +3,34 @@
 {% block page_title %}Seguimiento de persona{% endblock %}
 {% block content %}
 {% comment %}
-  One follow-up, for its owner or the church's administration (care.views.detail): who to reach and how (the arch,
-  the name, the ways to reach them as links), its state as a pill, why, by when and who will do it as facts; what
-  has been done, as a line of steps; one form to add a step; apart, "Marcar como atendido".
-  The contact data is here because the owner has to reach the person. Nothing said in a conversation is written.
+  One follow-up, for its owner or the church's administration (care.views.detail): who to reach and how (the
+  person's circle, the name, the ways to reach them as links), its state, why, by when and who will do it as facts;
+  what has been done, as a line of steps; one form to add a step; then "Marcar como atendido" and, for the
+  administration, its two actions. The contact data is here because the owner has to reach the person. Nothing
+  said in a conversation is written, and the page says so where a step is saved.
 {% endcomment %}
 <div class="narrow">
   <a class="back-link" href="{{ back_url }}">{{ back_label }}</a>
-  <div class="group-head">
-    {% monogram about.full_name "lg" %}
-    <header class="page-head">
-      <h1 class="voice page-head__title">{{ about.full_name }}</h1>
-      <ul class="meta page-head__meta">
-        <li>{% status follow_up.status_mark follow_up.get_status_display %}</li>
-        {% if follow_up.closed_at %}<li>Desde el {{ follow_up.closed_at|long_date }}</li>{% endif %}
-        <li>{{ follow_up.get_reason_display }}</li>
-        {% if follow_up.due_on %}<li>{% icon "calendario" "sm" %}Para el {{ follow_up.due_on|weekday_date }}</li>{% endif %}
-        {% if follow_up.is_overdue %}<li><span class="chip chip--risk">Ya pasó</span></li>{% endif %}
-        {% if not follow_up.is_mine %}{% if follow_up.owner_id %}<li>{% icon "personas" "sm" %}Responsable: {{ follow_up.owner.full_name }}</li>{% elif follow_up.is_open %}<li><span class="chip chip--wait">Sin responsable</span></li>{% else %}<li>Sin responsable</li>{% endif %}{% endif %}
-      </ul>
-      {% if about.phone or about.email %}
-        <p class="row__contact">{% if about.phone %}<a href="tel:{{ about.phone|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ about.full_name }}: </span>{{ about.phone }}</a>{% endif %}{% if about.email %}<a href="mailto:{{ about.email }}">{% icon "correo" "sm" %}<span class="visually-hidden">Escribir a {{ about.full_name }}: </span>{{ about.email }}</a>{% endif %}</p>
-      {% else %}
-        <p class="page-head__meta">Sin teléfono ni correo. Pregunta en tu iglesia cómo encontrarla.</p>
-      {% endif %}
-    </header>
-  </div>
+  <header class="page-head">
+    <div class="group-head">
+      {% monogram about.full_name "lg" %}
+      <div class="page-head__text">
+        <h1 class="voice page-head__title">{{ about.full_name }}</h1>
+        <ul class="meta page-head__meta">
+          <li>{% status follow_up.status_mark follow_up.get_status_display %}</li>
+          {% if follow_up.closed_at %}<li>Desde el {{ follow_up.closed_at|long_date }}</li>{% endif %}
+          <li>{{ follow_up.get_reason_display }}</li>
+          {% if follow_up.due_on %}<li>{% icon "calendario" "sm" %}Para el {{ follow_up.due_on|weekday_date }}{% if follow_up.is_overdue %}. Ya pasó{% endif %}</li>{% endif %}
+          {% if not follow_up.is_mine %}{% if follow_up.owner_id %}<li>{% icon "personas" "sm" %}Responsable: {{ follow_up.owner.full_name }}</li>{% elif follow_up.is_open %}<li><span class="chip chip--wait">Sin responsable</span></li>{% else %}<li>Sin responsable</li>{% endif %}{% endif %}
+        </ul>
+        {% if about.phone or about.email %}
+          <p class="row__contact">{% if about.phone %}<a href="tel:{{ about.phone|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ about.full_name }}: </span>{{ about.phone }}</a>{% endif %}{% if about.email %}<a href="mailto:{{ about.email }}">{% icon "correo" "sm" %}<span class="visually-hidden">Escribir a {{ about.full_name }}: </span>{{ about.email }}</a>{% endif %}</p>
+        {% else %}
+          <p class="page-head__meta">Sin teléfono ni correo. Pregunta en tu iglesia cómo encontrarla.</p>
+        {% endif %}
+      </div>
+    </div>
+  </header>
 
   <section class="block" aria-labelledby="hecho">
     <h2 id="hecho" class="heading">{% if follow_up.is_mine %}Lo que has hecho{% else %}Lo que se ha hecho{% endif %}</h2>
@@ -71,14 +73,11 @@
   </section>
 
   {% if follow_up.is_open %}
-  <section class="block" aria-labelledby="cerrar">
-    <h2 id="cerrar" class="heading">Cuando ya no haga falta buscarla</h2>
-    <form method="post" action="{% url 'care:status' follow_up.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="estado" value="atendido">
-      <button class="btn btn--secondary" type="submit">{% icon "check" "sm" %}Marcar como atendido</button>
-    </form>
-  </section>
+  <form class="block" method="post" action="{% url 'care:status' follow_up.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="estado" value="atendido">
+    <button class="btn btn--secondary" type="submit">{% icon "check" "sm" %}Marcar como atendido</button>
+  </form>
   {% endif %}
 
   {% if request.is_church_admin and follow_up.is_open %}

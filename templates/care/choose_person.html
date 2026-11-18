@@ -16,7 +16,7 @@
       <ul class="rows">
         {% for person in found %}
           <li class="row row--lead">
-            {% monogram person.full_name "sm" %}
+            {% monogram person.full_name %}
             <div class="row__main">
               <p class="row__title"><a href="{% url 'care:create' %}?persona={{ person.pk }}">{{ person.full_name }}</a></p>
             </div>
