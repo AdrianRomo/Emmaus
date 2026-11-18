@@ -471,7 +471,8 @@ def group_meetings(request, group_id: int):
             messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
             return redirect("community:group_meetings", group.pk)
         return redirect("community:meeting_record", group.pk, day.isoformat())
-    meetings = paginate(request, services.with_present(group.meetings.all()))
+    # Newest first, said here: an annotated (grouped) queryset does not take the model's own ordering.
+    meetings = paginate(request, services.with_present(group.meetings.all()).order_by("-date", "-id"))
     return render(
         request,
         "groups/group_meetings.html",
