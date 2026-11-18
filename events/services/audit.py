@@ -40,6 +40,9 @@ ACTION_LABELS = {
     "campero_baja": "Dio de baja a un campero",
     "campero_eliminado": "Eliminó los datos de un campero",
     "importacion": "Importó camperos",
+    "importacion_equipo": "Importó integrantes del equipo",
+    "alias_guardado": "Guardó otro nombre de un coordinador",
+    "alias_eliminado": "Quitó otro nombre de un coordinador",
     "autorizacion": "Registró una autorización",  # rows written before the confirmation page existed
     "autorizacion_registrada": "Confirmó la autorización firmada de un padre, madre o tutor legal",
     "autorizacion_retirada": "Quitó la autorización de un padre, madre o tutor legal",

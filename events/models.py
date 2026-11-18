@@ -415,6 +415,40 @@ class EventMembership(models.Model):
         return self.team_name or f"Equipo de {self.user.first_name or self.display_name}"
 
 
+class MembershipAlias(models.Model):
+    """Another name a team member goes by in the church's lists: the nickname in the "Coordinador" column.
+
+    Kept per membership, so it never leaves its event. ``normalized`` (``normalize_name``: no case, no accents,
+    single spaces) is what the campero import compares, and it is unique within the event: one nickname never
+    points at two people. Saved only by an administrator's explicit choice, and audited (``alias_guardado``).
+    """
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="membership_aliases")
+    membership = models.ForeignKey(EventMembership, on_delete=models.CASCADE, related_name="aliases")
+    alias = models.CharField("Otro nombre", max_length=150)
+    normalized = models.CharField(max_length=150, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["alias"]
+        constraints = [
+            models.UniqueConstraint(fields=["event", "normalized"], name="membership_alias_unique_per_event"),
+        ]
+        verbose_name = "otro nombre de un integrante"
+        verbose_name_plural = "otros nombres de integrantes"
+
+    def __str__(self) -> str:
+        return self.alias
+
+    def save(self, *args, **kwargs):
+        self.event_id = self.membership.event_id  # an alias lives in its membership's event, whatever the caller said
+        self.normalized = normalize_name(self.alias)
+        super().save(*args, **kwargs)
+
+
 class TutorAssignment(models.Model):
     """Explicit tutor -> coordinador supervision link. A coordinador has at most one tutor."""
 

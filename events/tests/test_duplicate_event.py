@@ -28,6 +28,7 @@ from events.models import (
     EventParticipant,
     FollowUp,
     Interview,
+    MembershipAlias,
     MembershipRole,
     ParticipantSession,
     ReportSnapshot,
@@ -111,6 +112,7 @@ class NothingOfThePeopleTests(DuplicateFixture):
             cutoff_at=timezone.now(), interval_minutes=120, metrics_version="1",
         )
         AccessRequest.objects.create(event=event, full_name="Pide Acceso", email="pide@prueba.mx", requested_role="tutor")
+        MembershipAlias.objects.create(membership=self.m_coord1, alias="Carlita")  # issue #50
         person = Person.objects.create(church=self.church, first_name="Diego", last_name="Hernández")
         EventParticipantLink.objects.create(participant=self.p2, person=person, event=event, linked_by=self.admin)
         EventPage.objects.create(event=event, published=True, description="Página del campamento")

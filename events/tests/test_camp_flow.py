@@ -341,9 +341,12 @@ class PluralTests(CampFlowFixture):
         return [str(message) for message in get_messages(response.wsgi_request)]
 
     def test_import_one_campero(self):
-        self.assertEqual(self.import_rows("Valeria Ruiz Ortega"), ["Se importó 1 campero."])
+        # The second message is the report of issue #50: the file named no coordinator
+        self.assertEqual(self.import_rows("Valeria Ruiz Ortega"),
+                         ["Se importó 1 campero.", "1 campero quedó sin coordinador. Aquí lo ves: asígnale uno desde su ficha."])
         self.assertEqual(self.import_audit(), "Importó 1 campero desde un archivo")
 
     def test_import_two_camperos(self):
-        self.assertEqual(self.import_rows("Valeria Ruiz Ortega", "Marco Díaz Luna"), ["Se importaron 2 camperos."])
+        self.assertEqual(self.import_rows("Valeria Ruiz Ortega", "Marco Díaz Luna"),
+                         ["Se importaron 2 camperos.", "2 camperos quedaron sin coordinador. Aquí los ves: asígnales uno desde su ficha."])
         self.assertEqual(self.import_audit(), "Importó 2 camperos desde un archivo")
