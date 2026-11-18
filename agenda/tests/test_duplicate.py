@@ -190,10 +190,13 @@ class WhatIsCopiedTests(DuplicateSimpleFixture):
 
 
 class ScreenAndAccessTests(DuplicateSimpleFixture):
-    def test_the_list_offers_it_for_simple_events_only(self):
-        html = self.client.get(reverse("agenda:admin_list")).content.decode()
+    def test_the_events_page_offers_it_for_simple_events_only(self):
+        # «Duplicar» lives on the event's own page (the row of "Eventos de la iglesia" leads there)
+        html = self.client.get(reverse("agenda:page_edit", args=[self.noche.slug])).content.decode()
         self.assertIn(f'href="{self.url()}">Duplicar<span class="visually-hidden"> Noche de alabanza 2026</span></a>', html)
-        self.assertNotIn(self.url(self.retiro), html)
+        camp = self.client.get(reverse("agenda:page_edit", args=[self.retiro.slug])).content.decode()
+        self.assertNotIn(self.url(self.retiro), camp)
+        self.assertNotIn(self.url(self.retiro), self.client.get(reverse("agenda:admin_list")).content.decode())
 
     def test_the_page_says_what_is_copied_and_suggests_a_name(self):
         html = self.client.get(self.url()).content.decode()
