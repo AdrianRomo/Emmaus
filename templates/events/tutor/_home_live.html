@@ -27,25 +27,26 @@
 {% endif %}
 <div class="tablero">
   <section class="block tablero__esperan" aria-labelledby="esperan">
+    {% with n=payload.follow_ups.to_evaluate %}{# What is the tutor's to decide, then what waits on their coordinators: never under one heading #}
+    {% if follow_ups_unassigned or not n %}
     <h2 id="esperan" class="heading">Esperan tu decisión</h2>
-    {% with n=payload.follow_ups.to_evaluate %}
-    {% if follow_ups_unassigned or n %}
     {% if follow_ups_unassigned %}
     <a class="decision decision--bloqueo" href="{% url 'events:follow_ups' event.slug %}?estado=abiertos&amp;responsable=ninguno">
       <span class="decision__cifra">{{ follow_ups_unassigned }}</span>
       <span class="decision__texto"><span class="decision__titulo">{{ follow_ups_unassigned|pluralize:"Seguimiento,Seguimientos" }} sin responsable</span><span class="decision__nota">Asigna quién {{ follow_ups_unassigned|pluralize:"lo,los" }} atiende.</span></span>
       <span class="decision__ir" aria-hidden="true"></span>
     </a>
-    {% endif %}
-    {% if n %}
-    <a class="decision" href="{% url 'events:pending' event.slug %}#por-evaluar">
-      <span class="decision__cifra">{{ n }}</span>
-      <span class="decision__texto"><span class="decision__titulo">{{ n|pluralize:"Entrevista,Entrevistas" }} por decidir</span><span class="decision__nota">Su coordinador decide si necesita{{ n|pluralize:"n" }} seguimiento.</span></span>
-      <span class="decision__ir" aria-hidden="true"></span>
-    </a>
-    {% endif %}
     {% else %}
     <p class="empty-line">Nada por decidir.</p>
+    {% endif %}
+    {% endif %}
+    {% if n %}
+    <h2 {% if follow_ups_unassigned or not n %}id="esperan-coordinadores"{% else %}id="esperan"{% endif %} class="heading">Esperan a sus coordinadores</h2>
+    <a class="decision" href="{% url 'events:pending' event.slug %}#por-evaluar">
+      <span class="decision__cifra">{{ n }}</span>
+      <span class="decision__texto"><span class="decision__titulo">{{ n|pluralize:"Entrevista,Entrevistas" }} por decidir</span><span class="decision__nota">Cada coordinador decide si necesita{{ n|pluralize:"n" }} seguimiento.</span></span>
+      <span class="decision__ir" aria-hidden="true"></span>
+    </a>
     {% endif %}
     {% endwith %}
     {% if follow_ups %}
