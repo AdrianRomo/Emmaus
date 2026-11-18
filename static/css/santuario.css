@@ -504,6 +504,9 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
   .row--stack .row__main { flex: 1 1 12rem; }
   .row--stack .row__end { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; gap: var(--s-2); }
   .row--lead.row--stack .row__end { padding-left: calc(var(--lead) + var(--s-4)); }
+  /* A row's action keeps its own width under the text, link or form alike (Atrio stretched them: two widths of the
+     same «Inscribirme» on the home and on Eventos) */
+  :root[data-ui="2"] .page--app .row--stack .row__end .btn { flex: 0 0 auto; }
   .page--app .rows > .row--stack:has(.row__end)::after { display: none; }
 }
 @media (max-width: 600px) { .row--lead.row--stack { flex-direction: row; } }
@@ -1017,11 +1020,9 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .pagina-evento__datos + .aside-note { margin: calc(-1 * var(--s-6)) 0 var(--s-8); }
 .pagina-evento__compartir { margin-top: var(--s-4); }
 /* The rows of this area on a phone (list.html, registrations.html): a quiet removal keeps its own width with its words
-   on the text's column; an action sent in place (a form) is as wide as an action that is a link (Atrio's stacked row) */
+   on the text's column (every row button keeps its own width: section 8) */
 @media (max-width: 600px) {
   .page--app .filas-evento > .row--stack > .row__end .btn--link { flex: none; padding-inline: 0; }
-  .page--app .filas-evento > .row--stack > .row__end > form { display: flex; flex: 1 1 8rem; }
-  .page--app .filas-evento > .row--stack > .row__end > form > .btn { flex: 1 1 auto; }
 }
 /* The programme (agenda/_read.html, schedule.html): each moment led by its hour, as a timetable is read */
 :root[data-ui="2"] .hora { flex: none; min-width: 3.25rem; font-weight: 700; }
