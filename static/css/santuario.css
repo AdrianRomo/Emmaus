@@ -1247,36 +1247,13 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .filter-bar { margin-bottom: var(--s-6); }
 .page--app .filter-bar .field { margin-bottom: 0; }
 
-/* A row that leads somewhere draws its chevron as a third item of the row: the text takes the room that is left,
-   so the state stays at the end instead of floating in the middle */
-.page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row > .row__main { flex: 1 1 auto; }
-/* A row with buttons at its end is not pressed as a whole: its title says by itself that it opens something */
-.page--app :is(.admin-rows, .admin-questions) > .row:has(.row__end :is(a, button)) .row__title a {
-  text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 0.18em;
-}
-/* A second level of titles inside a section (the questionnaires under "Versiones") */
-.page--app .admin-section h3.heading { font-size: var(--t-body); color: var(--ink-2); }
-/* Rows that wait inside a sheet ("Preparación"): Atrio rounded each one by itself; here the sheet has the corners */
-.page--app .admin-rows > .row--attention:not(:first-child, :last-child) { border-radius: 0; }
-.page--app .page-head + .admin-events, .page--app .welcome + .admin-events { margin-top: 0; }
+/* Eventos donde sirves: an event without a date keeps the day's slot with the calendar's mark */
+.admin-eventos__sin-fecha .icon { color: var(--ink-2); }
 
-/* The same lists on a phone: the name and its lines take the width, the chevron stays beside them and the state (or
-   the buttons) goes under them; beside them it left the text half a column, and the chevron fell to a line of its own */
 @media (max-width: 600px) {
-  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row { flex-wrap: wrap; row-gap: var(--s-2); }
-  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row > .row__main { flex-basis: calc(100% - 2.5rem); }
-  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row > .row__end { order: 3; flex: 1 0 100%; }
-  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row::after { order: 2; }
-  /* Only states at the end (two pills): together at the start, not one at each edge */
-  .page--app .admin-rows > .row > .row__end:not(:has(a, button)) { justify-content: flex-start; gap: var(--s-2); }
-  /* Interviews left half done (rotulo/_interrupted_rows.html): Atrio stacks the row at this width, where the
-     column's 12rem basis became 12rem of height */
-  .page--app .admin-state .row--stack .row__main, .page--app .notice .row--stack .row__main { flex: 0 1 auto; }
-  /* ...and its state, alone on its line, is the mark and the word: a pill as wide as the screen says nothing more */
-  .page--app .admin-state .row--stack .row__end .status, .page--app .notice .row--stack .row__end .status { min-height: 0; padding: 0; background: none; }
-  /* Configuración: its three ways out are links to other pages, not three bars across the screen */
-  .page--app .admin-settings__links { gap: var(--s-2); }
-  .page--app .admin-settings__links .btn { flex: 0 1 auto; min-height: var(--control); padding-inline: 0.75rem; font-size: var(--t-caption); }
+  /* Interviews left half done inside a notice (Configuración, closing the event): the text keeps its width */
+  .page--app .notice .row--stack .row__main { flex: 0 1 auto; }
+  .page--app .notice .row--stack .row__end .status { min-height: 0; padding: 0; background: none; }
 }
 
 /* Importar camperos, Importar equipo: the three steps (Atrio's numbered list, at the shell's scale) */
@@ -1306,7 +1283,6 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* An import under review: the other file is a second thing on the page, not the tail of the first */
 .page--app section.admin-upload { margin-top: var(--s-10); }
 .page--app section.admin-upload > form { margin-top: var(--s-4); }
-.page--app .aside-note + .admin-rows { margin-top: var(--s-3); }
 
 /* A questionnaire: the note of a section sits on its questions, not against them */
 .page--app .admin-section__desc + .rows { margin-top: var(--s-3); }
@@ -1348,21 +1324,43 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .camperos__todas input:is(:checked, :indeterminate) { border-color: var(--petroleo); background: var(--petroleo); }
 .camperos__todas input:checked::after { opacity: 1; }
 .camperos__todas input:indeterminate::after { opacity: 1; height: 0.125rem; border-radius: 1px; -webkit-mask: none; mask: none; }
+/* The whole row opens the record: the name stays the link, a pseudo-element covers the row; the box keeps its own
+   target above it. The cells are tight enough for the columns to fit from 36rem of content */
+.page--app .camperos tbody tr { position: relative; cursor: pointer; }
+.page--app .camperos__nombre a::after { content: ""; position: absolute; inset: 0; }
+.page--app .camperos tbody tr:has(.camperos__nombre a:focus-visible) { outline: 3px solid var(--ink); outline-offset: -3px; }
+.page--app .camperos__nombre a:focus-visible { outline: none; box-shadow: none; }
+.camperos__marca { position: relative; z-index: 1; }
+.page--app .camperos .table :is(th, td) { padding-inline: var(--s-2); }
+.page--app .camperos .table th.camperos__nombre { min-width: 11rem; white-space: normal; }
+.page--app .camperos td.camperos__coord { min-width: 8rem; }
+.page--app .camperos :is(td.camperos__estado, td.camperos__autorizacion) { white-space: nowrap; }
+.camperos__dato-cuarto { display: none; }
+/* A middle column (a laptop at 125 %, a tablet): the room joins the number under the name, its column leaves */
+@container (max-width: 52rem) {
+  .page--app .camperos .table .camperos__cuarto { display: none; }
+  .camperos__dato-cuarto { display: inline; }
+}
 /* A narrow column: each campero is a block. The name and its number, then where, how old and with whom as one line,
    then the interview and the authorization, each with its mark; the box at the left of the block. */
-@container (max-width: 44rem) {
-  :root[data-ui="2"] .camperos .table--stack tbody tr { position: relative; padding: var(--s-3) var(--s-2); }
-  :root[data-ui="2"] .camperos .table--stack tbody tr:has(.camperos__marca-col) { padding-left: 3.25rem; }
-  :root[data-ui="2"] .camperos .table--stack .camperos__marca-col { position: absolute; left: 0.25rem; top: var(--s-2); width: auto; padding: 0; }
-  .camperos .table--stack .camperos__marca { margin: 0; }
-  :root[data-ui="2"] .camperos .table--stack :is(.camperos__cuarto, .camperos__edad, .camperos__coord) { display: inline; padding: 0; font-size: var(--t-small); color: var(--ink-2); text-align: left; }
-  .camperos .table--stack :is(.camperos__cuarto, .camperos__edad)::after { content: ", "; }
-  .camperos .table--stack .camperos__coord::after { content: "\A"; white-space: pre; }
-  .camperos .table--stack .camperos__coord .chip { vertical-align: 0.0625rem; }
-  .camperos .table--stack :is(.camperos__anos, .camperos__con) { display: inline; }
-  .camperos .table--stack .camperos__que { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
-  :root[data-ui="2"] .camperos .table--stack :is(.camperos__estado, .camperos__autorizacion) { display: inline-flex; margin: var(--s-2) var(--s-4) 0 0; padding: 0; }
-  :root[data-ui="2"] .camperos .table--stack .camperos__autorizacion:empty { display: none; }
+@container (max-width: 36rem) {
+  :root[data-ui="2"] .camperos__tabla :is(table, tbody, tr, th, td) { display: block; height: auto; }
+  :root[data-ui="2"] .camperos__tabla thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :root[data-ui="2"] .camperos__tabla tbody tr { padding: var(--s-3) var(--s-2); border-bottom: 1px solid var(--line); }
+  :root[data-ui="2"] .camperos__tabla :is(tbody th, td) { border: 0; padding: 0.125rem 0; text-align: left; }
+  :root[data-ui="2"] .camperos__tabla tbody th { font-size: var(--t-body); padding-bottom: var(--s-1); min-width: 0; }
+  :root[data-ui="2"] .camperos__tabla tbody tr:has(.camperos__marca-col) { padding-left: 3.25rem; }
+  :root[data-ui="2"] .camperos__tabla .camperos__marca-col { position: absolute; left: 0.25rem; top: var(--s-2); width: auto; padding: 0; }
+  .camperos__tabla .camperos__marca { margin: 0; }
+  .camperos__dato-cuarto { display: none; }
+  :root[data-ui="2"] .camperos__tabla :is(td.camperos__cuarto, .camperos__edad, .camperos__coord) { display: inline; min-width: 0; padding: 0; font-size: var(--t-small); color: var(--ink-2); text-align: left; }
+  .camperos__tabla :is(td.camperos__cuarto, .camperos__edad)::after { content: ", "; }
+  .camperos__tabla .camperos__coord::after { content: "\A"; white-space: pre; }
+  .camperos__tabla .camperos__coord .chip { vertical-align: 0.0625rem; }
+  .camperos__tabla :is(.camperos__anos, .camperos__con) { display: inline; }
+  .camperos__tabla .camperos__que { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  :root[data-ui="2"] .camperos__tabla :is(.camperos__estado, .camperos__autorizacion) { display: inline-flex; margin: var(--s-2) var(--s-4) 0 0; padding: 0; }
+  :root[data-ui="2"] .camperos__tabla .camperos__autorizacion:empty { display: none; }
 }
 /* The marked rows' bar: solid ink, at the bottom of the screen while the list is in view (above the tabs where they
    are), in its place under the table at the end, so it never covers the last row. Without JavaScript it is simply
@@ -1392,13 +1390,29 @@ p.sitio__leaves { margin-top: var(--s-2); }
    assigned on the raised surface, a choice at the end of each row */
 .decision--riesgo .decision__cifra { color: var(--chile); }
 .decision--riesgo .decision__nota .status { font-size: var(--t-small); }
-.page--app .admin-esperan + :is(.sign, .admin-state) { margin-top: var(--s-6); }
+.page--app .admin-esperan + :is(.sign, .block) { margin-top: var(--s-6); }
+/* How the interviews go (the coordinator's progress, at the event's size: above 80 camperos the marks are a ruler).
+   The three counts under it use the system's numeral: proportional figures, as «250 de 400», not a column of digits. */
+.page--app .admin-avance .ruler { margin: var(--s-3) 0 var(--s-2); }
+.page--app .admin-avance .key + .quests { margin-top: var(--s-5); }
+.page--app .admin-avance .admin-cifras { margin: var(--s-6) 0 0; }
+.page--app :is(.admin-cifras, .admin-figures) .figures__value { font-variant-numeric: normal; }
+.page--app .admin-cifras dd a { font-weight: 600; color: var(--petroleo); }
+.admin-pasos__icono .icon { color: var(--ink-2); }
+/* The rows inside the event take their text's width (evento-equipo): these lists put their end under the text in a
+   narrow column, so the text keeps its line beside the mark */
+.rail--event ~ .page--app .rows:is(.admin-detenidas, .admin-pasos) > .row.row--stack > .row__main { flex: 1 1 12rem; }
+.page--app .admin-pasos__listos { margin-top: var(--s-2); }
+.page--app .admin-registro { margin-top: var(--s-8); }
 .page--app .admin-asignar__filas { margin-top: var(--s-3); }
 .page--app .admin-asignar__filas > .row { align-items: center; }
 .admin-asignar__filas select { width: 16rem; max-width: 100%; }
+.admin-tutores .admin-asignar__filas select { width: 22rem; max-width: 100%; }
+@container (max-width: 38rem) { .admin-tutores .admin-asignar__filas select { width: 100%; } }
 @container (max-width: 38rem) {
   .page--app .admin-asignar__filas > .row { flex-wrap: wrap; }
-  .page--app .admin-asignar__filas > .row > .row__main { flex: 1 1 10rem; }
+  /* The name wraps in its own column beside the circle (the event's rows take their text's width otherwise) */
+  .rail--event ~ .page--app .rows.admin-asignar__filas > .row > .row__main, .page--app .admin-asignar__filas > .row > .row__main { flex: 1 1 10rem; }
   .page--app .admin-asignar__filas > .row > .row__end { flex: 1 0 100%; padding-left: calc(var(--lead) + var(--s-4)); }
   .admin-asignar__filas select { width: 100%; }
 }
@@ -1408,6 +1422,40 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .ficha__autorizacion { margin: 0 0 var(--s-6); }
 .page--app .notice.ficha__autorizacion p + p { margin-top: var(--s-2); }
 .page--app .ficha__eliminar { margin-top: var(--s-3); }
+/* The administration's lists (questionnaires, versions, sedes, computers, sessions, practice): the leading slot holds
+   the thing's mark in ink-2; a title that opens its page beside an action at the end is underlined, since the row
+   itself is not pressed */
+.admin-icono .icon { color: var(--ink-2); }
+/* A row with only its title sits on the middle of its mark */
+.page--app .admin-lista > .row--lead:not(:has(.row__meta)) { align-items: center; }
+.page--app .admin-opciones { margin-top: var(--s-1); }
+.page--app .admin-opciones > .row { min-height: 3rem; padding-block: var(--s-1); }
+.page--app .admin-lista > .row:has(.row__end :is(a, button)) .row__title a { display: inline-block; padding-block: 0.6875rem; margin-block: -0.6875rem; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 0.18em; }
+.page--app .admin-lista > .row:has(.row__end :is(a, button)) .row__title a:hover { text-decoration-color: currentColor; }
+.rail--event ~ .page--app .rows:is(.admin-lista, .admin-preguntas) > .row.row--stack > .row__main { flex: 1 1 12rem; }
+.page--app .admin-sub { margin-top: var(--s-6); }
+.page--app .admin-sub + .rows { margin-top: var(--s-2); }
+.page--app .admin-orden { margin-top: var(--s-4); }
+/* A question of a version: its number in the leading slot, in the system's numeral at the row's size */
+.admin-preguntas__n { font-size: var(--t-body); font-weight: 700; font-stretch: 112%; color: var(--ink-2); line-height: 1.3; }
+.row--lead > .admin-preguntas__n { place-items: start center; }
+.page--app .admin-preguntas .fold { margin-top: var(--s-1); }
+.page--app .admin-preguntas .fold > summary { min-height: 2.75rem; color: var(--ink-2); }
+.admin-preguntas__mas { font-size: var(--t-small); }
+.admin-preguntas__mas a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 600; color: var(--petroleo); text-decoration: none; }
+.page--app .admin-publicada { margin-bottom: var(--s-6); }
+.page--app .page-head .meta { margin-top: var(--s-2); }
+/* Configuración: a section's own button and the notes under it */
+.page--app .admin-ajuste, .page--app .admin-ajuste.block + .block { margin-top: var(--s-10); }
+.page--app .page-toc + .admin-ajuste { margin-top: 0; }
+.page--app .admin-ajuste .aside-note + .admin-ajuste__accion, .page--app .admin-ajuste .rows + .admin-ajuste__accion { margin-top: var(--s-4); }
+.page--app .admin-ajuste__accion + .aside-note { margin-top: var(--s-4); }
+.page--app .admin-ajuste .fold { margin-bottom: var(--s-4); }
+.page--app .admin-ajuste .form-actions { margin-top: var(--s-4); }
+.page--app form > .admin-ajuste + .form-actions { margin-top: var(--s-6); }
+.page--app .admin-borrar { margin-top: var(--s-10); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+.page--app .admin-practica__nota { margin-bottom: var(--s-6); }
+.page--app .admin-practica__quitar { margin-top: var(--s-4); }
 /* A guardian's authorization is a check, never the interview's circle: the two states must not read alike */
 .autorizada { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--t-small); color: var(--ink); }
 .autorizada .icon { color: var(--ink-2); }

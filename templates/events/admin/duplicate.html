@@ -1,6 +1,39 @@
 {% extends rotulo_shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Duplicar como plantilla{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}
+  The redesign ("Ventanas"): what the copy takes and what it never takes stays whole (it decides whether to make it),
+  then the new event's name and days. What is copied is decided in events/services/duplicate.py, not here.
+{% endcomment %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% url 'events:settings' event.slug as back %}
+{% include "events/rotulo/_page_head.html" with title="Duplicar como plantilla" meta=event.name back_url=back back_label="Configuración" %}
+<div class="notice">
+  <p class="notice__title">Qué se copia y qué no</p>
+  <p>Se copia la configuración: tipo de actividad, lugar, zona horaria, sedes, cortes, privacidad y protección, los cuestionarios que están en uso (con su versión y su orden) y las computadoras.</p>
+  <p>Nunca se copian los camperos, las entrevistas, las respuestas, los seguimientos, las autorizaciones, los cortes, los reportes ni el registro de actividad. Este evento queda exactamente como está.</p>
+  <p>El evento nuevo empieza en preparación, con su propia dirección y un código nuevo para unirse. Tendrás que confirmar otra vez los procedimientos de la iglesia.</p>
+</div>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <section class="form-section" aria-labelledby="f-nuevo">
+    <h2 id="f-nuevo" class="form-section__title">El evento nuevo</h2>
+    {% for field in form.visible_fields %}{% if field.name != "slug" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+  </section>
+  {% if form.slug %}
+  <details class="fold"{% if form.slug.errors %} open{% endif %}>
+    <summary>Dirección</summary>
+    {% include "partials/ui/field.html" with field=form.slug %}
+  </details>
+  {% endif %}
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit">Crear el evento nuevo</button>
+    <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% else %}{# v1 #}
 {% comment %}
   Configuración, "Duplicar como plantilla" (issue #51, events.views.duplicate): the next camp from this one's
   configuration. The page says what the copy takes and what it never takes before asking for its name. What is
@@ -25,4 +58,4 @@
   </div>
 </form>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

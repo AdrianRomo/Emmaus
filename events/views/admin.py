@@ -182,6 +182,9 @@ PARTICIPANT_VIEWS = [  # (key, query parameter, value, label); the interview's t
     ("no_participan", "participa", "no", "No participan"),
 ]
 VIEW_PARAMS = ("estado", "coordinador", "participa", "autorizacion")
+# "?estado=iniciada": the camperos whose interview started (in progress or completed). No capsule of its own; the
+# administration home links to it with ?autorizacion=falta (dashboards.admin_home, minors_interviewed).
+STARTED = "iniciada"
 
 
 def _participant_views(request, event, access, searched, selected: dict) -> list[dict]:
@@ -214,6 +217,8 @@ def _participant_views(request, event, access, searched, selected: dict) -> list
             if param:
                 query[param] = choice
             view = {
+                "key": key,
+                "value": choice,
                 "label": words,
                 "count": counts[f"estado_{choice}" if key == "estado" else key],
                 "url": "?" + query.urlencode(),
@@ -268,6 +273,8 @@ def participants(request, event, access):
     searched = qs
     if status in InterviewStatus.values:
         qs = qs.filter(interview_status=status)
+    elif status == STARTED:  # interviewed or in progress: the administration home's «entrevistados sin autorización vigente»
+        qs = qs.filter(interview_status__in=[InterviewStatus.IN_PROGRESS, InterviewStatus.COMPLETED])
     if coordinator == "ninguno":
         qs = qs.filter(coordinator__isnull=True)
     elif coordinator.isascii() and coordinator.isdigit():
@@ -290,6 +297,10 @@ def participants(request, event, access):
         )
     page = Paginator(qs.order_by(*_participant_ordering(sort_key, sort_dir)), 50).get_page(request.GET.get("pagina"))
     selected = {"estado": status, "coordinador": coordinator, "participa": active, "sede": sede, "autorizacion": authorization}
+    views = _participant_views(request, event, access, searched, selected)
+    # A view emptied by work ("Sin coordinador" after assigning everyone): one capsule's filter, no search, no sede.
+    # The list says it as done instead of "Nadie coincide", which reads as a failed search.
+    emptied_view = None if query or sede or page.paginator.count else next((v for v in views if v["current"] and v["key"] != "todos"), None)
     return render(
         request,
         "events/admin/participants.html",
@@ -305,7 +316,8 @@ def participants(request, event, access):
             "querystring": request.GET.urlencode(),
             "total": access.participants().count(),
             # With the redesign (ui_v2) only
-            "views": _participant_views(request, event, access, searched, selected),
+            "views": views,
+            "emptied_view": emptied_view,
             "sede_capsules": _sede_capsules(request, sede_options, sede),
             "columns_v2": _participant_columns(request.GET, sort_key, sort_dir, with_sede=False, spec=PARTICIPANT_COLUMNS_V2),
             "filtered": bool(query or any(selected[name] for name in VIEW_PARAMS if name != "participa") or sede or active != "si"),

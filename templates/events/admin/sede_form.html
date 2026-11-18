@@ -1,6 +1,36 @@
 {% extends rotulo_shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if sede %}Editar sede{% else %}Agregar sede{% endif %}{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}The redesign ("Ventanas"): the sede's form; erasing one nobody uses is drawn as the irreversible action it is, and asks first.{% endcomment %}
+{% url 'events:sedes' event.slug as back_url %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% if sede %}
+  {% include "events/rotulo/_page_head.html" with title=sede.name back_url=back_url back_label="Sedes de la iglesia" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Agregar sede" back_url=back_url back_label="Sedes de la iglesia" %}
+{% endif %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/fields.html" with form=form %}
+  {% if sede %}<p class="aside-note">Los cambios se ven en todos los eventos de la iglesia.</p>{% endif %}
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit">{% if sede %}Guardar cambios{% else %}Agregar sede{% endif %}</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+{% if sede %}
+  <section class="form-section admin-borrar" aria-labelledby="t-borrar">
+    <h2 id="t-borrar" class="form-section__title">Borrar la sede</h2>
+    {% if in_use %}
+      <p class="aside-note">Hay camperos con esta sede: no se puede borrar. Desmarca «Activa» para que ya no se ofrezca; quienes ya la tienen la conservan.</p>
+    {% else %}
+      <form method="post" action="{% url 'events:sede_delete' event.slug sede.id %}">{% csrf_token %}<button class="btn btn--danger-outline" type="submit" data-confirm="¿Borrar la sede {{ sede.name }}? No se puede deshacer.">Borrar la sede</button></form>
+    {% endif %}
+  </section>
+{% endif %}
+</div>
+{% else %}{# v1 #}
 {% url 'events:sedes' event.slug as back_url %}
 <div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
@@ -30,4 +60,4 @@
   </section>
 {% endif %}
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

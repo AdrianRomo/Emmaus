@@ -1,6 +1,41 @@
 {% extends rotulo_shell %}
 {% block page_title %}Persona agregada{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): who joined and with what role, then the link (and a message ready to paste, UX-24) to
+  copy. It never says an e-mail went out unless one did; who the link is for stays said.
+{% endcomment %}
+<div class="narrow">
+{% with title=membership.display_name|add:" ya forma parte del equipo" meta="Rol: "|add:membership.get_role_display %}
+{% include "events/rotulo/_page_head.html" with title=title meta=meta %}
+{% endwith %}
+<section class="form-section" aria-labelledby="f-enlace">
+  <h2 id="f-enlace" class="form-section__title">Su enlace para entrar</h2>
+  <div class="field admin-link">
+    <label class="label" for="enlace">Enlace para crear contraseña (vence en unos días)</label>
+    <input class="input" id="enlace" value="{{ link }}" readonly>
+  </div>
+  <button class="btn btn--secondary" type="button" data-copy="enlace" data-copy-done="Enlace copiado">{% icon "copiar" %}Copiar enlace</button>
+</section>
+<section class="form-section" aria-labelledby="f-mensaje">
+  <h2 id="f-mensaje" class="form-section__title">O un mensaje listo para enviar</h2>
+  <div class="field admin-link">
+    <label class="label" for="mensaje">Mensaje</label>
+    <textarea class="input" id="mensaje" rows="6" readonly>Hola, {{ first_name }}: te agregaron al equipo de {{ event.name }} en Emmaus, como {{ role_label|lower }}. Crea tu contraseña con este enlace (vence en unos días):
+{{ link }}
+Si tienes dudas, avísame.</textarea>
+  </div>
+  <button class="btn btn--secondary" type="button" data-copy="mensaje" data-copy-done="Mensaje copiado">{% icon "copiar" %}Copiar mensaje</button>
+</section>
+{% if email_sent %}<p class="aside-note">También le llegó un correo.</p>{% endif %}
+<p class="aside-note">Compártelo solo con esa persona. Si se pierde, puedes generar otro desde su ficha.</p>
+<div class="form-actions">
+  <a class="btn btn--primary" href="{% url 'events:member_add' event.slug %}">Agregar a otra persona</a>
+  <a class="btn btn--link" href="{% url 'events:team' event.slug %}">Ver equipo</a>
+</div>
+</div>
+{% else %}{# v1 #}
 <div class="narrow">
 <section class="confirm" aria-labelledby="agregada">
   <h1 id="agregada" class="voice confirm__title">{{ membership.display_name }} ya forma parte del equipo</h1>
@@ -26,4 +61,4 @@ Si tienes dudas, avísame.</textarea>
   <a class="btn btn--link" href="{% url 'events:team' event.slug %}">Ver equipo</a>
 </div>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

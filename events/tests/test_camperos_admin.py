@@ -200,23 +200,75 @@ class RedesignedCamperosTests(CampFixture):
         self.assertIn('href="?orden=edad&amp;dir=asc">Quitar filtros</a>', page)
         self.assertNotIn("Importar", page.split("Nadie coincide", 1)[1].split("</section>", 1)[0])
 
+    def test_a_queue_emptied_by_work_says_it_is_done(self):
+        """Every campero has a coordinator: «Sin coordinador» is a finished queue, not a failed search."""
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("participants") + "?coordinador=ninguno"))
+        self.assertIn("Todos tienen coordinador", page)
+        self.assertNotIn("Nadie coincide", page)
+        self.assertNotIn("Quitar filtros", page)
+        searched = main_of(self.client.get(self.url("participants") + "?coordinador=ninguno&q=zzzz"))
+        self.assertIn("Nadie coincide", searched)  # a search is on: there is something to take away
+        self.assertIn("Quitar filtros", searched)
+
+    def test_the_whole_row_opens_the_record_and_the_table_names_its_own_region(self):
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("participants")))
+        self.assertIn('<th scope="row" class="camperos__nombre"><a href="' + self.url("participant_detail", self.p1.public_id) + '">', page)
+        self.assertIn('role="region" aria-label="Tabla de camperos"', page)
+        self.assertEqual(page.count('aria-labelledby="resultados"'), 1)  # the section only: no second landmark of the same name
+        self.assertNotIn("table--stack", page)  # the list decides its own columns (santuario.css, Camperos)
+
     def test_the_home_puts_risk_first_then_minors_then_the_assignment(self):
         FollowUp.objects.create(event=self.event, participant=self.p2, kind=FollowUp.Kind.SAFETY, reason=FollowUp.Reason.TALK_TO_LEADER, created_by=self.coord1)
         unassigned = EventParticipant.objects.create(event=self.event, number=20, full_name="Nadia Sin Coordinador", age=20, room="7", church_group="X")
         self.client.force_login(self.admin)
         page = main_of(self.client.get(self.url("admin_home")))
         risk = page.index("Situación de riesgo abierta")
-        minors = page.index("Menor sin autorización registrada")
+        minors = page.index("Menor espera la autorización")
         sign = page.index("Asigna coordinador a 1 campero")
         self.assertLess(risk, minors)
         self.assertLess(minors, sign)
-        self.assertIn(f'href="{self.url("participants")}?autorizacion=falta"', page)
+        self.assertIn(f'href="{self.url("participants")}?autorizacion=falta&amp;estado=pendiente"', page)
         self.assertIn(f'name="coordinador-{unassigned.public_id}"', page)
         self.assertNotIn("figures__alert", page)  # the risk is a decision, not a tile
         fragment = self.client.get(self.url("admin_home"), HTTP_X_REQUESTED_WITH="fetch").content.decode()
         self.assertIn(f'name="coordinador-{unassigned.public_id}"', fragment)
         self.assertNotIn("<html", fragment)
         self.assertNotIn("Ver los", page)
+
+    def test_minors_without_authorization_are_two_rows_each_counting_its_list(self):
+        """Waiting for the authorization (not interviewed yet, vela) and interviewed without a current one (in progress
+        or completed, chile) are two facts; each number is the length of the Camperos list its row opens, and a minor
+        already interviewed is never counted as one who «no se le puede entrevistar»."""
+        waiting_too = EventParticipant.objects.create(event=self.event, number=31, full_name="Ana Espera Firma", age=12, room="2", church_group="X", coordinator=self.m_coord2)
+        done = EventParticipant.objects.create(event=self.event, number=32, full_name="Beto Ya Entrevistado", age=14, room="3", church_group="X", coordinator=self.m_coord2)
+        live = EventParticipant.objects.create(event=self.event, number=33, full_name="Caro En Curso", age=15, room="4", church_group="X", coordinator=self.m_coord3)
+        give_interview(done, InterviewStatus.COMPLETED)
+        give_interview(live, InterviewStatus.IN_PROGRESS)
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("admin_home")))
+        waiting = re.search(r'estado=pendiente">\s*<span class="decision__cifra"[^>]*>(\d+)</span>.*?</a>', page, re.DOTALL)
+        interviewed = re.search(r'estado=iniciada">\s*<span class="decision__cifra"[^>]*>(\d+)</span>.*?</a>', page, re.DOTALL)
+        self.assertEqual(waiting.group(1), "2")  # Lucía and Ana: nobody interviewed them yet
+        self.assertIn("Menores esperan la autorización", waiting.group(0))
+        self.assertIn("padre, madre o tutor legal no se les puede entrevistar", waiting.group(0))
+        self.assertEqual(interviewed.group(1), "2")  # Beto (completed) and Caro (in progress)
+        self.assertIn("Entrevistados sin autorización vigente", interviewed.group(0))
+        self.assertIn("decision--riesgo", page[page.rindex("<a", 0, interviewed.start()):interviewed.start()])
+        for status, names in (("pendiente", {"Lucía Torres Gómez", "Ana Espera Firma"}), ("iniciada", {"Beto Ya Entrevistado", "Caro En Curso"})):
+            listed = self.client.get(self.url("participants") + f"?autorizacion=falta&estado={status}").context["page"]
+            with self.subTest(status=status):
+                self.assertEqual(listed.paginator.count, len(names))
+                self.assertEqual({p.full_name for p in listed.object_list}, names)
+        self.assertNotIn(waiting_too.full_name, {p.full_name for p in self.client.get(self.url("participants") + "?autorizacion=falta&estado=iniciada").context["page"].object_list})
+
+    def test_no_minor_row_when_nobody_is_missing_an_authorization(self):
+        from events.models import ConsentRecord
+        ConsentRecord.objects.create(participant=self.p_minor_no_auth, kind=ConsentRecord.Kind.GUARDIAN, status=ConsentRecord.Status.GRANTED)
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("admin_home")))
+        self.assertNotIn("autorizacion=falta", page)
 
     def test_the_home_lists_ten_and_leads_to_the_rest(self):
         for n in range(11):

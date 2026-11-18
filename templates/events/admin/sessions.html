@@ -1,7 +1,54 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Computadoras en uso{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): who answers alone and which interviews are open, as rows of people (comparing columns is
+  not the task here). Closing a screen or freeing an interview erases nothing; each still asks first.
+{% endcomment %}
+{% url 'events:settings' event.slug as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Computadoras en uso" back_url=back_url back_label="Configuración" %}
+<section class="block" aria-labelledby="t-capturas">
+  <h2 id="t-capturas" class="heading">Entrevistas a solas <span class="count">{{ captures|length }}</span></h2>
+  {% if captures %}
+    <ul class="rows admin-lista">
+      {% for ps in captures %}
+        <li class="row row--lead row--stack">
+          {% monogram ps.interview.participant.full_name %}
+          <div class="row__main">
+            <p class="row__title">{{ ps.interview.participant.full_name }}</p>
+            <p class="row__meta">{{ ps.station.name|default:"Sin computadora" }}, con {{ ps.started_by.get_full_name }}, {{ ps.get_state_display|lower }}, {{ ps.last_activity_at|since }}</p>
+          </div>
+          <div class="row__end"><form method="post">{% csrf_token %}<input type="hidden" name="participant_session" value="{{ ps.public_id }}"><button class="btn btn--secondary btn--small" data-confirm="¿Cerrar la pantalla del campero? Ya no podrá seguir respondiendo en esa computadora. La entrevista sigue en curso.">Cerrar la pantalla<span class="visually-hidden"> de {{ ps.interview.participant.full_name }}</span></button></form></div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Ningún campero está respondiendo a solas.</p>
+  {% endif %}
+</section>
+<section class="block" aria-labelledby="t-claims">
+  <h2 id="t-claims" class="heading">Entrevistas en curso <span class="count">{{ claims|length }}</span></h2>
+  {% if claims %}
+    <ul class="rows admin-lista">
+      {% for iv in claims %}
+        <li class="row row--lead row--stack">
+          {% monogram iv.participant.full_name %}
+          <div class="row__main">
+            <p class="row__title">{{ iv.participant.full_name }}</p>
+            <p class="row__meta">{% if iv.lock_expires_at and iv.lock_expires_at > now %}Abierta en {{ iv.station.name|default:"una computadora" }}{% if iv.lock_holder %} por {{ iv.lock_holder.get_full_name }}{% endif %}{% else %}Sin computadora{% endif %}, última actividad {{ iv.last_activity_at|since }}</p>
+          </div>
+          {% if iv.lock_expires_at and iv.lock_expires_at > now %}<div class="row__end"><form method="post">{% csrf_token %}<input type="hidden" name="interview" value="{{ iv.public_id }}"><button class="btn btn--secondary btn--small" data-confirm="¿Liberar esta entrevista? La computadora donde está abierta ya no podrá guardar.">Liberar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></button></form></div>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">No hay entrevistas en curso.</p>
+  {% endif %}
+  <p class="aside-note">Liberar o cerrar no borra nada: las respuestas guardadas se conservan.</p>
+</section>
+{% else %}{# v1 #}
 {% url 'events:settings' event.slug as back_url %}
 {% include "events/rotulo/_page_head.html" with title="Computadoras en uso" back_url=back_url back_label="Configuración" %}
 <section class="block" aria-labelledby="t-capturas">
@@ -39,4 +86,4 @@
 </section>
 <p class="aside-note mt-8">Liberar o cerrar no borra nada: las respuestas guardadas se conservan.</p>
 <p class="aside-note">Para sacar a alguien del evento, quítale el acceso en Equipo: deja de entrar en su siguiente clic. Las cuentas de administración de la iglesia se manejan en la configuración de la iglesia.</p>
-{% endblock %}
+{% endif %}{% endblock %}

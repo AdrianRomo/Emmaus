@@ -1,7 +1,100 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Campero de práctica{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"). Issue #49: the practice campero, which no count, cutoff, report or download ever reads. Where
+  it is and who already practised, as rows; never a word of what was answered with it. Handing it on and removing it
+  erase its practice interviews: both say so, and removing it is the irreversible action it is, asking first.
+{% endcomment %}
+<div class="narrow">
+{% url 'events:admin_home' event.slug as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Campero de práctica" back_url=back_url back_label="Inicio" %}
+<p class="aside-note admin-practica__nota">Lo que se responde con él no cuenta en ningún avance, corte, reporte ni descarga.</p>
+{% if not event.has_questionnaire %}
+  <div class="notice notice--warning"><p>Sin un cuestionario publicado todavía no se puede practicar. <a href="{% url 'events:questionnaires' event.slug %}">Ver cuestionarios</a></p></div>
+{% endif %}
+{% if participant %}
+  <section class="block" aria-labelledby="donde-esta">
+    <h2 id="donde-esta" class="heading">Dónde está</h2>
+    <ul class="rows admin-lista">
+      <li class="row row--lead row--stack">
+        {% monogram participant.full_name %}
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'events:participant_detail' event.slug participant.public_id %}">{{ participant.full_name }}</a></p>
+          <p class="row__meta">{% if participant.coordinator %}Con {{ participant.coordinator.display_name }}{% else %}Sin coordinador: solo la administración practica con él{% endif %}, {% if interviews %}{{ interviews }} entrevista{{ interviews|pluralize }} de práctica{% else %}sin entrevistas{% endif %}</p>
+        </div>
+        <div class="row__end">
+          {% campero_status participant %}
+          {% if event.has_questionnaire and participant.interview_status != "completada" %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug participant.public_id %}">Practicar yo<span class="visually-hidden"> con el campero de práctica</span></a>{% endif %}
+        </div>
+      </li>
+    </ul>
+  </section>
+  <section class="block" aria-labelledby="pasarlo">
+    <h2 id="pasarlo" class="heading">Pasarlo a otra persona</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="pasar">
+      <div class="field">
+        <label class="label" for="coordinador">¿Quién practica ahora?</label>
+        <span class="hint" id="coordinador-ayuda">Al pasarlo queda como nuevo: se borran las entrevistas de práctica que tenga.</span>
+        <select id="coordinador" name="coordinador" aria-describedby="coordinador-ayuda">
+          <option value="{{ nobody }}">Nadie por ahora</option>
+          {% for c in coordinators %}<option value="{{ c.id }}"{% if participant.coordinator_id == c.id %} selected{% endif %}>{{ c.display_name }}{% if c.practised %} (ya practicó){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn--primary" type="submit">Pasar y dejar como nuevo</button>
+    </form>
+  </section>
+  <section class="block" aria-labelledby="quitarlo">
+    <h2 id="quitarlo" class="heading">Quitarlo</h2>
+    <p class="aside-note">Se borran sus entrevistas y respuestas de práctica; queda anotado en el registro de actividad quién lo quitó. Quién ya practicó se conserva.</p>
+    <form method="post" class="admin-practica__quitar">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="quitar">
+      <button class="btn btn--danger-outline" type="submit" data-confirm="¿Quitar el campero de práctica? Se borran sus entrevistas y respuestas de práctica.">Quitar el campero de práctica</button>
+    </form>
+  </section>
+{% else %}
+  <section class="block" aria-labelledby="crearlo">
+    <h2 id="crearlo" class="heading">Crear el campero de práctica</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="crear">
+      <div class="field">
+        <label class="label" for="coordinador">¿Quién practica primero?</label>
+        <span class="hint" id="coordinador-ayuda">Le aparece en «Mis camperos», marcado «De práctica».</span>
+        <select id="coordinador" name="coordinador" aria-describedby="coordinador-ayuda">
+          <option value="{{ nobody }}">Nadie por ahora</option>
+          {% for c in coordinators %}<option value="{{ c.id }}">{{ c.display_name }}{% if c.practised %} (ya practicó){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn--primary" type="submit">Crear el campero de práctica</button>
+    </form>
+  </section>
+{% endif %}
+<section class="block" aria-labelledby="quien-practico">
+  <div class="heading-row">
+    <h2 id="quien-practico" class="heading">Ya practicaron <span class="count">{{ practised_count }} de {{ coordinators|length }}</span></h2>
+    {% if coordinators %}<a href="{% url 'events:team' event.slug %}">Equipo</a>{% endif %}
+  </div>
+  {% if coordinators %}
+    <ul class="rows admin-lista">{% for c in coordinators %}
+      <li class="row row--lead">
+        {% monogram c.display_name %}
+        <div class="row__main"><p class="row__title">{{ c.display_name }}</p></div>
+        <div class="row__end">{% if c.practised %}{% status "completada" "Ya practicó" %}{% else %}{% status "pendiente" "Aún no" %}{% endif %}</div>
+      </li>
+    {% endfor %}</ul>
+  {% else %}
+    {% url 'events:member_add' event.slug as add_url %}
+    {% include "partials/ui/empty.html" with title="Sin coordinadores todavía" action_url=add_url action_label="Agregar persona" %}
+  {% endif %}
+</section>
+</div>
+{% else %}{# v1 #}
 {% comment %}
   Issue #49. Everything here is about the practice campero, which no count, cutoff, report or download ever reads.
   It says where it is and who already practised; never a word of what was answered with it.
@@ -91,4 +184,4 @@
   {% endif %}
 </section>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}
