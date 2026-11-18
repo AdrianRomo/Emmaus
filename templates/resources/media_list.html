@@ -11,12 +11,20 @@
 <div class="narrow">
   {% url 'community:home' as back %}{% url 'resources:media_list' as all %}
   {% include "events/rotulo/_page_head.html" with title="Recursos" lede="Predicaciones, música y estudios de tu iglesia. Cada uno se abre en el sitio donde está publicado." back_url=back back_label="Volver a Mi iglesia" %}
+  <form method="get" action="{{ all }}" role="search">
+    <label for="resource-search">Buscar por título, persona o serie</label>
+    <input id="resource-search" type="search" name="q" maxlength="160" value="{{ query }}">
+    {% if chosen %}<input type="hidden" name="tipo" value="{{ chosen }}">{% endif %}
+    {% if series %}<input type="hidden" name="serie" value="{{ series }}">{% endif %}
+    <button class="btn btn--secondary" type="submit">Buscar</button>
+    {% if query or chosen %}<a href="{{ all }}">Ver todos los recursos</a>{% endif %}
+  </form>
   {% if series %}
     <div class="notice notice--quiet"><p>Estás viendo la serie «{{ series }}». <a href="{{ all }}">Ver todos los recursos</a></p></div>
   {% elif kinds %}
     <ul class="filters" aria-label="Tipo de recurso">
-      <li><a href="{{ all }}"{% if not chosen %} aria-current="page"{% endif %}>Todos <span class="count">{{ total }}</span></a></li>
-      {% for kind in kinds %}<li><a href="?tipo={{ kind.value }}"{% if chosen == kind.value %} aria-current="page"{% endif %}>{{ kind.label }} <span class="count">{{ kind.count }}</span></a></li>
+      <li><a href="{% querystring tipo=None pagina=None %}"{% if not chosen %} aria-current="page"{% endif %}>Todos <span class="count">{{ total }}</span></a></li>
+      {% for kind in kinds %}<li><a href="{% querystring tipo=kind.value pagina=None %}"{% if chosen == kind.value %} aria-current="page"{% endif %}>{{ kind.label }} <span class="count">{{ kind.count }}</span></a></li>
       {% endfor %}
     </ul>
   {% endif %}
@@ -37,6 +45,8 @@
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=items label="Páginas de recursos" %}
+  {% elif query %}
+    <p class="empty-line">No encontramos recursos con esa búsqueda.</p>
   {% elif series %}
     <p class="empty-line">No hay recursos de esa serie. <a href="{{ all }}">Ver todos los recursos</a></p>
   {% elif request.is_church_admin %}

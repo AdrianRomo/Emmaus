@@ -351,6 +351,17 @@ class MediaTests(ResourcesFixture):
         self.assertNotContains(page, "Administrar los recursos")
         self.assertNotContains(page, "Agregar un recurso")
 
+    def test_search_only_finds_published_media_of_the_members_church(self):
+        self.client.force_login(self.member_user)
+        match = self.media(title="Camino nuevo", speaker="Ana Torres", series="Cartas")
+        services.retire_media(self.media(title="Camino anterior"), self.admin)
+        self.media(church=self.church_b, actor=self.admin_b, title="Camino ajeno")
+        for query in ("camino", "torres", "cartas"):
+            response = self.client.get(MEDIA, {"q": query})
+            self.assertEqual(list(response.context["items"]), [match])
+        empty = self.client.get(MEDIA, {"q": "camino", "tipo": "musica"})
+        self.assertContains(empty, "No encontramos recursos")
+
     def test_the_filters_by_kind_and_by_series(self):
         self.client.force_login(self.member_user)
         page = self.client.get(MEDIA)

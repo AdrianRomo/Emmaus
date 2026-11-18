@@ -10,7 +10,7 @@ Resources open on the site that hosts them, as plain links: nothing is embedded.
 """
 
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -132,13 +132,16 @@ def devotional_edit(request, devotional_id: int):
 @community_view
 def media_list(request):
     published = services.published_media(request.church)
+    query = request.GET.get("q", "").strip()[:160]
+    if query:
+        published = published.filter(Q(title__icontains=query) | Q(speaker__icontains=query) | Q(series__icontains=query))
     counts = dict(published.order_by().values_list("kind").annotate(total=Count("id")))
     kinds = [{"value": value, "label": label, "count": counts[value]} for value, label in KIND_FILTERS if value in counts]
     if len(kinds) < 2:
         kinds = []
     series = " ".join(request.GET.get("serie", "").split())[:120]
     chosen = request.GET.get("tipo", "")
-    if series or chosen not in {kind["value"] for kind in kinds}:
+    if series or chosen not in MediaItem.Kind.values:
         chosen = ""
     items = published
     if series:
@@ -150,6 +153,7 @@ def media_list(request):
         "resources/media_list.html",
         {
             "items": paginate(request, items),
+            "query": query,
             "kinds": [] if series else kinds,
             "chosen": chosen,
             "series": series,
