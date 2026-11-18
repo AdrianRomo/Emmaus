@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from events.forms import EventForm
 from events.models import Event
 from groups.views import church_admin_view
+from people import policy
 from people.audit import record_church
 
 from .models import EventPage
@@ -46,12 +47,15 @@ class SimpleEventForm(EventForm):
 
 
 def create_simple_event(church, actor, **fields) -> Event:
-    """A simple event of ``church`` and its page, not published yet."""
+    """A simple event of ``church`` and its page, not published yet. The page starts asking for a
+    guardian's authorization when the church's policy says new events do."""
     with transaction.atomic():
         event = Event(church=church, created_by=actor, camp_tools=False, join_by_name=False,
                       status=Event.Status.ACTIVE, **fields)
         event.save()
-        EventPage.objects.create(event=event, created_by=actor)
+        # The church's policy "Los eventos nuevos piden autorización para menores" is the page's starting value.
+        EventPage.objects.create(event=event, created_by=actor,
+                                 requires_guardian_consent=policy.minors_consent_default(church))
         record_church(church, actor, "evento_sencillo_creado", f"Creó el evento {event.name}", event)
     return event
 

@@ -26,26 +26,27 @@ class PublicFixture(ExtrasFixture):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        services.save_page(cls.retiro, cls.admin, public=True, capacity=4, waiting_list=True, requires_guardian_consent=True)
+        services.save_page(cls.retiro, cls.admin, public=True, waiting_list=True, requires_guardian_consent=True)
         services.save_faq(cls.retiro, cls.admin, question="¿Qué llevo?", answer="Ropa abrigadora y tu Biblia.")
         services.save_schedule_item(cls.retiro, cls.admin, day=cls.retiro.starts_on, starts_at=time(18, 0), title="Bienvenida",
                                     place="Salón grande")
-        # People around the event: a confirmed adult, a minor with a guardian's authorization, a
-        # visitor at the door, and two on the waiting list (one of them with an offer).
-        Event.objects.filter(pk=cls.retiro.pk).update(starts_on=cls.today)
-        cls.retiro.refresh_from_db()
+        # People around the event: a minor with a guardian's authorization, somebody whose age nobody
+        # confirmed, two on the waiting list (one of them with an offer), a cancellation and, once the
+        # event starts, a visitor at the door.
         Person.objects.filter(pk=cls.member.pk).update(birth_date=cls.today - timedelta(days=15 * 365))
         cls.member.refresh_from_db()
+        services.save_page(cls.retiro, cls.admin, capacity=3)
         minor = services.register(cls.retiro, cls.member, cls.member_user)
         services.record_consent(minor, cls.admin, **CONSENT)
-        services.register_walkup(cls.retiro, cls.admin, first_name="Vera", last_name="Visita Reservada", phone="55 7777 0000",
-                                 seen_adult=True)
         held = services.register(cls.retiro, cls.admin_person, cls.admin)
         services.register(cls.retiro, cls.coord_person, cls.coord1)  # unknown age: stays pending
         services.register(cls.retiro, cls.leader, cls.leader_user)
         services.register(cls.retiro, cls.asked, cls.asked_user)
-        EventRegistration.objects.filter(pk=held.pk).update(status="cancelada")
-        services.advance(cls.retiro)
+        services.cancel(held, cls.admin)  # the first of the list gets the offer
+        Event.objects.filter(pk=cls.retiro.pk).update(starts_on=cls.today)
+        cls.retiro.refresh_from_db()
+        services.register_walkup(cls.retiro, cls.admin, first_name="Vera", last_name="Visita Reservada", phone="55 7777 0000",
+                                 seen_adult=True, override=["llena"], override_reason="llego")
         assert set(EventRegistration.objects.filter(event=cls.retiro).values_list("status", flat=True)) >= {
             "inscrita", "pendiente", "ofrecida", "en_espera", "cancelada"}, "the fixture needs a row in every state"
 

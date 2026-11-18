@@ -48,9 +48,18 @@
       </form>
     </section>
     <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">No voy a usar el lugar</a></p>
+  {% elif state == "ofrecido_pausa" %}
+    {# An offer that cannot be accepted right now: the event started, or the administration closed the sign-up from Emmaus. #}
+    <div class="notice notice--warning">
+      {% if list_block == "empezo" %}<p><strong>El evento ya empezó.</strong> El lugar que te ofrecimos ya no se puede aceptar desde aquí. Si quieres ir, pregunta en tu iglesia.</p>
+      {% else %}<p><strong>Te ofrecimos un lugar, pero por ahora no se puede aceptar.</strong> La inscripción desde Emmaus está cerrada: pregunta en tu iglesia. El lugar se guarda para ti hasta el {{ registration.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }}.</p>{% endif %}
+    </div>
+    <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">No voy a usar el lugar</a></p>
   {% elif state == "en_espera" %}
     <div class="notice notice--info">
-      <p><strong>Estás en la lista de espera.</strong> {{ position_text }} Todavía no tienes lugar: cuando se libere uno y te toque, te lo ofrecemos aquí y tendrás {{ offer_hours }} horas para aceptarlo.</p>
+      {% if list_block == "empezo" %}<p><strong>Estás en la lista de espera.</strong> El evento ya empezó y ya no se ofrecen lugares desde la lista. Si quieres ir, pregunta en tu iglesia.</p>
+      {% elif list_block %}<p><strong>Estás en la lista de espera.</strong> {{ position_text }} Por ahora la lista está detenida: la inscripción desde Emmaus está cerrada. Pregunta en tu iglesia.</p>
+      {% else %}<p><strong>Estás en la lista de espera.</strong> {{ position_text }} Todavía no tienes lugar: cuando se libere uno y te toque, te lo ofrecemos aquí y tendrás {{ offer_hours }} horas para aceptarlo.</p>{% endif %}
     </div>
     <p class="more"><a href="{% url 'agenda:leave_waiting' event.slug %}">Salir de la lista de espera</a></p>
   {% elif state == "lista" %}

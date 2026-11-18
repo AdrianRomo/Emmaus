@@ -165,13 +165,11 @@ class OfferTests(WaitingFixture):
         self.assert_consistent()
 
     def test_each_way_a_place_is_freed_offers_it(self):
-        # An annulled walk-up (confirmed or pending), more places, and a page published again.
-        self.fill(capacity=2, holders=[self.admin_person])
-        self.start()
-        visitor = services.register_walkup(self.retiro, self.admin, first_name="Vera", last_name="Visita Reservada")
+        # A cancellation, more places, and a page published again.
+        held, _ = self.fill(capacity=2, holders=[self.admin_person, self.coord_person])
         waiting = [self.join(person) for person in (self.leader, self.asked, self.member)]
         self.assertEqual([self.state(row) for row in waiting], [WAITING] * 3)
-        services.annul_walkup(visitor, self.admin, "error")
+        services.cancel(held, self.admin)
         self.assertEqual([self.state(row) for row in waiting], [OFFERED, WAITING, WAITING])
         services.save_page(self.retiro, self.admin, capacity=3)
         self.assertEqual([self.state(row) for row in waiting], [OFFERED, OFFERED, WAITING])
@@ -181,18 +179,144 @@ class OfferTests(WaitingFixture):
         self.assertEqual(self.state(waiting[2]), WAITING)
         services.save_page(self.retiro, self.admin, published=True)
         self.assertEqual(self.state(waiting[2]), OFFERED)
-        self.assertFalse(EventRegistration.objects.filter(event=self.retiro, status=ACTIVE).exclude(person=self.admin_person).exists())
+        self.assertFalse(EventRegistration.objects.filter(event=self.retiro, status=ACTIVE).exclude(person=self.coord_person).exists())
 
-    def test_a_pending_walkup_that_is_annulled_frees_its_place_for_the_list(self):
-        self.fill(capacity=1, holders=[])
-        self.require_consent()
+
+class FrozenListTests(WaitingFixture):
+    """When the list moves and when it does not (the rule taken for decision 0011): the closing DATE
+    stops new joins only; a page that is unpublished or set to "No hay inscripción desde Emmaus"
+    FREEZES the list; once the event starts, the door takes over."""
+
+    def setUp(self):
+        self.held, _ = self.fill(capacity=2, holders=[self.admin_person, self.coord_person])
+        self.first, self.second = self.join(self.leader), self.join(self.asked)
+
+    def free(self):
+        services.cancel(self.held, self.admin)
+
+    def page_now(self):
+        return EventPage.objects.get(pk=self.page.pk)
+
+    def test_the_closing_date_stops_new_joins_but_not_offers_or_acceptances(self):
+        self.set_page(registration_closes_on=self.today - timedelta(days=1))
+        self.assertEqual(services.list_block(self.retiro, self.page_now()), "")
+        with self.assertRaises(services.AgendaError) as caught:
+            self.join(self.member)
+        self.assertEqual(caught.exception.code, "registration_over")
+        self.free()
+        self.assertEqual((self.state(self.first), self.state(self.second)), (OFFERED, WAITING))
+        self.assertEqual(services.accept_offer(self.first, self.leader_user).status, ACTIVE)
+        self.client.force_login(self.asked_user)
+        self.assertNotContains(self.client.get(self.url()), "detenida")
+
+    def test_sign_up_switched_off_freezes_offers(self):
+        self.set_page(registration="cerrada")
+        self.assertEqual(services.list_block(self.retiro, self.page_now()), "sin_inscripcion")
+        self.free()
+        self.assertEqual((self.state(self.first), self.state(self.second)), (WAITING, WAITING))
+        self.assertEqual(services.advance(self.retiro), {"released": 0, "offered": 0})
+        out = StringIO()
+        call_command("expire_waiting_offers", "--apply", stdout=out)
+        self.assertEqual(self.state(self.first), WAITING)
+        # Open again (through the page's own save): the list moves.
+        services.save_page(self.retiro, self.admin, registration="abierta")
+        self.assertEqual((self.state(self.first), self.state(self.second)), (OFFERED, WAITING))
+
+    def test_an_offer_already_made_cannot_be_accepted_while_frozen_and_the_person_reads_why(self):
+        self.free()
+        self.assertEqual(self.state(self.first), OFFERED)
+        for frozen, word in (({"registration": "cerrada"}, "sin_inscripcion"), ({"published": False}, "sin_publicar")):
+            with self.subTest(word):
+                self.set_page(published=True, registration="abierta")
+                self.set_page(**frozen)
+                self.assertEqual(services.list_block(self.retiro, self.page_now()), word)
+                with self.assertRaises(services.AgendaError) as caught:
+                    services.accept_offer(self.first, self.leader_user)
+                self.assertEqual(caught.exception.code, "frozen")
+                self.assertEqual(caught.exception.message, "La inscripción desde Emmaus está cerrada: pregunta en tu iglesia.")
+                self.assertEqual(self.state(self.first), OFFERED)  # still held: frozen is not expired
+                events = {event.pk: event for event in services.upcoming_for(self.leader, self.church)}
+                self.assertEqual(events[self.retiro.pk].state, "ofrecido_pausa")
+                self.client.force_login(self.leader_user)
+                page = self.client.get(self.url())
+                self.assertContains(page, "Te ofrecimos un lugar, pero por ahora no se puede aceptar.")
+                self.assertContains(page, "La inscripción desde Emmaus está cerrada: pregunta en tu iglesia.")
+                self.assertNotContains(page, "Aceptar mi lugar")
+                self.assertContains(page, "No voy a usar el lugar")
+                posted = self.client.post(self.url("accept_offer"), follow=True)
+                self.assertContains(posted, "La inscripción desde Emmaus está cerrada: pregunta en tu iglesia.")
+                self.assertEqual(self.state(self.first), OFFERED)
+                self.assertContains(self.client.get(reverse("agenda:list")), "Lugar ofrecido, en pausa")
+                self.client.force_login(self.asked_user)
+                self.assertContains(self.client.get(self.url()), "Por ahora la lista está detenida: la inscripción desde Emmaus está cerrada.")
+        # Unfrozen, the same offer is good again.
+        self.set_page(published=True, registration="abierta")
+        self.assertEqual(services.accept_offer(self.first, self.leader_user).status, ACTIVE)
+
+    def test_an_offer_that_reaches_its_deadline_while_frozen_expires_and_nobody_gets_the_place(self):
+        self.free()
+        self.set_page(registration="cerrada")
+        self.expire(self.first)
+        self.assertEqual(services.advance(self.retiro), {"released": 1, "offered": 0})
+        self.first.refresh_from_db()
+        self.assertEqual((self.first.status, self.first.waiting_outcome), (CANCELLED, "expiro"))
+        self.assertEqual(self.state(self.second), WAITING)
+        services.save_page(self.retiro, self.admin, registration="abierta")
+        self.assertEqual(self.state(self.second), OFFERED)
+
+    def test_once_the_event_started_no_offer_is_made_and_none_is_accepted(self):
+        self.free()
         self.start()
-        visitor = services.register_walkup(self.retiro, self.admin, first_name="Vico", last_name="Visita", is_minor=True)
-        self.assertEqual(visitor.status, PENDING)
-        row = self.join(self.leader)
-        self.assertEqual(row.status, WAITING)
-        services.annul_walkup(visitor, self.admin, "no_se_quedo")
-        self.assertEqual(self.state(row), OFFERED)
+        self.assertEqual(services.list_block(self.retiro, self.page_now()), "empezo")
+        with self.assertRaises(services.AgendaError) as caught:
+            services.accept_offer(self.first, self.leader_user)
+        self.assertEqual(caught.exception.code, "started")
+        self.assertEqual(self.state(self.first), OFFERED)
+        self.client.force_login(self.leader_user)
+        page = self.client.get(self.url())
+        self.assertContains(page, "<strong>El evento ya empezó.</strong> El lugar que te ofrecimos ya no se puede aceptar desde aquí.")
+        self.assertNotContains(page, "Aceptar mi lugar")
+        self.client.force_login(self.asked_user)
+        self.assertContains(self.client.get(self.url()), "El evento ya empezó y ya no se ofrecen lugares desde la lista.")
+        # More places, an expired offer, an annulled walk-up: after the first day nothing is offered.
+        services.save_page(self.retiro, self.admin, capacity=3)
+        self.assertEqual(self.state(self.second), WAITING)
+        visitor = services.register_walkup(self.retiro, self.admin, first_name="Vera", last_name="Visita")
+        services.annul_walkup(visitor, self.admin, "error")
+        self.expire(self.first)
+        self.assertEqual(services.advance(self.retiro), {"released": 1, "offered": 0})
+        self.assertEqual(self.state(self.second), WAITING)
+        self.assertEqual(ChurchAuditEvent.objects.filter(action="evento_lista_oferta").count(), 1)
+
+    def test_once_the_event_started_a_full_event_takes_nobody_on_the_list(self):
+        self.start()
+        with self.assertRaises(services.AgendaError) as caught:
+            self.join(self.member)
+        self.assertEqual(caught.exception.code, "full")
+        self.assertEqual(services.state_of(self.retiro, self.page_now(), None, 2), "llena")
+        self.move(self.retiro, 10, 12)
+        self.assertEqual(services.state_of(self.retiro, self.page_now(), None, 2), "lista")
+
+    def test_inscritos_says_when_the_list_is_frozen_and_why(self):
+        self.free()
+        self.client.force_login(self.admin)
+        moving = self.client.get(self.url("registrations"))
+        self.assertContains(moving, ", 2 en lista de espera, 1 canceló.")
+        self.assertNotContains(moving, "detenida")
+        self.assertNotContains(moving, "ya no avanza")
+        self.set_page(registration="cerrada")
+        frozen = self.client.get(self.url("registrations"))
+        self.assertContains(frozen, ", 2 en lista de espera (detenida)")
+        self.assertContains(frozen, "<strong>La lista está detenida.</strong> La página dice «No hay inscripción desde Emmaus»")
+        self.set_page(registration="abierta", published=False)
+        hidden = self.client.get(self.url("registrations"))
+        self.assertContains(hidden, ", 2 en lista de espera (detenida)")
+        self.assertContains(hidden, "<strong>La lista está detenida.</strong> El evento no está publicado")
+        self.set_page(published=True)
+        self.start()
+        started = self.client.get(self.url("registrations"))
+        self.assertContains(started, ", 2 en lista de espera (ya no avanza)")
+        self.assertContains(started, "<strong>La lista ya no avanza.</strong> El evento ya empezó")
 
 
 class AcceptTruthTableTests(WaitingFixture):
@@ -353,11 +477,40 @@ class NothingElseMovesTheListTests(WaitingFixture):
         self.assertEqual((self.state(self.offered), self.state(self.waiting)), (OFFERED, WAITING))
         self.assertEqual(services.taken(self.retiro), 3)  # 2 confirmed + 1 offered, over a capacity of 2
         self.assert_consistent(over=1)
-        # The offer is still good, and the place the override added is not handed to the list when it empties.
-        self.assertEqual(services.accept_offer(self.offered, self.leader_user).status, ACTIVE)
+        # The override did not use the offered place: it is still held for who has the offer.
         services.annul_walkup(visitor, self.admin, "error")
-        self.assertEqual(self.state(self.waiting), WAITING)  # 2 confirmed of 2: nothing is free
+        self.assertEqual((self.state(self.offered), self.state(self.waiting)), (OFFERED, WAITING))
+        self.assertEqual(services.taken(self.retiro), 2)
         self.assert_consistent()
+
+    def test_before_the_first_day_an_offer_and_a_registration_fill_the_capacity_together(self):
+        self.assertEqual(services.taken(self.retiro), 2)  # 1 confirmed + 1 offered of 2
+        self.assertEqual(services.accept_offer(self.offered, self.leader_user).status, ACTIVE)
+        self.assertEqual(services.taken(self.retiro), 2)
+        self.assertEqual(self.state(self.waiting), WAITING)
+        self.assert_consistent()
+
+
+class ReusedRowTests(WaitingFixture):
+    def test_a_walkup_on_a_row_that_left_the_list_starts_clean(self):
+        self.fill()
+        row = self.join(self.leader)
+        services.remove_from_waiting(row, self.admin)
+        row.refresh_from_db()
+        self.assertEqual((row.status, row.waiting_outcome), (CANCELLED, "retirada"))
+        self.assertIsNotNone(row.waiting_since)
+        self.start()
+        door = services.register_walkup(self.retiro, self.admin, person=self.leader, override=["llena"], override_reason="llego")
+        self.assertEqual(door.pk, row.pk)
+        self.assertEqual((door.status, door.waiting_outcome, door.waiting_since, door.offer_expires_at), (ACTIVE, "", None, None))
+        services.annul_walkup(door, self.admin, "error")
+        row.refresh_from_db()
+        self.assertEqual((row.status, row.waiting_outcome, row.annulled_reason), (CANCELLED, "", "error"))
+        self.assertEqual(services.last_list_outcome(self.retiro, self.leader), "")
+        self.client.force_login(self.leader_user)
+        page = self.client.get(self.url())
+        self.assertNotContains(page, "te quitó de la lista")
+        self.assertNotContains(page, "No respondiste a tiempo")
 
 
 class ExpiryTests(WaitingFixture):
