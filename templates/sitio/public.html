@@ -9,6 +9,7 @@
   It shows ONLY what the administration published on purpose: the church's name and logo, the welcome, when it
   meets, where, how to ask, the events that have a public page and the resources marked one by one.
   NEVER a person (other than who preached a public resource), a count, a group, a notice or attendance.
+  Without a logo the church is its initials in an arch: a church is a gathering, never a person's circle.
   The same template is the administration's preview (sitio.views.preview), with one line above it.
 {% endcomment %}
 {% if preview %}
@@ -18,7 +19,7 @@
 {% endif %}
 <main id="contenido" class="sitio" tabindex="-1">
   <header class="sitio__head">
-    {% if church|has_logo %}{% church_brand church size="auth" %}{% else %}{% monogram church.name "lg" %}{% endif %}
+    {% if church|has_logo %}{% church_brand church size="auth" %}{% else %}{% monogram church.name "lg" "grupo" %}{% endif %}
     <h1 class="voice sitio__name">{{ church.name }}</h1>
     {% if home.welcome %}<p class="sitio__welcome">{{ home.welcome }}</p>{% endif %}
   </header>

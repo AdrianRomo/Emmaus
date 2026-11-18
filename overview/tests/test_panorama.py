@@ -169,6 +169,18 @@ class ContentTests(PanoramaFixture):
         late = care.create(cls.church, cls.admin, person=cls.member, reason="visita", owner=None, due_on=cls.today + timedelta(days=1))
         type(late).objects.filter(pk=late.pk).update(due_on=cls.today - timedelta(days=2))
 
+    def test_a_group_is_an_arch_and_nothing_on_the_page_is_a_person_s_circle(self):
+        # «Ventanas»: a group is a gathering (an arch); the page names no person, so no circle is drawn at all. The
+        # follow-ups are their icon, never initials in a circle.
+        html = self.get(self.church_pastor).content.decode()
+        page = html[html.index('<div class="panorama">'):html.index("</main>")]
+        drawn = re.findall(r'<span class="(mono[^"]*)" aria-hidden="true">', page)
+        self.assertTrue(drawn)
+        self.assertEqual(set(drawn), {"mono mono--grupo"})
+        for heading, name in (("p-atender", ">Jóvenes Roca<"), ("p-grupos", ">Jóvenes Roca</a>")):
+            self.assertIn('class="mono mono--grupo"', row_of(html, heading, name))
+        self.assertIn('<span class="hoy__icono" aria-hidden="true">', row_of(html, "p-atender", "Seguimientos"))
+
     def test_groups_in_totals(self):
         data = services.build(self.church, None, self.today)
         self.assertEqual([group.name for group in data["groups"]], ["Estudio de Romanos", "Jóvenes Roca"])
@@ -189,7 +201,7 @@ class ContentTests(PanoramaFixture):
             self.assertNotContains(response, told)
         # The request that waits is first on the page, and for the pastor it leads to the group, not to its people.
         waiting = row_of(html, "p-atender", ">Jóvenes Roca<")
-        self.assertIn('<span class="chip chip--wait">1 solicitud</span>', waiting)
+        self.assertIn('<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>1 solicitud</span>', waiting)
         self.assertIn(f'href="{reverse("community:group_detail", args=[self.group.pk])}"', waiting)
         # The group without any meeting, created today, is not pointed out.
         self.assertIn("Sin listas todavía", row_of(html, "p-grupos", ">Estudio de Romanos</a>"))
@@ -228,7 +240,7 @@ class ContentTests(PanoramaFixture):
             html = self.get(user).content.decode()
             self.assertLess(html.index('id="p-atender"'), html.index('id="p-grupos"'))
             care_row = row_of(html, "p-atender", "Seguimientos")
-            self.assertIn('<span class="chip chip--risk">1 con la fecha vencida</span>', care_row)
+            self.assertIn('<span class="chip chip--wait">1 con la fecha vencida</span>', care_row)  # vela, as on «Seguimiento»
             self.assertIn('<span class="chip chip--wait">1 sin responsable</span>', care_row)
             self.assertEqual(f'href="{reverse("care:admin_list")}"' in care_row, linked, user.email)
         # The administration (the last page read) decides a request where the group's people are; nothing here

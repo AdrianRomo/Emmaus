@@ -3,9 +3,12 @@
 {% block page_title %}{{ person.full_name }}{% endblock %}
 {% block content %}
 {% comment %}
-  One person of the church, for its administration (people.views.person_detail): the arch and the name, whether
-  they can sign in (a pill), how to reach them (links), the events they were part of (name and dates only) and
-  their groups. Giving access creates an account with no role anywhere: being a person of the church is all it means.
+  One person of the church, for its administration (people.views.person_detail): the circle and the name, whether
+  they can sign in, how to reach them (links), the events they were part of (name and dates only, each led by its
+  day) and their groups (each an arch, the way into its people). Giving access creates an account with no role
+  anywhere: being a person of the church is all it means, and the section says so in one note.
+  «Quitar vínculo» is a quiet removal: Emmaus's dialog asks first (data-confirm), and the note under the list says
+  what it does and does not undo.
 {% endcomment %}
 <div class="narrow">
   {% url 'people:edit' person.pk as edit %}
@@ -30,12 +33,12 @@
     {% if person.user_id %}
       <form method="post" action="{% url 'people:access_link' person.pk %}">
         {% csrf_token %}
-        <button class="btn btn--secondary" type="submit">Generar otro enlace para crear su contraseña</button>
+        <button class="btn btn--secondary" type="submit">Generar otro enlace<span class="visually-hidden"> para crear su contraseña</span></button>
       </form>
     {% elif not person.email %}
       <p class="empty-line">Para darle acceso, primero <a href="{{ edit }}">escribe su correo</a>: con él va a entrar.</p>
     {% else %}
-      <p>Podrá entrar con <strong class="break-anywhere">{{ person.email }}</strong>, ver los grupos y pedir unirse. No tendrá ningún rol en eventos ni en la administración.</p>
+      <p class="aside-note">Podrá entrar con <strong class="break-anywhere">{{ person.email }}</strong>, ver los grupos y pedir unirse. No tendrá ningún rol en eventos ni en la administración.</p>
       <form method="post" action="{% url 'people:grant_access' person.pk %}">
         {% csrf_token %}
         {% if needs_guardian %}
@@ -55,20 +58,18 @@
   <section class="block" aria-labelledby="eventos">
     <h2 id="eventos" class="heading">Eventos en los que estuvo</h2>
     {% if links %}
-      <ul class="rows">
+      <ul class="rows vinculos">
         {% for link in links %}
           <li class="row row--lead row--stack">
+            {% if link.event.starts_on %}{% date_block link.event.starts_on %}{% else %}<span class="hoy__icono" aria-hidden="true">{% icon "eventos" %}</span>{% endif %}
             <div class="row__main">
               <p class="row__title">{{ link.event.name }}</p>
-              <ul class="meta">
-                <li>{{ link.event.get_kind_display }}</li>
-                {% if link.event.starts_on %}<li>{% icon "calendario" "sm" %}{{ link.event.starts_on|date_range:link.event.ends_on|capfirst }}</li>{% endif %}
-                <li>{% icon "check" "sm" %}Vinculado el {{ link.linked_at|long_date }}</li>
-              </ul>
+              <p class="row__meta">{{ link.event.get_kind_display }}{% if link.event.starts_on %}, {{ link.event.starts_on|date_range:link.event.ends_on }}{% endif %}</p>
+              <p class="row__meta">Vinculado el {{ link.linked_at|long_date }}</p>
             </div>
             <form class="row__end" method="post" action="{% url 'people:unlink' person.pk link.pk %}">
               {% csrf_token %}
-              <button class="btn btn--secondary btn--small" type="submit">Quitar vínculo<span class="visually-hidden"> con {{ link.event.name }}</span></button>
+              <button class="btn btn--link btn--quieto" type="submit" data-confirm="¿Quitar el vínculo de {{ person.full_name }} con {{ link.event.name }}? No se borra nada del evento ni a la persona." data-confirm-label="Quitar vínculo">Quitar vínculo<span class="visually-hidden"> con {{ link.event.name }}</span></button>
             </form>
           </li>
         {% endfor %}
@@ -85,10 +86,10 @@
       <ul class="rows">
         {% for membership in memberships %}
           <li class="row row--lead">
-            {% monogram membership.group.name "sm" %}
+            {% monogram membership.group.name "" "grupo" %}
             <div class="row__main">
-              <p class="row__title">{{ membership.group.name }}</p>
-              <ul class="meta"><li>{% if membership.is_leader %}{% icon "guia" "sm" %}{% endif %}{{ membership.get_role_display }}</li></ul>
+              <p class="row__title">{% if community_on %}<a href="{% url 'community:group_people' membership.group.pk %}">{{ membership.group.name }}</a>{% else %}{{ membership.group.name }}{% endif %}</p>
+              <p class="row__meta">{{ membership.get_role_display }}</p>
             </div>
           </li>
         {% endfor %}
@@ -97,6 +98,7 @@
       <p class="empty-line">Sin grupos.</p>
     {% endif %}
   </section>
+
   <section class="block" aria-labelledby="datos">
     <h2 id="datos" class="heading">Datos</h2>
     <dl class="summary-list">

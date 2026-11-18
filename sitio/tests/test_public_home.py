@@ -170,7 +170,7 @@ class PublicHomeTests(HomeFixture):
         self.assertContains(response, "Entra a Emmaus")
 
     def test_the_church_wears_its_own_colours_and_its_initials(self):
-        self.assertContains(self.get(), 'class="mono mono--lg" aria-hidden="true"')
+        self.assertContains(self.get(), 'class="mono mono--lg mono--grupo" aria-hidden="true"')  # the church's arch, not a person's circle
         self.assertNotContains(self.get(), "--petroleo:")
         Church.objects.filter(pk=self.church.pk).update(custom_theme_enabled=True, theme_primary_color="#7A1F3D")
         self.client.force_login(self.member_b_user)  # a reader of another church still gets this church's colours
@@ -328,6 +328,16 @@ class AdministrationTests(HomeFixture):
         self.assertContains(response, "Hoy mostraría 1: La vid y las ramas.")
         self.assertContains(response, "Domingos, 09:00")
         self.assertNotContains(response, "Culto sabatino B")
+        # «Ventanas»: withdrawing is a quiet action whose page asks first; a time's row is the way into its form, and
+        # it is taken out from there (one trailing action at most, none here).
+        self.assertContains(response, f'<a class="btn btn--link btn--quieto" href="{reverse("sitio:unpublish")}">Dejar de publicar la página</a>')
+        self.assertContains(response, "Nunca muestra personas, grupos, avisos ni asistencia.")
+        row = ServiceTime.objects.filter(church=self.church).first()
+        self.assertContains(response, f'<a href="{reverse("sitio:time_edit", args=[row.pk])}">')
+        self.assertNotContains(response, reverse("sitio:time_delete", args=[row.pk]))
+        form = self.client.get(reverse("sitio:time_edit", args=[row.pk]))
+        self.assertContains(form, f'<a class="btn btn--link btn--quieto" href="{reverse("sitio:time_delete", args=[row.pk])}">Quitar el horario</a>')
+        self.assertNotContains(self.client.get(reverse("sitio:time_create")), "Quitar el horario")
         services.unpublish(self.church, self.admin)
         response = self.client.get(reverse("sitio:edit"))
         self.assertContains(response, "Sin publicar")

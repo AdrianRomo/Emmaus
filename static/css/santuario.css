@@ -1134,6 +1134,14 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .choices--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: var(--s-2); }
 .choices--pair .choice__label { height: 100%; }
 .step-form { margin-top: var(--s-6); }
+/* Personas (person_list.html): a row of one line, its name centred on the circle as the state and the chevron are */
+.personas-lista > .row > .row__main { align-self: center; }
+/* Personas, the one-time link (access_granted.html): what was not sent, then the message and the link, a step apart */
+.aside-note + .acceso-enlace, .form-section + .acceso-solo { margin-top: var(--s-6); }
+/* Personas, a person's events (person_detail.html): under the text on a phone, the quiet «Quitar vínculo» keeps its
+   size and its words start where the text starts */
+.vinculos .row__end .btn--quieto { flex: none; }
+@container (max-width: 38rem) { .vinculos .row__end > .btn--quieto { margin-left: -0.75rem; } }
 /* end: servir-acompanar-personas */
 
 /* area: panorama-opiniones-politicas-sitio */
@@ -1141,7 +1149,8 @@ p.sitio__leaves { margin-top: var(--s-2); }
    neutral pill (.chip--plain) when the service gave words or kept the number back. */
 .panorama .page-head .aside-note { margin-top: var(--s-3); }
 .panorama .figures { margin-bottom: var(--s-5); }
-.panorama .figures__value .chip { font-size: var(--t-small); min-height: 1.875rem; padding-inline: 0.75rem; vertical-align: 0.3em; }
+/* Words in place of a number: on the figure's edge, a step smaller than a numeral, with no capsule to pad */
+.panorama .figures__value .chip--plain { display: inline; min-height: 0; padding: 0; font-size: var(--t-h3); font-weight: 700; white-space: normal; }
 /* A group's last meetings, one mark each, the oldest first: tall when half or more came, short when fewer, and
    the number itself when the service gave it. The words are beside the marks for a screen reader. */
 .panorama .level--trend { align-items: flex-end; gap: 0.25rem; height: 1.25rem; }
@@ -1175,6 +1184,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .panorama .pairs dd { font-weight: 700; }
 .panorama .pairs .muted { font-weight: 430; }
 .panorama .rows .pairs > div { width: 8.75rem; }
+@container (max-width: 38rem) { .panorama .rows .pairs > div { width: auto; min-width: 6.5rem; } }
 /* A team's coming dates inside its tile */
 .panorama .serve { display: grid; gap: var(--s-2); }
 .panorama .serve + .serve { padding-top: var(--s-3); border-top: 1px solid var(--line); }
@@ -1183,11 +1193,31 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* Opiniones. The answers of one question, each a bar with its number (the results, for the administration) */
 .opinions .meta + .aside-note { margin-top: var(--s-3); }
 .opinions .aside-note + .block, .opinion-more { margin-top: var(--s-8); }
-.opinions .opinion-bars { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s-1) var(--s-4); }
+.opinions .opinion-bars { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .opinions .opinion-bars__row { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); align-items: center; gap: var(--s-3); min-height: 2.75rem; }
 .opinions .opinion-bars__row + .opinion-bars__row { border-top: 1px solid var(--line); }
 .opinions .opinion-bars dt { font-size: var(--t-small); font-weight: 600; }
 .opinions .opinion-bars__n { min-width: 1.5rem; text-align: right; font-weight: 700; color: var(--ink); }
+/* Giving one (feedback/give.html): what is kept, then the questions, a step apart */
+.opinion-give .aside-note + form { margin-top: var(--s-6); }
+/* Configuración (core/church_settings.html): the other places of the configuration, one line each, centred on their mark */
+.ajustes > .row { align-items: center; }
+/* Página pública, the administration's screen: the actions of the publication under its state, a step away */
+.sitio-admin .step__actions { margin-top: var(--s-4); }
+.sitio-admin .meta + .admin-link { margin-top: var(--s-4); }
+.sitio-admin > .aside-note + .block { margin-top: var(--s-8); }
+/* A quiet removal alone under a form (sitio/time_form.html): apart from the form's actions, its words on the text's edge */
+.quitar { margin-top: var(--s-8); }
+.quitar > .btn--link { margin-left: calc(-1 * var(--s-3)); }
+
+/* The public page (no shell, so none of the shell's rows): the day or the mark in its 48px slot and the text right
+   after it, every row alike; the event's name a 44px target; the church's name never cut inside a word (the
+   column of a wide screen is narrower than the phone's whole width) */
+.sitio .rows > .row { justify-content: flex-start; align-items: flex-start; gap: var(--s-4); }
+.sitio .rows > .row > .row__main { flex: 1; }
+.sitio .row__title a { padding-block: 0.6875rem; margin-block: -0.6875rem; }
+.sitio__name { hyphens: manual; text-wrap: balance; }
+@media (min-width: 60rem) { .sitio__name { font-size: calc(var(--t-display) * 1.5); } }
 /* end: panorama-opiniones-politicas-sitio */
 
 /* area: cuenta-puertas */

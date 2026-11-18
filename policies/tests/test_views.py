@@ -50,7 +50,7 @@ class ChurchPoliciesTests(CommunityFixture):
         self.assertEqual(page.content.decode().count("<h1"), 1)
         for heading in ("Privacidad de los totales", "Opiniones de los eventos", "Avisos urgentes", "Menores de edad",
                         "Conservación de la asistencia"):
-            self.assertContains(page, f'class="heading">{heading}</h2>')
+            self.assertContains(page, f'class="form-section__title">{heading}</h2>')
         self.assertEqual(page.context["form"].initial, {
             **DEFAULTS, "urgent_notice_pastors": False, "minors_need_consent_by_default": False,
         })
