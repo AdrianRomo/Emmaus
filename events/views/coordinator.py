@@ -63,10 +63,11 @@ def _my_context(event, access):
         eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by("room", "full_name")[:6]
     )
     _mark_missing_authorization(next_up, participants, event)
-    follow_ups = decision_svc.mark_for_review(
-        access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5],
+    # Five, the newest; a task this coordinador has to review since its decision changed goes first («Revisar»)
+    follow_ups = decision_svc.mine_first(decision_svc.mark_for_review(
+        access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at"),
         access.user,
-    )
+    ))[:5]
     to_evaluate = mine.filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
     # Minors whose guardian authorization is not registered cannot be interviewed: "Esperan algo de ti" says how many
     # Blocked from an interview: only the ones not interviewed yet (an authorization withdrawn after lets an interview

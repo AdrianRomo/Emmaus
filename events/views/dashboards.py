@@ -110,7 +110,8 @@ def tutor_home(request, event, access):
         "stalled": [row for row in payload["coordinators"] if row["stale"]],
         "places": _last_station(access),
         "stalled_places": _stalled_stations(access),
-        "follow_ups": decision_svc.mark_for_review(open_care.order_by("created_at")[:5], request.user),
+        # Five, the oldest; a task this tutor has to review since its decision changed goes first («Revisar»)
+        "follow_ups": decision_svc.mine_first(decision_svc.mark_for_review(open_care.order_by("created_at"), request.user))[:5],
         "follow_ups_open": open_care.count(),
         # Every open follow-up the tutor may see that nobody attends, the same ones "Sin asignar" lists (issue #46)
         "follow_ups_unassigned": follow_up_svc.unassigned_open(access).count(),
@@ -213,9 +214,9 @@ def pending(request, event, access):
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
     ).select_related("participant__coordinator__user", "version")
-    follow_ups = decision_svc.mark_for_review(
+    follow_ups = decision_svc.mine_first(decision_svc.mark_for_review(
         access.follow_ups().filter(status__in=FollowUp.OPEN_STATUSES).order_by("kind", "created_at"), request.user
-    )
+    ))
     waiting = participants.filter(interview_status=InterviewStatus.PENDING)
     coordinator_fields = ("coordinator__id", "coordinator__user__first_name", "coordinator__user__last_name")
     links = eq.links_for(event)

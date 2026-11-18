@@ -500,6 +500,16 @@ class ListsMarkTests(ChangeFixture):
         self.assertTrue(self.as_user(self.coord1).get(self.url("coord_home")).context["ui_v2"])
         self.check()
 
+    def test_the_owners_review_comes_first_on_a_short_list(self):
+        # Six newer open tasks of Carla's camperos: «Tus seguimientos» shows five, the newest; hers to review is first.
+        for participant in (self.p2, self.p_minor_no_auth) * 3:
+            follow_ups.create(event=self.event, participant=participant, kind=CARE, created_by=self.coord1)
+        html = self.as_user(self.coord1).get(self.url("coord_home")).content.decode()
+        self.assertIn(">Revisar<", html)
+        rows = html.split('id="seguimientos"')[1].split("</ul>")[0]  # «Esperan algo de ti» without the redesign
+        self.assertLess(rows.index("Mariana López Ruiz"), rows.index("Diego Hernández Cruz"))
+        self.assertEqual(rows.count('<li class="row">'), 5)
+
     def test_nothing_is_marked_while_the_decision_needs_it(self):
         self.post(self.admin, "requerido")
         for user, url in ((self.coord1, self.url("coord_home")), (self.tutor1, self.url("tutor_home")), (self.tutor1, self.url("pending")),

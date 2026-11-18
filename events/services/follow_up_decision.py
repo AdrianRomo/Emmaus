@@ -206,6 +206,12 @@ def mark_for_review(rows, user) -> list:
     return rows
 
 
+def mine_first(rows) -> list:
+    """A short list (a home shows five) with the viewer's own reviews first, so their next action is never cut off;
+    otherwise in its order, kind by kind (a list ordered by kind keeps it). Marked rows only: with none, unchanged."""
+    return sorted(rows, key=lambda f: (f.kind, not f.review_is_mine))
+
+
 def note_for(follow_up: FollowUp) -> FollowUpDecisionChange | None:
     """The change the task's page tells about while it is open: the one its owner has to review (``care == abierto``),
     or the one that reopened it (``care == reabierto``)."""
