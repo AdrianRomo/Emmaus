@@ -190,7 +190,8 @@ class Scope:
     coordinator: EventMembership | None = None
 
     def participants(self):
-        qs = EventParticipant.objects.filter(event=self.event, is_active=True)
+        # real(): the practice campero (issue #49) is in no metric, cutoff, PDF or presentation
+        qs = EventParticipant.objects.real().filter(event=self.event, is_active=True)
         if self.coordinator is not None:
             return qs.filter(coordinator=self.coordinator)
         if self.tutor is not None:
@@ -573,7 +574,7 @@ def outcome_counts(event: Event) -> dict:
     """
     result = {}
     for link in links_for(event):
-        completed = Interview.objects.filter(
+        completed = Interview.objects.real().filter(
             event=event, status=Interview.Status.COMPLETED, participant__is_active=True, questionnaire_id=link.questionnaire_id
         )
         counts = {}

@@ -190,7 +190,7 @@ def _event_access(request, slug: str):
 def from_event_list(request):
     rows = []
     for event in _over_events(request):
-        total = EventParticipant.objects.filter(event=event).count()
+        total = EventParticipant.objects.real().filter(event=event).count()  # never the practice campero (issue #49)
         linked = EventParticipantLink.objects.filter(event=event).count()
         rows.append({"event": event, "total": total, "linked": linked, "missing": total - linked})
     return render(request, "people/from_event_list.html", {"rows": rows})

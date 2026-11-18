@@ -14,7 +14,7 @@
 <div class="focus">
   <header class="focusbar">
     <div class="focusbar__inner">
-      <p class="focusbar__who">{% church_brand ps.interview.participant.event.church|default:brand_church size="mark" %}{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}</p>
+      <p class="focusbar__who">{% church_brand ps.interview.participant.event.church|default:brand_church size="mark" %}{% if ps.station %} <span>{{ ps.station.name }}</span>{% endif %}{% if ps.interview.participant.is_practice %} <span>De práctica</span>{% endif %}</p>
       <div class="focusbar__actions">{% block focus_actions %}{% endblock %}</div>
     </div>
   </header>

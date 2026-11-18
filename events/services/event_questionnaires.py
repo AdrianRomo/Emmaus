@@ -146,7 +146,7 @@ def stop_using(event, questionnaire) -> None:
     if link is None:
         return
     is_last = not EventQuestionnaire.objects.filter(event=event).exclude(pk=link.pk).exists()
-    if is_last and Interview.objects.filter(event=event).exclude(status=Interview.Status.DISCARDED).exists():
+    if is_last and Interview.objects.real().filter(event=event).exclude(status=Interview.Status.DISCARDED).exists():
         raise ValueError(
             "No se puede quitar el único cuestionario mientras el evento tenga entrevistas. "
             "Agrega otro primero o usa otra versión."

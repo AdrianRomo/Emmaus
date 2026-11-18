@@ -31,7 +31,7 @@ def possible_duplicates(event: Event, full_name: str, *, exclude_id: int | None 
     if not normalized:
         return EventParticipant.objects.none()
     tokens = sorted(normalized.split())
-    candidates = EventParticipant.objects.filter(event=event).select_related("coordinator__user")
+    candidates = EventParticipant.objects.real().filter(event=event).select_related("coordinator__user")
     if exclude_id:
         candidates = candidates.exclude(pk=exclude_id)
     first, last = tokens[0], tokens[-1]

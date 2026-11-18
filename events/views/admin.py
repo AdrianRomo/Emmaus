@@ -706,7 +706,7 @@ def assignments(request, event, access):
                 audit.record(request.user, event, "asignacion_tutor", f"Cambió {changed} {'asignación' if changed == 1 else 'asignaciones'} de tutor", None, count=changed)
         messages.success(request, "Asignaciones guardadas." if changed else "No hubo cambios.")
         return redirect("events:assignments", slug=event.slug)
-    counts = dict(event.participants.filter(is_active=True).values_list("coordinator").annotate(n=Count("id")))
+    counts = dict(event.participants.real().filter(is_active=True).values_list("coordinator").annotate(n=Count("id")))
     rows = []
     for c in coordinators:
         current = getattr(c, "tutor_assignment", None)
@@ -727,11 +727,14 @@ def questionnaires(request, event, access):
         return _questionnaires_post(request, event)
     links = eq.links_for(event)
     in_use_version_ids = {link.version_id for link in links}
-    versions = QuestionnaireVersion.objects.filter(questionnaire__church=event.church).annotate(uses=Count("interviews"))
+    # Practice interviews (issue #49) are not uses: they never count anywhere
+    versions = QuestionnaireVersion.objects.filter(questionnaire__church=event.church).annotate(
+        uses=Count("interviews", filter=Q(interviews__participant__is_practice=False))
+    )
     # "En este evento": of the event's active camperos, how many completed each questionnaire (any version of it, like
     # the campero's status); "Versiones" (``versions``) counts every event's interviews.
     completed = dict(
-        Interview.objects.filter(
+        Interview.objects.real().filter(
             event=event,
             status=Interview.Status.COMPLETED,
             participant__is_active=True,
@@ -758,7 +761,7 @@ def questionnaires(request, event, access):
         "events/admin/questionnaires.html",
         {
             "links": links,
-            "camperos": event.participants.filter(is_active=True).count(),
+            "camperos": event.participants.real().filter(is_active=True).count(),
             "order_form": QuestionnaireOrderForm(initial={"questionnaires_in_order": event.questionnaires_in_order}),
             "questionnaires": church_questionnaires,
             "version_count": sum(len(q.listed_versions) for q in church_questionnaires),
@@ -1037,7 +1040,7 @@ def _open_before_closing(request, event, basics) -> list:
     if request.POST.get("cerrar_con_entrevistas") == "si":
         return []
     rows = mark_stalled(
-        Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS)
+        Interview.objects.real().filter(event=event, status=Interview.Status.IN_PROGRESS)  # a practice one never holds the event open
         .select_related("participant__coordinator__user", "station", "version")
         .order_by("last_activity_at")
     )
@@ -1131,10 +1134,10 @@ def sessions(request, event, access):
             raise Http404
         return redirect("events:sessions", slug=event.slug)
     now = timezone.now()
-    captures = ParticipantSession.objects.filter(interview__event=event).exclude(state=ParticipantSession.State.CLOSED).select_related(
+    captures = ParticipantSession.objects.real().filter(interview__event=event).exclude(state=ParticipantSession.State.CLOSED).select_related(
         "interview__participant", "station", "started_by"
     )
-    claims = Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS).select_related("participant", "lock_holder", "station").order_by("-last_activity_at")
+    claims = Interview.objects.real().filter(event=event, status=Interview.Status.IN_PROGRESS).select_related("participant", "lock_holder", "station").order_by("-last_activity_at")
     return render(request, "events/admin/sessions.html", {"captures": captures, "claims": claims, "now": now})
 
 

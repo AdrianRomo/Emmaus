@@ -60,7 +60,7 @@ def owners_to_remind(event: Event) -> list[tuple[User, int]]:
     Somebody who left the team, lost the access a follow-up needs, or has no e-mail address gets no reminder;
     their follow-ups show as before on "Seguimiento" for whoever reassigns them.
     """
-    open_rows = FollowUp.objects.filter(event=event, status__in=FollowUp.OPEN_STATUSES, assigned_to__isnull=False)
+    open_rows = FollowUp.objects.real().filter(event=event, status__in=FollowUp.OPEN_STATUSES, assigned_to__isnull=False)
     owner_ids = Counter(open_rows.values_list("assigned_to_id", flat=True))
     owners = []
     for user in User.objects.filter(id__in=owner_ids, is_active=True).exclude(email="").order_by("id"):

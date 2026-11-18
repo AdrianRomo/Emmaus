@@ -17,7 +17,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from events.forms import EventForm, EventSettingsForm
-from events.models import Event, ReportSnapshot
+from events.models import Event, EventMembership, MembershipRole, ReportSnapshot
+from events.services import audit
 
 from .base import CampFixture
 from .test_camp_visual import declarations, stylesheet
@@ -28,7 +29,16 @@ PREPARATION = re.compile(r'<section aria-labelledby="preparacion">.*?</section>'
 ROW = re.compile(r'<li class="row[^"]*"[^>]*>.*?</li>', re.S)
 TITLE = re.compile(r'<p class="row__title">(.*?)</p>')
 FOLD = '<details class="fold admin-steps__done" id="preparacion-listos">'
-STEPS = ["Procedimientos de la iglesia", "Cuestionario", "Camperos", "Equipo", "Computadoras", "Cortes"]
+# Issue #49 added the team's readiness to the six steps: who has signed in, who has camperos and coordinadores, who
+# attends follow-ups, who practised (events/tests/test_practice.py tests each of them).
+STEPS = [
+    "Procedimientos de la iglesia", "Cuestionario", "Camperos", "Equipo", "Acceso del equipo", "Camperos de cada coordinador",
+    "Coordinadores de cada tutor", "Computadoras", "Responsables de seguimiento", "Práctica", "Cortes",
+]
+KEYS = [
+    "procedimientos", "cuestionario", "camperos", "equipo", "acceso", "coordinadores", "tutores", "computadoras",
+    "seguimientos", "practica", "cortes",
+]
 LISTO = '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Listo</span>'
 REVISAR = '<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>Revisar</span>'
 APAGADOS = '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Apagados</span>'
@@ -54,6 +64,14 @@ class HomeHelpers(CampFixture):
             event=self.event, scope_key="evento", scope_label="Todo el campamento", trigger=ReportSnapshot.Trigger.AUTOMATIC,
             status=status, cutoff_at=at or timezone.now(), interval_minutes=120, metrics_version="1",
         )
+
+    def team_ready(self):
+        """Everybody on the team has signed in and every coordinador practised: "Acceso del equipo" and "Práctica" say "Listo"."""
+        for membership in EventMembership.objects.filter(event=self.event).select_related("user"):
+            membership.user.last_login = timezone.now()
+            membership.user.save(update_fields=["last_login"])
+            if membership.role == MembershipRole.COORDINATOR:
+                audit.record(membership.user, self.event, audit.PRACTICE_COMPLETED, "Completó una entrevista de práctica")
 
     def new_event(self, **fields):
         """An event as "Nuevo evento" leaves it before anything else: no procedures, questionnaire, people or computers."""
@@ -95,41 +113,49 @@ class HomeHelpers(CampFixture):
 
 
 class PreparationCountTests(HomeHelpers):
-    def test_nothing_ready_counts_zero_of_six_and_folds_nothing(self):
+    def test_nothing_ready_counts_zero_of_eleven_and_folds_nothing(self):
         page, fragment = self.pages(self.new_event())
         section = self.preparation(page)
-        self.assertIn('<p class="admin-steps__summary">0 de 6 pasos listos.</p>', section)
+        self.assertIn('<p class="admin-steps__summary">0 de 11 pasos listos.</p>', section)
         self.assertNotIn('id="preparacion-listos"', page.content.decode())
         pending, done = self.split(section)
         self.assertEqual(self.titles(pending), STEPS)
         self.assertEqual(done, [])
         self.assertNotIn("Listo", section)
-        self.assertEqual((page.context["steps_done"], page.context["steps_total"]), (0, 6))
-        self.assertEqual([step["key"] for step in page.context["steps"]], ["procedimientos", "cuestionario", "camperos", "equipo", "computadoras", "cortes"])
+        self.assertEqual((page.context["steps_done"], page.context["steps_total"]), (0, 11))
+        self.assertEqual([step["key"] for step in page.context["steps"]], KEYS)
         self.assertEqual(self.preparation(fragment), section)
 
     def test_one_ready_step_is_singular(self):
         page, _ = self.pages(self.new_event(procedures_approved_at=timezone.now()))
         section = self.preparation(page)
-        self.assertIn('<p class="admin-steps__summary">1 de 6 pasos listos.</p>', section)
+        self.assertIn('<p class="admin-steps__summary">1 de 11 pasos listos.</p>', section)
         self.assertIn(f"{FOLD}<summary>1 paso listo</summary>", section)
 
     def test_the_count_matches_the_rows(self):
+        self.team_ready()
         page, _ = self.pages()  # every step ready but cutoffs, still waiting for the first automatic one
         section = self.preparation(page)
-        self.assertIn('<p class="admin-steps__summary">5 de 6 pasos listos.</p>', section)
-        self.assertIn(f"{FOLD}<summary>5 pasos listos</summary>", section)
+        self.assertIn('<p class="admin-steps__summary">10 de 11 pasos listos.</p>', section)
+        self.assertIn(f"{FOLD}<summary>10 pasos listos</summary>", section)
         pending, done = self.split(section)
         self.assertEqual(self.titles(pending), ["Cortes"])
-        self.assertEqual(len(done), 5)
-        self.assertEqual((page.context["steps_done"], page.context["steps_total"]), (5, 6))
-        self.assertEqual(sum(step["state"] == "listo" for step in page.context["steps"]), 5)
+        self.assertEqual(len(done), 10)
+        self.assertEqual((page.context["steps_done"], page.context["steps_total"]), (10, 11))
+        self.assertEqual(sum(step["state"] == "listo" for step in page.context["steps"]), 10)
+
+    def test_a_team_that_has_not_signed_in_or_practised_is_pending(self):
+        page, _ = self.pages()  # the fixture as it is: nobody on the team has signed in, nobody practised
+        pending, done = self.split(self.preparation(page))
+        self.assertEqual(self.titles(pending), ["Acceso del equipo", "Práctica", "Cortes"])
+        self.assertEqual(len(done), 8)
 
     def test_everything_ready_says_todo_listo(self):
         self.automatic_cutoff()
+        self.team_ready()
         page, fragment = self.pages()
         section = self.preparation(page)
-        self.assertIn('<p class="admin-steps__summary">Todo listo: 6 de 6 pasos.</p>', section)
+        self.assertIn('<p class="admin-steps__summary">Todo listo: 11 de 11 pasos.</p>', section)
         self.assertNotIn("pasos listos.", section)
         pending, done = self.split(section)
         self.assertEqual(pending, [])
@@ -142,16 +168,17 @@ class PreparationOrderTests(HomeHelpers):
     def setUp(self):
         self.p2.coordinator = None  # "Camperos" needs a look
         self.p2.save(update_fields=["coordinator"])
+        self.team_ready()
 
     def test_pending_rows_come_before_the_fold_and_ready_rows_are_inside_it(self):
         page, _ = self.pages()
         section = self.preparation(page)
-        self.assertIn("4 de 6 pasos listos.", section)
+        self.assertIn("9 de 11 pasos listos.", section)
         head, _, _ = section.partition(FOLD)
         self.assertIn('<h2 id="preparacion" class="heading">Preparación</h2>', head)
         pending, done = self.split(section)
         self.assertEqual(self.titles(pending), ["Camperos", "Cortes"])  # in the order of the steps
-        self.assertEqual(self.titles(done), ["Procedimientos de la iglesia", "Cuestionario", "Equipo", "Computadoras"])
+        self.assertEqual(self.titles(done), [title for title in STEPS if title not in ("Camperos", "Cortes")])
         for row in pending:
             self.assertNotIn("Listo", row)
         for row in done:
@@ -161,7 +188,7 @@ class PreparationOrderTests(HomeHelpers):
     def test_the_fold_starts_closed_and_the_fragment_carries_the_same_markup(self):
         page, fragment = self.pages()
         section = self.preparation(page)
-        self.assertIn(f"{FOLD}<summary>4 pasos listos</summary>", section)  # no "open": closed by default
+        self.assertIn(f"{FOLD}<summary>9 pasos listos</summary>", section)  # no "open": closed by default
         self.assertIn('id="preparacion-listos"', fragment.content.decode())
         self.assertEqual(self.preparation(fragment), section)
 
