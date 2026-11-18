@@ -852,7 +852,14 @@ class ExistingAccountTests(JoinFixture):
         request = self.pending(email="root@prueba.mx", name="Nombre Falso")
         self.login(self.admin)
         response = self.client.post(self.url("access_request_approve", request.pk), {"role": "coordinador"})
-        self.assert_refused(request, "Raíz Total", "administrador", response)
+        # An account of the platform that is nobody of this church: refused without its name or its role.
+        request.refresh_from_db()
+        self.assertEqual((request.status, request.membership), ("rechazada", None))
+        said = " ".join(str(m) for m in response.wsgi_request._messages) + request.decision_note
+        self.assertNotIn("Raíz", said)
+        self.assertNotIn("administrador", said)
+        self.assertIn("No se pudo dar acceso con ese correo", said)
+        self.assertFalse(AuditEvent.objects.filter(summary__icontains="Raíz").exists())
         self.assertFalse(EventMembership.objects.filter(user=root).exists())
 
     def test_a_church_admin_is_not_touched(self):

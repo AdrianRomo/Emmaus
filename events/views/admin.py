@@ -649,6 +649,14 @@ def access_request_approve(request, event, access, pk):
         account = team_svc.account_for_email(access_request.email)
         current = resolve_access(account, event) if account is not None else None
         if current is not None:
+            of_this_church = (
+                UserChurchRole.objects.filter(user=account, church_id=event.church_id).exists()
+                or EventMembership.objects.filter(user=account, event__church_id=event.church_id).exists()
+            )
+            if not of_this_church:
+                # A platform account that is nobody of this church: the answer names nobody and no role, so a
+                # request typed with somebody's address does not tell who they are (review of wave 6).
+                return _refuse_outside_account(request, event, access_request)
             return _refuse_existing_access(request, event, access_request, account.get_full_name() or account.email, current.role_label.lower())
         try:
             added = team_svc.add_member(event, request.user, full_name=access_request.full_name, email=access_request.email, role=role)
@@ -665,6 +673,19 @@ def access_request_approve(request, event, access, pk):
             f"Aprobó la solicitud de acceso de {access_request.full_name} como {added.membership.get_role_display().lower()}", access_request,
         )
     return _member_added(request, event, added)
+
+
+def _refuse_outside_account(request, event, access_request):
+    """Close the request without touching the account and without saying whose it is."""
+    access_request.status = AccessRequest.Status.REJECTED
+    access_request.decided_at = timezone.now()
+    access_request.decided_by = request.user
+    access_request.decision_note = "No se pudo dar acceso con ese correo."
+    access_request.save(update_fields=["status", "decided_at", "decided_by", "decision_note"])
+    audit.record(request.user, event, "solicitud_rechazada",
+                 f"Cerró la solicitud de acceso de {access_request.full_name}: no se pudo dar acceso con ese correo", access_request)
+    messages.warning(request, "No se pudo dar acceso con ese correo. Pide a la persona que te escriba con otro.")
+    return redirect(_requests_url(event))
 
 
 def _refuse_existing_access(request, event, access_request, name, role_label):
