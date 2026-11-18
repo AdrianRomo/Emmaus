@@ -102,10 +102,11 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
    required box added for this decision) and the authorizations that apply. Merged `d19861f` (migration
    `events/0017`).
 10. Decided 2026-11-18: «Cambiar decisión de seguimiento» for the assigned coordinador and an administrador of
-    the event, with a reason; the care task created once, cancelled only if nobody started it, otherwise left to
-    its owner. Merged `95cf6b3` (migration `events/0016`). Left: the «Decisión cambiada» mark on the coordinator's
-    and tutor's homes; a non-sensitive owner may infer that a confidential note exists when the work counts as
-    started only because of one; after «Atendido», requiring again creates no new task (one per interview).
+    the event, with a reason. Merged `95cf6b3` (migration `events/0016`). The owner's answers to what was left
+    (2026-11-18): the mark «Decisión cambiada» on every list of follow-ups, with «Revisar» for the task's owner; a
+    changed decision never closes a task (no «care started» test, so a confidential note changes nothing others
+    see); needed again after «Atendido» or a cancel, the same task is reopened, its closing kept in its history
+    (migration `events/0018`, choices only).
 11. Decided 2026-11-18: an ordinary sign-in with exactly one camp underway that the person administers opens
     its administration home; several, a chooser; none, the usual home; «Todos los eventos» inside the event
     (`388765c`). Still open: the running camp shows in «Eventos de la iglesia» as «Sin publicar… sin inscritos».
