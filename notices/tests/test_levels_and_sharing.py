@@ -1,6 +1,7 @@
 """A notice's level (normal, importante, urgente), "Enterado" on an urgent one, and the WhatsApp
 message that says there is a notice without saying what it says."""
 
+import re
 from datetime import timedelta
 from unittest import mock
 from urllib.parse import parse_qs, urlsplit
@@ -23,6 +24,16 @@ HOME = reverse("community:home")
 TITLE = "Cambio de horario"
 BODY = "La reunión de jóvenes comenzará a las 6:00 p. m. en lugar de las 5:00 p. m."
 URGENT, IMPORTANT, NORMAL = "urgent", "important", "normal"
+
+
+def answered_on(html: str) -> list[str]:
+    """The days this person said «Enterado», as the page draws them: the word on a pill, then its day."""
+    return re.findall(
+        r'<ul class="meta reading__done">\s*<li><span class="status status--done"><span class="status__mark" aria-hidden="true">'
+        r'</span>Enterado</span></li>\s*<li><svg [^>]*>.*?</svg>([^<]+)</li>',
+        html,
+        re.S,
+    )
 
 
 def detail(notice):
@@ -175,11 +186,11 @@ class LevelTests(LevelFixture):
         by_admin = self.notice(group=self.group)
         self.client.force_login(self.member_user)
         page = self.client.get(detail(by_guide))
-        self.assertContains(page, "Publicado por quien guía Jóvenes Roca el ")
+        self.assertContains(page, '<p class="reading__by">Publicado por quien guía Jóvenes Roca</p>', html=True)
         for name in ("Gala", "Guía</"):
             self.assertNotContains(page, name)
-        self.assertContains(self.client.get(detail(by_admin)), "Publicado por la iglesia el ")
-        self.assertContains(self.client.get(detail(self.notice())), "Publicado por la iglesia el ")
+        self.assertContains(self.client.get(detail(by_admin)), '<p class="reading__by">Publicado por la iglesia</p>', html=True)
+        self.assertContains(self.client.get(detail(self.notice())), '<p class="reading__by">Publicado por la iglesia</p>', html=True)
 
     # ---- urgent: the home and "Enterado" ------------------------------------------------------------
     def test_an_urgent_notice_waits_at_the_top_of_the_home_until_enterado(self):
@@ -203,7 +214,7 @@ class LevelTests(LevelFixture):
         response = self.client.post(enterado(notice), follow=True)
         self.assertRedirects(response, detail(notice))
         self.assertContains(response, "Listo, anotamos tu «Enterado».")
-        self.assertContains(response, "Dijiste «Enterado» el ")
+        self.assertEqual(len(answered_on(response.content.decode())), 1)
         self.assertNotContains(response, ">Enterado</button>")
         self.client.post(enterado(notice))  # again: nothing changes
         read = AnnouncementRead.objects.get(announcement=notice, person=self.member)

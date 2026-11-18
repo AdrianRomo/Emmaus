@@ -275,7 +275,7 @@ class FrozenListTests(WaitingFixture):
         self.assertEqual(self.state(self.first), OFFERED)
         self.client.force_login(self.leader_user)
         page = self.client.get(self.url())
-        self.assertContains(page, "<strong>El evento ya empezó.</strong> El lugar que te ofrecimos ya no se puede aceptar desde aquí.")
+        self.assertContains(page, '<p class="notice__title">El evento ya empezó.</p><p>El lugar que te ofrecimos ya no se puede aceptar desde aquí.')
         self.assertNotContains(page, "Aceptar mi lugar")
         self.client.force_login(self.asked_user)
         self.assertContains(self.client.get(self.url()), "El evento ya empezó y ya no se ofrecen lugares desde la lista.")
@@ -807,7 +807,13 @@ class OfferMailTests(WaitingFixture):
         self.assertIsNone(events[self.retiro.pk].my_registration)
         self.client.force_login(self.leader_user)
         self.assertContains(self.client.get(self.url()), "Aceptar mi lugar")
-        self.assertContains(self.client.get(reverse("agenda:list")), "Te ofrecimos un lugar")
+        # The list says it with the one thing to do: accept the place, on the event's page.
+        self.assertContains(
+            self.client.get(reverse("agenda:list")),
+            f'<a class="btn btn--secondary btn--small" href="{self.url()}">Aceptar mi lugar'
+            '<span class="visually-hidden"> en Retiro de jóvenes</span></a>',
+            html=True,
+        )
 
     @override_settings(EMAIL_BACKEND="core.test_notify.FailingBackend")
     def test_a_mail_that_fails_never_reaches_who_freed_the_place(self):
@@ -824,10 +830,10 @@ class MemberScreenTests(WaitingFixture):
         self.assertContains(page, "Anotarme en la lista de espera")
         self.assertContains(page, "tendrás 48 horas para aceptarlo")
         self.assertNotContains(page, ">Inscribirme<")
-        self.assertContains(self.client.get(reverse("agenda:list")), "Lista de espera")
+        self.assertContains(self.client.get(reverse("agenda:list")), "Hay lista de espera</span>")
         joined = self.client.post(self.url("register"), follow=True)
         self.assertContains(joined, "Te anotamos en la lista de espera de Retiro de jóvenes. Eres la primera persona en la lista de espera.")
-        self.assertContains(joined, "<strong>Estás en la lista de espera.</strong>")
+        self.assertContains(joined, '<p class="notice__title">Estás en la lista de espera.</p>')
         self.assertContains(joined, "Salir de la lista de espera")
         self.assertNotContains(joined, "Cancelar mi inscripción")
         listing = self.client.get(reverse("agenda:list"))
@@ -845,8 +851,8 @@ class MemberScreenTests(WaitingFixture):
         self.assertContains(offered, "No voy a usar el lugar")
         self.assertEqual(self.client.get(self.url("accept_offer")).status_code, 405)
         done = self.client.post(self.url("accept_offer"), follow=True)
-        self.assertContains(done, "Listo. Aceptaste tu lugar: te inscribiste a Retiro de jóvenes.")
-        self.assertContains(done, "<strong>Te inscribiste.</strong>")
+        self.assertContains(done, "Aceptaste tu lugar en Retiro de jóvenes.")
+        self.assertContains(done, '<p class="notice__title">Te inscribiste.</p>')
         self.assertEqual(self.state(row), ACTIVE)
 
     def test_a_minor_who_accepts_reads_that_the_registration_waits(self):
@@ -858,7 +864,8 @@ class MemberScreenTests(WaitingFixture):
         self.assertContains(self.client.get(self.url()), "Este evento cuida a los menores de edad: al aceptar")
         done = self.client.post(self.url("accept_offer"), follow=True)
         self.assertContains(done, "Aceptaste tu lugar en Retiro de jóvenes.")
-        self.assertContains(done, "<strong>Pendiente de autorización.</strong>")
+        self.assertContains(done, '<p class="notice__title">Pendiente de autorización.</p>')
+        self.assertNotContains(done, '<p class="notice__title">Te inscribiste.</p>')
         row = EventRegistration.objects.get(event=self.retiro, person=self.member)
         self.assertEqual((row.status, row.pending_reason), (PENDING, "consent"))
 

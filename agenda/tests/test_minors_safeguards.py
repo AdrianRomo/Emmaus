@@ -10,6 +10,7 @@ from django.urls import reverse
 from agenda import services
 from agenda.models import EventPage, EventRegistration, GuardianConsent
 from agenda.tests.test_event_extras import AGE_TEXT, CONSENT, PENDING_TEXT, ExtrasFixture
+from core.templatetags.shell import icon
 from events.models import Event
 from groups.forms import MyDataForm
 from people import policy
@@ -21,6 +22,12 @@ WAITS_AGE = ("pendiente", "age")
 WAITS_CONSENT = ("pendiente", "consent")
 CALL = {**CONSENT, "method": "verificado"}
 OVERRIDE = {"override_reason": "llego"}
+# How the event's page titles a registration that waits, or is confirmed (the notice's first line).
+SIGNED_UP = '<p class="notice__title">Te inscribiste.</p>'
+WAITS_CONSENT_TITLE = '<p class="notice__title">Pendiente de autorización.</p>'
+# The age on a person's page, as a pill: confirmed by the team, or not.
+AGE_CONFIRMED = '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Edad confirmada</span>'
+AGE_UNCONFIRMED = '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Edad sin confirmar</span>'
 
 
 def where(row: EventRegistration) -> tuple[str, str]:
@@ -114,16 +121,16 @@ class SignUpTableTests(SafeguardFixture):
         self.born(self.leader, 30)
         self.born(self.member, 15)
         for user, title, text, word in (
-            (self.leader_user, "<strong>Falta confirmar tu edad.</strong>", AGE_TEXT, "Falta confirmar tu edad"),
-            (self.member_user, "<strong>Pendiente de autorización.</strong>", PENDING_TEXT, "Pendiente de autorización"),
+            (self.leader_user, '<p class="notice__title">Falta confirmar tu edad.</p>', AGE_TEXT, "Falta confirmar tu edad"),
+            (self.member_user, WAITS_CONSENT_TITLE, PENDING_TEXT, "Pendiente de autorización"),
         ):
             self.client.force_login(user)
             response = self.client.post(self.url("register"), follow=True)
             self.assertContains(response, title)
             self.assertContains(response, text)
-            self.assertNotContains(response, "<strong>Te inscribiste.</strong>")
+            self.assertNotContains(response, SIGNED_UP)
             self.assertContains(self.client.get(reverse("agenda:list")), word)
-        self.assertContains(self.client.get(self.url()), "<strong>Pendiente de autorización.</strong>")
+        self.assertContains(self.client.get(self.url()), WAITS_CONSENT_TITLE)
 
     def test_a_minor_with_a_valid_authorization_and_one_withdrawn(self):
         row = self.minor_pending()
@@ -138,7 +145,9 @@ class SignUpTableTests(SafeguardFixture):
         self.assertContains(self.client.get(self.url("registrations")), "<strong>Sin autorización.</strong>")
         self.client.force_login(self.member_user)
         detail = self.client.get(self.url())
-        self.assertContains(detail, "<strong>Sin autorización.</strong>")
+        self.assertContains(detail, '<p class="notice__title">Sin autorización.</p>')
+        self.assertContains(detail, "Por ahora no tienes autorización para participar en este evento.")
+        self.assertNotContains(detail, SIGNED_UP)
         self.assertNotContains(detail, "Marta")
         services.cancel(row, self.member_user)
         self.assertEqual(where(services.register(self.retiro, self.member, self.member_user)), WAITS_CONSENT)
@@ -212,8 +221,10 @@ class TurningTheRuleOnTests(SafeguardFixture):
         self.assertContains(page, "Confirmar edad", count=3)
         self.assertContains(page, "Nadie dijo si es mayor o menor de edad.", count=1)
         self.assertContains(page, "Nota de contacto", count=1)
-        self.assertContains(self.client.get(reverse("agenda:admin_list")),
-                            "3 personas inscritas, 3 con edad por confirmar, 4 pendientes de autorización")
+        row_facts = self.client.get(reverse("agenda:admin_list")).content.decode().split("Retiro de jóvenes</a>", 1)[1].split("</ul>", 1)[0]
+        self.assertIn(f'<li>{icon("personas", "sm")}3 personas inscritas</li>', row_facts)
+        self.assertIn('<li><span class="chip chip--wait">3 con edad por confirmar</span></li>', row_facts)
+        self.assertIn('<li><span class="chip chip--wait">4 pendientes de autorización</span></li>', row_facts)
 
     def test_saving_the_page_again_keeps_asking(self):
         """Not only the moment the rule is turned on: while the page asks, every save settles every row."""
@@ -377,7 +388,9 @@ class AgeVerificationTests(SafeguardFixture):
             "Lo confirmó su madre, padre o tutor en persona",
         ])
         detail = self.client.get(reverse("people:detail", args=[self.member.pk]))
-        self.assertContains(detail, "Edad confirmada por el equipo")
+        self.assertContains(detail, AGE_CONFIRMED)
+        self.assertContains(detail, "Por el equipo el ")
+        self.assertNotContains(detail, AGE_UNCONFIRMED)
 
     def test_changing_the_date_any_other_way_clears_the_verification(self):
         def verified_again() -> Person:
@@ -394,7 +407,9 @@ class AgeVerificationTests(SafeguardFixture):
         self.client.post(reverse("people:edit", args=[self.member.pk]), data)
         self.assertEqual(Person.objects.get(pk=self.member.pk).birth_date, date(1990, 3, 15))
         self.assertTrue(cleared())
-        self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "Edad sin confirmar por el equipo")
+        cleared_page = self.client.get(reverse("people:detail", args=[self.member.pk]))
+        self.assertContains(cleared_page, AGE_UNCONFIRMED)
+        self.assertNotContains(cleared_page, AGE_CONFIRMED)
         # The same form with the same date keeps it: only a change of the date clears.
         person = verified_again()
         self.client.post(reverse("people:edit", args=[self.member.pk]), {**data, "birth_date": "14/03/1990", "phone": "55 0000 1111"})
@@ -515,7 +530,7 @@ class ConsentEvidenceTests(SafeguardFixture):
         self.assertIn("no confirma", ChurchAuditEvent.objects.get(action="evento_autorizacion").summary)
         self.assertEqual(self.client.get(self.url("consent_revoke", row.pk)).status_code, 404)
         self.client.force_login(self.member_user)
-        self.assertContains(self.client.get(self.url()), "<strong>Pendiente de autorización.</strong>")
+        self.assertContains(self.client.get(self.url()), WAITS_CONSENT_TITLE)
         # The two that count.
         for method in ("papel", "en_persona"):
             services.record_consent(row, self.admin, **{**CONSENT, "method": method})

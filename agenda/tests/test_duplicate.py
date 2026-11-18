@@ -160,7 +160,7 @@ class WhatIsCopiedTests(DuplicateSimpleFixture):
     def test_without_a_day_the_programme_is_not_copied_and_the_screen_says_so(self):
         page = self.client.get(self.url())
         self.assertContains(page, "Si no escribes el día, el programa no se copia.")
-        self.assertContains(page, "Si lo dejas vacío, el programa no se copia")
+        self.assertContains(page, "Sin día, el programa no se copia: cada momento necesita un día.")
         response = self.post()
         copy = Event.objects.get(name="Noche de alabanza 2027")
         self.assertEqual((copy.starts_on, copy.ends_on), (None, None))
@@ -207,7 +207,7 @@ class ScreenAndAccessTests(DuplicateSimpleFixture):
         response = self.post(starts_on="2027-05-07")
         copy = Event.objects.get(slug="noche-de-alabanza-2027")
         self.assertRedirects(response, reverse("agenda:page_edit", args=[copy.slug]), fetch_redirect_response=False)
-        self.assertContains(self.client.get(response["Location"]), "Listo. Noche de alabanza 2027 ya está creado, sin publicar.")
+        self.assertContains(self.client.get(response["Location"]), "Noche de alabanza 2027 ya está creado, sin publicar.")
 
     def test_it_is_audited_in_the_churchs_log(self):
         before = ChurchAuditEvent.objects.count()

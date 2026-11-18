@@ -177,15 +177,15 @@ class PagedListsTests(CommunityFixture):
 
     def test_names_under_a_search_box_say_how_many_matched(self):
         self.client.force_login(self.admin)
-        said = "Estas son las primeras {} de 60 personas con ese nombre."
-        for url, shown in (
-            (reverse("community:group_people", args=[self.group.pk]) + "?q=zoe", 10),
-            (reverse("care:create") + "?q=zoe", 10),
+        for url, shown, said in (
+            (reverse("community:group_people", args=[self.group.pk]) + "?q=zoe", 10,
+             "Estas son las primeras {} de 60 personas con ese nombre."),
+            (reverse("care:create") + "?q=zoe", 10, "Primeras {} de 60. Escribe más del nombre."),
         ):
             page = self.client.get(url)
             self.assertEqual(len(page.context["found"]), shown, url)
             self.assertContains(page, said.format(shown))
-            self.assertNotContains(self.client.get(url.replace("zoe", "zulema")), "Estas son las primeras")
+            self.assertNotContains(self.client.get(url.replace("zoe", "zulema")), 'class="list-count"')
 
     def test_a_persons_own_attendance_says_it_is_the_last_eight(self):
         from groups import services

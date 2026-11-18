@@ -10,6 +10,7 @@ from django.urls import reverse
 from agenda import services
 from agenda.models import EventFaq, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
 from agenda.tests.test_agenda import AgendaFixture
+from core.templatetags.shell import icon
 from people import flags
 from people import services as people_services
 from people.models import ChurchAuditEvent, Person
@@ -103,7 +104,8 @@ class FaqTests(ExtrasFixture):
         self.assertContains(detail, "Preguntas frecuentes", count=1)
         text = detail.content.decode()
         self.assertLess(text.index("¿A qué hora salimos?"), text.index("¿Qué llevo?"))
-        self.assertContains(detail, '<h3 class="row__title">¿Qué llevo?</h3>')
+        # Each question is folded with its answer under it.
+        self.assertContains(detail, '<details class="fold"><summary>¿Qué llevo?</summary><p class="faq__answer">Ropa cómoda.</p></details>', html=True)
         self.assertNotContains(detail, "iglesia B?")
         self.assertNotContains(detail, "Editar")
 
@@ -168,9 +170,19 @@ class ScheduleTests(ExtrasFixture):
         text = detail.content.decode()
         self.assertLess(text.index("Oración"), text.index("Desayuno"))
         self.assertLess(text.index("Desayuno"), text.index("Fogata"))
-        self.assertContains(detail, "De 18:00 a 19:30, en El claro.")
-        self.assertContains(detail, "A las 09:00.")
-        self.assertEqual(text.count('<h3 class="row__title mt-2">'), 2)
+        # The hour drawn, then until when and where as facts.
+        self.assertContains(
+            detail,
+            f'<li class="row row--lead"><span class="hora">18:00</span><div class="row__main"><p class="row__title">Fogata</p>'
+            f'<ul class="meta"><li>{icon("reloj", "sm")}Hasta las 19:30</li><li>{icon("lugar", "sm")}El claro</li></ul></div></li>',
+            html=True,
+        )
+        self.assertContains(
+            detail,
+            '<li class="row row--lead"><span class="hora">09:00</span><div class="row__main"><p class="row__title">Desayuno</p></div></li>',
+            html=True,
+        )
+        self.assertEqual(text.count('<h3 class="day-label">'), 2)
 
 
 class WalkUpTests(ExtrasFixture):
@@ -330,7 +342,7 @@ class WalkUpTests(ExtrasFixture):
         for other in (self.member_b.pk, "x"):
             self.assertEqual(self.client.post(self.url("guest_promote", guest.pk), {"persona": other}).status_code, 404)
         response = self.client.post(self.url("guest_promote", guest.pk), {"persona": self.no_account.pk}, follow=True)
-        self.assertContains(response, "Listo. Esta inscripción ahora es de Nora Sin Cuenta.")
+        self.assertContains(response, "Esta inscripción ahora es de Nora Sin Cuenta.")
         guest.refresh_from_db()
         self.assertEqual((guest.person, guest.guest_first_name), (self.no_account, ""))
         self.assertEqual(Person.objects.count(), people)
@@ -367,7 +379,7 @@ class MinorSignUpTests(ExtrasFixture):
 
     def test_an_event_that_does_not_ask_never_asks_for_the_date(self):
         response = self.client.post(self.url("register"), {"birth_date": "14/03/2012"}, follow=True)
-        self.assertContains(response, "Listo. Te inscribiste a Retiro de jóvenes.")
+        self.assertContains(response, "Te inscribiste a Retiro de jóvenes.")
         self.member.refresh_from_db()
         self.assertIsNone(self.member.birth_date)
         self.assertEqual(EventRegistration.objects.get().status, "inscrita")
@@ -390,8 +402,8 @@ class MinorSignUpTests(ExtrasFixture):
         # An adult's date, typed: saved, never verified, and the sign-up waits for the team.
         response = self.client.post(self.url("register"), {"birth_date": "14/03/1990"}, follow=True)
         self.assertContains(response, AGE_TEXT)
-        self.assertContains(response, "<strong>Falta confirmar tu edad.</strong>")
-        self.assertNotContains(response, "<strong>Te inscribiste.</strong>")
+        self.assertContains(response, '<p class="notice__title">Falta confirmar tu edad.</p>')
+        self.assertNotContains(response, '<p class="notice__title">Te inscribiste.</p>')
         self.member.refresh_from_db()
         self.assertEqual((self.member.birth_date, self.member.birth_date_verified), (date(1990, 3, 14), False))
         row = EventRegistration.objects.get()
@@ -430,10 +442,10 @@ class MinorSignUpTests(ExtrasFixture):
         eighteen_the_next_day = date(first.year - 18, first.month, first.day) + timedelta(days=1)
         response = self.client.post(self.url("register"), {"birth_date": eighteen_the_next_day.strftime("%d/%m/%Y")}, follow=True)
         self.assertContains(response, PENDING_TEXT)
-        self.assertContains(response, "<strong>Pendiente de autorización.</strong>")
+        self.assertContains(response, '<p class="notice__title">Pendiente de autorización.</p>')
         self.assertContains(response, "Cancelar mi inscripción")
-        self.assertNotContains(response, "<strong>Te inscribiste.</strong>")
-        self.assertNotContains(response, "btn--on-dark")
+        self.assertNotContains(response, '<p class="notice__title">Te inscribiste.</p>')
+        self.assertNotContains(response, '<section class="sign"')  # no panel to sign up again
         row = EventRegistration.objects.get()
         self.assertEqual((row.status, row.attended, row.registered_by), ("pendiente", None, None))
         page = self.client.get(reverse("agenda:list"))
@@ -530,7 +542,9 @@ class ConsentTests(ExtrasFixture):
         text = page.content.decode()
         self.assertLess(text.index("Pendientes de autorización"), text.index("Personas inscritas"))
         self.assertLess(text.index("Diego Hernández Cruz"), text.index("Gala Guía"))
-        self.assertContains(self.client.get(reverse("agenda:admin_list")), "1 persona inscrita, 1 pendiente de autorización")
+        row_facts = self.client.get(reverse("agenda:admin_list")).content.decode().split("Retiro de jóvenes</a>", 1)[1].split("</ul>", 1)[0]
+        self.assertIn(f'<li>{icon("personas", "sm")}1 persona inscrita</li>', row_facts)
+        self.assertIn('<li><span class="chip chip--wait">1 pendiente de autorización</span></li>', row_facts)
         form = self.client.get(self.url("consent", row.pk))
         self.assertContains(form, "<h1", count=1)
         self.assertContains(form, "Registrar la autorización", count=1)
@@ -587,8 +601,8 @@ class ConsentTests(ExtrasFixture):
             for secret in ("Marta", "Tutora", "9999", "Formato firmado"):
                 self.assertNotContains(page, secret)
         detail = self.client.get(self.url())
-        self.assertContains(detail, "<strong>Te inscribiste.</strong>")
-        self.assertContains(detail, "Autorizada por tu mamá, papá o tutor.")
+        self.assertContains(detail, '<p class="notice__title">Te inscribiste.</p>')
+        self.assertContains(detail, "<p>Autorizada por tu mamá, papá o tutor.</p>")
         # An adult's registration says nothing about authorizations.
         self.born(self.leader, 30)
         services.register(self.retiro, self.leader, self.leader_user)

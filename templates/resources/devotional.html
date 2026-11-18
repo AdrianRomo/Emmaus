@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load emmaus shell %}
+{% load community emmaus shell %}
 {% block page_title %}{% if today_page or not devotional %}Devocional de hoy{% else %}{{ devotional.title }}{% endif %}{% endblock %}
 {% block content %}
 {% comment %}
@@ -22,7 +22,8 @@
         <h1 class="voice page-head__title">{{ devotional.title }}</h1>
         <ul class="meta page-head__meta">
           {% if devotional.state == "borrador" %}<li>{% status "borrador" "Borrador" %}</li>{% elif devotional.state == "programado" %}<li>{% status "por_evaluar" "Programado" %}</li>{% endif %}
-          <li>{% icon "calendario" "sm" %}{{ when }}</li>
+          {% now "Y-m-d" as today_iso %}{% now "Y" as this_year %}
+          <li>{% icon "calendario" "sm" %}{% if devotional.date|date:"Y-m-d" == today_iso %}Hoy, {% endif %}{{ devotional.date|weekday_date }}{% if devotional.date|date:"Y" != this_year %} de {{ devotional.date|date:"Y" }}{% endif %}</li>
           {% if devotional.passage %}<li>{% icon "lectura" "sm" %}{{ devotional.passage }}</li>{% endif %}
           {% if devotional.author_name %}<li>{% icon "personas" "sm" %}{{ devotional.author_name }}</li>{% endif %}
         </ul>

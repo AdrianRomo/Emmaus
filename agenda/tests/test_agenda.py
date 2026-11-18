@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from access.models import RoleAssignment
+from core.templatetags.shell import icon
 from agenda import services
 from agenda.models import EventPage, EventRegistration
 from events.models import Event, EventMembership, EventParticipant
@@ -16,6 +17,8 @@ from people import flags
 from people.models import ChurchAuditEvent
 
 URLS = ["detail", "register", "cancel", "page_edit", "registrations"]
+# The panel of an action the person can take on the event's page (sign up, join the waiting list, accept a place).
+ACTION_PANEL = '<section class="sign"'
 
 
 class AgendaFixture(CommunityFixture):
@@ -70,11 +73,17 @@ class VisibilityTests(AgendaFixture):
     def test_a_published_event_shows_in_the_list_and_on_its_page(self):
         page = self.client.get(reverse("agenda:list"))
         self.assertContains(page, "<h1", count=1)
-        self.assertContains(page, "Lo que viene en la iglesia")
+        self.assertContains(page, '<h2 id="lo-que-viene" class="heading visually-hidden">Lo que viene</h2>', html=True)
         self.assertNotContains(page, "Tus inscripciones")
         self.assertContains(page, "Retiro de jóvenes")
-        self.assertContains(page, "a las 19:30, en Rancho El Olivo.")
-        self.assertContains(page, "Inscripción abierta")
+        self.assertContains(page, f'<li>{icon("reloj", "sm")}19:30</li>')
+        self.assertContains(page, f'<li>{icon("lugar", "sm")}Rancho El Olivo</li>')
+        self.assertContains(
+            page,
+            f'<a class="btn btn--secondary btn--small" href="{self.url()}">Inscribirme'
+            '<span class="visually-hidden"> a Retiro de jóvenes</span></a>',
+            html=True,
+        )
         self.assertNotContains(page, "Vigilia de la iglesia B")
         self.assertNotContains(page, "Administrar los eventos")
         detail = self.client.get(self.url())
@@ -118,10 +127,10 @@ class RegistrationTests(AgendaFixture):
     def test_signing_up_and_what_the_person_reads(self):
         self.assertEqual(self.client.get(self.url("register")).status_code, 405)
         response = self.client.post(self.url("register"), follow=True)
-        self.assertContains(response, "Listo. Te inscribiste a Retiro de jóvenes.")
-        self.assertContains(response, "<strong>Te inscribiste.</strong>")
+        self.assertContains(response, "Te inscribiste a Retiro de jóvenes.")
+        self.assertContains(response, '<p class="notice__title">Te inscribiste.</p>')
         self.assertContains(response, "Cancelar mi inscripción")
-        self.assertNotContains(response, 'btn--on-dark')
+        self.assertNotContains(response, ACTION_PANEL)
         row = EventRegistration.objects.get()
         self.assertEqual((row.event, row.person, row.status, row.attended), (self.retiro, self.member, "inscrita", None))
         page = self.client.get(reverse("agenda:list"))
@@ -145,7 +154,7 @@ class RegistrationTests(AgendaFixture):
     def refused(self, message, code):
         response = self.client.post(self.url("register"), follow=True)
         self.assertContains(response, message)
-        self.assertNotContains(response, 'btn--on-dark')
+        self.assertNotContains(response, ACTION_PANEL)
         self.assertFalse(EventRegistration.objects.filter(person=self.member, status="inscrita").exists())
         with self.assertRaises(services.AgendaError) as caught:
             services.register(self.retiro, self.member, self.member_user)
