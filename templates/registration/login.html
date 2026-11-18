@@ -2,7 +2,36 @@
 {% load brand %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Entrar{% endblock %}
 {% block content %}
-{% comment %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"), the door: the church's logo, or its name above the title; one question (who you are),
+  one filled button. A wrong password, an inactive account or too many attempts arrive as the form's own errors and
+  say the same thing whether or not the account exists. Under the sheet, quiet: the shared-computer reminder (a
+  safety note, in these words) and the way in for somebody who holds an event's code.
+{% endcomment %}
+<div class="auth-card">
+  {% if brand_church|has_logo %}<div class="auth-card__brand">{% church_brand brand_church size="auth" %}</div>
+  {% endif %}{% include "partials/ui/error_summary.html" with form=form %}
+  <header class="page-head">
+    <div class="page-head__text">
+      {% include "core/_door_church.html" with church=brand_church %}
+      <h1 class="voice page-head__title">Entrar</h1>
+    </div>
+  </header>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <div class="step__actions">
+      <button class="btn btn--primary btn--large" type="submit">Entrar</button>
+      <a class="auth-card__link" href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a>
+    </div>
+  </form>
+</div>
+<div class="auth-card door-foot">
+  <p class="aside-note">Si usas una computadora compartida, cierra sesión al terminar.</p>
+  <p class="aside-note">¿Vas a ayudar en un evento? <a href="{% url 'join' %}">Únete con el código</a></p>
+</div>
+{% else %}{% comment %}
   The first screen every volunteer sees, often on a shared computer: one column, big fields, one button.
   Wrong-password, inactive-account and too-many-attempts messages arrive as non-field errors and are
   shown verbatim by the error summary. Under the card, quiet: the shared-computer reminder (a safety note: it
@@ -26,4 +55,4 @@
   <p class="aside-note">Si usas una computadora compartida, cierra sesión al terminar.</p>
   <p class="aside-note">¿Vas a ayudar en un evento? <a href="{% url 'join' %}">Únete con el código</a></p>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

@@ -2,7 +2,33 @@
 {% load brand %}
 {% block page_title %}Platicar con cada joven, sin perder a nadie{% endblock %}
 {% block content %}
-{% comment %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"), the front door: the church's logo, or its name above the promise; one way in, filled;
+  the way in for a volunteer with an event's code; under the sheet, the three promises (who sees what: they stay,
+  in these words) and who uses it. No paragraph explains the product: the promise is the title.
+{% endcomment %}
+<div class="auth-card">
+  {% if church|has_logo %}<div class="auth-card__brand">{% church_brand church size="auth" %}</div>
+  {% endif %}<header class="page-head">
+    <div class="page-head__text">
+      {% include "core/_door_church.html" with church=church %}
+      <h1 class="voice page-head__title">Platicar con cada joven, sin perder a nadie.</h1>
+    </div>
+  </header>
+  <div class="step__actions">
+    <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar a Emmaus</a>
+    <a class="auth-card__link" href="{% url 'join' %}">¿Vas a ayudar en un evento? Escribe el código</a>
+  </div>
+</div>
+<div class="auth-card door-foot">
+  <ul class="rows">
+    <li class="row">Cada pregunta se puede dejar sin contestar.</li>
+    <li class="row">Cada persona ve solo lo que le toca.</li>
+    <li class="row">Si alguien necesita seguimiento, queda anotado.</li>
+  </ul>
+  <p class="aside-note">{% if church %}{{ church.name }} usa Emmaus en sus campamentos{% if church.discipleship_enabled %} y en su discipulado{% endif %}.{% else %}Emmaus es la herramienta de la iglesia para entrevistar y acompañar.{% endif %}</p>
+</div>
+{% else %}{% comment %}
   The public front door (Atrio, docs/design-direction.md): one column like the sign-in page, no photos, no icons.
   The church's logo leads when it has one (base.html then draws no bar, so it is never drawn twice and nothing says "Emmaus");
   then the promise as the one heading, one way in, the way in for a volunteer who has an event's code and, under
@@ -23,4 +49,4 @@
   </ul>
   <p class="aside-note">{% if church %}{{ church.name }} usa Emmaus en sus campamentos{% if church.discipleship_enabled %} y en su discipulado{% endif %}.{% else %}Emmaus es la herramienta de la iglesia para entrevistar y acompañar.{% endif %}</p>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}
