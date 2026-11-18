@@ -10,20 +10,18 @@ class PublicHomeForm(forms.Form):
     welcome = forms.CharField(
         label="Bienvenida", required=False, max_length=PublicHome.WELCOME_MAX,
         widget=forms.Textarea(attrs={"rows": 3}),
-        help_text=f"Una o dos frases para quien todavía no conoce tu iglesia. Hasta {PublicHome.WELCOME_MAX} caracteres.",
+        help_text=f"Hasta {PublicHome.WELCOME_MAX} caracteres.",
         error_messages={"max_length": f"La bienvenida puede tener hasta {PublicHome.WELCOME_MAX} caracteres. Acórtala."},
     )
     address = forms.CharField(
         label="Dirección", required=False, max_length=PublicHome.ADDRESS_MAX,
         widget=forms.Textarea(attrs={"rows": 3, "autocomplete": "street-address"}),
-        help_text="La dirección del lugar donde se reúnen, como la escribirías en una invitación.",
         error_messages={"max_length": f"La dirección puede tener hasta {PublicHome.ADDRESS_MAX} caracteres. Acórtala."},
     )
     map_url = forms.CharField(
         label="Enlace al mapa", required=False, max_length=500,
         widget=forms.URLInput(attrs={"inputmode": "url", "autocapitalize": "off", "spellcheck": "false"}),
-        help_text="En tu aplicación de mapas, busca el lugar, toca «Compartir» y pega aquí el enlace. Debe empezar con https://. "
-                  "Se abre en el sitio del mapa: Emmaus no muestra mapas.",
+        help_text="Cópialo de «Compartir» en tu aplicación de mapas. Empieza con https://.",
         error_messages={"max_length": "Ese enlace es demasiado largo. Usa el enlace corto que da el mapa en «Compartir»."},
     )
     contact_phone = forms.CharField(
@@ -56,18 +54,17 @@ class ServiceTimeForm(forms.Form):
         error_messages={"required": "Escribe la hora de la reunión.", "invalid": "Escribe la hora con este formato: 11:00."},
     )
     name = forms.CharField(
-        label="Qué reunión es", max_length=80, help_text="Por ejemplo: Reunión general, Jóvenes, Oración.",
+        label="Qué reunión es", max_length=80,
         error_messages={"required": "Escribe qué reunión es, por ejemplo «Reunión general».",
                         "max_length": "El nombre puede tener hasta 80 caracteres. Acórtalo."},
     )
     place = forms.CharField(
         label="Lugar", required=False, max_length=120,
-        help_text="Solo si no es en la dirección de la iglesia, o para decir en qué salón.",
         error_messages={"max_length": "El lugar puede tener hasta 120 caracteres. Acórtalo."},
     )
     position = forms.IntegerField(
         label="Orden en la lista", required=False, min_value=0, max_value=99,
         widget=forms.NumberInput(attrs={"inputmode": "numeric", "min": 0, "max": 99}),
-        help_text="Déjalo vacío para ordenar por día, empezando en domingo. Un número menor va primero.",
+        help_text="Un número menor va primero. Vacío: por día, desde el domingo.",
         error_messages={"invalid": "Escribe un número entero.", "min_value": "Escribe 0 o más.", "max_value": "Escribe 99 o menos."},
     )

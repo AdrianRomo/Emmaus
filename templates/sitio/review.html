@@ -4,7 +4,9 @@
 {% block content %}
 {% comment %}
   The review before the church's home goes public (sitio.views.publish): exactly what anybody will read, by
-  name. "Publicar la página" publishes what this list shows; if it changed meanwhile, the list is shown again.
+  name, each list on the row specification (a time is its clock, an event its day, a resource its mark).
+  "Publicar la página" publishes what this list shows; if it changed meanwhile, the list is shown again. The notes
+  that say who can read or call (privacy) stay whole.
 {% endcomment %}
 <div class="narrow">
   {% url 'sitio:edit' as back %}
@@ -34,7 +36,7 @@
     {% if content.days %}
     <ul class="rows">
       {% for day in content.days %}{% for item in day.times %}
-      <li class="row"><div class="row__main"><p>{{ day.day }}, {{ item.time|time:"H:i" }}: {{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}.</p></div></li>
+      <li class="row row--lead"><span class="hoy__icono" aria-hidden="true">{% icon "reloj" %}</span><div class="row__main"><p>{{ day.day }}, {{ item.time|time:"H:i" }}: {{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}.</p></div></li>
       {% endfor %}{% endfor %}
     </ul>
     {% else %}<p class="empty-line">No se muestra ninguno: no has agregado horarios.</p>{% endif %}
@@ -45,7 +47,7 @@
     {% if content.events %}
     <ul class="rows">
       {% for event in content.events %}
-      <li class="row"><div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.</p></div></li>
+      <li class="row row--lead">{% if event.starts_on %}{% date_block event.starts_on %}{% else %}<span class="hoy__icono" aria-hidden="true">{% icon "eventos" %}</span>{% endif %}<div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.</p></div></li>
       {% endfor %}
     </ul>
     <p class="aside-note">Cada uno lleva a su página pública, que ya existe. No se muestra quién se inscribió ni cuántos lugares quedan.</p>
@@ -57,21 +59,21 @@
     {% if content.media %}
     <ul class="rows">
       {% for item in content.media %}
-      <li class="row"><div class="row__main"><p>{{ item.title }}</p><p class="row__meta">{% include "resources/_media_sentence.html" with item=item %} Enlace: <span class="break-anywhere">{{ item.url }}</span></p></div></li>
+      <li class="row row--lead"><span class="hoy__icono" aria-hidden="true">{% icon "recursos" %}</span><div class="row__main"><p>{{ item.title }}</p><p class="row__meta">{% include "resources/_media_sentence.html" with item=item %} Enlace: <span class="break-anywhere">{{ item.url }}</span></p></div></li>
       {% endfor %}
     </ul>
     <p class="aside-note">De cada recurso se muestran el título, de quién es, la serie, la fecha y el enlace. El nombre de quien predicó o enseñó será público.</p>
     {% else %}<p class="empty-line">No se muestra ninguno: no has marcado recursos para la página pública.</p>{% endif %}
   </section>
 
-  <div class="notice notice--quiet">
+  <div class="notice">
     <p>Después de publicar, la página cambia sola cuando tú cambias algo: un evento al que le des página pública, un recurso que marques o estos datos aparecen sin otra revisión. Lo que retires deja de verse.</p>
   </div>
 
   <form method="post">
     {% csrf_token %}
     <input type="hidden" name="revision" value="{{ revision }}">
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Publicar la página</button>
       <a class="btn btn--link" href="{% url 'sitio:preview' %}">Ver la vista previa</a>
       <a class="btn btn--link" href="{{ back }}">Volver a editar</a>
