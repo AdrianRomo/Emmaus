@@ -1,7 +1,120 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Configuración{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): one column in the order of the work under an index; each form saves its own section (the
+  one filled button is the procedures' «Confirmar» while it waits). The computers are rows whose switch acts in place
+  (form[data-inline="computadoras"]: the view returns to this page). The other pages of the configuration close it as
+  rows that lead there. The two forms that edit the event warn before leaving with unsaved changes (data-guard).
+{% endcomment %}
+{% include "events/rotulo/_page_head.html" with title="Configuración" %}
+<nav class="page-toc" aria-label="Secciones">
+  <ul>
+    <li><a href="#procedimientos">Procedimientos</a></li>
+    <li><a href="#datos">Datos del evento</a></li>
+    <li><a href="#cortes">Cortes</a></li>
+    <li><a href="#privacidad">Privacidad y protección</a></li>
+    <li><a href="#exportar">Exportar datos</a></li>
+    <li><a href="#computadoras">Computadoras</a></li>
+    <li><a href="#mas">Más</a></li>
+  </ul>
+</nav>
+
+<section class="block admin-ajuste" id="procedimientos" aria-labelledby="t-proc">
+  <h2 id="t-proc" class="heading">Procedimientos de la iglesia</h2>
+  <div class="narrow">
+  {% if event.procedures_approved %}
+    <div class="notice notice--success"><p class="notice__title">Confirmado</p><p>{{ event.procedures_approved_by.get_full_name|default:"La administración" }} confirmó el {{ event.procedures_approved_at|fecha_larga|lower }} que la iglesia aprobó sus procedimientos de autorización, protección de menores y atención de situaciones de riesgo.</p></div>
+  {% else %}
+    <div class="notice notice--warning"><p class="notice__title">Antes de entrevistar a menores de edad</p><p>La iglesia debe decidir cuatro cosas: quién autoriza, cómo se guarda la autorización de padres o tutores, quién atiende una situación de riesgo y cuánto tiempo se conservan los datos. Mientras no lo confirmes, no se pueden iniciar entrevistas.</p></div>
+    <form method="post" novalidate>{% csrf_token %}<input type="hidden" name="form" value="procedures">{% include "partials/ui/error_summary.html" with form=procedures %}{% include "partials/ui/fields.html" with form=procedures %}<div class="form-actions"><button class="btn btn--primary" type="submit">Confirmar</button></div></form>
+  {% endif %}
+  </div>
+</section>
+
+<section class="block admin-ajuste" id="datos" aria-labelledby="t-basicos">
+  <h2 id="t-basicos" class="heading">Datos del evento</h2>
+  <form method="post" class="narrow" novalidate data-guard>{% csrf_token %}<input type="hidden" name="form" value="basics">
+    {% include "partials/ui/error_summary.html" with form=basics %}
+    {% for field in basics.hidden_fields %}{{ field }}{% endfor %}
+    {% for field in basics.visible_fields %}{% if field.name != "slug" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    <details class="fold"{% if basics.slug.errors %} open{% endif %}>
+      <summary>Dirección</summary>
+      {% include "partials/ui/field.html" with field=basics.slug %}
+    </details>
+    {% include "events/admin/_closing_open_interviews.html" %}
+    <div class="form-actions"><button class="btn btn--secondary" type="submit">Guardar datos del evento</button></div>
+  </form>
+</section>
+
+<form method="post" novalidate data-guard>
+  {% csrf_token %}<input type="hidden" name="form" value="settings">
+  {% include "partials/ui/error_summary.html" with form=settings_form %}
+  <section class="block admin-ajuste" id="cortes" aria-labelledby="t-cortes">
+    <h2 id="t-cortes" class="heading">Cortes</h2>
+    <fieldset class="narrow" aria-labelledby="t-cortes">
+      {% include "partials/ui/field.html" with field=settings_form.time_zone %}
+      {% include "partials/ui/field.html" with field=settings_form.reports_enabled %}
+      {% include "partials/ui/field.html" with field=settings_form.report_interval_minutes %}
+      {% include "partials/ui/field.html" with field=settings_form.report_window_start %}
+      {% include "partials/ui/field.html" with field=settings_form.report_window_end %}
+    </fieldset>
+  </section>
+  <section class="block admin-ajuste" id="privacidad" aria-labelledby="t-privacidad">
+    <h2 id="t-privacidad" class="heading">Privacidad y protección</h2>
+    <fieldset class="narrow" aria-labelledby="t-privacidad">
+      {% include "partials/ui/field.html" with field=settings_form.adult_age %}
+      {% include "partials/ui/field.html" with field=settings_form.requires_guardian_authorization %}
+      {% include "partials/ui/field.html" with field=settings_form.min_group_size %}
+      {% include "partials/ui/field.html" with field=settings_form.retention_days %}
+      {% include "partials/ui/field.html" with field=settings_form.privacy_notice %}
+      {% include "partials/ui/field.html" with field=settings_form.safeguarding_instructions %}
+    </fieldset>
+    <p class="aside-note">Quién lee las respuestas confidenciales: <a href="{% url 'events:confidential_level' event.slug %}">{{ event.get_confidential_level_display }}</a>.</p>
+  </section>
+  <div class="form-actions"><button class="btn btn--secondary" type="submit">Guardar cortes y privacidad</button></div>
+</form>
+
+{% comment %}Every campero and their answers (admin.answers_export): only with confidential access, as one person's export.{% endcomment %}
+<section class="block admin-ajuste" id="exportar" aria-labelledby="t-exportar">
+  <h2 id="t-exportar" class="heading">Exportar datos</h2>
+  {% if access.is_admin and access.can_view_sensitive %}
+  <p class="aside-note">Un CSV con todos los camperos y sus respuestas a cada cuestionario. Queda en el registro de actividad.</p>
+  <p class="admin-ajuste__accion"><a class="btn btn--secondary" href="{% url 'events:answers_export' event.slug %}">{% icon "descargar" %}Descargar las respuestas</a></p>
+  {% elif access.is_admin %}
+  <p class="aside-note">Solo quien tiene acceso confidencial puede descargar las respuestas.</p>
+  {% endif %}
+</section>
+
+<section class="block admin-ajuste" id="computadoras" aria-labelledby="t-comp">
+  <h2 id="t-comp" class="heading">Computadoras de entrevista <span class="count">{{ stations|length }}</span></h2>
+  <ul class="rows admin-lista">{% for s in stations %}
+    <li class="row row--lead">
+      <span class="admin-icono">{% icon "computadora" %}</span>
+      <div class="row__main"><p class="row__title">{{ s.name }}</p></div>
+      <div class="row__end">
+        {% if s.is_active %}{% status "completada" "Disponible" %}{% else %}{% status "descartada" "Fuera de uso" %}{% endif %}
+        <form method="post" action="{% url 'events:stations' event.slug %}" data-inline="computadoras">{% csrf_token %}<input type="hidden" name="action" value="toggle"><input type="hidden" name="station" value="{{ s.id }}"><button class="btn btn--secondary btn--small" type="submit">{% if s.is_active %}Poner fuera de uso{% else %}Volver a usar{% endif %}<span class="visually-hidden"> {{ s.name }}</span></button></form>
+      </div>
+    </li>
+  {% endfor %}</ul>
+  <form method="post" action="{% url 'events:stations' event.slug %}" class="admin-ajuste__accion" data-inline="computadoras">{% csrf_token %}<input type="hidden" name="action" value="add"><button class="btn btn--secondary" type="submit">{% icon "agregar" %}Agregar computadora</button></form>
+  <p class="aside-note">Pega en cada computadora una etiqueta con su número.</p>
+</section>
+
+<section class="block admin-ajuste" id="mas" aria-labelledby="t-mas">
+  <h2 id="t-mas" class="heading">Más</h2>
+  <ul class="rows">
+    <li class="row row--lead"><span class="admin-icono">{% icon "lista" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'events:audit' event.slug %}">Registro de actividad</a></p><p class="row__meta">Quién hizo qué y cuándo</p></div></li>
+    <li class="row row--lead"><span class="admin-icono">{% icon "computadora" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'events:sessions' event.slug %}">Computadoras en uso</a></p><p class="row__meta">Entrevistas abiertas y camperos respondiendo a solas</p></div></li>
+    <li class="row row--lead"><span class="admin-icono">{% icon "candado" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'events:confidential_level' event.slug %}">Respuestas confidenciales</a></p><p class="row__meta">{{ event.get_confidential_level_display }}</p></div></li>
+    <li class="row row--lead"><span class="admin-icono">{% icon "plan" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'events:questionnaires' event.slug %}">Cuestionarios</a></p><p class="row__meta">Los que responden los camperos de este evento</p></div></li>
+    {% if can_duplicate %}<li class="row row--lead"><span class="admin-icono">{% icon "copiar" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'events:duplicate' event.slug %}">Duplicar como plantilla</a></p><p class="row__meta">El próximo evento con esta configuración</p></div></li>{% endif %}
+  </ul>
+</section>
+{% else %}{# v1 #}
 {% comment %}
   The header follows events/rotulo/_page_head.html; it is written out here because it carries two
   secondary links (activity log, computers in use) and no primary action: each form below has its own.
@@ -109,4 +222,4 @@
   {% endfor %}</ul>
   <form method="post" action="{% url 'events:stations' event.slug %}" class="mt-6">{% csrf_token %}<input type="hidden" name="action" value="add"><button class="btn btn--secondary" type="submit">Agregar computadora</button></form>
 </section>
-{% endblock %}
+{% endif %}{% endblock %}

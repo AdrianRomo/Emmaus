@@ -1,7 +1,35 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Registro de actividad{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): what happened, newest first, as rows with who did it. The two notes are privacy and stay.
+{% endcomment %}
+{% url 'events:settings' event.slug as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Registro de actividad" back_url=back_url back_label="Configuración" %}
+<form method="get" class="filter-bar" aria-label="Filtrar el registro">
+  <div class="field"><label class="label" for="accion">Acción</label><select id="accion" name="accion"><option value="">Todas</option>{% for code, label in actions %}<option value="{{ code }}"{% if selected == code %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <button class="btn btn--secondary" type="submit">Filtrar</button>
+</form>
+<section aria-labelledby="t-registro">
+  <h2 id="t-registro" class="heading">{{ page.paginator.count }} movimiento{{ page.paginator.count|pluralize }}</h2>
+  <p class="aside-note">Aquí nunca se guardan las respuestas.</p>
+  {% if not access.can_view_sensitive %}<p class="aside-note">Lo relacionado con información confidencial y con reportes de riesgo aparece como “Movimiento confidencial”, sin decir de qué campero se trata.</p>{% endif %}
+  {% if rows %}
+  <ul class="rows admin-registro__filas">
+    {% for a in rows %}
+    <li class="row row--lead">{% monogram a.actor_label "sm" %}<div class="row__main"><p class="row__title">{{ a.shown_summary }}</p><p class="row__meta">{{ a.actor_label }}, {{ a.created_at|fecha_corta }}</p></div></li>
+    {% endfor %}
+  </ul>
+  {% include "events/rotulo/_pagination.html" with page=page %}
+  {% elif selected %}
+  <p class="empty-line">Nada con esta acción. <a href="?">Ver todo</a></p>
+  {% else %}
+  <p class="empty-line">Sin movimientos todavía.</p>
+  {% endif %}
+</section>
+{% else %}{# v1 #}
 {% url 'events:settings' event.slug as back_url %}
 {% include "events/rotulo/_page_head.html" with title="Registro de actividad" back_url=back_url back_label="Configuración" %}
 <form method="get" class="filter-bar" aria-label="Filtrar el registro">
@@ -20,4 +48,4 @@
   </div>
   {% include "events/rotulo/_pagination.html" with page=page %}
 </section>
-{% endblock %}
+{% endif %}{% endblock %}

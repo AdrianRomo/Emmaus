@@ -21,18 +21,23 @@
   </div>
   <div class="report-section__body">
     {% if progress.eligible %}
-      {% comment %}With several questionnaires (progress.questionnaires; a cutoff saved before has no such key, which reads as one): "con los N cuestionarios", the camperos "a medias" (progress.partial) in the key, "Por cuestionario" after it, and under each team and coordinator how many completed each questionnaire.{% endcomment %}<p class="voice headline">Llevábamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>
+      {% if ui_v2 %}<p class="avance__cifra"><span class="avance__n">{{ progress.completed }} <span>de {{ progress.eligible }}</span></span></p>{% else %}{% comment %}With several questionnaires (progress.questionnaires; a cutoff saved before has no such key, which reads as one): "con los N cuestionarios", the camperos "a medias" (progress.partial) in the key, "Por cuestionario" after it, and under each team and coordinator how many completed each questionnaire.{% endcomment %}<p class="voice headline">Llevábamos {{ progress.completed }} de {{ progress.eligible }}{% if progress.questionnaires %} con los {{ progress.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>{% endif %}
       <p class="headline__sub">
         {% if not progress.pending %}Ya se habían completado todas.
         {% elif payload.throughput.eta_minutes %}Al ritmo de ese momento, {{ payload.throughput.per_hour|floatformat:"-1" }} por hora, faltaban alrededor de <span class="keep-together">{{ payload.throughput.eta_minutes|duration }}</span>.
         {% else %}Todavía no había suficiente ritmo para estimar cuándo terminaríamos.{% endif %}
       </p>
-      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
+{% if ui_v2 %}<div class="tablero__avance admin-avance">{% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
+      <ul class="key" aria-hidden="true">
+        <li><span class="key__mark key__mark--done"></span>{{ progress.completed }} hecha{{ progress.completed|pluralize }}</li>
+        {% if progress.in_progress %}<li><span class="key__mark key__mark--progress"></span>{{ progress.in_progress }} en curso</li>{% endif %}
+        <li><span class="key__mark"></span>{{ progress.not_started }} sin iniciar{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</li>
+      </ul></div>{% else %}      <div class="headline__ruler">{% ruler progress.completed progress.in_progress progress.eligible partial=progress.partial %}</div>
       <ul class="key">
         <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ progress.completed }} completadas ({{ progress.percent|pct }})</li>
         <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ progress.in_progress }} en curso</li>
         <li><span class="key__mark" aria-hidden="true"></span>{{ progress.not_started }} sin iniciar{% if progress.partial %} y {{ progress.partial }} a medias{% endif %}</li>
-      </ul>{% if progress.questionnaires %}
+      </ul>{% endif %}{% if progress.questionnaires %}
       {% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
     {% else %}
       <p class="voice headline">Todavía no había camperos registrados.</p>
@@ -46,7 +51,7 @@
     <p class="report-section__answer">{% if progress.pending %}{{ progress.pending }} entrevista{{ progress.pending|pluralize }}{% if payload.throughput.eta_minutes %}, alrededor de {{ payload.throughput.eta_minutes|duration }} al ritmo de ese momento{% endif %}.{% elif progress.eligible %}Nada: ya habíamos terminado.{% else %}Nada, porque aún no había a quién entrevistar. Los cortes siguientes contarán a los camperos que se registren.{% endif %}</p>
   </div>
   <div class="report-section__body">
-    <dl class="figures">
+    <dl class="figures{% if ui_v2 %} admin-cifras{% endif %}">
       <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</dd></div>
       <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora</dd></div>
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd></div>
