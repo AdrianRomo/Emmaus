@@ -33,6 +33,7 @@ from django.utils import timezone
 
 from ..models import (
     AnswerRevision,
+    AuditEvent,
     ConsentRecord,
     Event,
     EventParticipant,
@@ -305,9 +306,14 @@ def start_interview(
     confirmed_consents: set[str],
     session,
     questionnaire=None,
+    identity_confirmed: bool = False,
 ) -> Interview:
     """Start the campero's interview for ``questionnaire`` (a Questionnaire or its id), or for the next one
-    they can answer when it is None."""
+    they can answer when it is None.
+
+    ``identity_confirmed``: «Sí, es {nombre}» was ticked on «Antes de empezar» (InterviewStartForm requires it). It
+    is kept on the start's audit row (who and when are that row's), never asked again on resuming, taking control or
+    recovering the computer, and shown on the review and the record (``identity_confirmation``)."""
     event = access.event
     blockers = event_blockers(event, practice=participant.is_practice)
     if blockers:
@@ -363,6 +369,7 @@ def start_interview(
                 f"Inició la entrevista del campero #{locked.code} ({interview.get_mode_display().lower()})",
                 interview,
                 station=station.name if station else "",
+                **({"identity_confirmed": True} if identity_confirmed else {}),
             )
     except IntegrityError:
         # Another station created the interview between our check and insert: point at the live one, not a done one.
@@ -1054,6 +1061,23 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
                 }
             )
     return rows
+
+
+def identity_confirmation(interview: Interview) -> dict | None:
+    """Who confirmed «Sí, es {nombre}» when the interview started, and when: ``{"by": name, "at": datetime}``, from
+    the start's audit row. None for an interview started before «Antes de empezar» asked it (nothing to say)."""
+    row = (
+        AuditEvent.objects.filter(
+            event_id=interview.event_id,
+            action="entrevista_iniciada",
+            object_type="Interview",
+            object_id=str(interview.public_id),
+            metadata__identity_confirmed=True,
+        )
+        .order_by("created_at", "id")
+        .first()
+    )
+    return {"by": row.actor_label, "at": row.created_at} if row else None
 
 
 def visible_question_ids(access, interview: Interview, *, during_capture: bool = False) -> set[int]:
