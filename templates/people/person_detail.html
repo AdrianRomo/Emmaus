@@ -101,7 +101,7 @@
     <h2 id="datos" class="heading">Datos</h2>
     <dl class="summary-list">
       {% if person.user_id %}<div class="summary-list__row"><dt>Entra con</dt><dd class="break-anywhere">{{ person.user.email }}</dd></div>{% endif %}
-      {% if person.birth_date %}<div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{{ person.birth_date|long_date|capfirst }} {% if person.birth_date_verified %}{% status "completada" "Edad confirmada" %} <span class="muted">Por el equipo el {{ person.birth_date_verified_at|long_date }}: {{ person.get_birth_date_verified_method_display|lower }}.</span>{% else %}{% status "pendiente" "Edad sin confirmar" %}{% endif %}</dd></div>{% endif %}
+      {% if person.birth_date %}<div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{{ person.birth_date|long_date|capfirst }} {% if person.birth_date_verified %}{% status "completada" "Edad confirmada" %} <span class="muted">Por el equipo el {{ person.birth_date_verified_at|long_date }}: {{ person.get_birth_date_verified_method_display|lower }}.</span>{% else %}{% status "pendiente" "Edad sin confirmar por el equipo" %}{% endif %}</dd></div>{% endif %}
       <div class="summary-list__row"><dt>Se registró desde</dt><dd>{{ person.get_created_from_display }}</dd></div>
     </dl>
   </section>

@@ -27,7 +27,7 @@ SIGNED_UP = '<p class="notice__title">Te inscribiste.</p>'
 WAITS_CONSENT_TITLE = '<p class="notice__title">Pendiente de autorización.</p>'
 # The age on a person's page, as a pill: confirmed by the team, or not.
 AGE_CONFIRMED = '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Edad confirmada</span>'
-AGE_UNCONFIRMED = '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Edad sin confirmar</span>'
+AGE_UNCONFIRMED = '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Edad sin confirmar por el equipo</span>'
 
 
 def where(row: EventRegistration) -> tuple[str, str]:

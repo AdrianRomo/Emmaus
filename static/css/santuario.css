@@ -772,6 +772,8 @@ body:has(> .rail) .sign--lead .sign__actions { margin-top: 0; }
   -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat;
 }
 .page--app .fold[open] > summary::before { transform: rotate(90deg); }
+/* A heading inside a fold's handle keeps heading navigation for a screen reader and looks like the handle */
+.fold__title { font: inherit; display: inline; }
 .page--app .fold > * + * { margin-top: var(--s-3); }
 .page--app .details summary { font-size: var(--t-small); }
 

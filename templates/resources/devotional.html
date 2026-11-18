@@ -24,8 +24,8 @@
           {% if devotional.state == "borrador" %}<li>{% status "borrador" "Borrador" %}</li>{% elif devotional.state == "programado" %}<li>{% status "por_evaluar" "Programado" %}</li>{% endif %}
           {% now "Y-m-d" as today_iso %}{% now "Y" as this_year %}
           <li>{% icon "calendario" "sm" %}{% if devotional.date|date:"Y-m-d" == today_iso %}Hoy, {% endif %}{{ devotional.date|weekday_date }}{% if devotional.date|date:"Y" != this_year %} de {{ devotional.date|date:"Y" }}{% endif %}</li>
-          {% if devotional.passage %}<li>{% icon "lectura" "sm" %}{{ devotional.passage }}</li>{% endif %}
-          {% if devotional.author_name %}<li>{% icon "personas" "sm" %}{{ devotional.author_name }}</li>{% endif %}
+          {% if devotional.passage %}<li>{% icon "lectura" "sm" %}<span class="visually-hidden">Lectura: </span>{{ devotional.passage }}</li>{% endif %}
+          {% if devotional.author_name %}<li>{% icon "personas" "sm" %}<span class="visually-hidden">Escrito por </span>{{ devotional.author_name }}</li>{% endif %}
         </ul>
       </div>
     </header>

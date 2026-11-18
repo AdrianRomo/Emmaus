@@ -29,7 +29,7 @@
   <div class="faq">
     {% for item in faqs %}
       <details class="fold">
-        <summary>{{ item.question }}</summary>
+        <summary><h3 class="fold__title">{{ item.question }}</h3></summary>
         <p class="faq__answer">{{ item.answer|linebreaksbr }}</p>
       </details>
     {% endfor %}
