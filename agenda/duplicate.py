@@ -22,6 +22,7 @@ from events.models import Event
 from events.services.duplicate import COPIED, NEVER
 from events.views.duplicate import DuplicateEventForm
 from groups.views import church_admin_view
+from people import policy
 from people.audit import record_church
 
 from .models import EventFaq, EventPage, EventScheduleItem
@@ -96,6 +97,9 @@ def duplicate_simple_event(source: Event, actor, *, name: str, slug: str, starts
     values = {field: getattr(page, field) for field in PAGE_FIELDS} if page else {}
     if page and page.registration_closes_on and shift is not None:
         values["registration_closes_on"] = page.registration_closes_on + shift
+    # The stricter of the two: what the original asked, or what the church's policy asks of a new
+    # event today. A copy never switches the minors' safeguard off.
+    values["requires_guardian_consent"] = bool(values.get("requires_guardian_consent")) or policy.minors_consent_default(source.church)
     EventPage.objects.create(event=copy, created_by=actor, published=False, **values)
 
     result = Duplicated(event=copy)

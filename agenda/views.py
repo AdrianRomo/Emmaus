@@ -124,6 +124,8 @@ def detail(request, slug: str):
             # last time on the list ended when it ended without a place.
             "position_text": services.position_words(position) if position else "",
             "offer_hours": policy.waiting_offer_hours(event.church),
+            # Why the list does not move right now (frozen by the page, or the event started), or empty.
+            "list_block": services.list_block(event, page, today) if registration is not None and registration.status in LISTED else "",
             "list_outcome": services.last_list_outcome(event, request.person) if registration is None else "",
             "faqs": EventFaq.objects.filter(event=event),
             "schedule": services.schedule_by_day(event),
@@ -357,6 +359,8 @@ def registrations(request, slug: str):
             "waiting": [row for row in held if row.is_pending and row.waits_for != AGE],
             # The waiting list, in its order: who has an offer to answer, then who waits.
             "listed": services.waiting_rows(event),
+            # Why the list does not move right now, for the line at the top and the note of the list.
+            "list_block": services.list_block(event, EventPage.objects.filter(event=event).first()),
             "cancelled": EventRegistration.objects.filter(
                 event=event, status=EventRegistration.Status.CANCELLED, annulled_reason="", waiting_outcome=""
             ).count(),
