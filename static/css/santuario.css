@@ -845,6 +845,8 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
   .tablero > .tablero__esperan, .tablero > .tablero__cola { margin-top: var(--s-6); }
 }
 .tablero__cabeza { margin-bottom: var(--s-5); }
+/* What only a wide screen has room for (the event's place under its dates) */
+@media (max-width: 760px) { .solo-con-riel { display: none; } }
 /* Said on the page only where the rail (which says it) is hidden */
 .solo-sin-riel { display: none; }
 @media (max-width: 760px) { .solo-sin-riel { display: block; } }

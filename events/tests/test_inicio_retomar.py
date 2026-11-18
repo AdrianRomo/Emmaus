@@ -40,6 +40,9 @@ class ResumeCardSaysWhereItIsOpenTests(CampFixture):
         page = self.home(self.a)
         self.assertIn(f'href="{self.resume}">Retomar entrevista</a>', page)
         self.assertNotIn("no en esta", page)
+        # Where «Retomar» lands, said on the card: one question answered, so the second (no reassuring sentence)
+        self.assertRegex(page, r"Pregunta 2 de \d+, en " + self.station_a.name)
+        self.assertNotIn("Lo que respondió está guardado", page)
 
     def test_a_campero_answering_alone_is_said_and_never_offered_to_resume(self):
         ParticipantSession.objects.create(

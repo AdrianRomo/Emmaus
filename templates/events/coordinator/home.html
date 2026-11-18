@@ -11,7 +11,7 @@
 <header class="page-head page-head--actions tablero__cabeza">
   <div class="page-head__text">
     <h1 class="voice page-head__title">{{ event.name }}</h1>
-    <p class="page-head__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% endif %}{% if event.location %}{% if event.starts_on %}, {% endif %}{{ event.location }}{% endif %}</p>
+    <p class="page-head__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% endif %}{% if event.location %}<span class="solo-con-riel">{% if event.starts_on %}, {% endif %}{{ event.location }}</span>{% endif %}</p>
     {# Where the rail is hidden (a phone), the page says the role the rail would say #}
     <p class="page-head__meta solo-sin-riel">Tu rol: {{ access.role_label|lower }}.</p>
   </div>
@@ -34,11 +34,11 @@
       <div>
         <h2 id="que-hago" class="sign__title">{{ iv.participant.full_name }}</h2>
         {% if iv.a_solas %}
-        <p class="sign__text">{{ iv.participant.first_name }} responde a solas{% if iv.station %} en {{ iv.station.name }}{% endif %}; lo último, {{ iv.last_activity_at|since }}.</p>
+        <p class="sign__text">{{ iv.participant.first_name }} responde a solas{% if iv.station %} en {{ iv.station.name }}{% endif %}, {{ iv.last_activity_at|since }}.</p>
         {% elif iv.station and station and iv.station.pk != station.pk %}{# Open on another computer: said before the button, which then says what it does (review #26) #}
-        <p class="sign__text">Abierta en {{ iv.station.name }}, no en esta; lo último, {{ iv.last_activity_at|since }}. Lo que respondió está guardado.</p>
+        <p class="sign__text">{% if iv.preguntas %}Pregunta {{ iv.pregunta }} de {{ iv.preguntas }}. {% endif %}Abierta en {{ iv.station.name }}, no en esta, {{ iv.last_activity_at|since }}.</p>
         {% else %}
-        <p class="sign__text">Se quedó {% if iv.station %}en {{ iv.station.name }}, {% endif %}{{ iv.last_activity_at|since }}. Lo que respondió está guardado.</p>
+        <p class="sign__text">{% if iv.preguntas %}Pregunta {{ iv.pregunta }} de {{ iv.preguntas }}{% else %}Se quedó{% endif %}{% if iv.station %}, en {{ iv.station.name }}{% endif %}, {{ iv.last_activity_at|since }}.</p>
         {% endif %}
       </div>
     </div>

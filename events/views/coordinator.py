@@ -18,7 +18,7 @@ from ..services import interviews as interview_svc
 from ..services import participants as participant_svc
 from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, mark_stalled, progress_for, stale_interviews
-from ..services.questionnaire import build_steps
+from ..services.questionnaire import build_steps, first_unanswered_step, load_answers, visible_steps
 from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, programme_now, safe_next
 
 
@@ -44,6 +44,15 @@ def _my_context(event, access):
     )
     for interview in in_progress:
         interview.a_solas = interview.pk in alone
+    if in_progress:
+        # Where «Retomar» lands, said on the card: «Pregunta 2 de 5» (the first question without an answer among the
+        # visible ones, as the interview counts them)
+        first = in_progress[0]
+        answers = load_answers(first)
+        numbers = [step.number for step in visible_steps(first.version, answers)]
+        pending = first_unanswered_step(first.version, answers)
+        first.pregunta = numbers.index(pending.number) + 1 if pending and pending.number in numbers else len(numbers)
+        first.preguntas = len(numbers)
     # "Tienes N entrevistas sin terminar" (issue #47): every interview of my camperos idle for STALE_MINUTES or more,
     # the oldest first, each with "Retomar" and "Descartar". "También sin terminar" keeps the ones still moving.
     stalled = mark_stalled(stale_interviews(participants).select_related("participant", "version", "station").order_by("last_activity_at"))
