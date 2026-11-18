@@ -220,6 +220,8 @@ const adminPages = [
   ["admin-panorama", "/mi-iglesia/panorama/"], ["admin-evento-preguntas", "/mi-iglesia/eventos/noche-de-alabanza-demo/preguntas/"],
   ["admin-evento-programa", "/mi-iglesia/eventos/noche-de-alabanza-demo/programa/"],
   ["admin-evento-opiniones", "/mi-iglesia/opiniones/noche-de-alabanza-demo/resultados/"],
+  ["admin-politicas", "/mi-iglesia/politicas/"], ["admin-avisos-correo", "/mi-iglesia/avisos/correo/"],
+  ["admin-evento-duplicar", "/mi-iglesia/eventos/noche-de-alabanza-demo/duplicar/"],
 ];
 for (const [name, path] of adminPages) {
   const response = await page.goto(BASE + path);
