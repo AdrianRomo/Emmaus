@@ -21,10 +21,10 @@
     <dl class="figures">
       <div><dt>Grupos activos</dt><dd class="figures__value">{{ groups|length }}</dd>{% if groups_missing %}<dd class="figures__note">{{ groups_missing }} con asistencia por registrar</dd>{% endif %}</div>
       <div><dt>Personas en grupos</dt><dd class="figures__value">{% if group_people is None %}Menos de {{ minimum }}{% else %}{{ group_people }}{% endif %}</dd>{% if groups_small %}<dd class="figures__note">Sin contar {% if groups_small == 1 %}1 grupo{% else %}{{ groups_small }} grupos{% endif %} de menos de {{ minimum }} personas</dd>{% endif %}{% if groups_waiting %}<dd class="figures__note">{{ groups_waiting }} grupo{{ groups_waiting|pluralize }} con solicitudes en espera</dd>{% endif %}</div>
-      <div><dt>Se unieron a un grupo</dt><dd class="figures__value">{% if group_joined is None %}Menos de {{ minimum }}{% else %}{{ group_joined }}{% endif %}</dd><dd class="figures__note">en los últimos 30 días{% if groups_small %}, en los grupos de {{ minimum }} personas o más{% endif %}</dd></div>
+      <div><dt>Se unieron a un grupo</dt><dd class="figures__value">{% if group_joined is None %}Menos de {{ minimum }}{% else %}{{ group_joined }}{% endif %}</dd><dd class="figures__note">de las personas en grupos, en los últimos 30 días{% if groups_small %}, en los grupos de {{ minimum }} personas o más{% endif %}</dd></div>
     </dl>
     <table class="table table--stack" role="table">
-      <caption>Cada grupo: cuántas personas tiene, su última reunión con lista y cuántas personas vinieron a las anteriores. De un grupo de menos de {{ minimum }} personas no se muestra la asistencia.</caption>
+      <caption>Cada grupo: cuántas personas tiene, su última reunión con lista y cuántas personas vinieron a las anteriores. Un número se muestra solo cuando no deja ver quién vino ni quién faltó; de un grupo de menos de {{ minimum }} personas no se muestra la asistencia.</caption>
       <thead role="rowgroup">
         <tr role="row">
           <th scope="col" role="columnheader">Grupo</th>
@@ -40,12 +40,12 @@
           <th scope="row" role="rowheader"><a href="{% url 'community:group_detail' group.pk %}">{{ group.name }}</a><span class="table__sub">{{ group.get_kind_display }}</span></th>
           <td role="cell" class="num" data-label="Personas">{% if group.small %}Menos de {{ minimum }}{% else %}{{ group.member_count }}{% endif %}</td>
           <td role="cell" data-label="Última reunión con lista">
-            {% if not group.last %}Todavía no tiene{% elif group.last.present is None %}Sin desglose de asistencia por privacidad{% elif group.last.present == 1 %}1 de {{ group.last.expected }} personas asistió{% else %}{{ group.last.present }} de {{ group.last.expected }} personas asistieron{% endif %}
+            {% if not group.last %}Todavía no tiene{% elif not group.last.share %}Sin desglose de asistencia por privacidad{% elif group.last.share.level == "exact" %}{{ group.last.share.value }} de {{ group.last.expected }} personas asistieron{% elif group.last.share.level == "few" %}Asistieron menos de {{ minimum }} de {{ group.last.expected }} personas{% elif group.last.share.level == "most" %}Asistieron casi todas, de {{ group.last.expected }} personas{% elif group.last.share.level == "under_half" %}Asistió menos de la mitad de {{ group.last.expected }} personas{% else %}Asistió la mitad o más de {{ group.last.expected }} personas{% endif %}
             {% if group.last %}<span class="table__sub">{{ group.last.date|weekday_date|capfirst }}{% if group.last.date.year != today.year %} de {{ group.last.date.year }}{% endif %}</span>{% endif %}
             {% if group.next_day %}<span class="table__sub">Próxima reunión: {{ group.next_day|weekday_date }}</span>{% elif group.meeting_frequency == "variable" %}<span class="table__sub">Sin día fijo</span>{% elif not group.has_fixed_day %}<span class="table__sub">Sin día de reunión todavía</span>{% endif %}
           </td>
           <td role="cell" data-label="Asistencia reciente">
-            {% if group.small %}<span class="muted">No se muestra</span>{% elif group.trend %}<span class="visually-hidden">Personas que vinieron a las últimas {{ group.trend|length }} reuniones, de la más antigua a la más reciente: </span><span class="trend">{{ group.trend|join:", " }}</span>{% else %}<span class="muted">Falta más de una reunión</span>{% endif %}
+            {% if group.small %}<span class="muted">No se muestra</span>{% elif group.trend %}<span class="visually-hidden">Personas que vinieron a las últimas {{ group.trend|length }} reuniones, de la más antigua a la más reciente: </span><span class="trend">{{ group.trend|join:" · " }}</span>{% else %}<span class="muted">Falta más de una reunión</span>{% endif %}
           </td>
           <td role="cell" data-label="Por atender">
             {% if group.missing == 1 %}<span class="table__flag">Falta registrar la asistencia del {{ group.missing_day|weekday_date }}{% if group.missing_day.year != today.year %} de {{ group.missing_day.year }}{% endif %}</span>{% elif group.missing %}<span class="table__flag">Faltan {% if group.missing >= 3 %}3 o más{% else %}{{ group.missing }}{% endif %} reuniones por registrar, la última el {{ group.missing_day|weekday_date }}{% if group.missing_day.year != today.year %} de {{ group.missing_day.year }}{% endif %}</span>{% endif %}
@@ -81,8 +81,7 @@
           <td role="cell" data-label="Cuándo">{{ event.starts_on|date_range:event.ends_on|capfirst|default:"Sin fecha" }}</td>
           <td role="cell" data-label="Inscripciones">
             {% if not event.takes_sign_ups %}<span class="muted">No se inscriben desde Emmaus</span>
-            {% elif event.capacity is None %}{{ event.taken }} inscrito{{ event.taken|pluralize }}<span class="table__sub">Sin límite de lugares</span>
-            {% else %}{{ event.taken }} inscrito{{ event.taken|pluralize }} de {{ event.capacity }} lugar{{ event.capacity|pluralize:"es" }}<span class="table__sub">{% if event.places_left == 0 %}Ya no hay lugares{% elif event.places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ event.places_left }} lugares{% endif %}</span>{% endif %}
+            {% else %}{% if event.taken is None %}Menos de {{ minimum }} inscritos{% else %}{{ event.taken }} inscritos{% endif %}{% if event.capacity is None %}<span class="table__sub">Sin límite de lugares</span>{% else %} de {{ event.capacity }} lugar{{ event.capacity|pluralize:"es" }}<span class="table__sub">{% if event.places_left is None %}{{ event.places_word }}{% elif event.places_left == 0 %}Ya no hay lugares{% elif event.places_left == 1 %}Queda 1 lugar{% else %}Quedan {{ event.places_left }} lugares{% endif %}</span>{% endif %}{% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -108,7 +107,7 @@
           <th scope="row" role="rowheader">{{ event.name }}</th>
           <td role="cell" data-label="Cuándo">{{ event.starts_on|date_range:event.ends_on|capfirst }}</td>
           <td role="cell" class="num" data-label="Inscritos">{% if event.taken is None %}Menos de {{ minimum }}{% else %}{{ event.taken }}{% endif %}</td>
-          <td role="cell" class="num" data-label="Asistieron">{% if event.taken is None %}Menos de {{ minimum }}{% elif not event.marked %}<span class="muted">Sin registrar</span>{% elif event.came is None %}Menos de {{ minimum }}{% else %}{{ event.came }}{% endif %}</td>
+          <td role="cell" class="num" data-label="Asistieron">{% if event.taken is None %}Menos de {{ minimum }}{% elif not event.marked %}<span class="muted">Sin registrar</span>{% else %}{{ event.came }}{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
