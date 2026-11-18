@@ -1,9 +1,18 @@
 {% extends "events/shell_kiosk.html" %}
 {% block page_title %}Computadora disponible{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): a computer with no interview open. What a campero does, as the line under the title;
+  the coordinator's way in is the one action.
+{% endcomment %}
 <header class="page-head">
+  <h1 class="voice page-head__title">No hay una entrevista abierta en esta computadora</h1>
+  <p class="page-head__meta">Si eres campero, avisa a tu coordinador.</p>
+</header>
+<div class="step__actions"><a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar a Emmaus</a></div>
+{% else %}<header class="page-head">
   <h1 class="voice page-head__title">No hay una entrevista abierta en esta computadora</h1>
   <p class="lede">Si eres campero, avisa a tu coordinador. Si eres coordinador, entra a Emmaus y retoma la entrevista desde “Mi inicio”.</p>
 </header>
 <a class="btn btn--primary" href="{% url 'login' %}">Entrar a Emmaus</a>
-{% endblock %}
+{% endif %}{% endblock %}
