@@ -1,4 +1,4 @@
-{% load emmaus %}
+{% load emmaus %}{% include "events/_now_next.html" %}
 {% comment %}Issue #47: the interviews left half done, with the two actions that already existed. Inside the live region, so one that stalls while this page is open shows up by itself.{% endcomment %}
 {% if stalled %}
   <section aria-labelledby="entrevistas-interrumpidas">

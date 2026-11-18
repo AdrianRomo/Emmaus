@@ -16,7 +16,7 @@ from ..services import participants as participant_svc
 from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, mark_stalled, progress_for, stale_interviews
 from ..services.questionnaire import build_steps
-from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, safe_next
+from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, programme_now, safe_next
 
 
 def _recent_completed(access) -> list:
@@ -64,6 +64,7 @@ def coord_home(request, event, access):
     context = _my_context(event, access)
     context["station"] = current_station(request, event)
     context["procedures_pending"] = not event.procedures_approved
+    context["now_next"] = programme_now(event)  # "Ahora y después", first in the live fragment
     if is_fragment(request):
         return render(request, "events/coordinator/_home_live.html", context)
     # Outside the live region, so only the full page needs it. Same rule as interview_search: an event
