@@ -360,11 +360,13 @@ class MediaTests(ResourcesFixture):
         self.assertCountEqual(saved_filter.context["items"], [match, other])
         self.assertContains(self.client.get(MEDIA, {"q": "desconocido"}), "No encontramos recursos")
         self.media(church=self.church_b, actor=self.admin_b, title="Camino ajeno")
-        for query in ("camino", "torres", "cartas"):
+        for query in ("camino", "torres", "cartas", "cam\x00ino"):
             response = self.client.get(MEDIA, {"q": query})
             self.assertEqual(list(response.context["items"]), [match])
+        self.media(title="Alabanza", kind="musica")
         empty = self.client.get(MEDIA, {"q": "camino", "tipo": "musica"})
         self.assertContains(empty, "No encontramos recursos")
+        self.assertContains(empty, 'href="?q=camino"')
 
     def test_the_filters_by_kind_and_by_series(self):
         self.client.force_login(self.member_user)

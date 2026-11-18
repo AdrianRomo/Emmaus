@@ -132,19 +132,18 @@ def devotional_edit(request, devotional_id: int):
 @community_view
 def media_list(request):
     published = services.published_media(request.church)
-    query = request.GET.get("q", "").strip()[:160]
-    if query:
-        published = published.filter(Q(title__icontains=query) | Q(speaker__icontains=query) | Q(series__icontains=query))
     counts = dict(published.order_by().values_list("kind").annotate(total=Count("id")))
     kinds = [{"value": value, "label": label, "count": counts[value]} for value, label in KIND_FILTERS if value in counts]
     if len(kinds) < 2:
         kinds = []
     series = " ".join(request.GET.get("serie", "").split())[:120]
     chosen = request.GET.get("tipo", "")
-    valid_kinds = MediaItem.Kind.values if query else counts
-    if series or chosen not in valid_kinds:
+    if series or chosen not in {kind["value"] for kind in kinds}:
         chosen = ""
+    query = request.GET.get("q", "").replace("\x00", "").strip()[:160]
     items = published
+    if query:
+        items = items.filter(Q(title__icontains=query) | Q(speaker__icontains=query) | Q(series__icontains=query))
     if series:
         items = items.filter(series__iexact=series)
     elif chosen:
