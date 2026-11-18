@@ -58,10 +58,10 @@ def today_devotional(church, person, today=None) -> Devotional | None:
     return devotional
 
 
-def past_devotionals(church, person, limit: int = 30) -> list[Devotional]:
-    """The readable ones, newest first, each with ``is_read`` for ``person``."""
+def past_devotionals(church, person):
+    """The readable ones, newest first, each with ``is_read`` for ``person``. A queryset: the screen pages it."""
     mine = DevotionalRead.objects.filter(devotional=OuterRef("pk"), person=person)
-    return list(readable_devotionals(church).annotate(is_read=Exists(mine))[:limit])
+    return readable_devotionals(church).annotate(is_read=Exists(mine))
 
 
 def first_free_day(church, today=None):

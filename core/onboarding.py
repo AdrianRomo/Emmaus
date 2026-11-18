@@ -32,7 +32,10 @@ CHURCH_ROLE_KEYS = {
     Role.PARTICIPANT: "iglesia:participant",
 }
 NO_ROLE_KEY = "sin-rol"
-KEYS = frozenset({*EVENT_ROLE_KEYS.values(), *CHURCH_ROLE_KEYS.values(), NO_ROLE_KEY})
+# A person of the church on "Mi iglesia" (the community module): not a role, the place itself. Nobody had it put away
+# by core/0011: it is shown once to everybody who opens "Mi iglesia", also to who already knew it.
+MEMBER_KEY = "mi-iglesia"
+KEYS = frozenset({*EVENT_ROLE_KEYS.values(), *CHURCH_ROLE_KEYS.values(), NO_ROLE_KEY, MEMBER_KEY})
 
 # What each key is called when "Mi cuenta" offers to show it again
 KEY_LABELS = {
@@ -45,6 +48,7 @@ KEY_LABELS = {
     "iglesia:mentor": "de mentor",
     "iglesia:participant": "de tu camino",
     NO_ROLE_KEY: "de cuando aún no tenías un rol",
+    MEMBER_KEY: "de Mi iglesia",
 }
 
 
@@ -140,6 +144,41 @@ def name_step(user: User) -> Step | None:
 def with_name_step(user: User, steps: list[Step]) -> list[Step]:
     step = name_step(user)
     return [step, *steps] if step else steps
+
+
+def for_member(user: User, church: Church, first_name: str, *, has_group: bool, open_groups: bool, guided=None) -> Welcome | None:
+    """The welcome of a person of the church on "Mi iglesia" (groups.views.home), the first time. None once put away.
+
+    Three things to do first, each a destination the shell lists for everybody of the church ("Eventos", "Grupos") or a
+    page every person has ("Mis datos"). ``guided``: (name, url) of the first group under "A tu cargo" for who guides
+    one, exactly as core/shell.py lists it; nothing else of "A tu cargo" or "Administración" is named here.
+    """
+    if is_dismissed(user, MEMBER_KEY):
+        return None
+    if has_group:
+        groups_text = "tus grupos y los demás grupos de la iglesia."
+    elif open_groups:
+        groups_text = "busca un grupo y pide unirte; quien lo guía te responde."
+    else:
+        groups_text = "los grupos de la iglesia."
+    can = [
+        Can("Eventos", reverse("agenda:list"), "lo que viene en la iglesia y dónde te puedes inscribir."),
+        Can("Grupos", reverse("community:groups"), groups_text),
+        Can("Mis datos", reverse("community:profile"), "tu teléfono y tu correo, para que la iglesia te pueda avisar."),
+    ]
+    if guided:
+        name, url = guided
+        can.append(Can("A tu cargo", url, f"las personas de {name} y quienes piden unirse. Está en el menú con ese nombre."))
+    name = (first_name or greeting_name(user)).strip()
+    return Welcome(
+        key=MEMBER_KEY,
+        title=f"Te damos la bienvenida, {name}." if name else "Te damos la bienvenida.",
+        role_line=f"Esta página es “Mi iglesia”: tu lugar en {church.name}.",
+        intro="Aquí encuentras los avisos, lo que viene y tus grupos. Para empezar, puedes hacer esto.",
+        can=can,
+        ask="Si algo de tus datos está mal y no lo puedes corregir, dilo a la administración de tu iglesia.",
+        help_url=reverse("ayuda"),
+    )
 
 
 def for_church_role(user: User, role_record: UserChurchRole | None, *, can_create_event: bool) -> Welcome | None:

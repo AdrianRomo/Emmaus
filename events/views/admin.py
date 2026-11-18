@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import csv
 import json
 from datetime import timedelta
@@ -647,7 +649,15 @@ def access_request_approve(request, event, access, pk):
         # Anybody can type anybody's e-mail. An account that already has access here (church admin or pastor,
         # superuser, active member) is never changed by a request: that is "Editar", on purpose.
         account = team_svc.account_for_email(access_request.email)
-        current = resolve_access(account, event) if account is not None else None
+        current = None
+        if account is not None:
+            # Judged without the platform's superuser flag (on a copy), as the list does: an address that is
+            # nobody of this church takes the same path whatever else the account is, so the answer does not
+            # tell a superuser's address from any other (review of wave 7). resolve_access still protects
+            # the account inside the event's own screens.
+            seen = copy.copy(account)
+            seen.is_superuser = False
+            current = resolve_access(seen, event)
         if current is not None:
             return _refuse_existing_access(request, event, access_request, account.get_full_name() or account.email, current.role_label.lower())
         try:

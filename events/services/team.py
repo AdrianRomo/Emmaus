@@ -50,23 +50,31 @@ def account_for_email(email: str) -> User | None:
     return User.objects.filter(email__iexact=email).first()
 
 
+def account_is_of_church(user: User, church_id: int) -> bool:
+    """The account already takes part in this church: a church role, a role in one of its events
+    (even one that was taken away) or a person of the church. Being a superuser is none of them."""
+    from people.models import Person
+
+    return (
+        UserChurchRole.objects.filter(user=user, church_id=church_id).exists()
+        or EventMembership.objects.filter(user=user, event__church_id=church_id).exists()
+        or Person.objects.filter(user=user, church_id=church_id, merged_into__isnull=True).exists()
+    )
+
+
 def describe_account(event, email: str) -> str:
-    """For the administration only: whose account an e-mail is, and what it can already do here. "" if none."""
+    """For the event's administration only: when an e-mail is the account of somebody of THIS church,
+    whose it is and what it can already do here. "" for no account and for every account from outside
+    (another church's, nobody's, a superuser's): an address anybody can type must not tell an event
+    administrator that it has an account somewhere, under which name, or in which church."""
     user = account_for_email(email)
-    if user is None:
+    if user is None or not account_is_of_church(user, event.church_id):
         return ""
+    user.is_superuser = False  # on this copy only: the line describes the roles of this church, nothing else
     access = resolve_access(user, event)
-    roles = UserChurchRole.objects.filter(user=user)
-    memberships = EventMembership.objects.filter(user=user)
-    if roles.filter(church_id=event.church_id).exists() or memberships.filter(event__church_id=event.church_id).exists():
-        church = event.church.name
-    elif roles.exists() or memberships.exists():
-        church = "otra iglesia"
-    else:
-        church = "ninguna"
     name = user.get_full_name() or user.email
     role = access.role_label.lower() if access else "ninguno"
-    return f"Ya tiene cuenta: {name}; acceso actual en este evento: {role}; iglesia: {church}"
+    return f"Ya tiene cuenta en esta iglesia: {name}; acceso actual en este evento: {role}"
 
 
 def add_member(event, actor, *, full_name: str, email: str, role: str, team_name: str = "",

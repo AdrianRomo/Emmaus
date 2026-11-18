@@ -39,3 +39,15 @@ def day_month(value) -> str:
 def long_date(value) -> str:
     """"17 de noviembre de 2026"."""
     return formats.date_format(value, LONG).lower() if value else ""
+
+
+@register.simple_tag(takes_context=True)
+def page_href(context, number, param="") -> str:
+    """The address of page ``number`` of the list on this screen: the same filters, another page
+    (partials/ui/pager.html). The first page carries no number, so it is the address people already know."""
+    param = param or "pagina"
+    query = context["request"].GET.copy()
+    query.pop(param, None)
+    if number and int(number) > 1:
+        query[param] = number
+    return "?" + query.urlencode()

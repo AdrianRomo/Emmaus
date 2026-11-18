@@ -27,6 +27,7 @@ from django.urls import reverse
 from django.utils import formats, timezone
 
 from core.authz import Action, has_scope
+from core.paging import paginate
 from groups.access import church_groups, managed_group_ids
 from groups.models import Group
 from groups.views import community_view
@@ -157,13 +158,15 @@ def _day(day) -> str:
 @community_view
 def notice_list(request):
     can_write = request.is_church_admin or bool(_writable_groups(request))
+    # Two lists on one screen, each with its own page in the address (?pagina= and ?publicados=).
+    published = services.published_by(request.user, request.church) if can_write else Announcement.objects.none()
     return render(
         request,
         "notices/list.html",
         {
-            "notices": services.for_home(request.person, is_admin=request.is_church_admin, limit=50),
+            "notices": paginate(request, services.readable(request.person, is_admin=request.is_church_admin)),
             "can_write": can_write,
-            "published": services.published_by(request.user, request.church) if can_write else [],
+            "published": paginate(request, published, param="publicados"),
         },
     )
 

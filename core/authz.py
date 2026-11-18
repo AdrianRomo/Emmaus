@@ -3,8 +3,8 @@
 ``has_scope(user, church, scope_type, scope_id, action)`` answers whether ``user`` may ``view`` or
 ``manage`` one scope of ``church``. Church and event scopes are answered by the tables and the
 function that already decide them (``UserChurchRole``, ``events.access.resolve_access``), so the
-camp's answers cannot drift; group scopes are answered by ``access.RoleAssignment``. Nothing is
-implied across scopes. No action here answers a question about confidential answers, follow-ups
+camp's answers cannot drift; group and ministry (a serving team) scopes are answered by
+``access.RoleAssignment``. Nothing is implied across scopes. No action here answers a question about confidential answers, follow-ups
 or pastoral notes: those stay behind ``events.access``.
 
 ``core/access.py`` and ``events/access.py`` are not edited; the legacy screens keep using them.
@@ -20,6 +20,10 @@ SESSION_KEY = "current_church"
 
 # Group roles that may manage their group (groups.GroupMembership.Role.LEADER). A literal: core must not import groups.
 GROUP_MANAGE_ROLES = frozenset({"lider"})
+# Team roles that may manage their team (serving.TeamMembership.Role.COORDINATOR), decision 0016.
+MINISTRY_MANAGE_ROLES = frozenset({"coordina"})
+# The scopes answered by the projection, and the roles that manage each.
+PROJECTED_MANAGE_ROLES = {"group": GROUP_MANAGE_ROLES, "ministry": MINISTRY_MANAGE_ROLES}
 
 
 class Action(models.TextChoices):
@@ -27,7 +31,7 @@ class Action(models.TextChoices):
     MANAGE = "manage", "Administrar"
 
 
-SCOPE_TYPES = frozenset({"church", "event", "group"})
+SCOPE_TYPES = frozenset({"church", "event", *PROJECTED_MANAGE_ROLES})
 
 
 def _usable(user) -> bool:
@@ -67,15 +71,18 @@ def has_scope(user, church: Church | None, scope_type: str, scope_id, action: st
         return True if action == Action.VIEW else access.can_manage_event
 
     from access.models import RoleAssignment, in_force
+    from access.sources import backed_by_source
 
+    # One query: the role rows in force that their source membership still backs (decision 0016, rule 7).
     roles = set(
         RoleAssignment.objects.filter(
-            in_force(), subject_user=user, church=church, scope_type="group", scope_id=scope_id
+            in_force(), backed_by_source(scope_type), subject_user=user, church=church, scope_type=scope_type,
+            scope_id=scope_id,
         ).values_list("role", flat=True)
     )
     if not roles:
         return False
-    return True if action == Action.VIEW else bool(roles & GROUP_MANAGE_ROLES)
+    return True if action == Action.VIEW else bool(roles & PROJECTED_MANAGE_ROLES[scope_type])
 
 
 def churches_of(user) -> list[Church]:

@@ -42,7 +42,7 @@
           </li>
         {% endfor %}
       </ul>
-      {% include "events/rotulo/_pagination.html" with page=page %}
+      {% include "partials/ui/pager.html" with page=page label="Páginas de personas" %}
     {% elif query %}
       <p class="empty-line">Nadie por traer se llama así.</p>
     {% else %}

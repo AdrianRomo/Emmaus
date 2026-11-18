@@ -1,7 +1,9 @@
 """Servir: teams, their dates, who is asked and what they answer; who may see and do what."""
 
 from datetime import time, timedelta
+from io import StringIO
 
+from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 
@@ -13,6 +15,7 @@ from groups.tests.base import CommunityFixture
 from people import flags
 from people.models import ChurchAuditEvent
 from serving import services
+from serving.access import managed_team_ids
 from serving.models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
 
 
@@ -38,6 +41,36 @@ class ServingFixture(CommunityFixture):
         cls.day_b = services.save_date(cls.team_b, cls.admin_b, date=cls.week, what="Servicio de la iglesia B")
         cls.assignment_b = services.assign(cls.day_b, cls.member_b, cls.admin_b)
         cls.busy_b = services.set_unavailable(cls.member_b, cls.week + timedelta(days=1), cls.member_b_user)
+
+    def tearDown(self):
+        # Whatever a test did, the projection still says what the rows say (decision 0016).
+        self.assert_projection()
+        super().tearDown()
+
+    def assert_projection(self):
+        """``access.RoleAssignment`` and ``serving`` never disagree: every membership of a person
+        with an account has its one row, in force exactly while the membership is active and the
+        team is not archived; and ``rebuild_role_assignments`` finds nothing to repair."""
+        rows = TeamMembership.objects.filter(person__user__isnull=False).values_list(
+            "pk", "person__user_id", "team__church_id", "team_id", "role", "status", "team__status"
+        )
+        expected = {
+            (pk, user_id, church_id, team_id, role, "active" if (status, team_status) == ("activa", "activo") else "inactive")
+            for pk, user_id, church_id, team_id, role, status, team_status in rows
+        }
+        projected = set(
+            RoleAssignment.objects.filter(source_table="serving.TeamMembership").values_list(
+                "source_id", "subject_user_id", "church_id", "scope_id", "role", "status"
+            )
+        )
+        self.assertEqual(projected, expected)
+        ministry = RoleAssignment.objects.filter(scope_type="ministry")
+        self.assertFalse(ministry.exclude(source_table="serving.TeamMembership").exists())
+        self.assertFalse(ministry.filter(end_at__isnull=False).exists())
+        self.assertEqual(ministry.count(), len(expected))
+        out = StringIO()
+        call_command("rebuild_role_assignments", "--check", stdout=out)
+        self.assertIn("Sin diferencias", out.getvalue())
 
     def url(self, name, *args):
         return reverse(f"serving:{name}", args=args)
@@ -469,10 +502,10 @@ class PermissionTests(ServingFixture):
 
 
 class NothingElseTests(ServingFixture):
-    def test_a_membership_grants_no_role_anywhere(self):
+    def test_a_membership_grants_no_role_outside_its_team(self):
         before = (
-            RoleAssignment.objects.count(), UserChurchRole.objects.count(), GroupMembership.objects.count(),
-            EventMembership.objects.count(),
+            RoleAssignment.objects.exclude(scope_type="ministry").count(), UserChurchRole.objects.count(),
+            GroupMembership.objects.count(), EventMembership.objects.count(),
         )
         team = services.save_team(self.church, self.admin, name="Estacionamiento")
         services.set_member(team, self.member, self.admin, role="coordina")
@@ -480,11 +513,15 @@ class NothingElseTests(ServingFixture):
         day = services.save_date(team, self.member_user, date=self.week, what="Acomodar coches")
         services.respond(services.assign(day, self.coord_person, self.member_user), True, self.coord1)
         after = (
-            RoleAssignment.objects.count(), UserChurchRole.objects.count(), GroupMembership.objects.count(),
-            EventMembership.objects.count(),
+            RoleAssignment.objects.exclude(scope_type="ministry").count(), UserChurchRole.objects.count(),
+            GroupMembership.objects.count(), EventMembership.objects.count(),
         )
         self.assertEqual(before, after)
-        self.assertFalse(RoleAssignment.objects.filter(subject_user=self.member_user).exists())
+        # What the membership projects is the role in that one team, and in the one from the fixture.
+        self.assertEqual(
+            set(RoleAssignment.objects.filter(subject_user=self.member_user).values_list("scope_type", "scope_id", "role")),
+            {("ministry", team.pk, "coordina"), ("ministry", self.team.pk, "sirve")},
+        )
         self.assertFalse(UserChurchRole.objects.filter(user=self.member_user).exists())
         self.assertFalse(GroupMembership.objects.filter(person=self.member).exists())
         # Coordinating a team opens nothing of the church's administration or of a group.
@@ -555,7 +592,7 @@ class ServiceFunctionTests(ServingFixture):
         self.assertEqual(services.my_dates(self.member), [])
         self.assertEqual(services.pending_count(self.member), 0)
         self.assertFalse(services.has_teams(self.member))
-        self.assertEqual(services.coordinated_teams(self.leader), [])
+        self.assertEqual(managed_team_ids(self.leader_user, self.church), [])
         self.client.force_login(self.member_user)
         page = self.client.get(self.url("home"))
         self.assertNotContains(page, "Bienvenida del domingo")
@@ -567,18 +604,21 @@ class ServiceFunctionTests(ServingFixture):
         with self.assertRaises(services.ServingError):
             services.set_member(self.team, self.coord_person, self.admin)
 
-    def test_coordinated_teams_and_has_teams(self):
-        self.assertEqual(services.coordinated_teams(self.leader), [self.team])
-        self.assertEqual(services.coordinated_teams(self.member), [])
-        self.assertEqual(services.coordinated_teams(self.admin_person), [])
+    def test_managed_teams_and_has_teams(self):
+        def managed(user, church=None):
+            return sorted(managed_team_ids(user, church or self.church))
+
+        self.assertEqual(managed(self.leader_user), [self.team.pk])
+        self.assertEqual(managed(self.member_user), [])
+        self.assertEqual(managed(self.admin), [])
         self.assertTrue(services.has_teams(self.leader))
         self.assertTrue(services.has_teams(self.member))
         self.assertFalse(services.has_teams(self.coord_person))
         services.set_member(self.other_team, self.leader, self.admin, role="coordina")
-        self.assertEqual(services.coordinated_teams(self.leader), [self.other_team, self.team])
+        self.assertEqual(managed(self.leader_user), sorted([self.other_team.pk, self.team.pk]))
         services.remove_member(self.team, self.leader, self.admin)
-        self.assertEqual(services.coordinated_teams(self.leader), [self.other_team])
+        self.assertEqual(managed(self.leader_user), [self.other_team.pk])
         services.set_member(self.other_team, self.leader, self.admin, role="sirve")
-        self.assertEqual(services.coordinated_teams(self.leader), [])
+        self.assertEqual(managed(self.leader_user), [])
         self.assertTrue(services.has_teams(self.leader))
-        self.assertEqual(services.coordinated_teams(self.member_b), [self.team_b])
+        self.assertEqual(managed(self.member_b_user, self.church_b), [self.team_b.pk])

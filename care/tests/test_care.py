@@ -153,19 +153,28 @@ class CareTests(CommunityFixture):
         self.assertEqual(self.client.get(url("edit", follow_up)).status_code, 404)
         self.assertEqual(self.client.get(ALL + "?estado=otra-cosa").status_code, 404)
 
-    def test_the_administration_list_puts_the_ones_without_owner_first_and_says_when_it_is_cut(self):
+    def test_the_administration_list_puts_the_ones_without_owner_first_and_is_paged_by_fifty(self):
         owned = self.make(due_on=self.today)
         orphan = self.make(person=self.asked, owner=None)
         self.client.force_login(self.admin)
         page = self.client.get(ALL)
         self.assertEqual([row.pk for row in page.context["follow_ups"]], [orphan.pk, owned.pk])
-        self.assertNotContains(page, "Estos son los primeros")
+        self.assertNotContains(page, 'class="pager"')
         FollowUp.objects.bulk_create(
             [FollowUp(church=self.church, person=self.asked, reason="otro") for _ in range(100)]
         )
         page = self.client.get(ALL)
-        self.assertEqual(len(page.context["follow_ups"]), 100)
-        self.assertContains(page, "Estos son los primeros 100.")
+        self.assertEqual(len(page.context["follow_ups"]), 50)
+        self.assertContains(page, "Página 1 de 3. Del 1 al 50 de 102.")
+        self.assertContains(page, 'rel="next" href="?pagina=2"')
+        last = self.client.get(ALL + "?pagina=3")
+        self.assertEqual(len(last.context["follow_ups"]), 2)
+        self.assertContains(last, "Página 3 de 3. Del 101 al 102 de 102.")
+        # The state chosen travels in the links of its own pages
+        FollowUp.objects.filter(owner__isnull=True).update(status=FollowUp.Status.CANCELLED)
+        cancelled = self.client.get(ALL + "?estado=cancelados")
+        self.assertContains(cancelled, 'rel="next" href="?estado=cancelados&amp;pagina=2"')
+        self.assertContains(cancelled, "Del 1 al 50 de 101.")
 
     # ---- who sees it ----------------------------------------------------------------------------
     def test_the_person_it_is_about_never_sees_it(self):

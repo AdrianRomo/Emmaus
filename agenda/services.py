@@ -1146,6 +1146,8 @@ def similar_people(registration: EventRegistration, limit: int = 5) -> list[Pers
     if phone:
         match |= ~Q(phone="")
     found = []
+    # A hint beside one visitor, five names at most on purpose: the screen calls them "parecidas", not a list of the
+    # church, and "Es alguien nuevo" stays under them. 500 bounds the work in a very large church.
     for person in people.filter(match).order_by("first_name", "last_name", "id")[:500]:
         theirs = set(person.normalized_name.split())
         same_phone = bool(phone) and _digits(person.phone) == phone

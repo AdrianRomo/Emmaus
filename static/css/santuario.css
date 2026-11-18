@@ -409,3 +409,8 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 /* A quiet link under the event's panel ("Salir de la lista de espera", "Cancelar mi inscripción") and the note above
    the public address keep their distance from the section that follows. */
 :root[data-ui="2"] .more + .block, :root[data-ui="2"] .aside-note + .public-link { margin-top: var(--s-10); }
+
+/* ---------- 13. A welcome with no "Primeros pasos" ------------------------- */
+/* The welcome of "Mi iglesia" (core.onboarding.for_member) is one short list: it takes the whole width instead of
+   leaving the second column empty. */
+:root[data-ui="2"] .welcome__body > :only-child { grid-column: 1 / -1; }

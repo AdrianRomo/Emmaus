@@ -1,0 +1,15 @@
+{% comment %}
+  "Ahora y después" (agenda/now_next.py): one quiet strip with what the programme of the event says for this moment,
+  on the camp homes of the coordinator, the tutor, the pastor and the administration. It is the first thing of each
+  home's live fragment, so it moves on by itself with the rest of the page. Read-only, the public programme, nothing
+  about a campero. Without `now_next` (the community module off, or no programme today) it draws nothing, not even a
+  line break: those homes stay byte for byte what they were. No live region of its own: a clock is never announced.
+  It wears the quiet notice of Rótulo (.notice--quiet) and no rule of its own: who works only in the event has the
+  camp's shell without the Santuario layer, and the strip has to read the same there.
+{% endcomment %}{% if now_next %}<section class="notice notice--quiet now-next" aria-labelledby="ahora-y-despues">
+  <h2 id="ahora-y-despues" class="visually-hidden">Programa de hoy</h2>
+  {% if now_next.over %}<p class="now-next__line">Hoy ya terminó el programa.</p>{% endif %}
+  {% if now_next.now %}<p class="now-next__line"><strong>Ahora:</strong> {{ now_next.now.title }}{% if now_next.now.place %}, en {{ now_next.now.place }}{% endif %}{% if now_next.now_until %} (hasta las {{ now_next.now_until|time:"H:i" }}){% endif %}</p>{% endif %}
+  {% if now_next.next %}<p class="now-next__line"><strong>Después:</strong> {{ now_next.next.title }}, a las {{ now_next.next.starts_at|time:"H:i" }}</p>{% endif %}
+</section>
+{% endif %}

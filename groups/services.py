@@ -10,11 +10,12 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Count, F
+from django.db.models import Count, F, OuterRef
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from access.models import RoleAssignment, ScopeType
+from access.sources import account_changed
 from people.audit import record_church
 from people.models import Person
 
@@ -30,16 +31,29 @@ class GroupError(ValidationError):
 # ---- the projection -----------------------------------------------------------------------------
 def sync_assignment(membership: GroupMembership) -> RoleAssignment | None:
     """Write (or delete) the role row derived from ``membership``. A person without an account
-    holds nothing: there is nobody to sign in as them."""
-    user_id = membership.person.user_id
-    if user_id is None:
-        RoleAssignment.objects.filter(source_table=SOURCE, source_id=membership.pk).delete()
-        return None
+    holds nothing: there is nobody to sign in as them.
+
+    The row is derived from the membership and the person's account as they are in the database
+    now, read under a lock on the membership: never from what the caller loaded earlier, which a
+    concurrent service or a link of the account may have changed since."""
+    source_id = membership.pk
+    with transaction.atomic():
+        membership = (
+            GroupMembership.objects.select_for_update(of=("self",)).select_related("group", "person")
+            .filter(pk=source_id).first()
+        )
+        if membership is None or membership.person.user_id is None:
+            RoleAssignment.objects.filter(source_table=SOURCE, source_id=source_id).delete()
+            return None
+        return _write_assignment(membership)
+
+
+def _write_assignment(membership: GroupMembership) -> RoleAssignment:
     row, _ = RoleAssignment.objects.update_or_create(
         source_table=SOURCE,
         source_id=membership.pk,
         defaults={
-            "subject_user_id": user_id,
+            "subject_user_id": membership.person.user_id,
             "church_id": membership.group.church_id,
             "scope_type": ScopeType.GROUP,
             "scope_id": membership.group_id,
@@ -52,10 +66,21 @@ def sync_assignment(membership: GroupMembership) -> RoleAssignment | None:
     return row
 
 
-def sync_person_assignments(sender, instance: Person, **kwargs) -> None:
-    """``post_save`` of ``Person``: the account may have been linked or unlinked."""
-    for membership in GroupMembership.objects.filter(person=instance).select_related("group", "person"):
-        sync_assignment(membership)
+def sync_person_assignments(sender, instance: Person, created=False, raw=False, **kwargs) -> None:
+    """``post_save`` of ``Person``, only when its account was linked, unlinked or replaced."""
+    if not account_changed(instance, created, raw):
+        return
+    with transaction.atomic():
+        for membership in GroupMembership.objects.filter(person=instance).order_by("group_id", "pk"):
+            sync_assignment(membership)
+
+
+def live_memberships():
+    """``access.sources``: the membership a role row came from, when it still grants what the row says."""
+    return GroupMembership.objects.filter(
+        pk=OuterRef("source_id"), group_id=OuterRef("scope_id"), group__church_id=OuterRef("church_id"),
+        status=GroupMembership.Status.ACTIVE, role=OuterRef("role"), person__user_id=OuterRef("subject_user_id"),
+    )
 
 
 def expected_assignments() -> dict[int, dict]:
@@ -236,7 +261,8 @@ def decide_request(request: GroupJoinRequest, actor, *, accept: bool) -> GroupJo
 
 # ---- meetings -----------------------------------------------------------------------------------
 NAMES_DELETED = "De esta reunión ya solo se conservan los totales: la lista de quién vino se borró por antigüedad."
-# How many meetings a person sees of their own attendance in a group.
+# How many meetings a person sees of their own attendance in a group. Short on purpose (it is a glance on the group's
+# page, not a record to audit); when there are more, the page says how many (``own_attendance_total``).
 OWN_ATTENDANCE_LIMIT = 8
 
 
@@ -246,14 +272,20 @@ def with_present(meetings):
     return meetings.annotate(present=Coalesce(F("present_kept"), Count("attendances")))
 
 
+def _own_meetings(membership: GroupMembership):
+    since = timezone.localtime(membership.start_at).date()
+    return GroupMeeting.objects.filter(group_id=membership.group_id, date__gte=since, present_kept__isnull=True)
+
+
+def own_attendance_total(membership: GroupMembership) -> int:
+    """How many meetings ``own_attendance`` would list without its limit."""
+    return _own_meetings(membership).count()
+
+
 def own_attendance(membership: GroupMembership, limit: int = OWN_ATTENDANCE_LIMIT) -> list[GroupMeeting]:
     """The last meetings of the group with a list since ``membership`` started, each with ``came``
     for that one person. Meetings whose names were deleted say nothing about anybody: they are left out."""
-    since = timezone.localtime(membership.start_at).date()
-    meetings = list(
-        GroupMeeting.objects.filter(group_id=membership.group_id, date__gte=since, present_kept__isnull=True)
-        .order_by("-date", "-id")[:limit]
-    )
+    meetings = list(_own_meetings(membership).order_by("-date", "-id")[:limit])
     came = set(
         GroupAttendance.objects.filter(meeting__in=meetings, person_id=membership.person_id).values_list("meeting_id", flat=True)
     )

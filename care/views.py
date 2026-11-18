@@ -18,6 +18,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from core.paging import first_rows, paginate
 from events.models import normalize_name
 from groups.views import church_admin_view, community_view
 from people.models import Person
@@ -27,7 +28,7 @@ from .forms import FollowUpForm
 from .models import FollowUp, FollowUpStep
 
 Status = FollowUp.Status
-LIST_LIMIT = 100
+SEARCH_LIMIT = 10  # names under a search box (core/paging.py::first_rows)
 # The administration's views of the list: the word in the address, the words on the screen, the states.
 FILTERS = [
     ("", "Sin atender", FollowUp.OPEN),
@@ -78,14 +79,10 @@ def admin_list(request):
     else:
         no_owner = Case(When(owner__isnull=True, then=Value(0)), default=Value(1), output_field=IntegerField())
         rows = rows.alias(no_owner=no_owner).order_by("no_owner", F("due_on").asc(nulls_last=True), "created_at", "id")
-    rows, today = list(rows[: LIST_LIMIT + 1]), timezone.localdate()
-    for row in rows:
+    page, today = paginate(request, rows), timezone.localdate()
+    for row in page:
         row.is_overdue = bool(row.is_open and row.due_on and row.due_on < today)
-    return render(
-        request,
-        "care/admin_list.html",
-        {"follow_ups": rows[:LIST_LIMIT], "cut": len(rows) > LIST_LIMIT, "limit": LIST_LIMIT, "filters": filters, "chosen": chosen},
-    )
+    return render(request, "care/admin_list.html", {"follow_ups": page, "filters": filters, "chosen": chosen})
 
 
 @church_admin_view
@@ -95,13 +92,14 @@ def create(request):
     if not chosen:
         if request.method == "POST":
             raise Http404
-        query, found = request.GET.get("q", "").strip(), []
+        query, found, found_total = request.GET.get("q", "").strip(), [], 0
         if query:
             found = _people(request)
             for token in normalize_name(query).split():
                 found = found.filter(normalized_name__contains=token)
-            found = found[:10]
-        return render(request, "care/choose_person.html", {"query": query, "found": found})
+            # Ten names under a search box on purpose: with more, the screen says how many and asks for more of the name.
+            found, found_total = first_rows(found, SEARCH_LIMIT)
+        return render(request, "care/choose_person.html", {"query": query, "found": found, "found_total": found_total})
     if not chosen.isdigit():
         raise Http404
     about = get_object_or_404(_people(request), pk=int(chosen))

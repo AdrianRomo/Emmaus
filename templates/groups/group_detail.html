@@ -65,6 +65,7 @@
   {% if attendance %}
   <section class="block" aria-labelledby="asistencia">
     <h2 id="asistencia" class="heading">Tu asistencia</h2>
+    {% if attendance_total > attendance|length %}<p class="list-count">Las últimas {{ attendance|length }} de {{ attendance_total }} reuniones con lista desde que eres parte del grupo.</p>{% endif %}
     <ul class="rows own-attendance">
       {% for meeting in attendance %}
         <li class="row"><span class="row__main">{{ meeting.date|weekday_date|capfirst }}</span><span class="row__end">{% if meeting.came %}<strong>Fuiste</strong>{% else %}No fuiste{% endif %}</span></li>

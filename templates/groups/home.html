@@ -23,6 +23,8 @@
       <p><a href="{% url 'notices:detail' notice.pk %}">Leer el aviso y responder «Enterado»</a></p>
     </section>
     {% endfor %}
+    {% comment %}The welcome, the first time on "Mi iglesia" (core.onboarding.for_member), above the next-step panel.{% endcomment %}
+    {% include "partials/ui/welcome.html" with welcome=welcome %}
     {% if sign %}
     <section class="sign sign--lead" aria-labelledby="que-sigue">
       <div>

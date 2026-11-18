@@ -36,7 +36,7 @@ from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, local_tz, mark_stalled, scope_for_access, stale_interviews, sum_rows
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
-from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, safe_next
+from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, programme_now, safe_next
 
 
 def _last_snapshot(access):
@@ -112,6 +112,7 @@ def tutor_home(request, event, access):
         "last_snapshot": _last_snapshot(access),
         "next_cutoff": next_slot(event),
     }
+    context["now_next"] = programme_now(event)  # "Ahora y después", first in the live fragment
     if is_fragment(request):
         return render(request, "events/tutor/_home_live.html", context)
     context["welcome"] = welcome_svc.for_tutor(event, access)  # outside the live region: the full page only
@@ -305,6 +306,7 @@ def pastor_home(request, event, access):
         # Counted from what this person may see, never from the payload: a cutoff must not carry it (issue #46)
         "follow_ups_unassigned": follow_up_svc.unassigned_open(access).count(),
     }
+    context["now_next"] = programme_now(event)  # "Ahora y después", first in the live fragment
     if is_fragment(request):
         return render(request, "events/pastor/_home_live.html", context)
     # The pastor's welcome, outside the live region; an administrador reading this page has their own on "Inicio"
@@ -879,6 +881,7 @@ def admin_home(request, event, access):
     context["steps"], context["steps_done"], context["steps_total"] = steps, len(ready), len(steps)
     # Both lists in one loop, so the row is written once in the template; an empty list is left out
     context["step_groups"] = [group for group in ({"listos": False, "steps": pending}, {"listos": True, "steps": ready}) if group["steps"]]
+    context["now_next"] = programme_now(event)  # "Ahora y después", first in the live fragment
     if is_fragment(request):
         return render(request, "events/admin/_home_live.html", context)
     # The welcome frames "Preparación" (the checklist itself stays there); outside the live region: the full page only

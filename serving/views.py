@@ -4,11 +4,11 @@ Every view goes through ``groups.views.community_view`` (the ``community`` modul
 the account is in this church). Teams, dates and assignments are always fetched inside
 ``request.church``, so an id of another church is a 404, POSTs included.
 
-Known deviation from decision 0003: what needs more than being of the church is decided by rows,
-not by ``core.authz.has_scope``: an active ``TeamMembership`` with the role "coordina" for
-``request.person`` opens that one team's dates and people; church ``manage`` (the administration)
-opens every team and is the only one that adds people or names who coordinates. A ministry scope
-in ``access`` needs a migration there and is to be resolved later.
+What needs more than being of the church is decided by ``core.authz.has_scope`` (decisions 0003
+and 0016): ``manage`` on the ``ministry`` scope of one team opens that team's dates and people to
+who coordinates it; church ``manage`` (the administration) opens every team of its church and is
+the only one that adds people or names who coordinates. Nothing is implied into the team scope:
+the views say ``is_church_admin or has_scope(ministry manage)`` explicitly, as the groups do.
 """
 
 from django.contrib import messages
@@ -21,11 +21,14 @@ from django.urls import reverse
 from django.utils import formats, timezone
 from django.views.decorators.http import require_POST
 
+from core.paging import first_rows
+from core.authz import Action, has_scope
 from events.models import normalize_name
 from groups.views import church_admin_view, community_view
 from people.models import Person
 
 from . import services
+from .access import managed_team_ids
 from .forms import ServiceDateForm, TeamForm, UnavailableForm
 from .models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
 
@@ -45,10 +48,14 @@ def _team(request, team_id: int, *, include_archived: bool = False) -> Team:
     return team
 
 
+def _may_manage(request, team: Team) -> bool:
+    return request.is_church_admin or has_scope(request.user, request.church, "ministry", team.pk, Action.MANAGE)
+
+
 def _coordinated_team(request, team_id: int) -> Team:
     """The team, for who coordinates it or the administration; anybody else of the church gets a 403."""
     team = _team(request, team_id, include_archived=request.is_church_admin)
-    if not (request.is_church_admin or services.coordinates(request.person, team)):
+    if not _may_manage(request, team):
         raise PermissionDenied
     return team
 
@@ -60,7 +67,7 @@ def _coordinated_date(request, date_id: int) -> ServiceDate:
     if not request.is_church_admin:
         if not team.is_active:
             raise Http404
-        if not services.coordinates(request.person, team):
+        if not _may_manage(request, team):
             raise PermissionDenied
     if not team.is_active or service_date.date < timezone.localdate():
         raise Http404
@@ -83,9 +90,10 @@ def home(request):
         .select_related("team").order_by("team__name", "id")
     )
     names = services.coordinator_names([membership.team_id for membership in memberships])
+    managed = set() if request.is_church_admin else set(managed_team_ids(request.user, request.church))
     for membership in memberships:
         membership.coordinator_names = names.get(membership.team_id, [])
-        membership.can_open = membership.is_coordinator or request.is_church_admin
+        membership.can_open = request.is_church_admin or membership.team_id in managed
     return render(
         request,
         "serving/home.html",
@@ -165,17 +173,19 @@ def team(request, team_id: int):
         service_date.people = sorted(service_date.assignments.all(), key=lambda row: (row.person.full_name, row.pk))
         service_date.confirmed = sum(1 for row in service_date.people if row.status == Assignment.Status.ACCEPTED)
     members = list(TeamMembership.objects.filter(team=team, status=ACTIVE).select_related("person").order_by("role", *MEMBER_ORDER))
-    query, found = request.GET.get("q", "").strip(), []
+    query, found, found_total = request.GET.get("q", "").strip(), [], 0
     if request.is_church_admin and query:
         # Only the administration searches the church's people; who coordinates sees only who is in the team.
         found = Person.objects.filter(church=request.church, merged_into__isnull=True)
         for token in normalize_name(query).split():
             found = found.filter(normalized_name__contains=token)
-        found = found.exclude(pk__in=[membership.person_id for membership in members])[:10]
+        # A short list under a search box, which says when it stops (core/paging.py::first_rows)
+        found, found_total = first_rows(found.exclude(pk__in=[membership.person_id for membership in members]), 10)
     return render(
         request,
         "serving/team.html",
-        {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found},
+        {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found,
+         "found_total": found_total},
     )
 
 

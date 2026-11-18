@@ -17,15 +17,13 @@ from django.urls import reverse
 from django.utils import formats, timezone
 from django.views.decorators.http import require_POST
 
+from core.paging import paginate
 from groups.views import church_admin_view, community_view
 
 from . import services
 from .forms import DevotionalForm, MediaItemForm
 from .models import Devotional, MediaItem
 
-LIST_LIMIT = 30
-MEDIA_LIMIT = 40
-ADMIN_LIMIT = 200
 # The words of the filter are plurals; the model's are the singular a row shows.
 KIND_FILTERS = [("predicacion", "Predicaciones"), ("musica", "Música"), ("estudio", "Estudios"), ("otro", "Otros recursos")]
 
@@ -62,7 +60,8 @@ def devotional_today(request):
 
 @community_view
 def devotional_list(request):
-    return render(request, "resources/devotional_list.html", {"devotionals": services.past_devotionals(request.church, request.person, LIST_LIMIT)})
+    devotionals = paginate(request, services.past_devotionals(request.church, request.person))
+    return render(request, "resources/devotional_list.html", {"devotionals": devotionals})
 
 
 @community_view
@@ -90,8 +89,8 @@ def devotional_read(request, devotional_id: int):
 # ---- the devotional: writing --------------------------------------------------------------------
 @church_admin_view
 def devotional_admin(request):
-    devotionals = Devotional.objects.filter(church=request.church).order_by("-date", "-id")[:ADMIN_LIMIT]
-    return render(request, "resources/devotional_admin.html", {"devotionals": devotionals})
+    devotionals = Devotional.objects.filter(church=request.church).order_by("-date", "-id")
+    return render(request, "resources/devotional_admin.html", {"devotionals": paginate(request, devotionals)})
 
 
 def _devotional_form(request, devotional):
@@ -150,7 +149,7 @@ def media_list(request):
         request,
         "resources/media_list.html",
         {
-            "items": list(items[:MEDIA_LIMIT]),
+            "items": paginate(request, items),
             "kinds": [] if series else kinds,
             "chosen": chosen,
             "series": series,
@@ -162,8 +161,8 @@ def media_list(request):
 # ---- resources: writing -------------------------------------------------------------------------
 @church_admin_view
 def media_admin(request):
-    items = MediaItem.objects.filter(church=request.church).order_by("status", "-date", "-id")[:ADMIN_LIMIT]
-    return render(request, "resources/media_admin.html", {"items": items})
+    items = MediaItem.objects.filter(church=request.church).order_by("status", "-date", "-id")
+    return render(request, "resources/media_admin.html", {"items": paginate(request, items)})
 
 
 def _media_form(request, item):

@@ -2,6 +2,64 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-18, last — Wave 7: the deviation closed and the small list (branch `v2/wave-7`)
+
+Wave 6 (pull request #81) is merged into `v2/foundation`; issues #49 and #50 are closed. Every
+issue still open needs the owner, the host or an approval (the table in `AGENT_HANDOFF.md`).
+
+### Shipped
+
+| Piece | Where |
+|---|---|
+| Who coordinates a serving team is decided by `has_scope` (scope `ministry`, decision 0016). A role by scope never outlives or contradicts the membership it comes from, for teams and for groups | `core/authz.py`, `access/sources.py`, `serving`, `groups` |
+| `tenant_integrity` checks every table added since it was written (24 tables, 21 new checks) | `people/management/commands/tenant_integrity.py` |
+| The camp's access requests say nothing about an account that is not of this church, on the list and on approval | `events/services/team.py`, `events/views/admin.py` |
+| A member's first-run welcome on Mi iglesia | `core/onboarding.py` |
+| No list stops in silence: pages of 50 with the total, or a short list that says it is short | `core/paging.py`, `partials/ui/pager.html` |
+| "Ahora y después" on the camp's four homes, from the event's programme | `agenda/now_next.py` |
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `c267acc`, 2026-11-18T03:27Z (the commit
+after it holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                0  System check identified no issues (0 silenced).
+migrations      PASS                0  No changes detected
+deploy-check    PASS                1  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: 1 migration(s) added or changed since 86224ae, all additive
+pip-audit       PASS                1  No known vulnerabilities found
+tests-sqlite    PASS              248  2491 passed, 6 skipped
+tests-postgres  PASS              369  2486 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              475  browser gate OK
+overall: PASS
+```
+
+- The community journey in that run: 256 checks, 0 problems.
+- An independent read-only review found five defects, fixed with tests before this gate. The
+  serious one: a membership deleted outright (for instance by the documented undo of
+  `link_people`) left its role row granting control of the team; groups had the same hole from
+  before this branch. Now the rows are deleted with their source and `has_scope` believes a row
+  only while its source agrees. Also: a `Person` save could write back a role a service had just
+  ended; approving a request typed with a superuser's address answered differently from any other
+  outside account.
+- Looked at by the agent as screenshots on its own scratch database: Mi iglesia with the welcome
+  (member, guide), Avisos paginated, the coordinator's, pastor's and administration's homes with
+  the strip. I did not look at wave 7's screens myself.
+- Not verified: lock ordering of the authorization hooks under two real PostgreSQL connections;
+  "Entendido" and the live refresh of the strip watched in a browser.
+
+### Not done, and why
+
+- After deploying where serving teams already exist: `manage.py rebuild_role_assignments --apply`
+  once after `migrate`; until then a coordinator is refused on their own team (fail-closed).
+- Approving a request for an address that has an account elsewhere adds that account and shows
+  its own name, as "Agregar persona" does: inherent to reusing accounts.
+- Everybody who already uses Mi iglesia meets the new welcome once.
+- Nothing else on the open list can be built without the owner, the host or an approval.
+
 ## 2026-11-18, later — Wave 6: what was "next", and camp issues #49, #50, #52 (branch `v2/wave-6`)
 
 Wave 5 (pull request #79) is merged into `v2/foundation`; issues #16, #46, #47, #48, #51, #53 and
@@ -524,8 +582,8 @@ overall: PASS
 
 1. **Group meetings and attendance** (blueprint P1): a guide records who came; the member's home
    shows real meetings instead of the computed next weekday. M, medium.
-2. **Integrity checks for the new tables** in `tenant_integrity`, and `rebuild_role_assignments
-   --check` in CI. S, low.
+2. **Integrity checks for the new tables** in `tenant_integrity` (done in wave 7), and
+   `rebuild_role_assignments --check` in CI. S, low.
 3. **Events for people** (P3-8, #61): an event that is not a camp, a public page, "Inscribirme"
    from Mi iglesia, "Mis eventos". L, high (camp-adjacent): needs a short design note first.
 4. **Avisos** (#57): announcements by audience on Mi iglesia, with the notification preferences
