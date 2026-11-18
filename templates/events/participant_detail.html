@@ -10,7 +10,13 @@
   {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
 {% endif %}
 
-<div class="split">
+{% if ui_v2 and participant.is_minor and event.requires_guardian_authorization %}{% comment %}
+  The redesign: a minor's guardian authorization, near the top, apart from the interview. Missing, it is said in
+  vela with the way to register it; when the interview is already done it is said plainly too. No rule changes here.
+{% endcomment %}{% if guardian_ok %}<p class="ficha__autorizacion">{% status "completada" "Autorizada" %}<span class="visually-hidden">: autorización de padre, madre o tutor legal registrada</span></p>{% else %}<div class="notice notice--warning ficha__autorizacion">
+  <p class="notice__title">{% if participant.interview_status == "completada" %}Entrevistado sin autorización vigente{% else %}Falta la autorización de padre, madre o tutor legal{% endif %}</p>
+  {% if can_edit %}<p><a class="btn btn--secondary btn--small" href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a></p>{% endif %}
+</div>{% endif %}{% endif %}<div class="split">
   <section aria-labelledby="datos">
     <h2 id="datos" class="heading">Datos del campero</h2>
     <dl class="summary-list">
@@ -22,7 +28,7 @@
       <div class="summary-list__row"><dt>Registro</dt><dd>{{ participant.created_at|fecha_corta }}</dd></div>
       {% if participant.is_minor and event.requires_guardian_authorization %}
       <div class="summary-list__row"><dt>Autorización de padre, madre o tutor legal</dt><dd>{% if guardian_ok %}Registrada{% if guardian_record.recorded_by %} por {{ guardian_record.recorded_by.get_full_name|default:guardian_record.recorded_by.email }}{% endif %}, {{ guardian_record.recorded_at|fecha_corta }}{% else %}<strong>Falta</strong>{% endif %}</dd>
-        <dd class="summary-list__action">{% if can_edit %}{% if guardian_ok %}<a href="{% url 'events:guardian_authorization_withdraw' event.slug participant.public_id %}">Quitar la autorización</a>{% else %}<a href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a>{% endif %}{% endif %}</dd></div>
+        <dd class="summary-list__action">{% if can_edit %}{% if guardian_ok %}<a href="{% url 'events:guardian_authorization_withdraw' event.slug participant.public_id %}">Quitar la autorización</a>{% elif not ui_v2 %}<a href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a>{% endif %}{% endif %}</dd></div>
       {% endif %}
     </dl>
   </section>
@@ -64,7 +70,7 @@
       <p><a class="btn btn--secondary btn--danger-outline" href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p>
       {% if access.is_admin %}
         {% if access.can_view_sensitive %}<p class="more"><a href="{% url 'events:participant_data_export' event.slug participant.public_id %}">Descargar todos sus datos</a></p>{% endif %}
-        <p class="more"><a href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>
+        {% if ui_v2 %}<p class="ficha__eliminar"><a class="btn btn--danger-outline" href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>{% else %}<p class="more"><a href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>{% endif %}
       {% endif %}
     </section>
   </div>

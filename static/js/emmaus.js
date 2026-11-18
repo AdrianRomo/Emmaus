@@ -979,6 +979,25 @@
       line.scrollLeft += current.getBoundingClientRect().left - line.getBoundingClientRect().left - 16;
     });
 
+    /* ---- Choices kept across a refresh (form[data-conserva] inside a live region) ---- */
+    // The administration home refreshes itself every 30 s; a coordinator chosen on a row and not yet saved is chosen
+    // again in the fresh region, while that row and that choice are still there.
+    var conserved = {};
+    doc.addEventListener("change", function (e) {
+      var field = e.target;
+      if (field.form && field.form.hasAttribute("data-conserva") && field.name) conserved[field.name] = field.value;
+    });
+    doc.addEventListener("submit", function (e) {
+      if (e.target.hasAttribute && e.target.hasAttribute("data-conserva")) conserved = {};
+    });
+    doc.addEventListener("emmaus:updated", function (e) {
+      $all("form[data-conserva] select", e.target).forEach(function (field) {
+        if (!(field.name in conserved)) return;
+        var wanted = conserved[field.name];
+        if (Array.prototype.some.call(field.options, function (o) { return o.value === wanted; })) field.value = wanted;
+      });
+    });
+
     // A link or a form that takes more than a quarter of a second to answer draws a thin line at the top, so a
     // slow connection never looks like a press that did nothing. It goes away with the page.
     var progressTimer = null;

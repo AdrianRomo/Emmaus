@@ -1371,6 +1371,27 @@ p.sitio__leaves { margin-top: var(--s-2); }
 
 .page--app .camperos > p.more { margin-top: var(--s-2); }
 .page--app .camperos > :not(p.more) + p.more { margin-top: var(--s-6); }
+
+/* The administration home: an open risk situation is a decision in chile; the camperos without a coordinator are
+   assigned on the raised surface, a choice at the end of each row */
+.decision--riesgo .decision__cifra { color: var(--chile); }
+.decision--riesgo .decision__nota .status { font-size: var(--t-small); }
+.page--app .admin-esperan + :is(.sign, .admin-state) { margin-top: var(--s-6); }
+.page--app .admin-asignar__filas { margin-top: var(--s-3); }
+.page--app .admin-asignar__filas > .row { align-items: center; }
+.admin-asignar__filas select { width: 16rem; max-width: 100%; }
+@container (max-width: 38rem) {
+  .page--app .admin-asignar__filas > .row { flex-wrap: wrap; }
+  .page--app .admin-asignar__filas > .row > .row__main { flex: 1 1 10rem; }
+  .page--app .admin-asignar__filas > .row > .row__end { flex: 1 0 100%; padding-left: calc(var(--lead) + var(--s-4)); }
+  .admin-asignar__filas select { width: 100%; }
+}
+
+/* A campero's record: a minor's authorization near the top, and the one way to erase the record drawn as the risk
+   it is (its page asks first) */
+.page--app .ficha__autorizacion { margin: 0 0 var(--s-6); }
+.page--app .notice.ficha__autorizacion p + p { margin-top: var(--s-2); }
+.page--app .ficha__eliminar { margin-top: var(--s-3); }
 /* end: evento-administracion */
 
 /* area: evento-equipo */

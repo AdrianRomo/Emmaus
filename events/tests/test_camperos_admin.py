@@ -8,9 +8,13 @@ event, only active coordinators of this event, and every change keeps its own au
 
 from __future__ import annotations
 
+import re
+
 from django.urls import reverse
 
-from events.models import AuditEvent, EventMembership, EventParticipant, InterviewStatus, MembershipRole
+from events.models import AuditEvent, EventMembership, EventParticipant, FollowUp, InterviewStatus, MembershipRole
+from people import flags
+from people.models import Person
 
 from .base import CampFixture
 from .test_ux_coordinator import give_interview
@@ -148,6 +152,104 @@ class AdminListFiltersTests(CampFixture):
         self.assertEqual(self.names("?q=5"), {"Lucía Torres Gómez", cabin.full_name})  # #0005, and the room "Cabaña 5"
         self.assertEqual(self.names("?q=%235"), {"Lucía Torres Gómez"})  # "#5" is the number only
         self.assertEqual(self.names("?q=05"), {"Lucía Torres Gómez", cabin.full_name})
+
+
+def main_of(response) -> str:
+    return response.content.decode().split("<main", 1)[1]
+
+
+class RedesignedCamperosTests(CampFixture):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        flags.set_enabled(cls.church, "community", True)
+        for user in (cls.admin, cls.tutor1):
+            Person.objects.create(church=cls.church, user=user, first_name=user.first_name, last_name=user.last_name)
+
+    def test_the_list_shows_authorization_apart_from_the_interview(self):
+        give_interview(self.p_minor_no_auth, InterviewStatus.COMPLETED)
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("participants")))
+        self.assertIn('<th scope="col"><span class="camperos__th">Autorización</span></th>', page)
+        row = re.search(r"<tr>.*?Lucía Torres Gómez.*?</tr>", page, re.DOTALL).group(0)
+        self.assertIn("Completada", row)
+        self.assertIn('<span class="chip chip--wait">Falta', row)
+        adult = re.search(r"<tr>.*?Diego Hernández Cruz.*?</tr>", page, re.DOTALL).group(0)
+        self.assertIn('<td class="camperos__autorizacion"></td>', adult)
+        authorized = re.search(r"<tr>.*?Mariana López Ruiz.*?</tr>", page, re.DOTALL).group(0)
+        self.assertIn("Autorizada", authorized)
+        self.assertIn('href="?autorizacion=falta"', page)
+        self.assertIn("Menores sin autorización <span class=\"count\">1</span>", page)
+
+    def test_only_the_administration_marks_rows(self):
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("participants")))
+        self.assertEqual(page.count("data-seleccion-fila"), 5)
+        self.assertIn(f'action="{self.url("participants_assign")}"', page)
+        self.assertIn("César Dos · 1", page)  # each coordinator with the camperos it has now
+        self.client.force_login(self.tutor1)
+        page = main_of(self.client.get(self.url("participants")))
+        self.assertNotIn("data-seleccion", page)
+        self.assertNotIn(self.url("participants_assign"), page)
+        self.assertNotIn("Sin coordinador <span", page)  # a tutor's list never has a campero without one
+
+    def test_nobody_matches(self):
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("participants") + "?q=zzzz&orden=edad"))
+        self.assertIn("Nadie coincide", page)
+        self.assertIn('href="?orden=edad&amp;dir=asc">Quitar filtros</a>', page)
+        self.assertNotIn("Importar", page.split("Nadie coincide", 1)[1].split("</section>", 1)[0])
+
+    def test_the_home_puts_risk_first_then_minors_then_the_assignment(self):
+        FollowUp.objects.create(event=self.event, participant=self.p2, kind=FollowUp.Kind.SAFETY, reason=FollowUp.Reason.TALK_TO_LEADER, created_by=self.coord1)
+        unassigned = EventParticipant.objects.create(event=self.event, number=20, full_name="Nadia Sin Coordinador", age=20, room="7", church_group="X")
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("admin_home")))
+        risk = page.index("Situación de riesgo abierta")
+        minors = page.index("Menor sin autorización registrada")
+        sign = page.index("Asigna coordinador a 1 campero")
+        self.assertLess(risk, minors)
+        self.assertLess(minors, sign)
+        self.assertIn(f'href="{self.url("participants")}?autorizacion=falta"', page)
+        self.assertIn(f'name="coordinador-{unassigned.public_id}"', page)
+        self.assertNotIn("figures__alert", page)  # the risk is a decision, not a tile
+        fragment = self.client.get(self.url("admin_home"), HTTP_X_REQUESTED_WITH="fetch").content.decode()
+        self.assertIn(f'name="coordinador-{unassigned.public_id}"', fragment)
+        self.assertNotIn("<html", fragment)
+        self.assertNotIn("Ver los", page)
+
+    def test_the_home_lists_ten_and_leads_to_the_rest(self):
+        for n in range(11):
+            EventParticipant.objects.create(event=self.event, number=60 + n, full_name=f"Persona {n:02d} Sin Coordinador", age=20, room=str(n), church_group="X")
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("admin_home")))
+        self.assertEqual(len(re.findall(r'name="coordinador-[0-9a-f-]{36}"', page)), 10)
+        self.assertIn(f'href="{self.url("participants")}?coordinador=ninguno">Ver los 11</a>', page)
+
+    def test_the_record_says_the_authorization_and_asks_before_erasing(self):
+        give_interview(self.p_minor_no_auth, InterviewStatus.COMPLETED)
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("participant_detail", self.p_minor_no_auth.public_id)))
+        self.assertIn("Entrevistado sin autorización vigente", page)
+        self.assertIn(f'href="{self.url("guardian_authorization", self.p_minor_no_auth.public_id)}">Marcar como recibida</a>', page)
+        self.assertEqual(page.count("Marcar como recibida"), 1)
+        self.assertIn(f'<a class="btn btn--danger-outline" href="{self.url("participant_delete", self.p_minor_no_auth.public_id)}">Eliminar sus datos</a>', page)
+        page = main_of(self.client.get(self.url("participant_detail", self.p1.public_id)))
+        self.assertIn("Autorizada", page)
+        self.assertNotIn("sin autorización vigente", page)
+
+    def test_with_the_module_off_none_of_it_is_served(self):
+        flags.set_enabled(self.church, "community", False)
+        self.client.force_login(self.admin)
+        page = main_of(self.client.get(self.url("participants")))
+        self.assertNotIn("data-seleccion", page)
+        self.assertNotIn("camperos__", page)
+        self.assertIn('<form method="get" class="filter-bar admin-people__filters"', page)
+        record = main_of(self.client.get(self.url("participant_detail", self.p_minor_no_auth.public_id)))
+        self.assertIn('<p class="more"><a href="' + self.url("participant_delete", self.p_minor_no_auth.public_id) + '">Eliminar sus datos</a></p>', record)
+        self.assertNotIn("ficha__", record)
+        home = main_of(self.client.get(self.url("admin_home")))
+        self.assertNotIn("admin-esperan", home)
 
 
 class CoordinatorLoadTests(CampFixture):
