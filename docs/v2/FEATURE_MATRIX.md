@@ -1,52 +1,87 @@
-# Feature fit matrix
+# Feature fit matrix — reviewed 2026-11-18
 
-State of Emmaus on branch `v2/slice-1-camp-to-group` (2026-11-17) against the blueprint's pillars.
-**Status**: Present / Partial / Missing / Not planned. **Effort** as in the roadmap (S ≤ one session,
-M two to three, L a week, XL more). Roadmap IDs refer to `docs/audits/EMMAUS_EVOLUTION_ROADMAP.md` §7.
+This replaces the 2026-11-17 snapshot. **Implemented means source exists**, not deployed or newly
+tested here. Stable `main` at `75d42ddc9b9e5698cbd46b02dd54e7baf7fd9246` contains camp operations and
+optional discipleship. The table describes **v2/foundation at
+`519e7389ab7d3b58b20447e80d1a22679a6d100b`**. Production, SMTP and host state were not inspected.
 
-**External reference.** The Subsplash column says what its public product pages described when read
-on 2026-11-17 through a summarising fetch (paraphrased, not checked against the raw pages).
-ChurchSuite's site refused automated reading (HTTP 403), so that column is **unverified** everywhere:
-it needs a manual read. Nothing here is copied from either product.
+Priorities are sequencing, not authorization: P0 release prerequisite; P1 next scoped work;
+P2 later depth; P3 optional/platform work. Existing accepted ADRs and safety approvals still govern.
+Relative effort: S one session, M several, L many, XL substantial. Epics require bounded child issues.
+See [review and issue decisions](CAPABILITY_REVIEW_2026-11-18.md) and the
+[current roadmap](../audits/EMMAUS_EVOLUTION_ROADMAP.md#current-priorities--2026-11-18).
 
-| Capability | Emmaus | Pri | Effort / risk | Depends on | Subsplash (public pages) | ChurchSuite |
-|---|---|---|---|---|---|---|
-| Church = tenant, sede = campus | **Present** (`core.Church`, `events.Sede`; isolation tested by guessed id) | P0 | — | — | multi-campus mentioned, no detail | unverified |
-| Person independent of account and event | **Present** (`people.Person`, backfill, sede affiliation) | P0 | — | — | unified profiles, custom fields, import, merge | unverified |
-| Scoped roles (church / event / group) | **Present** (`core/authz.has_scope`, `access.RoleAssignment` for groups) | P0 | — | — | not described | unverified |
-| Camp record ↔ person, history kept | **Partial**: linked one by one after the event; lost at the 365-day purge (Q-C1) | P0 | S / decision | owner | n/a | n/a |
-| Per-church module flags + kill switch | **Present** | P0 | — | — | n/a | n/a |
-| Church-level audit log | **Partial**: written; no screen to read it yet | P1 | S / low | — | not described | unverified |
-| Member home ("Mi iglesia") | **Present**: groups, requests, upcoming events, camp history | P1 | — | — | member app home | unverified |
-| Small groups: directory, join request, guide approval | **Present** | P1 | — | — | group finder, join requests, visibility, limits | unverified |
-| Group meetings and attendance | **Missing** (only the weekly day and the next date) | P1 | M / medium | groups | attendance tracking, leader mobile tools | unverified |
-| People directory for staff | **Partial**: list, search, record, account; no visibility by consent, no merge | P1 | M / medium | — | profiles, households | unverified |
-| Households, guardians | **Missing** | P2 | L / high (minors) | Q-C2, #59 | households linking parents and children | unverified |
-| Events beyond the camp; public registration | **Missing** (`Event.kind` exists; every event is a camp inside) | P1 | L / high | P3-8, #61 | registration, limits, paid tickets | unverified |
-| Event programme, notices, map, workshops | **Missing** | P1 | M each | #55–#58 | add-to-calendar only | unverified |
-| Check-in | **Missing** | P2 | L | events | QR kiosks, tags, security PINs | unverified |
-| Camp hierarchy, live questionnaires, presentation mode, privacy-suppressed reports | **Present** (v1, unchanged) | P0 | — | — | forms only; no equivalent described | unverified |
-| Follow-up tasks / workflows | **Partial**: two separate lists (camp `FollowUp`, discipleship `FollowUpRequest`); no board | P2 | L / high | P3-4 | Kanban boards, owners, due dates, automations | unverified |
-| Notifications and consent-led e-mail | **Partial**: content-free notices (`core/notify.py`); no preferences, no notification centre | P1 | M | SMTP on the host | push, chat, e-mail, SMS | unverified |
-| Announcements | **Missing** | P1 | M | #57 | push announcements | unverified |
-| Discipleship paths, lessons, questions to a mentor | **Present** (v1 module, per-church flag) | P2 | — | — | not described | unverified |
-| Sermons / media library | **Missing**; plan is links to an external host | P2 | M / low | P3-6 | upload once, publish everywhere; live streaming | unverified |
-| Prayer requests | **Missing** | P2 | M / high (privacy) | — | not found | unverified |
-| Forms builder | **Partial**: the camp questionnaire engine (versions, conditions, sensitivity levels) | P2 | L | — | custom forms triggering workflows | unverified |
-| Volunteers, service planning | **Missing** | P2 | L | P3-5 | plans, scheduling, accept/decline | unverified |
-| Photos, highlights, post-event feedback, FAQ | **Missing** | P2 | M each / consent | #54, #55, #60 | not found | unverified |
-| Giving / payments | **Missing**, not started on purpose | P3 | XL / legal review | provider research | online, in-app and text giving | unverified |
-| WhatsApp channel | **Missing** | P3 | L / consent, templates | notifications | not found | unverified |
-| Tenant provisioning, branding, import/export | **Partial**: per-church theme and logo; CSV export of camperos; one church per install in practice | P3 | L / high | P4-1, P4-2 | CSV import | unverified |
-| Native apps, TV, site builder, own streaming | **Not planned** (responsive web first) | P4 | XL | usage | branded apps, TV, site builder | unverified |
-| Spanish-first product | **Present**: every screen in Mexican Spanish, tú voice | P0 | — | — | not found on the pages read | unverified |
-| Safeguarding of minors' data | **Partial**: confidential levels, audited access, guardian authorisation at the camp; guardian confirmation before a minor's account | P0 | — | Q-C2 | not a named feature | unverified |
+## ChurchSuite module coverage
 
-## What sets Emmaus apart
+Official public documentation was read on 2026-11-18; these are vendor claims, not a signed-in trial.
+Every ChurchSuite module is covered below; similar names do not establish equivalent scope.
 
-- A camp role, a church role and a group role are separate facts with separate ends; nothing
-  carries over when a context ends.
-- Sensitive answers have field-level visibility with an audited, explicit grant; reports shown to a
-  room suppress small groups.
-- A notice never carries a name or an answer, and a screen never says an e-mail went out when none did.
-- Linking a youth's camp record to their person is a decision a human makes, never a name match.
+| Reference module | Emmaus v2 status and source | Remaining capability / tracking | Priority; effort / risk |
+|---|---|---|---|
+| [Address Book](https://churchsuite.com/tour/address-book/) | **Partial**: [Person, campuses, account and explicit camp links][people]; staff directory/search and own contact edits | Reviewed person import/export/merge, fields/tags/key dates, membership lifecycle, opt-in member directory [#91](https://github.com/AdrianRomo/Emmaus/issues/91); households/verified guardians [#59](https://github.com/AdrianRomo/Emmaus/issues/59) | P1; L / high |
+| [Children](https://churchsuite.com/tour/children/) | **Partial safeguards**: [age verification and event-specific authorization][agenda]; no child ministry/household domain | Guardian verification/revocation, child logistics, age groups/promotion and restricted emergency/medical needs [#59](https://github.com/AdrianRomo/Emmaus/issues/59)/[#75](https://github.com/AdrianRomo/Emmaus/issues/75); pickup [#85](https://github.com/AdrianRomo/Emmaus/issues/85); photos [#60](https://github.com/AdrianRomo/Emmaus/issues/60) | P1 gated; L / high |
+| [Bookings](https://churchsuite.com/tour/bookings/) | **Missing**: media `resources` and agenda places are not room/equipment reservations | Rooms/assets, clashes, setup buffers, approval, booking questions and reports [#94](https://github.com/AdrianRomo/Emmaus/issues/94) | P2; L / medium |
+| [Small Groups](https://churchsuite.com/tour/small-groups/) | **Implemented basics**: [discovery, joining/approval, guides, meetings, attendance, rhythms][groups] | Capacity/advanced directory/embeds [#91](https://github.com/AdrianRomo/Emmaus/issues/91); messaging [#96](https://github.com/AdrianRomo/Emmaus/issues/96); retention approval [#76](https://github.com/AdrianRomo/Emmaus/issues/76) | P1–P2; M / medium |
+| [Rotas](https://churchsuite.com/tour/rotas/) | **Partial**: [serving teams/dates, assignments, accept/decline, unavailability and clash checks][serving] | Repeating team rotations, role slots, swaps, reminders, eligibility/training records [#95](https://github.com/AdrianRomo/Emmaus/issues/95) | P2; L / medium |
+| [Calendar](https://churchsuite.com/tour/calendar/) | **Partial**: [simple events, public information, programme/FAQ, member signup, attendance, waiting lists, walkups][agenda] | Series/recurrence, feeds/embeds, anonymous visitor signup, ticket types/questions [#93](https://github.com/AdrianRomo/Emmaus/issues/93); families [#59](https://github.com/AdrianRomo/Emmaus/issues/59); payments [#86](https://github.com/AdrianRomo/Emmaus/issues/86); staff leave [#93](https://github.com/AdrianRomo/Emmaus/issues/93) | P2; L / high |
+| [Giving](https://churchsuite.com/tour/giving/) | **Missing**: [Mexico discovery draft][giving], no donation collection | Hosted payment go/no-go first; funds/campaigns, recurring gifts/pledges, reconciliation, refunds, statements and restricted finance access only if approved [#86](https://github.com/AdrianRomo/Emmaus/issues/86) | P3 / last of ADR 0014 modules; XL / high |
+| [Planning](https://churchsuite.com/tour/planning/) | **Partial adjacent tools**: event programme and serving dates; no service-order/music domain | Timed service order, responsibility, reusable items, song/chord/file library, usage and rights records [#95](https://github.com/AdrianRomo/Emmaus/issues/95) | P2; L / medium |
+| [Attendance](https://churchsuite.com/tour/attendance/) | **Partial**: [group meetings/attendance][groups], event attendance, camp cutoffs; [aggregate pastoral Panorama][overview] | Gathering/service headcounts and trends [#93](https://github.com/AdrianRomo/Emmaus/issues/93); approved retention and subtraction-safe suppression [#76](https://github.com/AdrianRomo/Emmaus/issues/76)/[#80](https://github.com/AdrianRomo/Emmaus/issues/80). No named pastoral attendance | P0 policy, P2 depth; M / high |
+| [Network](https://churchsuite.com/tour/network/) | **Missing** organisation/network directory; Church and Sede are not this domain | Organisation records/roles/maps and explicitly consented network communication [#98](https://github.com/AdrianRomo/Emmaus/issues/98); separate from SaaS tenancy | P3 conditional; XL / high |
+
+## Cross-module and Subsplash / Planning Center coverage
+
+| Capability | Emmaus v2 status / practical limit | Remaining work / issue |
+|---|---|---|
+| Church/event/group/ministry scope | **Implemented** [authorization projection][authz]; session church switching incomplete | P0 before church two: [#32](https://github.com/AdrianRomo/Emmaus/issues/32) then [#37](https://github.com/AdrianRomo/Emmaus/issues/37); tenant tests do not prove usable multi-church switching |
+| Member home, account and data | **Implemented basics** [Mi iglesia, profile, group requests][groups] | Directory/household privacy [#91](https://github.com/AdrianRomo/Emmaus/issues/91)/[#59](https://github.com/AdrianRomo/Emmaus/issues/59) |
+| Church module flags and audit | **Implemented** [flags][flags], [audit helper][audit], policy settings; audit viewing/portability not fully established | Retention [#76](https://github.com/AdrianRomo/Emmaus/issues/76); permission review/support/export [#98](https://github.com/AdrianRomo/Emmaus/issues/98) |
+| Camp operations | **Implemented on main and v2** [interviews, hierarchy, confidential access, immutable reports/PDF and campero import][camp]; practice, team CSV enhancements and templates are v2 additions | Resilience [#45](https://github.com/AdrianRomo/Emmaus/issues/45), runtime [#39](https://github.com/AdrianRomo/Emmaus/issues/39), location/workshops [#58](https://github.com/AdrianRomo/Emmaus/issues/58); camp-history survival after purge remains Q-C1, tracked [#91](https://github.com/AdrianRomo/Emmaus/issues/91) |
+| Discipleship | **Implemented legacy module** [paths, lessons, questions and mentor follow-up][core] | Person-based integration and permitted work queue [#92](https://github.com/AdrianRomo/Emmaus/issues/92); never score spirituality |
+| General forms | **Partial foundation**: camp questionnaire versions/conditions are not general church forms | Public/invited/anonymous forms, conditional actions and consent/versioning [#92](https://github.com/AdrianRomo/Emmaus/issues/92); no automatic person creation/merge by default |
+| Visitor/pastoral staff tasks | **Partial** [person owner/due/status/fixed steps][care]; camp and discipleship lists remain distinct | Permission-filtered common queue, stages/templates/history, explicit automation [#92](https://github.com/AdrianRomo/Emmaus/issues/92) |
+| Private prayer requests | **Missing**; fixed-reason care tasks are not member prayer intake | Leadership-approved private scope, response/escalation and retention [#97](https://github.com/AdrianRomo/Emmaus/issues/97); no public wall by default |
+| Announcements | **Implemented** [church/group notices, urgency, versioned acknowledgement, email preferences][notices] | Host delivery/alerts [#52](https://github.com/AdrianRomo/Emmaus/issues/52); public event audience and channel controls [#96](https://github.com/AdrianRomo/Emmaus/issues/96) |
+| Scheduled email | **Source implemented** [due sends, isolated jobs and heartbeats][scheduler]; real SMTP/configuration unknown | [#52](https://github.com/AdrianRomo/Emmaus/issues/52)/[#80](https://github.com/AdrianRomo/Emmaus/issues/80); do not promise delivery from source tests alone |
+| Anonymous parents' event updates | **Missing**; account preferences and a public FAQ do not subscribe visitors | Public per-event notice links first, then verified opt-in/unsubscribe/expiry [#96](https://github.com/AdrianRomo/Emmaus/issues/96) and [#59](https://github.com/AdrianRomo/Emmaus/issues/59); no child access |
+| Media, devotionals and reading plans | **Implemented** [linked media search/series/speaker, daily devotionals and private multi-day progress][resources] | Pastoral/content approval differs from admin rights checkbox [#99](https://github.com/AdrianRomo/Emmaus/issues/99); no Bible text ingestion or progress reporting |
+| Event feedback | **Implemented** [post-window/minimum-size feedback][feedback]; not every accountless camp survey use case | Keep optional contact separate; general forms [#92](https://github.com/AdrianRomo/Emmaus/issues/92) |
+| Public church home/mobile web | **Prototype implemented** [service times, address, public events/media, publication review][sitio] | Real two-church/visitor validation, SEO/editorial policy, optional live link [#87](https://github.com/AdrianRomo/Emmaus/issues/87) |
+| Household signup/guardian portal | **Missing**; authorization records do not establish verified relationships | [#59](https://github.com/AdrianRomo/Emmaus/issues/59), gated by [#75](https://github.com/AdrianRomo/Emmaus/issues/75); own-child logistics only, never answers/care/safety reports |
+| Children's check-in/out | **Missing**; camp kiosk and attendance are not custody handoff | [#85](https://github.com/AdrianRomo/Emmaus/issues/85) after [#59](https://github.com/AdrianRomo/Emmaus/issues/59)/[#75](https://github.com/AdrianRomo/Emmaus/issues/75); pickup authority/revocation, denial/offline procedure, badges/labels and live registers only after approved flow |
+| Moments and photos | **Missing** native gallery/moderation | [#60](https://github.com/AdrianRomo/Emmaus/issues/60); distinct image consent, reviewer, protected storage/EXIF/purge before uploads; links do not replace consent |
+| Paid registration | **Missing** | [#93](https://github.com/AdrianRomo/Emmaus/issues/93)/[#86](https://github.com/AdrianRomo/Emmaus/issues/86); capacity signup is not financial settlement |
+| API/webhooks/embeds and portability | **Missing general integration surface**; camp CSV is limited | [#98](https://github.com/AdrianRomo/Emmaus/issues/98); scopes, revocation, replay/failure, rights-aware export/import |
+| Provisioning and support | **Partial** setup/branding/flags, one church in practice | [#98](https://github.com/AdrianRomo/Emmaus/issues/98) after [#32](https://github.com/AdrianRomo/Emmaus/issues/32)/[#37](https://github.com/AdrianRomo/Emmaus/issues/37) and [#45](https://github.com/AdrianRomo/Emmaus/issues/45); time-limited audited support, tenant-two onboarding |
+| SMS, WhatsApp Business, push, group chat | **Deferred**; no automated external channels implied by email | [#96](https://github.com/AdrianRomo/Emmaus/issues/96); consent, cost, moderation/safeguarding and provider discovery first; manual sharing may be scoped separately |
+| Native mobile/TV/car apps, website builder, NFC | **Deferred** beyond responsive web | [#87](https://github.com/AdrianRomo/Emmaus/issues/87) discovers demonstrated visitor/member needs; do not confuse deferral with parity |
+| Owned media hosting, podcasts, streaming/casting | **Deferred**; external media links exist | [#87](https://github.com/AdrianRomo/Emmaus/issues/87); validate need, cost, rights and operations before infrastructure |
+| AI data queries, sermon repurposing/personalisation | **Deferred** comparator capabilities, not accepted parity goals | [#87](https://github.com/AdrianRomo/Emmaus/issues/87) captures product demand only; any later proposal requires separate content/privacy review. Sensitive answers stay out of AI; no spiritual scoring |
+
+Sources: [ChurchSuite tour](https://churchsuite.com/tour/),
+[forms](https://support.churchsuite.com/article/589-forms),
+[flows](https://support.churchsuite.com/article/154-flows),
+[member access](https://support.churchsuite.com/article/385-my-churchsuite-user-guide),
+[API](https://churchsuite.com/api-and-json/),
+[Planning Center overview](https://help.planningcenter.com/en/179938-what-is-planning-center-.html),
+[Subsplash catalog](https://www.subsplash.com/products) and
+[workflows](https://www.subsplash.com/product/workflows).
+UK Gift Aid/DBS features do not establish Mexican tax/safeguarding requirements; [#86](https://github.com/AdrianRomo/Emmaus/issues/86)/[#75](https://github.com/AdrianRomo/Emmaus/issues/75) require local review.
+
+[people]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/people/models.py
+[agenda]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/agenda/models.py
+[groups]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/groups/models.py
+[overview]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/overview/services.py
+[serving]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/serving/services.py
+[giving]: discovery/giving-mexico.md
+[authz]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/core/authz.py
+[flags]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/people/flags.py
+[audit]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/people/audit.py
+[camp]: https://github.com/AdrianRomo/Emmaus/tree/519e7389ab7d3b58b20447e80d1a22679a6d100b/events
+[core]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/core/models.py
+[care]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/care/models.py
+[notices]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/notices/services.py
+[scheduler]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/core/scheduler.py
+[resources]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/resources/models.py
+[feedback]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/feedback/models.py
+[sitio]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/sitio/models.py
