@@ -466,7 +466,7 @@ class TeamRequestsTests(JoinFixture):
         self.assertEqual(person.first_name, "Yara")
         self.assertTrue(EventMembership.objects.filter(event=self.event, user=person, role="tutor").exists())
         messages = [str(m) for m in response.wsgi_request._messages]
-        self.assertEqual(messages, ["Yara Tiene ya forma parte del equipo. Puede entrar con su contraseña de siempre."])
+        self.assertEqual(messages, ["Yara Tiene ya forma parte del equipo. Ya tiene cuenta en Emmaus: le avisamos por correo."])  # issue #50, review
 
     def test_a_removed_membership_comes_back_instead_of_a_second_one(self):
         EventMembership.objects.filter(pk=self.m_care.pk).update(is_active=False)  # had confidential access
@@ -735,14 +735,16 @@ class MemberAddUnchangedTests(JoinFixture):
             "full_name": "Otro Nombre", "email": "YA@cuenta.mx", "role": "tutor", "team_name": "Equipo Este", "can_view_sensitive": "on",
         })
         self.assertRedirects(response, self.url("team"), fetch_redirect_response=False)
-        self.assertEqual([str(m) for m in response.wsgi_request._messages], ["Yolanda Antes ya forma parte del equipo. Puede entrar con su contraseña de siempre."])
+        self.assertEqual([str(m) for m in response.wsgi_request._messages], ["Yolanda Antes ya forma parte del equipo. Ya tiene cuenta en Emmaus: le avisamos por correo."])
         membership = EventMembership.objects.get(event=self.event, user__email="ya@cuenta.mx")
         self.assertEqual((membership.role, membership.team_name, membership.can_view_sensitive), ("tutor", "Equipo Este", True))
         self.assertEqual(self.audits(), [
             ("integrante_agregado", "Agregó a Yolanda Antes como tutor"),
             ("acceso_confidencial", "Otorgó acceso confidencial a Yolanda Antes"),
         ])
-        self.assertEqual(len(mail.outbox), 0)
+        # Issue #50, review: an account that already existed is told at its own address, with no link in it
+        self.assertEqual([m.to for m in mail.outbox], [["ya@cuenta.mx"]])
+        self.assertNotIn("/cuenta/contrasena/", mail.outbox[0].body)
 
 
 # ---- Refuter round: who the request names, lengths, blank codes, revoking, abuse bounds ----------
@@ -823,17 +825,18 @@ class ExistingAccountTests(JoinFixture):
         self.assertEqual(resolve_access(foreign, self.event).role, "tutor")
 
     @override_settings(EMAIL_BACKEND=LOCMEM)
-    def test_an_account_that_never_set_a_password_gets_the_link(self):
+    def test_an_account_that_never_set_a_password_is_told_and_gets_no_link(self):
+        """Issue #50, review: this used to show the link on screen; anybody can type anybody's e-mail in a request."""
         person = User.objects.create_user(username="sin.clave@prueba.mx", email="sin.clave@prueba.mx", first_name="Sina", last_name="Clave")
         person.set_unusable_password()
         person.save()
         request = self.pending(email="sin.clave@prueba.mx", name="Sina Clave")
         self.login(self.admin)
         response = self.client.post(self.url("access_request_approve", request.pk), {"role": "tutor"})
-        self.assertTemplateUsed(response, "events/admin/member_created.html")
-        self.assertContains(response, "Sina Clave ya forma parte del equipo. Le enviamos un correo para crear su contraseña.")
-        self.assertNotContains(response, "contraseña de siempre")
+        self.assertRedirects(response, self.url("team"), fetch_redirect_response=False)
+        self.assertEqual([str(m) for m in response.wsgi_request._messages], ["Sina Clave ya forma parte del equipo. Ya tiene cuenta en Emmaus: le avisamos por correo."])
         self.assertEqual(mail.outbox[0].to, ["sin.clave@prueba.mx"])
+        self.assertNotIn("/cuenta/contrasena/", mail.outbox[0].body)
         self.assertEqual(User.objects.filter(email="sin.clave@prueba.mx").count(), 1)
 
     def test_a_racing_account_creation_ends_in_one_membership(self):

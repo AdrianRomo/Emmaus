@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import timedelta
 
 from django import forms
 from django.contrib import messages
@@ -497,10 +498,16 @@ def participant_delete(request, event, access, public_id):
 
 
 def _managed_elsewhere(event, user) -> bool:
-    """A superuser, or an account with a role or a team in another church: this administration does not own it."""
+    """A superuser, or an account with a role, a team or a person's record in another church: this administration
+    does not own it. The last one is the account another church gave a plain member (``people.grant_access``):
+    it has no role and no team anywhere, and maybe no password yet."""
+    from people.models import Person
+
     if user.is_superuser:
         return True
     if UserChurchRole.objects.filter(user=user).exclude(church_id=event.church_id).exists():
+        return True
+    if Person.objects.filter(user=user).exclude(church_id=event.church_id).exists():
         return True
     return EventMembership.objects.filter(user=user).exclude(event__church_id=event.church_id).exists()
 
@@ -513,7 +520,18 @@ def _can_issue_activation_link(event, user) -> bool:
     """
     if user.has_usable_password() or user.is_staff:
         return False
-    return not _managed_elsewhere(event, user)
+    if _managed_elsewhere(event, user):
+        return False
+    # "Created here": ``team.add_member`` makes the account and its first membership in one transaction. An account
+    # that was already there when it joined a team, or that the church keeps in Personas (which gives its own link,
+    # to the church's administration), is its owner's: the event's administration never makes a link to it.
+    from people.models import Person
+
+    if Person.objects.filter(user=user).exists():
+        return False
+    return EventMembership.objects.filter(
+        user=user, event__church_id=event.church_id, created_at__lte=user.date_joined + timedelta(seconds=10)
+    ).exists()
 
 
 def _activation_link(request, user) -> str:
@@ -523,9 +541,10 @@ def _activation_link(request, user) -> str:
 
 
 def _invite(request, event, user) -> tuple[str, bool, bool]:
-    """The one invitation path of an event team ("Agregar persona", an approved request, the team import): a fresh
-    link to create the password, sent by e-mail when e-mail is configured. Returns (link, sent, configured); the
-    caller says an e-mail went out only when ``sent``."""
+    """The invitation of an account created in this very request ("Agregar persona", an approved request, the team
+    import): a fresh link to create the password, sent by e-mail when e-mail is configured. Returns (link, sent,
+    configured); the caller says an e-mail went out only when ``sent``. Never for an account that already existed:
+    that is ``_tell_existing_account``."""
     created_link = _activation_link(request, user)
     configured = team_svc.email_is_configured()
     sent = configured and send_email_safely(
@@ -536,14 +555,36 @@ def _invite(request, event, user) -> tuple[str, bool, bool]:
     return created_link, bool(sent), configured
 
 
-def _member_added(request, event, added):
-    """After "Agregar persona" or an approved request: a new account gets its link (by e-mail and on screen).
+def _tell_existing_account(request, event, membership) -> bool:
+    """An account that existed before this request was added to the team: tell its owner, at the account's own
+    address, and nothing else. No link to create a password is made for it, by e-mail or on screen: whoever typed
+    the address does not own the account (it may be another church's, with no password yet). The owner signs in,
+    or uses "¿Olvidaste tu contraseña?", which also serves an account that never had one. True if the e-mail went."""
+    user = membership.user
+    if not (team_svc.email_is_configured() and user.email):
+        return False
+    sign_in = request.build_absolute_uri(reverse("login"))
+    return bool(send_email_safely(
+        f"Te invitaron a {event.name} en Emmaus",
+        f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}, como {membership.get_role_display().lower()}. "
+        f"Entra con tu cuenta de Emmaus:\n{sign_in}\n\nSi todavía no tienes contraseña o la olvidaste, toca "
+        "«¿Olvidaste tu contraseña?» en esa pantalla.\n\nSi no esperabas este correo, ignóralo.",
+        [user.email],
+    ))
 
-    An existing account that never set a password gets the link too, when ``_can_issue_activation_link``
-    allows it; otherwise it could never sign in. The message says an e-mail went out only when one could.
-    """
+
+EXISTING_TOLD = "Ya tiene cuenta en Emmaus: le avisamos por correo."
+EXISTING_NOT_TOLD = ("Ya tiene cuenta en Emmaus, pero no pudimos enviarle la invitación. Avísale tú: entra con su "
+                     "contraseña o la recupera en «¿Olvidaste tu contraseña?», en la pantalla de entrada.")
+
+
+def _member_added(request, event, added):
+    """After "Agregar persona" or an approved request. Only an account created in this request gets its link on
+    screen (and by e-mail). An account that already existed, in this church or another, with or without a
+    password, is told by e-mail and never gets a link here: showing one would hand the account to whoever typed
+    its address. The message says an e-mail went out only when one did."""
     membership, user = added.membership, added.user
-    if added.is_new or _can_issue_activation_link(event, user):
+    if added.is_new:
         created_link, sent, configured = _invite(request, event, user)
         if sent:
             delivery = " Le enviamos un correo para crear su contraseña."
@@ -561,16 +602,9 @@ def _member_added(request, event, added):
             "email_sent": bool(sent),
         }
         return render(request, "events/admin/member_created.html", context)
-    if _managed_elsewhere(event, user) or (user.is_staff and not user.has_usable_password()):
-        # Its link may only go to its owner's e-mail, and this administration may not learn whether it has a
-        # password: one message, with or without one.
-        messages.success(
-            request,
-            f"{membership.display_name} ya forma parte del equipo. Esta cuenta ya existe y la administra otra iglesia "
-            "o el sistema; pide a esa administración que le dé acceso.",
-        )
-        return redirect("events:team", slug=event.slug)
-    messages.success(request, f"{membership.display_name} ya forma parte del equipo. Puede entrar con su contraseña de siempre.")
+    told = _tell_existing_account(request, event, membership)
+    text = f"{membership.display_name} ya forma parte del equipo. {EXISTING_TOLD if told else EXISTING_NOT_TOLD}"
+    (messages.success if told else messages.warning)(request, text)
     return redirect("events:team", slug=event.slug)
 
 
