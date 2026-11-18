@@ -173,7 +173,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .rail__who-text { display: grid; min-width: 0; line-height: 1.3; }
 .rail__who-name { font-size: var(--t-small); font-weight: 600; overflow-wrap: anywhere; }
 .rail__who-role { font-size: var(--t-caption); color: var(--ink-2); }
-.rail__quiet { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--s-1); }
+.rail__quiet { display: grid; gap: 0; }
 .rail__quiet form { margin: 0; }
 .rail__quiet .rail__link { font-size: var(--t-caption); color: var(--ink-2); }
 .rail__quiet .rail__link .icon { width: 1.25rem; height: 1.25rem; }
@@ -208,7 +208,6 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 
 @media (max-width: 1100px) {
   :root[data-ui="2"] { --rail-w: 15rem; }
-  .rail__quiet { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 @media (max-width: 760px) {
   body:has(> .rail) { display: block; }
@@ -285,7 +284,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 }
 .page--app .heading + * { margin-top: var(--s-4); }
 .page--app .block + .block { margin-top: var(--s-8); }
-.heading-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-1) var(--s-4); }
+.heading-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-1) var(--s-4); }
 .heading-row + * { margin-top: var(--s-4); }
 /* The link beside a heading keeps a 44px target without making the heading row taller than the heading */
 .heading-row a { display: inline-flex; align-items: center; min-height: 2.75rem; margin-block: -0.75rem; font-size: var(--t-small); font-weight: 600; color: var(--mark); text-decoration: none; }
@@ -552,12 +551,14 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .evento__titulo a:hover { text-decoration: underline; text-underline-offset: 0.18em; }
 .evento__donde { font-size: var(--t-small); color: var(--ink-2); }
 .evento__pie { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3); margin-top: var(--s-3); }
+/* From a tablet the action sits at the end, on the event's text, as in every row */
+@container (min-width: 36rem) {
+  .evento { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .evento__pie { grid-column: 3; grid-row: 1; align-self: center; margin-top: 0; }
+}
 .evento__pie .gente { flex: 1 1 12rem; }
 .evento > .arco { --w: var(--lead); }
-@media (min-width: 1100px) {
-  .evento__pie { grid-column: 2; justify-content: flex-start; gap: var(--s-6); }
-  .evento__pie .gente { flex: none; }
-}
+
 
 /* The day, drawn: weekday over the number. Only today is filled (ink). */
 .date-block {
