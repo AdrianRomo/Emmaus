@@ -139,7 +139,7 @@ def media_list(request):
     kinds = [{"value": value, "label": label, "count": counts[value]} for value, label in KIND_FILTERS if value in counts]
     if len(kinds) < 2:
         kinds = []
-    series = " ".join(request.GET.get("serie", "").split())[:120]
+    series = " ".join(request.GET.get("serie", "").replace("\x00", "").split())[:120]  # PostgreSQL refuses NUL in a text
     chosen = request.GET.get("tipo", "")
     if series or chosen not in {kind["value"] for kind in kinds}:
         chosen = ""

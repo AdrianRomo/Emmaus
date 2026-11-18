@@ -12,8 +12,9 @@ mixes tenants. This command finds them so drift is visible (roadmap P1-12, audit
   ``--ids`` adds one query for each check that found something.
 * The camp's tables come first (``camp_checks``), then the church modules added after the camp
   (``community_checks``): people, groups, notices, events of the church, resources, serving, care,
-  opinions and the roles by scope. ``policies.ChurchPolicy`` holds one church and nothing else:
-  there is nothing in it that could cross.
+  opinions, the public home and the roles by scope. ``policies.ChurchPolicy``,
+  ``sitio.PublicHome`` and ``sitio.ServiceTime`` hold one church and nothing else: there is
+  nothing in them that could cross.
 * Each check also reports how many rows it read: a zero next to zero rows read is not an all-clear.
 * Exit status 1 (``CommandError``) when any error-level check finds a row. The ``Person`` check is a
   warning: it is reported and never fails the run.
@@ -38,8 +39,9 @@ from feedback.models import FeedbackGiven
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.models import CampusAffiliation, EventParticipantLink, Person
-from resources.models import DevotionalRead
+from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
 from serving.models import Assignment, Team, TeamMembership
+from sitio.models import PublicMedia
 
 ERROR = "error"
 WARNING = "warning"
@@ -60,7 +62,7 @@ class Check:
 @dataclass(frozen=True)
 class Result:
     check: Check
-    checked: int
+    checked: int | None  # None: a private table whose size is not printed
     mismatched: int
     ids: tuple = ()  # primary keys of the first rows that disagree, only with --ids
 
@@ -120,6 +122,13 @@ def community_checks() -> tuple[Check, ...]:
         # resources
         Check("devotional_read_person_church", "Lecturas de un devocional de otra iglesia", DevotionalRead, None,
               ~Q(person__church=F("devotional__church"))),
+        Check("reading_plan_progress_person_church", "Planes de lectura empezados por una persona de otra iglesia",
+              ReadingPlanProgress, None, ~Q(person__church=F("plan__church"))),
+        Check("reading_plan_day_read_plan", "Días leídos de un plan distinto al que la persona empezó", ReadingPlanDayRead, None,
+              ~Q(day__plan=F("progress__plan"))),
+        # the public home: a resource marked as public by a church it does not belong to
+        Check("public_media_item_church", "Recursos públicos marcados por otra iglesia", PublicMedia, None,
+              ~Q(item__church=F("church"))),
         # serving
         Check("team_membership_person_church", "Integrantes de un equipo de otra iglesia", TeamMembership, None,
               ~Q(person__church=F("team__church"))),
@@ -185,8 +194,13 @@ def collect(with_ids: bool = False) -> list[Result]:
         if with_ids and mismatched:
             mismatch = check.mismatch if check.applies is None else check.applies & check.mismatch
             ids = tuple(check.model._base_manager.filter(mismatch).order_by("pk").values_list("pk", flat=True)[:ID_LIMIT])
-        results.append(Result(check, counts[f"{check.key}_checked"], mismatched, ids))
+        # What a person reads is theirs alone: the size of those tables is not printed, even to who operates Emmaus.
+        checked = None if check.key in PRIVATE_SIZES else counts[f"{check.key}_checked"]
+        results.append(Result(check, checked, mismatched, ids))
     return results
+
+
+PRIVATE_SIZES = frozenset({"devotional_read_person_church", "reading_plan_progress_person_church", "reading_plan_day_read_plan"})
 
 
 class Command(BaseCommand):
@@ -248,7 +262,7 @@ class Command(BaseCommand):
         self.stdout.write("Integridad entre iglesias y eventos (solo lectura, solo conteos)")
         self.stdout.write(f"  {'Revisión':<{width}}  {'Revisados':>9}  {'Discrepancias':>13}  Estado")
         for r in results:
-            self.stdout.write(f"  {label(r):<{width}}  {r.checked:>9}  {r.mismatched:>13}  {status(r)}")
+            self.stdout.write(f"  {label(r):<{width}}  {"—" if r.checked is None else r.checked:>9}  {r.mismatched:>13}  {status(r)}")
             if r.ids:
                 more = "" if r.mismatched <= len(r.ids) else f" (los primeros {len(r.ids)})"
                 table = r.check.model._meta.label

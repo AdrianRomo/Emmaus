@@ -94,7 +94,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", default="", help="Contraseña de las cuentas (o EMMAUS_DEMO_PASSWORD). Nunca se muestra.")
-        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante y un evento terminado con opiniones.")
+        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones y la página pública de la iglesia, publicada.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
     def handle(self, *args, **opts):
@@ -181,6 +181,70 @@ class Command(BaseCommand):
                        ("bien", "si", ""), ("muy_bien", "si", "Que se repita."))
             for rating, recommend, comment in answers:
                 EventFeedback.objects.create(event=ended, rating=rating, recommend=recommend, comment=comment)
+        self._public_home(church, admin, event)
+
+    def _public_home(self, church, admin, simple_event) -> None:
+        """The church's public home (issue #87), published: a welcome, two times, where and how to ask, one
+        resource marked as public, and the simple event (and the night of worship) with their public pages."""
+        from agenda import services as agenda
+        from agenda.models import EventPage
+        from resources.models import MediaItem
+        from sitio import services as sitio
+        from sitio.models import ServiceTime
+
+        if not church.contact_email:
+            church.contact_email = "contacto@demo.invalid"
+            church.save(update_fields=["contact_email"])
+        sitio.save_home(
+            church, admin, welcome="Somos una iglesia de barrio. Si es tu primera vez, llega como eres: te esperamos en la entrada.",
+            address="Av. de los Olivos 120, Col. Jardines\nCiudad de México", map_url="https://maps.example.invalid/iglesia-demo",
+            contact_phone="55 5550 0100",
+        )
+        if not ServiceTime.objects.filter(church=church).exists():
+            sitio.save_time(church, admin, weekday=ServiceTime.Weekday.SUNDAY, time=time(11, 0), name="Reunión general", place="Templo principal")
+            sitio.save_time(church, admin, weekday=ServiceTime.Weekday.WEDNESDAY, time=time(19, 30), name="Oración y estudio", place="Salón 2")
+        item = MediaItem.objects.filter(church=church, status=MediaItem.Status.PUBLISHED).order_by("-date", "-id").first()
+        if item is not None:
+            sitio.show_media(item, admin)
+        night = Event.objects.filter(church=church, slug="noche-de-alabanza-demo").first()
+        for event in filter(None, (simple_event, night)):
+            if not EventPage.objects.filter(event=event, public=True).exists():
+                agenda.save_page(event, admin, public=True)
+        content = sitio.page_content(church)
+        if not content.home.published:
+            sitio.publish(church, admin, content.digest())
+
+        self._reading_plan(church, admin)
+
+    def _reading_plan(self, church, admin) -> None:
+        """One published three-day plan, written for this demo: references and our own words, no Bible text."""
+        from resources import plans
+        from resources.models import ReadingPlan
+
+        if ReadingPlan.objects.filter(church=church).exists():
+            return
+        plan = plans.save_plan(
+            church, admin, title="Tres días para permanecer",
+            description="Tres lecturas cortas del evangelio de Juan para empezar el día con calma.",
+            author_line="Preparado por el equipo pastoral",
+        )
+        days = (
+            ("La vid y las ramas", "Juan 15:1-8",
+             "Una rama no se esfuerza por dar fruto: lo da porque está unida a la vid.\n\n"
+             "Antes de pensar en todo lo que tienes que hacer hoy, piensa en con quién lo vas a hacer.",
+             "¿En qué parte de tu día te cuesta más acordarte de que no vas solo?"),
+            ("Permanecer en su amor", "Juan 15:9-17",
+             "Jesús habla de amigos, no de empleados. A un amigo se le cuenta lo que pasa y se le escucha.\n\n"
+             "Hoy busca un momento sin prisa para hablar con él como hablas con alguien que te quiere.",
+             "¿A quién de tu iglesia podrías tratar hoy como amigo y no solo como conocido?"),
+            ("La paz que deja", "Juan 14:25-31",
+             "La paz de la que habla este pasaje no depende de que todo salga bien. Es saber que alguien se queda contigo.\n\n"
+             "Si algo te preocupa hoy, dilo en voz baja y déjalo un rato en sus manos.",
+             "¿Qué preocupación puedes soltar hoy, aunque sea por unas horas?"),
+        )
+        for title, reference, reflection, question in days:
+            plans.save_day(plan, admin, title=title, reference=reference, reflection=reflection, question=question)
+        plans.publish_plan(plan, admin, confirmed=True)
 
     def _panorama(self, church, admin, password) -> None:
         """What "Panorama" counts: a pastor, the groups of PANORAMA_GROUPS with their lists, a finished event with

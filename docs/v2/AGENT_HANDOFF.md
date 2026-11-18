@@ -7,8 +7,8 @@ Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rul
 | Branch | Base | Holds | State |
 |---|---|---|---|
 | `v2/foundation` | | Everything through wave 4: pull requests #73, #74 and #78 are merged | The base. Never merged into `main`; nothing is deployed |
-| `v2/wave-7` | `v2/foundation` (waves 1 to 6 merged: #73, #74, #78, #79, #81) | Serving through `has_scope` (decision 0016), integrity checks, the member's welcome, pagination, "Ahora y después" | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate in `PROGRESS.md`; its pull request is named there |
-| older `v2/redesign-*`, `v2/wave-4-*`, `v2/wave-5-*`, `v2/wave-6*`, `v2/wave-7-<slice>` | | Merged | Local only; the worktrees and branches can be removed |
+| `v2/wave-8` | `v2/foundation` (waves 1 to 7 merged: #73, #74, #78, #79, #81, #82; and #88 from another session) | Reading plans (#84), the public home prototype (#87), scheduled notice e-mails with a heartbeat (#80), discovery drafts (#85, #86) | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate in `PROGRESS.md`; its pull request is named there |
+| older `v2/redesign-*`, `v2/wave-4-*`, `v2/wave-5-*`, `v2/wave-6*`, `v2/wave-7*`, `v2/wave-8-<slice>` | | Merged | Local only; the worktrees and branches can be removed |
 
 The owner said on 2026-11-18 to merge pull requests as needed. The rule followed: only into
 `v2/foundation`, only when the branch's required checks pass on the pull request (never with
@@ -72,7 +72,7 @@ unless the PR carries `risk:high`.
 |---|---|---|
 | `notices` | Avisos for the church or one group, with a date to appear, a date to expire and a read state | `notices.services.for_home`, `unread_count` |
 | `agenda` | `EventPage` beside `events.Event` (published, description, hour, sign-up, capacity) and `EventRegistration` (sign-up, attendance) | `agenda.services.upcoming_for` |
-| `resources` | `Devotional` (one per church and day) with a private read mark; `MediaItem` as links by series and speaker | `resources.services.today_devotional`, `latest_media` |
+| `resources` | `Devotional` (one per church and day) with a private read mark; `MediaItem` as links by series and speaker; `ReadingPlan` and its days (references and the church's own words, never Bible text; published only with the stored confirmation of authorship or permission) with a private progress (`ReadingPlanProgress`, `ReadingPlanDayRead`: no count, no admin page, not in the Django admin) | `resources.services.today_devotional`, `latest_media`, `resources.plans.current_for` |
 | `serving` | `Team`, `TeamMembership` (coordina / sirve), `ServiceDate`, `Assignment` (por confirmar / confirmó / no puede), `Unavailable` | `serving.services.my_dates`, `pending_count`, `has_teams` |
 | `overview` | "Panorama": totals for the church roles pastor and administration; no models | `overview.access.can_see_overview`, `overview.services.build` (10 queries) |
 | `feedback` | `EventFeedback` (random key, no person, day only) and `FeedbackGiven` (who answered, no date); results after 14 days and from 3 answers | `feedback.services.pending_for`, `results` |

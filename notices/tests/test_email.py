@@ -390,8 +390,15 @@ class NoticeEmailTests(CommunityFixture):
         self.assertContains(page, "Algunos correos no se pudieron enviar.")
         out = StringIO()
         with self.settings(EMAIL_BACKEND=LOCMEM):
+            # Not at once: a mail that failed waits before its next attempt (email.BACKOFF_MINUTES).
             call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=out)
-            call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
+            self.assertIn("correos enviados: 0 · no se pudieron enviar: 0 · quedan pendientes: 4", out.getvalue())
+            self.assertEqual(mail.outbox, [])
+            out = StringIO()
+            later = timezone.now() + timedelta(minutes=email.BACKOFF_MINUTES[0])
+            with mock.patch("django.utils.timezone.now", return_value=later):
+                call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=out)
+                call_command("send_notice_emails", "--apply", "--base-url", BASE, stdout=StringIO())
         self.assertIn("correos enviados: 4 · no se pudieron enviar: 0 · quedan pendientes: 0", out.getvalue())
         self.assertEqual(len(mail.outbox), 4)
         self.assertEqual(NoticeEmail.objects.filter(announcement=notice, outcome="sent").count(), 4)

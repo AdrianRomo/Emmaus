@@ -5,6 +5,7 @@ person (or the deadline) moves it."""
 
 from datetime import timedelta
 from io import StringIO
+from unittest import mock
 
 from django.core import mail
 from django.core.management import call_command
@@ -553,6 +554,95 @@ class ExpiryTests(WaitingFixture):
         self.released()
         self.assertEqual(ChurchAuditEvent.objects.filter(action="evento_lista_vencida").count(), 1)
         self.assertEqual(ChurchAuditEvent.objects.filter(action="evento_lista_oferta").count(), 2)
+
+    @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE.rstrip("/"))
+    def test_the_scheduler_pass_releases_offers_and_mails_the_next_one(self):
+        """Issue #80: nobody opens the event and nobody runs the command; the scheduler's pass does it."""
+        out = StringIO()
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("run_scheduled_jobs", stdout=out)
+        self.assertIn("lista de espera: 1 lugares liberados, 1 ofrecidos", out.getvalue())
+        for name in ("Gala", "Guía", "Pía", "Pidió", "Retiro", "@"):
+            self.assertNotIn(name, out.getvalue())
+        self.released()
+        self.assertEqual([(message.to, message.subject) for message in mail.outbox], [([self.asked.email], SUBJECT)])
+        again = StringIO()
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("run_scheduled_jobs", stdout=again)
+        self.assertIn("lista de espera: 0 lugares liberados, 0 ofrecidos", again.getvalue())
+        self.released()
+        self.assertEqual(len(mail.outbox), 1)
+
+    @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE.rstrip("/"))
+    def test_nothing_moves_in_a_church_whose_community_module_is_off(self):
+        """The scheduler and the command leave the list of a church without the module exactly as it is."""
+        from people import flags
+
+        flags.set_enabled(self.church, "community", False)
+        audits = ChurchAuditEvent.objects.count()
+        out = StringIO()
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("run_scheduled_jobs", stdout=out)
+            printed = self.run_command("--apply")
+        self.assertIn("lista de espera: 0 lugares liberados, 0 ofrecidos", out.getvalue())
+        self.assertIn("eventos con lugares ofrecidos vencidos: 0", printed)
+        self.assertIn("lugares ofrecidos vencidos: 0", self.run_command())
+        self.assertEqual((self.state(self.first), self.state(self.second)), (OFFERED, WAITING))
+        self.assertEqual(ChurchAuditEvent.objects.count(), audits)
+        self.assertEqual(mail.outbox, [])
+        # The module comes back: the offer whose deadline passed meanwhile is released then.
+        flags.set_enabled(self.church, "community", True)
+        with self.captureOnCommitCallbacks(execute=True):
+            call_command("run_scheduled_jobs", stdout=StringIO())
+        self.released()
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_an_event_that_fails_does_not_stop_the_next_one(self):
+        from django.core.management.base import CommandError
+        from events.models import Event
+
+        other = Event.objects.create(
+            church=self.church, name="Otro evento", slug="otro-evento", status=Event.Status.ACTIVE,
+            starts_on=self.retiro.starts_on, ends_on=self.retiro.ends_on,
+        )
+        late = EventRegistration.objects.create(
+            event=other, person=self.member, status=OFFERED, offer_expires_at=timezone.now() - timedelta(minutes=1)
+        )
+        self.assertLess(self.retiro.pk, other.pk)  # the one that fails comes first
+        real = services.advance
+
+        def advance(event, **options):
+            if event.pk == self.retiro.pk:
+                raise RuntimeError("Gala Guía")
+            return real(event, **options)
+
+        with mock.patch("agenda.services.advance", side_effect=advance), self.assertLogs("agenda.services", "ERROR") as logs:
+            totals = services.expire_offers(apply=True)
+        self.assertEqual((totals["events"], totals["failed"], totals["released"]), (2, 1, 1))
+        self.assertEqual(self.state(late), CANCELLED)
+        self.assertEqual(self.state(self.first), OFFERED)
+        self.assertIn("RuntimeError", logs.output[0])
+        self.assertNotIn("Gala", "".join(logs.output))
+        # The scheduler says it, counts it as a failed job and, run once, ends with an error for cron.
+        EventRegistration.objects.filter(pk=late.pk).update(status=OFFERED, offer_expires_at=timezone.now() - timedelta(minutes=1))
+        out = StringIO()
+        with mock.patch("agenda.services.advance", side_effect=advance), self.assertLogs("agenda.services", "ERROR"), \
+                self.assertLogs("emmaus.scheduler", "ERROR") as lines, self.assertRaises(CommandError) as caught:
+            call_command("run_scheduled_jobs", stdout=out)
+        self.assertEqual(caught.exception.returncode, 1)
+        self.assertIn("lista de espera: 1 lugares liberados, 0 ofrecidos, 1 eventos con error", out.getvalue())
+        self.assertIn('"exception": "EventsFailed"', "".join(lines.output))
+
+    def test_an_offer_to_a_row_without_a_person_mails_nobody_and_raises_nothing(self):
+        row = EventRegistration(event=self.retiro, person=None)
+        self.assertIsNone(services._announce_offer(row, BASE))
+
+    @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE.rstrip("/"))
+    def test_the_command_mails_with_the_address_of_the_setting(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            printed = self.run_command("--apply")
+        self.assertNotIn("no se envió ningún correo", printed)
+        self.assertEqual([message.to for message in mail.outbox], [[self.asked.email]])
 
     def test_the_command_refuses_a_base_url_that_is_not_an_address(self):
         from django.core.management.base import CommandError

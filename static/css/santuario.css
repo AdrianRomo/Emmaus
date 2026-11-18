@@ -414,3 +414,81 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 /* The welcome of "Mi iglesia" (core.onboarding.for_member) is one short list: it takes the whole width instead of
    leaving the second column empty. */
 :root[data-ui="2"] .welcome__body > :only-child { grid-column: 1 / -1; }
+
+/* ---------- 14. The church's public home ----------------------------------- */
+/* templates/sitio/public.html (issue #87, a prototype): read without an account, on a phone, by somebody who was
+   sent a link. No bar and no rail: the page is the church's. One column at the reading measure; the arch with the
+   church's initials (or its logo) is the only ornament, the name is the largest thing on the page, and the hours
+   are the largest numbers. From 960px the name stays beside the column while it scrolls. */
+.sitio { max-width: 40rem; margin: 0 auto; padding: var(--s-12) var(--s-5) var(--s-8); }
+.sitio:focus { outline: none; }
+.sitio__head .mono, .sitio__head .brand__logo { margin-bottom: var(--s-6); }
+.sitio__name { font-size: clamp(2.5rem, 1.55rem + 4.4vw, 4.25rem); line-height: 1.02; overflow-wrap: break-word; }
+.sitio__welcome { margin-top: var(--s-5); font-size: 1.375rem; line-height: 1.45; color: var(--ink-2); max-width: 32ch; text-wrap: pretty; }
+.sitio__section { margin-top: var(--s-16); }
+.sitio__heading { font-size: 1.75rem; line-height: 1.15; }
+.sitio__heading + .rows, .sitio__leaves + .rows { margin-top: var(--s-4); border-top: 1px solid var(--line); }
+/* The whole title is the way to the event: a 44px target without moving the line */
+.sitio .row__title a { display: inline-block; padding-block: 0.5625rem; margin-block: -0.5625rem; text-underline-offset: 0.18em; }
+.sitio .row--lead { min-height: 5.5rem; }
+
+/* When the church meets: the day, then each hour in the serif with what it is beside it. A definition list, so it
+   reads aloud as "Domingos: a las 11:00, Reunión general, en Templo principal". */
+.horarios { margin-top: var(--s-4); border-top: 1px solid var(--line); }
+.horarios__day { display: grid; gap: var(--s-1) var(--s-6); padding: var(--s-5) 0; border-bottom: 1px solid var(--line); }
+.horarios dt { font-weight: 700; }
+.horarios dd { display: flex; align-items: baseline; gap: var(--s-4); }
+.horarios dd + dd { margin-top: var(--s-2); }
+.horarios__time {
+  flex: none; min-width: 5.25rem; font-family: var(--font-voz); font-size: 2.125rem; font-weight: 560; line-height: 1.1;
+  font-variant-numeric: lining-nums tabular-nums; letter-spacing: -0.01em;
+}
+.horarios__what { font-size: var(--t-lead); line-height: 1.3; }
+.horarios__place { color: var(--ink-2); }
+@media (min-width: 30rem) {
+  /* The day spans its hours; no row gap, or the rows it spans and does not use would each add one */
+  .horarios__day { grid-template-columns: 7.5rem minmax(0, 1fr); row-gap: 0; }
+  .horarios dt { grid-column: 1; grid-row: 1 / span 9; padding-top: 0.8125rem; }
+  .horarios dd { grid-column: 2; }
+  .horarios dd + dd { margin-top: var(--s-1); }
+}
+
+.sitio__address { margin-top: var(--s-4); font-style: normal; font-size: var(--t-lead); line-height: 1.45; }
+/* A link that leaves Emmaus says so in words beside it, never with an icon alone */
+.sitio__out { margin-top: var(--s-2); }
+.sitio__out a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 700; }
+.sitio__leaves { font-size: var(--t-small); color: var(--ink-2); }
+p.sitio__leaves { margin-top: var(--s-2); }
+.sitio__out .sitio__leaves { display: block; }
+.sitio-media { padding: var(--s-4) 0 var(--s-2); }
+.sitio-media .sitio__out { margin-top: 0; }
+
+.sitio__contact { margin-top: var(--s-4); border-top: 1px solid var(--line); }
+.sitio__contact > div { padding: var(--s-3) 0; border-bottom: 1px solid var(--line); }
+.sitio__contact dt { font-size: var(--t-small); color: var(--ink-2); }
+.sitio__contact dd a { display: inline-flex; align-items: center; min-height: 2.75rem; font-size: var(--t-lead); font-weight: 700; overflow-wrap: anywhere; }
+
+.sitio__foot { max-width: 40rem; margin: var(--s-4) auto 0; padding: var(--s-6) var(--s-5) var(--s-16); color: var(--ink-2); font-size: var(--t-small); }
+.sitio__foot p { padding-top: var(--s-6); border-top: 1px solid var(--line); }
+.sitio__foot a { display: inline-block; padding-block: 0.625rem; font-weight: 700; }
+
+/* The administration's preview: one line above the page, in stone, that is not part of it */
+.sitio-preview { background: var(--hundido); border-bottom: 1px solid var(--line); padding: var(--s-3) var(--s-5); font-size: var(--t-small); }
+.sitio-preview p { max-width: 72rem; margin: 0 auto; }
+.sitio-preview a { font-weight: 700; display: inline-block; padding-block: 0.625rem; }
+
+@media (min-width: 60rem) {
+  .sitio {
+    max-width: 72rem; padding: var(--s-20) var(--s-10) var(--s-10);
+    display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--s-16); align-items: start;
+  }
+  .sitio__head { position: sticky; top: var(--s-16); }
+  .sitio__body > .sitio__section:first-child { margin-top: var(--s-2); }
+  .sitio__foot { max-width: 72rem; padding-inline: var(--s-10); }
+}
+@media print { .sitio-preview, .sitio__foot { display: none; } }
+
+/* The administration's side: a long address wraps instead of widening the page, and a row's small form sits in
+   line with the row's other buttons */
+:root[data-ui="2"] .break-anywhere { overflow-wrap: anywhere; }
+:root[data-ui="2"] .row__form { display: contents; }

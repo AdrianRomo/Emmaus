@@ -20,11 +20,12 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Cortes de seguimiento: generates due report snapshots and tidies expired
-  # station sessions every 5 minutes. Safe to restart; every pass is idempotent.
+  # Every 5 minutes: the cutoffs pass (due report snapshots, expired station sessions, retention), then
+  # the e-mails of notices whose day came and the expired waiting-list offers (docs/deployment.md,
+  # "Scheduled jobs"). Safe to restart; every pass is idempotent.
   scheduler:
     build: .
-    command: python manage.py run_report_cutoffs --loop 300
+    command: python manage.py run_scheduled_jobs --loop 300
     env_file:
       - .env
     environment:

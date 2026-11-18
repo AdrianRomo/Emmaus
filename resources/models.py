@@ -131,3 +131,101 @@ class MediaItem(models.Model):
             if any(host == domain or host.endswith("." + domain) for domain in domains):
                 return words
         return "Abrir el recurso"
+
+
+class ReadingPlan(models.Model):
+    """Several days of reading that the church itself prepared. A plan holds only Scripture
+    *references* ("Juan 15:1-8") and what the church wrote: Emmaus never stores or fetches Bible
+    text. It is published only after the administration confirms that the church wrote it or has
+    permission to publish it (``rights_confirmed_by`` and ``rights_confirmed_at``: who and when)."""
+
+    DESCRIPTION_MAX = 400
+
+    class Status(models.TextChoices):
+        DRAFT = "borrador", "Borrador"
+        PUBLISHED = "publicado", "Publicado"
+        RETIRED = "retirado", "Retirado"
+
+    church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="reading_plans")
+    title = models.CharField("Título", max_length=120)
+    description = models.TextField("De qué trata", blank=True)
+    author_line = models.CharField("Quién lo preparó", max_length=120, blank=True)
+    status = models.CharField("Estado", max_length=12, choices=Status.choices, default=Status.DRAFT, db_default=Status.DRAFT)
+    rights_confirmed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    rights_confirmed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "plan de lectura"
+        verbose_name_plural = "planes de lectura"
+        ordering = ["title", "id"]
+        indexes = [models.Index(fields=["church", "status"], name="reading_plan_church_status_idx")]
+
+    def __str__(self) -> str:
+        return self.title
+
+    @property
+    def is_draft(self) -> bool:
+        return self.status == self.Status.DRAFT
+
+    @property
+    def is_published(self) -> bool:
+        return self.status == self.Status.PUBLISHED
+
+    @property
+    def is_retired(self) -> bool:
+        return self.status == self.Status.RETIRED
+
+
+class ReadingPlanDay(models.Model):
+    """One day of a plan, in order (``position`` 1..N). ``reference`` is a citation only; ``reflection``
+    and ``question`` are the church's own words, plain text, escaped when shown. A person reads a day
+    whenever they get to it: a day is never tied to a date."""
+
+    REFLECTION_MAX = 1500
+
+    plan = models.ForeignKey(ReadingPlan, on_delete=models.CASCADE, related_name="days")
+    position = models.PositiveSmallIntegerField("Día")
+    title = models.CharField("Título del día", max_length=120, blank=True)
+    reference = models.CharField("Cita", max_length=80)
+    reflection = models.TextField("Reflexión", blank=True)
+    question = models.CharField("Pregunta para pensar", max_length=300, blank=True)
+
+    class Meta:
+        verbose_name = "día de un plan de lectura"
+        verbose_name_plural = "días de un plan de lectura"
+        ordering = ["plan_id", "position"]
+        constraints = [models.UniqueConstraint(fields=["plan", "position"], name="reading_plan_day_position")]
+
+    def __str__(self) -> str:
+        return f"Día {self.position}"
+
+
+class ReadingPlanProgress(models.Model):
+    """A person started a plan. PRIVATE to that person, like ``DevotionalRead``: no list, count,
+    export, audit row, administration screen or Django admin page reads this table for anybody
+    else. Leaving the plan deletes the row and, with it, the person's marks."""
+
+    plan = models.ForeignKey(ReadingPlan, on_delete=models.CASCADE, related_name="+")
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
+    started_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "plan de lectura empezado"
+        verbose_name_plural = "planes de lectura empezados"
+        constraints = [models.UniqueConstraint(fields=["plan", "person"], name="reading_plan_progress_once")]
+
+
+class ReadingPlanDayRead(models.Model):
+    """The person said "Ya lo leí" on one day of a plan they started. As private as the progress it hangs from."""
+
+    progress = models.ForeignKey(ReadingPlanProgress, on_delete=models.CASCADE, related_name="marks")
+    day = models.ForeignKey(ReadingPlanDay, on_delete=models.CASCADE, related_name="+")
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "día leído de un plan"
+        verbose_name_plural = "días leídos de un plan"
+        constraints = [models.UniqueConstraint(fields=["progress", "day"], name="reading_plan_day_read_once")]

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus sitio %}
 {% block page_title %}Administrar los recursos{% endblock %}
 {% block content %}
 {% comment %}
@@ -10,17 +10,25 @@
   {% url 'resources:media_list' as back %}{% url 'resources:media_create' as create %}
   {% include "events/rotulo/_page_head.html" with title="Administrar los recursos" lede="Emmaus guarda solo el enlace de cada recurso: se abre en el sitio donde está publicado." back_url=back back_label="Volver a Recursos" action_url=create action_label="Agregar un recurso" %}
   {% if items %}
+    {# Which rows are on the church's public home: the mark and its two actions live in sitio, not in resources. #}
+    {% public_media_ids items as public_ids %}
     <ul class="rows">
       {% for item in items %}
         <li class="row row--lead row--stack">
           <div class="row__main">
             <p class="row__title">{{ item.title }}</p>
             <p class="row__meta">{% include "resources/_media_sentence.html" with item=item %}</p>
+            {% if item.pk in public_ids and not item.is_retired %}<p class="row__meta"><strong>En la página pública:</strong> cualquiera lo puede ver, sin cuenta.</p>{% endif %}
           </div>
           <div class="row__end">
             {% if item.is_retired %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}
               <a class="btn btn--secondary btn--small" href="{% url 'resources:media_edit' item.pk %}">Editar<span class="visually-hidden">: {{ item.title }}</span></a>
               <a class="btn btn--secondary btn--small" href="{% url 'resources:media_retire' item.pk %}">Retirar el recurso<span class="visually-hidden">: {{ item.title }}</span></a>
+              {% if item.pk in public_ids %}
+              <form method="post" action="{% url 'sitio:media_hide' item.pk %}" class="row__form">{% csrf_token %}<button class="btn btn--secondary btn--small" type="submit">Quitar de la página pública<span class="visually-hidden">: {{ item.title }}</span></button></form>
+              {% else %}
+              <form method="post" action="{% url 'sitio:media_show' item.pk %}" class="row__form">{% csrf_token %}<button class="btn btn--secondary btn--small" type="submit">Mostrar en la página pública<span class="visually-hidden">: {{ item.title }}</span></button></form>
+              {% endif %}
             {% endif %}
           </div>
         </li>

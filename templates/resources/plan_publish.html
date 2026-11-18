@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Publicar el plan{% endblock %}
+{% block content %}
+{% comment %}
+  The step that publishes a plan (resources.plan_views.plan_publish): one checkbox, the administration's confirmation
+  that the church wrote the plan or has permission to publish it. Who confirmed and when are stored with the plan.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'resources:plan_days' plan.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="Publicar el plan" lede=plan.title back_url=back back_label="Volver al plan" %}
+  {% if total %}
+    <p>Al publicarlo, las personas de tu iglesia lo encuentran en Planes de lectura y lo pueden empezar. Tiene {{ day_words }}.</p>
+    <p class="aside-note">Un plan lleva solo citas y lo que escribió tu iglesia. Si algún día tiene pegado el texto de una traducción de la Biblia con derechos reservados, o un texto de otro autor sin permiso, quítalo antes de publicar.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Publicar el plan</button>
+        <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      </div>
+    </form>
+  {% else %}
+    <p class="empty-line">Este plan todavía no tiene días. <a href="{% url 'resources:plan_day_create' plan.pk %}">Agrega por lo menos uno</a> antes de publicarlo.</p>
+  {% endif %}
+</div>
+{% endblock %}

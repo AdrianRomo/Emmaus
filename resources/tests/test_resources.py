@@ -356,8 +356,8 @@ class MediaTests(ResourcesFixture):
         match = self.media(title="Camino nuevo", speaker="Ana Torres", series="Cartas")
         library = self.client.get(MEDIA)
         self.assertContains(library, f'<form method="get" action="{MEDIA}" role="search">')
-        self.assertContains(library, '<label for="resource-search">Buscar por título, persona o serie</label>', html=True)
-        self.assertContains(library, '<input id="resource-search" type="search" name="q" maxlength="160" value="">', html=True)
+        self.assertContains(library, '<label class="label" for="resource-search">Buscar por título, persona o serie</label>', html=True)
+        self.assertContains(library, '<input class="input" id="resource-search" type="search" name="q" maxlength="160" value="" autocomplete="off" spellcheck="false">', html=True)
         other = self.media(title="La vid")
         services.retire_media(self.media(title="Camino anterior", kind="musica"), self.admin)
         saved_filter = self.client.get(MEDIA, {"tipo": "musica"})
@@ -562,3 +562,12 @@ class WhoMayTests(ResourcesFixture):
             response = self.client.get(url)
             self.assertIn(response.status_code, (302, 404), url)
             self.assertNotContains(response, "La vid verdadera", status_code=response.status_code)
+
+
+class SeriesFilterNulTests(ResourcesFixture):
+    def test_a_nul_in_the_series_filter_is_dropped(self):
+        """PostgreSQL refuses NUL in a text parameter: the filter must never carry one (review of wave 8)."""
+        self.client.force_login(self.member_user)
+        response = self.client.get(MEDIA, {"serie": "Car\x00tas"})
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("\x00", response.context["series"])

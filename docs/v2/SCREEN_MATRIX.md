@@ -34,6 +34,8 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Devocional (de hoy, anteriores, uno) | `/mi-iglesia/recursos/devocional/…` | Every person | New | prose, dates | `resources/tests`, `test_shell` | e2e-C | 390 |
 | Recursos | `/mi-iglesia/recursos/` | Every person | New | rows, filters | `resources/tests` | e2e-C | 1440 |
 | Devocionales y recursos (administrar, escribir, agregar, retirar) | `…/devocional/administrar/`, `…/recursos/administrar/`… | Administration | New | rows, Atrio form | `resources/tests` | e2e-C | 1440 (devocionales) |
+| Planes de lectura (lista, un plan, un día, dejar) | `/mi-iglesia/recursos/planes/…` | Every person; a retired plan only who had started it | New (issue #84) | rows, status, prose, pager | `resources/tests/test_plans.py` | e2e-C (empty list) | 390, 1440 |
+| Planes de lectura (administrar, escribir, días, publicar con confirmación, retirar) | `…/planes/administrar/`, `…/planes/<id>/dias/`, `…/publicar/` | Administration | New (issue #84) | rows, Atrio form, notice--quiet | `resources/tests/test_plans.py` | e2e-C (lista, nuevo) | 390, 1440 |
 | Servir (mis fechas, mis equipos, días que no puedo) | `/mi-iglesia/servir/` | Who is in a team | New | dates, row--attention, mono | `serving/tests` | e2e-C | 390, 1440 |
 | Un equipo, una fecha, agregar una fecha | `…/servir/equipos/<id>/`, `…/fechas/…` | Who coordinates it, administration | New | work head, dates, choices | `serving/tests` | e2e-C (equipo) | 390, 1440 (equipo) |
 | Equipos de la iglesia (crear, editar, archivar, personas) | `…/servir/equipos/…` | Administration | New | rows, Atrio form | `serving/tests` | e2e-C | 1440 |
@@ -62,6 +64,8 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Discipulado (panorama, participantes, rutas, preguntas, seguimientos, notas, invitaciones, mentor, participante, lecciones) | `/church/…`, `/mentor/…`, `/participant/…` | Pastor, administration, mentor, participant | In the shell, under "Discipulado" | Unchanged | `core/test_*` | e2e-R (module off only) | **Not looked at with the module on** |
 | Configuración de la iglesia, usuarios | `/church/settings/`, `/church/users/` | Administration | In the shell | Unchanged | `core/` | e2e-R | — |
 | Entrar, contraseñas, portada, `/unirme/`, errores | public | Anyone | Tokens only (no shell when signed out) | Unchanged | `core/test_landing.py` | e2e-R | 1440 (entrar) |
+| Página pública de la iglesia (prototype, #87) | `/iglesia/<slug>/` | Anyone | Redesigned, no shell and no bar by design | New | `sitio/tests/test_public_home.py` | By hand with axe (not in e2e-C yet) | 390, 768, 1440, with and without theme and logo |
+| Página pública: editar, horario, revisar, vista previa | `/mi-iglesia/pagina-publica/…` | Administration | In the shell (the preview has none) | New | `sitio/tests/test_public_home.py` | By hand with axe (not in e2e-C yet) | 390, 1440 |
 
 ## The camp (55 templates under `events/`)
 

@@ -107,6 +107,10 @@ expect(await page.locator("main").getByText("Ya lo leíste.").count() > 0, "read
 await page.goto(BASE + "/mi-iglesia/recursos/");
 expect(await page.locator("main a[href^='https://www.youtube.com']").getAttribute("rel") === "noopener noreferrer", "a resource opens on the other site, without a referrer");
 await audit(page, "miembro-recursos");
+// Reading plans: the plain seed has none, so this is the page that says so (the plan itself comes with --eventos).
+await page.goto(BASE + "/mi-iglesia/recursos/planes/");
+expect(await page.locator("main").getByText("todavía no publica planes de lectura").count() > 0, "the reading plans say there is none yet");
+await audit(page, "miembro-planes");
 // Serving: her team asked her for a date; she confirms it from the phone.
 await page.goto(BASE + "/mi-iglesia/");
 expect(await page.getByText("Tus fechas para servir").count() > 0, "the home shows the date her team asked for");
@@ -214,13 +218,14 @@ const adminPages = [
   ["admin-evento-inscritos", "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/"], ["admin-eventos-donde-sirve", "/eventos/?todos=1"],
   ["admin-evento-inicio", "/eventos/jovenes-2025/"], ["admin-devocionales", "/mi-iglesia/recursos/devocional/administrar/"],
   ["admin-devocional-nuevo", "/mi-iglesia/recursos/devocional/nuevo/"], ["admin-recursos", "/mi-iglesia/recursos/administrar/"],
-  ["admin-recurso-nuevo", "/mi-iglesia/recursos/nuevo/"], ["admin-equipos", "/mi-iglesia/servir/equipos/"],
+  ["admin-recurso-nuevo", "/mi-iglesia/recursos/nuevo/"], ["admin-planes", "/mi-iglesia/recursos/planes/administrar/"],
+  ["admin-plan-nuevo", "/mi-iglesia/recursos/planes/nuevo/"], ["admin-equipos", "/mi-iglesia/servir/equipos/"],
   ["admin-equipo", "/mi-iglesia/servir/equipos/1/"], ["admin-equipo-nuevo", "/mi-iglesia/servir/equipos/nuevo/"],
   ["admin-seguimientos", "/mi-iglesia/acompanar/todos/"], ["admin-seguimiento-nuevo", "/mi-iglesia/acompanar/nuevo/"],
   ["admin-panorama", "/mi-iglesia/panorama/"], ["admin-evento-preguntas", "/mi-iglesia/eventos/noche-de-alabanza-demo/preguntas/"],
   ["admin-evento-programa", "/mi-iglesia/eventos/noche-de-alabanza-demo/programa/"],
   ["admin-evento-opiniones", "/mi-iglesia/opiniones/noche-de-alabanza-demo/resultados/"],
-  ["admin-politicas", "/mi-iglesia/politicas/"], ["admin-avisos-correo", "/mi-iglesia/avisos/correo/"],
+  ["admin-politicas", "/mi-iglesia/politicas/"], ["admin-pagina-publica", "/mi-iglesia/pagina-publica/"], ["admin-avisos-correo", "/mi-iglesia/avisos/correo/"],
 ];
 for (const [name, path] of adminPages) {
   const response = await page.goto(BASE + path);

@@ -31,6 +31,9 @@ ACTION_LABELS = {
     "recurso_publicado": "Publicó un recurso",
     "recurso_modificado": "Modificó un recurso",
     "recurso_retirado": "Retiró un recurso",
+    "plan_publicado": "Publicó un plan de lectura",
+    "plan_modificado": "Escribió o modificó un plan de lectura o uno de sus días",
+    "plan_retirado": "Retiró un plan de lectura",
     "evento_sencillo_creado": "Creó un evento de la iglesia",
     "evento_sencillo_datos": "Modificó los datos de un evento",
     "evento_publicado": "Publicó un evento para la iglesia",
@@ -65,6 +68,11 @@ ACTION_LABELS = {
     "acompanar_paso": "Registró un paso de un seguimiento de persona",
     "acompanar_estado": "Cambió el estado de un seguimiento de persona",
     "politica_cambiada": "Cambió una política de la iglesia",
+    "sitio_modificado": "Modificó la página pública de la iglesia",
+    "sitio_publicado": "Publicó la página pública de la iglesia",
+    "sitio_despublicado": "Dejó de publicar la página pública de la iglesia",
+    "recurso_publico": "Mostró un recurso en la página pública",
+    "recurso_privado": "Quitó un recurso de la página pública",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

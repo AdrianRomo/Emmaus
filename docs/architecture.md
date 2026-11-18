@@ -7,7 +7,7 @@ Emmaus is a single Django 5.2 project (`emmaus/`) with two apps, server-rendered
 | Web server | gunicorn, 3 workers x 4 threads, 60 s timeout (`Dockerfile`, `docker-compose.prod.yml`) |
 | Framework | Django 5.2 (`requirements.txt`), Python 3.12 image |
 | Database | PostgreSQL 16 via `psycopg` 3. SQLite only when `DATABASE_URL` is unset (development) |
-| Background work | `python manage.py run_report_cutoffs --loop 300` in a separate `scheduler` container |
+| Background work | `python manage.py run_scheduled_jobs --loop 300` in a separate `scheduler` container: the `run_report_cutoffs` pass, then notice e-mails and waiting-list offers (`core/scheduler.py`) |
 | Static files | WhiteNoise, compressed manifest built into the image |
 | PDF | ReportLab with bundled TTF fonts (`events/fonts/`) |
 | Charts | Server-rendered SVG (`events/charts.py`), no chart library |

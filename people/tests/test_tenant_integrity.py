@@ -130,11 +130,11 @@ class TenantIntegrityTests(CampFixture):
         self.assertEqual(code, 0)
         for key in ("participant_sede_church", "participant_coordinator_event", "snapshot_tutor_event", *WARNING_KEYS):
             entry = payload["checks"][key]
-            self.assertEqual((entry["checked"], entry["mismatched"]), (0, 0), key)
+            self.assertEqual((entry["checked"] or 0, entry["mismatched"]), (0, 0), key)
 
     def test_runs_in_one_query_per_table(self):
         tables = {check.model for check in checks()}
-        self.assertEqual(len(tables), 24)
+        self.assertEqual(len(tables), 27)  # 24 until wave 8 added the reading plans (2) and sitio.PublicMedia (1)
         with self.assertNumQueries(len(tables)):
             run_integrity("--json")
 

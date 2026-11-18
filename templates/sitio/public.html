@@ -1,0 +1,100 @@
+{% extends "layout/skeleton.html" %}
+{% load community brand shell %}
+{% block title %}{{ church.name }}{% endblock %}
+{% block body %}
+{% comment %}
+  The public home of one church (sitio.public.home; issue #87, a prototype): what a visitor reads on a phone
+  without an account. Like the public page of an event it extends the skeleton and not base.html, so there is
+  no rail, no bar and no form, whoever reads it: a signed-in person gets the same bytes.
+  It shows ONLY what the administration published on purpose: the church's name and logo, the welcome, when it
+  meets, where, how to ask, the events that have a public page and the resources marked one by one.
+  NEVER a person (other than who preached a public resource), a count, a group, a notice or attendance.
+  The same template is the administration's preview (sitio.views.preview), with one line above it.
+{% endcomment %}
+{% if preview %}
+<aside class="sitio-preview" aria-label="Vista previa">
+  <p><strong>Vista previa.</strong> {% if live %}Así se ve la página que ya está publicada.{% else %}Todavía nadie más la ve: la página no está publicada.{% endif %} <a href="{% url 'sitio:edit' %}">Volver a editar</a></p>
+</aside>
+{% endif %}
+<main id="contenido" class="sitio" tabindex="-1">
+  <header class="sitio__head">
+    {% if church|has_logo %}{% church_brand church size="auth" %}{% else %}{% monogram church.name "lg" %}{% endif %}
+    <h1 class="voice sitio__name">{{ church.name }}</h1>
+    {% if home.welcome %}<p class="sitio__welcome">{{ home.welcome }}</p>{% endif %}
+  </header>
+
+  <div class="sitio__body">
+    {% if content.days %}
+    <section class="sitio__section" aria-labelledby="reuniones">
+      <h2 id="reuniones" class="voice sitio__heading">Cuándo nos reunimos</h2>
+      <dl class="horarios">
+        {% for day in content.days %}
+        <div class="horarios__day">
+          <dt>{{ day.day }}</dt>
+          {% for item in day.times %}
+          <dd><span class="visually-hidden">a las </span><time class="horarios__time" datetime="{{ item.time|time:'H:i' }}">{{ item.time|time:"H:i" }}</time><span class="visually-hidden">, </span><span class="horarios__what">{{ item.name }}{% if item.place %}<span class="horarios__place">, en {{ item.place }}</span>{% endif %}</span></dd>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </dl>
+    </section>
+    {% endif %}
+
+    {% if content.has_place %}
+    <section class="sitio__section" aria-labelledby="donde">
+      <h2 id="donde" class="voice sitio__heading">Dónde estamos</h2>
+      {% if home.address %}<address class="sitio__address">{{ home.address|linebreaksbr }}</address>{% endif %}
+      {% if home.map_url %}<p class="sitio__out"><a href="{{ home.map_url }}" rel="noopener noreferrer">Ver cómo llegar en el mapa</a> <span class="sitio__leaves">Abre otro sitio, fuera de Emmaus.</span></p>{% endif %}
+    </section>
+    {% endif %}
+
+    {% if content.events %}
+    <section class="sitio__section" aria-labelledby="eventos">
+      <h2 id="eventos" class="voice sitio__heading">Lo que viene</h2>
+      <ul class="rows dates">
+        {% for event in content.events %}
+        <li class="row row--lead">
+          {% if event.starts_on %}{% date_block event.starts_on %}{% endif %}
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'evento:detail' event.slug %}">{{ event.name }}</a></p>
+            <p class="row__meta">{{ event.starts_on|date_range:event.ends_on|capfirst }}{% if event.page.starts_at %}, a las {{ event.page.starts_at|time:"H:i" }}{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}.</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if content.media %}
+    <section class="sitio__section" aria-labelledby="recursos">
+      <h2 id="recursos" class="voice sitio__heading">Para escuchar otra vez</h2>
+      <p class="sitio__leaves" id="recursos-nota">Cada enlace abre el sitio donde está publicado, fuera de Emmaus.</p>
+      <ul class="rows">
+        {% for item in content.media %}
+        <li class="row sitio-media">
+          <div class="row__main">
+            <p class="row__title">{{ item.title }}</p>
+            <p class="row__meta">{% include "resources/_media_sentence.html" with item=item %}</p>
+            <p class="sitio__out"><a href="{{ item.url }}" rel="noopener noreferrer" aria-describedby="recursos-nota">{{ item.link_label }}<span class="visually-hidden">: {{ item.title }}</span></a></p>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if content.has_contact %}
+    <section class="sitio__section" aria-labelledby="contacto">
+      <h2 id="contacto" class="voice sitio__heading">¿Tienes una pregunta?</h2>
+      <dl class="sitio__contact">
+        {% if home.contact_phone %}<div><dt>Llámanos</dt><dd><a href="tel:{{ home.contact_phone|tel }}">{{ home.contact_phone }}</a></dd></div>{% endif %}
+        {% if church.contact_email %}<div><dt>Escríbenos</dt><dd><a href="mailto:{{ church.contact_email }}">{{ church.contact_email }}</a></dd></div>{% endif %}
+      </dl>
+    </section>
+    {% endif %}
+  </div>
+</main>
+<footer class="sitio__foot">
+  <p>¿Ya eres parte de esta iglesia? <a href="{% url 'login' %}">Entra a Emmaus</a></p>
+</footer>
+{% endblock %}

@@ -598,8 +598,10 @@ def _announce_offer(registration: EventRegistration, base_url: str | None) -> No
     ``base_url`` or an address nothing is sent, and the person reads the offer in Emmaus. A failure
     is logged and never reaches whoever freed the place."""
     person, event = registration.person, registration.event
+    if not base_url or person is None:  # a row without a person has nobody to mail: never an error here
+        return
     address = person.email or (person.user.email if person.user_id else "")
-    if not base_url or not address:
+    if not address:
         return
     context = {"church_name": event.church.name, "link": f"{base_url.rstrip('/')}{reverse('agenda:detail', args=[event.slug])}"}
 
@@ -663,16 +665,38 @@ def advance(event: Event, *, base_url: str | None = None, now=None) -> dict:
 
 
 def expire_offers(*, apply: bool = False, base_url: str | None = None, now=None) -> dict:
-    """Every event with an offer past its deadline (``manage.py expire_waiting_offers``). Counts
-    only: ``events``, ``expired`` and, when it writes, ``released`` and ``offered`` (the places that
-    went to the next in line). ``apply=False`` writes nothing. Idempotent."""
+    """Every event with an offer past its deadline (``manage.py expire_waiting_offers`` and the
+    scheduler's pass). Counts only: ``events``, ``expired`` and, when it writes, ``released``,
+    ``offered`` (the places that went to the next in line) and ``failed`` (events whose list could
+    not be moved). ``apply=False`` writes nothing. Idempotent.
+
+    Only events of a church that uses the ``community`` module. While the module is off nothing of
+    that church is counted, expires, is offered or is mailed: the list waits as it is, and an offer
+    whose deadline passed meanwhile is released on the first pass after the module is back.
+
+    One event never stops the next: an event that fails keeps its own transaction's changes undone,
+    is counted in ``failed`` and logged by its error's class name."""
     now = now or timezone.now()
     due = EventRegistration.objects.filter(status=OFFERED, offer_expires_at__lte=now)
     event_ids = sorted(set(due.values_list("event_id", flat=True)))
-    totals = {"events": len(event_ids), "expired": due.count(), "released": 0, "offered": 0}
+    totals = {"events": 0, "expired": 0, "released": 0, "offered": 0, "failed": 0}
+    if not event_ids:
+        return totals
+    events = [
+        event for event in Event.objects.filter(pk__in=event_ids).select_related("church").order_by("pk")
+        if flags.enabled(event.church, "community")
+    ]
+    totals["events"] = len(events)
+    totals["expired"] = due.filter(event__in=events).count()
     if apply:
-        for event in Event.objects.filter(pk__in=event_ids).select_related("church").order_by("pk"):
-            for key, value in advance(event, base_url=base_url, now=now).items():
+        for event in events:
+            try:
+                moved = advance(event, base_url=base_url, now=now)
+            except Exception as error:  # noqa: BLE001 - the other events' lists still move
+                totals["failed"] += 1
+                logger.error("The waiting list of an event could not be moved: %s", type(error).__name__)
+                continue
+            for key, value in moved.items():
                 totals[key] += value
     return totals
 
