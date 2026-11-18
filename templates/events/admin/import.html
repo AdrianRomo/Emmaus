@@ -11,7 +11,7 @@
   <section aria-labelledby="quien-es">
     <h2 id="quien-es" class="heading">¿Quién es cada coordinador?</h2>
     <p class="lede">{{ preview.name }}: no reconocimos {% if unmatched|length == 1 %}este nombre{% else %}estos nombres{% endif %} de “Coordinador”. Nada se guarda todavía.</p>
-    <form method="post" class="stack-lg mt-4">
+    <form method="post" class="stack-lg mt-4 narrow">
       {% csrf_token %}
       <input type="hidden" name="action" value="map">
       {% for item in unmatched %}
@@ -56,14 +56,15 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="confirm">
       <div class="table-wrap" tabindex="0" role="region" aria-label="Filas del archivo">
-        <table class="table admin-table admin-table--marked">
+        {% comment %}table--stack, data-label: with the module on, on a phone each row of the file is a block and the review is read whole (santuario.css).{% endcomment %}
+        <table class="table admin-table admin-table--marked table--stack">
           <thead><tr><th>Importar</th><th class="num">Fila</th><th>Nombre</th><th>Revisión</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Sede</th><th>Coordinador</th></tr></thead>
           <tbody>{% for row in preview.rows %}
             <tr{% if row.errors %} class="is-error"{% elif row.duplicate_of or row.duplicate_in_file %} class="is-attention"{% endif %}>
               <td>{% if not row.errors %}<input type="checkbox" name="include" value="{{ row.line }}" aria-label="Importar fila {{ row.line }}"{% if not row.duplicate_of and not row.duplicate_in_file %} checked{% endif %}>{% endif %}</td>
-              <td class="num">{{ row.line }}</td><td>{{ row.full_name }}</td>
+              <td class="num" data-label="Fila">{{ row.line }}</td><td class="table__lead">{{ row.full_name }}</td>
               <td class="table__review">{% for e in row.errors %}<span class="table__error">{{ e }}</span>{% endfor %}{% for d in row.duplicate_of %}<span class="table__flag">Ya existe: {{ d }}</span>{% endfor %}{% if row.duplicate_in_file %}<span class="table__flag">Repetido en la fila {{ row.duplicate_in_file }}</span>{% endif %}{% if not row.errors and not row.duplicate_of and not row.duplicate_in_file %}<span class="muted">Bien</span>{% endif %}</td>
-              <td class="num">{{ row.age|default_if_none:"" }}</td><td class="table__nowrap">{{ row.room }}</td><td>{{ row.church_group }}</td><td>{{ row.sede_label|default:"—" }}</td><td>{{ row.coordinator_label|default:"Sin coordinador" }}</td>
+              <td class="num" data-label="Edad">{{ row.age|default_if_none:"" }}</td><td class="table__nowrap" data-label="Cuarto">{{ row.room }}</td><td data-label="Iglesia o grupo">{{ row.church_group }}</td><td data-label="Sede">{{ row.sede_label|default:"—" }}</td><td data-label="Coordinador">{{ row.coordinator_label|default:"Sin coordinador" }}</td>
             </tr>
           {% endfor %}</tbody>
         </table>

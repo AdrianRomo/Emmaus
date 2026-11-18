@@ -264,7 +264,7 @@ class SedeImportTests(SedeFixture):
         self.client.post(self.url("participant_import"), {"file": csv_upload(text)})
         response = self.client.get(self.url("participant_import"))
         self.assertContains(response, "<th>Sede</th>", html=True)
-        self.assertContains(response, "<td>Mérida</td>", html=True)
+        self.assertContains(response, '<td data-label="Sede">Mérida</td>', html=True)
         self.assertContains(response, "Sede desconocida: «Guadalajara».")
 
     def test_import_page_documents_the_column_and_links_the_example(self):

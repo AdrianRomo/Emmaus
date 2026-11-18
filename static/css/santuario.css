@@ -988,7 +988,20 @@ p.sitio__leaves { margin-top: var(--s-2); }
   :root[data-ui="2"] .admin-table.table--stack .table__date { width: auto; }
   :root[data-ui="2"] .admin-table.table--stack :is(.table__date, .table__who) { padding-block: 0; font-size: var(--t-caption); color: var(--ink-2); }
   :root[data-ui="2"] .admin-table.table--stack .table__action { text-align: left; padding-top: var(--s-2); }
+  /* The review of an import: the mark of a row (error, possible repeat) runs down its whole block, the box to
+     include it comes first, and the review needs no head: it is the sentence */
+  :root[data-ui="2"] .admin-table--marked.table--stack tr { position: relative; }
+  :root[data-ui="2"] .admin-table--marked.table--stack tr.is-error { box-shadow: inset 4px 0 0 var(--chile); }
+  :root[data-ui="2"] .admin-table--marked.table--stack tr.is-attention { background: var(--hundido); box-shadow: inset 4px 0 0 var(--petroleo); }
+  :root[data-ui="2"] .admin-table--marked.table--stack tr > td { background: none; box-shadow: none; padding-left: 0; }
+  :root[data-ui="2"] .admin-table--marked.table--stack td:empty { display: none; }
+  :root[data-ui="2"] .admin-table--marked.table--stack .table__review { min-width: 0; }
+  :root[data-ui="2"] .admin-table--marked.table--stack .num { text-align: left; }
 }
+/* An import under review: the other file is a second thing on the page, not the tail of the first */
+.page--app section.admin-upload { margin-top: var(--s-10); }
+.page--app section.admin-upload > form { margin-top: var(--s-4); }
+.page--app .aside-note + .admin-rows { margin-top: var(--s-3); }
 
 /* A questionnaire: the note of a section sits on its questions, not against them */
 .page--app .admin-section__desc + .rows { margin-top: var(--s-3); }
