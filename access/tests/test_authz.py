@@ -64,7 +64,7 @@ class ParityTests(CommunityFixture):
 class DeniedPathTests(CommunityFixture):
     def test_closed_vocabulary(self):
         with self.assertRaises(ValueError):
-            has_scope(self.admin, self.church, "ministry", 1, "view")
+            has_scope(self.admin, self.church, "sede", 1, "view")
         with self.assertRaises(ValueError):
             has_scope(self.admin, self.church, "church", self.church.pk, "delete")
 

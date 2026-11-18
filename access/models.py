@@ -10,19 +10,22 @@ class ScopeType(models.TextChoices):
     CHURCH = "church", "Iglesia"
     EVENT = "event", "Evento"
     GROUP = "group", "Grupo"
+    MINISTRY = "ministry", "Equipo de servicio"
 
 
 class RoleAssignment(models.Model):
     """A role an account holds in one scope, for a time (decision 0003).
 
     A projection: every row derives from exactly one source row (``source_table``, ``source_id``)
-    and is written by that source's service in the same transaction. Today the only source is
-    ``groups.GroupMembership`` (scope ``group``), and for that scope this table *is* the answer of
-    ``core.authz.has_scope``. Church and event roles stay in ``UserChurchRole`` and
-    ``EventMembership``; ``has_scope`` delegates to them and no row is stored here for them.
+    and is written by that source's service in the same transaction. The sources are
+    ``groups.GroupMembership`` (scope ``group``) and ``serving.TeamMembership`` (scope ``ministry``,
+    decision 0016), and for those scopes this table *is* the answer of ``core.authz.has_scope``.
+    Church and event roles stay in ``UserChurchRole`` and ``EventMembership``; ``has_scope``
+    delegates to them and no row is stored here for them.
 
-    A role here never implies anything outside its scope: a group leader holds nothing in the
-    church or in an event, and an event role holds nothing in a group (AGENTS.md invariant 2).
+    A role here never implies anything outside its scope: a group leader or a team's
+    coordinator holds nothing in the church or in an event, and an event role holds nothing in a group
+    or a team (AGENTS.md invariant 2).
     """
 
     class Status(models.TextChoices):

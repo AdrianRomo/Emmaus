@@ -65,6 +65,6 @@ New in the first round, not in the directive's list: **a guide records who came 
   own pages never show who came.
 - The audit row of a list carries a count and the group's id, never a name.
 - Notices: the whole church's are written by the administration, a group's by who guides it; a group's notice is read by its members, its guides and the administration only. The audit row has no title and no body.
-- Serving: who serves sees only their own dates and answers; who coordinates a team sees its people and their answers; a team gives no role anywhere else. Decided by rows, not through `has_scope` (a known deviation from decision 0003, written in the module).
+- Serving: who serves sees only their own dates and answers; who coordinates a team sees its people and their answers; a team gives no role anywhere else. Decided through `has_scope` on the `ministry` scope since wave 7 (decision 0016).
 - Accompanying: only the owner of a follow-up and the administration see it; the person it is about never does. The module has no free-text field, and its audit rows name nobody.
 - Events: a person sees only what the church published; a sign-up creates no camp participant, no membership and no role; "Inscritos" and the event's page editor are the administration's.

@@ -1,7 +1,9 @@
 """Servir: teams, their dates, who is asked and what they answer; who may see and do what."""
 
 from datetime import time, timedelta
+from io import StringIO
 
+from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 
@@ -38,6 +40,36 @@ class ServingFixture(CommunityFixture):
         cls.day_b = services.save_date(cls.team_b, cls.admin_b, date=cls.week, what="Servicio de la iglesia B")
         cls.assignment_b = services.assign(cls.day_b, cls.member_b, cls.admin_b)
         cls.busy_b = services.set_unavailable(cls.member_b, cls.week + timedelta(days=1), cls.member_b_user)
+
+    def tearDown(self):
+        # Whatever a test did, the projection still says what the rows say (decision 0016).
+        self.assert_projection()
+        super().tearDown()
+
+    def assert_projection(self):
+        """``access.RoleAssignment`` and ``serving`` never disagree: every membership of a person
+        with an account has its one row, in force exactly while the membership is active and the
+        team is not archived; and ``rebuild_role_assignments`` finds nothing to repair."""
+        rows = TeamMembership.objects.filter(person__user__isnull=False).values_list(
+            "pk", "person__user_id", "team__church_id", "team_id", "role", "status", "team__status"
+        )
+        expected = {
+            (pk, user_id, church_id, team_id, role, "active" if (status, team_status) == ("activa", "activo") else "inactive")
+            for pk, user_id, church_id, team_id, role, status, team_status in rows
+        }
+        projected = set(
+            RoleAssignment.objects.filter(source_table="serving.TeamMembership").values_list(
+                "source_id", "subject_user_id", "church_id", "scope_id", "role", "status"
+            )
+        )
+        self.assertEqual(projected, expected)
+        ministry = RoleAssignment.objects.filter(scope_type="ministry")
+        self.assertFalse(ministry.exclude(source_table="serving.TeamMembership").exists())
+        self.assertFalse(ministry.filter(end_at__isnull=False).exists())
+        self.assertEqual(ministry.count(), len(expected))
+        out = StringIO()
+        call_command("rebuild_role_assignments", "--check", stdout=out)
+        self.assertIn("Sin diferencias", out.getvalue())
 
     def url(self, name, *args):
         return reverse(f"serving:{name}", args=args)
@@ -469,10 +501,10 @@ class PermissionTests(ServingFixture):
 
 
 class NothingElseTests(ServingFixture):
-    def test_a_membership_grants_no_role_anywhere(self):
+    def test_a_membership_grants_no_role_outside_its_team(self):
         before = (
-            RoleAssignment.objects.count(), UserChurchRole.objects.count(), GroupMembership.objects.count(),
-            EventMembership.objects.count(),
+            RoleAssignment.objects.exclude(scope_type="ministry").count(), UserChurchRole.objects.count(),
+            GroupMembership.objects.count(), EventMembership.objects.count(),
         )
         team = services.save_team(self.church, self.admin, name="Estacionamiento")
         services.set_member(team, self.member, self.admin, role="coordina")
@@ -480,11 +512,15 @@ class NothingElseTests(ServingFixture):
         day = services.save_date(team, self.member_user, date=self.week, what="Acomodar coches")
         services.respond(services.assign(day, self.coord_person, self.member_user), True, self.coord1)
         after = (
-            RoleAssignment.objects.count(), UserChurchRole.objects.count(), GroupMembership.objects.count(),
-            EventMembership.objects.count(),
+            RoleAssignment.objects.exclude(scope_type="ministry").count(), UserChurchRole.objects.count(),
+            GroupMembership.objects.count(), EventMembership.objects.count(),
         )
         self.assertEqual(before, after)
-        self.assertFalse(RoleAssignment.objects.filter(subject_user=self.member_user).exists())
+        # What the membership projects is the role in that one team, and in the one from the fixture.
+        self.assertEqual(
+            set(RoleAssignment.objects.filter(subject_user=self.member_user).values_list("scope_type", "scope_id", "role")),
+            {("ministry", team.pk, "coordina"), ("ministry", self.team.pk, "sirve")},
+        )
         self.assertFalse(UserChurchRole.objects.filter(user=self.member_user).exists())
         self.assertFalse(GroupMembership.objects.filter(person=self.member).exists())
         # Coordinating a team opens nothing of the church's administration or of a group.

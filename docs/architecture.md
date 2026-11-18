@@ -82,7 +82,7 @@ Since the first community slice (decision 0008) `people` also holds:
 `core/authz.py` is the one entry point for new code (decision 0003): `has_scope(user, church, scope_type,
 scope_id, action)` with the scopes `church`, `event`, `group` and the actions `view`, `manage`. Church and
 event scopes delegate to `UserChurchRole` and to `events.access.resolve_access`, so the camp's answers cannot
-drift (parity tests in `access/tests/test_authz.py`); the group scope reads `access.RoleAssignment`, a
+drift (parity tests in `access/tests/test_authz.py`); the group and ministry (serving team, decision 0016) scopes read `access.RoleAssignment`, a
 projection of `groups.GroupMembership` written by `groups.services` in the same transaction and checked by
 `manage.py rebuild_role_assignments --check`. `current_church(request)` picks the church the new screens act
 in. `events/access.py` and `core/access.py` are not edited and keep deciding everything they decided.
