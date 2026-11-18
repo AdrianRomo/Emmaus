@@ -2,7 +2,138 @@
 {% load emmaus shell %}
 {% block page_title %}Mi camino{% endblock %}
 {% block content %}
-{% comment %}
+{% if ui_v2 %}{% load community %}{% comment %}
+  The redesign ("Ventanas"): «Mi camino», the participant's home, read like «Mi iglesia». The title names the place;
+  what comes next is the one raised surface (the lesson, with its passage); then the path, lesson by lesson (done,
+  where you are, ahead); what you asked and asked for, and what you wrote; beside it, who walks with you and the two
+  ways to reach the church. A section with nothing in it is not drawn.
+{% endcomment %}
+{% url 'ask_question' as ask_url %}
+{% with current=summary.current_progress %}
+<header class="page-head">
+  <div class="page-head__text">
+    <h1 class="voice page-head__title">Mi camino</h1>
+    {% if summary.enrollment %}<p class="page-head__meta">{{ summary.enrollment.path.title }}</p>{% endif %}
+  </div>
+</header>
+{% include "partials/ui/welcome.html" with welcome=welcome %}
+
+{% if summary.enrollment and current and not current.completed_at %}
+<section class="block" aria-labelledby="siguiente-paso">
+  <div class="sign sign--lead">
+    <p class="sign__kind">Lección {{ current.lesson.order }} de {{ summary.total_lessons }}</p>
+    <h2 id="siguiente-paso" class="sign__title">{{ current.lesson.title }}</h2>
+    {% if current.lesson.scripture_references %}<p class="sign__text">{{ current.lesson.scripture_references }}</p>{% endif %}
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'participant_lesson' current.lesson.id %}">{% if summary.completed_lessons %}Continuar lección{% else %}Empezar lección{% endif %}</a></div>
+  </div>
+</section>
+{% endif %}
+
+<div class="cols block">
+  <div class="cols__main">
+    <section class="block" aria-labelledby="tu-ruta">
+      {% if summary.enrollment %}
+        <h2 id="tu-ruta" class="heading">Tu ruta</h2>
+        {% if summary.enrollment.path.description %}<p class="row__meta disc-ruta__para">{{ summary.enrollment.path.description }}</p>{% endif %}
+        <div class="disc-ruta__avance">{% include "core/rotulo/_avance.html" with summary=summary %}</div>
+        {% if current and current.completed_at %}<p class="hecho">Terminaste la ruta.</p>{% endif %}
+        <ol class="steps disc-ruta">
+          {% for step in summary.enrollment.lesson_progress.all %}
+            {% if step.completed_at %}
+              <li class="steps__item steps__item--done">
+                <span class="steps__mark" aria-hidden="true"></span>
+                <div class="steps__text"><p class="steps__title">{% if step.lesson.is_active %}<a href="{% url 'participant_lesson' step.lesson_id %}">{{ step.lesson.title }}</a>{% else %}{{ step.lesson.title }}{% endif %}</p><p class="steps__note visually-hidden">Terminada</p></div>
+              </li>
+            {% elif step.lesson_id == current.lesson_id %}
+              <li class="steps__item disc-ruta__ahora" aria-current="step">
+                <span class="steps__mark" aria-hidden="true"></span>
+                <div class="steps__text"><p class="steps__title"><a href="{% url 'participant_lesson' step.lesson_id %}">{{ step.lesson.title }}</a></p><p class="steps__note">Aquí vas</p></div>
+              </li>
+            {% else %}
+              <li class="steps__item disc-ruta__despues">
+                <span class="steps__mark" aria-hidden="true"></span>
+                <div class="steps__text"><p class="steps__title">{{ step.lesson.title }}</p><p class="steps__note visually-hidden">Más adelante</p></div>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ol>
+      {% else %}
+        <h2 id="tu-ruta" class="heading">Tu ruta</h2>
+        <p class="empty-line">Tu iglesia todavía no tiene una ruta activa.</p>
+      {% endif %}
+    </section>
+
+    {% if questions or follow_ups %}
+    <section class="block" aria-labelledby="conversaciones">
+      <div class="heading-row">
+        <h2 id="conversaciones" class="heading">Lo que preguntaste</h2>
+        <a href="{% url 'participant_questions' %}">Ver todas<span class="visually-hidden"> tus preguntas</span></a>
+      </div>
+      <ul class="rows">
+        {% for question in questions %}
+          <li class="row row--lead">
+            <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'participant_question_detail' question.id %}">{{ question.question_text|truncatewords:18 }}</a></p>
+              <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}<span>Enviada el {{ question.created_at|day_month }}</span></p>
+            </div>
+          </li>
+        {% endfor %}
+        {% for follow_up in follow_ups %}
+          <li class="row row--lead">
+            <span class="hoy__icono" aria-hidden="true">{% icon "acompanar" %}</span>
+            <div class="row__main">
+              <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
+              <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}<span>Pediste platicar el {{ follow_up.created_at|day_month }}</span></p>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if answers %}
+    <section class="block" aria-labelledby="reflexiones">
+      <h2 id="reflexiones" class="heading">Lo que escribiste</h2>
+      <ul class="rows">
+        {% for answer in answers %}
+          <li class="row row--lead">
+            <span class="hoy__icono" aria-hidden="true">{% icon "editar" %}</span>
+            <div class="row__main">
+              <p class="row__title">{% if answer.lesson.is_active %}<a href="{% url 'participant_lesson' answer.lesson_id %}">{{ answer.question.question_text }}</a>{% else %}{{ answer.question.question_text }}{% endif %}</p>
+              <p class="row__meta">{{ answer.answer_text|truncatewords:28 }}</p>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+
+  <div class="cols__side">
+    <section class="block" aria-labelledby="compania">
+      <h2 id="compania" class="heading">Quién te acompaña</h2>
+      <ul class="rows">
+        {% if profile.assigned_mentor %}{% with mentor=profile.assigned_mentor.get_full_name|default:profile.assigned_mentor.email %}
+        <li class="row row--lead">
+          {% monogram mentor %}
+          <div class="row__main"><p class="row__title">{{ mentor }}</p><p class="row__meta">Tu mentor</p></div>
+        </li>
+        {% endwith %}{% endif %}
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "acompanar" %}</span>
+          <div class="row__main"><p class="row__title"><a href="{% url 'request_follow_up' %}">Pedir una conversación</a></p>{% if not profile.assigned_mentor %}<p class="row__meta">Tu iglesia todavía no te asigna un mentor</p>{% endif %}</div>
+        </li>
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
+          <div class="row__main"><p class="row__title"><a href="{{ ask_url }}">Haz una pregunta</a></p><p class="row__meta">La leerán líderes de confianza de tu iglesia</p></div>
+        </li>
+      </ul>
+    </section>
+  </div>
+</div>
+{% endwith %}
+{% else %}{% comment %}
   The participant's home: the lesson that comes next is the one action (the sign, only while there is one), then the
   path drawn lesson by lesson (done, where you are, ahead), who walks with you, and what you asked and wrote. With
   the redesign the path is a list of steps; in Atrio (a church without the community module) it is the ruler.
@@ -144,4 +275,4 @@
   </div>
 </div>
 {% endwith %}
-{% endblock %}
+{% endif %}{% endblock %}

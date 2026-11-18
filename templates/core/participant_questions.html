@@ -2,7 +2,31 @@
 {% load emmaus shell %}
 {% block page_title %}Mis preguntas{% endblock %}
 {% block content %}
-<div class="disc-list">
+{% if ui_v2 %}{% load community %}{% comment %}
+  The redesign ("Ventanas"): what the participant asked, newest first; each row opens its answers.
+{% endcomment %}
+{% url 'ask_question' as ask_url %}
+{% include "events/rotulo/_page_head.html" with title="Mis preguntas" action_url=ask_url action_label="Haz una pregunta" %}
+<section aria-label="Tus preguntas">
+  {% if questions %}
+    <ul class="rows">
+      {% for question in questions %}
+        {% with count=question.responses.count %}
+          <li class="row row--lead">
+            <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'participant_question_detail' question.id %}">{{ question.question_text|truncatewords:28 }}</a></p>
+              <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}<span>Enviada el {{ question.created_at|day_month }}{% if count %}, {{ count }} respuesta{{ count|pluralize }}{% endif %}</span></p>
+            </div>
+          </li>
+        {% endwith %}
+      {% endfor %}
+    </ul>
+  {% else %}
+    {% include "partials/ui/empty.html" with title="Sin preguntas todavía" text="Las leen líderes de confianza de tu iglesia." %}
+  {% endif %}
+</section>
+{% else %}<div class="disc-list">
 {% url 'ask_question' as ask_url %}
 {% include "events/rotulo/_page_head.html" with title="Mis preguntas" action_url=ask_url action_label="Haz una pregunta" %}
 <section aria-label="Tus preguntas">
@@ -34,4 +58,4 @@
   {% endif %}
 </section>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}
