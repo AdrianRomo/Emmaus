@@ -1,8 +1,28 @@
 {% extends "events/shell_focus.html" %}
 {% load emmaus %}
-{% block page_title %}{% if released %}La administración liberó esta entrevista{% else %}La entrevista está abierta en otra computadora{% endif %}{% endblock %}
+{% block page_title %}{% if ui_v2 %}{% if released %}La administración liberó esta entrevista{% elif interview.station and interview.station != station %}Abierta en {{ interview.station.name }}{% else %}Abierta en otra computadora{% endif %}{% else %}{% if released %}La administración liberó esta entrevista{% else %}La entrevista está abierta en otra computadora{% endif %}{% endif %}{% endblock %}
+{% block focus_actions %}{% if ui_v2 %}<a class="btn btn--small btn--secondary" href="{% url 'events:home' event.slug %}">Volver</a>{% endif %}{% endblock %}
 {% block content %}
-{% if released %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): where the interview is open, said plainly, and the one way to go on here. «Continuar
+  aquí» is the take-over it always was (interview_conflict, POST): the computer that had it stops saving and, when the
+  campero is answering alone there, their screen closes; the line under the title says so. The way out is in the bar.
+  "Liberar" stopped this browser (released): there is no other computer to name.
+{% endcomment %}
+<header class="page-head">
+  {% if released %}
+  <h1 class="voice page-head__title">La administración liberó esta entrevista</h1>
+  <p class="page-head__meta">Esta computadora ya no puede guardar.</p>
+  {% else %}
+  <h1 class="voice page-head__title">{% if interview.station and interview.station != station %}Abierta en {{ interview.station.name }}{% if station %}, no en esta{% endif %}{% else %}Abierta en otra computadora{% endif %}</h1>
+  <p class="page-head__meta">{% for ps in interview.participant_sessions.all %}{% if ps.state == "activa" %}{{ participant.first_name }} está respondiendo a solas ahí: si continúas aquí, su pantalla se cierra. {% endif %}{% endfor %}{{ interview.lock_holder.get_full_name|default:"Otro coordinador" }}, última actividad {{ interview.last_activity_at|since }}.</p>
+  {% endif %}
+</header>
+<form method="post" class="step__actions">
+  {% csrf_token %}
+  <button class="btn btn--primary btn--large" type="submit">Continuar aquí</button>
+</form>
+{% else %}{% if released %}
   {% comment %}"Liberar" stopped this browser and nobody has opened the interview since: there is no other computer to describe.{% endcomment %}
   <header class="page-head">
     <h1 class="voice page-head__title">La administración liberó esta entrevista</h1>
@@ -28,4 +48,4 @@
   <button class="btn btn--primary" type="submit">Tomar el control aquí</button>
     <a class="btn btn--link" href="{% url 'events:home' event.slug %}">Volver</a>
 </form>
-{% endblock %}
+{% endif %}{% endblock %}
