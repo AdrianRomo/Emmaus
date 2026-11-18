@@ -83,7 +83,7 @@
           <div class="row__main">
             <p class="row__title">{{ row.display_name }}</p>
             {% if row.is_offered %}<p class="row__meta"><strong>Le ofrecimos un lugar.</strong> Tiene hasta el {{ row.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }} para aceptarlo. Mientras tanto, ese lugar está apartado.</p>
-            {% else %}<p class="row__meta">En espera, lugar {{ row.position }} de la lista. Se anotó el {{ row.waiting_since|long_date }}.</p>{% endif %}
+            {% else %}<p class="row__meta">En espera, lugar {{ row.position }} de la lista. Se anotó el {{ row.waiting_since|date:"j \\d\\e F \\d\\e Y"|lower }}.</p>{% endif %}
             {% include "agenda/_registration_who.html" %}
           </div>
           <div class="row__end">

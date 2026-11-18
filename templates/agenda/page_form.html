@@ -12,7 +12,7 @@
   {% include "events/rotulo/_page_head.html" with title="Página del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
   <p class="aside-note">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}. {% if event.camp_tools %}El nombre, las fechas y el lugar se cambian en la configuración del evento.{% else %}<a href="{% url 'agenda:event_edit' event.slug %}">Cambiar el nombre, las fechas o el lugar</a>.{% endif %}</p>
   {% if public_link %}
-  <section class="block" aria-labelledby="publica">
+  <section class="block public-link" aria-labelledby="publica">
     <h2 id="publica" class="heading">Página pública del evento</h2>
     <p>Cualquiera con este enlace lee la información del evento sin entrar a Emmaus. No muestra quién se inscribió ni cuántos lugares quedan.</p>
     <div class="field admin-link">
