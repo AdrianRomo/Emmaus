@@ -63,6 +63,22 @@ function expect(condition, message) {
   if (!condition) problems.push(message);
 }
 
+// Pressing a button or a link. A form that acts in place (form[data-inline]) changes its region without a new page:
+// wait until nothing is busy and the region has settled; anything else is a page load. Either way the step ends
+// with the page as the person sees it.
+async function act(page, selector) {
+  const target = page.locator(selector).first();
+  const inPlace = await target.evaluate((node) => !!node.closest("form[data-inline]"));
+  if (!inPlace) {
+    await Promise.all([page.waitForNavigation(), target.click()]);
+    return;
+  }
+  await target.click();
+  await page.waitForFunction(() => !document.querySelector("[aria-busy='true']"), null, { timeout: 15000 });
+  await page.waitForLoadState("load");
+  await page.waitForTimeout(200);  // the region's crossfade
+}
+
 // 1. The former campero, on a phone: home, groups, ask to join.
 let { ctx, page } = await session("valeria.soto@demo.invalid", PHONE);
 expect(new URL(page.url()).pathname === "/mi-iglesia/", `member lands on ${page.url()}, not on /mi-iglesia/`);
@@ -115,12 +131,13 @@ expect(await page.locator("main").getByText("todavía no publica planes de lectu
 await audit(page, "miembro-planes");
 // Serving: her team asked her for a date; she confirms it from the phone.
 await page.goto(BASE + "/mi-iglesia/");
-expect(await page.getByText("Te toca servir").count() > 0, "the home shows the date her team asked for");
+expect(await page.locator("main").getByText(/¿Puedes servir el/).count() > 0, "the home asks for the date her team asked for");
 await page.goto(BASE + "/mi-iglesia/servir/");
 await audit(page, "miembro-servir");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Confirmar')")]);
-expect(await page.locator("main").getByText("Confirmaste").count() > 0, "confirming a date is said back");
+await act(page, "main button:has-text('Sí, puedo')");
+expect(await page.locator("main").getByText("Confirmaste").count() > 0, "confirming a date is said back, in place");
+expect(await page.locator("main button:has-text('Ya no puedo')").count() > 0, "the other answer stays at hand");
 expect((await page.goto(BASE + "/mi-iglesia/servir/equipos/1/")).status() === 403, "who serves cannot open the team's page");
 expect((await page.goto(BASE + "/mi-iglesia/acompanar/1/")).status() === 403, "a follow-up is closed to who does not own it");
 // An event the church published: she signs up from the phone.
@@ -131,21 +148,21 @@ await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".row__title a:has-text('Noche de alabanza')")]);
 await audit(page, "miembro-evento");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Inscribirme')")]);
-expect(await page.locator("main").getByText("Te inscribiste.").count() > 0, "signing up is confirmed on the page");
+await act(page, "main button:has-text('Inscribirme')");
+expect(await page.locator("main").getByText("Te inscribiste").count() > 0, "signing up is confirmed on the page");
 await audit(page, "miembro-evento-inscrita");
 await page.goto(BASE + "/mi-iglesia/");
-expect(await page.locator(".dates").getByText("Te inscribiste").count() > 0, "the home says she signed up");
+expect(await page.locator("main").getByText("Te inscribiste").count() > 0, "the home says she signed up");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click(".sign a:has-text('Ver los grupos')")]);
+await act(page, "main a:has-text('Encuentra tu grupo')");
 await audit(page, "miembro-grupos");
 await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".row__title a:has-text('Jóvenes Roca')")]);
 expect(await page.getByText("Salón 2 de la iglesia").count() === 0, "the meeting place is hidden from a non-member");
 await audit(page, "miembro-grupo-antes");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Pedir unirme')")]);
-expect(await page.getByText("Ya pediste unirte.").count() > 0, "request confirmed on screen");
+await act(page, "button:has-text('Pedir unirme')");
+expect(await page.getByText("Ya pediste unirte.").count() > 0, "request confirmed on screen, in place");
 expect(await page.getByText("le avisamos por correo").count() === 0, "no e-mail is claimed when none can be sent");
 await audit(page, "miembro-grupo-pedido");
 for (const path of ["/mi-iglesia/personas/", "/mi-iglesia/grupos/administrar/", "/mi-iglesia/eventos/administrar/", "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/"]) {
@@ -162,8 +179,8 @@ expect((await page.locator(".rail .rail__link:has-text('Jóvenes Roca') .badge")
 await audit(page, "guia-inicio");
 await Promise.all([page.waitForNavigation(), page.click("a:has-text('Ver solicitudes')")]);
 await audit(page, "guia-personas");
-await Promise.all([page.waitForNavigation(), page.click("li:has-text('Valeria Soto') button[value=aceptar]")]);
-expect(await page.getByText("Valeria Soto Marín ya es parte de Jóvenes Roca.").count() > 0, "acceptance message");
+await act(page, "li:has-text('Valeria Soto') button[value=aceptar]");
+expect(await page.locator("main .hecho").getByText("Valeria Soto Marín ya es parte de Jóvenes Roca.").count() > 0, "acceptance leaves its line where the request was");
 // He coordinates a team and was asked to accompany somebody: both are under "A tu cargo".
 await page.goto(BASE + "/mi-iglesia/servir/equipos/1/");
 expect(await page.locator("main").getByText("1 de 1 confirmaron").count() > 0, "the coordinator reads who confirmed");
@@ -196,7 +213,7 @@ await ctx.close();
 expect(await page.locator("main").getByText(/Se reúne el jueves/).count() > 0, "home shows the next meeting");
 await audit(page, "miembro-inicio-con-grupo");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click(".dates .row__title a:has-text('Jóvenes Roca')")]);
+await act(page, "main .row__title a:has-text('Jóvenes Roca')");
 expect(await page.getByText("Salón 2 de la iglesia").count() > 0, "a member sees where the group meets");
 await audit(page, "miembro-grupo-despues");
 // "Mis datos": she corrects how the church reaches her, and the home stops asking.
