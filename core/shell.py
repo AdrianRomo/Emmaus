@@ -33,7 +33,7 @@ AGENDA_ADMIN_VIEWS = {
     "agenda:admin_list", "agenda:page_edit", "agenda:registrations", "agenda:create", "agenda:event_edit", "agenda:duplicate",
     "agenda:walkup", "agenda:confirm_age", "agenda:guest_age", "agenda:annul", "agenda:consent", "agenda:consent_revoke", "agenda:guest_promote", "agenda:faq", "agenda:faq_edit",
     "agenda:faq_delete", "agenda:schedule", "agenda:schedule_edit", "agenda:schedule_delete", "feedback:results",
-    "agenda:waiting_remove",
+    "agenda:waiting_remove", "agenda:visit_follow_up",
 }
 DEVOTIONAL_VIEWS = {"resources:devotional_today", "resources:devotional_list", "resources:devotional_detail"}
 RESOURCE_ADMIN_VIEWS = {

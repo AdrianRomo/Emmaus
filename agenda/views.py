@@ -339,6 +339,13 @@ def registrations(request, slug: str):
     )
     rows = [row for row in held if row.is_active]
     recorded = [row for row in rows if row.attended is not None]
+    # Who came as a visitor and is now a person of the church: one action to ask somebody to walk with
+    # them, or the follow-up that is already open. Never on the row of whoever is looking.
+    visitors = [row for row in held if services.came_as_visitor(row) and row.person_id != request.person.pk]
+    open_by_person = services.open_follow_ups(request.church, [row.person_id for row in visitors]) if visitors else {}
+    for row in visitors:
+        row.from_visit = True
+        row.open_follow_up_id = open_by_person.get(row.person_id)
     return render(
         request,
         "agenda/registrations.html",
@@ -598,6 +605,8 @@ def guest_promote(request, slug: str, registration_id: int):
             return redirect("agenda:guest_promote", event.slug, registration.pk)
         if existing is None:
             messages.success(request, f"Agregaste a {person.full_name} a las personas de la iglesia.")
+            # The second half of receiving a visitor: offer, once, that somebody walks with them.
+            return redirect("agenda:visit_follow_up", event.slug, registration.pk)
         else:
             messages.success(request, f"Listo. Esta inscripción ahora es de {person.full_name}.")
         return redirect(_back_to_list(event))
@@ -607,6 +616,38 @@ def guest_promote(request, slug: str, registration_id: int):
         {"event": event, "registration": registration, "similar": services.similar_people(registration),
          "back": _back_to_list(event),
          "asks_age": EventPage.objects.filter(event=event, requires_guardian_consent=True).exists()},
+    )
+
+
+@church_admin_view
+def visit_follow_up(request, slug: str, registration_id: int):
+    """"Pedir que alguien le acompañe", for a person who came to the event as a visitor: one question,
+    then a follow-up with the fixed reason "Vino por primera vez" and nobody responsible yet. Nothing
+    is typed. With one already open, the page says so and leads to it instead."""
+    event = _event(request, slug)
+    registration = _registration(event, registration_id, status__in=HOLDING, person__isnull=False,
+                                 person__created_from=Person.CreatedFrom.EVENT)
+    if registration.person_id == request.person.pk:
+        raise Http404
+    back = _back_to_list(event)
+    name = registration.display_name
+    open_id = services.open_follow_ups(request.church, [registration.person_id]).get(registration.person_id)
+    if request.method == "POST":
+        try:
+            follow_up, created = services.ask_to_accompany(registration, request.user)
+        except services.AgendaError as error:
+            messages.error(request, error.message)
+            return redirect(back)
+        if created:
+            messages.success(request, f"Listo. Pediste que alguien acompañe a {name}. Todavía no tiene responsable: elígelo en el seguimiento.")
+        else:
+            messages.info(request, f"Ya hay un seguimiento abierto de {name}. No se creó otro.")
+        return redirect("care:detail", follow_up.pk)
+    return render(
+        request,
+        "agenda/visit_follow_up.html",
+        {"event": event, "registration": registration, "back": back,
+         "open_url": reverse("care:detail", args=[open_id]) if open_id else ""},
     )
 
 

@@ -25,6 +25,7 @@ urlpatterns = [
     path("<slug:slug>/inscritos/<int:registration_id>/quitar-de-la-lista/", views.waiting_remove, name="waiting_remove"),
     path("<slug:slug>/inscritos/<int:registration_id>/retirar-autorizacion/", views.consent_revoke, name="consent_revoke"),
     path("<slug:slug>/inscritos/<int:registration_id>/agregar-a-personas/", views.guest_promote, name="guest_promote"),
+    path("<slug:slug>/inscritos/<int:registration_id>/acompanar/", views.visit_follow_up, name="visit_follow_up"),
     path("<slug:slug>/preguntas/", views.faq, name="faq"),
     path("<slug:slug>/preguntas/<int:faq_id>/", views.faq_edit, name="faq_edit"),
     path("<slug:slug>/preguntas/<int:faq_id>/borrar/", views.faq_delete, name="faq_delete"),

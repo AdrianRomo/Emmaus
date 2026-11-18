@@ -1161,6 +1161,49 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
     return person
 
 
+# ---- somebody to walk with a visitor ------------------------------------------------------------
+def came_as_visitor(registration: EventRegistration) -> bool:
+    """The row is of a person the church has because they came to an event as a visitor."""
+    return registration.person_id is not None and registration.person.created_from == Person.CreatedFrom.EVENT
+
+
+def open_follow_ups(church, person_ids) -> dict[int, int]:
+    """For each of these people of ``church`` who has an open follow-up: its id (the oldest one)."""
+    from care.models import FollowUp
+
+    rows = FollowUp.objects.filter(church=church, person_id__in=list(person_ids), status__in=FollowUp.OPEN)
+    found: dict[int, int] = {}
+    for person_id, pk in rows.order_by("created_at", "id").values_list("person_id", "id"):
+        found.setdefault(person_id, pk)
+    return found
+
+
+def ask_to_accompany(registration: EventRegistration, actor):
+    """"Pedir que alguien le acompañe": one follow-up about a person who came as a visitor, with the
+    fixed reason "Vino por primera vez" and nobody responsible yet, through ``care.services.create``
+    (which audits it, with the person's id and no reason). No free text. While the person has an open
+    follow-up, of any reason, no other is created. Returns ``(follow_up, created)``. The caller is
+    the church's administration and is never the person the follow-up is about."""
+    from care import services as care
+    from care.models import FollowUp
+
+    with transaction.atomic():
+        registration = _locked(registration.pk)
+        event = registration.event
+        if registration.status not in HOLDING or not came_as_visitor(registration):
+            raise AgendaError("Esta inscripción no es de alguien que llegó como visita.", code="not_visitor")
+        person = _fresh(registration.person)  # locked: two taps at once create one follow-up
+        if person.user_id is not None and person.user_id == getattr(actor, "pk", None):
+            raise AgendaError("No puedes pedir un seguimiento sobre ti.", code="self")
+        existing = FollowUp.objects.filter(church=event.church, person=person, status__in=FollowUp.OPEN).order_by("created_at", "id").first()
+        if existing is not None:
+            return existing, False
+        try:
+            return care.create(event.church, actor, person=person, reason=FollowUp.Reason.VISIT.value), True
+        except care.CareError as error:
+            raise AgendaError(error.message, code=error.code) from error
+
+
 # ---- frequent questions and the programme -------------------------------------------------------
 def save_faq(event: Event, actor, faq: EventFaq | None = None, *, question: str, answer: str, position: int = 1) -> EventFaq:
     question, answer = " ".join(question.split()), answer.strip()
