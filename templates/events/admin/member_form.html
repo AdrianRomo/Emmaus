@@ -1,6 +1,72 @@
 {% extends rotulo_shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if membership %}Editar acceso{% else %}Agregar persona{% endif %}{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}
+  The redesign ("Ventanas"): who the person is, then their role (with what only some roles need), as sections; on
+  someone already in the team, their access beside the form. Removing a remembered name is quiet.
+{% endcomment %}
+{% url 'events:team' event.slug as team_url %}
+<div{% if not membership %} class="narrow"{% endif %}>
+{% include "partials/ui/error_summary.html" with form=form %}
+{% if membership %}
+  {% include "events/rotulo/_page_head.html" with title=membership.display_name meta=membership.user.email back_url=team_url back_label="Equipo" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Agregar persona al equipo" back_url=team_url back_label="Equipo" %}
+{% endif %}
+<div{% if membership %} class="split admin-split"{% endif %}>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% if form.full_name or form.email %}
+    <section class="form-section" aria-labelledby="f-persona">
+      <h2 id="f-persona" class="form-section__title">La persona</h2>
+      {% if form.full_name %}{% include "partials/ui/field.html" with field=form.full_name %}{% endif %}
+      {% if form.email %}{% include "partials/ui/field.html" with field=form.email %}{% endif %}
+    </section>
+    {% endif %}
+    <section class="form-section" aria-labelledby="f-rol">
+      <h2 id="f-rol" class="form-section__title">Su rol</h2>
+      {% for field in form.visible_fields %}{% if field.name != "full_name" and field.name != "email" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    </section>
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">{% if membership %}Guardar cambios{% else %}Agregar al equipo{% endif %}</button>
+      <a class="btn btn--link" href="{{ team_url }}">Cancelar</a>
+    </div>
+  </form>
+  {% if membership %}
+  <aside aria-labelledby="acceso">
+    <h2 id="acceso" class="heading">Acceso</h2>
+    {% if can_link %}
+      <p class="aside-note">Todavía no crea su contraseña. Comparte el enlace solo con esta persona, en persona o por un mensaje privado.</p>
+      {% if link %}
+        <div class="field admin-link mt-4">
+          <label class="label" for="enlace">Enlace para crear contraseña</label>
+          <input class="input" id="enlace" value="{{ link }}" readonly>
+        </div>
+        <button class="btn btn--secondary btn--small" type="button" data-copy="enlace" data-copy-done="Enlace copiado">Copiar enlace</button>
+      {% else %}
+        <form method="post" class="mt-4">{% csrf_token %}<input type="hidden" name="action" value="link"><button class="btn btn--secondary btn--small" type="submit">Generar enlace</button></form>
+      {% endif %}
+    {% else %}
+      {% comment %}Said the same with or without a password: the event's administration may not learn which (issue #50).{% endcomment %}
+      <p class="aside-note">Entra con su propia cuenta. Si olvidó su contraseña, puede usar «¿Olvidaste tu contraseña?» al entrar: el enlace llega a su correo.</p>
+    {% endif %}
+    {% if aliases %}
+      <h2 id="otros-nombres" class="heading mt-8">Otros nombres en las listas</h2>
+      <ul class="rows">{% for a in aliases %}
+        <li class="row">
+          <div class="row__main"><p class="row__title">{{ a.alias }}</p></div>
+          <form method="post" class="row__end">{% csrf_token %}<input type="hidden" name="action" value="alias_delete"><input type="hidden" name="alias" value="{{ a.pk }}">
+            <button class="btn btn--link btn--quieto" type="submit">Quitar<span class="visually-hidden"> el nombre {{ a.alias }}</span></button></form>
+        </li>
+      {% endfor %}</ul>
+      <p class="aside-note">La importación de camperos también la reconoce así.</p>
+    {% endif %}
+  </aside>
+  {% endif %}
+</div>
+</div>
+{% else %}{# v1 #}
 {% url 'events:team' event.slug as team_url %}
 <div{% if not membership %} class="narrow"{% endif %}>
 {% include "partials/ui/error_summary.html" with form=form %}
@@ -51,4 +117,4 @@
   {% endif %}
 </div>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

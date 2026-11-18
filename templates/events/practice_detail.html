@@ -1,7 +1,49 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}{{ participant.full_name }}{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): the record of the practice campero (issue #49): only the rehearsal, each questionnaire a
+  row that opens what was answered.
+{% endcomment %}
+{% if can_interview and event.has_questionnaire %}{% if live_interview or participant.interview_status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}{% endif %}
+{% if live_interview %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar la práctica" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Empezar la práctica" %}
+{% endif %}
+{% include "events/_practice_notice.html" %}
+<section class="block narrow" aria-labelledby="entrevista">
+  <h2 id="entrevista" class="heading">Entrevista de práctica{% if questionnaire_rows %} <span class="count">{{ questionnaires_done }} de {{ questionnaire_rows|length }}</span>{% endif %}</h2>
+  {% if questionnaire_rows %}
+    <ul class="rows">{% for row in questionnaire_rows %}
+      <li class="row row--lead">
+        <span class="admin-icono">{% icon "plan" %}</span>
+        <div class="row__main">
+          <p class="row__title">{% if row.interview %}<a href="{% url 'events:interview_detail' event.slug row.interview.public_id %}">{{ row.link.version.title }}</a>{% else %}{{ row.link.version.title }}{% endif %}</p>
+          <p class="row__meta">{% if row.state == "bloqueado" %}{% status "pendiente" "Después" %}{% else %}{% status row.state %}{% endif %}</p>
+        </div>
+      </li>
+    {% endfor %}</ul>
+  {% elif interview %}
+    <ul class="rows">
+      <li class="row row--lead">
+        <span class="admin-icono">{% icon "plan" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">Lo que respondiste</a></p>
+          <p class="row__meta">{% status interview.status %}</p>
+        </div>
+      </li>
+    </ul>
+  {% else %}
+    <p class="empty-line">{% status "pendiente" %}</p>
+  {% endif %}
+  {% if participant.interview_status == "completada" %}
+    <p class="aside-note">{% if access.is_admin %}Para practicar otra vez, déjalo como nuevo en <a href="{% url 'events:practice' event.slug %}">Campero de práctica</a>.{% else %}Ya practicaste. Si quieres hacerlo otra vez, pide a la administración que lo deje como nuevo.{% endif %}</p>
+  {% endif %}
+</section>
+{% else %}{# v1 #}
 {% comment %}
   The record of the practice campero (issue #49), instead of participant_detail.html: no data to correct, no
   authorization, no follow-up and no risk report, only the rehearsal.
@@ -37,4 +79,4 @@
     <p class="mt-4">{% if access.is_admin %}Para practicar otra vez, déjalo como nuevo en <a href="{% url 'events:practice' event.slug %}">Campero de práctica</a>.{% else %}Ya practicaste. Si quieres hacerlo otra vez, pide a la administración que lo deje como nuevo.{% endif %}</p>
   {% endif %}
 </section>
-{% endblock %}
+{% endif %}{% endblock %}
