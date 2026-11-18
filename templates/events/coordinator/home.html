@@ -12,6 +12,8 @@
   <div class="page-head__text">
     <h1 class="voice page-head__title">{{ event.name }}</h1>
     <p class="page-head__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% endif %}{% if event.location %}{% if event.starts_on %}, {% endif %}{{ event.location }}{% endif %}</p>
+    {# Where the rail is hidden (a phone), the page says the role the rail would say #}
+    <p class="page-head__meta solo-sin-riel">Tu rol: {{ access.role_label|lower }}.</p>
   </div>
   {% if needs_station or station %}
   <a class="compu{% if station %} compu--elegida{% endif %}" href="{% url 'events:choose_station' event.slug %}?siguiente={{ request.path|urlencode }}">{% icon "computadora" "sm" %}<span>{% if station %}{{ station.name }}{% else %}Computadora sin elegir{% endif %}</span><span class="compu__verbo">{% if station %}Cambiar{% else %}Elegir{% endif %}</span></a>

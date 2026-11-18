@@ -73,7 +73,7 @@ class TeamScreensInTheShellTests(CampFixture):
                 with self.subTest(user=user.username, url=url):
                     response = self.client.get(url)
                     self.assertEqual(response.status_code, 200)
-                    self.assertContains(response, '<header class="rail rail--event">')
+                    self.assertContains(response, '<header class="rail rail--event')
                     self.assertNotContains(response, '<header class="bar')
                     self.assertEqual(len(re.findall(r"<h1\b", main_of(response))), 1)
 
@@ -82,7 +82,7 @@ class TeamScreensInTheShellTests(CampFixture):
         the rail was drawn empty, and a church with the module off got that empty rail instead of Atrio's bar."""
         self.client.force_login(self.coord1)
         page = self.client.get(self.url("choose_station")).content.decode()
-        rail = page[page.index('<header class="rail rail--event">'):page.index("</header>")]
+        rail = page[page.index('<header class="rail rail--event'):page.index("</header>")]
         self.assertIn('<span class="rail__text">Mis camperos</span>', rail)
         self.assertIn("Tu rol: coordinador.", rail)
         self.assertIn("Carla Uno", rail)
