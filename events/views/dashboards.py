@@ -873,10 +873,11 @@ def admin_home(request, event, access):
     context["stalled_total"] = stalled.count()
     context["stalled_interviews"] = mark_stalled(stalled.order_by("last_activity_at")[:STALLED_SHOWN]) if context["stalled_total"] else []
     context["newer_versions"] = eq.newer_unused_versions(event)  # issue #48; drawn by events/admin/_newer_versions.html
-    # With the redesign (ui_v2): the minors without a registered guardian authorization, split by what it means. Not
-    # interviewed yet: they wait for it (Camperos ?autorizacion=falta&estado=pendiente). Interviewed or in progress:
-    # interviewed without a current authorization, a risk to correct (?autorizacion=falta&estado=iniciada). Each count
-    # is the length of the list it opens. Then the first camperos without a coordinator, each one assigned on the
+    # With the redesign (ui_v2): the minors without a registered guardian authorization who are not interviewed yet
+    # wait for it — the administration's decision (Camperos ?autorizacion=falta&estado=pendiente; the count is the
+    # length of that list). Interviewed or in progress without a current one is allowed by the policy (an authorization
+    # withdrawn after: the interview «se podrá terminar», completed ones do not change), so it is not a decision: the
+    # list's authorization column and the record say it (minors_interviewed stays for the list's link). Then the first camperos without a coordinator, each one assigned on the
     # raised surface (admin.participants_assign) with every coordinator's load beside them.
     if event.requires_guardian_authorization:
         minors = participant_svc.minors_without_authorization(access.participants(), event).order_by()

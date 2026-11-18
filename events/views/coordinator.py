@@ -57,9 +57,10 @@ def _my_context(event, access):
     )
     to_evaluate = mine.filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
     # Minors whose guardian authorization is not registered cannot be interviewed: "Esperan algo de ti" says how many
-    # Blocked from an interview: a minor already interviewed is not "cannot be interviewed" (an authorization can be
-    # withdrawn afterwards; the campero's record says so), so the home's count leaves the completed ones out
-    minors_pending = participant_svc.minors_without_authorization(participants, event).exclude(interview_status="completada").count() if event.requires_guardian_authorization else 0
+    # Blocked from an interview: only the ones not interviewed yet (an authorization withdrawn after lets an interview
+    # in progress finish and leaves completed ones as they are: the campero's record says so), as the administration's
+    # home counts them
+    minors_pending = participant_svc.minors_without_authorization(participants, event).filter(interview_status=InterviewStatus.PENDING).count() if event.requires_guardian_authorization else 0
     return {
         "progress": progress,
         "in_progress": in_progress,

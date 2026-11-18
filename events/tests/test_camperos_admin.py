@@ -237,10 +237,11 @@ class RedesignedCamperosTests(CampFixture):
         self.assertNotIn("<html", fragment)
         self.assertNotIn("Ver los", page)
 
-    def test_minors_without_authorization_are_two_rows_each_counting_its_list(self):
-        """Waiting for the authorization (not interviewed yet, vela) and interviewed without a current one (in progress
-        or completed, chile) are two facts; each number is the length of the Camperos list its row opens, and a minor
-        already interviewed is never counted as one who «no se le puede entrevistar»."""
+    def test_only_minors_waiting_for_their_authorization_are_a_decision(self):
+        """Not interviewed yet and without a registered authorization: the administration's decision, in vela, its
+        number the length of the list it opens. Interviewed or in progress without a current one is allowed by the
+        policy (an authorization withdrawn after: «se podrá terminar»; completed ones do not change): no decision row,
+        but the list still finds them (?autorizacion=falta&estado=iniciada) and each record says it."""
         waiting_too = EventParticipant.objects.create(event=self.event, number=31, full_name="Ana Espera Firma", age=12, room="2", church_group="X", coordinator=self.m_coord2)
         done = EventParticipant.objects.create(event=self.event, number=32, full_name="Beto Ya Entrevistado", age=14, room="3", church_group="X", coordinator=self.m_coord2)
         live = EventParticipant.objects.create(event=self.event, number=33, full_name="Caro En Curso", age=15, room="4", church_group="X", coordinator=self.m_coord3)
@@ -249,19 +250,19 @@ class RedesignedCamperosTests(CampFixture):
         self.client.force_login(self.admin)
         page = main_of(self.client.get(self.url("admin_home")))
         waiting = re.search(r'estado=pendiente">\s*<span class="decision__cifra"[^>]*>(\d+)</span>.*?</a>', page, re.DOTALL)
-        interviewed = re.search(r'estado=iniciada">\s*<span class="decision__cifra"[^>]*>(\d+)</span>.*?</a>', page, re.DOTALL)
         self.assertEqual(waiting.group(1), "2")  # Lucía and Ana: nobody interviewed them yet
         self.assertIn("Menores esperan la autorización", waiting.group(0))
         self.assertIn("padre, madre o tutor legal no se les puede entrevistar", waiting.group(0))
-        self.assertEqual(interviewed.group(1), "2")  # Beto (completed) and Caro (in progress)
-        self.assertIn("Entrevistados sin autorización vigente", interviewed.group(0))
-        self.assertIn("decision--riesgo", page[page.rindex("<a", 0, interviewed.start()):interviewed.start()])
+        self.assertNotIn("estado=iniciada", page)
+        self.assertNotIn("sin autorización vigente", page)
         for status, names in (("pendiente", {"Lucía Torres Gómez", "Ana Espera Firma"}), ("iniciada", {"Beto Ya Entrevistado", "Caro En Curso"})):
             listed = self.client.get(self.url("participants") + f"?autorizacion=falta&estado={status}").context["page"]
             with self.subTest(status=status):
                 self.assertEqual(listed.paginator.count, len(names))
                 self.assertEqual({p.full_name for p in listed.object_list}, names)
         self.assertNotIn(waiting_too.full_name, {p.full_name for p in self.client.get(self.url("participants") + "?autorizacion=falta&estado=iniciada").context["page"].object_list})
+        record = main_of(self.client.get(self.url("participant_detail", done.public_id)))
+        self.assertIn("Entrevistado sin autorización vigente", record)
 
     def test_no_minor_row_when_nobody_is_missing_an_authorization(self):
         from events.models import ConsentRecord

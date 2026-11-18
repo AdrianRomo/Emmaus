@@ -10,7 +10,7 @@
   «Retomar»), the steps with their state marks, and the activity.
 {% endcomment %}
 {% with unassigned=payload.attention.unassigned_participants without_tutor=payload.attention.coordinators_without_tutor risk=payload.follow_ups.safety_open %}
-{% if risk or minors_interviewed or minors_waiting %}
+{% if risk or minors_waiting %}
 <section class="block admin-esperan" aria-labelledby="esperan">
   <h2 id="esperan" class="heading">Esperan tu decisión</h2>
   {% if risk %}
@@ -20,13 +20,8 @@
     <span class="decision__ir" aria-hidden="true"></span>
   </a>
   {% endif %}
-  {% if minors_interviewed %}
-  <a class="decision decision--riesgo" href="{% url 'events:participants' event.slug %}?autorizacion=falta&amp;estado=iniciada">
-    <span class="decision__cifra" data-count="sin-autorizacion-entrevistados">{{ minors_interviewed }}</span>
-    <span class="decision__texto"><span class="decision__titulo">{{ minors_interviewed|pluralize:"Entrevistado,Entrevistados" }} sin autorización vigente</span><span class="decision__nota">{{ minors_interviewed|pluralize:"Menor,Menores" }} de edad sin la autorización registrada de su padre, madre o tutor legal.</span></span>
-    <span class="decision__ir" aria-hidden="true"></span>
-  </a>
-  {% endif %}
+  {# Interviewed or in progress without a current authorization is allowed by policy (an authorization withdrawn
+     after: «se podrá terminar»; completed ones do not change): a fact on the list and the record, not a decision #}
   {% if minors_waiting %}
   <a class="decision decision--bloqueo" href="{% url 'events:participants' event.slug %}?autorizacion=falta&amp;estado=pendiente">
     <span class="decision__cifra" data-count="sin-autorizacion">{{ minors_waiting }}</span>
