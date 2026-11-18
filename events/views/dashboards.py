@@ -110,7 +110,7 @@ def tutor_home(request, event, access):
         "stalled": [row for row in payload["coordinators"] if row["stale"]],
         "places": _last_station(access),
         "stalled_places": _stalled_stations(access),
-        "follow_ups": open_care.order_by("created_at")[:5],
+        "follow_ups": decision_svc.mark_for_review(open_care.order_by("created_at")[:5], request.user),
         "follow_ups_open": open_care.count(),
         # Every open follow-up the tutor may see that nobody attends, the same ones "Sin asignar" lists (issue #46)
         "follow_ups_unassigned": follow_up_svc.unassigned_open(access).count(),
@@ -213,7 +213,9 @@ def pending(request, event, access):
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
     ).select_related("participant__coordinator__user", "version")
-    follow_ups = access.follow_ups().filter(status__in=FollowUp.OPEN_STATUSES).order_by("kind", "created_at")
+    follow_ups = decision_svc.mark_for_review(
+        access.follow_ups().filter(status__in=FollowUp.OPEN_STATUSES).order_by("kind", "created_at"), request.user
+    )
     waiting = participants.filter(interview_status=InterviewStatus.PENDING)
     coordinator_fields = ("coordinator__id", "coordinator__user__first_name", "coordinator__user__last_name")
     links = eq.links_for(event)
@@ -374,12 +376,11 @@ def follow_ups(request, event, access):
         status_rank=_follow_up_status_rank(),
         sin_responsable=Case(When(assigned_to__isnull=True, then=Value(1)), default=Value(0), output_field=IntegerField()),
     ).order_by("-kind", "status_rank", "-sin_responsable", "-created_at")
-    rows = list(qs[:FOLLOW_UPS_SHOWN])
+    # «Decisión cambiada»: its interview no longer needs follow-up; its owner reviews and closes it («Revisar»)
+    rows = decision_svc.mark_for_review(qs[:FOLLOW_UPS_SHOWN], request.user)
     leaders = list(follow_up_leaders(event))
     leader_ids = {user.id for user in leaders}
-    waiting = decision_svc.waiting_on_owner(rows)  # the interview's decision changed after its care had started
     for f in rows:
-        f.decision_change = waiting.get(f.id)
         f.can_assign = _can_assign(access, f)
         # The form also accepts the campero's own coordinador; offer them on that row only.
         coordinator = f.participant.coordinator
@@ -434,8 +435,9 @@ def follow_up_detail(request, event, access, follow_up_id):
         "events/supervision/follow_up_detail.html",
         {
             "follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back,
-            # Its interview's decision changed: still open for its owner to resolve, or what cancelled it.
+            # Its interview's decision changed: open for its owner to review and close, or reopened; a reopened task's states.
             "decision_change": decision_svc.note_for(follow_up),
+            "task_history": decision_svc.task_history(follow_up),
         },
     )
 

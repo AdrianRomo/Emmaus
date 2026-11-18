@@ -407,8 +407,9 @@ class FollowUpForm(forms.ModelForm):
             self.fields.pop("resolution_note")
 
     def clean_status(self):
-        """A cancelled follow-up is not reopened while its interview has another one (one_open_care_follow_up_per_interview):
-        «Cambiar decisión de seguimiento» creates a new one after cancelling the first."""
+        """A cancelled follow-up is not reopened beside another one of its interview that is not cancelled: the database
+        allows one (one_open_care_follow_up_per_interview), and saving it would fail. «Cambiar decisión de seguimiento»
+        reopens the interview's task instead of creating a second one, so this guards data from before it."""
         status = self.cleaned_data["status"]
         item = self.instance
         if item.pk and item.status == FollowUp.Status.CANCELLED and status != FollowUp.Status.CANCELLED and item.interview_id:

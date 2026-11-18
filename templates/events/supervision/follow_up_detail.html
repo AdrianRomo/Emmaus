@@ -4,8 +4,8 @@
 {% block content %}{% if ui_v2 %}
 {% comment %}
   The redesign ("Ventanas"): who and the state as facts under the title; a situación de riesgo says so in chile and
-  keeps the church's protection procedure word for word; the details stay behind their access; the update is a form
-  with its one action.
+  keeps the church's protection procedure word for word; the details stay behind their access; a task its interview's
+  decision reopened lists its states (services.follow_up_decision.task_history); the update is a form with its one action.
 {% endcomment %}
 <div class="narrow">
 {% if follow_up.kind == "seguridad" %}
@@ -31,7 +31,13 @@
   {% else %}
     <p class="privacy"><span class="privacy__tag">Confidencial</span> Solo el equipo de cuidado autorizado puede leer los detalles.</p>
   {% endif %}
-</section>
+</section>{% if task_history %}
+<section class="block" aria-labelledby="historial-seguimiento">
+  <h2 id="historial-seguimiento" class="heading">Historial</h2>
+  <ul class="rows">{% for h in task_history %}
+    <li class="row"><div class="row__main"><p class="row__title">{{ h.label }}</p>{% if h.when or h.who %}<p class="row__meta">{% if h.when %}{{ h.when|fecha_corta }}{% endif %}{% if h.when and h.who %}, {% endif %}{{ h.who }}</p>{% endif %}</div></li>
+  {% endfor %}</ul>
+</section>{% endif %}
 {% if form %}
 <form method="post" class="block form-section" novalidate>
   {% csrf_token %}
@@ -61,7 +67,13 @@
   {% else %}
     <p class="privacy"><span class="privacy__tag">Confidencial</span> Solo el equipo de cuidado autorizado puede leer los detalles.</p>
   {% endif %}
-</section>
+</section>{% if task_history %}
+<section class="block" aria-labelledby="historial-seguimiento">
+  <h2 id="historial-seguimiento" class="heading">Historial</h2>
+  <ul class="rows">{% for h in task_history %}
+    <li class="row"><div class="row__main"><p class="row__title">{{ h.label }}</p>{% if h.when or h.who %}<p class="row__meta">{% if h.when %}{{ h.when|fecha_corta }}{% endif %}{% if h.when and h.who %}, {% endif %}{{ h.who }}</p>{% endif %}</div></li>
+  {% endfor %}</ul>
+</section>{% endif %}
 {% if form %}
 <form method="post" class="block" novalidate>
   {% csrf_token %}
