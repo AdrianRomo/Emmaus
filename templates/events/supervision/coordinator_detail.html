@@ -1,7 +1,61 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}{{ coordinator.display_name }}{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}{% load shell %}
+{% comment %}The redesign ("Ventanas"): one coordinator as their own "Mi avance" reads, then their camperos as rows.{% endcomment %}
+{% url 'events:coordinators' event.slug as back_url %}
+{% with team=coordinator.tutor_assignment.tutor.team_label|default:"Sin tutor" %}
+  {% if coordinator.is_active %}
+    {% include "events/rotulo/_page_head.html" with title=coordinator.display_name meta=team back_url=back_url back_label="Coordinadores" %}
+  {% else %}
+    {% with meta=team|add:", sin acceso" %}{% include "events/rotulo/_page_head.html" with title=coordinator.display_name meta=meta back_url=back_url back_label="Coordinadores" %}{% endwith %}
+  {% endif %}
+{% endwith %}
+<section class="block tablero__avance" aria-labelledby="avance">
+  <h2 id="avance" class="heading">Avance</h2>
+  {% if progress.eligible %}
+  <p class="avance__cifra"><span class="avance__n">{{ progress.completed }} <span>de {{ progress.eligible }}</span></span></p>
+  {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
+  <ul class="key" aria-hidden="true">
+    <li><span class="key__mark key__mark--done"></span>{{ progress.completed }} hecha{{ progress.completed|pluralize }}</li>
+    {% if progress.in_progress %}<li><span class="key__mark key__mark--progress"></span>{{ progress.in_progress }} en curso</li>{% endif %}
+    {% if progress.partial %}<li><span class="key__mark"></span>{{ progress.partial }} a medias</li>{% endif %}
+    <li><span class="key__mark"></span>{{ progress.not_started }} sin iniciar</li>
+  </ul>
+  <ul class="meta">
+    {% if not progress.pending %}<li>Ya completó todas.</li>{% elif payload.throughput.eta_minutes %}<li>{% icon "reloj" "sm" %}Le faltan alrededor de {{ payload.throughput.eta_minutes|duration }}</li>{% endif %}
+    <li>{{ payload.throughput.per_hour|floatformat:"-1" }} por hora</li>
+    <li>{{ payload.follow_ups.open_total }} seguimiento{{ payload.follow_ups.open_total|pluralize }} abierto{{ payload.follow_ups.open_total|pluralize }}, {{ payload.follow_ups.to_evaluate }} por decidir</li>
+  </ul>
+  {% if progress.questionnaires %}{% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
+  {% else %}
+  <p class="empty-line">Todavía no tiene camperos asignados.</p>
+  {% endif %}
+</section>
+<section class="block" aria-labelledby="ritmo">
+  <h2 id="ritmo" class="heading">Ritmo</h2>
+  {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="coordinador-acumulado" as_of=payload.data_as_of %}
+  {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="coordinador-ritmo" %}
+</section>
+<section class="block" aria-labelledby="camperos">
+  <h2 id="camperos" class="heading">Sus camperos{% if participants %} <span class="count">{{ participants|length }}</span>{% endif %}</h2>
+  {% if participants %}
+  <ul class="rows">
+    {% for p in participants %}
+    <li class="row row--lead">
+      {% monogram p.full_name %}
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
+        <p class="row__meta row__meta--con-marca">{% campero_status p %}<span>#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años</span></p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-line">Sin camperos asignados.</p>
+  {% endif %}
+</section>
+{% else %}
 {% url 'events:coordinators' event.slug as back_url %}
 {% with team=coordinator.tutor_assignment.tutor.team_label|default:"Sin tutor" %}
   {% if coordinator.is_active %}
@@ -66,4 +120,4 @@
     {% endif %}
   </div>
 </section>
-{% endblock %}
+{% endif %}{% endblock %}

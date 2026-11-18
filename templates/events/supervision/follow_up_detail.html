@@ -1,7 +1,48 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Seguimiento de {{ follow_up.participant.full_name }}{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}
+  The redesign ("Ventanas"): who and the state as facts under the title; a situación de riesgo says so in chile and
+  keeps the church's protection procedure word for word; the details stay behind their access; the update is a form
+  with its one action.
+{% endcomment %}
+<div class="narrow">
+{% if follow_up.kind == "seguridad" %}
+  {% with title="Situación de riesgo: "|add:follow_up.participant.full_name %}{% include "events/rotulo/_page_head.html" with title=title back_url=back back_label="Volver" %}{% endwith %}
+{% else %}
+  {% with title="Seguimiento: "|add:follow_up.participant.full_name %}{% include "events/rotulo/_page_head.html" with title=title back_url=back back_label="Volver" %}{% endwith %}
+{% endif %}
+<ul class="meta">
+  {% if follow_up.kind == "seguridad" %}<li><span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Situación de riesgo</span></li>{% endif %}
+  <li>{% follow_up_status follow_up.status %}</li>
+  {% if follow_up.kind != "seguridad" %}<li>{{ follow_up.get_reason_display }}</li>{% endif %}
+  <li>Registrado {{ follow_up.created_at|fecha_corta }} por {{ follow_up.created_by.get_full_name|default:"—" }}</li>
+  <li>{% if follow_up.assigned_to %}Responsable: {{ follow_up.assigned_to.get_full_name|default:follow_up.assigned_to.email }}{% else %}Sin responsable{% endif %}</li>
+</ul>
+{% if follow_up.kind == "seguridad" %}
+  <div class="notice notice--danger"><p class="notice__title">Sigue el procedimiento de protección</p><p>{{ event.safeguarding_instructions|linebreaksbr }}</p></div>
+{% endif %}
+<section class="block" aria-labelledby="detalles">
+  <h2 id="detalles" class="heading">Detalles</h2>
+  {% if can_read %}
+    {% if follow_up.details %}<p class="prose-block">{{ follow_up.details|linebreaksbr }}</p>{% else %}<p class="empty-line">Sin detalles escritos.</p>{% endif %}
+    {% if follow_up.resolution_note %}<h3 class="heading block">Nota de cierre</h3><p class="prose-block">{{ follow_up.resolution_note|linebreaksbr }}</p>{% endif %}
+  {% else %}
+    <p class="privacy"><span class="privacy__tag">Confidencial</span> Solo el equipo de cuidado autorizado puede leer los detalles.</p>
+  {% endif %}
+</section>
+{% if form %}
+<form method="post" class="block form-section" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="siguiente" value="{{ back }}">
+  <h2 class="form-section__title">Actualizar</h2>
+  {% include "partials/ui/fields.html" with form=form %}
+  <div class="form-actions"><button class="btn btn--primary" type="submit">Guardar cambios</button><a class="btn btn--link" href="{% url 'events:participant_detail' event.slug follow_up.participant.public_id %}">Ver campero</a></div>
+</form>
+{% endif %}
+</div>
+{% else %}
 <div class="narrow">
 {% if follow_up.kind == "seguridad" %}
   {% with title="Situación de riesgo: "|add:follow_up.participant.full_name %}{% include "events/rotulo/_page_head.html" with title=title back_url=back back_label="Volver" %}{% endwith %}
@@ -31,4 +72,4 @@
 </form>
 {% endif %}
 </div>
-{% endblock %}
+{% endif %}{% endblock %}
