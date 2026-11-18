@@ -4,15 +4,19 @@
     python manage.py run_scheduled_jobs --loop 300   # the scheduler service
 
 A pass runs, in this order, each one on its own (``core.scheduler.run_job``: a job that fails is
-logged, leaves its error's class name in its heartbeat and never stops the next job or the next pass):
+logged, leaves its error's class name in its heartbeat and never stops the next job or the next pass;
+neither does a heartbeat that cannot be written). Without ``--loop`` the command ends with code 1
+when a job of the pass failed, after running all of them, as ``run_report_cutoffs`` does for cron:
 
 1. ``cortes``: the whole pass of ``run_report_cutoffs`` (cutoffs, expired captures and sessions, and
    the retention purge once a day), unchanged.
 2. ``avisos_correo``: the e-mails of the notices whose day came, what a publish left over and what
    failed (``notices.email.send_due``, what ``send_notice_emails --apply`` runs). Only with
    ``EMMAUS_PUBLIC_BASE_URL`` and a mail backend that delivers; for at most ``NOTICE_MAIL_BUDGET_SECONDS``.
+   A pass in which no e-mail got through is a failed pass (``notices.email.health``).
 3. ``lista_espera``: the offered places that expired go to the next in line
-   (``agenda.services.expire_offers``, what ``expire_waiting_offers --apply`` runs).
+   (``agenda.services.expire_offers``, what ``expire_waiting_offers --apply`` runs), in the churches
+   that use the ``community`` module. An event whose list could not be moved makes the pass a failed one.
 
 2 and 3 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
 switch) leaves only the first, and the line it prints is then the one ``run_report_cutoffs`` prints.
@@ -27,7 +31,7 @@ import time
 from io import StringIO
 
 from django.conf import settings
-from django.core.management.base import BaseCommand, OutputWrapper
+from django.core.management.base import BaseCommand, CommandError, OutputWrapper
 from django.db import close_old_connections
 from django.utils import timezone
 
@@ -49,6 +53,16 @@ def send_notice_mail() -> dict:
     from notices import email
 
     return email.send_due(settings.EMMAUS_PUBLIC_BASE_URL, budget_seconds=NOTICE_MAIL_BUDGET_SECONDS)
+
+
+def notice_mail_verdict(done: dict) -> str:
+    from notices import email
+
+    return email.health(done, was_failing=scheduler.last_error(scheduler.NOTICE_MAIL) == email.ALL_SENDS_FAILED)
+
+
+def waiting_offers_verdict(done: dict) -> str:
+    return "EventsFailed" if done["failed"] else ""
 
 
 def expire_waiting_offers() -> dict:
@@ -75,42 +89,51 @@ class Command(BaseCommand):
         """The cutoffs pass, with what it prints kept for this pass's line."""
         printed = StringIO()
         self.cutoffs.stdout = OutputWrapper(printed)
-        ok = scheduler.run_job(scheduler.CUTOFFS, lambda: self.cutoffs.run_once() or {}) is not None
-        return ok, printed.getvalue().splitlines()
+        run = scheduler.run_job(scheduler.CUTOFFS, lambda: self.cutoffs.run_once() or {}, full_traceback=True)
+        return run.ok, printed.getvalue().splitlines()
 
-    def notice_mail_summary(self) -> str:
+    def notice_mail_summary(self) -> tuple[bool, str]:
         reason = scheduler.skipped(scheduler.NOTICE_MAIL)
         if reason:
-            return f"correos de avisos: {SKIPPED_WORDS[reason]}"
-        done = scheduler.run_job(scheduler.NOTICE_MAIL, send_notice_mail)
+            return True, f"correos de avisos: {SKIPPED_WORDS[reason]}"
+        run = scheduler.run_job(scheduler.NOTICE_MAIL, send_notice_mail, verdict=notice_mail_verdict)
+        done = run.counts
         if done is None:
-            return "correos de avisos: error"
+            return False, "correos de avisos: error"
         if done["not_configured"]:
-            return f"correos de avisos: {SKIPPED_WORDS[scheduler.NO_EMAIL]}"
-        return f"correos de avisos: {done['sent']} enviados, {done['failed']} fallidos, {done['left']} pendientes"
+            return True, f"correos de avisos: {SKIPPED_WORDS[scheduler.NO_EMAIL]}"
+        line = f"correos de avisos: {done['sent']} enviados, {done['failed']} fallidos, {done['left']} pendientes"
+        return run.ok, line if run.ok else f"{line} (ningún correo está saliendo)"
 
-    def waiting_offers_summary(self) -> str:
-        done = scheduler.run_job(scheduler.WAITING_OFFERS, expire_waiting_offers)
+    def waiting_offers_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.WAITING_OFFERS, expire_waiting_offers, verdict=waiting_offers_verdict)
+        done = run.counts
         if done is None:
-            return "lista de espera: error"
-        return f"lista de espera: {done['released']} lugares liberados, {done['offered']} ofrecidos"
+            return False, "lista de espera: error"
+        line = f"lista de espera: {done['released']} lugares liberados, {done['offered']} ofrecidos"
+        return run.ok, line if run.ok else f"{line}, {done['failed']} eventos con error"
 
-    def run_once(self):
+    def run_once(self) -> bool:
+        """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
         ok, lines = self.run_cutoffs()
         head = lines[0] if lines else f"{stamp} · cortes: error"
         if lines and not ok:
             head += " · la pasada de cortes no terminó"
         if scheduler.community_jobs_enabled():
-            head += f" · {self.notice_mail_summary()} · {self.waiting_offers_summary()}"
+            for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary()):
+                ok = ok and job_ok
+                head += f" · {summary}"
         self.stdout.write(head)
         for line in lines[1:]:
             self.stdout.write(line)
+        return ok
 
     def handle(self, *args, **options):
         interval = options["loop"]
         if not interval:
-            self.run_once()
+            if not self.run_once():
+                raise CommandError("Un trabajo de la pasada falló: revisa la línea de arriba y el registro.", returncode=1)
             return
         self.stdout.write(f"Revisando cortes, correos de avisos y listas de espera cada {interval} segundos.")
         while True:

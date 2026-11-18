@@ -158,7 +158,9 @@ def _emailed_lines(notice: Announcement) -> list[str]:
         lines = [f"Salieron {sent} correos: a {sent} de las {total} personas con cuenta a quienes va este aviso."]
     if notice.version > 1 and total >= smallest:
         lines[0] += " Cuenta desde el último cambio que pidió «Enterado» otra vez."
-    if failed:
+    if failed and email.gave_up(notice):
+        lines.append("Algunos correos no se pudieron enviar. Emmaus lo intentó varias veces y ya no lo intentará de nuevo.")
+    elif failed:
         lines.append("Algunos correos no se pudieron enviar.")
     lines.append(
         "Cada persona elige qué avisos le llegan por correo. El correo solo dice que hay un aviso y lleva el enlace a"

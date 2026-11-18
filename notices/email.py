@@ -29,6 +29,19 @@ over and its unique constraint lets one writer win (``_claim``). A row left "pen
 that died (a worker killed while the mail server hung) may be taken again after
 ``PENDING_STALE_MINUTES``, by one writer, like a row that failed. One call uses one connection to
 the mail server, which gives up after ``settings.EMAIL_TIMEOUT`` seconds.
+
+A mail that failed is not tried again at once: each row counts its attempts, the next one waits
+``BACKOFF_MINUTES`` (5 minutes, 30 minutes, 3 hours, 12 hours) and after ``MAX_ATTEMPTS`` the row is
+final: it stays "failed", is never taken again and no longer keeps the round open (the notice's page
+says that some e-mails could not be sent). That holds for every sender, the command by hand included.
+
+What is not known: a send that failed after the message was handed over (a timeout while the server
+was answering) looks the same as one the server refused, and so does a sender that died. Trying
+those again can deliver a second copy. That was so before the counter; the counter bounds it to
+``MAX_ATTEMPTS`` tries per person and version instead of one per pass.
+
+Whether sending works at all (``health``): a pass whose first attempts all failed says so, and so do
+the following passes until an e-mail goes out, so that nobody is promised an e-mail meanwhile.
 """
 
 from __future__ import annotations
@@ -70,6 +83,11 @@ WINDOW_DAYS = 3
 # A "pending" row this old belongs to a sender that died: no live one waits longer than the mail
 # server's timeout for a single mail.
 PENDING_STALE_MINUTES = 10
+# After the n-th failed attempt, the minutes before the next one. One more attempt than entries.
+BACKOFF_MINUTES = (5, 30, 180, 720)
+MAX_ATTEMPTS = len(BACKOFF_MINUTES) + 1
+# What ``health`` answers when nothing is getting through.
+ALL_SENDS_FAILED = "AllSendsFailed"
 # The preferences that include each level. No row counts as "Solo los urgentes".
 _WANTED = {
     Priority.URGENT: {Choice.URGENT, Choice.IMPORTANT, Choice.ALL},
@@ -85,6 +103,8 @@ class Round:
     sent: int = 0
     failed: int = 0
     left: int = 0
+    # Of ``failed``, the mails that failed on their first attempt (the rest were retries).
+    first_failed: int = 0
     not_configured: bool = False
 
 
@@ -120,10 +140,26 @@ def recipients(notice: Announcement) -> QuerySet[Person]:
     return people.filter(chosen)
 
 
+def _stale():
+    return timezone.now() - timedelta(minutes=PENDING_STALE_MINUTES)
+
+
 def _retriable() -> Q:
-    """The rows that may be taken again: the mail failed, or its sender died before saying how it went."""
-    stale = timezone.now() - timedelta(minutes=PENDING_STALE_MINUTES)
-    return Q(outcome=Outcome.FAILED) | Q(outcome=Outcome.PENDING, created_at__lt=stale)
+    """The rows that may be taken again now: the mail failed and its wait is over, or its sender died
+    before saying how it went. Never a row that used its ``MAX_ATTEMPTS``."""
+    now = timezone.now()
+    # A failed row from before the counter (0 attempts, no time) is taken as before: at once.
+    waited = Q(attempts=0)
+    for attempts, minutes in enumerate(BACKOFF_MINUTES, start=1):
+        waited |= Q(attempts=attempts, last_attempt_at__lte=now - timedelta(minutes=minutes))
+    return Q(outcome=Outcome.FAILED) & waited | Q(outcome=Outcome.PENDING, created_at__lt=_stale(), attempts__lt=MAX_ATTEMPTS)
+
+
+def _open_rows() -> Q:
+    """The rows that still keep a round open: a mail being sent, one whose sender died and one that
+    failed, while attempts are left. Not a mail that was sent, nor one that was given up."""
+    given_up = Q(outcome=Outcome.FAILED) | Q(outcome=Outcome.PENDING, created_at__lt=_stale())
+    return ~Q(outcome=Outcome.SENT) & ~(given_up & Q(attempts__gte=MAX_ATTEMPTS))
 
 
 def _waiting(notice: Announcement) -> QuerySet[Person]:
@@ -175,17 +211,23 @@ def will_not_be_mailed(notice: Announcement) -> bool:
     return notice.emailed_version != notice.version and notice.state == "publicado" and not in_window(notice)
 
 
-def _claim(notice: Announcement, version: int, person_id: int) -> bool:
-    """Take the one right to mail this person about this version. False: somebody else has it."""
+FIRST_ATTEMPT, RETRY = 1, 2
+
+
+def _claim(notice: Announcement, version: int, person_id: int) -> int:
+    """Take the one right to mail this person about this version, and count the attempt. 0: somebody
+    else has it, or it is not time to try again. ``FIRST_ATTEMPT`` or ``RETRY`` otherwise."""
+    now = timezone.now()
     try:
         with transaction.atomic():
-            NoticeEmail.objects.create(announcement=notice, version=version, person_id=person_id)
-        return True
+            NoticeEmail.objects.create(announcement=notice, version=version, person_id=person_id, attempts=1, last_attempt_at=now)
+        return FIRST_ATTEMPT
     except IntegrityError:
         # A row exists. Only one that failed, or whose sender died, may be tried again, and only by
         # one writer: the update is conditional on the row's state and age, and restarts its age.
         retry = NoticeEmail.objects.filter(_retriable(), announcement=notice, version=version, person_id=person_id)
-        return bool(retry.update(outcome=Outcome.PENDING, created_at=timezone.now()))
+        taken = retry.update(outcome=Outcome.PENDING, created_at=now, attempts=F("attempts") + 1, last_attempt_at=now)
+        return RETRY if taken else 0
 
 
 def _release(notice: Announcement, version: int, person_id: int) -> None:
@@ -236,7 +278,8 @@ def deliver(notice_id: int, base_url: str, *, limit: int = SEND_CAP, budget_seco
             if budget_seconds is not None and time.monotonic() - started > budget_seconds:
                 break
             handled += 1
-            if not _claim(notice, version, person_id):
+            attempt = _claim(notice, version, person_id)
+            if not attempt:
                 continue
             try:
                 outcome = notify(kind, address, context, connection=connection)
@@ -254,15 +297,17 @@ def deliver(notice_id: int, base_url: str, *, limit: int = SEND_CAP, budget_seco
             )
             done.sent += sent
             done.failed += not sent
+            done.first_failed += not sent and attempt == FIRST_ATTEMPT
             if not sent:  # the connection may be the thing that broke: the next e-mail starts on a new one
                 _close(connection)
                 _open(connection)
     finally:
         _close(connection)
-    # A row still "pending" is another sender's, alive or dead: either way that person has no e-mail
-    # yet, and the round must stay open so that the row can be taken again if its sender died.
-    others = NoticeEmail.objects.filter(announcement=notice, version=version, outcome=Outcome.PENDING).count()
-    done.left = len(waiting) - handled + done.failed + others
+    # A row still "pending" is another sender's, alive or dead, and a row that failed waits for its
+    # next attempt: either way that person has no e-mail yet, and the round must stay open so that
+    # the row can be taken again. A row that used all its attempts no longer counts.
+    unfinished = NoticeEmail.objects.filter(_open_rows(), announcement=notice, version=version).count()
+    done.left = len(waiting) - handled + unfinished
     if not done.left:
         # Only if the notice is still what this round was computed for. One that became urgent
         # meanwhile has people this call never looked at: its round stays open for the next pass.
@@ -273,13 +318,14 @@ def deliver(notice_id: int, base_url: str, *, limit: int = SEND_CAP, budget_seco
 def send_due(base_url: str, *, days: int = WINDOW_DAYS, budget_seconds: float | None = None) -> dict:
     """Every open round (``open_rounds``): the notices whose day came, what a publish left above its
     cap or its budget, and what failed. What ``send_notice_emails --apply`` and the scheduler's pass
-    run. Counts only: ``notices`` looked at, ``sent``, ``failed``, ``left``, and ``not_configured``
-    when the server has no e-mail (then nothing was sent and the rest was not looked at).
+    run. Counts only: ``notices`` looked at, ``sent``, ``failed`` (``first_failed`` of them on their
+    first attempt), ``left``, and ``not_configured`` when the server has no e-mail (then nothing was
+    sent and the rest was not looked at).
     ``budget_seconds`` bounds the whole call, so that a mail server that hangs cannot hold the
     scheduler: what is left waits for the next call."""
     started = time.monotonic()
     notices = [notice for notice in open_rounds(days) if is_mailable(notice)]
-    totals = {"notices": len(notices), "sent": 0, "failed": 0, "left": 0, "not_configured": False}
+    totals = {"notices": len(notices), "sent": 0, "failed": 0, "first_failed": 0, "left": 0, "not_configured": False}
     for notice in notices:
         while True:
             remaining = None if budget_seconds is None else budget_seconds - (time.monotonic() - started)
@@ -292,11 +338,38 @@ def send_due(base_url: str, *, days: int = WINDOW_DAYS, budget_seconds: float | 
                 return totals
             totals["sent"] += done.sent
             totals["failed"] += done.failed
+            totals["first_failed"] += done.first_failed
             # Again only while a full batch went out: what is left then is the part above the cap.
             if not done.left or done.failed or not done.sent:
                 totals["left"] += done.left
                 break
     return totals
+
+
+def health(done: dict, was_failing: bool) -> str:
+    """Whether a pass of ``send_due`` shows that e-mail is getting through: empty, or
+    ``ALL_SENDS_FAILED``. A pass with nothing to send is fine. One that sent something is fine. One
+    where nothing went out and a first attempt failed is not (wrong credentials, a server that
+    refuses everything); retries that fail alone are not news, they are one address the server will
+    not take. Once failing, it stays so until an e-mail of a notice goes out, from a pass or from a
+    publish: a pass that only waits for its next attempt proves nothing."""
+    if done["sent"]:
+        return ""
+    if done["first_failed"]:
+        return ALL_SENDS_FAILED
+    if not was_failing:
+        return ""
+    attempted = NoticeEmail.objects.filter(last_attempt_at__isnull=False)
+    last_failure = attempted.filter(outcome=Outcome.FAILED).order_by("-last_attempt_at").values_list("last_attempt_at", flat=True).first()
+    if last_failure is None or attempted.filter(outcome=Outcome.SENT, last_attempt_at__gt=last_failure).exists():
+        return ""
+    return ALL_SENDS_FAILED
+
+
+def gave_up(notice: Announcement) -> bool:
+    """Some e-mail of the notice's current version failed ``MAX_ATTEMPTS`` times and will not be tried again."""
+    rows = NoticeEmail.objects.filter(announcement=notice, version=notice.version)
+    return rows.filter(outcome=Outcome.FAILED, attempts__gte=MAX_ATTEMPTS).exists()
 
 
 def schedule(notice: Announcement, base_url: str | None) -> None:
