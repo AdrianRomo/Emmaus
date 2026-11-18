@@ -24,10 +24,11 @@
       </ul>
       {% if about.phone or about.email %}
         <p class="row__contact">{% if about.phone %}<a href="tel:{{ about.phone|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ about.full_name }}: </span>{{ about.phone }}</a>{% endif %}{% if about.email %}<a href="mailto:{{ about.email }}">{% icon "correo" "sm" %}<span class="visually-hidden">Escribir a {{ about.full_name }}: </span>{{ about.email }}</a>{% endif %}</p>
+      {% else %}
+        <p class="page-head__meta">Sin teléfono ni correo. Pregunta en tu iglesia cómo encontrarla.</p>
       {% endif %}
     </header>
   </div>
-  {% if not about.phone and not about.email %}<p class="empty-line">Sin teléfono ni correo. Pregunta en tu iglesia cómo encontrarla.</p>{% endif %}
 
   <section class="block" aria-labelledby="hecho">
     <h2 id="hecho" class="heading">{% if follow_up.is_mine %}Lo que has hecho{% else %}Lo que se ha hecho{% endif %}</h2>

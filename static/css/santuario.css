@@ -926,6 +926,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .group-head__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
 .group-head .page-head__meta + .row__contact { margin-top: 0; }
 @media (max-width: 600px) {
+  .group-head--actions > .page-head { flex-basis: 10rem; }
   .group-head__actions { flex: 1 0 100%; }
   .group-head__actions .btn { flex: 1 1 auto; }
 }
