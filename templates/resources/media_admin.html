@@ -26,6 +26,7 @@
         </li>
       {% endfor %}
     </ul>
+    {% include "partials/ui/pager.html" with page=items label="Páginas de recursos" %}
   {% else %}
     <p class="empty-line">Todavía no hay recursos. Agrega el primero: solo necesitas su enlace.</p>
   {% endif %}

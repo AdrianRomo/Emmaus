@@ -66,9 +66,11 @@ GRACE_DAYS = 2          # a meeting is not "por registrar" until this many days 
 EARLY_DAYS = 3          # a list taken up to this many days before a due meeting counts as that meeting's
 MISSING_CAP = 3         # "3 o más": the page does not count further back
 JOINED_DAYS = 30
+# Panorama is a summary, so these three are short on purpose and each table's caption says so ("Los últimos eventos
+# que terminaron", "Las próximas fechas de cada equipo"); the whole lists are in "Eventos de la iglesia" and "Equipos".
 FINISHED_EVENTS = 5
 DATES_PER_TEAM = 3
-MAX_DATES = 60
+MAX_DATES = 60          # dates read to find three per team; never a list on the screen
 
 
 def share(part: int, whole: int, minimum: int) -> dict | None:

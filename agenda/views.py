@@ -14,6 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from core.paging import first_rows
 from events.models import Event, normalize_name
 from events.services import throttle
 from groups.views import church_admin_view, community_view
@@ -424,18 +425,19 @@ def walkup(request, slug: str):
                 messages.success(request, f"Registraste a {registration.display_name}. Ya quedó en la lista como que vino.")
             return redirect(back)
     query = request.GET.get("q", "").strip()
-    found = []
+    found, found_total = [], 0
     if query and person is None:
         here = EventRegistration.objects.filter(event=event, status__in=HOLDING, person__isnull=False)
         matches = people.exclude(pk__in=here.values("person_id"))
         for token in normalize_name(query).split():
             matches = matches.filter(normalized_name__contains=token)
-        found = list(matches.order_by("first_name", "last_name", "id")[:20])
+        # Twenty names under a search box on purpose: with more, the screen says how many and asks for more of the name.
+        found, found_total = first_rows(matches.order_by("first_name", "last_name", "id"), 20)
     return render(
         request,
         "agenda/walkup.html",
         {"event": event, "page": page, "form": form, "person": person, "minor_known": minor_known, "query": query,
-         "found": found, "back": back, "block_texts": [services.WALKUP_RULES[rule] for rule in blocks],
+         "found": found, "found_total": found_total, "back": back, "block_texts": [services.WALKUP_RULES[rule] for rule in blocks],
          # A person of the church is confirmed only with an age the team verified.
          "age_unverified": requires_consent and person is not None and minor_known is not True
          and not person.birth_date_verified},

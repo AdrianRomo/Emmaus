@@ -1,0 +1,12 @@
+{% load community %}{% comment %}
+  "Anterior / Siguiente" under a list that has more than one page (core/paging.py; page = a Django Page of fifty).
+  It says the page, which rows are on it and how many there are in all; the links keep every filter of the address
+  (page_href) and carry rel="prev" / rel="next". `label` names the list for a screen reader ("Páginas de avisos"),
+  `param` is the name of the page in the address when a screen has two lists. Nothing is drawn for a single page.
+{% endcomment %}{% if page.has_other_pages %}
+<nav class="pager" aria-label="{{ label|default:'Páginas de la lista' }}">
+  {% if page.has_previous %}<a class="btn btn--secondary btn--small" rel="prev" href="{% page_href page.previous_page_number param %}">Anterior</a>{% else %}<span></span>{% endif %}
+  <p class="pager__where" aria-current="page">Página {{ page.number }} de {{ page.paginator.num_pages }}. Del {{ page.start_index }} al {{ page.end_index }} de {{ page.paginator.count }}.</p>
+  {% if page.has_next %}<a class="btn btn--secondary btn--small" rel="next" href="{% page_href page.next_page_number param %}">Siguiente</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}

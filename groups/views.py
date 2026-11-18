@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core import notify, onboarding
+from core.paging import first_rows, paginate
 from core.authz import Action, has_scope
 from events.models import normalize_name
 from feedback import services as feedback_services
@@ -42,6 +43,7 @@ from .forms import GroupForm, MyDataForm
 from .models import Group, GroupJoinRequest, GroupMeeting, GroupMembership
 
 ACTIVE = GroupMembership.Status.ACTIVE
+SEARCH_LIMIT = 10  # names under a search box (core/paging.py::first_rows)
 PENDING = GroupJoinRequest.Status.PENDING
 # The words of the filter are plurals; the model's are the singular a group page shows.
 GROUP_KIND_FILTERS = [("pequeno", "Grupos pequeños"), ("estudio", "Estudios bíblicos"), ("otro", "Otros grupos")]
@@ -110,6 +112,9 @@ def home(request):
     )
     to_decide = list(to_decide)
     # Only what the church published for its people (agenda.EventPage), with this person's sign-up.
+    # The home is a glance, so its lists are short on purpose and each one leads to the whole list: five events and
+    # six dates in all under "Lo que viene" ("Ver todos los eventos"), three notices ("Ver todos los avisos"), three
+    # dates to serve ("Ver todo en Servir"), three resources ("Ver todos los recursos").
     upcoming = agenda_services.upcoming_for(person, church, today)[:5]
     urgent_notices = notices_services.urgent_pending(person, is_admin=request.is_church_admin)
     notices = notices_services.for_home(person, is_admin=request.is_church_admin, skip=urgent_notices)
@@ -289,6 +294,7 @@ def group_detail(request, group_id: int):
             "members": GroupMembership.objects.filter(group=group, status=ACTIVE).count(),
             # Only the reader's own rows, and only to them: nobody else's attendance is on this page.
             "attendance": services.own_attendance(membership) if membership and group.is_active else [],
+            "attendance_total": services.own_attendance_total(membership) if membership and group.is_active else 0,
         },
     )
 
@@ -373,18 +379,19 @@ def group_people(request, group_id: int):
     group = _managed_group(request, group_id)
     requests = GroupJoinRequest.objects.filter(group=group, status=PENDING).select_related("person")
     members = GroupMembership.objects.filter(group=group, status=ACTIVE).select_related("person", "person__user")
-    query, found = request.GET.get("q", "").strip(), []
+    query, found, found_total = request.GET.get("q", "").strip(), [], 0
     if request.is_church_admin and query:
         # Only the administration searches the church's people; a guide sees only who asked and who is in.
         found = Person.objects.filter(church=request.church, merged_into__isnull=True)
         for token in normalize_name(query).split():
             found = found.filter(normalized_name__contains=token)
-        found = found.exclude(group_memberships__in=members)[:10]
+        # Ten names under a search box on purpose: with more, the screen says how many and asks for more of the name.
+        found, found_total = first_rows(found.exclude(group_memberships__in=members), SEARCH_LIMIT)
     return render(
         request,
         "groups/group_people.html",
         {"group": group, "requests": requests, "members": members, "member_count": len(members), "query": query,
-         "found": found, "me": request.person},
+         "found": found, "found_total": found_total, "me": request.person},
     )
 
 
@@ -461,7 +468,7 @@ def group_meetings(request, group_id: int):
             messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
             return redirect("community:group_meetings", group.pk)
         return redirect("community:meeting_record", group.pk, day.isoformat())
-    meetings = list(services.with_present(group.meetings.all())[:12])
+    meetings = paginate(request, services.with_present(group.meetings.all()))
     return render(
         request,
         "groups/group_meetings.html",

@@ -33,6 +33,7 @@
           </li>
         {% endfor %}
       </ul>
+      {% include "partials/ui/pager.html" with page=meetings label="Páginas de reuniones" %}
     {% else %}
       <p class="empty-line">Todavía no hay ninguna reunión con lista.{% if not group.has_fixed_day %} Este grupo no tiene día de reunión: elige la fecha aquí abajo.{% endif %}</p>
     {% endif %}

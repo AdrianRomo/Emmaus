@@ -27,6 +27,7 @@
     <p class="aside-note" id="buscar-ayuda">Escribe su nombre o apellido. Solo se buscan personas de tu iglesia que no están en la lista.</p>
     {% if query %}
       {% if found %}
+        {% if found_total > found|length %}<p class="list-count">Estas son las primeras {{ found|length }} de {{ found_total }} personas con ese nombre. Escribe más del nombre para encontrar a quien buscas.</p>{% endif %}
         <ul class="rows">
           {% for match in found %}
             <li class="row row--lead row--stack">
