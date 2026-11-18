@@ -541,7 +541,7 @@ class StatusMarkTests(CampFixture):
         self.login(self.admin)
         html = self.client.get(self.url("admin_home")).content.decode()
         review = '<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>Revisar</span>'
-        self.assertEqual(html.count(review), 2)
+        self.assertEqual(html.count(review), 3)  # and "Acceso del equipo" (issue #49): nobody in the fixture has signed in
         self.assertNotIn('status--pending"><span class="status__mark" aria-hidden="true"></span>Revisar', html)
 
     def test_a_published_questionnaire_version_is_not_drawn_as_not_started(self):

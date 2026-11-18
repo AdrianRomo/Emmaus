@@ -128,8 +128,13 @@ class EventAccess:
             return qs.filter(id=self.membership.id)
         return qs.none()
 
-    def participants(self, include_inactive: bool = False) -> QuerySet[EventParticipant]:
+    def participants(self, include_inactive: bool = False, *, include_practice: bool = False) -> QuerySet[EventParticipant]:
+        """The camperos this person may see. Never the practice campero (issue #49) unless ``include_practice``:
+        every list, count, export and metric reads this without it. With it, the practice campero is added for
+        the people who rehearse with it only: the administration, and the coordinador it is assigned to."""
         qs = EventParticipant.objects.filter(event=self.event).select_related("coordinator__user")
+        if not (include_practice and (self.is_admin or self.is_coordinator)):
+            qs = qs.real()
         if not include_inactive:
             qs = qs.filter(is_active=True)
         if self.sees_whole_event:
@@ -140,12 +145,18 @@ class EventAccess:
             return qs.filter(coordinator=self.membership)
         return qs.none()
 
+    def practice_participant(self) -> EventParticipant | None:
+        """The event's practice campero when this person may rehearse with it (see ``participants``)."""
+        return self.participants(include_practice=True).practice().first()
+
     def interviews(self) -> QuerySet[Interview]:
+        """Interviews of real camperos only (``participants()`` leaves the practice campero out)."""
         return Interview.objects.filter(
             event=self.event, participant__in=self.participants(include_inactive=True)
         ).select_related("participant", "conducted_by", "station")
 
     def follow_ups(self) -> QuerySet[FollowUp]:
+        """Follow-ups of real camperos only: one born in a practice interview is never listed, counted or opened."""
         qs = FollowUp.objects.filter(
             event=self.event, participant__in=self.participants(include_inactive=True)
         ).select_related("participant", "assigned_to", "created_by")
@@ -160,9 +171,9 @@ class EventAccess:
 
     # ---- object checks ---------------------------------------------------------------
     def can_view_participant(self, participant: EventParticipant) -> bool:
-        return participant.event_id == self.event.id and self.participants(include_inactive=True).filter(
-            pk=participant.pk
-        ).exists()
+        return participant.event_id == self.event.id and self.participants(
+            include_inactive=True, include_practice=True  # the interview screens work on the practice campero too
+        ).filter(pk=participant.pk).exists()
 
     def can_edit_participant(self, participant: EventParticipant) -> bool:
         if not self.can_view_participant(participant):

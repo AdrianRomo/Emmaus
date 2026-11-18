@@ -1,0 +1,94 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}Campero de práctica{% endblock %}
+{% block content %}
+{% comment %}
+  Issue #49. Everything here is about the practice campero, which no count, cutoff, report or download ever reads.
+  It says where it is and who already practised; never a word of what was answered with it.
+{% endcomment %}
+<div class="narrow">
+{% url 'events:admin_home' event.slug as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Campero de práctica" lede="Un campero que no existe, para ensayar el cuestionario de principio a fin antes del evento. Lo que se responde con él no cuenta en ningún avance, corte, reporte ni descarga." back_url=back_url back_label="Administración" %}
+
+{% if not event.has_questionnaire %}
+  <div class="notice notice--warning"><p>El evento todavía no tiene un cuestionario publicado, así que aún no se puede practicar. <a href="{% url 'events:questionnaires' event.slug %}">Ver cuestionarios</a></p></div>
+{% endif %}
+
+{% if participant %}
+  <section aria-labelledby="donde-esta">
+    <h2 id="donde-esta" class="heading">Dónde está</h2>
+    <ul class="rows">
+      <li class="row">
+        <div class="row__main">
+          <p class="row__title">{{ participant.full_name }}</p>
+          <p class="row__meta">{% if participant.coordinator %}En “Mis camperos” de {{ participant.coordinator.display_name }}, marcado “De práctica”.{% else %}Sin coordinador: por ahora solo la administración puede practicar con él.{% endif %}</p>
+          <p class="row__meta">{% if interviews %}Tiene {{ interviews }} entrevista{{ interviews|pluralize }} de práctica.{% else %}Todavía nadie lo entrevista.{% endif %}</p>
+          {% comment %}Under the text, not beside it: at 390 px a status and a button beside three lines leave them no room.{% endcomment %}
+          <p class="mt-2">{% campero_status participant %}</p>
+          {% if event.has_questionnaire and participant.interview_status != "completada" %}<p class="mt-2"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug participant.public_id %}">Practicar yo<span class="visually-hidden"> con el campero de práctica</span></a></p>{% endif %}
+        </div>
+      </li>
+    </ul>
+  </section>
+
+  <section class="mt-8" aria-labelledby="pasarlo">
+    <h2 id="pasarlo" class="heading">Pasarlo a otra persona</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="pasar">
+      <div class="field">
+        <label class="label" for="coordinador">¿Quién practica ahora?</label>
+        <span class="hint" id="coordinador-ayuda">Al pasarlo queda como nuevo: se borran las entrevistas de práctica que tenga, para que esa persona empiece desde la primera pregunta. También sirve para que la misma persona practique otra vez.</span>
+        <select id="coordinador" name="coordinador" aria-describedby="coordinador-ayuda">
+          <option value="{{ nobody }}">Nadie por ahora</option>
+          {% for c in coordinators %}<option value="{{ c.id }}"{% if participant.coordinator_id == c.id %} selected{% endif %}>{{ c.display_name }}{% if c.practised %} (ya practicó){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn--primary" type="submit">Pasar y dejar como nuevo</button>
+    </form>
+  </section>
+
+  <section class="mt-8" aria-labelledby="quitarlo">
+    <h2 id="quitarlo" class="heading">Quitarlo</h2>
+    <p>Cuando el equipo ya practicó, puedes quitarlo. Se borran sus entrevistas y respuestas de práctica; queda anotado en el registro de actividad quién lo quitó. Quién ya practicó se conserva.</p>
+    <form method="post" class="mt-4">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="quitar">
+      <button class="btn btn--danger-outline" type="submit" data-confirm="¿Quitar el campero de práctica? Se borran sus entrevistas y respuestas de práctica.">Quitar el campero de práctica</button>
+    </form>
+  </section>
+{% else %}
+  <section aria-labelledby="crearlo">
+    <h2 id="crearlo" class="heading">Este evento no tiene campero de práctica</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="crear">
+      <div class="field">
+        <label class="label" for="coordinador">¿Quién practica primero?</label>
+        <span class="hint" id="coordinador-ayuda">Le aparece en “Mis camperos”, marcado “De práctica”. Después lo puedes pasar a otra persona.</span>
+        <select id="coordinador" name="coordinador" aria-describedby="coordinador-ayuda">
+          <option value="{{ nobody }}">Nadie por ahora</option>
+          {% for c in coordinators %}<option value="{{ c.id }}">{{ c.display_name }}{% if c.practised %} (ya practicó){% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn--primary" type="submit">Crear el campero de práctica</button>
+    </form>
+  </section>
+{% endif %}
+
+<section class="mt-8" aria-labelledby="quien-practico">
+  <h2 id="quien-practico" class="heading">Quién ya practicó <span class="count">{{ practised_count }} de {{ coordinators|length }}</span></h2>
+  {% if coordinators %}
+    <ul class="rows">{% for c in coordinators %}
+      <li class="row">
+        <div class="row__main"><p class="row__title">{{ c.display_name }}</p></div>
+        <div class="row__end">{% if c.practised %}{% status "completada" "Ya practicó" %}{% else %}{% status "pendiente" "Aún no practica" %}{% endif %}</div>
+      </li>
+    {% endfor %}</ul>
+    <p class="more"><a href="{% url 'events:team' event.slug %}">Ver al equipo con su última entrada</a></p>
+  {% else %}
+    <p class="empty-line">Todavía no hay coordinadores con acceso. <a href="{% url 'events:member_add' event.slug %}">Agrega al primero</a>.</p>
+  {% endif %}
+</section>
+</div>
+{% endblock %}

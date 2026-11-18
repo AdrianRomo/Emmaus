@@ -75,6 +75,7 @@
           <div class="row__main">
             <p class="row__title">{{ tutor.display_name }}</p>
             <p class="row__meta">Tutor{% if not tutor.is_active %}, sin acceso{% endif %}{% if tutor.can_view_sensitive %}, acceso confidencial{% endif %}</p>
+            {% include "events/supervision/_member_activity.html" with m=tutor practises=False %}
           </div>
           {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug tutor.id %}">Editar<span class="visually-hidden"> los datos de {{ tutor.display_name }}</span></a>{% endif %}
         </li>
@@ -84,6 +85,7 @@
               <div class="row__main">
                 <p class="row__title">{% if access.sees_whole_event %}<a class="row__link" href="{% url 'events:coordinator_detail' event.slug a.coordinator.id %}">{{ a.coordinator.display_name }}</a>{% else %}{{ a.coordinator.display_name }}{% endif %}</p>
                 <p class="row__meta">Coordinador, {{ counts|get_item:a.coordinator.id|default:0 }} camperos{% if not a.coordinator.is_active %}, sin acceso{% endif %}</p>
+                {% include "events/supervision/_member_activity.html" with m=a.coordinator practises=True %}
               </div>
               {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug a.coordinator.id %}">Editar<span class="visually-hidden"> los datos de {{ a.coordinator.display_name }}</span></a>{% endif %}
             </li>
@@ -105,6 +107,7 @@
           <div class="row__main">
             <p class="row__title">{{ c.display_name }}</p>
             <p class="row__meta">{{ counts|get_item:c.id|default:0 }} camperos</p>
+            {% include "events/supervision/_member_activity.html" with m=c practises=True %}
           </div>
           {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug c.id %}">Asignar tutor<span class="visually-hidden"> a {{ c.display_name }}</span></a>{% endif %}
         </li>
@@ -120,6 +123,7 @@
           <div class="row__main">
             <p class="row__title">{{ m.display_name }}</p>
             <p class="row__meta">{{ m.get_role_display }}{% if m.can_view_sensitive %}, acceso confidencial{% endif %}{% if not m.is_active %}, sin acceso{% endif %}</p>
+            {% include "events/supervision/_member_activity.html" with m=m practises=False %}
           </div>
           {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug m.id %}">Editar<span class="visually-hidden"> los datos de {{ m.display_name }}</span></a>{% endif %}
         </li>

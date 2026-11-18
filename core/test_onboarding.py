@@ -102,7 +102,7 @@ class WelcomeOnEachHomeTests(CampFixture):
         page = self.client.get(self.url("admin_home")).content.decode()
         key, block = welcome_of(page)
         self.assertEqual(key, "rol:administrador")
-        self.assertRegex(block, r"“Preparación”, aquí abajo, dice (qué falta: \d de \d pasos listos|que los \d pasos están listos)\.")
+        self.assertRegex(block, r"“Preparación”, aquí abajo, dice (qué falta: \d+ de \d+ pasos listos|que los \d+ pasos están listos)\.")
         self.assertNotIn("Primeros pasos", block)  # the checklist is "Preparación", once
         self.assertIn('<h2 id="preparacion" class="heading">Preparación</h2>', page)
 

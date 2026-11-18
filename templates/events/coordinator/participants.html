@@ -5,6 +5,14 @@
 {% url 'events:participant_create' event.slug as create_url %}
 {% include "events/rotulo/_page_head.html" with title="Mis camperos" lede="Las personas asignadas a ti en este evento." action_url=create_url action_label="Registrar campero" %}
 
+{% if practice %}
+  {% comment %}The practice campero (issue #49): apart from the list and out of every count on this page.{% endcomment %}
+  <section class="notice notice--warning" aria-labelledby="practica">
+    <h2 id="practica" class="notice__title">De práctica</h2>
+    <p>Tienes al campero de práctica para ensayar el cuestionario de principio a fin. No existe y lo que respondas con él no cuenta.</p>
+    <p class="mt-2">{% if practice.interview_status == "completada" %}Ya practicaste. <a href="{% url 'events:participant_detail' event.slug practice.public_id %}">Ver la práctica</a>{% else %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug practice.public_id %}">{% if practice.interview_status == "en_curso" %}Retomar la práctica{% else %}Empezar la práctica{% endif %}</a>{% endif %}</p>
+  </section>
+{% endif %}
 <ul class="filters" aria-label="Estado de la entrevista">
   {% for tab in tabs %}<li><a href="?estado={{ tab.value }}{% if query %}&amp;q={{ query|urlencode }}{% endif %}"{% if status == tab.value %} aria-current="page"{% endif %}>{{ tab.label }} <span class="count">{{ tab.count }}</span></a></li>{% endfor %}
 </ul>

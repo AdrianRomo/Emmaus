@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import admin, ayuda, coordinator, dashboards, duplicate, home, interview, reports, session, team_import
+from .views import admin, ayuda, coordinator, dashboards, duplicate, home, interview, practice, reports, session, team_import
 
 app_name = "events"
 
@@ -61,6 +61,7 @@ urlpatterns = [
     path(E + "presentacion/", reports.presentation_live, name="presentation_live"),
     # Administración
     path(E + "administracion/", dashboards.admin_home, name="admin_home"),
+    path(E + "administracion/practica/", practice.practice, name="practice"),  # the practice campero (issue #49)
     path(E + "participantes/", admin.participants, name="participants"),
     path(E + "participantes/importar/", admin.participant_import, name="participant_import"),
     path(E + "participantes/exportar/", admin.participant_export, name="participant_export"),

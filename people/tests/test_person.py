@@ -140,10 +140,10 @@ class MigrationScopeTests(TestCase):
         core_files = sorted(p.name for p in (REPO / "core" / "migrations").glob("0*.py"))
         events_files = sorted(p.name for p in (REPO / "events" / "migrations").glob("0*.py"))
         # 11: core/0011_onboardingstate arrived from main. 13: events/0013_event_camp_tools, the first
-        # migration after the freeze was lifted (decision 0013); 14: events/0014_membership_aliases (issue #50).
-        # A new one here is a reviewed, additive change.
+        # migration after the freeze was lifted (decision 0013); 14: events/0014_membership_aliases (issue #50);
+        # 15: events/0015_practice_participant (issue #49). A new one here is a reviewed, additive change.
         self.assertEqual(len(core_files), 11, core_files)
-        self.assertEqual(len(events_files), 14, events_files)
+        self.assertEqual(len(events_files), 15, events_files)
         self.assertEqual(
             sorted(p.name for p in (REPO / "people" / "migrations").glob("0*.py")),
             ["0001_initial.py", "0002_campusaffiliation.py", "0003_modules_audit_participant_links.py",

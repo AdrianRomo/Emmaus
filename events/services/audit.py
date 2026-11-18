@@ -22,6 +22,8 @@ def record(actor, event, action: str, summary: str, obj=None, **metadata) -> Aud
     )
 
 
+PRACTICE_COMPLETED = "practica_completada"  # issue #49: "ya practicó" reads these rows (services.practice)
+
 ACTION_LABELS = {
     "evento_creado": "Creó el evento",
     "evento_duplicado": "Duplicó el evento como plantilla",
@@ -52,6 +54,10 @@ ACTION_LABELS = {
     "entrevista_completada": "Completó una entrevista",
     "entrevista_corregida": "Corrigió una entrevista",
     "entrevista_descartada": "Descartó una entrevista",
+    "practica_creada": "Creó el campero de práctica",
+    "practica_asignada": "Dejó listo el campero de práctica",
+    "practica_eliminada": "Quitó el campero de práctica",
+    PRACTICE_COMPLETED: "Completó una entrevista de práctica",
     "captura_iniciada": "Entregó la computadora a un campero",
     "captura_desbloqueada": "Recuperó la computadora",
     "sesion_revocada": "Cerró la pantalla de un campero o liberó una entrevista",

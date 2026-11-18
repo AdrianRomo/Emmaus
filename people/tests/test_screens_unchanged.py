@@ -44,6 +44,8 @@ class ScreensUnchangedTests(CampFixture):
         return pages
 
     def test_off_states_render_the_same_bytes_and_on_adds_the_links(self):
+        # Everybody signs in once first: "Acceso del equipo" on the administration home counts who never has (issue #49)
+        self.render_all()
         reference = self.render_all()
         for words in NEW_WORDS:
             self.assertFalse(any(words in page for page in reference))
