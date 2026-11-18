@@ -847,20 +847,26 @@ class ExistingAccountTests(JoinFixture):
         self.assertFalse(EventMembership.objects.filter(user=pastor).exists())
         self.assertEqual(resolve_access(pastor, self.event).role, "pastor")
 
-    def test_a_superuser_is_not_touched(self):
+    def test_a_superusers_address_is_answered_like_any_outside_account(self):
+        """An address anybody can type must not tell that it belongs to a superuser: the approval takes the same
+        path, with the same kind of answer, as for an account of another church."""
         root = User.objects.create_superuser("root@prueba.mx", "root@prueba.mx", PASSWORD, first_name="Raíz", last_name="Total")
-        request = self.pending(email="root@prueba.mx", name="Nombre Falso")
-        self.login(self.admin)
-        response = self.client.post(self.url("access_request_approve", request.pk), {"role": "coordinador"})
-        # An account of the platform that is nobody of this church: refused without its name or its role.
-        request.refresh_from_db()
-        self.assertEqual((request.status, request.membership), ("rechazada", None))
-        said = " ".join(str(m) for m in response.wsgi_request._messages) + request.decision_note
-        self.assertNotIn("Raíz", said)
-        self.assertNotIn("administrador", said)
-        self.assertIn("No se pudo dar acceso con ese correo", said)
-        self.assertFalse(AuditEvent.objects.filter(summary__icontains="Raíz").exists())
-        self.assertFalse(EventMembership.objects.filter(user=root).exists())
+        other = User.objects.create_user("fuera@prueba.mx", "fuera@prueba.mx", PASSWORD, first_name="Fulana", last_name="De Fuera")
+        answers = []
+        for address in ("root@prueba.mx", "fuera@prueba.mx"):
+            request = self.pending(email=address, name="Nombre Escrito")
+            self.login(self.admin)
+            response = self.client.post(self.url("access_request_approve", request.pk), {"role": "coordinador"})
+            request.refresh_from_db()
+            said = [str(m) for m in response.wsgi_request._messages]
+            answers.append((request.status, response.status_code, said[-1].split(" ya forma parte")[1:]))
+            self.assertNotIn("administrador", " ".join(said))
+            self.assertNotIn("No se pudo dar acceso", " ".join(said))
+        self.assertEqual(answers[0], answers[1])
+        self.assertEqual(EventMembership.objects.get(user=root, event=self.event).role, "coordinador")
+        self.assertEqual(EventMembership.objects.get(user=other, event=self.event).role, "coordinador")
+        root.refresh_from_db()
+        self.assertTrue(root.is_superuser)  # the account itself is not changed
 
     def test_a_church_admin_is_not_touched(self):
         request = self.pending(email="admin@prueba.mx", name="Otro Falso")

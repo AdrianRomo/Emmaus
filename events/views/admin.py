@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 import csv
 import json
 from datetime import timedelta
@@ -647,16 +649,16 @@ def access_request_approve(request, event, access, pk):
         # Anybody can type anybody's e-mail. An account that already has access here (church admin or pastor,
         # superuser, active member) is never changed by a request: that is "Editar", on purpose.
         account = team_svc.account_for_email(access_request.email)
-        current = resolve_access(account, event) if account is not None else None
+        current = None
+        if account is not None:
+            # Judged without the platform's superuser flag (on a copy), as the list does: an address that is
+            # nobody of this church takes the same path whatever else the account is, so the answer does not
+            # tell a superuser's address from any other (review of wave 7). resolve_access still protects
+            # the account inside the event's own screens.
+            seen = copy.copy(account)
+            seen.is_superuser = False
+            current = resolve_access(seen, event)
         if current is not None:
-            of_this_church = (
-                UserChurchRole.objects.filter(user=account, church_id=event.church_id).exists()
-                or EventMembership.objects.filter(user=account, event__church_id=event.church_id).exists()
-            )
-            if not of_this_church:
-                # A platform account that is nobody of this church: the answer names nobody and no role, so a
-                # request typed with somebody's address does not tell who they are (review of wave 6).
-                return _refuse_outside_account(request, event, access_request)
             return _refuse_existing_access(request, event, access_request, account.get_full_name() or account.email, current.role_label.lower())
         try:
             added = team_svc.add_member(event, request.user, full_name=access_request.full_name, email=access_request.email, role=role)
@@ -673,19 +675,6 @@ def access_request_approve(request, event, access, pk):
             f"Aprobó la solicitud de acceso de {access_request.full_name} como {added.membership.get_role_display().lower()}", access_request,
         )
     return _member_added(request, event, added)
-
-
-def _refuse_outside_account(request, event, access_request):
-    """Close the request without touching the account and without saying whose it is."""
-    access_request.status = AccessRequest.Status.REJECTED
-    access_request.decided_at = timezone.now()
-    access_request.decided_by = request.user
-    access_request.decision_note = "No se pudo dar acceso con ese correo."
-    access_request.save(update_fields=["status", "decided_at", "decided_by", "decision_note"])
-    audit.record(request.user, event, "solicitud_rechazada",
-                 f"Cerró la solicitud de acceso de {access_request.full_name}: no se pudo dar acceso con ese correo", access_request)
-    messages.warning(request, "No se pudo dar acceso con ese correo. Pide a la persona que te escriba con otro.")
-    return redirect(_requests_url(event))
 
 
 def _refuse_existing_access(request, event, access_request, name, role_label):
