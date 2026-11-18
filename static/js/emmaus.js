@@ -935,7 +935,7 @@
     // everything else; forms in place have their own failure path below.
     doc.addEventListener("submit", function (e) {
       var form = e.target;
-      if (e.defaultPrevented || navigator.onLine !== false || !form.matches || form.matches("form[data-inline]") || (form.method || "").toLowerCase() !== "post") return;
+      if (e.defaultPrevented || navigator.onLine !== false || !form.matches || form.matches("form[data-inline]") || (form.getAttribute("method") || "").toLowerCase() !== "post") return;
       if (form.querySelector("[data-offline-notice]")) return;  // a step of an interview has its own notice
       e.preventDefault();
       e.stopPropagation();
@@ -982,7 +982,8 @@
         var controller = window.AbortController ? new window.AbortController() : null;
         var timedOut = false;
         var giveUp = controller ? window.setTimeout(function () { timedOut = true; controller.abort(); }, 12000) : null;
-        window.fetch(form.action, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" }, signal: controller ? controller.signal : undefined })
+        // The attribute, never form.action: a field named «action» shadows the property (it posted to "[object …]")
+        window.fetch(form.getAttribute("action") || window.location.href, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" }, signal: controller ? controller.signal : undefined })
           .then(function (response) {
             window.clearTimeout(giveUp);
             if (!response.ok) { inlineFailed(form, busy, "server"); return; }
