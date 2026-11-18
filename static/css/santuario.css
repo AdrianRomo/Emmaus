@@ -1169,7 +1169,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .step__actions { flex-direction: column; align-items: stretch; gap: var(--s-2); margin-top: var(--s-8); }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .page-head + .step__actions { margin-top: 0; }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .btn--primary { width: 100%; }
-:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .auth-card__link { display: flex; justify-content: center; text-align: center; }
+:root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .auth-card__link { display: flex; align-items: center; justify-content: center; min-height: var(--control); text-align: center; }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .search { flex-direction: column; max-width: none; }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .field:last-child { margin-bottom: 0; }
 /* What an invitation grants, as facts: the label is short, the value takes the rest */
