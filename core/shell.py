@@ -28,7 +28,7 @@ GROUP_ADMIN_VIEWS = {
 AGENDA_VIEWS = {"agenda:list", "agenda:detail", "agenda:cancel", "agenda:register", "feedback:give"}
 AGENDA_ADMIN_VIEWS = {
     "agenda:admin_list", "agenda:page_edit", "agenda:registrations", "agenda:create", "agenda:event_edit", "agenda:duplicate",
-    "agenda:walkup", "agenda:consent", "agenda:consent_revoke", "agenda:guest_promote", "agenda:faq", "agenda:faq_edit",
+    "agenda:walkup", "agenda:confirm_age", "agenda:annul", "agenda:consent", "agenda:consent_revoke", "agenda:guest_promote", "agenda:faq", "agenda:faq_edit",
     "agenda:faq_delete", "agenda:schedule", "agenda:schedule_edit", "agenda:schedule_delete", "feedback:results",
 }
 DEVOTIONAL_VIEWS = {"resources:devotional_today", "resources:devotional_list", "resources:devotional_detail"}

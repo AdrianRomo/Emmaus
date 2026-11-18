@@ -176,7 +176,9 @@ class Command(BaseCommand):
         if created:
             EventPage.objects.create(event=ended, published=True, registration="abierta", created_by=admin)
             EventRegistration.objects.create(event=ended, person=member, attended=True)
-            for rating, recommend, comment in (("muy_bien", "si", ""), ("bien", "si", "Empezar a tiempo."), ("regular", "tal_vez", "Más sillas.")):
+            answers = (("muy_bien", "si", ""), ("bien", "si", "Empezar a tiempo."), ("regular", "tal_vez", "Más sillas."),
+                       ("bien", "si", ""), ("muy_bien", "si", "Que se repita."))
+            for rating, recommend, comment in answers:
                 EventFeedback.objects.create(event=ended, rating=rating, recommend=recommend, comment=comment)
 
     def _panorama(self, church, admin, password) -> None:
