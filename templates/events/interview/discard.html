@@ -3,11 +3,13 @@
 {% block content %}
 {% if ui_v2 %}{% comment %}
   The redesign ("Ventanas"): the page that asks first. The reasons are drawn as the interview's answers (one large
-  choice each); what is erased is said in full beside the button that erases it, the one filled action, in chile.
+  choice each); what is erased is said in full first, under the question, before the reasons and the button that
+  erases it (the one filled action, in chile).
 {% endcomment %}
 {% include "partials/ui/error_summary.html" with form=form %}
 <header class="page-head">
   <h1 class="voice page-head__title">¿Descartar la entrevista de {{ participant.first_name }}?</h1>
+  <p class="lede">Se borrarán todas las respuestas guardadas. {{ participant.first_name }} quedará como “sin entrevista” y se podrá empezar de nuevo.</p>
 </header>
 <form method="post" novalidate>
   {% csrf_token %}
@@ -23,7 +25,6 @@
       {% endfor %}
     </div>
   </fieldset>
-  <p class="aside-note">Se borrarán todas las respuestas guardadas. {{ participant.first_name }} quedará como “sin entrevista” y se podrá empezar de nuevo.</p>
   <div class="step__actions">
     <button class="btn btn--danger btn--large" type="submit">Sí, descartar y borrar respuestas</button>
     <a class="btn btn--secondary btn--large" href="{% url 'events:interview_resume' event.slug interview.public_id %}">No, volver a la entrevista</a>

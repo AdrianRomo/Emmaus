@@ -865,6 +865,8 @@
       line.appendChild(words);
       line.appendChild(again);
       form.appendChild(line);
+      // Never under the phone's tab bar (the page's scroll padding leaves its height)
+      line.scrollIntoView({ block: "nearest", behavior: motionOff() ? "auto" : "smooth" });
     }
     // What an action in place did is shown by the region itself; a screen reader hears it once from here
     var announcer = doc.createElement("p");
@@ -980,6 +982,7 @@
       line.appendChild(words);
       line.appendChild(again);
       (pressed && pressed.parentNode ? pressed.parentNode : form).appendChild(line);
+      line.scrollIntoView({ block: "nearest", behavior: motionOff() ? "auto" : "smooth" });
     }, true);
     if (window.fetch && window.DOMParser) {
       doc.addEventListener("submit", function (e) {

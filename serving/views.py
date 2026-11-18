@@ -129,9 +129,9 @@ def respond(request, assignment_id: int):
     # Says exactly what was saved; the team's page shows the answer to who coordinates (nothing is sent)
     at = assignment.service_date.starts_at
     if answer == "aceptar":
-        messages.success(request, f"Vas a servir el {day}{at and ', a las ' + at.strftime('%H:%M') or ''}.")
+        messages.success(request, f"Confirmaste el {day}{at and ', a las ' + at.strftime('%H:%M') or ''}.")
     else:
-        messages.success(request, f"Respondiste que no puedes el {day}.")
+        messages.success(request, f"Dijiste que no puedes el {day}.")
     return redirect(back)
 
 
