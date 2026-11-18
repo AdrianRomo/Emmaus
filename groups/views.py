@@ -218,6 +218,8 @@ def home(request):
         a.pending = a.status == serving_services.PENDING
         a.can_change = not a.pending and a.service_date.date > today  # an answer changes until the day before
     asked = {a.pk for a in asks}
+    asks_pending = [a for a in asks if a.pending]
+    asks_answered = [a for a in asks if not a.pending]
     # A suggestion (find a group) is not something that waits for an answer: it goes with the groups, unraised.
     suggestion = sign if sign and sign["action"] == "Ver los grupos" else None
     if suggestion:
@@ -243,6 +245,8 @@ def home(request):
         "groups/home.html",
         {
             "asks": asks,
+            "asks_pending": asks_pending,
+            "asks_answered": asks_answered,
             "suggestion": suggestion,
             "today_rows": today_rows,
             "later_rows": later_rows,

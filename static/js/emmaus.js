@@ -27,7 +27,8 @@
     return input ? input.value : "";
   }
   function timeLabel(date) {
-    return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    var calm = doc.documentElement.getAttribute("data-ui") === "2";  // the redesign: hours and minutes are enough
+    return date.toLocaleTimeString("es-MX", calm ? { hour: "numeric", minute: "2-digit", hour12: false } : { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   }
 
   /* ---- Mobile menu: a modal dialog (audit A11Y-02) ------------------------ */
@@ -772,13 +773,20 @@
       close.addEventListener("click", leave);
       notice.appendChild(close);
       if (notice.classList.contains("notice--danger") || notice.classList.contains("notice--warning")) return;
-      function arm() { window.clearTimeout(timer); timer = window.setTimeout(leave, 6000); }
+      function arm() { window.clearTimeout(timer); timer = window.setTimeout(leave, 5000); }
       function hold() { window.clearTimeout(timer); }
       notice.addEventListener("mouseenter", hold);
       notice.addEventListener("mouseleave", arm);
       notice.addEventListener("focusin", hold);
       notice.addEventListener("focusout", arm);
       arm();
+    }
+    // One toast at a time: a new one replaces what was there, so two messages never contradict each other
+    function showToast(notice) {
+      var box = toastBox();
+      $all(".notice", box).forEach(function (old) { if (old !== notice) old.remove(); });
+      if (notice.parentNode !== box) box.appendChild(notice);
+      toast(notice);
     }
     function toastBox() {
       var box = $(".messages");
@@ -821,13 +829,30 @@
     };
     function inlineFailed(form, busy, kind) {
       busy.removeAttribute("aria-busy");
+      busy.classList.add("is-fallido");  // the answer that did not go stays marked, so the person knows which one
       $all("button", form).forEach(function (b) { b.disabled = false; });
       var line = doc.createElement("p");
       line.className = "inline-error";
       line.setAttribute("role", "alert");
-      line.textContent = inlineErrors[kind];
+      var words = doc.createElement("span");
+      words.textContent = inlineErrors[kind];
+      var again = doc.createElement("button");
+      again.type = "button";
+      again.className = "btn btn--link";
+      again.textContent = "Reintentar";
+      again.addEventListener("click", function () {
+        if (typeof form.requestSubmit === "function") form.requestSubmit(busy); else busy.click();
+      });
+      line.appendChild(words);
+      line.appendChild(again);
       form.appendChild(line);
     }
+    // What an action in place did is shown by the region itself; a screen reader hears it once from here
+    var announcer = doc.createElement("p");
+    announcer.className = "visually-hidden";
+    announcer.setAttribute("role", "status");
+    announcer.setAttribute("aria-live", "polite");
+    body.appendChild(announcer);
     function syncCounts(fresh) {
       // The places and their counts are drawn from the same page the server answered with
       var nav = $(".rail__nav"), freshNav = fresh.querySelector(".rail__nav");
@@ -845,7 +870,11 @@
       function swap() {
         if (next) region.replaceWith(next); else region.remove();
         syncCounts(fresh);
-        $all(".messages .notice", fresh).forEach(function (n) { toastBox().appendChild(n); toast(n); });
+        var said = $all(".messages .notice p", fresh).map(function (p) { return p.textContent.trim(); }).join(" ");
+        var problem = fresh.querySelector(".messages .notice--danger, .messages .notice--warning");
+        if (problem) showToast(problem);  // a refusal is said where it cannot be missed
+        announcer.textContent = "";
+        window.setTimeout(function () { announcer.textContent = said; }, 60);
         if (next && focusInside) {
           var target = next.querySelector("[data-inline-focus]") || next;
           if (!target.hasAttribute("tabindex") && !/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) target.setAttribute("tabindex", "-1");
@@ -879,6 +908,7 @@
           if (busy && busy.name) data.append(busy.name, busy.value);
         }
         $all(".inline-error", form).forEach(function (l) { l.remove(); });
+        $all(".is-fallido", form).forEach(function (b) { b.classList.remove("is-fallido"); });
         $all("button", form).forEach(function (b) { if (b !== busy) b.disabled = true; });
         if (busy) busy.setAttribute("aria-busy", "true");
         window.fetch(form.action, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" } })

@@ -101,7 +101,7 @@ class ShellTests(CommunityFixture):
         response = self.client.get(reverse("events:admin_home", args=[self.event.slug]))
         self.assertNotContains(response, '<header class="bar')
         nav = response.content.decode()
-        nav = nav[nav.index('<header class="rail rail--event">'):nav.index("</header>")]
+        nav = nav[nav.index('<header class="rail rail--event'):nav.index("</header>")]
         self.assertIn('<p class="rail__label" id="rail-evento">Campamento A</p>', nav)
         self.assertIn("Tu rol: administrador.", nav)
         for label in ("Inicio", "Camperos", "Equipo", "Cuestionarios", "Reportes", "Configuración"):
@@ -124,7 +124,7 @@ class ShellTests(CommunityFixture):
         self.assertContains(response, "santuario.css")
         self.assertNotContains(response, '<header class="bar')
         nav = response.content.decode()
-        nav = nav[nav.index('<header class="rail rail--event">'):nav.index("</header>")]
+        nav = nav[nav.index('<header class="rail rail--event'):nav.index("</header>")]
         self.assertIn("Eventos donde sirves", nav)
         self.assertIn('<p class="rail__label" id="rail-evento">Campamento A</p>', nav)
         for hidden in ("Mi iglesia", "Avisos", "Grupos", "Administración", "Panorama"):

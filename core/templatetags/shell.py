@@ -43,6 +43,7 @@ ICONS = {
     "candado": '<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
     "lista": '<path d="M10 6.5h9.5M10 12h9.5M10 17.5h9.5"/><path d="M4 6.5l1.2 1.2 2-2.4M4 12l1.2 1.2 2-2.4M4 17.5l1.2 1.2 2-2.4"/>',
     "lectura": '<path d="M12 6.5C10 5 7.5 4.5 4.5 4.5v13c3 0 5.5.5 7.5 2 2-1.5 4.5-2 7.5-2v-13c-3 0-5.5.5-7.5 2z"/><path d="M12 6.5v13"/>',
+    "computadora": '<rect x="4" y="5" width="16" height="11" rx="1.75"/><path d="M2.5 19.5h19"/>',
     "reporte": '<path d="M4 20h16"/><path d="M7 20v-7M12 20V6M17 20v-10"/>',
     "info": '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/>',
     "alerta": '<path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.2v.1"/>',
@@ -103,13 +104,15 @@ def initials(text: str) -> str:
 
 
 @register.simple_tag
-def monogram(text, size=""):
-    """The arch with the initials of a person or a group. Decorative: the name is always written
-    beside it. ``size``: "" (44px), "sm" (36px) or "lg" (72px)."""
+def monogram(text, size="", kind=""):
+    """The initials of a person (a circle) or, with ``kind="grupo"``, of a group (an arch: a gathering).
+    Decorative: the name is always written beside it. ``size``: "" (40px), "sm" (32px) or "lg" (56px)."""
     letters = initials(text)
     if not letters:
         return ""
     css = f"mono mono--{size}" if size else "mono"
+    if kind == "grupo":
+        css += " mono--grupo"
     return format_html('<span class="{}" aria-hidden="true">{}</span>', css, letters)
 
 

@@ -14,7 +14,7 @@
       {% if access.can_conduct_interviews and iv.participant.is_active %}
       <div class="row__end">
         <a class="btn btn--link btn--quieto" href="{% url 'events:interview_discard' event.slug iv.public_id %}">Descartar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
-        <a class="btn btn--link" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+        <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
       </div>
       {% endif %}
     </li>
@@ -46,7 +46,7 @@
     {% endif %}
     {% if follow_ups %}
     {% url 'events:coord_home' event.slug as home_url %}
-    <h3 class="tablero__sub">Tus seguimientos</h3>
+    <div class="heading-row tablero__sub-fila"><h3 class="tablero__sub">Tus seguimientos</h3><a href="{% url 'events:follow_ups' event.slug %}">Ver todos<span class="visually-hidden"> los seguimientos</span></a></div>
     <ul class="rows">
       {% for f in follow_ups %}
       <li class="row row--lead">
@@ -58,7 +58,6 @@
       </li>
       {% endfor %}
     </ul>
-    <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver todos los seguimientos</a></p>
     {% endif %}
   </section>
 
@@ -76,7 +75,7 @@
           <p class="row__title">{{ p.full_name }}</p>
           <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años{% if p.questionnaire_total > 1 %}, {% campero_status p %}{% endif %}</p>
         </div>
-        <div class="row__end"><a class="btn {% if forloop.first and not in_progress %}btn--primary btn--small{% else %}btn--link{% endif %}" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
+        <div class="row__end"><a class="btn {% if forloop.first and not in_progress %}btn--primary{% else %}btn--secondary{% endif %} btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
       </li>
       {% endfor %}
     </ul>
@@ -96,7 +95,7 @@
           <p class="row__title">{{ iv.participant.full_name }}</p>
           <p class="row__meta">Última actividad {{ iv.last_activity_at|since }}{% if iv.station %}, en {{ iv.station.name }}{% endif %}</p>
         </div>
-        <div class="row__end"><a class="btn btn--link" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a></div>
+        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a></div>
       </li>
       {% endfor %}
     </ul>

@@ -126,10 +126,12 @@ def respond(request, assignment_id: int):
         messages.error(request, error.message)
         return redirect(back)
     day = _weekday_date(assignment.service_date.date)
+    # Says exactly what was saved; the team's page shows the answer to who coordinates (nothing is sent)
+    at = assignment.service_date.starts_at
     if answer == "aceptar":
-        messages.success(request, f"Confirmaste el {day}. Quien coordina ya lo sabe.")
+        messages.success(request, f"Vas a servir el {day}{at and ', a las ' + at.strftime('%H:%M') or ''}.")
     else:
-        messages.success(request, f"Dijiste que no puedes el {day}. Quien coordina ya lo sabe.")
+        messages.success(request, f"Respondiste que no puedes el {day}.")
     return redirect(back)
 
 

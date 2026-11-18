@@ -14,7 +14,7 @@
     <p class="page-head__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% endif %}{% if event.location %}{% if event.starts_on %}, {% endif %}{{ event.location }}{% endif %}</p>
   </div>
   {% if needs_station or station %}
-  <a class="compu{% if station %} compu--elegida{% endif %}" href="{% url 'events:choose_station' event.slug %}?siguiente={{ request.path|urlencode }}">{% icon "equipo" "sm" %}<span>{% if station %}{{ station.name }}{% else %}Computadora sin elegir{% endif %}</span><span class="compu__verbo">{% if station %}Cambiar{% else %}Elegir{% endif %}</span></a>
+  <a class="compu{% if station %} compu--elegida{% endif %}" href="{% url 'events:choose_station' event.slug %}?siguiente={{ request.path|urlencode }}">{% icon "computadora" "sm" %}<span>{% if station %}{{ station.name }}{% else %}Computadora sin elegir{% endif %}</span><span class="compu__verbo">{% if station %}Cambiar{% else %}Elegir{% endif %}</span></a>
   {% endif %}
 </header>
 
@@ -31,7 +31,7 @@
       {% monogram iv.participant.full_name "lg" %}
       <div>
         <h2 id="que-hago" class="sign__title">{{ iv.participant.full_name }}</h2>
-        <p class="sign__text">Sus respuestas están guardadas hasta donde se quedó{% if iv.station %}, en {{ iv.station.name }}{% endif %}.</p>
+        <p class="sign__text">Se quedó {% if iv.station %}en {{ iv.station.name }}, {% endif %}{{ iv.last_activity_at|since }}. Lo que respondió está guardado.</p>
       </div>
     </div>
     <div class="sign__actions">

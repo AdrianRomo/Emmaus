@@ -165,17 +165,17 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .rail__link:active { background: var(--fill-2); }
 .rail__link:focus-visible, .rail__who:focus-visible { outline-offset: -3px; }
 .rail__text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.rail__link[aria-current="page"] { background: var(--surface); font-weight: 650; box-shadow: none; }
+.rail__link[aria-current="page"] { background: var(--fill-2); font-weight: 650; box-shadow: none; }
 .rail__link[aria-current="page"] .icon { color: var(--mark); }
 .rail__foot { flex: none; padding-top: var(--s-2); border-top: 1px solid var(--line); }
 .rail__who { display: flex; align-items: center; gap: var(--s-3); min-height: 3.5rem; padding: var(--s-2) var(--s-3); border-radius: var(--r-card); color: var(--ink); text-decoration: none; }
 .rail__who:hover, .rail__who[aria-current="page"] { background: color-mix(in srgb, var(--surface) 60%, transparent); }
 .rail__who-text { display: grid; min-width: 0; line-height: 1.3; }
-.rail__who-name { font-size: var(--t-small); font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail__who-name { font-size: var(--t-small); font-weight: 620; overflow-wrap: anywhere; }
 .rail__who-role { font-size: var(--t-caption); color: var(--ink-2); }
 .rail__quiet { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: var(--s-1); }
 .rail__quiet form { margin: 0; }
-.rail__quiet .rail__link { gap: var(--s-2); padding-inline: var(--s-2); font-size: var(--t-caption); color: var(--ink-2); }
+.rail__quiet .rail__link { font-size: var(--t-caption); color: var(--ink-2); }
 .rail__quiet .rail__link .icon { width: 1.25rem; height: 1.25rem; }
 .rail__account { display: none; }
 .rail__role { padding: 0 var(--s-3) var(--s-2); font-size: var(--t-small); color: var(--ink-2); line-height: 1.35; }
@@ -207,7 +207,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .menu-panel--sections .rail__link:focus-visible { outline-offset: -3px; }
 
 @media (max-width: 1100px) {
-  :root[data-ui="2"] { --rail-w: 14rem; }
+  :root[data-ui="2"] { --rail-w: 15rem; }
   .rail__quiet { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 @media (max-width: 760px) {
@@ -238,22 +238,23 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
   .tabs__item .badge { position: absolute; top: 0.125rem; left: calc(50% + 0.375rem); box-shadow: 0 0 0 2px var(--page); }
   .page--app { padding: var(--s-3) var(--s-4) calc(var(--tabs-h) + var(--s-10) + env(safe-area-inset-bottom, 0px)); }
 }
-/* Inside an event the camp's tables need the window's width: the rail only from 1101px */
+/* Inside an event, for the roles whose pages are wide tables (administration, pastor, tutor), the rail only from
+   1101px; a coordinator's pages are lists and keep the rail like every other page */
 @media (min-width: 761px) and (max-width: 1100px) {
-  body:has(> .rail--event) { display: block; }
-  body:has(> .rail--event) .rail {
+  body:has(> .rail--ancha) { display: block; }
+  body:has(> .rail--ancha) .rail {
     position: static; height: auto; flex-direction: row; align-items: center; justify-content: space-between;
     gap: var(--s-4); padding: var(--s-2) var(--s-4); min-height: 3.5rem; background: var(--page);
   }
-  body:has(> .rail--event) .rail__brand { padding: 0; min-width: 0; }
-  body:has(> .rail--event) :is(.rail__church, .rail__nav, .rail__foot) { display: none; }
-  body:has(> .rail--event) .rail__account { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; text-decoration: none; }
-  body:has(> .rail--event) .tabs { display: block; position: fixed; inset: auto 0 0 0; z-index: 40; background: var(--page); border-top: 1px solid var(--line); padding: 0.375rem 0.5rem env(safe-area-inset-bottom, 0px); }
-  body:has(> .rail--event) .tabs ul { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-  body:has(> .rail--event) .tabs__item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; width: 100%; min-height: 3.25rem; padding: 0.25rem; border: 0; border-radius: var(--r-control); background: none; color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 560; line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; }
-  body:has(> .rail--event) .tabs__item[aria-current="page"] { color: var(--mark); font-weight: 650; }
-  body:has(> .rail--event) .tabs__item[aria-current="page"] .icon { color: var(--mark); }
-  body:has(> .rail--event) .page--app { padding: var(--s-6) var(--s-5) calc(var(--tabs-h) + var(--s-10) + env(safe-area-inset-bottom, 0px)); }
+  body:has(> .rail--ancha) .rail__brand { padding: 0; min-width: 0; }
+  body:has(> .rail--ancha) :is(.rail__church, .rail__nav, .rail__foot) { display: none; }
+  body:has(> .rail--ancha) .rail__account { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; text-decoration: none; }
+  body:has(> .rail--ancha) .tabs { display: block; position: fixed; inset: auto 0 0 0; z-index: 40; background: var(--page); border-top: 1px solid var(--line); padding: 0.375rem 0.5rem env(safe-area-inset-bottom, 0px); }
+  body:has(> .rail--ancha) .tabs ul { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  body:has(> .rail--ancha) .tabs__item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.125rem; width: 100%; min-height: 3.25rem; padding: 0.25rem; border: 0; border-radius: var(--r-control); background: none; color: var(--ink-2); font: inherit; font-size: var(--t-caption); font-weight: 560; line-height: 1.2; text-align: center; text-decoration: none; cursor: pointer; }
+  body:has(> .rail--ancha) .tabs__item[aria-current="page"] { color: var(--mark); font-weight: 650; }
+  body:has(> .rail--ancha) .tabs__item[aria-current="page"] .icon { color: var(--mark); }
+  body:has(> .rail--ancha) .page--app { padding: var(--s-6) var(--s-5) calc(var(--tabs-h) + var(--s-10) + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---------- 5. Page ------------------------------------------------------- */
@@ -279,11 +280,12 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
   font-family: var(--font-ui); font-size: var(--t-h3); font-weight: 650; font-stretch: 106%; letter-spacing: -0.01em;
   line-height: 1.3; padding-bottom: 0; border-bottom: 0;
 }
-.page--app .heading + * { margin-top: var(--s-2); }
+.page--app .heading + * { margin-top: var(--s-4); }
 .page--app .block + .block { margin-top: var(--s-8); }
 .heading-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-1) var(--s-4); }
-.heading-row + * { margin-top: var(--s-2); }
-.heading-row a { display: inline-flex; align-items: center; min-height: 2.75rem; font-size: var(--t-small); font-weight: 600; color: var(--mark); text-decoration: none; }
+.heading-row + * { margin-top: var(--s-4); }
+/* The link beside a heading keeps a 44px target without making the heading row taller than the heading */
+.heading-row a { display: inline-flex; align-items: center; min-height: 2.75rem; margin-block: -0.75rem; font-size: var(--t-small); font-weight: 600; color: var(--mark); text-decoration: none; }
 .heading-row a:hover { text-decoration: underline; text-underline-offset: 0.2em; }
 .heading .count, .heading-row .count { margin-left: var(--s-2); font-size: var(--t-small); font-weight: 500; font-stretch: 100%; letter-spacing: 0; color: var(--ink-2); }
 
@@ -325,13 +327,15 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 :root[data-ui="2"] .btn--link.btn--quieto { --spin: var(--ink-2); color: var(--ink-2); }
 :root[data-ui="2"] .btn--link.btn--quieto:hover { background: var(--fill); }
 .sign__aparte { margin-left: auto; }
-/* Busy: the label gives way to a spinner of the button's own colour; the button keeps its width */
-:root[data-ui="2"] .btn[aria-busy="true"], :root[data-ui="2"] form.is-submitting .btn--primary { position: relative; color: transparent; opacity: 1; pointer-events: none; }
-:root[data-ui="2"] .btn[aria-busy="true"]::after, :root[data-ui="2"] form.is-submitting .btn--primary::after {
-  content: ""; position: absolute; inset: 0; margin: auto; width: 1.125rem; height: 1.125rem; border-radius: 50%;
+/* Busy: a spinner of the button's own colour joins its words; its siblings wait (emmaus.js) */
+:root[data-ui="2"] .btn[aria-busy="true"], :root[data-ui="2"] form.is-submitting .btn--primary { opacity: 1; pointer-events: none; }
+:root[data-ui="2"] .btn[aria-busy="true"]::before, :root[data-ui="2"] form.is-submitting .btn--primary::before {
+  content: ""; flex: none; width: 1rem; height: 1rem; border-radius: 50%;
   border: 2.25px solid color-mix(in srgb, var(--spin) 30%, transparent); border-top-color: var(--spin);
   animation: santuario-spin 0.7s linear infinite;
 }
+/* The answer that could not be saved stays marked until it is tried again */
+:root[data-ui="2"] .btn.is-fallido { outline: 2px dashed var(--ambar); outline-offset: 2px; }
 @media (max-width: 600px) {
   :root[data-ui="2"] .sign__actions .btn, :root[data-ui="2"] .form-actions .btn--primary { width: 100%; }
 }
@@ -395,7 +399,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
   display: block; background: var(--surface); color: var(--ink); border-radius: var(--r-panel); box-shadow: var(--elevacion);
   padding: var(--s-4) var(--s-5) var(--s-5); border: 0;
 }
-:root[data-ui="2"] .sign__title, :root[data-ui="2"] .sign--lead .sign__title { font-size: var(--t-h3); line-height: 1.3; font-weight: 650; font-stretch: 106%; letter-spacing: -0.012em; }
+:root[data-ui="2"] .sign__title, :root[data-ui="2"] .sign--lead .sign__title { font-size: var(--t-h3); line-height: 1.3; font-weight: 650; font-stretch: 106%; letter-spacing: -0.012em; text-wrap: pretty; }
 :root[data-ui="2"] .sign__text, :root[data-ui="2"] .sign--lead .sign__text { margin-top: 0.125rem; font-size: var(--t-small); color: var(--ink-2); }
 :root[data-ui="2"] .sign__actions { margin-top: var(--s-4); gap: var(--s-3); }
 :root[data-ui="2"] .sign--lead :focus-visible { outline-color: var(--ink); box-shadow: 0 0 0 2px #ffffff; }
@@ -437,7 +441,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
    only way out is pressed anywhere and draws its chevron; there is no "Abrir" button. */
 .page--app .rows { background: none; border: 0; margin-inline: calc(-1 * var(--s-3)); }
 .page--app .rows > .row {
-  position: relative; display: flex; align-items: center; gap: var(--s-4); min-height: 4rem;
+  position: relative; display: flex; align-items: flex-start; gap: var(--s-4); min-height: 4rem;
   padding: var(--s-3); border: 0; border-radius: var(--r-card);
   transition: background-color var(--dur-1) var(--ease);
 }
@@ -446,9 +450,10 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 }
 .page--app .rows > .row--lead + .row::before, .page--app .rows > .row + .row--lead::before { left: calc(var(--s-3) + var(--lead) + var(--s-4)); }
 .page--app .row__main { flex: 1; min-width: 0; display: grid; gap: 0.125rem; }
-.page--app .row__title { font-size: var(--t-body); font-weight: 620; line-height: 1.3; }
-.page--app .row__meta { font-size: var(--t-small); line-height: 1.35; color: var(--ink-2); }
-.page--app .row__end { display: flex; align-items: center; gap: var(--s-3); flex: none; }
+.page--app .row__title { font-size: var(--t-body); font-weight: 620; line-height: 1.3; text-wrap: pretty; }
+.page--app .row__meta { font-size: var(--t-small); line-height: 1.35; color: var(--ink-2); text-wrap: pretty; }
+.page--app .row__end { display: flex; align-items: center; gap: var(--s-3); flex: none; align-self: center; }
+.page--app .rows > .row::after { align-self: center; }
 /* A text action at the end of a row: its words, not its padding, end on the margin */
 .page--app .row__end > .btn--link:last-child { margin-right: -0.75rem; }
 .row__title a { color: var(--ink); text-decoration: none; }
@@ -500,6 +505,8 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
   font-family: var(--font-ui); font-size: 0.9375rem; font-weight: 650; font-stretch: 104%; line-height: 1; letter-spacing: 0.01em;
 }
 .mono--sm { --d: 2rem; font-size: var(--t-caption); }
+/* A group is a gathering: its initials in an arch, round above, square on the ground */
+.mono--grupo { width: calc(var(--d) * 0.86); height: calc(var(--d) * 1.08); border-radius: calc(var(--d) * 0.43) calc(var(--d) * 0.43) 4px 4px; }
 .mono--lg { --d: 3.5rem; font-size: 1.25rem; }
 .rail .mono { --d: 2.25rem; font-size: var(--t-caption); }
 /* People going: overlapping circles, then their names in words */
@@ -533,7 +540,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .evento { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--s-4); align-items: start; }
 .evento__texto { display: grid; gap: 0.125rem; min-width: 0; }
 .evento__cuando { font-size: var(--t-small); font-weight: 640; color: var(--ink); }
-.evento__titulo { font-size: var(--t-h3); line-height: 1.3; font-weight: 650; font-stretch: 106%; letter-spacing: -0.012em; }
+.evento__titulo { font-size: 1.125rem; line-height: 1.3; font-weight: 650; font-stretch: 104%; letter-spacing: -0.01em; text-wrap: pretty; }
 .evento__titulo a { color: var(--ink); text-decoration: none; }
 .evento__titulo a:hover { text-decoration: underline; text-underline-offset: 0.18em; }
 .evento__donde { font-size: var(--t-small); color: var(--ink-2); }
@@ -585,6 +592,8 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 /* «Importante»: the one state drawn as a capsule, in vela, wherever a notice appears */
 .status--important { min-height: 1.625rem; padding: 0 0.625rem 0 0.5rem; border-radius: var(--r-pill); background: var(--ambar-tint); color: var(--ambar); font-size: var(--t-caption); font-weight: 650; }
 .status--important .status__mark { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--ambar); box-shadow: none; }
+.row__title--leido + .row__meta .status--important { min-height: 0; padding: 0; background: none; color: var(--ink-2); font-weight: 560; }
+.row__title--leido + .row__meta .status--important .status__mark { background: var(--ink-2); }
 .status--closed { color: var(--ink-2); }
 .status--closed .status__mark { background: var(--fill-2); box-shadow: none; }
 /* A chip: the same word-with-mark; only attention gets its capsule */
@@ -677,7 +686,12 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .page--app .aside-note::before { content: ""; position: absolute; left: 0; top: 0.125rem; width: 1.125rem; height: 1.125rem; background: var(--ink-2);
   -webkit-mask: var(--i-info) center / contain no-repeat; mask: var(--i-info) center / contain no-repeat; }
 /* An action that could not be saved: one line under its buttons (emmaus.js, "Actions in place") */
-.inline-error { flex-basis: 100%; grid-column: 1 / -1; margin-top: var(--s-2); font-size: var(--t-small); font-weight: 600; color: var(--chile); }
+.inline-error {
+  flex-basis: 100%; grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-2);
+  margin-top: var(--s-3); padding-left: 1.75rem; position: relative; font-size: var(--t-small); font-weight: 560; color: var(--ink);
+}
+.inline-error::before { content: ""; position: absolute; left: 0; top: 0.6875rem; width: 1.25rem; height: 1.25rem; background: var(--ambar);
+  -webkit-mask: var(--i-alert) center / contain no-repeat; mask: var(--i-alert) center / contain no-repeat; }
 /* What just happened: toasts at the top, ink, leaving by themselves when it was good news */
 .messages.is-toast { position: fixed; z-index: 70; top: var(--s-4); right: var(--s-4); width: min(24rem, calc(100vw - 2rem)); margin: 0; display: grid; gap: var(--s-2); }
 :root[data-ui="2"] .messages.is-toast .notice {
@@ -711,9 +725,10 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .skeleton { border-radius: var(--r-control); background: var(--fill); color: transparent; animation: santuario-breathe 1.4s ease-in-out infinite; }
 /* Something secondary, folded: the handle with its chevron */
 .page--app .fold > summary { border-top: 0; padding: var(--s-2) 0; min-height: 2.75rem; font-size: var(--t-small); font-weight: 600; color: var(--ink); }
-.page--app .fold > summary::before { width: 1.125rem; height: 1.125rem; border: 0; transform: none; background: var(--ink-2);
+.page--app .fold > summary::before { display: none; }
+.page--app .fold > summary::after { content: ""; flex: none; margin-left: auto; width: 1.125rem; height: 1.125rem; background: var(--ink-2); transform: rotate(90deg);
   -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat; transition: transform var(--dur-2) var(--ease); }
-.page--app .fold[open] > summary::before { transform: rotate(90deg); }
+.page--app .fold[open] > summary::after { transform: rotate(-90deg); }
 .page--app .fold > * + * { margin-top: var(--s-3); }
 .fold__title { font: inherit; display: inline; }
 .page--app .details summary { font-size: var(--t-small); color: var(--petroleo); }
@@ -759,6 +774,10 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .ask > .sign__who > :first-child { width: var(--lead); justify-self: center; }
 .hoy__evento + .hoy__evento { margin-top: var(--s-5); padding-top: var(--s-5); border-top: 1px solid var(--line); }
 .hoy .heading + .evento, .hoy .heading + .sign, .hoy .heading + .lectura { margin-top: var(--s-3); }
+.hoy__icono { display: grid; place-items: center; width: var(--lead); color: var(--ink-2); }
+.hoy .respuestas { margin-top: var(--s-3); }
+.sign + .respuestas { margin-top: var(--s-4); }
+.lectura .verso { margin: var(--s-1) 0; max-width: 34ch; font-size: 1.125rem; }
 .sugerencia { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--fill); color: var(--ink-2); }
 .hoy__marca { display: grid; place-items: center; }
 .hoy__punto { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--mark); }
@@ -796,7 +815,9 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .tablero__buscar { margin-top: var(--s-3); max-width: none; }
 .tablero__estado { display: flex; justify-content: flex-end; min-height: 1.5rem; }
 .tablero__estado .live-status { font-size: var(--t-caption); color: var(--ink-2); }
-.tablero__sub { margin-top: var(--s-6); font-size: var(--t-small); font-weight: 650; color: var(--ink-2); }
+.tablero__sub-fila { margin-top: var(--s-8); }
+.tablero__sub-fila .tablero__sub { margin-top: 0; }
+.tablero__sub { margin-top: var(--s-8); font-size: var(--t-h3); font-weight: 650; font-stretch: 106%; letter-spacing: -0.01em; }
 .tablero > .block, .tablero > .block + .block { margin-top: var(--s-8); }
 /* A decision that waits: the count, what it is, and the whole row leads there */
 .decision {
@@ -1469,7 +1490,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 @media (prefers-reduced-motion: reduce) {
   .meter__fill, .messages.is-toast .notice, .messages.is-toast .notice.is-leaving, .skeleton, .dialog[open], .dialog::backdrop { animation: none; }
   .nav-progress { animation: none; transform: scaleX(0.6); }
-  :root[data-ui="2"] .btn[aria-busy="true"]::after, :root[data-ui="2"] form.is-submitting .btn--primary::after { animation-duration: 2.4s; }
+  :root[data-ui="2"] .btn[aria-busy="true"]::before, :root[data-ui="2"] form.is-submitting .btn--primary::before { animation-duration: 2.4s; }
   :root[data-ui="2"] .btn:active:not([disabled]) { transform: none; }
 }
 @media (forced-colors: active) {

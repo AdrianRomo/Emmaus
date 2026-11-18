@@ -7,7 +7,7 @@
   The panel stays a direct child of <body>: emmaus.js makes every other child inert while it is open.
   Never included with "only": the logout form needs csrf_token.
 {% endcomment %}
-<header class="rail{% if event_nav %} rail--event{% endif %}">
+<header class="rail{% if event_nav %} rail--event{% if not access.is_coordinator %} rail--ancha{% endif %}{% endif %}">
   <div class="rail__brand">
     {% url 'dashboard' as shell_home %}{% church_brand brand_church size="bar" href=shell_home %}
     {% if shell.church %}<p class="rail__church">{{ shell.church.name }}</p>{% endif %}
