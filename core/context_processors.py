@@ -88,12 +88,37 @@ def current_role(request):
 
         context["ui_v2"] = True
         context["shell"] = build_shell(request, context["shell_church"], module_items, context["show_events_link"])
+    elif context["show_events_link"] and (event_church := _event_church(request)) is not None:
+        # An account that only works in events has no church of its own. Its pages wear the look of the church
+        # that holds the event, with a rail that lists its events and, inside one, the event's pages: the same
+        # product for the whole team, whoever is a person of the church and whoever is not.
+        from .shell import build_event_shell
+
+        context["ui_v2"] = True
+        context["shell"] = build_event_shell(request, event_church)
+        context["current_church"] = context.get("current_church") or event_church
     context["app_nav_items"] = nav_items
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
     context["theme_church"] = context.get("current_church")
     # No church role (someone who only works in an event): the public pages' church, looked up only if drawn.
     context["brand_church"] = context["theme_church"] or SimpleLazyObject(first_active_church)
     return context
+
+
+def _event_church(request) -> Church | None:
+    """The church whose look an events-only account wears: the one that holds the event on screen, else
+    the first of its events' churches that uses the community module. None when that church does not use it."""
+    from events.access import accessible_events
+    from people.flags import enabled
+
+    access = getattr(request, "access", None)
+    if access is not None:
+        church = access.event.church
+        return church if enabled(church, "community") else None
+    for event in accessible_events(request.user).select_related("church").order_by("-starts_on", "id")[:10]:
+        if enabled(event.church, "community"):
+            return event.church
+    return None
 
 
 def _community_nav(request, context) -> list[dict]:

@@ -77,6 +77,10 @@ One navigation in three places that always agree (`core/shell.py`).
 | 760 px and less | A top bar (the church, the arch → Mi cuenta) and `.tabs` at the bottom: three places and "Más"; the current tab's icon sits on a tinted pill |
 | "Más" | `#menu-panel`: every place as grouped lists, a modal dialog |
 
+An account that only works in events (no church role, no person) wears the shell of the church
+that holds the event: its rail lists "Eventos donde sirves" and, inside an event, the event's pages
+(`core.shell.build_event_shell`). With that church's module off it keeps Atrio's bar.
+
 Pages are one measure (`--w-app`, 70 rem) centred in what the rail leaves; a form or a reading page
 adds `.narrow` (44 rem) and stays on the left edge, so every page starts on the same line. Inside
 an event the event is a place in the rail and, under 1101 px, the tabs.

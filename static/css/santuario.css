@@ -200,6 +200,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 
 @media (max-width: 1100px) {
   :root[data-ui="2"] { --rail-w: 14.5rem; }
+  .rail__quiet { grid-template-columns: minmax(0, 1fr); gap: 0; }
 }
 @media (max-width: 760px) {
   body:has(> .rail) { display: block; }
@@ -542,6 +543,13 @@ body:has(> .rail) .sign--lead .sign__actions { margin-top: 0; }
   .row--stack .row__end { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; gap: var(--s-3); }
   .row--stack .row__end .btn { flex: 1 1 8rem; }
 }
+/* In a column of middle width (a tablet beside the rail) the buttons sit under the words at their own width, in
+   line with them; only on a phone do they take the whole row */
+@container (min-width: 26rem) and (max-width: 38rem) {
+  .row--stack .row__end .btn { flex: 0 1 auto; }
+  .row--lead.row--stack:has(> .date-block) .row__end { padding-left: calc(3.25rem + var(--s-3)); }
+  .row--lead.row--stack:has(> .mono) .row__end { padding-left: calc(2.5rem + var(--s-3)); }
+}
 @media (max-width: 600px) {
   .row--lead.row--stack { flex-direction: row; }
 }
@@ -797,7 +805,7 @@ body:has(> .rail) .sign--lead .sign__actions { margin-top: 0; }
 :root[data-ui="2"] .welcome__body { margin-top: var(--s-4); gap: var(--s-5) var(--s-8); }
 :root[data-ui="2"] .welcome__body > :only-child { grid-column: 1 / -1; }
 :root[data-ui="2"] .welcome__heading { font-size: var(--t-small); color: var(--ink-2); margin-bottom: var(--s-2); }
-.welcome__doors { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--s-2); }
+.welcome__doors { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--s-2); align-content: start; }
 .welcome__doors a {
   display: flex; align-items: center; gap: var(--s-3); min-height: 3.25rem; padding: var(--s-2) var(--s-4); border-radius: var(--r-control);
   background: var(--hundido); color: var(--ink); font-weight: 700; text-decoration: none;

@@ -116,7 +116,27 @@ class ShellTests(CommunityFixture):
         self.assertRegex(listing, r'aria-current="page">.*?<span class="rail__text">Eventos donde sirves</span>')
         self.assertEqual(listing.count('aria-current="page"'), 1)
 
-    def test_an_event_role_without_a_church_role_keeps_the_bar(self):
+    def test_an_event_role_without_a_church_role_wears_the_shell_of_the_event_s_church(self):
+        # The same product for the whole team: who only works in the event gets the rail with the event as a
+        # place in it, and nothing of "Mi iglesia", whose pages would not answer them.
+        self.client.force_login(self.tutor1)
+        response = self.client.get(reverse("events:tutor_home", args=[self.event.slug]))
+        self.assertContains(response, "santuario.css")
+        self.assertNotContains(response, '<header class="bar')
+        nav = response.content.decode()
+        nav = nav[nav.index('<header class="rail rail--event">'):nav.index("</header>")]
+        self.assertIn("Eventos donde sirves", nav)
+        self.assertIn('<p class="rail__label" id="rail-evento">Campamento A</p>', nav)
+        for hidden in ("Mi iglesia", "Avisos", "Grupos", "Administración", "Panorama"):
+            self.assertNotIn(hidden, nav)
+        self.assertEqual(nav.count('aria-current="page"'), 1)
+        self.assertEqual(self.client.get(reverse("community:home")).status_code, 404)  # the shell lists; the views decide
+        listing = self.client.get(reverse("events:list") + "?todos=1")
+        self.assertContains(listing, '<header class="rail">')
+        self.assertNotContains(listing, "Mi iglesia")
+
+    def test_an_event_role_keeps_the_bar_when_the_event_s_church_has_the_module_off(self):
+        flags.set_enabled(self.church, "community", False)
         self.client.force_login(self.tutor1)
         response = self.client.get(reverse("events:tutor_home", args=[self.event.slug]))
         self.assertContains(response, '<header class="bar')

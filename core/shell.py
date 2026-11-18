@@ -184,3 +184,13 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
 
     name = request.user.get_full_name() or request.user.email
     return {"sections": sections, "tabs": tabs, "name": name, "church": church}
+
+
+def build_event_shell(request, church) -> dict:
+    """The rail and the tabs of an account that only works in events (no church role and no person of
+    ``church``): the list of its events, and, inside one, the event's own pages (``shell.html`` draws
+    them from ``event_nav``). Nothing of "Mi iglesia" is listed: those views would not answer."""
+    view = getattr(getattr(request, "resolver_match", None), "view_name", "") or ""
+    events = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "equipo", view in {"events:list", "events:create"})
+    name = request.user.get_full_name() or request.user.email
+    return {"sections": [{"label": "", "items": [events]}], "tabs": [{**events, "label": "Eventos"}], "name": name, "church": church}
