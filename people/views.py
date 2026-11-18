@@ -11,7 +11,6 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -20,6 +19,7 @@ from django.utils.http import urlsafe_base64_encode
 from django.views.decorators.http import require_POST
 
 from core.authz import Action, has_scope
+from core.paging import paginate
 from events.access import resolve_access
 from events.models import Event, EventParticipant, normalize_name
 
@@ -28,7 +28,6 @@ from .decorators import module_required
 from .forms import PersonForm
 from .models import EventParticipantLink, Person
 
-PAGE_SIZE = 30
 
 
 def church_admin_required(view_func):
@@ -60,9 +59,8 @@ def _name_filter(queryset, query: str, field: str = "normalized_name"):
 def person_list(request):
     query = request.GET.get("q", "").strip()
     people = _name_filter(_people(request.church), query) if query else _people(request.church)
-    page = Paginator(people.select_related("user").order_by("first_name", "last_name", "id"), PAGE_SIZE).get_page(
-        request.GET.get("pagina")
-    )
+    # The search runs over the whole church before the list is cut in pages, and "?q=" travels in each page's link.
+    page = paginate(request, people.select_related("user").order_by("first_name", "last_name", "id"))
     return render(request, "people/person_list.html", {"page": page, "query": query, "total": _people(request.church).count()})
 
 
@@ -203,11 +201,12 @@ def from_event(request, slug: str):
     camperos = access.participants(include_inactive=True).filter(person_link__isnull=True).select_related("sede")
     if query:
         camperos = _name_filter(camperos, query)
-    page = Paginator(camperos.order_by("full_name", "id"), PAGE_SIZE).get_page(request.GET.get("pagina"))
+    page = paginate(request, camperos.order_by("full_name", "id"))
     people = list(_people(request.church).exclude(event_links__event=event).only("id", "first_name", "last_name", "normalized_name"))
     for campero in page:
         tokens = set(campero.normalized_name.split())
         # A hint for the administrator, never a decision: people of this church who share at least two words of the name.
+        # Three at most on purpose: a hint in the row's own select, and the administrator still decides.
         campero.candidates = [p for p in people if len(tokens & set(p.normalized_name.split())) >= 2][:3]
     linked = EventParticipantLink.objects.filter(event=event).count()
     return render(request, "people/from_event.html", {"event": event, "page": page, "query": query, "linked": linked})

@@ -25,6 +25,7 @@
         </li>
       {% endfor %}
     </ul>
+    {% include "partials/ui/pager.html" with page=devotionals label="Páginas de devocionales" %}
   {% else %}
     <p class="empty-line">Todavía no hay devocionales. Escribe el primero: puedes guardarlo como borrador y publicarlo después.</p>
   {% endif %}

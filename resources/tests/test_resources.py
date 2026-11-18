@@ -164,16 +164,18 @@ class DevotionalTests(ResourcesFixture):
         self.assertEqual(services.today_devotional(self.church, self.member, today=yesterday), recent)
         self.assertIsNone(services.today_devotional(self.church_b, self.member_b))
 
-    def test_the_archive_shows_thirty_at_most_newest_first(self):
-        for back in range(32):
+    def test_the_archive_is_paged_by_fifty_newest_first(self):
+        for back in range(52):
             self.devotional(self.today - timedelta(days=back), title=f"Devocional número {back:02d}.")
         self.client.force_login(self.member_user)
         html = self.client.get(PAST).content.decode()
-        self.assertEqual(html.count('class="row row--lead row--stack"'), 30)
+        self.assertEqual(html.count('class="row row--lead row--stack"'), 50)
         self.assertIn('<ul class="dates rows">', html)
         self.assertIn("date-block", html)
-        self.assertLess(html.index("Devocional número 00."), html.index("Devocional número 29."))
-        self.assertNotIn("Devocional número 30.", html)
+        self.assertLess(html.index("Devocional número 00."), html.index("Devocional número 49."))
+        self.assertNotIn("Devocional número 50.", html)
+        self.assertIn("Página 1 de 2. Del 1 al 50 de 52.", html)
+        self.assertContains(self.client.get(PAST + "?pagina=2"), "Devocional número 51.")
 
     # ---- writing --------------------------------------------------------------------------------
     def test_the_administration_writes_a_draft_and_then_publishes_it(self):
@@ -386,11 +388,14 @@ class MediaTests(ResourcesFixture):
         self.assertContains(page, "No hay recursos de esa serie.")
         self.assertNotContains(page, "<script>")
 
-    def test_the_list_shows_forty_at_most(self):
-        for number in range(42):
+    def test_the_list_is_paged_by_fifty(self):
+        for number in range(52):
             self.media(title=f"Recurso {number}", date=self.today - timedelta(days=number))
         self.client.force_login(self.member_user)
-        self.assertContains(self.client.get(MEDIA), 'class="row row--lead row--stack"', count=40)
+        page = self.client.get(MEDIA)
+        self.assertContains(page, 'class="row row--lead row--stack"', count=50)
+        self.assertContains(page, "Página 1 de 2. Del 1 al 50 de 52.")
+        self.assertContains(self.client.get(MEDIA + "?pagina=2"), 'class="row row--lead row--stack"', count=2)
 
     def test_retiring_hides_it_and_nothing_is_deleted(self):
         item = self.media()

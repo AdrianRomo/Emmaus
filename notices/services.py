@@ -74,16 +74,23 @@ def unread_count(person: Person, *, is_admin: bool) -> int:
 
 def for_home(person: Person, *, is_admin: bool, limit: int = 3, skip=()) -> list[Announcement]:
     """The first notices the person may read, each with ``is_unread``. ``skip``: notices already
-    shown above (``urgent_pending``), so the home does not say one thing twice."""
+    shown above (``urgent_pending``), so the home does not say one thing twice. Three on purpose:
+    the home is a glance and "Ver todos los avisos" under them leads to the whole list, paged."""
     notices = _unread(person, is_admin=is_admin)
     if skip:
         notices = notices.exclude(pk__in=[notice.pk for notice in skip])
     return list(notices[:limit])
 
 
+def readable(person: Person, *, is_admin: bool) -> QuerySet[Announcement]:
+    """Every notice the person may read, each with ``is_unread``, in the order of "Avisos": for a paged list."""
+    return _unread(person, is_admin=is_admin)
+
+
 def urgent_pending(person: Person, *, is_admin: bool, limit: int = 3) -> list[Announcement]:
     """The urgent notices the person may read and has not answered "Enterado" to, in the version
-    they have now. Not their own: who published it does not need to be told."""
+    they have now. Not their own: who published it does not need to be told. Three at most on
+    purpose: each is a red panel above everything else; all of them are in "Avisos", urgent first."""
     answered = _answers().filter(announcement=OuterRef("pk"), person=person)
     notices = visible_to(person, is_admin=is_admin).filter(priority=Priority.URGENT).exclude(Exists(answered))
     if person.user_id:
@@ -130,9 +137,10 @@ def acknowledgement_count(notice: Announcement) -> tuple[int, int]:
     return answered.count(), people.count()
 
 
-def published_by(user, church, limit: int = 50) -> list[Announcement]:
-    """Everything ``user`` published in ``church``, whatever its state: scheduled, expired and retired too."""
-    return list(Announcement.objects.filter(church=church, created_by=user).select_related("group")[:limit])
+def published_by(user, church) -> QuerySet[Announcement]:
+    """Everything ``user`` published in ``church``, whatever its state: scheduled, expired and retired too.
+    Newest first (the model's order); the screen pages it."""
+    return Announcement.objects.filter(church=church, created_by=user).select_related("group")
 
 
 def mark_read(notice: Announcement, person: Person) -> bool:

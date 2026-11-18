@@ -49,6 +49,16 @@ def is_fragment(request) -> bool:
     return request.headers.get("X-Requested-With") == "fetch"
 
 
+def programme_now(event: Event):
+    """"Ahora y después" for a camp home (agenda/now_next.py, events/_now_next.html): what the event's programme says
+    for this moment, or None: the church has the community module off, or today has no programme. In the context of
+    the full page and of its live fragment alike, so the strip moves on with the page. One query for the church's
+    flag and, with the module on, one for today's rows; nothing about a campero."""
+    from agenda.now_next import now_and_next  # agenda imports events
+
+    return now_and_next(event)
+
+
 def role_home_url(event: Event, access) -> str:
     name = {
         ADMIN: "events:admin_home",

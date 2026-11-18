@@ -13,10 +13,10 @@
     {% endfor %}
   </ul>
   {% if follow_ups %}
-    {% if cut %}<p class="list-count">Estos son los primeros {{ limit }}. Hay más: atiende o cancela algunos para ver los que siguen.</p>{% endif %}
     <ul class="rows">
       {% for item in follow_ups %}{% include "care/_row.html" with item=item show_owner=True %}{% endfor %}
     </ul>
+    {% include "partials/ui/pager.html" with page=follow_ups label="Páginas de seguimientos" %}
   {% elif chosen == "atendidos" %}
     <p class="empty-line">Todavía no hay seguimientos atendidos. Aparecen aquí cuando su responsable los marca como atendidos.</p>
   {% elif chosen == "cancelados" %}

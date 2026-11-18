@@ -236,7 +236,8 @@ def decide_request(request: GroupJoinRequest, actor, *, accept: bool) -> GroupJo
 
 # ---- meetings -----------------------------------------------------------------------------------
 NAMES_DELETED = "De esta reunión ya solo se conservan los totales: la lista de quién vino se borró por antigüedad."
-# How many meetings a person sees of their own attendance in a group.
+# How many meetings a person sees of their own attendance in a group. Short on purpose (it is a glance on the group's
+# page, not a record to audit); when there are more, the page says how many (``own_attendance_total``).
 OWN_ATTENDANCE_LIMIT = 8
 
 
@@ -246,14 +247,20 @@ def with_present(meetings):
     return meetings.annotate(present=Coalesce(F("present_kept"), Count("attendances")))
 
 
+def _own_meetings(membership: GroupMembership):
+    since = timezone.localtime(membership.start_at).date()
+    return GroupMeeting.objects.filter(group_id=membership.group_id, date__gte=since, present_kept__isnull=True)
+
+
+def own_attendance_total(membership: GroupMembership) -> int:
+    """How many meetings ``own_attendance`` would list without its limit."""
+    return _own_meetings(membership).count()
+
+
 def own_attendance(membership: GroupMembership, limit: int = OWN_ATTENDANCE_LIMIT) -> list[GroupMeeting]:
     """The last meetings of the group with a list since ``membership`` started, each with ``came``
     for that one person. Meetings whose names were deleted say nothing about anybody: they are left out."""
-    since = timezone.localtime(membership.start_at).date()
-    meetings = list(
-        GroupMeeting.objects.filter(group_id=membership.group_id, date__gte=since, present_kept__isnull=True)
-        .order_by("-date", "-id")[:limit]
-    )
+    meetings = list(_own_meetings(membership).order_by("-date", "-id")[:limit])
     came = set(
         GroupAttendance.objects.filter(meeting__in=meetings, person_id=membership.person_id).values_list("meeting_id", flat=True)
     )

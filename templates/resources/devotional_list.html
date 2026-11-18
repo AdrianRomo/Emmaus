@@ -3,7 +3,7 @@
 {% block page_title %}Devocionales anteriores{% endblock %}
 {% block content %}
 {% comment %}
-  The published devotionals up to today (resources.views.devotional_list), newest first, thirty at most. "Leído"
+  The published devotionals up to today (resources.views.devotional_list), newest first, fifty to a page. "Leído"
   marks the ones this person marked, and only for this person.
 {% endcomment %}
 <div class="narrow">
@@ -22,6 +22,7 @@
         </li>
       {% endfor %}
     </ul>
+    {% include "partials/ui/pager.html" with page=devotionals label="Páginas de devocionales" %}
   {% else %}
     <p class="empty-line">Tu iglesia todavía no publica devocionales. Cuando publique el primero, lo vas a encontrar aquí.</p>
   {% endif %}
