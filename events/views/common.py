@@ -73,7 +73,7 @@ def nav_items(event: Event, access) -> list[dict]:
             item("Cuestionarios", "questionnaires", ("version_detail", "question_edit", "question_add", "option_add", "section_add",
                                                      "questionnaire_create")),
             item("Reportes", "reports", ("report_detail", "presentation_live")),
-            item("Configuración", "settings", ("audit", "sessions", "stations", "confidential_level")),
+            item("Configuración", "settings", ("audit", "sessions", "stations", "confidential_level", "duplicate")),
         ]
     if access.is_pastor:
         return [

@@ -1,0 +1,13 @@
+{% comment %}
+  Administration home (issue #48): a questionnaire of the event has a published version newer than the one its new
+  interviews get (events.services.event_questionnaires.newer_unused_versions). Publishing and using are two
+  movements; this is what says so when only the first one happened. Nothing is drawn otherwise. Needs: newer_versions.
+{% endcomment %}
+{% if newer_versions %}
+<div class="notice notice--warning admin-narrow">
+  <p class="notice__title">{% if newer_versions|length == 1 %}Hay una versión más nueva que no está en uso{% else %}Hay versiones más nuevas que no están en uso{% endif %}</p>
+  {% for item in newer_versions %}
+    <p>«{{ item.newest.title }}»: las entrevistas nuevas usan la versión {{ item.link.version.number }}. La versión {{ item.newest.number }} ya está publicada, pero no se usa. <a href="{% url 'events:version_detail' event.slug item.newest.id %}">Ver la versión {{ item.newest.number }}<span class="visually-hidden"> de «{{ item.newest.title }}»</span></a></p>
+  {% endfor %}
+</div>
+{% endif %}

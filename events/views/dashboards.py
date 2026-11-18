@@ -5,6 +5,7 @@ from datetime import datetime, time, timedelta
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -28,8 +29,9 @@ from ..models import (
 )
 from ..services import audit
 from ..services import event_questionnaires as eq
+from ..services import follow_ups as follow_up_svc
 from ..services import welcome as welcome_svc
-from ..services.metrics import build_payload, coordinator_scope, local_tz, scope_for_access, stale_interviews, sum_rows
+from ..services.metrics import build_payload, coordinator_scope, local_tz, mark_stalled, scope_for_access, stale_interviews, sum_rows
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
 from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, safe_next
@@ -103,6 +105,8 @@ def tutor_home(request, event, access):
         "stalled_places": _stalled_stations(access),
         "follow_ups": open_care.order_by("created_at")[:5],
         "follow_ups_open": open_care.count(),
+        # Every open follow-up the tutor may see that nobody attends, the same ones "Sin asignar" lists (issue #46)
+        "follow_ups_unassigned": follow_up_svc.unassigned_open(access).count(),
         "last_snapshot": _last_snapshot(access),
         "next_cutoff": next_slot(event),
     }
@@ -191,7 +195,12 @@ def interviews(request, event, access):
 @event_view(TUTOR, PASTOR, ADMIN)
 def pending(request, event, access):
     participants = access.participants()
+    # Grouped by coordinador, the one with the oldest first (issue #47); a tutor's ``participants`` are their team's.
     stale = stale_interviews(participants).select_related("participant__coordinator__user", "conducted_by", "station", "version")
+    by_coordinator: dict = {}
+    for interview in mark_stalled(stale.order_by("last_activity_at")):
+        by_coordinator.setdefault(interview.participant.coordinator, []).append(interview)
+    stale_groups = [{"coordinator": coordinator, "rows": rows} for coordinator, rows in by_coordinator.items()]
     in_progress = access.interviews().filter(status=Interview.Status.IN_PROGRESS).exclude(pk__in=stale.values("pk"))
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
@@ -222,6 +231,7 @@ def pending(request, event, access):
         "events/supervision/pending.html",
         {
             "stale": stale,
+            "stale_groups": stale_groups,
             "in_progress": in_progress,
             "to_evaluate": to_evaluate,
             "follow_ups": follow_ups,
@@ -290,6 +300,8 @@ def pastor_home(request, event, access):
         "outcomes": outcomes,
         "outcomes_snapshot": outcome_snapshot,
         "agenda": _agenda(event, payload["recommendations"]),
+        # Counted from what this person may see, never from the payload: a cutoff must not carry it (issue #46)
+        "follow_ups_unassigned": follow_up_svc.unassigned_open(access).count(),
     }
     if is_fragment(request):
         return render(request, "events/pastor/_home_live.html", context)
@@ -380,6 +392,8 @@ def follow_ups(request, event, access):
             "counts": counts,
             "status_choices": FollowUp.Status.choices,
             "leaders": leaders,
+            # "Asignar marcados" shows only when a row of this page can be assigned by this person
+            "can_bulk_assign": any(f.can_assign and f.is_open for f in rows),
         },
     )
 
@@ -428,6 +442,64 @@ def follow_up_assign(request, event, access, follow_up_id):
     item.save(update_fields=["assigned_to", "updated_at"])
     audit.record(request.user, event, "seguimiento", f"Actualizó un seguimiento del campero #{item.participant.code}", item, status=item.status)
     messages.success(request, "Seguimiento actualizado.")
+    return redirect(back)
+
+
+BULK_DEFAULT_OWNER = "predeterminado"  # "Su coordinador o su tutor": services.follow_ups.default_owner, row by row
+
+
+@require_POST
+@event_view(*LEADERS, MembershipRole.COORDINATOR)
+def follow_ups_bulk_assign(request, event, access):
+    """Who attends several follow-ups at once, from the list. Each row passes the guards of ``follow_up_assign`` and
+    gets its own audit row. An id this person may not manage refuses the whole request and writes nothing; a row
+    that is closed, already has that person, or cannot go to them is left as it was and counted in the message."""
+    back = safe_next(request, request.POST.get("siguiente"), reverse("events:follow_ups", args=[event.slug]))
+    raw_ids = request.POST.getlist("seguimiento")
+    if any(not (value.isascii() and value.isdigit()) for value in raw_ids):
+        raise PermissionDenied
+    ids = {int(value) for value in raw_ids}
+    choice = request.POST.get("assigned_to", "")
+    if len(ids) > FOLLOW_UPS_SHOWN:  # the page never offers more
+        raise PermissionDenied
+    items = list(access.follow_ups().filter(pk__in=ids).select_related("participant__coordinator__user").order_by("pk"))
+    if len(items) != len(ids) or not all(_can_assign(access, item) for item in items):
+        raise PermissionDenied
+    if not items:
+        messages.error(request, "Marca al menos un seguimiento.")
+        return redirect(back)
+    if not choice:
+        messages.error(request, "Elige a una persona del equipo.")
+        return redirect(back)
+    assigned = 0
+    with transaction.atomic():
+        for item in items:
+            before = item.assigned_to_id
+            if not item.is_open:
+                continue
+            if choice == BULK_DEFAULT_OWNER:
+                owner = follow_up_svc.default_owner(item)
+                if owner is None:
+                    continue
+                item.assigned_to = owner
+            else:
+                form = FollowUpAssignForm({"assigned_to": choice}, instance=item, event=event)
+                if not form.is_valid() or form.cleaned_data["assigned_to"] is None:
+                    continue
+                item = form.save(commit=False)
+            if item.assigned_to_id == before:
+                continue
+            item.save(update_fields=["assigned_to", "updated_at"])
+            audit.record(request.user, event, "seguimiento", f"Actualizó un seguimiento del campero #{item.participant.code}", item, status=item.status)
+            assigned += 1
+    skipped = len(items) - assigned
+    if assigned:
+        text = "Se asignó 1 seguimiento." if assigned == 1 else f"Se asignaron {assigned} seguimientos."
+        if skipped:
+            text += f" {skipped} se {'quedó' if skipped == 1 else 'quedaron'} como {'estaba' if skipped == 1 else 'estaban'}."
+        messages.success(request, text)
+    else:
+        messages.error(request, "No se asignó ninguno: ya tenían a esa persona, ya están cerrados o esa persona no puede atenderlos.")
     return redirect(back)
 
 
@@ -629,6 +701,9 @@ def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state
     return steps
 
 
+STALLED_SHOWN = 10  # the administration home lists the oldest ones; "Pendientes" has them all
+
+
 @event_view(ADMIN)
 def admin_home(request, event, access):
     payload = build_payload(scope_for_access(access), include_safety=True)
@@ -687,6 +762,11 @@ def admin_home(request, event, access):
         "stations": event.stations.filter(is_active=True).count(),
         "pending_requests": AccessRequest.objects.filter(event=event, status=AccessRequest.Status.PENDING).count(),
     }
+    # Interviews left half done, to resolve before the event ends (issue #47; events/admin/_stalled_interviews.html)
+    stalled = stale_interviews(access.participants()).select_related("participant__coordinator__user", "station", "version")
+    context["stalled_total"] = stalled.count()
+    context["stalled_interviews"] = mark_stalled(stalled.order_by("last_activity_at")[:STALLED_SHOWN]) if context["stalled_total"] else []
+    context["newer_versions"] = eq.newer_unused_versions(event)  # issue #48; drawn by events/admin/_newer_versions.html
     # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)
     steps = _preparation_steps(
         event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,

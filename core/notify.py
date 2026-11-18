@@ -37,6 +37,8 @@ SUBJECTS: dict[str, str] = {
     "solicitud_grupo_decidida": "Emmaus: ya hay respuesta a tu solicitud",
     # To the church's welcome team: somebody asked to be contacted.
     "solicitud_contacto_recibida": "Emmaus: hay una solicitud de contacto nueva",
+    # To whoever attends open follow-ups of an event (remind_follow_up_owners). Never how many, whose or why.
+    "seguimientos_pendientes": "Emmaus: tienes seguimientos por atender",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.

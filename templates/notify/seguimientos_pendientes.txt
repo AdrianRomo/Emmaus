@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Tienes seguimientos abiertos a tu cargo en {{ church_name }}. Entra a Emmaus para ver cuáles son y atenderlos:
+
+{{ link }}
+
+Por privacidad, este correo no incluye nombres, motivos ni respuestas.
+{% endautoescape %}

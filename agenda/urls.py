@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import simple, views
+from . import duplicate, simple, views
 
 app_name = "agenda"
 
@@ -9,6 +9,7 @@ urlpatterns = [
     path("administrar/", views.admin_list, name="admin_list"),
     path("nuevo/", simple.create, name="create"),
     path("<slug:slug>/datos/", simple.edit, name="event_edit"),
+    path("<slug:slug>/duplicar/", duplicate.duplicate, name="duplicate"),
     path("<slug:slug>/", views.detail, name="detail"),
     path("<slug:slug>/inscribirme/", views.register, name="register"),
     path("<slug:slug>/cancelar/", views.cancel, name="cancel"),
@@ -16,6 +17,9 @@ urlpatterns = [
     path("<slug:slug>/inscritos/", views.registrations, name="registrations"),
     path("<slug:slug>/inscritos/llego/", views.walkup, name="walkup"),
     path("<slug:slug>/inscritos/<int:registration_id>/autorizacion/", views.consent, name="consent"),
+    path("<slug:slug>/inscritos/<int:registration_id>/confirmar-edad/", views.confirm_age, name="confirm_age"),
+    path("<slug:slug>/inscritos/<int:registration_id>/edad-de-la-visita/", views.guest_age, name="guest_age"),
+    path("<slug:slug>/inscritos/<int:registration_id>/anular/", views.annul, name="annul"),
     path("<slug:slug>/inscritos/<int:registration_id>/retirar-autorizacion/", views.consent_revoke, name="consent_revoke"),
     path("<slug:slug>/inscritos/<int:registration_id>/agregar-a-personas/", views.guest_promote, name="guest_promote"),
     path("<slug:slug>/preguntas/", views.faq, name="faq"),

@@ -88,6 +88,54 @@ def use_version(event, version, *, actor=None) -> EventQuestionnaire:
 
 
 @transaction.atomic
+def publish_for_event(event, version, actor, *, use: bool) -> EventQuestionnaire | None:
+    """Publish a draft from the event's "Cuestionarios" and, with ``use``, put it in use for the interviews that start
+    from now on, as one step (issue #48: a version published the evening before a camp was never put in use, and the
+    first day ran on the older one). Both audit rows, "Publicó" and "Usará", are written here, in the same transaction
+    as the changes: either the version is published, in use and recorded, or nothing happened.
+
+    Raises ValueError when the draft cannot be published (no questions, a choice without options). Interviews that
+    already started keep the version they started with (``Interview.version``): nothing here touches them."""
+    from . import audit  # audit imports models only; kept local so this module stays importable from anywhere
+    from .questionnaire import publish_version
+
+    if version.status != QuestionnaireVersion.Status.DRAFT:
+        raise ValueError("Esta versión ya está publicada.")
+    publish_version(version, actor)
+    audit.record(actor, event, "cuestionario", f"Publicó la versión {version.number}", version)
+    if not use:
+        return None
+    link = use_version(event, version, actor=actor)
+    audit.record(actor, event, "cuestionario", f"Usará la versión {version.number} en entrevistas nuevas", version)
+    return link
+
+
+@dataclass
+class NewerVersion:
+    link: EventQuestionnaire  # what new interviews get today
+    newest: QuestionnaireVersion  # the newest published version of the same questionnaire, not in use
+
+
+def newer_unused_versions(event) -> list[NewerVersion]:
+    """For each questionnaire of the event, its newest published version when that is newer than the one in use.
+    Empty when every questionnaire already uses its newest published version. Drafts never count."""
+    links = links_for(event)
+    if not links:
+        return []
+    newest: dict[int, QuestionnaireVersion] = {}
+    published = QuestionnaireVersion.objects.filter(
+        questionnaire_id__in=[link.questionnaire_id for link in links], status=QuestionnaireVersion.Status.PUBLISHED
+    ).order_by("number")
+    for candidate in published:
+        newest[candidate.questionnaire_id] = candidate  # ascending: the last one wins
+    return [
+        NewerVersion(link=link, newest=newest[link.questionnaire_id])
+        for link in links
+        if link.questionnaire_id in newest and newest[link.questionnaire_id].number > link.version.number
+    ]
+
+
+@transaction.atomic
 def stop_using(event, questionnaire) -> None:
     """The event stops using ``questionnaire`` (an instance or its id). Its interviews stay as they are.
 

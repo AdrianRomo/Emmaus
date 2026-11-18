@@ -3,7 +3,8 @@
 Every view is behind the ``community`` module (``groups.views.community_view``: 404 with the
 module off or without a person in the church) and fetches inside ``request.church``, so an id of
 another church is a 404. Who writes: the administration to the whole church; who can manage a
-group (its guides, the administration) to that group. Who reads: ``services.visible_to``. Hiding
+group (its guides, the administration) to that group. Who makes one urgent: who holds a church role
+the church's policy names (``services.may_publish_urgent``; today the administration). Who reads: ``services.visible_to``. Hiding
 a link is not the rule: each view asks again. No e-mail is sent.
 
 "Compartir por WhatsApp" hands the person a message to send themselves. It carries the church's
@@ -25,6 +26,7 @@ from core.authz import Action, has_scope
 from groups.access import church_groups, managed_group_ids
 from groups.models import Group
 from groups.views import community_view
+from people import policy
 
 from . import services
 from .forms import WHOLE_CHURCH, NoticeForm
@@ -85,13 +87,18 @@ def _share_url(request, notice: Announcement) -> str:
     return "https://wa.me/?text=" + quote(text, safe="")
 
 
-def _acknowledged_line(notice: Announcement) -> str:
+def _acknowledged_line(notice: Announcement) -> tuple[str, bool]:
+    """What who may change the notice reads about "Enterado", and whether it gives the count."""
     done, total = services.acknowledgement_count(notice)
-    if total < 3:  # with one or two readers the number would say who
-        return "Este aviso es para menos de 3 personas con cuenta: aquí no se cuenta cuántas dijeron «Enterado»."
-    if total == 1:
-        return f"{done} de 1 persona dijo «Enterado»."
-    return f"{done} de {total} personas dijeron «Enterado»."
+    smallest = policy.min_reporting_size(notice.church)
+    if total < smallest:  # with so few readers the number would say who
+        return f"Este aviso es para menos de {smallest} personas con cuenta: aquí no se cuenta cuántas dijeron «Enterado».", False
+    # A number that leaves fewer than the minimum on either side says who: "5 de 6" names the one who has not.
+    if 0 < done < smallest:
+        return f"Menos de {smallest} de {total} personas han dicho «Enterado».", True
+    if 0 < total - done < smallest:
+        return f"Casi todas las {total} personas dijeron «Enterado».", True
+    return f"{done} de {total} personas dijeron «Enterado».", True
 
 
 def _day(day) -> str:
@@ -129,8 +136,11 @@ def notice_detail(request, notice_id: int):
             answered = services.acknowledged_at(notice, request.person)
             context["can_acknowledge"] = answered is None
             context["acknowledged_on"] = timezone.localdate(answered) if answered else None
+            if answered is None and services.read_before_it_changed(notice, request.person):
+                context["changed_on"] = timezone.localdate(notice.changed_at)
         if can_edit:
-            context["acknowledged_line"] = _acknowledged_line(notice)
+            context["acknowledged_line"], context["count_given"] = _acknowledged_line(notice)
+            context["asked_again_on"] = timezone.localdate(notice.changed_at) if notice.changed_at else None
     return render(request, "notices/detail.html", context)
 
 
@@ -143,8 +153,14 @@ def notice_acknowledge(request, notice_id: int):
         raise Http404
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
-    if services.acknowledge(notice, request.person):
-        messages.success(request, "Listo, anotamos tu «Enterado».")
+    # The page says which version it showed. If the notice changed since, the answer would be to
+    # words the person has not read. A page without it (opened before versions existed) is of version 1.
+    seen = request.POST.get("version", "1")
+    try:
+        if services.acknowledge(notice, request.person, version=int(seen) if seen.isdigit() else 0):
+            messages.success(request, "Listo, anotamos tu «Enterado».")
+    except services.NoticeError as error:
+        messages.error(request, error.message)
     return redirect("notices:detail", notice.pk)
 
 
@@ -170,14 +186,15 @@ def notice_create(request):
         (str(item.pk), item.name) for item in groups
     ]
     initial = {"para": chosen or audiences[0][0]}
-    form = NoticeForm(request.POST or None, audiences=audiences, initial=initial, allow_urgent=request.is_church_admin)
+    may_urgent = services.may_publish_urgent(request.user, request.church)
+    form = NoticeForm(request.POST or None, audiences=audiences, initial=initial, allow_urgent=may_urgent)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
             notice = services.publish(
                 request.church, request.user, group=group, title=data["title"], body=data["body"],
                 publish_on=data["publish_on"], expires_on=data["expires_on"],
-                priority=data["priority"], by_admin=request.is_church_admin,
+                priority=data["priority"],
             )
         except services.NoticeError as error:
             form.add_error(None, error.message)
@@ -195,19 +212,24 @@ def notice_edit(request, notice_id: int):
     notice = _editable(request, notice_id)
     if notice.is_retired:
         raise Http404
-    form = NoticeForm(request.POST or None, instance=notice, allow_urgent=request.is_church_admin)
+    version = notice.version
+    may_urgent = services.may_publish_urgent(request.user, request.church)
+    form = NoticeForm(request.POST or None, instance=notice, allow_urgent=may_urgent)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
-            services.update(
+            saved = services.update(
                 notice, request.user, title=data["title"], body=data["body"],
                 publish_on=data["publish_on"], expires_on=data["expires_on"],
-                priority=data.get("priority"), by_admin=request.is_church_admin,
+                priority=data.get("priority"), material=form.material_answer,
             )
         except services.NoticeError as error:
             form.add_error(None, error.message)
         else:
-            messages.success(request, "Guardamos los cambios.")
+            if saved.version != version:
+                messages.success(request, "Guardamos los cambios y pedimos «Enterado» otra vez a todas las personas a quienes va el aviso.")
+            else:
+                messages.success(request, "Guardamos los cambios.")
             return redirect("notices:detail", notice.pk)
     return render(request, "notices/form.html", {"form": form, "notice": notice})
 

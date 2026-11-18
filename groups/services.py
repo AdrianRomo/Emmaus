@@ -299,8 +299,9 @@ def record_meeting(group: Group, day, present_ids, actor) -> GroupMeeting:
 
 
 def meeting_due(group: Group, today=None):
-    """The day of the group's last meeting when nobody has said who came: within the last six
-    days, not before the group existed, and not today before the meeting's hour. Else None."""
+    """The day of the last meeting that was due by the group's rhythm when nobody has said who came:
+    not before the group existed, and not today before the meeting's hour. Else None, and always None
+    for a group without a fixed day (``Group.last_meeting_day``)."""
     today = today or timezone.localdate()
     day = group.last_meeting_day(today)
     if day is None or not group.is_active or day < timezone.localtime(group.created_at).date():

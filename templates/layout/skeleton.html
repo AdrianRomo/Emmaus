@@ -10,6 +10,9 @@
     <link rel="stylesheet" href="{% static 'css/rotulo.css' %}">{% if ui_v2 %}
     {# The redesign's layer over Atrio, only for a church that uses the new modules: docs/v2/DESIGN_SYSTEM.md #}<link rel="stylesheet" href="{% static 'css/santuario.css' %}">{% endif %}
     <link rel="icon" href="{% static 'img/emmaus-mark.svg' %}" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% static 'manifest.webmanifest' %}">
+    <meta name="theme-color" content="#0b6270">
     {% if theme_church and theme_church.custom_theme_enabled %}{% load emmaus %}
       {# The hover is the primary colour about 12 % darker (emmaus theme_hover), so a button still answers the pointer #}
       <style>:root{% if ui_v2 %}[data-ui="2"]{% endif %}{--petroleo:{{ theme_church.theme_primary_color }};--petroleo-hover:{{ theme_church.theme_primary_color|theme_hover }};--mark:{{ theme_church.theme_accent_color }};--page:{{ theme_church.theme_background_color }};--surface:{{ theme_church.theme_surface_color }};--ink:{{ theme_church.theme_text_color }};--ink-3:{{ theme_church.theme_muted_text_color }};--line:{{ theme_church.theme_border_color }};}</style>

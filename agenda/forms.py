@@ -4,7 +4,9 @@ from django.core.validators import MaxLengthValidator
 from core.forms import TuErrorMessagesMixin
 
 from . import services
-from .models import EventFaq, EventPage, EventScheduleItem, GuardianConsent
+from people.models import Person
+
+from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
 
 DATE_FORMATS = ["%d/%m/%Y", "%Y-%m-%d"]
 
@@ -21,7 +23,9 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
         ]
         help_texts = {
             "requires_guardian_consent": (
-                "La inscripción de un menor queda pendiente hasta que la administración registre la autorización."
+                "La inscripción de un menor queda pendiente hasta que la administración registre la autorización, y la "
+                "de quien no tiene la edad confirmada por el equipo, hasta que la confirmes. Al encenderlo se revisan "
+                "todas las inscripciones que ya hay."
             ),
             "published": "Las personas de la iglesia lo verán en Eventos. Mientras esté apagado, solo lo ve la administración.",
             "description": "Dos o tres frases. Es lo que lee alguien que decide si va.",
@@ -68,11 +72,13 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
 
 
 class BirthDateForm(TuErrorMessagesMixin, forms.Form):
-    """The one thing a sign-up may ask: the date of birth, when the event needs to know who is a minor."""
+    """The one thing a sign-up may ask: the date of birth, when the event needs to know who is a
+    minor. It may be left empty: the team asks for it when it confirms the age."""
 
     birth_date = forms.DateField(
         label="Tu fecha de nacimiento",
-        help_text="Por ejemplo: 14/03/2009.",
+        help_text="Por ejemplo: 14/03/2009. Si prefieres no escribirla, déjala vacía: el equipo de la iglesia te la pedirá.",
+        required=False,
         input_formats=DATE_FORMATS,
         widget=forms.DateInput(format="%d/%m/%Y", attrs={"inputmode": "numeric", "autocomplete": "bday"}),
     )
@@ -80,7 +86,6 @@ class BirthDateForm(TuErrorMessagesMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["birth_date"].error_messages.update({
-            "required": "Escribe tu fecha de nacimiento.",
             "invalid": "Escribe la fecha así: día/mes/año, por ejemplo 14/03/2009.",
         })
 
@@ -144,19 +149,30 @@ class EventScheduleItemForm(TuErrorMessagesMixin, forms.ModelForm):
         return cleaned
 
 
+PARTICIPATION_NEEDED = "Marca que autoriza que participe en este evento: sin eso no hay autorización que registrar."
+METHOD_HELP = (
+    "Solo el formato firmado o la verificación en persona confirman la inscripción. Una llamada o un mensaje se "
+    "guarda como nota de contacto y la inscripción sigue pendiente."
+)
+
+
 class ConsentForm(TuErrorMessagesMixin, forms.ModelForm):
-    """The authorization of a mother, father or guardian for one registration. Closed options and a
-    name: there is no place to write anything else."""
+    """The authorization of a mother, father or guardian for one registration. Closed options, a
+    name and one choice per purpose: there is no place to write anything else, and nothing medical."""
 
     class Meta:
         model = GuardianConsent
-        fields = ["guardian_name", "relationship", "method", "guardian_phone"]
+        fields = ["guardian_name", "relationship", "method", "guardian_phone", "allows_participation", "allows_transport",
+                  "allows_photos"]
         widgets = {"relationship": forms.RadioSelect, "method": forms.RadioSelect}
+        help_texts = {"method": METHOD_HELP}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["relationship"].choices = GuardianConsent.Relationship.choices
         self.fields["method"].choices = GuardianConsent.Method.choices
+        self.fields["allows_participation"].required = True
+        self.fields["allows_participation"].error_messages["required"] = PARTICIPATION_NEEDED
         self.fields["guardian_name"].error_messages["required"] = "Escribe el nombre de quien autoriza."
         self.fields["relationship"].error_messages["required"] = "Elige si es su madre, su padre o su tutor legal."
         self.fields["method"].error_messages["required"] = "Elige cómo autorizó."
@@ -173,6 +189,11 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
     last_name = forms.CharField(label="Apellidos", max_length=120, required=False)
     phone = forms.CharField(label="Teléfono", max_length=40, required=False)
     is_minor = forms.BooleanField(label="Es menor de edad", required=False)
+    # For a visitor at an event that asks: an explicit choice, nothing preselected. No age is assumed.
+    age = forms.ChoiceField(
+        label="¿Es mayor o menor de edad?", choices=[("adulto", "Es mayor de edad"), ("menor", "Es menor de edad")],
+        widget=forms.RadioSelect, help_text="Dilo por lo que ves en la entrada. Si dudas, pregunta su edad.",
+    )
     guardian_name = forms.CharField(label="Nombre de su madre, padre o tutor", max_length=160, required=False)
     relationship = forms.ChoiceField(
         label="¿Quién autoriza?", choices=GuardianConsent.Relationship.choices, widget=forms.RadioSelect, required=False
@@ -181,12 +202,34 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
         label="¿Cómo autorizó?", choices=GuardianConsent.Method.choices, widget=forms.RadioSelect, required=False
     )
     guardian_phone = forms.CharField(label="Teléfono de su madre, padre o tutor", max_length=40, required=False)
+    allows_participation = forms.BooleanField(label="Autoriza que participe en este evento", required=False)
+    allows_transport = forms.BooleanField(label="Autoriza el transporte organizado por la iglesia", required=False)
+    allows_photos = forms.BooleanField(label="Autoriza que aparezca en fotografías del evento", required=False)
+    override = forms.BooleanField(label="Registrar de todos modos", required=False)
+    override_full = forms.BooleanField(
+        label="El evento está lleno: registrar de todos modos, aunque ya no haya lugares", required=False
+    )
+    override_reason = forms.ChoiceField(
+        label="¿Por qué la registras de todos modos?", choices=services.WalkupOverrideReason.choices,
+        widget=forms.RadioSelect, required=False,
+    )
 
-    CONSENT = ("guardian_name", "relationship", "method", "guardian_phone")
+    CONSENT = ("guardian_name", "relationship", "method", "guardian_phone", "allows_participation", "allows_transport",
+               "allows_photos")
+    OVERRIDE = ("override", "override_full", "override_reason")
 
-    def __init__(self, *args, person=None, minor_known=None, requires_consent=False, **kwargs):
+    def __init__(self, *args, person=None, minor_known=None, requires_consent=False, blocks=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.person, self.minor_known, self.requires_consent = person, minor_known, requires_consent
+        # The rules of the page this walk-up meets (``services.walkup_blocks``): each one needs its checkbox.
+        self.blocks = list(blocks)
+        self.page_blocks = [rule for rule in self.blocks if rule != services.FULL_RULE]
+        if not self.page_blocks:
+            del self.fields["override"]
+        if services.FULL_RULE not in self.blocks:
+            del self.fields["override_full"]
+        if not self.blocks:
+            del self.fields["override_reason"]
         if person is not None:
             for name in ("first_name", "last_name", "phone"):
                 del self.fields[name]
@@ -197,30 +240,52 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
             for name in ("first_name", "last_name"):
                 self.fields[name].widget.attrs["autocomplete"] = "off"
             self.fields["phone"].widget.attrs.update({"inputmode": "tel", "autocomplete": "off"})
+        if person is None and requires_consent:
+            del self.fields["is_minor"]
+            self.fields["age"].error_messages["required"] = "Elige si es mayor o menor de edad."
+        else:
+            del self.fields["age"]
         if not requires_consent or minor_known is False:
             for name in self.CONSENT:
                 del self.fields[name]
         else:
+            self.fields["method"].help_text = METHOD_HELP
             self.fields["guardian_name"].widget.attrs["autocomplete"] = "off"
             self.fields["guardian_phone"].widget.attrs.update({"inputmode": "tel", "autocomplete": "off"})
 
     @property
     def person_fields(self):
-        return [self[name] for name in ("first_name", "last_name", "phone", "is_minor") if name in self.fields]
+        return [self[name] for name in ("first_name", "last_name", "phone", "is_minor", "age") if name in self.fields]
 
     @property
     def consent_fields(self):
         return [self[name] for name in self.CONSENT if name in self.fields]
 
+    @property
+    def override_fields(self):
+        return [self[name] for name in self.OVERRIDE if name in self.fields]
+
     def clean(self):
         cleaned = super().clean()
         cleaned["is_minor"] = self.minor_known if self.minor_known is not None else bool(cleaned.get("is_minor"))
+        cleaned["seen_adult"] = False
+        if "age" in self.fields:
+            cleaned["is_minor"], cleaned["seen_adult"] = cleaned.get("age") == "menor", cleaned.get("age") == "adulto"
+        if self.page_blocks and not cleaned.get("override"):
+            self.add_error("override", "Marca «Registrar de todos modos» si decides registrarla aunque la página del evento diga otra cosa.")
+        if services.FULL_RULE in self.blocks and not cleaned.get("override_full"):
+            self.add_error("override_full", "El evento está lleno. Marca esta casilla si decides registrarla aunque ya no haya lugares.")
+        if self.blocks and not cleaned.get("override_reason"):
+            self.add_error("override_reason", "Elige por qué la registras de todos modos.")
+        cleaned["overrides"] = self.blocks
         given = [name for name in ("guardian_name", "relationship", "method") if cleaned.get(name)]
+        purposes = [name for name in ("allows_participation", "allows_transport", "allows_photos") if cleaned.get(name)]
         cleaned["consent"] = None
-        if given or cleaned.get("guardian_phone"):
+        if given or purposes or cleaned.get("guardian_phone"):
             if not cleaned["is_minor"]:
-                self.add_error("is_minor" if "is_minor" in self.fields else None,
-                               "La autorización es solo para menores de edad. Marca «Es menor de edad» o deja la autorización vacía.")
+                where = "is_minor" if "is_minor" in self.fields else "age" if "age" in self.fields else None
+                if where != "age" or "age" not in self.errors:
+                    self.add_error(where, "La autorización es solo para menores de edad. Marca «Es menor de edad» o deja la autorización vacía.")
             elif len(given) < 3:
                 missing = {
                     "guardian_name": "Escribe el nombre de quien autoriza.",
@@ -230,6 +295,57 @@ class WalkUpForm(TuErrorMessagesMixin, forms.Form):
                 for name, message in missing.items():
                     if name not in given and name not in self.errors:
                         self.add_error(name, message)
+            elif not cleaned.get("allows_participation"):
+                self.add_error("allows_participation", PARTICIPATION_NEEDED)
             else:
                 cleaned["consent"] = {name: cleaned.get(name, "") for name in self.CONSENT}
         return cleaned
+
+
+class ConfirmAgeForm(TuErrorMessagesMixin, forms.Form):
+    """"Confirmar edad": how the team verified the age and the date it saw. Nothing about a document
+    is asked or kept: no image, no number."""
+
+    birth_date = forms.DateField(
+        label="Fecha de nacimiento",
+        help_text="Por ejemplo: 14/03/2009. Escribe la que viste; si ya había una, corrígela si no coincide.",
+        input_formats=DATE_FORMATS,
+        widget=forms.DateInput(format="%d/%m/%Y", attrs={"inputmode": "numeric", "autocomplete": "off"}),
+    )
+    method = forms.ChoiceField(
+        label="¿Cómo confirmaste su edad?", choices=Person.BirthDateMethod.choices, widget=forms.RadioSelect,
+        help_text="No guardes fotos ni números de ningún documento: aquí solo queda cómo lo confirmaste.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["birth_date"].error_messages.update({
+            "required": "Escribe su fecha de nacimiento.",
+            "invalid": "Escribe la fecha así: día/mes/año, por ejemplo 14/03/2009.",
+        })
+        self.fields["method"].error_messages["required"] = "Elige cómo confirmaste su edad."
+
+
+class AnnulForm(TuErrorMessagesMixin, forms.Form):
+    """"Anular registro": one reason, from a closed list."""
+
+    reason = forms.ChoiceField(
+        label="¿Por qué anulas este registro?", choices=EventRegistration.AnnulReason.choices, widget=forms.RadioSelect
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["reason"].error_messages["required"] = "Elige por qué anulas este registro."
+
+
+class GuestAgeForm(TuErrorMessagesMixin, forms.Form):
+    """What the team saw of a visitor whose age nobody said when they were written down."""
+
+    age = forms.ChoiceField(
+        label="¿Es mayor o menor de edad?",
+        choices=[("adulto", "La vi en la puerta: es mayor de edad"), ("menor", "Es menor de edad")], widget=forms.RadioSelect,
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["age"].error_messages["required"] = "Elige si es mayor o menor de edad."

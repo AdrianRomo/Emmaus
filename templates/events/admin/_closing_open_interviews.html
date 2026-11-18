@@ -1,0 +1,10 @@
+{% load emmaus %}
+{% comment %}"Datos del evento" (issue #47): the first try to end an event that still has interviews in progress lists them here and saves nothing; the box below lets the administración end it anyway. Nothing is discarded by ending it.{% endcomment %}
+{% if closing_open %}
+  <div class="notice notice--warning" id="entrevistas-en-curso">
+    <p class="notice__title">{{ closing_open|length }} entrevista{{ closing_open|length|pluralize }} sigue{{ closing_open|length|pluralize:"n" }} en curso</p>
+    <p>Antes de terminar el evento, {{ closing_open|length|pluralize:"retómala o descártala,retómalas o descártalas" }}. Si lo terminas así, {{ closing_open|length|pluralize:"se queda en curso con lo que ya tiene guardado,se quedan en curso con lo que ya tienen guardado" }}: nada se descarta solo.</p>
+    {% include "events/rotulo/_interrupted_rows.html" with rows=closing_open show_coordinator=True %}
+    <label class="check mt-4" for="cerrar-con-entrevistas"><input type="checkbox" id="cerrar-con-entrevistas" name="cerrar_con_entrevistas" value="si"><span class="check__text">Terminar el evento aunque {{ closing_open|length|pluralize:"siga,sigan" }} en curso</span></label>
+  </div>
+{% endif %}

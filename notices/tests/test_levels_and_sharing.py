@@ -2,6 +2,7 @@
 message that says there is a notice without saying what it says."""
 
 from datetime import timedelta
+from unittest import mock
 from urllib.parse import parse_qs, urlsplit
 
 from django.urls import reverse
@@ -43,8 +44,13 @@ class LevelFixture(CommunityFixture):
     def data(self, para, **changes):
         return {"para": para, "title": TITLE, "priority": NORMAL, "body": BODY, "publish_on": self.today.isoformat(), **changes}
 
+    def more_people(self, how_many):
+        """People of the church with an account, to pass the smallest audience a count is given for."""
+        for number in range(how_many):
+            self._person(self.church, make_user(f"persona{number}@prueba.mx", "Persona", f"Número {number}"))
+
     def notice(self, priority=NORMAL, **changes):
-        fields = {"title": TITLE, "body": BODY, "priority": priority, "by_admin": True, **changes}
+        fields = {"title": TITLE, "body": BODY, "priority": priority, **changes}
         return services.publish(self.church, self.admin, **fields)
 
 
@@ -88,12 +94,15 @@ class LevelTests(LevelFixture):
         self.assertEqual(notice.priority, IMPORTANT)
 
     def test_the_service_refuses_an_urgent_notice_that_is_not_the_administrations(self):
-        for by_admin in (False, None):
-            kwargs = {} if by_admin is None else {"by_admin": by_admin}
-            with self.assertRaises(services.NoticeError):
-                services.publish(self.church, self.leader_user, group=self.group, title=TITLE, body=BODY, priority=URGENT, **kwargs)
+        # Who asks is answered from their role in that church: a guide, an administrator of another church, nobody.
+        for actor in (self.leader_user, self.admin_b, None):
+            with self.assertRaises(services.NoticeError) as refused:
+                services.publish(self.church, actor, group=self.group, title=TITLE, body=BODY, priority=URGENT)
+            self.assertEqual(refused.exception.message, "Solo la administración de la iglesia publica avisos urgentes.")
+        with self.assertRaises(TypeError):  # the caller's word is not taken any more
+            services.publish(self.church, self.leader_user, title=TITLE, body=BODY, priority=URGENT, by_admin=True)
         with self.assertRaises(services.NoticeError):
-            services.publish(self.church, self.admin, title=TITLE, body=BODY, priority="enorme", by_admin=True)
+            services.publish(self.church, self.admin, title=TITLE, body=BODY, priority="enorme")
         notice = services.publish(self.church, self.leader_user, group=self.group, title=TITLE, body=BODY, priority=IMPORTANT)
         with self.assertRaises(services.NoticeError):
             services.update(notice, self.leader_user, title=TITLE, body=BODY, publish_on=self.today, priority=URGENT)
@@ -112,7 +121,7 @@ class LevelTests(LevelFixture):
         self.client.force_login(self.leader_user)
         self.assertNotContains(self.client.get(edit), "Nivel")
         for sent in ("", NORMAL):  # not asked, and not heard if sent anyway
-            self.client.post(edit, self.data("", body="Nos vemos a las seis.", priority=sent))
+            self.client.post(edit, self.data("", body="Nos vemos a las seis.", priority=sent, material="no"))
             notice.refresh_from_db()
             self.assertEqual((notice.priority, notice.body), (URGENT, "Nos vemos a las seis."))
 
@@ -222,18 +231,19 @@ class LevelTests(LevelFixture):
         self.assertFalse(AnnouncementRead.objects.filter(acknowledged_at__isnull=False).exists())
 
     def test_who_published_it_is_not_asked_and_reads_the_count(self):
+        self.more_people(2)
         notice = self.notice(URGENT)
         self.client.force_login(self.admin)
         self.assertNotContains(self.client.get(HOME), "Aviso urgente:")
         page = self.client.get(detail(notice))
         self.assertNotContains(page, ">Enterado</button>")
-        # With an account in the church and not the author: member, leader, coord1, asked.
-        self.assertContains(page, "0 de 4 personas dijeron «Enterado».")
+        # With an account in the church and not the author: member, leader, coord1, asked and the two more.
+        self.assertContains(page, "0 de 6 personas dijeron «Enterado».")
         self.assertContains(page, "No prueba que todas lo hayan recibido")
         for person in (self.member, self.leader):
             services.acknowledge(notice, person)
         page = self.client.get(detail(notice))
-        self.assertContains(page, "2 de 4 personas dijeron «Enterado».")
+        self.assertContains(page, "Menos de 5 de 6 personas han dicho «Enterado».")
         for name in ("Diego", "Gala", "Pía", "Nora"):  # numbers, never who did or did not
             self.assertNotContains(page, name)
         # A reader gets the button and never the count.
@@ -262,21 +272,38 @@ class LevelTests(LevelFixture):
         other_admin_notice = services.publish(
             self.church, self.leader_user, group=self.group, title=TITLE, body=BODY, priority=IMPORTANT
         )
-        services.update(other_admin_notice, self.admin, title=TITLE, body=BODY, publish_on=self.today, priority=URGENT, by_admin=True)
+        services.update(other_admin_notice, self.admin, title=TITLE, body=BODY, publish_on=self.today, priority=URGENT)
         other_admin_notice.refresh_from_db()
         services.acknowledge(other_admin_notice, self.admin_person)
         self.assertEqual(services.acknowledgement_count(other_admin_notice), (0, 1))  # the member; the guide wrote it
+
+    def test_the_count_is_not_given_for_fewer_people_than_the_church_reports(self):
+        """The same threshold as every other total of the church (people.policy.min_reporting_size)."""
+        church_wide = self.notice(URGENT)
+        grouped = self.notice(URGENT, group=self.group)
+        services.acknowledge(church_wide, self.member)
         self.client.force_login(self.admin)
-        # With one or two readers the number would say who: the page does not give it.
-        page = self.client.get(detail(other_admin_notice))
-        self.assertNotContains(page, "0 de 1 persona")
-        self.assertContains(page, "es para menos de 3 personas con cuenta")
-        self.assertContains(self.client.get(detail(church_wide)), "0 de 4 personas dijeron «Enterado».")
+        hidden = "Este aviso es para menos de 5 personas con cuenta: aquí no se cuenta cuántas dijeron «Enterado»."
+        for notice, total in ((church_wide, 4), (grouped, 2)):  # with so few the number would say who
+            self.assertEqual(services.acknowledgement_count(notice)[1], total)
+            page = self.client.get(detail(notice))
+            self.assertContains(page, hidden)
+            self.assertNotContains(page, "personas dijeron")
+            self.assertNotContains(page, f"de {total} persona")
+        self.more_people(1)  # five: the count is given
+        page = self.client.get(detail(church_wide))
+        self.assertContains(page, "Menos de 5 de 5 personas han dicho «Enterado».")
+        self.assertNotContains(page, "menos de 5")
+        self.assertContains(self.client.get(detail(grouped)), hidden)  # the group is still two
+        with mock.patch("people.policy.min_reporting_size", return_value=7):  # a church that asks for more
+            page = self.client.get(detail(church_wide))
+        self.assertContains(page, "Este aviso es para menos de 7 personas con cuenta")
+        self.assertNotContains(page, "1 de 5")
 
     def test_enterado_is_only_for_an_urgent_notice_the_person_may_read(self):
         grouped = self.notice(URGENT, group=self.group)
         important = self.notice(IMPORTANT)
-        theirs = services.publish(self.church_b, self.admin_b, title="Aviso de B", body="Cosas de B", priority=URGENT, by_admin=True)
+        theirs = services.publish(self.church_b, self.admin_b, title="Aviso de B", body="Cosas de B", priority=URGENT)
         self.client.force_login(self.asked_user)  # in another group
         for notice in (grouped, important, theirs):
             self.assertEqual(self.client.post(enterado(notice)).status_code, 404, notice.title)

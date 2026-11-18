@@ -14,6 +14,7 @@
   <div class="page-head__actions">
     <a class="btn btn--secondary" href="{% url 'events:audit' event.slug %}">Registro de actividad</a>
     <a class="btn btn--secondary" href="{% url 'events:sessions' event.slug %}">Computadoras en uso</a>
+    {% if can_duplicate %}<a class="btn btn--secondary" href="{% url 'events:duplicate' event.slug %}">Duplicar como plantilla</a>{% endif %}
   </div>
 </header>
 
@@ -49,7 +50,7 @@
 
 <section class="admin-section admin-section--ruled" id="datos" aria-labelledby="t-basicos">
   <h2 id="t-basicos" class="heading">Datos del evento</h2>
-  <form method="post" class="narrow" novalidate data-guard>{% csrf_token %}<input type="hidden" name="form" value="basics">{% include "partials/ui/error_summary.html" with form=basics %}{% include "partials/ui/fields.html" with form=basics %}<button class="btn btn--primary" type="submit">Guardar datos del evento</button></form>
+  <form method="post" class="narrow" novalidate data-guard>{% csrf_token %}<input type="hidden" name="form" value="basics">{% include "partials/ui/error_summary.html" with form=basics %}{% include "partials/ui/fields.html" with form=basics %}{% include "events/admin/_closing_open_interviews.html" %}<button class="btn btn--primary{% if closing_open %} mt-4{% endif %}" type="submit">Guardar datos del evento</button></form>
 </section>
 
 <form method="post" novalidate data-guard>

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import admin, ayuda, coordinator, dashboards, home, interview, reports, session
+from .views import admin, ayuda, coordinator, dashboards, duplicate, home, interview, reports, session
 
 app_name = "events"
 
@@ -48,6 +48,7 @@ urlpatterns = [
     path(E + "resumen/", dashboards.pastor_home, name="pastor_home"),
     path(E + "avance/", dashboards.progress, name="progress"),
     path(E + "seguimiento/", dashboards.follow_ups, name="follow_ups"),
+    path(E + "seguimiento/asignar/", dashboards.follow_ups_bulk_assign, name="follow_ups_bulk_assign"),
     path(E + "seguimiento/<int:follow_up_id>/", dashboards.follow_up_detail, name="follow_up_detail"),
     path(E + "seguimiento/<int:follow_up_id>/asignar/", dashboards.follow_up_assign, name="follow_up_assign"),
     path(E + "equipo/", dashboards.team, name="team"),
@@ -84,6 +85,7 @@ urlpatterns = [
     path(E + "cuestionarios/<int:version_id>/preguntas/<int:question_id>/opcion/", admin.option_add, name="option_add"),
     path(E + "configuracion/", admin.settings_view, name="settings"),
     path(E + "configuracion/confidencial/", admin.confidential_level, name="confidential_level"),
+    path(E + "configuracion/duplicar/", duplicate.duplicate, name="duplicate"),
     path(E + "configuracion/computadoras/", admin.stations, name="stations"),
     path(E + "configuracion/actividad/", admin.audit_log, name="audit"),
     path(E + "configuracion/sesiones/", admin.sessions, name="sessions"),

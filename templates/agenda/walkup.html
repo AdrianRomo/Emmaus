@@ -4,7 +4,8 @@
 {% block content %}
 {% comment %}
   Somebody arrived (agenda.views.walkup): a person of this church found by name, or a visitor written down by
-  name. Nobody needs an account. One form and one filled button; the search is a separate, quiet form.
+  name. Nobody needs an account. One form and one filled button; the search is a separate, quiet form. When a rule
+  of the event's page stands in the way, the form says which and asks for an explicit override and a reason.
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
@@ -12,7 +13,7 @@
 
   {% if person %}
     <div class="notice notice--quiet">
-      <p>Vas a registrar a <strong>{{ person.full_name }}</strong>, que ya es persona de la iglesia.{% if minor_known %} Por su fecha de nacimiento, es menor de edad.{% endif %}</p>
+      <p>Vas a registrar a <strong>{{ person.full_name }}</strong>, que ya es persona de la iglesia.{% if minor_known %} Por su fecha de nacimiento, es menor de edad.{% endif %}{% if age_unverified %} El equipo todavía no ha confirmado su edad: su registro quedará pendiente hasta que la confirmes en la lista de inscritos.{% endif %}</p>
     </div>
     <p class="more"><a href="{% url 'agenda:walkup' event.slug %}">Elegir a alguien más o registrar a una visita</a></p>
   {% else %}
@@ -51,8 +52,18 @@
       {% if form.consent_fields %}
         <fieldset>
           <legend class="legend">Si es menor de edad: autorización de su madre, padre o tutor</legend>
-          <p class="hint">Este evento la pide. Si no la registras ahora, déjala vacía: la inscripción quedará pendiente y podrás registrarla después desde la lista.</p>
+          <p class="hint">Este evento la pide. Si no la registras ahora, déjala vacía: la inscripción quedará pendiente y podrás registrarla después desde la lista. Texto provisional: lo aprueba el liderazgo de la iglesia.</p>
           {% for field in form.consent_fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}
+        </fieldset>
+      {% endif %}
+      {% if form.override_fields %}
+        <fieldset>
+          <legend class="legend">La página del evento dice otra cosa</legend>
+          <div class="notice notice--warning">
+            <ul>{% for text in block_texts %}<li>{{ text }}</li>{% endfor %}</ul>
+            <p>Puedes registrarla de todos modos. Queda anotado quién lo decidió y por qué.{% if page.requires_guardian_consent %} La autorización para menores de edad no se puede saltar.{% endif %}</p>
+          </div>
+          {% for field in form.override_fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}
         </fieldset>
       {% endif %}
       <div class="step__actions">

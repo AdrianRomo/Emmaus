@@ -14,7 +14,7 @@ from ..models import FollowUp, Interview, InterviewStatus, QuestionnaireVersion,
 from ..services import event_questionnaires as eq
 from ..services import participants as participant_svc
 from ..services import welcome as welcome_svc
-from ..services.metrics import build_payload, coordinator_scope, progress_for
+from ..services.metrics import build_payload, coordinator_scope, mark_stalled, progress_for, stale_interviews
 from ..services.questionnaire import build_steps
 from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, safe_next
 
@@ -34,6 +34,10 @@ def _my_context(event, access):
     progress = progress_for(participants, event)
     mine = access.interviews()
     in_progress = list(mine.filter(status=Interview.Status.IN_PROGRESS).select_related("version").order_by("-last_activity_at")[:5])
+    # "Tienes N entrevistas sin terminar" (issue #47): every interview of my camperos idle for STALE_MINUTES or more,
+    # the oldest first, each with "Retomar" and "Descartar". "También sin terminar" keeps the ones still moving.
+    stalled = mark_stalled(stale_interviews(participants).select_related("participant", "version", "station").order_by("last_activity_at"))
+    stalled_ids = {interview.pk for interview in stalled}
     next_up = list(
         eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by("room", "full_name")[:6]
     )
@@ -46,6 +50,8 @@ def _my_context(event, access):
     return {
         "progress": progress,
         "in_progress": in_progress,
+        "stalled": stalled,
+        "also_in_progress": [interview for interview in in_progress[1:] if interview.pk not in stalled_ids],
         "next_up": next_up,
         "follow_ups": follow_ups,
         "to_evaluate": to_evaluate,

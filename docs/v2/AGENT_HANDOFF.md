@@ -6,13 +6,19 @@ Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rul
 
 | Branch | Base | Holds | State |
 |---|---|---|---|
-| `v2/slice-1-camp-to-group` | `origin/v2/foundation` (f72d4f6) | People, groups, flags, the first community slice (10 commits) | Pushed. Draft PR #73 |
-| `v2/redesign-santuario-shell` | the branch above | Santuario: tokens, shell, Mi iglesia, groups, "Mis datos", meetings and attendance, the camp in the shell, "Eventos", and the modules `notices`, `agenda`, `resources`, `serving`, `care` | Pushed. Draft PR #74 |
-| `v2/wave-4-decisions` | the branch above | The owner's decisions (0009–0014), the lifted migration freeze, simple events, FAQ, programme, walk-ups, minors waiting for an authorization, notice levels and WhatsApp sharing, Panorama, a member's own attendance, retention, opinions after an event | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate result in `PROGRESS.md`; its PR is named there |
-| `v2/redesign-*`, `v2/wave-4-agenda`, `v2/wave-4-avisos`, `v2/wave-4-panorama` | | One module each, built by a sub-agent in its own worktree and **already merged** | Local only; the worktrees and branches can be removed |
+| `v2/foundation` | | Everything through wave 4: pull requests #73, #74 and #78 are merged | The base. Never merged into `main`; nothing is deployed |
+| `v2/wave-5-safeguards` | `v2/foundation` | Decision 0015 built (minors, notice versions, Panorama privacy and rhythm, manual registrations, opinions) and issues #46, #47, #48, #51, #53, #72, #16 | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate in `PROGRESS.md`; its pull request is named there |
+| `v2/wave-6-*` | wave 5 | In progress: e-mail notices, church policies screen, #49, #50 | One worktree each |
+| older `v2/redesign-*`, `v2/wave-4-*`, `v2/wave-5-<slice>` | | Merged | Local only; the worktrees and branches can be removed |
 
-The owner decided on 2026-11-17 (issue #64): stacked draft pull requests, nothing merged, nothing
-deployed. Each branch is stacked on the one above; review them in order.
+The owner said on 2026-11-18 to merge pull requests as needed. The rule followed: only into
+`v2/foundation`, only when the branch's required checks pass on the pull request (never with
+`--admin`), never into `main`, never a deploy. `v2/foundation`'s ruleset requires the CI jobs,
+which run on pull-request events: after retargeting a stacked PR, merge the base into its branch
+and push so they run.
+
+After pulling wave 5 on a database that already had the earlier code: run
+`manage.py resettle_registrations` (dry run, then `--apply`), see `docs/deployment.md`.
 
 ## How to run it
 
@@ -108,16 +114,14 @@ to attendance (#76, not built; also the retention periods before `prune_attendan
 
 ## Open questions for the owner
 
-Q-C1 to Q-C4 in `docs/decisions/0008`, unchanged. Issues #64 and #66–#71 are answered and closed;
-their answers are decisions 0009–0014. Open:
+Q-C1 to Q-C4 in `docs/decisions/0008`, unchanged. Issues #64, #66–#71 and #77 are answered and
+closed; their answers are decisions 0009–0015. Open (see also the triage notes on #32, #37, #45,
+#49, #50, #52, #58, #59, #60):
 
 | Issue | What |
 |---|---|
-| #65 | Keep the serif titles on the camp's own screens? |
-| #72 | (bug, camp) Atrio's bar wraps a long event name for a pastor at 1440 px |
 | #75 | Release gate: church leadership approves the authorization policy for minors |
 | #76 | Release gate: named pastoral access to attendance, and the retention periods |
-| #77 | Small defaults taken while building wave 4, to confirm or change |
 
 Answered on 2026-11-17: the word is **"Eventos"** everywhere. Still without an issue, low stakes:
 one flag (`community`) turns on the modules and the new look together.

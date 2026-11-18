@@ -15,6 +15,7 @@
   </div>
 </header>
 {% include "partials/ui/welcome.html" with welcome=welcome %}
+{% include "events/admin/_newer_versions.html" %}
 <div id="admin-vivo" data-live-url="{% url 'events:admin_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
   {% include "events/admin/_home_live.html" %}
 </div>

@@ -187,7 +187,7 @@ class GroupRulesTests(CommunityFixture):
     def test_the_administration_creates_a_group_and_names_its_guide(self):
         self.client.force_login(self.admin)
         response = self.client.post(reverse("community:group_create"), {
-            "name": "Recién llegados", "kind": "pequeno", "description": "Un café.", "audience": "", "meeting_day": "6",
+            "name": "Recién llegados", "kind": "pequeno", "description": "Un café.", "audience": "", "meeting_frequency": "semanal", "meeting_day": "6",
             "meeting_time": "13:00", "meeting_place": "Cafetería", "accepts_requests": "on",
         })
         group = Group.objects.get(name="Recién llegados")

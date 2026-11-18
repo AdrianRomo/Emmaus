@@ -1,5 +1,13 @@
 {% load emmaus %}
-<div class="coord__lists">
+{% comment %}Issue #47: the interviews left half done, with the two actions that already existed. Inside the live region, so one that stalls while this page is open shows up by itself.{% endcomment %}
+{% if stalled %}
+  <section aria-labelledby="entrevistas-interrumpidas">
+    <h2 id="entrevistas-interrumpidas" class="heading">Tienes {{ stalled|length }} entrevista{{ stalled|length|pluralize }} sin terminar</h2>
+    <p class="hint">{{ stalled|length|pluralize:"Lleva,Llevan" }} {% stale_minutes %} minutos o más sin cambios. {{ stalled|length|pluralize:"Retómala,Retómalas" }} o, si ya no se {{ stalled|length|pluralize:"va,van" }} a terminar, {{ stalled|length|pluralize:"descártala,descártalas" }}: al descartar se borran sus respuestas.</p>
+    {% include "events/rotulo/_interrupted_rows.html" with rows=stalled %}
+  </section>
+{% endif %}
+<div class="coord__lists{% if stalled %} mt-8{% endif %}">
   <div class="coord__main">
     {% if progress.eligible %}
     <section class="coord__progress" aria-labelledby="mi-avance">
@@ -41,11 +49,11 @@
   </div>
 
   <div class="coord__side">
-    {% if in_progress|length > 1 %}
+    {% if also_in_progress %}
       <section aria-labelledby="sin-terminar">
         <h2 id="sin-terminar" class="heading">También sin terminar</h2>
         <ul class="rows">
-          {% for iv in in_progress|slice:"1:" %}
+          {% for iv in also_in_progress %}
             <li class="row">
               <div class="row__main">
                 <p class="row__title">{{ iv.participant.full_name }}</p>

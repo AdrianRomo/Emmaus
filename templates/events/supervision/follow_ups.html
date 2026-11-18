@@ -18,8 +18,13 @@
   {% if follow_ups %}
     <h2 class="heading">{{ total }} seguimiento{{ total|pluralize }}</h2>
     {% if total > shown %}<p class="aside-note">Mostrando {{ shown }} de {{ total }}. Usa los filtros para ver los demás.</p>{% endif %}
+    {% if can_bulk_assign %}
+      {% comment %}One form for the marked rows: each row's checkbox joins it with form="asignar-varios", because a row already holds its own form (issue #46).{% endcomment %}
+      <form method="post" action="{% url 'events:follow_ups_bulk_assign' event.slug %}" id="asignar-varios">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}"><label class="hint" for="asignar-varios-a">Asignar los marcados a</label><div class="row-assign row-assign--varios"><select class="input input--small" id="asignar-varios-a" name="assigned_to"><option value="">Elige a una persona</option><option value="predeterminado">Su coordinador o su tutor</option>{% for u in leaders %}<option value="{{ u.id }}">{{ u.get_full_name|default:u.email }}</option>{% endfor %}</select><button class="btn btn--secondary btn--small" type="submit">Asignar marcados</button></div></form>
+    {% endif %}
     <ul class="rows">{% for f in follow_ups %}
       <li class="row">
+        {% if can_bulk_assign and f.can_assign and f.is_open %}<label class="check" for="marcar-{{ f.id }}"><input type="checkbox" id="marcar-{{ f.id }}" form="asignar-varios" name="seguimiento" value="{{ f.id }}"><span class="visually-hidden">Marcar el seguimiento de {{ f.participant.full_name }}</span></label>{% endif %}
         <div class="row__main">
           <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.get_full_path|urlencode }}">{{ f.participant.full_name }}</a></p>
           <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.participant.coordinator.display_name|default:"sin coordinador" }}, {{ f.created_at|since }}</p>

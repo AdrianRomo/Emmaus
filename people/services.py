@@ -68,11 +68,42 @@ def ensure_own_person(user, church) -> Person | None:
 
 
 def save_person(person: Person, actor, *, created: bool) -> Person:
+    """The one way the screens write a person. A date of birth changed here is a claim: the model
+    clears its verification (only ``verify_birth_date`` leaves a date verified)."""
     with transaction.atomic():
+        person._age_facts_actor = actor
         person.save()
         action = "persona_creada" if created else "persona_modificada"
         verb = "Registró a" if created else "Modificó los datos de"
         record_church(person.church, actor, action, f"{verb} {person.full_name}", person, person_id=person.pk)
+    return person
+
+
+def verify_birth_date(person: Person, actor, method: str, birth_date=None) -> Person:
+    """The team verified the person's age by an approved ``method`` (``Person.BirthDateMethod``),
+    with ``birth_date`` when the church did not know it or had it wrong. The only write that leaves a
+    date of birth verified; the audit row holds ids and the method, never the date. Nothing about a
+    document is kept: no image, no number (decision 0015)."""
+    if method not in Person.BirthDateMethod.values:
+        raise PeopleError("Elige cómo confirmaste su edad.", code="method")
+    with transaction.atomic():
+        person = Person.objects.select_for_update().get(pk=person.pk)
+        if person.merged_into_id is not None:
+            raise PeopleError("Esta persona ya no está en la lista de la iglesia.", code="merged")
+        birth_date = birth_date or person.birth_date
+        today = timezone.localdate()
+        if birth_date is None:
+            raise PeopleError("Escribe su fecha de nacimiento.", code="birth_date")
+        if birth_date > today or today.year - birth_date.year > 120:
+            raise PeopleError("Revisa la fecha de nacimiento.", code="birth_date")
+        person.birth_date = birth_date
+        person.birth_date_verified_at = timezone.now()
+        person.birth_date_verified_by = actor
+        person.birth_date_verified_method = method
+        person._age_facts_actor = actor
+        person.save(keep_birth_date_verification=True)
+        record_church(person.church, actor, "persona_edad_confirmada", f"Confirmó la edad de {person.full_name}", person,
+                      person_id=person.pk, method=method)
     return person
 
 

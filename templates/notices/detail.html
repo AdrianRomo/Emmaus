@@ -6,7 +6,8 @@
   One notice (notices.views.notice_detail). Opening it marks it read for the person. The body is plain text: it is
   escaped and only its line breaks are kept. An important or urgent one says so in a word under its title. An urgent
   one asks its readers for "Enterado"; who may change it reads how many answered, as a number and never as names, and
-  that the number is not proof that the message arrived. "Compartir por WhatsApp" carries the church's name and this
+  that the number is not proof that the message arrived. After a change that asked for "Enterado" again, who had
+  opened it reads that it changed and when, and who may change it reads that the count started over. "Compartir por WhatsApp" carries the church's name and this
   page's address, never the title or the body. Who may change it (its author, the administration) also reads its
   state and gets "Editar el aviso" and "Retirar el aviso".
 {% endcomment %}
@@ -29,7 +30,9 @@
   {% if can_acknowledge %}
     <form class="block" method="post" action="{% url 'notices:acknowledge' notice.pk %}">
       {% csrf_token %}
-      <p>Este aviso es urgente. Cuando lo hayas leído, dilo aquí.</p>
+      <input type="hidden" name="version" value="{{ notice.version }}">
+      {% if changed_on %}<p><strong>Este aviso cambió el {{ changed_on|long_date }}. Léelo otra vez y toca «Enterado».</strong></p>
+      {% else %}<p>Este aviso es urgente. Cuando lo hayas leído, dilo aquí.</p>{% endif %}
       <div class="step__actions"><button class="btn btn--primary" type="submit">Enterado</button></div>
     </form>
   {% elif acknowledged_on %}
@@ -37,6 +40,7 @@
   {% endif %}
   {% if acknowledged_line %}
     <div class="notice notice--quiet">
+      {% if asked_again_on %}<p>Este aviso cambió el {{ asked_again_on|long_date }} y se pidió «Enterado» otra vez{% if count_given %}: la cuenta empezó de nuevo ese día{% endif %}.</p>{% endif %}
       <p>{{ acknowledged_line }}</p>
       <p>Ese número cuenta a quienes tocaron el botón aquí, entre las personas con cuenta a quienes va el aviso. No prueba que todas lo hayan recibido: si es una emergencia, avísales también por otro medio.</p>
     </div>

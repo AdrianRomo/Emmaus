@@ -24,6 +24,7 @@ def record(actor, event, action: str, summary: str, obj=None, **metadata) -> Aud
 
 ACTION_LABELS = {
     "evento_creado": "Creó el evento",
+    "evento_duplicado": "Duplicó el evento como plantilla",
     "evento_configurado": "Cambió la configuración",
     "procedimientos_aprobados": "Confirmó los procedimientos de la iglesia",
     "integrante_agregado": "Agregó a una persona al equipo",
@@ -53,6 +54,7 @@ ACTION_LABELS = {
     "sesion_revocada": "Cerró la pantalla de un campero o liberó una entrevista",
     "consulta_confidencial": "Consultó información confidencial",
     "seguimiento": "Actualizó un seguimiento",
+    "recordatorio_seguimiento": "Envió recordatorios de seguimientos abiertos",
     "reporte_riesgo": "Reportó una situación de riesgo",
     "corte_generado": "Generó un corte",
     "exportacion": "Descargó datos",

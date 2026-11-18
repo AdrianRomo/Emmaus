@@ -69,6 +69,8 @@
           {% endfor %}
         </ul>
         {% if follow_ups_open > follow_ups|length %}<p class="more"><a href="{% url 'events:pending' event.slug %}#seguimientos">Ver los {{ follow_ups_open }} seguimientos abiertos</a></p>{% endif %}
+        {% comment %}How many nobody attends, with the list where they are assigned (issue #46). Said only when there are follow-ups.{% endcomment %}
+        {% if follow_ups_unassigned %}<p class="more"><a href="{% url 'events:follow_ups' event.slug %}?estado=abiertos&amp;responsable=ninguno">{{ follow_ups_unassigned }} sin responsable: asígnalo{{ follow_ups_unassigned|pluralize }}</a></p>{% else %}<p class="aside-note">Todos tienen responsable.</p>{% endif %}
       {% else %}
         <p class="empty-line">No hay seguimientos abiertos. Cuando un campero pida acompañamiento aparecerá aquí.</p>
       {% endif %}

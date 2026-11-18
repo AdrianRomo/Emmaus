@@ -112,6 +112,7 @@
   <div class="report-section__body">
     <dl class="figures">
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.pending }} sin atender, {{ payload.follow_ups.in_progress }} en proceso</dd></div>
+      <div><dt>Sin responsable</dt><dd class="figures__value" data-count="sin-responsable">{{ follow_ups_unassigned }}</dd><dd class="figures__note">{% if follow_ups_unassigned %}<a href="{% url 'events:follow_ups' event.slug %}?estado=abiertos&amp;responsable=ninguno">Asignar<span class="visually-hidden"> los seguimientos sin responsable</span></a>{% else %}todos los abiertos tienen quién los atienda{% endif %}</dd></div>
       <div><dt>Atendidos</dt><dd class="figures__value">{{ payload.follow_ups.done }}</dd></div>
       <div><dt>Por decidir</dt><dd class="figures__value">{{ payload.follow_ups.to_evaluate }}</dd><dd class="figures__note">entrevistas sin decisión de seguimiento</dd></div>
       {% if payload.follow_ups.safety_open is not None %}<div class="figures__alert"><dt>Situaciones de riesgo abiertas</dt><dd class="figures__value">{{ payload.follow_ups.safety_open }}</dd><dd class="figures__note"><a href="{% url 'events:follow_ups' event.slug %}">Ver y atender<span class="visually-hidden"> las situaciones de riesgo</span></a></dd></div>{% endif %}

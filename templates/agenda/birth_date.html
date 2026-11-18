@@ -3,7 +3,8 @@
 {% block content %}
 {% comment %}
   The one question a sign-up may ask (agenda.views.register): the date of birth, only when the event asks for a
-  guardian's authorization and the church does not know the date yet. Sending it signs the person up.
+  guardian's authorization and the church does not know the date yet. Sending it signs the person up, with or
+  without a date: the registration waits until the team confirms the age.
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
@@ -17,6 +18,6 @@
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  <p class="aside-note">Si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia. Tu fecha de nacimiento la ve solo la administración de tu iglesia.</p>
+  <p class="aside-note">Tu inscripción queda pendiente hasta que el equipo de la iglesia confirme tu edad. Si eres menor de edad, también hace falta que tu mamá, papá o tutor la autorice con el equipo. Tu fecha de nacimiento la ve solo la administración de tu iglesia.</p>
 </div>
 {% endblock %}

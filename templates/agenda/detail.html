@@ -15,7 +15,7 @@
     <section class="sign sign--lead" aria-labelledby="inscribirme">
       <div>
         <h2 id="inscribirme" class="sign__title">¿Quieres ir a este evento?</h2>
-        <p class="sign__text">{% if page.requires_guardian_consent %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia.{% else %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.{% endif %}</p>
+        <p class="sign__text">{% if page.requires_guardian_consent %}Inscribirte le avisa a tu iglesia que quieres ir. Este evento cuida a los menores de edad: el equipo de la iglesia confirma tu edad y, si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia.{% else %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.{% endif %}</p>
       </div>
       <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}">
         {% csrf_token %}
@@ -29,7 +29,9 @@
     {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
   {% elif state == "pendiente" %}
     <div class="notice notice--warning">
-      <p><strong>Pendiente de autorización.</strong> {{ pending_text }}</p>
+      {% if waits_for == "age" %}<p><strong>Falta confirmar tu edad.</strong> {{ age_text }} Acércate con el equipo de tu iglesia: te dirá qué necesita ver.</p>
+      {% elif withdrawn %}<p><strong>Sin autorización.</strong> Por ahora no tienes autorización para participar en este evento. {{ pending_text }}</p>
+      {% else %}<p><strong>Pendiente de autorización.</strong> {{ pending_text }}</p>{% endif %}
     </div>
     {% if can_cancel %}<p class="more"><a href="{% url 'agenda:cancel' event.slug %}">Cancelar mi inscripción</a></p>{% endif %}
   {% elif notice %}

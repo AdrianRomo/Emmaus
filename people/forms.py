@@ -14,7 +14,10 @@ class PersonForm(TuErrorMessagesMixin, forms.ModelForm):
         labels = {"preferred_contact_method": "¿Cómo prefiere que la contacten?"}
         help_texts = {
             "email": "Con este correo entrará a Emmaus cuando le des acceso.",
-            "birth_date": "Por ejemplo: 14/03/2009. Sirve para saber si es menor de edad.",
+            "birth_date": (
+                "Por ejemplo: 14/03/2009. Sirve para saber si es menor de edad. Escribirla o cambiarla aquí no la confirma: "
+                "la edad se confirma desde los inscritos de un evento, y si cambias la fecha hay que confirmarla otra vez."
+            ),
         }
         widgets = {"birth_date": forms.DateInput(format="%d/%m/%Y", attrs={"inputmode": "numeric", "autocomplete": "off"})}
 

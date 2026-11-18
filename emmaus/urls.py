@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
+from django.templatetags.static import static
 from django.urls import include, path
 from django.views.generic import RedirectView
 
@@ -7,7 +8,21 @@ from core.forms import EmailAuthenticationForm, TuSetPasswordForm
 from core.views import AccountPasswordChangeView, ThrottledLoginView, ThrottledPasswordResetView, account, welcome_dismiss, welcome_restore
 from events.views import join as join_views
 
+
+
+class StaticIcon(RedirectView):
+    """Browsers and phones ask for these at the root whatever the page links (issue #53)."""
+
+    icon = ""
+
+    def get_redirect_url(self, *args, **kwargs):
+        return static(self.icon)
+
+
 urlpatterns = [
+    path("favicon.ico", StaticIcon.as_view(icon="img/favicon.ico")),
+    path("apple-touch-icon.png", StaticIcon.as_view(icon="img/apple-touch-icon.png")),
+    path("apple-touch-icon-precomposed.png", StaticIcon.as_view(icon="img/apple-touch-icon.png")),
     path("admin/", admin.site.urls),
     # "Mi cuenta": the name, the e-mail, where the person takes part, the password, and the welcomes they put away
     path("cuenta/", account, name="account"),
