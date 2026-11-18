@@ -12,7 +12,7 @@
 {% include "partials/ui/welcome.html" with welcome=welcome %}
 
 {% if raised %}{% with name=raised.participant.get_full_name|default:raised.participant.email %}
-<section class="block" aria-labelledby="que-hago">
+<section class="block" id="open-questions" aria-labelledby="que-hago">
   <div class="sign sign--lead">
     <p class="sign__kind">Espera tu respuesta</p>
     <div class="sign__who">
@@ -29,30 +29,34 @@
 
 <div class="cols block">
   <div class="cols__main">
-    <section class="block" id="open-questions" aria-labelledby="esperan">
-      <h2 id="esperan" class="heading">Esperan tu respuesta{% if waiting %} <span class="count">{{ waiting }}</span>{% endif %}</h2>
-      {% if waiting > 1 %}
-        <ul class="rows">
-          {% for question in awaiting %}{% if question.pk != raised.pk %}
-            {% url 'question_detail' question.id as question_url %}
-            {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
-          {% endif %}{% endfor %}
-        </ul>
-      {% elif waiting %}
-        <p class="empty-line">Nadie más espera tu respuesta.</p>
-      {% else %}
-        <p class="empty-line">Ninguna pregunta espera respuesta.</p>
-      {% endif %}
-      {% if with_pastor %}
-        <h3 class="tablero__sub">Con el pastor</h3>
-        <ul class="rows">
-          {% for question in with_pastor %}
-            {% url 'question_detail' question.id as question_url %}
-            {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
-          {% endfor %}
-        </ul>
-      {% endif %}
+    {% if waiting > 1 %}
+    <section class="block" aria-labelledby="esperan">
+      <h2 id="esperan" class="heading">También esperan tu respuesta <span class="count">{{ waiting|add:"-1" }}</span></h2>
+      <ul class="rows">
+        {% for question in awaiting %}{% if question.pk != raised.pk %}
+          {% url 'question_detail' question.id as question_url %}
+          {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
+        {% endif %}{% endfor %}
+      </ul>
     </section>
+    {% elif not waiting %}
+    <section class="block" id="open-questions" aria-labelledby="esperan">
+      <h2 id="esperan" class="heading">Esperan tu respuesta</h2>
+      <p class="empty-line">Ninguna pregunta espera respuesta.</p>
+    </section>
+    {% endif %}
+
+    {% if with_pastor %}
+    <section class="block" aria-labelledby="con-el-pastor">
+      <h2 id="con-el-pastor" class="heading">Con el pastor <span class="count">{{ with_pastor|length }}</span></h2>
+      <ul class="rows">
+        {% for question in with_pastor %}
+          {% url 'question_detail' question.id as question_url %}
+          {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
 
     <section class="block" aria-labelledby="pendientes">
       <div class="heading-row">
