@@ -1,216 +1,159 @@
-# Santuario, second edition — "se entiende sin leer"
+# «Ventanas»: the design system of Emmaus
 
-**Status (2026-11-18):** the design system of Emmaus for every church that uses the `community`
-module (`<html data-ui="2">`). It is a layer over Atrio (`docs/design-system.md`): Atrio's classes
-keep working, Santuario restyles them and adds the shell and the components below. With the module
-off nothing of this is served.
+**Status (2026-11-18):** the system for every church that uses the `community` module
+(`<html data-ui="2">`), chosen through a three-way exploration and two independent critiques
+(`REDESIGN_CHECKLIST.md`). It restyles Atrio's classes (`docs/design-system.md`) and adds a few; with
+the module off nothing of it is served. **How it behaves** (states, actions in place, motion,
+journeys, the done checklist) is `CRAFT.md`; read both.
 
 | | |
 |---|---|
-| Stylesheet | `static/css/santuario.css`, loaded after `rotulo.css` by `templates/layout/skeleton.html` |
-| Shell | `core/shell.py` builds it; `templates/partials/ui/shell.html` and `shell_end.html` draw it |
-| Pieces | `core/templatetags/shell.py`: `{% icon %}`, `{% monogram %}`, `{% date_block %}`, `|tel` |
-| Behaviour | `static/js/emmaus.js` (the only script): toasts, the line of a slow page, the "Más" sheet |
-| Tests | `core/test_shell.py`; browser: `e2e/community-flow.mjs` and `review-all.mjs` (axe WCAG 2.2 AA, three widths) |
+| Stylesheet | `static/css/santuario.css`, after `rotulo.css` (`templates/layout/skeleton.html`) |
+| Shell | `core/shell.py` → `templates/partials/ui/shell.html`, `shell_end.html` |
+| Pieces | `core/templatetags/shell.py`: `{% icon %}`, `{% monogram %}`, `{% date_block %}`, `{% event_arch %}`, `|tel` |
+| Behaviour | `static/js/emmaus.js`: actions in place (`data-inline`), toasts, dialogs, the slow-page line |
+| Reference screens | `templates/groups/home.html` (member), `templates/events/coordinator/home.html` + `_home_live.html` (coordinator) |
 
-## 1. The rule
+## 1. The idea
 
-**A screen is understood without reading it.** Explanatory copy is a defect of the design, not
-help. Each screen has a title that names the place, at most one filled action, and its content
-drawn as things: a day, a person, a state, a number.
-
-Five consequences, in the order they are checked:
-
-1. **No lede.** The title and the content say what the page is. A sentence under the title is the
-   exception, for a page whose title cannot say it.
-2. **Facts, not sentences.** "18 al 19 de noviembre, a las 17:00, en Salón principal." becomes three
-   facts with their mark (`.meta`). A state is a word on a pill (`.status`, `.chip`).
-3. **One way in.** A row or a card that leads somewhere is pressed anywhere on it. No "Abrir" or
-   "Ver" button beside a title that is already a link.
-4. **What is secondary is folded.** Advanced options and the "how does this work" of an unfamiliar
-   flow go in a `<details class="fold">`, closed.
-5. **What must stay, stays, shorter.** Consent and guardian authorization, who sees a piece of
-   personal data, what an irreversible action does, an error that needs a specific fix. Never
-   removed, never hidden behind a tooltip; one or two plain sentences.
-
-The place it comes from is Atrio's: the white of lime (`--page`), the grey of cantera stone
-(`--hundido`), petróleo for action, chile for risk, and the arch of the atrium's door for a person
-or a group. Santuario adds two colours **for state only**, nopal (done) and ámbar (waits). Nothing
-has a shadow and nothing has a gradient (`core/test_shell.py` enforces it): depth is a layer of
-colour and a hairline.
+One quiet system. Open rows on a light ground; only what needs this person now is raised. A
+gathering appears in a small arch that holds the church's photo or, without one, the sky of its
+hour. **Shape is meaning:** an arch is a gathering, a circle is a person, a capsule is an action, a
+rounded rectangle is a field. Members get warmth (the gathering, the day, the devotional's words);
+leaders get precision (counts, queues, tables). Same tokens, type, shapes and controls for both.
 
 ## 2. Tokens
 
-Declared on `:root[data-ui="2"]` (never bare `:root`: a church's own colours are written after the
-sheet with the same specificity and must win).
+On `:root[data-ui="2"]`. The church's own colours (`--petroleo`, `--mark`, `--page`, `--surface`,
+`--ink`, `--ink-3`, `--line`) are written after the sheet and win; everything else is mixed from them.
 
-| Token | Value | Use |
+| Token | Default | Role |
 |---|---|---|
-| `--page` / `--surface` | `#faf8f5` / `#ffffff` | The page; a thing on it (card, list, field) |
-| `--hundido` | `#f1ede8` | The rail, quiet panels, a date, a neutral pill |
-| `--line` / `--line-control` / `--line-strong` | `#e6e0d8` / ink 24 % / `#7b8a94` | Hairlines; the edge of a button; the edge of a field (3.6:1) |
-| `--ink`, `--ink-2`, `--ink-3` | Atrio's | Text; secondary; the lightest allowed (4.9:1 on `--hundido`) |
-| `--petroleo`, `--petroleo-tint` | Atrio's; 11 % mix | Action, links, "moving"; follows the church's colour |
-| `--noche` / `--noche-2` | `#0f3640` / `#c9dde1` | The one filled panel of a home; toasts |
-| `--nopal` / `--nopal-tint` | `#24693f` / `#e4f1e7` | Done, confirmed (5.7:1 on its tint) |
-| `--ambar` / `--ambar-tint` | `#7d4b00` / `#faefd8` | Waits for somebody (6.1:1 on its tint) |
-| `--chile` / `--chile-tint` | Atrio's | Risk and errors only |
-| `--r-control`, `--r-card`, `--r-panel`, `--r-pill` | 10, 14, 18 px, 999 px | A control; a thing; a place; a pill |
-| `--dur-1…4`, `--ease`, `--ease-out` | 120, 200, 320, 420 ms | Atrio's three plus one for a bar that fills |
+| `--ink` (tinta) | `#1b2140` | Text; "done" |
+| `--ink-2` (tinta-2) | `#5d6173` | Metadata, outlines (5.7:1). No lighter text exists |
+| `--page` (cal) | `#f7f6f4` | The ground |
+| `--surface` (blanco) | `#ffffff` | The raised surface, fields, a row's hover |
+| `--petroleo` (tinte) | `#a01f58` | Actions and selection only. The church's colour |
+| `--ambar` / `--ambar-tint` (vela) | `#9c5208` / `#fbead2` | What blocks somebody: a missing authorization or coordinator, «Importante» |
+| `--chile` / `--chile-tint` | `#b8321c` / `#fbe6e1` | Risk and errors only |
+| `--fill`, `--fill-2`, `--line`, `--line-strong`, `--line-control` | ink at 6/10/12/24/58 % | Quiet fields, hairlines, a control's edge (3.8:1) |
+| `--elevacion` | one shadow | Only for the raised surface (`.sign`). The only depth |
+| `--raya` | stripes | "In progress" |
+| `--lead` | 48px | The leading slot of every row |
+| radii | 12 field · 14 row · 20 raised/sheet · pill | |
 
-**Type.** Figtree for everything a person reads to decide or act. Newsreader (`--font-voz`) for
-**one line per screen**: the page title (`.voice`), plus the question of a next-step panel and a
-confirmation. Section titles, figures, dates and names are Figtree.
+Counts are neutral (`.badge`: ink on `--fill-2`). Colour is never the only signal.
 
-**Two scales.** Inside the shell (`body:has(> .rail)`) the scale is a step tighter: body 17 px,
-small 15, caption 14, section title 19, page title up to 34, controls 44 px (48 the filled one).
-At the door (sign-in, public pages) and in the campero's and the interview's screens Atrio's larger
-scale stays. Never write a font size by hand: use `--t-caption … --t-h1`.
+## 3. Type
 
-## 3. The shell
+Mona Sans (OFL, 66 KB subset, widths 98–112 %); width is the hierarchy. Source Serif 4 italic only
+for a devotional's words (`.verso`). Inside the shell and at the door:
 
-One navigation in three places that always agree (`core/shell.py`).
+| Step | Size / line | Weight, width | Use |
+|---|---|---|---|
+| caption | 13/16 | 600 | Table heads, tab labels, counts. Never body or metadata |
+| small | 15/20 | 430–620 | Metadata, labels, buttons |
+| body | 17/24 | 430 · 620 titles | Text, row titles |
+| heading | 20/26 | 650, 106 % | Section titles (`.heading`), the raised question |
+| title | 24/30 → 32/38 from 1100px | 700, 110 % | The page's one title (`.voice`) |
+| numeral | 28–48 | 700, 112 %, tabular | Counts that decide (`.decision__cifra`, `.avance__n`) |
 
-| Width | What a person sees |
-|---|---|
-| 761 px and more | `.rail`: the church, the places (they scroll if they are many), and fixed at the foot the person (→ Mi cuenta), Ayuda and Cerrar sesión |
-| 760 px and less | A top bar (the church, the arch → Mi cuenta) and `.tabs` at the bottom: three places and "Más"; the current tab's icon sits on a tinted pill |
-| "Más" | `#menu-panel`: every place as grouped lists, a modal dialog |
+The interview's and the campero's screens keep Atrio's larger sizes in the same family; the
+projector's deck keeps Figtree. Names wrap, never ellipsis.
 
-An account that only works in events (no church role, no person) wears the shell of the church
-that holds the event: its rail lists "Eventos donde sirves" and, inside an event, the event's pages
-(`core.shell.build_event_shell`). With that church's module off it keeps Atrio's bar.
+## 4. Surfaces
 
-Pages are one measure (`--w-app`, 70 rem) centred in what the rail leaves; a form or a reading page
-adds `.narrow` (44 rem) and stays on the left edge, so every page starts on the same line. Inside
-an event the event is a place in the rail and, under 1101 px, the tabs.
+| Surface | Markup | When |
+|---|---|---|
+| Ground | — | Default |
+| Raised | `.sign` (`.sign--lead` on a home) | What needs this person now. One per screen; several asks go inside it as `.ask` blocks with a hairline between |
+| Notice | `.notice` (`--warning`, `--danger`, `--success`) | A fact the page must say; soft field with its mark |
+| Sheet / dialog | `<dialog class="dialog">` | A focused choice; a bottom sheet on a phone |
+| Toast | Django messages | What just happened (emmaus.js) |
 
-## 4. Components
+Cards, panels and boxes around lists do not exist. `.card`, `.quiet`, `.meeting`, `.form-section`
+are open.
 
-Markup first; every class below exists in `santuario.css`.
-
-**Page head** (`events/rotulo/_page_head.html`): `title`, optional `back_url`/`back_label`,
-`action_url`/`action_label` (the one filled button), `secondary_url`/`secondary_label`. Do not pass
-`lede` unless rule 1's exception applies.
-
-**List** — one white sheet, a hairline between rows. A row whose only link is its title is pressed
-anywhere and draws its own chevron (CSS, no markup). Lead it with an arch or a date.
+## 5. Rows (the one list specification)
 
 ```html
 <ul class="rows">
   <li class="row row--lead">
-    {% monogram person.full_name %}
+    {% monogram person.full_name %}               {# or {% date_block day %}, {% event_arch hour %}, an icon #}
     <div class="row__main">
-      <p class="row__title"><a href="…">Ana López</a></p>
-      <ul class="meta"><li>{% icon "telefono" "sm" %}55 1111 2222</li></ul>
+      <p class="row__title"><a href="…">Ana López Ruiz</a></p>
+      <p class="row__meta">Cabaña 3, 14 años</p>
     </div>
-    <div class="row__end">{% status "completada" "Con acceso" %}</div>
+    <div class="row__end">{% status "completada" "Hecha" %}</div>   {# or one action #}
   </li>
 </ul>
 ```
 
-`row--stack`: the end wraps under the text in a narrow column. `row--attention`: waits for a
-decision. `row--unread`: a dot before the title. `rows--plain`: a list inside a card.
-A row with buttons at its end is not a link as a whole; its title still is.
+- A 48px leading slot on **every** row of a screen, so text starts on one line across sections.
+- A row whose only way out is its title is pressed anywhere and draws its chevron (CSS). No
+  "Abrir"/"Ver" buttons.
+- One trailing action at most: a `.btn--link` (its words end on the margin), or a filled
+  `.btn--primary.btn--small` for the one suggested next row. A quiet removal is
+  `.btn--link.btn--quieto` and its page asks first.
+- Hairlines start where the text starts. Hover lifts the row to white.
+- `row--stack`: the end wraps under the text in a narrow column. `row--attention`: a vela dot
+  (waits for a decision). `row--unread`: a dot in the church's colour.
+- A decision that waits (a count that leads somewhere): `<a class="decision">` with
+  `.decision__cifra`, `.decision__texto` (`__titulo`, `__nota`), `.decision__ir`; `decision--bloqueo`
+  makes the numeral vela.
 
-**Facts** — `<ul class="meta">` of `<li>{% icon "reloj" "sm" %}17:00</li>`. Icons for facts:
-`calendario`, `reloj`, `lugar`, `grupos`, `personas`, `telefono`, `correo`, `candado`, `lectura`,
-`lista`, `guia`, `servir`, `info`, `alerta`, `check`. An icon is never alone: its word is beside it.
+## 6. People and gatherings
 
-**Date** — `{% date_block date %}` (weekday, number, month; `aria-hidden`). The row says the date
-again only for a screen reader (`<li class="visually-hidden">`) or when it is a range.
+- `{% monogram name %}`: a circle (40px; `"sm"` 32, `"lg"` 56), one neutral tone for everybody.
+- `{% event_arch hour %}`: the arch of a gathering; its sky is the hour (`sky_of`: morning, midday,
+  afternoon, dusk, night, none). At most one large arch per screen; **never on operational screens**.
+  The arch will hold the church's photo of a gathering when uploads exist (issue #60 decides).
+- `{% date_block day %}`: the day (weekday over the number), today filled ink. Rule: **the arch
+  when the hour matters (today), the day when the date matters (later)**.
+- The compact event: `.evento` > arch, `.evento__texto` (`__cuando`, `__titulo`, `__donde`),
+  `.evento__pie` (the state or action).
+- Who signed up is never shown to members (the list is the administration's); places left are,
+  where the event page already shows them.
 
-**State** — `{% status "<code>" "<word>" %}` or `<span class="chip chip--ok">`. Four meanings:
-done (`status--done`, `chip--ok`, nopal), moving (`--progress`, `chip--info`, petróleo), waits for
-somebody (`--review`, `chip--wait`, ámbar), risk (`--risk`, `chip--risk`, chile). Not started and
-closed are stone. One or two words: "Inscrita", "Por decidir", "Leído".
+## 7. State
 
-**Card** — one thing. `<article class="card">` with `.card__title` (its link covers the card),
-a `.meta` line and an optional `.card__foot`. A grid of them: `<ul class="grid">`.
+`{% status code word %}`: the word with a small arch mark. Filled ink = done; stripes (`--raya`) =
+in progress; outline = not started; half = waits for a decision; grey = closed; chile = risk.
+`status--important` (via `notices/_level.html`) is the one capsule, in vela. One or two words:
+"Hecha", "En curso", "Por decidir", "Leído".
 
-**Next step** — `.sign` (tinted) on a work screen; `.sign.sign--lead` (night) on a home, with
-`.btn--on-dark`. One per screen, the question in the serif, one button.
+## 8. Controls
 
-**Buttons** — `.btn--primary` once per screen, named by what it does ("Guardar cambios",
-"Inscribirme"). Others `.btn--secondary`; `.btn--danger-outline` for risk that is not the main
-action; `.btn--link` for "Cancelar". Every button is 44 px tall at least. A sent form's filled
-button turns into a spinner by itself.
+- **Buttons**: capsules, 44px minimum (50 for a phone's main pair). One `.btn--primary` per screen,
+  named by its outcome ("Sí, puedo", "Retomar entrevista", "Guardar cambios"). Others outlined
+  `.btn--secondary`; `.btn--link` in the church's colour; `.btn--danger(-outline)` for risk. Two
+  answers on a phone share the row 50/50 (`.sign__actions--pair`).
+- **Fields**: 48px, 12px radius, 1.5px `--line-control` edge; focus is the church's colour with a
+  soft ring. Labels 15/620 above; a hint only for a format nobody could guess.
+- **Checks and radios**: drawn 22px marks inside a 44px target.
+- **Filters**: capsules with their count; the current one filled ink.
+- **Search**: a capsule field with its mark (`form.search`).
+- **Forms**: `.form-section` with `.form-section__title`; `.form-actions` at the end with the one
+  primary. Advanced options in `<details class="fold">`.
 
-**Forms** — `partials/ui/field.html`. The label says what goes in the field; `help_text` only for a
-format nobody could guess. Group related fields in `<section class="form-section">` with a
-`.form-section__title`; end with `<div class="form-actions">`. Advanced fields go in a
-`<details class="fold">`.
+## 9. Words
 
-**Views of a list** — `<ul class="filters">` of links, the current one `aria-current="page"`:
-pills. Search: `<form class="search" role="search">` with `.search__input`.
+Mexican Spanish, tú, sentence case, no jargon. A screen needs no paragraph to be understood.
+Fixed words: Eventos, Aviso, Inscribirme, Mi iglesia, A tu cargo, Más, Mis datos, Mi cuenta, Pasar
+lista, Esperan tu respuesta, Esperan tu decisión, Por entrevistar, Sin terminar. An action keeps its
+name through the flow; its toast says it back ("Confirmaste el lunes 23"). Consent, authorization,
+privacy and irreversible-action wording is never shortened away (`CRAFT.md`).
 
-**Data** — `.figures` (tiles: `dt` label, `.figures__value`), `.table` inside `.table-wrap`
-(`.table--stack` turns into blocks in a narrow column; give each `td` a `data-label`), `.meter`
-(`.meter__track > .meter__fill` with `style="width:62%"` and the number beside it), `.level` (five
-marks, `<i class="on">` for each one that counts, with the words in `.visually-hidden`).
+## 10. A church with the module off
 
-**Empty** — a list with nothing: `<p class="empty-line">Sin eventos por ahora.</p>` (it draws the
-arch). A page with nothing and a first action: `<div class="empty">` with `.empty__title`, an
-optional `.empty__text` and one button.
+`rotulo.css` is not edited. Templates under `/mi-iglesia/` are served only with the module on and use
+this system freely. Shared templates (`core/`, `events/`, `registration/`, `errors/`) put new markup in
+`{% if ui_v2 %}…{% else %}<the old markup, byte for byte>{% endif %}` with no stray whitespace
+(`people/tests/test_screens_unchanged.py` and the byte-level tests prove it), or use only classes that
+look right unstyled.
 
-**A note that has to stay** — `<p class="aside-note">`, one or two sentences, for who sees this or
-what happens with it. **A notice in a page** — `.notice` (`--info`, `--success`, `--warning`,
-`--danger`). **What just happened** — Django messages; the shell shows them as toasts.
+## 11. A screen is done when
 
-**Steps** — `<ul class="steps">` of `.steps__item` (`--done`) with `.steps__mark`, `.steps__title`,
-`.steps__note`: a checklist read from the live data.
-
-**Identity** — `{% monogram name %}` (`"sm"`, `"lg"`): the arch with initials, always beside the
-written name. It is the only ornament of the product.
-
-## 5. Words
-
-Mexican Spanish, in tú, the way people talk. Sentence case. No English, no jargon.
-
-| Instead of | Write |
-|---|---|
-| "En esta sección podrás ver todos los eventos disponibles…" | The title "Eventos" and the events |
-| "Quienes forman parte de la iglesia, tengan o no acceso a Emmaus." | Nothing: the list shows them, a pill says "Con acceso" |
-| "18 al 19 de noviembre de 2026, a las 17:00, en Salón principal." | Three facts with their mark |
-| "Todavía no hay personas registradas. Registra a la primera o trae a quienes…" | "Sin personas todavía." and the button |
-| "Abrir", "Ver" beside a linked title | The row is the link |
-| "Listo", "Aceptar", "Enviar" | What it does: "Guardar cambios", "Publicar aviso" |
-| "Los cambios se guardaron correctamente." | "Guardado." |
-| A hint that repeats the label | No hint |
-
-Fixed words: **Eventos** (never "campamentos" for the list), **Aviso**, **Inscribirme**,
-**Mi iglesia**, **A tu cargo**, **Más**, **Mis datos** (how the church reaches a person),
-**Mi cuenta** (how they sign in), **Pasar lista**, **Entendido**.
-
-An action keeps its name through the flow: the button "Publicar" answers "Publicado.".
-Errors say what happened and what to do, without apology.
-
-## 6. Motion
-
-Motion answers a person or says that something changed; nothing moves to decorate. Atrio's rules
-stay (`rotulo.css` §13: the crossfade between pages, the rise of the page head and the next step,
-the press of a button). Santuario adds: a toast arrives and leaves; a `.meter` fills once; a sent
-button turns; the line of a slow page runs (`.nav-progress`, after 250 ms); a row's chevron leans
-towards where it leads; the current tab's pill fills. `prefers-reduced-motion` turns it all off.
-
-## 7. Accessibility
-
-WCAG 2.2 AA, checked by axe at 390, 768 and 1440 px on every screen. 44 px targets on every
-button, tab, rail link and contact link. One `h1` per page. Colour is never the only signal: a
-state always has its word, a mark always has its text. Focus is Atrio's ring; inside a list or the
-rail it is drawn inwards so it is never clipped. `forced-colors`: marks become text colour, pills
-and arches get a border.
-
-## 8. A church with the module off
-
-`rotulo.css` is not edited, and a church without the module keeps Atrio. Templates are shared, so:
-shorter words reach both; **a class that only Santuario styles may be used in a template only when
-that template is served only with the module on** (everything under `/mi-iglesia/`) **or inside
-`{% if ui_v2 %}`**. Camp and discipleship templates are restyled through the classes they already
-have.
-
-## 9. A new page
-
-`docs/design-system.md` §7, plus: the page head without a lede; one filled button; lists as
-`.rows`; facts as `.meta`; states as pills; an empty state; add it to `e2e/community-flow.mjs`, its
-view name to the right set in `core/shell.py`, and a row to `SCREEN_MATRIX.md`.
+`CRAFT.md` §8 passes: five-second test, one filled action, the row spec, every state tried (busy,
+done, failed, empty, many, long names), 360/390/820/1440 looked at, axe at zero, no overflow, 44px
+targets, reduced motion. Add it to `e2e/community-flow.mjs` and a row to `SCREEN_MATRIX.md`.
