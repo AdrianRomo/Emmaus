@@ -2,7 +2,32 @@
 {% load emmaus shell %}
 {% block page_title %}Rutas de discipulado{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): the church's paths, each a row that opens it, its lessons counted and its state at the end.
+{% endcomment %}
 {% url 'path_create' as create_url %}
+{% include "events/rotulo/_page_head.html" with title="Rutas de discipulado" action_url=create_url action_label="Nueva ruta" %}
+<section aria-labelledby="rutas">
+  {% if paths %}
+    <h2 id="rutas" class="heading">{{ paths|length }} ruta{{ paths|length|pluralize }}</h2>
+    <ul class="rows">
+      {% for path in paths %}
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "camino" %}</span>
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'path_detail' path.id %}">{{ path.title }}</a></p>
+            {% if path.description %}<p class="row__meta">{{ path.description|truncatewords:28 }}</p>{% endif %}
+            <p class="row__meta row__meta--con-marca">{% if path.is_active %}{% status "completada" "Activa" %}{% else %}{% status "descartada" "Inactiva" %}{% endif %}<span>{% if path.lesson_count == 1 %}1 lección{% else %}{{ path.lesson_count }} lecciones{% endif %}{% if path.is_default %}, predeterminada{% endif %}</span></p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <h2 id="rutas" class="visually-hidden">Rutas</h2>
+    {% include "partials/ui/empty.html" with title="Sin rutas todavía" %}
+  {% endif %}
+</section>
+{% else %}{% url 'path_create' as create_url %}
 {% include "events/rotulo/_page_head.html" with title="Rutas de discipulado" action_url=create_url action_label="Nueva ruta" %}
 <section class="disc-list" aria-labelledby="rutas">
   {% if paths %}
@@ -35,4 +60,4 @@
     {% endif %}
   {% endif %}
 </section>
-{% endblock %}
+{% endif %}{% endblock %}
