@@ -1,15 +1,15 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Mis camperos{% endblock %}
 {% block content %}
 {% url 'events:participant_create' event.slug as create_url %}
-{% include "events/rotulo/_page_head.html" with title="Mis camperos" lede="Las personas asignadas a ti en este evento." action_url=create_url action_label="Registrar campero" %}
+{% include "events/rotulo/_page_head.html" with title="Mis camperos" action_url=create_url action_label="Registrar campero" %}
 
 {% if practice %}
   {% comment %}The practice campero (issue #49): apart from the list and out of every count on this page.{% endcomment %}
   <section class="notice notice--warning" aria-labelledby="practica">
     <h2 id="practica" class="notice__title">De práctica</h2>
-    <p>Tienes al campero de práctica para ensayar el cuestionario de principio a fin. No existe y lo que respondas con él no cuenta.</p>
+    <p>Ensaya el cuestionario con el campero de práctica. No existe y lo que respondas con él no cuenta.</p>
     <p class="mt-2">{% if practice.interview_status == "completada" %}Ya practicaste. <a href="{% url 'events:participant_detail' event.slug practice.public_id %}">Ver la práctica</a>{% else %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug practice.public_id %}">{% if practice.interview_status == "en_curso" %}Retomar la práctica{% else %}Empezar la práctica{% endif %}</a>{% endif %}</p>
   </section>
 {% endif %}
@@ -22,7 +22,7 @@
   <input class="input" id="q" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="q-ayuda">
   <button class="btn btn--secondary" type="submit">Buscar</button>
 </form>
-<p class="hint" id="q-ayuda">Número, cuarto o las primeras letras del nombre y apellido.</p>
+<p class="hint" id="q-ayuda">Número, cuarto o primeras letras de nombre y apellido.</p>
 
 <section class="results" aria-labelledby="lista">
   {% if authorization_pending %}
@@ -35,8 +35,8 @@
         <li class="row">
           <div class="row__main">
             <p class="row__title"><a class="row__link" href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
-            <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años{% if p.sede %}, {{ p.sede.name }}{% endif %}</p>
-            <p class="row__meta">#{{ p.code }}{% if p.church_group %}, {{ p.church_group }}{% endif %}</p>
+            {% if ui_v2 %}<ul class="meta"><li>#{{ p.code }}</li><li>{% icon "lugar" "sm" %}{{ p.room|cuarto }}</li><li>{{ p.age }} años</li>{% if p.sede %}<li>{{ p.sede.name }}</li>{% endif %}{% if p.church_group %}<li>{% icon "grupos" "sm" %}{{ p.church_group }}</li>{% endif %}</ul>{% else %}<p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años{% if p.sede %}, {{ p.sede.name }}{% endif %}</p>
+            <p class="row__meta">#{{ p.code }}{% if p.church_group %}, {{ p.church_group }}{% endif %}</p>{% endif %}
           </div>
           <div class="row__end">
             {% campero_status p %}
@@ -63,6 +63,6 @@
   {% else %}
     <p class="empty-line">{% if access.is_admin %}Todavía no hay entrevistas completadas.{% else %}Todavía no completas ninguna entrevista.{% endif %}</p>
   {% endif %}
-  <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a>, por si falla la red o una computadora.</p>
+  <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a></p>
 </section>
 {% endblock %}

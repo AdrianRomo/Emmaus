@@ -40,7 +40,7 @@ def for_coordinator(event, access, *, station) -> Welcome | None:
         # Pending, it links nowhere: "Elegir computadora" is the line right above this block (coordinator/home.html)
         steps.append(Step(
             "Elige tu computadora", station is not None, "", "",
-            "El número está pegado en la computadora; el enlace para elegirla está arriba de este recuadro. Así tu tutor sabe dónde estás.",
+            "El número está pegado en la computadora. El enlace para elegirla está arriba de este recuadro.",
         ))
     steps.append(Step(
         "Ten camperos asignados", has_people, _url("participant_create", event), "Registrar campero",
@@ -118,11 +118,11 @@ def for_pastor(event, access) -> Welcome | None:
     steps = [
         Step(
             "Hay camperos registrados", has_people, _url("progress", event), "Ver el avance",
-            "" if has_people else "Todavía no hay. En cuanto la administración registre o importe la lista, el avance aparece aquí.",
+            "" if has_people else "La administración registra o importa la lista.",
         ),
         Step(
             "Hay un corte guardado", has_cutoff, _url("reports", event), "Ver reportes",
-            "Un corte es la foto del avance a cierta hora: sirve para la reunión y para el PDF.",
+            "La foto del avance a cierta hora, para la reunión y el PDF.",
         ),
         Step(
             "Cada seguimiento tiene responsable", unassigned == 0,

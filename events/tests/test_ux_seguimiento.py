@@ -189,7 +189,7 @@ class ResponsableFilterTests(FollowUpBase):
         response = self.listed(self.client)
         self.assertContains(
             response,
-            "No hay seguimientos en esta lista. Cuando un coordinador marque que un campero necesita seguimiento aparecerá aquí.",
+            "Sin seguimientos en esta lista.",
         )
         self.assertNotContains(response, "Todos los seguimientos abiertos tienen responsable.")
         self.assertNotContains(response, "No tienes seguimientos asignados")

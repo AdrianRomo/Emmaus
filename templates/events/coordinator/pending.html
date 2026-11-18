@@ -3,7 +3,7 @@
 {% block page_title %}Entrevistas pendientes{% endblock %}
 {% block content %}
 {% url 'events:interview_search' event.slug as search_url %}
-{% include "events/rotulo/_page_head.html" with title="Entrevistas pendientes" lede="Primero termina las que están en curso; después sigue con las que no has iniciado." action_url=search_url action_label="Iniciar entrevista" %}
+{% include "events/rotulo/_page_head.html" with title="Entrevistas pendientes" action_url=search_url action_label="Iniciar entrevista" %}
 
 <div class="results">
   <section class="block" aria-labelledby="en-curso">
@@ -54,7 +54,7 @@
           <a class="btn btn--secondary btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={% url 'events:coord_pending' event.slug %}#seguimiento">Decidir<span class="visually-hidden"> sobre {{ iv.participant.full_name }}</span></a>
         </li>
       {% endfor %}</ul>
-    {% else %}<p class="empty-line">No hay entrevistas esperando esa decisión.</p>{% endif %}
+    {% else %}<p class="empty-line">Nada por decidir.</p>{% endif %}
   </section>
 </div>
 {% endblock %}
