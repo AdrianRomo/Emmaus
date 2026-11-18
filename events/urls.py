@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import admin, ayuda, coordinator, dashboards, home, interview, reports, session
+from .views import admin, ayuda, coordinator, dashboards, duplicate, home, interview, reports, session
 
 app_name = "events"
 
@@ -84,6 +84,7 @@ urlpatterns = [
     path(E + "cuestionarios/<int:version_id>/preguntas/<int:question_id>/opcion/", admin.option_add, name="option_add"),
     path(E + "configuracion/", admin.settings_view, name="settings"),
     path(E + "configuracion/confidencial/", admin.confidential_level, name="confidential_level"),
+    path(E + "configuracion/duplicar/", duplicate.duplicate, name="duplicate"),
     path(E + "configuracion/computadoras/", admin.stations, name="stations"),
     path(E + "configuracion/actividad/", admin.audit_log, name="audit"),
     path(E + "configuracion/sesiones/", admin.sessions, name="sessions"),

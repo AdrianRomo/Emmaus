@@ -1010,7 +1010,9 @@ def settings_view(request, event, access):
     return render(
         request,
         "events/admin/settings.html",
-        {"basics": basics, "settings_form": settings_form, "procedures": procedures, "stations": event.stations.all()},
+        {"basics": basics, "settings_form": settings_form, "procedures": procedures, "stations": event.stations.all(),
+         # "Duplicar como plantilla" creates an event in the church: only its administration (views.duplicate)
+         "can_duplicate": administered_churches(request.user).filter(pk=event.church_id).exists()},
     )
 
 

@@ -105,6 +105,8 @@ Junto a "Preparación" (en un celular, debajo) están la actividad reciente y la
 
 Emmaus prepara solo 10 computadoras de entrevista ("Computadora 1" a "Computadora 10") y un primer cuestionario: el último que haya publicado tu iglesia o, si no hay ninguno, el cuestionario de conversación espiritual que trae Emmaus. Si quieres usar más de uno, agrégalos en "Cuestionarios" (ver [10. Cuestionarios](#10-cuestionarios)).
 
+**¿Ya hiciste un campamento?** No lo prepares de nuevo: en **"Configuración"** del campamento anterior toca **"Duplicar como plantilla"**, escribe el nombre del nuevo y, si ya las sabes, sus fechas. El evento nuevo nace **"En preparación"**, con su propia dirección y un código nuevo para unirse, y trae la configuración, los cuestionarios en uso y las computadoras. **Nunca** trae camperos, entrevistas, respuestas, seguimientos, autorizaciones, cortes ni reportes. Si marcas **"Copiar también al equipo"**, las mismas personas quedan con el mismo rol (sin acceso a información confidencial, que se otorga de nuevo) y a cada una se le avisa por correo. Solo la administración de la iglesia puede duplicar. Un evento sencillo de la iglesia (un culto, una convivencia) se duplica desde **"Eventos de la iglesia"**, con **"Duplicar"**: copia su página (sin publicar), sus preguntas frecuentes y su programa movido al día nuevo.
+
 ### 2. Confirmar los procedimientos de la iglesia
 
 Antes de entrevistar a cualquier campero, la iglesia debe definir y aprobar quién autoriza, cómo se guardan las autorizaciones de padres o tutores, quién atiende las situaciones de riesgo y cuánto tiempo se guardan los datos.
