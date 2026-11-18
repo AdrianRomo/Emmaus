@@ -176,6 +176,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .rail__quiet { display: grid; gap: 0; }
 .rail__quiet form { margin: 0; }
 .rail__quiet .rail__link { font-size: var(--t-caption); color: var(--ink-2); }
+.rail__quiet .rail__link[aria-current="page"] { color: var(--ink); }  /* the grey of a quiet link fails 4.5:1 on the current fill */
 .rail__quiet .rail__link .icon { width: 1.25rem; height: 1.25rem; }
 .rail__account { display: none; }
 .rail__role { padding: 0 var(--s-3) var(--s-2); font-size: var(--t-small); color: var(--ink-2); line-height: 1.35; }
@@ -1576,8 +1577,11 @@ p.sitio__leaves { margin-top: var(--s-2); }
   padding-block: calc((2.75rem - 1.3em) / 2); margin-block: calc((1.3em - 2.75rem) / 2);
 }
 
-/* Done: the one filled panel of these screens is the night petróleo of a home's, with its corners */
-:root[data-ui="2"] .confirm { background: var(--noche); border-radius: var(--r-panel); }
+/* The outcome panel (done, or what an irreversible action erases) is filled ink, like the current filter and
+   the selection bar: the church's colour only acts. (It named a token of the first pass, --noche, that no longer
+   exists: the panel fell back to transparent and its white words vanished on the page.) */
+:root[data-ui="2"] .confirm { background: var(--ink); color: #ffffff; border-radius: var(--r-panel); }
+:root[data-ui="2"] .confirm__title { font-size: var(--t-h1); line-height: 1.15; }  /* never above the page's title */
 
 /* "¿Sigues aquí?": a sheet over the page, with a sheet's corners and a hairline */
 :root[data-ui="2"] .focus .dialog, :root[data-ui="2"] .focus ~ .dialog { border: 1px solid var(--line); border-radius: var(--r-panel); }

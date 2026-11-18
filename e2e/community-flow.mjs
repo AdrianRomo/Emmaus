@@ -99,7 +99,7 @@ expect(await page.locator("main").getByText("Nuevo", { exact: true }).count() ==
 await audit(page, "miembro-avisos");
 // The devotional of the day: she reads it and says so; the mark is hers alone.
 await page.goto(BASE + "/mi-iglesia/");
-await Promise.all([page.waitForNavigation(), page.click(".meeting__title a:has-text('Permanecer')")]);
+await Promise.all([page.waitForNavigation(), page.click("section[aria-labelledby=devocional] .row__title a:has-text('Permanecer')")]);
 await audit(page, "miembro-devocional");
 await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click("button:has-text('Ya lo leí')")]);
