@@ -171,6 +171,8 @@ def home(request):
             "text": "",
             "url": reverse("community:group_people", args=[first["group_id"]]),
             "action": "Ver solicitud" if one else "Ver solicitudes",
+            # One request is decided right here, in place (the view returns to this page: siguiente)
+            "decide": reverse("community:request_decide", args=[one.group_id, one.pk]) if one else "",
         }
     elif request.is_church_admin and not any_group:
         sign = {

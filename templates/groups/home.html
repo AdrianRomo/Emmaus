@@ -62,7 +62,16 @@
           {% if sign.text %}<p class="sign__text">{{ sign.text }}</p>{% endif %}
         </div>
       </div>
+      {% if sign.decide %}
+      <form class="sign__actions sign__actions--pair" method="post" action="{{ sign.decide }}" data-inline="principal">
+        {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}">
+        <button class="btn btn--secondary btn--large" type="submit" name="decision" value="declinar">No aceptar<span class="visually-hidden"> a {{ sign.who }}</span></button>
+        <button class="btn {% if asks_pending %}btn--secondary{% else %}btn--primary{% endif %} btn--large" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ sign.who }}</span></button>
+      </form>
+      <p class="sign__aparte"><a class="btn btn--link btn--small" href="{{ sign.url }}">{{ sign.action }}</a></p>
+      {% else %}
       <div class="sign__actions"><a class="btn {% if asks_pending %}btn--secondary{% else %}btn--primary{% endif %} btn--large" href="{{ sign.url }}">{{ sign.action }}</a></div>
+      {% endif %}
     </div>
     {% endif %}
   </div>
