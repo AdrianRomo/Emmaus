@@ -182,7 +182,7 @@ class ReadingTests(PlansFixture):
         self.read(plan, self.member, 1)
         page = self.client.get(HOME)
         self.assertContains(
-            page, f'<p class="more"><a href="{url("day", plan, 2)}">Continuar: Tres días en Juan, día 2</a></p>', html=True
+            page, f'<a href="{url("day", plan, 2)}">Continuar: Tres días en Juan, día 2</a>', html=True
         )
         self.assertEqual(plans.current_for(self.church, self.member), (plan, 2))
         self.assertIsNone(plans.current_for(self.church, self.leader))

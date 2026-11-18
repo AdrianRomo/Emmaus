@@ -66,7 +66,7 @@ function expect(condition, message) {
 // 1. The former campero, on a phone: home, groups, ask to join.
 let { ctx, page } = await session("valeria.soto@demo.invalid", PHONE);
 expect(new URL(page.url()).pathname === "/mi-iglesia/", `member lands on ${page.url()}, not on /mi-iglesia/`);
-expect(await page.locator("h1").innerText() === "Hola, Valeria.", "home greeting");
+expect(await page.locator("h1").innerText() === "Hoy", "the home is today");
 expect(await page.getByText("Campamento de Jóvenes 2025").count() > 0, "home shows the camp she was part of");
 await audit(page, "miembro-inicio");
 await page.setViewportSize(PHONE);
@@ -154,7 +154,7 @@ await ctx.close();
 
 // 2. The guide: the panel names the pending requests; accept Valeria.
 ({ ctx, page } = await session("guia.grupo@demo.invalid", DESKTOP));
-expect((await page.locator(".sign__title").innerText()).startsWith("¿Recibes a 2 personas"), "guide's next step");
+expect((await page.locator(".sign__title").innerText()).startsWith("2 personas quieren unirse"), "guide's next step");
 expect(await page.locator(".rail__nav").isVisible() && await page.locator(".tabs").isHidden(), "wide screens get the rail, not the tabs");
 expect((await page.locator(".rail .rail__link:has-text('Jóvenes Roca') .badge").textContent()).trim().startsWith("2"), "the rail counts what waits in her group");
 await audit(page, "guia-inicio");
@@ -191,7 +191,7 @@ await ctx.close();
 
 // 3. Valeria again: her group, the next meeting, and now the place.
 ({ ctx, page } = await session("valeria.soto@demo.invalid", PHONE));
-expect(await page.locator("main .meta").getByText(/^Jueves \d+ de /).count() > 0, "home shows the next meeting");
+expect(await page.locator("main").getByText(/Se reúne el jueves/).count() > 0, "home shows the next meeting");
 await audit(page, "miembro-inicio-con-grupo");
 await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".dates .row__title a:has-text('Jóvenes Roca')")]);

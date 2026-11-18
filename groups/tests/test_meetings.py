@@ -160,5 +160,5 @@ class MeetingDueTests(CommunityFixture):
         self.due_group(meeting_day=(today - timedelta(days=1)).weekday(), created_at=timezone.now() - timedelta(days=30))
         self.client.force_login(self.leader_user)
         home = self.client.get(reverse("community:home"))
-        self.assertContains(home, "¿Recibes a 1 persona en tu grupo?")
+        self.assertContains(home, "quiere unirse a")
         self.assertNotContains(home, "¿Quién vino a")

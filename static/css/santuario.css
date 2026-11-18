@@ -33,13 +33,24 @@
   unicode-range: U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026;
 }
 
+/* Instrument Sans (OFL, static/fonts/OFL-InstrumentSans.txt): the one family of the product inside the shell and at
+   the door. Weights 400 to 700, widths 88 to 100, a latin subset, 60 KB. */
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("../fonts/instrument-sans-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-stretch: 88% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ---------- 1. Tokens ---------------------------------------------------- */
 /* The same specificity as the church's own colours (skeleton.html writes them after this sheet, so they win) */
 :root[data-ui="2"] {
-  --page: #faf8f5;           /* cal: limewash. Ink on it 15.3:1 */
+  --page: #fbfaf8;           /* cal: limewash, barely warm. Ink on it 15.6:1 */
   --surface: #ffffff;
-  --hundido: #f1ede8;        /* cantera: the stone of the atrium, for what is quiet. --ink-3 on it 4.9:1 */
-  --line: #e6e0d8;
+  --hundido: #f3f1ed;        /* cantera: the stone of the atrium, for what is quiet. --ink-3 on it 5.1:1 */
+  --line: #e9e6e0;
   --noche: #0f3640;          /* the one filled panel of a home, and what floats over the page; white on it 12.9:1 */
   --noche-2: #c9dde1;        /* secondary text on noche, 9.2:1 */
   --nopal: #24693f;          /* done, confirmed; 6.6:1 on white, 5.7:1 on its tint */
@@ -91,18 +102,27 @@
   --control-primary: 3rem;
   --control-field: 3rem;
   --t-field: 1.0625rem;
-  --w-focus: 44rem;
+  --w-focus: 40rem;
+  --font-ui: "Instrument Sans", "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+/* The door (sign-in, the public pages) speaks in the same family; the campero's and the interview's screens keep
+   Figtree, which they were fitted to */
+:root[data-ui="2"] body:has(> .bar--public), :root[data-ui="2"] body:has(> .page--lead), :root[data-ui="2"] body:has(> .sitio) {
+  --font-ui: "Instrument Sans", "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* ---------- 2. Type ------------------------------------------------------ */
 /* One serif line per screen: the title, what Emmaus says to a person. Everything a person reads to decide or to
    act (section titles, labels, data, buttons) is Figtree. */
 .voice, .sign__title, .confirm__title {
-  font-family: var(--font-voz); font-weight: 560; letter-spacing: -0.012em;
+  font-family: var(--font-ui); font-weight: 650; letter-spacing: -0.018em; word-spacing: 0.06em;
 }
+/* The serif is kept for what is read slowly: the title of a devotional, a day of a reading plan */
+.lectura__title { font-family: var(--font-voz); font-weight: 500; letter-spacing: -0.01em; font-stretch: normal; }
 .page-head__title { line-height: 1.08; }
 /* The projector's deck was fitted to Figtree 800, glyph by glyph: it keeps it */
-.deck .voice, .deck .sign__title { font-family: var(--font-ui); font-weight: 800; letter-spacing: normal; }
+.deck .voice, .deck .sign__title { font-family: "Figtree", system-ui, sans-serif; font-weight: 800; letter-spacing: normal; font-stretch: normal; }
 .icon { flex: none; width: 1.5rem; height: 1.5rem; }
 .icon--sm { width: 1.125rem; height: 1.125rem; }
 
@@ -1004,4 +1024,140 @@ p.sitio__leaves { margin-top: var(--s-2); }
   .rail, .tabs, .messages.is-toast, .nav-progress { display: none !important; }
   body:has(> .rail) { display: block; }
   .sitio-preview, .sitio__foot { display: none; }
+}
+
+/* ==========================================================================
+   16. Open composition (the course correction of 2026-11-18)
+   --------------------------------------------------------------------------
+   A page is paper, not a board of cards. Things are set on it in rows between
+   hairlines; a container is drawn only for what floats (a toast, a dialog) or
+   for a field. One thing may be heavy on a screen: what waits for the person.
+   These rules come last on purpose: they take the boxes off the components
+   above. Nothing here adds a surface.
+   ========================================================================== */
+body:has(> .rail) { font-family: var(--font-ui); word-spacing: 0.04em; }
+.rail { border-right: 0; }
+.rail__link { border-radius: 9px; min-height: 2.75rem; }
+.rail__link[aria-current="page"] { box-shadow: none; }
+.rail__label { font-weight: 600; }
+.page--app { padding-top: var(--s-12); }
+@media (max-width: 760px) { .page--app { padding-top: var(--s-5); } }
+
+/* Titles: one family; the size and the weight do the work */
+.page--app .page-head__title { font-size: clamp(1.75rem, 1.5rem + 1vw, 2.125rem); line-height: 1.12; }
+.page--app .heading { font-size: var(--t-small); font-weight: 650; letter-spacing: 0; padding-bottom: var(--s-2); border-bottom: 1px solid var(--line); }
+.page--app .heading + * { margin-top: 0; }
+.heading-row { align-items: baseline; border-bottom: 1px solid var(--line); }
+.heading-row .heading, .page--app .heading-row .heading { border-bottom: 0; }
+.heading-row + * { margin-top: 0; }
+.heading-row a { min-height: 2.75rem; font-weight: 500; }
+.page--app .block + .block { margin-top: var(--s-10); }
+
+/* Buttons: a filled pill for the one action, a quiet pill for the rest */
+.btn { border-radius: var(--r-pill); border-color: transparent; background: var(--hundido); font-weight: 600; }
+.btn:hover { background: color-mix(in srgb, var(--ink) 9%, var(--page)); border-color: transparent; }
+.btn--primary { background: var(--petroleo); border-color: var(--petroleo); font-weight: 600; }
+.btn--primary:hover { background: var(--petroleo-hover); border-color: var(--petroleo-hover); }
+.btn--secondary { background: var(--hundido); }
+.btn--danger { background: var(--chile); }
+.btn--danger-outline { background: none; border-color: color-mix(in srgb, var(--chile) 45%, var(--page)); }
+.btn--link { background: none; border-radius: var(--r-control); }
+.btn--link:hover { background: none; }
+.btn--on-dark { background: #ffffff; }
+
+/* Lists: rows on the page, between hairlines */
+.page--app .rows { background: none; border: 0; border-radius: 0; }
+.page--app .rows > .row, .page--app .rows > .row:first-child, .page--app .rows > .row:last-child, .page--app .rows > .row:only-child { padding-inline: 0; border-radius: 0; }
+.page--app .rows > .row:last-child { border-bottom: 1px solid var(--line); }
+.page--app .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))):hover { background: none; }
+.page--app .rows > .row:has(.row__title a):hover .row__title a { color: var(--petroleo); }
+.page--app .row__title { font-weight: 600; }
+.page--app .rows > .row--attention, .page--app .row--attention { background: none; box-shadow: none; padding-inline: 0; }
+.page--app :not(.rows) > .row--attention { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; }
+.page--app .summary-list { background: none; border: 0; border-radius: 0; }
+.page--app .summary-list__row { padding-inline: 0; }
+.page--app .summary-list__row:last-child { border-bottom: 1px solid var(--line); }
+
+/* What used to be a card is the thing itself */
+.card { background: none; border: 0; border-radius: 0; padding: 0; }
+.quiet { background: none; padding: var(--s-4) 0 0; border-top: 1px solid var(--line); border-radius: 0; }
+.meeting { background: none; border: 0; border-radius: 0; padding: var(--s-3) 0; }
+.form-section { background: none; border: 0; border-radius: 0; padding: 0; }
+.form-section + .form-section { margin-top: var(--s-10); }
+.form-section__title { font-size: var(--t-small); font-weight: 650; padding-bottom: var(--s-2); margin-bottom: var(--s-5); border-bottom: 1px solid var(--line); }
+.page--app .figures > div { background: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: var(--s-3) 0 0; }
+.page--app .figures__value { font-weight: 650; }
+.page--app .table-wrap { background: none; border: 0; border-radius: 0; }
+.page--app .table th:first-child, .page--app .table td:first-child { padding-left: 0; }
+.page--app .table th { border-bottom: 1px solid var(--ink); color: var(--ink); }
+.page--app .table tbody tr:hover { background: none; }
+.page--app .empty-line { padding: var(--s-4) 0; background: none; border: 0; border-radius: 0; color: var(--ink-3); }
+.page--app .empty-line::before { display: none; }
+.empty { background: none; border: 0; justify-items: start; text-align: left; padding: var(--s-8) 0; }
+.empty::before { margin-bottom: var(--s-2); }
+.notice { border: 0; border-radius: 12px; }
+:root[data-ui="2"] .welcome { border: 0; border-radius: 0; padding: 0 0 var(--s-2); background: none; border-top: 2px solid var(--ink); padding-top: var(--s-4); }
+:root[data-ui="2"] .welcome__title { font-size: var(--t-small); font-weight: 650; font-family: var(--font-ui); padding-right: 0; }
+:root[data-ui="2"] .welcome__foot { margin-top: var(--s-3); }
+:root[data-ui="2"] .welcome__foot form { position: static; }
+
+/* States: a word with its dot; the tint is kept for what waits and for risk */
+.status, .chip { background: none; padding: 0; min-height: 0; font-weight: 600; }
+.status--review, .chip--wait { background: none; }
+.status--done, .chip--done, .chip--ok, .status--progress, .chip--progress, .chip--info, .status--risk, .chip--alert, .chip--risk { background: none; }
+
+/* A day: only today is filled; any other day is its number and its weekday, set as text */
+.date-block { width: 2.75rem; min-height: 2.75rem; background: none; border-radius: 10px; }
+.date-block__month { display: none; }
+.date-block__day { font-size: 1.1875rem; font-weight: 650; margin: 0; }
+.date-block__weekday { order: -1; font-size: 0.6875rem; font-weight: 600; color: var(--ink-3); }
+.dates .row--today .date-block, .date-block--today { background: var(--petroleo); }
+
+/* What waits for the person: the one heavy thing of a screen. A rule in ink above it, who or what it is about,
+   and its action named by its outcome. No panel. */
+.sign, body:has(> .rail) .sign, body:has(> .rail) .sign--lead {
+  background: none; color: var(--ink); border-radius: 0; padding: var(--s-4) 0 var(--s-5); border-top: 2px solid var(--ink);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s-1) var(--s-6);
+}
+body:has(> .rail) .sign__title, body:has(> .rail) .sign--lead .sign__title { font-size: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem); line-height: 1.2; font-weight: 600; letter-spacing: -0.015em; }
+body:has(> .rail) .sign__text, .sign--lead .sign__text { color: var(--ink-2); font-size: var(--t-small); margin-top: 0.125rem; }
+body:has(> .rail) .sign__actions { margin-top: 0; }
+.sign__kind { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.4375rem; font-size: var(--t-caption); font-weight: 600; color: var(--ambar); margin-bottom: var(--s-1); }
+.sign__kind::before { content: ""; width: 0.4375rem; height: 0.4375rem; border-radius: 50%; background: currentColor; }
+.sign__who { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.sign--lead :focus-visible { outline-color: var(--ink); box-shadow: 0 0 0 2px #ffffff; }
+.sign .btn--on-dark { background: var(--petroleo); border-color: var(--petroleo); color: #ffffff; }
+.sign .btn--on-dark:hover { background: var(--petroleo-hover); }
+@media (max-width: 760px) {
+  .sign, body:has(> .rail) .sign, body:has(> .rail) .sign--lead { grid-template-columns: minmax(0, 1fr); padding: var(--s-4) 0 var(--s-5); }
+  body:has(> .rail) .sign__actions { margin-top: var(--s-3); }
+  .sign__actions .btn { width: 100%; min-height: 3.125rem; }
+}
+
+/* The home: "Hoy", then the days */
+.hoy__date { font-size: var(--t-caption); color: var(--ink-3); }
+.page--app .hero__title { font-size: clamp(1.875rem, 1.6rem + 1vw, 2.125rem); }
+.hero { margin-bottom: var(--s-6); }
+.hoy { max-width: 40rem; }
+.hoy .block { margin-top: var(--s-8); }
+.dia { display: flex; align-items: baseline; gap: var(--s-2); }
+.dia span { font-weight: 400; color: var(--ink-3); }
+.hoy-lista > .row { display: grid; grid-template-columns: 3rem minmax(0, 1fr) auto auto; align-items: center; gap: 0 var(--s-3); }
+.hoy__lead { font-size: var(--t-small); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hoy__lead .icon { display: block; width: 1.25rem; height: 1.25rem; color: var(--ink-3); }
+.hoy__dot { display: block; width: 0.5rem; height: 0.5rem; margin-left: 0.25rem; border-radius: 50%; background: var(--petroleo); }
+.hoy-lista .row__main { grid-column: 2; }
+.hoy-lista .row__end { grid-column: 3; }
+.page--app .hoy-lista > .row::after { grid-column: 4; }
+.hoy-lista .tag { font-size: var(--t-caption); font-weight: 600; color: var(--ambar); }
+
+@media (max-width: 600px) {
+  .hoy-lista > .row { gap: 0 var(--s-2); grid-template-columns: 2.75rem minmax(0, 1fr) auto auto; }
+  .hoy-lista .btn--small { padding-inline: 0.875rem; }
+}
+
+/* Tabs: solid, never see-through, so nothing shows behind them */
+@media (max-width: 760px) {
+  .tabs { background: var(--page); }
+  .rail { background: var(--page); border-bottom: 0; }
 }

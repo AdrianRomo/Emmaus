@@ -158,16 +158,24 @@ def home(request):
     if to_decide:
         total = sum(row["total"] for row in to_decide)
         first = to_decide[0]
+        # One request: who asks and for which group, so the guide knows it before opening it.
+        one = (
+            GroupJoinRequest.objects.filter(group_id__in=managed, status=PENDING, group__status=Group.Status.ACTIVE)
+            .select_related("person", "group").first() if total == 1 else None
+        )
         sign = {
-            "title": "¿Recibes a 1 persona en tu grupo?" if total == 1 else f"¿Recibes a {total} personas en tu grupo?",
-            "text": "Pidieron unirse y esperan tu respuesta.",
+            "kind": "Espera tu respuesta",
+            "who": one.person.full_name if one else "",
+            "title": f"{one.person.full_name} quiere unirse a {one.group.name}" if one else f"{total} personas quieren unirse a tus grupos",
+            "text": "",
             "url": reverse("community:group_people", args=[first["group_id"]]),
-            "action": "Ver solicitudes",
+            "action": "Ver solicitud" if one else "Ver solicitudes",
         }
     elif request.is_church_admin and not any_group:
         sign = {
-            "title": "¿Creamos el primer grupo?",
-            "text": "Con un grupo creado, las personas de la iglesia ya pueden pedir unirse.",
+            "kind": "Para empezar",
+            "title": "Crea el primer grupo de la iglesia",
+            "text": "",
             "url": reverse("community:group_create"),
             "action": "Crear un grupo",
         }
@@ -177,15 +185,17 @@ def home(request):
     ):
         group, day = due
         sign = {
+            "kind": "Falta la lista",
             "title": f"¿Quién vino a {group.name}?",
-            "text": f"Se reunieron el {_weekday_date(day)} y todavía no pasas lista.",
+            "text": f"Reunión del {_weekday_date(day)}",
             "url": reverse("community:meeting_record", args=[group.pk, day.isoformat()]),
             "action": "Pasar lista",
         }
     elif not memberships and not my_requests and open_groups:
         sign = {
-            "title": "¿Buscas un grupo?",
-            "text": "Hay grupos de la iglesia que reciben a personas nuevas.",
+            "kind": "",
+            "title": "Encuentra tu grupo",
+            "text": "Hay grupos que reciben a personas nuevas",
             "url": reverse("community:groups"),
             "action": "Ver los grupos",
         }
@@ -196,10 +206,29 @@ def home(request):
         request.user, church, person.first_name, has_group=bool(memberships), open_groups=open_groups,
         guided=(guided.name, reverse("community:group_people", args=[guided.pk])) if guided else None,
     )
+    # "Hoy" and the days after it, as one list: what the church says today (notices not read yet, the devotional),
+    # then every meeting, event and date to serve under its day. One place to look, in the order it happens.
+    rows = [{"date": today, "kind": "notice", "notice": notice, "order": 0} for notice in notices]
+    if devotional:
+        rows.append({"date": today, "kind": "devotional", "devotional": devotional, "order": 1})
+    if reading:
+        rows.append({"date": today, "kind": "reading", "plan": reading[0], "day": reading[1], "order": 1})
+    rows += [{**item, "order": 2, "time": item.get("time") or (item["event"].page.starts_at if item["kind"] == "event" else None)} for item in agenda[:6]]
+    rows += [
+        {"date": a.service_date.date, "kind": "serving", "assignment": a, "order": 2, "time": a.service_date.starts_at}
+        for a in serving_dates
+    ]
+    rows.sort(key=lambda row: (row["date"], row["order"], str(row.get("time") or "")))
+    days = []
+    for row in rows:
+        if not days or days[-1]["date"] != row["date"]:
+            days.append({"date": row["date"], "today": row["date"] == today, "rows": []})
+        days[-1]["rows"].append(row)
     return render(
         request,
         "groups/home.html",
         {
+            "days": days,
             "church": church,
             "person": person,
             "welcome": welcome,

@@ -22,10 +22,10 @@ class CampToGroupJourneyTests(CommunityFixture):
 
         home = self.client.get(reverse("dashboard"), follow=True)
         self.assertEqual(home.redirect_chain[-1][0], reverse("community:home"))
-        self.assertContains(home, "Hola, Diego.")
+        self.assertContains(home, ">Hoy</h1>")
         self.assertContains(home, "Donde has estado")
         self.assertContains(home, "Campamento A")
-        self.assertContains(home, "¿Buscas un grupo?")
+        self.assertContains(home, "Encuentra tu grupo")
 
         listing = self.client.get(reverse("community:groups"))
         self.assertContains(listing, "Jóvenes Roca")
@@ -43,7 +43,7 @@ class CampToGroupJourneyTests(CommunityFixture):
 
         self.client.force_login(self.leader_user)
         leader_home = self.client.get(reverse("community:home"))
-        self.assertContains(leader_home, "¿Recibes a 2 personas en tu grupo?")
+        self.assertContains(leader_home, "2 personas quieren unirse a tus grupos")
         people = self.client.get(reverse("community:group_people", args=[self.group.pk]))
         self.assertContains(people, "Diego Hernández Cruz")
         self.assertContains(people, "55 1111 2222")
@@ -55,7 +55,7 @@ class CampToGroupJourneyTests(CommunityFixture):
         self.client.force_login(self.member_user)
         home = self.client.get(reverse("community:home"))
         self.assertContains(home, "Jóvenes Roca")
-        self.assertContains(home, "</svg>Jueves ")  # the next meeting, as a fact with its mark
+        self.assertContains(home, "Se reúne el jueves")
         self.assertContains(self.client.get(reverse("community:group_detail", args=[self.group.pk])), "Salón 2")
 
         # One person, one account, the same camp record; and the camp record did not change.

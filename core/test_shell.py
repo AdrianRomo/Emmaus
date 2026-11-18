@@ -164,14 +164,14 @@ class MyDataTests(CommunityFixture):
     def test_the_home_asks_for_what_is_missing_and_the_person_fills_it_in(self):
         self.client.force_login(self.leader_user)
         home = self.client.get(reverse("community:home"))
-        self.assertContains(home, "Falta tu teléfono")
+        self.assertContains(home, "Agrega tu teléfono")
         response = self.client.post(
             reverse("community:profile"),
             {"phone": "55 3333 4444", "email": "gala@prueba.mx", "preferred_contact_method": "whatsapp"},
             follow=True,
         )
         self.assertContains(response, "Guardamos tus datos.")
-        self.assertNotContains(response, "Falta tu teléfono")
+        self.assertNotContains(response, "Agrega tu teléfono")
         self.leader.refresh_from_db()
         self.assertEqual((self.leader.phone, self.leader.email), ("55 3333 4444", "gala@prueba.mx"))
 
