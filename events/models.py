@@ -1207,6 +1207,46 @@ class FollowUp(models.Model):
         return self.status in self.OPEN_STATUSES
 
 
+class FollowUpDecisionChange(models.Model):
+    """«Cambiar decisión de seguimiento»: an interview's «¿Necesita seguimiento?» changed after it was taken
+    (services.follow_up_decision). ``care`` says what that did to the interview's ordinary care follow-up.
+
+    The reason is somebody's words about a campero, so it lives here and goes with the interview (the retention purge,
+    a campero's deletion), never in the activity log, which outlives both: its ``seguimiento_corregido`` row keeps who,
+    when and the two decisions only.
+    """
+
+    class Care(models.TextChoices):
+        CREATED = "creado", "Se creó su seguimiento."
+        KEPT = "sin_cambio", "Su seguimiento siguió como estaba."
+        CANCELLED = "cancelado", "Se canceló su seguimiento: nadie lo había empezado."
+        LEFT_OPEN = "abierto", "Su seguimiento ya se había empezado y siguió abierto para quien lo atiende."
+
+    WORDS = {"requerido": "necesita seguimiento", "no_requerido": "no necesita seguimiento"}
+
+    interview = models.ForeignKey(Interview, on_delete=models.CASCADE, related_name="follow_up_decision_changes")
+    previous = models.CharField("Decisión anterior", max_length=16, choices=Interview.FollowUpDecision.choices)
+    decision = models.CharField("Decisión nueva", max_length=16, choices=Interview.FollowUpDecision.choices)
+    reason = models.CharField("Motivo del cambio", max_length=200)
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    changed_at = models.DateTimeField(default=timezone.now)
+    follow_up = models.ForeignKey(FollowUp, on_delete=models.SET_NULL, null=True, blank=True, related_name="decision_changes")
+    care = models.CharField(max_length=16, choices=Care.choices, blank=True)
+
+    class Meta:
+        ordering = ["-changed_at", "-id"]
+        verbose_name = "cambio de decisión de seguimiento"
+        verbose_name_plural = "cambios de decisión de seguimiento"
+
+    @property
+    def previous_words(self) -> str:
+        return self.WORDS.get(self.previous, "")
+
+    @property
+    def decision_words(self) -> str:
+        return self.WORDS.get(self.decision, "")
+
+
 # --------------------------------------------------------------------------------------
 # Reporting and audit
 # --------------------------------------------------------------------------------------

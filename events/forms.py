@@ -11,6 +11,7 @@ from .models import (
     EventMembership,
     EventParticipant,
     FollowUp,
+    Interview,
     InterviewStation,
     MembershipRole,
     Question,
@@ -343,6 +344,26 @@ class SafetyReportForm(forms.Form):
     )
 
 
+class FollowUpDecisionChangeForm(forms.Form):
+    """«Cambiar decisión de seguimiento»: the decision it goes to (the page names it on its button) and why."""
+
+    decision = forms.ChoiceField(
+        choices=[(value, label) for value, label in Interview.FollowUpDecision.choices if value != Interview.FollowUpDecision.TO_EVALUATE],
+        widget=forms.HiddenInput,
+        error_messages={"required": "Elige la nueva decisión.", "invalid_choice": "Elige la nueva decisión."},
+    )
+    reason = forms.CharField(
+        label="¿Por qué cambias la decisión?",
+        help_text="Queda en el historial de la entrevista, con tu nombre.",
+        max_length=200,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+        error_messages={
+            "required": "Escribe brevemente por qué cambias la decisión.",
+            "max_length": "Escribe el motivo en 200 caracteres o menos.",
+        },
+    )
+
+
 def _follow_up_leader_ids(event: Event):
     return EventMembership.objects.filter(event=event, is_active=True).exclude(
         role=MembershipRole.COORDINATOR
@@ -377,6 +398,17 @@ class FollowUpForm(forms.ModelForm):
         _limit_assigned_to(self, event)
         if not can_write_notes:
             self.fields.pop("resolution_note")
+
+    def clean_status(self):
+        """A cancelled follow-up is not reopened while its interview has another one (one_open_care_follow_up_per_interview):
+        «Cambiar decisión de seguimiento» creates a new one after cancelling the first."""
+        status = self.cleaned_data["status"]
+        item = self.instance
+        if item.pk and item.status == FollowUp.Status.CANCELLED and status != FollowUp.Status.CANCELLED and item.interview_id:
+            others = FollowUp.objects.filter(interview_id=item.interview_id, kind=item.kind, confidential=item.confidential)
+            if item.kind == FollowUp.Kind.CARE and others.exclude(pk=item.pk).exclude(status=FollowUp.Status.CANCELLED).exists():
+                raise ValidationError("Su entrevista ya tiene otro seguimiento. Continúa en ese.")
+        return status
 
 
 class FollowUpAssignForm(forms.ModelForm):

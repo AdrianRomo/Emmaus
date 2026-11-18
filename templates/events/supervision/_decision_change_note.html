@@ -1,0 +1,17 @@
+{% load emmaus %}{% comment %}
+  An ordinary care follow-up whose interview's decision changed to «no necesita seguimiento» (services.follow_up_decision.
+  note_for): still open because its care had started, for whoever attends it to close with the form below; or cancelled
+  by that change because nobody had started it. Same markup with and without the redesign.
+{% endcomment %}{% with who=decision_change.changed_by.get_full_name|default:"Alguien" when=decision_change.changed_at|fecha_corta %}
+{% if decision_change.care == "abierto" %}
+<div class="notice notice--warning" id="decision-cambiada">
+  <p class="notice__title">Cambió la decisión de su entrevista</p>
+  <p>{{ who }} la cambió a «{{ decision_change.decision_words }}» el {{ when }}. Motivo: {{ decision_change.reason }}</p>
+  {% if can_manage %}<p>Este seguimiento ya se había empezado, así que sigue abierto. Si ya no hace falta, ciérralo: en «Estado» elige «Atendido» o «Cancelado» y guarda.</p>{% endif %}
+</div>
+{% else %}
+<div class="notice" id="decision-cambiada">
+  <p class="notice__title">Se canceló porque cambió la decisión de su entrevista</p>
+  <p>Nadie lo había empezado. {{ who }} la cambió a «{{ decision_change.decision_words }}» el {{ when }}. Motivo: {{ decision_change.reason }}</p>
+</div>
+{% endif %}{% endwith %}

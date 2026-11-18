@@ -41,6 +41,7 @@ urlpatterns = [
     path(E + "entrevistas/" + I + "entregar/", interview.interview_handoff, name="interview_handoff"),
     path(E + "entrevistas/" + I + "descartar/", interview.interview_discard, name="interview_discard"),
     path(E + "entrevistas/" + I + "corregir/<int:number>/", interview.interview_correct, name="interview_correct"),
+    path(E + "entrevistas/" + I + "seguimiento/", interview.interview_follow_up_change, name="interview_follow_up_change"),
     # Tutor / pastor
     path(E + "mi-equipo/", dashboards.tutor_home, name="tutor_home"),
     path(E + "coordinadores/", dashboards.coordinators, name="coordinators"),
