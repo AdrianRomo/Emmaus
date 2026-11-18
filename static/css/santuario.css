@@ -175,6 +175,12 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .rail__who-text { display: grid; min-width: 0; line-height: 1.3; }
 .rail__who-name { font-size: var(--t-small); font-weight: 600; overflow-wrap: anywhere; }
 .rail__who-role { font-size: var(--t-caption); color: var(--ink-2); }
+/* A rail taller than its screen never hides a place without a sign: the closed «Más de la iglesia» line stays at the
+   list's bottom edge and what does not fit scrolls under it, visibly cut; short screens tighten the gaps between
+   sections (never the 44px of a place) */
+.rail__nav > .rail__mas:not([open]) { position: sticky; bottom: 0; z-index: 1; background: var(--hundido); border-top: 1px solid var(--line); }
+@media (max-height: 820px) and (min-width: 761px) { .rail__nav { gap: var(--s-3); } .rail { gap: var(--s-3); } }
+
 /* Inside an event: the church's other places in one fold; a dot on it when something inside waits */
 .rail__mas > summary { list-style: none; cursor: pointer; }
 .rail__mas > summary::-webkit-details-marker { display: none; }
