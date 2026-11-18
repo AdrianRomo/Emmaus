@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 
 from events.models import Event
+from people import policy
 from people.models import Person
 
 
@@ -49,15 +50,28 @@ class EventRegistration(models.Model):
 
     The row is either a person of the church (``person``) or a visitor the team wrote down at the
     door (``guest_first_name`` and the other ``guest_`` fields): exactly one of the two, by a
-    database constraint. A visitor never needs an account. ``pendiente`` is a minor whose mother,
-    father or guardian has not authorized yet: the place is held, but the registration is not
-    confirmed and cannot be marked as attended. Only ``agenda.services.record_consent`` (and a
-    walk-up that records the authorization in the same step) takes a row out of ``pendiente``."""
+    database constraint. A visitor never needs an account. ``pendiente`` holds the place, but the
+    registration is not confirmed and cannot be marked as attended; ``pending_reason`` says what is
+    missing: the team has to verify the person's age, or a mother, father or guardian has to
+    authorize a minor. ``agenda.services.standing`` is the one function that decides it (decision
+    0015), and nothing else takes a row out of ``pendiente``.
+
+    ``annulled_reason`` set: the team wrote this row at the door by mistake and annulled it. It is
+    ``cancelada``, in no list and no count, and stays for the audit."""
 
     class Status(models.TextChoices):
         ACTIVE = "inscrita", "Inscrita"
-        PENDING = "pendiente", "Pendiente de autorización"
+        PENDING = "pendiente", "Pendiente"
         CANCELLED = "cancelada", "Cancelada"
+
+    class PendingReason(models.TextChoices):
+        AGE = "age", "Edad por confirmar"
+        CONSENT = "consent", "Pendiente de autorización"
+
+    class AnnulReason(models.TextChoices):
+        MISTAKE = "error", "Se registró por error"
+        DUPLICATE = "duplicado", "Registro duplicado"
+        LEFT = "no_se_quedo", "La persona no se quedó"
 
     # The statuses that hold a place of the event's capacity.
     HOLDING = (Status.ACTIVE, Status.PENDING)
@@ -67,10 +81,15 @@ class EventRegistration(models.Model):
     guest_first_name = models.CharField("Nombre", max_length=120, blank=True, default="", db_default="")
     guest_last_name = models.CharField("Apellidos", max_length=120, blank=True, default="", db_default="")
     guest_phone = models.CharField("Teléfono", max_length=40, blank=True, default="", db_default="")
+    # What the team said at the door: "es menor de edad". For a visitor it is all the church knows;
+    # for a person of the church it counts only while the date of birth is unknown.
     guest_is_minor = models.BooleanField("Es menor de edad", default=False, db_default=False)
     # Who wrote this row for somebody else (a walk-up). None: the person signed up by themselves.
     registered_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
+    # Why the row waits; empty when it does not (a row from before this column waits for a guardian).
+    pending_reason = models.CharField(max_length=8, choices=PendingReason.choices, blank=True, default="", db_default="")
+    annulled_reason = models.CharField(max_length=12, choices=AnnulReason.choices, blank=True, default="", db_default="")
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     # None: nobody has said yet whether this person came.
@@ -124,10 +143,35 @@ class EventRegistration(models.Model):
         return "" if self.person_id is None else self.person.email
 
     @property
-    def valid_consent(self):
-        """The guardian's authorization in force, or None. Read it only for the administration."""
+    def waits_for(self) -> str:
+        """``age``, ``consent`` or empty: what a pending row is missing."""
+        if self.status != self.Status.PENDING:
+            return ""
+        return self.pending_reason or self.PendingReason.CONSENT
+
+    @property
+    def is_walkup(self) -> bool:
+        """The team wrote this row for somebody who arrived."""
+        return self.registered_by_id is not None
+
+    @property
+    def recorded_consent(self):
+        """What the team recorded and nobody withdrew, whether or not it confirms, or None."""
         consent = getattr(self, "consent", None)
         return consent if consent is not None and consent.revoked_at is None else None
+
+    @property
+    def valid_consent(self):
+        """The guardian's authorization in force, or None: not withdrawn, for taking part, by a
+        method that counts and under the current version of the words. Read it only for the
+        administration."""
+        consent = self.recorded_consent
+        return consent if consent is not None and consent.confirms else None
+
+    @property
+    def consent_withdrawn(self) -> bool:
+        consent = getattr(self, "consent", None)
+        return consent is not None and consent.revoked_at is not None
 
 
 class GuardianConsent(models.Model):
@@ -142,14 +186,31 @@ class GuardianConsent(models.Model):
 
     class Method(models.TextChoices):
         PAPER = "papel", "Formato firmado en papel"
-        IN_PERSON = "en_persona", "En persona, con el equipo"
-        VERIFIED = "verificado", "Por llamada o mensaje verificado"
+        IN_PERSON = "en_persona", "En persona, con identidad y parentesco verificados por el equipo"
+        # The value is the one rows already have. A call or a message is kept as a note of contact
+        # and never confirms a registration (decision 0015, point 5).
+        VERIFIED = "verificado", "Por llamada o mensaje"
+
+    # The evidence that counts.
+    CONFIRMING_METHODS = (Method.PAPER, Method.IN_PERSON)
 
     registration = models.OneToOneField(EventRegistration, on_delete=models.CASCADE, related_name="consent")
     guardian_name = models.CharField("Nombre de su madre, padre o tutor", max_length=160)
     relationship = models.CharField("¿Quién autoriza?", max_length=12, choices=Relationship.choices)
     guardian_phone = models.CharField("Teléfono de su madre, padre o tutor", max_length=40, blank=True)
     method = models.CharField("¿Cómo autorizó?", max_length=12, choices=Method.choices)
+    # One choice per purpose (decision 0015, point 4). The words on the screen are provisional, NOT
+    # approved legal text: the church's leadership approves them (issue #75), and ``policy_version``
+    # says under which words each authorization was recorded. Nothing medical lives here.
+    # ``db_default=True``: a row from before these columns was an authorization to take part.
+    allows_participation = models.BooleanField("Autoriza que participe en este evento", default=False, db_default=True)
+    allows_transport = models.BooleanField(
+        "Autoriza el transporte organizado por la iglesia", default=False, db_default=False
+    )
+    allows_photos = models.BooleanField("Autoriza que aparezca en fotografías del evento", default=False, db_default=False)
+    policy_version = models.CharField(
+        max_length=24, default=policy.CONSENT_POLICY_VERSION, db_default=policy.CONSENT_POLICY_VERSION, editable=False
+    )
     recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     recorded_at = models.DateTimeField(default=timezone.now)
     revoked_at = models.DateTimeField(null=True, blank=True)
@@ -161,6 +222,17 @@ class GuardianConsent(models.Model):
 
     def __str__(self) -> str:
         return f"Autorización de {self.registration}"
+
+    @property
+    def confirms(self) -> bool:
+        """Enough to confirm the registration it belongs to: in force, for taking part, by a signed
+        form or in person, and under the current version of the words."""
+        return (
+            self.revoked_at is None
+            and self.allows_participation
+            and self.method in self.CONFIRMING_METHODS
+            and self.policy_version == policy.consent_policy_version()
+        )
 
 
 class EventFaq(models.Model):

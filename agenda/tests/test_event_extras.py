@@ -11,10 +11,13 @@ from agenda import services
 from agenda.models import EventFaq, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
 from agenda.tests.test_agenda import AgendaFixture
 from people import flags
+from people import services as people_services
 from people.models import ChurchAuditEvent, Person
 
-CONSENT = {"guardian_name": "Marta Tutora Reservada", "relationship": "madre", "method": "papel", "guardian_phone": "55 9999 0000"}
+CONSENT = {"guardian_name": "Marta Tutora Reservada", "relationship": "madre", "method": "papel", "guardian_phone": "55 9999 0000",
+           "allows_participation": True}
 PENDING_TEXT = "Tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia."
+AGE_TEXT = "Tu inscripción queda pendiente: el equipo de la iglesia tiene que confirmar tu edad."
 
 
 class ExtrasFixture(AgendaFixture):
@@ -28,6 +31,12 @@ class ExtrasFixture(AgendaFixture):
         """Give ``person`` an age, counted on the first day of the retreat."""
         first = self.retiro.starts_on
         Person.objects.filter(pk=person.pk).update(birth_date=date(first.year - int(years), first.month, 1) - timedelta(days=40))
+        person.refresh_from_db()
+
+    def verified(self, person, years: float = 30):
+        """An age the team verified, as ``people.services.verify_birth_date`` leaves it."""
+        self.born(person, years)
+        people_services.verify_birth_date(person, self.admin, "documento")
         person.refresh_from_db()
 
     def start(self):
@@ -204,7 +213,8 @@ class WalkUpTests(ExtrasFixture):
         self.assertIsNotNone(row.checked_in_at)
         self.assertEqual((Person.objects.count(), self.admin.__class__.objects.count()), (people, users))
         audit = ChurchAuditEvent.objects.get(action="evento_registro_puerta")
-        self.assertEqual(audit.metadata, {"event_id": self.retiro.pk, "registration_id": row.pk})
+        # What the team said at the door about the visitor's age stays in the audit, as one word.
+        self.assertEqual(audit.metadata, {"event_id": self.retiro.pk, "registration_id": row.pk, "minor": True})
         self.assertNotIn("4444", f"{audit.summary} {audit.metadata}")
 
     def test_a_row_is_a_person_or_a_visitor_never_both_or_neither(self):
@@ -252,14 +262,11 @@ class WalkUpTests(ExtrasFixture):
         self.start()
         self.guest()
         response = self.client.post(self.url("walkup"), {"first_name": "Otra"})
-        self.assertContains(response, "Ya no hay lugares: el evento está lleno.")
+        self.assertContains(response, "El evento está lleno: ya no hay lugares.")
         with self.assertRaises(services.AgendaError) as caught:
             services.register_walkup(self.retiro, self.admin, person=self.no_account)
         self.assertEqual(caught.exception.code, "full")
         self.assertEqual(EventRegistration.objects.count(), 1)
-        # An event without a page has no limit and takes walk-ups too.
-        self.move(self.no_page, 0, 0)
-        self.assertEqual(services.register_walkup(self.no_page, self.admin, first_name="Vera").status, "inscrita")
 
     def test_guest_rows_render_everywhere(self):
         self.set_page(capacity=5)
@@ -301,8 +308,9 @@ class WalkUpTests(ExtrasFixture):
         self.assertEqual((person.church, person.last_name, person.phone, person.created_from, person.user),
                          (self.church, "Visita", "55 4444 3333", "event", None))
         guest.refresh_from_db()
+        # "Es menor de edad" is what the team said at the door: it stays while the date of birth is unknown.
         self.assertEqual((guest.person, guest.guest_first_name, guest.guest_last_name, guest.guest_phone, guest.guest_is_minor),
-                         (person, "", "", "", False))
+                         (person, "", "", "", True))
         self.assertEqual((guest.status, guest.attended), ("inscrita", True))
         self.assertTrue(ChurchAuditEvent.objects.filter(action="persona_creada", metadata__person_id=person.pk).exists())
         audit = ChurchAuditEvent.objects.get(action="evento_visita_persona")
@@ -364,34 +372,57 @@ class MinorSignUpTests(ExtrasFixture):
         self.assertIsNone(self.member.birth_date)
         self.assertEqual(EventRegistration.objects.get().status, "inscrita")
 
-    def test_an_unknown_date_of_birth_is_asked_and_saved(self):
+    def test_an_unknown_date_of_birth_is_asked_and_a_typed_one_never_confirms(self):
         self.require_consent()
         self.assertContains(self.client.get(self.url()), "tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice")
         asked = self.client.post(self.url("register"))
         self.assertContains(asked, "<h1", count=1)
         self.assertContains(asked, "¿Cuál es tu fecha de nacimiento?")
         self.assertContains(asked, "Inscribirme", count=1)
+        self.assertContains(asked, "queda pendiente hasta que el equipo de la iglesia confirme tu edad")
         self.assertFalse(EventRegistration.objects.exists())
-        with self.assertRaises(services.AgendaError) as caught:
-            services.register(self.retiro, self.member, self.member_user)
-        self.assertEqual(caught.exception.code, "birth_date_needed")
         future = (self.today + timedelta(days=1)).strftime("%d/%m/%Y")
-        for bad, message in (("", "Escribe tu fecha de nacimiento."), ("ayer", "Escribe la fecha así"), (future, "Revisa la fecha de nacimiento.")):
+        for bad, message in (("ayer", "Escribe la fecha así"), (future, "Revisa la fecha de nacimiento.")):
             self.assertContains(self.client.post(self.url("register"), {"birth_date": bad}), message)
         self.assertFalse(EventRegistration.objects.exists())
         self.member.refresh_from_db()
         self.assertIsNone(self.member.birth_date)
+        # An adult's date, typed: saved, never verified, and the sign-up waits for the team.
         response = self.client.post(self.url("register"), {"birth_date": "14/03/1990"}, follow=True)
-        self.assertContains(response, "Listo. Te inscribiste a Retiro de jóvenes.")
+        self.assertContains(response, AGE_TEXT)
+        self.assertContains(response, "<strong>Falta confirmar tu edad.</strong>")
+        self.assertNotContains(response, "<strong>Te inscribiste.</strong>")
         self.member.refresh_from_db()
-        self.assertEqual(self.member.birth_date, date(1990, 3, 14))
-        self.assertEqual(EventRegistration.objects.get().status, "inscrita")
+        self.assertEqual((self.member.birth_date, self.member.birth_date_verified), (date(1990, 3, 14), False))
+        row = EventRegistration.objects.get()
+        self.assertEqual((row.status, row.pending_reason), ("pendiente", "age"))
+        self.assertContains(self.client.get(reverse("agenda:list")), "Falta confirmar tu edad")
         audit = ChurchAuditEvent.objects.filter(action="persona_modificada").latest("id")
         self.assertEqual((audit.actor, audit.metadata), (self.member_user, {"person_id": self.member.pk}))
+        self.assertIn("pendiente de confirmar su edad", ChurchAuditEvent.objects.get(action="evento_inscripcion").summary)
         # Once the church knows it, the sign-up cannot change it.
         services.set_birth_date(self.member, date(2015, 1, 1), self.member_user)
         self.member.refresh_from_db()
         self.assertEqual(self.member.birth_date, date(1990, 3, 14))
+
+    def test_the_date_may_be_left_empty_and_the_sign_up_waits_for_the_team(self):
+        self.require_consent()
+        response = self.client.post(self.url("register"), {"birth_date": ""}, follow=True)
+        self.assertContains(response, AGE_TEXT)
+        self.member.refresh_from_db()
+        self.assertIsNone(self.member.birth_date)
+        row = EventRegistration.objects.get()
+        self.assertEqual((row.status, row.pending_reason, row.attended), ("pendiente", "age", None))
+        # The service decides the same without the screen.
+        row = services.register(self.retiro, self.leader, self.leader_user)
+        self.assertEqual((row.status, row.pending_reason), ("pendiente", "age"))
+
+    def test_the_date_is_not_asked_when_nobody_can_sign_up(self):
+        self.require_consent(capacity=1)
+        services.register(self.retiro, self.leader, self.leader_user)
+        response = self.client.post(self.url("register"), follow=True)
+        self.assertNotContains(response, "¿Cuál es tu fecha de nacimiento?")
+        self.assertContains(response, "Ya no hay lugares.")
 
     def test_a_minor_is_registered_as_pending_and_reads_what_happens_next(self):
         self.require_consent()
@@ -419,7 +450,7 @@ class MinorSignUpTests(ExtrasFixture):
         first = self.retiro.starts_on
         self.assertFalse(services.is_minor_at(self.retiro, date(first.year - 18, first.month, first.day)))
         self.assertTrue(services.is_minor_at(self.retiro, date(first.year - 18, first.month, first.day) + timedelta(days=1)))
-        self.born(self.member, 18)
+        self.verified(self.member, 18)
         self.assertEqual(services.register(self.retiro, self.member, self.member_user).status, "inscrita")
 
     def test_a_pending_registration_holds_its_place(self):
@@ -491,7 +522,7 @@ class ConsentTests(ExtrasFixture):
 
     def test_pending_rows_come_first_with_the_way_to_record_the_authorization(self):
         row = self.minor_pending()
-        self.born(self.leader, 30)
+        self.verified(self.leader)
         services.register(self.retiro, self.leader, self.leader_user)
         page = self.client.get(self.url("registrations"))
         self.assertContains(page, "1 persona inscrita, 1 pendiente de autorización.")
@@ -503,15 +534,20 @@ class ConsentTests(ExtrasFixture):
         form = self.client.get(self.url("consent", row.pk))
         self.assertContains(form, "<h1", count=1)
         self.assertContains(form, "Registrar la autorización", count=1)
-        for word in ("Madre", "Padre", "Tutor legal", "Formato firmado en papel", "En persona, con el equipo",
-                     "Por llamada o mensaje verificado"):
+        for word in ("Madre", "Padre", "Tutor legal", "Formato firmado en papel",
+                     "En persona, con identidad y parentesco verificados por el equipo", "Por llamada o mensaje",
+                     "Autoriza que participe en este evento", "Autoriza el transporte organizado por la iglesia",
+                     "Autoriza que aparezca en fotografías del evento",
+                     "Texto provisional: lo aprueba el liderazgo de la iglesia"):
             self.assertContains(form, word)
+        self.assertNotContains(form, "verificado</span>")  # the call is no longer called "verified"
         self.assertNotContains(form, "<textarea")
 
     def test_recording_the_authorization_confirms_and_the_audit_has_no_personal_data(self):
         row = self.minor_pending()
         missing = self.client.post(self.url("consent", row.pk), {"guardian_name": ""})
-        for message in ("Escribe el nombre de quien autoriza.", "Elige si es su madre, su padre o su tutor legal.", "Elige cómo autorizó."):
+        for message in ("Escribe el nombre de quien autoriza.", "Elige si es su madre, su padre o su tutor legal.", "Elige cómo autorizó.",
+                        "Marca que autoriza que participe en este evento"):
             self.assertContains(missing, message)
         row.refresh_from_db()
         self.assertEqual(row.status, "pendiente")
@@ -583,7 +619,8 @@ class ConsentTests(ExtrasFixture):
         self.assertEqual(self.client.get(self.url("consent_revoke", row.pk)).status_code, 404)
         self.assertNotContains(self.client.get(self.url("registrations")), "Marta")
         # Recorded again, by the father this time: one row per registration, the newest answer.
-        services.record_consent(row, self.admin, guardian_name="Pedro Papá", relationship="padre", method="en_persona")
+        services.record_consent(row, self.admin, guardian_name="Pedro Papá", relationship="padre", method="en_persona",
+                                allows_participation=True)
         consent = GuardianConsent.objects.get()
         self.assertEqual((consent.guardian_name, consent.guardian_phone, consent.revoked_at, consent.revoked_by),
                          ("Pedro Papá", "", None, None))
@@ -654,17 +691,26 @@ class ConsentTests(ExtrasFixture):
         adult = self.client.get(self.url("walkup"), {"persona": self.leader.pk})
         self.assertNotContains(adult, "¿Quién autoriza?")
         self.assertNotContains(adult, 'name="is_minor"')
+        self.assertContains(adult, "El equipo todavía no ha confirmado su edad")
         self.client.post(self.url("walkup"), {"persona": self.member.pk})
-        self.client.post(self.url("walkup"), {"persona": self.leader.pk, **CONSENT})  # ignored: not a minor
-        self.assertEqual(EventRegistration.objects.get(person=self.member).status, "pendiente")
-        self.assertEqual(EventRegistration.objects.get(person=self.leader).status, "inscrita")
+        response = self.client.post(self.url("walkup"), {"persona": self.leader.pk, **CONSENT}, follow=True)  # ignored: not a minor
+        self.assertContains(response, "Queda pendiente hasta que confirmes su edad")
+        minor, adult = EventRegistration.objects.get(person=self.member), EventRegistration.objects.get(person=self.leader)
+        self.assertEqual((minor.status, minor.pending_reason), ("pendiente", "consent"))
+        # An adult by a date nobody verified waits for the team, even standing at the door.
+        self.assertEqual((adult.status, adult.pending_reason, adult.attended), ("pendiente", "age", None))
         self.assertFalse(GuardianConsent.objects.exists())
-        # Without a date of birth, the team says it.
+        self.verified(self.asked)
+        seen = self.client.get(self.url("walkup"), {"persona": self.asked.pk})
+        self.assertNotContains(seen, "El equipo todavía no ha confirmado su edad")
+        row = services.register_walkup(self.retiro, self.admin, person=self.asked)
+        self.assertEqual((row.status, row.attended), ("inscrita", True))
+        # Without a date of birth, the team says it: its word "minor" is believed and kept with the row.
         unknown = self.client.get(self.url("walkup"), {"persona": self.no_account.pk})
         self.assertContains(unknown, 'name="is_minor"')
         self.client.post(self.url("walkup"), {"persona": self.no_account.pk, "is_minor": "on"})
         row = EventRegistration.objects.get(person=self.no_account)
-        self.assertEqual((row.status, row.guest_is_minor), ("pendiente", False))
+        self.assertEqual((row.status, row.pending_reason, row.guest_is_minor), ("pendiente", "consent", True))
 
     def test_a_pending_visitor_keeps_waiting_when_added_to_the_people_of_the_church(self):
         self.require_consent()
@@ -684,6 +730,7 @@ class ExtrasAccessTests(ExtrasFixture):
         Person.objects.filter(pk=cls.member.pk).update(birth_date=date(cls.today.year - 14, 1, 1))
         cls.member.refresh_from_db()
         cls.waiting = services.register(cls.retiro, cls.member, cls.member_user)
+        cls.unverified = services.register(cls.retiro, cls.leader, cls.leader_user)  # no date of birth: waits for the team
         cls.move(cls, cls.retiro, 0, 2)
         cls.guest = services.register_walkup(cls.retiro, cls.admin, first_name="Vera", last_name="Visita", is_minor=True, consent=CONSENT)
         cls.faq = services.save_faq(cls.retiro, cls.admin, question="¿Qué llevo?", answer="Ropa cómoda.")
@@ -691,11 +738,19 @@ class ExtrasAccessTests(ExtrasFixture):
         cls.faq_b = services.save_faq(cls.retiro_b, cls.admin_b, question="¿De B?", answer="Sí.")
         cls.item_b = services.save_schedule_item(cls.retiro_b, cls.admin_b, day=cls.retiro_b.starts_on, starts_at=time(9), title="De B")
 
+    # A valid body for every form of the administration: what a guessed request would send.
+    BODIES = (
+        {**CONSENT, "reason": "error", "first_name": "X", "question": "X", "answer": "X"},
+        {"method": "documento", "birth_date": "14/03/1990"},  # "Confirmar edad" has its own methods
+    )
+
     def paths(self, event=None):
         return [
             self.url("walkup", event=event),
             self.url("consent", self.waiting.pk, event=event),
             self.url("consent_revoke", self.guest.pk, event=event),
+            self.url("confirm_age", self.unverified.pk, event=event),
+            self.url("annul", self.guest.pk, event=event),
             self.url("guest_promote", self.guest.pk, event=event),
             self.url("faq", event=event),
             self.url("faq_edit", self.faq.pk, event=event),
@@ -705,10 +760,14 @@ class ExtrasAccessTests(ExtrasFixture):
             self.url("schedule_delete", self.item.pk, event=event),
         ]
 
-    def unchanged(self, registrations=2):
+    def unchanged(self, registrations=3):
         self.waiting.refresh_from_db()
         self.guest.refresh_from_db()
+        self.unverified.refresh_from_db()
+        self.leader.refresh_from_db()
         self.assertEqual((self.waiting.status, self.guest.status, self.guest.person), ("pendiente", "inscrita", None))
+        self.assertEqual((self.unverified.status, self.unverified.pending_reason, self.leader.birth_date_verified),
+                         ("pendiente", "age", False))
         self.assertIsNone(GuardianConsent.objects.get().revoked_at)
         self.assertEqual((EventFaq.objects.count(), EventScheduleItem.objects.count(), EventRegistration.objects.count()),
                          (2, 2, registrations))
@@ -725,14 +784,16 @@ class ExtrasAccessTests(ExtrasFixture):
             self.client.force_login(user)
             for path in self.paths():
                 self.assertEqual(self.client.get(path).status_code, 403, path)
-                self.assertEqual(self.client.post(path, {**CONSENT, "first_name": "X", "question": "X", "answer": "X"}).status_code, 403, path)
+                for body in self.BODIES:
+                    self.assertEqual(self.client.post(path, body).status_code, 403, path)
         self.unchanged()
 
     def test_the_admin_of_another_church_gets_a_404(self):
         self.client.force_login(self.admin_b)
         for path in self.paths():
             self.assertEqual(self.client.get(path).status_code, 404, path)
-            self.assertEqual(self.client.post(path, {**CONSENT, "first_name": "X", "question": "X", "answer": "X"}).status_code, 404, path)
+            for body in self.BODIES:
+                self.assertEqual(self.client.post(path, body).status_code, 404, path)
         self.unchanged()
 
     def test_ids_of_another_event_are_a_404_inside_the_own_church(self):
@@ -741,6 +802,10 @@ class ExtrasAccessTests(ExtrasFixture):
         self.client.force_login(self.admin)
         guessed = [
             self.url("consent", other.pk), self.url("consent_revoke", other.pk), self.url("guest_promote", other.pk),
+            self.url("confirm_age", other.pk), self.url("annul", other.pk),
+            self.url("confirm_age", self.unverified.pk, event=self.hidden), self.url("annul", self.guest.pk, event=self.hidden),
+            # The right event, the wrong kind of row: a minor's row has no age to confirm, a sign-up is not annulled.
+            self.url("confirm_age", self.waiting.pk), self.url("annul", self.waiting.pk), self.url("consent", self.unverified.pk),
             self.url("faq_edit", self.faq_b.pk), self.url("faq_delete", self.faq_b.pk),
             self.url("schedule_edit", self.item_b.pk), self.url("schedule_delete", self.item_b.pk),
             self.url("faq_edit", self.faq.pk, event=self.hidden), self.url("schedule_delete", self.item.pk, event=self.hidden),
@@ -748,8 +813,9 @@ class ExtrasAccessTests(ExtrasFixture):
         ]
         for path in guessed:
             self.assertEqual(self.client.get(path).status_code, 404, path)
-            self.assertEqual(self.client.post(path, CONSENT).status_code, 404, path)
-        self.unchanged(registrations=3)
+            for body in self.BODIES:
+                self.assertEqual(self.client.post(path, body).status_code, 404, path)
+        self.unchanged(registrations=4)
         self.assertEqual(EventRegistration.objects.get(pk=other.pk).status, "inscrita")
 
     def test_with_the_module_off_everything_is_a_404(self):
@@ -787,7 +853,7 @@ class ReviewFixesTests(ExtrasFixture):
     def test_an_adult_visitor_recognized_keeps_the_place_confirmed(self):
         self.require_consent()
         self.start()
-        self.born(self.member, 30)
+        self.verified(self.member)
         row = services.register_walkup(self.retiro, self.admin, first_name="Diego", last_name="Hernández")
         services.promote_guest(row, self.admin, existing=self.member)
         row.refresh_from_db()
@@ -795,7 +861,7 @@ class ReviewFixesTests(ExtrasFixture):
 
     def test_turning_the_rule_on_makes_known_minors_wait(self):
         self.born(self.member, 15)
-        self.born(self.asked, 30)
+        self.verified(self.asked)
         minor = services.register(self.retiro, self.member, self.member_user)
         adult = services.register(self.retiro, self.asked, self.asked_user)
         self.assertEqual(minor.status, "inscrita")
