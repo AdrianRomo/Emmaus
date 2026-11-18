@@ -347,7 +347,7 @@ class RefreshTests(IsolatedCacheMixin, ServiceHelpers, CampFixture):
 
 
 class StartFormTests(SimpleTestCase):
-    MODE = {"mode": "asistida"}
+    MODE = {"identity": "on", "mode": "asistida"}
 
     def test_one_questionnaire_adds_no_field(self):
         """Defect: a one-questionnaire event asking "¿Qué cuestionario?" (the screen must look as before)."""

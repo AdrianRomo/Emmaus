@@ -36,6 +36,7 @@
         <p class="checks__datos">{{ participant.age }} años{% if participant.is_minor %}, menor de edad{% endif %}. {{ participant.room|cuarto }}. {{ participant.church_group }}.</p>
       </div>
     </div>
+    {% include "partials/ui/field.html" with field=form.identity %}
     {% if not participant.is_practice %}<p class="checks__aside"><a class="btn btn--link ir" href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>{% endif %}
   </section>
 
@@ -48,7 +49,7 @@
     {% for r in requirements %}
       {% if r.satisfied %}<p class="autorizada checks__autorizada">{% icon "check" "sm" %}Autorización de padre, madre o tutor legal: registrada.</p>{% elif r.key == "guardian" %}<p class="notice notice--warning checks__autorizada"><span class="notice__title">En el registro: falta la autorización de padre, madre o tutor legal.</span></p>{% endif %}
     {% endfor %}
-    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" and field.name != "identity" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
   </section>
 {% if questionnaire_rows %}
   {% comment %}Only when the event has two or more questionnaires: a radio when the campero can start more than one now, else the one that opens,
@@ -120,6 +121,7 @@
       <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
       <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
     </dl>
+    {% include "partials/ui/field.html" with field=form.identity %}
     {% if not participant.is_practice %}<p class="checks__aside"><a href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>{% endif %}
   </section>
 
@@ -132,7 +134,7 @@
     {% for r in requirements %}
       {% if r.satisfied %}<p class="notice notice--success"><span class="notice__title">Autorización de padre, madre o tutor legal: registrada.</span></p>{% endif %}
     {% endfor %}
-    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" and field.name != "identity" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
   </section>
 {% if questionnaire_rows %}
   {% comment %}Only when the event has two or more questionnaires: a radio when the campero can start more than one now, else the one that opens,

@@ -129,7 +129,7 @@ class CampFixture(TestCase):
     def start(self, participant, *, mode="asistida", client=None):
         client = client or self.client
         consents = {"consent_assent": "on", "consent_consent": "on", "consent_guardian": "on"}
-        response = client.post(self.url("interview_start", participant.public_id), {"mode": mode, **consents})
+        response = client.post(self.url("interview_start", participant.public_id), {"identity": "on", "mode": mode, **consents})
         return response
 
     def answer(self, interview, code, values, client=None, direction="next", url_name="interview_step", extra=None):

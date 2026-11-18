@@ -203,7 +203,9 @@ def interview_start(request, event, access, public_id):
     choices = [(str(link.questionnaire_id), link.version.title) for link in pending]
     asked = request.GET.get("cuestionario", "")
     initial = {"questionnaire": asked} if asked in {value for value, _ in choices} else {}
-    form = InterviewStartForm(request.POST or None, requirements=requirements, questionnaire_choices=choices, initial=initial)
+    form = InterviewStartForm(
+        request.POST or None, requirements=requirements, participant_name=participant.full_name, questionnaire_choices=choices, initial=initial
+    )
     blockers = svc.event_blockers(event, practice=participant.is_practice)
     station = current_station(request, event)
     if request.method == "POST" and form.is_valid() and not blockers:

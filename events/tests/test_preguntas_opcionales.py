@@ -317,16 +317,16 @@ class StartTests(CampFixture):
             self.assertIn("¿Es la persona correcta?", page)
             self.assertIn("Tengo la autorización firmada de su padre, madre o tutor legal", page)
             self.assertIn(f"Le expliqué el aviso de privacidad a {self.p_minor_no_auth.first_name} y está de acuerdo en conversar", page)
-            refused = self.client.post(url, {"mode": "asistida", "consent_assent": "on"})
+            refused = self.client.post(url, {"identity": "on", "mode": "asistida", "consent_assent": "on"})
             self.assertContains(refused, "Para comenzar, confirma esta autorización.")
             self.assertFalse(Interview.objects.filter(participant=self.p_minor_no_auth).exists())
-        response = self.client.post(url, {"mode": "asistida", "consent_assent": "on", "consent_guardian": "on"})
+        response = self.client.post(url, {"identity": "on", "mode": "asistida", "consent_assent": "on", "consent_guardian": "on"})
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Interview.objects.filter(participant=self.p_minor_no_auth).exists())
 
     def test_an_adult_needs_the_consent(self):
         url = self.url("interview_start", self.p2.public_id)
-        self.assertContains(self.client.post(url, {"mode": "asistida"}), "Para comenzar, confirma esta autorización.")
+        self.assertContains(self.client.post(url, {"identity": "on", "mode": "asistida"}), "Para comenzar, confirma esta autorización.")
         self.assertFalse(Interview.objects.filter(participant=self.p2).exists())
         with self.assertRaises(svc.ConsentMissing):
             svc.start_interview(

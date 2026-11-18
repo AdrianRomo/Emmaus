@@ -86,12 +86,11 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
    capability (review #24).
 2. Decision 0010 (#75): an adult's typed birth date still waits for the team's confirmation; a pending
    sign-up offers «Cancelar mi inscripción» (existing behaviour, kept) — confirm both.
-3. The sign-in error tells everyone «pide ayuda a la administración del evento», church members too. It is
-   shared with the camp's sign-in (module-off output must not change), so it was left. Suggested: «Si no
-   puedes entrar, pide ayuda a quien te dio acceso.»
+3. Decided 2026-11-18: one sign-in error across Emmaus, «No pudimos iniciar sesión. Revisa tu correo y tu
+   contraseña e inténtalo de nuevo.», for an unknown e-mail, a wrong password and an inactive account; the
+   event's help on a line of its own only after a failed attempt that came from a camp's link (`0f8117d`).
 4. The landing's promise («Platicar con cada joven, sin perder a nadie») speaks of camp to every visitor.
-5. An interview step's «Continuar» with no answer chosen: whatever the interview area reports (what is
-   required is the owner's rule).
+5. Decided with 9 below.
 6. «Nadie sirve el …» shows on the team page; counting it in the rail or on a coordinator's home needs a
    decision on who must see it first.
 7. New words to confirm: «Hoy en la iglesia», «Ver cómo inscribirme», «Más de la iglesia», «Mis datos» in Mi
@@ -99,11 +98,17 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 8. Event photos (#60): the arch shows the sky of the hour until the church decides.
 9. Decided 2026-11-18 (branch `v2/preguntas-opcionales`): no interview question is required; every question offers
    «Prefiero no responder»; a campero may finish with blanks; a decline and a blank are stored and shown apart, and
-   neither counts as an answer. Only «Antes de empezar» requires anything (the authorizations that apply).
-10. A follow-up decision («¿Necesita seguimiento?») cannot be changed once taken, before or after the redesign.
-    Should a coordinator be able to correct it?
-11. During a camp, should the camp's administration land on the camp's home? The running camp also shows
-    in «Eventos de la iglesia» as «Sin publicar… sin inscritos» (it has 400 camperos, not sign-ups).
+   neither counts as an answer. Only «Antes de empezar» requires anything: the identity («Sí, es {nombre}», a
+   required box added for this decision) and the authorizations that apply. Merged `d19861f` (migration
+   `events/0017`).
+10. Decided 2026-11-18: «Cambiar decisión de seguimiento» for the assigned coordinador and an administrador of
+    the event, with a reason; the care task created once, cancelled only if nobody started it, otherwise left to
+    its owner. Merged `95cf6b3` (migration `events/0016`). Left: the «Decisión cambiada» mark on the coordinator's
+    and tutor's homes; a non-sensitive owner may infer that a confidential note exists when the work counts as
+    started only because of one; after «Atendido», requiring again creates no new task (one per interview).
+11. Decided 2026-11-18: an ordinary sign-in with exactly one camp underway that the person administers opens
+    its administration home; several, a chooser; none, the usual home; «Todos los eventos» inside the event
+    (`388765c`). Still open: the running camp shows in «Eventos de la iglesia» as «Sin publicar… sin inscritos».
 12. The take-over message for the computer that lost control says «Vuelve a abrirla desde tu inicio»
     while the page offers «Continuar aquí» (a service message shared with the camp).
 13. Found while testing, not caused by the redesign: four tests in `core/test_scheduler.py` fail for a few minutes

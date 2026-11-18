@@ -46,7 +46,7 @@ await shot(page, "buscar");
 await go(page, page.click(".results a:has-text('Entrevistar') >> nth=0"));
 await go(page, page.click("button:has-text('Comenzar entrevista')"));
 assert.match(await page.title(), /^Error: /, "missing consent shows the error summary");
-for (const box of await page.$$("input[type=checkbox][name^=consent_]")) await box.check();
+for (const box of await page.$$("input[type=checkbox][name^=consent_], input[type=checkbox][name=identity]")) await box.check();
 await page.check("input[name=mode][value=asistida]");
 await go(page, page.click("button:has-text('Comenzar entrevista')"));
 assert.match(page.url(), /\/paso\/1\/$/);
@@ -74,7 +74,7 @@ await shot(page, "completada");
 // Supervised capture with the next camper
 await go(page, page.click("a:has-text('Entrevistar a otro campero')"));
 await go(page, page.click(".results a:has-text('Entrevistar') >> nth=0"));
-for (const box of await page.$$("input[type=checkbox][name^=consent_]")) await box.check();
+for (const box of await page.$$("input[type=checkbox][name^=consent_], input[type=checkbox][name=identity]")) await box.check();
 await page.check("input[name=mode][value=supervisada]");
 await go(page, page.click("button:has-text('Comenzar entrevista')"));
 await go(page, page.click("button:has-text('Entregar la computadora')"));

@@ -282,9 +282,16 @@ class InterviewStartForm(forms.Form):
         error_messages={"required": "Elige cómo se va a responder la entrevista."},
     )
 
-    def __init__(self, *args, requirements, questionnaire_choices=(), **kwargs):
+    def __init__(self, *args, requirements, participant_name="", questionnaire_choices=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.requirements = requirements
+        # «¿Es la persona correcta?» (owner decision): the identity is confirmed before anything else, the one required
+        # check of «Antes de empezar» besides the applicable authorizations; no question of the interview is required
+        self.fields["identity"] = forms.BooleanField(
+            label=f"Sí, es {participant_name}" if participant_name else "Sí, es la persona correcta",
+            required=True,
+            error_messages={"required": "Para comenzar, confirma que es la persona correcta."},
+        )
         # [(str(questionnaire_id), version title), ...]: the questionnaires the campero can start now.
         self.questionnaire_choices = list(questionnaire_choices)
         if len(self.questionnaire_choices) > 1:

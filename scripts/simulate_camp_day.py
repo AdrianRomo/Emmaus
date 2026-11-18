@@ -82,7 +82,7 @@ def station(index, base, slug, membership, password, campers, done):
         b.request("start_form", f"/eventos/{slug}/camperos/{camper.public_id}/entrevista/")
         status, url, html = b.request(
             "start", f"/eventos/{slug}/camperos/{camper.public_id}/entrevista/",
-            {"mode": "asistida", "consent_assent": "on", "consent_consent": "on", "consent_guardian": "on"},
+            {"identity": "on", "mode": "asistida", "consent_assent": "on", "consent_consent": "on", "consent_guardian": "on"},
         )
         for _ in range(12):
             if "/revision/" in url or "/completada/" in url:

@@ -41,7 +41,7 @@ from .test_camp_visual import css_rules, stylesheet
 from .test_multi_questionnaires import IsolatedCacheMixin, ServiceHelpers, TwoQuestionnairesFixture, definition
 
 PILL = '<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>'
-START_ADULT = {"mode": "asistida", "consent_consent": "on"}
+START_ADULT = {"identity": "on", "mode": "asistida", "consent_consent": "on"}
 
 
 class ProgressFixture(TwoQuestionnairesFixture):
