@@ -39,6 +39,14 @@ SUBJECTS: dict[str, str] = {
     "solicitud_contacto_recibida": "Emmaus: hay una solicitud de contacto nueva",
     # To whoever attends open follow-ups of an event (remind_follow_up_owners). Never how many, whose or why.
     "seguimientos_pendientes": "Emmaus: tienes seguimientos por atender",
+    # To a person a notice of their church is for, if they chose it (notices.email). Never its title, its
+    # text, its group or its author; an important notice uses the same words as a normal one.
+    "aviso_publicado": "Emmaus: hay un aviso nuevo de tu iglesia",
+    # The same for an urgent notice, and again when what it says changed. "Urgente" is all it tells.
+    "aviso_urgente": "Emmaus: hay un aviso urgente de tu iglesia",
+    # To somebody on an event's waiting list: a place was freed and is held for them (agenda.services). Never
+    # which event beyond the link to its page, never until when, never who left the place.
+    "lugar_ofrecido": "Emmaus: se liberó un lugar en un evento",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.
@@ -70,8 +78,10 @@ def render(kind: str, context: Mapping[str, str]) -> tuple[str, str]:
     return SUBJECTS[kind], body.strip()
 
 
-def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str]) -> Outcome:
-    """Send the ``kind`` notice to ``to`` (one address or several) and say whether it went; see the module docstring."""
+def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str], connection=None) -> Outcome:
+    """Send the ``kind`` notice to ``to`` (one address or several) and say whether it went; see the module docstring.
+    ``connection``: an open mail connection, for a caller that sends many notices in a row; None, as always, opens
+    one for this message. It changes how the message travels, never what it says."""
     subject, body = render(kind, context)
     recipients = _recipients(to)
     # Imported here: events imports core, so a module-level import would make core.notify unusable from core.services.
@@ -79,7 +89,7 @@ def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str]) -> Ou
 
     if not email_is_configured():
         return NOT_CONFIGURED
-    return SENT if send_email_safely(subject, body, recipients) else FAILED
+    return SENT if send_email_safely(subject, body, recipients, connection) else FAILED
 
 
 def _recipients(to: str | Iterable[str]) -> list[str]:

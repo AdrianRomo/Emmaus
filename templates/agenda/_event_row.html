@@ -10,6 +10,10 @@
   </div>
   {% if event.state == "inscrita" %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>
   {% elif event.state == "pendiente" %}<div class="row__end">{% if event.my_place.waits_for == "age" %}{% status "revisar" "Falta confirmar tu edad" %}{% else %}{% status "revisar" "Pendiente de autorización" %}{% endif %}</div>
+  {% elif event.state == "ofrecido" %}<div class="row__end">{% status "revisar" "Te ofrecimos un lugar" %}</div>
+  {% elif event.state == "ofrecido_pausa" %}<div class="row__end">{% status "pendiente" "Lugar ofrecido, en pausa" %}</div>
+  {% elif event.state == "en_espera" %}<div class="row__end">{% status "pendiente" "En lista de espera" %}</div>
+  {% elif event.state == "lista" %}<div class="row__end">{% status "descartada" "Lista de espera" %}</div>
   {% elif event.state == "abierta" %}<div class="row__end">{% status "en_curso" "Inscripción abierta" %}</div>
   {% elif event.state == "llena" %}<div class="row__end">{% status "descartada" "Ya no hay lugares" %}</div>{% endif %}
 </li>

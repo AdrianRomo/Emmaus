@@ -47,6 +47,12 @@ ACTION_LABELS = {
     "evento_inscripcion_revisada": "Una inscripción a un evento cambió al revisarse la edad o la autorización",
     "evento_visita_edad": "Dijo si una visita de un evento es mayor o menor de edad",
     "evento_visita_persona": "Agregó a una visita de un evento a las personas de la iglesia",
+    "evento_lista_espera": "Se anotó en la lista de espera de un evento",
+    "evento_lista_oferta": "Se ofreció un lugar a quien seguía en la lista de espera de un evento",
+    "evento_lista_aceptada": "Aceptó el lugar que se le ofreció en un evento",
+    "evento_lista_salida": "Salió de la lista de espera de un evento o no aceptó el lugar",
+    "evento_lista_vencida": "Venció el lugar ofrecido a alguien de la lista de espera de un evento",
+    "evento_lista_retirada": "Quitó a alguien de la lista de espera de un evento",
     "equipo_creado": "Creó un equipo",
     "equipo_modificado": "Modificó un equipo",
     "equipo_archivado": "Archivó un equipo",
@@ -58,6 +64,7 @@ ACTION_LABELS = {
     "acompanar_asignado": "Asignó un seguimiento de persona o cambió su fecha",
     "acompanar_paso": "Registró un paso de un seguimiento de persona",
     "acompanar_estado": "Cambió el estado de un seguimiento de persona",
+    "politica_cambiada": "Cambió una política de la iglesia",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -66,6 +73,8 @@ ALLOWED_METADATA = frozenset({
     # Fixed words only: which rule of the event a walk-up went over and why; why a row was annulled; what the
     # team said at the door about a visitor's age; where a registration stands after a review.
     "override", "reason", "minor", "standing", "age_checked",
+    # A church policy (policies.services.save): which one, by its column, and the number or yes/no before ("value" is after).
+    "policy", "previous",
 })
 
 

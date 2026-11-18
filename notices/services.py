@@ -233,13 +233,23 @@ def _audit(notice: Announcement, actor, action: str, verb: str) -> None:
     record_church(notice.church, actor, action, f"{verb} un aviso{level} para {_whom(notice)}", notice, **metadata)
 
 
+def _email(notice: Announcement, base_url: str | None) -> None:
+    from . import email  # imported here: ``notices.email`` reads who a notice is for from this module
+
+    email.schedule(notice, base_url)
+
+
 def publish(
     church, actor, *, title: str, body: str, group: Group | None = None, publish_on=None, expires_on=None,
-    priority: str = Priority.NORMAL,
+    priority: str = Priority.NORMAL, base_url: str | None = None,
 ) -> Announcement:
     """A new notice, for the whole church or for ``group``. With a ``publish_on`` that has not come,
     nobody reads it until that day. Who publishes has read it already. An urgent one is refused
-    unless ``actor`` holds in ``church`` a role its policy allows (``may_publish_urgent``)."""
+    unless ``actor`` holds in ``church`` a role its policy allows (``may_publish_urgent``).
+
+    ``base_url``: the address of this Emmaus (the view takes it from the request). With it, who chose
+    to hear about notices by e-mail is mailed after the transaction commits (``notices.email``);
+    without it, or for a later day, that is left to ``manage.py send_notice_emails``."""
     publish_on = publish_on or timezone.localdate()
     title, body = _clean(title, body, publish_on, expires_on)
     priority = _level(priority, actor, church)
@@ -254,12 +264,13 @@ def publish(
         if author is not None:
             AnnouncementRead.objects.create(announcement=notice, person=author)
         _audit(notice, actor, "aviso_publicado", "Publicó")
+        _email(notice, base_url)
     return notice
 
 
 def update(
     notice: Announcement, actor, *, title: str, body: str, publish_on, expires_on=None,
-    priority: str | None = None, material: bool | None = None,
+    priority: str | None = None, material: bool | None = None, base_url: str | None = None,
 ) -> Announcement:
     """Correct a notice. Who it is for does not change; a retired notice is not edited. ``priority``
     None keeps its level (a guide correcting a notice the administration made urgent).
@@ -267,7 +278,11 @@ def update(
     ``material`` answers "¿Cambió la información?" and is needed when the title or the body of an
     urgent notice changes, it stays urgent and ``asks_on_change``: True makes a new version (every
     "Enterado" given stops counting and everybody is asked again), False keeps the answers, None is
-    refused. In any other edit it is not heard. A notice that becomes urgent starts with no answers."""
+    refused. In any other edit it is not heard. A notice that becomes urgent starts with no answers.
+
+    E-mail (``notices.email``, with ``base_url``): a new version is mailed again; a notice that
+    becomes urgent is mailed to who had not been mailed; a notice that waited for a later day and now
+    can be read is mailed. Any other edit sends nothing."""
     title, body = _clean(title, body, publish_on, expires_on)
     with transaction.atomic():
         notice = Announcement.objects.select_for_update(of=("self",)).select_related("church", "group").get(pk=notice.pk)
@@ -276,6 +291,7 @@ def update(
         if notice.is_retired:
             raise NoticeError("Este aviso ya está retirado. Publica uno nuevo.", code="retired")
         was_urgent = notice.is_urgent
+        was_waiting = notice.publish_on > timezone.localdate()
         stays_urgent = was_urgent and priority in (None, Priority.URGENT)
         asks_again = False
         if stays_urgent and words_changed(notice, title, body) and asks_on_change(notice):
@@ -295,8 +311,15 @@ def update(
             # Urgent again after not being it: what was answered then was to another moment of the notice.
             notice.changed_at = None
             AnnouncementRead.objects.filter(announcement=notice).update(acknowledged_version=None)
+        became_urgent = notice.is_urgent and not was_urgent
+        if became_urgent:
+            notice.emailed_version = None  # who asked only for the urgent ones has not been mailed
+            notice.email_reopened_at = timezone.now()
         notice.save(
-            update_fields=["title", "body", "priority", "publish_on", "expires_on", "version", "changed_at", "updated_at"]
+            update_fields=[
+                "title", "body", "priority", "publish_on", "expires_on", "version", "changed_at", "emailed_version", "email_reopened_at",
+                "updated_at",
+            ]
         )
         _audit(notice, actor, "aviso_modificado", "Modificó")
         if asks_again:
@@ -305,6 +328,8 @@ def update(
                 notice.church, actor, "aviso_enterado_pedido",
                 f"Cambió la información de un aviso urgente para {_whom(notice)} y pidió «Enterado» otra vez", notice, **metadata,
             )
+        if asks_again or became_urgent or was_waiting:
+            _email(notice, base_url)
     return notice
 
 

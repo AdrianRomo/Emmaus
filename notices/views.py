@@ -5,7 +5,11 @@ module off or without a person in the church) and fetches inside ``request.churc
 another church is a 404. Who writes: the administration to the whole church; who can manage a
 group (its guides, the administration) to that group. Who makes one urgent: who holds a church role
 the church's policy names (``services.may_publish_urgent``; today the administration). Who reads: ``services.visible_to``. Hiding
-a link is not the rule: each view asks again. No e-mail is sent.
+a link is not the rule: each view asks again.
+
+E-mail (``notices.email``): who chose it on "Avisos por correo" is told that there is a notice and
+where, never what it says. Publishing hands the address of this Emmaus down from the request; who may
+change a notice reads how many e-mails went out, as a number under the church's minimum reporting size.
 
 "Compartir por WhatsApp" hands the person a message to send themselves. It carries the church's
 name and the address of the notice's page, which asks for the account and answers by the same rules
@@ -28,8 +32,10 @@ from groups.models import Group
 from groups.views import community_view
 from people import policy
 
-from . import services
-from .forms import WHOLE_CHURCH, NoticeForm
+from events.services.team import email_is_configured
+
+from . import email, services
+from .forms import WHOLE_CHURCH, EmailPreferenceForm, NoticeForm
 from .models import Announcement
 
 
@@ -101,6 +107,49 @@ def _acknowledged_line(notice: Announcement) -> tuple[str, bool]:
     return f"{done} de {total} personas dijeron «Enterado».", True
 
 
+def _emailed_lines(notice: Announcement) -> list[str]:
+    """What who may change the notice reads about its e-mails: how many went out for the notice as
+    it is now, never to whom, and that sent is not read. Nothing pretends an e-mail that did not go."""
+    sent, total, failed = email.sent_count(notice)
+    smallest = policy.min_reporting_size(notice.church)
+    if not sent and not email_is_configured():
+        return ["No hay correo configurado: este aviso solo se ve en Emmaus."]
+    if not sent and notice.state != "publicado":
+        return ["No ha salido ningún correo por este aviso."] if notice.state == "programado" else []
+    if not sent and email.will_not_be_mailed(notice):
+        # Published while the server had no e-mail, or before e-mails existed, and its days have passed.
+        return [
+            f"No salió ningún correo por este aviso y ya no saldrá ninguno: los correos solo salen en los {email.WINDOW_DAYS}"
+            " días siguientes a su publicación. Este aviso solo se ve en Emmaus."
+        ]
+    if total < smallest:  # with so few readers the number would say who chose what
+        lines = [f"Este aviso es para menos de {smallest} personas con cuenta: aquí no se cuenta cuántos correos salieron."]
+    elif not sent:
+        lines = ["Hasta ahora no ha salido ningún correo por este aviso."]
+    elif sent < smallest:
+        lines = [f"Salieron menos de {smallest} correos por este aviso."]
+    elif 0 < total - sent < smallest:
+        lines = [f"Salió un correo a casi todas las {total} personas con cuenta a quienes va este aviso."]
+    elif sent > total:  # people left the group since
+        lines = [f"Salieron {sent} correos por este aviso."]
+    else:
+        lines = [f"Salieron {sent} correos: a {sent} de las {total} personas con cuenta a quienes va este aviso."]
+    if notice.version > 1 and total >= smallest:
+        lines[0] += " Cuenta desde el último cambio que pidió «Enterado» otra vez."
+    if failed:
+        lines.append("Algunos correos no se pudieron enviar.")
+    lines.append(
+        "Cada persona elige qué avisos le llegan por correo. El correo solo dice que hay un aviso y lleva el enlace a"
+        " esta página. Un correo enviado no es un correo leído."
+    )
+    return lines
+
+
+def _base_url(request) -> str:
+    """The address of this Emmaus as the person reached it: what an e-mail's link starts with."""
+    return request.build_absolute_uri("/")
+
+
 def _day(day) -> str:
     return formats.date_format(day, r"j \d\e F \d\e Y").lower()
 
@@ -141,6 +190,8 @@ def notice_detail(request, notice_id: int):
         if can_edit:
             context["acknowledged_line"], context["count_given"] = _acknowledged_line(notice)
             context["asked_again_on"] = timezone.localdate(notice.changed_at) if notice.changed_at else None
+    if can_edit:
+        context["emailed_lines"] = _emailed_lines(notice)
     return render(request, "notices/detail.html", context)
 
 
@@ -194,7 +245,7 @@ def notice_create(request):
             notice = services.publish(
                 request.church, request.user, group=group, title=data["title"], body=data["body"],
                 publish_on=data["publish_on"], expires_on=data["expires_on"],
-                priority=data["priority"],
+                priority=data["priority"], base_url=_base_url(request),
             )
         except services.NoticeError as error:
             form.add_error(None, error.message)
@@ -204,7 +255,7 @@ def notice_create(request):
             else:
                 messages.success(request, f"Publicaste el aviso p{notice.audience[1:]}.")
             return redirect("notices:detail", notice.pk)
-    return render(request, "notices/form.html", {"form": form, "notice": None})
+    return render(request, "notices/form.html", {"form": form, "notice": None, "email_configured": email_is_configured()})
 
 
 @community_view
@@ -221,7 +272,7 @@ def notice_edit(request, notice_id: int):
             saved = services.update(
                 notice, request.user, title=data["title"], body=data["body"],
                 publish_on=data["publish_on"], expires_on=data["expires_on"],
-                priority=data.get("priority"), material=form.material_answer,
+                priority=data.get("priority"), material=form.material_answer, base_url=_base_url(request),
             )
         except services.NoticeError as error:
             form.add_error(None, error.message)
@@ -252,4 +303,22 @@ def notice_retire(request, notice_id: int):
             "action": "Sí, retirar el aviso",
             "back_url": reverse("notices:detail", args=[notice.pk]),
         },
+    )
+
+
+@community_view
+def email_preferences(request):
+    """"Avisos por correo": the person's own choice of which notices they hear about by e-mail."""
+    person = request.person
+    # ``data`` even when empty: a form sent with nothing chosen is answered with the error, not shown again as new.
+    data = request.POST if request.method == "POST" else None
+    form = EmailPreferenceForm(data, initial={"choice": email.preference(person)})
+    if request.method == "POST" and form.is_valid():
+        email.set_preference(person, form.cleaned_data["choice"])
+        messages.success(request, "Guardamos tu elección.")
+        return redirect("notices:email_preferences")
+    return render(
+        request,
+        "notices/email_preferences.html",
+        {"form": form, "address": person.email, "email_configured": email_is_configured()},
     )

@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Se liberó un lugar en un evento de {{ church_name }} en el que estás en lista de espera. Entra a Emmaus con tu cuenta para aceptarlo o dejarlo pasar:
+
+{{ link }}
+
+El lugar se guarda para ti por tiempo limitado: en Emmaus ves hasta cuándo. Por privacidad, este correo no incluye más detalles.
+{% endautoescape %}

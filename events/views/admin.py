@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import timedelta
 
 from django import forms
 from django.contrib import messages
@@ -212,11 +213,52 @@ def participant_import(request, event, access):
     preview = request.session.get(IMPORT_SESSION_KEY)
     if preview and preview.get("event") != event.id:
         preview = None
-    if request.method == "POST" and request.POST.get("action") == "confirm" and preview:
+    # Coordinador cells that matched nobody (a nickname): the administrator says who each one is before the review.
+    # A preview stored before this step existed has no "mapping" key and no unmatched values: it goes on as before.
+    unmatched = participant_svc.unmatched_coordinators(preview["rows"]) if preview else []
+    needs_mapping = bool(unmatched) and preview.get("mapping") is None
+    if request.method == "POST" and request.POST.get("action") == "map" and preview and unmatched:
+        choices, remember = {}, set()
+        for index, item in enumerate(unmatched):
+            chosen = request.POST.get(f"coordinador_{index}", "")
+            choices[item["key"]] = int(chosen) if chosen.isascii() and chosen.isdigit() else None
+            if request.POST.get(f"recordar_{index}"):
+                remember.add(item["key"])
+        mapping = participant_svc.apply_mapping(event, preview["rows"], choices)  # the session's rows; no database write
+        for key, entry in mapping.items():
+            entry["save"] = bool(entry["id"]) and key in remember
+        preview["mapping"] = mapping
+        request.session[IMPORT_SESSION_KEY] = preview
+        return redirect("events:participant_import", slug=event.slug)
+    if request.method == "POST" and request.POST.get("action") == "remap" and preview:
+        preview["mapping"] = None
+        request.session[IMPORT_SESSION_KEY] = preview
+        return redirect("events:participant_import", slug=event.slug)
+    if request.method == "POST" and request.POST.get("action") == "confirm" and preview and not needs_mapping:
         include = {int(line) for line in request.POST.getlist("include") if line.isascii() and line.isdigit()}
-        result = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
+        with transaction.atomic():
+            result = participant_svc.apply_import(event, preview["rows"], actor=request.user, include_lines=include)
+            saved, refused = 0, []
+            for entry in (preview.get("mapping") or {}).values():
+                membership = EventMembership.objects.filter(pk=entry["id"], event=event).select_related("user").first() if entry.get("save") else None
+                if membership is None:
+                    continue
+                ok, why = participant_svc.save_alias(membership, entry["value"], actor=request.user)
+                saved += ok
+                if why:
+                    refused.append(why)
         request.session.pop(IMPORT_SESSION_KEY, None)
-        messages.success(request, result.message)
+        text = result.message
+        if saved:
+            text += (" Guardamos 1 nombre para la próxima importación." if saved == 1
+                     else f" Guardamos {saved} nombres para la próxima importación.")
+        messages.success(request, text)
+        for why in refused:
+            messages.warning(request, why)
+        if result.coordinator_note:
+            # The list of camperos, filtered to those with no coordinator (these and any from before)
+            messages.warning(request, result.coordinator_note)
+            return redirect(reverse("events:participants", args=[event.slug]) + "?coordinador=ninguno")
         return redirect("events:participants", slug=event.slug)
     if request.method == "POST" and request.POST.get("action") == "cancel":
         request.session.pop(IMPORT_SESSION_KEY, None)
@@ -226,7 +268,7 @@ def participant_import(request, event, access):
     if request.method == "POST" and request.POST.get("action") != "confirm" and form.is_valid():
         rows, problems = participant_svc.parse_import(event, form.cleaned_data["file"].read())
         if not problems:
-            preview = {"event": event.id, "rows": [r.as_session() for r in rows], "name": form.cleaned_data["file"].name}
+            preview = {"event": event.id, "rows": [r.as_session() for r in rows], "name": form.cleaned_data["file"].name, "mapping": None}
             request.session[IMPORT_SESSION_KEY] = preview
             return redirect("events:participant_import", slug=event.slug)
     summary = None
@@ -237,12 +279,15 @@ def participant_import(request, event, access):
             "valid": sum(1 for r in rows if not r["errors"]),
             "errors": sum(1 for r in rows if r["errors"]),
             "duplicates": sum(1 for r in rows if r["duplicate_of"] or r["duplicate_in_file"]),
+            "no_coordinator": sum(1 for r in rows if not r["errors"] and not r["coordinator_id"]),
         }
-    return render(
-        request,
-        "events/admin/import.html",
-        {"form": form, "problems": problems, "preview": preview, "summary": summary},
-    )
+    context = {"form": form, "problems": problems, "preview": preview, "summary": summary, "needs_mapping": needs_mapping}
+    if needs_mapping:
+        context["unmatched"] = unmatched
+        context["coordinators"] = access.coordinators().filter(is_active=True).select_related("user")
+    elif preview:
+        context["mapping"] = list((preview.get("mapping") or {}).values())
+    return render(request, "events/admin/import.html", context)
 
 
 @event_view(ADMIN)
@@ -453,10 +498,16 @@ def participant_delete(request, event, access, public_id):
 
 
 def _managed_elsewhere(event, user) -> bool:
-    """A superuser, or an account with a role or a team in another church: this administration does not own it."""
+    """A superuser, or an account with a role, a team or a person's record in another church: this administration
+    does not own it. The last one is the account another church gave a plain member (``people.grant_access``):
+    it has no role and no team anywhere, and maybe no password yet."""
+    from people.models import Person
+
     if user.is_superuser:
         return True
     if UserChurchRole.objects.filter(user=user).exclude(church_id=event.church_id).exists():
+        return True
+    if Person.objects.filter(user=user).exclude(church_id=event.church_id).exists():
         return True
     return EventMembership.objects.filter(user=user).exclude(event__church_id=event.church_id).exists()
 
@@ -469,7 +520,18 @@ def _can_issue_activation_link(event, user) -> bool:
     """
     if user.has_usable_password() or user.is_staff:
         return False
-    return not _managed_elsewhere(event, user)
+    if _managed_elsewhere(event, user):
+        return False
+    # "Created here": ``team.add_member`` makes the account and its first membership in one transaction. An account
+    # that was already there when it joined a team, or that the church keeps in Personas (which gives its own link,
+    # to the church's administration), is its owner's: the event's administration never makes a link to it.
+    from people.models import Person
+
+    if Person.objects.filter(user=user).exists():
+        return False
+    return EventMembership.objects.filter(
+        user=user, event__church_id=event.church_id, created_at__lte=user.date_joined + timedelta(seconds=10)
+    ).exists()
 
 
 def _activation_link(request, user) -> str:
@@ -478,21 +540,52 @@ def _activation_link(request, user) -> str:
     return request.build_absolute_uri(reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token}))
 
 
-def _member_added(request, event, added):
-    """After "Agregar persona" or an approved request: a new account gets its link (by e-mail and on screen).
+def _invite(request, event, user) -> tuple[str, bool, bool]:
+    """The invitation of an account created in this very request ("Agregar persona", an approved request, the team
+    import): a fresh link to create the password, sent by e-mail when e-mail is configured. Returns (link, sent,
+    configured); the caller says an e-mail went out only when ``sent``. Never for an account that already existed:
+    that is ``_tell_existing_account``."""
+    created_link = _activation_link(request, user)
+    configured = team_svc.email_is_configured()
+    sent = configured and send_email_safely(
+        f"Te invitaron a {event.name} en Emmaus",
+        f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}. Crea tu contraseña aquí:\n{created_link}\n\nSi no esperabas este correo, ignóralo.",
+        [user.email],
+    )
+    return created_link, bool(sent), configured
 
-    An existing account that never set a password gets the link too, when ``_can_issue_activation_link``
-    allows it; otherwise it could never sign in. The message says an e-mail went out only when one could.
-    """
+
+def _tell_existing_account(request, event, membership) -> bool:
+    """An account that existed before this request was added to the team: tell its owner, at the account's own
+    address, and nothing else. No link to create a password is made for it, by e-mail or on screen: whoever typed
+    the address does not own the account (it may be another church's, with no password yet). The owner signs in,
+    or uses "¿Olvidaste tu contraseña?", which also serves an account that never had one. True if the e-mail went."""
+    user = membership.user
+    if not (team_svc.email_is_configured() and user.email):
+        return False
+    sign_in = request.build_absolute_uri(reverse("login"))
+    return bool(send_email_safely(
+        f"Te invitaron a {event.name} en Emmaus",
+        f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}, como {membership.get_role_display().lower()}. "
+        f"Entra con tu cuenta de Emmaus:\n{sign_in}\n\nSi todavía no tienes contraseña o la olvidaste, toca "
+        "«¿Olvidaste tu contraseña?» en esa pantalla.\n\nSi no esperabas este correo, ignóralo.",
+        [user.email],
+    ))
+
+
+EXISTING_TOLD = "Ya tiene cuenta en Emmaus: le avisamos por correo."
+EXISTING_NOT_TOLD = ("Ya tiene cuenta en Emmaus, pero no pudimos enviarle la invitación. Avísale tú: entra con su "
+                     "contraseña o la recupera en «¿Olvidaste tu contraseña?», en la pantalla de entrada.")
+
+
+def _member_added(request, event, added):
+    """After "Agregar persona" or an approved request. Only an account created in this request gets its link on
+    screen (and by e-mail). An account that already existed, in this church or another, with or without a
+    password, is told by e-mail and never gets a link here: showing one would hand the account to whoever typed
+    its address. The message says an e-mail went out only when one did."""
     membership, user = added.membership, added.user
-    if added.is_new or _can_issue_activation_link(event, user):
-        created_link = _activation_link(request, user)
-        configured = team_svc.email_is_configured()
-        sent = configured and send_email_safely(
-            f"Te invitaron a {event.name} en Emmaus",
-            f"Hola {user.first_name}:\n\nTe agregaron al equipo de {event.name}. Crea tu contraseña aquí:\n{created_link}\n\nSi no esperabas este correo, ignóralo.",
-            [user.email],
-        )
+    if added.is_new:
+        created_link, sent, configured = _invite(request, event, user)
         if sent:
             delivery = " Le enviamos un correo para crear su contraseña."
         elif not configured:
@@ -509,16 +602,9 @@ def _member_added(request, event, added):
             "email_sent": bool(sent),
         }
         return render(request, "events/admin/member_created.html", context)
-    if _managed_elsewhere(event, user) or (user.is_staff and not user.has_usable_password()):
-        # Its link may only go to its owner's e-mail, and this administration may not learn whether it has a
-        # password: one message, with or without one.
-        messages.success(
-            request,
-            f"{membership.display_name} ya forma parte del equipo. Esta cuenta ya existe y la administra otra iglesia "
-            "o el sistema; pide a esa administración que le dé acceso.",
-        )
-        return redirect("events:team", slug=event.slug)
-    messages.success(request, f"{membership.display_name} ya forma parte del equipo. Puede entrar con su contraseña de siempre.")
+    told = _tell_existing_account(request, event, membership)
+    text = f"{membership.display_name} ya forma parte del equipo. {EXISTING_TOLD if told else EXISTING_NOT_TOLD}"
+    (messages.success if told else messages.warning)(request, text)
     return redirect("events:team", slug=event.slug)
 
 
@@ -653,6 +739,12 @@ def member_edit(request, event, access, membership_id):
             raise PermissionDenied
         link = _activation_link(request, membership.user)
         audit.record(request.user, event, "integrante_modificado", f"Generó un enlace para crear contraseña de {membership.display_name}", membership)
+    elif request.method == "POST" and request.POST.get("action") == "alias_delete":
+        alias_id = request.POST.get("alias") or ""
+        alias = get_object_or_404(membership.aliases, pk=int(alias_id) if alias_id.isascii() and alias_id.isdigit() else 0)
+        participant_svc.delete_alias(alias, actor=request.user)
+        messages.success(request, f"Quitamos «{alias.alias}». La próxima importación ya no lo reconocerá.")
+        return redirect("events:member_edit", slug=event.slug, membership_id=membership.pk)
     elif request.method == "POST" and form.is_valid():
         if membership.user_id == request.user.id and not form.cleaned_data["is_active"]:
             form.add_error("is_active", "No puedes desactivar tu propio acceso.")
@@ -678,7 +770,8 @@ def member_edit(request, event, access, membership_id):
                     )
             messages.success(request, "Cambios guardados.")
             return redirect("events:team", slug=event.slug)
-    return render(request, "events/admin/member_form.html", {"form": form, "membership": membership, "link": link, "can_link": can_link})
+    return render(request, "events/admin/member_form.html", {"form": form, "membership": membership, "link": link, "can_link": can_link,
+                                                             "aliases": list(membership.aliases.all())})
 
 
 @event_view(ADMIN)
@@ -706,7 +799,7 @@ def assignments(request, event, access):
                 audit.record(request.user, event, "asignacion_tutor", f"Cambió {changed} {'asignación' if changed == 1 else 'asignaciones'} de tutor", None, count=changed)
         messages.success(request, "Asignaciones guardadas." if changed else "No hubo cambios.")
         return redirect("events:assignments", slug=event.slug)
-    counts = dict(event.participants.filter(is_active=True).values_list("coordinator").annotate(n=Count("id")))
+    counts = dict(event.participants.real().filter(is_active=True).values_list("coordinator").annotate(n=Count("id")))
     rows = []
     for c in coordinators:
         current = getattr(c, "tutor_assignment", None)
@@ -727,11 +820,14 @@ def questionnaires(request, event, access):
         return _questionnaires_post(request, event)
     links = eq.links_for(event)
     in_use_version_ids = {link.version_id for link in links}
-    versions = QuestionnaireVersion.objects.filter(questionnaire__church=event.church).annotate(uses=Count("interviews"))
+    # Practice interviews (issue #49) are not uses: they never count anywhere
+    versions = QuestionnaireVersion.objects.filter(questionnaire__church=event.church).annotate(
+        uses=Count("interviews", filter=Q(interviews__participant__is_practice=False))
+    )
     # "En este evento": of the event's active camperos, how many completed each questionnaire (any version of it, like
     # the campero's status); "Versiones" (``versions``) counts every event's interviews.
     completed = dict(
-        Interview.objects.filter(
+        Interview.objects.real().filter(
             event=event,
             status=Interview.Status.COMPLETED,
             participant__is_active=True,
@@ -758,7 +854,7 @@ def questionnaires(request, event, access):
         "events/admin/questionnaires.html",
         {
             "links": links,
-            "camperos": event.participants.filter(is_active=True).count(),
+            "camperos": event.participants.real().filter(is_active=True).count(),
             "order_form": QuestionnaireOrderForm(initial={"questionnaires_in_order": event.questionnaires_in_order}),
             "questionnaires": church_questionnaires,
             "version_count": sum(len(q.listed_versions) for q in church_questionnaires),
@@ -1037,7 +1133,7 @@ def _open_before_closing(request, event, basics) -> list:
     if request.POST.get("cerrar_con_entrevistas") == "si":
         return []
     rows = mark_stalled(
-        Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS)
+        Interview.objects.real().filter(event=event, status=Interview.Status.IN_PROGRESS)  # a practice one never holds the event open
         .select_related("participant__coordinator__user", "station", "version")
         .order_by("last_activity_at")
     )
@@ -1131,10 +1227,10 @@ def sessions(request, event, access):
             raise Http404
         return redirect("events:sessions", slug=event.slug)
     now = timezone.now()
-    captures = ParticipantSession.objects.filter(interview__event=event).exclude(state=ParticipantSession.State.CLOSED).select_related(
+    captures = ParticipantSession.objects.real().filter(interview__event=event).exclude(state=ParticipantSession.State.CLOSED).select_related(
         "interview__participant", "station", "started_by"
     )
-    claims = Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS).select_related("participant", "lock_holder", "station").order_by("-last_activity_at")
+    claims = Interview.objects.real().filter(event=event, status=Interview.Status.IN_PROGRESS).select_related("participant", "lock_holder", "station").order_by("-last_activity_at")
     return render(request, "events/admin/sessions.html", {"captures": captures, "claims": claims, "now": now})
 
 

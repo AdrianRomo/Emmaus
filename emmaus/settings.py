@@ -53,9 +53,12 @@ INSTALLED_APPS = [
     "care",
     "feedback",
     "overview",
+    "policies",
 ]
 
 MIDDLEWARE = [
+    # Outermost: it times the whole request and sees the final status. One line per request, no path (issue #52).
+    "core.request_log.RequestLogMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "events.middleware.PrivateResponseMiddleware",
@@ -189,8 +192,16 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
     # Request bodies (questionnaire answers) are never logged: no handler here prints POST data.
-    "loggers": {"django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False}},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+        # core.request_log: one JSON line per request (URL name, method, status, ms, role) and one per unhandled
+        # exception (URL name, method, class name). Their own levels, so LOG_LEVEL=WARNING does not silence the metrics.
+        "emmaus.request": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "emmaus.error": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
 }
+# Off switch for both lines. On unless a test run, which turns it on where it tests it.
+EMMAUS_REQUEST_LOG = env_bool("EMMAUS_REQUEST_LOG", not TESTING)
 
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
@@ -198,6 +209,9 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587") or 587)
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
+# Seconds a connection to the mail server may block. Without it one hung server holds a web request (a publish
+# that mails a notice, an offer from a waiting list) until the worker is killed.
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10") or 10)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Emmaus <no-reply@example.org>")
 
 # Kill switch for the per-church module flags (decision 0004): false reads every flag as off, whatever the rows say.

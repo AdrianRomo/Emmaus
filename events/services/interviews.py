@@ -272,16 +272,21 @@ def _record_consents(participant, interview, confirmed: set[str], actor) -> None
         )
 
 
-def event_blockers(event: Event) -> list[str]:
-    """Why interviews cannot start yet, each with what to do (a coordinator reads them)."""
+def event_blockers(event: Event, *, practice: bool = False) -> list[str]:
+    """Why interviews cannot start yet, each with what to do (a coordinator reads them).
+
+    ``practice``: for the practice campero (issue #49). The team rehearses in the days before the camp, while the
+    event is still "En preparación" and the church may not have confirmed its procedures yet: only a missing
+    questionnaire or an event that already ended stops a practice interview."""
     problems = []
     if event.status == Event.Status.DRAFT:
-        problems.append("El evento todavía no está en curso. Avisa a la administración.")
+        if not practice:
+            problems.append("El evento todavía no está en curso. Avisa a la administración.")
     elif event.status != Event.Status.ACTIVE:
         problems.append("El evento ya terminó. Si falta alguna entrevista, avisa a la administración.")
     if not event.has_questionnaire:
         problems.append(NO_QUESTIONNAIRE_MESSAGE)
-    if not event.procedures_approved:
+    if not event.procedures_approved and not practice:
         problems.append(
             "La administración todavía no confirma los procedimientos de autorización y protección de la iglesia. Avísale."
         )
@@ -304,7 +309,7 @@ def start_interview(
     """Start the campero's interview for ``questionnaire`` (a Questionnaire or its id), or for the next one
     they can answer when it is None."""
     event = access.event
-    blockers = event_blockers(event)
+    blockers = event_blockers(event, practice=participant.is_practice)
     if blockers:
         raise NotAllowed(blockers[0])
     if mode not in Interview.Mode.values:
@@ -570,7 +575,12 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
                 confidential=True,
                 created_by=None,
             )
-        audit.record(actor, locked.event, "entrevista_completada", f"Completó la entrevista del campero #{participant.code}", locked)
+        if participant.is_practice:
+            # Its own action: "ya practicó" on Equipo reads these rows (services.practice.practised_user_ids), and they
+            # outlive the practice interview, which the next rehearsal deletes. Nothing reads them as an interview.
+            audit.record(actor, locked.event, audit.PRACTICE_COMPLETED, "Completó una entrevista de práctica", locked)
+        else:
+            audit.record(actor, locked.event, "entrevista_completada", f"Completó la entrevista del campero #{participant.code}", locked)
     if session is not None:
         _forget_claim(session, locked)
     return locked
@@ -971,6 +981,8 @@ def report_safety_concern(access, participant: EventParticipant, *, details: str
     """
     from .notifications import notify_safety_report
 
+    if participant.is_practice:  # a rehearsal never alerts the care team (the screen is not offered either)
+        raise NotAllowed("El campero de práctica no admite reportes de riesgo.")
     follow_up = follow_ups.create(
         event=access.event,
         participant=participant,

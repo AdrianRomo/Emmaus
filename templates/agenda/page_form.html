@@ -11,6 +11,23 @@
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Página del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
   <p class="aside-note">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}. {% if event.camp_tools %}El nombre, las fechas y el lugar se cambian en la configuración del evento.{% else %}<a href="{% url 'agenda:event_edit' event.slug %}">Cambiar el nombre, las fechas o el lugar</a>.{% endif %}</p>
+  {% if public_link %}
+  <section class="block public-link" aria-labelledby="publica">
+    <h2 id="publica" class="heading">Página pública del evento</h2>
+    <p>Cualquiera con este enlace lee la información del evento sin entrar a Emmaus. No muestra quién se inscribió ni cuántos lugares quedan.</p>
+    <div class="field admin-link">
+      <label class="label" for="enlace-publico">Enlace de la página pública</label>
+      <input class="input" id="enlace-publico" value="{{ public_link }}" readonly>
+    </div>
+    <div class="step__actions">
+      <button class="btn btn--secondary" type="button" data-copy="enlace-publico" data-copy-done="Enlace copiado">Copiar enlace</button>
+      <a class="btn btn--link" href="{{ public_link }}" target="_blank" rel="noopener">Ver la página pública<span class="visually-hidden"> (se abre en otra pestaña)</span></a>
+    </div>
+    <p class="aside-note"><a href="{{ public_share_url }}" target="_blank" rel="noopener">Compartir por WhatsApp</a> (se abre en otra pestaña). El mensaje solo lleva el nombre de la iglesia y el enlace.</p>
+  </section>
+  {% elif public_wanted %}
+  <div class="notice notice--quiet"><p>Marcaste que cualquiera con el enlace puede ver este evento, pero la página pública todavía no funciona: el evento tiene que estar publicado, activo y no haber terminado.</p></div>
+  {% endif %}
   <div class="block">
   <form method="post" novalidate>
     {% csrf_token %}

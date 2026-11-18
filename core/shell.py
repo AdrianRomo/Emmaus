@@ -25,11 +25,15 @@ GROUP_WORK_VIEWS = {
 GROUP_ADMIN_VIEWS = {
     "community:group_admin_list", "community:group_create", "community:group_edit", "community:group_archive",
 }
-AGENDA_VIEWS = {"agenda:list", "agenda:detail", "agenda:cancel", "agenda:register", "feedback:give"}
+AGENDA_VIEWS = {
+    "agenda:list", "agenda:detail", "agenda:cancel", "agenda:register", "agenda:accept_offer", "agenda:leave_waiting",
+    "feedback:give",
+}
 AGENDA_ADMIN_VIEWS = {
     "agenda:admin_list", "agenda:page_edit", "agenda:registrations", "agenda:create", "agenda:event_edit", "agenda:duplicate",
     "agenda:walkup", "agenda:confirm_age", "agenda:guest_age", "agenda:annul", "agenda:consent", "agenda:consent_revoke", "agenda:guest_promote", "agenda:faq", "agenda:faq_edit",
     "agenda:faq_delete", "agenda:schedule", "agenda:schedule_edit", "agenda:schedule_delete", "feedback:results",
+    "agenda:waiting_remove", "agenda:visit_follow_up",
 }
 DEVOTIONAL_VIEWS = {"resources:devotional_today", "resources:devotional_list", "resources:devotional_detail"}
 RESOURCE_ADMIN_VIEWS = {
@@ -145,7 +149,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
         admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional", view in RESOURCE_ADMIN_VIEWS))
-        admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list"}))
+        admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"}))
         admin_urls = {item["url"] for item in admin}
 
     module = [

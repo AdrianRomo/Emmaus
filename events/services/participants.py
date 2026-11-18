@@ -6,7 +6,7 @@ import csv
 import io
 from dataclasses import dataclass, field
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Max, OuterRef, Q, Subquery
 from django.utils.text import slugify
 
@@ -15,6 +15,7 @@ from ..models import (
     Event,
     EventMembership,
     EventParticipant,
+    MembershipAlias,
     MembershipRole,
     Sede,
     normalize_name,
@@ -31,7 +32,7 @@ def possible_duplicates(event: Event, full_name: str, *, exclude_id: int | None 
     if not normalized:
         return EventParticipant.objects.none()
     tokens = sorted(normalized.split())
-    candidates = EventParticipant.objects.filter(event=event).select_related("coordinator__user")
+    candidates = EventParticipant.objects.real().filter(event=event).select_related("coordinator__user")
     if exclude_id:
         candidates = candidates.exclude(pk=exclude_id)
     first, last = tokens[0], tokens[-1]
@@ -242,6 +243,9 @@ class ImportRow:
     church_group: str = ""
     coordinator_id: int | None = None
     coordinator_label: str = ""
+    # What the "Coordinador" cell said when it matched nobody (not an e-mail, a full name or a saved alias): the
+    # mapping step asks who it is. The row is still importable; unanswered, the campero has no coordinator.
+    coordinator_raw: str = ""
     guardian: bool = False
     sede_id: int | None = None
     sede_label: str = ""
@@ -267,8 +271,9 @@ def _canonical_headers(fieldnames) -> dict[str, str]:
     return mapping
 
 
-def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], list[str]]:
-    """Validate a CSV without writing anything. Returns rows and file-level problems."""
+def csv_reader(uploaded_bytes: bytes) -> csv.DictReader:
+    """A spreadsheet's CSV as Excel or Google Sheets save it: UTF-8 (with or without BOM) or Latin-1; comma,
+    semicolon or tab. Shared by the campero import and the team import."""
     try:
         text = uploaded_bytes.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -278,8 +283,38 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
         dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
     except csv.Error:
         dialect = csv.excel
-    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
-    headers = _canonical_headers(reader.fieldnames)
+    return csv.DictReader(io.StringIO(text), dialect=dialect)
+
+
+UNREADABLE_CSV = ("No pudimos leer el archivo: una celda es demasiado larga o tiene comillas sin cerrar. Ábrelo en tu "
+                  "hoja de cálculo, guárdalo otra vez como CSV (UTF-8) y súbelo de nuevo.")
+
+
+def csv_rows(uploaded_bytes: bytes) -> tuple[list[str], list[dict], str]:
+    """(headers, rows, problem) of an uploaded CSV, read whole. Python's reader raises ``csv.Error`` on a cell over
+    131,072 characters (which is also what a quote left open becomes) and on other malformed input: that is a
+    problem with the file, said in words, never a server error. Both imports read through here."""
+    try:
+        reader = csv_reader(uploaded_bytes)
+        return list(reader.fieldnames or []), list(reader), ""
+    except csv.Error:
+        return [], [], UNREADABLE_CSV
+
+
+def coordinator_aliases(event: Event) -> dict[str, EventMembership]:
+    """normalized alias -> the active coordinator it names, for this event only."""
+    aliases = MembershipAlias.objects.filter(
+        event=event, membership__event=event, membership__role=MembershipRole.COORDINATOR, membership__is_active=True
+    ).select_related("membership__user")
+    return {a.normalized: a.membership for a in aliases}
+
+
+def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], list[str]]:
+    """Validate a CSV without writing anything. Returns rows and file-level problems."""
+    fieldnames, raw_rows, unreadable = csv_rows(uploaded_bytes)
+    if unreadable:
+        return [], [unreadable]
+    headers = _canonical_headers(fieldnames)
     problems = []
     missing = [label for key, label in [("full_name", "Nombre"), ("age", "Edad"), ("room", "Cuarto"), ("church_group", "Iglesia o grupo")] if key not in headers.values()]
     if missing:
@@ -291,6 +326,7 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
     )
     by_email = {c.user.email.lower(): c for c in coordinators if c.user.email}
     by_name = {normalize_name(c.display_name): c for c in coordinators}
+    by_alias = coordinator_aliases(event)  # after e-mail and full name: a nickname never outranks who somebody is
     sedes = list(event.allowed_sedes())
     sede_by_key: dict[str, list[Sede]] = {}
     for sede in sedes:  # name or identifier, without case or accents: "Mérida", "MERIDA", "merida"
@@ -301,7 +337,7 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
 
     rows: list[ImportRow] = []
     seen_names: dict[str, int] = {}
-    for index, raw in enumerate(reader, start=2):
+    for index, raw in enumerate(raw_rows, start=2):
         if index - 1 > MAX_IMPORT_ROWS:
             problems.append(f"El archivo tiene más de {MAX_IMPORT_ROWS} filas. Divídelo en partes.")
             break
@@ -327,12 +363,13 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
             row.errors.append("Falta la iglesia o grupo.")
         coordinator_raw = values.get("coordinator", "")
         if coordinator_raw:
-            match = by_email.get(coordinator_raw.lower()) or by_name.get(normalize_name(coordinator_raw))
+            key = normalize_name(coordinator_raw)
+            match = by_email.get(coordinator_raw.lower()) or by_name.get(key) or by_alias.get(key)
             if match:
                 row.coordinator_id = match.id
                 row.coordinator_label = match.display_name
             else:
-                row.errors.append(f"No encontramos al coordinador “{coordinator_raw}” en este evento.")
+                row.coordinator_raw = coordinator_raw[:ALIAS_MAX]
         row.guardian = normalize_name(values.get("guardian", "")) in YES_VALUES
         sede_raw = values.get("sede", "")
         if sede_raw:
@@ -369,6 +406,7 @@ class ImportResult:
     # Rows imported without the sede their preview showed: it was deleted, deactivated or left the event's list
     # between the preview (kept in the session) and the confirmation.
     sede_unavailable: int = 0
+    without_coordinator: int = 0
 
     @property
     def message(self) -> str:
@@ -378,6 +416,15 @@ class ImportResult:
         elif self.sede_unavailable:
             text += f" {self.sede_unavailable} camperos quedaron sin sede porque la sede ya no estaba disponible."
         return text
+
+    @property
+    def coordinator_note(self) -> str:
+        """The report at the end of the import (issue #50): who was left without a coordinator. "" when nobody."""
+        if self.without_coordinator == 1:
+            return "1 campero quedó sin coordinador. Aquí lo ves: asígnale uno desde su ficha."
+        if self.without_coordinator:
+            return f"{self.without_coordinator} camperos quedaron sin coordinador. Aquí los ves: asígnales uno desde su ficha."
+        return ""
 
 
 def apply_import(event: Event, rows: list[dict], *, actor, include_lines: set[int]) -> ImportResult:
@@ -395,6 +442,8 @@ def apply_import(event: Event, rows: list[dict], *, actor, include_lines: set[in
         sede = allowed_sedes.get(sede_id)
         if sede_id and sede is None:
             result.sede_unavailable += 1
+        if not coordinator_id:
+            result.without_coordinator += 1
         create_participant(
             event,
             actor=actor,
@@ -410,5 +459,101 @@ def apply_import(event: Event, rows: list[dict], *, actor, include_lines: set[in
         result.created += 1
     created = result.created
     summary = "Importó 1 campero desde un archivo" if created == 1 else f"Importó {created} camperos desde un archivo"
-    audit.record(actor, event, "importacion", summary, None, count=created, sin_sede=result.sede_unavailable)
+    audit.record(actor, event, "importacion", summary, None, count=created, sin_sede=result.sede_unavailable,
+                 sin_coordinador=result.without_coordinator)
     return result
+
+
+# ---- Coordinador values the file names differently (nicknames) -----------------------------
+
+ALIAS_MAX = 150
+FORMULA_STARTS = ("=", "+", "-", "@", "\t", "\r")  # what a spreadsheet runs as a formula (exports.safe_cell)
+
+
+def unmatched_coordinators(rows: list[dict]) -> list[dict]:
+    """Each distinct unrecognised "Coordinador" value of the importable rows, in file order, with how many rows
+    carry it. Compared as aliases are: "Chuy", "CHUY" and "chúy" are one value."""
+    found: dict[str, dict] = {}
+    for row in rows:
+        raw = row.get("coordinator_raw") or ""
+        key = normalize_name(raw)
+        if not key or row["errors"]:
+            continue
+        found.setdefault(key, {"key": key, "value": raw, "count": 0})["count"] += 1
+    return list(found.values())
+
+
+def apply_mapping(event: Event, rows: list[dict], choices: dict[str, int | None]) -> dict[str, dict]:
+    """Put the administrator's answers on the preview rows (nothing is written to the database). ``choices``:
+    normalized value -> the membership chosen, or None for "sin coordinador". A membership that is not an active
+    coordinator of this event is refused as if nothing had been chosen. Returns what was decided, per value."""
+    coordinators = {
+        c.id: c
+        for c in EventMembership.objects.filter(event=event, role=MembershipRole.COORDINATOR, is_active=True).select_related("user")
+    }
+    decided: dict[str, dict] = {}
+    for item in unmatched_coordinators(rows):
+        chosen = coordinators.get(choices.get(item["key"]))
+        decided[item["key"]] = {
+            "value": item["value"], "count": item["count"],
+            "id": chosen.id if chosen else None, "label": chosen.display_name if chosen else "",
+        }
+    for row in rows:
+        entry = decided.get(normalize_name(row.get("coordinator_raw") or ""))
+        if entry is not None and not row["errors"]:
+            row["coordinator_id"], row["coordinator_label"] = entry["id"], entry["label"]
+    return decided
+
+
+def save_alias(membership: EventMembership, alias: str, *, actor) -> tuple[bool, str]:
+    """Remember ``alias`` as another name of this coordinator, for the next import. Returns (saved, why not).
+
+    One alias names one person per event: a value that already belongs to somebody else is left alone and said so.
+    Saving the same alias twice changes nothing and writes no second audit row.
+    """
+    alias = " ".join((alias or "").split())[:ALIAS_MAX]
+    key = normalize_name(alias)
+    if not key:
+        return False, ""
+    if alias.startswith(FORMULA_STARTS):
+        return False, f"«{alias}» empieza con un signo que las hojas de cálculo leen como fórmula: no se guardó."
+    if membership.role != MembershipRole.COORDINATOR or not membership.is_active:
+        return False, f"{membership.display_name} ya no es coordinador en este evento: «{alias}» no se guardó."
+    if len(key) > ALIAS_MAX:
+        # Some letters grow when compared ("ﬃ" is "ffi"): the comparable form must fit its column too, or PostgreSQL
+        # refuses the row and takes the whole import's transaction with it.
+        return False, "Uno de los nombres es demasiado largo para recordarlo: no se guardó."
+    found = MembershipAlias.objects.filter(event_id=membership.event_id, normalized=key).select_related("membership__user")
+    existing = found.first()
+    if existing is None:
+        try:
+            with transaction.atomic():
+                MembershipAlias.objects.create(event_id=membership.event_id, membership=membership, alias=alias, created_by=actor)
+        except IntegrityError:  # saved by somebody else a moment ago
+            existing = found.first()
+            if existing is None:
+                raise
+    if existing is not None:
+        owner = existing.membership
+        if owner.pk == membership.pk:
+            return True, ""
+        if owner.role == MembershipRole.COORDINATOR and owner.is_active:
+            return False, f"«{alias}» ya es otro nombre de {owner.display_name}: no se cambió."
+        # Its owner no longer coordinates here, so the import had stopped recognising the name: it would be lost
+        # for good. It passes to the coordinator the administrator just named.
+        existing.membership, existing.alias, existing.created_by = membership, alias, actor
+        existing.save()
+        audit.record(actor, membership.event, "alias_guardado",
+                     f"Pasó «{alias}» de {owner.display_name}, que ya no coordina, a {membership.display_name} para las importaciones",
+                     membership, reasignado=True, antes=owner.pk)
+        return True, ""
+    audit.record(actor, membership.event, "alias_guardado",
+                 f"Guardó «{alias}» como otro nombre de {membership.display_name} para las importaciones", membership)
+    return True, ""
+
+
+def delete_alias(alias: MembershipAlias, *, actor) -> None:
+    membership = alias.membership
+    audit.record(actor, membership.event, "alias_eliminado",
+                 f"Quitó «{alias.alias}» como otro nombre de {membership.display_name}", membership)
+    alias.delete()

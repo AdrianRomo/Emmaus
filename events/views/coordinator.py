@@ -126,6 +126,9 @@ def my_participants(request, event, access):
         request,
         "events/coordinator/participants.html",
         {
+            # Shown apart, marked "De práctica", and in no count of this page (issue #49). A coordinador sees it while
+            # it is theirs; the administration reaches it from Preparación, so its list stays the camperos'.
+            "practice": access.practice_participant() if access.is_coordinator else None,
             "participants": participants,
             "query": query,
             "status": status,
@@ -203,7 +206,7 @@ def participant_create(request, event, access):
             return redirect("events:participant_create", slug=event.slug)
         return redirect("events:my_participants" if access.is_coordinator else "events:participants", slug=event.slug)
     groups = (
-        event.participants.exclude(church_group="").values_list("church_group", flat=True).distinct().order_by("church_group")[:60]
+        event.participants.real().exclude(church_group="").values_list("church_group", flat=True).distinct().order_by("church_group")[:60]
     )
     return render(request, "events/participant_form.html", {"form": form, "groups": groups, "creating": True})
 
@@ -249,13 +252,26 @@ def coord_progress(request, event, access):
 
 @event_view()
 def participant_detail(request, event, access, public_id):
-    participant = get_object_or_404(access.participants(include_inactive=True), public_id=public_id)
+    participant = get_object_or_404(access.participants(include_inactive=True, include_practice=True), public_id=public_id)
     # One questionnaire: the "Entrevista" block shows ``interview`` (the newest kept), as it always did. Several: one row
     # per questionnaire of the event (``questionnaire_rows``); the page head offers to resume ``live_interview``.
     interview = participant.interviews.exclude(status=Interview.Status.DISCARDED).first()
     live_interview = participant.interviews.filter(status=Interview.Status.IN_PROGRESS).first()
     questionnaire_rows = eq.progress_for(participant) if event.questionnaire_count > 1 else []
     questionnaires_done = sum(1 for row in questionnaire_rows if row.state == eq.COMPLETED)
+    if participant.is_practice:  # its own page (issue #49): the rehearsal only, nothing to correct, authorize or follow up
+        return render(
+            request,
+            "events/practice_detail.html",
+            {
+                "participant": participant,
+                "interview": interview,
+                "live_interview": live_interview,
+                "questionnaire_rows": questionnaire_rows,
+                "questionnaires_done": questionnaires_done,
+                "can_interview": access.can_interview(participant),
+            },
+        )
     follow_ups = access.follow_ups().filter(participant=participant)
     from ..models import ConsentRecord
     from ..services.participants import latest_consent

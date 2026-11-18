@@ -84,10 +84,14 @@ class Command(BaseCommand):
         # requests keep a stranger's name and e-mail: neither may grow forever.
         counters = throttle.purge_expired(now)
         old_requests = purge_decided_requests(now)
-        ready = sum(1 for s in snapshots if s.status == "listo")
-        failed = len(snapshots) - ready
+        # run_due_cutoffs returns the cutoff of the current slot on every pass, stored or not: only the ones stored
+        # on this pass (created after it began) are new. Counting them all read as new cutoffs every 5 minutes (#52).
+        ready = [s for s in snapshots if s.status == "listo"]
+        new = sum(1 for s in ready if s.created_at >= now)
+        failed = len(snapshots) - len(ready)
         self.stdout.write(
-            f"{timezone.localtime(now):%Y-%m-%d %H:%M} · cortes: {ready} listos, {failed} con error · entrevistas liberadas: {released} · "
+            f"{timezone.localtime(now):%Y-%m-%d %H:%M} · cortes: {new} nuevos, {len(ready) - new} ya existían, {failed} con error · "
+            f"entrevistas liberadas: {released} · "
             f"capturas vencidas: {expired} · contadores borrados: {counters} · solicitudes antiguas borradas: {old_requests}"
         )
         retention = self.purge_expired_events(now)

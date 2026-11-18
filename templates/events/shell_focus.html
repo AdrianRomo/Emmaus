@@ -10,12 +10,13 @@
 <div class="focus">
   <header class="focusbar">
     <div class="focusbar__inner">
-      <p class="focusbar__who">{% block who %}<strong>{{ participant.full_name }}</strong> <span>#{{ participant.code }}, {{ participant.room|cuarto }}</span>{% endblock %}</p>
+      <p class="focusbar__who">{% block who %}<strong>{{ participant.full_name }}</strong> <span>{% if participant.is_practice %}De práctica{% else %}#{{ participant.code }}, {{ participant.room|cuarto }}{% endif %}</span>{% endblock %}</p>
       <div class="focusbar__actions">{% block focus_actions %}{% endblock %}</div>
     </div>
   </header>
   <main id="contenido" class="focus__main" tabindex="-1">
     {% include "partials/ui/messages.html" %}
+    {% if participant.is_practice or interview.participant.is_practice %}{% include "events/_practice_notice.html" %}{% endif %}
     {% block content %}{% endblock %}
   </main>
 </div>

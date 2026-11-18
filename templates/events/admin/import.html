@@ -2,7 +2,38 @@
 {% block page_title %}{% if form.errors or problems %}Error: {% endif %}Importar camperos{% endblock %}
 {% block content %}
 {% url 'events:participants' event.slug as back_url %}
-{% if preview %}
+{% if preview and needs_mapping %}
+  {% comment %}
+    Issue #50: the church's list names coordinators by nickname. Before the review, say who each unrecognised
+    value is. The answers stay in the session; a name is remembered (an alias) only when the import is confirmed.
+  {% endcomment %}
+  {% include "events/rotulo/_page_head.html" with title="Importar camperos" back_url=back_url back_label="Camperos" %}
+  <section aria-labelledby="quien-es">
+    <h2 id="quien-es" class="heading">¿Quién es cada coordinador?</h2>
+    <p class="lede">Archivo: {{ preview.name }}. No reconocimos {% if unmatched|length == 1 %}este nombre{% else %}estos nombres{% endif %} de la columna “Coordinador”. Dinos quién es y seguimos con la revisión. Nada se guarda todavía.</p>
+    <form method="post" class="stack-lg mt-4">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="map">
+      {% for item in unmatched %}
+        <fieldset class="field">
+          <legend class="legend">«{{ item.value }}» <span class="optional">({% if item.count == 1 %}1 campero{% else %}{{ item.count }} camperos{% endif %})</span></legend>
+          <label class="label" for="coordinador-{{ forloop.counter0 }}">Es este coordinador</label>
+          <select id="coordinador-{{ forloop.counter0 }}" name="coordinador_{{ forloop.counter0 }}">
+            <option value="">Nadie: dejar sin coordinador</option>
+            {% for c in coordinators %}<option value="{{ c.id }}">{{ c.display_name }}</option>{% endfor %}
+          </select>
+          <label class="check" for="recordar-{{ forloop.counter0 }}">
+            <input type="checkbox" id="recordar-{{ forloop.counter0 }}" name="recordar_{{ forloop.counter0 }}" value="1" checked>
+            <span class="check__text">Recordar «{{ item.value }}» para la próxima importación<small>Solo si eliges a un coordinador. Lo puedes quitar después en su ficha de Equipo.</small></span>
+          </label>
+        </fieldset>
+      {% endfor %}
+      {% if not coordinators %}<p class="aside-note">Este evento todavía no tiene coordinadores. Puedes seguir y asignarlos después, o cancelar y agregar primero al equipo.</p>{% endif %}
+      <div class="step__actions"><button class="btn btn--primary" type="submit">Continuar a la revisión</button></div>
+    </form>
+    <form method="post" class="admin-import__cancel">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn btn--link" type="submit">Cancelar y subir otro archivo</button></form>
+  </section>
+{% elif preview %}
   {% include "events/rotulo/_page_head.html" with title="Importar camperos" back_url=back_url back_label="Camperos" %}
   <section aria-labelledby="revision">
     <h2 id="revision" class="heading">Revisa antes de importar</h2>
@@ -12,7 +43,15 @@
       <div><dt>Listas para importar</dt><dd class="figures__value">{{ summary.valid }}</dd></div>
       <div><dt>Con errores</dt><dd class="figures__value">{{ summary.errors }}</dd><dd class="figures__note">no se importarán</dd></div>
       <div><dt>Posibles repetidos</dt><dd class="figures__value">{{ summary.duplicates }}</dd><dd class="figures__note">desmarcados, revísalos</dd></div>
+      {% if summary.no_coordinator %}<div><dt>Sin coordinador</dt><dd class="figures__value">{{ summary.no_coordinator }}</dd><dd class="figures__note">se importan sin asignar</dd></div>{% endif %}
     </dl>
+    {% if mapping %}
+      <div class="notice notice--quiet">
+        <p><strong>Nombres de coordinador que nos dijiste:</strong></p>
+        <ul>{% for m in mapping %}<li>«{{ m.value }}»: {% if m.id %}{{ m.label }}{% if m.save %}. Se guardará para la próxima importación{% endif %}{% else %}sin coordinador{% endif %}.</li>{% endfor %}</ul>
+        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="remap"><button class="btn btn--link btn--small" type="submit">Cambiar estos nombres</button></form>
+      </div>
+    {% endif %}
     <form method="post" class="admin-import">
       {% csrf_token %}
       <input type="hidden" name="action" value="confirm">
@@ -24,7 +63,7 @@
               <td>{% if not row.errors %}<input type="checkbox" name="include" value="{{ row.line }}" aria-label="Importar fila {{ row.line }}"{% if not row.duplicate_of and not row.duplicate_in_file %} checked{% endif %}>{% endif %}</td>
               <td class="num">{{ row.line }}</td><td>{{ row.full_name }}</td>
               <td class="table__review">{% for e in row.errors %}<span class="table__error">{{ e }}</span>{% endfor %}{% for d in row.duplicate_of %}<span class="table__flag">Ya existe: {{ d }}</span>{% endfor %}{% if row.duplicate_in_file %}<span class="table__flag">Repetido en la fila {{ row.duplicate_in_file }}</span>{% endif %}{% if not row.errors and not row.duplicate_of and not row.duplicate_in_file %}<span class="muted">Bien</span>{% endif %}</td>
-              <td class="num">{{ row.age|default_if_none:"" }}</td><td class="table__nowrap">{{ row.room }}</td><td>{{ row.church_group }}</td><td>{{ row.sede_label|default:"—" }}</td><td>{{ row.coordinator_label|default:"—" }}</td>
+              <td class="num">{{ row.age|default_if_none:"" }}</td><td class="table__nowrap">{{ row.room }}</td><td>{{ row.church_group }}</td><td>{{ row.sede_label|default:"—" }}</td><td>{{ row.coordinator_label|default:"Sin coordinador" }}</td>
             </tr>
           {% endfor %}</tbody>
         </table>
@@ -68,7 +107,7 @@
         <table class="table admin-table"><thead><tr><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Autorización</th><th>Sede</th></tr></thead>
           <tbody><tr><td>Mariana López Ruiz</td><td class="num">15</td><td>4</td><td>Iglesia Centro</td><td>ana@correo.mx</td><td>sí</td><td>Mérida</td></tr></tbody></table>
       </div>
-      <p class="text-sm mt-4">“Coordinador”, “Autorización” y “Sede” son opcionales. Guarda la hoja de cálculo como <strong>CSV (UTF-8)</strong>.</p>
+      <p class="text-sm mt-4">“Coordinador”, “Autorización” y “Sede” son opcionales. En “Coordinador” escribe su correo o su nombre; si tu lista usa apodos, te preguntaremos quién es cada uno. Guarda la hoja de cálculo como <strong>CSV (UTF-8)</strong>.</p>
       {% with sedes=event.allowed_sedes %}
         {% if sedes %}
           <p class="text-sm">En “Sede” escribe el nombre o el identificador de una de estas sedes, con o sin mayúsculas y acentos: {% for s in sedes %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Una sede que no está en la lista marca la fila con error.</p>

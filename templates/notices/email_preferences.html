@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Avisos por correo{% endblock %}
+{% block content %}
+{% comment %}
+  "Avisos por correo" (notices.views.email_preferences), reached from "Mis datos": the person chooses which notices
+  of their church they hear about by e-mail. The page says what the e-mail carries (that there is a notice and a
+  link, never the notice), which address it goes to, and, when the server has no e-mail, that none goes out.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:profile' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Avisos por correo" lede="Los avisos de tu iglesia se leen en Emmaus. Aquí eliges de cuáles te enteras también por correo." back_url=back back_label="Volver a Mis datos" %}
+  {% include "partials/ui/error_summary.html" %}
+  {% if not email_configured %}
+    <div class="notice notice--quiet"><p>Por ahora no hay correo configurado en Emmaus: no sale ningún correo. Guardamos lo que elijas para cuando lo haya.</p></div>
+  {% endif %}
+  <form class="block" method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar mi elección</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <section class="block prose" aria-labelledby="que-dice">
+    <h2 id="que-dice" class="heading">Qué dice el correo</h2>
+    <p>Solo que hay un aviso para ti en tu iglesia y el enlace para leerlo. No lleva el título ni el texto del aviso, ni de qué grupo es: para leerlo entras a Emmaus con tu cuenta. De un aviso urgente, el correo dice que es urgente y nada más.</p>
+  </section>
+  <section class="block prose" aria-labelledby="a-donde">
+    <h2 id="a-donde" class="heading">A dónde llega</h2>
+    {% if address %}
+      <p>Al correo que tienes en tus datos: <strong>{{ address }}</strong>. Si ya no lo usas, cámbialo en <a href="{{ back }}">Mis datos</a>.</p>
+    {% else %}
+      <p>No tienes un correo en tus datos, así que no te llega ninguno. Escríbelo en <a href="{{ back }}">Mis datos</a>.</p>
+    {% endif %}
+    <p class="aside-note">Si tú publicas un aviso, no te llega correo de ese aviso.</p>
+  </section>
+</div>
+{% endblock %}

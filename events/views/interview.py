@@ -162,7 +162,7 @@ def interview_search(request, event, access):
 
 @event_view(COORDINATOR, ADMIN)
 def interview_start(request, event, access, public_id):
-    participant = get_object_or_404(access.participants(), public_id=public_id)
+    participant = get_object_or_404(access.participants(include_practice=True), public_id=public_id)
     if not access.can_interview(participant):
         raise PermissionDenied
     live = participant.interviews.filter(status=Interview.Status.IN_PROGRESS).first()
@@ -185,7 +185,7 @@ def interview_start(request, event, access, public_id):
     asked = request.GET.get("cuestionario", "")
     initial = {"questionnaire": asked} if asked in {value for value, _ in choices} else {}
     form = InterviewStartForm(request.POST or None, requirements=requirements, questionnaire_choices=choices, initial=initial)
-    blockers = svc.event_blockers(event)
+    blockers = svc.event_blockers(event, practice=participant.is_practice)
     station = current_station(request, event)
     if request.method == "POST" and form.is_valid() and not blockers:
         # The questionnaire the page named when it was rendered, even when the form no longer asks: if another computer

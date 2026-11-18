@@ -17,6 +17,7 @@
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  <p class="aside-note">Tú eliges de qué avisos de tu iglesia te enteras también por correo: <a href="{% url 'notices:email_preferences' %}">Avisos por correo</a>.</p>
   <p class="aside-note">Tu nombre en la iglesia es {{ person.full_name }}. Si hay que corregirlo, pídelo a la administración de tu iglesia. La contraseña y el correo con el que entras se cambian en <a href="{% url 'account' %}">Mi cuenta</a>.</p>
 </div>
 {% endblock %}

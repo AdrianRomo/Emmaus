@@ -415,6 +415,45 @@ class EventMembership(models.Model):
         return self.team_name or f"Equipo de {self.user.first_name or self.display_name}"
 
 
+class MembershipAlias(models.Model):
+    """Another name a team member goes by in the church's lists: the nickname in the "Coordinador" column.
+
+    Kept per membership, so it never leaves its event. ``normalized`` (``normalize_name``: no case, no accents,
+    single spaces) is what the campero import compares, and it is unique within the event: one nickname never
+    points at two people. Saved only by an administrator's explicit choice, and audited (``alias_guardado``).
+    """
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="membership_aliases")
+    membership = models.ForeignKey(EventMembership, on_delete=models.CASCADE, related_name="aliases")
+    alias = models.CharField("Otro nombre", max_length=150)
+    normalized = models.CharField(max_length=150, editable=False)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["alias"]
+        constraints = [
+            models.UniqueConstraint(fields=["event", "normalized"], name="membership_alias_unique_per_event"),
+        ]
+        verbose_name = "otro nombre de un integrante"
+        verbose_name_plural = "otros nombres de integrantes"
+
+    def __str__(self) -> str:
+        return self.alias
+
+    def clean(self):
+        # "ﬃ" compares as "ffi": a name that fits ``alias`` may not fit ``normalized``
+        if len(normalize_name(self.alias)) > self._meta.get_field("normalized").max_length:
+            raise ValidationError({"alias": "Este nombre es demasiado largo. Escribe uno más corto."})
+
+    def save(self, *args, **kwargs):
+        self.event_id = self.membership.event_id  # an alias lives in its membership's event, whatever the caller said
+        self.normalized = normalize_name(self.alias)
+        super().save(*args, **kwargs)
+
+
 class TutorAssignment(models.Model):
     """Explicit tutor -> coordinador supervision link. A coordinador has at most one tutor."""
 
@@ -524,6 +563,58 @@ class InterviewStatus(models.TextChoices):
     COMPLETED = "completada", "Completada"
 
 
+# ---- practice (issue #49) -------------------------------------------------------------------------
+# An event may hold ONE "campero de práctica": a synthetic row the team rehearses the questionnaire with. It, its
+# interviews, answers, captures and follow-ups never count and are never listed, exported or reported. The default
+# managers still return them, because the interview flow runs on them exactly as on a real campero; every list,
+# count, metric, cutoff and export goes through ``.real()`` (``EventAccess.participants/interviews/follow_ups`` and
+# ``metrics.Scope.participants`` for nearly all of them). ``events/tests/test_practice_exclusion.py`` renders every
+# screen and download of every role with and without practice data and compares them.
+
+
+class EventParticipantQuerySet(models.QuerySet):
+    def real(self):
+        """Without the practice campero: what every list, count and export reads."""
+        return self.filter(is_practice=False)
+
+    def practice(self):
+        return self.filter(is_practice=True)
+
+
+class _OfRealParticipants(models.QuerySet):
+    """``real()`` for the rows that hang from a campero (``practice_path``: the lookup to the campero's flag)."""
+
+    practice_path = "participant__is_practice"
+
+    def real(self):
+        return self.filter(**{self.practice_path: False})
+
+
+class InterviewQuerySet(_OfRealParticipants):
+    pass
+
+
+class FollowUpQuerySet(_OfRealParticipants):
+    pass
+
+
+class AnswerQuerySet(_OfRealParticipants):
+    practice_path = "interview__participant__is_practice"
+
+
+class ParticipantSessionQuerySet(_OfRealParticipants):
+    practice_path = "interview__participant__is_practice"
+
+
+class ConsentRecordQuerySet(_OfRealParticipants):
+    pass
+
+
+PRACTICE_NAME = "Campero de práctica"
+PRACTICE_PLACE = "De práctica"  # its "cuarto" and its "iglesia o grupo"
+PRACTICE_NUMBER = 0  # real camperos are numbered from 1 (services.participants._next_number), so it never takes a number
+
+
 class EventParticipant(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="participants")
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
@@ -551,6 +642,8 @@ class EventParticipant(models.Model):
     )
     is_active = models.BooleanField("Participa en el evento", default=True)
     withdrawn_reason = models.CharField("Motivo de baja", max_length=200, blank=True)
+    # The event's practice campero (issue #49): never counted, listed, exported or reported. See ``.real()`` above.
+    is_practice = models.BooleanField("De práctica", default=False, db_default=False)
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
@@ -561,10 +654,13 @@ class EventParticipant(models.Model):
     created_at = models.DateTimeField("Registro", auto_now_add=True)
     updated_at = models.DateTimeField("Última modificación", auto_now=True)
 
+    objects = EventParticipantQuerySet.as_manager()
+
     class Meta:
         ordering = ["full_name"]
         constraints = [
             models.UniqueConstraint(fields=["event", "number"], name="participant_number_per_event"),
+            models.UniqueConstraint(fields=["event"], condition=Q(is_practice=True), name="one_practice_participant_per_event"),
         ]
         indexes = [
             models.Index(fields=["event", "is_active", "interview_status"], name="participant_status_idx"),
@@ -591,6 +687,8 @@ class EventParticipant(models.Model):
 
     @property
     def first_name(self) -> str:
+        if self.is_practice:  # "Antes de empezar con Campero de práctica", never "con Campero"
+            return self.full_name
         return self.full_name.split(" ")[0] if self.full_name else ""
 
     @property
@@ -630,6 +728,8 @@ class ConsentRecord(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     recorded_at = models.DateTimeField(default=timezone.now)
+
+    objects = ConsentRecordQuerySet.as_manager()
 
     class Meta:
         ordering = ["-recorded_at", "-id"]
@@ -913,6 +1013,8 @@ class Interview(models.Model):
     )
     discarded_reason = models.CharField(max_length=200, blank=True)
 
+    objects = InterviewQuerySet.as_manager()
+
     class Meta:
         ordering = ["-started_at"]
         constraints = [
@@ -972,6 +1074,8 @@ class Answer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = AnswerQuerySet.as_manager()
+
     class Meta:
         constraints = [models.UniqueConstraint(fields=["interview", "question"], name="one_answer_per_question")]
         verbose_name = "respuesta"
@@ -1022,6 +1126,8 @@ class ParticipantSession(models.Model):
     expires_at = models.DateTimeField()
     ended_at = models.DateTimeField(null=True, blank=True)
     end_reason = models.CharField(max_length=20, choices=EndReason.choices, blank=True)
+
+    objects = ParticipantSessionQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]
@@ -1080,6 +1186,8 @@ class FollowUp(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+
+    objects = FollowUpQuerySet.as_manager()
 
     class Meta:
         ordering = ["status", "-created_at"]

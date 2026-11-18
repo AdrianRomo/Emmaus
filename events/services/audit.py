@@ -22,6 +22,8 @@ def record(actor, event, action: str, summary: str, obj=None, **metadata) -> Aud
     )
 
 
+PRACTICE_COMPLETED = "practica_completada"  # issue #49: "ya practicó" reads these rows (services.practice)
+
 ACTION_LABELS = {
     "evento_creado": "Creó el evento",
     "evento_duplicado": "Duplicó el evento como plantilla",
@@ -40,6 +42,10 @@ ACTION_LABELS = {
     "campero_baja": "Dio de baja a un campero",
     "campero_eliminado": "Eliminó los datos de un campero",
     "importacion": "Importó camperos",
+    "importacion_equipo": "Importó integrantes del equipo",
+    "importacion_equipo_revisada": "Revisó un archivo del equipo",
+    "alias_guardado": "Guardó otro nombre de un coordinador",
+    "alias_eliminado": "Quitó otro nombre de un coordinador",
     "autorizacion": "Registró una autorización",  # rows written before the confirmation page existed
     "autorizacion_registrada": "Confirmó la autorización firmada de un padre, madre o tutor legal",
     "autorizacion_retirada": "Quitó la autorización de un padre, madre o tutor legal",
@@ -49,6 +55,10 @@ ACTION_LABELS = {
     "entrevista_completada": "Completó una entrevista",
     "entrevista_corregida": "Corrigió una entrevista",
     "entrevista_descartada": "Descartó una entrevista",
+    "practica_creada": "Creó el campero de práctica",
+    "practica_asignada": "Dejó listo el campero de práctica",
+    "practica_eliminada": "Quitó el campero de práctica",
+    PRACTICE_COMPLETED: "Completó una entrevista de práctica",
     "captura_iniciada": "Entregó la computadora a un campero",
     "captura_desbloqueada": "Recuperó la computadora",
     "sesion_revocada": "Cerró la pantalla de un campero o liberó una entrevista",

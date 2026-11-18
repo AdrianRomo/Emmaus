@@ -13,7 +13,7 @@
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Inscritos en "|add:event.name lede="Quién le avisó a la iglesia que quiere ir, y cómo contactarle." back_url=back back_label="Volver a los eventos" %}
   <div class="block">
-    <p class="page-head__meta">{% if rows|length == 1 %}1 persona inscrita{% else %}{{ rows|length }} personas inscritas{% endif %}{% if waiting_age|length == 1 %}, 1 con edad por confirmar{% elif waiting_age %}, {{ waiting_age|length }} con edad por confirmar{% endif %}{% if waiting|length == 1 %}, 1 pendiente de autorización{% elif waiting %}, {{ waiting|length }} pendientes de autorización{% endif %}{% if page.capacity %} de {{ page.capacity }} lugar{{ page.capacity|pluralize:"es" }}{% endif %}{% if cancelled == 1 %}, 1 canceló{% elif cancelled %}, {{ cancelled }} cancelaron{% endif %}.{% if recorded %} {% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }} inscrito{{ rows|length|pluralize }}.{% endif %}</p>
+    <p class="page-head__meta">{% if rows|length == 1 %}1 persona inscrita{% else %}{{ rows|length }} personas inscritas{% endif %}{% if waiting_age|length == 1 %}, 1 con edad por confirmar{% elif waiting_age %}, {{ waiting_age|length }} con edad por confirmar{% endif %}{% if waiting|length == 1 %}, 1 pendiente de autorización{% elif waiting %}, {{ waiting|length }} pendientes de autorización{% endif %}{% if page.capacity %} de {{ page.capacity }} lugar{{ page.capacity|pluralize:"es" }}{% endif %}{% if listed|length == 1 %}, 1 en lista de espera{% elif listed %}, {{ listed|length }} en lista de espera{% endif %}{% if listed and list_block %} ({% if list_block == "empezo" or list_block == "terminado" %}ya no avanza{% else %}detenida{% endif %}){% endif %}{% if cancelled == 1 %}, 1 canceló{% elif cancelled %}, {{ cancelled }} cancelaron{% endif %}.{% if recorded %} {% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }} inscrito{{ rows|length|pluralize }}.{% endif %}</p>
   </div>
 
   {% if started %}
@@ -69,6 +69,32 @@
         </li>
       {% endfor %}
     </ul>
+  </section>
+  {% endif %}
+
+  {% if listed %}
+  <section class="block" aria-labelledby="lista-espera">
+    <h2 id="lista-espera" class="heading">Lista de espera</h2>
+    <p class="aside-note">En el orden en que se anotaron. Cuando se libera un lugar, Emmaus se lo ofrece a la primera persona y ella decide si lo acepta. Desde aquí no se puede cambiar el orden ni inscribir a nadie: solo quitar a alguien de la lista.</p>
+    {% if list_block == "sin_inscripcion" %}<div class="notice notice--warning"><p><strong>La lista está detenida.</strong> La página dice «No hay inscripción desde Emmaus»: mientras siga así no se ofrecen lugares, y quien ya tiene uno ofrecido no puede aceptarlo (su plazo sigue corriendo). Para que la lista avance, abre la inscripción en <a href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a>.</p></div>
+    {% elif list_block == "sin_publicar" %}<div class="notice notice--warning"><p><strong>La lista está detenida.</strong> El evento no está publicado: mientras siga así no se ofrecen lugares, y quien ya tiene uno ofrecido no puede aceptarlo (su plazo sigue corriendo). Para que la lista avance, publícalo en <a href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a>.</p></div>
+    {% elif list_block %}<div class="notice notice--quiet"><p><strong>La lista ya no avanza.</strong> {% if list_block == "empezo" %}El evento ya empezó{% else %}El evento ya terminó{% endif %}: no se ofrecen más lugares y los ya ofrecidos no se pueden aceptar. A quien llegue, regístrala en «Registrar a alguien que llegó».</p></div>{% endif %}
+    <ol class="rows">
+      {% for row in listed %}
+        <li class="row row--lead row--stack{% if row.is_offered %} row--attention{% endif %}">
+          {% monogram row.display_name %}
+          <div class="row__main">
+            <p class="row__title">{{ row.display_name }}</p>
+            {% if row.is_offered %}<p class="row__meta"><strong>Le ofrecimos un lugar.</strong> Tiene hasta el {{ row.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }} para aceptarlo. Mientras tanto, ese lugar está apartado.</p>
+            {% else %}<p class="row__meta">En espera, lugar {{ row.position }} de la lista. Se anotó el {{ row.waiting_since|date:"j \\d\\e F \\d\\e Y"|lower }}.</p>{% endif %}
+            {% include "agenda/_registration_who.html" %}
+          </div>
+          <div class="row__end">
+            <a class="btn btn--link btn--small" href="{% url 'agenda:waiting_remove' event.slug row.pk %}">Quitar de la lista<span class="visually-hidden"> de espera a {{ row.display_name }}</span></a>
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
   </section>
   {% endif %}
 

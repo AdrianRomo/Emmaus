@@ -1,0 +1,40 @@
+{% extends rotulo_shell %}
+{% load emmaus %}
+{% block page_title %}{{ participant.full_name }}{% endblock %}
+{% block content %}
+{% comment %}
+  The record of the practice campero (issue #49), instead of participant_detail.html: no data to correct, no
+  authorization, no follow-up and no risk report, only the rehearsal.
+{% endcomment %}
+{% if can_interview and event.has_questionnaire %}{% if live_interview or participant.interview_status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}{% endif %}
+{% if live_interview %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar la práctica" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Empezar la práctica" %}
+{% endif %}
+{% include "events/_practice_notice.html" %}
+
+<section class="block narrow" aria-labelledby="entrevista">
+  <h2 id="entrevista" class="heading">Entrevista de práctica</h2>
+  {% if questionnaire_rows %}
+    <p>Lleva {{ questionnaires_done }} de {{ questionnaire_rows|length }} cuestionarios.</p>
+    <ul class="rows">{% for row in questionnaire_rows %}
+      <li class="row">
+        <div class="row__main">
+          <p class="row__title">{{ row.link.version.title }}</p>
+          {% if row.interview %}<p class="more"><a href="{% url 'events:interview_detail' event.slug row.interview.public_id %}">Ver lo que respondiste<span class="visually-hidden"> en {{ row.link.version.title }}</span></a></p>{% endif %}
+        </div>
+        {% if row.state == "bloqueado" %}{% status "pendiente" "Después" %}{% else %}{% status row.state %}{% endif %}
+      </li>
+    {% endfor %}</ul>
+  {% elif interview %}
+    <p>{% status interview.status %}</p>
+    <p class="more"><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">Ver lo que respondiste</a></p>
+  {% else %}
+    <p>{% status "pendiente" %}</p>
+  {% endif %}
+  {% if participant.interview_status == "completada" %}
+    <p class="mt-4">{% if access.is_admin %}Para practicar otra vez, déjalo como nuevo en <a href="{% url 'events:practice' event.slug %}">Campero de práctica</a>.{% else %}Ya practicaste. Si quieres hacerlo otra vez, pide a la administración que lo deje como nuevo.{% endif %}</p>
+  {% endif %}
+</section>
+{% endblock %}

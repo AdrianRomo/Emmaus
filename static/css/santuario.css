@@ -398,3 +398,14 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 :root[data-ui="2"] .row--below .row__end { flex: none; align-self: stretch; flex-wrap: wrap; justify-content: flex-start; gap: var(--s-3); }
 :root[data-ui="2"] .row--below .row__end .btn { flex: 0 1 auto; }
 :root[data-ui="2"] .more + .rows { margin-top: var(--s-6); }
+
+/* ---------- 12. The public page of an event -------------------------------- */
+/* templates/agenda/public.html: read without an account, mostly on a phone somebody was sent a link to. The church's
+   name sits above the event's as a quiet line, and the way in to sign up fills the width on a phone. */
+:root[data-ui="2"] .public-event__church { font-size: var(--t-small); font-weight: 700; color: var(--ink-2); margin-bottom: var(--s-2); }
+@media (max-width: 760px) {
+  :root[data-ui="2"] .public-event .step__actions .btn { width: 100%; }
+}
+/* A quiet link under the event's panel ("Salir de la lista de espera", "Cancelar mi inscripción") and the note above
+   the public address keep their distance from the section that follows. */
+:root[data-ui="2"] .more + .block, :root[data-ui="2"] .aside-note + .public-link { margin-top: var(--s-10); }

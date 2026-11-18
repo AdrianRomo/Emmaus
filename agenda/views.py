@@ -17,10 +17,10 @@ from django.views.decorators.http import require_POST
 from events.models import Event, normalize_name
 from events.services import throttle
 from groups.views import church_admin_view, community_view
-from people import flags
+from people import flags, policy
 from people.models import Person
 
-from . import services
+from . import public, services
 from .forms import (
     AnnulForm,
     BirthDateForm,
@@ -37,6 +37,7 @@ from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem
 ACTIVE = EventRegistration.Status.ACTIVE
 PENDING = EventRegistration.Status.PENDING
 HOLDING = EventRegistration.HOLDING
+LISTED = EventRegistration.LISTED
 AGE = services.AGE
 
 # Why there is no button, said to the person. "inscrita" and "abierta" have their own panels.
@@ -53,15 +54,20 @@ def _event(request, slug: str) -> Event:
     return get_object_or_404(Event, church=request.church, slug=slug)
 
 
+def _base_url(request) -> str:
+    """The address of this Emmaus as the person reached it: what the link of an e-mail starts with."""
+    return request.build_absolute_uri("/")
+
+
 def _seen_event(request, slug: str):
-    """The event, its page and the person's registration (confirmed, or waiting for a guardian's
-    authorization), or 404 when this person may not
+    """The event, its page and the person's registration (confirmed, waiting for a guardian's
+    authorization, or on the waiting list), or 404 when this person may not
     see it: a member sees what is published (and active), or what they are registered for until it
     ends; the administration sees every event of the church."""
     event = _event(request, slug)
     page = EventPage.objects.filter(event=event).first()
     registration = (
-        EventRegistration.objects.filter(event=event, person=request.person, status__in=HOLDING)
+        EventRegistration.objects.filter(event=event, person=request.person, status__in=(*HOLDING, *LISTED))
         .select_related("consent").first()
     )
     published = page is not None and page.published and event.status == Event.Status.ACTIVE
@@ -79,8 +85,8 @@ def event_list(request):
         request,
         "agenda/list.html",
         {
-            "mine": [event for event in events if event.my_place],
-            "coming": [event for event in events if not event.my_place],
+            "mine": [event for event in events if event.my_place or event.my_wait],
+            "coming": [event for event in events if not (event.my_place or event.my_wait)],
         },
     )
 
@@ -89,8 +95,13 @@ def event_list(request):
 def detail(request, slug: str):
     event, page, registration = _seen_event(request, slug)
     today = timezone.localdate()
+    if registration is not None and registration.is_offered and not services.offer_is_open(registration):
+        # The deadline passed and nobody moved the list yet: release the place and offer it to the next one.
+        services.advance(event, base_url=_base_url(request))
+        registration = None
     taken = services.taken(event)
     state = services.state_of(event, page, registration, taken, today)
+    position = services.waiting_position(registration)
     return render(
         request,
         "agenda/detail.html",
@@ -109,8 +120,63 @@ def detail(request, slug: str):
             "withdrawn": state == "pendiente" and registration.waits_for != AGE and registration.consent_withdrawn,
             "pending_text": services.PENDING_NEXT,
             "age_text": services.AGE_NEXT,
+            # The waiting list: the place in line as words, how long an offer is held, and how the
+            # last time on the list ended when it ended without a place.
+            "position_text": services.position_words(position) if position else "",
+            "offer_hours": policy.waiting_offer_hours(event.church),
+            # Why the list does not move right now (frozen by the page, or the event started), or empty.
+            "list_block": services.list_block(event, page, today) if registration is not None and registration.status in LISTED else "",
+            "list_outcome": services.last_list_outcome(event, request.person) if registration is None else "",
             "faqs": EventFaq.objects.filter(event=event),
             "schedule": services.schedule_by_day(event),
+        },
+    )
+
+
+@community_view
+@require_POST
+def accept_offer(request, slug: str):
+    """"Aceptar mi lugar": the person takes the place the waiting list offered. It is a sign-up like
+    any other: ``agenda.services.standing`` decides whether it is confirmed or waits."""
+    event = _event(request, slug)
+    registration = get_object_or_404(EventRegistration, event=event, person=request.person, status__in=(*HOLDING, *LISTED))
+    try:
+        registration = services.accept_offer(registration, request.user, base_url=_base_url(request))
+    except services.AgendaError as error:
+        messages.error(request, error.message)
+        return redirect("agenda:detail", event.slug)
+    if registration.is_pending:
+        what_next = services.AGE_NEXT if registration.waits_for == AGE else services.PENDING_NEXT
+        messages.info(request, f"Aceptaste tu lugar en {event.name}. {what_next}")
+    else:
+        messages.success(request, f"Listo. Aceptaste tu lugar: te inscribiste a {event.name}.")
+    return redirect("agenda:detail", event.slug)
+
+
+@community_view
+def leave_waiting(request, slug: str):
+    """Leave the waiting list, or let the offered place go. Its own page: one question, then yes."""
+    event = _event(request, slug)
+    registration = get_object_or_404(EventRegistration, event=event, person=request.person, status__in=LISTED)
+    offered = services.offer_is_open(registration)
+    if request.method == "POST":
+        services.leave_waiting(registration, request.user, base_url=_base_url(request))
+        if offered:
+            messages.success(request, f"Dejaste pasar el lugar en {event.name}. Se lo ofreceremos a la siguiente persona de la lista.")
+        else:
+            messages.success(request, f"Saliste de la lista de espera de {event.name}.")
+        return redirect("agenda:detail", event.slug)
+    return render(
+        request,
+        "groups/confirm.html",
+        {
+            "title": f"¿Quieres dejar pasar tu lugar en {event.name}?" if offered
+            else f"¿Quieres salir de la lista de espera de {event.name}?",
+            "text": "El lugar se le ofrecerá a la siguiente persona de la lista. Si cambias de opinión, puedes anotarte otra "
+            "vez, al final de la lista." if offered
+            else "Si cambias de opinión, puedes anotarte otra vez, al final de la lista.",
+            "action": "Sí, dejar pasar el lugar" if offered else "Sí, salir de la lista",
+            "back_url": reverse("agenda:detail", args=[event.slug]),
         },
     )
 
@@ -140,11 +206,16 @@ def register(request, slug: str):
         if not form.is_bound or form.errors:
             return render(request, "agenda/birth_date.html", {"form": form, "event": event})
     try:
-        registration = services.register(event, request.person, request.user)
+        registration = services.register(event, request.person, request.user, base_url=_base_url(request))
     except services.AgendaError as error:
         messages.error(request, error.message)
         return redirect("agenda:detail", event.slug)
-    if registration.is_pending:
+    if registration.is_waiting:
+        position = services.position_words(services.waiting_position(registration))
+        messages.info(request, f"Te anotamos en la lista de espera de {event.name}. {position}")
+    elif registration.is_offered:
+        messages.info(request, f"Tienes un lugar ofrecido en {event.name}. Acéptalo aquí para inscribirte.")
+    elif registration.is_pending:
         what_next = services.AGE_NEXT if registration.waits_for == AGE else services.PENDING_NEXT
         messages.info(request, f"Recibimos tu inscripción a {event.name}. {what_next}")
     else:
@@ -161,7 +232,7 @@ def cancel(request, slug: str):
         return redirect("agenda:detail", event.slug)
     if request.method == "POST":
         try:
-            services.cancel(registration, request.user)
+            services.cancel(registration, request.user, base_url=_base_url(request))
         except services.AgendaError as error:
             messages.error(request, error.message)
             return redirect("agenda:detail", event.slug)
@@ -203,10 +274,12 @@ def page_edit(request, slug: str):
     event = _event(request, slug)
     page = EventPage.objects.filter(event=event).first()
     was_published = bool(page and page.published)
-    form = EventPageForm(request.POST or None, instance=page or EventPage(event=event), event=event)
+    form = EventPageForm(request.POST or None, instance=page or EventPage(event=event, requires_guardian_consent=policy.minors_consent_default(event.church)),
+        event=event,
+    )
     if request.method == "POST" and form.is_valid():
         try:
-            saved = services.save_page(event, request.user, **form.cleaned_data)
+            saved = services.save_page(event, request.user, base_url=_base_url(request), **form.cleaned_data)
         except services.AgendaError as error:
             form.add_error(None, error.message)
         else:
@@ -220,10 +293,19 @@ def page_edit(request, slug: str):
         "agenda/page_form.html",
         {
             "form": form, "event": event, "page": page,
+            # The address anybody can read, when the page is public and published, and a message to share it.
+            **_public_links(request, event, page),
             "faq_count": EventFaq.objects.filter(event=event).count(),
             "schedule_count": EventScheduleItem.objects.filter(event=event).count(),
         },
     )
+
+
+def _public_links(request, event: Event, page) -> dict:
+    if not public.is_public(event, page):
+        return {"public_wanted": bool(page and page.public)}
+    link = request.build_absolute_uri(public.public_path(event))
+    return {"public_link": link, "public_share_url": public.share_url(request.church.name, link), "public_wanted": True}
 
 
 def _registration(event: Event, registration_id: int, **filters) -> EventRegistration:
@@ -251,12 +333,21 @@ def registrations(request, slug: str):
             came = "Vino 1" if saved.present == 1 else f"Vinieron {saved.present}"
             messages.success(request, f"{came} de {saved.total} inscrito{'' if saved.total == 1 else 's'}.")
         return redirect("agenda:registrations", event.slug)
+    # Opening the list moves it: an offer past its deadline is released and offered to the next one.
+    services.advance(event, base_url=_base_url(request))
     held = sorted(
         EventRegistration.objects.filter(event=event, status__in=HOLDING).select_related("person", "consent"),
         key=lambda row: (normalize_name(row.display_name), row.pk),
     )
     rows = [row for row in held if row.is_active]
     recorded = [row for row in rows if row.attended is not None]
+    # Who came as a visitor and is now a person of the church: one action to ask somebody to walk with
+    # them, or the follow-up that is already open. Never on the row of whoever is looking.
+    visitors = [row for row in held if services.came_as_visitor(row) and row.person_id != request.person.pk]
+    open_by_person = services.open_follow_ups(request.church, [row.person_id for row in visitors]) if visitors else {}
+    for row in visitors:
+        row.from_visit = True
+        row.open_follow_up_id = open_by_person.get(row.person_id)
     return render(
         request,
         "agenda/registrations.html",
@@ -266,8 +357,12 @@ def registrations(request, slug: str):
             "rows": rows,
             "waiting_age": [row for row in held if row.waits_for == AGE],
             "waiting": [row for row in held if row.is_pending and row.waits_for != AGE],
+            # The waiting list, in its order: who has an offer to answer, then who waits.
+            "listed": services.waiting_rows(event),
+            # Why the list does not move right now, for the line at the top and the note of the list.
+            "list_block": services.list_block(event, EventPage.objects.filter(event=event).first()),
             "cancelled": EventRegistration.objects.filter(
-                event=event, status=EventRegistration.Status.CANCELLED, annulled_reason=""
+                event=event, status=EventRegistration.Status.CANCELLED, annulled_reason="", waiting_outcome=""
             ).count(),
             "started": services.has_started(event),
             "recorded": bool(recorded),
@@ -307,6 +402,7 @@ def walkup(request, slug: str):
                 event, request.user, person=person, first_name=data.get("first_name", ""),
                 last_name=data.get("last_name", ""), phone=data.get("phone", ""), is_minor=data["is_minor"],
                 seen_adult=data["seen_adult"], consent=data["consent"], override=data["overrides"], override_reason=data.get("override_reason", ""),
+                base_url=_base_url(request),
             )
         except services.AgendaError as error:
             form.add_error(None, error.message)
@@ -435,7 +531,7 @@ def annul(request, slug: str, registration_id: int):
     form = AnnulForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         try:
-            services.annul_walkup(registration, request.user, form.cleaned_data["reason"])
+            services.annul_walkup(registration, request.user, form.cleaned_data["reason"], base_url=_base_url(request))
         except services.AgendaError as error:
             form.add_error(None, error.message)
         else:
@@ -443,6 +539,31 @@ def annul(request, slug: str, registration_id: int):
             return redirect(_back_to_list(event))
     return render(request, "agenda/annul.html", {"event": event, "registration": registration, "form": form,
                                                  "back": _back_to_list(event)})
+
+
+@church_admin_view
+def waiting_remove(request, slug: str, registration_id: int):
+    """"Quitar de la lista de espera": all the administration does to the list. Nothing here moves
+    somebody up or signs them up; the reason kept in the audit is a fixed word."""
+    event = _event(request, slug)
+    registration = _registration(event, registration_id, status__in=LISTED)
+    if request.method == "POST":
+        services.remove_from_waiting(registration, request.user, base_url=_base_url(request))
+        messages.success(request, f"Quitaste a {registration.display_name} de la lista de espera.")
+        return redirect(_back_to_list(event))
+    offered = registration.is_offered
+    return render(
+        request,
+        "groups/confirm.html",
+        {
+            "title": f"¿Quieres quitar a {registration.display_name} de la lista de espera?",
+            "text": "Tiene un lugar ofrecido: al quitarla, ese lugar se le ofrece a la siguiente persona de la lista. "
+            "Ella podrá anotarse otra vez, al final de la lista." if offered
+            else "Las demás personas de la lista avanzan un lugar. Ella podrá anotarse otra vez, al final de la lista.",
+            "action": "Sí, quitar de la lista",
+            "back_url": _back_to_list(event),
+        },
+    )
 
 
 @church_admin_view
@@ -488,6 +609,8 @@ def guest_promote(request, slug: str, registration_id: int):
             return redirect("agenda:guest_promote", event.slug, registration.pk)
         if existing is None:
             messages.success(request, f"Agregaste a {person.full_name} a las personas de la iglesia.")
+            # The second half of receiving a visitor: offer, once, that somebody walks with them.
+            return redirect("agenda:visit_follow_up", event.slug, registration.pk)
         else:
             messages.success(request, f"Listo. Esta inscripción ahora es de {person.full_name}.")
         return redirect(_back_to_list(event))
@@ -497,6 +620,38 @@ def guest_promote(request, slug: str, registration_id: int):
         {"event": event, "registration": registration, "similar": services.similar_people(registration),
          "back": _back_to_list(event),
          "asks_age": EventPage.objects.filter(event=event, requires_guardian_consent=True).exists()},
+    )
+
+
+@church_admin_view
+def visit_follow_up(request, slug: str, registration_id: int):
+    """"Pedir que alguien le acompañe", for a person who came to the event as a visitor: one question,
+    then a follow-up with the fixed reason "Vino por primera vez" and nobody responsible yet. Nothing
+    is typed. With one already open, the page says so and leads to it instead."""
+    event = _event(request, slug)
+    registration = _registration(event, registration_id, status__in=HOLDING, person__isnull=False,
+                                 person__created_from=Person.CreatedFrom.EVENT)
+    if registration.person_id == request.person.pk:
+        raise Http404
+    back = _back_to_list(event)
+    name = registration.display_name
+    open_id = services.open_follow_ups(request.church, [registration.person_id]).get(registration.person_id)
+    if request.method == "POST":
+        try:
+            follow_up, created = services.ask_to_accompany(registration, request.user)
+        except services.AgendaError as error:
+            messages.error(request, error.message)
+            return redirect(back)
+        if created:
+            messages.success(request, f"Listo. Pediste que alguien acompañe a {name}. Todavía no tiene responsable: elígelo en el seguimiento.")
+        else:
+            messages.info(request, f"Ya hay un seguimiento abierto de {name}. No se creó otro.")
+        return redirect("care:detail", follow_up.pk)
+    return render(
+        request,
+        "agenda/visit_follow_up.html",
+        {"event": event, "registration": registration, "back": back,
+         "open_url": reverse("care:detail", args=[open_id]) if open_id else ""},
     )
 
 

@@ -109,9 +109,10 @@ def invite_url(request, invitation: Invitation) -> str:
     return request.build_absolute_uri(reverse("accept_invitation", kwargs={"token": invitation.token}))
 
 
-def send_email_safely(subject: str, message: str, recipients: list[str]) -> bool:
+def send_email_safely(subject: str, message: str, recipients: list[str], connection=None) -> bool:
+    """``connection``: an open mail connection to reuse (who sends many at once); None opens one for this message."""
     try:
-        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False)
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False, connection=connection)
         return True
     except Exception:
         logger.exception("Email failed: %s", subject)

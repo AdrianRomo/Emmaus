@@ -20,7 +20,7 @@ def is_expired(event: Event, today) -> bool:
 
 def has_open_care(event: Event) -> bool:
     """An open safety report or an open confidential referral: someone still has to act on it."""
-    return FollowUp.objects.filter(event=event, status__in=FollowUp.OPEN_STATUSES).filter(
+    return FollowUp.objects.real().filter(event=event, status__in=FollowUp.OPEN_STATUSES).filter(
         Q(kind=FollowUp.Kind.SAFETY) | Q(kind=FollowUp.Kind.CARE, confidential=True)
     ).exists()
 
@@ -41,7 +41,7 @@ def purge_event(event: Event, *, automatic: bool = False) -> int:
             raise PurgeRefused("ya no está terminado ni archivado")
         if automatic and has_open_care(locked):
             raise PurgeRefused("tiene reportes de riesgo o seguimientos confidenciales abiertos")
-        count = locked.participants.count()
+        count = locked.participants.real().count()  # the audit row counts camperos; the practice one goes with them
         locked.participants.all().delete()
         locked.data_purged_at = timezone.now()
         locked.save(update_fields=["data_purged_at"])
@@ -67,7 +67,7 @@ class Command(BaseCommand):
             return
         for event in due:
             if not options["apply"]:
-                count = event.participants.count()
+                count = event.participants.real().count()
                 self.stdout.write(f"[simulación] {event.name}: se borrarían {count} camperos con sus respuestas.")
                 continue
             try:

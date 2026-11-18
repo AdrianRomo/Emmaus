@@ -40,7 +40,8 @@ def answers_rows(event, links=None) -> tuple[list[str], list[list[str]]]:
     """(header, rows) of "Descargar las respuestas", every cell already through ``safe_cell``. ``links``: the event's
     (``event_questionnaires.links_for``), when the caller already read them.
 
-    One row per campero of the event, by number, also those who no longer take part ("Participa": "No"). After the
+    One row per campero of the event, by number, also those who no longer take part ("Participa": "No"); never the
+    practice campero or its answers (``real()``, issue #49). After the
     registry columns, for each questionnaire the event uses, in the event's order and named by the title of the version
     it uses: the state of the campero's interview, when it was completed, and one column per question of that version
     in questionnaire order. A cell holds what ``describe_answer`` writes (option labels joined with ", ", or the text),
@@ -69,7 +70,7 @@ def answers_rows(event, links=None) -> tuple[list[str], list[list[str]]]:
     linked = [link.questionnaire_id for link in links]
     interviews = {}  # (participant_id, questionnaire_id) -> Interview; at most one live per pair (database constraint)
     for interview in (
-        Interview.objects.filter(event=event, questionnaire_id__in=linked)
+        Interview.objects.real().filter(event=event, questionnaire_id__in=linked)
         .exclude(status=Interview.Status.DISCARDED)
         .only("id", "participant_id", "questionnaire_id", "version_id", "status", "completed_at")
     ):
@@ -77,7 +78,7 @@ def answers_rows(event, links=None) -> tuple[list[str], list[list[str]]]:
 
     answers = {}  # interview_id -> list[Answer]
     for answer in (
-        Answer.objects.filter(interview__event=event, interview__questionnaire_id__in=linked)
+        Answer.objects.real().filter(interview__event=event, interview__questionnaire_id__in=linked)
         .exclude(interview__status=Interview.Status.DISCARDED)
         .select_related("question")
         .prefetch_related("options")
@@ -86,14 +87,14 @@ def answers_rows(event, links=None) -> tuple[list[str], list[list[str]]]:
 
     guardian = {}  # participant_id -> status of the latest guardian record (services.participants.latest_consent)
     for participant_id, status in (
-        ConsentRecord.objects.filter(participant__event=event, kind=ConsentRecord.Kind.GUARDIAN)
+        ConsentRecord.objects.real().filter(participant__event=event, kind=ConsentRecord.Kind.GUARDIAN)
         .order_by("participant_id", "-recorded_at", "-id")
         .values_list("participant_id", "status")
     ):
         guardian.setdefault(participant_id, status)
 
     rows = []
-    participants = EventParticipant.objects.filter(event=event).select_related("coordinator__user", "sede").order_by("number")
+    participants = EventParticipant.objects.real().filter(event=event).select_related("coordinator__user", "sede").order_by("number")
     for p in participants:
         if event.requires_guardian_authorization and p.age < event.adult_age:  # is_minor, and only when the event asks for it
             authorized = "Sí" if guardian.get(p.id) == ConsentRecord.Status.GRANTED else "No"

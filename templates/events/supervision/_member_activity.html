@@ -1,0 +1,4 @@
+{% load emmaus %}{% comment %}
+  One line under a team member (issue #49): the last time the account signed in and, for the people who interview
+  (``practises``), whether they completed a practice interview. Facts about the account only, never about an interview.
+{% endcomment %}<p class="row__meta">{% if m.user.last_login %}Última entrada: {{ m.user.last_login|since }}{% else %}<strong>Nunca ha entrado</strong>{% endif %}{% if practises %}. {% if m.user_id in practised %}Ya practicó{% else %}Aún no practica{% endif %}{% endif %}</p>

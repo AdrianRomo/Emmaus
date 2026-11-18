@@ -513,6 +513,24 @@ class ImportForm(forms.Form):
         return upload
 
 
+class TeamImportForm(forms.Form):
+    file = forms.FileField(
+        label="Archivo CSV",
+        help_text="Columnas: Nombre, Correo y Rol (coordinador, tutor o pastor). Opcionales: Equipo y Tutor.",
+        error_messages={"required": "Elige un archivo CSV."},
+    )
+
+    def clean_file(self):
+        from .services.team_import import MAX_TEAM_BYTES
+
+        upload = self.cleaned_data["file"]
+        if upload.size > MAX_TEAM_BYTES:
+            raise ValidationError("El archivo es muy grande. El máximo es 1 MB.")
+        if not upload.name.lower().endswith((".csv", ".txt")):
+            raise ValidationError("El archivo debe ser .csv. Guarda la hoja de cálculo como CSV (UTF-8) y súbela otra vez.")
+        return upload
+
+
 class SectionForm(forms.ModelForm):
     class Meta:
         model = Section

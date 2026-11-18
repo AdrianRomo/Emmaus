@@ -28,6 +28,15 @@ class EventPage(models.Model):
     requires_guardian_consent = models.BooleanField(
         "Los menores de edad necesitan autorización de su madre, padre o tutor", default=False, db_default=False
     )
+    # Decision 0011: when the places run out, who signs up waits in order and is OFFERED a freed place.
+    waiting_list = models.BooleanField(
+        "Cuando se llenen los lugares, anotar en lista de espera", default=False, db_default=False
+    )
+    # Guardian access, phase A (decision 0010): what the event is, for anybody with the address and
+    # without an account. Only while the page is published; never anything about people.
+    public = models.BooleanField(
+        "Cualquiera con el enlace puede ver la información del evento, sin entrar a Emmaus", default=False, db_default=False
+    )
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -57,12 +66,21 @@ class EventRegistration(models.Model):
     0015), and nothing else takes a row out of ``pendiente``.
 
     ``annulled_reason`` set: the team wrote this row at the door by mistake and annulled it. It is
-    ``cancelada``, in no list and no count, and stays for the audit."""
+    ``cancelada``, in no list and no count, and stays for the audit.
+
+    The waiting list (decision 0011): ``en_espera`` is somebody who signed up when the event was
+    full; the row holds no place and its order is ``waiting_since``. ``ofrecida`` is a freed place
+    offered to the first of the list until ``offer_expires_at``: it holds the place, and only the
+    person turns it into a registration, by accepting (``agenda.services.accept_offer``, which asks
+    ``standing`` like any sign-up). Neither is ever marked as attended. ``waiting_outcome`` says how
+    a row left the list without a place, as a fixed word."""
 
     class Status(models.TextChoices):
         ACTIVE = "inscrita", "Inscrita"
         PENDING = "pendiente", "Pendiente"
         CANCELLED = "cancelada", "Cancelada"
+        WAITING = "en_espera", "En lista de espera"
+        OFFERED = "ofrecida", "Te ofrecimos un lugar"
 
     class PendingReason(models.TextChoices):
         AGE = "age", "Edad por confirmar"
@@ -73,8 +91,18 @@ class EventRegistration(models.Model):
         DUPLICATE = "duplicado", "Registro duplicado"
         LEFT = "no_se_quedo", "La persona no se quedó"
 
-    # The statuses that hold a place of the event's capacity.
+    class WaitingOutcome(models.TextChoices):
+        EXPIRED = "expiro", "No respondió a tiempo"
+        DECLINED = "declino", "No aceptó el lugar"
+        LEFT = "salio", "Salió de la lista de espera"
+        REMOVED = "retirada", "La administración la quitó de la lista de espera"
+
+    # Who is in: confirmed, or waiting for the team to verify an age or for a guardian's authorization.
     HOLDING = (Status.ACTIVE, Status.PENDING)
+    # The statuses that use a place of the event's capacity: who is in, and a place that was offered.
+    TAKING = (Status.ACTIVE, Status.PENDING, Status.OFFERED)
+    # On the waiting list: in line, or with an offer to answer.
+    LISTED = (Status.WAITING, Status.OFFERED)
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="registrations")
     person = models.ForeignKey(Person, on_delete=models.CASCADE, null=True, blank=True, related_name="event_registrations")
@@ -93,6 +121,11 @@ class EventRegistration(models.Model):
     # Why the row waits; empty when it does not (a row from before this column waits for a guardian).
     pending_reason = models.CharField(max_length=8, choices=PendingReason.choices, blank=True, default="", db_default="")
     annulled_reason = models.CharField(max_length=12, choices=AnnulReason.choices, blank=True, default="", db_default="")
+    # The waiting list: since when the row waits (its order), until when an offered place is held,
+    # and how the row left the list when it left without a place.
+    waiting_since = models.DateTimeField(null=True, blank=True)
+    offer_expires_at = models.DateTimeField(null=True, blank=True)
+    waiting_outcome = models.CharField(max_length=12, choices=WaitingOutcome.choices, blank=True, default="", db_default="")
     created_at = models.DateTimeField(auto_now_add=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     # None: nobody has said yet whether this person came.
@@ -112,6 +145,20 @@ class EventRegistration(models.Model):
                 ),
                 name="agenda_reg_person_or_guest",
             ),
+            # An offer always has its deadline, and nothing else carries one: a row cannot stop
+            # being an offer and keep holding a place by a forgotten date.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status="ofrecida", offer_expires_at__isnull=False)
+                    | (~models.Q(status="ofrecida") & models.Q(offer_expires_at__isnull=True))
+                ),
+                name="agenda_reg_offer_has_deadline",
+            ),
+            # The waiting list is for people of the church: a visitor is written down at the door.
+            models.CheckConstraint(
+                condition=~models.Q(status__in=["en_espera", "ofrecida"]) | models.Q(person__isnull=False),
+                name="agenda_reg_list_is_person",
+            ),
         ]
         indexes = [models.Index(fields=["event", "status"], name="agenda_reg_event_status_idx")]
 
@@ -125,6 +172,14 @@ class EventRegistration(models.Model):
     @property
     def is_pending(self) -> bool:
         return self.status == self.Status.PENDING
+
+    @property
+    def is_waiting(self) -> bool:
+        return self.status == self.Status.WAITING
+
+    @property
+    def is_offered(self) -> bool:
+        return self.status == self.Status.OFFERED
 
     @property
     def is_guest(self) -> bool:

@@ -26,7 +26,7 @@
       <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
       <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
     </dl>
-    <p class="checks__aside"><a href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>
+    {% if not participant.is_practice %}<p class="checks__aside"><a href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>{% endif %}
   </section>
 
   <section class="checks__step" aria-labelledby="paso-2">

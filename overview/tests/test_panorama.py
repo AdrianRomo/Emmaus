@@ -256,7 +256,7 @@ class CostTests(PanoramaFixture):
         return len(captured)
 
     def test_the_numbers_take_a_fixed_number_of_queries(self):
-        with self.assertNumQueries(10):
+        with self.assertNumQueries(11):
             services.build(self.church, None, self.today)
 
     def test_more_groups_cost_no_more_queries(self):
@@ -268,7 +268,7 @@ class CostTests(PanoramaFixture):
             for weeks in range(1, 11):
                 meeting = GroupMeeting.objects.create(group=group, date=self.today - timedelta(weeks=weeks), expected=5)
                 GroupAttendance.objects.create(meeting=meeting, person=self.member)
-        with self.assertNumQueries(10):
+        with self.assertNumQueries(11):
             data = services.build(self.church, None, self.today)
         self.assertEqual(len(data["groups"]), 12)
         self.assertEqual(data["groups"][2].trend, ["menos de la mitad"] * services.TREND_MEETINGS)

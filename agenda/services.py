@@ -6,18 +6,26 @@ counts only. Callers have already answered who may ask (``groups.views.community
 
 Nothing here creates an ``EventParticipant``, an ``EventMembership`` or a ``RoleAssignment``: a
 registration says "I want to come" and nothing else.
+
+ONE LOCK ORDER, for every write here: the person (``_fresh``), then the event's page
+(``_locked_page``), then registration rows (``_locked``, or a locked queryset of the event's rows).
+A function may skip a level, never take them in another order: two requests about the same person
+or the same event then wait for each other instead of deadlocking on PostgreSQL.
 """
 
 from __future__ import annotations
 
+import logging
 from collections import namedtuple
-from datetime import date
+from datetime import date, timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import Count, Q
+from django.urls import reverse
 from django.utils import timezone
 
+from core.notify import notify
 from events.models import Event, normalize_name
 from people import flags, policy
 from people import services as people_services
@@ -29,8 +37,16 @@ from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem, G
 ACTIVE = EventRegistration.Status.ACTIVE
 PENDING = EventRegistration.Status.PENDING
 CANCELLED = EventRegistration.Status.CANCELLED
-# Who holds a place: confirmed, or waiting for the team to verify an age or for a guardian's authorization.
+WAITING = EventRegistration.Status.WAITING
+OFFERED = EventRegistration.Status.OFFERED
+# Who is in: confirmed, or waiting for the team to verify an age or for a guardian's authorization.
 HOLDING = EventRegistration.HOLDING
+# What uses a place of the capacity: who is in, and a place offered to somebody of the waiting list.
+TAKING = EventRegistration.TAKING
+# On the waiting list: in line (no place), or with an offer to answer (a place held until it expires).
+LISTED = EventRegistration.LISTED
+Outcome = EventRegistration.WaitingOutcome
+logger = logging.getLogger(__name__)
 AGE = EventRegistration.PendingReason.AGE.value
 CONSENT = EventRegistration.PendingReason.CONSENT.value
 
@@ -43,6 +59,11 @@ FULL = "Ya no hay lugares."
 STARTED = "El evento ya empezó: tu inscripción ya no se puede cancelar desde aquí. Avisa en tu iglesia."
 PENDING_NEXT = "Tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia."
 AGE_NEXT = "Tu inscripción queda pendiente: el equipo de la iglesia tiene que confirmar tu edad."
+LIST_FROZEN = "La inscripción desde Emmaus está cerrada: pregunta en tu iglesia."
+LIST_STARTED = "El evento ya empezó: el lugar que te ofrecimos ya no se puede aceptar desde aquí. Pregunta en tu iglesia."
+OFFER_OVER = "El lugar que te ofrecimos ya venció. Si todavía quieres ir, puedes anotarte otra vez en la lista de espera."
+NO_OFFER = "Por ahora no tienes un lugar ofrecido en este evento."
+OFFER_KIND = "lugar_ofrecido"
 CALL_IS_NOT_ENOUGH = (
     "Una llamada o un mensaje no basta para confirmar: hace falta el formato firmado en papel o verificar en "
     "persona la identidad y el parentesco de quien autoriza."
@@ -103,8 +124,10 @@ def _not_ended(today, prefix: str = "") -> Q:
 
 # ---- what a person sees -------------------------------------------------------------------------
 def taken(event: Event) -> int:
-    """The places in use: a registration that waits for a guardian holds its place too."""
-    return EventRegistration.objects.filter(event=event, status__in=HOLDING).count()
+    """The places in use: a registration that waits for a guardian holds its place too, and so does
+    a place offered to somebody of the waiting list until they answer or it expires. Somebody who
+    waits in line holds none."""
+    return EventRegistration.objects.filter(event=event, status__in=TAKING).count()
 
 
 def age_on(birth_date: date, day: date) -> int:
@@ -258,10 +281,47 @@ def places_left(page: EventPage, taken_count: int) -> int | None:
     return None if page.capacity is None else max(page.capacity - taken_count, 0)
 
 
+def list_block(event: Event, page: EventPage | None, today=None) -> str:
+    """Why the waiting list of ``event`` does not move right now, as one word, or empty when it does:
+
+    * ``terminado``: the event is over.
+    * ``empezo``: the event started. No more offers (the door and its override take over) and an
+      offer already made can no longer be accepted.
+    * ``sin_publicar`` / ``sin_inscripcion``: the list is FROZEN because the administration
+      unpublished the page (or the event is not active) or set it to "No hay inscripción desde
+      Emmaus". No new offers, and an offer already made cannot be accepted until that changes.
+
+    The closing DATE is not here on purpose: it stops new sign-ups only. Who is on the list signed up
+    in time, so offers and acceptances go on after it. A deadline runs whatever this says: an offer
+    that reaches it while the list is frozen expires like any other."""
+    today = today or timezone.localdate()
+    if has_ended(event, today):
+        return "terminado"
+    if has_started(event, today):
+        return "empezo"
+    if page is None or not page.published or event.status != Event.Status.ACTIVE:
+        return "sin_publicar"
+    if not page.registration_open:
+        return "sin_inscripcion"
+    return ""
+
+
+def offer_is_open(registration, now=None) -> bool:
+    """The row is an offered place the person can still accept."""
+    return (
+        registration is not None and registration.status == OFFERED
+        and registration.offer_expires_at is not None and registration.offer_expires_at > (now or timezone.now())
+    )
+
+
 def state_of(event: Event, page: EventPage | None, registration, taken_count: int, today=None) -> str:
     """Where one person stands with one event, as one word the screens turn into a sentence:
     ``terminado``, ``inscrita``, ``pendiente`` (a minor whose guardian has not authorized yet),
-    ``sin_publicar``, ``sin_inscripcion``, ``cerro``, ``llena`` or ``abierta``."""
+    ``ofrecido`` (a place of the waiting list offered to them, to accept or let go), ``en_espera``
+    (in line), ``sin_publicar``, ``sin_inscripcion``, ``cerro``, ``lista`` (full, and who signs up
+    waits in line), ``llena`` or ``abierta``. An offer past its deadline counts as no registration;
+    one that cannot be accepted right now (``list_block``) is ``ofrecido_pausa``. Once the event has
+    started nobody joins the list: a full event is ``llena``."""
     today = today or timezone.localdate()
     if has_ended(event, today):
         return "terminado"
@@ -269,6 +329,11 @@ def state_of(event: Event, page: EventPage | None, registration, taken_count: in
         return "inscrita"
     if registration is not None and registration.is_pending:
         return "pendiente"
+    if offer_is_open(registration):
+        # An offer that cannot be accepted right now (the list is frozen, or the event started) is not "ofrecido".
+        return "ofrecido_pausa" if list_block(event, page, today) else "ofrecido"
+    if registration is not None and registration.is_waiting:
+        return "en_espera"
     if page is None or not page.published or event.status != Event.Status.ACTIVE:
         return "sin_publicar"
     if not page.registration_open:
@@ -276,7 +341,7 @@ def state_of(event: Event, page: EventPage | None, registration, taken_count: in
     if page.registration_closes_on and page.registration_closes_on < today:
         return "cerro"
     if page.capacity is not None and taken_count >= page.capacity:
-        return "llena"
+        return "lista" if page.waiting_list and not has_started(event, today) else "llena"
     return "abierta"
 
 
@@ -284,24 +349,28 @@ def upcoming_for(person, church, today=None) -> list[Event]:
     """The events of ``church`` this person may see, by first day: published, active and not
     ended, plus the ones they are registered for until they end. Each event carries ``page``,
     ``my_registration`` (the confirmed registration or None), ``my_place`` (that one, or the one
-    that waits for a guardian's authorization), ``taken`` and ``state``."""
+    that waits for a guardian's authorization), ``my_wait`` (their row on the waiting list: in line,
+    or an offered place they can still accept), ``taken`` and ``state``."""
     today = today or timezone.localdate()
-    mine = {
-        row.event_id: row
-        for row in EventRegistration.objects.filter(person=person, status__in=HOLDING, event__church=church)
-    }
+    mine, listed = {}, {}
+    for row in EventRegistration.objects.filter(person=person, status__in=(*HOLDING, *LISTED), event__church=church):
+        if row.status in HOLDING:
+            mine[row.event_id] = row
+        elif row.is_waiting or offer_is_open(row):
+            listed[row.event_id] = row
     events = (
         Event.objects.filter(church=church, page__isnull=False)
         .filter(_not_ended(today))
-        .filter(Q(page__published=True, status=Event.Status.ACTIVE) | Q(pk__in=list(mine)))
+        .filter(Q(page__published=True, status=Event.Status.ACTIVE) | Q(pk__in=[*mine, *listed]))
         .select_related("page")
-        .annotate(taken=Count("registrations", filter=Q(registrations__status__in=HOLDING)))
+        .annotate(taken=Count("registrations", filter=Q(registrations__status__in=TAKING)))
     )
     events = sorted(events, key=lambda event: (event.starts_on or event.ends_on, event.name, event.pk))
     for event in events:
         event.my_place = mine.get(event.pk)
+        event.my_wait = listed.get(event.pk)
         event.my_registration = event.my_place if event.my_place is not None and event.my_place.is_active else None
-        event.state = state_of(event, event.page, event.my_place, event.taken, today)
+        event.state = state_of(event, event.page, event.my_place or event.my_wait, event.taken, today)
     return events
 
 
@@ -317,10 +386,15 @@ def my_registrations(person, today=None) -> list[EventRegistration]:
 
 
 # ---- the person's writes ------------------------------------------------------------------------
-def register(event: Event, person, actor) -> EventRegistration:
-    """Sign ``person`` up. Idempotent for who is already in (confirmed or waiting for a guardian);
+def register(event: Event, person, actor, *, base_url: str | None = None) -> EventRegistration:
+    """Sign ``person`` up. Idempotent for who is already in (confirmed or waiting for a guardian)
+    and for who is on the waiting list (in line or with an offer: signing up again moves nothing);
     after a cancellation the same row comes back. Places are counted with the page row locked, so
     the last one is given once.
+
+    A full event whose page keeps a waiting list (``EventPage.waiting_list``) puts the person at
+    the end of the list (``en_espera``): no place, no standing yet. Check ``is_waiting`` on what
+    comes back.
 
     When the event asks for a guardian's authorization, ``standing`` decides whether the row is
     confirmed or waits (``pendiente``): for the team to verify the age, or for a guardian. An
@@ -337,25 +411,34 @@ def register(event: Event, person, actor) -> EventRegistration:
             raise AgendaError(NOT_PUBLISHED, code="not_published")
         if has_ended(event, today):
             raise AgendaError(ENDED, code="ended")
+        # First the list: an offer past its deadline is released and a free place goes to who waits,
+        # so nobody who arrives now takes a place ahead of the list.
+        _advance(event, page, base_url=base_url)
         registration = EventRegistration.objects.select_for_update().filter(event=event, person=person).first()
-        if registration is not None and registration.status in HOLDING:
+        if registration is not None and registration.status in (*HOLDING, *LISTED):
             return registration
         if not page.registration_open:
             raise AgendaError(NO_REGISTRATION, code="no_registration")
         if page.registration_closes_on and page.registration_closes_on < today:
             raise AgendaError(REGISTRATION_OVER, code="registration_over")
-        if page.capacity is not None and taken(event) >= page.capacity:
+        full = page.capacity is not None and taken(event) >= page.capacity
+        if full and (not page.waiting_list or has_started(event, today)):  # a list that will not move takes nobody
             raise AgendaError(FULL, code="full")
-        where = standing(
-            event, page, person=person, today=today,
-            said_minor=registration is not None and registration.guest_is_minor,
-            consent=getattr(registration, "consent", None) if registration is not None else None,
-        )
+        if full:
+            # In line: no place and no standing. ``standing`` is asked the day the offer is accepted.
+            where, since = Standing(WAITING.value, ""), timezone.now()
+        else:
+            since = None
+            where = standing(
+                event, page, person=person, today=today,
+                said_minor=registration is not None and registration.guest_is_minor,
+                consent=getattr(registration, "consent", None) if registration is not None else None,
+            )
         if registration is None:
             try:
                 with transaction.atomic():
                     registration = EventRegistration.objects.create(
-                        event=event, person=person, status=where.status, pending_reason=where.reason
+                        event=event, person=person, status=where.status, pending_reason=where.reason, waiting_since=since
                     )
             except IntegrityError:  # two taps at once: the other one created it
                 return EventRegistration.objects.get(event=event, person=person)
@@ -367,10 +450,16 @@ def register(event: Event, person, actor) -> EventRegistration:
             registration.checked_in_at = None
             registration.checked_in_by = None
             registration.registered_by = None
-            registration.save(update_fields=[*SETTLED_FIELDS, "cancelled_at", "annulled_reason", "registered_by"])
-        summary = f"{person.full_name} se inscribió a {event.name}{PENDING_SUFFIX[where.reason]}"
-        record_church(event.church, actor, "evento_inscripcion", summary, registration,
-                      event_id=event.pk, person_id=person.pk)
+            registration.waiting_since, registration.offer_expires_at, registration.waiting_outcome = since, None, ""
+            registration.save(update_fields=[*SETTLED_FIELDS, "cancelled_at", "annulled_reason", "registered_by", *LIST_FIELDS])
+        if full:
+            record_church(event.church, actor, "evento_lista_espera",
+                          f"{person.full_name} se anotó en la lista de espera de {event.name}", registration,
+                          event_id=event.pk, person_id=person.pk)
+        else:
+            summary = f"{person.full_name} se inscribió a {event.name}{PENDING_SUFFIX[where.reason]}"
+            record_church(event.church, actor, "evento_inscripcion", summary, registration,
+                          event_id=event.pk, person_id=person.pk)
     return registration
 
 
@@ -388,11 +477,12 @@ def set_birth_date(person, birth_date: date, actor):
     return person
 
 
-def cancel(registration: EventRegistration, actor) -> EventRegistration:
+def cancel(registration: EventRegistration, actor, *, base_url: str | None = None) -> EventRegistration:
     """The person is no longer coming (confirmed or still waiting for a guardian). Not once the
     event has started: by then the church counts on the list it has. An authorization already
-    recorded stays with the row."""
+    recorded stays with the row. The freed place is offered to the first of the waiting list."""
     with transaction.atomic():
+        page = _locked_page(registration.event_id)
         registration = _locked(registration.pk)
         if registration.status not in HOLDING:
             return registration
@@ -406,7 +496,14 @@ def cancel(registration: EventRegistration, actor) -> EventRegistration:
         record_church(event.church, actor, "evento_inscripcion_cancelada",
                       f"{registration.display_name} canceló su inscripción a {event.name}",
                       registration, event_id=event.pk, **_who(registration))
+        _advance(event, page, base_url=base_url)
     return registration
+
+
+def _locked_page(event_id: int) -> EventPage | None:
+    """The page row of an event, locked: THE lock every change of who holds a place, who waits and
+    who has an offer happens under, taken before any registration row."""
+    return EventPage.objects.select_for_update().filter(event_id=event_id).first()
 
 
 def _fresh(person) -> Person:
@@ -434,14 +531,243 @@ def _who(registration: EventRegistration) -> dict:
     return {"registration_id": registration.pk, "person_id": registration.person_id}
 
 
+# ---- the waiting list (decision 0011) -------------------------------------------------------------
+# A freed place is OFFERED to the first of the list, with a deadline, and only the person turns the
+# offer into a registration. Every move happens with the page row locked (``_locked_page``):
+#
+#   en_espera --(a place is free: ``_advance``)--> ofrecida --(``accept_offer`` + ``standing``)--> inscrita | pendiente
+#   en_espera --(``leave_waiting`` | ``remove_from_waiting``)--> cancelada
+#   ofrecida  --(``leave_waiting`` | ``remove_from_waiting`` | the deadline: ``_advance``)--> cancelada
+#
+# Nothing else touches a row of the list: not attendance, not signing up again, not an edit of the
+# page, not ``resettle_event``, not a walk-up.
+LIST_FIELDS = ["waiting_since", "offer_expires_at", "waiting_outcome"]
+
+
+def waiting_position(registration: EventRegistration) -> int | None:
+    """The place in line of a row that waits, counting from 1; None for any other row. Who has an
+    offer is no longer in line."""
+    if registration is None or not registration.is_waiting:
+        return None
+    since = registration.waiting_since
+    ahead = EventRegistration.objects.filter(event_id=registration.event_id, status=WAITING).filter(
+        Q(waiting_since__lt=since) | Q(waiting_since=since, pk__lt=registration.pk)
+    )
+    return ahead.count() + 1
+
+
+def position_words(position: int) -> str:
+    """The place in line as the person reads it."""
+    if position == 1:
+        return "Eres la primera persona en la lista de espera."
+    return f"Eres la persona {position} en la lista de espera."
+
+
+def waiting_rows(event: Event) -> list[EventRegistration]:
+    """The list as the administration reads it: first who has an offer to answer (by deadline), then
+    who waits, in order. Each row that waits carries ``position``."""
+    rows = EventRegistration.objects.filter(event=event, status__in=LISTED).select_related("person")
+    offered = sorted((row for row in rows if row.is_offered), key=lambda row: (row.offer_expires_at, row.pk))
+    waiting = sorted((row for row in rows if row.is_waiting), key=lambda row: (row.waiting_since, row.pk))
+    for position, row in enumerate(waiting, start=1):
+        row.position = position
+    return [*offered, *waiting]
+
+
+def last_list_outcome(event: Event, person) -> str:
+    """How this person's time on the list ended when it ended without a place and they have not
+    signed up again: ``expiro``, ``retirada`` or empty. For the sentence on the event's page."""
+    row = EventRegistration.objects.filter(event=event, person=person, status=CANCELLED).first()
+    if row is None or row.waiting_outcome not in (Outcome.EXPIRED, Outcome.REMOVED):
+        return ""
+    return row.waiting_outcome
+
+
+def _off_the_list(registration: EventRegistration, outcome: str, now) -> None:
+    registration.status = CANCELLED
+    registration.pending_reason = ""
+    registration.cancelled_at = now
+    registration.waiting_outcome = outcome
+    registration.offer_expires_at = None
+    registration.save(update_fields=["status", "pending_reason", "cancelled_at", "waiting_outcome", "offer_expires_at"])
+
+
+def _announce_offer(registration: EventRegistration, base_url: str | None) -> None:
+    """After the transaction commits, one e-mail that says a place was freed and where to answer:
+    the church's name and the address of the event's page, nothing else (``core.notify``). Without a
+    ``base_url`` or an address nothing is sent, and the person reads the offer in Emmaus. A failure
+    is logged and never reaches whoever freed the place."""
+    person, event = registration.person, registration.event
+    address = person.email or (person.user.email if person.user_id else "")
+    if not base_url or not address:
+        return
+    context = {"church_name": event.church.name, "link": f"{base_url.rstrip('/')}{reverse('agenda:detail', args=[event.slug])}"}
+
+    def send_offer_after_commit() -> None:
+        try:
+            notify(OFFER_KIND, address, context)
+        except ValueError:  # a church name or an address ``core.notify`` refuses; its message names no value
+            logger.exception("The e-mail about an offered place could not be written.")
+
+    transaction.on_commit(send_offer_after_commit, robust=True)
+
+
+def _advance(event: Event, page: EventPage | None, *, base_url: str | None = None, now=None) -> dict:
+    """Move the waiting list of ``event``. THE CALLER HOLDS THE PAGE ROW LOCK (``_locked_page``).
+
+    1. Every offer past its deadline is released: the row becomes ``cancelada`` with the fixed
+       reason "No respondió a tiempo"; the person reads it and may join the list again, at the end.
+    2. While there is a free place (capacity - confirmed - pending - offered) and somebody waits,
+       the first in line gets the offer, held ``policy.waiting_offer_hours`` hours. Not while
+       ``list_block`` says the list does not move: the page is not published or takes no sign-up
+       from Emmaus (frozen), or the event started or is over.
+
+    It never confirms anybody. Returns counts: ``released`` and ``offered``. Idempotent: a second
+    call with nothing new changes nothing. The audit rows are the system's, with ids and a fixed word."""
+    now = now or timezone.now()
+    moved = {"released": 0, "offered": 0}
+    rows = EventRegistration.objects.select_for_update(of=("self",)).select_related("person").filter(event=event)
+    for row in rows.filter(status=OFFERED, offer_expires_at__lte=now).order_by("offer_expires_at", "pk"):
+        row.event = event
+        _off_the_list(row, Outcome.EXPIRED, now)
+        record_church(event.church, None, "evento_lista_vencida",
+                      f"Venció el lugar ofrecido a {row.display_name} en {event.name}", row,
+                      event_id=event.pk, reason=Outcome.EXPIRED.value, **_who(row))
+        moved["released"] += 1
+    if list_block(event, page):
+        return moved
+    waiting = rows.filter(status=WAITING).order_by("waiting_since", "pk")
+    if page.capacity is not None:
+        free = page.capacity - taken(event)
+        if free <= 0:
+            return moved
+        waiting = waiting[:free]
+    deadline = now + timedelta(hours=policy.waiting_offer_hours(event.church))
+    for row in waiting:
+        row.event = event
+        row.status, row.offer_expires_at = OFFERED, deadline
+        row.save(update_fields=["status", "offer_expires_at"])
+        record_church(event.church, None, "evento_lista_oferta",
+                      f"Se ofreció un lugar de {event.name} a {row.display_name}, que seguía en la lista de espera", row,
+                      event_id=event.pk, **_who(row))
+        _announce_offer(row, base_url)
+        moved["offered"] += 1
+    return moved
+
+
+def advance(event: Event, *, base_url: str | None = None, now=None) -> dict:
+    """Move the waiting list of one event under its page lock (``_advance``): what the command and
+    the screens that read the list call."""
+    with transaction.atomic():
+        return _advance(event, _locked_page(event.pk), base_url=base_url, now=now)
+
+
+def expire_offers(*, apply: bool = False, base_url: str | None = None, now=None) -> dict:
+    """Every event with an offer past its deadline (``manage.py expire_waiting_offers``). Counts
+    only: ``events``, ``expired`` and, when it writes, ``released`` and ``offered`` (the places that
+    went to the next in line). ``apply=False`` writes nothing. Idempotent."""
+    now = now or timezone.now()
+    due = EventRegistration.objects.filter(status=OFFERED, offer_expires_at__lte=now)
+    event_ids = sorted(set(due.values_list("event_id", flat=True)))
+    totals = {"events": len(event_ids), "expired": due.count(), "released": 0, "offered": 0}
+    if apply:
+        for event in Event.objects.filter(pk__in=event_ids).select_related("church").order_by("pk"):
+            for key, value in advance(event, base_url=base_url, now=now).items():
+                totals[key] += value
+    return totals
+
+
+def accept_offer(registration: EventRegistration, actor, *, base_url: str | None = None) -> EventRegistration:
+    """"Aceptar mi lugar": the person takes the place that was offered to them. Accepting is a
+    sign-up, not a confirmation: ``standing`` decides, exactly as for ``register``, so in an event
+    that protects minors a minor waits for a guardian's authorization and an adult whose age the
+    team has not verified waits for that. The place was held by the offer, so the capacity is not
+    asked again. Idempotent for who is already in. An offer past its deadline is released here (and
+    the place offered to the next one) and the person reads ``OFFER_OVER``. While the list does not
+    move (``list_block``: frozen, or the event started) the offer cannot be accepted and the person
+    reads why; the closing date of the sign-up does not stop an acceptance."""
+    if registration.person_id is None:
+        raise AgendaError(NO_OFFER, code="no_offer")
+    refusal = None
+    with transaction.atomic():
+        person = _fresh(registration.person)
+        page = _locked_page(registration.event_id)
+        registration = _locked(registration.pk)
+        event = registration.event
+        was_offered = registration.status == OFFERED
+        _advance(event, page, base_url=base_url)
+        registration = _locked(registration.pk)
+        if registration.status in HOLDING:
+            return registration
+        if registration.status != OFFERED:
+            # Not raised in here: the release above has to be kept.
+            refusal = AgendaError(OFFER_OVER, code="offer_over") if was_offered else AgendaError(NO_OFFER, code="no_offer")
+        else:
+            block = list_block(event, page)
+            if block == "terminado":
+                raise AgendaError(ENDED, code="ended")
+            if block == "empezo":
+                raise AgendaError(LIST_STARTED, code="started")
+            if block:
+                raise AgendaError(LIST_FROZEN, code="frozen")
+            registration.person = person
+            where = standing(event, page, person=person, said_minor=registration.guest_is_minor,
+                             consent=getattr(registration, "consent", None))
+            registration.status, registration.pending_reason = where
+            registration.attended, registration.checked_in_at, registration.checked_in_by = None, None, None
+            registration.waiting_since, registration.offer_expires_at, registration.waiting_outcome = None, None, ""
+            registration.save(update_fields=[*SETTLED_FIELDS, *LIST_FIELDS])
+            record_church(event.church, actor, "evento_lista_aceptada",
+                          f"{person.full_name} aceptó el lugar que se le ofreció en {event.name}{PENDING_SUFFIX[where.reason]}",
+                          registration, event_id=event.pk, standing=where.reason or where.status, **_who(registration))
+    if refusal is not None:
+        raise refusal
+    return registration
+
+
+def _take_off_the_list(registration: EventRegistration, actor, *, by_admin: bool, base_url: str | None) -> EventRegistration:
+    with transaction.atomic():
+        page = _locked_page(registration.event_id)
+        registration = _locked(registration.pk)
+        if registration.status not in LISTED:
+            return registration
+        event = registration.event
+        had_offer = registration.is_offered
+        if by_admin:
+            outcome, action = Outcome.REMOVED, "evento_lista_retirada"
+            summary = f"Quitó a {registration.display_name} de la lista de espera de {event.name}"
+        elif had_offer:
+            outcome, action = Outcome.DECLINED, "evento_lista_salida"
+            summary = f"{registration.display_name} no aceptó el lugar que se le ofreció en {event.name}"
+        else:
+            outcome, action = Outcome.LEFT, "evento_lista_salida"
+            summary = f"{registration.display_name} salió de la lista de espera de {event.name}"
+        _off_the_list(registration, outcome, timezone.now())
+        record_church(event.church, actor, action, summary, registration, event_id=event.pk, reason=outcome.value,
+                      **_who(registration))
+        _advance(event, page, base_url=base_url)
+    return registration
+
+
+def leave_waiting(registration: EventRegistration, actor, *, base_url: str | None = None) -> EventRegistration:
+    """The person leaves the list, or lets the offered place go: it goes to the next in line."""
+    return _take_off_the_list(registration, actor, by_admin=False, base_url=base_url)
+
+
+def remove_from_waiting(registration: EventRegistration, actor, *, base_url: str | None = None) -> EventRegistration:
+    """"Quitar de la lista de espera": the one thing the administration does to the list. Audited
+    with a fixed reason. There is no function that moves somebody up the list or confirms them from it."""
+    return _take_off_the_list(registration, actor, by_admin=True, base_url=base_url)
+
+
 # ---- the administration's writes ----------------------------------------------------------------
 PAGE_FIELDS = (
     "published", "description", "starts_at", "registration", "capacity", "registration_closes_on",
-    "requires_guardian_consent",
+    "requires_guardian_consent", "waiting_list", "public",
 )
 
 
-def save_page(event: Event, actor, **fields) -> EventPage:
+def save_page(event: Event, actor, *, base_url: str | None = None, **fields) -> EventPage:
     """Create or change the page of ``event``. ``fields`` are the ones of ``PAGE_FIELDS``; the ones
     left out keep their value. Publishing an event that has no first day is refused: nobody would
     ever see it.
@@ -449,7 +775,10 @@ def save_page(event: Event, actor, **fields) -> EventPage:
     While the page asks for a guardian's authorization, saving it settles EVERY registration that
     holds a place with ``standing``, unknown dates of birth included: nothing stays confirmed by
     default, and a row that starts waiting loses its attendance mark (decision 0015, point 3).
-    Turning the rule off confirms nobody: who was waiting keeps waiting."""
+    Turning the rule off confirms nobody: who was waiting keeps waiting.
+
+    More places (or a page published again) move the waiting list: each free place is OFFERED to
+    who is first in line. Nobody on the list is signed up by an edit of the page."""
     unknown = sorted(set(fields) - set(PAGE_FIELDS))
     if unknown:
         raise ValueError(f"Unknown event page fields: {', '.join(unknown)}.")
@@ -467,6 +796,7 @@ def save_page(event: Event, actor, **fields) -> EventPage:
                               code="no_date")
         page.save()
         resettle_event(event, page, actor)
+        _advance(event, page, base_url=base_url)
         if page.published and not was_published:
             action, summary = "evento_publicado", f"Publicó el evento {event.name} para la iglesia"
         elif was_published and not page.published:
@@ -576,7 +906,7 @@ def walkup_blocks(event: Event, page: EventPage | None, taken_count: int, today=
 
 def register_walkup(event: Event, actor, *, person=None, first_name: str = "", last_name: str = "", phone: str = "",
                     is_minor: bool = False, seen_adult: bool = False, consent: dict | None = None, override=(),
-                    override_reason: str = "") -> EventRegistration:
+                    override_reason: str = "", base_url: str | None = None) -> EventRegistration:
     """Somebody arrived and the team writes them down: a person of the church, or a visitor by
     name (no account, no ``Person``). From the event's first day on.
 
@@ -585,6 +915,11 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
     those on purpose: ``override`` names the rules (keys of ``WALKUP_RULES``; the capacity,
     ``llena``, only when it is named) and ``override_reason`` is one of ``WalkupOverrideReason``.
     Both go to the audit row as fixed words.
+
+    The capacity counts a place offered to somebody of the waiting list as taken
+    (``taken``: confirmed + pending + offered), so an override adds a place over the capacity and
+    never uses the offered one: who has the offer can still accept it. Somebody who is on the list
+    is not written down from here: the administration first takes them off the list, on purpose.
 
     The minors' rule is never overridden: ``standing`` decides, whatever ``override`` says. A row
     that waits is not marked as present. ``is_minor`` and ``seen_adult`` are the team's word at the
@@ -615,6 +950,7 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
         if clean and not is_minor:
             raise AgendaError("La autorización es solo para menores de edad. Marca «Es menor de edad».", code="consent")
         page = EventPage.objects.select_for_update().filter(event=event).first()
+        _advance(event, page, base_url=base_url)
         registration = None
         if person is not None:
             registration = (
@@ -623,6 +959,11 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
             )
             if registration is not None and registration.status in HOLDING:
                 raise AgendaError(f"{person.full_name} ya está en la lista de inscritos.", code="already")
+            if registration is not None and registration.status in LISTED:
+                raise AgendaError(
+                    f"{person.full_name} está en la lista de espera de este evento. Si la vas a recibir de todos "
+                    "modos, primero quítala de la lista de espera en Inscritos.", code="listed",
+                )
         blocks = walkup_blocks(event, page, taken(event))
         allowed = set(override)
         for rule in blocks:
@@ -645,6 +986,11 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
             "attended": None if waits else True,
             "checked_in_at": None if waits else now,
             "checked_in_by": None if waits else actor,
+            # A row that once left the waiting list starts clean, as in ``register``: what the
+            # person reads about the list is not a leftover of another time.
+            "waiting_since": None,
+            "offer_expires_at": None,
+            "waiting_outcome": "",
         }
         if registration is None:
             registration = EventRegistration.objects.create(
@@ -671,7 +1017,7 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
     return registration
 
 
-def annul_walkup(registration: EventRegistration, actor, reason: str) -> EventRegistration:
+def annul_walkup(registration: EventRegistration, actor, reason: str, *, base_url: str | None = None) -> EventRegistration:
     """"Anular registro": the team wrote somebody down at the door by mistake. Only a row the team
     wrote (a visitor, or a person of the church it registered); who signed up by themselves
     cancels by themselves. The row frees its place, leaves every list and every count, and stays in
@@ -680,6 +1026,7 @@ def annul_walkup(registration: EventRegistration, actor, reason: str) -> EventRe
     if reason not in EventRegistration.AnnulReason.values:
         raise AgendaError("Elige por qué anulas este registro.", code="reason")
     with transaction.atomic():
+        page = _locked_page(registration.event_id)
         registration = _locked(registration.pk)
         if not registration.is_walkup or registration.status not in HOLDING:
             raise AgendaError("Este registro no se puede anular desde aquí.", code="not_walkup")
@@ -699,6 +1046,7 @@ def annul_walkup(registration: EventRegistration, actor, reason: str) -> EventRe
         record_church(event.church, actor, "evento_registro_anulado",
                       f"Anuló el registro de {registration.display_name} en {event.name}",
                       registration, event_id=event.pk, reason=reason, **_who(registration))
+        _advance(event, page, base_url=base_url)
     return registration
 
 
@@ -818,6 +1166,8 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
     de edad") stays with the row while the date is unknown, and it is never contradicted silently:
     a visitor marked as a minor cannot be recognized as an adult."""
     with transaction.atomic():
+        if existing is not None:
+            existing = _fresh(existing)  # the person first, then the row: the module's lock order
         registration = _locked(registration.pk)
         event = registration.event
         if not flags.enabled(event.church, "people"):
@@ -831,7 +1181,6 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
                 raise AgendaError(
                     f"{existing.full_name} ya tiene su propia inscripción a este evento. Revisa la lista.", code="already"
                 )
-            existing = _fresh(existing)
             if registration.guest_is_minor and existing.birth_date and not is_minor_at(event, existing.birth_date):
                 raise AgendaError(
                     f"En la entrada registraron a esta visita como menor de edad, y {existing.full_name} es mayor de "
@@ -857,6 +1206,54 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
                       f"Agregó a {person.full_name}, visita de {event.name}, a las personas de la iglesia",
                       registration, event_id=event.pk, **_who(registration))
     return person
+
+
+# ---- somebody to walk with a visitor ------------------------------------------------------------
+def came_as_visitor(registration: EventRegistration) -> bool:
+    """The row is of a person the church has because they came to an event as a visitor."""
+    return registration.person_id is not None and registration.person.created_from == Person.CreatedFrom.EVENT
+
+
+def open_follow_ups(church, person_ids) -> dict[int, int]:
+    """For each of these people of ``church`` who has an open follow-up: its id (the oldest one)."""
+    from care.models import FollowUp
+
+    rows = FollowUp.objects.filter(church=church, person_id__in=list(person_ids), status__in=FollowUp.OPEN)
+    found: dict[int, int] = {}
+    for person_id, pk in rows.order_by("created_at", "id").values_list("person_id", "id"):
+        found.setdefault(person_id, pk)
+    return found
+
+
+def ask_to_accompany(registration: EventRegistration, actor):
+    """"Pedir que alguien le acompañe": one follow-up about a person who came as a visitor, with the
+    fixed reason "Vino por primera vez" and nobody responsible yet, through ``care.services.create``
+    (which audits it, with the person's id and no reason). No free text. While the person has an open
+    follow-up, of any reason, no other is created. Returns ``(follow_up, created)``. The caller is
+    the church's administration and is never the person the follow-up is about."""
+    from care import services as care
+    from care.models import FollowUp
+
+    with transaction.atomic():
+        # The person first, then the row (the module's lock order). Whose row it is, is read from the
+        # database (the caller's object may be older). Locked: two taps at once create one follow-up.
+        person_id = EventRegistration.objects.filter(pk=registration.pk).values_list("person_id", flat=True).first()
+        if person_id is None:
+            raise AgendaError("Esta inscripción no es de alguien que llegó como visita.", code="not_visitor")
+        person = Person.objects.select_for_update().get(pk=person_id)
+        registration = _locked(registration.pk)
+        event = registration.event
+        if registration.status not in HOLDING or registration.person_id != person.pk or not came_as_visitor(registration):
+            raise AgendaError("Esta inscripción no es de alguien que llegó como visita.", code="not_visitor")
+        if person.user_id is not None and person.user_id == getattr(actor, "pk", None):
+            raise AgendaError("No puedes pedir un seguimiento sobre ti.", code="self")
+        existing = FollowUp.objects.filter(church=event.church, person=person, status__in=FollowUp.OPEN).order_by("created_at", "id").first()
+        if existing is not None:
+            return existing, False
+        try:
+            return care.create(event.church, actor, person=person, reason=FollowUp.Reason.VISIT.value), True
+        except care.CareError as error:
+            raise AgendaError(error.message, code=error.code) from error
 
 
 # ---- frequent questions and the programme -------------------------------------------------------

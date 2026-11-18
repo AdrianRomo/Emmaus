@@ -30,6 +30,8 @@ from ..models import (
 from ..services import audit
 from ..services import event_questionnaires as eq
 from ..services import follow_ups as follow_up_svc
+from ..services import practice as practice_svc
+from ..services import readiness as readiness_svc
 from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, local_tz, mark_stalled, scope_for_access, stale_interviews, sum_rows
 from ..services.reports import next_slot
@@ -511,9 +513,11 @@ def team(request, event, access):
     unassigned = EventMembership.objects.filter(event=event, role=MembershipRole.COORDINATOR, tutor_assignment__isnull=True).select_related("user")
     others = EventMembership.objects.filter(event=event, role__in=[MembershipRole.ADMIN, MembershipRole.PASTOR]).select_related("user")
     counts = dict(
-        event.participants.filter(is_active=True).values_list("coordinator").annotate(n=Count("id"))
+        event.participants.real().filter(is_active=True).values_list("coordinator").annotate(n=Count("id"))
     )
     context = {"tutors": tutors, "unassigned": unassigned, "others": others, "counts": counts, "can_manage": access.is_admin}
+    # Issue #49: who has signed in (the account's last sign-in) and who already practised. No content of any interview.
+    context["practised"] = practice_svc.practised_user_ids(event)
     if access.is_admin:  # requests carry strangers' e-mails and notes: only the people who decide see them
         from ..services.team import describe_account
 
@@ -587,8 +591,12 @@ def _automatic_cutoffs(event, now) -> dict | None:
     return row
 
 
+def _n(count: int, one: str, many: str) -> str:
+    return f"1 {one}" if count == 1 else f"{count} {many}"
+
+
 def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state, roles, stations, has_automatic_cutoff,
-                       auto_cutoffs, last_snapshot, failed_count) -> list[dict]:
+                       auto_cutoffs, last_snapshot, failed_count, ready) -> list[dict]:
     """The rows of "Preparación" on the administration home, in the order of the work (audit UI-06, UX-11).
 
     Each step: ``key``; ``id`` (the row's anchor, or None); ``title``; ``meta`` (its lines, one ``.row__meta`` each);
@@ -599,6 +607,12 @@ def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state
     "Cortes" is one row (it was two): the schedule and the last cutoff, then whether the scheduler runs, said only
     while it has work (``auto_cutoffs``, which also gives the row its id), and the cutoffs that failed. Only a late
     scheduler marks the row; a failed cutoff says "Revisar" without marking it, because the scheduler did run.
+
+    Issue #49 added what the team needs before the camp (``ready``, a ``services.readiness.Readiness``): the
+    questionnaire is final (no draft being edited, no newer version left unused), everybody has signed in, every
+    coordinador has camperos, every tutor has coordinadores, somebody can attend a confidential follow-up and every
+    open one has an owner, and the coordinadores practised. Every step is counted on each request; none is ticked
+    by hand, and each button opens the screen that fixes it.
     """
     slug = event.slug
     settings_url = reverse("events:settings", args=[slug])
@@ -623,10 +637,20 @@ def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state
     questionnaire_meta = [f"{link.version.title}, versión {link.version.number}." for link in links]
     if len(links) > 1 and event.questionnaires_in_order:
         questionnaire_meta.append("Se responden en orden.")
+    not_final = []  # why a questionnaire in use may still change: say it before the camp, not on its second morning
+    if ready.drafts:
+        titles = ", ".join(f"«{title}»" for title in ready.drafts)
+        not_final.append(f"Hay {_n(len(ready.drafts), 'borrador sin publicar', 'borradores sin publicar')}: {titles}.")
+    if ready.newer_versions:
+        not_final.append(
+            "Un cuestionario tiene una versión publicada más nueva que la que usa el evento."
+            if ready.newer_versions == 1
+            else f"{ready.newer_versions} cuestionarios tienen una versión publicada más nueva que la que usa el evento."
+        )
     steps.append(step(
         "cuestionario", "Cuestionario",
-        questionnaire_meta or "Sin cuestionario publicado.",
-        "listo" if links else "falta",
+        [*questionnaire_meta, *not_final] or "Sin cuestionario publicado.",
+        "falta" if not links else "revisar" if not_final else "listo",
         reverse("events:questionnaires", args=[slug]), "Ver", "los cuestionarios",
     ))
 
@@ -660,12 +684,88 @@ def _preparation_steps(event, *, progress, unassigned, without_tutor, team_state
         "equipo", "Equipo", f"{', '.join(counts[:-1])} y {counts[-1]}. {team_note}", team_state, *team_button, anchor="preparacion-equipo",
     ))
 
+    team_url = reverse("events:team", args=[slug])
+    add_url = reverse("events:member_add", args=[slug])
+    if not ready.members:
+        steps.append(step("acceso", "Acceso del equipo", "Todavía no hay nadie en el equipo.", "falta", add_url, "Agregar persona", "al equipo"))
+    elif ready.never_signed_in:
+        never = "1 persona del equipo nunca ha entrado." if ready.never_signed_in == 1 else f"{ready.never_signed_in} personas del equipo nunca han entrado."
+        steps.append(step("acceso", "Acceso del equipo", f"{never} Equipo dice quiénes.", "revisar", team_url, "Ver quiénes", "nunca han entrado"))
+    else:
+        everyone = "La única persona del equipo ya entró." if ready.members == 1 else f"Las {ready.members} personas del equipo ya entraron al menos una vez."
+        steps.append(step("acceso", "Acceso del equipo", everyone, "listo", team_url, "Ver", "al equipo"))
+
+    if not ready.coordinators:
+        steps.append(step("coordinadores", "Camperos de cada coordinador", "Todavía no hay coordinadores.", "falta", add_url, "Agregar persona", "al equipo"))
+    elif ready.coordinators_without_campers:
+        n = ready.coordinators_without_campers
+        without = "1 coordinador no tiene camperos." if n == 1 else f"{n} coordinadores no tienen camperos."
+        campers_url = reverse("events:participants", args=[slug])
+        steps.append(step(
+            "coordinadores", "Camperos de cada coordinador", f"{without} Equipo dice quiénes.", "revisar",
+            f"{campers_url}?coordinador=ninguno" if unassigned else campers_url, "Asignar camperos", "a los coordinadores que no tienen",
+        ))
+    else:
+        steps.append(step("coordinadores", "Camperos de cada coordinador", "Cada coordinador tiene camperos.", "listo", team_url, "Ver", "cuántos tiene cada uno"))
+
+    assignments_url = reverse("events:assignments", args=[slug])
+    if not ready.tutors:
+        steps.append(step("tutores", "Coordinadores de cada tutor", "Todavía no hay tutores.", "falta", add_url, "Agregar persona", "al equipo"))
+    elif ready.tutors_without_coordinators:
+        n = ready.tutors_without_coordinators
+        without = "1 tutor no tiene coordinadores." if n == 1 else f"{n} tutores no tienen coordinadores."
+        steps.append(step("tutores", "Coordinadores de cada tutor", without, "revisar", assignments_url, "Asignar coordinadores", "a los tutores que no tienen"))
+    else:
+        steps.append(step("tutores", "Coordinadores de cada tutor", "Cada tutor tiene coordinadores.", "listo", assignments_url, "Ver", "las asignaciones de tutor"))
+
     steps.append(step(
         "computadoras", "Computadoras",
         f"{stations} disponible{'' if stations == 1 else 's'} para entrevistar." if stations else "Ninguna disponible para entrevistar.",
         "listo" if stations else "falta",
         f"{settings_url}#computadoras", "Configurar", "las computadoras",
     ))
+
+    follow_ups_url = reverse("events:follow_ups", args=[slug])
+    if not ready.confidential_readers:
+        steps.append(step(
+            "seguimientos", "Responsables de seguimiento",
+            "Nadie tiene acceso confidencial: un seguimiento confidencial o un reporte de riesgo no tendría quién lo atienda.",
+            "falta", team_url, "Dar acceso", "confidencial a alguien del equipo",
+        ))
+    elif ready.follow_ups_without_owner:
+        n = ready.follow_ups_without_owner
+        without = "1 seguimiento abierto no tiene responsable." if n == 1 else f"{n} seguimientos abiertos no tienen responsable."
+        steps.append(step("seguimientos", "Responsables de seguimiento", without, "revisar", f"{follow_ups_url}?responsable=ninguno", "Asignar", "responsable a los seguimientos"))
+    else:
+        readers = "1 persona tiene acceso confidencial." if ready.confidential_readers == 1 else f"{ready.confidential_readers} personas tienen acceso confidencial."
+        steps.append(step(
+            "seguimientos", "Responsables de seguimiento",
+            f"{readers} Cada seguimiento va a su coordinador o a su tutor, y ninguno abierto está sin responsable.",
+            "listo", follow_ups_url, "Ver", "los seguimientos",
+        ))
+
+    practice_url = reverse("events:practice", args=[slug])
+    campero = ready.practice_participant
+    if campero is None:
+        where = "No hay campero de práctica."
+    elif campero.coordinator:
+        where = f"El campero de práctica está con {campero.coordinator.display_name}."
+    else:
+        where = "El campero de práctica no está con nadie."
+    if not ready.coordinators:
+        steps.append(step("practica", "Práctica", f"Sin coordinadores todavía nadie puede practicar. {where}", "falta", practice_url, "Ver", "el campero de práctica"))
+    elif ready.practised >= ready.coordinators:
+        done = "El coordinador ya practicó." if ready.coordinators == 1 else f"Los {ready.coordinators} coordinadores ya practicaron."
+        steps.append(step(
+            "practica", "Práctica", f"{done}{' Ya puedes quitar el campero de práctica.' if campero else ''}", "listo",
+            practice_url, "Ver", "el campero de práctica",
+        ))
+    else:
+        counted = f"{ready.practised} de {ready.coordinators} coordinadores ya practicaron." if ready.coordinators > 1 else "El coordinador todavía no practica."
+        steps.append(step(
+            "practica", "Práctica", f"{counted} {where}", "revisar" if ready.practised or campero else "falta",
+            practice_url, "Ver" if campero else "Crear", "el campero de práctica",
+        ))
 
     if event.reports_enabled:
         schedule = f"{event.get_report_interval_minutes_display()}, de {event.report_window_start:%H:%M} a {event.report_window_end:%H:%M}."
@@ -710,11 +810,11 @@ def admin_home(request, event, access):
     if not access.can_view_sensitive:
         payload["follow_ups"]["confidential_open"] = None
     roles = dict(EventMembership.objects.filter(event=event, is_active=True).values_list("role").annotate(n=Count("id")))
-    active_sessions = ParticipantSession.objects.filter(
+    active_sessions = ParticipantSession.objects.real().filter(
         interview__event=event, state__in=[ParticipantSession.State.ACTIVE, ParticipantSession.State.AWAITING_UNLOCK]
     ).count()
     now = timezone.now()
-    open_claims = Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS, lock_expires_at__gt=now).count()
+    open_claims = Interview.objects.real().filter(event=event, status=Interview.Status.IN_PROGRESS, lock_expires_at__gt=now).count()
     failed = access.snapshots().filter(status=ReportSnapshot.Status.FAILED).order_by("-created_at")[:3]
     failed_count = access.snapshots().filter(status=ReportSnapshot.Status.FAILED).count()
     exports = AuditEvent.objects.filter(event=event, action="exportacion").order_by("-created_at")[:5]
@@ -742,7 +842,7 @@ def admin_home(request, event, access):
         "payload": payload,
         "progress": payload["progress"],
         # No camperos yet: the next-action panel asks to import or register them (audit UI-03)
-        "no_participants": not EventParticipant.objects.filter(event=event, is_active=True).exists(),
+        "no_participants": not EventParticipant.objects.real().filter(event=event, is_active=True).exists(),
         "team_state": team_state,
         # "Cortes" says "Listo" once the scheduler stored its first automatic cutoff; until then "Esperando" (UX-11)
         "has_automatic_cutoff": ReportSnapshot.objects.filter(event=event, trigger=ReportSnapshot.Trigger.AUTOMATIC).exists(),
@@ -772,6 +872,7 @@ def admin_home(request, event, access):
         event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,
         roles=roles, stations=context["stations"], has_automatic_cutoff=context["has_automatic_cutoff"],
         auto_cutoffs=context["auto_cutoffs"], last_snapshot=context["last_snapshot"], failed_count=failed_count,
+        ready=readiness_svc.for_event(event, access),
     )
     pending = [s for s in steps if s["state"] != "listo"]
     ready = [s for s in steps if s["state"] == "listo"]
