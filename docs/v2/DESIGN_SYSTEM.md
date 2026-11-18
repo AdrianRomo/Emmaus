@@ -133,8 +133,10 @@ A guardian's authorization is never a state circle: a check with «Autorizada»,
   named by its outcome ("Sí, puedo", "Retomar entrevista", "Guardar cambios"). Others outlined
   `.btn--secondary`; `.btn--link` in the church's colour; `.btn--danger(-outline)` for risk. Two
   answers on a phone share the row 50/50 (`.sign__actions--pair`).
-- **Fields**: 48px, 12px radius, 1.5px `--line-control` edge; focus is the church's colour with a
-  soft ring. Labels 15/620 above; a hint only for a format nobody could guess.
+- **Fields**: 48px, 12px radius, 1.5px `--line-control` edge; focus is the one ring of every control
+  (3px ink outside a 2px gap) with an ink edge. Labels 15/600 above; a hint only for a format nobody
+  could guess. A one-field form says its error once, at the field (the error summary stays for screen
+  readers only).
 - **Checks and radios**: drawn 22px marks inside a 44px target.
 - **Filters**: capsules with their count; the current one filled ink.
 - **Search**: a capsule field with its mark (`form.search`).

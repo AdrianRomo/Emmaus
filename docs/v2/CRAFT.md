@@ -39,14 +39,22 @@ JavaScript; with it:
 2. The POST goes to the usual view with `siguiente=<this page>`; the view redirects back there
    (`core.nav.safe_next`; another site is ignored).
 3. The region with that id is replaced by the same region from the returned page, with a crossfade of
-   `--dur-2` (View Transitions, where available). Counts in the rail, tabs and "Más" are taken from that page.
-4. The message of the action arrives as a toast (`role="status"`). Focus goes to `[data-inline-focus]` in the
-   new region when it was inside the old one.
+   `--dur-2` (View Transitions, where available). Counts in the rail, tabs (by position) and "Más" are taken
+   from that page, and so is every element named in the form's `data-inline-also="<id> <id>"` (a count in a
+   header).
+4. The message is announced once (a hidden `role="status"`), never toasted: the region shows the new state.
+   When the thing acted on left the region (a request decided), a line with a check keeps the trace of what
+   was done where it was (`.hecho`). A refusal (a warning or danger message) is a toast. Focus goes to
+   `[data-inline-focus]` in the new region when it was inside the old one.
 5. The region missing from the returned page means the thing is done: it leaves. Another page means one more
    step: the browser goes there and carries the message.
-6. A network or server failure restores the buttons and writes one line under them.
+6. A failure restores the buttons, marks the pressed one (a dashed chile edge) and writes one line under them
+   with «Reintentar». Offline, the connection is named. A request that takes 12 s is given up: the page is
+   asked again and shows what was really saved, with a line that says so (never "no hay conexión" while
+   online). Every other POST form of the redesign is not sent while the browser is offline; it stays, keeps
+   what was typed and offers «Reintentar».
 
-Use it for answers and toggles that change one region: serving (Sí, puedo / No puedo / Cambiar), «Enterado»,
+Use it for answers and toggles that change one region: serving (Sí, puedo / No puedo / Ya no puedo), «Enterado»,
 «Marcar como leído», a day of a reading plan, «Pedir unirme» / «Retirar solicitud», a guide's «Aceptar» /
 «Rechazar», «Inscribirme» where no further step can follow. Do NOT use it where the action needs a page of its
 own: anything that can lead to the minors' age or authorization step, deleting, publishing, forms with fields.

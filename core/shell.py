@@ -58,10 +58,11 @@ PEOPLE_VIEWS = {
     "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
     "people:grant_access", "people:access_link",
 }
-# Icons for the discipleship module's links, by url name (core.context_processors builds those links).
+# Icons for the discipleship module's links, by url name (core.context_processors builds those links): one each, so
+# two links of the same rail never share a drawing.
 MODULE_ICONS = {
     "church_settings": "ajustes", "participants_list": "personas", "participant_dashboard": "camino",
-    "mentor_dashboard": "camino", "church_dashboard": "camino", "path_list": "camino",
+    "mentor_dashboard": "guia", "church_dashboard": "reporte", "path_list": "lectura",
 }
 
 
