@@ -1414,6 +1414,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .camperos__filtrar { display: grid; gap: var(--s-3); margin-bottom: var(--s-6); }
 .page--app .camperos__buscar { max-width: 30rem; }
 .page--app .camperos__vistas { margin: 0; }
+.camperos__filtro { font-weight: 430; color: var(--ink-2); }
 /* The sedes under one line: «Sede: todas ▾», open when one is chosen */
 .camperos__sede > summary { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 2.75rem; padding: 0 var(--s-1); list-style: none; cursor: pointer; font-size: var(--t-small); font-weight: 600; color: var(--ink); }
 .camperos__sede > summary::-webkit-details-marker { display: none; }

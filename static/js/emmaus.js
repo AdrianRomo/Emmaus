@@ -1070,6 +1070,17 @@
           all.checked = total > 0 && marked === total;
           all.indeterminate = marked > 0 && marked < total;
         }
+        // While rows are marked, a link that changes the list (a filter, a sede, an order, a page) asks first: the marks
+        // belong to this page and would be lost without a word
+        $all('main a[href^="?"]').forEach(function (link) {
+          if (marked) {
+            link.setAttribute("data-confirm", (marked === 1 ? "Tienes 1 campero marcado" : "Tienes " + marked + " camperos marcados") + ". Si cambias la lista, se desmarcan.");
+            link.setAttribute("data-confirm-label", "Cambiar la lista");
+          } else {
+            link.removeAttribute("data-confirm");
+            link.removeAttribute("data-confirm-label");
+          }
+        });
       }
       if (allBox && rows().length) allBox.hidden = false;
       if (all) {

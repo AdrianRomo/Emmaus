@@ -34,7 +34,7 @@
 </div>
 <section class="camperos" aria-labelledby="resultados"{% if can_manage and assignable %} data-seleccion{% endif %}>
   <div class="heading-row">
-    <h2 id="resultados" class="heading">{{ page.paginator.count }} campero{{ page.paginator.count|pluralize }}</h2>
+    <h2 id="resultados" class="heading">{{ page.paginator.count }} campero{{ page.paginator.count|pluralize }}{% if filter_words %}<span class="camperos__filtro">: {{ filter_words }}</span>{% endif %}</h2>
     {% if page.object_list and can_manage and assignable %}<label class="camperos__todas" data-seleccion-todas-caja hidden><input type="checkbox" data-seleccion-todas><span>Marcar a todos los de esta página</span></label>{% endif %}
     {% if filtered and page.object_list %}<a href="{{ clear_url }}">Quitar filtros</a>{% endif %}
   </div>

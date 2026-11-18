@@ -298,6 +298,20 @@ def participants(request, event, access):
     page = Paginator(qs.order_by(*_participant_ordering(sort_key, sort_dir)), 50).get_page(request.GET.get("pagina"))
     selected = {"estado": status, "coordinador": coordinator, "participa": active, "sede": sede, "autorizacion": authorization}
     views = _participant_views(request, event, access, searched, selected)
+    # Two filters at once (the administration home's «Menores esperan la autorización» opens minors without it AND not
+    # interviewed yet): no capsule is current, so the list names what it shows
+    filter_words = ""
+    if not any(v["current"] for v in views):
+        words = []
+        if authorization:
+            words.append("menores sin autorización")
+        if status:
+            words.append({STARTED: "con entrevista en curso o completada", **dict(eq.status_choices(event))}.get(status, "").lower())
+        if coordinator == "ninguno":
+            words.append("sin coordinador")
+        if active == "no":
+            words.append("que no participan")
+        filter_words = ", ".join(w for w in words if w)
     # A view emptied by work ("Sin coordinador" after assigning everyone): one capsule's filter, no search, no sede.
     # The list says it as done instead of "Nadie coincide", which reads as a failed search.
     emptied_view = None if query or sede or page.paginator.count else next((v for v in views if v["current"] and v["key"] != "todos"), None)
@@ -317,6 +331,7 @@ def participants(request, event, access):
             "total": access.participants().count(),
             # With the redesign (ui_v2) only
             "views": views,
+            "filter_words": filter_words,
             "emptied_view": emptied_view,
             "sede_capsules": (capsules := _sede_capsules(request, sede_options, sede)),
             # The sedes fold under one line («Sede: Todas»): the table starts higher (the final critique)
