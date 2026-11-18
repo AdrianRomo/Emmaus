@@ -8,43 +8,31 @@
   moves the focus on); "Mi cuenta" brings it back. Included with `welcome=...`; nothing is drawn without one.
 {% endcomment %}{% if welcome and ui_v2 %}
 {% comment %}
-  The redesign (santuario.css, "The welcome of a role"): the same welcome without its paragraphs. The doors of the
-  role as things to press, the first steps with their mark read from the live data, and "Entendido" in the corner.
-{% endcomment %}
-<section class="welcome" id="bienvenida" aria-labelledby="bienvenida-titulo" data-welcome="{{ welcome.key }}">
-  <h2 id="bienvenida-titulo" class="welcome__title">Para empezar</h2>
-  <div class="welcome__body">
-    <ul class="welcome__doors">
-      {% for item in welcome.can %}<li><a href="{{ item.url }}">{{ item.label }}</a></li>
-      {% endfor %}
-    </ul>
-    {% if welcome.steps %}
-    <div class="welcome__steps">
-      <h3 class="welcome__heading">Primeros pasos <span class="count">{{ welcome.done_count }} de {{ welcome.steps|length }}</span></h3>
-      <ul class="steps">
-        {% for step in welcome.steps %}
-        <li class="steps__item{% if step.done %} steps__item--done{% endif %}">
-          <span class="steps__mark" aria-hidden="true"></span>
-          <div class="steps__text">
-            <p class="steps__title">{% if not step.done and step.url %}<a href="{{ step.url }}">{{ step.title }}</a>{% else %}{{ step.title }}{% endif %}<span class="visually-hidden">: {% if step.done %}listo{% elif step.optional %}opcional{% else %}falta{% endif %}</span></p>
-            {% if step.note and not step.done %}<p class="steps__note">{{ step.note }}</p>{% endif %}
-          </div>
-          {% if step.optional and not step.done %}<span class="chip chip--plain">Opcional</span>{% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
-  </div>
-  <div class="welcome__foot">
-    <form method="post" action="{% url 'welcome_dismiss' %}" data-dismiss-panel="bienvenida">
-      {% csrf_token %}
-      <input type="hidden" name="key" value="{{ welcome.key }}">
-      <input type="hidden" name="siguiente" value="{{ request.path }}">
-      <button class="btn btn--secondary btn--small" type="submit">Entendido</button>
-    </form>
-  </div>
-</section>
+  The redesign: no panel and no list of links (the navigation is where the places are). Only a role that has first
+  steps keeps them, as one folded line that says how many are done; it opens to the checklist read from the live
+  data, and "Ocultar" puts it away. A welcome with no steps draws nothing.
+{% endcomment %}{% if welcome.steps %}
+<details class="fold welcome" id="bienvenida" data-welcome="{{ welcome.key }}"{% if welcome.done_count == 0 %} open{% endif %}>
+  <summary id="bienvenida-titulo">Primeros pasos <span class="count">{{ welcome.done_count }} de {{ welcome.steps|length }}</span></summary>
+  <ul class="steps">
+    {% for step in welcome.steps %}
+    <li class="steps__item{% if step.done %} steps__item--done{% endif %}">
+      <span class="steps__mark" aria-hidden="true"></span>
+      <div class="steps__text">
+        <p class="steps__title">{% if not step.done and step.url %}<a href="{{ step.url }}">{{ step.title }}</a>{% else %}{{ step.title }}{% endif %}<span class="visually-hidden">: {% if step.done %}listo{% elif step.optional %}opcional{% else %}falta{% endif %}</span></p>
+        {% if step.note and not step.done %}<p class="steps__note">{{ step.note }}</p>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <form class="welcome__foot" method="post" action="{% url 'welcome_dismiss' %}" data-dismiss-panel="bienvenida">
+    {% csrf_token %}
+    <input type="hidden" name="key" value="{{ welcome.key }}">
+    <input type="hidden" name="siguiente" value="{{ request.path }}">
+    <button class="btn btn--link btn--small" type="submit">Ocultar los primeros pasos</button>
+  </form>
+</details>
+{% endif %}
 {% elif welcome %}
 <section class="welcome" id="bienvenida" aria-labelledby="bienvenida-titulo" data-welcome="{{ welcome.key }}">
   <div class="welcome__head">
