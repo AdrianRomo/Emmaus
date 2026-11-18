@@ -253,13 +253,25 @@
   window.addEventListener("beforeunload", function (e) {
     if (dirtyForms.length) { e.preventDefault(); e.returnValue = ""; }
   });
+  var redesign = doc.documentElement.getAttribute("data-ui") === "2";
   $all("form").forEach(function (form) {
     form.addEventListener("submit", function (e) {
       if (form.classList.contains("is-submitting")) { e.preventDefault(); return; }
       dirtyForms = dirtyForms.filter(function (f) { return f !== form; });
       form.classList.add("is-submitting");
-      window.setTimeout(function () { form.classList.remove("is-submitting"); }, 8000);
+      // The redesign marks the button that was pressed as busy (never another one: «No aceptar» must not spin «Aceptar»)
+      var pressed = redesign ? (e.submitter || form.querySelector("button[type=submit], button:not([type])")) : null;
+      if (pressed) pressed.setAttribute("aria-busy", "true");
+      window.setTimeout(function () {
+        form.classList.remove("is-submitting");
+        if (pressed) pressed.removeAttribute("aria-busy");
+      }, 8000);
     });
+  });
+  // Coming back with the browser's Back button shows the page as it was left: nothing still busy
+  window.addEventListener("pageshow", function () {
+    $all("form.is-submitting").forEach(function (f) { f.classList.remove("is-submitting"); });
+    if (redesign) $all("[aria-busy='true']").forEach(function (b) { b.removeAttribute("aria-busy"); });
   });
   // [data-confirm="<question>"] on a button or a link asks before it acts. Where the redesign is served and the browser
   // has <dialog>, the question is Emmaus's own dialog: the question, "Cancelar", and a button with the very words of
@@ -781,6 +793,10 @@
       notice.addEventListener("focusout", arm);
       arm();
     }
+    doc.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" || $("dialog[open]") || ($("#menu-panel") && !$("#menu-panel").hidden)) return;
+      $all(".messages.is-toast .toast__close").forEach(function (b) { b.click(); });
+    });
     // One toast at a time: a new one replaces what was there, so two messages never contradict each other
     function showToast(notice) {
       var box = toastBox();
@@ -891,6 +907,31 @@
         swap();
       }
     }
+    // Any other form, while the browser knows it is offline: not sent (it would land on the browser's error page and
+    // lose what was typed); one line under its buttons says so and offers to try again. Capture phase, before
+    // everything else; forms in place have their own failure path below.
+    doc.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (e.defaultPrevented || navigator.onLine !== false || !form.matches || form.matches("form[data-inline]") || (form.method || "").toLowerCase() !== "post") return;
+      if (form.querySelector("[data-offline-notice]")) return;  // a step of an interview has its own notice
+      e.preventDefault();
+      e.stopPropagation();
+      var pressed = e.submitter || form.querySelector("button[type=submit], button:not([type])");
+      $all(".inline-error", form).forEach(function (l) { l.remove(); });
+      var line = doc.createElement("p");
+      line.className = "inline-error";
+      line.setAttribute("role", "alert");
+      var words = doc.createElement("span");
+      words.textContent = "No se envió: parece que no hay conexión. Lo que escribiste sigue aquí.";
+      var again = doc.createElement("button");
+      again.type = "button";
+      again.className = "btn btn--link";
+      again.textContent = "Reintentar";
+      again.addEventListener("click", function () { if (typeof form.requestSubmit === "function") form.requestSubmit(pressed || undefined); else form.submit(); });
+      line.appendChild(words);
+      line.appendChild(again);
+      (pressed && pressed.parentNode ? pressed.parentNode : form).appendChild(line);
+    }, true);
     if (window.fetch && window.DOMParser) {
       doc.addEventListener("submit", function (e) {
         var form = e.target;
@@ -911,8 +952,12 @@
         $all(".is-fallido", form).forEach(function (b) { b.classList.remove("is-fallido"); });
         $all("button", form).forEach(function (b) { if (b !== busy) b.disabled = true; });
         if (busy) busy.setAttribute("aria-busy", "true");
-        window.fetch(form.action, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" } })
+        // A request that hangs is given up after 12 seconds and said like a lost connection: nothing spins forever
+        var controller = window.AbortController ? new window.AbortController() : null;
+        var giveUp = controller ? window.setTimeout(function () { controller.abort(); }, 12000) : null;
+        window.fetch(form.action, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" }, signal: controller ? controller.signal : undefined })
           .then(function (response) {
+            window.clearTimeout(giveUp);
             if (!response.ok) { inlineFailed(form, busy, "server"); return; }
             return response.text().then(function (html) {
               var fresh = new window.DOMParser().parseFromString(html, "text/html");
@@ -935,7 +980,7 @@
               }
               settle(region, fresh, regionId);
             });
-          }, function () { inlineFailed(form, busy, "network"); });
+          }, function () { window.clearTimeout(giveUp); inlineFailed(form, busy, "network"); });
       }, true);
     }
 

@@ -33,6 +33,8 @@
     {% if not membership and not can_manage %}<p class="aside-note">El lugar lo ven solo quienes ya son parte del grupo.</p>{% endif %}
   </div>
 
+  {# Asking to join and withdrawing act in place (data-inline): the page returns to itself #}
+  <div id="pertenencia">
   {% if not group.is_active %}
   {% elif membership %}
     <section class="block" aria-labelledby="reunion">
@@ -59,7 +61,7 @@
         <li>{% status "por_evaluar" "Por decidir" %}</li>
         <li>{% icon "calendario" "sm" %}<span class="visually-hidden">Lo pediste el </span>{{ pending.created_at|day_month }}</li>
       </ul>
-      <form class="sign__actions" method="post" action="{% url 'community:group_withdraw' group.pk %}">
+      <form class="sign__actions" method="post" action="{% url 'community:group_withdraw' group.pk %}" data-inline="pertenencia">
         {% csrf_token %}
         <button class="btn btn--secondary" type="submit">Retirar mi solicitud</button>
       </form>
@@ -68,7 +70,7 @@
     <section class="sign" aria-labelledby="unirme">
       <h2 id="unirme" class="sign__title">¿Quieres unirte a este grupo?</h2>
       <p class="sign__text">Quien guía el grupo verá tu nombre y cómo contactarte, y te responderá.</p>
-      <form class="sign__actions" method="post" action="{% url 'community:group_request' group.pk %}">
+      <form class="sign__actions" method="post" action="{% url 'community:group_request' group.pk %}" data-inline="pertenencia">
         {% csrf_token %}
         <button class="btn btn--primary btn--large" type="submit">Pedir unirme</button>
       </form>
@@ -76,6 +78,7 @@
   {% else %}
     <div class="notice notice--quiet"><p>Por ahora este grupo no recibe solicitudes.</p></div>
   {% endif %}
+  </div>
 
   {% if can_manage %}
   <section class="block" aria-labelledby="guiar">

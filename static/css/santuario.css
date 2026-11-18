@@ -241,7 +241,7 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 }
 /* Inside an event, for the roles whose pages are wide tables (administration, pastor, tutor), the rail only from
    1101px; a coordinator's pages are lists and keep the rail like every other page */
-@media (min-width: 761px) and (max-width: 1100px) {
+@media (min-width: 761px) and (max-width: 959px) {
   body:has(> .rail--ancha) { display: block; }
   body:has(> .rail--ancha) .rail {
     position: static; height: auto; flex-direction: row; align-items: center; justify-content: space-between;
@@ -331,8 +331,9 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 :root[data-ui="2"] .btn--link.btn--quieto:hover { background: var(--fill); }
 .sign__aparte { margin-left: auto; }
 /* Busy: a spinner of the button's own colour joins its words; its siblings wait (emmaus.js) */
-:root[data-ui="2"] .btn[aria-busy="true"], :root[data-ui="2"] form.is-submitting .btn--primary { opacity: 1; pointer-events: none; }
-:root[data-ui="2"] .btn[aria-busy="true"]::before, :root[data-ui="2"] form.is-submitting .btn--primary::before {
+:root[data-ui="2"] form.is-submitting .btn--primary { opacity: 1; }  /* Atrio dims the filled button; here only the pressed one shows it */
+:root[data-ui="2"] .btn[aria-busy="true"] { opacity: 1; pointer-events: none; }
+:root[data-ui="2"] .btn[aria-busy="true"]::before {
   content: ""; flex: none; width: 1rem; height: 1rem; border-radius: 50%;
   border: 2.25px solid color-mix(in srgb, var(--spin) 30%, transparent); border-top-color: var(--spin);
   animation: santuario-spin 0.7s linear infinite;
@@ -716,7 +717,10 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 .toast__close::before { content: ""; position: absolute; inset: 0; margin: auto; width: 1.125rem; height: 1.125rem; background: currentColor;
   -webkit-mask: var(--i-close) center / contain no-repeat; mask: var(--i-close) center / contain no-repeat; }
 .toast__close:focus-visible { outline-color: #ffffff; outline-offset: -4px; box-shadow: none; }
-@media (max-width: 760px) { .messages.is-toast { top: var(--s-2); right: var(--s-3); left: var(--s-3); width: auto; } }
+@media (max-width: 760px) {
+  .messages.is-toast { top: auto; bottom: calc(var(--tabs-h) + var(--s-3) + env(safe-area-inset-bottom, 0px)); right: var(--s-3); left: var(--s-3); width: auto; }
+  body:not(:has(.tabs)) .messages.is-toast { bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px)); }
+}
 /* A dialog: a sheet from the bottom on a phone, centred above 760px. The page goes under a veil of ink. */
 :root[data-ui="2"] .dialog { width: min(28rem, calc(100vw - 2rem)); border: 0; border-radius: var(--r-panel); background: var(--page); color: var(--ink); padding: 0; }
 :root[data-ui="2"] .dialog[open] { animation: santuario-sheet var(--dur-3) var(--ease-out) both; }
@@ -1487,6 +1491,8 @@ p.sitio__leaves { margin-top: var(--s-2); }
 @keyframes santuario-spin { to { transform: rotate(360deg); } }
 @keyframes santuario-grow { from { transform: scaleX(0); } }
 @keyframes santuario-toast { from { opacity: 0; transform: translateY(-0.75rem); } }
+@media (max-width: 760px) { .messages.is-toast .notice { animation-name: santuario-toast-arriba; } }
+@keyframes santuario-toast-arriba { from { opacity: 0; transform: translateY(0.75rem); } }
 @keyframes santuario-toast-out { to { opacity: 0; transform: translateY(-0.5rem); } }
 @keyframes santuario-sheet { from { opacity: 0; transform: translateY(0.75rem); } }
 @keyframes santuario-load { from { transform: scaleX(0); } 20% { transform: scaleX(0.55); } to { transform: scaleX(0.95); } }
@@ -1500,7 +1506,9 @@ p.sitio__leaves { margin-top: var(--s-2); }
 @media (prefers-reduced-motion: reduce) {
   .meter__fill, .messages.is-toast .notice, .messages.is-toast .notice.is-leaving, .skeleton, .dialog[open], .dialog::backdrop { animation: none; }
   .nav-progress { animation: none; transform: scaleX(0.6); }
-  :root[data-ui="2"] .btn[aria-busy="true"]::before, :root[data-ui="2"] form.is-submitting .btn--primary::before { animation-duration: 2.4s; }
+  /* Atrio turns every animation off here: a frozen arc would read as broken, so the busy button dims instead */
+  :root[data-ui="2"] .btn[aria-busy="true"]::before { display: none; }
+  :root[data-ui="2"] .btn[aria-busy="true"] { opacity: 0.6; }
   :root[data-ui="2"] .btn:active:not([disabled]) { transform: none; }
 }
 @media (forced-colors: active) {
@@ -1515,3 +1523,24 @@ p.sitio__leaves { margin-top: var(--s-2); }
   :root[data-ui="2"] .sign { box-shadow: none; border: 1px solid #000; }
   .sitio-preview, .sitio__foot { display: none; }
 }
+
+/* ---------- 17. One focus ring ------------------------------------------- */
+/* Every control of the redesign shows the same focus: a 3px ink ring outside a 2px gap of the surface; where it
+   would be clipped (a row, a tab, the rail) it is drawn inwards. Fields add their ink edge. */
+:root[data-ui="2"] :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px var(--surface); }
+:root[data-ui="2"] :is(.rail__link, .rail__who, .tabs__item, .decision, .menu-panel--sections .rail__link):focus-visible { outline-offset: -3px; box-shadow: none; }
+:root[data-ui="2"] .page--app .rows > .row:has(.row__title a:focus-visible) { outline: 3px solid var(--ink); outline-offset: -3px; }
+:root[data-ui="2"] :is(.input, .textarea, select, .field input, .field textarea):focus-visible { border-color: var(--ink); outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px var(--surface); }
+:root[data-ui="2"] .sign--lead :focus-visible { outline-color: var(--ink); }
+:root[data-ui="2"] .messages.is-toast :focus-visible, :root[data-ui="2"] .skip-link:focus-visible { outline-color: #ffffff; box-shadow: none; }
+
+/* ---------- 18. Whole things are the way in ------------------------------ */
+/* Today's gathering: the whole block opens it; its action stays on top */
+.evento { position: relative; }
+.evento__titulo a::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-card); }
+.evento__pie { position: relative; z-index: 1; }
+.evento:has(.evento__titulo a:focus-visible) { outline: 3px solid var(--ink); outline-offset: 4px; border-radius: var(--r-card); }
+.evento .evento__titulo a:focus-visible { outline: none; box-shadow: none; }
+
+/* A page changes without a crossfade of two layouts (doubled text); the rail and the tabs stay where they are */
+:root[data-ui="2"]::view-transition-old(root), :root[data-ui="2"]::view-transition-new(root) { animation: none; }

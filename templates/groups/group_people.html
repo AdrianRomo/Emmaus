@@ -11,6 +11,8 @@
 <div class="narrow">
   {% include "groups/_work_head.html" with here="personas" %}
 
+  {# Deciding a request acts in place: the requests and the people of the group are one region (data-inline) #}
+  <div id="gente">
   {% if requests %}
   <section class="block" aria-labelledby="solicitudes">
     <h2 id="solicitudes" class="heading">Solicitudes <span class="count">{{ requests|length }}</span></h2>
@@ -23,10 +25,10 @@
             <ul class="meta"><li>{% icon "calendario" "sm" %}Pidió unirse el {{ item.created_at|day_month }}</li></ul>
             {% if item.person.phone or item.person.email %}<p class="row__contact">{% if item.person.phone %}<a href="tel:{{ item.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ item.person.full_name }}: </span>{{ item.person.phone }}</a>{% endif %}{% if item.person.email %}<a href="mailto:{{ item.person.email }}"><span class="visually-hidden">Escribir a {{ item.person.full_name }}: </span>{{ item.person.email }}</a>{% endif %}</p>{% endif %}
           </div>
-          <form class="row__end" method="post" action="{% url 'community:request_decide' group.pk item.pk %}">
+          <form class="row__end" method="post" action="{% url 'community:request_decide' group.pk item.pk %}" data-inline="gente">
             {% csrf_token %}
             <button class="btn btn--secondary btn--small" type="submit" name="decision" value="declinar">No aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
-            <button class="btn btn--primary btn--small" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
+            <button class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ item.person.full_name }}</span></button>
           </form>
         </li>
       {% endfor %}
@@ -59,6 +61,8 @@
       <p class="empty-line">Sin personas todavía.</p>
     {% endif %}
   </section>
+
+  </div>
 
   {% if request.is_church_admin and group.is_active %}
   <section class="block" aria-labelledby="agregar">
