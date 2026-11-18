@@ -102,8 +102,10 @@ await page.goto(BASE + "/mi-iglesia/");
 await Promise.all([page.waitForNavigation(), page.click("section[aria-labelledby=devocional] .row__title a:has-text('Permanecer')")]);
 await audit(page, "miembro-devocional");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Ya lo leí')")]);
-expect(await page.locator("main").getByText("Ya lo leíste.").count() > 0, "reading the devotional is confirmed");
+// The mark may act in place or reload the page: either way the button becomes the word «Leído»
+await page.click("button:has-text('Marcar como leído')");
+await page.waitForSelector(".reading__done:has-text('Leído')");
+expect(await page.locator("button:has-text('Marcar como leído')").count() === 0, "reading the devotional is confirmed");
 await page.goto(BASE + "/mi-iglesia/recursos/");
 expect(await page.locator("main a[href^='https://www.youtube.com']").getAttribute("rel") === "noopener noreferrer", "a resource opens on the other site, without a referrer");
 await audit(page, "miembro-recursos");
