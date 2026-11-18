@@ -9,6 +9,17 @@ never lowers one.
 
 The row is read once per church object (a request loads its church once) and again after any row
 is saved. Nothing is kept outside the object the caller passed.
+
+Why a value one administrator raised is read by every other request at once, with several workers:
+what was read lives only as an attribute of the ``Church`` object the caller passed, and no
+``Church`` object outlives a request (``core.authz.current_church`` and every queryset build new
+ones; nothing in the project keeps one in a module, a cache or an ``lru_cache``). So the first read
+of any request, in any process, asks the table. The counter in ``policies.models`` is per process
+and only ever makes an object read *again* (after a save in the same process, mostly for tests and
+for the request that saved); it is never what makes another worker see the change, and a counter
+that did not move cannot keep an answer alive past the object that holds it. The longest a stale
+answer can live is the rest of the one request that had already read before the other one saved.
+Keep it so: do not pass these functions a ``Church`` held in a module or a process-level cache.
 """
 
 from typing import NamedTuple

@@ -1,4 +1,5 @@
 """What a church chose, what a form asks to change, and the one write path (``save``)."""
+# ``save`` takes what was reviewed, field by field with the value that was shown, never a whole form.
 
 from dataclasses import dataclass
 
@@ -38,6 +39,10 @@ WORDS = {
 
 class PolicyError(ValueError):
     """A value outside what the platform allows reached the write path."""
+
+
+class StaleReview(Exception):
+    """A value was changed by somebody else between the review and its confirmation."""
 
 
 @dataclass(frozen=True)
@@ -97,23 +102,37 @@ def changes(church, wanted: dict) -> list[Change]:
     ]
 
 
-def save(church, actor, wanted: dict) -> list[Change]:
-    """Store what changed and leave one audit row per value changed. Values that stay as they are
-    are not written: an empty column keeps following the product default."""
-    check(wanted)
-    with transaction.atomic():
-        row, _ = ChurchPolicy.objects.select_for_update().get_or_create(church=church)
+def save(church, actor, reviewed: dict) -> list[Change]:
+    """Store the values a person was shown and leave one audit row per value changed.
+
+    ``reviewed`` maps a field to ``(old, new)``: the value in force when the change was shown and
+    the value asked for. Under a lock on the church's row, every ``old`` must still be the value in
+    force: otherwise somebody changed it meanwhile, ``StaleReview`` is raised and nothing is written.
+    Only the reviewed fields are written. Every other column is left as the table has it, whatever
+    the form that started the review once held, so a review never writes back a value it did not show."""
+    if not reviewed or set(reviewed) - set(FIELDS):
+        raise PolicyError("Faltan o sobran políticas.")
+    try:
+        with transaction.atomic():
+            row, _ = ChurchPolicy.objects.select_for_update().get_or_create(church=church)
+            policy.forget(church)
+            now = current(church)
+            for field, (old, _new) in reviewed.items():
+                if type(old) is not type(now[field]) or old != now[field]:
+                    raise StaleReview(field)
+            wanted = {**now, **{field: new for field, (_old, new) in reviewed.items()}}
+            check(wanted)  # with the values in force today, not the ones of the day of the form
+            changed = changes(church, wanted)
+            for change in changed:
+                setattr(row, change.field, change.new)
+            if changed:
+                row.save(update_fields=[*(change.field for change in changed), "updated_at"])
+            for change in changed:
+                record_church(
+                    church, actor, "politica_cambiada",
+                    f"{change.label}: cambió de «{change.old_words}» a «{change.new_words}».",
+                    obj=row, policy=change.field, previous=change.old, value=change.new,
+                )
+    finally:
         policy.forget(church)
-        changed = changes(church, wanted)
-        for change in changed:
-            setattr(row, change.field, change.new)
-        if changed:
-            row.save()
-        for change in changed:
-            record_church(
-                church, actor, "politica_cambiada",
-                f"{change.label}: cambió de «{change.old_words}» a «{change.new_words}».",
-                obj=row, policy=change.field, previous=change.old, value=change.new,
-            )
-    policy.forget(church)
     return changed
