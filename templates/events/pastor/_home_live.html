@@ -1,4 +1,156 @@
-{% load emmaus %}{% include "events/_now_next.html" %}
+{% load emmaus %}{% if ui_v2 %}{% load shell %}{% include "events/_now_next.html" %}
+{% comment %}
+  The redesign ("Ventanas"), at a pastor's level: what waits for a decision as rows with their count (a situación de
+  riesgo in chile, follow-ups nobody attends in vela), the matters to coordinate (each opens where it is done; the
+  stored recommendations have no links), the teams with their ruler and the camp's progress; then the pace and the
+  needs. With no camperos registered yet only the progress says so.
+{% endcomment %}
+<div class="tablero">
+  <section class="block tablero__esperan" aria-labelledby="esperan">
+    <h2 id="esperan" class="heading">Esperan tu decisión</h2>
+    {% with risk=payload.follow_ups.safety_open %}
+    {% if risk or follow_ups_unassigned %}
+    {% if risk %}
+    <a class="decision decision--riesgo" href="{% url 'events:follow_ups' event.slug %}">
+      <span class="decision__cifra">{{ risk }}</span>
+      <span class="decision__texto"><span class="decision__titulo">{{ risk|pluralize:"Situación de riesgo abierta,Situaciones de riesgo abiertas" }}</span><span class="decision__nota">Sigue el procedimiento de protección.</span></span>
+      <span class="decision__ir" aria-hidden="true"></span>
+    </a>
+    {% endif %}
+    {% if follow_ups_unassigned %}
+    <a class="decision decision--bloqueo" href="{% url 'events:follow_ups' event.slug %}?estado=abiertos&amp;responsable=ninguno">
+      <span class="decision__cifra" data-count="sin-responsable">{{ follow_ups_unassigned }}</span>
+      <span class="decision__texto"><span class="decision__titulo">{{ follow_ups_unassigned|pluralize:"Seguimiento,Seguimientos" }} sin responsable</span><span class="decision__nota">Asigna quién {{ follow_ups_unassigned|pluralize:"lo,los" }} atiende.</span></span>
+      <span class="decision__ir" aria-hidden="true"></span>
+    </a>
+    {% endif %}
+    {% else %}
+    <p class="empty-line">Nada por decidir.</p>
+    {% endif %}
+    {% endwith %}
+  </section>
+
+  <section class="block tablero__cola" aria-labelledby="grupos">
+    <div class="heading-row">
+      <h2 id="grupos" class="heading">Equipos{% if teams %} <span class="count">{{ teams|length }}</span>{% endif %}</h2>
+      {% if teams %}<a href="{% url 'events:progress' event.slug %}">Ver cada coordinador</a>{% endif %}
+    </div>
+    {% if teams %}
+    <ul class="rows" aria-label="Equipos, primero el que va más atrás">
+      {% for row in teams %}
+      <li class="row row--lead">
+        {% monogram row.label "" "grupo" %}
+        <div class="row__main">
+          <p class="row__title">{{ row.label }}</p>
+          <p class="row__meta">{{ row.completed }} de {{ row.eligible }}, {{ row.percent|pct }}</p>
+          {% ruler row.completed row.in_progress row.eligible progress.percent "Promedio" partial=row.partial %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    <ul class="key" aria-hidden="true">
+      <li><span class="key__mark key__mark--done"></span>Completadas</li>
+      <li><span class="key__mark key__mark--progress"></span>En curso</li>
+      <li><span class="key__mark"></span>Sin iniciar</li>
+      <li><span class="key__mark key__mark--marker"></span>Promedio {{ event.of_kind }}, {{ progress.percent|pct }}</li>
+    </ul>
+    {% else %}
+    <p class="empty-line">Todavía no hay equipos.</p>
+    {% endif %}
+  </section>
+
+  <section class="block tablero__avance" aria-labelledby="como-va">
+    <h2 id="como-va" class="heading">Avance {{ event.of_kind }}</h2>
+    {% if progress.eligible %}
+    <p class="avance__cifra"><span class="avance__n" data-count="llevamos">{{ progress.completed }} <span>de {{ progress.eligible }}</span></span></p>
+    {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
+    <ul class="key" aria-hidden="true">
+      <li><span class="key__mark key__mark--done"></span>{{ progress.completed }} completada{{ progress.completed|pluralize }} ({{ progress.percent|pct }})</li>
+      {% if progress.in_progress %}<li><span class="key__mark key__mark--progress"></span>{{ progress.in_progress }} en curso</li>{% endif %}
+      {% if progress.partial %}<li><span class="key__mark"></span>{{ progress.partial }} a medias</li>{% endif %}
+      <li><span class="key__mark"></span>{{ progress.not_started }} sin iniciar</li>
+    </ul>
+    <ul class="meta">
+      {% if not progress.pending %}<li>Ya se completaron todas.</li>{% elif finish_at %}<li>{% icon "reloj" "sm" %}Terminaríamos hacia las {{ finish_at|date:"H:i" }}</li>{% elif payload.throughput.eta_minutes %}<li>{% icon "reloj" "sm" %}Faltan más de 12 horas</li>{% endif %}
+      {% if next_cutoff %}<li>Próximo corte: {{ next_cutoff|date:"H:i" }}</li>{% endif %}
+    </ul>
+    {% if delta %}<p class="row__meta">{% delta_sentence delta last_snapshot.cutoff_at %}</p>{% endif %}
+    {% if progress.questionnaires %}{% include "events/rotulo/_questionnaire_progress.html" with progress=progress quests_id="por-cuestionario-resumen" %}{% endif %}
+    {% else %}
+    <p class="empty-line">Aún no hay camperos registrados. La administración los registra o importa.</p>
+    {% endif %}
+  </section>
+</div>
+
+{% if progress.eligible %}
+<section class="block" aria-labelledby="acciones">
+  <h2 id="acciones" class="heading">Qué hay que coordinar{% if agenda %} <span class="count">{{ agenda|length }}</span>{% endif %}</h2>
+  {% if agenda %}
+  <ol class="rows">
+    {% for rec in agenda %}
+    <li class="row row--lead">
+      <span class="hoy__icono">{% icon "lista" %}</span>
+      <div class="row__main">
+        <p class="row__title">{% if rec.url %}<a href="{{ rec.url }}">{{ rec.text }}</a>{% else %}{{ rec.text }}{% endif %}</p>
+        <p class="row__meta">{{ rec.evidence }}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="aside-note">Estas acciones salen de reglas fijas sobre los números de esta página. No hay inteligencia artificial ni juicios sobre las personas.</p>
+  {% else %}
+  <p class="empty-line">No hay acciones pendientes.</p>
+  {% endif %}
+</section>
+
+<section class="block" aria-labelledby="faltan">
+  <h2 id="faltan" class="heading">Ritmo</h2>
+  <dl class="figures">
+    <div><dt>Faltan</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</dd></div>
+    <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
+    <div><dt>Tiempo estimado</dt><dd class="figures__value">{% if payload.throughput.eta_minutes %}{{ payload.throughput.eta_minutes|duration_short }}{% else %}—{% endif %}</dd><dd class="figures__note">si se mantiene el ritmo</dd></div>
+    <div><dt>Última hora</dt><dd class="figures__value">{{ payload.throughput.last_hour }}</dd><dd class="figures__note">entrevistas completadas</dd></div>
+  </dl>
+  {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="pastor-acumulado" eta=chart_eta bucket=payload.timeline.bucket_minutes projection_label=projection_label as_of=payload.data_as_of %}
+  {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="pastor-ritmo" %}
+</section>
+
+<section class="block" aria-labelledby="necesidades">
+  <h2 id="necesidades" class="heading">Seguimientos</h2>
+  <dl class="figures">
+    <div><dt>Abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.pending }} sin atender, {{ payload.follow_ups.in_progress }} en proceso</dd></div>
+    <div><dt>Sin responsable</dt><dd class="figures__value">{{ follow_ups_unassigned }}</dd></div>
+    <div><dt>Atendidos</dt><dd class="figures__value">{{ payload.follow_ups.done }}</dd></div>
+    <div><dt>Por decidir</dt><dd class="figures__value">{{ payload.follow_ups.to_evaluate }}</dd><dd class="figures__note">entrevistas sin decisión de seguimiento</dd></div>
+  </dl>
+  {% if payload.follow_ups.confidential_open is not None %}<p class="aside-note">Solicitudes de apoyo confidenciales abiertas (solo las ve el equipo de cuidado autorizado): <strong>{{ payload.follow_ups.confidential_open }}</strong></p>{% endif %}
+  {% if outcomes %}
+  <details class="fold block" id="pastor-totales" open data-fold-below="600">
+  <summary>Lo que los camperos quisieron compartir <span class="fold__hint">{{ outcomes|length }} pregunta{{ outcomes|length|pluralize }}, corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}</span></summary>
+  <div class="notice notice--info">
+    <p class="notice__title">Solo totales</p>
+    <p>Corte de las {{ outcomes_snapshot.cutoff_at|date:"H:i" }}. Solo totales {{ event.of_kind }}. Los totales se redondean de {{ payload.min_group_size }} en {{ payload.min_group_size }} y las cantidades menores a {{ payload.min_group_size }} no se muestran, para que nadie pueda ser identificado. Cada cifra cambia solo cuando cambian al menos {{ payload.min_group_size }} respuestas. No son diagnósticos.</p>
+  </div>
+  {% regroup outcomes by questionnaire_id as outcome_groups %}{% for group in outcome_groups %}{% if group.list.0.show_questionnaire %}<div><h3 class="heading">{{ group.list.0.questionnaire }}</h3>{% endif %}<div class="outcomes">
+    {% for outcome in group.list %}
+    <figure class="outcome">
+      <figcaption><p class="outcome__title">{{ outcome.title }}</p><p class="outcome__sub">Personas. Respondieron {{ outcome.respondents.display }}.</p></figcaption>
+      {% if outcome.withheld %}
+      <p class="chart__empty">Aún no hay suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
+      {% else %}
+      <ul class="outcome__rows">{% for row in outcome.rows %}
+        <li><span class="outcome__label">{{ row.label }}</span><span class="outcome__value">{{ row.display }}</span>
+          <span class="outcome__track">{% if row.value %}<span class="outcome__bar" style="width:{% widthratio row.value outcome.respondents.value|default:1 100 %}%"></span>{% endif %}</span>
+        </li>{% endfor %}</ul>
+      {% endif %}
+    </figure>
+    {% endfor %}
+  </div>{% if group.list.0.show_questionnaire %}</div>{% endif %}{% endfor %}
+  </details>
+  {% endif %}
+</section>
+{% endif %}
+{% else %}{% include "events/_now_next.html" %}
 {% comment %}
   The report reads as five questions, the decision first: how it goes, what to coordinate (each matter links to
   the page where it is done; pastor_home adds the links, the stored recommendations have none), then the teams,
@@ -145,4 +297,5 @@
     {% endif %}
   </div>
 </section>
+{% endif %}
 {% endif %}
