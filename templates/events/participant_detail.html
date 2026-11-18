@@ -1,5 +1,5 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}{{ participant.full_name }}{% endblock %}
 {% block content %}
 {% if can_interview %}{% if live_interview or participant.interview_status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}{% endif %}
@@ -13,7 +13,7 @@
 {% if ui_v2 and participant.is_minor and event.requires_guardian_authorization %}{% comment %}
   The redesign: a minor's guardian authorization, near the top, apart from the interview. Missing, it is said in
   vela with the way to register it; when the interview is already done it is said plainly too. No rule changes here.
-{% endcomment %}{% if guardian_ok %}<p class="ficha__autorizacion">{% status "completada" "Autorizada" %}<span class="visually-hidden">: autorización de padre, madre o tutor legal registrada</span></p>{% else %}<div class="notice notice--warning ficha__autorizacion">
+{% endcomment %}{% if guardian_ok %}<p class="ficha__autorizacion"><span class="autorizada">{% icon "check" "sm" %}Autorizada</span><span class="visually-hidden">: autorización de padre, madre o tutor legal registrada</span></p>{% else %}<div class="notice notice--warning ficha__autorizacion">
   <p class="notice__title">{% if participant.interview_status == "completada" %}Entrevistado sin autorización vigente{% else %}Falta la autorización de padre, madre o tutor legal{% endif %}</p>
   {% if can_edit %}<p><a class="btn btn--secondary btn--small" href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a></p>{% endif %}
 </div>{% endif %}{% endif %}<div class="split">

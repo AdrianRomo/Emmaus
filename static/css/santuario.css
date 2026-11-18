@@ -1400,6 +1400,9 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .ficha__autorizacion { margin: 0 0 var(--s-6); }
 .page--app .notice.ficha__autorizacion p + p { margin-top: var(--s-2); }
 .page--app .ficha__eliminar { margin-top: var(--s-3); }
+/* A guardian's authorization is a check, never the interview's circle: the two states must not read alike */
+.autorizada { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--t-small); color: var(--ink); }
+.autorizada .icon { color: var(--ink-2); }
 /* end: evento-administracion */
 
 /* area: evento-equipo */
