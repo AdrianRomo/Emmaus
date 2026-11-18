@@ -22,7 +22,7 @@ from groups.tests.base import CommunityFixture
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.management.commands.tenant_integrity import ID_LIMIT, camp_checks, checks, community_checks
 from people.models import CampusAffiliation, EventParticipantLink, Person
-from resources.models import Devotional, DevotionalRead
+from resources.models import Devotional, DevotionalRead, ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress
 from serving import services as serving
 from serving.models import Assignment, ServiceDate, TeamMembership
 
@@ -59,6 +59,12 @@ class CommunityIntegrityTests(CommunityFixture):
         cls.devotional = Devotional.objects.create(church=cls.church, date=today, title="Hoy", body="Texto")
         cls.devotional_b = Devotional.objects.create(church=cls.church_b, date=today, title="Hoy B", body="Texto")
         DevotionalRead.objects.create(devotional=cls.devotional, person=cls.leader)
+        cls.plan = ReadingPlan.objects.create(church=cls.church, title="Plan", status="publicado")
+        cls.plan_b = ReadingPlan.objects.create(church=cls.church_b, title="Plan B", status="publicado")
+        cls.plan_day = ReadingPlanDay.objects.create(plan=cls.plan, position=1, reference="Juan 15:1-8")
+        cls.plan_day_b = ReadingPlanDay.objects.create(plan=cls.plan_b, position=1, reference="Juan 15:1-8")
+        cls.plan_progress = ReadingPlanProgress.objects.create(plan=cls.plan, person=cls.leader)
+        ReadingPlanDayRead.objects.create(progress=cls.plan_progress, day=cls.plan_day)
         cls.team = serving.save_team(cls.church, cls.admin, name="Bienvenida")
         cls.team_b = serving.save_team(cls.church_b, cls.admin_b, name="Equipo B")
         serving.set_member(cls.team, cls.leader, cls.admin, role="coordina")
@@ -119,6 +125,14 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def break_devotional_read_person_church(self):
         return DevotionalRead.objects.create(devotional=self.devotional_b, person=self.member)
+
+    def break_reading_plan_progress_person_church(self):
+        return ReadingPlanProgress.objects.create(plan=self.plan_b, person=self.member)
+
+    def break_reading_plan_day_read_plan(self):
+        # The person's own plan, a day of another plan (here another church's): only the pair of plans disagrees.
+        progress = ReadingPlanProgress.objects.create(plan=self.plan, person=self.member)
+        return ReadingPlanDayRead.objects.create(progress=progress, day=self.plan_day_b)
 
     def break_team_membership_person_church(self):
         return TeamMembership.objects.create(team=self.team_b, person=self.asked)  # no service: no role row either
@@ -235,6 +249,12 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_devotional_read_person_church(self):
         self.assert_counted_alone_and_fails("devotional_read_person_church")
+
+    def test_reading_plan_progress_person_church(self):
+        self.assert_counted_alone_and_fails("reading_plan_progress_person_church")
+
+    def test_reading_plan_day_read_plan(self):
+        self.assert_counted_alone_and_fails("reading_plan_day_read_plan")
 
     def test_team_membership_person_church(self):
         self.assert_counted_alone_and_fails("team_membership_person_church")

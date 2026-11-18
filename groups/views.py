@@ -34,6 +34,7 @@ from people.services import ensure_own_person, save_person
 from agenda import services as agenda_services
 from care import services as care_services
 from notices import services as notices_services
+from resources import plans as reading_plans
 from resources import services as resources_services
 from serving import services as serving_services
 
@@ -119,6 +120,7 @@ def home(request):
     urgent_notices = notices_services.urgent_pending(person, is_admin=request.is_church_admin)
     notices = notices_services.for_home(person, is_admin=request.is_church_admin, skip=urgent_notices)
     devotional = resources_services.today_devotional(church, person, today)
+    reading = reading_plans.current_for(church, person)  # (plan, first unread day) of this person only, or None
     serving_dates = serving_services.my_dates(person, today, limit=3)
     accompanying = care_services.open_count(person)
     opinions = feedback_services.pending_for(person, church, today)
@@ -213,6 +215,7 @@ def home(request):
             "notices": notices,
             "urgent_notices": urgent_notices,
             "devotional": devotional,
+            "reading": reading,
             "serving_dates": serving_dates,
             "accompanying": accompanying,
             "opinions": opinions,

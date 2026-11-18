@@ -2,8 +2,8 @@ from django import forms
 
 from core.forms import TuErrorMessagesMixin
 
-from . import services
-from .models import Devotional, MediaItem
+from . import plans, services
+from .models import Devotional, MediaItem, ReadingPlan, ReadingPlanDay
 
 DATE_INPUT = {"type": "date"}
 
@@ -100,3 +100,70 @@ class MediaItemForm(TuErrorMessagesMixin, forms.ModelForm):
                 f"La descripción puede tener hasta {MediaItem.DESCRIPTION_MAX} caracteres y esta tiene {len(text)}. Acórtala."
             )
         return text
+
+
+def _plain(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n").strip()
+
+
+class ReadingPlanForm(TuErrorMessagesMixin, forms.ModelForm):
+    """What a plan is called, what it is about and who prepared it. Its days are written one by one."""
+
+    class Meta:
+        model = ReadingPlan
+        fields = ["title", "description", "author_line"]
+        help_texts = {
+            "description": f"Una o dos frases para quien decide si lo empieza, hasta {ReadingPlan.DESCRIPTION_MAX} caracteres.",
+            "author_line": "Aparece junto al plan. Por ejemplo: Preparado por el equipo pastoral.",
+        }
+        widgets = {"description": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["title"].error_messages["required"] = "Escribe el título del plan."
+
+    def clean_description(self):
+        text = _plain(self.cleaned_data["description"])
+        if len(text) > ReadingPlan.DESCRIPTION_MAX:
+            raise forms.ValidationError(
+                f"La descripción puede tener hasta {ReadingPlan.DESCRIPTION_MAX} caracteres y esta tiene {len(text)}. Acórtala."
+            )
+        return text
+
+
+class ReadingPlanDayForm(TuErrorMessagesMixin, forms.ModelForm):
+    """One day of a plan: the reference and the church's own words. Never the text of the Bible."""
+
+    class Meta:
+        model = ReadingPlanDay
+        fields = ["reference", "title", "reflection", "question"]
+        help_texts = {
+            "reference": "Escribe la cita; el texto bíblico lo lee cada quien en su Biblia. "
+            "No pegues texto de una traducción con derechos reservados.",
+            "reflection": f"Lo que escribió tu iglesia, con sus propias palabras. Solo texto, hasta {ReadingPlanDay.REFLECTION_MAX} caracteres.",
+            "question": "Una pregunta para que cada quien la piense. Nadie la responde en Emmaus.",
+        }
+        widgets = {"reflection": forms.Textarea(attrs={"rows": 10})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["reference"].error_messages["required"] = "Escribe la cita del día, por ejemplo Juan 15:1-8."
+
+    def clean_reflection(self):
+        text = _plain(self.cleaned_data["reflection"])
+        if len(text) > ReadingPlanDay.REFLECTION_MAX:
+            raise forms.ValidationError(
+                f"La reflexión puede tener hasta {ReadingPlanDay.REFLECTION_MAX} caracteres y esta tiene {len(text)}. Acórtala."
+            )
+        return text
+
+
+class PublishPlanForm(forms.Form):
+    """The administration's confirmation of authorship or permission: without it nothing is published."""
+
+    confirm = forms.BooleanField(
+        label=plans.CONFIRMATION,
+        required=True,
+        help_text="Queda guardado quién lo confirmó y cuándo.",
+        error_messages={"required": plans.NOT_CONFIRMED},
+    )

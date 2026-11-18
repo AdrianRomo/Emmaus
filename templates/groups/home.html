@@ -65,7 +65,10 @@
           <p class="meeting__meta">{% if devotional.passage %}Lectura: {{ devotional.passage }}. {% endif %}{% if devotional.is_read %}Ya lo leíste.{% else %}Toma unos minutos.{% endif %}</p>
         </div>
       </div>
+      {% if reading %}<p class="more"><a href="{% url 'resources:plan_day' reading.0.pk reading.1 %}">Continuar: {{ reading.0.title }}, día {{ reading.1 }}</a></p>{% endif %}
     </section>
+    {% elif reading %}
+    <p class="more"><a href="{% url 'resources:plan_day' reading.0.pk reading.1 %}">Continuar: {{ reading.0.title }}, día {{ reading.1 }}</a></p>
     {% endif %}
 
     <section class="block" aria-labelledby="proximos">

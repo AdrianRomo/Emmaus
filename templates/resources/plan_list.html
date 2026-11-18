@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Planes de lectura{% endblock %}
+{% block content %}
+{% comment %}
+  The reading plans this person can open (resources.plan_views.plan_list): the ones they started first, then the
+  other published ones. "En curso", "Terminado" and "Continuar" are this person's own: nobody else ever sees them,
+  and the page shows no count of readers.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as home %}
+  {% include "events/rotulo/_page_head.html" with title="Planes de lectura" lede="Lecturas de varios días que preparó tu iglesia. Lees a tu ritmo: ningún día tiene fecha." back_url=home back_label="Volver a Mi iglesia" %}
+  {% if plans %}
+    <ul class="rows">
+      {% for plan in plans %}
+        <li class="row row--lead row--stack">
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'resources:plan_detail' plan.pk %}">{{ plan.title }}</a></p>
+            <p class="row__meta">{{ plan.day_words|capfirst }}.{% if plan.author_line %} {{ plan.author_line }}.{% endif %}{% if plan.is_retired %} Tu iglesia lo retiró; tú puedes terminarlo.{% endif %}</p>
+          </div>
+          {% if plan.started %}
+            <div class="row__end">
+              {% if plan.finished %}{% status "completada" "Terminado" %}{% else %}{% status "en_curso" "En curso" %}
+                <a class="btn btn--secondary btn--small" href="{% url 'resources:plan_day' plan.pk plan.next_position %}">Continuar en el día {{ plan.next_position }}<span class="visually-hidden"> de {{ plan.title }}</span></a>
+              {% endif %}
+            </div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Lo que empiezas y lo que lees es solo para ti: nadie más lo ve.</p>
+  {% else %}
+    <p class="empty-line">Tu iglesia todavía no publica planes de lectura. Cuando publique el primero, lo vas a encontrar aquí.</p>
+  {% endif %}
+  {% if request.is_church_admin %}<p class="more"><a href="{% url 'resources:plan_admin' %}">Administrar los planes de lectura</a></p>{% endif %}
+</div>
+{% endblock %}

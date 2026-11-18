@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Administrar los planes de lectura{% endblock %}
+{% block content %}
+{% comment %}
+  Every reading plan of the church (resources.plan_views.plan_admin): drafts, published and retired. It says nothing
+  about who started or read one, and no number of readers: that belongs to each person.
+{% endcomment %}
+<div class="narrow">
+  {% url 'resources:plan_list' as back %}{% url 'resources:plan_create' as create %}
+  {% include "events/rotulo/_page_head.html" with title="Administrar los planes de lectura" lede="Un plan son varios días de lectura que escribe tu iglesia. Un borrador solo lo ve la administración." back_url=back back_label="Volver a los planes de lectura" action_url=create action_label="Escribir un plan" %}
+  {% if plans %}
+    <ul class="rows">
+      {% for plan in plans %}
+        <li class="row row--lead row--stack">
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'resources:plan_days' plan.pk %}">{{ plan.title }}</a></p>
+            <p class="row__meta">{% if plan.is_draft %}Borrador: nadie lo ve todavía.{% elif plan.is_published %}Publicado: las personas de la iglesia lo pueden empezar.{% else %}Retirado: nadie lo puede empezar.{% endif %}</p>
+          </div>
+          <div class="row__end">
+            {% if plan.is_draft %}{% status "borrador" "Borrador" %}{% elif plan.is_published %}{% status "publicada" "Publicado" %}{% else %}{% status "retirada" "Retirado" %}{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/ui/pager.html" with page=plans label="Páginas de planes de lectura" %}
+  {% else %}
+    <p class="empty-line">Todavía no hay planes de lectura. Escribe el primero: se guarda como borrador hasta que lo publiques.</p>
+  {% endif %}
+  <p class="aside-note">Emmaus no muestra quién empezó un plan ni cuántas personas lo leen: eso es de cada quien.</p>
+</div>
+{% endblock %}
