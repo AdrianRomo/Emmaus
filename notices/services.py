@@ -314,9 +314,11 @@ def update(
         became_urgent = notice.is_urgent and not was_urgent
         if became_urgent:
             notice.emailed_version = None  # who asked only for the urgent ones has not been mailed
+            notice.email_reopened_at = timezone.now()
         notice.save(
             update_fields=[
-                "title", "body", "priority", "publish_on", "expires_on", "version", "changed_at", "emailed_version", "updated_at",
+                "title", "body", "priority", "publish_on", "expires_on", "version", "changed_at", "emailed_version", "email_reopened_at",
+                "updated_at",
             ]
         )
         _audit(notice, actor, "aviso_modificado", "Modificó")

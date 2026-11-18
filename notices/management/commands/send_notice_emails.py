@@ -15,7 +15,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--base-url", default="", help="Dirección pública de Emmaus, por ejemplo https://emmaus.ejemplo.org. Necesaria con --apply.")
-        parser.add_argument("--days", type=int, default=3, help="Solo avisos publicados o cambiados en estos últimos días (3).")
+        parser.add_argument(
+            "--days", type=int, default=email.WINDOW_DAYS,
+            help=f"Solo avisos cuyo día llegó, cuya información cambió o que se volvieron urgentes en estos últimos días ({email.WINDOW_DAYS}).",
+        )
         parser.add_argument("--apply", action="store_true", help="Enviar de verdad.")
 
     def handle(self, *args, **options):

@@ -78,8 +78,10 @@ def render(kind: str, context: Mapping[str, str]) -> tuple[str, str]:
     return SUBJECTS[kind], body.strip()
 
 
-def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str]) -> Outcome:
-    """Send the ``kind`` notice to ``to`` (one address or several) and say whether it went; see the module docstring."""
+def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str], connection=None) -> Outcome:
+    """Send the ``kind`` notice to ``to`` (one address or several) and say whether it went; see the module docstring.
+    ``connection``: an open mail connection, for a caller that sends many notices in a row; None, as always, opens
+    one for this message. It changes how the message travels, never what it says."""
     subject, body = render(kind, context)
     recipients = _recipients(to)
     # Imported here: events imports core, so a module-level import would make core.notify unusable from core.services.
@@ -87,7 +89,7 @@ def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str]) -> Ou
 
     if not email_is_configured():
         return NOT_CONFIGURED
-    return SENT if send_email_safely(subject, body, recipients) else FAILED
+    return SENT if send_email_safely(subject, body, recipients, connection) else FAILED
 
 
 def _recipients(to: str | Iterable[str]) -> list[str]:

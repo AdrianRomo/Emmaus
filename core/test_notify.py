@@ -260,6 +260,17 @@ class DeliveryTests(SimpleTestCase):
             notify("solicitud_contacto_recibida", [None], CONTEXT)
         self.assertEqual(len(mail.outbox), 2)
 
+    @override_settings(EMAIL_BACKEND=LOCMEM)
+    def test_a_caller_may_hand_over_an_open_connection_and_the_mail_is_the_same(self):
+        connection = mail.get_connection()
+        with mock.patch.object(connection, "send_messages", wraps=connection.send_messages) as send:
+            self.assertEqual(notify("aviso_urgente", "persona@demo.invalid", CONTEXT, connection=connection), SENT)
+        send.assert_called_once()
+        self.assertEqual(mail.outbox[-1].body, EXPECTED_BODIES["aviso_urgente"])
+
+    def test_a_mail_server_that_hangs_is_given_up_on(self):
+        self.assertEqual(settings.EMAIL_TIMEOUT, 10)
+
     @override_settings(EMAIL_BACKEND="core.test_notify.FailingBackend")
     def test_a_backend_that_refuses_the_message_is_failed_not_sent(self):
         with self.assertLogs("core.services", "ERROR") as logs:

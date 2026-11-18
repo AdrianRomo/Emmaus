@@ -116,6 +116,12 @@ def _emailed_lines(notice: Announcement) -> list[str]:
         return ["No hay correo configurado: este aviso solo se ve en Emmaus."]
     if not sent and notice.state != "publicado":
         return ["No ha salido ningún correo por este aviso."] if notice.state == "programado" else []
+    if not sent and email.will_not_be_mailed(notice):
+        # Published while the server had no e-mail, or before e-mails existed, and its days have passed.
+        return [
+            f"No salió ningún correo por este aviso y ya no saldrá ninguno: los correos solo salen en los {email.WINDOW_DAYS}"
+            " días siguientes a su publicación. Este aviso solo se ve en Emmaus."
+        ]
     if total < smallest:  # with so few readers the number would say who chose what
         lines = [f"Este aviso es para menos de {smallest} personas con cuenta: aquí no se cuenta cuántos correos salieron."]
     elif not sent:
