@@ -1,7 +1,35 @@
 {% extends "events/rotulo/shell_leader.html" %}
 {% load emmaus shell %}
 {% block page_title %}Resumen general{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}{% load community %}
+{% comment %}
+  The redesign ("Ventanas"): the pastor's workspace, built as the coordinator's "Mi inicio" at a pastor's level. The
+  event and its dates, the presentation and the reports; inside the live region what waits for a decision as rows with
+  their count, the matters to coordinate, the teams and the camp's progress; then the pace and the needs. The role is
+  said on the page only where the rail is hidden.
+{% endcomment %}
+<header class="page-head page-head--actions tablero__cabeza">
+  <div class="page-head__text">
+    <h1 class="voice page-head__title">{{ event.name }}</h1>
+    <p class="page-head__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% endif %}{% if event.location %}{% if event.starts_on %}, {% endif %}{{ event.location }}{% endif %}</p>
+    <p class="page-head__meta solo-sin-riel">Tu rol: {{ access.role_label|lower }}.</p>
+  </div>
+  <div class="page-head__actions">
+    <a class="btn btn--primary" href="{% url 'events:presentation_live' event.slug %}?desde={{ request.path|urlencode }}">Mostrar presentación</a>
+    <a class="btn btn--secondary" href="{% url 'events:reports' event.slug %}">Reportes</a>
+  </div>
+</header>
+{% include "partials/ui/welcome.html" with welcome=welcome %}
+<div class="tablero__estado">
+  {# The time changes every 30 s and is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
+  <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
+  <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>
+</div>
+<div id="resumen-vivo" data-live-url="{% url 'events:pastor_home' event.slug %}" data-live-interval="30" data-live-status="estado-actualizacion">
+  {% include "events/pastor/_home_live.html" %}
+</div>
+<p class="aside-note block">Quién lee las respuestas confidenciales: <a href="{% url 'events:confidential_level' event.slug %}">{{ event.get_confidential_level_display }}</a>.</p>
+{% else %}
 <header class="report-head">
   <div class="report-head__text">
     <h1 class="voice report-head__title">Resumen general</h1>
@@ -25,4 +53,4 @@
   {% include "events/pastor/_home_live.html" %}
 </div>
 <p class="more">Quién lee las respuestas confidenciales: <a href="{% url 'events:confidential_level' event.slug %}">{{ event.get_confidential_level_display }}</a>.</p>
-{% endblock %}
+{% endif %}{% endblock %}

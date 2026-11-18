@@ -1,7 +1,78 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Entrevistas pendientes{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): what waits for this coordinator's decision first, answered in place: "Sí" or "No" sends the
+  decision and the list comes back with the next row in focus (coord_pending, POST). The name opens the interview at
+  its decision, and deciding there opens the next one (?decidir=siguiente). Then the queue: in progress, not started,
+  half done, one row per campero.
+{% endcomment %}
+{% url 'events:interview_search' event.slug as search_url %}{% url 'events:coord_pending' event.slug as pending_url %}
+{% include "events/rotulo/_page_head.html" with title="Entrevistas pendientes" action_url=search_url action_label="Iniciar entrevista" %}
+<section class="block" aria-labelledby="por-evaluar-titulo" id="por-evaluar">
+  <h2 id="por-evaluar-titulo" class="heading">Por decidir{% if to_evaluate %} <span class="count">{{ to_evaluate|length }}</span>{% endif %}</h2>
+  {% if to_evaluate %}
+  <ul class="rows">
+    {% for iv in to_evaluate %}
+    <li class="row row--lead row--stack">
+      {% monogram iv.participant.full_name %}
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={{ pending_url|urlencode:'' }}%3Fdecidir%3Dsiguiente%26despues%3D{{ iv.public_id }}#seguimiento"{% if iv.pk == next_focus.pk %} data-inline-focus{% endif %}>{{ iv.participant.full_name }}</a></p>
+        <p class="row__meta">¿Necesita seguimiento? Completada {{ iv.completed_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
+      </div>
+      <form class="row__end" method="post" action="{{ pending_url }}" data-inline="por-evaluar">
+        {% csrf_token %}<input type="hidden" name="entrevista" value="{{ iv.public_id }}"><input type="hidden" name="siguiente" value="{{ pending_url }}?despues={{ iv.public_id }}#por-evaluar">
+        <button class="btn btn--secondary btn--small" type="submit" name="decision" value="requerido">Sí<span class="visually-hidden">, {{ iv.participant.full_name }} necesita seguimiento</span></button>
+        <button class="btn btn--secondary btn--small" type="submit" name="decision" value="no_requerido">No<span class="visually-hidden">, {{ iv.participant.full_name }} no necesita seguimiento</span></button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-line">Nada por decidir.</p>
+  {% endif %}
+</section>
+
+<section class="block" aria-labelledby="en-curso">
+  <h2 id="en-curso" class="heading">En curso{% if in_progress %} <span class="count">{{ in_progress|length }}</span>{% endif %}</h2>
+  {% if in_progress %}
+  <ul class="rows">{% for iv in in_progress %}
+    <li class="row row--lead">
+      {% monogram iv.participant.full_name %}
+      <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">{{ iv.participant.room|cuarto }}, última actividad {{ iv.last_activity_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p></div>
+      <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a></div>
+    </li>
+  {% endfor %}</ul>
+  {% else %}<p class="empty-line">No tienes entrevistas en curso.</p>{% endif %}
+</section>
+
+<section class="block" aria-labelledby="sin-iniciar">
+  <h2 id="sin-iniciar" class="heading">Sin iniciar{% if not_started %} <span class="count">{{ not_started|length }}</span>{% endif %}</h2>
+  {% if not_started %}
+  <ul class="rows">{% for p in not_started %}
+    <li class="row row--lead">
+      {% monogram p.full_name %}
+      <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años{% if p.questionnaire_total > 1 %}, {% campero_status p %}{% endif %}</p></div>
+      <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
+    </li>
+  {% endfor %}</ul>
+  {% elif partial %}<p class="empty-line">Nadie sin iniciar.</p>
+  {% elif has_participants %}<p class="empty-line">No quedan entrevistas por iniciar.</p>
+  {% else %}{% url 'events:participant_create' event.slug as create_url %}{% include "partials/ui/empty.html" with title="Todavía no tienes camperos asignados" action_url=create_url action_label="Registrar campero" %}{% endif %}
+</section>{% if partial %}
+
+<section class="block" aria-labelledby="a-medias">
+  <h2 id="a-medias" class="heading">A medias <span class="count">{{ partial|length }}</span></h2>
+  <ul class="rows">{% for p in partial %}
+    <li class="row row--lead">
+      {% monogram p.full_name %}
+      <div class="row__main"><p class="row__title">{{ p.full_name }}</p><p class="row__meta">#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años, {% campero_status p %}</p></div>
+      <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
+    </li>
+  {% endfor %}</ul>
+</section>{% endif %}
+{% else %}
 {% url 'events:interview_search' event.slug as search_url %}
 {% include "events/rotulo/_page_head.html" with title="Entrevistas pendientes" action_url=search_url action_label="Iniciar entrevista" %}
 
@@ -57,4 +128,4 @@
     {% else %}<p class="empty-line">Nada por decidir.</p>{% endif %}
   </section>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

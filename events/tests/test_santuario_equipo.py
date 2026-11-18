@@ -14,7 +14,7 @@ import re
 from django.urls import reverse
 from django.utils import timezone
 
-from events.models import FollowUp, InterviewStatus
+from events.models import FollowUp, Interview, InterviewStatus
 from events.services.metrics import event_scope
 from events.services.reports import generate_snapshot
 from people import flags
@@ -28,6 +28,13 @@ LEDE = re.compile(r'<p class="lede"[^>]*>(.*?)</p>', re.DOTALL)
 
 def main_of(response) -> str:
     return response.content.decode().split("<main", 1)[1]
+
+
+def row_of(html: str, name: str) -> str:
+    """The one row of a list that names this person."""
+    rows = [row.split("</li>")[0] for row in html.split('<li class="row row--lead')[1:] if f">{name}</a>" in row.split("</li>")[0]]
+    assert len(rows) == 1, (name, len(rows))
+    return rows[0]
 
 
 class TeamScreensInTheShellTests(CampFixture):
@@ -136,7 +143,7 @@ class TeamScreensInTheShellTests(CampFixture):
         html = main_of(self.client.get(self.url("follow_ups") + "?estado=todos"))
         self.assertIn('<section class="results results--wide" aria-label="Seguimientos">', html)
         self.assertLess(html.index('<ul class="filters" aria-label="Estados">'), html.index('class="rows"'))  # the filters come first
-        rows = html.split('<li class="row">')[1:]
+        rows = html.split('<li class="row row--lead" id="seguimiento-')[1:]
         self.assertEqual(len(rows), 2)
         by_name = {name: row for row in rows for name in (self.p1.full_name, self.p3.full_name) if f">{name}</a>" in row}
         open_row, closed_row = by_name[self.p1.full_name], by_name[self.p3.full_name]
@@ -144,8 +151,10 @@ class TeamScreensInTheShellTests(CampFixture):
             self.assertIn("<li>Pidió hablar con un líder</li>", row)
             self.assertIn(f"{coordinator}</li>", row)
             self.assertNotIn('<p class="row__meta">', row)
-        # An open one this person may assign: the selector says who attends it, once
-        self.assertIn(f'<select class="input input--small" id="asignar-{self.open_follow_up.id}" name="assigned_to"><option value="">Sin asignar</option>', open_row)
+        # An open one this person may assign: the selector says who attends it, once, and acts in place on its own row
+        self.assertIn(f'<select class="input input--small" id="asignar-{self.open_follow_up.id}" name="assigned_to" data-inline-focus><option value="">Sin asignar</option>', open_row)
+        self.assertIn(f'class="row-assign" data-inline="seguimiento-{self.open_follow_up.id}">', open_row)
+        self.assertIn('<input type="hidden" name="siguiente" value="/eventos/campamento-a/seguimiento/?estado=todos">', open_row)
         self.assertNotIn("Responsable:", open_row)
         self.assertIn("Pendiente", open_row)
         # A closed one has no selector: the fact says it
@@ -159,21 +168,88 @@ class TeamScreensInTheShellTests(CampFixture):
         self.assertIn(self.p1.full_name, html)
         self.assertNotIn(self.p3.full_name, html)  # César's campero
 
-    def test_a_campero_row_is_one_line_of_facts(self):
+    def test_a_campero_row_reads_like_the_home_queue(self):
+        """The search capsule and the views as capsules, as on the administration's Camperos; a row is who (circle,
+        name), the interview's state with its mark, the number and the cuarto, and the one action."""
         self.client.force_login(self.coord1)
         html = main_of(self.client.get(self.url("my_participants")))
-        self.assertNotIn('<p class="row__meta">', html)
-        row = html[html.index(f">{self.p1.full_name}</a>"):]
-        row = row[:row.index("</li>\n")]
-        facts = [re.sub(r"<svg.*?</svg>", "", fact, flags=re.DOTALL).strip() for fact in re.findall(r"<li>(.*?)</li>", row, re.DOTALL)]
-        self.assertEqual(facts, [f"#{self.p1.code}", "Cuarto 1", "15 años", "Iglesia Centro"])
+        self.assertIn('<form class="search camperos__buscar" method="get" role="search">', html)
+        self.assertIn('<input class="input search__input" id="q" type="search" name="q" value=""', html)
+        self.assertIn('<ul class="filters camperos__vistas" aria-label="Mostrar" data-desliza>', html)
+        self.assertNotIn("list-search", html)
+        row = row_of(html, self.p1.full_name)
+        self.assertIn('<span class="mono" aria-hidden="true">ML</span>', row)
+        self.assertIn(f'<p class="row__meta row__meta--con-marca"><span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Sin entrevista</span><span>#{self.p1.code}, Cuarto 1, 15 años</span>', row)
+        self.assertIn(">Entrevistar<span", row)
+        done = row_of(html, self.p2.full_name)  # completed: the row is the way to the record, no action
+        self.assertIn("Completada</span>", done)
+        self.assertNotIn("<a class=\"btn", done)
 
-    def test_the_pastor_home_draws_the_day_and_the_role_as_facts(self):
+    def test_a_minors_authorization_is_its_own_sign(self):
+        """A guardian's authorization is a check with its word, or vela «Falta la autorización»; never the interview's
+        mark. An adult's row says nothing about it. «Menores sin autorización» is a capsule with its count."""
+        self.client.force_login(self.coord1)
+        html = main_of(self.client.get(self.url("my_participants")))
+        authorized, missing, adult = (row_of(html, p.full_name) for p in (self.p1, self.p_minor_no_auth, self.p2))
+        self.assertIn('<span class="autorizada">', authorized)
+        self.assertIn("Autorizada</span>", authorized)
+        self.assertNotIn("chip--wait", authorized)
+        self.assertIn('<span class="chip chip--wait">Falta la autorización</span>', missing)
+        self.assertIn("status status--pending", missing)  # the interview's own state, apart
+        self.assertNotIn("autorizada", adult)
+        self.assertNotIn("chip--wait", adult)
+        capsule = f'<a href="{self.url("my_participants")}?autorizacion=falta">Menores sin autorización <span class="count">1</span></a>'
+        self.assertIn(capsule, html)
+        only = main_of(self.client.get(self.url("my_participants") + "?autorizacion=falta"))
+        self.assertIn(f'<a href="{self.url("my_participants")}?autorizacion=falta" aria-current="page">Menores sin autorización', only)
+        self.assertIn(self.p_minor_no_auth.full_name, only)
+        self.assertNotIn(self.p1.full_name, only)
+        self.assertIn('<input type="hidden" name="autorizacion" value="falta">', only)  # the search keeps the view
+
+    def test_a_search_that_finds_nobody_offers_to_clear_it(self):
+        self.client.force_login(self.coord1)
+        html = main_of(self.client.get(self.url("my_participants") + "?q=zzzz"))
+        self.assertIn('<p class="empty__title">Nadie coincide</p>', html)
+        self.assertIn(f'<a class="btn btn--secondary" href="{self.url("my_participants")}">Quitar filtros</a>', html)
+        lucia = main_of(self.client.get(self.url("my_participants") + "?q=luc"))
+        self.assertIn(self.p_minor_no_auth.full_name, lucia)
+        self.assertNotIn(self.p1.full_name, lucia)
+
+    def test_a_situacion_de_riesgo_is_said_in_chile_and_never_softened(self):
+        safety = FollowUp.objects.create(
+            event=self.event, participant=self.p1, kind=FollowUp.Kind.SAFETY, reason=FollowUp.Reason.SAFETY, created_by=self.coord1,
+        )
+        self.client.force_login(self.care)  # sensitive access: the one who may see it
+        html = main_of(self.client.get(self.url("follow_ups")))
+        row = html.split(f'id="seguimiento-{safety.id}"')[1].split('id="seguimiento-')[0]
+        self.assertIn('<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Situación de riesgo</span>', row)
+        self.assertNotIn("Urgente", row)
+        detail = main_of(self.client.get(self.url("follow_up_detail", safety.id)))
+        self.assertIn("Situación de riesgo: Mariana López Ruiz", detail)
+        self.assertIn('<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Situación de riesgo</span>', detail)
+        self.assertIn("Sigue el procedimiento de protección", detail)
+        home = main_of(self.client.get(self.url("pastor_home")))
+        self.assertIn('<a class="decision decision--riesgo" href="/eventos/campamento-a/seguimiento/">', home)
+        self.assertIn("Situación de riesgo abierta</span>", home)
+        self.client.force_login(self.pastor)  # without sensitive access the home does not count it
+        self.assertNotIn("decision--riesgo", main_of(self.client.get(self.url("pastor_home"))))
+
+    def test_the_tutor_and_pastor_homes_are_built_as_the_coordinator_s(self):
+        """The event and its dates as the title, the role only where the rail is hidden (.solo-sin-riel), what waits
+        for a decision as rows with their count, the list and the progress as on the coordinator's "Mi inicio"."""
+        for user, name, role in ((self.tutor1, "tutor_home", "tutor"), (self.pastor, "pastor_home", "pastor")):
+            self.client.force_login(user)
+            with self.subTest(role=role):
+                html = main_of(self.client.get(self.url(name)))
+                self.assertIn('<h1 class="voice page-head__title">Campamento A</h1>', html)
+                self.assertIn(f'<p class="page-head__meta solo-sin-riel">Tu rol: {role}.</p>', html)
+                self.assertIn('<h2 id="esperan" class="heading">Esperan tu decisión</h2>', html)
+                self.assertIn('class="block tablero__avance"', html)
+                self.assertNotIn("report-head", html)
+        self.client.force_login(self.tutor1)
+        tutor = main_of(self.client.get(self.url("tutor_home")))
+        self.assertIn(f'<a href="{self.url("coordinator_detail", self.m_coord1.id)}">Carla Uno</a>', tutor)  # its coordinators
         self.client.force_login(self.pastor)
-        html = main_of(self.client.get(self.url("pastor_home")))
-        self.assertIn('<ul class="meta report-head__meta">', html)
-        self.assertIn('<li class="own-role">Tu rol: pastor</li>', html)
-        self.assertNotIn('<p class="report-head__meta">', html)
         self.assertContains(self.client.get(self.url("reports")), '<ul class="meta report-head__meta">')
 
     def test_what_is_protected_reads_the_same_in_the_shell(self):
@@ -189,3 +265,143 @@ class TeamScreensInTheShellTests(CampFixture):
         self.assertContains(self.client.get(self.url("pastor_home")), "Quién lee las respuestas confidenciales:")
         self.assertContains(self.client.get(self.url("report_detail", self.snapshot.public_id)), "Corte guardado: no cambia.")
         self.assertContains(self.client.get(reverse("events:follow_up_detail", args=[self.event.slug, self.open_follow_up.id])), "Seguimiento: Mariana López Ruiz")
+
+
+class DecidingInPlaceTests(CampFixture):
+    """«Por decidir» on «Entrevistas pendientes» answers in place (form[data-inline]): the decision of the interview's
+    record, back to the same list (same site only) with the next row in focus, and a message that names the campero
+    and the answer. Opening the record and deciding there goes on to the next record."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        flags.set_enabled(cls.church, "community", True)
+        Person.objects.create(church=cls.church, user=cls.coord1, first_name="Carla", last_name="Uno")
+        cls.newer = give_interview(cls.p1, InterviewStatus.COMPLETED, decision="por_evaluar", minutes_ago=10)
+        cls.older = give_interview(cls.p2, InterviewStatus.COMPLETED, decision="por_evaluar", minutes_ago=30)
+        cls.theirs = give_interview(cls.p3, InterviewStatus.COMPLETED, decision="por_evaluar")  # César's campero
+
+    def setUp(self):
+        self.client.force_login(self.coord1)
+        self.pending = self.url("coord_pending")
+
+    def decide(self, interview, decision="no_requerido", siguiente=None):
+        data = {"entrevista": str(interview.public_id), "decision": decision}
+        data["siguiente"] = f"{self.pending}?despues={interview.public_id}#por-evaluar" if siguiente is None else siguiente
+        return self.client.post(self.pending, data)
+
+    def test_each_row_answers_in_place(self):
+        html = main_of(self.client.get(self.pending))
+        section = html.split('id="por-evaluar">')[1].split("</section>")[0]
+        self.assertEqual(section.count('data-inline="por-evaluar"'), 2)
+        self.assertIn(f'<form class="row__end" method="post" action="{self.pending}" data-inline="por-evaluar">', section)
+        self.assertIn(f'<input type="hidden" name="entrevista" value="{self.newer.public_id}"><input type="hidden" name="siguiente" value="{self.pending}?despues={self.newer.public_id}#por-evaluar">', section)
+        self.assertIn('value="requerido">Sí<span class="visually-hidden">, Mariana López Ruiz necesita seguimiento</span></button>', section)
+        self.assertIn('value="no_requerido">No<span class="visually-hidden">, Mariana López Ruiz no necesita seguimiento</span></button>', section)
+        self.assertLess(section.index(self.p1.full_name), section.index(self.p2.full_name))  # the newest first
+        self.assertNotIn(self.p3.full_name, section)
+        self.assertNotIn("data-inline-focus", section)
+
+    def test_a_decision_comes_back_to_the_list_with_the_next_row_in_focus_and_says_who_and_what(self):
+        response = self.decide(self.newer)
+        self.assertRedirects(response, f"{self.pending}?despues={self.newer.public_id}#por-evaluar", fetch_redirect_response=False)
+        self.newer.refresh_from_db()
+        self.assertEqual(self.newer.follow_up_decision, "no_requerido")
+        page = self.client.get(response["Location"])
+        self.assertEqual([m.message for m in page.context["messages"]], ["Mariana López Ruiz no necesita seguimiento."])
+        section = main_of(page).split('id="por-evaluar">')[1].split("</section>")[0]
+        self.assertNotIn(self.p1.full_name, section)
+        self.assertIn(f'#seguimiento" data-inline-focus>{self.p2.full_name}</a>', section)
+
+    def test_yes_says_so_and_opens_the_follow_up(self):
+        self.decide(self.older, decision="requerido")
+        page = self.client.get(self.pending)
+        self.assertEqual([m.message for m in page.context["messages"]], ["Diego Hernández Cruz necesita seguimiento."])
+        self.older.refresh_from_db()
+        self.assertEqual(self.older.follow_up_decision, "requerido")
+        self.assertTrue(FollowUp.objects.filter(interview=self.older, kind=FollowUp.Kind.CARE).exists())
+
+    def test_the_way_back_is_this_site_only(self):
+        for foreign in ("https://malo.example/", "//malo.example/x", "/\\malo.example", "javascript:alert(1)"):
+            Interview.objects.filter(pk=self.newer.pk).update(follow_up_decision="por_evaluar")
+            with self.subTest(siguiente=foreign):
+                response = self.decide(self.newer, siguiente=foreign)
+                self.assertRedirects(response, f"{self.pending}#por-evaluar", fetch_redirect_response=False)
+
+    def test_another_coordinator_s_interview_cannot_be_decided_from_here(self):
+        self.assertEqual(self.decide(self.theirs).status_code, 404)
+        self.theirs.refresh_from_db()
+        self.assertEqual(self.theirs.follow_up_decision, "por_evaluar")
+        self.assertEqual(self.client.post(self.pending, {"entrevista": "1 OR 1=1", "decision": "no_requerido"}).status_code, 403)
+        self.client.force_login(self.tutor1)  # the page is the coordinator's own
+        self.assertEqual(self.decide(self.newer).status_code, 403)
+        self.newer.refresh_from_db()
+        self.assertEqual(self.newer.follow_up_decision, "por_evaluar")
+
+    def test_an_answer_already_given_is_refused_where_it_was_asked(self):
+        self.decide(self.newer)
+        self.client.get(self.pending)  # its message is read
+        response = self.decide(self.newer, decision="requerido")
+        page = self.client.get(response["Location"])
+        self.assertEqual([m.message for m in page.context["messages"]], ["El seguimiento de esta entrevista ya se decidió."])
+        self.newer.refresh_from_db()
+        self.assertEqual(self.newer.follow_up_decision, "no_requerido")
+
+    def test_deciding_on_the_record_goes_on_to_the_next_record(self):
+        html = main_of(self.client.get(self.pending))
+        record = self.url("interview_detail", self.newer.public_id)
+        self.assertIn(f'href="{record}?siguiente=%2Feventos%2Fcampamento-a%2Fpendientes%2Fmias%2F%3Fdecidir%3Dsiguiente%26despues%3D{self.newer.public_id}#seguimiento"', html)
+        self.client.post(record, {"action": "decision", "decision": "no_requerido"})
+        after = self.client.get(self.pending, {"decidir": "siguiente", "despues": str(self.newer.public_id)})
+        self.assertEqual(after.status_code, 302)
+        self.assertTrue(after["Location"].startswith(self.url("interview_detail", self.older.public_id) + "?siguiente="))
+        self.assertTrue(after["Location"].endswith("#seguimiento"))
+        self.client.post(self.url("interview_detail", self.older.public_id), {"action": "decision", "decision": "no_requerido"})
+        done = self.client.get(self.pending, {"decidir": "siguiente", "despues": str(self.older.public_id)})
+        self.assertRedirects(done, f"{self.pending}#por-evaluar", fetch_redirect_response=False)
+        # Another coordinator's interview as "despues" names nothing: the list's own first one
+        third = give_interview(self.p_minor_no_auth, InterviewStatus.COMPLETED, decision="por_evaluar")
+        foreign = self.client.get(self.pending, {"decidir": "siguiente", "despues": str(self.theirs.public_id)})
+        self.assertTrue(foreign["Location"].startswith(self.url("interview_detail", third.public_id)))
+
+
+class ChoosingAComputerTests(CampFixture):
+    """«¿En qué computadora estás?»: one question, the computers as capsules, the one in use already chosen, a computer
+    where someone else has an interview moving now marked «En uso» (never who)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        flags.set_enabled(cls.church, "community", True)
+        Person.objects.create(church=cls.church, user=cls.coord1, first_name="Carla", last_name="Uno")
+
+    def interview_at(self, participant, number, *, minutes_ago=1):
+        interview = give_interview(participant, InterviewStatus.IN_PROGRESS, minutes_ago=minutes_ago)
+        interview.station = self.event.stations.get(number=number)
+        interview.save(update_fields=["station"])
+        return interview
+
+    def label(self, html, number):
+        station = self.event.stations.get(number=number)
+        return html.split(f'value="{station.id}"')[1].split("</label>")[0]
+
+    def test_the_computers_are_capsules_and_someone_else_s_is_marked(self):
+        self.interview_at(self.p3, 2)  # César, now
+        self.interview_at(self.p4, 4, minutes_ago=90)  # Cora, stalled: not in use
+        self.interview_at(self.p1, 3)  # Carla herself
+        self.client.force_login(self.coord1)
+        html = main_of(self.client.get(self.url("choose_station")))
+        self.assertIn('<h1 class="voice page-head__title">¿En qué computadora estás?</h1>', html)
+        self.assertIn("En uso</span>", self.label(html, 2))
+        for number in (1, 3, 4):
+            self.assertNotIn("En uso", self.label(html, number))
+        self.assertNotIn("César", html)
+        self.assertNotIn(" checked", html)
+        self.assertEqual(html.count('class="btn btn--primary"'), 1)
+
+    def test_the_computer_this_browser_uses_is_already_chosen(self):
+        self.client.force_login(self.coord1)
+        self.choose_station(number=5)
+        html = main_of(self.client.get(self.url("choose_station")))
+        self.assertIn(" checked><label", self.label(html, 5))
+        self.assertEqual(html.count(" checked"), 1)

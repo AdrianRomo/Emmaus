@@ -1,4 +1,51 @@
-{% load emmaus %}
+{% load emmaus %}{% if ui_v2 %}{% load shell %}
+{% comment %}The redesign ("Ventanas"): the progress as on "Mi inicio" ("Tu avance"), then the pace and the latest completed.{% endcomment %}
+<section class="block tablero__avance" aria-labelledby="cuantas">
+  <h2 id="cuantas" class="heading">Tu avance</h2>
+  {% if progress.eligible %}
+  <p class="avance__cifra"><span class="avance__n" data-count="llevas">{{ progress.completed }} <span>de {{ progress.eligible }}</span></span></p>
+  {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
+  <ul class="key" aria-hidden="true">
+    <li><span class="key__mark key__mark--done"></span>{{ progress.completed }} hecha{{ progress.completed|pluralize }}</li>
+    {% if progress.in_progress %}<li><span class="key__mark key__mark--progress"></span>{{ progress.in_progress }} en curso</li>{% endif %}
+    {% if progress.partial %}<li><span class="key__mark"></span>{{ progress.partial }} a medias</li>{% endif %}
+    <li><span class="key__mark"></span>{{ progress.not_started }} sin iniciar</li>
+  </ul>
+  {% if progress.questionnaires %}{% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
+  {% else %}
+  <p class="empty-line">Todavía no tienes camperos asignados.</p>
+  {% endif %}
+</section>
+<dl class="figures block">
+  <div><dt>Pendientes</dt><dd class="figures__value">{{ progress.pending }}</dd><dd class="figures__note">incluye {{ progress.in_progress }} en curso{% if progress.partial %}, {{ progress.partial }} a medias{% endif %}</dd></div>
+  <div><dt>Ritmo</dt><dd class="figures__value">{{ payload.throughput.per_hour|floatformat:"-1" }}</dd><dd class="figures__note">por hora, últimas dos horas</dd></div>
+  <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ payload.follow_ups.open_total }}</dd><dd class="figures__note">{{ payload.follow_ups.to_evaluate }} por decidir</dd></div>
+</dl>
+<div class="block">
+  {% include "events/rotulo/_chart_cumulative.html" with points=payload.timeline.points total=progress.eligible chart_id="mi-acumulado" as_of=payload.data_as_of %}
+</div>
+<div class="block">
+  {% include "events/rotulo/_chart_columns.html" with points=payload.timeline.points chart_id="mi-ritmo" %}
+</div>
+<section class="block" aria-labelledby="recientes">
+  <h2 id="recientes" class="heading">Completadas hace poco</h2>
+  {% if recent %}
+  <ul class="rows">
+    {% for iv in recent %}
+    <li class="row row--lead">
+      {% monogram iv.participant.full_name %}
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
+        <p class="row__meta">{{ iv.completed_at|since|capfirst }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-line">Aún no completas entrevistas.</p>
+  {% endif %}
+</section>
+{% else %}
 <div class="results">
   {% if progress.eligible %}
     <section class="block" aria-labelledby="cuantas">
@@ -45,3 +92,4 @@
     {% endif %}
   </section>
 </div>
+{% endif %}

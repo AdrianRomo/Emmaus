@@ -1,7 +1,71 @@
 {% extends rotulo_shell %}
 {% load emmaus shell %}
 {% block page_title %}Mis camperos{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}
+  The redesign ("Ventanas"): the search capsule and the views of the list as capsules with their count (the current
+  one filled), as on the administration's Camperos; then one row per campero as on "Mi inicio": who (circle, name),
+  the interview's state, number and cuarto, and the one action. A minor's guardian authorization is its own sign
+  (the check, or vela «Falta la autorización»), never the interview's circle.
+{% endcomment %}
+{% url 'events:participant_create' event.slug as create_url %}{% url 'events:my_participants' event.slug as list_url %}
+{% include "events/rotulo/_page_head.html" with title="Mis camperos" action_url=create_url action_label="Registrar campero" %}
+{% if practice %}
+<section class="notice" aria-labelledby="practica">
+  <h2 id="practica" class="notice__title">Campero de práctica</h2>
+  <p>No existe y lo que respondas con él no cuenta.</p>
+  <p class="mt-2">{% if practice.interview_status == "completada" %}<a href="{% url 'events:participant_detail' event.slug practice.public_id %}">Ver la práctica</a>{% else %}<a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug practice.public_id %}">{% if practice.interview_status == "en_curso" %}Retomar la práctica{% else %}Empezar la práctica{% endif %}</a>{% endif %}</p>
+</section>
+{% endif %}
+<div class="camperos__filtrar">
+<form class="search camperos__buscar" method="get" role="search">
+  {% if status %}<input type="hidden" name="estado" value="{{ status }}">{% endif %}{% if authorization_pending %}<input type="hidden" name="autorizacion" value="falta">{% endif %}
+  <label class="visually-hidden" for="q">Buscar campero</label>
+  <input class="input search__input" id="q" type="search" name="q" value="{{ query }}" placeholder="Número, cuarto o nombre" autocomplete="off" spellcheck="false">
+</form>
+<ul class="filters camperos__vistas" aria-label="Mostrar" data-desliza>
+  {% for tab in tabs %}<li><a href="{{ list_url }}{% if tab.value or query %}?{% endif %}{% if tab.value %}estado={{ tab.value }}{% endif %}{% if tab.value and query %}&amp;{% endif %}{% if query %}q={{ query|urlencode }}{% endif %}"{% if status == tab.value and not authorization_pending %} aria-current="page"{% endif %}>{{ tab.label }} <span class="count">{{ tab.count }}</span></a></li>{% endfor %}
+  {% if authorization_count is not None %}<li><a href="{{ list_url }}?autorizacion=falta{% if query %}&amp;q={{ query|urlencode }}{% endif %}"{% if authorization_pending and not status %} aria-current="page"{% endif %}>Menores sin autorización <span class="count">{{ authorization_count }}</span></a></li>{% endif %}
+</ul>
+</div>
+<section class="camperos-lista" aria-labelledby="lista">
+  <div class="heading-row">
+    <h2 id="lista" class="heading">{{ participants|length }} campero{{ participants|length|pluralize }}{% if participants|length != total %} <span class="count">de {{ total }}</span>{% endif %}</h2>
+    {% if query or status or authorization_pending %}{% if participants %}<a href="{{ list_url }}">Quitar filtros</a>{% endif %}{% endif %}
+  </div>
+  {% if participants %}
+    <ul class="rows">
+      {% for p in participants %}
+      <li class="row row--lead">
+        {% monogram p.full_name %}
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a></p>
+          <p class="row__meta row__meta--con-marca">{% campero_status p %}<span>#{{ p.code }}, {{ p.room|cuarto }}, {{ p.age }} años</span>{% if authorization_count is not None and p.age < event.adult_age %}{% if p.guardian == "otorgado" %}<span class="autorizada">{% icon "check" "sm" %}Autorizada</span>{% else %}<span class="chip chip--wait">Falta la autorización</span>{% endif %}{% endif %}</p>
+        </div>
+        {% if p.interview_status != "completada" %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">{% if p.interview_status == "en_curso" %}Retomar<span class="visually-hidden"> la entrevista de {{ p.full_name }}</span>{% else %}Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span>{% endif %}</a></div>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% elif empty_reason == "sin_camperos" %}
+    {% if access.is_admin %}
+      {% url 'events:participant_import' event.slug as import_url %}{% include "partials/ui/empty.html" with title="Todavía no hay camperos" action_url=import_url action_label="Importar camperos" %}
+    {% else %}
+      {% include "partials/ui/empty.html" with title="Todavía no tienes camperos asignados" action_url=create_url action_label="Registrar campero" %}
+    {% endif %}
+  {% elif empty_reason == "busqueda" %}
+    {% include "partials/ui/empty.html" with title="Nadie coincide" text="Prueba con su número o con menos letras." action_url=list_url action_label="Quitar filtros" %}
+  {% elif empty_reason == "autorizacion" %}
+    <p class="empty-line">{% if access.is_admin %}Todos los camperos menores de edad tienen su autorización registrada.{% else %}Todos tus camperos menores de edad tienen su autorización registrada.{% endif %}</p>
+  {% elif status == "pendiente" %}
+    <p class="empty-line">No queda ningún campero sin entrevista.</p>
+  {% elif status == "en_curso" %}
+    <p class="empty-line">{% if access.is_admin %}No hay entrevistas en curso.{% else %}No tienes entrevistas en curso.{% endif %}</p>
+  {% else %}
+    <p class="empty-line">{% if access.is_admin %}Todavía no hay entrevistas completadas.{% else %}Todavía no completas ninguna entrevista.{% endif %}</p>
+  {% endif %}
+  <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a></p>
+</section>
+{% else %}
 {% url 'events:participant_create' event.slug as create_url %}
 {% include "events/rotulo/_page_head.html" with title="Mis camperos" action_url=create_url action_label="Registrar campero" %}
 
@@ -65,4 +129,4 @@
   {% endif %}
   <p class="more"><a href="{% url 'events:backup_list' event.slug %}">Imprimir lista de respaldo</a></p>
 </section>
-{% endblock %}
+{% endif %}{% endblock %}

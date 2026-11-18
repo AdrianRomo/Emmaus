@@ -1428,9 +1428,10 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .rail--event ~ .page--app :is(.headline, .coord__count) { font-weight: 700; }
 .rail--event ~ .page--app .report-section__answer { margin-top: var(--s-2); font-size: var(--t-body); }
 .rail--event ~ .page--app .headline__sub { font-size: var(--t-body); }
-/* "Tu rol: coordinador." is in the rail, under the event's name, while the rail is on screen */
-@media (min-width: 1101px) {
-  .rail--event ~ .page--app :is(.coord__role, .crew-head__meta, .own-role) { display: none; }
+/* "Tu rol: tutor." on the page only while the rail that says it is hidden: a phone, and for the roles of wide tables
+   (rail--ancha) up to 959px as well */
+@media (min-width: 761px) and (max-width: 959px) {
+  body:has(> .rail--ancha) .solo-sin-riel { display: block; }
 }
 .rail--event ~ .page--app .report-head { align-items: center; margin-bottom: var(--s-8); }
 .rail--event ~ .page--app .report-head__text { flex: 1 1 18rem; min-width: 0; }
@@ -1441,7 +1442,6 @@ p.sitio__leaves { margin-top: var(--s-2); }
 
 /* A row's end sits at its end. Atrio pushed it there with space-between, which the row's chevron (a third item
    of the row) breaks: the text takes the room instead. */
-.rail--event ~ .page--app .rows > .row > .row__main { flex: 1 1 auto; }
 .rail--event ~ .page--app .rows > .row > .btn { flex: none; }
 .rail--event ~ .page--app .rows > .row > .empty-line { flex: 1; padding: 0; border: 0; background: none; }
 .rail--event ~ .page--app .rows > .row > .empty-line::before { display: none; }
@@ -1450,13 +1450,18 @@ p.sitio__leaves { margin-top: var(--s-2); }
    of a row that ends in two buttons is a pill above them, not a bar as wide as the row. */
 @media (max-width: 600px) {
   .rail--event ~ .page--app .results .rows > .row:has(> .btn) { flex-wrap: nowrap; }
-  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):not(.row--stack, :has(.row-assign)) { flex-wrap: wrap; row-gap: var(--s-1); }
-  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):not(.row--stack, :has(.row-assign)) > .row__main { flex: 1 1 100%; }
+  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):not(.row--stack, .row--lead, :has(.row-assign)) { flex-wrap: wrap; row-gap: var(--s-1); }
+  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):not(.row--stack, .row--lead, :has(.row-assign)) > .row__main { flex: 1 1 100%; }
   .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))) { padding-right: 2.75rem; }
   .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary)))::after { position: absolute; right: var(--s-4); top: 50%; margin-top: -0.5625rem; }
-  .rail--event ~ .page--app .row--stack .row__end:has(> .status) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rail--event ~ .page--app .row--stack .row__end > .status { grid-column: 1 / -1; justify-self: start; }
 }
+/* A name that opens the record keeps a 44px target when the row ends in its own action (the row is then not one
+   link); the line keeps its height */
+.rail--event ~ .page--app .rows > .row:has(.row__end :is(a, button, select)) .row__title a {
+  display: inline-block; padding-block: calc((2.75rem - 1.3em) / 2); margin-block: calc((1.3em - 2.75rem) / 2);
+}
+/* A situación de riesgo that waits for a decision is chile, numeral and words, never softened */
+.rail--event ~ .page--app .decision--riesgo :is(.decision__cifra, .decision__titulo) { color: var(--chile); }
 /* What waits for the person: apart from the list under it, and its button never breaks in two lines */
 .rail--event ~ .page--app .row--attention + .row--attention, .rail--event ~ .page--app .row--attention + .rows,
 .rail--event ~ .page--app .row--attention + .more { margin-top: var(--s-2); }
@@ -1498,11 +1503,6 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .rail--event ~ .page--app .chart + .chart, .rail--event ~ .page--app .block > .chart { margin-top: var(--s-4); }
 .rail--event ~ .page--app .chart .table-wrap { border: 0; border-radius: 0; }
 .rail--event ~ .page--app .chart .details { margin-bottom: 0; }
-/* One mark per campero: a step narrower, so a coordinator's thirty-odd fit in one line of a half column */
-.rail--event ~ .page--app .tally { gap: 0.25rem; margin-block: var(--s-3) var(--s-2); }
-.rail--event ~ .page--app .tally__mark { width: 0.625rem; }
-@media (max-width: 600px) { .rail--event ~ .page--app .tally__mark { width: 0.5625rem; } }
-.rail--event ~ .page--app .crew__marks .tally { margin: 0.125rem 0 0; }
 .rail--event ~ .page--app .now-next { margin: 0 0 var(--s-6); }
 .rail--event ~ .page--app .figures__alert { border-color: color-mix(in srgb, var(--chile) 35%, var(--surface)) !important; border-width: 1px !important; background: var(--chile-tint); }
 
@@ -1534,12 +1534,28 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .rail--event ~ .page--app .results--wide .row__end { flex: none; flex-wrap: nowrap; gap: var(--s-3); }
 .rail--event ~ .page--app #asignar-varios { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); margin-bottom: var(--s-3); }
 .rail--event ~ .page--app #asignar-varios .hint { margin: 0; font-size: var(--t-small); }
+.rail--event ~ .page--app #asignar-varios .row-assign { flex: 0 1 30rem; min-width: 0; }
+.rail--event ~ .page--app #asignar-varios .input--small { flex: 1 1 auto; width: auto; min-width: 0; }
+@container (max-width: 30rem) {
+  .rail--event ~ .page--app #asignar-varios .row-assign { flex-wrap: wrap; }
+  .rail--event ~ .page--app #asignar-varios .input--small { flex-basis: 100%; }
+}
 @container (max-width: 56rem) {
   .rail--event ~ .page--app .results--wide .rows > .row { flex-wrap: wrap; }
   .rail--event ~ .page--app .results--wide .row__end { flex: 1 0 100%; flex-wrap: wrap; justify-content: flex-start; }
-  .rail--event ~ .page--app .results--wide .row:has(> .check) > .row__end { padding-left: calc(2.75rem + var(--s-1)); }
+  .rail--event ~ .page--app .results--wide .rows > .row > .row__main { flex-basis: 9rem; }
+  .rail--event ~ .page--app .results--wide .row:has(> .check) > .row__end { padding-left: calc(2 * var(--lead) + 2 * var(--s-3) - var(--s-2)); }
+  .rail--event ~ .page--app .results--wide .row--lead:not(:has(> .check)) > .row__end { padding-left: calc(var(--lead) + var(--s-3)); }
   .rail--event ~ .page--app .results--wide .row > .check { align-self: flex-start; }
 }
+/* "¿En qué computadora estás?": the computers as capsules, as many to a line as fit; "En uso" at the capsule's end */
+.rail--event ~ .page--app .estaciones .question__legend + .hint { margin-top: var(--s-2); }
+.rail--event ~ .page--app .estaciones .choices { grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: var(--s-2); margin-top: var(--s-5); }
+.rail--event ~ .page--app .estaciones .choice__label { min-height: var(--control-field); padding: 0 var(--s-4); gap: var(--s-3); border-radius: var(--r-pill); font-size: var(--t-body); font-weight: 600; }
+.rail--event ~ .page--app .estaciones .choice__mark { width: 1.375rem; height: 1.375rem; border: 1.5px solid var(--line-control); }
+.rail--event ~ .page--app .estaciones .choice > input:checked + .choice__label .choice__mark::after { inset: 0.25rem; }
+/* A follow-up that can be marked: the check, then the circle; the hairline still starts where the name starts */
+.rail--event ~ .page--app .results--wide .rows > .row:has(> .check) + .row::before { left: calc(var(--s-3) - var(--s-2) + 2 * var(--lead) + 2 * var(--s-3)); }
 /* end: evento-equipo */
 
 /* area: evento-entrevista */

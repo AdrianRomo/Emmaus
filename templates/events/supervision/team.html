@@ -1,5 +1,5 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Equipo{% endblock %}
 {% block content %}
 {% if can_manage %}{% url 'events:member_add' event.slug as add_url %}{% url 'events:assignments' event.slug as assign_url %}{% endif %}
@@ -24,7 +24,7 @@
       <a class="btn btn--secondary btn--small" href="{% url 'events:join_code_sign' event.slug %}">Ver la hoja para imprimir</a>
       <form method="post" action="{% url 'events:join_code_regenerate' event.slug %}">
         {% csrf_token %}
-        <button class="btn btn--link btn--small" type="submit" data-confirm="{% if event.join_by_name %}El código anterior y el nombre corto dejarán de funcionar.{% else %}El código anterior dejará de funcionar.{% endif %}">Generar otro código</button>
+        <button class="btn {% if ui_v2 %}btn--danger-outline{% else %}btn--link{% endif %} btn--small" type="submit" data-confirm="{% if event.join_by_name %}El código anterior y el nombre corto dejarán de funcionar.{% else %}El código anterior dejará de funcionar.{% endif %}">Generar otro código</button>
       </form>
       {% if not event.join_by_name %}
         <form method="post" action="{% url 'events:join_by_name_enable' event.slug %}">
@@ -39,7 +39,8 @@
     <h2 id="solicitudes-titulo" class="heading">Solicitudes de acceso <span class="count">{{ access_requests|length }}</span></h2>
     {% if access_requests %}
       <ul class="rows">{% for r in access_requests %}
-        <li class="row row--attention">
+        <li class="row row--attention{% if ui_v2 %} row--lead row--stack{% endif %}">{% if ui_v2 %}
+          {% monogram r.full_name %}{% endif %}
           <div class="row__main">
             <p class="row__title">{{ r.full_name }}</p>
             <p class="row__meta">{{ r.email }}, pidió ser {{ r.get_requested_role_display|lower }}, {{ r.created_at|since }}</p>
@@ -55,7 +56,7 @@
             </form>
             <form method="post" action="{% url 'events:access_request_reject' event.slug r.pk %}">
               {% csrf_token %}
-              <button class="btn btn--link btn--small" type="submit" data-confirm="¿Rechazar la solicitud de {{ r.full_name }}?">Rechazar<span class="visually-hidden"> la solicitud de {{ r.full_name }}</span></button>
+              <button class="btn btn--link{% if ui_v2 %} btn--quieto{% endif %} btn--small" type="submit" data-confirm="¿Rechazar la solicitud de {{ r.full_name }}?">Rechazar<span class="visually-hidden"> la solicitud de {{ r.full_name }}</span></button>
             </form>
           </div>
         </li>
@@ -71,26 +72,28 @@
     <section aria-labelledby="tutor-{{ tutor.id }}">
       <h2 id="tutor-{{ tutor.id }}" class="heading">{{ tutor.team_label }}</h2>
       <ul class="rows">
-        <li class="row">
+        <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}
+          {% monogram tutor.display_name %}{% endif %}
           <div class="row__main">
             <p class="row__title">{{ tutor.display_name }}</p>
             <p class="row__meta">Tutor{% if not tutor.is_active %}, sin acceso{% endif %}{% if tutor.can_view_sensitive %}, acceso confidencial{% endif %}</p>
             {% include "events/supervision/_member_activity.html" with m=tutor practises=False %}
           </div>
-          {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug tutor.id %}">Editar<span class="visually-hidden"> los datos de {{ tutor.display_name }}</span></a>{% endif %}
+          {% if can_manage %}{% if ui_v2 %}<div class="row__end">{% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug tutor.id %}">Editar<span class="visually-hidden"> los datos de {{ tutor.display_name }}</span></a>{% if ui_v2 %}</div>{% endif %}{% endif %}
         </li>
         {% with assignments=tutor.supervised_assignments.all %}
           {% for a in assignments %}
-            <li class="row">
+            <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}
+              {% monogram a.coordinator.display_name %}{% endif %}
               <div class="row__main">
                 <p class="row__title">{% if access.sees_whole_event %}<a class="row__link" href="{% url 'events:coordinator_detail' event.slug a.coordinator.id %}">{{ a.coordinator.display_name }}</a>{% else %}{{ a.coordinator.display_name }}{% endif %}</p>
                 <p class="row__meta">Coordinador, {{ counts|get_item:a.coordinator.id|default:0 }} camperos{% if not a.coordinator.is_active %}, sin acceso{% endif %}</p>
                 {% include "events/supervision/_member_activity.html" with m=a.coordinator practises=True %}
               </div>
-              {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug a.coordinator.id %}">Editar<span class="visually-hidden"> los datos de {{ a.coordinator.display_name }}</span></a>{% endif %}
+              {% if can_manage %}{% if ui_v2 %}<div class="row__end">{% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug a.coordinator.id %}">Editar<span class="visually-hidden"> los datos de {{ a.coordinator.display_name }}</span></a>{% if ui_v2 %}</div>{% endif %}{% endif %}
             </li>
           {% empty %}
-            <li class="row"><p class="empty-line">Este tutor todavía no tiene coordinadores.</p></li>
+            <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}<span aria-hidden="true"></span>{% endif %}<p class="empty-line">Este tutor todavía no tiene coordinadores.</p></li>
           {% endfor %}
         {% endwith %}
       </ul>
@@ -103,13 +106,14 @@
     <section aria-labelledby="sin-tutor">
       <h2 id="sin-tutor" class="heading">Coordinadores sin tutor <span class="count">{{ unassigned|length }}</span></h2>
       <ul class="rows">{% for c in unassigned %}
-        <li class="row">
+        <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}
+          {% monogram c.display_name %}{% endif %}
           <div class="row__main">
             <p class="row__title">{{ c.display_name }}</p>
             <p class="row__meta">{{ counts|get_item:c.id|default:0 }} camperos</p>
             {% include "events/supervision/_member_activity.html" with m=c practises=True %}
           </div>
-          {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug c.id %}">Asignar tutor<span class="visually-hidden"> a {{ c.display_name }}</span></a>{% endif %}
+          {% if can_manage %}{% if ui_v2 %}<div class="row__end">{% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug c.id %}">Asignar tutor<span class="visually-hidden"> a {{ c.display_name }}</span></a>{% if ui_v2 %}</div>{% endif %}{% endif %}
         </li>
       {% endfor %}</ul>
     </section>
@@ -119,13 +123,14 @@
     <h2 id="liderazgo" class="heading">Pastores y administración</h2>
     {% if others %}
       <ul class="rows">{% for m in others %}
-        <li class="row">
+        <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}
+          {% monogram m.display_name %}{% endif %}
           <div class="row__main">
             <p class="row__title">{{ m.display_name }}</p>
             <p class="row__meta">{{ m.get_role_display }}{% if m.can_view_sensitive %}, acceso confidencial{% endif %}{% if not m.is_active %}, sin acceso{% endif %}</p>
             {% include "events/supervision/_member_activity.html" with m=m practises=False %}
           </div>
-          {% if can_manage %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug m.id %}">Editar<span class="visually-hidden"> los datos de {{ m.display_name }}</span></a>{% endif %}
+          {% if can_manage %}{% if ui_v2 %}<div class="row__end">{% endif %}<a class="btn btn--secondary btn--small" href="{% url 'events:member_edit' event.slug m.id %}">Editar<span class="visually-hidden"> los datos de {{ m.display_name }}</span></a>{% if ui_v2 %}</div>{% endif %}{% endif %}
         </li>
       {% endfor %}</ul>
     {% else %}
