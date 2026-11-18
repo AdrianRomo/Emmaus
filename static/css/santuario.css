@@ -975,8 +975,10 @@ p.sitio__leaves { margin-top: var(--s-2); }
    of a row that ends in two buttons is a pill above them, not a bar as wide as the row. */
 @media (max-width: 600px) {
   .rail--event ~ .page--app .results .rows > .row:has(> .btn) { flex-wrap: nowrap; }
-  .rail--event ~ .page--app .results .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))) { padding-right: 2.75rem; }
-  .rail--event ~ .page--app .results .rows > .row:has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary)))::after { position: absolute; right: var(--s-4); top: 50%; margin-top: -0.5625rem; }
+  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):not(.row--stack, :has(.row-assign)) { flex-wrap: wrap; row-gap: var(--s-1); }
+  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):not(.row--stack, :has(.row-assign)) > .row__main { flex: 1 1 100%; }
+  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary))) { padding-right: 2.75rem; }
+  .rail--event ~ .page--app .rows > .row:has(> .status, > .row__end > .status):has(.row__title a):not(:has(.row__end :is(a, button, input, select, summary)))::after { position: absolute; right: var(--s-4); top: 50%; margin-top: -0.5625rem; }
   .rail--event ~ .page--app .row--stack .row__end:has(> .status) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rail--event ~ .page--app .row--stack .row__end > .status { grid-column: 1 / -1; justify-self: start; }
 }
@@ -1003,7 +1005,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* Lists that Atrio drew as ruled lines are a sheet too: a coordinator with their marks, a team with its ruler,
    a matter of the agenda */
 .rail--event ~ .page--app :is(.crew, .teams, .agenda) { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); }
-.rail--event ~ .page--app .crew__row { padding: var(--s-4); }
+.rail--event ~ .page--app .crew__row { grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr) auto; padding: var(--s-4); }
 /* Beside the side column of "Mi equipo" the marks go under the name, as on a phone: a team in one line of marks */
 .rail--event ~ .page--app .crew-board__main .crew__row { grid-template-columns: minmax(0, 1fr) auto; }
 .rail--event ~ .page--app .crew-board__main .crew__marks { grid-column: 1 / -1; grid-row: 2; }
@@ -1021,7 +1023,12 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .rail--event ~ .page--app .chart + .chart, .rail--event ~ .page--app .block > .chart { margin-top: var(--s-4); }
 .rail--event ~ .page--app .chart .table-wrap { border: 0; border-radius: 0; }
 .rail--event ~ .page--app .chart .details { margin-bottom: 0; }
-.rail--event ~ .page--app .tally { margin-block: var(--s-3) var(--s-2); }
+/* One mark per campero: a step narrower, so a coordinator's thirty-odd fit in one line of a half column */
+.rail--event ~ .page--app .tally { gap: 0.25rem; margin-block: var(--s-3) var(--s-2); }
+.rail--event ~ .page--app .tally__mark { width: 0.625rem; }
+@media (max-width: 600px) { .rail--event ~ .page--app .tally__mark { width: 0.5625rem; } }
+.rail--event ~ .page--app .crew__marks .tally { margin: 0.125rem 0 0; }
+.rail--event ~ .page--app .now-next { margin: 0 0 var(--s-6); }
 .rail--event ~ .page--app .figures__alert { border-color: color-mix(in srgb, var(--chile) 35%, var(--surface)) !important; border-width: 1px !important; background: var(--chile-tint); }
 
 /* A report: the question beside its evidence while there is room for both; a table takes the whole measure */

@@ -4,7 +4,7 @@
 {% block content %}
 {% url 'events:interviews' event.slug as interviews_url %}
 {% with title="Avance "|add:event.of_kind %}
-  {% include "events/rotulo/_page_head.html" with title=title meta=event.name secondary_url=interviews_url secondary_label="Ver entrevistas" %}
+  {% include "events/rotulo/_page_head.html" with title=title secondary_url=interviews_url secondary_label="Ver entrevistas" %}
 {% endwith %}
 {# The time changes every 30 s and is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
 <p class="live-status lead-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>

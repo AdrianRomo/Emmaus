@@ -118,7 +118,7 @@ def for_pastor(event, access) -> Welcome | None:
     steps = [
         Step(
             "Hay camperos registrados", has_people, _url("progress", event), "Ver el avance",
-            "" if has_people else "La administración los registra o importa.",
+            "" if has_people else "La administración registra o importa la lista.",
         ),
         Step(
             "Hay un corte guardado", has_cutoff, _url("reports", event), "Ver reportes",
