@@ -958,6 +958,11 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .auth-card__link { display: flex; justify-content: center; text-align: center; }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .search { flex-direction: column; max-width: none; }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .field:last-child { margin-bottom: 0; }
+/* What an invitation grants, as facts: the label is short, the value takes the rest */
+@media (min-width: 601px) {
+  :root[data-ui="2"] main:not(.page--app) > .door .summary-list__row { grid-template-columns: 6.5rem minmax(0, 1fr); }
+}
+:root[data-ui="2"] main:not(.page--app) > .door .summary-list + .notice { margin-top: var(--s-5); }
 /* Done (a request sent, a password ready): the sheet with nopal's mark, not Atrio's filled panel inside a sheet */
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .confirm { margin: 0; padding: 0; border-radius: 0; background: none; color: var(--ink); }
 :root[data-ui="2"] main:not(.page--app) > :is(.auth-card, .door) .confirm__title::before {

@@ -5,7 +5,7 @@
   "Ayuda" outside an event (audit UX-17): base.html's bar links here for everyone signed in, with or without a church
   role. Inside an event the bar links the event's own help (events/ayuda.html), five tasks for that role.
   Help is found, not read: one folded question per task (<details class="fold">), the commonest first: the church's
-  tasks where the church uses the community module, the way in and the events everywhere else. It names only the
+  tasks where the church uses the community module, the way in and the events everywhere else, the account last. It names only the
   places of the navigation, never a button of another screen, so a renamed button cannot make it lie.
 {% endcomment %}
 <div class="narrow">
@@ -34,11 +34,6 @@
       <li>Si olvidaste tu contraseña, toca “¿Olvidaste tu contraseña?” en esa pantalla.</li>
       <li>Al terminar, toca “Cerrar sesión”, sobre todo en una computadora compartida.</li>
     </ol>
-  </details>
-  <details class="fold" id="tarea-cuenta">
-    <summary>Cambia tu nombre o tu contraseña</summary>
-    <p>Están en “Mi cuenta”, con cada evento en el que participas y la bienvenida de tu rol.</p>
-    <p class="more"><a href="{% url 'account' %}">Ir a Mi cuenta</a></p>
   </details>
   {% if community_on %}
   <details class="fold" id="tarea-guiar">
@@ -70,6 +65,11 @@
     <p class="more"><a href="{% url 'dashboard' %}">Ir al discipulado</a></p>
   </details>
   {% endif %}
+  <details class="fold" id="tarea-cuenta">
+    <summary>Cambia tu nombre o tu contraseña</summary>
+    <p>Están en “Mi cuenta”, con cada evento en el que participas y la bienvenida de tu rol.</p>
+    <p class="more"><a href="{% url 'account' %}">Ir a Mi cuenta</a></p>
+  </details>
   </div>
   <p class="aside-note">¿Algo no está aquí? Pregunta a {% if is_church_admin %}quien instaló Emmaus{% elif current_church %}la administración de tu iglesia{% else %}la administración del evento{% endif %}.</p>
 </div>

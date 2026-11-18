@@ -12,4 +12,7 @@
     <p class="confirm__text">La administración de {{ join_event.name }} revisará tu solicitud. Cuando te den acceso podrás entrar con tu correo; si es tu primera vez, te darán un enlace para crear tu contraseña.</p>
   </section>
 </div>
+{% if not user.is_authenticated %}<div class="auth-card door-foot mt-8">
+  <p class="aside-note"><a href="{% url 'landing' %}">Volver al inicio</a></p>
+</div>{% endif %}
 {% endblock %}
