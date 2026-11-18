@@ -4,7 +4,7 @@
 {% block content %}
 {% comment %}
   Every event of the church (agenda.views.admin_list), for its administration, on the row specification: what is
-  coming, the nearest first, and then what already happened. A row leads to the event's page (its data, programme,
+  underway, what is coming, the nearest first, and then what already happened. A row leads to the event's page (its data, programme,
   questions, «Duplicar» and opinions are there); its one trailing action is «Inscritos». Until an event is published
   only the administration sees it: its state word says which ones.
 {% endcomment %}
@@ -12,6 +12,14 @@
   {% url 'agenda:create' as create %}
   {% include "events/rotulo/_page_head.html" with title="Eventos de la iglesia" action_url=create action_label="Crear un evento" %}
   {% if events %}
+    {% if running %}
+    <section class="block" aria-labelledby="en-curso">
+      <h2 id="en-curso" class="heading">En curso <span class="count">{{ running|length }}</span></h2>
+      <ul class="dates rows">
+        {% for event in running %}{% include "agenda/_admin_row.html" %}{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
     <section class="block" aria-labelledby="proximos">
       <h2 id="proximos" class="heading">Próximos{% if upcoming %} <span class="count">{{ upcoming|length }}</span>{% endif %}</h2>
       {% if upcoming %}

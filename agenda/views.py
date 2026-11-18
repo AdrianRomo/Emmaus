@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 
 from core.nav import safe_next
 from core.paging import first_rows
-from events.models import Event, normalize_name
+from events.models import Event, EventParticipant, normalize_name
 from events.services import throttle
 from groups.views import church_admin_view, community_view
 from people import flags, policy
@@ -277,16 +277,32 @@ def admin_list(request):
         )
         .order_by(F("starts_on").desc(nulls_last=True), "-id")
     )
+    today = timezone.localdate()
+    # A camp's people are its camperos, not sign-ups: counted apart (a second annotation would multiply the joins)
+    camperos = dict(
+        EventParticipant.objects.filter(event__church=request.church, is_active=True, is_practice=False)
+        .values("event").annotate(n=Count("id")).values_list("event", "n")
+    )
     for event in events:
         event.published = getattr(event, "page", None) is not None and event.page.published
         event.ended = event.starts_on is not None and services.has_ended(event)
-    # Two lists on the screen: what is coming, the nearest first (an event without a day at the end), and what
-    # already happened, the most recent first.
-    dated = sorted((event for event in events if event.starts_on and not event.ended), key=lambda event: (event.starts_on, event.pk))
+        # Owner decision: the operational state («En curso») apart from publication and sign-ups, which only apply to
+        # an event with a page for the church; an interview-only camp says its camperos, never «sin inscritos»
+        event.running = (
+            event.status == Event.Status.ACTIVE and event.starts_on is not None
+            and event.starts_on <= today <= (event.ends_on or event.starts_on)
+        )
+        event.sign_ups = getattr(event, "page", None) is not None
+        event.interview_only = event.camp_tools and not event.sign_ups
+        event.camperos = camperos.get(event.pk, 0)
+    # Three lists on the screen: what is underway, what is coming, the nearest first (an event without a day at the
+    # end), and what already happened, the most recent first.
+    running = [event for event in events if event.running]
+    dated = sorted((event for event in events if event.starts_on and not event.ended and not event.running), key=lambda event: (event.starts_on, event.pk))
     upcoming = dated + [event for event in events if event.starts_on is None]
     return render(
         request, "agenda/admin_list.html",
-        {"events": events, "upcoming": upcoming, "past": [event for event in events if event.ended], "today": timezone.localdate()},
+        {"events": events, "running": running, "upcoming": upcoming, "past": [event for event in events if event.ended], "today": today},
     )
 
 

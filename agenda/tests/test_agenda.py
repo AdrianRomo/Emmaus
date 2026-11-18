@@ -311,12 +311,33 @@ class AdministrationTests(AgendaFixture):
             self.assertContains(page, name)
         self.assertNotContains(page, "Vigilia de la iglesia B")
         self.assertContains(page, "Publicada", count=1)
-        self.assertContains(page, "Sin publicar", count=4)  # the fixture's second camp too
+        self.assertContains(page, "Sin publicar", count=1)  # the hidden conference; a camp without a page has no publication
         self.assertContains(page, "1 persona inscrita")
         self.assertContains(page, self.url("page_edit"))
         self.assertContains(page, self.url("registrations"))
         self.assertContains(self.client.get(reverse("agenda:list")), "Administrar los eventos")
         self.assertContains(self.client.get(self.url(event=self.hidden)), "solo la administración de la iglesia la ve")
+
+    def test_a_running_camp_says_en_curso_and_its_camperos_never_sin_inscritos(self):
+        """Owner decision: the operational state apart from publication and sign-ups; an interview-only camp (camp tools,
+        no page for the church) shows its camperos, leads to its administration and offers «Camperos»."""
+        from events.models import EventParticipant
+
+        Event.objects.filter(pk=self.event.pk).update(status=Event.Status.ACTIVE, starts_on=self.today, ends_on=self.today + timedelta(days=2))
+        EventParticipant.objects.create(event=self.event, number=901, full_name="Campero Uno", age=15, room="1", church_group="X")
+        EventParticipant.objects.create(event=self.event, number=902, full_name="Campero Dos", age=16, room="2", church_group="X")
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse("agenda:admin_list")).content.decode()
+        running = page.split('id="en-curso"', 1)[1].split("</section>", 1)[0]
+        self.assertIn(self.event.name, running)
+        self.assertIn("En curso", running)
+        self.assertNotIn("sin inscritos", running)
+        self.assertNotIn("Sin publicar", running)
+        n = EventParticipant.objects.filter(event=self.event, is_active=True, is_practice=False).count()
+        self.assertIn(f"{n} camperos", running)
+        self.assertIn(f'href="{reverse("events:admin_home", args=[self.event.slug])}">{self.event.name}</a>', running)
+        self.assertIn(f'href="{reverse("events:participants", args=[self.event.slug])}">Camperos', running)
+        self.assertNotIn(self.event.name, page.split('id="proximos"', 1)[1].split("</section>", 1)[0])
 
     def test_publishing_an_event(self):
         self.client.force_login(self.admin)
