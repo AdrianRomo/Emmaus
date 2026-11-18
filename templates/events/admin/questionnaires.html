@@ -3,7 +3,7 @@
 {% block page_title %}Cuestionarios{% endblock %}
 {% block content %}
 {% url 'events:questionnaire_create' event.slug as create_url %}
-{% include "events/rotulo/_page_head.html" with title="Cuestionarios" lede="Una versión publicada ya no se modifica, para que las respuestas anteriores conserven su significado. Para cambiar preguntas, crea una versión nueva." action_url=create_url action_label="Nuevo cuestionario" %}
+{% include "events/rotulo/_page_head.html" with title="Cuestionarios" action_url=create_url action_label="Nuevo cuestionario" %}
 {% comment %}
   "En este evento": the questionnaires the camperos answer, in order (EventQuestionnaire, services.event_questionnaires).
   Each row moves up, down or out with a small form of its own (Subir is absent on the first, Bajar on the last). The
@@ -60,7 +60,12 @@
       </ul>
     {% endfor %}
   {% else %}
-    <p class="empty-line">No hay cuestionarios. Al crear un campamento se prepara el cuestionario de conversación espiritual.</p>
+    <p class="empty-line">Sin cuestionarios todavía.</p>
   {% endif %}
+  {% comment %}How versions work: said where somebody looks for it, folded (it was the lede of the page).{% endcomment %}
+  <details class="fold admin-versions__how">
+    <summary>Cómo funcionan las versiones</summary>
+    <p>Una versión publicada ya no se modifica, para que las respuestas anteriores conserven su significado. Para cambiar preguntas, crea una versión nueva.</p>
+  </details>
 </section>
 {% endblock %}

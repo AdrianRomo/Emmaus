@@ -13,7 +13,7 @@
 <header class="page-head page-head--actions">
   <div class="page-head__text">
     <h1 class="voice page-head__title">{{ version.title }}</h1>
-    <p class="page-head__meta">{% if in_use %}{% status "completada" "En uso" %} {% endif %}Versión {{ version.number }}, {{ version.get_status_display|lower }}, {{ steps|length }} pasos.{% if in_use %} En uso en este evento.{% endif %}</p>
+    <p class="page-head__meta">{% if in_use %}{% status "completada" "En uso" %} {% endif %}Versión {{ version.number }}, {{ version.get_status_display|lower }}, {{ steps|length }} pasos.</p>
     {% if linked_other %}<p class="page-head__meta">En este evento se usa la versión {{ linked_other.version.number }} de este cuestionario.</p>{% endif %}
   </div>
   <form method="post" class="page-head__actions">

@@ -38,7 +38,7 @@
       <input type="hidden" name="accion" value="pasar">
       <div class="field">
         <label class="label" for="coordinador">¿Quién practica ahora?</label>
-        <span class="hint" id="coordinador-ayuda">Al pasarlo queda como nuevo: se borran las entrevistas de práctica que tenga, para que esa persona empiece desde la primera pregunta. También sirve para que la misma persona practique otra vez.</span>
+        <span class="hint" id="coordinador-ayuda">Al pasarlo queda como nuevo: se borran las entrevistas de práctica que tenga. Sirve también para que la misma persona practique otra vez.</span>
         <select id="coordinador" name="coordinador" aria-describedby="coordinador-ayuda">
           <option value="{{ nobody }}">Nadie por ahora</option>
           {% for c in coordinators %}<option value="{{ c.id }}"{% if participant.coordinator_id == c.id %} selected{% endif %}>{{ c.display_name }}{% if c.practised %} (ya practicó){% endif %}</option>{% endfor %}
@@ -50,7 +50,7 @@
 
   <section class="mt-8" aria-labelledby="quitarlo">
     <h2 id="quitarlo" class="heading">Quitarlo</h2>
-    <p>Cuando el equipo ya practicó, puedes quitarlo. Se borran sus entrevistas y respuestas de práctica; queda anotado en el registro de actividad quién lo quitó. Quién ya practicó se conserva.</p>
+    <p>Se borran sus entrevistas y respuestas de práctica; queda anotado en el registro de actividad quién lo quitó. Quién ya practicó se conserva.</p>
     <form method="post" class="mt-4">
       {% csrf_token %}
       <input type="hidden" name="accion" value="quitar">
@@ -65,7 +65,7 @@
       <input type="hidden" name="accion" value="crear">
       <div class="field">
         <label class="label" for="coordinador">¿Quién practica primero?</label>
-        <span class="hint" id="coordinador-ayuda">Le aparece en “Mis camperos”, marcado “De práctica”. Después lo puedes pasar a otra persona.</span>
+        <span class="hint" id="coordinador-ayuda">Le aparece en “Mis camperos”, marcado “De práctica”.</span>
         <select id="coordinador" name="coordinador" aria-describedby="coordinador-ayuda">
           <option value="{{ nobody }}">Nadie por ahora</option>
           {% for c in coordinators %}<option value="{{ c.id }}">{{ c.display_name }}{% if c.practised %} (ya practicó){% endif %}</option>{% endfor %}
@@ -87,7 +87,7 @@
     {% endfor %}</ul>
     <p class="more"><a href="{% url 'events:team' event.slug %}">Ver al equipo con su última entrada</a></p>
   {% else %}
-    <p class="empty-line">Todavía no hay coordinadores con acceso. <a href="{% url 'events:member_add' event.slug %}">Agrega al primero</a>.</p>
+    <p class="empty-line">Sin coordinadores con acceso todavía. <a href="{% url 'events:member_add' event.slug %}">Agregar al primero</a></p>
   {% endif %}
 </section>
 </div>

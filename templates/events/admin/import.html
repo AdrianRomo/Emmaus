@@ -10,7 +10,7 @@
   {% include "events/rotulo/_page_head.html" with title="Importar camperos" back_url=back_url back_label="Camperos" %}
   <section aria-labelledby="quien-es">
     <h2 id="quien-es" class="heading">¿Quién es cada coordinador?</h2>
-    <p class="lede">Archivo: {{ preview.name }}. No reconocimos {% if unmatched|length == 1 %}este nombre{% else %}estos nombres{% endif %} de la columna “Coordinador”. Dinos quién es y seguimos con la revisión. Nada se guarda todavía.</p>
+    <p class="lede">{{ preview.name }}: no reconocimos {% if unmatched|length == 1 %}este nombre{% else %}estos nombres{% endif %} de “Coordinador”. Nada se guarda todavía.</p>
     <form method="post" class="stack-lg mt-4">
       {% csrf_token %}
       <input type="hidden" name="action" value="map">
@@ -24,11 +24,11 @@
           </select>
           <label class="check" for="recordar-{{ forloop.counter0 }}">
             <input type="checkbox" id="recordar-{{ forloop.counter0 }}" name="recordar_{{ forloop.counter0 }}" value="1" checked>
-            <span class="check__text">Recordar «{{ item.value }}» para la próxima importación<small>Solo si eliges a un coordinador. Lo puedes quitar después en su ficha de Equipo.</small></span>
+            <span class="check__text">Recordar «{{ item.value }}» para la próxima importación<small>Se quita después en su ficha de Equipo.</small></span>
           </label>
         </fieldset>
       {% endfor %}
-      {% if not coordinators %}<p class="aside-note">Este evento todavía no tiene coordinadores. Puedes seguir y asignarlos después, o cancelar y agregar primero al equipo.</p>{% endif %}
+      {% if not coordinators %}<p class="aside-note">Este evento todavía no tiene coordinadores: sigue y asígnalos después, o cancela y agrega primero al equipo.</p>{% endif %}
       <div class="step__actions"><button class="btn btn--primary" type="submit">Continuar a la revisión</button></div>
     </form>
     <form method="post" class="admin-import__cancel">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn btn--link" type="submit">Cancelar y subir otro archivo</button></form>
@@ -37,7 +37,7 @@
   {% include "events/rotulo/_page_head.html" with title="Importar camperos" back_url=back_url back_label="Camperos" %}
   <section aria-labelledby="revision">
     <h2 id="revision" class="heading">Revisa antes de importar</h2>
-    <p class="lede">Archivo: {{ preview.name }}. Nada se guarda hasta que confirmes.</p>
+    <p class="lede">{{ preview.name }}. Nada se guarda hasta que confirmes.</p>
     <dl class="figures admin-figures">
       <div><dt>Filas</dt><dd class="figures__value">{{ summary.total }}</dd></div>
       <div><dt>Listas para importar</dt><dd class="figures__value">{{ summary.valid }}</dd></div>
@@ -68,7 +68,7 @@
           {% endfor %}</tbody>
         </table>
       </div>
-      <p class="aside-note">Las personas con el mismo nombre nunca se combinan. Si una fila marcada como posible repetido es otra persona, márcala para importarla.</p>
+      <p class="aside-note">Dos personas con el mismo nombre nunca se combinan: si un posible repetido es otra persona, márcalo para importarlo.</p>
       <div class="step__actions"><button class="btn btn--primary" type="submit">Importar filas marcadas</button></div>
     </form>
     <form method="post" class="admin-import__cancel">{% csrf_token %}<input type="hidden" name="action" value="cancel"><button class="btn btn--link" type="submit">Cancelar y subir otro archivo</button></form>
@@ -92,31 +92,41 @@
 {% else %}
   {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% comment %}The browser names the file button in its own language ("Choose File"): the lede says it in Spanish.{% endcomment %}
-  {% include "events/rotulo/_page_head.html" with title="Importar camperos" lede="Elige el archivo." back_url=back_url back_label="Camperos" %}
-  <div class="split admin-split">
+  {% include "events/rotulo/_page_head.html" with title="Importar camperos" back_url=back_url back_label="Camperos" %}
+  {% comment %}
+    An unfamiliar flow: three steps, as steps; then the file; the column reference is folded under the name it always
+    had. The browser names the file button in its own language ("Choose File"): the third step says it in Spanish.
+    .join-sheet__steps is Atrio's numbered list (rotulo.css); santuario.css tightens it for this page.
+  {% endcomment %}
+  <div class="narrow">
+    <ol class="join-sheet__steps admin-upload__steps">
+      <li>Llena la lista en Excel o Google Sheets. <a href="{% url 'events:participant_import_sample' event.slug %}" download>Descargar archivo de ejemplo</a></li>
+      <li>Guárdala como <strong>CSV (UTF-8)</strong>.</li>
+      <li>Elige el archivo y revísalo: nada se guarda hasta que confirmes.</li>
+    </ol>
+    <div class="mt-6">
     <form method="post" enctype="multipart/form-data" novalidate class="admin-upload">
       {% csrf_token %}
       {% include "partials/ui/field.html" with field=form.file %}
       <button class="btn btn--primary" type="submit">Revisar archivo</button>
     </form>
-    <aside aria-labelledby="como-preparar">
-      <h2 id="como-preparar" class="heading">Cómo preparar el archivo</h2>
-      <p class="text-sm">En Excel o Google Sheets usa una fila de encabezados con estos nombres:</p>
+    </div>
+    <details class="fold admin-upload__reference mt-8">
+      <summary>Cómo preparar el archivo</summary>
+      <p class="text-sm">Una fila de encabezados con estos nombres:</p>
       <div class="table-wrap" tabindex="0" role="region" aria-label="Ejemplo de archivo">
         <table class="table admin-table"><thead><tr><th>Nombre</th><th class="num">Edad</th><th>Cuarto</th><th>Iglesia o grupo</th><th>Coordinador</th><th>Autorización</th><th>Sede</th></tr></thead>
           <tbody><tr><td>Mariana López Ruiz</td><td class="num">15</td><td>4</td><td>Iglesia Centro</td><td>ana@correo.mx</td><td>sí</td><td>Mérida</td></tr></tbody></table>
       </div>
-      <p class="text-sm mt-4">“Coordinador”, “Autorización” y “Sede” son opcionales. En “Coordinador” escribe su correo o su nombre; si tu lista usa apodos, te preguntaremos quién es cada uno. Guarda la hoja de cálculo como <strong>CSV (UTF-8)</strong>.</p>
+      <p class="text-sm">“Coordinador”, “Autorización” y “Sede” son opcionales. En “Coordinador” va su correo o su nombre; si tu lista usa apodos, te preguntamos quién es cada uno.</p>
       {% with sedes=event.allowed_sedes %}
         {% if sedes %}
-          <p class="text-sm">En “Sede” escribe el nombre o el identificador de una de estas sedes, con o sin mayúsculas y acentos: {% for s in sedes %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Una sede que no está en la lista marca la fila con error.</p>
+          <p class="text-sm">En “Sede” va una de estas, con o sin mayúsculas y acentos: {% for s in sedes %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Otra sede marca la fila con error.</p>
         {% else %}
-          <p class="text-sm">La iglesia no tiene sedes activas: deja “Sede” vacía. Las sedes se administran en <a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a>.</p>
+          <p class="text-sm">La iglesia no tiene sedes activas: deja “Sede” vacía. <a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a></p>
         {% endif %}
       {% endwith %}
-      <p class="more"><a href="{% url 'events:participant_import_sample' event.slug %}" download>Descargar archivo de ejemplo</a> (CSV con los encabezados y dos filas).</p>
-    </aside>
+    </details>
   </div>
 {% endif %}
 {% endblock %}

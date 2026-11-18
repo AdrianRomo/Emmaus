@@ -9,9 +9,8 @@
 <header class="page-head page-head--actions">
   <div class="page-head__text">
     <h1 class="voice page-head__title">Configuración</h1>
-    <p class="lede">{{ event.name }}</p>
   </div>
-  <div class="page-head__actions">
+  <div class="page-head__actions admin-settings__links">
     <a class="btn btn--secondary" href="{% url 'events:audit' event.slug %}">Registro de actividad</a>
     <a class="btn btn--secondary" href="{% url 'events:sessions' event.slug %}">Computadoras en uso</a>
     {% if can_duplicate %}<a class="btn btn--secondary" href="{% url 'events:duplicate' event.slug %}">Duplicar como plantilla</a>{% endif %}

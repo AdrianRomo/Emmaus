@@ -6,7 +6,7 @@
   {% include "events/rotulo/_page_head.html" with title="Importar equipo" back_url=back_url back_label="Equipo" %}
   <section aria-labelledby="revision">
     <h2 id="revision" class="heading">Revisa antes de importar</h2>
-    <p class="lede">Archivo: {{ preview.name }}. Nada se guarda ni se envía hasta que confirmes.</p>
+    <p class="lede">{{ preview.name }}. Nada se guarda ni se envía hasta que confirmes.</p>
     <dl class="figures admin-figures">
       <div><dt>Filas</dt><dd class="figures__value">{{ summary.total }}</dd></div>
       <div><dt>Personas nuevas</dt><dd class="figures__value">{{ summary.new }}</dd><dd class="figures__note">se agregan al equipo</dd></div>
@@ -53,16 +53,25 @@
 {% else %}
   {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul></div>{% endif %}
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% include "events/rotulo/_page_head.html" with title="Importar equipo" lede="Elige el archivo con las personas del equipo." back_url=back_url back_label="Equipo" %}
-  <div class="split admin-split">
+  {% include "events/rotulo/_page_head.html" with title="Importar equipo" back_url=back_url back_label="Equipo" %}
+  {% comment %}As "Importar camperos": three steps, the file, and the column reference folded.{% endcomment %}
+  <div class="narrow">
+    <ol class="join-sheet__steps admin-upload__steps">
+      <li>Llena la lista en Excel o Google Sheets. <a href="{% url 'events:team_import_sample' event.slug %}" download>Descargar archivo de ejemplo</a></li>
+      <li>Guárdala como <strong>CSV (UTF-8)</strong>, con {{ max_rows }} personas como máximo.</li>
+      <li>Elige el archivo y revísalo: nada se guarda ni se envía hasta que confirmes.</li>
+    </ol>
+    <div class="mt-6">
     <form method="post" enctype="multipart/form-data" novalidate class="admin-upload">
       {% csrf_token %}
       {% include "partials/ui/field.html" with field=form.file %}
       <button class="btn btn--primary" type="submit">Revisar archivo</button>
     </form>
-    <aside aria-labelledby="como-preparar">
-      <h2 id="como-preparar" class="heading">Cómo preparar el archivo</h2>
-      <p class="text-sm">En Excel o Google Sheets usa una fila de encabezados con estos nombres:</p>
+    </div>
+    <p class="aside-note">El archivo no da el rol de administrador ni acceso a información confidencial. Quien ya está en el equipo se queda como está.</p>
+    <details class="fold admin-upload__reference mt-8">
+      <summary>Cómo preparar el archivo</summary>
+      <p class="text-sm">Una fila de encabezados con estos nombres:</p>
       <div class="table-wrap" tabindex="0" role="region" aria-label="Ejemplo de archivo">
         <table class="table admin-table"><thead><tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}</tr></thead>
           <tbody>
@@ -70,10 +79,8 @@
             <tr><td>Carlos Ruiz Peña</td><td>carlos@ejemplo.com</td><td>coordinador</td><td></td><td>teresa@ejemplo.com</td></tr>
           </tbody></table>
       </div>
-      <p class="text-sm mt-4">“Rol” acepta coordinador, tutor o pastor. “Equipo” es el nombre del equipo de un tutor. En la fila de un coordinador, “Tutor” dice quién lo supervisa: su correo, su nombre completo o el nombre de su equipo. Guarda la hoja de cálculo como <strong>CSV (UTF-8)</strong>, con {{ max_rows }} personas como máximo.</p>
-      <p class="text-sm mt-2">Quien ya está en el equipo se queda como está: puedes subir el mismo archivo otra vez sin repetir a nadie. El archivo no da el rol de administrador ni acceso a información confidencial.</p>
-      <p class="more"><a href="{% url 'events:team_import_sample' event.slug %}" download>Descargar archivo de ejemplo</a> (CSV con los encabezados y tres filas).</p>
-    </aside>
+      <p class="text-sm">“Rol” acepta coordinador, tutor o pastor. “Equipo” es el nombre del equipo de un tutor. En la fila de un coordinador, “Tutor” dice quién lo supervisa: su correo, su nombre completo o el nombre de su equipo.</p>
+    </details>
   </div>
 {% endif %}
 {% endblock %}

@@ -2,7 +2,7 @@
 {% block page_title %}Asignar tutores{% endblock %}
 {% block content %}
 {% url 'events:team' event.slug as team_url %}
-{% include "events/rotulo/_page_head.html" with title="Asignar tutores" lede="Elige qué tutor acompaña a cada coordinador. Un tutor solo ve a sus coordinadores y sus camperos." back_url=team_url back_label="Equipo" %}
+{% include "events/rotulo/_page_head.html" with title="Asignar tutores" back_url=team_url back_label="Equipo" %}
 {% if rows and tutors %}
 <form method="post" class="admin-assign">
   {% csrf_token %}
@@ -18,10 +18,11 @@
       {% endfor %}</tbody>
     </table>
   </div>
+  <p class="aside-note">Un tutor solo ve a sus coordinadores y sus camperos.</p>
   <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar asignaciones</button></div>
 </form>
 {% else %}
-  <p class="empty-line">Faltan tutores o coordinadores. Agrega al menos un tutor y un coordinador para poder asignarlos.</p>
+  <p class="empty-line">Falta al menos un tutor y un coordinador.</p>
   <p class="mt-4"><a class="btn btn--primary" href="{% url 'events:member_add' event.slug %}">Agregar persona</a></p>
 {% endif %}
 {% endblock %}

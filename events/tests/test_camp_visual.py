@@ -398,7 +398,7 @@ class LeaderBarAndScreensTests(CampFixture):
         """B5. The native button reads "Choose File" on an English system: the page says it, the button looks like ours."""
         self.login(self.admin)
         response = self.client.get(self.url("participant_import"))
-        self.assertContains(response, '<p class="lede">Elige el archivo.</p>', html=True)
+        self.assertContains(response, "<li>Elige el archivo y revísalo: nada se guarda hasta que confirmes.</li>", html=True)
         self.assertContains(response, 'class="admin-upload"')
         self.assertContains(response, "Cómo preparar el archivo")
         button = declarations(stylesheet(), '.admin-upload input[type="file"]::file-selector-button')

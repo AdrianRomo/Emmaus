@@ -5,9 +5,9 @@
 <div{% if not membership %} class="narrow"{% endif %}>
 {% include "partials/ui/error_summary.html" with form=form %}
 {% if membership %}
-  {% include "events/rotulo/_page_head.html" with title=membership.display_name lede=membership.user.email back_url=team_url back_label="Equipo" %}
+  {% include "events/rotulo/_page_head.html" with title=membership.display_name meta=membership.user.email back_url=team_url back_label="Equipo" %}
 {% else %}
-  {% include "events/rotulo/_page_head.html" with title="Agregar persona al equipo" lede="Si la persona no tiene cuenta, recibirá un enlace para crear su contraseña." back_url=team_url back_label="Equipo" %}
+  {% include "events/rotulo/_page_head.html" with title="Agregar persona al equipo" back_url=team_url back_label="Equipo" %}
 {% endif %}
 <div{% if membership %} class="split admin-split"{% endif %}>
   <form method="post" novalidate>
@@ -38,7 +38,7 @@
     {% endif %}
     {% if aliases %}
       <h2 id="otros-nombres" class="heading mt-4">Otros nombres en las listas</h2>
-      <p class="text-sm">La importación de camperos reconoce a esta persona también con estos nombres.</p>
+      <p class="text-sm">La importación de camperos también la reconoce así.</p>
       <ul class="rows">{% for a in aliases %}
         <li class="row">
           <div class="row__main"><p>{{ a.alias }}</p></div>

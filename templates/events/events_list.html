@@ -1,25 +1,36 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell community %}
 {% block page_title %}Eventos{% endblock %}
 {% block content %}
+{% comment %}
+  The events a person works in (events.views.home.events_home). A row is the way into its event: no "Abrir" button
+  beside the name. With the module on its data are facts with their mark; without it, Atrio's sentences.
+{% endcomment %}
 {% if can_create %}{% url 'events:create' as create_url %}{% endif %}
 <div class="narrow">
 {% if rows %}
-  {% include "events/rotulo/_page_head.html" with title="Eventos" lede="Elige el evento en el que vas a trabajar." action_url=create_url action_label="Crear evento" %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos" action_url=create_url action_label="Crear evento" %}
   {% include "partials/ui/welcome.html" with welcome=welcome %}
-  <section class="results" aria-labelledby="lista-eventos">
+  <section class="results admin-events" aria-labelledby="lista-eventos">
     <h2 id="lista-eventos" class="heading">Tus eventos <span class="count">{{ rows|length }}</span></h2>
-    <ul class="rows">
+    <ul class="rows admin-events__rows">
       {% for row in rows %}
         <li class="row">
           <div class="row__main">
-            <p class="row__title">{{ row.event.name }}</p>
+            <p class="row__title"><a class="row__link" href="{% url 'events:home' row.event.slug %}">{{ row.event.name }}</a></p>
+            {% if ui_v2 %}
+            <ul class="meta">
+              {% if row.event.starts_on %}<li>{% icon "calendario" "sm" %}{{ row.event.starts_on|date_range:row.event.ends_on }}</li>{% endif %}
+              {% if row.event.location %}<li>{% icon "lugar" "sm" %}{{ row.event.location }}</li>{% endif %}
+              <li>{% icon "personas" "sm" %}{{ row.access.role_label }}</li>
+            </ul>
+            {% else %}
             <p class="row__meta">{{ row.event.get_kind_display }}{% if row.event.starts_on %} {% include "events/rotulo/_event_dates.html" with event=row.event %}{% endif %}{% if row.event.location %}, en {{ row.event.location }}{% endif %}.</p>
             <p class="row__meta">Tu rol: {{ row.access.role_label|lower }}.</p>
+            {% endif %}
           </div>
           <div class="row__end">
             {% if row.event.status == "activo" %}{% status "en_curso" row.event.get_status_display %}{% elif row.event.status == "cerrado" %}{% status "completada" row.event.get_status_display %}{% elif row.event.status == "archivado" %}{% status "archivado" row.event.get_status_display %}{% else %}{% status "pendiente" row.event.get_status_display %}{% endif %}
-            <a class="btn btn--secondary btn--small" href="{% url 'events:home' row.event.slug %}">Abrir<span class="visually-hidden"> {{ row.event.name }}</span></a>
           </div>
         </li>
       {% endfor %}
@@ -31,7 +42,6 @@
   {% comment %}Nothing to choose yet: creating the first camp is the one thing to do, so it gets the sign.{% endcomment %}
   <section class="sign" aria-labelledby="primer-evento">
     <h2 id="primer-evento" class="sign__title">Todavía no hay eventos</h2>
-    <p class="sign__text">Crea el primer evento. Emmaus le prepara un cuestionario de conversación espiritual y 10 computadoras de entrevista.</p>
     <div class="sign__actions"><a class="btn btn--primary btn--large" href="{{ create_url }}">Crear evento</a></div>
   </section>
 {% else %}
@@ -39,7 +49,7 @@
   {% include "partials/ui/welcome.html" with welcome=welcome %}
   <section class="results" aria-labelledby="sin-eventos">
     <h2 id="sin-eventos" class="heading">Aún no formas parte de ningún evento</h2>
-    <p class="empty-line">¿Vas a ayudar en un evento? <a href="{% url 'join' %}">Únete con el código del evento</a>. También puedes pedir a la administración de tu iglesia que te agregue al equipo.</p>
+    <p class="empty-line"><a href="{% url 'join' %}">Únete con el código del evento</a> o pide a la administración de tu iglesia que te agregue.</p>
   </section>
 {% endif %}
 </div>

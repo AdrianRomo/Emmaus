@@ -351,7 +351,7 @@ class EditorTechnicalDataTests(CampFixture):
         self.assertEqual(len(folds), 1)
         self.assertIn("<dt>¿Tienes dudas acerca de tu fe?</dt><dd>Sí, <code>si</code>; No, <code>no</code>;", folds[0])
         self.assertNotIn("<code>", re.sub(r"<details.*?</details>", "", html, flags=re.S))
-        self.assertContains(response, "Están en “Datos técnicos”, en esta página y debajo de cada pregunta del cuestionario.")
+        self.assertContains(response, "separados por comas (están en “Datos técnicos”).")
 
     def test_the_type_of_answer_starts_with_a_sentence_not_dashes(self):
         draft = duplicate_version(self.version, self.admin)
@@ -373,8 +373,7 @@ class EditorTechnicalDataTests(CampFixture):
         help_text = QuestionForm(version=self.version).fields["condition_codes"].help_text
         self.assertEqual(
             help_text,
-            "Los identificadores internos de esas respuestas, separados por comas. Están en “Datos técnicos”, en esta "
-            "página y debajo de cada pregunta del cuestionario. Por ejemplo: si",
+            "Sus identificadores internos, separados por comas (están en “Datos técnicos”). Por ejemplo: si",
         )
 
     def test_the_inline_fold_has_no_rule_above_and_a_short_gap(self):
@@ -433,7 +432,7 @@ class ListWordingTests(CampFixture):
         claims = re.search(r'aria-labelledby="t-claims">(.*?)</section>', live, re.S).group(1)
         self.assertIn("<th>Computadora</th>", claims)
         self.assertNotIn("Abierta en", claims)
-        self.assertIn("<td>Computadora 1</td>", claims)
+        self.assertIn('<td data-label="Computadora">Computadora 1</td>', claims)
         Interview.objects.filter(participant=self.p2).update(lock_expires_at=timezone.now() - timedelta(seconds=1))
         expired = self.client.get(self.url("sessions"))
         self.assertContains(expired, '<span class="muted">Ninguna</span>')
