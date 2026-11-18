@@ -3,10 +3,10 @@
 {% block page_title %}Entrevistas pendientes{% endblock %}
 {% block content %}{% if ui_v2 %}{% load shell %}
 {% comment %}
-  The redesign ("Ventanas"): what waits for this coordinator's decision first, answered in place: "Sí" or "No" sends the
-  decision and the list comes back with the next row in focus (coord_pending, POST). The name opens the interview at
-  its decision, and deciding there opens the next one (?decidir=siguiente). Then the queue: in progress, not started,
-  half done, one row per campero.
+  The redesign ("Ventanas"): what waits for this coordinator's decision first. «Decidir» opens the interview at its
+  decision, with what the campero answered beside it (whether someone needs follow-up is judged from the answers,
+  never from a name in a list); deciding there opens the next one (?decidir=siguiente). Then the queue: in progress,
+  not started, half done, one row per campero.
 {% endcomment %}
 {% url 'events:interview_search' event.slug as search_url %}{% url 'events:coord_pending' event.slug as pending_url %}
 {% include "events/rotulo/_page_head.html" with title="Entrevistas pendientes" action_url=search_url action_label="Iniciar entrevista" %}
@@ -21,11 +21,7 @@
         <p class="row__title"><a href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={{ pending_url|urlencode:'' }}%3Fdecidir%3Dsiguiente%26despues%3D{{ iv.public_id }}#seguimiento"{% if iv.pk == next_focus.pk %} data-inline-focus{% endif %}>{{ iv.participant.full_name }}</a></p>
         <p class="row__meta">¿Necesita seguimiento? Completada {{ iv.completed_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
       </div>
-      <form class="row__end" method="post" action="{{ pending_url }}" data-inline="por-evaluar">
-        {% csrf_token %}<input type="hidden" name="entrevista" value="{{ iv.public_id }}"><input type="hidden" name="siguiente" value="{{ pending_url }}?despues={{ iv.public_id }}#por-evaluar">
-        <button class="btn btn--secondary btn--small" type="submit" name="decision" value="requerido">Sí<span class="visually-hidden">, {{ iv.participant.full_name }} necesita seguimiento</span></button>
-        <button class="btn btn--secondary btn--small" type="submit" name="decision" value="no_requerido">No<span class="visually-hidden">, {{ iv.participant.full_name }} no necesita seguimiento</span></button>
-      </form>
+      <div class="row__end"><a class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={{ pending_url|urlencode:'' }}%3Fdecidir%3Dsiguiente%26despues%3D{{ iv.public_id }}#seguimiento">Decidir<span class="visually-hidden"> si {{ iv.participant.full_name }} necesita seguimiento</span></a></div>
     </li>
     {% endfor %}
   </ul>

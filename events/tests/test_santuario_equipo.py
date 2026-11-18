@@ -290,17 +290,19 @@ class DecidingInPlaceTests(CampFixture):
         data["siguiente"] = f"{self.pending}?despues={interview.public_id}#por-evaluar" if siguiente is None else siguiente
         return self.client.post(self.pending, data)
 
-    def test_each_row_answers_in_place(self):
+    def test_each_row_leads_to_the_answers_before_deciding(self):
+        """Whether someone needs follow-up is judged from what they answered: the row's «Decidir» opens the interview at
+        its decision (and deciding there goes on to the next one); the list itself decides nothing."""
         html = main_of(self.client.get(self.pending))
         section = html.split('id="por-evaluar">')[1].split("</section>")[0]
-        self.assertEqual(section.count('data-inline="por-evaluar"'), 2)
-        self.assertIn(f'<form class="row__end" method="post" action="{self.pending}" data-inline="por-evaluar">', section)
-        self.assertIn(f'<input type="hidden" name="entrevista" value="{self.newer.public_id}"><input type="hidden" name="siguiente" value="{self.pending}?despues={self.newer.public_id}#por-evaluar">', section)
-        self.assertIn('value="requerido">Sí<span class="visually-hidden">, Mariana López Ruiz necesita seguimiento</span></button>', section)
-        self.assertIn('value="no_requerido">No<span class="visually-hidden">, Mariana López Ruiz no necesita seguimiento</span></button>', section)
+        self.assertNotIn('data-inline="por-evaluar"', section)
+        self.assertNotIn('name="decision"', section)
+        record = self.url("interview_detail", self.newer.public_id)
+        self.assertIn(f'href="{record}?siguiente=', section)
+        self.assertIn('>Decidir<span class="visually-hidden"> si Mariana López Ruiz necesita seguimiento</span></a>', section)
+        self.assertEqual(section.count("btn--primary"), 1)  # the first row's, the next to decide
         self.assertLess(section.index(self.p1.full_name), section.index(self.p2.full_name))  # the newest first
         self.assertNotIn(self.p3.full_name, section)
-        self.assertNotIn("data-inline-focus", section)
 
     def test_a_decision_comes_back_to_the_list_with_the_next_row_in_focus_and_says_who_and_what(self):
         response = self.decide(self.newer)
