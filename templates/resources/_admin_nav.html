@@ -1,0 +1,9 @@
+{% comment %}
+  The three lists of "Devocionales y recursos" (the administration's place in the shell), as views of one place.
+  current: "devocionales", "recursos" or "planes".
+{% endcomment %}
+<ul class="filters" aria-label="Devocionales y recursos">
+  <li><a href="{% url 'resources:devotional_admin' %}"{% if current == "devocionales" %} aria-current="page"{% endif %}>Devocionales</a></li>
+  <li><a href="{% url 'resources:media_admin' %}"{% if current == "recursos" %} aria-current="page"{% endif %}>Recursos</a></li>
+  <li><a href="{% url 'resources:plan_admin' %}"{% if current == "planes" %} aria-current="page"{% endif %}>Planes de lectura</a></li>
+</ul>

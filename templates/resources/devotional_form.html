@@ -3,23 +3,26 @@
 {% block content %}
 {% comment %}
   Writing or correcting the devotional of one day (resources.views.devotional_create, devotional_edit). A day has
-  one devotional: a second one is refused on the "Día" field.
+  one devotional: a second one is refused on the "Día" field. From a devotional that exists, "Ver cómo se lee" opens
+  it as a page to read (a draft too: only the administration sees it).
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'resources:devotional_admin' as back %}
   {% if devotional %}
-    {% include "events/rotulo/_page_head.html" with title="Editar el devocional" lede=devotional.title back_url=back back_label="Volver a los devocionales" %}
+    {% url 'resources:devotional_detail' devotional.pk as preview %}
+    {% include "events/rotulo/_page_head.html" with title="Editar el devocional" back_url=back back_label="Volver a los devocionales" secondary_url=preview secondary_label="Ver cómo se lee" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Escribir un devocional" lede="Lo leerán en Emmaus las personas de tu iglesia. Emmaus no lo envía por correo." back_url=back back_label="Volver a los devocionales" %}
+    {% include "events/rotulo/_page_head.html" with title="Escribir un devocional" back_url=back back_label="Volver a los devocionales" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Guardar el devocional</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  <p class="aside-note">Lo leerán en Emmaus las personas de tu iglesia. Emmaus no lo envía por correo.</p>
 </div>
 {% endblock %}
