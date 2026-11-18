@@ -191,7 +191,7 @@ erDiagram
         string code
         string kind
         string sensitivity
-        bool required
+        bool required "not read since 2026-11-18"
         json condition_option_codes
     }
     PARTICIPANT_SESSION {
@@ -338,6 +338,7 @@ Live payloads contain operational counts only. Answer aggregates are never compu
 | `events/0011_event_questionnaires` | Adds `EventQuestionnaire`, `Event.questionnaires_in_order` (`db_default=False`) and `Interview.questionnaire`. Data step: one link (order 1) per event that had `questionnaire_version`, every interview's questionnaire from its version, the old column emptied, every campero's `interview_status` recomputed by the new rule. Then `Interview.questionnaire` becomes required and `one_live_interview_per_participant` gives way to `one_live_interview_per_questionnaire`. `Event.questionnaire_version` leaves the model only: the column `events_event.questionnaire_version_id` stays, empty, for one release, and a migration of the next release drops it. Reverse puts each event's first version back and the old index, and refuses (`RuntimeError`, nothing deleted) while a campero has interviews of two questionnaires that are not discarded: "Descarta las sobrantes antes de revertir." |
 | `events/0012_confidential_level` | Adds `Event.confidential_level` and `Interview.confidential_level`, both with `db_default='cuidado'`, the rule every earlier event had. Additive; reversing drops both |
 | `core/0011_onboardingstate` | Adds `OnboardingState` (user, key, `dismissed_at`; unique per user and key). Depends on `events/0012` for its data step, which marks as put away the welcome of every role a person already held if they had signed in before (`last_login`): active event memberships, church roles (a church admin also `rol:administrador`, a church pastor also `rol:pastor`), superusers as administradores, `sin-rol` for the rest. Reverse deletes the rows |
+| `events/0016_answer_declined` | Adds `Answer.declined` («Prefiero no responder», stored apart from a blank, which has no row) and `AnswerRevision.previous_declined`, both `db_default=False`, so older code keeps inserting answers. Additive, no data step: a decline saved before is the choice of an option with `is_decline` and is read as one (`questionnaire.load_answers`). Reversing drops both columns; the declines of text questions and of choice questions without their own decline option would then read as blank answers |
 
 Existing churches and discipleship data are not modified apart from `0004`. The camp module's migrations add tables and columns, with data steps in `events/0006` (join codes), `0009` and `0010` (the default privacy notice) and `0011`, which turns each event's questionnaire into its first `EventQuestionnaire` and recomputes `interview_status`. `makemigrations --check` reports no pending changes.
 
