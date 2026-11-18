@@ -20,7 +20,7 @@ from django.utils import formats
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core import notify
+from core import notify, onboarding
 from core.authz import Action, has_scope
 from events.models import normalize_name
 from feedback import services as feedback_services
@@ -182,12 +182,20 @@ def home(request):
             "url": reverse("community:groups"),
             "action": "Ver los grupos",
         }
+    # The first time, what this place is and three things to do first (core/onboarding.py). "A tu cargo" is named
+    # only to who has it in the shell: the first active group they guide, as core/shell.py orders them.
+    guided = Group.objects.filter(pk__in=managed, church=church, status=Group.Status.ACTIVE).order_by("name", "id").first()
+    welcome = onboarding.for_member(
+        request.user, church, person.first_name, has_group=bool(memberships), open_groups=open_groups,
+        guided=(guided.name, reverse("community:group_people", args=[guided.pk])) if guided else None,
+    )
     return render(
         request,
         "groups/home.html",
         {
             "church": church,
             "person": person,
+            "welcome": welcome,
             "sign": sign,
             "memberships": memberships,
             "my_requests": my_requests,
