@@ -12,8 +12,9 @@ mixes tenants. This command finds them so drift is visible (roadmap P1-12, audit
   ``--ids`` adds one query for each check that found something.
 * The camp's tables come first (``camp_checks``), then the church modules added after the camp
   (``community_checks``): people, groups, notices, events of the church, resources, serving, care,
-  opinions and the roles by scope. ``policies.ChurchPolicy`` holds one church and nothing else:
-  there is nothing in it that could cross.
+  opinions, the public home and the roles by scope. ``policies.ChurchPolicy``,
+  ``sitio.PublicHome`` and ``sitio.ServiceTime`` hold one church and nothing else: there is
+  nothing in them that could cross.
 * Each check also reports how many rows it read: a zero next to zero rows read is not an all-clear.
 * Exit status 1 (``CommandError``) when any error-level check finds a row. The ``Person`` check is a
   warning: it is reported and never fails the run.
@@ -40,6 +41,7 @@ from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.models import CampusAffiliation, EventParticipantLink, Person
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
 from serving.models import Assignment, Team, TeamMembership
+from sitio.models import PublicMedia
 
 ERROR = "error"
 WARNING = "warning"
@@ -124,6 +126,9 @@ def community_checks() -> tuple[Check, ...]:
               ReadingPlanProgress, None, ~Q(person__church=F("plan__church"))),
         Check("reading_plan_day_read_plan", "Días leídos de un plan distinto al que la persona empezó", ReadingPlanDayRead, None,
               ~Q(day__plan=F("progress__plan"))),
+        # the public home: a resource marked as public by a church it does not belong to
+        Check("public_media_item_church", "Recursos públicos marcados por otra iglesia", PublicMedia, None,
+              ~Q(item__church=F("church"))),
         # serving
         Check("team_membership_person_church", "Integrantes de un equipo de otra iglesia", TeamMembership, None,
               ~Q(person__church=F("team__church"))),

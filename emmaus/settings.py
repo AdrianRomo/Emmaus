@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "feedback",
     "overview",
     "policies",
+    "sitio",
 ]
 
 MIDDLEWARE = [

@@ -94,7 +94,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", default="", help="Contraseña de las cuentas (o EMMAUS_DEMO_PASSWORD). Nunca se muestra.")
-        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante y un evento terminado con opiniones.")
+        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones y la página pública de la iglesia, publicada.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
     def handle(self, *args, **opts):
@@ -181,6 +181,38 @@ class Command(BaseCommand):
                        ("bien", "si", ""), ("muy_bien", "si", "Que se repita."))
             for rating, recommend, comment in answers:
                 EventFeedback.objects.create(event=ended, rating=rating, recommend=recommend, comment=comment)
+        self._public_home(church, admin, event)
+
+    def _public_home(self, church, admin, simple_event) -> None:
+        """The church's public home (issue #87), published: a welcome, two times, where and how to ask, one
+        resource marked as public, and the simple event (and the night of worship) with their public pages."""
+        from agenda import services as agenda
+        from agenda.models import EventPage
+        from resources.models import MediaItem
+        from sitio import services as sitio
+        from sitio.models import ServiceTime
+
+        if not church.contact_email:
+            church.contact_email = "contacto@demo.invalid"
+            church.save(update_fields=["contact_email"])
+        sitio.save_home(
+            church, admin, welcome="Somos una iglesia de barrio. Si es tu primera vez, llega como eres: te esperamos en la entrada.",
+            address="Av. de los Olivos 120, Col. Jardines\nCiudad de México", map_url="https://maps.example.invalid/iglesia-demo",
+            contact_phone="55 5550 0100",
+        )
+        if not ServiceTime.objects.filter(church=church).exists():
+            sitio.save_time(church, admin, weekday=ServiceTime.Weekday.SUNDAY, time=time(11, 0), name="Reunión general", place="Templo principal")
+            sitio.save_time(church, admin, weekday=ServiceTime.Weekday.WEDNESDAY, time=time(19, 30), name="Oración y estudio", place="Salón 2")
+        item = MediaItem.objects.filter(church=church, status=MediaItem.Status.PUBLISHED).order_by("-date", "-id").first()
+        if item is not None:
+            sitio.show_media(item, admin)
+        night = Event.objects.filter(church=church, slug="noche-de-alabanza-demo").first()
+        for event in filter(None, (simple_event, night)):
+            if not EventPage.objects.filter(event=event, public=True).exists():
+                agenda.save_page(event, admin, public=True)
+        content = sitio.page_content(church)
+        if not content.home.published:
+            sitio.publish(church, admin, content.digest())
 
         self._reading_plan(church, admin)
 
