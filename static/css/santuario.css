@@ -1072,7 +1072,57 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* end: servir-acompanar-personas */
 
 /* area: panorama-opiniones-politicas-sitio */
+/* Panorama: a dashboard. Every total is drawn as overview.services returns it: a number, or its words on a
+   neutral pill (.chip--plain) when the service gave words or kept the number back. */
+.panorama .page-head .aside-note { margin-top: var(--s-3); }
+.panorama .figures { margin-bottom: var(--s-5); }
+.panorama .figures__value .chip { font-size: var(--t-small); min-height: 1.875rem; padding-inline: 0.75rem; vertical-align: 0.3em; }
+/* A group's last meetings, one mark each, the oldest first: tall when half or more came, short when fewer, and
+   the number itself when the service gave it. The words are beside the marks for a screen reader. */
+.panorama .level--trend { align-items: flex-end; gap: 0.25rem; height: 1.25rem; }
+.panorama .level--trend > i { height: 100%; }
+.panorama .level--trend > i:not(.on) { height: 40%; background: var(--line-strong); }
+.panorama .level--trend > b { font-size: var(--t-caption); font-weight: 700; line-height: 1; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.panorama .panorama__key { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-2); font-size: var(--t-caption); color: var(--ink-2); }
+.panorama .panorama__key .level { margin-left: var(--s-2); }
+.panorama .panorama__key + .rows { margin-top: var(--s-2); }
+.panorama .rows + .aside-note { margin-top: var(--s-3); }
+/* The end of a group's row: its marks, then the last list in words. Two fixed columns, so the marks line up
+   down the list; one line under the facts when the row stacks. */
+.panorama .panorama__came { flex-wrap: wrap; gap: var(--s-1) var(--s-3); font-size: var(--t-small); color: var(--ink-2); }
+@container (min-width: 38.0625rem) {
+  .panorama .panorama__came { display: grid; grid-template-columns: minmax(8.5rem, auto) 15.5rem; }
+  .panorama .panorama__came > .level { grid-column: 1; justify-self: end; }
+  .panorama .panorama__came > .panorama__last, .panorama .panorama__came > .chip { grid-column: 2; justify-self: start; }
+}
+/* The end of an event's row: its sign-ups as a bar when the number may be shown, and the places under it */
+.panorama .panorama__places { flex-direction: column; align-items: stretch; gap: 0.125rem; width: 19rem; font-size: var(--t-small); }
+.panorama .panorama__places .meter { gap: var(--s-2); }
+@container (max-width: 38rem) {
+  .panorama .panorama__places { width: auto; }
+  /* A stacked row that is pressed as a whole: its chevron stays at the top right, not on a line of its own */
+  .panorama .rows > .row--stack::after { position: absolute; top: var(--s-4); right: var(--s-4); }
+  .panorama .rows > .row--stack:has(.row__title a) .row__title { padding-right: var(--s-6); }
+}
+/* Two or three totals side by side, each under its name (a finished event, a serving date) */
+.panorama .pairs { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--s-2) var(--s-5); }
+.panorama .pairs dt { font-size: var(--t-caption); color: var(--ink-2); }
+.panorama .pairs dd { font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.panorama .pairs .muted { font-weight: 400; }
+.panorama .rows .pairs > div { width: 8.75rem; }
+/* A team's coming dates inside its tile */
+.panorama .serve { display: grid; gap: var(--s-2); }
+.panorama .serve + .serve { padding-top: var(--s-3); border-top: 1px solid var(--line); }
+.panorama .serve__few { font-size: var(--t-small); color: var(--ink-2); }
 
+/* Opiniones. The answers of one question, each a bar with its number (the results, for the administration) */
+.opinions .meta + .aside-note { margin-top: var(--s-3); }
+.opinions .aside-note + .block, .opinion-more { margin-top: var(--s-8); }
+.opinions .opinion-bars { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); padding: var(--s-1) var(--s-4); }
+.opinions .opinion-bars__row { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); align-items: center; gap: var(--s-3); min-height: 2.75rem; }
+.opinions .opinion-bars__row + .opinion-bars__row { border-top: 1px solid var(--line); }
+.opinions .opinion-bars dt { font-size: var(--t-small); font-weight: 600; }
+.opinions .opinion-bars__n { min-width: 1.5rem; text-align: right; font-weight: 700; color: var(--ink); }
 /* end: panorama-opiniones-politicas-sitio */
 
 /* area: cuenta-puertas */

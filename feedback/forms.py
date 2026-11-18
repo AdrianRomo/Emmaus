@@ -14,7 +14,8 @@ class FeedbackForm(TuErrorMessagesMixin, forms.ModelForm):
             "recommend": forms.RadioSelect,
             "comment": forms.Textarea(attrs={"rows": 3, "maxlength": 500}),
         }
-        help_texts = {"comment": "Opcional. No escribas tu nombre ni datos de otras personas."}
+        # "(opcional)" is already beside the label; the hint keeps only what protects people.
+        help_texts = {"comment": "No escribas tu nombre ni datos de otras personas."}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
