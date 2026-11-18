@@ -239,8 +239,8 @@ def _sede_capsules(request, sede_options: list[dict], selected_sede: str) -> lis
         kept.pop(name, None)
     capsules = [{"label": "Todas las sedes", "count": sum(o["count"] for o in sede_options), "url": "?" + kept.urlencode(), "current": not selected_sede}]
     for option in sede_options:
-        if option["value"] == "ninguna" and not option["count"] and selected_sede != "ninguna":
-            continue  # every campero here has a sede
+        if not option["count"] and selected_sede != option["value"]:
+            continue  # a sede with nobody under the other filters: no capsule for an empty list
         query = kept.copy()
         query["sede"] = option["value"]
         capsules.append({"label": option["name"], "count": option["count"], "url": "?" + query.urlencode(), "current": selected_sede == option["value"]})
@@ -318,7 +318,9 @@ def participants(request, event, access):
             # With the redesign (ui_v2) only
             "views": views,
             "emptied_view": emptied_view,
-            "sede_capsules": _sede_capsules(request, sede_options, sede),
+            "sede_capsules": (capsules := _sede_capsules(request, sede_options, sede)),
+            # The sedes fold under one line («Sede: Todas»): the table starts higher (the final critique)
+            "sede_current": next((c["label"] for c in capsules if c["current"] and c["label"] != "Todas las sedes"), ""),
             "columns_v2": _participant_columns(request.GET, sort_key, sort_dir, with_sede=False, spec=PARTICIPANT_COLUMNS_V2),
             "filtered": bool(query or any(selected[name] for name in VIEW_PARAMS if name != "participa") or sede or active != "si"),
             # The search keeps the view, the sede and the order; "Quitar filtros" keeps only the order

@@ -1412,6 +1412,12 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .camperos__filtrar { display: grid; gap: var(--s-3); margin-bottom: var(--s-6); }
 .page--app .camperos__buscar { max-width: 30rem; }
 .page--app .camperos__vistas { margin: 0; }
+/* The sedes under one line: «Sede: todas ▾», open when one is chosen */
+.camperos__sede > summary { display: inline-flex; align-items: center; gap: var(--s-2); min-height: 2.75rem; padding: 0 var(--s-1); list-style: none; cursor: pointer; font-size: var(--t-small); font-weight: 600; color: var(--ink); }
+.camperos__sede > summary::-webkit-details-marker { display: none; }
+.camperos__sede > summary::after { content: ""; width: 1rem; height: 1rem; background: var(--ink-2); -webkit-mask: var(--i-chevron) center / contain no-repeat; mask: var(--i-chevron) center / contain no-repeat; transform: rotate(90deg); transition: transform var(--dur-1) var(--ease); }
+.camperos__sede[open] > summary::after { transform: rotate(-90deg); }
+.camperos__sede > .camperos__vistas { margin-top: var(--s-2); }
 @media (max-width: 600px) {
   .page--app .camperos__vistas { flex-wrap: nowrap; overflow-x: auto; margin: -0.375rem calc(-1 * var(--s-4)); padding: 0.375rem var(--s-4); scrollbar-width: none; }
   .page--app .camperos__vistas::-webkit-scrollbar { display: none; }

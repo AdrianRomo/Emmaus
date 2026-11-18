@@ -25,17 +25,20 @@
   <ul class="filters camperos__vistas" aria-label="Mostrar" data-desliza>
     {% for v in views %}<li><a href="{{ v.url }}"{% if v.current %} aria-current="page"{% endif %}>{{ v.label }} <span class="count">{{ v.count }}</span></a></li>{% endfor %}
   </ul>
-  {% if sede_capsules %}<ul class="filters camperos__vistas" aria-label="Sede" data-desliza>
+  {% if sede_capsules %}<details class="camperos__sede"{% if sede_current %} open{% endif %}>
+    <summary>Sede: {% if sede_current %}{{ sede_current }}{% else %}todas{% endif %}</summary>
+    <ul class="filters camperos__vistas" aria-label="Sede" data-desliza>
     {% for v in sede_capsules %}<li><a href="{{ v.url }}"{% if v.current %} aria-current="page"{% endif %}>{{ v.label }} <span class="count">{{ v.count }}</span></a></li>{% endfor %}
-  </ul>{% endif %}
+    </ul>
+  </details>{% endif %}
 </div>
 <section class="camperos" aria-labelledby="resultados"{% if can_manage and assignable %} data-seleccion{% endif %}>
   <div class="heading-row">
     <h2 id="resultados" class="heading">{{ page.paginator.count }} campero{{ page.paginator.count|pluralize }}</h2>
+    {% if page.object_list and can_manage and assignable %}<label class="camperos__todas" data-seleccion-todas-caja hidden><input type="checkbox" data-seleccion-todas><span>Marcar a todos los de esta página</span></label>{% endif %}
     {% if filtered and page.object_list %}<a href="{{ clear_url }}">Quitar filtros</a>{% endif %}
   </div>
   {% if page.object_list %}
-    {% if can_manage and assignable %}<label class="camperos__todas" data-seleccion-todas-caja hidden><input type="checkbox" data-seleccion-todas><span>Marcar a todos los de esta página</span></label>{% endif %}
     <div class="table-wrap camperos__tabla" tabindex="0" role="region" aria-label="Tabla de camperos">
       <table class="table admin-table">
         <thead><tr>{% if can_manage and assignable %}<th scope="col" class="camperos__marca-col"><span class="visually-hidden">Marcar</span></th>{% endif %}{% for c in columns_v2 %}<th scope="col"{% if c.css or c.key == "cuarto" %} class="{{ c.css }}{% if c.key == "cuarto" %} camperos__cuarto{% endif %}"{% endif %}{% if c.aria_sort %} aria-sort="{{ c.aria_sort }}"{% endif %}><a href="{{ c.url }}">{{ c.label }}{% if c.active %}<span class="table__sort table__sort--{{ c.direction }}" aria-hidden="true"></span><span class="visually-hidden">, ordenado de {% if c.direction == "desc" %}mayor a menor{% else %}menor a mayor{% endif %}</span>{% else %}<span class="visually-hidden">, ordenar</span>{% endif %}</a></th>{% endfor %}{% if asks_authorization %}<th scope="col"><span class="camperos__th">Autorización</span></th>{% endif %}</tr></thead>
