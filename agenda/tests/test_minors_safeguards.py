@@ -66,8 +66,14 @@ class TheOneFunctionTests(SafeguardFixture):
         # An authorization says nothing about an age nobody verified.
         for person in (self.leader, self.no_account):
             self.assertEqual(tuple(services.standing(self.retiro, page, person=person, consent=paper)), WAITS_AGE)
-        # A visitor: the team saw them at the door, and its word is all there is.
-        self.assertEqual(tuple(services.standing(self.retiro, page, said_minor=False)), CONFIRMED)
+        # A visitor: the team's word at the door is all there is, and no word means no age is assumed.
+        self.assertEqual(tuple(services.standing(self.retiro, page, said_minor=False)), WAITS_AGE)
+        self.assertEqual(tuple(services.standing(self.retiro, page, age_checked=True)), CONFIRMED)
+        self.assertEqual(tuple(services.standing(self.retiro, page, consent=paper)), WAITS_AGE)
+        self.assertEqual(tuple(services.standing(self.retiro, page, said_minor=True, age_checked=True)), WAITS_CONSENT)
+        # "Seen as an adult" is a word about a visitor: it never stands in for a person's verified date.
+        for person in (self.leader, self.no_account):
+            self.assertEqual(tuple(services.standing(self.retiro, page, person=person, age_checked=True)), WAITS_AGE)
         self.assertEqual(tuple(services.standing(self.retiro, page, said_minor=True)), WAITS_CONSENT)
         self.assertEqual(tuple(services.standing(self.retiro, page, said_minor=True, consent=paper)), CONFIRMED)
         self.assertEqual(tuple(services.standing(self.retiro, page, said_minor=True, consent=call)), WAITS_CONSENT)
@@ -163,7 +169,8 @@ class TurningTheRuleOnTests(SafeguardFixture):
         rows = {person.pk: services.register(self.retiro, person, self.user_of(person)) for person, _ in table}
         self.start()
         guests = {
-            "adult": services.register_walkup(self.retiro, self.admin, first_name="Ada", last_name="Adulta"),
+            "adult": services.register_walkup(self.retiro, self.admin, first_name="Ada", last_name="Adulta"),  # nobody said
+            "seen": services.register_walkup(self.retiro, self.admin, first_name="Eva", last_name="Vista", seen_adult=True),
             "minor": services.register_walkup(self.retiro, self.admin, first_name="Mía", last_name="Menor", is_minor=True),
             "signed": services.register_walkup(self.retiro, self.admin, first_name="Leo", last_name="Firmado", is_minor=True),
             "called": services.register_walkup(self.retiro, self.admin, first_name="Luz", last_name="Llamada", is_minor=True),
@@ -185,26 +192,28 @@ class TurningTheRuleOnTests(SafeguardFixture):
                 row = rows[person.pk]
                 self.assertEqual(where(row), expected)
                 self.assertEqual((row.attended, row.checked_in_at), (True, row.checked_in_at) if expected == CONFIRMED else (None, None))
-        for key, expected in (("adult", CONFIRMED), ("minor", WAITS_CONSENT), ("signed", CONFIRMED), ("called", WAITS_CONSENT)):
+        for key, expected in (("adult", WAITS_AGE), ("seen", CONFIRMED), ("minor", WAITS_CONSENT), ("signed", CONFIRMED), ("called", WAITS_CONSENT)):
             with self.subTest(guest=key):
                 self.assertEqual(where(guests[key]), expected)
                 self.assertIs(guests[key].attended, True if expected == CONFIRMED else None)
         # The attendance list no longer has who waits, and each change left its row in the audit.
         self.assertEqual(services.record_attendance(self.retiro, [row.pk for row in everybody], self.admin), (3, 3))
         reviewed = ChurchAuditEvent.objects.filter(action="evento_inscripcion_revisada")
-        self.assertEqual(reviewed.count(), 6)
-        self.assertEqual(sorted(audit.metadata["standing"] for audit in reviewed), ["age", "age", "consent", "consent", "consent", "consent"])
+        self.assertEqual(reviewed.count(), 7)
+        self.assertEqual(sorted(audit.metadata["standing"] for audit in reviewed),
+                         ["age", "age", "age", "consent", "consent", "consent", "consent"])
         for audit in reviewed:
             self.assertLessEqual(set(audit.metadata), {"event_id", "registration_id", "person_id", "standing"})
         page = self.client.get(self.url("registrations"))
-        self.assertContains(page, "3 personas inscritas, 2 con edad por confirmar, 4 pendientes de autorización.")
+        self.assertContains(page, "3 personas inscritas, 3 con edad por confirmar, 4 pendientes de autorización.")
         text = page.content.decode()
         self.assertLess(text.index("Edad por confirmar"), text.index("Pendientes de autorización"))
         self.assertLess(text.index("Pendientes de autorización"), text.index("Personas inscritas"))
-        self.assertContains(page, "Confirmar edad", count=2)
+        self.assertContains(page, "Confirmar edad", count=3)
+        self.assertContains(page, "Nadie dijo si es mayor o menor de edad.", count=1)
         self.assertContains(page, "Nota de contacto", count=1)
         self.assertContains(self.client.get(reverse("agenda:admin_list")),
-                            "3 personas inscritas, 2 con edad por confirmar, 4 pendientes de autorización")
+                            "3 personas inscritas, 3 con edad por confirmar, 4 pendientes de autorización")
 
     def test_saving_the_page_again_keeps_asking(self):
         """Not only the moment the rule is turned on: while the page asks, every save settles every row."""
@@ -321,12 +330,15 @@ class NothingElseConfirmsTests(SafeguardFixture):
         self.born(self.leader, 30)
 
         def guest(**fields):
+            fields.setdefault("seen_adult", not fields.get("is_minor"))
             row = services.register_walkup(self.retiro, self.admin, first_name="Vera", **fields)
             self.assertEqual((*where(row), row.attended), (*CONFIRMED, True))
             return row
 
-        # The team's eyes at the door confirm a visitor; a record of the church is judged as a record.
+        # The team's eyes at the door confirm a visitor; a record of the church is judged as a record:
+        # "seen as an adult" stays written on the row and no longer counts once there is a person.
         row = guest()
+        self.assertTrue(row.guest_age_checked)
         self.assertContains(self.client.get(self.url("guest_promote", row.pk)), "queda pendiente hasta que confirmes su edad")
         services.promote_guest(row, self.admin)
         self.assertEqual((*where(row), row.attended), (*WAITS_AGE, None))
@@ -513,7 +525,7 @@ class ConsentEvidenceTests(SafeguardFixture):
     def test_a_call_at_the_door_keeps_the_minor_waiting(self):
         self.require_consent()
         self.start()
-        response = self.client.post(self.url("walkup"), {"first_name": "Mía", "is_minor": "on", **CALL}, follow=True)
+        response = self.client.post(self.url("walkup"), {"first_name": "Mía", "age": "menor", **CALL}, follow=True)
         self.assertContains(response, "Queda pendiente hasta que registres la autorización")
         self.assertContains(response, "hace falta el formato firmado en papel o verificar en persona")
         row = EventRegistration.objects.get(guest_first_name="Mía")
@@ -760,7 +772,7 @@ class WalkUpOverrideTests(SafeguardFixture):
                     self.assertEqual((*where(row), row.attended), (*expected, None))
                     EventRegistration.objects.filter(pk=row.pk).delete()
                 # By the screen, with every box ticked.
-                body = {"first_name": "Leo", "last_name": rule, "is_minor": "on", "override": "on", "override_full": "on",
+                body = {"first_name": "Leo", "last_name": rule, "age": "menor", "override": "on", "override_full": "on",
                         "override_reason": "coordinacion"}
                 self.client.post(self.url("walkup", event=event), body)
                 self.assertEqual(where(EventRegistration.objects.get(event=event, guest_first_name="Leo", guest_last_name=rule)), WAITS_CONSENT)

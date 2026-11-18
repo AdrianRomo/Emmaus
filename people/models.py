@@ -104,21 +104,26 @@ class Person(models.Model):
     @classmethod
     def from_db(cls, db, field_names, values):
         person = super().from_db(db, field_names, values)
-        person._remember_age_facts()
+        person._remember_loaded_birth_date()
         return person
 
     def refresh_from_db(self, *args, **kwargs):
         super().refresh_from_db(*args, **kwargs)
-        self._remember_age_facts()
+        self._remember_loaded_birth_date()
 
-    def _remember_age_facts(self) -> None:
-        self._loaded_age_facts = (
-            self.__dict__.get("birth_date", _NOT_LOADED), self.__dict__.get("birth_date_verified_at", _NOT_LOADED)
-        )
+    def _remember_loaded_birth_date(self) -> None:
+        """The date of birth this instance READ from the database. Only a read sets it (never a
+        save), and it decides one thing: whether an instance that differs from the database is
+        changing the date or is merely stale."""
+        self._loaded_birth_date = self.__dict__.get("birth_date", _NOT_LOADED)
 
     def save(self, *args, keep_birth_date_verification: bool = False, **kwargs):
-        """``keep_birth_date_verification`` is for ``people.services.verify_birth_date`` alone: every
-        other save that changes the date of birth clears its verification."""
+        """``keep_birth_date_verification`` is for ``people.services.verify_birth_date`` alone.
+
+        What is about to be written is compared with the row in the database, never with what
+        this instance remembers (decision 0015): any other save that changes the date of birth
+        clears its verification, and no other save writes a verification at all, so an instance
+        read before a correction cannot bring an old date or an old verification back."""
         # Names are stored single-spaced and trimmed; the normalized form is only for duplicate hints.
         self.first_name = " ".join(self.first_name.split())
         self.last_name = " ".join(self.last_name.split())
@@ -126,24 +131,43 @@ class Person(models.Model):
         update_fields = kwargs.get("update_fields")
         if update_fields is not None and {"first_name", "last_name"} & set(update_fields):
             update_fields = kwargs["update_fields"] = {*update_fields, "normalized_name"}
-        loaded_date, loaded_verified = getattr(self, "_loaded_age_facts", (_NOT_LOADED, _NOT_LOADED))
-        date_written = update_fields is None or "birth_date" in update_fields
-        date_changed = date_written and "birth_date" in self.__dict__ and loaded_date != self.birth_date
-        if self._state.adding and not keep_birth_date_verification:
-            date_changed = False  # a new person has nothing to compare with, and may not arrive verified
-            self.birth_date_verified_at, self.birth_date_verified_by, self.birth_date_verified_method = None, None, ""
-        elif date_changed and not keep_birth_date_verification:
-            self.birth_date_verified_at, self.birth_date_verified_by, self.birth_date_verified_method = None, None, ""
-            if update_fields is not None:
-                kwargs["update_fields"] = {*update_fields, *self.VERIFICATION_FIELDS}
         adding = self._state.adding
+        changed = False
+        if adding:
+            if not keep_birth_date_verification:  # a new person may not arrive verified
+                self.birth_date_verified_at, self.birth_date_verified_by, self.birth_date_verified_method = None, None, ""
+        else:
+            deferred = self.get_deferred_fields()
+            names = {"birth_date", "birth_date_verified_at", "birth_date_verified_by_id", "birth_date_verified_method"}
+            if update_fields is None:
+                written = names - deferred
+            else:
+                written = {name for name in names if name in update_fields or name.removesuffix("_id") in update_fields}
+            stored = None
+            if written:
+                stored = Person.objects.filter(pk=self.pk).values(*names).first()
+            if stored is not None:
+                writes_date = "birth_date" in written
+                if keep_birth_date_verification:
+                    changed = (stored["birth_date"], stored["birth_date_verified_at"]) != (self.birth_date, self.birth_date_verified_at)
+                else:
+                    loaded = getattr(self, "_loaded_birth_date", _NOT_LOADED)
+                    if writes_date and stored["birth_date"] != self.birth_date and loaded == self.birth_date:
+                        # This instance did not change the date: it read it before somebody else did. Stale.
+                        self.birth_date = stored["birth_date"]
+                    if writes_date and stored["birth_date"] != self.birth_date:
+                        changed = True
+                        self.birth_date_verified_at, self.birth_date_verified_by, self.birth_date_verified_method = None, None, ""
+                        if update_fields is not None:
+                            kwargs["update_fields"] = {*update_fields, *self.VERIFICATION_FIELDS}
+                    else:
+                        # The verification is not this save's to write: what the database has stays.
+                        self.birth_date_verified_at = stored["birth_date_verified_at"]
+                        self.birth_date_verified_by_id = stored["birth_date_verified_by_id"]
+                        self.birth_date_verified_method = stored["birth_date_verified_method"]
         super().save(*args, **kwargs)
-        changed = not adding and (date_changed or (
-            "birth_date_verified_at" in self.__dict__ and loaded_verified != self.birth_date_verified_at
-            and (update_fields is None or "birth_date_verified_at" in kwargs["update_fields"])
-        ))
-        self._remember_age_facts()
         if changed:
+            self._loaded_birth_date = self.birth_date
             # ``_age_facts_actor``: who is making the change, when a service said so (for the audit).
             age_facts_changed.send(sender=Person, person=self, actor=getattr(self, "_age_facts_actor", None))
 

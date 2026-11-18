@@ -18,6 +18,7 @@ urlpatterns = [
     path("<slug:slug>/inscritos/llego/", views.walkup, name="walkup"),
     path("<slug:slug>/inscritos/<int:registration_id>/autorizacion/", views.consent, name="consent"),
     path("<slug:slug>/inscritos/<int:registration_id>/confirmar-edad/", views.confirm_age, name="confirm_age"),
+    path("<slug:slug>/inscritos/<int:registration_id>/edad-de-la-visita/", views.guest_age, name="guest_age"),
     path("<slug:slug>/inscritos/<int:registration_id>/anular/", views.annul, name="annul"),
     path("<slug:slug>/inscritos/<int:registration_id>/retirar-autorizacion/", views.consent_revoke, name="consent_revoke"),
     path("<slug:slug>/inscritos/<int:registration_id>/agregar-a-personas/", views.guest_promote, name="guest_promote"),

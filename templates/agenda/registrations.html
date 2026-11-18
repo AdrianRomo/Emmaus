@@ -34,11 +34,11 @@
           {% monogram row.display_name %}
           <div class="row__main">
             <p class="row__title">{{ row.display_name }}</p>
-            <p class="row__meta">{% if row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}. {% if row.person.birth_date %}Tenemos una fecha de nacimiento que el equipo no ha confirmado.{% else %}No tenemos su fecha de nacimiento.{% endif %}</p>
+            <p class="row__meta">{% if row.is_guest %}Visita. Llegó el {{ row.created_at|long_date }}. Nadie dijo si es mayor o menor de edad.{% else %}{% if row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}. {% if row.person.birth_date %}Tenemos una fecha de nacimiento que el equipo no ha confirmado.{% else %}No tenemos su fecha de nacimiento.{% endif %}{% endif %}</p>
             {% include "agenda/_registration_who.html" %}
           </div>
           <div class="row__end">
-            <a class="btn btn--secondary btn--small" href="{% url 'agenda:confirm_age' event.slug row.pk %}">Confirmar edad<span class="visually-hidden"> de {{ row.display_name }}</span></a>
+            <a class="btn btn--secondary btn--small" href="{% if row.is_guest %}{% url 'agenda:guest_age' event.slug row.pk %}{% else %}{% url 'agenda:confirm_age' event.slug row.pk %}{% endif %}">Confirmar edad<span class="visually-hidden"> de {{ row.display_name }}</span></a>
             {% if row.is_walkup %}<a class="btn btn--link btn--small" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
           </div>
         </li>

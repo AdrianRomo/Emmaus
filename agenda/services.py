@@ -116,8 +116,8 @@ def is_minor_at(event: Event, birth_date: date, today=None) -> bool:
     return age_on(birth_date, event.starts_on or today or timezone.localdate()) < 18
 
 
-def standing(event: Event, page: EventPage | None, *, person=None, said_minor: bool = False, consent=None,
-             assume_rule: bool = False, today=None) -> Standing:
+def standing(event: Event, page: EventPage | None, *, person=None, said_minor: bool = False, age_checked: bool = False,
+             consent=None, assume_rule: bool = False, today=None) -> Standing:
     """THE function that decides whether a registration is confirmed (decision 0015). Every path
     asks it: signing up, signing up again, a walk-up, a visitor who becomes a person, turning the
     rule on, verifying an age, recording or withdrawing an authorization.
@@ -130,17 +130,22 @@ def standing(event: Event, page: EventPage | None, *, person=None, said_minor: b
     | minor (a typed date is believed; so is the team's word)| pending, ``consent``|
     | minor with an authorization that confirms             | confirmed          |
     | authorization withdrawn, or only a call or a message  | pending, ``consent``|
-    | visitor the team did not mark as a minor              | confirmed          |
+    | visitor the team saw and said "es mayor de edad"      | confirmed          |
+    | visitor nobody said anything about                    | pending, ``age``   |
 
-    ``person`` is None for a visitor: the team saw them at the door, and its word (``said_minor``) is
-    all there is. For a person of the church ``said_minor`` counts only while the date of birth is
-    unknown, and only towards "minor". ``consent`` is the row's ``GuardianConsent`` or None; what
+    ``person`` is None for a visitor: the team's word at the door is all there is, "es menor de
+    edad" (``said_minor``) or "es mayor de edad" (``age_checked``); a visitor written down while the
+    event did not ask has neither and waits for that look. For a person of the church
+    ``said_minor`` counts only while the date of birth is unknown, and only towards "minor";
+    ``age_checked`` never counts. ``consent`` is the row's ``GuardianConsent`` or None; what
     confirms is ``GuardianConsent.confirms``. An event that does not ask (``page``) confirms
     everybody; ``assume_rule`` answers as if it asked, for a row that is already waiting."""
     if not assume_rule and (page is None or not page.requires_guardian_consent):
         return CONFIRMED
     if person is None:
         minor = bool(said_minor)
+        if not minor and not age_checked:
+            return Standing(PENDING.value, AGE)
     elif person.birth_date is None:
         if not said_minor:
             return Standing(PENDING.value, AGE)
@@ -163,7 +168,7 @@ def _settle(registration: EventRegistration, page: EventPage | None, actor=None,
         return False
     new = standing(
         registration.event, page, person=registration.person, said_minor=registration.guest_is_minor,
-        consent=getattr(registration, "consent", None), assume_rule=assume_rule,
+        age_checked=registration.guest_age_checked, consent=getattr(registration, "consent", None), assume_rule=assume_rule,
     )
     old = (registration.status, registration.pending_reason)
     registration.status, registration.pending_reason = new
@@ -206,6 +211,47 @@ def reevaluate_person(person, actor=None) -> int:
             row.person = person
             changed += _review(row, row.event.page, actor)
     return changed
+
+
+def resettle_event(event: Event, page: EventPage | None, actor=None, *, apply: bool = True) -> dict:
+    """Settle EVERY registration that holds a place in ``event`` with ``standing`` (nothing happens
+    when its page does not ask). Saving the page, moving the event's first day and
+    ``resettle_registrations`` all come here. Returns counts: ``reviewed``, and the rows whose
+    standing changed by where they stand now (``inscrita``, ``age``, ``consent``). ``apply=False``
+    counts what would change and writes nothing."""
+    counts = {"reviewed": 0, "inscrita": 0, AGE: 0, CONSENT: 0}
+    if page is None or not page.requires_guardian_consent:
+        return counts
+    with transaction.atomic():
+        held = EventRegistration.objects.filter(event=event, status__in=HOLDING).select_related("person", "consent")
+        if apply:
+            held = held.select_for_update(of=("self",))
+        for row in held:
+            row.event = event
+            counts["reviewed"] += 1
+            if _review(row, page, actor) if apply else _settle(row, page, actor):
+                counts[row.pending_reason or row.status] += 1
+    return counts
+
+
+def resettle_all(actor=None, *, apply: bool = False, today=None) -> dict:
+    """Every event that asks for the authorization and has not ended, through ``resettle_event``:
+    for rows that were confirmed by older code, or under older words of the authorization
+    (``manage.py resettle_registrations``). Idempotent: a second run changes nothing."""
+    today = today or timezone.localdate()
+    totals = {"events": 0, "reviewed": 0, "inscrita": 0, AGE: 0, CONSENT: 0}
+    pages = EventPage.objects.filter(requires_guardian_consent=True).filter(_not_ended(today, "event__"))
+    for page in pages.select_related("event", "event__church").order_by("event_id"):
+        totals["events"] += 1
+        for key, value in resettle_event(page.event, page, actor, apply=apply).items():
+            totals[key] += value
+    return totals
+
+
+def event_first_day_moved(event: Event) -> dict:
+    """The first day of ``event`` changed, and with it who is a minor on that day
+    (``is_minor_at``): its registrations are settled again."""
+    return resettle_event(event, EventPage.objects.filter(event=event, requires_guardian_consent=True).first())
 
 
 def places_left(page: EventPage, taken_count: int) -> int | None:
@@ -283,6 +329,9 @@ def register(event: Event, person, actor) -> EventRegistration:
         raise AgendaError("Esta persona no es de la iglesia del evento.", code="other_church")
     today = timezone.localdate()
     with transaction.atomic():
+        # What the church knows about the age NOW, not what the caller read a while ago; locked
+        # first, so a change of the date waits and then finds this registration.
+        person = _fresh(person)
         page = EventPage.objects.select_for_update().filter(event=event).first()
         if page is None or not page.published or event.status != Event.Status.ACTIVE:
             raise AgendaError(NOT_PUBLISHED, code="not_published")
@@ -360,6 +409,11 @@ def cancel(registration: EventRegistration, actor) -> EventRegistration:
     return registration
 
 
+def _fresh(person) -> Person:
+    """The person as the database has them, locked: ``standing`` never reads a stale date of birth."""
+    return Person.objects.select_for_update().get(pk=person.pk)
+
+
 def _locked(registration_id: int) -> EventRegistration:
     """The row locked for a write. ``of=("self",)``: ``person`` is nullable, and PostgreSQL refuses
     FOR UPDATE on the nullable side of an outer join."""
@@ -412,14 +466,7 @@ def save_page(event: Event, actor, **fields) -> EventPage:
             raise AgendaError("Este evento no tiene fecha de inicio. Ponla en la configuración del evento y después publícalo.",
                               code="no_date")
         page.save()
-        if page.requires_guardian_consent:
-            held = (
-                EventRegistration.objects.select_for_update(of=("self",)).filter(event=event, status__in=HOLDING)
-                .select_related("person", "consent")
-            )
-            for row in held:
-                row.event = event
-                _review(row, page, actor)
+        resettle_event(event, page, actor)
         if page.published and not was_published:
             action, summary = "evento_publicado", f"Publicó el evento {event.name} para la iglesia"
         elif was_published and not page.published:
@@ -528,8 +575,8 @@ def walkup_blocks(event: Event, page: EventPage | None, taken_count: int, today=
 
 
 def register_walkup(event: Event, actor, *, person=None, first_name: str = "", last_name: str = "", phone: str = "",
-                    is_minor: bool = False, consent: dict | None = None, override=(), override_reason: str = "",
-                    ) -> EventRegistration:
+                    is_minor: bool = False, seen_adult: bool = False, consent: dict | None = None, override=(),
+                    override_reason: str = "") -> EventRegistration:
     """Somebody arrived and the team writes them down: a person of the church, or a visitor by
     name (no account, no ``Person``). From the event's first day on.
 
@@ -540,26 +587,33 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
     Both go to the audit row as fixed words.
 
     The minors' rule is never overridden: ``standing`` decides, whatever ``override`` says. A row
-    that waits is not marked as present. ``is_minor`` is the team's word: all there is for a
-    visitor, and for a person of the church it counts only while the date of birth is unknown.
+    that waits is not marked as present. ``is_minor`` and ``seen_adult`` are the team's word at the
+    door, one or the other: all there is for a visitor (with neither, in an event that asks, the
+    visitor waits for the team to say). For a person of the church ``is_minor`` counts only while
+    the date of birth is unknown and ``seen_adult`` never counts: the record decides.
     ``consent`` (the fields of ``CONSENT_FIELDS``) records the authorization in this same step."""
     if not has_started(event):
         raise AgendaError("El evento todavía no empieza. Aquí registras a quien llega desde su primer día.", code="not_started")
     first_name, last_name, phone = " ".join(first_name.split()), " ".join(last_name.split()), phone.strip()
     said_minor = bool(is_minor)
+    if said_minor and seen_adult:
+        raise AgendaError("Elige una sola: es mayor de edad o es menor de edad.", code="age")
     if person is not None:
         if person.church_id != event.church_id or person.merged_into_id is not None:
             raise AgendaError("Esta persona no es de la iglesia del evento.", code="other_church")
         first_name = last_name = phone = ""
-        said_minor = said_minor and person.birth_date is None
-        is_minor = is_minor_at(event, person.birth_date) if person.birth_date is not None else said_minor
+        seen_adult = False
     elif not first_name:
         raise AgendaError("Escribe el nombre de quien llegó.", code="no_name")
     clean = _clean_consent(consent) if consent else None
-    if clean and not is_minor:
-        raise AgendaError("La autorización es solo para menores de edad. Marca «Es menor de edad».", code="consent")
     now = timezone.now()
     with transaction.atomic():
+        if person is not None:
+            person = _fresh(person)  # the date of birth as it is now, not as the caller read it
+            said_minor = said_minor and person.birth_date is None
+            is_minor = is_minor_at(event, person.birth_date) if person.birth_date is not None else said_minor
+        if clean and not is_minor:
+            raise AgendaError("La autorización es solo para menores de edad. Marca «Es menor de edad».", code="consent")
         page = EventPage.objects.select_for_update().filter(event=event).first()
         registration = None
         if person is not None:
@@ -578,7 +632,7 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
             raise AgendaError("Elige por qué la registras de todos modos.", code="override_reason")
         # What a guardian said in this step, or what this row already had: ``standing`` reads it.
         evidence = GuardianConsent(**clean) if clean else (getattr(registration, "consent", None) if registration else None)
-        where = standing(event, page, person=person, said_minor=said_minor, consent=evidence)
+        where = standing(event, page, person=person, said_minor=said_minor, age_checked=seen_adult, consent=evidence)
         waits = where.status == PENDING
         values = {
             "status": where.status,
@@ -587,6 +641,7 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
             "cancelled_at": None,
             "annulled_reason": "",
             "guest_is_minor": said_minor,
+            "guest_age_checked": bool(seen_adult),
             "attended": None if waits else True,
             "checked_in_at": None if waits else now,
             "checked_in_by": None if waits else actor,
@@ -605,6 +660,8 @@ def register_walkup(event: Event, actor, *, person=None, first_name: str = "", l
         metadata = _who(registration)
         if person is None or said_minor:
             metadata["minor"] = said_minor  # the team's word at the door, kept as it was said
+        if seen_adult:
+            metadata["age_checked"] = True
         if blocks:
             summary += "; pasó por encima de una regla del evento"
             metadata.update(override=blocks, reason=override_reason)
@@ -618,7 +675,8 @@ def annul_walkup(registration: EventRegistration, actor, reason: str) -> EventRe
     """"Anular registro": the team wrote somebody down at the door by mistake. Only a row the team
     wrote (a visitor, or a person of the church it registered); who signed up by themselves
     cancels by themselves. The row frees its place, leaves every list and every count, and stays in
-    the database as ``cancelada`` with the reason, for the audit."""
+    the database as ``cancelada`` with the reason, for the audit. An authorization recorded on the
+    row is withdrawn with it."""
     if reason not in EventRegistration.AnnulReason.values:
         raise AgendaError("Elige por qué anulas este registro.", code="reason")
     with transaction.atomic():
@@ -632,9 +690,34 @@ def annul_walkup(registration: EventRegistration, actor, reason: str) -> EventRe
         registration.cancelled_at = timezone.now()
         registration.attended, registration.checked_in_at, registration.checked_in_by = None, None, None
         registration.save(update_fields=[*SETTLED_FIELDS, "annulled_reason", "cancelled_at"])
+        # The row was a mistake, and so is what was recorded on it: an authorization written for
+        # the wrong minor must not confirm them the day they sign up or arrive for real.
+        consent = registration.recorded_consent
+        if consent is not None:
+            consent.revoked_at, consent.revoked_by = timezone.now(), actor
+            consent.save(update_fields=["revoked_at", "revoked_by"])
         record_church(event.church, actor, "evento_registro_anulado",
                       f"Anuló el registro de {registration.display_name} en {event.name}",
                       registration, event_id=event.pk, reason=reason, **_who(registration))
+    return registration
+
+
+def confirm_guest_age(registration: EventRegistration, actor, *, is_minor: bool) -> EventRegistration:
+    """The team says what it saw of a visitor who waits for that (written down while the event did
+    not ask): "es mayor de edad" confirms the row, "es menor de edad" sends it on to wait for a
+    guardian's authorization. Audited with ids and the one word."""
+    with transaction.atomic():
+        registration = _locked(registration.pk)
+        if registration.person_id is not None or registration.waits_for != AGE:
+            raise AgendaError("Esta visita no está esperando que confirmes su edad.", code="not_age")
+        event = registration.event
+        registration.guest_is_minor, registration.guest_age_checked = bool(is_minor), not is_minor
+        _settle(registration, EventPage.objects.filter(event=event).first(), actor, assume_rule=True)
+        registration.save(update_fields=[*SETTLED_FIELDS, "guest_is_minor", "guest_age_checked"])
+        word = "menor" if is_minor else "mayor"
+        record_church(event.church, actor, "evento_visita_edad",
+                      f"Dijo que {registration.display_name}, visita de {event.name}, es {word} de edad",
+                      registration, event_id=event.pk, minor=bool(is_minor), **_who(registration))
     return registration
 
 
@@ -643,6 +726,8 @@ def confirm_age(registration: EventRegistration, actor, method: str, birth_date:
     (``people.services.verify_birth_date``), and the row is settled again: an adult is confirmed, a
     minor goes on to wait for a guardian's authorization."""
     with transaction.atomic():
+        if registration.person_id is not None:
+            _fresh(registration.person)  # the person first, then the row: the order every other write locks in
         registration = _locked(registration.pk)
         if registration.person_id is None or registration.waits_for != AGE:
             raise AgendaError("Esta inscripción no está esperando que confirmes la edad.", code="not_age")
@@ -746,6 +831,7 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
                 raise AgendaError(
                     f"{existing.full_name} ya tiene su propia inscripción a este evento. Revisa la lista.", code="already"
                 )
+            existing = _fresh(existing)
             if registration.guest_is_minor and existing.birth_date and not is_minor_at(event, existing.birth_date):
                 raise AgendaError(
                     f"En la entrada registraron a esta visita como menor de edad, y {existing.full_name} es mayor de "

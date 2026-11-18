@@ -45,6 +45,7 @@ ACTION_LABELS = {
     "evento_autorizacion_retirada": "Retiró la autorización de un tutor para un evento",
     "evento_registro_anulado": "Anuló el registro de alguien que llegó a un evento",
     "evento_inscripcion_revisada": "Una inscripción a un evento cambió al revisarse la edad o la autorización",
+    "evento_visita_edad": "Dijo si una visita de un evento es mayor o menor de edad",
     "evento_visita_persona": "Agregó a una visita de un evento a las personas de la iglesia",
     "equipo_creado": "Creó un equipo",
     "equipo_modificado": "Modificó un equipo",
@@ -64,7 +65,7 @@ ALLOWED_METADATA = frozenset({
     "module", "value", "group_id", "person_id", "event_id", "role", "source", "minor_confirmed", "registration_id", "method",
     # Fixed words only: which rule of the event a walk-up went over and why; why a row was annulled; what the
     # team said at the door about a visitor's age; where a registration stands after a review.
-    "override", "reason", "minor", "standing",
+    "override", "reason", "minor", "standing", "age_checked",
 })
 
 

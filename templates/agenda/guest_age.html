@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Confirmar edad de {{ registration.display_name }}{% endblock %}
+{% block content %}
+{% comment %}
+  A visitor whose age nobody said (agenda.views.guest_age): written down while the event did not ask for the
+  authorization. The team says what it saw at the door; an adult is confirmed, a minor waits for a guardian.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Confirmar edad" lede=registration.display_name|add:", visita de "|add:event.name back_url=back back_label="Volver a los inscritos" %}
+  <div class="notice notice--quiet"><p>Cuando la registraron, nadie dijo si es mayor o menor de edad. Este evento cuida a los menores de edad: dilo tú por lo que viste.</p></div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Si es mayor de edad, su registro queda confirmado. Si es menor de edad, queda pendiente hasta que registres la autorización de su madre, padre o tutor. Queda anotado quién lo dijo.</p>
+</div>
+{% endblock %}
