@@ -1067,6 +1067,10 @@ class Answer(models.Model):
     question = models.ForeignKey(Question, on_delete=models.PROTECT, related_name="answers")
     options = models.ManyToManyField(QuestionOption, blank=True, related_name="answers")
     text_value = models.TextField(blank=True)
+    # «Prefiero no responder», chosen on purpose: a stored row, never a blank (a blank has no row) and never a
+    # substantive answer. Set on every decline written since; an older decline is a choice of an option with
+    # ``is_decline`` and no flag (services.questionnaire.load_answers reads both).
+    declined = models.BooleanField("Prefirió no responder", default=False, db_default=False)
     answered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
@@ -1089,6 +1093,7 @@ class AnswerRevision(models.Model):
     question = models.ForeignKey(Question, on_delete=models.PROTECT, related_name="+")
     previous_option_codes = models.JSONField(default=list)
     previous_text = models.TextField(blank=True)
+    previous_declined = models.BooleanField(default=False, db_default=False)
     reason = models.CharField("Motivo de la corrección", max_length=200)
     changed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"

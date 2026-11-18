@@ -33,7 +33,7 @@
     <div class="print-group">
       <h2 id="{{ sheet.anchor }}-titulo">Cuestionario para entrevistar en papel{% if paper_sheets|length > 1 %}: «{{ sheet.version.title }}»{% endif %}</h2>
         <p class="page-head__meta">{{ sheet.version.title }}, versión {{ sheet.version.number }}.</p>
-        <p class="aside-note">Usa una copia por campero y hazle las preguntas en este orden. Marca lo que elija; si no quiere contestar una pregunta opcional, déjala en blanco. En cuanto vuelva la red, captura sus respuestas en Emmaus como entrevista asistida. Con respuestas, esta hoja es tan privada como la entrevista: guárdala tú y destrúyela en cuanto las captures.</p>
+        <p class="aside-note">Usa una copia por campero y hazle las preguntas en este orden. Marca lo que elija. Ninguna pregunta es obligatoria: si prefiere no responder, marca “Prefiero no responder”; si se salta una pregunta, déjala en blanco. En cuanto vuelva la red, captura sus respuestas en Emmaus como entrevista asistida. Con respuestas, esta hoja es tan privada como la entrevista: guárdala tú y destrúyela en cuanto las captures.</p>
         <dl class="summary-list">
           <div class="summary-list__row"><dt>Nombre del campero</dt><dd></dd></div>
           <div class="summary-list__row"><dt>Número</dt><dd></dd></div>
@@ -56,15 +56,14 @@
             <p class="hint">Si contestó {% for label in q.condition_option_labels %}{% if not forloop.first %}{% if forloop.last %} o {% else %}, {% endif %}{% endif %}“{{ label }}”{% endfor %}:</p>
             <p class="question__follow-text">{{ q.text }}</p>
           {% endif %}
-          <p class="hint">{{ q.get_kind_display }}, {% if q.required %}obligatoria{% else %}opcional{% endif %}.</p>
+          <p class="hint">{{ q.get_kind_display }}, opcional.</p>
           {% if q.help_text %}<p class="hint">{{ q.help_text }}</p>{% endif %}
           {% if q.sensitivity == "confidencial" %}<p class="privacy"><span class="privacy__tag">Confidencial</span> {% if event.confidential_level != "cuidado" %}Esta respuesta la leen {{ event.confidential_readers_phrase }}.{% else %}Solo el equipo de cuidado autorizado podrá leer esta respuesta.{% endif %}</p>{% endif %}
           {% if q.is_choice %}
             <ul class="admin-answers" aria-label="Opciones">{% for o in sheet.options|get_item:q.id %}<li><span class="print-box" aria-hidden="true">☐</span> <span class="admin-answers__label{% if o.is_decline %} admin-answers__label--decline{% endif %}">{{ o.label }}</span></li>{% endfor %}</ul>
-          {% elif q.kind == "texto_largo" %}
-            <div class="textarea" aria-hidden="true"></div>
           {% else %}
-            <div class="input" aria-hidden="true"></div>
+            {% if q.kind == "texto_largo" %}<div class="textarea" aria-hidden="true"></div>{% else %}<div class="input" aria-hidden="true"></div>{% endif %}
+            <ul class="admin-answers" aria-label="Opciones">{% for o in sheet.options|get_item:q.id %}<li><span class="print-box" aria-hidden="true">☐</span> <span class="admin-answers__label admin-answers__label--decline">{{ o.label }}</span></li>{% endfor %}</ul>
           {% endif %}
           {% if not forloop.first %}</div>{% endif %}
         {% endfor %}

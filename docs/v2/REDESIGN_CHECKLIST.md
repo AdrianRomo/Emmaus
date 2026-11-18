@@ -97,8 +97,9 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 7. New words to confirm: «Hoy en la iglesia», «Ver cómo inscribirme», «Más de la iglesia», «Mis datos» in Mi
    cuenta, «Lo que preguntaste» / «Lo que escribiste», «También esperan tu respuesta» / «Con el pastor».
 8. Event photos (#60): the arch shows the sky of the hour until the church decides.
-9. Interview questions are all optional in the demo questionnaire («Saltar pregunta» says so): should any be
-   required? May campers skip in the kiosk, or only choose «Prefiero no responder»?
+9. Decided 2026-11-18 (branch `v2/preguntas-opcionales`): no interview question is required; every question offers
+   «Prefiero no responder»; a campero may finish with blanks; a decline and a blank are stored and shown apart, and
+   neither counts as an answer. Only «Antes de empezar» requires anything (the authorizations that apply).
 10. A follow-up decision («¿Necesita seguimiento?») cannot be changed once taken, before or after the redesign.
     Should a coordinator be able to correct it?
 11. During a camp, should the camp's administration land on the camp's home? The running camp also shows

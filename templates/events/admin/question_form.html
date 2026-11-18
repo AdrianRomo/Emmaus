@@ -25,7 +25,6 @@
     <section class="form-section" aria-labelledby="f-privacidad">
       <h2 id="f-privacidad" class="form-section__title">Privacidad</h2>
       {% include "partials/ui/field.html" with field=form.sensitivity %}
-      {% include "partials/ui/field.html" with field=form.required %}
     </section>
     <details class="fold"{% if form.order.errors or form.condition_question.errors or form.condition_codes.errors or form.condition_question.value %} open{% endif %}>
       <summary>Orden y cuándo se muestra</summary>
@@ -45,7 +44,7 @@
       <div class="summary-list__row"><dt>Sensible</dt><dd>La ve su coordinador y el equipo de cuidado autorizado. En los resúmenes solo aparece en totales.</dd></div>
       {% comment %}A questionnaire is the church's and several events may use it, each with its own level (admin.confidential_level): no single reader is promised here.{% endcomment %}<div class="summary-list__row"><dt>Confidencial</dt><dd>La leen las personas que permita cada evento que use este cuestionario (en Configuración, <a href="{% url 'events:confidential_level' event.slug %}">Respuestas confidenciales</a>). Úsala para temas íntimos y textos libres.</dd></div>
     </dl>
-    <p class="aside-note">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
+    <p class="aside-note">Ninguna pregunta es obligatoria: todas ofrecen “Prefiero no responder” y se pueden dejar sin responder.</p>
     {% with choices=form.fields.condition_question.queryset %}{% if choices %}
       <details class="fold">
         <summary>Identificadores de las respuestas</summary>
@@ -74,7 +73,6 @@
     {% include "partials/ui/field.html" with field=form.help_text %}
     {% include "partials/ui/field.html" with field=form.kind %}
     {% include "partials/ui/field.html" with field=form.sensitivity %}
-    {% include "partials/ui/field.html" with field=form.required %}
     {% include "partials/ui/field.html" with field=form.order %}
     {% include "partials/ui/field.html" with field=form.condition_question %}
     {% include "partials/ui/field.html" with field=form.condition_codes %}
@@ -90,7 +88,7 @@
       <div class="summary-list__row"><dt>Sensible</dt><dd>La ve su coordinador y el equipo de cuidado autorizado. En los resúmenes solo aparece en totales.</dd></div>
       {% comment %}A questionnaire is the church's and several events may use it, each with its own level (admin.confidential_level): no single reader is promised here.{% endcomment %}<div class="summary-list__row"><dt>Confidencial</dt><dd>La leen las personas que permita cada evento que use este cuestionario (en Configuración, <a href="{% url 'events:confidential_level' event.slug %}">Respuestas confidenciales</a>). Úsala para temas íntimos y textos libres.</dd></div>
     </dl>
-    <p class="aside-note">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
+    <p class="aside-note">Ninguna pregunta es obligatoria: todas ofrecen “Prefiero no responder” y se pueden dejar sin responder.</p>
     {% with choices=form.fields.condition_question.queryset %}{% if choices %}
       {% comment %}"Respuestas que la muestran" takes internal identifiers; the questionnaire page folds them away, so they are listed here, folded too (LANG-05, UI-19).{% endcomment %}
       <details class="fold fold--inline">

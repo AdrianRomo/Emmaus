@@ -1,10 +1,10 @@
 {% load emmaus %}{% if ui_v2 %}{% comment %}
   The redesign ("Ventanas"), one question per screen (coordinator, correction, campero). Two things change: the
   offline notice sits with the button (on a phone that bar is stuck to the bottom of the window, so the notice is
-  seen where the person pressed), and the button says what it will do. A question that may be left blank
-  (Question.required is off) is skipped by «Continuar» when nothing is chosen: until an option is chosen the
+  seen where the person pressed), and the button says what it will do. No question requires an answer, so a
+  choice question is skipped by «Continuar» when nothing is chosen: until an option is chosen the
   button reads «Saltar pregunta» (or «Saltar y revisar») and is outlined; with a choice it is the filled
-  «Continuar» (santuario.css, area evento-entrevista: .step--saltable). Nothing about what is required changes.
+  «Continuar» (santuario.css, area evento-entrevista: .step--saltable).
 {% endcomment %}
 <div class="trail">
   {% if previous and mode != "correction" %}
@@ -24,7 +24,7 @@
   </div>
 {% endif %}
 
-<form method="post" action="{{ form_action }}" id="step-form" class="step{% if mode != 'correction' and main.question.is_choice and not main.question.required %} step--saltable{% endif %}" data-guard novalidate>
+<form method="post" action="{{ form_action }}" id="step-form" class="step{% if mode != 'correction' and main.question.is_choice %} step--saltable{% endif %}" data-guard novalidate>
   {% csrf_token %}
   <input type="hidden" name="revision" value="{{ interview.revision }}">
   {% include "events/interview/_question.html" with q=main heading=True %}

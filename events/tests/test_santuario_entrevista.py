@@ -168,14 +168,15 @@ class StepTests(VentanasFixture):
         response = self.answer(self.interview, "salvo", "")
         self.assertRedirects(response, self.url("interview_step", self.interview.public_id, self.step("dudas").number), fetch_redirect_response=False)
         self.assertFalse(self.interview.answers.exists())
-        # A question the administration made required is not skipped: the service refuses a blank one, and the button
-        # does not say «Saltar»
+        # No question is required, even one an older version marked "Obligatoria": its button says «Saltar» too, and
+        # the service saves the blank as a blank.
         Question.objects.filter(pk=self.question("salvo").pk).update(required=True)
         with mock.patch.dict(questionnaire._structure_cache, clear=True):
             html = self.step_page("salvo")
-            self.assertNotIn("step--saltable", html)
-            refused = self.answer(self.interview, "salvo", "")
-            self.assertContains(refused, "Elige una respuesta para continuar.")
+            self.assertIn('class="step step--saltable"', html)
+            skipped = self.answer(self.interview, "salvo", "")
+            self.assertEqual(skipped.status_code, 302)
+            self.assertFalse(self.interview.answers.exists())
 
     def test_the_offline_notice_sits_with_the_button(self):
         for code in ("salvo", "dudas"):

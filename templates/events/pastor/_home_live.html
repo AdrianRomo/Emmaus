@@ -134,7 +134,7 @@
   {% regroup outcomes by questionnaire_id as outcome_groups %}{% for group in outcome_groups %}{% if group.list.0.show_questionnaire %}<div><h3 class="heading">{{ group.list.0.questionnaire }}</h3>{% endif %}<div class="outcomes">
     {% for outcome in group.list %}
     <figure class="outcome">
-      <figcaption><p class="outcome__title">{{ outcome.title }}</p><p class="outcome__sub">Personas. Respondieron {{ outcome.respondents.display }}.</p></figcaption>
+      <figcaption><p class="outcome__title">{{ outcome.title }}</p><p class="outcome__sub">Personas. Respondieron {{ outcome.respondents.display }}.{% if outcome.declined %} {{ outcome.declined.display|capfirst }} prefirieron no responder.{% endif %}</p></figcaption>
       {% if outcome.withheld %}
       <p class="chart__empty">Aún no hay suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
       {% else %}
@@ -281,7 +281,7 @@
       {% regroup outcomes by questionnaire_id as outcome_groups %}{% for group in outcome_groups %}{% if group.list.0.show_questionnaire %}<div><h3 class="heading">{{ group.list.0.questionnaire }}</h3>{% endif %}<div class="outcomes">
         {% for outcome in group.list %}
           <figure class="outcome">
-            <figcaption><p class="outcome__title">{{ outcome.title }}</p><p class="outcome__sub">Personas. Respondieron {{ outcome.respondents.display }}.</p></figcaption>
+            <figcaption><p class="outcome__title">{{ outcome.title }}</p><p class="outcome__sub">Personas. Respondieron {{ outcome.respondents.display }}.{% if outcome.declined %} {{ outcome.declined.display|capfirst }} prefirieron no responder.{% endif %}</p></figcaption>
             {% if outcome.withheld %}
               <p class="chart__empty">Aún no hay suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
             {% else %}

@@ -53,12 +53,12 @@ from .questionnaire import (
     Step,
     all_questions,
     build_steps,
+    decline_field,
     describe_answer,
     is_visible,
     load_answers,
     options_by_code,
     validate_step,
-    visible_steps,
     write_answers,
 )
 
@@ -436,11 +436,11 @@ def _check_writable(locked: Interview, token: str | None, revision) -> None:
 
 
 def _left_blank(question: Question, data) -> bool:
-    """Nothing chosen or written for ``question`` in the posted form."""
+    """Nothing chosen or written for ``question`` in the posted form («Prefiero no responder» is not blank)."""
     field_name = f"q_{question.id}"
     if question.is_choice:
         return not any(data.getlist(field_name))
-    return not (data.get(field_name) or "").strip()
+    return not (data.get(field_name) or "").strip() and not data.get(decline_field(question))
 
 
 def save_step(
@@ -448,27 +448,19 @@ def save_step(
 ) -> tuple[Interview, dict]:
     """Validate and save one screen; return the interview and {question_id: error}.
 
-    ``partial`` is "Parar por ahora": the same checks as "Continuar", except that a blank required
-    question is not an error. Two cases save nothing from the screen: nothing chosen where nothing
-    was stored, and a choice whose required follow-up is still blank. The second one stays
-    unanswered on purpose: the camper's review sends them back to it, while a saved choice with a
-    blank confidential follow-up could not be finalized (a coordinator may not open that screen).
-    Erasing a stored answer and pausing erases it, as "Continuar" would.
+    No question requires an answer: a blank is saved as a blank (no row) and a decline as a decline. The only
+    errors are a code not on the screen, a decline marked with another answer, and a text too long.
+    ``partial`` is "Parar por ahora": the same checks as "Continuar", except that a screen left with nothing
+    chosen where nothing was stored saves nothing, so "Retomar" still opens it. Erasing a stored answer and
+    pausing erases it, as "Continuar" would.
     """
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("version", "participant").get(pk=interview.pk)
         _check_writable(locked, token, data.get("revision"))
         answers = load_answers(locked)
         cleaned, errors = validate_step(step, data, answers)
-        if partial:
-            # Only "required" can fail on a blank answer: a wrong code, a clash or a long text is never blank.
-            blank = {q.id for q in step.questions if q.required and _left_blank(q, data)}
-            if _left_blank(step.question, data) and step.question.id not in answers:
-                return locked, {}
-            # validate_step only checks the follow-ups the posted choice shows.
-            if any(child.id in errors and child.id in blank for child in step.children):
-                return locked, {}
-            errors = {question_id: message for question_id, message in errors.items() if question_id not in blank}
+        if partial and _left_blank(step.question, data) and step.question.id not in answers:
+            return locked, {}
         if errors:
             return locked, errors
         write_answers(locked, cleaned, actor=actor, by_participant=by_participant)
@@ -528,17 +520,9 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
         if locked.status == Interview.Status.COMPLETED:
             return locked  # idempotent: a second click or a browser retry changes nothing
         _check_writable(locked, token, revision)
+        # No question requires an answer: an interview with blanks (a confidential one too, which a coordinator
+        # without confidential access cannot open) is finalized as it is. Only "Antes de empezar" requires anything.
         answers = load_answers(locked)
-        by_id = {q.id: q for q in all_questions(locked.version)}
-        missing = [
-            q
-            for step in visible_steps(locked.version, answers)
-            for q in step.questions
-            if q.required and is_visible(q, answers, by_id) and (answers.get(q.id) is None or answers[q.id].is_empty)
-        ]
-        if missing:
-            # Name the question: the review lists them all, and "Cambiar" sits next to each one.
-            raise InterviewError(f"Falta responder “{missing[0].text}”. Toca “Cambiar” junto a ella.", interview=locked)
         now = timezone.now()
         locked.status = Interview.Status.COMPLETED
         locked.completed_at = now
@@ -723,14 +707,18 @@ def correct_step(access, interview: Interview, step: Step, data, *, reason: str)
             before = answers.get(question_id)
             before_codes = sorted(before.codes) if before else []
             before_text = before.text if before else ""
+            before_declined = before.declined if before else False
             after_codes = sorted(value.codes) if value else []
             after_text = value.text if value else ""
-            if before_codes != after_codes or before_text != after_text:
+            after_declined = value.declined if value else False
+            # «Prefiero no responder» and a blank are different answers: changing one into the other is a correction.
+            if before_codes != after_codes or before_text != after_text or before_declined != after_declined:
                 AnswerRevision.objects.create(
                     interview=locked,
                     question_id=question_id,
                     previous_option_codes=before_codes,
                     previous_text=before_text,
+                    previous_declined=before_declined,
                     reason=revision_reason(question_id, value),
                     changed_by=access.user,
                 )
@@ -745,6 +733,7 @@ def correct_step(access, interview: Interview, step: Step, data, *, reason: str)
                 question_id=question_id,
                 previous_option_codes=sorted(before.codes),
                 previous_text=before.text,
+                previous_declined=before.declined,
                 reason=HIDDEN_BY_CORRECTION,
                 changed_by=access.user,
             )
@@ -1035,6 +1024,8 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
     A conditional question is listed only if the viewer may see the answer that
     controls it; otherwise its mere presence would reveal that hidden answer.
     Hidden rows look the same whether or not they were answered.
+    ``answered`` is "something is stored": a decline is shown as «Prefiero no responder» (``display``), a blank
+    as «Sin responder»; ``declined`` tells the decline apart. Neither is a substantive answer.
     """
     answers = load_answers(interview)
     by_id = {q.id: q for q in all_questions(interview.version)}
@@ -1057,6 +1048,7 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
                     "question": question,
                     "visible": visible,
                     "answered": (value is not None and not value.is_empty) if visible else None,
+                    "declined": (value is not None and value.declined) if visible else None,
                     "display": describe_answer(question, value) if visible else "",
                 }
             )

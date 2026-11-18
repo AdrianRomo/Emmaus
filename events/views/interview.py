@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Case, IntegerField, Q, Value, When
@@ -16,7 +18,11 @@ from ..services import event_questionnaires as eq
 from ..services import follow_up_decision as decision_svc
 from ..services import interviews as svc
 from ..services.questionnaire import (
+    DECLINE_LABEL,
+    DECLINED_VALUE,
     build_steps,
+    decline_field,
+    decline_option,
     load_answers,
     neighbor_steps,
     visible_steps,
@@ -32,9 +38,11 @@ def question_context(question: Question, value, error: str | None, posted=None, 
         field = f"q_{question.id}"
         codes = posted.getlist(field) if question.kind == Question.Kind.MULTIPLE else ([posted.get(field)] if posted.get(field) else [])
         text = posted.get(field, "") if question.is_text else ""
+        declined = DECLINED_VALUE in codes if question.is_choice else bool(posted.get(decline_field(question)))
     else:
         codes = value.codes if value else []
         text = value.text if value else ""
+        declined = bool(value and value.declined)
     main, quiet = [], []
     for option in question.options.all():
         entry = {
@@ -43,6 +51,11 @@ def question_context(question: Question, value, error: str | None, posted=None, 
             "checked": option.code in codes,
         }
         (quiet if (option.is_decline or option.is_exclusive) else main).append(entry)
+    if question.is_choice and decline_option(question) is None:
+        # Every question offers «Prefiero no responder»: one without its own (made in the editor, or a version published
+        # before) gets it here, last among the quiet options, stored as Answer.declined (questionnaire.parse_question).
+        own = SimpleNamespace(code=DECLINED_VALUE, label=DECLINE_LABEL, is_exclusive=True, is_decline=True)
+        quiet.append({"option": own, "id": f"q{question.id}--prefiero-no", "checked": declined})
     return {
         "question": question,
         "name": f"q_{question.id}",
@@ -51,6 +64,10 @@ def question_context(question: Question, value, error: str | None, posted=None, 
         "options": main,
         "quiet_options": quiet,
         "text": text,
+        # A text question's «Prefiero no responder»: its box, and whether it is marked.
+        "decline_name": decline_field(question),
+        "decline_label": DECLINE_LABEL,
+        "declined": declined,
         "error": error,
         "readonly": readonly,
         "reveal_for": f"q_{question.condition_question_id}" if question.condition_question_id else "",
