@@ -22,7 +22,7 @@
     {% if heading %}
       <h1 class="question__text"><label for="q{{ q.question.id }}">{{ q.question.text }}</label></h1>
     {% else %}
-      <label class="question__follow-text" for="q{{ q.question.id }}">{{ q.question.text }}{% if not q.question.required %} <span class="optional">(opcional)</span>{% endif %}</label>
+      <label class="question__follow-text" for="q{{ q.question.id }}">{{ q.question.text }} <span class="optional">(opcional)</span></label>
     {% endif %}
     {% if q.question.help_text %}<p class="question__help" id="q{{ q.question.id }}-hint">{{ q.question.help_text }}</p>{% endif %}
     {% if q.question.sensitivity == "confidencial" %}<p class="privacy"><span class="privacy__tag">Confidencial</span> {% if interview and interview.effective_confidential_level != "cuidado" %}Esta respuesta la leen {{ interview.confidential_readers_phrase }}.{% else %}Solo el equipo de cuidado autorizado podrá leer esta respuesta.{% endif %}</p>{% endif %}
@@ -32,5 +32,13 @@
     {% else %}
       <input class="input" type="text" id="q{{ q.question.id }}" name="{{ q.name }}" value="{{ q.text }}" maxlength="{{ q.question.max_length }}" autocomplete="off"{% if q.question.help_text %} aria-describedby="q{{ q.question.id }}-hint"{% endif %}>
     {% endif %}
+    {% comment %}No question requires an answer: a text one offers «Prefiero no responder» too, stored apart from a blank (Answer.declined).{% endcomment %}
+    <div class="choices">
+      <p class="choices__or" aria-hidden="true">o bien</p>
+      <div class="choice choice--multi choice--quiet">
+        <input class="choice__input" type="checkbox" id="q{{ q.question.id }}--prefiero-no" name="{{ q.decline_name }}" value="1"{% if q.declined %} checked{% endif %}{% if q.error %} aria-describedby="q{{ q.question.id }}-error"{% endif %}>
+        <label class="choice__label" for="q{{ q.question.id }}--prefiero-no"><span class="choice__mark" aria-hidden="true"></span><span>{{ q.decline_label }}<span class="visually-hidden"> a “{{ q.question.text }}”</span></span></label>
+      </div>
+    </div>
   </div>
 {% endif %}

@@ -39,10 +39,37 @@ class Step:
 class AnswerValue:
     codes: list[str] = field(default_factory=list)
     text: str = ""
+    # «Prefiero no responder», chosen on purpose (Answer.declined, or an older choice of an ``is_decline`` option).
+    declined: bool = False
 
     @property
     def is_empty(self) -> bool:
-        return not self.codes and not self.text.strip()
+        """A blank: nothing to store (no Answer row). A decline is not blank: it is stored."""
+        return not self.codes and not self.text.strip() and not self.declined
+
+    @property
+    def is_substantive(self) -> bool:
+        """An answer that says something: neither a blank nor a decline (what counts as "respondida")."""
+        return not self.is_empty and not self.declined
+
+
+# No question requires an answer (the owner's decision, 2026-11-18): every question offers «Prefiero no responder»,
+# a blank is never refused, and a decline is stored apart from a blank. ``Question.required`` stays in the table only
+# for the versions already published; nothing reads it.
+DECLINE_LABEL = "Prefiero no responder"
+# What a choice question without its own ``is_decline`` option posts for «Prefiero no responder». A colon is never in
+# an option's code (a slug), so it cannot be mistaken for one.
+DECLINED_VALUE = ":prefiero_no"
+
+
+def decline_field(question: Question) -> str:
+    """The box «Prefiero no responder» of a text question (the text keeps ``q_<id>``)."""
+    return f"q_{question.id}_prefiero_no"
+
+
+def decline_option(question: Question) -> QuestionOption | None:
+    """The question's own «Prefiero no responder» (an option with ``is_decline``), if it has one."""
+    return next((option for option in question.options.all() if option.is_decline), None)
 
 
 _structure_cache: dict[int, list[Step]] = {}
@@ -90,9 +117,12 @@ def options_by_code(question: Question) -> dict[str, QuestionOption]:
 def load_answers(interview: Interview) -> dict[int, AnswerValue]:
     values: dict[int, AnswerValue] = {}
     for answer in interview.answers.prefetch_related("options"):
+        options = list(answer.options.all())
         values[answer.question_id] = AnswerValue(
-            codes=sorted((o.code for o in answer.options.all()), key=lambda c: c),
+            codes=sorted((o.code for o in options), key=lambda c: c),
             text=answer.text_value,
+            # A decline stored before Answer.declined existed is the choice of the question's decline option alone.
+            declined=answer.declined or (bool(options) and all(o.is_decline for o in options)),
         )
     return values
 
@@ -136,35 +166,44 @@ def neighbor_steps(version, answers, current_number: int) -> tuple[Step | None, 
 
 
 EXCLUSIVE_ERROR = "Si eliges “{label}”, no marques otras opciones."
+TEXT_DECLINE_ERROR = f"Si eliges “{DECLINE_LABEL}”, borra lo que escribiste."
 
 
 def parse_question(question: Question, data) -> tuple[AnswerValue, str | None]:
+    """The posted value of one question. A blank is never an error: no question requires an answer."""
     field_name = f"q_{question.id}"
     if question.is_choice:
         valid = options_by_code(question)
+        own_decline = decline_option(question)
         if question.kind == Question.Kind.MULTIPLE:
             raw = [code for code in data.getlist(field_name) if code]
         else:
             raw = [data.get(field_name)] if data.get(field_name) else []
         codes = []
+        declined = False
         for code in raw:
+            if code == DECLINED_VALUE and own_decline is None:
+                declined = True  # the «Prefiero no responder» the screen adds to a question without one
+                continue
             if code not in valid:
                 return AnswerValue(), "Elige una de las opciones que aparecen en pantalla."
             if code not in codes:
                 codes.append(code)
-        exclusive = [code for code in codes if valid[code].is_exclusive]
+        if declined and codes:
+            return AnswerValue(codes=codes), EXCLUSIVE_ERROR.format(label=DECLINE_LABEL)
+        # A decline excludes every other answer, even an option marked "Equivale a no responder" but not exclusive.
+        exclusive = [code for code in codes if valid[code].is_exclusive or valid[code].is_decline]
         if exclusive and len(codes) > 1:
             return AnswerValue(codes=codes), EXCLUSIVE_ERROR.format(label=valid[exclusive[0]].label)
-        value = AnswerValue(codes=codes)
+        value = AnswerValue(codes=codes, declined=declined or (bool(codes) and valid[codes[0]].is_decline))
     else:
         text = (data.get(field_name) or "").strip()
+        declined = bool(data.get(decline_field(question)))
         if len(text) > question.max_length:
             return AnswerValue(text=text), f"Escribe máximo {question.max_length} caracteres (llevas {len(text)})."
-        value = AnswerValue(text=text)
-    if question.required and value.is_empty:
-        if question.is_choice:
-            return value, "Elige una respuesta para continuar."
-        return value, "Escribe una respuesta para continuar."
+        if declined and text:
+            return AnswerValue(text=text, declined=True), TEXT_DECLINE_ERROR
+        value = AnswerValue(text=text, declined=declined)
     return value, None
 
 
@@ -211,7 +250,8 @@ def write_answers(interview: Interview, cleaned: dict[int, AnswerValue | None], 
             interview=interview,
             question=question,
             defaults={
-                "text_value": value.text if question.is_text else "",
+                "text_value": value.text if question.is_text and not value.declined else "",
+                "declined": value.declined,
                 "answered_by": None if by_participant else actor,
                 "answered_by_participant": by_participant,
             },
@@ -233,11 +273,15 @@ def _prune_hidden(interview: Interview) -> dict[int, AnswerValue]:
 
 
 def describe_answer(question: Question, value: AnswerValue | None) -> str:
+    """What was answered, in words: "" for a blank, «Prefiero no responder» (or the question's own decline
+    option's label) for a decline."""
     if value is None or value.is_empty:
         return ""
-    if question.is_choice:
+    if question.is_choice and value.codes:
         chosen = set(value.codes)
         return ", ".join(option.label for option in question.options.all() if option.code in chosen)
+    if value.declined:
+        return DECLINE_LABEL
     return value.text
 
 
@@ -299,7 +343,6 @@ def duplicate_version(source: QuestionnaireVersion, user) -> QuestionnaireVersio
                 text=question.text,
                 help_text=question.help_text,
                 kind=question.kind,
-                required=question.required,
                 sensitivity=question.sensitivity,
                 max_length=question.max_length,
             )

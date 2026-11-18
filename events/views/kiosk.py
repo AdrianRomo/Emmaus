@@ -18,9 +18,7 @@ from ..models import Interview, ParticipantSession
 from ..services import interviews as svc
 from ..services.event_questionnaires import links_for
 from ..services.questionnaire import (
-    all_questions,
     build_steps,
-    is_visible,
     load_answers,
     neighbor_steps,
     visible_steps,
@@ -61,7 +59,7 @@ def kiosk_home(request):
     answers = load_answers(interview)
     started = bool(answers)
     steps = visible_steps(interview.version, answers)
-    # "Retomar" opens the screen the review's "Seguir contestando" opens: a required follow-up left blank counts.
+    # "Retomar" opens the screen the review's "Seguir contestando" opens.
     still_to_answer = _still_to_answer(interview)
     first = still_to_answer[0][0] if still_to_answer else steps[0]
     context.update({"first_step": first, "started": started, "intro": interview.version.intro_text, "total_steps": len(steps)})
@@ -148,22 +146,11 @@ def _still_to_answer(interview: Interview) -> list[tuple]:
     """(step, questions missing on it) for every screen with something left: after "Parar por ahora",
     "Seguir contestando" opens the first one (as "Retomar" does) and the review says how many are left.
 
-    A screen counts when its question has no answer, or when a follow-up it shows is required and blank
-    (stored before the follow-up became required): only the camper can fill a confidential follow-up.
+    A screen counts when its question was left blank («Prefiero no responder» is an answer given, not one left).
+    None is required: «Ya terminé» ends the capture whatever is left.
     """
     answers = load_answers(interview)
-    by_id = {q.id: q for q in all_questions(interview.version)}
-    result = []
-    for step in visible_steps(interview.version, answers):
-        missing = 0 if step.question.id in answers else 1
-        missing += sum(
-            1
-            for child in step.children
-            if child.required and is_visible(child, answers, by_id) and (child.id not in answers or answers[child.id].is_empty)
-        )
-        if missing:
-            result.append((step, missing))
-    return result
+    return [(step, 1) for step in visible_steps(interview.version, answers) if step.question.id not in answers]
 
 
 @require_POST

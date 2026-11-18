@@ -534,10 +534,9 @@ class SectionForm(forms.ModelForm):
         widgets = {"description": forms.Textarea(attrs={"rows": 2})}
 
 
-CONFIDENTIAL_REQUIRED_WARNING = "Si el campero no la contesta, solo el equipo de cuidado autorizado podrá completarla."
-
-
 class QuestionForm(forms.ModelForm):
+    """A question of a draft. There is no «Obligatoria»: no question requires an answer (services.questionnaire)."""
+
     condition_codes = forms.CharField(
         required=False,
         label="Respuestas que la muestran",
@@ -546,7 +545,7 @@ class QuestionForm(forms.ModelForm):
 
     class Meta:
         model = Question
-        fields = ["text", "help_text", "kind", "sensitivity", "required", "condition_question", "order"]
+        fields = ["text", "help_text", "kind", "sensitivity", "condition_question", "order"]
         labels = {"condition_question": "Mostrar solo si en esta pregunta se respondió…"}
 
     def __init__(self, *args, version: QuestionnaireVersion, **kwargs):
@@ -560,17 +559,6 @@ class QuestionForm(forms.ModelForm):
         self.fields["condition_question"].required = False
         self.fields["condition_question"].empty_label = "Siempre se muestra"
         self.initial.setdefault("condition_codes", ", ".join(self.instance.condition_option_codes or []))
-        if self.confidential_and_required:
-            # A coordinador without confidential access can neither open nor finalize it after an "Entrevista a solas"
-            # (docs/roles-and-permissions.md, "Known gaps"): said next to the box that causes it. The bound field
-            # copied the (empty) help when the check above created it, so it gets the warning too.
-            self.fields["required"].help_text = CONFIDENTIAL_REQUIRED_WARNING
-            self["required"].help_text = CONFIDENTIAL_REQUIRED_WARNING
-
-    @property
-    def confidential_and_required(self) -> bool:
-        """What was just submitted, or else what is stored."""
-        return self["sensitivity"].value() == Question.Sensitivity.CONFIDENTIAL and bool(self["required"].value())
 
     def clean(self):
         cleaned = super().clean()

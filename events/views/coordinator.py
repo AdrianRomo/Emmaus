@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from types import SimpleNamespace
 
 from django import forms
 from django.contrib import messages
@@ -18,7 +19,7 @@ from ..services import interviews as interview_svc
 from ..services import participants as participant_svc
 from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, mark_stalled, progress_for, stale_interviews
-from ..services.questionnaire import build_steps, first_unanswered_step, load_answers, visible_steps
+from ..services.questionnaire import DECLINE_LABEL, build_steps, first_unanswered_step, load_answers, visible_steps
 from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, programme_now, safe_next
 
 
@@ -201,12 +202,15 @@ def backup_list(request, event, access):
         if not steps:
             continue
         # Options in the order the screen shows them (interview.question_context): "Prefiero no responder" and other
-        # exclusive options last. A dict, not attributes: build_steps caches its Question objects for every request.
+        # exclusive options last, and «Prefiero no responder» on every question, a text one too (no question requires
+        # an answer). A dict, not attributes: build_steps caches its Question objects for every request.
         options = {}
         for step in steps:
             for question in step.questions:
                 listed = list(question.options.all())
                 quiet = [o for o in listed if o.is_decline or o.is_exclusive]
+                if not any(o.is_decline for o in listed):
+                    quiet.append(SimpleNamespace(label=DECLINE_LABEL, is_decline=True))
                 options[question.id] = [o for o in listed if o not in quiet] + quiet
         anchor = "cuestionario" if not paper_sheets else f"cuestionario-{len(paper_sheets) + 1}"
         paper_sheets.append({"version": version, "steps": steps, "options": options, "anchor": anchor})
