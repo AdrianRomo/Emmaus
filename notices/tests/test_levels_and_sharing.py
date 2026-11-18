@@ -29,7 +29,7 @@ URGENT, IMPORTANT, NORMAL = "urgent", "important", "normal"
 def answered_on(html: str) -> list[str]:
     """The days this person said «Enterado», as the page draws them: the word on a pill, then its day."""
     return re.findall(
-        r'<ul class="meta reading__done">\s*<li><span class="status status--done"><span class="status__mark" aria-hidden="true">'
+        r'<ul class="meta reading__done"[^>]*>\s*<li><span class="status status--done"><span class="status__mark" aria-hidden="true">'
         r'</span>Enterado</span></li>\s*<li><svg [^>]*>.*?</svg>([^<]+)</li>',
         html,
         re.S,

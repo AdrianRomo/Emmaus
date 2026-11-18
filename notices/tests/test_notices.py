@@ -16,9 +16,10 @@ from people.models import ChurchAuditEvent
 LIST = reverse("notices:list")
 CREATE = reverse("notices:create")
 SECRET = "La llave está bajo la maceta azul"
-# A notice this person has not opened: a dot before its title, and the words for a screen reader.
-UNREAD_ROW = "row--unread"
-UNREAD_WORDS = ", sin leer</li>"
+# A notice this person has not opened, drawn as Mi iglesia draws it: an ink dot in the leading slot, and the words
+# for a screen reader.
+UNREAD_ROW = '<span class="hoy__punto"></span>'
+UNREAD_WORDS = '<span class="visually-hidden">Sin leer</span>'
 
 
 def detail(notice):
@@ -61,7 +62,7 @@ class NoticeTests(CommunityFixture):
         self.client.force_login(self.member_user)
         page = self.client.get(LIST)
         self.assertContains(page, "Retiro de noviembre")
-        self.assertContains(page, "Para toda la iglesia")
+        self.assertContains(self.client.get(detail(notice)), "Para toda la iglesia")
         self.assertContains(page, UNREAD_ROW, count=1)
         self.assertContains(page, UNREAD_WORDS, count=1)
         self.assertNotContains(page, "Publicar un aviso")
@@ -89,8 +90,8 @@ class NoticeTests(CommunityFixture):
         # The member of the group reads it; the administration too.
         for user in (self.member_user, self.admin):
             self.client.force_login(user)
-            self.assertContains(self.client.get(LIST), "Para Jóvenes Roca")
-            self.assertEqual(self.client.get(detail(notice)).status_code, 200)
+            self.assertContains(self.client.get(LIST), "Jóvenes Roca</span>")  # its group, under its title
+            self.assertContains(self.client.get(detail(notice)), "Para Jóvenes Roca")
 
     def test_a_guide_cannot_publish_for_the_church_or_for_a_group_they_do_not_guide(self):
         self.client.force_login(self.leader_user)

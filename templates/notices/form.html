@@ -5,8 +5,9 @@
   Publishing or correcting a notice (notices.views.notice_create, notice_edit). "Para quién" offers only what this
   person may write to and is asked once: an existing notice says who it is for and does not change it. Correcting an
   urgent notice that people may have read also asks "¿Cambió la información?" (two radios, NoticeForm.material).
-  Under the button, what goes out by e-mail and what never does. While nothing is sending the e-mails of the notices
-  kept for a later day, the form says so (views._scheduled_mail_warning).
+  The days it is seen are folded under "Cuándo se ve" (open when they have a value to show or an error). Under the
+  button, what goes out by e-mail and what never does. While nothing is sending the e-mails of the notices kept for
+  a later day, the form says so (views._scheduled_mail_warning).
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
@@ -22,7 +23,13 @@
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% for field in form.visible_fields %}{% if field.name != "publish_on" and field.name != "expires_on" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    <details class="fold"{% if notice or form.publish_on.errors or form.expires_on.errors or form.expires_on.value %} open{% endif %}>
+      <summary>Cuándo se ve</summary>
+      {% include "partials/ui/field.html" with field=form.publish_on %}
+      {% include "partials/ui/field.html" with field=form.expires_on %}
+    </details>
     <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if notice %}Guardar cambios{% else %}Publicar el aviso{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>

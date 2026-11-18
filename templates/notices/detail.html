@@ -4,15 +4,17 @@
 {% block content %}
 {% comment %}
   One notice (notices.views.notice_detail). Opening it marks it read for the person. The body is plain text: it is
-  escaped and only its line breaks are kept. Under the title, as facts: its level (a word, for an important or urgent
-  one), its day, who it is for and its last day. Then its words, and who speaks (the church or whoever guides the group,
-  never a name). An urgent one asks its readers for "Enterado", the one filled button; who may change it reads how many
-  answered, as a number and never as names, and that the number is not proof that the message arrived. After a change
-  that asked for "Enterado" again, who had opened it reads that it changed and when, and who may change it reads that
-  the count started over. "Compartir por WhatsApp" carries the church's name and this page's address, never the title
-  or the body. Who may change it (its author, the administration) also reads its state and gets "Editar el aviso" and
-  "Retirar el aviso", and reads how many e-mails went out about it (views._emailed_lines): a number, never names, and
-  never a claim that an e-mail was read.
+  escaped and only its line breaks are kept. Under the title, as facts: its level (notices/_level.html: «Importante»
+  is the vela capsule, «Urgente» the chile word), its day, who it is for and its last day. Then its words, and who
+  speaks (the church or whoever guides the group, never a name). An urgent one asks its readers for «Enterado», the
+  one filled button, which acts in place (#enterado; notices.views.notice_acknowledge returns to this page): the region
+  becomes the word «Enterado» with its day. After a change that asked for it again, who had opened it reads, in that
+  same region, that it changed and when. Who may change it reads how many answered, as a number and never as names,
+  and that the number is not proof that the message arrived; after such a change, that the count started over.
+  "Compartir por WhatsApp" carries the church's name and this page's address, never the title or the body. Who may
+  change it (its author, the administration) also reads its state, gets "Editar el aviso" and a quiet "Retirar el
+  aviso" (its page asks first), and reads how many e-mails went out about it (views._emailed_lines): a number, never
+  names, and never a claim that an e-mail was read.
 {% endcomment %}
 <div class="narrow reading">
   <a class="back-link" href="{% url 'notices:list' %}">Volver a los avisos</a>
@@ -32,20 +34,24 @@
     {% if notice.state == "programado" %}<p class="aside-note">Hasta entonces solo lo ves tú y la administración de la iglesia.</p>
     {% elif notice.state == "retirado" %}<p class="aside-note">Ya nadie lo ve en Mi iglesia.</p>{% endif %}
   {% endif %}
-  {% if changed_on %}<div class="notice notice--warning"><p>Este aviso cambió el {{ changed_on|long_date }}. Léelo otra vez y toca «Enterado».</p></div>{% endif %}
   <div class="block prose">{{ notice.body|linebreaks }}</div>
   {% if notice.state != "programado" %}<p class="reading__by">{{ published_by }}</p>{% endif %}
-  {% if can_acknowledge %}
-    <form method="post" action="{% url 'notices:acknowledge' notice.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="version" value="{{ notice.version }}">
-      <div class="form-actions"><button class="btn btn--primary" type="submit">Enterado</button></div>
-    </form>
-  {% elif acknowledged_on %}
-    <ul class="meta reading__done">
-      <li>{% status "completada" "Enterado" %}</li>
-      <li>{% icon "calendario" "sm" %}{{ acknowledged_on|long_date }}</li>
-    </ul>
+  {% if can_acknowledge or acknowledged_on %}
+  <div id="enterado" class="aviso__enterado">
+    {% if can_acknowledge %}
+      {% if changed_on %}<div class="notice notice--warning"><p>Este aviso cambió el {{ changed_on|long_date }}. Léelo otra vez y toca «Enterado».</p></div>{% endif %}
+      <form class="form-actions" method="post" action="{% url 'notices:acknowledge' notice.pk %}" data-inline="enterado">
+        {% csrf_token %}
+        <input type="hidden" name="version" value="{{ notice.version }}">
+        <button class="btn btn--primary btn--large" type="submit">Enterado</button>
+      </form>
+    {% else %}
+      <ul class="meta reading__done" data-inline-focus tabindex="-1">
+        <li>{% status "completada" "Enterado" %}</li>
+        <li>{% icon "calendario" "sm" %}{{ acknowledged_on|long_date }}</li>
+      </ul>
+    {% endif %}
+  </div>
   {% endif %}
   {% if share_url %}
     <div class="reading__share">
@@ -53,22 +59,26 @@
       <p class="aside-note">El mensaje solo dice que hay un aviso y lleva el enlace: para leerlo hay que entrar a Emmaus con su cuenta.</p>
     </div>
   {% endif %}
-  {% if acknowledged_line %}
-    <div class="quiet">
-      <p class="quiet__title">{{ acknowledged_line }}</p>
-      {% if asked_again_on %}<p class="quiet__text">Este aviso cambió el {{ asked_again_on|long_date }} y se pidió «Enterado» otra vez{% if count_given %}: la cuenta empezó de nuevo ese día{% endif %}.</p>{% endif %}
-      <p class="quiet__text">Cuenta a quienes tocaron el botón aquí, entre las personas con cuenta a quienes va el aviso. No prueba que todas lo hayan recibido: si es una emergencia, avísales también por otro medio.</p>
-    </div>
-  {% endif %}
-  {% if emailed_lines %}
-    <div class="quiet" id="correos">
-      {% for line in emailed_lines %}<p class="{% if forloop.first %}quiet__title{% else %}quiet__text{% endif %}">{{ line }}</p>{% endfor %}
-    </div>
+  {% if acknowledged_line or emailed_lines %}
+  <div class="block aviso__cuentas">
+    {% if acknowledged_line %}
+      <div class="quiet">
+        <p class="quiet__title">{{ acknowledged_line }}</p>
+        {% if asked_again_on %}<p class="quiet__text">Este aviso cambió el {{ asked_again_on|long_date }} y se pidió «Enterado» otra vez{% if count_given %}: la cuenta empezó de nuevo ese día{% endif %}.</p>{% endif %}
+        <p class="quiet__text">Cuenta a quienes tocaron el botón aquí, entre las personas con cuenta a quienes va el aviso. No prueba que todas lo hayan recibido: si es una emergencia, avísales también por otro medio.</p>
+      </div>
+    {% endif %}
+    {% if emailed_lines %}
+      <div class="quiet" id="correos">
+        {% for line in emailed_lines %}<p class="{% if forloop.first %}quiet__title{% else %}quiet__text{% endif %}">{{ line }}</p>{% endfor %}
+      </div>
+    {% endif %}
+  </div>
   {% endif %}
   {% if can_edit and not notice.is_retired %}
     <div class="form-actions">
       <a class="btn btn--secondary" href="{% url 'notices:edit' notice.pk %}">Editar el aviso</a>
-      <a class="btn btn--link" href="{% url 'notices:retire' notice.pk %}">Retirar el aviso</a>
+      <a class="btn btn--link btn--quieto" href="{% url 'notices:retire' notice.pk %}">Retirar el aviso</a>
     </div>
   {% endif %}
 </div>

@@ -31,9 +31,9 @@
     </div>
     {% endwith %}
     {% if address %}
-      <ul class="meta">
-        <li>{% icon "correo" "sm" %}<span>Llega a <strong>{{ address }}</strong></span></li>
-        <li><a href="{{ back }}">Cambiarlo en Mis datos</a></li>
+      <ul class="meta correo__a-donde">
+        <li>{% icon "correo" "sm" %}<span>Llega a <strong class="break-anywhere">{{ address }}</strong></span></li>
+        <li><a class="btn btn--link" href="{{ back }}">Cambiarlo en Mis datos</a></li>
       </ul>
     {% else %}
       <div class="notice notice--warning"><p>No tienes un correo en tus datos, así que no te llega ninguno. Escríbelo en <a href="{{ back }}">Mis datos</a>.</p></div>

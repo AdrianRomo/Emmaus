@@ -3,10 +3,12 @@
 {% block page_title %}Avisos{% endblock %}
 {% block content %}
 {% comment %}
-  Avisos (notices.views.notice_list): what the church and the person's groups want them to know, urgent and important ones first (each
-  with its word), then newest first; the ones not opened yet carry a dot before the title. Who may write gets "Publicar un aviso" and,
-  once they have published something, everything they published with its state (scheduled, expired and retired ones too). Opening this
-  list marks nothing as read. Each list is paged by fifty, with its own page in the address (?pagina=, ?publicados=).
+  Avisos (notices.views.notice_list): what the church and the person's groups want them to know, urgent and important
+  ones first, then newest first. Each notice is drawn as "Avisos" on Mi iglesia draws it: an ink dot in the leading
+  slot while it is not opened, the title (lighter once read), and under it its level (notices/_level.html: «Importante»
+  is the vela capsule), its day and its group. Who may write gets "Publicar un aviso" and, once they have published
+  something, everything they published with its state (scheduled, expired and retired ones too). Opening this list
+  marks nothing as read. Each list is paged by fifty, with its own page in the address (?pagina=, ?publicados=).
 {% endcomment %}
 <div class="narrow">
   {% url 'notices:create' as create %}
@@ -19,18 +21,14 @@
   <section class="block" aria-labelledby="para-ti">
     <h2 id="para-ti" class="{% if published %}heading{% else %}visually-hidden{% endif %}">Para ti</h2>
     {% if notices %}
-      <ul class="dates rows">
+      <ul class="rows">
         {% for notice in notices %}
-          <li class="row row--lead row--stack{% if notice.is_unread %} row--unread{% endif %}">
-            {% date_block notice.publish_on %}
+          <li class="row row--lead">
+            <span class="hoy__marca">{% if notice.is_unread %}<span class="hoy__punto"></span><span class="visually-hidden">Sin leer</span>{% endif %}</span>
             <div class="row__main">
-              <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
-              <ul class="meta">
-                <li class="visually-hidden">{{ notice.publish_on|weekday_date }}{% if notice.is_unread %}, sin leer{% endif %}</li>
-                <li>{% if notice.group_id %}{% icon "grupos" "sm" %}{% else %}{% icon "inicio" "sm" %}{% endif %}{{ notice.audience }}</li>
-              </ul>
+              <p class="row__title{% if not notice.is_unread %} row__title--leido{% endif %}"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
+              <p class="row__meta row__meta--con-marca">{% include "notices/_level.html" %}<span>{{ notice.publish_on|day_month|capfirst }}{% if notice.group %}, {{ notice.group.name }}{% endif %}</span></p>
             </div>
-            {% if notice.level %}<div class="row__end">{% include "notices/_level.html" %}</div>{% endif %}
           </li>
         {% endfor %}
       </ul>
@@ -43,19 +41,14 @@
   {% if published %}
   <section class="block" aria-labelledby="publicaste">
     <h2 id="publicaste" class="heading">Los que publicaste</h2>
-    <ul class="dates rows">
+    <ul class="rows">
       {% for notice in published %}
-        <li class="row row--lead row--stack">
-          {% date_block notice.publish_on %}
+        <li class="row row--lead">
+          <span class="hoy__marca" aria-hidden="true"></span>
           <div class="row__main">
             <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
-            <ul class="meta">
-              <li class="visually-hidden">{{ notice.publish_on|weekday_date }}</li>
-              <li>{% if notice.group_id %}{% icon "grupos" "sm" %}{% else %}{% icon "inicio" "sm" %}{% endif %}{{ notice.audience }}</li>
-              {% if notice.expires_on and notice.state != "retirado" %}<li>{% icon "reloj" "sm" %}Hasta el {{ notice.expires_on|day_month }}</li>{% endif %}
-            </ul>
+            <p class="row__meta row__meta--con-marca">{% if notice.state == "programado" %}{% status "por_evaluar" "Programado" %}{% elif notice.state == "vencido" %}{% status "descartada" "Vencido" %}{% elif notice.state == "retirado" %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}{% include "notices/_level.html" %}<span>{% if notice.state == "programado" %}Se publica el {{ notice.publish_on|day_month }}{% else %}{{ notice.publish_on|day_month|capfirst }}{% endif %}, {% if notice.group_id %}para {{ notice.group.name }}{% else %}para toda la iglesia{% endif %}{% if notice.expires_on and notice.state != "retirado" %}, hasta el {{ notice.expires_on|day_month }}{% endif %}</span></p>
           </div>
-          <div class="row__end">{% include "notices/_level.html" %}{% if notice.state == "programado" %}{% status "por_evaluar" "Programado" %}{% elif notice.state == "vencido" %}{% status "descartada" "Vencido" %}{% elif notice.state == "retirado" %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}</div>
         </li>
       {% endfor %}
     </ul>
