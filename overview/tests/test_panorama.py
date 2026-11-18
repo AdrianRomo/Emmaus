@@ -728,7 +728,7 @@ class MissingListsTests(PanoramaFixture):
         html = self.get(self.church_pastor).content.decode()
         # The two groups, by name, in the list of what waits; each row leads to the group, never to its lists.
         waits = section(html, "p-atender")
-        missing = dict(re.findall(r'>([^<>]+)<span class="visually-hidden">: listas</span>.*?<span class="chip chip--wait">([^<]+)</span>', waits, flags=re.S))
+        missing = dict(re.findall(r'>([^<>]+)<span class="visually-hidden">: listas</span>.*?<span class="status__mark" aria-hidden="true"></span>([^<]+)</span>', waits, flags=re.S))
         self.assertEqual(missing, {"Jóvenes Roca": "Falta 1 lista", "Estudio de Romanos": "Faltan 3 o más listas"})
         self.assertIn("La última, ", waits)
         self.assertNotIn("/reuniones/", waits)

@@ -48,14 +48,14 @@
         <div class="row__end">{% if group.waiting == 1 %}{% status "por_evaluar" "1 solicitud" %}{% else %}{% status "por_evaluar" group.waiting|stringformat:"d"|add:" solicitudes" %}{% endif %}</div>
       </li>
       {% endif %}{% endfor %}
-      {% for group in groups %}{% if group.missing %}
-      <li class="row row--lead row--stack row--attention">
+      {% for group in groups %}{% if group.missing %}{# A list not passed waits for its guide; it blocks nobody: no vela #}
+      <li class="row row--lead row--stack">
         {% monogram group.name "" "grupo" %}
         <div class="row__main">
           <p class="row__title"><a href="{% url 'community:group_detail' group.pk %}">{{ group.name }}<span class="visually-hidden">: listas</span></a></p>
           <p class="meta"><span>{% icon "calendario" "sm" %}{% if group.missing == 1 %}{{ group.missing_day|weekday_date|capfirst }}{% else %}La última, {{ group.missing_day|weekday_date }}{% endif %}{% if group.missing_day.year != today.year %} de {{ group.missing_day.year }}{% endif %}</span></p>
         </div>
-        <div class="row__end"><span class="chip chip--wait">{% if group.missing == 1 %}Falta 1 lista{% elif group.missing >= 3 %}Faltan 3 o más listas{% else %}Faltan {{ group.missing }} listas{% endif %}</span></div>
+        <div class="row__end">{% if group.missing == 1 %}{% status "pendiente" "Falta 1 lista" %}{% elif group.missing >= 3 %}{% status "pendiente" "Faltan 3 o más listas" %}{% else %}{% status "pendiente" "Faltan 2 listas" %}{% endif %}</div>
       </li>
       {% endif %}{% endfor %}
     </ul>
