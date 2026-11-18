@@ -399,6 +399,17 @@ class FollowUpForm(forms.ModelForm):
         if not can_write_notes:
             self.fields.pop("resolution_note")
 
+    def clean_status(self):
+        """A cancelled follow-up is not reopened while its interview has another one (one_open_care_follow_up_per_interview):
+        «Cambiar decisión de seguimiento» creates a new one after cancelling the first."""
+        status = self.cleaned_data["status"]
+        item = self.instance
+        if item.pk and item.status == FollowUp.Status.CANCELLED and status != FollowUp.Status.CANCELLED and item.interview_id:
+            others = FollowUp.objects.filter(interview_id=item.interview_id, kind=item.kind, confidential=item.confidential)
+            if item.kind == FollowUp.Kind.CARE and others.exclude(pk=item.pk).exclude(status=FollowUp.Status.CANCELLED).exists():
+                raise ValidationError("Su entrevista ya tiene otro seguimiento. Continúa en ese.")
+        return status
+
 
 class FollowUpAssignForm(forms.ModelForm):
     """Only who attends a follow-up, chosen from its row in the list."""

@@ -229,6 +229,17 @@ class CareFollowUpTests(ChangeFixture):
         self.assertEqual(self.ordinary().count(), 2)
         self.assertEqual(self.ordinary().exclude(status="cancelado").count(), 1)
 
+    def test_a_cancelled_one_is_not_reopened_beside_the_new_one(self):
+        self.post(self.coord1, "requerido")
+        first = self.ordinary().get()
+        self.post(self.coord1, "no_requerido")
+        self.post(self.coord1, "requerido")
+        response = self.as_user(self.coord1).post(self.url("follow_up_detail", first.pk), {"status": "pendiente", "assigned_to": self.coord1.pk})
+        self.assertContains(response, "Su entrevista ya tiene otro seguimiento. Continúa en ese.")
+        first.refresh_from_db()
+        self.assertEqual(first.status, "cancelado")
+        self.assertEqual(self.ordinary().exclude(status="cancelado").count(), 1)
+
     def test_one_already_there_is_kept_not_doubled(self):
         self.post(self.coord1, "requerido")
         follow_up = self.ordinary().get()
