@@ -33,6 +33,8 @@ MENU_BUTTON = (
 )
 LINK = re.compile(r'<a href="([^"]*)"[^>]*>([^<]*)</a>')
 TASK = re.compile(r'<h2 id="tarea-[\w-]+" class="heading">')
+# The church's help (templates/core/ayuda.html) folds each task: the question is the handle
+FOLDED_TASK = re.compile(r'<details class="fold" id="tarea-[\w-]+">\s*<summary>')
 OLD_NAMES = ("Cambiar de evento", "Campamentos y eventos", "Campamentos")  # the list of events is "Eventos" since 2026-11-17
 MARKED_AYUDA = re.compile(r'<a href="([^"]+)" aria-current="page">Ayuda</a>')
 
@@ -256,7 +258,7 @@ class ChurchAyudaTests(MarcoFixture):
         self.assertEqual(len(re.findall(r"<h1\b", html)), 1)
         self.assertIn("Únete a un evento con el código", html)
         self.assertIn(f'<a href="{reverse("events:list")}?todos=1">Ir a Eventos</a>', html)
-        self.assertEqual(len(TASK.findall(html)), 3)
+        self.assertEqual(len(FOLDED_TASK.findall(html)), 4)  # the way in, the code, the events, the account
         self.assertIn(f'<a href="{reverse("ayuda")}" aria-current="page">Ayuda</a>', html)
 
     def test_discipleship_is_explained_only_where_it_is_on(self):
@@ -264,7 +266,7 @@ class ChurchAyudaTests(MarcoFixture):
         Church.objects.filter(pk=self.church.pk).update(discipleship_enabled=True)
         html = self.page(self.admin, reverse("ayuda"))
         self.assertIn("Sigue tu camino o acompaña a tus participantes", html)
-        self.assertEqual(len(TASK.findall(html)), 4)
+        self.assertEqual(len(FOLDED_TASK.findall(html)), 5)
         self.assertIn("¿Algo no está aquí? Pregunta a quien instaló Emmaus.", html)
 
 

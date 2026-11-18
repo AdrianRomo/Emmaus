@@ -210,7 +210,7 @@ class FirstSetupSlugTests(TestCase):
     def test_the_setup_page_ties_the_slug_to_the_name(self):
         html = self.client.get(reverse("initial_setup")).content.decode()
         self.assertIn('data-slug-from="id_church_name"', input_tag(html, "id_church_slug"))
-        self.assertIn("<li>Escribe el nombre de tu iglesia; el nombre corto se forma solo.</li>", html)
+        self.assertIn("Se forma con el nombre; puedes cambiarlo.", html)  # said once, under the field
         self.assertNotIn("identificador corto", html)
 
     @override_settings(EMAIL_BACKEND=LOCMEM)
@@ -452,20 +452,20 @@ class ListWordingTests(CampFixture):
             "theme_muted_text_color": "Color del texto tenue",
             "theme_border_color": "Color de los bordes",
         })
-        self.assertTrue(fields["theme_primary_color"].help_text.startswith("Botones, enlaces y cifras. "))
-        self.assertTrue(fields["theme_accent_color"].help_text.startswith("El punto de la computadora y el subrayado de la página actual. "))
+        self.assertEqual(fields["theme_primary_color"].help_text, "Botones, enlaces y cifras.")
+        self.assertEqual(fields["theme_accent_color"].help_text, "El punto de la computadora y la página actual.")
         self.assertEqual(fields["theme_secondary_color"].help_text, "Por ahora no se usa en pantalla.")
         page = self.login(self.admin).get(reverse("church_settings"))
-        self.assertContains(page, "Necesita un contraste de al menos 4.5 a 1 sobre blanco.")
-        self.assertContains(page, "Necesita un contraste de al menos 3 a 1 sobre blanco.")
+        # The contrast each colour needs is said once for its group, not under every colour
+        self.assertContains(page, "Sobre blanco, el color principal necesita un contraste de al menos 4.5 a 1 y el de “estás aquí”, de al menos 3 a 1.", count=1)
         self.assertContains(page, 'type="color"', count=8)
         for retired in (">Superficies", ">Color de acento", ">Fondo", ">Bordes"):
             self.assertNotContains(page, retired)
         self.assertContains(
             page,
-            "El color principal pinta botones, enlaces y cifras; el de “estás aquí”, el punto de la computadora y la página "
-            "actual. Al guardar, Emmaus revisa que los dos se lean sobre blanco, y que el principal y los textos se lean "
-            "sobre el fondo y sobre los campos y paneles. Los bordes revísalos tú.",
+            "El color principal y los dos de texto necesitan un contraste de al menos 4.5 a 1 sobre el fondo y sobre los "
+            "campos y paneles. Los bordes revísalos tú.",
+            count=1,
         )
         self.assertNotContains(page, "el de acento")
 

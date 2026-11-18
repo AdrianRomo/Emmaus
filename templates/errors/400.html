@@ -2,7 +2,7 @@
 {% block page_title %}La dirección no es válida{% endblock %}
 {% block content %}
 <div class="narrow door">
-  {% include "events/rotulo/_page_head.html" with title="La dirección no es válida" %}
+  {% include "events/rotulo/_page_head.html" with title="La dirección no es válida" lede="Revisa la dirección." %}
   <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Volver a mi inicio</a></p>
 </div>
 {% endblock %}

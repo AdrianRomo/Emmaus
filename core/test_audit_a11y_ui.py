@@ -134,8 +134,9 @@ class ChurchColourFormTests(TestCase):
 
     def test_the_form_says_the_rule_before_it_fails(self):
         html = self.client.get(reverse("church_settings")).content.decode()
-        self.assertIn("Necesita un contraste de al menos 4.5 a 1 sobre blanco.", html)
-        self.assertIn("Necesita un contraste de al menos 3 a 1 sobre blanco.", html)
+        # Once for the group, under the two colours it is about
+        self.assertIn("Sobre blanco, el color principal necesita un contraste de al menos 4.5 a 1 y el de “estás aquí”, de al menos 3 a 1.", html)
+        self.assertIn("necesitan un contraste de al menos 4.5 a 1 sobre el fondo y sobre los campos y paneles.", html)
 
     def test_the_page_theme_has_a_darker_hover(self):
         self.assertRedirects(self.post(theme_primary_color="#B45309"), reverse("church_settings"))
