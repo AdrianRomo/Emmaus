@@ -1035,6 +1035,8 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] .public-event .rows { background: none; border: 0; border-radius: 0; }
 :root[data-ui="2"] .public-event .rows > .row { padding: var(--s-3) 0; min-height: 3.75rem; border-bottom: 1px solid var(--line); }
 :root[data-ui="2"] .public-event .rows > .row:last-child { border-bottom: 0; }
+:root[data-ui="2"] .public-event .rows > .row { justify-content: flex-start; gap: var(--s-4); }
+:root[data-ui="2"] .public-event .row__main { flex: 1; min-width: 0; text-align: left; }
 :root[data-ui="2"] .public-event .heading { padding-bottom: 0; border-bottom: 0; }
 :root[data-ui="2"] .public-event .sign { padding: var(--s-5) var(--s-5) var(--s-6); }
 :root[data-ui="2"] .public-event .sign__title { font-size: var(--t-h2); }
@@ -1055,12 +1057,16 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .aviso__enterado > .notice { margin-top: 0; }
 .aviso__enterado > .form-actions, .lectura__marca > .form-actions { margin-top: var(--s-4); }
 .aviso__enterado > .form-actions:first-child, .lectura__marca > .form-actions:first-child { margin-top: 0; }
-.lectura__marca + .aside-note, .aviso__enterado + .reading__share { margin-top: var(--s-4); }
-.page--app .aviso__cuentas { display: grid; gap: var(--s-5); }
+.lectura__marca + .aside-note { margin-top: var(--s-4); }
+.page--app .reading__share { margin-top: var(--s-6); }
+.page--app .reading__share .aside-note { margin-top: var(--s-3); }
+.page--app .aviso__cuentas { display: grid; gap: var(--s-5); margin-top: var(--s-8); }
 /* A quiet removal that starts a line (Dejar este plan, Retirar el plan, Retirar el recurso): its words on the column */
 .plan__dejar, .correo__a-donde .btn--link { margin-inline-start: calc(-1 * var(--s-3)); }
 /* The state of a plan under its head (plan_days.html), and the way on under a plan's head (plan_detail.html) */
-.page--app .plan__estado { margin: calc(-1 * var(--s-2)) 0 var(--s-6); }
+.page--app .plan__estado { margin: calc(-1 * var(--s-2)) 0 var(--s-6); font-size: var(--t-small); color: var(--ink-2); max-width: 62ch; }
+.page--app .plan__estado > .status { margin-right: var(--s-2); vertical-align: -0.125em; }
+.page--app .plan__estado a { font-weight: 600; color: var(--petroleo); }
 .page--app .plan__estado + .aside-note { margin: calc(-1 * var(--s-4)) 0 var(--s-6); }
 .page--app .plan__seguir { margin: 0 0 var(--s-8); }
 .page--app .reading__done + .block { margin-top: var(--s-8); }

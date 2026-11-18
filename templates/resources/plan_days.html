@@ -12,12 +12,12 @@
   {% url 'resources:plan_admin' as back %}{% url 'resources:plan_day_create' plan.pk as add %}
   {% include "events/rotulo/_page_head.html" with title=plan.title lede=plan.description meta=plan.author_line back_url=back back_label="Volver a los planes de lectura" action_url=add action_label="Agregar un día" %}
   {% if plan.is_draft %}
-    <p class="meta plan__estado">{% status "borrador" "Borrador" %}<span>Nadie lo ve todavía.{% if days %} Cuando esté listo, <a href="{% url 'resources:plan_publish' plan.pk %}">publica el plan</a>.{% else %} Agrega por lo menos un día para poder publicarlo.{% endif %}</span></p>
+    <p class="plan__estado">{% status "borrador" "Borrador" %} Nadie lo ve todavía.{% if days %} Cuando esté listo, <a href="{% url 'resources:plan_publish' plan.pk %}">publica el plan</a>.{% else %} Agrega por lo menos un día para poder publicarlo.{% endif %}</p>
   {% elif plan.is_published %}
-    <p class="meta plan__estado">{% status "publicada" "Publicado" %}</p>
+    <p class="plan__estado">{% status "publicada" "Publicado" %}</p>
     <p class="aside-note">{% if plan.rights_confirmed_at %}La confirmación de que la iglesia lo escribió o tiene permiso para publicarlo se dio el {{ plan.rights_confirmed_at|date:"j \d\e F \d\e Y"|lower }}. {% endif %}Lo que cambies se ve de inmediato y queda bajo esa misma confirmación.</p>
   {% else %}
-    <p class="meta plan__estado">{% status "retirada" "Retirado" %}<span>Nadie lo puede empezar; quien ya lo había empezado lo puede terminar. Si quieres ofrecerlo otra vez, <a href="{% url 'resources:plan_publish' plan.pk %}">publica el plan</a> con una confirmación nueva.</span></p>
+    <p class="plan__estado">{% status "retirada" "Retirado" %} Nadie lo puede empezar; quien ya lo había empezado lo puede terminar. Si quieres ofrecerlo otra vez, <a href="{% url 'resources:plan_publish' plan.pk %}">publica el plan</a> con una confirmación nueva.</p>
   {% endif %}
   <section class="block" aria-labelledby="dias">
     <h2 id="dias" class="heading">Los días del plan{% if days %} <span class="count">{{ days|length }}</span>{% endif %}</h2>
