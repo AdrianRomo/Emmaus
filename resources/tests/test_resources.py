@@ -76,10 +76,10 @@ class DevotionalTests(ResourcesFixture):
         html = page.content.decode()
         self.assertEqual(html.count("<h1"), 1)
         self.assertContains(page, '<h1 class="voice page-head__title">La vid verdadera</h1>', html=True)
-        # Its day (today), its passage and who signs it, each a fact with its mark.
+        # Its verse (the passage, in the serif of a verse), then its day (today) and who signs it, each a fact with its mark.
         self.assertContains(page, f'{icon("calendario", "sm")}Hoy, {weekday_date(self.today)}</li>')
         self.assertContains(page, f'{icon("personas", "sm")}<span class="visually-hidden">Escrito por </span>Ana López</li>')
-        self.assertContains(page, f'{icon("lectura", "sm")}<span class="visually-hidden">Lectura: </span>Juan 15:1-8</li>')
+        self.assertContains(page, '<p class="verso devocional__verso"><span class="visually-hidden">Lectura: </span>Juan 15:1-8</p>', html=True)
         self.assertContains(page, '<div class="block prose">')
         self.assertContains(page, "La rama no da fruto por sí misma.")
         self.assertContains(page, "Marcar como leído</button>")
@@ -365,7 +365,8 @@ class MediaTests(ResourcesFixture):
         self.assertContains(page, "Abrir el recurso")
         self.assertContains(page, 'class="row row--lead row--stack"', count=5)
         # The only drawing on the page is the design's own marks (aria-hidden icons); nothing of the resource's site.
-        without_marks = re.sub(r'<svg class="icon icon--sm" [^>]*aria-hidden="true" focusable="false">.*?</svg>', "", main(page), flags=re.S)
+        # Decorative marks (a fact's icon, a row's leading mark) are drawn here; nothing from another site is
+        without_marks = re.sub(r'<svg class="icon( icon--sm)?" [^>]*aria-hidden="true" focusable="false">.*?</svg>', "", main(page), flags=re.S)
         for forbidden in ("<iframe", "<embed", "<video", "<audio", "<object", "<script", "<svg", "·", 'target="_blank"'):
             self.assertNotIn(forbidden, without_marks)
         self.assertNotContains(page, "Administrar los recursos")
@@ -456,7 +457,7 @@ class MediaTests(ResourcesFixture):
         self.assertContains(page, f'<a href="{media_url("edit", item)}">Justificados por la fe</a>', html=True)
         self.assertContains(page, "Agregar un recurso")
         # Retiring is on the resource's own page, and asks first.
-        self.assertContains(self.client.get(media_url("edit", item)), f'<a href="{media_url("retire", item)}">Retirar el recurso</a>', html=True)
+        self.assertContains(self.client.get(media_url("edit", item)), f'<a class="btn btn--link btn--quieto plan__dejar" href="{media_url("retire", item)}">Retirar el recurso</a>', html=True)
         page = self.client.get(media_url("retire", item))
         self.assertContains(page, "¿Retirar el recurso")
         self.assertEqual(MediaItem.objects.get().status, "publicado")

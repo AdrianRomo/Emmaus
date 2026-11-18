@@ -1,34 +1,34 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Planes de lectura{% endblock %}
 {% block content %}
 {% comment %}
-  The reading plans this person can open (resources.plan_views.plan_list): the ones they started first, then the
-  other published ones. "En curso", "Terminado" and "Continuar" are this person's own: nobody else ever sees them,
-  and the page shows no count of readers.
+  The reading plans this person can open (resources.plan_views.plan_list): the ones they started first, then the other
+  published ones, each with its mark in the leading slot. Where this person is, truthfully and for them alone: a plan
+  they started says the day they go on with ("Continuar en el día 2", the first one without their mark; "Leer el día 1"
+  while nothing is marked yet) and "En curso" only once a day is marked; a finished one says "Terminado". Nobody else
+  ever sees any of it, and the page shows no count of readers.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as home %}
-  {% include "events/rotulo/_page_head.html" with title="Planes de lectura" lede="Lecturas de varios días que preparó tu iglesia. Lees a tu ritmo: ningún día tiene fecha." back_url=home back_label="Volver a Mi iglesia" %}
+  {% include "events/rotulo/_page_head.html" with title="Planes de lectura" %}
   {% if plans %}
     <ul class="rows">
       {% for plan in plans %}
         <li class="row row--lead row--stack">
+          <span class="hoy__icono" aria-hidden="true">{% icon "plan" %}</span>
           <div class="row__main">
             <p class="row__title"><a href="{% url 'resources:plan_detail' plan.pk %}">{{ plan.title }}</a></p>
-            <p class="row__meta">{{ plan.day_words|capfirst }}.{% if plan.author_line %} {{ plan.author_line }}.{% endif %}{% if plan.is_retired %} Tu iglesia lo retiró; tú puedes terminarlo.{% endif %}</p>
+            <p class="row__meta{% if plan.started %} row__meta--con-marca{% endif %}">{% if plan.finished %}{% status "completada" "Terminado" %}{% elif plan.started and plan.next_position > 1 %}{% status "en_curso" "En curso" %}{% endif %}<span>{{ plan.day_words|capfirst }}.{% if plan.author_line %} {{ plan.author_line }}.{% endif %}{% if plan.is_retired %} Tu iglesia lo retiró; tú puedes terminarlo.{% endif %}</span></p>
           </div>
-          {% if plan.started %}
+          {% if plan.started and not plan.finished %}
             <div class="row__end">
-              {% if plan.finished %}{% status "completada" "Terminado" %}{% else %}{% status "en_curso" "En curso" %}
-                <a class="btn btn--secondary btn--small" href="{% url 'resources:plan_day' plan.pk plan.next_position %}">Continuar en el día {{ plan.next_position }}<span class="visually-hidden"> de {{ plan.title }}</span></a>
-              {% endif %}
+              <a class="btn btn--secondary btn--small" href="{% url 'resources:plan_day' plan.pk plan.next_position %}">{% if plan.next_position == 1 %}Leer el día 1{% else %}Continuar en el día {{ plan.next_position }}{% endif %}<span class="visually-hidden"> de {{ plan.title }}</span></a>
             </div>
           {% endif %}
         </li>
       {% endfor %}
     </ul>
-    <p class="aside-note">Lo que empiezas y lo que lees es solo para ti: nadie más lo ve.</p>
+    <p class="aside-note">Lees a tu ritmo: ningún día tiene fecha. Lo que empiezas y lo que lees es solo para ti: nadie más lo ve.</p>
   {% else %}
     <p class="empty-line">Tu iglesia todavía no publica planes de lectura. Cuando publique el primero, lo vas a encontrar aquí.</p>
   {% endif %}

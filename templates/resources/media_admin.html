@@ -3,9 +3,10 @@
 {% block page_title %}Administrar los recursos{% endblock %}
 {% block content %}
 {% comment %}
-  Every resource of the church (resources.views.media_admin): the published ones first, then the retired ones.
-  A published row opens the resource to correct it (retiring it is on that page). A retired one is not deleted and
-  is not edited: a new one is added instead.
+  Every resource of the church (resources.views.media_admin), on the row specification: the published ones first,
+  then the retired ones. A published row opens the resource to correct it (retiring it is on that page); its state is
+  a word under the title and its one trailing action shows it on, or takes it off, the church's public home (sitio).
+  A retired one is not deleted and is not edited: a new one is added instead.
 {% endcomment %}
 <div class="narrow">
   {% url 'resources:media_create' as create %}
@@ -17,13 +18,14 @@
     <ul class="rows">
       {% for item in items %}
         <li class="row row--lead row--stack">
+          {% include "resources/_media_mark.html" %}
           <div class="row__main">
             <p class="row__title">{% if item.is_retired %}{{ item.title }}{% else %}<a href="{% url 'resources:media_edit' item.pk %}">{{ item.title }}</a>{% endif %}</p>
+            <p class="row__meta row__meta--con-marca">{% if item.is_retired %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}{% if item.pk in public_ids and not item.is_retired %}<span><strong>En la página pública:</strong> cualquiera lo puede ver, sin cuenta.</span>{% endif %}</p>
             {% include "resources/_media_facts.html" with item=item %}
-            {% if item.pk in public_ids and not item.is_retired %}<p class="row__meta"><strong>En la página pública:</strong> cualquiera lo puede ver, sin cuenta.</p>{% endif %}
           </div>
           <div class="row__end">
-            {% if item.is_retired %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}
+            {% if not item.is_retired %}
               {% if item.pk in public_ids %}
               <form method="post" action="{% url 'sitio:media_hide' item.pk %}" class="row__form">{% csrf_token %}<button class="btn btn--secondary btn--small" type="submit">Quitar de la página pública<span class="visually-hidden">: {{ item.title }}</span></button></form>
               {% else %}

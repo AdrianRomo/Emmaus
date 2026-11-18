@@ -3,11 +3,12 @@
 {% block page_title %}{% if today_page or not devotional %}Devocional de hoy{% else %}{{ devotional.title }}{% endif %}{% endblock %}
 {% block content %}
 {% comment %}
-  One devotional as a page to read (resources.views.devotional_today, devotional_detail): its title, then its day,
-  its passage and who signs it as facts, then its words. The body is plain text: it is escaped and only its line
-  breaks are kept. "Marcar como leído" is the person's own mark and becomes the word "Leído": nobody else ever sees
-  it, and this page shows no count of readers. The administration may open a draft or a scheduled one: it says so
-  and has nothing to mark.
+  One devotional as a page to read (resources.views.devotional_today, devotional_detail): its title, its verse (the
+  passage, in the serif italic of a verse, .verso: only the citation, never the Bible's text, decision 0014), then
+  its day and who signs it as facts, then its words. The body is plain text: it is escaped and only its line breaks
+  are kept. "Marcar como leído" is the person's own mark and acts in place (#leido; resources.views.devotional_read
+  returns to this page): it becomes the word "Leído". Nobody else ever sees it, and this page shows no count of
+  readers. The administration may open a draft or a scheduled one: it says so and has nothing to mark.
 {% endcomment %}
 <div class="narrow reading">
   {% url 'resources:devotional_list' as archive %}
@@ -20,28 +21,30 @@
     <header class="page-head">
       <div class="page-head__text">
         <h1 class="voice page-head__title">{{ devotional.title }}</h1>
+        {% if devotional.passage %}<p class="verso devocional__verso"><span class="visually-hidden">Lectura: </span>{{ devotional.passage }}</p>{% endif %}
         <ul class="meta page-head__meta">
           {% if devotional.state == "borrador" %}<li>{% status "borrador" "Borrador" %}</li>{% elif devotional.state == "programado" %}<li>{% status "por_evaluar" "Programado" %}</li>{% endif %}
           {% now "Y-m-d" as today_iso %}{% now "Y" as this_year %}
           <li>{% icon "calendario" "sm" %}{% if devotional.date|date:"Y-m-d" == today_iso %}Hoy, {% endif %}{{ devotional.date|weekday_date }}{% if devotional.date|date:"Y" != this_year %} de {{ devotional.date|date:"Y" }}{% endif %}</li>
-          {% if devotional.passage %}<li>{% icon "lectura" "sm" %}<span class="visually-hidden">Lectura: </span>{{ devotional.passage }}</li>{% endif %}
           {% if devotional.author_name %}<li>{% icon "personas" "sm" %}<span class="visually-hidden">Escrito por </span>{{ devotional.author_name }}</li>{% endif %}
         </ul>
       </div>
     </header>
-    {% if today_page and not devotional.is_today %}<div class="notice notice--quiet"><p>Hoy no hay devocional nuevo. Este es el más reciente.</p></div>{% endif %}
+    {% if today_page and not devotional.is_today %}<p class="aside-note">Hoy no hay devocional nuevo. Este es el más reciente.</p>{% endif %}
     {% if devotional.state == "borrador" %}<p class="aside-note">Solo lo ve la administración de la iglesia.</p>
     {% elif devotional.state == "programado" %}<p class="aside-note">Hasta su día solo lo ve la administración de la iglesia.</p>{% endif %}
     <div class="block prose">{{ devotional.body|linebreaks }}</div>
     {% if devotional.is_readable %}
-      {% if devotional.is_read %}
-        <p class="reading__done">{% status "completada" "Leído" %}</p>
-      {% else %}
-        <form method="post" action="{% url 'resources:devotional_read' devotional.pk %}">
-          {% csrf_token %}
-          <div class="form-actions"><button class="btn btn--primary" type="submit">Marcar como leído</button></div>
-        </form>
-      {% endif %}
+      <div id="leido" class="lectura__marca">
+        {% if devotional.is_read %}
+          <p class="reading__done" data-inline-focus tabindex="-1">{% status "completada" "Leído" %}</p>
+        {% else %}
+          <form class="form-actions" method="post" action="{% url 'resources:devotional_read' devotional.pk %}" data-inline="leido">
+            {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}">
+            <button class="btn btn--primary btn--large" type="submit">Marcar como leído</button>
+          </form>
+        {% endif %}
+      </div>
       <p class="aside-note">Esta marca es solo para ti: nadie más ve qué has leído.</p>
     {% endif %}
     {% if today_page %}<p class="more"><a href="{{ archive }}">Devocionales anteriores</a></p>{% endif %}

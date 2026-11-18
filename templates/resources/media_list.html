@@ -5,7 +5,8 @@
 {% comment %}
   Recursos (resources.views.media_list): what the church preached, sang or taught, newest first, fifty to a page
   (the filter by kind and the series travel in each page's link).
-  Each one is a link that opens on the site that hosts it and says where it goes; nothing is embedded. The filter
+  Each one has its kind's mark in the leading slot and one trailing action, the link that opens on the site that
+  hosts it and says where it goes; nothing is embedded. The filter
   by kind appears only when there is more than one kind; the series of a resource narrows the list to that series.
 {% endcomment %}
 <div class="narrow">
@@ -36,6 +37,7 @@
     <ul class="rows">
       {% for item in items %}
         <li class="row row--lead row--stack">
+          {% include "resources/_media_mark.html" %}
           <div class="row__main">
             <p class="row__title">{{ item.title }}</p>
             {% if series %}{% include "resources/_media_facts.html" with item=item %}{% else %}{% include "resources/_media_facts.html" with item=item series_link=True %}{% endif %}
