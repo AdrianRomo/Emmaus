@@ -38,6 +38,10 @@ CONSENT_RETENTION_MONTHS = 24
 # is NOT approved legal text; the church's leadership and its adviser approve it (issue #75). A new
 # version makes the authorizations recorded under an older one stop confirming a new sign-up.
 CONSENT_POLICY_VERSION = "borrador-2026-11"
+# Hours somebody on an event's waiting list has to accept a place that was offered (decision 0011).
+# Under the floor a person who reads the notice at night would lose the place before the morning.
+WAITING_OFFER_HOURS = 48
+WAITING_OFFER_HOURS_FLOOR = 12
 
 # The lowest and highest value a church may store, by column of ``policies.ChurchPolicy``.
 BOUNDS = {
@@ -105,6 +109,16 @@ def minors_consent_default(church=None) -> bool:
     """Whether "Los menores de edad necesitan autorización" starts switched on when the
     administration creates the page of an event. Each event still decides for itself."""
     return _stored(church).get("minors_need_consent_by_default") is True
+
+
+def waiting_offer_hours(church=None) -> int:
+    """Hours an offered place of an event's waiting list is held for the person before it goes to
+    the next one. One value for every church today (``settings.EMMAUS_WAITING_OFFER_HOURS`` for an
+    operator), never under the floor."""
+    hours = getattr(settings, "EMMAUS_WAITING_OFFER_HOURS", WAITING_OFFER_HOURS)
+    if isinstance(hours, bool) or not isinstance(hours, int):
+        return WAITING_OFFER_HOURS
+    return max(WAITING_OFFER_HOURS_FLOOR, hours)
 
 
 def attendance_retention(church=None) -> AttendanceRetention:
