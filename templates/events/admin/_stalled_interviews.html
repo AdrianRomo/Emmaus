@@ -1,0 +1,10 @@
+{% load emmaus %}
+{% comment %}Administration home (issue #47): the interviews left half done, to resolve before the event ends. Only when there are some.{% endcomment %}
+{% if stalled_total %}
+  <section class="admin-state" aria-labelledby="entrevistas-interrumpidas">
+    <h2 id="entrevistas-interrumpidas" class="heading">{{ stalled_total }} entrevista{{ stalled_total|pluralize }} sin terminar</h2>
+    <p class="hint">{{ stalled_total|pluralize:"Lleva,Llevan" }} {% stale_minutes %} minutos o más sin cambios. Antes de terminar el evento, {{ stalled_total|pluralize:"retómala o descártala,retómalas o descártalas" }}: nada se descarta solo.</p>
+    {% include "events/rotulo/_interrupted_rows.html" with rows=stalled_interviews show_coordinator=True %}
+    {% if stalled_total > stalled_interviews|length %}<p class="more"><a href="{% url 'events:pending' event.slug %}#interrumpidas">Ver las {{ stalled_total }} entrevistas interrumpidas</a></p>{% endif %}
+  </section>
+{% endif %}

@@ -980,9 +980,12 @@ def settings_view(request, event, access):
     basics = EventForm(request.POST if request.POST.get("form") == "basics" else None, instance=Event.objects.get(pk=event.pk), prefix="basics")
     settings_form = EventSettingsForm(request.POST if request.POST.get("form") == "settings" else None, instance=event, prefix="cfg")
     procedures = ProceduresForm(request.POST if request.POST.get("form") == "procedures" else None)
+    closing_open = []
     if request.method == "POST":
         which = request.POST.get("form")
         target = {"basics": basics, "settings": settings_form, "procedures": procedures}.get(which)
+        if which == "basics" and basics.is_valid():
+            closing_open = _open_before_closing(request, event, basics)
         if target is not None and target.is_valid():
             slug = event.slug
             if which == "procedures":
@@ -1001,8 +1004,36 @@ def settings_view(request, event, access):
     return render(
         request,
         "events/admin/settings.html",
-        {"basics": basics, "settings_form": settings_form, "procedures": procedures, "stations": event.stations.all()},
+        {"basics": basics, "settings_form": settings_form, "procedures": procedures, "stations": event.stations.all(),
+         "closing_open": closing_open},
     )
+
+
+FINISHED_STATUSES = (Event.Status.CLOSED, Event.Status.ARCHIVED)
+
+
+def _open_before_closing(request, event, basics) -> list:
+    """Ending an event lists its interviews still in progress first (issue #47).
+
+    The first try to move the event to "Terminado" or "Archivado" while some are in progress saves nothing: the
+    form comes back with an error on "Estado" and the list, each row with "Retomar" and "Descartar", and a box to
+    end it anyway. Nothing is discarded here, and ending the event changes no interview.
+    """
+    from ..services.metrics import mark_stalled
+
+    if basics.cleaned_data.get("status") not in FINISHED_STATUSES or event.status in FINISHED_STATUSES:
+        return []
+    if request.POST.get("cerrar_con_entrevistas") == "si":
+        return []
+    rows = mark_stalled(
+        Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS)
+        .select_related("participant__coordinator__user", "station", "version")
+        .order_by("last_activity_at")
+    )
+    if rows:
+        count = "1 entrevista sigue en curso" if len(rows) == 1 else f"{len(rows)} entrevistas siguen en curso"
+        basics.add_error("status", f"{count}. Revísalas abajo antes de terminar el evento, o marca la casilla para terminarlo así.")
+    return rows
 
 
 @event_view(ADMIN, PASTOR)

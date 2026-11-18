@@ -411,6 +411,16 @@ def stale_interviews(participants, *, now: datetime | None = None):
     )
 
 
+def mark_stalled(interviews, *, now: datetime | None = None) -> list:
+    """The interviews as a list, each with ``stalled``: in progress and idle for STALE_MINUTES or more (the rule of
+    ``stale_interviews``), so a row says "Interrumpida" or "En curso" with one rule."""
+    limit = (now or timezone.now()) - timedelta(minutes=STALE_MINUTES)
+    rows = list(interviews)
+    for interview in rows:
+        interview.stalled = interview.status == Interview.Status.IN_PROGRESS and interview.last_activity_at < limit
+    return rows
+
+
 def teams(scope: Scope) -> list[dict]:
     if not scope.is_event:
         return []

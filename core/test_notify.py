@@ -25,7 +25,7 @@ TEMPLATES = Path(settings.BASE_DIR) / "templates" / "notify"
 LOCMEM = "django.core.mail.backends.locmem.EmailBackend"
 CONSOLE = "django.core.mail.backends.console.EmailBackend"
 
-KINDS = {"solicitud_grupo_recibida", "solicitud_grupo_decidida", "solicitud_contacto_recibida"}
+KINDS = {"solicitud_grupo_recibida", "solicitud_grupo_decidida", "solicitud_contacto_recibida", "seguimientos_pendientes"}
 LINK = "https://emmaus.example.org/grupos/solicitudes/"
 CONTEXT = {"church_name": "Iglesia Fe & Esperanza", "link": LINK}
 
@@ -51,6 +51,13 @@ EXPECTED_BODIES = {
         "Entra a Emmaus para ver la solicitud y darle seguimiento:\n\n"
         f"{LINK}\n\n"
         "Por privacidad, este correo no incluye el nombre de la persona, cómo contactarla ni lo que escribió."
+    ),
+    "seguimientos_pendientes": (
+        "Hola:\n\n"
+        "Tienes seguimientos abiertos a tu cargo en Iglesia Fe & Esperanza. "
+        "Entra a Emmaus para ver cuáles son y atenderlos:\n\n"
+        f"{LINK}\n\n"
+        "Por privacidad, este correo no incluye nombres, motivos ni respuestas."
     ),
 }
 
