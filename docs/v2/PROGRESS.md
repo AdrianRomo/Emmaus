@@ -2,6 +2,72 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-17, night — Wave 4: the owner's decisions, built (branch `v2/wave-4-decisions`)
+
+The owner answered issues #64 and #66–#71 in one message. Their answers are decisions 0009–0014;
+the issues are closed. The two earlier branches were pushed as draft pull requests #73 and #74
+after scanning the diff for secrets, personal data and migration risk.
+
+### Shipped (working, tested, for churches with the `community` module on)
+
+| Piece | Decision | Where |
+|---|---|---|
+| The migration freeze on `core/` and `events/` is lifted; the gate fails only what is not additive | 0013 | `scripts/agents/check-migration-scope.sh` |
+| A simple event, created in the agenda without the camp's form; it never opens a camp screen | 0013 | `agenda/simple.py`, `events/0013` (`Event.camp_tools`) |
+| Event FAQ and programme | 0014 | `agenda` |
+| Walk-ups: somebody who arrived is registered without an account; a visitor can be added to Personas | 0011 | `agenda` |
+| A minor's registration waits ("Pendiente de autorización") until a guardian's authorization is recorded | 0010 | `agenda.GuardianConsent` |
+| Notice levels (normal, importante, urgente), "Enterado" with a count, "Compartir por WhatsApp" with a generic text | 0012 | `notices` |
+| Panorama: totals of groups, events, serving and follow-ups for the pastor; no names | 0009 | app `overview` |
+| "Tu asistencia" on a member's group page; `prune_attendance` (12 months identifiable, 24 as totals; dry run) | 0009 | `groups` |
+| Opinions after an event: three questions, once, without a name; results after 14 days and from 3 answers | 0014 | app `feedback` |
+
+Three slices were built by sub-agents in their own worktrees from written specifications, then
+merged, wired into the shell, the home and the admin list, seeded and looked at here.
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `b44daaa`, 2026-11-17T23:35Z (the commit
+after it holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                0  System check identified no issues (0 silenced).
+migrations      PASS                1  No changes detected
+deploy-check    PASS                0  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: 15 migration(s) added or changed since f72d4f6, all additive
+pip-audit       PASS                2  No known vulnerabilities found
+tests-sqlite    PASS              134  1853 passed, 6 skipped
+tests-postgres  PASS              208  1848 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              443  browser gate OK
+overall: PASS
+```
+
+- The community journey in that run: 244 checks, 0 problems. It now visits Panorama, the FAQ, the
+  programme, the opinions and the walk-up page, and creates a simple event.
+- An independent read-only review found no authorization or tenant-isolation defect and ten
+  others, fixed in `b44daaa` with tests. The serious ones: recognizing a visitor as a known minor
+  confirmed them without an authorization; opinions could be paired with people by row order, and
+  results that grew live showed each new answer; the invitation to give an opinion vanished when
+  anybody else was marked absent; saving attendance from an old page marked later walk-ups absent.
+- Looked at as rendered screenshots by me: the events' admin list (390, 1440), Inscritos with
+  visitors and a pending minor (1440), Panorama as a pastor (1440), Mi iglesia with an important
+  notice and the opinion invitation (390). The agents looked at about a third of their own
+  screenshots; every new page passed axe at 390 and 1440 in their runs.
+- Not verified: 768 px on the agenda's new pages; the opinion form and its results by eye; a
+  real two-connection race on capacity; `prune_attendance` against real volumes; Codex review;
+  anything on the sandbox or production hosts; CI on the pull requests.
+
+### Not done, and why
+
+- **Two release gates** (decision 0014): minors' registration (#75) and named pastoral access to
+  attendance (#76, not built). A member types their own date of birth and nothing verifies it.
+- Waiting list, e-mail notices, church-level policy settings, household sign-up, payments,
+  guardian accounts, photos, check-in, giving: later in the owner's order (handoff, "Next").
+- `serving` still decides who coordinates by its own rows.
+- Small defaults taken without asking are listed in #77.
+
 ## 2026-11-17, last — Redesign, wave 3: serving and accompanying (same branch)
 
 ### Shipped (working, tested, for churches with the `community` module on)

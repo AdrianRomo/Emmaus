@@ -10,8 +10,11 @@
 <div class="narrow">
   {% url 'community:group_meetings' group.pk as back %}
   {% include "events/rotulo/_page_head.html" with title="¿Quién vino el "|add:day_words|add:"?" lede=group.name back_url=back back_label="Volver a las reuniones" %}
-  {% if meeting %}<div class="notice notice--quiet"><p>Este día ya tiene lista. Puedes corregirla y guardarla otra vez.</p></div>{% endif %}
-  {% if members %}
+  {% if meeting.names_deleted %}
+    <div class="notice notice--quiet"><p>{% if meeting.present_kept == 1 %}Vino 1 persona{% else %}Vinieron {{ meeting.present_kept }} personas{% endif %} de {{ meeting.expected }}. La lista de quién vino se borró por antigüedad: de las reuniones de hace más de un año solo se conservan los totales.</p></div>
+  {% elif meeting %}<div class="notice notice--quiet"><p>Este día ya tiene lista. Puedes corregirla y guardarla otra vez.</p></div>{% endif %}
+  {% if meeting.names_deleted %}
+  {% elif members %}
   <form method="post">
     {% csrf_token %}
     <fieldset>

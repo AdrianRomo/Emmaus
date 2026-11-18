@@ -172,12 +172,12 @@ def person_access_link(request, person_id: int):
 
 # ---- from an event: campero -> person -----------------------------------------------------------
 def _over_events(request):
-    events = Event.objects.filter(church=request.church).order_by("-starts_on", "name")
+    events = Event.objects.filter(church=request.church, camp_tools=True).order_by("-starts_on", "name")
     return [event for event in events if services.event_is_over(event)]
 
 
 def _event_access(request, slug: str):
-    event = get_object_or_404(Event, slug=slug, church=request.church)
+    event = get_object_or_404(Event, slug=slug, church=request.church, camp_tools=True)
     access = resolve_access(request.user, event)
     if access is None or not access.can_manage_event:
         raise PermissionDenied

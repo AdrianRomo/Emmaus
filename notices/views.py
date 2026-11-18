@@ -5,11 +5,18 @@ module off or without a person in the church) and fetches inside ``request.churc
 another church is a 404. Who writes: the administration to the whole church; who can manage a
 group (its guides, the administration) to that group. Who reads: ``services.visible_to``. Hiding
 a link is not the rule: each view asks again. No e-mail is sent.
+
+"Compartir por WhatsApp" hands the person a message to send themselves. It carries the church's
+name and the address of the notice's page, which asks for the account and answers by the same rules
+as here; it never carries the title or the body, because a message can be forwarded to anybody.
 """
+
+from urllib.parse import quote
+
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.http import Http404
+from django.http import Http404, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import formats, timezone
@@ -46,7 +53,8 @@ def _can_edit(request, notice: Announcement) -> bool:
 
 
 def _notice(request, notice_id: int) -> Announcement:
-    return get_object_or_404(Announcement.objects.filter(church=request.church).select_related("group"), pk=notice_id)
+    notices = Announcement.objects.filter(church=request.church).select_related("group", "created_by")
+    return get_object_or_404(notices, pk=notice_id)
 
 
 def _editable(request, notice_id: int) -> Announcement:
@@ -57,6 +65,33 @@ def _editable(request, notice_id: int) -> Announcement:
     if services.visible_to(request.person, is_admin=False).filter(pk=notice.pk).exists():
         raise PermissionDenied
     raise Http404
+
+
+def _published_by(request, notice: Announcement) -> str:
+    """Who speaks, without a name: the church, or whoever guides the group. Only a guide or the
+    administration writes to a group, so an author who is not the administration is a guide."""
+    author = notice.created_by
+    if notice.group_id and author is not None:
+        if not has_scope(author, request.church, "church", request.church.pk, Action.MANAGE):
+            return f"Publicado por quien guía {notice.group.name}"
+    return "Publicado por la iglesia"
+
+
+def _share_url(request, notice: Announcement) -> str:
+    """A WhatsApp message the person sends: the church, that there is a notice, and where to read
+    it after signing in. Nothing of the notice itself and nothing that opens it without an account."""
+    link = request.build_absolute_uri(reverse("notices:detail", args=[notice.pk]))
+    text = f"{request.church.name}: hay un aviso nuevo en Emmaus. Entra con tu cuenta para leerlo: {link}"
+    return "https://wa.me/?text=" + quote(text, safe="")
+
+
+def _acknowledged_line(notice: Announcement) -> str:
+    done, total = services.acknowledgement_count(notice)
+    if total < 3:  # with one or two readers the number would say who
+        return "Este aviso es para menos de 3 personas con cuenta: aquí no se cuenta cuántas dijeron «Enterado»."
+    if total == 1:
+        return f"{done} de 1 persona dijo «Enterado»."
+    return f"{done} de {total} personas dijeron «Enterado»."
 
 
 def _day(day) -> str:
@@ -86,7 +121,31 @@ def notice_detail(request, notice_id: int):
         raise Http404
     if readable:
         services.mark_read(notice, request.person)
-    return render(request, "notices/detail.html", {"notice": notice, "can_edit": can_edit})
+    context = {"notice": notice, "can_edit": can_edit, "published_by": _published_by(request, notice)}
+    if notice.state == "publicado":
+        context["share_url"] = _share_url(request, notice)
+    if notice.is_urgent:
+        if readable and notice.created_by_id != request.user.pk:
+            answered = services.acknowledged_at(notice, request.person)
+            context["can_acknowledge"] = answered is None
+            context["acknowledged_on"] = timezone.localdate(answered) if answered else None
+        if can_edit:
+            context["acknowledged_line"] = _acknowledged_line(notice)
+    return render(request, "notices/detail.html", context)
+
+
+@community_view
+def notice_acknowledge(request, notice_id: int):
+    """"Enterado" on an urgent notice the person may read now. Anything else does not exist."""
+    notice = _notice(request, notice_id)
+    readable = services.visible_to(request.person, is_admin=request.is_church_admin).filter(pk=notice.pk).exists()
+    if not readable or not notice.is_urgent:
+        raise Http404
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    if services.acknowledge(notice, request.person):
+        messages.success(request, "Listo, anotamos tu «Enterado».")
+    return redirect("notices:detail", notice.pk)
 
 
 @community_view
@@ -111,13 +170,14 @@ def notice_create(request):
         (str(item.pk), item.name) for item in groups
     ]
     initial = {"para": chosen or audiences[0][0]}
-    form = NoticeForm(request.POST or None, audiences=audiences, initial=initial)
+    form = NoticeForm(request.POST or None, audiences=audiences, initial=initial, allow_urgent=request.is_church_admin)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
             notice = services.publish(
                 request.church, request.user, group=group, title=data["title"], body=data["body"],
                 publish_on=data["publish_on"], expires_on=data["expires_on"],
+                priority=data["priority"], by_admin=request.is_church_admin,
             )
         except services.NoticeError as error:
             form.add_error(None, error.message)
@@ -135,13 +195,14 @@ def notice_edit(request, notice_id: int):
     notice = _editable(request, notice_id)
     if notice.is_retired:
         raise Http404
-    form = NoticeForm(request.POST or None, instance=notice)
+    form = NoticeForm(request.POST or None, instance=notice, allow_urgent=request.is_church_admin)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
             services.update(
                 notice, request.user, title=data["title"], body=data["body"],
                 publish_on=data["publish_on"], expires_on=data["expires_on"],
+                priority=data.get("priority"), by_admin=request.is_church_admin,
             )
         except services.NoticeError as error:
             form.add_error(None, error.message)

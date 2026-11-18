@@ -23,6 +23,7 @@ from django.views.decorators.http import require_POST
 from core import notify
 from core.authz import Action, has_scope
 from events.models import normalize_name
+from feedback import services as feedback_services
 from events.services import throttle
 from people import flags
 from people.decorators import module_required
@@ -110,10 +111,12 @@ def home(request):
     to_decide = list(to_decide)
     # Only what the church published for its people (agenda.EventPage), with this person's sign-up.
     upcoming = agenda_services.upcoming_for(person, church, today)[:5]
-    notices = notices_services.for_home(person, is_admin=request.is_church_admin)
+    urgent_notices = notices_services.urgent_pending(person, is_admin=request.is_church_admin)
+    notices = notices_services.for_home(person, is_admin=request.is_church_admin, skip=urgent_notices)
     devotional = resources_services.today_devotional(church, person, today)
     serving_dates = serving_services.my_dates(person, today, limit=3)
     accompanying = care_services.open_count(person)
+    opinions = feedback_services.pending_for(person, church, today)
     media = resources_services.latest_media(church)
     history = person.event_links.select_related("event").order_by("-event__starts_on")
     open_groups = church_groups(church).filter(accepts_requests=True).exists()
@@ -195,9 +198,11 @@ def home(request):
             "people_enabled": request.is_church_admin and flags.enabled(church, "people"),
             "agenda": agenda[:6],
             "notices": notices,
+            "urgent_notices": urgent_notices,
             "devotional": devotional,
             "serving_dates": serving_dates,
             "accompanying": accompanying,
+            "opinions": opinions,
             "media": media,
             "journey": journey,
             "missing": missing,
@@ -274,6 +279,8 @@ def group_detail(request, group_id: int):
             "next_meeting": group.next_meeting() if membership else None,
             "can_manage": _can_manage(request, group),
             "members": GroupMembership.objects.filter(group=group, status=ACTIVE).count(),
+            # Only the reader's own rows, and only to them: nobody else's attendance is on this page.
+            "attendance": services.own_attendance(membership) if membership and group.is_active else [],
         },
     )
 
@@ -446,7 +453,7 @@ def group_meetings(request, group_id: int):
             messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
             return redirect("community:group_meetings", group.pk)
         return redirect("community:meeting_record", group.pk, day.isoformat())
-    meetings = list(group.meetings.annotate(present=Count("attendances"))[:12])
+    meetings = list(services.with_present(group.meetings.all())[:12])
     return render(
         request,
         "groups/group_meetings.html",
@@ -466,6 +473,12 @@ def meeting_record(request, group_id: int, day: str):
     if day > timezone.localdate():
         raise Http404
     meeting = GroupMeeting.objects.filter(group=group, date=day).first()
+    if meeting and meeting.names_deleted:
+        # Who came was deleted for its age (prune_attendance): the totals are read, the list is not written again.
+        if request.method == "POST":
+            messages.error(request, services.NAMES_DELETED)
+            return redirect("community:group_meetings", group.pk)
+        return render(request, "groups/meeting_record.html", {"group": group, "day": day, "day_words": _weekday_date(day), "meeting": meeting, "members": []})
     members = list(GroupMembership.objects.filter(group=group, status=ACTIVE).select_related("person"))
     if request.method == "POST":
         try:

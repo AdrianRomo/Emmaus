@@ -1,6 +1,6 @@
-# Migration governance while the camp runs on main (docs/decisions/0005): a PR against
-# v2/foundation must not add migrations under core/ or events/. Its own workflow so that adding or
-# removing the bypass label `area:camp` reruns the guard (a label change does not rerun CI).
+# Migration governance on the v2 branches (docs/decisions/0013): a PR against v2/foundation adds
+# only additive migrations. Its own workflow so that adding or removing the bypass label `risk:high`
+# reruns the guard (a label change does not rerun CI).
 name: Migration scope
 
 on:
@@ -17,12 +17,12 @@ concurrency:
 
 jobs:
   guard:
-    name: No core/ or events/ migrations on v2 branches
+    name: Only additive migrations on v2 branches
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       BASE: origin/${{ github.base_ref }}
-      ALLOW_CAMP_MIGRATIONS: ${{ contains(github.event.pull_request.labels.*.name, 'area:camp') }}
+      ALLOW_DESTRUCTIVE_MIGRATIONS: ${{ contains(github.event.pull_request.labels.*.name, 'risk:high') }}
     steps:
       - uses: actions/checkout@v4
         with:

@@ -361,6 +361,8 @@ class AdministrationTests(AgendaFixture):
         for person, user in ((self.member, self.member_user), (self.leader, self.leader_user), (self.asked, self.asked_user)):
             services.register(self.retiro, person, user)
         services.cancel(EventRegistration.objects.get(person=self.asked), self.asked_user)
+        ids = {row.person_id: row.pk for row in EventRegistration.objects.all()}  # the form sends registration ids
+        other = services.register(self.retiro_b, self.member_b, self.member_b_user)
         self.move(self.retiro, 0, 2)
         self.client.force_login(self.admin)
         page = self.client.get(self.url("registrations"))
@@ -368,10 +370,11 @@ class AdministrationTests(AgendaFixture):
         self.assertNotContains(page, "checked")
         response = self.client.post(
             self.url("registrations"),
-            {"vino": [self.member.pk, self.asked.pk, self.no_account.pk, self.member_b.pk, "x"]}, follow=True,
+            {"vino": [ids[self.member.pk], ids[self.asked.pk], other.pk, 999999, "x"]}, follow=True,
         )
         self.assertContains(response, "Vino 1 de 2 inscritos.")
-        rows = {row.person_id: row for row in EventRegistration.objects.all()}
+        self.assertIsNone(EventRegistration.objects.get(pk=other.pk).attended)  # another church's row is not touched
+        rows = {row.person_id: row for row in EventRegistration.objects.filter(event=self.retiro)}
         self.assertEqual(len(rows), 3)
         self.assertIs(rows[self.member.pk].attended, True)
         self.assertEqual(rows[self.member.pk].checked_in_by, self.admin)
@@ -379,11 +382,11 @@ class AdministrationTests(AgendaFixture):
         self.assertIs(rows[self.leader.pk].attended, False)
         self.assertIsNone(rows[self.asked.pk].attended)  # cancelled: not on the list
         # Corrected: saving again replaces the answer.
-        response = self.client.post(self.url("registrations"), {"vino": [self.member.pk, self.leader.pk]}, follow=True)
+        response = self.client.post(self.url("registrations"), {"vino": [ids[self.member.pk], ids[self.leader.pk]]}, follow=True)
         self.assertContains(response, "Vinieron 2 de 2 inscritos.")
         self.assertContains(response, "Ya guardaste la asistencia.")
-        self.client.post(self.url("registrations"), {"vino": [self.leader.pk]})
-        rows = {row.person_id: row for row in EventRegistration.objects.all()}
+        self.client.post(self.url("registrations"), {"vino": [ids[self.leader.pk]]})
+        rows = {row.person_id: row for row in EventRegistration.objects.filter(event=self.retiro)}
         self.assertIs(rows[self.member.pk].attended, False)
         self.assertIsNone(rows[self.member.pk].checked_in_at)
         self.assertIs(rows[self.leader.pk].attended, True)
@@ -391,9 +394,9 @@ class AdministrationTests(AgendaFixture):
     def test_audit_rows_carry_ids_and_counts_and_no_contact_data(self):
         registration = services.register(self.retiro, self.member, self.member_user)
         services.cancel(registration, self.member_user)
-        services.register(self.retiro, self.member, self.member_user)
+        registration = services.register(self.retiro, self.member, self.member_user)
         self.move(self.retiro, 0, 2)
-        services.record_attendance(self.retiro, [self.member.pk], self.admin)
+        services.record_attendance(self.retiro, [registration.pk], self.admin)
         rows = list(ChurchAuditEvent.objects.filter(action__startswith="evento_", church=self.church))
         self.assertEqual(
             sorted({row.action for row in rows}),
@@ -403,7 +406,7 @@ class AdministrationTests(AgendaFixture):
             text = f"{row.summary} {row.metadata}"
             for secret in ("55 1111 2222", "5511112222", "diego@prueba.mx", "@"):
                 self.assertNotIn(secret, text)
-            self.assertLessEqual(set(row.metadata), {"event_id", "person_id"})
+            self.assertLessEqual(set(row.metadata), {"event_id", "person_id", "registration_id"})
         attendance = next(row for row in rows if row.action == "evento_asistencia")
         self.assertIn("1 de 1", attendance.summary)
         self.assertNotIn("Diego", attendance.summary)

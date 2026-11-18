@@ -151,6 +151,9 @@ class Event(models.Model):
     join_code = models.CharField("Código para unirse", max_length=8, blank=True, default="", db_default="")
     # The sheet also says the event's name. A new code turns this off, so a sheet that leaked stops working whole.
     join_by_name = models.BooleanField("Se puede entrar con el nombre del evento", default=True, db_default=True)
+    # False: a simple event of the church (a service, a meal, an evening): no camperos, interviews or stations.
+    # It lives in the agenda (its page, sign-ups, programme) and never opens the camp's screens (decision 0013).
+    camp_tools = models.BooleanField("Usa las herramientas de campamento", default=True, db_default=True)
     # Empty: the whole church takes part (every active sede).
     sedes = models.ManyToManyField(Sede, verbose_name="Sedes que participan", blank=True, related_name="events")
 

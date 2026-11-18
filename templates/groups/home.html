@@ -16,6 +16,13 @@
 
 <div class="cols">
   <div class="cols__main">
+    {% for notice in urgent_notices %}
+    <section class="notice notice--danger urgent" aria-labelledby="urgente-{{ notice.pk }}">
+      <h2 id="urgente-{{ notice.pk }}" class="notice__title">Aviso urgente: {{ notice.title }}</h2>
+      <p>{{ notice.body|truncatechars:200 }}</p>
+      <p><a href="{% url 'notices:detail' notice.pk %}">Leer el aviso y responder «Enterado»</a></p>
+    </section>
+    {% endfor %}
     {% if sign %}
     <section class="sign sign--lead" aria-labelledby="que-sigue">
       <div>
@@ -39,7 +46,7 @@
               <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
               <p class="row__meta">{% if notice.group %}Para {{ notice.group.name }}{% else %}Para toda la iglesia{% endif %}, {{ notice.publish_on|day_month }}.</p>
             </div>
-            {% if notice.is_unread %}<div class="row__end">{% status "pendiente" "Nuevo" %}</div>{% endif %}
+            {% if notice.level or notice.is_unread %}<div class="row__end">{% include "notices/_level.html" %}{% if notice.is_unread %}{% status "pendiente" "Nuevo" %}{% endif %}</div>{% endif %}
           </li>
         {% endfor %}
       </ul>
@@ -75,7 +82,7 @@
                   <p class="row__meta">{% if item.event.kind != "otro" %}{{ item.event.get_kind_display }}, {% endif %}{{ item.event.starts_on|date_range:item.event.ends_on }}{% if item.event.page.starts_at %}, a las {{ item.event.page.starts_at|time:"H:i" }}{% endif %}{% if item.event.location %}, en {{ item.event.location }}{% endif %}.</p>
                 {% endif %}
               </div>
-              {% if item.kind == "event" %}{% if item.event.my_registration %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>{% elif item.event.state == "abierta" %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:detail' item.event.slug %}">Inscribirme<span class="visually-hidden"> a {{ item.title }}</span></a></div>{% endif %}{% endif %}
+              {% if item.kind == "event" %}{% if item.event.my_registration %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>{% elif item.event.state == "pendiente" %}<div class="row__end">{% status "pendiente" "Pendiente de autorización" %}</div>{% elif item.event.state == "abierta" %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:detail' item.event.slug %}">Inscribirme<span class="visually-hidden"> a {{ item.title }}</span></a></div>{% endif %}{% endif %}
             </li>
           {% endfor %}
         </ul>
@@ -204,8 +211,15 @@
     {% endif %}
   </div>
 
-  {% if missing or accompanying %}
+  {% if missing or accompanying or opinions %}
   <div class="cols__side">
+    {% for event in opinions %}
+    <section class="quiet" aria-labelledby="opinion-{{ event.pk }}">
+      <h2 id="opinion-{{ event.pk }}" class="quiet__title">¿Cómo estuvo {{ event.name }}?</h2>
+      <p class="quiet__text">Tres preguntas. Tu opinión se guarda sin tu nombre.</p>
+      <a class="btn btn--secondary btn--small" href="{% url 'feedback:give' event.slug %}">Dar mi opinión<span class="visually-hidden"> de {{ event.name }}</span></a>
+    </section>
+    {% endfor %}
     {% if accompanying %}
     <section class="quiet" aria-labelledby="acompanas">
       <h2 id="acompanas" class="quiet__title">{% if accompanying == 1 %}Hay 1 persona que te toca buscar{% else %}Hay {{ accompanying }} personas que te toca buscar{% endif %}</h2>

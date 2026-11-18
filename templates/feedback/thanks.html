@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block page_title %}Gracias por tu opinión{% endblock %}
+{% block content %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Gracias por tu opinión" lede=event.name back_url=back back_label="Volver a Mi iglesia" %}
+  <p class="prose">La recibimos sin tu nombre. Tu iglesia las leerá todas juntas cuando se cierre el plazo para opinar.</p>
+</div>
+{% endblock %}

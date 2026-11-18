@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# Migration governance while the camp runs on main (docs/decisions/0005, roadmap rule 2):
-# a change aimed at v2/foundation must not add migrations under core/migrations/ or
-# events/migrations/, because main (the camp) owns those numbers and the next main -> v2 merge
-# would produce two leaves per app. New data lives in new apps.
+# Migration governance on the v2 branches (docs/decisions/0013, which replaces 0005 now that the
+# camp ended): a branch aimed at v2/foundation may add migrations in any app, core/ and events/
+# included, as long as they are additive. A migration that removes, renames or runs raw SQL can lose
+# the first camp's data, so it fails here until a human labels the PR `risk:high`. So does a RunPython
+# with no reverse and any change to a migration that already existed. Not checked: an AlterField that narrows a column.
 #   Usage: scripts/agents/check-migration-scope.sh [--base origin/v2/foundation]
-#   Exit 0 when no guarded migration is added, 1 otherwise, 0 with a notice when the current
-#   branch IS the base or main. ALLOW_CAMP_MIGRATIONS=true skips the check (CI sets it from the
-#   PR label area:camp; locally only for a reviewed camp fix).
+#   Exit 0 when every added migration is additive, 1 otherwise, 0 with a notice when the current
+#   branch IS the base or main. ALLOW_DESTRUCTIVE_MIGRATIONS=true skips the check (CI sets it from
+#   the PR label risk:high; locally only for a reviewed, dumped-first change).
 . "$(dirname "$0")/lib.sh"
 base="${BASE:-origin/v2/foundation}"
 while [ $# -gt 0 ]; do case "$1" in
   --base) base="$2"; shift;; -h|--help) sed -n '2,9p' "$0"; exit 0;; *) die "unknown option $1";;
 esac; shift; done
 cd "$repo_root"
-if [ "${ALLOW_CAMP_MIGRATIONS:-false}" = "true" ]; then
-  echo "migration scope: skipped (ALLOW_CAMP_MIGRATIONS=true: a reviewed camp fix carrying area:camp)"; exit 0
+if [ "${ALLOW_DESTRUCTIVE_MIGRATIONS:-false}" = "true" ]; then
+  echo "migration scope: skipped (ALLOW_DESTRUCTIVE_MIGRATIONS=true: a reviewed change carrying risk:high)"; exit 0
 fi
 head="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
 case "$head" in main|v2/foundation) echo "migration scope: not applicable on $head"; exit 0;; esac
@@ -22,12 +23,22 @@ if ! git rev-parse --verify --quiet "$base" >/dev/null; then
   echo "migration scope: base $base not found; fetch it first"; exit 1
 fi
 merge_base="$(git merge-base "$base" HEAD)"
-# --no-renames: a file moved or copied into the guarded directories must count as added, not as a rename.
-added="$(git diff --name-only --no-renames --diff-filter=AC "$merge_base" HEAD -- 'core/migrations/*.py' 'events/migrations/*.py' | grep -v '__init__.py' || true)"
-if [ -n "$added" ]; then
-  echo "migration scope FAILED: this branch adds migrations under core/ or events/, which main (the camp) owns while the event runs:"
-  printf '  %s\n' $added
-  echo "Put new tables in a new app (people, access, groups, ...), or label the PR area:camp for a reviewed camp fix (docs/decisions/0005)."
+# --no-renames: a file moved or copied into a migrations directory counts as added, not as a rename.
+added="$(git diff --name-only --no-renames --diff-filter=AC "$merge_base" HEAD -- '*/migrations/*.py' | grep -v '__init__.py' || true)"
+# A migration that already existed on the base may be applied somewhere: changing or deleting it is never additive.
+touched="$(git diff --name-only --no-renames --diff-filter=MD "$merge_base" HEAD -- '*/migrations/*.py' | grep -v '__init__.py' || true)"
+bad="$touched"
+for file in $added; do
+  [ -f "$file" ] || continue
+  if grep -Eq 'migrations\.(RemoveField|DeleteModel|RenameField|RenameModel|AlterModelTable|RunSQL)\b' "$file"; then bad="$bad $file"; continue; fi
+  # RunPython rewrites data: it needs a way back (a reverse function, or RunPython.noop said out loud).
+  if grep -q 'migrations\.RunPython' "$file" && ! grep -Eq 'reverse_code|RunPython\([^)]*,[^)]*\)' "$file"; then bad="$bad $file"; fi
+done
+if [ -n "$bad" ]; then
+  echo "migration scope FAILED: these migrations remove, rename, run raw SQL, rewrite data with no way back, or change a migration that already existed:"
+  printf '  %s\n' $bad
+  echo "Make the change additive (add, backfill, stop reading; drop in a later release), or have a human label the PR risk:high after a dump (docs/decisions/0013)."
   exit 1
 fi
-echo "migration scope OK: no core/ or events/ migration added since $(git rev-parse --short "$merge_base")"
+count="$(printf '%s\n' $added | grep -c . || true)"
+echo "migration scope OK: $count migration(s) added or changed since $(git rev-parse --short "$merge_base"), all additive"

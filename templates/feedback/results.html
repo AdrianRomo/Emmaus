@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Opiniones de {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  What people thought of one event (feedback.views.results), for the administration: totals per answer and the
+  comments, without names, from three opinions on.
+{% endcomment %}
+<div class="narrow">
+  {% url 'agenda:admin_list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Opiniones del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
+  {% if results.open %}
+    <p class="empty-line">{% if results.total == 0 %}Todavía nadie opina{% elif results.total == 1 %}Ya llegó 1 opinión{% else %}Ya llegaron {{ results.total }} opiniones{% endif %}. Quien fue al evento puede opinar hasta el {{ results.closes_on|long_date }}; después de ese día aquí verás los resultados, todos juntos, para que nadie sepa de quién es cada opinión.</p>
+  {% elif results.total == 0 %}
+    <p class="empty-line">Nadie dio su opinión de este evento.</p>
+  {% elif not results.enough %}
+    <p class="empty-line">{% if results.total == 1 %}Hubo 1 opinión{% else %}Hubo {{ results.total }} opiniones{% endif %}. Se muestran solo cuando son al menos 3, para que nadie sepa de quién es cada una.</p>
+  {% else %}
+    <p class="prose">{{ results.total }} personas dieron su opinión. Se guardan sin nombre.</p>
+    <section class="block" aria-labelledby="como-estuvo">
+      <h2 id="como-estuvo" class="heading">¿Cómo estuvo?</h2>
+      <dl class="summary-list">
+        {% for label, count in results.ratings %}<div class="summary-list__row"><dt>{{ label }}</dt><dd>{{ count }}</dd></div>{% endfor %}
+      </dl>
+    </section>
+    <section class="block" aria-labelledby="invitaria">
+      <h2 id="invitaria" class="heading">¿Invitarían a alguien la próxima vez?</h2>
+      <dl class="summary-list">
+        {% for label, count in results.recommends %}<div class="summary-list__row"><dt>{{ label }}</dt><dd>{{ count }}</dd></div>{% endfor %}
+      </dl>
+    </section>
+    <section class="block" aria-labelledby="mejorar">
+      <h2 id="mejorar" class="heading">Qué mejorarían</h2>
+      {% if results.comments %}
+        <ul class="rows">
+          {% for comment in results.comments %}<li class="row"><div class="row__main"><p>{{ comment }}</p></div></li>{% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Nadie escribió un comentario.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
