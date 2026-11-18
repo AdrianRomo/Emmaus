@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.utils import formats, timezone
 from django.views.decorators.http import require_POST
 
+from core.paging import first_rows
 from core.authz import Action, has_scope
 from events.models import normalize_name
 from groups.views import church_admin_view, community_view
@@ -172,17 +173,19 @@ def team(request, team_id: int):
         service_date.people = sorted(service_date.assignments.all(), key=lambda row: (row.person.full_name, row.pk))
         service_date.confirmed = sum(1 for row in service_date.people if row.status == Assignment.Status.ACCEPTED)
     members = list(TeamMembership.objects.filter(team=team, status=ACTIVE).select_related("person").order_by("role", *MEMBER_ORDER))
-    query, found = request.GET.get("q", "").strip(), []
+    query, found, found_total = request.GET.get("q", "").strip(), [], 0
     if request.is_church_admin and query:
         # Only the administration searches the church's people; who coordinates sees only who is in the team.
         found = Person.objects.filter(church=request.church, merged_into__isnull=True)
         for token in normalize_name(query).split():
             found = found.filter(normalized_name__contains=token)
-        found = found.exclude(pk__in=[membership.person_id for membership in members])[:10]
+        # A short list under a search box, which says when it stops (core/paging.py::first_rows)
+        found, found_total = first_rows(found.exclude(pk__in=[membership.person_id for membership in members]), 10)
     return render(
         request,
         "serving/team.html",
-        {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found},
+        {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found,
+         "found_total": found_total},
     )
 
 

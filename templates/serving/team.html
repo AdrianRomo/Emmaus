@@ -109,6 +109,7 @@
             </li>
           {% endfor %}
         </ul>
+        {% if found_total > found|length %}<p class="list-count">Estas son las primeras {{ found|length }} de {{ found_total }} personas con ese nombre. Escribe más del nombre para encontrar a quien buscas.</p>{% endif %}
       {% else %}
         <p class="empty-line">Nadie de la iglesia se llama así, o ya está en el equipo.</p>
       {% endif %}
