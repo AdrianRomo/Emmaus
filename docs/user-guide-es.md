@@ -197,7 +197,7 @@ En la ficha de un campero, la administración ve:
 
 En **"Camperos"**, **"Descargar la lista de camperos"** baja la lista sin respuestas (también está en **"Inicio"**, en "Descargas recientes"); si el campamento usa varios cuestionarios, la columna "Entrevista" dice cuántos lleva cada campero ("0 de 2 cuestionarios", "En curso, 1 de 2", "2 de 2 cuestionarios"), igual que la lista. Cada descarga queda registrada.
 
-**Descargar las respuestas de todos los camperos.** En **"Configuración"**, sección **"Exportar datos"**, **"Descargar las respuestas"** baja un archivo CSV (`respuestas-campamento-2026-20261028-1530.csv`) para abrirlo en Excel. Trae un renglón por campero, también los que ya no participan, con sus datos de registro (número, nombre, edad, cuarto, iglesia o grupo, sede, coordinador, si participa, si tiene la autorización de su padre, madre o tutor legal, vacío para los mayores de edad y para todos si el campamento no la pide, y fecha de registro) y, por cada cuestionario del campamento, en su orden y con su título: el estado de su entrevista ("Sin entrevista", "En curso" o "Completada"), cuándo se completó y una columna por pregunta con la respuesta en palabras, en el orden del cuestionario ("Familia, Bienestar emocional", "Prefiero no responder"), vacía si no la respondió. Una entrevista descartada no cuenta. Si el campamento cambió a una versión nueva de un cuestionario, las respuestas dadas en la anterior quedan bajo la pregunta con el mismo identificador interno; las de preguntas que la versión nueva ya no tiene no salen. El enlace también está en **"Camperos"**, abajo, y en **"Inicio"**, en "Descargas recientes".
+**Descargar las respuestas de todos los camperos.** En **"Configuración"**, sección **"Exportar datos"**, **"Descargar las respuestas"** baja un archivo CSV (`respuestas-campamento-2026-20261028-1530.csv`) para abrirlo en Excel. Trae un renglón por campero, también los que ya no participan, con sus datos de registro (número, nombre, edad, cuarto, iglesia o grupo, sede, coordinador, si participa, si tiene la autorización de su padre, madre o tutor legal, vacío para los mayores de edad y para todos si el campamento no la pide, y fecha de registro) y, por cada cuestionario del campamento, en su orden y con su título: el estado de su entrevista ("Sin entrevista", "En curso" o "Completada"), cuándo se completó y una columna por pregunta con la respuesta en palabras, en el orden del cuestionario ("Familia, Bienestar emocional", "Prefirió no responder"), vacía si quedó en blanco. Una entrevista descartada no cuenta. Si el campamento cambió a una versión nueva de un cuestionario, las respuestas dadas en la anterior quedan bajo la pregunta con el mismo identificador interno; las de preguntas que la versión nueva ya no tiene no salen. El enlace también está en **"Camperos"**, abajo, y en **"Inicio"**, en "Descargas recientes".
 
 Solo lo descarga la administración con acceso confidencial, porque trae todas las respuestas, también las confidenciales; sin ese acceso, **"Configuración"** dice "Solo quien tiene acceso confidencial puede descargar las respuestas." Cada descarga queda en el registro de actividad y en "Descargas recientes" ("Descargó las respuestas de todos los camperos (CSV)"), sin nombres. Es la manera de guardar las respuestas antes de que Emmaus las borre al terminar los **"Días que se conservan las respuestas después del evento"**. El archivo ya no lo cuida Emmaus: guárdalo donde la iglesia guarda sus datos confidenciales y bórralo cuando ya no lo necesites.
 
@@ -303,7 +303,7 @@ La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te p
 1. En el panel de **"Mi inicio"** escribe el número del campero o las primeras letras de su nombre y de su apellido (por ejemplo, "mat jim" para Mateo Jiménez) y toca **"Buscar"**. Desde **"Entrevistas pendientes"**, toca **"Iniciar entrevista"**.
 2. Toca **"Entrevistar"** (o **"Retomar"** si ya la habías empezado). También puedes tocar "Entrevistar" junto a un nombre en "Por entrevistar".
 3. Se abre **"Antes de empezar"**:
-   * **¿Es la persona correcta?** Revisa nombre, edad, cuarto y grupo. Si algo está mal, toca "Corregir datos del campero".
+   * **¿Es la persona correcta?** Revisa nombre, edad, cuarto y grupo y marca **"Sí, es ..."** con su nombre: sin esa casilla la entrevista no empieza. Si algo está mal, toca "Corregir datos del campero". Se pregunta una sola vez: al retomar la entrevista, tomar el control en otra computadora o recuperar la computadora después de una entrevista a solas no se vuelve a preguntar, y la revisión y la ficha dicen quién lo confirmó y cuándo ("Identidad confirmada por ..., 18 nov, 10:02.").
    * **Autorización.** Toca "Leer el aviso de privacidad para explicárselo" y léeselo con calma. Después marca las casillas:
      * Si es **menor de edad** y no hay autorización registrada: "Tengo la autorización firmada de su padre, madre o tutor legal". **Márcala solo si viste el formato firmado.** Si no lo tienes, no inicies la entrevista.
      * Si es **menor**: "Le expliqué el aviso de privacidad a ... y está de acuerdo en conversar".
@@ -321,7 +321,7 @@ Si aparece "Todavía no se pueden iniciar entrevistas" (en "Mi inicio" o en la b
 
 * Aparece **una pregunta por pantalla**. Arriba dice en qué pregunta vas (por ejemplo, "Pregunta 3 de 9") y el nombre de la sección.
 * A veces, según la respuesta, aparece una pregunta más en la misma pantalla (por ejemplo, si dice que sí tiene dudas, se abre un espacio para contarlas).
-* Debajo de las opciones, después de "o bien", está **"Prefiero no responder"**. Siempre se puede elegir.
+* Cada pregunta tiene **"Prefiero no responder"**: debajo de las opciones, después de "o bien"; en las de texto, debajo del espacio para escribir. Siempre se puede elegir. Ninguna pregunta es obligatoria: si el campero no quiere contestar, elige "Prefiero no responder" o deja la pregunta en blanco y sigue.
 * Las preguntas marcadas **"Confidencial"**, con la frase "Solo el equipo de cuidado autorizado podrá leer esta respuesta.", son privadas: después de terminar ya no podrás ver esa respuesta. Si el campamento abrió las respuestas confidenciales, la frase dice quién las lee (por ejemplo "Esta respuesta la leen quien te entrevistó, tu coordinador y el equipo de cuidado.") y tú sí podrás volver a verla.
 * **"Continuar"** guarda y pasa a la siguiente. En la última pregunta el botón dice **"Revisar respuestas"**.
 * **"Atrás"** (arriba, a la izquierda) guarda y regresa a la anterior.
@@ -333,7 +333,7 @@ Las respuestas se guardan cada vez que avanzas. Lo único que se pierde es lo qu
 
 ### Revisar y finalizar
 
-1. En **"Revisa las respuestas de ..."** ves todas las respuestas. Si algo no está bien, toca **"Cambiar"**.
+1. En **"Revisa las respuestas de ..."** ves todas las respuestas: **"Prefirió no responder"** si eligió no contestar y **"Sin responder"** si quedó en blanco. Puedes finalizar con preguntas sin responder. Si algo no está bien, toca **"Cambiar"**.
 2. En **"¿Necesita seguimiento?"** elige:
    * **"Se requiere seguimiento"**,
    * **"No se requiere seguimiento"**, o

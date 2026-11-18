@@ -222,6 +222,7 @@ def interview_start(request, event, access, public_id):
                 confirmed_consents=form.confirmed(),
                 session=request.session,
                 questionnaire=chosen,
+                identity_confirmed=form.cleaned_data["identity"],
             )
         except (svc.AlreadyInProgress, svc.AlreadyCompleted) as exc:
             messages.warning(request, exc.message)
@@ -436,6 +437,9 @@ def interview_review(request, event, access, public_id):
             "selected_decision": request.POST.get("follow_up_decision") or (Interview.FollowUpDecision.REQUIRED if suggestions else ""),
             "error": error,
             "has_hidden": any(not r["visible"] for r in rows),
+            # «Sí, es {nombre}», confirmed once when it started: resuming, taking control or recovering the computer
+            # never asks again, and the confirmation stays with the interview.
+            "identity": svc.identity_confirmation(interview),
         },
     )
 
@@ -567,6 +571,9 @@ def interview_detail(request, event, access, public_id):
             "can_continue": interview.status == Interview.Status.IN_PROGRESS and access.can_interview(interview.participant),
             "revisions": interview.answer_revisions.select_related("question", "changed_by")[:20] if access.can_view_sensitive else [],
             "has_hidden": any(not r["visible"] for r in rows),
+            # «Sí, es {nombre}», confirmed once when it started: resuming, taking control or recovering the computer
+            # never asks again, and the confirmation stays with the interview.
+            "identity": svc.identity_confirmation(interview),
             # «Cambiar decisión de seguimiento» and its history (services.follow_up_decision), for whoever sees the record.
             "can_change_decision": access.can_correct(interview) and interview.follow_up_decision in decision_svc.DECIDED,
             "decision_changes": interview.follow_up_decision_changes.select_related("changed_by"),

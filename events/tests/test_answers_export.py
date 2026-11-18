@@ -227,7 +227,7 @@ class ContentTests(Helpers, CampFixture):
         self.assertEqual(row[self.col(FIRST, "dudas")], "No")
         self.assertEqual(row[self.col(FIRST, "dudas_detalle")], "")
         self.assertEqual(row[self.col(FIRST, "apoyo")], "Familia, Bienestar emocional")  # the questionnaire's order, not alphabetical
-        self.assertEqual(row[self.col(FIRST, "decision")], "Prefiero no responder")
+        self.assertEqual(row[self.col(FIRST, "decision")], "Prefirió no responder")  # a decline, as staff read it
         self.assertEqual(row[self.col(FIRST, "impedimento")], "Necesito más tiempo.")
         self.assertEqual(row[self.col(FIRST, "orientacion")], "")
         self.assertEqual(row[f"{SECOND}: estado"], "Completada")
