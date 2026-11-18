@@ -1876,6 +1876,9 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .hecho--nota::before { display: none; }  /* not known to be done (a request that took too long): no check */
 .hecho::before { margin-top: 0.1rem; content: ""; flex: none; width: 1rem; height: 1rem; background: var(--ink); -webkit-mask: var(--i-check) center / contain no-repeat; mask: var(--i-check) center / contain no-repeat; }
 
+/* The error summary's links lead to their fields: a 44px target each, like every control */
+:root[data-ui="2"] .error-summary li a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+
 /* ---------- 17. One focus ring ------------------------------------------- */
 /* The ring fades in from the unfocused colour (Atrio's transition): start it from ink, not from the text's colour
    (a link's plum, a tab's grey showed for the first frames). Zero specificity: every focus rule still wins. */
