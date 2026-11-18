@@ -28,6 +28,16 @@ The resolved role is what the screens show: `access.role_label` is the line unde
 
 `accessible_events(user)` lists events of churches where the user is church admin or pastor, plus events with an active membership, excluding archived events (superusers see every event, archived included). It applies the same rule 2: an event where the user has a deactivated membership is left out (unless they are a church admin), so nobody is sent to an event that would answer 403.
 
+## Where an ordinary sign-in lands
+
+Signing in with a direct link (`?next=` to a page the person can open) always goes there. Otherwise
+(`ThrottledLoginView.get_default_redirect_url`, `events.services.landing`): when exactly one camp the person
+administers (resolved role **Administrador**, kind «Campamento», status «En curso», today between its first and
+last day) is underway, the sign-in opens that camp's administration home; with two or more, «¿A qué campamento
+entras?» (`events:live_camps`) lists them with «Todos los eventos»; with none, the usual home (`dashboard`). Only
+the sign-in does this: visiting the home later follows the usual rules. Inside an event, a person of the church
+finds «Todos los eventos» under the event's places in the rail and in «Más».
+
 ## One role per user per event
 
 * `EventMembership` has the unique constraint `(event, user)`: one role per person per event.

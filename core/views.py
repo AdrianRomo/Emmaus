@@ -974,6 +974,14 @@ class ThrottledLoginView(LoginView):
 
     template_name = "registration/login.html"
 
+    def get_default_redirect_url(self):
+        """An ordinary sign-in (no link to honour, Django keeps ``next`` first): a camp administrator whose one camp is
+        underway opens its administration home, several open a chooser (events.services.landing); else the usual
+        home."""
+        from events.services.landing import sign_in_destination
+
+        return sign_in_destination(self.request.user) or super().get_default_redirect_url()
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         target = self.request.POST.get("next") or self.request.GET.get("next") or ""

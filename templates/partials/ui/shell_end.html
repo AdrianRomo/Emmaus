@@ -24,6 +24,7 @@
     <ul class="menu-panel__list" aria-labelledby="mas-evento">
       {% for item in event_nav %}<li><a class="rail__link" href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}>{% with mark=item|nav_icon %}{% icon mark %}{% endwith %}<span class="rail__text">{{ item.label }}</span></a></li>
       {% endfor %}
+      {% if shell.sections|length > 1 %}<li><a class="rail__link" href="{% url 'events:list' %}?todos=1">{% icon "eventos" %}<span class="rail__text">Todos los eventos</span></a></li>{% endif %}
     </ul>
     {% endif %}
     {% endfor %}

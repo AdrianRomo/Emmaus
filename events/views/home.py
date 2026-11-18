@@ -49,6 +49,20 @@ def events_home(request):
 
 
 @login_required
+def live_camps(request):
+    """«¿A qué campamento entras?»: the camps underway that this person administers, each to its administration home,
+    and «Todos los eventos». One left: straight to it; none: the usual home."""
+    from ..services.landing import live_camps_administered
+
+    camps = live_camps_administered(request.user)
+    if len(camps) == 1:
+        return redirect("events:admin_home", slug=camps[0].slug)
+    if not camps:
+        return redirect("dashboard")
+    return render(request, "events/live_camps.html", {"camps": camps})
+
+
+@login_required
 def event_create(request):
     churches = list(administered_churches(request.user))
     if not churches:

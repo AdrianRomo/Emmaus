@@ -12,6 +12,8 @@ urlpatterns = [
     # "Seguir aquí" (emmaus.js): keeps a staff session open. Before the event URLs, so no slug can shadow it.
     path("cuenta/sigo-aqui/", session.still_here, name="still_here"),
     path("nuevo/", home.event_create, name="create"),
+    # After signing in, when several camps this person administers are underway: which one (events.services.landing)
+    path("en-curso/", home.live_camps, name="live_camps"),
     path(E, home.event_home, name="home"),
     path(E + "ayuda/", ayuda.ayuda, name="ayuda"),
     path(E + "computadora/", home.choose_station, name="choose_station"),

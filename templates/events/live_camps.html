@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load emmaus shell community %}
+{% block page_title %}¿A qué campamento entras?{% endblock %}
+{% block content %}
+{% comment %}
+  After signing in, when two or more camps this person administers are underway (events.services.landing): one
+  question, each camp a row (its day, its name, its dates and place) leading to its administration home, and the way
+  to every event. A new page, the same in both modes.
+{% endcomment %}
+{% include "events/rotulo/_page_head.html" with title="¿A qué campamento entras?" %}
+<ul class="rows">
+  {% for event in camps %}
+  <li class="row row--lead">
+    {% date_block event.starts_on %}
+    <div class="row__main">
+      <p class="row__title"><a href="{% url 'events:admin_home' event.slug %}">{{ event.name }}</a></p>
+      <p class="row__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% endif %}{% if event.location %}, {{ event.location }}{% endif %}</p>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+<p class="more"><a href="{% url 'events:list' %}?todos=1">Todos los eventos</a></p>
+{% endblock %}
