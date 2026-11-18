@@ -3,33 +3,46 @@
 {% block page_title %}Eventos{% endblock %}
 {% block content %}
 {% comment %}
-  Eventos (agenda.views.event_list): what the church published for its people. First where this person already
-  signed up, then everything else that is coming. An event the administration has not published is not here.
+  Eventos (agenda.views.event_list): what the church published for its people, drawn as Mi iglesia draws it. What
+  happens today first, each with the arch of its hour; then the later days where this person already signed up; then
+  everything else that is coming, each with its day. Both lists come sorted by first day, so today's events (begun on
+  or before today: they have not ended, or they would not be here) are at the head of each. An event the
+  administration has not published is not here, and nobody's name is: who signed up is the administration's.
 {% endcomment %}
 <div class="narrow">
   {% if request.is_church_admin %}{% url 'agenda:admin_list' as manage %}{% endif %}
   {% include "events/rotulo/_page_head.html" with title="Eventos" secondary_url=manage secondary_label="Administrar los eventos" %}
 
-  {% if mine %}
-  <section class="block" aria-labelledby="mis-inscripciones">
-    <h2 id="mis-inscripciones" class="heading">Tus inscripciones</h2>
-    <ul class="dates rows">
-      {% for event in mine %}{% include "agenda/_event_row.html" %}{% endfor %}
-    </ul>
+  {% if mine.0.starts_on and mine.0.starts_on <= today or coming.0.starts_on and coming.0.starts_on <= today %}
+  <section class="block" aria-labelledby="hoy">
+    <h2 id="hoy" class="heading">Hoy</h2>
+    {% for event in mine %}{% if event.starts_on and event.starts_on <= today %}{% include "agenda/_event_today.html" %}{% endif %}{% endfor %}
+    {% for event in coming %}{% if event.starts_on and event.starts_on <= today %}{% include "agenda/_event_today.html" %}{% endif %}{% endfor %}
   </section>
   {% endif %}
 
+  {% with last=mine|last %}{% if last and not last.starts_on <= today %}
+  <section class="block" aria-labelledby="mis-inscripciones">
+    <h2 id="mis-inscripciones" class="heading">Tus inscripciones</h2>
+    <ul class="rows dates filas-evento">
+      {% for event in mine %}{% if not event.starts_on <= today %}{% include "agenda/_event_row.html" %}{% endif %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}{% endwith %}
+
+  {% with last=coming|last %}
   <section class="block" aria-labelledby="lo-que-viene">
-    <h2 id="lo-que-viene" class="heading{% if not mine %} visually-hidden{% endif %}">Lo que viene</h2>
-    {% if coming %}
-      <ul class="dates rows">
-        {% for event in coming %}{% include "agenda/_event_row.html" %}{% endfor %}
+    <h2 id="lo-que-viene" class="heading">{% if mine %}Lo que viene{% else %}Más adelante{% endif %}</h2>
+    {% if last and not last.starts_on <= today %}
+      <ul class="rows dates filas-evento">
+        {% for event in coming %}{% if not event.starts_on <= today %}{% include "agenda/_event_row.html" %}{% endif %}{% endfor %}
       </ul>
-    {% elif mine %}
+    {% elif mine or coming %}
       <p class="empty-line">Sin más eventos por ahora.</p>
     {% else %}
       <p class="empty-line">Sin eventos por ahora.</p>
     {% endif %}
   </section>
+  {% endwith %}
 </div>
 {% endblock %}

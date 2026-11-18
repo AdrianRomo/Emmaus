@@ -73,21 +73,26 @@ class VisibilityTests(AgendaFixture):
     def test_a_published_event_shows_in_the_list_and_on_its_page(self):
         page = self.client.get(reverse("agenda:list"))
         self.assertContains(page, "<h1", count=1)
-        self.assertContains(page, '<h2 id="lo-que-viene" class="heading visually-hidden">Lo que viene</h2>', html=True)
+        # Drawn as Mi iglesia draws it: "Más adelante", each event with its day, its hour and its place as one line
+        self.assertContains(page, '<h2 id="lo-que-viene" class="heading">Más adelante</h2>', html=True)
         self.assertNotContains(page, "Tus inscripciones")
         self.assertContains(page, "Retiro de jóvenes")
-        self.assertContains(page, f'<li>{icon("reloj", "sm")}19:30</li>')
-        self.assertContains(page, f'<li>{icon("lugar", "sm")}Rancho El Olivo</li>')
+        self.assertContains(page, "19:30, Rancho El Olivo")
+        # No minors' step can follow on this event: «Inscribirme» acts in place on its row (groups/_event_state.html)
+        self.assertContains(page, f'<form method="post" action="{self.url("register")}" data-inline="ev-{self.retiro.slug}">')
         self.assertContains(
             page,
-            f'<a class="btn btn--secondary btn--small" href="{self.url()}">Inscribirme'
-            '<span class="visually-hidden"> a Retiro de jóvenes</span></a>',
+            '<button class="btn btn--secondary btn--small" type="submit">Inscribirme'
+            '<span class="visually-hidden"> a Retiro de jóvenes</span></button>',
             html=True,
         )
         self.assertNotContains(page, "Vigilia de la iglesia B")
         self.assertNotContains(page, "Administrar los eventos")
         detail = self.client.get(self.url())
         self.assertContains(detail, "<h1", count=1)
+        # On its page, the hour and the place are facts with their mark
+        self.assertContains(detail, f'<li>{icon("reloj", "sm")}19:30</li>')
+        self.assertContains(detail, f'<li>{icon("lugar", "sm")}Rancho El Olivo</li>')
         self.assertContains(detail, "Tres días para descansar.")
         self.assertContains(detail, "Inscribirme")
         self.assertContains(
@@ -128,7 +133,7 @@ class RegistrationTests(AgendaFixture):
         self.assertEqual(self.client.get(self.url("register")).status_code, 405)
         response = self.client.post(self.url("register"), follow=True)
         self.assertContains(response, "Te inscribiste a Retiro de jóvenes.")
-        self.assertContains(response, '<p class="notice__title">Te inscribiste.</p>')
+        self.assertContains(response, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>')
         self.assertContains(response, "Cancelar mi inscripción")
         self.assertNotContains(response, ACTION_PANEL)
         row = EventRegistration.objects.get()

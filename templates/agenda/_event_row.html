@@ -1,25 +1,14 @@
 {% load emmaus community shell %}{% comment %}
-  One event in a list of dates (the same row as "Lo que viene" on Mi iglesia): the day drawn, the name as the way
-  in, the hour and the place as facts, and at the end where this person stands: the word of their state, or the one
-  action they can take. Needs: event (with page, state), today.
+  One event of a later day in a list, drawn as "Más adelante" on Mi iglesia draws it: the day, the name as the way in,
+  the hour and the place (and the last day of a long one) as one line, and at the end where this person stands, in
+  the words of groups/_event_state.html («Inscribirme» acts in place where no minors' step can follow). The row is the
+  region that changes (id="ev-<slug>"). Needs: event (with page, state, my_place, my_registration).
 {% endcomment %}
-<li class="row row--lead row--stack{% if event.starts_on == today %} row--today{% endif %}">
+<li class="row row--lead row--stack" id="ev-{{ event.slug }}">
   {% date_block event.starts_on|default:event.ends_on %}
   <div class="row__main">
     <p class="row__title"><a href="{% url 'agenda:detail' event.slug %}">{{ event.name }}</a></p>
-    <ul class="meta">
-      {% if event.kind != "otro" %}<li>{{ event.get_kind_display }}</li>{% endif %}
-      {% if event.starts_on and event.ends_on and event.ends_on != event.starts_on %}<li>{% icon "calendario" "sm" %}{{ event.starts_on|date_range:event.ends_on }}</li>{% else %}<li class="visually-hidden">{{ event.starts_on|default:event.ends_on|date_range }}</li>{% endif %}
-      {% if event.page.starts_at %}<li>{% icon "reloj" "sm" %}{{ event.page.starts_at|time:"H:i" }}</li>{% endif %}
-      {% if event.location %}<li>{% icon "lugar" "sm" %}{{ event.location }}</li>{% endif %}
-    </ul>
+    <p class="row__meta"><span class="visually-hidden">{{ event.starts_on|default:event.ends_on|weekday_date }}. </span>{% if event.page.starts_at %}{{ event.page.starts_at|time:"H:i" }}{% if event.location %}, {% endif %}{% endif %}{{ event.location }}{% if event.starts_on and event.ends_on and event.ends_on != event.starts_on %}{% if event.location or event.page.starts_at %}, {% endif %}hasta el {{ event.ends_on|day_month }}{% endif %}</p>
   </div>
-  {% if event.state == "inscrita" %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>
-  {% elif event.state == "pendiente" %}<div class="row__end">{% if event.my_place.waits_for == "age" %}{% status "revisar" "Falta confirmar tu edad" %}{% else %}{% status "revisar" "Pendiente de autorización" %}{% endif %}</div>
-  {% elif event.state == "ofrecido" %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:detail' event.slug %}">Aceptar mi lugar<span class="visually-hidden"> en {{ event.name }}</span></a></div>
-  {% elif event.state == "ofrecido_pausa" %}<div class="row__end">{% status "pendiente" "Lugar ofrecido, en pausa" %}</div>
-  {% elif event.state == "en_espera" %}<div class="row__end">{% status "pendiente" "En lista de espera" %}</div>
-  {% elif event.state == "lista" %}<div class="row__end">{% status "descartada" "Hay lista de espera" %}</div>
-  {% elif event.state == "abierta" %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:detail' event.slug %}">Inscribirme<span class="visually-hidden"> a {{ event.name }}</span></a></div>
-  {% elif event.state == "llena" %}<div class="row__end">{% status "descartada" "Ya no hay lugares" %}</div>{% endif %}
+  <div class="row__end">{% include "groups/_event_state.html" with region="ev-"|add:event.slug %}{% if event.state == "lista" %}{% status "descartada" "Hay lista de espera" %}{% elif event.state == "llena" %}{% status "descartada" "Ya no hay lugares" %}{% endif %}</div>
 </li>
