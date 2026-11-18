@@ -218,7 +218,7 @@ def initial_setup(request):
         messages.success(request, f"{church.name} ya está lista en Emmaus.")
         # The event list, where the only thing to do is "Crear evento" (not the discipleship overview).
         return redirect("events:list")
-    # What participants of a new church will read (its notice starts as the default); "Qué sigue" asks to read it.
+    # What participants of a new church will read (its notice starts as the default), beside the form.
     notice = participant_notice(Church._meta.get_field("basic_disclaimer_text").default)
     return render(request, "core/initial_setup.html", {"form": form, "participant_notice": notice})
 
@@ -376,7 +376,7 @@ def church_settings(request):
     form = ChurchSettingsForm(request.POST or None, request.FILES or None, instance=church)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Se guardó la configuración de la iglesia.")
+        messages.success(request, "Guardado.")
         return redirect("church_settings")
     # The previews show what is saved: a rejected upload already sits on the form's instance.
     logo_church = Church.objects.get(pk=church.pk) if form.is_bound else church
@@ -1074,7 +1074,7 @@ def account(request):
             form.save()
             if contact_form is not None:
                 contact_form.save()
-        messages.success(request, "Guardamos tus datos.")
+        messages.success(request, "Guardado.")
         return redirect("account")
     rows = []
     for event in accessible_events(request.user).order_by("-starts_on", "name"):
@@ -1104,7 +1104,7 @@ class AccountPasswordChangeView(PasswordChangeView):
     success_url = reverse_lazy("account")
 
     def form_valid(self, form):
-        messages.success(self.request, "Tu contraseña cambió. Sigues dentro de Emmaus.")
+        messages.success(self.request, "Contraseña guardada.")
         return super().form_valid(form)
 
 
@@ -1129,7 +1129,7 @@ def welcome_restore(request):
     if key not in onboarding.KEYS:
         return HttpResponseBadRequest("clave desconocida")
     onboarding.restore(request.user, key)
-    messages.success(request, "Listo. La verás la próxima vez que abras ese inicio.")
+    messages.success(request, "La verás al abrir ese inicio.")
     return redirect("account")
 
 

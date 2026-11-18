@@ -5,15 +5,17 @@
 {% comment %}
   The public front door (Atrio, docs/design-direction.md): one column like the sign-in page, no photos, no icons.
   The church's logo leads when it has one (base.html then draws no bar, so it is never drawn twice and nothing says "Emmaus");
-  then the promise as the one heading, one way in, the way in for a volunteer who has an event's code, three
-  promises in one sentence each, and who uses it. Signed-in visitors never see it: core.views.landing sends
-  them to their dashboard.
+  then the promise as the one heading, one way in, the way in for a volunteer who has an event's code and, under
+  the card, three promises in one sentence each, and who uses it. Signed-in visitors never see it:
+  core.views.landing sends them to their dashboard.
 {% endcomment %}
 <div class="auth-card">
   {% if church|has_logo %}<div class="auth-card__brand">{% church_brand church size="auth" %}</div>
   {% endif %}{% include "events/rotulo/_page_head.html" with title="Platicar con cada joven, sin perder a nadie." lede="Emmaus ayuda al equipo del campamento a conversar con cada campero sobre su fe y a recordar a quién buscar después." %}
   <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar a Emmaus</a>
   <p class="mt-4"><a class="auth-card__link" href="{% url 'join' %}">¿Vas a ayudar en un evento? Escribe el código</a></p>
+</div>
+<div class="auth-card door-foot">
   <ul class="rows mt-8">
     <li class="row">Cada pregunta se puede dejar sin contestar.</li>
     <li class="row">Cada persona ve solo lo que le toca.</li>

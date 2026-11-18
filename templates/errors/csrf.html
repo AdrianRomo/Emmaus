@@ -2,7 +2,7 @@
 {% comment %}settings.CSRF_FAILURE_VIEW: the form came from a page that was open too long or from another session.{% endcomment %}
 {% block page_title %}Esta pantalla ya no está al día{% endblock %}
 {% block content %}
-<div class="narrow">
+<div class="narrow door">
   {% include "events/rotulo/_page_head.html" with title="Esta pantalla ya no está al día" lede="Regresa, recárgala y repite el paso." %}
   <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Volver a mi inicio</a></p>
 </div>
