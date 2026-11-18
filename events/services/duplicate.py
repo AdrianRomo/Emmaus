@@ -41,6 +41,7 @@ RELATIONS = {
     "page": NEVER,  # a camp's page for the church is written again: it says dates and prices
     "registrations": NEVER,
     "faqs": NEVER,
+    "public_notices": NEVER,  # dated news of the original (issue #96)
     "schedule_items": NEVER,
     "feedback": NEVER,
     "feedback_given": NEVER,

@@ -6,7 +6,7 @@
   The public page of one event (agenda.public.event; decision 0010, guardian access phase A): what the event is,
   for anybody with the address, without an account. It extends the skeleton and not base.html on purpose: the
   bar is always the public one and there is no rail, whoever reads it, so a signed-in person sees the same page.
-  It shows the event and its page, the programme and the frequent questions. NEVER a person, a count, the places
+  It shows the event and its page, its public notices, the programme and the frequent questions. NEVER a person, a count, the places
   left or the waiting list: for those, and to sign up, the reader enters Emmaus.
 {% endcomment %}
 <header class="bar bar--public">
@@ -35,6 +35,8 @@
       {% if sign_up == "open" and page.registration_closes_on %}<div class="summary-list__row"><dt>Inscripción</dt><dd>Hasta el {{ page.registration_closes_on|long_date }}</dd></div>{% endif %}
     </dl>
   </section>
+
+  {% include "agenda/_public_notices.html" %}
 
   {% if schedule %}
   <section class="block" aria-labelledby="programa">

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load tz community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Avisos públicos de {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  The public notices of one event (agenda.views.public_notices; issue #96), for the administration: the ones there
+  are, newest first, and one form to publish another. Anybody with the event's public address reads them without
+  an account, so the screen says whether that address answers right now, that Emmaus sends nothing to anybody, and
+  what never to write. A retired notice stays here, for the administration only, until it is deleted for good.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Avisos públicos" lede=event.name back_url=back back_label="Volver a la página del evento" %}
+  {% if is_public %}
+    <p class="aside-note">Cualquiera con el enlace del evento lee estos avisos, sin cuenta. Emmaus no le envía nada a nadie: el aviso solo queda en la página del evento, así que comparte el enlace para que lo lean.{% if in_force %} <a href="{{ public_link }}" target="_blank" rel="noopener">Ver los avisos en la página pública<span class="visually-hidden"> (se abre en otra pestaña)</span></a>.{% endif %}</p>
+  {% else %}
+    <div class="notice notice--quiet"><p>La página pública de este evento no está disponible ahora. Los avisos se guardan, pero nadie de fuera los puede leer hasta que la página sea pública: el evento tiene que estar publicado, activo, sin haber terminado y con la opción de que cualquiera con el enlace lo vea. {% if members_read %}Las personas de la iglesia sí los leen ya, en la página del evento en Mi iglesia.{% else %}Las personas de la iglesia tampoco los leen todavía, porque el evento no está publicado para la iglesia.{% endif %} Emmaus no le envía nada a nadie. <a href="{{ back }}">Revisar la página del evento</a>.</p></div>
+  {% endif %}
+
+  <section class="block mt-8" aria-labelledby="publicados">
+    <h2 id="publicados" class="heading">Avisos de este evento</h2>
+    {% if notices %}
+      {% timezone notice_zone %}
+      <ul class="rows">
+        {% for item in notices %}
+          <li class="row row--lead row--stack">
+            <div class="row__main">
+              <p class="row__title">{{ item.title }}</p>
+              <p class="row__meta">{{ item.body|linebreaksbr }}</p>
+              <p class="row__meta">{% if item.retired %}Retirado el {{ item.retired_at|day_and_hour }}. Ya no se lee en la página del evento; la administración de la iglesia sigue viendo su texto aquí hasta que lo borres.{% else %}Publicado el {{ item.published_at|day_and_hour }}{% if item.edited_at %}. Editado el {{ item.edited_at|day_and_hour }}{% endif %}.{% endif %}</p>
+            </div>
+            <div class="row__end">{% if item.retired %}<a class="btn btn--secondary btn--small" href="{% url 'agenda:public_notice_delete' event.slug item.pk %}">Borrar para siempre<span class="visually-hidden">: {{ item.title }}</span></a>{% else %}<a class="btn btn--secondary btn--small" href="{% url 'agenda:public_notice_edit' event.slug item.pk %}">Editar<span class="visually-hidden">: {{ item.title }}</span></a>{% endif %}</div>
+          </li>
+        {% endfor %}
+      </ul>
+      {% endtimezone %}
+      <p class="aside-note">En la página del evento se leen los {{ shown }} avisos más recientes que sigan publicados.{% if is_public and in_force %} <a href="{{ share_url }}" target="_blank" rel="noopener">Avisar por WhatsApp que hay un aviso nuevo<span class="visually-hidden"> (se abre en otra pestaña)</span></a>. El mensaje lo envías tú desde tu WhatsApp y solo lleva el nombre de la iglesia y el enlace: nunca el texto del aviso.{% endif %}</p>
+    {% else %}
+      <p class="empty-line">Este evento todavía no tiene avisos públicos. Mientras no publiques uno, la sección «Avisos» no aparece en el evento.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="agregar">
+    <h2 id="agregar" class="heading">Publicar un aviso</h2>
+    <p>Sirve para avisar a mamás, papás y tutores que no tienen cuenta: la hora de salida, qué llevar, un cambio de último momento. Se publica en cuanto lo guardas, y nadie recibe un mensaje: después comparte el enlace.</p>
+    <form class="mt-4" method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Publicar el aviso</button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

@@ -232,6 +232,56 @@ for (const [name, path] of adminPages) {
   expect(response.status() === 200, `admin got ${response.status()} on ${path}`);
   await audit(page, name);
 }
+// 4b. Public notices of an event (issue #96): the administration makes the event's page public, publishes a notice and
+// somebody without an account reads it on the public page. The message to share says there is news, never what the notice says.
+await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/avisos-publicos/");
+await audit(page, "admin-evento-avisos-publicos");
+expect(await page.getByText("nadie de fuera los puede leer hasta que la página sea pública").count() === 1, "while the page is not public, the notices screen says so");
+expect(await page.locator("main a[href^='https://wa.me/']").count() === 0, "and offers nothing to share");
+await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/pagina/");
+await page.check("input[name=public]");
+await Promise.all([page.waitForNavigation(), page.click("main button:has-text('Guardar la página del evento')")]);
+await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/avisos-publicos/");
+await page.setViewportSize(DESKTOP);
+await page.fill("input[name=title]", "El camión sale a las 7:00");
+await page.fill("textarea[name=body]", "Lleguen media hora antes.\nLleven chamarra.");
+await Promise.all([page.waitForNavigation(), page.click("main button:has-text('Publicar el aviso')")]);
+expect(await page.getByText("Publicaste el aviso.").count() > 0, "the public notice is published");
+await audit(page, "admin-evento-avisos-publicos-con-aviso");
+const noticeShare = decodeURIComponent((await page.locator("main a[href^='https://wa.me/']").getAttribute("href")) || "");
+expect(noticeShare.includes("/evento/noche-de-alabanza-demo/#avisos"), "the WhatsApp message carries the link to the notices");
+expect(!/camión|chamarra|alabanza/i.test(noticeShare.replace("/evento/noche-de-alabanza-demo/", "")), `the WhatsApp message says nothing of the notice or the event: ${noticeShare}`);
+{
+  const anon = await browser.newContext({ viewport: PHONE, locale: "es-MX", timezoneId: "America/Mexico_City", bypassCSP: true });
+  const reader = await anon.newPage();
+  reader.on("pageerror", (e) => { if (!BENIGN_JS_ERROR.test(String(e))) problems.push(`sin cuenta: JS error ${e}`); });
+  const response = await reader.goto(BASE + "/evento/noche-de-alabanza-demo/#avisos");
+  expect(response.status() === 200, `the public page of the event answered ${response.status()}`);
+  expect(await reader.locator("section[aria-labelledby=avisos]").getByText("El camión sale a las 7:00").count() === 1, "somebody without an account reads the notice");
+  expect(await reader.locator("section[aria-labelledby=avisos]").getByText("Lleven chamarra.").count() === 1, "and its text");
+  expect((await anon.cookies()).length === 0, "reading the public page leaves no cookie");
+  await audit(reader, "publico-evento-avisos");
+  // She retires it and deletes it for good: nobody outside reads it any more, and its text is gone from Emmaus.
+  await page.setViewportSize(DESKTOP);
+  await Promise.all([page.waitForNavigation(), page.click("main a:has-text('Editar')")]);
+  await Promise.all([page.waitForNavigation(), page.click("main a:has-text('Retirar este aviso')")]);
+  await audit(page, "admin-evento-aviso-publico-retirar");
+  await Promise.all([page.waitForNavigation(), page.click("main button:has-text('Sí, retirar el aviso')")]);
+  expect(await page.locator("main a[href^='https://wa.me/']").count() === 0, "with no notice in force there is nothing to share");
+  await audit(page, "admin-evento-avisos-publicos-retirado");
+  await reader.goto(BASE + "/evento/noche-de-alabanza-demo/");
+  expect(await reader.locator("#avisos").count() === 0 && await reader.getByText("El camión sale a las 7:00").count() === 0, "a retired notice is gone from the public page");
+  await anon.close();
+  await Promise.all([page.waitForNavigation(), page.click("main a:has-text('Borrar para siempre')")]);
+  await Promise.all([page.waitForNavigation(), page.click("main button:has-text('Sí, borrar para siempre')")]);
+  expect(await page.getByText("Borraste el aviso para siempre.").count() > 0 && await page.getByText("Este evento todavía no tiene avisos públicos.").count() === 1, "the retired notice is deleted for good");
+  // The event's page goes back to how the seed left it (not public): nothing later in this file, and the review
+  // that runs after it, sees a different event.
+  await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/pagina/");
+  await page.uncheck("input[name=public]");
+  await Promise.all([page.waitForNavigation(), page.click("main button:has-text('Guardar la página del evento')")]);
+  expect((await page.goto(BASE + "/evento/noche-de-alabanza-demo/")).status() === 404, "the event's page is not public again");
+}
 await page.goto(BASE + "/mi-iglesia/personas/?q=renata");
 expect(await page.getByText("Renata Aguilar").count() === 0, "a campero is not a person until somebody brings them");
 await page.goto(BASE + "/mi-iglesia/personas/desde-un-evento/jovenes-2025/");

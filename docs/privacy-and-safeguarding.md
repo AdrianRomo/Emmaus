@@ -120,6 +120,15 @@ Set on every non-static response by `PrivateResponseMiddleware` and Django setti
 * Only one computer can edit an interview at a time; "Tomar el control aquí" is explicit and audited.
 * The printable "Lista de respaldo" contains registry data and, after it, the event's questionnaires for interviewing on paper, one sheet each in the event's order ("Cuestionario para entrevistar en papel", UX-05). `backup_list` reads the structure of the versions the event uses (`build_steps`), never an interview, so the sheet prints no answers. It warns to keep it out of sight and destroy it afterwards. A filled-in copy holds the campero's answers, confidential ones included, in the coordinador's hands, as an assisted interview does while it is typed: the sheet says it is as private as the interview, to be captured in Emmaus as an assisted interview and destroyed once captured.
 
+## Public notices of an event
+
+An event whose page is public can carry notices that anybody with the address reads without an account
+(`agenda.EventNotice`). They are written by the church's administration for that purpose only; a notice
+for members is another table and never appears there. The form tells the writer not to name anybody,
+above all a minor. Emmaus sends nothing: there are no subscriptions and no e-mail. A retired notice
+leaves every page but stays visible to the administration until it is deleted for good, which removes
+its text; the activity log keeps who did what and never the text.
+
 ## Small-group suppression
 
 Spiritual and support results are shown only as event-level totals, to administradores and pastores, and only from saved cutoffs, never live. Each cutoff stores a "released" value per cell that changes only when the underlying count moved by at least the minimum group size (k) since the previous release; the display then rounds to multiples of k and shows "Menos de k" for small counts and for zero. Projected presentations never show answer totals, and their follow-up tiles come from the latest cutoff's released values. Details are in `reporting.md` ("Small-group suppression"). The remaining risk: once k or more answers change, a new value is released at the next cutoff, so a group of k people can still be described.

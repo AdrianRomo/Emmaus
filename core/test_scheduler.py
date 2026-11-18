@@ -18,6 +18,7 @@ from core import scheduler
 from core.management.commands.run_scheduled_jobs import Command as PassCommand
 from core.models import SchedulerHeartbeat
 from emmaus.settings import public_base_url
+from events.models import Event
 from groups.tests.base import CommunityFixture
 from notices import email, services
 from notices.models import EmailPreference
@@ -93,6 +94,13 @@ class PublicBaseUrlTests(SimpleTestCase):
 
 @override_settings(EMAIL_BACKEND=LOCMEM, EMMAUS_PUBLIC_BASE_URL=BASE)
 class SchedulerPassTests(CommunityFixture):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+        # The fixture leaves an active event with automatic cutoffs: in the half hour after each slot a real cutoff
+        # was due and "0 nuevos" failed. No automatic cutoff is due here, whatever the hour.
+        Event.objects.update(reports_enabled=False)
+
     def run_pass(self) -> str:
         """What one pass prints. ``self.code``: 0, or the code the command ended with."""
         out, self.code = StringIO(), 0
