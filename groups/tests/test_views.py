@@ -154,6 +154,29 @@ class GroupRulesTests(CommunityFixture):
         self.assertNotContains(response, "Agregar a alguien de la iglesia")
         self.assertEqual(self.client.post(reverse("community:member_add", args=[self.group.pk]), {"persona": self.member.pk}).status_code, 403)
 
+    def test_where_a_group_meets_is_read_only_by_its_members_and_who_manages_it(self):
+        """``meeting_place`` is often a home. No list says it, to anybody; the group's page says it to a member,
+        to who guides it and to the administration, and tells everybody else why they do not see it."""
+        detail = reverse("community:group_detail", args=[self.group.pk])
+        note = "El lugar lo ven solo quienes ya son parte del grupo."
+        for user, sees in ((self.member_user, False), (self.asked_user, False), (self.leader_user, True), (self.admin, True)):
+            self.client.force_login(user)
+            with self.subTest(user=user.email):
+                self.assertNotContains(self.client.get(reverse("community:groups")), "Salón 2")
+                page = self.client.get(detail)
+                (self.assertContains if sees else self.assertNotContains)(page, "Salón 2")
+                (self.assertNotContains if sees else self.assertContains)(page, note)
+        self.assertNotContains(self.client.get(reverse("community:group_admin_list")), "Salón 2")
+
+    def test_only_the_administration_gets_the_way_to_a_group_s_data(self):
+        edit = reverse("community:group_edit", args=[self.group.pk])
+        pages = [reverse(name, args=[self.group.pk]) for name in ("community:group_detail", "community:group_people", "community:group_meetings")]
+        for user, sees in ((self.leader_user, False), (self.admin, True)):
+            self.client.force_login(user)
+            for page in pages:
+                with self.subTest(user=user.email, page=page):
+                    (self.assertContains if sees else self.assertNotContains)(self.client.get(page), f'href="{edit}"')
+
     def test_closed_and_archived_groups_take_no_requests(self):
         Group.objects.filter(pk=self.other_group.pk).update(accepts_requests=False)
         self.client.force_login(self.member_user)
@@ -197,4 +220,4 @@ class GroupRulesTests(CommunityFixture):
             reverse("community:member_add", args=[group.pk]), {"persona": self.no_account.pk, "rol": "lider"}, follow=True
         )
         self.assertContains(response, "Todavía no tiene acceso a Emmaus")
-        self.assertContains(self.client.get(reverse("community:groups")), "Lo guía: Nora Sin Cuenta.")
+        self.assertContains(self.client.get(reverse("community:groups")), "Guía: Nora Sin Cuenta</li>")

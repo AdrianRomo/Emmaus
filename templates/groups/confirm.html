@@ -7,7 +7,7 @@
   the button that does it, and the way back, once.
 {% endcomment %}
 <div class="narrow">
-  {% include "events/rotulo/_page_head.html" with title=title lede=text %}
+  {% include "events/rotulo/_page_head.html" with title=title lede=text back_url="" %}
   <form method="post">
     {% csrf_token %}
     <div class="form-actions">

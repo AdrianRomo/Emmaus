@@ -38,7 +38,7 @@
   <section class="block" aria-labelledby="integrantes">
     <h2 id="integrantes" class="heading">En el grupo{% if members %} <span class="count">{{ member_count }}</span>{% endif %}</h2>
     {% if members %}
-      <ul class="rows">
+      <ul class="rows group-rows">
         {% for membership in members %}
           <li class="row row--lead row--stack">
             {% monogram membership.person.full_name %}
@@ -50,7 +50,7 @@
               {% if membership.person.phone or membership.person.email %}<p class="row__contact">{% if membership.person.phone %}<a href="tel:{{ membership.person.phone|tel }}"><span class="visually-hidden">Llamar a {{ membership.person.full_name }}: </span>{{ membership.person.phone }}</a>{% endif %}{% if membership.person.email %}<a href="mailto:{{ membership.person.email }}"><span class="visually-hidden">Escribir a {{ membership.person.full_name }}: </span>{{ membership.person.email }}</a>{% endif %}</p>{% endif %}
             </div>
             {% if membership.person_id != me.pk %}{% if not membership.is_leader or request.is_church_admin %}
-              <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'community:member_remove' group.pk membership.pk %}">Quitar<span class="visually-hidden"> a {{ membership.person.full_name }}</span></a></div>
+              <div class="row__end"><a class="btn btn--link btn--small" href="{% url 'community:member_remove' group.pk membership.pk %}">Quitar<span class="visually-hidden"> a {{ membership.person.full_name }}</span></a></div>
             {% endif %}{% endif %}
           </li>
         {% endfor %}
@@ -83,7 +83,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="persona" value="{{ person.pk }}">
                 <button class="btn btn--secondary btn--small" type="submit" name="rol" value="integrante">Agregar<span class="visually-hidden"> a {{ person.full_name }} al grupo</span></button>
-                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="lider">Agregar como guía<span class="visually-hidden"> a {{ person.full_name }}</span></button>
+                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="lider">Nombrar guía<span class="visually-hidden"> a {{ person.full_name }}</span></button>
               </form>
             </li>
           {% endfor %}

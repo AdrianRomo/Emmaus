@@ -918,21 +918,27 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .group-about .lede + .meta, .group-about .meta + .aside-note { margin-top: var(--s-3); }
 /* The state of my request, in the panel where the action was: the pill and the day, then the way to take it back */
 .sign > .meta { margin-top: var(--s-2); }
-/* A list of groups (groups.html, admin_list.html): each row ends in its state, one pill. In a narrow column the
-   pill goes under the facts at its own size and the chevron stays on the first line. (Atrio stretches a status to
-   the row's width under 600px, and the chevron of a stacked row falls to a line of its own: every `.row--stack`
-   that ends in a pill has both, see the report.) */
-.group-rows .row__end .status { flex: none; }
+/* The lists of this area (groups.html, admin_list.html, the people of a group): a row ends in its state, one
+   pill, or in one quiet action. In a narrow column that end goes under the text at its own size, aligned with it,
+   and the chevron stays on the first line. (Atrio stretches a status to the row's width under 600px, and the
+   chevron of a stacked row falls to a line of its own: every `.row--stack` that ends in a pill has both.) */
+.group-rows .row__end .status, .group-rows .row__end .btn--link { flex: none; }
+.group-rows .row__end .btn--link { padding-inline: 0; }
 @container (max-width: 38rem) {
-  .page--app .group-rows > .row--stack { align-items: center; }
-  .page--app .group-rows > .row--stack::after { order: 1; }
+  .page--app .group-rows > .row--stack::after { order: 1; align-self: center; }
   .group-rows > .row--stack > .row__end { order: 2; padding-left: calc(2.5rem + var(--s-3)); }
 }
+/* Adding somebody (group_people.html): the search under its title, and how many matched under the search */
+.page--app .heading + .search { margin-top: var(--s-3); }
+.search + .list-count { margin-top: var(--s-4); }
 /* The lists of a group's meetings (group_meetings.html): how many came, said in the title and drawn under it */
 .meeting-rows .meter { max-width: 14rem; margin-top: var(--s-2); }
 /* One day and its button (group_meetings.html): side by side, the day as wide as a date needs */
 .day-pick { display: flex; flex-wrap: wrap; gap: var(--s-3); }
 .day-pick .input { flex: 1 1 12rem; max-width: 16rem; }
+/* Mis datos (profile.html): who the person is on record, then the one form; the note of who sees it closes it */
+.my-data > .card { margin-bottom: var(--s-5); }
+.my-data .form-section > .aside-note { margin-bottom: var(--s-3); }
 /* end: grupos */
 
 /* area: eventos */

@@ -77,19 +77,6 @@
     <div class="notice notice--quiet"><p>Por ahora este grupo no recibe solicitudes.</p></div>
   {% endif %}
 
-  {% if attendance %}
-  <section class="block" aria-labelledby="asistencia">
-    <h2 id="asistencia" class="heading">Tu asistencia</h2>
-    {% if attendance_total > attendance|length %}<p class="list-count">Las últimas {{ attendance|length }} de {{ attendance_total }} reuniones.</p>{% endif %}
-    <ul class="rows own-attendance">
-      {% for meeting in attendance %}
-        <li class="row"><span class="row__main">{{ meeting.date|weekday_date|capfirst }}</span><span class="row__end">{% if meeting.came %}{% status "completada" "Fuiste" %}{% else %}{% status "descartada" "No fuiste" %}{% endif %}</span></li>
-      {% endfor %}
-    </ul>
-    <p class="aside-note">Esto lo ves solo tú. Quien guía el grupo pasa la lista; si algo no coincide, díselo.</p>
-  </section>
-  {% endif %}
-
   {% if can_manage %}
   <section class="block" aria-labelledby="guiar">
     <h2 id="guiar" class="heading">Para quien lo guía</h2>
@@ -110,8 +97,21 @@
   </section>
   {% endif %}
 
+  {% if attendance %}
+  <section class="block" aria-labelledby="asistencia">
+    <h2 id="asistencia" class="heading">Tu asistencia</h2>
+    {% if attendance_total > attendance|length %}<p class="list-count">Las últimas {{ attendance|length }} de {{ attendance_total }} reuniones.</p>{% endif %}
+    <ul class="rows own-attendance">
+      {% for meeting in attendance %}
+        <li class="row"><span class="row__main">{{ meeting.date|weekday_date|capfirst }}</span><span class="row__end">{% if meeting.came %}{% status "completada" "Fuiste" %}{% else %}{% status "descartada" "No fuiste" %}{% endif %}</span></li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Esto lo ves solo tú. Quien guía el grupo pasa la lista; si algo no coincide, díselo.</p>
+  </section>
+  {% endif %}
+
   {% if membership and not membership.is_leader %}
-    <p class="more"><a href="{% url 'community:group_leave' group.pk %}">Salir del grupo</a></p>
+    <p class="block more"><a href="{% url 'community:group_leave' group.pk %}">Salir del grupo</a></p>
   {% endif %}
 </div>
 {% endblock %}

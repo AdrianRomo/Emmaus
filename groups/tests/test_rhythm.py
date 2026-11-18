@@ -9,6 +9,7 @@ from django.utils import timezone
 from groups import services
 from groups.forms import GroupForm
 from groups.models import Group, GroupMembership, nth_weekday
+from groups.templatetags.community import rhythm
 from groups.tests.base import CommunityFixture
 
 TUESDAY = date(2026, 11, 17)
@@ -60,6 +61,19 @@ class RhythmTests(CommunityFixture):
         self.assertEqual(group(meeting_frequency="mensual").schedule, "Los jueves, una vez al mes")
         self.assertEqual(group(meeting_day=None).schedule, "")
 
+    def test_the_day_and_the_hour_are_two_facts_with_the_schedule_s_words(self):
+        for fields, days, hour in (
+            ({"meeting_time": time(19, 30)}, "Los jueves", time(19, 30)),
+            ({}, "Los jueves", None),
+            ({"meeting_frequency": "quincenal", "meeting_anchor": TUESDAY, "meeting_time": time(19, 30)}, "Los jueves, cada dos semanas", time(19, 30)),
+            ({"meeting_frequency": "mensual", "meeting_week": 2, "meeting_time": time(8, 0)}, "El segundo jueves de cada mes", time(8, 0)),
+            ({"meeting_frequency": "variable", "meeting_time": time(19, 30)}, "Sin día fijo", None),  # the schedule says no hour
+            ({"meeting_day": None, "meeting_time": time(19, 30)}, "", None),
+        ):
+            one = group(**fields)
+            self.assertEqual(rhythm(one), {"days": days, "time": hour}, fields)
+            self.assertEqual(one.meeting_time, fields.get("meeting_time"))  # the group itself is not touched
+
     def test_an_archived_group_has_no_next_meeting(self):
         self.assertIsNone(group(status="archivado").next_meeting(TUESDAY))
 
@@ -88,8 +102,8 @@ class RhythmOnThePagesTests(CommunityFixture):
         self.assertNotContains(home, "¿Quién vino a")  # the week in between asks for nothing
         self.assertNotContains(home, "Sin día de reunión")  # the row says the next meeting's day
         detail = self.client.get(reverse("community:group_detail", args=[group.pk]))
-        self.assertContains(detail, "los jueves, cada dos semanas" if last.weekday() == 3 else ", cada dos semanas")
-        self.assertContains(detail, "La próxima reunión es el ")
+        self.assertContains(detail, "Los jueves, cada dos semanas" if last.weekday() == 3 else ", cada dos semanas")
+        self.assertContains(detail, '<h2 id="reunion" class="meeting__title">Próxima reunión</h2>')
 
     def test_a_group_without_a_fixed_day_is_never_asked(self):
         group = self.rhythm(meeting_frequency="variable", meeting_day=None)
@@ -98,10 +112,13 @@ class RhythmOnThePagesTests(CommunityFixture):
         home = self.client.get(reverse("community:home"))
         self.assertNotContains(home, "¿Quién vino a")
         self.assertContains(home, "Sin día fijo")
-        self.assertContains(self.client.get(reverse("community:group_detail", args=[group.pk])), "Este grupo no tiene día fijo.")
+        detail = self.client.get(reverse("community:group_detail", args=[group.pk]))
+        self.assertContains(detail, '<h2 id="reunion" class="meeting__title">Sin día fijo</h2>')
+        self.assertContains(detail, "Quien guía el grupo te avisará")
         meetings = self.client.get(reverse("community:group_meetings", args=[group.pk]))
-        self.assertContains(meetings, "Este grupo no tiene día de reunión: elige la fecha aquí abajo.")
-        self.assertContains(meetings, "Se reúnen sin día fijo")
+        # No day to ask about: choosing the day is the way to pass the list, and the section says just that.
+        self.assertContains(meetings, '<h2 id="otra-fecha" class="heading">Pasar lista</h2>')
+        self.assertContains(meetings, "</svg>Sin día fijo</li>")
 
 
 class RhythmFormTests(CommunityFixture):
@@ -148,7 +165,7 @@ class RhythmFormTests(CommunityFixture):
         self.client.force_login(self.admin)
         url = reverse("community:group_edit", args=[self.group.pk])
         page = self.client.get(url)
-        for words in ("Cada cuándo se reúnen", "Cada dos semanas", "Una vez al mes", "Sin día fijo", "Una fecha en que sí se reúnen", "Si es una vez al mes, cuál"):
+        for words in ("Cada cuándo", "Cada dos semanas", "Una vez al mes", "Sin día fijo", "Si es cada dos semanas, una fecha en que sí se reúnen", "Si es una vez al mes, cuál"):
             self.assertContains(page, words)
         data = {**self.BASE, "name": self.group.name, "meeting_frequency": "mensual", "meeting_day": "3", "meeting_week": ""}
         response = self.client.post(url, data)
@@ -157,5 +174,8 @@ class RhythmFormTests(CommunityFixture):
         self.client.post(url, {**data, "meeting_week": "2", "meeting_time": "19:30"})
         self.group.refresh_from_db()
         self.assertEqual((self.group.meeting_frequency, self.group.meeting_week), ("mensual", 2))
-        self.assertContains(self.client.get(reverse("community:group_detail", args=[self.group.pk])), "El segundo jueves de cada mes a las 19:30")
-        self.assertContains(self.client.get(reverse("community:groups")), "el segundo jueves de cada mes a las 19:30")
+        # The day and the hour are two facts, each with its mark, on the group's page and in the list.
+        for name, args in (("community:group_detail", [self.group.pk]), ("community:groups", [])):
+            page = self.client.get(reverse(name, args=args))
+            self.assertContains(page, "</svg>El segundo jueves de cada mes</li>")
+            self.assertContains(page, "</svg>19:30</li>")

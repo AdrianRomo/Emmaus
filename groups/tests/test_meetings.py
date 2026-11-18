@@ -68,9 +68,9 @@ class MeetingTests(CommunityFixture):
     def test_a_group_with_nobody_says_zero_people(self):
         self.client.force_login(self.admin)
         response = self.client.get(reverse("community:group_people", args=[self.other_group.pk]))
-        self.assertContains(response, "0 personas en el grupo")
+        self.assertContains(response, "</svg>0 personas</li>")  # the head's fact, with its mark
         self.assertNotContains(response, "QuerySet")
-        self.assertContains(self.client.get(self.url(group=self.other_group)), "0 personas en el grupo")
+        self.assertContains(self.client.get(self.url(group=self.other_group)), "</svg>0 personas</li>")
 
     def test_only_people_of_the_group_can_be_marked(self):
         self.client.force_login(self.leader_user)
