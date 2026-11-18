@@ -40,9 +40,8 @@ $P manage.py runserver 127.0.0.1:8791
 - [x] C. Every surface, by area, on the new system (two waves, merged)
 - [x] D. Visual review at 360 / 390 / 820 / 1093 / 1440, fixes (final critique `REVIEW_2026-11-18.md`)
 - [x] E. Consistency pass (one drawing per object, row buttons, links, traces)
-- [ ] D. Visual review at 360 / 390 / 820 / 1440, fixes
-- [ ] E. Consistency pass
-- [ ] F. Gates: ruff, Django checks, pytest, e2e (axe), deploy check
+- [ ] F. Gates: ruff, Django checks, pytest, e2e (axe) — run on the final commit (see the final report);
+  a deploy check is the owner's (nothing is deployed)
 
 ## Areas
 
