@@ -66,6 +66,9 @@ PYTHON=$P bash scripts/agents/e2e-gate.sh                       # browser gate: 
   reopened when needed again (migration `events/0018`, choices only).
 - A camp administrator's ordinary sign-in opens the one camp underway; several, a chooser (`388765c`).
 - One sign-in error across Emmaus (`0f8117d`).
+- The identity confirmation kept and shown («Identidad confirmada por …»); a decline reads «Prefiero no responder»
+  to the campero and «Prefirió no responder» to staff and exports (`7c0f57f`).
+- «Eventos de la iglesia»: a running event says «En curso»; an interview-only camp shows its camperos (`9dfc09a`).
 Reverting any of them: `git revert -m 1 <merge>` or `git revert <commit>`; for the two merges with migrations,
 first `manage.py migrate events 0015` (or 0016 or 0018, if keeping the follow-up correction) on a copy, and check
 nothing depends on the dropped columns (declines on text questions read as «Sin responder» afterwards).
