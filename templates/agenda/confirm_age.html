@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Confirmar edad de {{ registration.display_name }}{% endblock %}
+{% block content %}
+{% comment %}
+  "Confirmar edad" (agenda.views.confirm_age): the team verified the age of somebody whose registration waits for
+  it. The date it saw and how it verified it; nothing about a document is asked or kept. Saving settles the
+  registration again: an adult is confirmed, a minor goes on to wait for a guardian's authorization.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Confirmar edad" lede=registration.display_name|add:", para "|add:event.name back_url=back back_label="Volver a los inscritos" %}
+  <div class="notice notice--quiet">
+    <p>{% if person.birth_date %}Tenemos una fecha de nacimiento que nadie del equipo ha confirmado. Revísala contra lo que viste.{% else %}No tenemos su fecha de nacimiento. Escríbela como la viste.{% endif %}</p>
+  </div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Confirmar su edad</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Si es mayor de edad, su inscripción queda confirmada. Si es menor de edad, queda pendiente hasta que registres la autorización de su madre, padre o tutor. La edad confirmada vale para los demás eventos de la iglesia.</p>
+</div>
+{% endblock %}

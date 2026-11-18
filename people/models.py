@@ -1,9 +1,16 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.dispatch import Signal
 
 from core.models import Church, ParticipantProfile
 from events.models import Sede, normalize_name
+
+
+# Sent after a save that changed what the church knows about a person's age: the date of birth or
+# its verification. ``agenda`` listens and re-evaluates the person's registrations (decision 0015).
+age_facts_changed = Signal()
+_NOT_LOADED = object()
 
 
 class Person(models.Model):
@@ -23,6 +30,14 @@ class Person(models.Model):
         MANUAL = "manual", "Registro manual"
         EVENT = "event", "Un evento"
 
+    class BirthDateMethod(models.TextChoices):
+        """How the team verified a date of birth (decision 0015). The method is all that is kept: no
+        image of a document and no document number, ever."""
+
+        DOCUMENT = "documento", "Acta o documento oficial visto por el equipo"
+        CHURCH_RECORD = "registro", "Registro de la iglesia"
+        GUARDIAN = "tutor", "Lo confirmó su madre, padre o tutor en persona"
+
     ContactMethod = ParticipantProfile.ContactMethod
 
     church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.PROTECT, related_name="people")
@@ -30,6 +45,17 @@ class Person(models.Model):
     last_name = models.CharField("Apellidos", max_length=120, blank=True)
     normalized_name = models.CharField(max_length=250, editable=False, db_default="")
     birth_date = models.DateField("Fecha de nacimiento", null=True, blank=True)
+    # Set only by ``people.services.verify_birth_date``. A date somebody typed (the person, or the
+    # administration in "Editar los datos") is a claim; any change of the date clears these three.
+    birth_date_verified_at = models.DateTimeField("Edad confirmada el", null=True, blank=True, editable=False)
+    birth_date_verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name="Edad confirmada por", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="+", editable=False,
+    )
+    birth_date_verified_method = models.CharField(
+        "Cómo se confirmó la edad", max_length=12, choices=BirthDateMethod.choices, blank=True, default="", db_default="",
+        editable=False,
+    )
     email = models.EmailField("Correo electrónico", blank=True)
     phone = models.CharField("Teléfono", max_length=40, blank=True)
     preferred_contact_method = models.CharField(
@@ -68,15 +94,58 @@ class Person(models.Model):
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
 
-    def save(self, *args, **kwargs):
+    VERIFICATION_FIELDS = ("birth_date_verified_at", "birth_date_verified_by", "birth_date_verified_method")
+
+    @property
+    def birth_date_verified(self) -> bool:
+        """The team verified this date of birth by an approved method."""
+        return self.birth_date is not None and self.birth_date_verified_at is not None
+
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        person = super().from_db(db, field_names, values)
+        person._remember_age_facts()
+        return person
+
+    def refresh_from_db(self, *args, **kwargs):
+        super().refresh_from_db(*args, **kwargs)
+        self._remember_age_facts()
+
+    def _remember_age_facts(self) -> None:
+        self._loaded_age_facts = (
+            self.__dict__.get("birth_date", _NOT_LOADED), self.__dict__.get("birth_date_verified_at", _NOT_LOADED)
+        )
+
+    def save(self, *args, keep_birth_date_verification: bool = False, **kwargs):
+        """``keep_birth_date_verification`` is for ``people.services.verify_birth_date`` alone: every
+        other save that changes the date of birth clears its verification."""
         # Names are stored single-spaced and trimmed; the normalized form is only for duplicate hints.
         self.first_name = " ".join(self.first_name.split())
         self.last_name = " ".join(self.last_name.split())
         self.normalized_name = normalize_name(self.full_name)
         update_fields = kwargs.get("update_fields")
         if update_fields is not None and {"first_name", "last_name"} & set(update_fields):
-            kwargs["update_fields"] = {*update_fields, "normalized_name"}
+            update_fields = kwargs["update_fields"] = {*update_fields, "normalized_name"}
+        loaded_date, loaded_verified = getattr(self, "_loaded_age_facts", (_NOT_LOADED, _NOT_LOADED))
+        date_written = update_fields is None or "birth_date" in update_fields
+        date_changed = date_written and "birth_date" in self.__dict__ and loaded_date != self.birth_date
+        if self._state.adding and not keep_birth_date_verification:
+            date_changed = False  # a new person has nothing to compare with, and may not arrive verified
+            self.birth_date_verified_at, self.birth_date_verified_by, self.birth_date_verified_method = None, None, ""
+        elif date_changed and not keep_birth_date_verification:
+            self.birth_date_verified_at, self.birth_date_verified_by, self.birth_date_verified_method = None, None, ""
+            if update_fields is not None:
+                kwargs["update_fields"] = {*update_fields, *self.VERIFICATION_FIELDS}
+        adding = self._state.adding
         super().save(*args, **kwargs)
+        changed = not adding and (date_changed or (
+            "birth_date_verified_at" in self.__dict__ and loaded_verified != self.birth_date_verified_at
+            and (update_fields is None or "birth_date_verified_at" in kwargs["update_fields"])
+        ))
+        self._remember_age_facts()
+        if changed:
+            # ``_age_facts_actor``: who is making the change, when a service said so (for the audit).
+            age_facts_changed.send(sender=Person, person=self, actor=getattr(self, "_age_facts_actor", None))
 
 
 class CampusAffiliation(models.Model):

@@ -13,6 +13,14 @@ MIN_REPORTING_SIZE_FLOOR = 5
 FEEDBACK_OPEN_DAYS = 14
 # Months a guardian's authorization is kept after the event (initial policy, to be approved: issue #75).
 CONSENT_RETENTION_MONTHS = 24
+# The version of the words a guardian's authorization is recorded under. "borrador": the form's text
+# is NOT approved legal text; the church's leadership and its adviser approve it (issue #75). A new
+# version makes the authorizations recorded under an older one stop confirming a new sign-up.
+CONSENT_POLICY_VERSION = "borrador-2026-11"
+
+
+def consent_policy_version(church=None) -> str:
+    return CONSENT_POLICY_VERSION
 
 
 def min_reporting_size(church=None) -> int:

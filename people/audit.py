@@ -6,6 +6,7 @@ ACTION_LABELS = {
     "modulo_cambiado": "Encendió o apagó un módulo",
     "persona_creada": "Registró a una persona",
     "persona_modificada": "Modificó los datos de una persona",
+    "persona_edad_confirmada": "Confirmó la edad de una persona",
     "persona_vinculada": "Vinculó a una persona con un campero",
     "persona_desvinculada": "Quitó el vínculo de una persona con un campero",
     "cuenta_creada": "Dio acceso a una persona",
@@ -42,6 +43,8 @@ ACTION_LABELS = {
     "evento_registro_puerta": "Registró a alguien que llegó a un evento",
     "evento_autorizacion": "Registró la autorización de un tutor para un evento",
     "evento_autorizacion_retirada": "Retiró la autorización de un tutor para un evento",
+    "evento_registro_anulado": "Anuló el registro de alguien que llegó a un evento",
+    "evento_inscripcion_revisada": "Una inscripción a un evento cambió al revisarse la edad o la autorización",
     "evento_visita_persona": "Agregó a una visita de un evento a las personas de la iglesia",
     "equipo_creado": "Creó un equipo",
     "equipo_modificado": "Modificó un equipo",
@@ -59,6 +62,9 @@ ACTION_LABELS = {
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
 ALLOWED_METADATA = frozenset({
     "module", "value", "group_id", "person_id", "event_id", "role", "source", "minor_confirmed", "registration_id", "method",
+    # Fixed words only: which rule of the event a walk-up went over and why; why a row was annulled; what the
+    # team said at the door about a visitor's age; where a registration stands after a review.
+    "override", "reason", "minor", "standing",
 })
 
 

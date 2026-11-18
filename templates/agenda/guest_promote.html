@@ -43,6 +43,6 @@
       </div>
     </form>
   </section>
-  <p class="aside-note">Agregarla no le da acceso a Emmaus ni cambia su inscripción a este evento.</p>
+  <p class="aside-note">Agregarla no le da acceso a Emmaus.{% if asks_age %} Este evento cuida a los menores de edad: ya como persona de la iglesia, su inscripción queda pendiente hasta que confirmes su edad en la lista de inscritos, salvo que ya esté autorizada como menor de edad.{% else %} Tampoco cambia su inscripción a este evento.{% endif %}</p>
 </div>
 {% endblock %}

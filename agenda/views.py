@@ -21,12 +21,22 @@ from people import flags
 from people.models import Person
 
 from . import services
-from .forms import BirthDateForm, ConsentForm, EventFaqForm, EventPageForm, EventScheduleItemForm, WalkUpForm
+from .forms import (
+    AnnulForm,
+    BirthDateForm,
+    ConfirmAgeForm,
+    ConsentForm,
+    EventFaqForm,
+    EventPageForm,
+    EventScheduleItemForm,
+    WalkUpForm,
+)
 from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem
 
 ACTIVE = EventRegistration.Status.ACTIVE
 PENDING = EventRegistration.Status.PENDING
 HOLDING = EventRegistration.HOLDING
+AGE = services.AGE
 
 # Why there is no button, said to the person. "inscrita" and "abierta" have their own panels.
 STATE_NOTICES = {
@@ -93,7 +103,11 @@ def detail(request, slug: str):
             "places_left": services.places_left(page, taken) if page and page.registration_open else None,
             # The member reads one word about the authorization, never who gave it or how.
             "authorized": state == "inscrita" and registration.valid_consent is not None,
+            # Why a registration waits and what to do, in plain words: the age, or the authorization.
+            "waits_for": registration.waits_for if registration is not None else "",
+            "withdrawn": state == "pendiente" and registration.waits_for != AGE and registration.consent_withdrawn,
             "pending_text": services.PENDING_NEXT,
+            "age_text": services.AGE_NEXT,
             "faqs": EventFaq.objects.filter(event=event),
             "schedule": services.schedule_by_day(event),
         },
@@ -103,31 +117,35 @@ def detail(request, slug: str):
 @community_view
 @require_POST
 def register(request, slug: str):
-    event, page, _ = _seen_event(request, slug)
+    event, page, held = _seen_event(request, slug)
     wait = throttle.consume(f"event-register:{request.user.pk}", limit=10, window_seconds=3600, block_seconds=600)
     if wait:
         messages.error(request, throttle.wait_message(wait))
         return redirect("agenda:detail", event.slug)
-    # The date of birth is asked only when the event needs it and the church does not know it.
-    asks = page is not None and page.requires_guardian_consent and request.person.birth_date is None
-    form = BirthDateForm(request.POST) if asks and "birth_date" in request.POST else None
+    # The date of birth is asked only when the event needs it, the church does not know it and the
+    # person can sign up. It may be left empty; typed, it is a claim the team still has to verify.
+    asks = (
+        page is not None and page.requires_guardian_consent and request.person.birth_date is None and held is None
+        and services.state_of(event, page, None, services.taken(event)) == "abierta"
+    )
+    if asks:
+        form = BirthDateForm(request.POST) if "birth_date" in request.POST else BirthDateForm()
+        typed = form.cleaned_data.get("birth_date") if form.is_bound and form.is_valid() else None
+        if typed:
+            try:
+                services.set_birth_date(request.person, typed, request.user)
+            except services.AgendaError as error:
+                form.add_error("birth_date", error.message)
+        if not form.is_bound or form.errors:
+            return render(request, "agenda/birth_date.html", {"form": form, "event": event})
     try:
-        if form is not None and form.is_valid():
-            services.set_birth_date(request.person, form.cleaned_data["birth_date"], request.user)
-        if form is None or form.is_valid():
-            registration = services.register(event, request.person, request.user)
+        registration = services.register(event, request.person, request.user)
     except services.AgendaError as error:
-        if error.code == "birth_date_needed":
-            form = BirthDateForm()
-        elif error.code == "birth_date" and form is not None:
-            form.add_error("birth_date", error.message)
-        else:
-            messages.error(request, error.message)
-            return redirect("agenda:detail", event.slug)
-    if form is not None and (not form.is_bound or not form.is_valid()):
-        return render(request, "agenda/birth_date.html", {"form": form, "event": event})
+        messages.error(request, error.message)
+        return redirect("agenda:detail", event.slug)
     if registration.is_pending:
-        messages.info(request, f"Recibimos tu inscripción a {event.name}. {services.PENDING_NEXT}")
+        what_next = services.AGE_NEXT if registration.waits_for == AGE else services.PENDING_NEXT
+        messages.info(request, f"Recibimos tu inscripción a {event.name}. {what_next}")
     else:
         messages.success(request, f"Listo. Te inscribiste a {event.name}. Tu iglesia ya sabe que quieres ir.")
     return redirect("agenda:detail", event.slug)
@@ -168,7 +186,8 @@ def admin_list(request):
         .select_related("page")
         .annotate(
             signed=Count("registrations", filter=Q(registrations__status=ACTIVE)),
-            waiting=Count("registrations", filter=Q(registrations__status=PENDING)),
+            waiting_age=Count("registrations", filter=Q(registrations__status=PENDING, registrations__pending_reason=AGE)),
+            waiting=Count("registrations", filter=Q(registrations__status=PENDING) & ~Q(registrations__pending_reason=AGE)),
         )
         .order_by(F("starts_on").desc(nulls_last=True), "-id")
     )
@@ -218,8 +237,9 @@ def _back_to_list(event: Event) -> str:
 
 @church_admin_view
 def registrations(request, slug: str):
-    """Who signed up or arrived, with how to reach them; first who waits for a guardian's
-    authorization; and from the event's first day on, who came."""
+    """Who signed up or arrived, with how to reach them; first the review queue (whose age the team
+    has to confirm, then who waits for a guardian's authorization); and from the event's first day
+    on, who came. A registration the team annulled is in no list and no count."""
     event = _event(request, slug)
     if request.method == "POST":
         try:
@@ -243,8 +263,11 @@ def registrations(request, slug: str):
             "event": event,
             "page": EventPage.objects.filter(event=event).first(),
             "rows": rows,
-            "waiting": [row for row in held if row.is_pending],
-            "cancelled": EventRegistration.objects.filter(event=event, status=EventRegistration.Status.CANCELLED).count(),
+            "waiting_age": [row for row in held if row.waits_for == AGE],
+            "waiting": [row for row in held if row.is_pending and row.waits_for != AGE],
+            "cancelled": EventRegistration.objects.filter(
+                event=event, status=EventRegistration.Status.CANCELLED, annulled_reason=""
+            ).count(),
             "started": services.has_started(event),
             "recorded": bool(recorded),
             "present": sum(1 for row in rows if row.attended),
@@ -256,7 +279,9 @@ def registrations(request, slug: str):
 @church_admin_view
 def walkup(request, slug: str):
     """"Registrar a alguien que llegó": a person of this church found by name, or a visitor by
-    name. Nobody needs an account to be written down."""
+    name. Nobody needs an account to be written down. When a rule of the event's page stands in the
+    way (not published, no sign-up, closed, full) the form says which one and asks for an explicit
+    override with a reason; the minors' rule has no override."""
     event = _event(request, slug)
     back = _back_to_list(event)
     if not services.has_started(event):
@@ -269,9 +294,10 @@ def walkup(request, slug: str):
     minor_known = None
     if person is not None and person.birth_date is not None:
         minor_known = services.is_minor_at(event, person.birth_date)
+    requires_consent = bool(page and page.requires_guardian_consent)
+    blocks = services.walkup_blocks(event, page, services.taken(event))
     form = WalkUpForm(
-        request.POST or None, person=person, minor_known=minor_known,
-        requires_consent=bool(page and page.requires_guardian_consent),
+        request.POST or None, person=person, minor_known=minor_known, requires_consent=requires_consent, blocks=blocks,
     )
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
@@ -279,16 +305,23 @@ def walkup(request, slug: str):
             registration = services.register_walkup(
                 event, request.user, person=person, first_name=data.get("first_name", ""),
                 last_name=data.get("last_name", ""), phone=data.get("phone", ""), is_minor=data["is_minor"],
-                consent=data["consent"],
+                consent=data["consent"], override=data["overrides"], override_reason=data.get("override_reason", ""),
             )
         except services.AgendaError as error:
             form.add_error(None, error.message)
         else:
-            if registration.is_pending:
+            if registration.waits_for == AGE:
+                messages.info(
+                    request,
+                    f"Registraste a {registration.display_name}. Queda pendiente hasta que confirmes su edad: este "
+                    "evento cuida a los menores de edad.",
+                )
+            elif registration.is_pending:
                 messages.info(
                     request,
                     f"Registraste a {registration.display_name}. Queda pendiente hasta que registres la autorización "
-                    "de su madre, padre o tutor.",
+                    "de su madre, padre o tutor"
+                    + (f". {services.CALL_IS_NOT_ENOUGH}" if registration.recorded_consent else "."),
                 )
             else:
                 messages.success(request, f"Registraste a {registration.display_name}. Ya quedó en la lista como que vino.")
@@ -305,26 +338,85 @@ def walkup(request, slug: str):
         request,
         "agenda/walkup.html",
         {"event": event, "page": page, "form": form, "person": person, "minor_known": minor_known, "query": query,
-         "found": found, "back": back},
+         "found": found, "back": back, "block_texts": [services.WALKUP_RULES[rule] for rule in blocks],
+         # A person of the church is confirmed only with an age the team verified.
+         "age_unverified": requires_consent and person is not None and minor_known is not True
+         and not person.birth_date_verified},
     )
 
 
 @church_admin_view
 def consent(request, slug: str, registration_id: int):
-    """"Registrar autorización": who authorized a minor for this event and how the team knows."""
+    """"Registrar autorización": who authorized a minor for this event, for what and how the team
+    knows. A signed form or an in-person verification confirms; a call or a message is a note."""
     event = _event(request, slug)
     registration = _registration(event, registration_id, status=PENDING)
+    if registration.waits_for == AGE:
+        raise Http404
     form = ConsentForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
-            services.record_consent(registration, request.user, **form.cleaned_data)
+            registration = services.record_consent(registration, request.user, **form.cleaned_data)
         except services.AgendaError as error:
             form.add_error(None, error.message)
         else:
-            messages.success(request, f"Registraste la autorización. La inscripción de {registration.display_name} quedó confirmada.")
+            if registration.is_active:
+                messages.success(request, f"Registraste la autorización. La inscripción de {registration.display_name} quedó confirmada.")
+            else:
+                messages.info(
+                    request,
+                    f"Guardamos la nota de contacto. La inscripción de {registration.display_name} sigue pendiente. "
+                    f"{services.CALL_IS_NOT_ENOUGH}",
+                )
             return redirect(_back_to_list(event))
     return render(request, "agenda/consent_form.html", {"event": event, "registration": registration, "form": form,
                                                         "back": _back_to_list(event)})
+
+
+@church_admin_view
+def confirm_age(request, slug: str, registration_id: int):
+    """"Confirmar edad": the team verified the age of somebody whose registration waits for it."""
+    event = _event(request, slug)
+    registration = _registration(event, registration_id, status=PENDING, pending_reason=AGE, person__isnull=False)
+    person = registration.person
+    form = ConfirmAgeForm(request.POST if request.method == "POST" else None, initial={"birth_date": person.birth_date})
+    if request.method == "POST" and form.is_valid():
+        try:
+            registration = services.confirm_age(
+                registration, request.user, form.cleaned_data["method"], form.cleaned_data["birth_date"]
+            )
+        except services.AgendaError as error:
+            form.add_error("birth_date" if error.code == "birth_date" else None, error.message)
+        else:
+            if registration.is_active:
+                messages.success(request, f"Confirmaste su edad. La inscripción de {registration.display_name} quedó confirmada.")
+            else:
+                messages.info(
+                    request,
+                    f"Confirmaste su edad: {registration.display_name} es menor de edad. Su inscripción queda pendiente "
+                    "hasta que registres la autorización de su madre, padre o tutor.",
+                )
+            return redirect(_back_to_list(event))
+    return render(request, "agenda/confirm_age.html", {"event": event, "registration": registration, "person": person,
+                                                       "form": form, "back": _back_to_list(event)})
+
+
+@church_admin_view
+def annul(request, slug: str, registration_id: int):
+    """"Anular registro": a row the team wrote at the door by mistake. Its own page: a reason, then yes."""
+    event = _event(request, slug)
+    registration = _registration(event, registration_id, status__in=HOLDING, registered_by__isnull=False)
+    form = AnnulForm(request.POST if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            services.annul_walkup(registration, request.user, form.cleaned_data["reason"])
+        except services.AgendaError as error:
+            form.add_error(None, error.message)
+        else:
+            messages.success(request, f"Anulaste el registro de {registration.display_name}. Su lugar quedó libre.")
+            return redirect(_back_to_list(event))
+    return render(request, "agenda/annul.html", {"event": event, "registration": registration, "form": form,
+                                                 "back": _back_to_list(event)})
 
 
 @church_admin_view
@@ -377,7 +469,8 @@ def guest_promote(request, slug: str, registration_id: int):
         request,
         "agenda/guest_promote.html",
         {"event": event, "registration": registration, "similar": services.similar_people(registration),
-         "back": _back_to_list(event)},
+         "back": _back_to_list(event),
+         "asks_age": EventPage.objects.filter(event=event, requires_guardian_consent=True).exists()},
     )
 
 
