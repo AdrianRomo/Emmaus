@@ -29,6 +29,7 @@ from ..models import (
 )
 from ..services import audit
 from ..services import event_questionnaires as eq
+from ..services import follow_up_decision as decision_svc
 from ..services import follow_ups as follow_up_svc
 from ..services import participants as participant_svc
 from ..services import practice as practice_svc
@@ -376,7 +377,9 @@ def follow_ups(request, event, access):
     rows = list(qs[:FOLLOW_UPS_SHOWN])
     leaders = list(follow_up_leaders(event))
     leader_ids = {user.id for user in leaders}
+    waiting = decision_svc.waiting_on_owner(rows)  # the interview's decision changed after its care had started
     for f in rows:
+        f.decision_change = waiting.get(f.id)
         f.can_assign = _can_assign(access, f)
         # The form also accepts the campero's own coordinador; offer them on that row only.
         coordinator = f.participant.coordinator
@@ -429,7 +432,11 @@ def follow_up_detail(request, event, access, follow_up_id):
     return render(
         request,
         "events/supervision/follow_up_detail.html",
-        {"follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back},
+        {
+            "follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back,
+            # Its interview's decision changed: still open for its owner to resolve, or what cancelled it.
+            "decision_change": decision_svc.note_for(follow_up),
+        },
     )
 
 

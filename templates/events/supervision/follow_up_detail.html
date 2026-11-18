@@ -22,7 +22,7 @@
 </ul>
 {% if follow_up.kind == "seguridad" %}
   <div class="notice notice--danger"><p class="notice__title">Sigue el procedimiento de protección</p><p>{{ event.safeguarding_instructions|linebreaksbr }}</p></div>
-{% endif %}
+{% endif %}{% if decision_change %}{% include "events/supervision/_decision_change_note.html" %}{% endif %}
 <section class="block" aria-labelledby="detalles">
   <h2 id="detalles" class="heading">Detalles</h2>
   {% if can_read %}
@@ -52,7 +52,7 @@
 <p class="interview-meta">{% follow_up_status follow_up.status %} <span>{{ follow_up.get_reason_display }}, registrado {{ follow_up.created_at|fecha_corta }} por {{ follow_up.created_by.get_full_name|default:"—" }}.</span></p>
 {% if follow_up.kind == "seguridad" %}
   <div class="notice notice--danger"><p class="notice__title">Sigue el procedimiento de protección</p><p>{{ event.safeguarding_instructions|linebreaksbr }}</p></div>
-{% endif %}
+{% endif %}{% if decision_change %}{% include "events/supervision/_decision_change_note.html" %}{% endif %}
 <section class="block" aria-labelledby="detalles">
   <h2 id="detalles" class="heading">Detalles</h2>
   {% if can_read %}
