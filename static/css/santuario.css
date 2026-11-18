@@ -974,8 +974,11 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* «Salir del grupo» (group_detail.html): a quiet action alone on its line; its words, not its padding, start on the
    text's edge */
 .salir > .btn--link { margin-left: calc(-1 * var(--s-3)); }
-/* Adding somebody (group_people.html): the search under its title */
+/* My attendance (group_detail.html): one state per day, centred on the day drawn */
+.page--app .own-attendance > .row { align-items: center; }
+/* Adding somebody (group_people.html): the search under its title, the results under the search */
 .page--app .heading + .search { margin-top: var(--s-3); }
+.search + .resultados { margin-top: var(--s-4); }
 /* The lists of a group's meetings (group_meetings.html): how many came, said in the title and drawn under it */
 .meeting-rows .meter { max-width: 14rem; margin-top: var(--s-2); }
 /* One day and its button (group_meetings.html): side by side, the day as wide as a date needs */
@@ -1061,6 +1064,10 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .form-section fieldset > .choices { margin-top: 0; }
 /* An empty line that follows a group of fields */
 .form-section + .empty-line { margin-top: var(--s-4); }
+
+/* Servir, the people of a team (team.html): under the text on a phone, the quiet «Quitar» keeps its size beside
+   the role's button */
+.equipo-gente .row__end .btn--quieto { flex: none; }
 
 /* A search with its results right under it */
 .page--app .heading + .search { margin-top: var(--s-3); }

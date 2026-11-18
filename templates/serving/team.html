@@ -77,7 +77,7 @@
   <section class="block" aria-labelledby="integrantes">
     <h2 id="integrantes" class="heading">En el equipo{% if members %} <span class="count">{{ member_count }}</span>{% endif %}</h2>
     {% if members %}
-      <ul class="rows">
+      <ul class="rows equipo-gente">
         {% for membership in members %}
           <li class="row row--lead row--stack">
             {% monogram membership.person.full_name %}

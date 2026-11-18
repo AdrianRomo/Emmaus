@@ -44,7 +44,7 @@
     {% if members %}
       <ul class="rows">
         {% for membership in members %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead">
             {% monogram membership.person.full_name %}
             <div class="row__main">
               <p class="row__title">{{ membership.person.full_name }}</p>
@@ -73,7 +73,7 @@
       <button class="btn btn--secondary" type="submit">Buscar</button>
     </form>
     {% if query %}
-      <div id="resultados">
+      <div class="resultados" id="resultados">
       {% if found %}
         <ul class="rows">
           {% for person in found %}
