@@ -114,3 +114,19 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
     while the page offers «Continuar aquí» (a service message shared with the camp).
 13. Found while testing, not caused by the redesign: four tests in `core/test_scheduler.py` fail for a few minutes
     after each even hour (they assume no report cutoff is due); reproduced on `origin/v2/foundation` too.
+
+### Answered 2026-11-18 (second round)
+
+- Identity: «Sí, es {nombre}» stays on new interviews, before any hand-over; it is kept (who, when) and shown on
+  the review and the record, never asked again on resume (`7c0f57f`).
+- Decline wording: «Prefiero no responder» on the campero's screens, «Prefirió no responder» in staff views and
+  exports, «Sin responder» for blanks (`7c0f57f`).
+- Homes: «Decisión cambiada» on every follow-up list a role sees, «Revisar» for the owner (`e92f8f4`).
+- No inference: a change to «no necesita» never closes a task; every open one is marked for its owner (`e92f8f4`).
+- Needed again after «Atendido»: the same task reopens to the owner's queue, its completion kept (`e92f8f4`).
+- «Eventos de la iglesia»: «En curso» apart from publication and sign-ups; an interview-only camp shows its
+  camperos, never «Sin inscritos» (`9dfc09a`).
+- Left for the owner: a reopened task starts at «Pendiente» even if it had been «En proceso»; an owner who thinks
+  the campero still needs care has no «keep open» button (they ask for the decision to be changed back); the
+  paper sheet keeps «Prefiero no responder» (the campero chooses from it); a resumed interview keeps naming who
+  confirmed the identity at the start.
