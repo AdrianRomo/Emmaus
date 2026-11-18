@@ -51,7 +51,7 @@
       <ul class="rows">{% for iv in to_evaluate %}
         <li class="row">
           <div class="row__main"><p class="row__title">{{ iv.participant.full_name }}</p><p class="row__meta">Completada {{ iv.completed_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p></div>
-          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={% url 'events:coord_pending' event.slug %}#seguimiento">Decidir<span class="visually-hidden"> sobre {{ iv.participant.full_name }}</span></a>
+          <a class="btn btn--secondary btn--small" href="{% url 'events:interview_detail' event.slug iv.public_id %}?siguiente={% url 'events:coord_pending' event.slug %}%23por-evaluar#seguimiento">Decidir<span class="visually-hidden"> sobre {{ iv.participant.full_name }}</span></a>
         </li>
       {% endfor %}</ul>
     {% else %}<p class="empty-line">Nada por decidir.</p>{% endif %}

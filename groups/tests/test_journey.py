@@ -22,7 +22,7 @@ class CampToGroupJourneyTests(CommunityFixture):
 
         home = self.client.get(reverse("dashboard"), follow=True)
         self.assertEqual(home.redirect_chain[-1][0], reverse("community:home"))
-        self.assertContains(home, f'<h1 class="voice hoy__iglesia">{self.church.name}</h1>')
+        self.assertContains(home, '<h1 class="voice hoy__titulo">Hoy</h1>')
         self.assertContains(home, "Donde has estado")
         self.assertContains(home, "Campamento A")
         self.assertContains(home, "Encuentra tu grupo")

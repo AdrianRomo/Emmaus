@@ -1,0 +1,5 @@
+{% load emmaus community %}{% comment %}
+  A serving date already answered, at the end of its line on "Mi iglesia": the answer in the team's words and, until
+  the day before, the other answer in place (data-inline="principal"; the page returns with ?respondida= so focus
+  lands on this date). a: the Assignment, with can_change set by groups.views.home.
+{% endcomment %}{% if a.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}{% status "descartada" "Dijiste que no puedes" %}{% endif %}{% if a.can_change %}<form method="post" action="{% url 'serving:respond' a.pk %}" data-inline="principal">{% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}?respondida={{ a.pk }}"><button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="{% if a.status == 'aceptada' %}declinar{% else %}aceptar{% endif %}">{% if a.status == "aceptada" %}Ya no puedo{% else %}Sí, puedo{% endif %}<span class="visually-hidden"> servir el {{ a.service_date.date|weekday_date }}</span></button></form>{% endif %}

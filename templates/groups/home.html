@@ -12,12 +12,12 @@
 <div class="hoy hoy--ancho">
 <header class="hoy__cabecera">
   <div>
-    <h1 class="voice hoy__iglesia">{{ church.name }}</h1>
     <p class="hoy__fecha">{{ today|weekday_date|capfirst }}</p>
+    <h1 class="voice hoy__titulo">Hoy</h1>
   </div>
 </header>
 
-<div class="hoy__principal">
+<div class="hoy__principal" id="principal">
 {% for notice in urgent_notices %}
 <section class="notice notice--danger urgent" aria-labelledby="urgente-{{ notice.pk }}">
   <h2 id="urgente-{{ notice.pk }}" class="notice__title">Aviso urgente: {{ notice.title }}</h2>
@@ -26,15 +26,14 @@
 </section>
 {% endfor %}
 
-{% if asks or sign %}
+{% if asks_pending or sign %}
 {% comment %}
-  What waits for this person: the one raised surface of the page. A serving date is answered in place (the whole
-  section is the region that changes, data-inline="esperan"): once answered it leaves the raised surface and stays
-  below it for a while as an open row with the answer and how to change it.
+  What waits for this person: the one raised surface of the page, with only what is still unanswered. A serving
+  date is answered in place: the main column is the region that changes (data-inline="principal"), so the date
+  leaves the raised surface and appears, answered, in the list of what comes; focus follows it (?respondida=).
 {% endcomment %}
-<section class="block" id="esperan" aria-labelledby="que-sigue">
-  <h2 id="que-sigue" class="heading">{% if sign or asks_pending %}Esperan tu respuesta{% else %}Tus respuestas{% endif %}</h2>
-  {% if sign or asks_pending %}
+<section class="block" aria-labelledby="que-sigue">
+  <h2 id="que-sigue" class="heading">Esperan tu respuesta</h2>
   <div class="sign sign--lead esperan">
     {% for a in asks_pending %}
     <div class="ask" id="servir-{{ a.pk }}">
@@ -46,8 +45,8 @@
           <p class="sign__text">{% if a.service_date.starts_at %}{{ a.service_date.starts_at|time:"H:i" }}{% if a.service_date.place %}, {% endif %}{% endif %}{{ a.service_date.place }}</p>
         </div>
       </div>
-      <form class="sign__actions sign__actions--pair" method="post" action="{% url 'serving:respond' a.pk %}" data-inline="esperan">
-        {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}">
+      <form class="sign__actions sign__actions--pair" method="post" action="{% url 'serving:respond' a.pk %}" data-inline="principal">
+        {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}?respondida={{ a.pk }}">
         <button class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--large" type="submit" name="respuesta" value="aceptar">Sí, puedo</button>
         <button class="btn btn--secondary btn--large" type="submit" name="respuesta" value="declinar">No puedo</button>
       </form>
@@ -56,37 +55,17 @@
     {% if sign %}
     <div class="ask">
       <div class="sign__who">
-        {% if sign.who %}{% monogram sign.who %}{% else %}<span></span>{% endif %}
+        {% if sign.who %}{% monogram sign.who %}{% endif %}
         <div>
           {% if sign.kind %}<p class="sign__kind">{{ sign.kind }}</p>{% endif %}
           <h3 class="sign__title">{{ sign.title }}</h3>
           {% if sign.text %}<p class="sign__text">{{ sign.text }}</p>{% endif %}
         </div>
       </div>
-      <div class="sign__actions"><a class="btn {% if asks_pending %}btn--secondary{% else %}btn--primary{% endif %}" href="{{ sign.url }}">{{ sign.action }}</a></div>
+      <div class="sign__actions"><a class="btn {% if asks_pending %}btn--secondary{% else %}btn--primary{% endif %} btn--large" href="{{ sign.url }}">{{ sign.action }}</a></div>
     </div>
     {% endif %}
   </div>
-  {% endif %}
-  {% if asks_answered %}
-  <ul class="rows respuestas">
-    {% for a in asks_answered %}
-    <li class="row row--lead" id="servir-{{ a.pk }}">
-      {% date_block a.service_date.date %}
-      <div class="row__main">
-        <p class="row__title">{{ a.service_date.what }}</p>
-        <p class="row__meta row__meta--con-marca">{% if a.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}{% status "descartada" "Dijiste que no puedes" %}{% endif %}<span data-inline-focus tabindex="-1">Equipo {{ a.service_date.team.name }}{% if a.service_date.starts_at %}, {{ a.service_date.starts_at|time:"H:i" }}{% endif %}</span></p>
-      </div>
-      {% if a.can_change %}
-      <form class="row__end" method="post" action="{% url 'serving:respond' a.pk %}" data-inline="esperan">
-        {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}">
-        {% if a.status == "aceptada" %}<button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar">Ya no puedo</button>{% else %}<button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="aceptar">Sí puedo</button>{% endif %}
-      </form>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
 </section>
 {% endif %}
 
@@ -105,11 +84,11 @@
       <h3 class="evento__titulo"><a href="{{ row.url }}">{{ row.title }}</a></h3>
       <p class="evento__donde">Tu grupo{% if row.place %}, {{ row.place }}{% endif %}</p>
       {% else %}
-      <h3 class="evento__titulo">{{ row.title }}</h3>
-      <p class="evento__donde">Te toca servir en {{ row.assignment.service_date.team.name }}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
+      <h3 class="evento__titulo"{% if row.assignment.just_answered %} data-inline-focus tabindex="-1"{% endif %}>{{ row.title }}</h3>
+      <p class="evento__donde">Equipo {{ row.assignment.service_date.team.name }}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
       {% endif %}
     </div>
-    {% if row.kind == "event" %}<div class="evento__pie">{% include "groups/_event_state.html" with event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="evento__pie">{% status "completada" "Confirmaste" %}</div>{% endif %}
+    {% if row.kind == "event" %}<div class="evento__pie">{% include "groups/_event_state.html" with event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="evento__pie">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
   </div>
   {% endfor %}
 </section>
@@ -133,11 +112,11 @@
         <p class="row__title"><a href="{{ row.url }}">{{ row.title }}</a></p>
         <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>Tu grupo{% if row.time %}, {{ row.time|time:"H:i" }}{% endif %}{% if row.place %}, {{ row.place }}{% endif %}</p>
         {% else %}
-        <p class="row__title">{{ row.title }}</p>
-        <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>Te toca servir{% if row.time %}, {{ row.time|time:"H:i" }}{% endif %}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
+        <p class="row__title"{% if row.assignment.just_answered %} data-inline-focus tabindex="-1"{% endif %}>{{ row.title }}</p>
+        <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>Equipo {{ row.assignment.service_date.team.name }}{% if row.time %}, {{ row.time|time:"H:i" }}{% endif %}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
         {% endif %}
       </div>
-      {% if row.kind == "event" %}<div class="row__end">{% include "groups/_event_state.html" with event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="row__end">{% if row.assignment.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}<a class="btn btn--link" href="{% url 'serving:home' %}">Responder<span class="visually-hidden"> si puedes servir el {{ row.date|weekday_date }}</span></a>{% endif %}</div>{% endif %}
+      {% if row.kind == "event" %}<div class="row__end">{% include "groups/_event_state.html" with event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="row__end">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
     </li>
     {% endfor %}
   </ul>

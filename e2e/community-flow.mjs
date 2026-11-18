@@ -66,7 +66,7 @@ function expect(condition, message) {
 // 1. The former campero, on a phone: home, groups, ask to join.
 let { ctx, page } = await session("valeria.soto@demo.invalid", PHONE);
 expect(new URL(page.url()).pathname === "/mi-iglesia/", `member lands on ${page.url()}, not on /mi-iglesia/`);
-expect(await page.locator("h1.hoy__iglesia").count() === 1, "the home opens on the church");
+expect(await page.locator("h1").innerText() === "Hoy", "the home is today");
 expect(await page.getByText("Campamento de Jóvenes 2025").count() > 0, "home shows the camp she was part of");
 await audit(page, "miembro-inicio");
 await page.setViewportSize(PHONE);

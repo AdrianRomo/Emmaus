@@ -206,20 +206,15 @@ def home(request):
         request.user, church, person.first_name, has_group=bool(memberships), open_groups=open_groups,
         guided=(guided.name, reverse("community:group_people", args=[guided.pk])) if guided else None,
     )
-    # What waits for this person's answer: the dates their teams asked them to serve. One answered a moment ago stays
-    # here, showing the answer and how to change it, so the answer never vanishes from under the finger; after that
-    # it lives in the list of what comes.
-    just_now = timezone.now() - timezone.timedelta(minutes=15)
-    asks = [
-        a for a in serving_services.all_my_dates(person, today)
-        if a.status == serving_services.PENDING or (a.responded_at and a.responded_at >= just_now)
-    ][:3]
-    for a in asks:
-        a.pending = a.status == serving_services.PENDING
-        a.can_change = not a.pending and a.service_date.date > today  # an answer changes until the day before
-    asked = {a.pk for a in asks}
-    asks_pending = [a for a in asks if a.pending]
-    asks_answered = [a for a in asks if not a.pending]
+    # What waits for this person's answer: the dates their teams asked them to serve and they have not answered.
+    # An answered date moves to the list of what comes, with its answer and the way to change it.
+    upcoming_dates = serving_services.all_my_dates(person, today)
+    asks_pending = [a for a in upcoming_dates if a.status == serving_services.PENDING][:3]
+    answered_now = request.GET.get("respondida", "")
+    for a in upcoming_dates:
+        a.can_change = a.status != serving_services.PENDING and a.service_date.date > today  # until the day before
+        a.just_answered = str(a.pk) == answered_now
+    asked = {a.pk for a in asks_pending}
     # A suggestion (find a group) is not something that waits for an answer: it goes with the groups, unraised.
     suggestion = sign if sign and sign["action"] == "Ver los grupos" else None
     if suggestion:
@@ -230,8 +225,8 @@ def home(request):
     serving_rows = [
         {"date": a.service_date.date, "today": a.service_date.date == today, "kind": "serving", "assignment": a,
          "time": a.service_date.starts_at, "title": a.service_date.what}
-        for a in serving_dates if a.pk not in asked
-    ]
+        for a in upcoming_dates if a.pk not in asked
+    ][:4]
     coming = sorted(agenda[:6] + serving_rows, key=lambda row: (row["date"], str(row.get("time") or ""), row["title"]))
     today_rows = [row for row in coming if row["date"] == today]
     later_rows = [row for row in coming if row["date"] != today][:5]
@@ -244,9 +239,7 @@ def home(request):
         request,
         "groups/home.html",
         {
-            "asks": asks,
             "asks_pending": asks_pending,
-            "asks_answered": asks_answered,
             "suggestion": suggestion,
             "today_rows": today_rows,
             "later_rows": later_rows,

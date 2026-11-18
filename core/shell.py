@@ -171,7 +171,8 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     # Phones: Mi iglesia, then the two places this person uses most, and "Más" (the panel).
     home, _notices, events, groups = main
     if managed:
-        first = managed[0]
+        # The tab opens where its count is: the first group with requests waiting, else the first group
+        first = next((group for group in managed if pending.get(group.pk)), managed[0])
         total = sum(pending.values())
         tabs = [home, groups, _item(
             "A tu cargo", reverse("community:group_people", args=[first.pk]), "guia", in_managed, total,

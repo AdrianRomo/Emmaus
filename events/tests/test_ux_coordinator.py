@@ -321,7 +321,7 @@ class DecisionReturnsToOriginTests(CoordinatorUxFixture):
 
     def test_decidir_on_pendientes_carries_the_way_back(self):
         response = self.client.get(self.pending)
-        self.assertContains(response, f'href="{self.detail}?siguiente={self.pending}#seguimiento">Decidir', count=1)
+        self.assertContains(response, f'href="{self.detail}?siguiente={self.pending}%23por-evaluar#seguimiento">Decidir', count=1)
 
     def test_the_record_keeps_the_way_back_in_the_decision_form(self):
         response = self.client.get(self.detail, {"siguiente": self.pending})
