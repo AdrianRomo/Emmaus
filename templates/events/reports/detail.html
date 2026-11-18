@@ -144,7 +144,7 @@
     {# Several questionnaires: one grid per questionnaire under its title (inside the grid a heading would take a cell). #}{% regroup payload.outcomes by questionnaire_id as outcome_groups %}{% for group in outcome_groups %}{% if group.list.0.show_questionnaire %}<div><h3 class="heading">{{ group.list.0.questionnaire }}</h3>{% endif %}<div class="outcomes">
       {% for o in group.list %}
         <figure class="outcome">
-          <figcaption><p class="outcome__title">{{ o.title }}</p><p class="outcome__sub">Personas. Respondieron {{ o.respondents.display }}.</p></figcaption>
+          <figcaption><p class="outcome__title">{{ o.title }}</p><p class="outcome__sub">Personas. Respondieron {{ o.respondents.display }}.{% if o.declined %} {{ o.declined.display|capfirst }} prefirieron no responder.{% endif %}</p></figcaption>
           {% if o.withheld %}
             <p class="chart__empty">No había suficientes respuestas para mostrar este resumen sin identificar a nadie.</p>
           {% else %}
