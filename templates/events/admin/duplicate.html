@@ -9,7 +9,7 @@
 <div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
 {% url 'events:settings' event.slug as back %}
-{% include "events/rotulo/_page_head.html" with title="Duplicar como plantilla" lede="Crea el siguiente evento con la configuración de este, sin volver a prepararlo todo." meta=event.name back_url=back back_label="Configuración" %}
+{% include "events/rotulo/_page_head.html" with title="Duplicar como plantilla" meta=event.name back_url=back back_label="Configuración" %}
 <div class="notice notice--quiet">
   <p class="notice__title">Qué se copia y qué no</p>
   <p>Se copia la configuración: tipo de actividad, lugar, zona horaria, sedes, cortes, privacidad y protección, los cuestionarios que están en uso (con su versión y su orden) y las computadoras.</p>

@@ -253,7 +253,7 @@ class VersionPageTests(AdminHelpers, CampFixture):
         """Defect: no way to stop using a questionnaire from its page."""
         second = self.second()
         html = self.page("version_detail", second.id)
-        self.assertIn("En uso en este evento.", html)
+        self.assertIn('<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>En uso</span>', html)
         self.assertIn('name="action" value="stop"', html)
         self.assertIn(">Dejar de usar en este evento</button>", html)
         self.assertNotIn('value="use"', html)

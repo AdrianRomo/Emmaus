@@ -5,13 +5,14 @@
 <div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
 {% if sede %}
-  {% include "events/rotulo/_page_head.html" with title=sede.name lede="Los cambios se ven en todos los eventos de la iglesia." back_url=back_url back_label="Sedes de la iglesia" %}
+  {% include "events/rotulo/_page_head.html" with title=sede.name back_url=back_url back_label="Sedes de la iglesia" %}
 {% else %}
-  {% include "events/rotulo/_page_head.html" with title="Agregar sede" lede="Un lugar de donde vienen los camperos, por ejemplo Satélite o Mérida." back_url=back_url back_label="Sedes de la iglesia" %}
+  {% include "events/rotulo/_page_head.html" with title="Agregar sede" back_url=back_url back_label="Sedes de la iglesia" %}
 {% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
   {% include "partials/ui/fields.html" with form=form %}
+  {% if sede %}<p class="aside-note">Los cambios se ven en todos los eventos de la iglesia.</p>{% endif %}
   <div class="step__actions">
     <button class="btn btn--primary" type="submit">{% if sede %}Guardar cambios{% else %}Agregar sede{% endif %}</button>
     <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>

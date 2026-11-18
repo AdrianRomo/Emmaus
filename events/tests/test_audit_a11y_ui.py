@@ -405,7 +405,7 @@ class AdminHomeTests(CampFixture):
         html = self.home(event)
         self.assertEqual(len(re.findall(r'class="sign[ "]', html)), 1, "exactly one next-action panel")
         self.assertIn(f'<h2 id="que-sigue" class="sign__title">{self.SIGN}</h2>', html)
-        self.assertIn("Puedes importar la lista desde una hoja de cálculo o registrarlos uno por uno.", html)
+        self.assertNotIn("Puedes importar la lista", html)  # the two actions below say it: no sentence between them
         importar = reverse("events:participant_import", args=[event.slug])
         self.assertIn(f'<a class="btn btn--primary btn--large" href="{importar}">Importar camperos</a>', html)
         self.assertIn(f'<a class="sign__link" href="{reverse("events:participant_create", args=[event.slug])}">Registrar uno</a>', html)

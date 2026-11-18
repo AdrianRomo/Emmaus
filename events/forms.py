@@ -105,7 +105,7 @@ MEXICO_TIME_ZONES = [
 
 
 class EventSettingsForm(forms.ModelForm):
-    time_zone = forms.ChoiceField(label="Zona horaria", choices=MEXICO_TIME_ZONES, help_text="Define a qué hora caen los cortes y cómo se muestran las horas.")
+    time_zone = forms.ChoiceField(label="Zona horaria", choices=MEXICO_TIME_ZONES)
     # The event's questionnaires are chosen in Cuestionarios (admin.questionnaires), not here.
 
     class Meta:
@@ -130,7 +130,6 @@ class EventSettingsForm(forms.ModelForm):
             "safeguarding_instructions": forms.Textarea(attrs={"rows": 5}),
         }
         help_texts = {
-            "report_window_start": "Los cortes se generan solo dentro de este horario.",
             "retention_days": "Después de este tiempo se borran las respuestas individuales. Los resúmenes se conservan.",
         }
 
@@ -397,7 +396,6 @@ class MemberForm(forms.Form):
     full_name = forms.CharField(label="Nombre completo", max_length=150, error_messages={"required": "Escribe el nombre completo."})
     email = forms.EmailField(
         label="Correo electrónico",
-        help_text="Lo usará para entrar a Emmaus.",
         error_messages={"required": "Escribe el correo electrónico.", "invalid": "Escribe un correo válido, como nombre@ejemplo.com."},
     )
     role = forms.ChoiceField(label="Rol en este evento", choices=MembershipRole.choices, widget=forms.RadioSelect,
@@ -500,7 +498,6 @@ class MembershipEditForm(forms.ModelForm):
 class ImportForm(forms.Form):
     file = forms.FileField(
         label="Archivo CSV",
-        help_text="Columnas: Nombre, Edad, Cuarto, Iglesia o grupo. Opcionales: Coordinador (correo o nombre), Autorización (sí/no) y Sede.",
         error_messages={"required": "Elige un archivo CSV."},
     )
 
@@ -516,7 +513,6 @@ class ImportForm(forms.Form):
 class TeamImportForm(forms.Form):
     file = forms.FileField(
         label="Archivo CSV",
-        help_text="Columnas: Nombre, Correo y Rol (coordinador, tutor o pastor). Opcionales: Equipo y Tutor.",
         error_messages={"required": "Elige un archivo CSV."},
     )
 
@@ -545,7 +541,7 @@ class QuestionForm(forms.ModelForm):
     condition_codes = forms.CharField(
         required=False,
         label="Respuestas que la muestran",
-        help_text="Los identificadores internos de esas respuestas, separados por comas. Están en “Datos técnicos”, en esta página y debajo de cada pregunta del cuestionario. Por ejemplo: si",
+        help_text="Sus identificadores internos, separados por comas (están en “Datos técnicos”). Por ejemplo: si",
     )
 
     class Meta:

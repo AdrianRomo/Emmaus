@@ -1225,7 +1225,77 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* end: discipulado */
 
 /* area: evento-administracion */
+/* The administration of an event (templates/events/admin/, events_list.html). The markup is Atrio's, restyled by the
+   components above; what follows is what the tighter scale and the sheets left to fix on these screens. */
 
+/* A filter bar: the shell gives every .field a bottom margin, which lifted the fields above the button beside them */
+.page--app .filter-bar { margin-bottom: var(--s-6); }
+.page--app .filter-bar .field { margin-bottom: 0; }
+
+/* A row that leads somewhere draws its chevron as a third item of the row: the text takes the room that is left,
+   so the state stays at the end instead of floating in the middle */
+.page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row > .row__main { flex: 1 1 auto; }
+/* A row with buttons at its end is not pressed as a whole: its title says by itself that it opens something */
+.page--app :is(.admin-rows, .admin-questions) > .row:has(.row__end :is(a, button)) .row__title a {
+  text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 0.18em;
+}
+/* A second level of titles inside a section (the questionnaires under "Versiones") */
+.page--app .admin-section h3.heading { font-size: var(--t-body); color: var(--ink-2); }
+/* Rows that wait inside a sheet ("Preparación"): Atrio rounded each one by itself; here the sheet has the corners */
+.page--app .admin-rows > .row--attention:not(:first-child, :last-child) { border-radius: 0; }
+.page--app .page-head + .admin-events, .page--app .welcome + .admin-events { margin-top: 0; }
+
+/* The same lists on a phone: the name and its lines take the width, the chevron stays beside them and the state (or
+   the buttons) goes under them; beside them it left the text half a column, and the chevron fell to a line of its own */
+@media (max-width: 600px) {
+  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row { flex-wrap: wrap; row-gap: var(--s-2); }
+  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row > .row__main { flex-basis: calc(100% - 2.5rem); }
+  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row > .row__end { order: 3; flex: 1 0 100%; }
+  .page--app :is(.admin-rows, .admin-questions, .admin-people__rows, .admin-events__rows) > .row::after { order: 2; }
+  /* Only states at the end (two pills): together at the start, not one at each edge */
+  .page--app .admin-rows > .row > .row__end:not(:has(a, button)) { justify-content: flex-start; gap: var(--s-2); }
+  /* Interviews left half done (rotulo/_interrupted_rows.html): Atrio stacks the row at this width, where the
+     column's 12rem basis became 12rem of height */
+  .page--app .admin-state .row--stack .row__main, .page--app .notice .row--stack .row__main { flex: 0 1 auto; }
+  /* ...and its state, alone on its line, is the mark and the word: a pill as wide as the screen says nothing more */
+  .page--app .admin-state .row--stack .row__end .status, .page--app .notice .row--stack .row__end .status { min-height: 0; padding: 0; background: none; }
+  /* Configuración: its three ways out are links to other pages, not three bars across the screen */
+  .page--app .admin-settings__links { gap: var(--s-2); }
+  .page--app .admin-settings__links .btn { flex: 0 1 auto; min-height: var(--control); padding-inline: 0.75rem; font-size: var(--t-caption); }
+}
+
+/* Importar camperos, Importar equipo: the three steps (Atrio's numbered list, at the shell's scale) */
+:root[data-ui="2"] .admin-upload__steps { margin-top: 0; font-size: var(--t-body); }
+:root[data-ui="2"] .admin-upload__steps li::marker { font-weight: 700; color: var(--ink-2); }
+:root[data-ui="2"] .admin-upload__steps a { font-weight: 700; }
+
+/* A table read as blocks in a narrow column (.table--stack): the cell that names the row is its title, and a
+   cell's own head is narrower here than Panorama's */
+@container (max-width: 44rem) {
+  :root[data-ui="2"] .admin-table.table--stack .table__lead { font-size: var(--t-body); font-weight: 700; }
+  :root[data-ui="2"] .admin-table.table--stack td[data-label]::before { min-width: 7.5rem; }
+  /* The activity log: when and who are the quiet lines over what happened */
+  :root[data-ui="2"] .admin-table.table--stack .table__date { width: auto; }
+  :root[data-ui="2"] .admin-table.table--stack :is(.table__date, .table__who) { padding-block: 0; font-size: var(--t-caption); color: var(--ink-2); }
+  :root[data-ui="2"] .admin-table.table--stack .table__action { text-align: left; padding-top: var(--s-2); }
+  /* The review of an import: the mark of a row (error, possible repeat) runs down its whole block, the box to
+     include it comes first, and the review needs no head: it is the sentence */
+  :root[data-ui="2"] .admin-table--marked.table--stack tr { position: relative; }
+  :root[data-ui="2"] .admin-table--marked.table--stack tr.is-error { box-shadow: inset 4px 0 0 var(--chile); }
+  :root[data-ui="2"] .admin-table--marked.table--stack tr.is-attention { background: var(--hundido); box-shadow: inset 4px 0 0 var(--petroleo); }
+  :root[data-ui="2"] .admin-table--marked.table--stack tr > td { background: none; box-shadow: none; padding-left: 0; }
+  :root[data-ui="2"] .admin-table--marked.table--stack td:empty { display: none; }
+  :root[data-ui="2"] .admin-table--marked.table--stack .table__review { min-width: 0; }
+  :root[data-ui="2"] .admin-table--marked.table--stack .num { text-align: left; }
+}
+/* An import under review: the other file is a second thing on the page, not the tail of the first */
+.page--app section.admin-upload { margin-top: var(--s-10); }
+.page--app section.admin-upload > form { margin-top: var(--s-4); }
+.page--app .aside-note + .admin-rows { margin-top: var(--s-3); }
+
+/* A questionnaire: the note of a section sits on its questions, not against them */
+.page--app .admin-section__desc + .rows { margin-top: var(--s-3); }
+.page--app .admin-versions__how { margin-top: var(--s-4); }
 /* end: evento-administracion */
 
 /* area: evento-equipo */

@@ -4,7 +4,7 @@
 <div class="narrow">
 <a class="back-link" href="{% url 'events:list' %}?todos=1">Eventos</a>
 {% include "partials/ui/error_summary.html" with form=form %}
-{% include "events/rotulo/_page_head.html" with title="Crear evento" lede="Podrás cambiar todo esto después en Configuración." meta=church.name %}
+{% include "events/rotulo/_page_head.html" with title="Crear evento" meta=church.name %}
 <form method="post" novalidate class="event-create">
   {% csrf_token %}
   {% include "partials/ui/fields.html" with form=form %}
