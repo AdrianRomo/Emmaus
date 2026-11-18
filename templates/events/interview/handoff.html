@@ -1,8 +1,28 @@
 {% extends "events/shell_focus.html" %}
 {% block page_title %}Entregar la computadora{% endblock %}
-{% block focus_actions %}<a class="btn btn--small btn--link" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Cancelar</a>{% endblock %}
+{% block focus_actions %}{% if ui_v2 %}<a class="btn btn--small btn--link btn--quieto" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Descartar</a>{% else %}<a class="btn btn--small btn--link" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Cancelar</a>{% endif %}{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): what to tell the campero before handing over, word for word (it is what they are told
+  about who reads their answers), what happens to this session as one note, and the one filled action. The bar's way
+  out says where it goes: discarding, whose page asks first.
+{% endcomment %}
 <header class="page-head">
+  <h1 class="voice page-head__title">Entrega la computadora a {{ participant.first_name }}</h1>
+</header>
+<h2 class="checks__title">Antes de entregársela</h2>
+<ol class="promises">
+  <li>Dile que puede responder con calma y que puede elegir “Prefiero no responder”.</li>
+  <li>Dile que la pantalla de bienvenida le explica quién lee sus respuestas{% if interview.effective_confidential_level != "cuidado" %}: «Las marcadas “Confidencial”, {{ interview.confidential_readers_phrase }}.»{% else %}, y que las marcadas “Confidencial” solo las lee el equipo de cuidado autorizado.{% endif %}</li>
+  <li>Pídele que te avise cuando termine.</li>
+</ol>
+<p class="aside-note">Tu sesión se cerrará en esta computadora: así el campero no puede ver nada más. Para recuperar la computadora necesitarás tu contraseña.</p>
+<form method="post" class="step__actions">
+  {% csrf_token %}
+  <button class="btn btn--primary btn--large" type="submit">Entregar la computadora</button>
+  <button class="btn btn--link" type="submit" name="action" value="asistida">Mejor hago yo las preguntas</button>
+</form>
+{% else %}<header class="page-head">
   <h1 class="voice page-head__title">Entrega la computadora a {{ participant.first_name }}</h1>
   <p class="lede">En la entrevista a solas, {{ participant.first_name }} responde solo en la computadora. Antes de entregársela:</p>
 </header>
@@ -20,4 +40,4 @@
   <button class="btn btn--primary" type="submit">Entregar la computadora</button>
     <button class="btn btn--link" type="submit" name="action" value="asistida">Mejor hago yo las preguntas</button>
 </form>
-{% endblock %}
+{% endif %}{% endblock %}

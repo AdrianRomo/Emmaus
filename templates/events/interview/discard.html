@@ -1,7 +1,35 @@
 {% extends "events/shell_focus.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Descartar entrevista{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): the page that asks first. The reasons are drawn as the interview's answers (one large
+  choice each); what is erased is said in full beside the button that erases it, the one filled action, in chile.
+{% endcomment %}
 {% include "partials/ui/error_summary.html" with form=form %}
+<header class="page-head">
+  <h1 class="voice page-head__title">¿Descartar la entrevista de {{ participant.first_name }}?</h1>
+</header>
+<form method="post" novalidate>
+  {% csrf_token %}
+  <fieldset class="descartar{% if form.reason.errors %} question--error{% endif %}"{% if form.reason.errors %} aria-describedby="motivo-error"{% endif %}>
+    <legend class="checks__title">{{ form.reason.label }}</legend>
+    {% if form.reason.errors %}<p class="error-message" id="motivo-error">{{ form.reason.errors.0 }}</p>{% endif %}
+    <div class="choices" id="{{ form.reason.auto_id }}">
+      {% for radio in form.reason %}
+        <div class="choice">
+          {{ radio.tag }}
+          <label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label>
+        </div>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <p class="aside-note">Se borrarán todas las respuestas guardadas. {{ participant.first_name }} quedará como “sin entrevista” y se podrá empezar de nuevo.</p>
+  <div class="step__actions">
+    <button class="btn btn--danger btn--large" type="submit">Sí, descartar y borrar respuestas</button>
+    <a class="btn btn--secondary btn--large" href="{% url 'events:interview_resume' event.slug interview.public_id %}">No, volver a la entrevista</a>
+  </div>
+</form>
+{% else %}{% include "partials/ui/error_summary.html" with form=form %}
 <header class="page-head">
   <h1 class="voice page-head__title">¿Descartar la entrevista de {{ participant.first_name }}?</h1>
   <p class="lede">Se borrarán todas las respuestas guardadas. {{ participant.first_name }} quedará como “sin entrevista” y se podrá empezar de nuevo.</p>
@@ -14,4 +42,4 @@
     <a class="btn btn--secondary" href="{% url 'events:interview_resume' event.slug interview.public_id %}">No, volver a la entrevista</a>
   </div>
 </form>
-{% endblock %}
+{% endif %}{% endblock %}

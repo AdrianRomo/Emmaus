@@ -2,7 +2,92 @@
 {% load emmaus shell %}
 {% block page_title %}{{ participant.full_name }}{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): a campero's record. A minor's guardian authorization comes first, apart from the
+  interview: a check with «Autorizada», or vela with the way to register it (then the one filled action, and starting
+  the interview is drawn as a secondary one: its consent step asks to confirm the signed authorization). Then the
+  facts, the interview (one row per questionnaire, the row opens its answers, the state at its end) and the
+  follow-ups on the row specification; reporting a risk in chile; erasing in its own section, last.
+{% endcomment %}
 {% if can_interview %}{% if live_interview or participant.interview_status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}{% endif %}
+{% if can_edit %}{% url 'events:participant_edit' event.slug participant.public_id as edit_url %}{% endif %}
+{% if live_interview %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
+{% elif participant.is_minor and event.requires_guardian_authorization and not guardian_ok %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" action_quiet=True secondary_url=edit_url secondary_label="Corregir datos" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Iniciar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
+{% endif %}
+
+{% if participant.is_minor and event.requires_guardian_authorization %}{% if guardian_ok %}<p class="ficha__autorizacion"><span class="autorizada">{% icon "check" "sm" %}Autorizada</span><span class="visually-hidden">: autorización de padre, madre o tutor legal registrada</span></p>{% else %}<div class="notice notice--warning ficha__autorizacion">
+  <p class="notice__title">{% if participant.interview_status == "completada" %}Entrevistado sin autorización vigente{% else %}Falta la autorización de padre, madre o tutor legal{% endif %}</p>
+  {% if can_edit %}<p><a class="btn {% if live_interview %}btn--secondary{% else %}btn--primary{% endif %} btn--small" href="{% url 'events:guardian_authorization' event.slug participant.public_id %}">Marcar como recibida</a></p>{% endif %}
+</div>{% endif %}{% endif %}<div class="split ficha">
+  <section aria-labelledby="datos">
+    <h2 id="datos" class="heading">Datos del campero</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Número</dt><dd>#{{ participant.code }}{% if not participant.is_active %}, ya no participa{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Edad</dt><dd>{{ participant.age }} años</dd></div>
+      <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
+      <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
+      <div class="summary-list__row"><dt>Coordinador</dt><dd>{{ participant.coordinator.display_name|default:"Sin asignar" }}</dd></div>
+      <div class="summary-list__row"><dt>Registro</dt><dd>{{ participant.created_at|fecha_corta }}</dd></div>
+      {% if participant.is_minor and event.requires_guardian_authorization %}
+      <div class="summary-list__row"><dt>Autorización de padre, madre o tutor legal</dt><dd>{% if guardian_ok %}Registrada{% if guardian_record.recorded_by %} por {{ guardian_record.recorded_by.get_full_name|default:guardian_record.recorded_by.email }}{% endif %}, {{ guardian_record.recorded_at|fecha_corta }}{% else %}<strong>Falta</strong>{% endif %}</dd>
+        <dd class="summary-list__action">{% if can_edit and guardian_ok %}<a href="{% url 'events:guardian_authorization_withdraw' event.slug participant.public_id %}">Quitar la autorización</a>{% endif %}</dd></div>
+      {% endif %}
+    </dl>
+  </section>
+  <div>
+    <section class="block" aria-labelledby="entrevista">
+      <h2 id="entrevista" class="heading">Entrevista{% if questionnaire_rows %} <span class="count">{{ questionnaires_done }} de {{ questionnaire_rows|length }}</span>{% endif %}</h2>
+      {% if questionnaire_rows %}
+        <ul class="rows">{% for row in questionnaire_rows %}
+          <li class="row row--lead">
+            <span class="admin-icono">{% icon "lista" %}</span>
+            <div class="row__main">
+              <p class="row__title">{% if row.interview %}<a href="{% url 'events:interview_detail' event.slug row.interview.public_id %}">{{ row.link.version.title }}</a>{% else %}{{ row.link.version.title }}{% endif %}</p>
+              <p class="row__meta row__meta--con-marca">{% if row.state == "bloqueado" %}{% status "pendiente" "Después" %}{% else %}{% status row.state %}{% endif %}{% if row.interview %}<span>{{ row.interview.get_mode_display }}, iniciada {{ row.interview.started_at|fecha_corta }}{% if row.interview.completed_at %}, completada {{ row.interview.completed_at|fecha_corta }}{% endif %}</span>{% endif %}</p>
+            </div>
+          </li>
+        {% endfor %}</ul>
+      {% elif interview %}
+        <ul class="rows">
+          <li class="row row--lead">
+            <span class="admin-icono">{% icon "lista" %}</span>
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'events:interview_detail' event.slug interview.public_id %}">{{ interview.get_mode_display }}</a></p>
+              <p class="row__meta row__meta--con-marca">{% status interview.status %}<span>Iniciada {{ interview.started_at|fecha_corta }}{% if interview.completed_at %}, completada {{ interview.completed_at|fecha_corta }}{% endif %}</span></p>
+            </div>
+          </li>
+        </ul>
+      {% else %}
+        <p class="empty-line">{% status "pendiente" %}</p>
+      {% endif %}
+    </section>
+    {% if follow_ups %}
+      <section class="block" aria-labelledby="seguimiento">
+        <h2 id="seguimiento" class="heading">Seguimiento</h2>
+        <ul class="rows">{% for f in follow_ups %}
+          <li class="row row--lead{% if f.kind == 'seguridad' %} ficha__riesgo{% endif %}">
+            <span class="admin-icono">{% if f.kind == "seguridad" %}{% icon "alerta" %}{% else %}{% icon "acompanar" %}{% endif %}</span>
+            <div class="row__main"><p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.path|urlencode }}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}<span>{{ f.created_at|since|capfirst }}</span></p></div>
+          </li>
+        {% endfor %}</ul>
+      </section>
+    {% endif %}
+    <section class="block" aria-label="Otras acciones">
+      <p><a class="btn btn--secondary btn--danger-outline" href="{% url 'events:safety_report' event.slug participant.public_id %}">Reportar una situación de riesgo</a></p>
+      {% if access.is_admin and access.can_view_sensitive %}<p class="ficha__descargar"><a class="btn btn--link ir" href="{% url 'events:participant_data_export' event.slug participant.public_id %}">Descargar todos sus datos</a></p>{% endif %}
+    </section>{% if access.is_admin %}
+    <section class="block ficha__eliminar" aria-labelledby="eliminar">
+      <h2 id="eliminar" class="heading">Eliminar sus datos</h2>
+      <p class="aside-note">Se borran su registro, su entrevista, sus respuestas, autorizaciones y seguimientos. No se puede deshacer; antes se pide confirmar.</p>
+      <p><a class="btn btn--danger-outline" href="{% url 'events:participant_delete' event.slug participant.public_id %}">Eliminar sus datos</a></p>
+    </section>{% endif %}
+  </div>
+</div>
+{% else %}{% if can_interview %}{% if live_interview or participant.interview_status != "completada" %}{% url 'events:interview_start' event.slug participant.public_id as start_url %}{% endif %}{% endif %}
 {% if can_edit %}{% url 'events:participant_edit' event.slug participant.public_id as edit_url %}{% endif %}
 {% if live_interview %}
   {% include "events/rotulo/_page_head.html" with title=participant.full_name action_url=start_url action_label="Retomar entrevista" secondary_url=edit_url secondary_label="Corregir datos" %}
@@ -85,4 +170,4 @@
     </section>{% endif %}
   </div>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

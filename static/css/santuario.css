@@ -1723,10 +1723,11 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* area: evento-entrevista */
 /* The interview and the campero's screens (shell_focus, shell_kiosk: .focus) have no rail: one task per screen, on a
    shared laptop, often read by a teenager. They keep Atrio's larger type and its 48px controls; what follows only
-   repairs what the shared restyle changed on them. Nothing here reaches a page with the rail, except where it says. */
+   repairs what the shared restyle changed on them, and draws what the redesign added (docs/v2/DESIGN_SYSTEM.md).
+   The search, the interview's record, a campero's record and the authorization pages have the rail. */
 
 /* What a person presses or must read to go on keeps its size: buttons (the step's one is 20px), the consent box
-   and a discard's reasons (28px), an error under a question (18px) */
+   (28px), an error under a question (18px) */
 :root[data-ui="2"] .focus .btn { font-size: var(--t-body); }
 :root[data-ui="2"] .focus .btn--large { font-size: var(--t-lead); }
 :root[data-ui="2"] .focus .btn--small { font-size: var(--t-small); }
@@ -1744,37 +1745,85 @@ p.sitio__leaves { margin-top: var(--s-2); }
   :root[data-ui="2"] .focus .messages.is-toast { margin-block: calc(-1 * var(--s-3)) var(--s-3); }
 }
 
+/* The bar: the computer is its icon and its name, as on «Mi inicio» (never a dot in the church's colour) */
+:root[data-ui="2"] .focus .here .icon { color: var(--ink-2); }
+
 /* A step. On a phone its button is a bar stuck to the bottom of the window: the page's colour with a hairline, not
    a white band between two limewashed ones. The reason of a correction stands apart from the last option. */
 @media (max-width: 600px) {
   :root[data-ui="2"] .step .step__actions { background: var(--page); }
 }
 :root[data-ui="2"] .step > .field { margin-top: var(--s-8); }
+/* Offline, the notice is a line of the bar, above the button the person pressed: where it is seen on a phone */
+:root[data-ui="2"] .step__actions > [data-offline-notice] { flex: 1 0 100%; margin: 0; }
+/* The button says what it will do. A question that may be left blank, with nothing chosen: «Saltar pregunta»,
+   outlined; once an option is chosen (or was, before), the filled «Continuar». Only the main question counts, not
+   its follow-up. Without :has() it is «Continuar», as before. */
+.step__sin { display: none; }
+:root[data-ui="2"] .step--saltable:not(:has(> .question input:checked)) .step__con { display: none; }
+:root[data-ui="2"] .step--saltable:not(:has(> .question input:checked)) .step__sin { display: inline; }
+:root[data-ui="2"] .step--saltable:not(:has(> .question input:checked)) .step__siguiente { --spin: var(--ink); border-color: var(--ink-2); background: none; color: var(--ink); }
+:root[data-ui="2"] .step--saltable:not(:has(> .question input:checked)) .step__siguiente:hover { background: var(--fill); }
+/* The trail: questions done in ink, the one on screen half filled ("in progress", as the state's half circle); the
+   church's colour only acts */
+:root[data-ui="2"] .trail__blazes li { border-color: var(--line-strong); }
+:root[data-ui="2"] .trail__blazes li.is-done { background: var(--ink); border-color: var(--ink); }
+:root[data-ui="2"] .trail__blazes li.is-here { background: var(--raya); border-color: var(--ink); }
+/* «Confidencial» is a fact about who reads, not an action: ink, never the church's colour */
+:root[data-ui="2"] :is(.focus, .entrevista-respuestas) .privacy__tag { border-color: var(--ink-2); color: var(--ink); }
+/* The campero's promises and the hand-over's list: an ink check, not a coloured one */
+:root[data-ui="2"] .focus .promises li::before { border-color: var(--ink); }
+:root[data-ui="2"] .focus ol.promises li::before { border-color: var(--line-strong); }
 
-/* "Cambiar" and "Corregir" beside an answer: 44px to press. The padding of an inline box moves no text. */
-:root[data-ui="2"] .summary-list--answers .summary-list__action a { padding-block: calc((2.75rem - 1.2em) / 2); }
+/* "Cambiar" and "Corregir" beside an answer, «Quitar la autorización» beside it on a record: 44px to press. The
+   padding of an inline box moves no text. */
+:root[data-ui="2"] :is(.summary-list--answers, .ficha .summary-list) .summary-list__action a { padding-block: calc((2.75rem - 1.2em) / 2); }
 
-/* The review's "Si algo no salió como se esperaba": its two ways out are a button and a link inside a row's title,
-   and the rule that makes a row's title quiet took the chile of one and the underline of the other */
+/* Before starting: the campero drawn as a person (circle, name, the facts that tell them apart); an authorization
+   already registered is the check with its words */
+.checks__quien { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s-4); }
+.checks__nombre { font-size: var(--t-lead); font-weight: 600; line-height: 1.3; }
+.checks__datos { margin-top: 0.125rem; color: var(--ink-2); }
+.checks__quien + .checks__aside { margin-top: var(--s-3); }
+:root[data-ui="2"] .checks__autorizada { display: flex; align-items: flex-start; margin: var(--s-2) 0 var(--s-4); font-size: var(--t-body); }
+:root[data-ui="2"] .checks__autorizada .icon { margin-top: 0.1875rem; }
+
+/* The review: the decision is its own section under a hairline (the system's .decision is a count that leads to a
+   list); what the campero asked for, as a list */
+.revision__seguimiento { margin-top: var(--s-12); padding-top: var(--s-8); border-top: 1px solid var(--line); }
+.revision__pregunta { font-size: var(--t-h2); line-height: 1.15; }
+:root[data-ui="2"] .revision__pidio { list-style: disc; }
+/* Its "Si algo no salió como se esperaba": reporting a risk keeps its chile inside a row's title */
 :root[data-ui="2"] .other-actions .row__title a.btn--danger-outline { color: var(--chile); }
-:root[data-ui="2"] .other-actions .row__title a.row__link {
-  position: relative; z-index: 1; display: inline-block; text-decoration: underline;
-  padding-block: calc((2.75rem - 1.3em) / 2); margin-block: calc((1.3em - 2.75rem) / 2);
-}
+:root[data-ui="2"] .other-actions .row__title a.btn--quieto { margin-inline: -0.75rem; }
+
+/* Discarding: the reasons are the interview's answers; the legend reads as the question it is */
+.descartar .checks__title { margin-bottom: var(--s-4); }
+.descartar + .aside-note { margin-top: var(--s-8); }
 
 /* The outcome panel (done, or what an irreversible action erases) is filled ink, like the current filter and
    the selection bar: the church's colour only acts. (It named a token of the first pass, --noche, that no longer
    exists: the panel fell back to transparent and its white words vanished on the page.) */
 :root[data-ui="2"] .confirm { background: var(--ink); color: #ffffff; border-radius: var(--r-panel); }
 :root[data-ui="2"] .confirm__title { font-size: var(--t-h1); line-height: 1.15; }  /* never above the page's title */
+:root[data-ui="2"] .focus .confirm + .page-head__meta { margin-top: 0; font-size: var(--t-body); }
 
 /* "¿Sigues aquí?": a sheet over the page, with a sheet's corners and a hairline */
 :root[data-ui="2"] .focus .dialog, :root[data-ui="2"] .focus ~ .dialog { border: 1px solid var(--line); border-radius: var(--r-panel); }
 
-/* "¿A quién vas a entrevistar?" (with the rail): the field is the panel's one action, so it stands apart from the
-   line above it and from the link under it */
-:root[data-ui="2"] .sign:has(> #buscar-titulo) .search { margin-top: var(--s-4); }
-:root[data-ui="2"] .sign:has(> #buscar-titulo) .search + .sign__text { margin-top: var(--s-3); }
+/* "Recuperar la computadora": another coordinator's way in, apart from the pair of actions */
+.desbloquear__otro { margin-top: var(--s-4); }
+.desbloquear__otro .btn--link { margin-inline: -0.75rem; }
+
+/* "¿A quién vas a entrevistar?" (with the rail): the field has the focus when the page opens, so its ring keeps a
+   gap from the question above; the computer under the field, drawn as on «Mi inicio» */
+:root[data-ui="2"] .sign:has(> #buscar-titulo) .search { margin-top: var(--s-5); }
+.buscar__compu { margin-top: var(--s-3); }
+.page--app .sign + .buscar__resultados, .page--app .notice + .buscar__resultados { margin-top: var(--s-8); }
+
+/* A campero's record: a risk report's mark in chile; the download is a way to another page */
+.ficha__riesgo .admin-icono .icon { color: var(--chile); }
+.ficha__descargar { margin-top: var(--s-3); }
 /* end: evento-entrevista */
 
 /* ---------- 15. Motion ---------------------------------------------------- */

@@ -514,13 +514,19 @@ def interview_detail(request, event, access, public_id):
         here = reverse("events:interview_detail", args=[event.slug, public_id])
         # Where the decision was opened ("Entrevistas pendientes", UX-21); same site only, "" when absent or foreign.
         back = safe_next(request, request.POST.get("siguiente") or request.GET.get("siguiente"), fallback="")
+        decision = request.POST.get("decision", "")
         try:
-            svc.update_follow_up_decision(access, interview, request.POST.get("decision", ""))
+            svc.update_follow_up_decision(access, interview, decision)
         except svc.InterviewError as exc:
             messages.error(request, exc.message)
             # The error is about this record: it stays on screen, and keeps the way back for the next try.
             return redirect(f"{here}?{urlencode({'siguiente': back})}" if back else here)
-        messages.success(request, "Decisión de seguimiento guardada.")
+        # Who and what, as «Por decidir» on «Entrevistas pendientes» says it (coordinator._decide_in_place).
+        name = interview.participant.full_name
+        if decision == Interview.FollowUpDecision.REQUIRED:
+            messages.success(request, f"{name} necesita seguimiento.")
+        else:
+            messages.success(request, f"{name} no necesita seguimiento.")
         return redirect(back or here)
     rows = svc.review_rows(access, interview)
     confidential_shown = [r for r in rows if r["visible"] and r["question"].sensitivity == Question.Sensitivity.CONFIDENTIAL and r["answered"]]
