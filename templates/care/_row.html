@@ -1,11 +1,20 @@
 {% load emmaus community shell %}
-{% comment %}One follow-up as a row: who it is about, why and by when as a sentence, and its state. ``show_owner`` for the administration's list.{% endcomment %}
-<li class="row row--lead row--stack{% if item.is_overdue or show_owner and item.is_open and not item.owner_id %} row--attention{% endif %}">
+{% comment %}
+  One follow-up as a row: the arch and the name (the way in), why and by when as facts, an overdue one marked, and
+  its state as a pill. ``show_owner`` is the administration's list (who is responsible); without it, the owner's own
+  list, the ways to reach the person can be tapped from the row.
+{% endcomment %}
+<li class="row row--lead{% if item.is_overdue or show_owner and item.is_open and not item.owner_id %} row--attention{% endif %}">
   {% monogram item.person.full_name %}
   <div class="row__main">
     <p class="row__title"><a href="{% url 'care:detail' item.pk %}">{{ item.person.full_name }}</a></p>
-    <p class="row__meta">{{ item.get_reason_display }}. {% if item.due_on %}Para el {{ item.due_on|weekday_date }}.{% else %}Sin fecha.{% endif %}{% if item.is_overdue %} Ya pasó la fecha.{% endif %}</p>
-    {% if show_owner %}<p class="row__meta">{% if item.owner_id %}Responsable: {{ item.owner.full_name }}.{% else %}Sin responsable.{% endif %}</p>{% endif %}
+    <ul class="meta">
+      <li>{{ item.get_reason_display }}</li>
+      {% if item.due_on %}<li>{% icon "calendario" "sm" %}Para el {{ item.due_on|weekday_date }}</li>{% endif %}
+      {% if item.is_overdue %}<li><span class="chip chip--risk">Ya pasó</span></li>{% endif %}
+      {% if show_owner %}{% if item.owner_id %}<li>{% icon "personas" "sm" %}Responsable: {{ item.owner.full_name }}</li>{% elif item.is_open %}<li><span class="chip chip--wait">Sin responsable</span></li>{% else %}<li>Sin responsable</li>{% endif %}{% endif %}
+    </ul>
+    {% if not show_owner %}{% if item.person.phone or item.person.email %}<p class="row__contact">{% if item.person.phone %}<a href="tel:{{ item.person.phone|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ item.person.full_name }}: </span>{{ item.person.phone }}</a>{% endif %}{% if item.person.email %}<a href="mailto:{{ item.person.email }}">{% icon "correo" "sm" %}<span class="visually-hidden">Escribir a {{ item.person.full_name }}: </span>{{ item.person.email }}</a>{% endif %}</p>{% endif %}{% endif %}
   </div>
   <div class="row__end">{% status item.status_mark item.get_status_display %}</div>
 </li>

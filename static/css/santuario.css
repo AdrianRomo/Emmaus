@@ -919,7 +919,48 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* end: avisos-recursos */
 
 /* area: servir-acompanar-personas */
+/* The head of a team, a person or a follow-up: the arch, the name with its facts, and the page's actions at the
+   end. On a phone the actions take the line under them. */
+.group-head--actions { flex-wrap: wrap; }
+.group-head--actions > .page-head { flex: 1 1 20rem; }
+.group-head__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); }
+.group-head .page-head__meta + .row__contact { margin-top: 0; }
+@media (max-width: 600px) {
+  .group-head__actions { flex: 1 0 100%; }
+  .group-head__actions .btn { flex: 1 1 auto; }
+}
+/* A way to reach a person, with its mark before the number or the address */
+.row__contact .icon { margin-right: 0.375rem; }
 
+/* Servir, my dates: the answer I gave and the way to change it share a line, also on a phone */
+.my-dates .row__end .status, .my-dates .row__end .btn--link { flex: none; }
+.my-dates .row__end .btn--link { margin-left: auto; }
+/* Servir, a day I cannot: the day and its button on one line */
+.day-form { display: flex; flex-wrap: wrap; gap: var(--s-3); max-width: 32rem; }
+.day-form .input { flex: 1 1 11rem; width: auto; }
+.day-form + .rows { margin-top: var(--s-4); }
+/* Servir, a team's date: who was asked and what each one answered, name and pill on a line */
+.answers { list-style: none; display: grid; gap: var(--s-1); max-width: 26rem; margin-top: var(--s-2); font-size: var(--t-small); }
+.answers > li { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.answers__name { min-width: 0; overflow-wrap: anywhere; }
+.team-dates > .row { align-items: flex-start; }
+.team-dates > .row::after { align-self: center; }
+/* Servir, a date's form: what a person already answered, at the end of their option */
+.choice__label > .status { flex: none; margin-left: auto; }
+.form-section > fieldset { margin-bottom: var(--s-3); }
+.form-section fieldset > .choices { margin-top: 0; }
+/* An empty line that follows a group of fields */
+.form-section + .empty-line { margin-top: var(--s-4); }
+
+/* A search with its results right under it */
+.page--app .heading + .search { margin-top: var(--s-3); }
+.search + .rows, .search + .empty-line { margin-top: var(--s-4); }
+.rows + .list-count { margin-top: var(--s-3); }
+
+/* Acompañar, a step: the four fixed kinds, two by two, under the line of what was done */
+.choices--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: var(--s-2); }
+.choices--pair .choice__label { height: 100%; }
+.step-form { margin-top: var(--s-6); }
 /* end: servir-acompanar-personas */
 
 /* area: panorama-opiniones-politicas-sitio */

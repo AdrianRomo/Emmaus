@@ -6,11 +6,11 @@
   sees a follow-up here; the administration also gets the doors to all of them and to a new one.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as back %}{% url 'care:create' as create %}{% url 'care:admin_list' as all %}
+  {% url 'care:create' as create %}{% url 'care:admin_list' as all %}
   {% if request.is_church_admin %}
-    {% include "events/rotulo/_page_head.html" with title="Personas que acompañas" lede="A quién te pidió tu iglesia que busques, y para cuándo." back_url=back back_label="Volver a Mi iglesia" action_url=create action_label="Crear un seguimiento" secondary_url=all secondary_label="Ver todos los seguimientos" %}
+    {% include "events/rotulo/_page_head.html" with title="Personas que acompañas" action_url=create action_label="Crear un seguimiento" secondary_url=all secondary_label="Todos los seguimientos" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Personas que acompañas" lede="A quién te pidió tu iglesia que busques, y para cuándo." back_url=back back_label="Volver a Mi iglesia" %}
+    {% include "events/rotulo/_page_head.html" with title="Personas que acompañas" %}
   {% endif %}
   {% if follow_ups %}
     <ul class="rows">
@@ -18,7 +18,7 @@
     </ul>
     <p class="aside-note">Solo tú y la administración de la iglesia ven esta lista. La persona no la ve.</p>
   {% else %}
-    <p class="empty-line">Nadie espera que la busques por ahora.{% if request.is_church_admin %} Si alguien necesita que la busquen, crea un seguimiento y elige quién lo hará.{% else %} Cuando tu iglesia te pida buscar a alguien, lo vas a encontrar aquí.{% endif %}</p>
+    <p class="empty-line">No acompañas a nadie por ahora.</p>
   {% endif %}
 </div>
 {% endblock %}

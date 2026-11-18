@@ -124,9 +124,9 @@ def respond(request, assignment_id: int):
         return redirect("serving:home")
     day = _weekday_date(assignment.service_date.date)
     if answer == "aceptar":
-        messages.success(request, f"Confirmaste el {day}. Quien coordina el equipo ya lo sabe.")
+        messages.success(request, f"Confirmaste el {day}. Quien coordina ya lo sabe.")
     else:
-        messages.success(request, f"Dijiste que no puedes el {day}. Quien coordina el equipo ya lo sabe.")
+        messages.success(request, f"Dijiste que no puedes el {day}. Quien coordina ya lo sabe.")
     return redirect("serving:home")
 
 
@@ -278,7 +278,7 @@ def team_create(request):
     form = TeamForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         team = services.save_team(request.church, request.user, **form.cleaned_data)
-        messages.success(request, f"Creaste el equipo {team.name}. Ahora agrega a las personas y elige quién lo coordina.")
+        messages.success(request, f"Creaste el equipo {team.name}.")
         return redirect("serving:team", team.pk)
     return render(request, "serving/team_form.html", {"form": form, "team": None})
 
@@ -289,7 +289,7 @@ def team_edit(request, team_id: int):
     form = TeamForm(request.POST or None, instance=team)
     if request.method == "POST" and form.is_valid():
         services.save_team(request.church, request.user, team=team, **form.cleaned_data)
-        messages.success(request, "Guardamos los cambios.")
+        messages.success(request, "Guardado.")
         return redirect("serving:team", team.pk)
     return render(request, "serving/team_form.html", {"form": form, "team": team})
 

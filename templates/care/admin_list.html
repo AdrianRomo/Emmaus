@@ -6,8 +6,8 @@
   The filter is the state. The one about the administrator who is looking, if there is one, is not listed.
 {% endcomment %}
 <div class="narrow">
-  {% url 'care:mine' as back %}{% url 'care:create' as create %}
-  {% include "events/rotulo/_page_head.html" with title="Todos los seguimientos" lede="A quién busca la iglesia, quién es responsable y para cuándo." back_url=back back_label="Volver a Personas que acompañas" action_url=create action_label="Crear un seguimiento" %}
+  {% url 'care:create' as create %}
+  {% include "events/rotulo/_page_head.html" with title="Todos los seguimientos" action_url=create action_label="Crear un seguimiento" %}
   <ul class="filters" aria-label="Estado de los seguimientos">
     {% for filter in filters %}<li><a href="{% url 'care:admin_list' %}{% if filter.key %}?estado={{ filter.key }}{% endif %}"{% if chosen == filter.key %} aria-current="page"{% endif %}>{{ filter.label }} <span class="count">{{ filter.count }}</span></a></li>
     {% endfor %}
@@ -18,11 +18,11 @@
     </ul>
     {% include "partials/ui/pager.html" with page=follow_ups label="Páginas de seguimientos" %}
   {% elif chosen == "atendidos" %}
-    <p class="empty-line">Todavía no hay seguimientos atendidos. Aparecen aquí cuando su responsable los marca como atendidos.</p>
+    <p class="empty-line">Sin seguimientos atendidos.</p>
   {% elif chosen == "cancelados" %}
-    <p class="empty-line">No hay seguimientos cancelados.</p>
+    <p class="empty-line">Sin seguimientos cancelados.</p>
   {% else %}
-    <p class="empty-line">No hay seguimientos sin atender. Si alguien necesita que la busquen, <a href="{{ create }}">crea un seguimiento</a>.</p>
+    <p class="empty-line">Sin seguimientos por atender.</p>
   {% endif %}
 </div>
 {% endblock %}

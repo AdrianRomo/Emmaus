@@ -11,10 +11,7 @@ class TeamForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = Team
         fields = ["name", "description"]
-        help_texts = {
-            "name": "Por ejemplo: Bienvenida, Alabanza, Niños.",
-            "description": "Una o dos frases. Es lo que lee quien sirve en el equipo.",
-        }
+        help_texts = {"description": "Lo lee quien sirve en el equipo."}
         widgets = {"description": forms.Textarea(attrs={"rows": 3, "maxlength": 400})}
 
     def __init__(self, *args, **kwargs):
@@ -30,13 +27,11 @@ class ServiceDateForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = ServiceDate
         fields = ["date", "starts_at", "what", "place"]
-        help_texts = {
-            "starts_at": "En formato de 24 horas, por ejemplo 9:30.",
-            "what": "Por ejemplo: Bienvenida en la reunión del domingo.",
-        }
+        help_texts = {"starts_at": "En formato de 24 horas, por ejemplo 9:30."}
         widgets = {
             "date": forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
             "starts_at": forms.TimeInput(format="%H:%M", attrs={"inputmode": "numeric", "placeholder": "9:30"}),
+            "what": forms.TextInput(attrs={"placeholder": "Por ejemplo: bienvenida en la reunión del domingo"}),
         }
 
     def __init__(self, *args, **kwargs):
