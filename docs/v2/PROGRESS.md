@@ -2,6 +2,79 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-18 — Wave 5: safeguards from the owner's second round, and seven older issues (branch `v2/wave-5-safeguards`)
+
+The owner answered #75, #76 and #77 (decision 0015), asked to keep closing issues and to merge
+pull requests as needed. #73, #74, #78, #62 and #43 are merged into `v2/foundation` (never `main`,
+nothing deployed); each waited for the branch's required checks.
+
+### Shipped
+
+| Piece | Source | Where |
+|---|---|---|
+| One function decides if a registration is confirmed when an event protects minors: only an age verified by staff, or a valid authorization (paper or in person, same event and policy version, taking part allowed, not withdrawn) | 0015 | `agenda.services.standing`, `people.services.verify_birth_date` |
+| Turning the rule on, moving the event's date or changing a person's date of birth re-settles the registrations; `resettle_registrations` does it for a deploy | 0015 | `agenda` |
+| Visitors: an explicit "mayor / menor de edad" at the door; a review queue "Edad por confirmar" | 0015 | `agenda` |
+| The authorization says what it allows (taking part, transport, photographs); a call or a message does not confirm | 0015 | `agenda.GuardianConsent` |
+| "Anular registro" for a walk-up; walk-ups respect the page unless the administration overrides with a reason; never the minors' rule | 0015 | `agenda` |
+| A material edit of an urgent notice asks for "Enterado" again; who may publish urgent comes from the policy | 0015 | `notices` |
+| Panorama: an exact number only when it and its complement are at least 5; each group's rhythm; "attendance to record" instead of a fixed 21 days | 0015 | `overview`, `groups` |
+| Opinions: results from 5 answers; who answered kept as a keyed hash; "Quiero que alguien me busque" apart | 0015 | `feedback` |
+| `people/policy.py`: the one place for what a church may set, with platform floors | 0015 | `people` |
+| Follow-ups of a camp get an owner by default, never somebody who may not see a confidential one; "sin responsable" on the homes; bulk assign; a content-free reminder command | #46 | `events` |
+| Interrupted interviews: a prompt for the coordinador, per coordinador for the tutor, listed before an event ends; nothing is discarded by itself | #47 | `events` |
+| "Publicar y usar en entrevistas nuevas" in one step, "En uso", a warning when a newer version is not in use | #48 | `events` |
+| "Duplicar" an event as a template, camp or simple, never its people or their data | #51 | `events`, `agenda` |
+| Icons and a web manifest; a pastor's bar that does not wrap; aborted view transitions are not JavaScript errors | #53, #72, #16 | static, templates |
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `0cf99d8`, 2026-11-18T01:01Z (the commit
+after it holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                0  System check identified no issues (0 silenced).
+migrations      PASS                1  No changes detected
+deploy-check    PASS                0  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                1  migration scope OK: 6 migration(s) added or changed since 71cbeae, all additive
+pip-audit       PASS                1  No known vulnerabilities found
+tests-sqlite    PASS              162  2089 passed, 6 skipped
+tests-postgres  PASS              264  2084 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              469  browser gate OK
+overall: PASS
+```
+
+- The community journey in that run: 244 checks, 0 problems.
+- An independent read-only review found no authorization or tenant-isolation defect and eight
+  others, all fixed with tests before this gate: an authorization survived "Anular registro" and
+  later confirmed the wrong child; rows confirmed before this code were never re-evaluated;
+  visitors were confirmed by an unticked box; moving an event's date did not re-settle; a stale
+  `Person` could keep or restore a verification; `feedback/0001` had been rewritten in place
+  (now an additive `0002`); Panorama and the "Enterado" count still gave small numbers by complement.
+- Looked at by the agents as screenshots, each on its own scratch database: Inscritos with both
+  queues, Confirmar edad, the authorization form, Anular, the door form with an override, the
+  visitor's age page, the notice's edit form with the question, Panorama (390, 768, 1440), the
+  group form, the camp's homes of the four roles, the questionnaire pages, both duplicate forms.
+  Every one passed axe at 390 and 1440. I did not look at wave 5's screens myself.
+- During those checks three agents loaded pages on another agent's scratch server by mistake (a
+  shared port); one changed a synthetic event's status there and restored it. Only throwaway
+  synthetic databases were involved. Later briefs require checking the port and the server's
+  working directory first.
+- Not verified: the camp's changed screens inside the new shell; real e-mail for the reminder;
+  two real connections racing on a verification and a sign-up; anything on a host.
+
+### Not done, and why
+
+- **Release gates stay open:** #75 (the authorization's wording, accepted evidence and retention
+  are provisional: the form says so) and #76 (retention periods; no individual pastoral access).
+- At the door, most walk-ups will need the override, because they arrive after sign-up closed.
+- A group needs ten people before Panorama gives an exact attendance number.
+- Next, already being built: notices by e-mail with preferences, a screen for church policies,
+  a practice campero and readiness checklist (#49), the team's CSV import (#50). Then the waiting
+  list, a public event page (#59, phase A), the second half of visitor follow-up.
+
 ## 2026-11-17, night — Wave 4: the owner's decisions, built (branch `v2/wave-4-decisions`)
 
 The owner answered issues #64 and #66–#71 in one message. Their answers are decisions 0009–0014;
