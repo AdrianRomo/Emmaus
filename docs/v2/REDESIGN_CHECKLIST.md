@@ -37,7 +37,7 @@ $P manage.py runserver 127.0.0.1:8791
   serving interaction verified in a browser (busy, offline failure, confirmed, changed)
 - [x] B3. Adversarial review (three reviewers + home critic), ranked report `REVIEW_2026-11-18.md`, fixes
 - [x] B4. Independent after-state critique; its ten defects fixed
-- [ ] C. Every surface, by area, on the new system (wave 1 merged but agenda; wave 2 running)
+- [ ] C. Every surface, by area, on the new system (wave 1 merged; wave 2 running)
 - [ ] D. Visual review at 360 / 390 / 820 / 1440, fixes
 - [ ] E. Consistency pass
 - [ ] F. Gates: ruff, Django checks, pytest, e2e (axe), deploy check
@@ -53,10 +53,10 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 | Coordinator home | `events/coordinator/home.html`, `_home_live.html` | done | Reference screen |
 | Camper administration (list, bulk assignment, home's urgent part, record's authorization) | `events/admin/participants.html`, `_home_live.html`, `participant_detail.html` | done | Reference screen; merged `ba97839` |
 | Grupos (member, guide, administration), Mis datos | `groups/` | done | merged `0304f2e` | Copy work from the earlier pass is merged |
-| Eventos for people, public event page | `agenda/` | wip | |
-| Eventos administration (page, inscritos, programa, preguntas, menores) | `agenda/` | wip | Consent wording untouched |
-| Avisos | `notices/` | wip | «Enterado» in place |
-| Devocional, recursos, planes de lectura | `resources/` | wip | «Marcar como leído» in place |
+| Eventos for people, public event page | `agenda/` | done | merged `d2ef40e`; «Volver a Mi iglesia» `8239c12` | |
+| Eventos administration (page, inscritos, programa, preguntas, menores) | `agenda/` | done | merged `d2ef40e`; consent wording untouched | Consent wording untouched |
+| Avisos | `notices/` | done | merged `d2ef40e`; «Enterado» in place | «Enterado» in place |
+| Devocional, recursos, planes de lectura | `resources/` | done | merged `d2ef40e`; «Marcar como leído» in place | «Marcar como leído» in place |
 | Servir | `serving/` | done | merged `0304f2e`; one drawing of an answered date `ed7aacd` | |
 | Acompañar | `care/` | done | merged `0304f2e`; privacy unchanged | |
 | Personas | `people/` | wip | |
