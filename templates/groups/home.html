@@ -87,7 +87,7 @@
     <div class="evento__texto">
       <p class="evento__cuando">{% if row.time %}{{ row.time|time:"H:i" }}{% else %}Hoy{% endif %}</p>
       {% if row.kind == "event" %}
-      <h3 class="evento__titulo"><a href="{% url 'agenda:detail' row.event.slug %}">{{ row.title }}</a></h3>
+      <h3 class="evento__titulo"><a href="{% url 'agenda:detail' row.event.slug %}?desde=inicio">{{ row.title }}</a></h3>
       <p class="evento__donde">{{ row.event.location }}{% if row.event.ends_on and row.event.ends_on != today %}{% if row.event.location %}, {% endif %}hasta el {{ row.event.ends_on|day_month }}{% endif %}</p>
       {% elif row.kind == "group" %}
       <h3 class="evento__titulo"><a href="{{ row.url }}">{{ row.title }}</a></h3>
@@ -97,7 +97,7 @@
       <p class="evento__donde">Equipo {{ row.assignment.service_date.team.name }}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
       {% endif %}
     </div>
-    {% if row.kind == "event" %}<div class="evento__pie">{% include "groups/_event_state.html" with event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="evento__pie">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
+    {% if row.kind == "event" %}<div class="evento__pie">{% include "groups/_event_state.html" with desde="inicio" event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="evento__pie">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
   </div>
   {% endfor %}
 </section>
@@ -115,7 +115,7 @@
       {% date_block row.date %}
       <div class="row__main">
         {% if row.kind == "event" %}
-        <p class="row__title"><a href="{% url 'agenda:detail' row.event.slug %}">{{ row.title }}</a></p>
+        <p class="row__title"><a href="{% url 'agenda:detail' row.event.slug %}?desde=inicio">{{ row.title }}</a></p>
         <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>{% if row.time %}{{ row.time|time:"H:i" }}{% if row.event.location %}, {% endif %}{% endif %}{{ row.event.location }}</p>
         {% elif row.kind == "group" %}
         <p class="row__title"><a href="{{ row.url }}">{{ row.title }}</a></p>
@@ -125,7 +125,7 @@
         <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>Equipo {{ row.assignment.service_date.team.name }}{% if row.time %}, {{ row.time|time:"H:i" }}{% endif %}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
         {% endif %}
       </div>
-      {% if row.kind == "event" %}<div class="row__end">{% include "groups/_event_state.html" with event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="row__end">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
+      {% if row.kind == "event" %}<div class="row__end">{% include "groups/_event_state.html" with desde="inicio" event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="row__end">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
     </li>
     {% endfor %}
   </ul>
