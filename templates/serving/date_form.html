@@ -23,7 +23,7 @@
       {% include "partials/ui/fields.html" with form=form %}
     </section>
     {% if members %}
-    <section class="form-section">
+    <section class="form-section" id="quien-sirve">
       <fieldset>
         <legend class="legend form-section__title">¿Quién sirve ese día?</legend>
         <div class="choices">
@@ -38,7 +38,7 @@
     </section>
     {% if service_date %}<p class="aside-note">Si cambias el día, se les pregunta otra vez.</p>{% endif %}
     {% else %}
-      <p class="empty-line">Sin personas en el equipo todavía. Las agrega la administración de tu iglesia.</p>
+      <p class="empty-line">Sin personas en el equipo todavía. Las agrega la administración.</p>
     {% endif %}
     <div class="form-actions">
       <button class="btn btn--primary" type="submit">Guardar la fecha</button>

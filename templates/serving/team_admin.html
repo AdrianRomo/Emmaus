@@ -3,8 +3,9 @@
 {% block page_title %}Equipos de la iglesia{% endblock %}
 {% block content %}
 {% comment %}
-  Every team of the church (serving.views.team_admin), for the administration: how many people, how many dates
-  are coming and who coordinates, as facts. The row is the way into the team; it is edited from its own page.
+  Every team of the church (serving.views.team_admin), for the administration: its arch and name (the way in), how
+  many people, how many dates are coming and who coordinates. A team nobody coordinates is marked in vela: nobody
+  can organise its dates. It is edited from its own page.
 {% endcomment %}
 <div class="narrow">
   {% url 'serving:team_create' as create %}
@@ -13,21 +14,17 @@
     <ul class="rows">
       {% for team in teams %}
         <li class="row row--lead">
-          {% monogram team.name %}
+          {% monogram team.name "" "grupo" %}
           <div class="row__main">
             <p class="row__title"><a href="{% url 'serving:team' team.pk %}">{{ team.name }}</a></p>
-            <ul class="meta">
-              <li>{% icon "personas" "sm" %}{{ team.member_count }} persona{{ team.member_count|pluralize }}</li>
-              {% if team.is_active %}<li>{% icon "calendario" "sm" %}{% if team.date_count == 0 %}Sin fechas{% else %}{{ team.date_count }} fecha{{ team.date_count|pluralize }}{% endif %}</li>{% endif %}
-              {% if team.coordinator_names %}<li>{% icon "guia" "sm" %}Coordina{{ team.coordinator_names|length|pluralize:"n" }} {{ team.coordinator_names|join:", " }}</li>{% elif team.is_active %}<li>{% icon "alerta" "sm" %}Nadie lo coordina</li>{% endif %}
-            </ul>
+            <p class="row__meta">{{ team.member_count }} persona{{ team.member_count|pluralize }}{% if team.is_active %}, {% if team.date_count == 0 %}sin fechas{% else %}{{ team.date_count }} fecha{{ team.date_count|pluralize }}{% endif %}{% endif %}{% if team.coordinator_names %}. Coordina{{ team.coordinator_names|length|pluralize:"n" }} {{ team.coordinator_names|join:", " }}{% endif %}</p>
+            {% if not team.is_active %}<p class="row__meta row__meta--con-marca">{% status "archivado" %}</p>{% elif not team.coordinator_names %}<p class="row__meta row__meta--con-marca"><span class="chip chip--wait">Nadie lo coordina</span></p>{% endif %}
           </div>
-          {% if not team.is_active %}<div class="row__end">{% status "archivado" %}</div>{% endif %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    {% include "partials/ui/empty.html" with title="Sin equipos todavía" action_url=create action_label="Crear un equipo" %}
+    <p class="empty-line">Sin equipos todavía.</p>
   {% endif %}
 </div>
 {% endblock %}
