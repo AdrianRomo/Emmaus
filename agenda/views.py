@@ -20,7 +20,7 @@ from groups.views import church_admin_view, community_view
 from people import flags, policy
 from people.models import Person
 
-from . import services
+from . import public, services
 from .forms import (
     AnnulForm,
     BirthDateForm,
@@ -291,10 +291,19 @@ def page_edit(request, slug: str):
         "agenda/page_form.html",
         {
             "form": form, "event": event, "page": page,
+            # The address anybody can read, when the page is public and published, and a message to share it.
+            **_public_links(request, event, page),
             "faq_count": EventFaq.objects.filter(event=event).count(),
             "schedule_count": EventScheduleItem.objects.filter(event=event).count(),
         },
     )
+
+
+def _public_links(request, event: Event, page) -> dict:
+    if not public.is_public(event, page):
+        return {"public_wanted": bool(page and page.public)}
+    link = request.build_absolute_uri(public.public_path(event))
+    return {"public_link": link, "public_share_url": public.share_url(request.church.name, link), "public_wanted": True}
 
 
 def _registration(event: Event, registration_id: int, **filters) -> EventRegistration:
