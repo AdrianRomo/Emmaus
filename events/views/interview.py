@@ -7,11 +7,13 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
+from django.views.decorators.http import require_http_methods
 
-from ..forms import DiscardForm, InterviewStartForm, SafetyReportForm
-from ..models import FollowUp, Interview, InterviewStatus, Question
+from ..forms import DiscardForm, FollowUpDecisionChangeForm, InterviewStartForm, SafetyReportForm
+from ..models import FollowUp, FollowUpDecisionChange, Interview, InterviewStatus, Question
 from ..services import audit
 from ..services import event_questionnaires as eq
+from ..services import follow_up_decision as decision_svc
 from ..services import interviews as svc
 from ..services.questionnaire import (
     build_steps,
@@ -546,6 +548,48 @@ def interview_detail(request, event, access, public_id):
             "can_continue": interview.status == Interview.Status.IN_PROGRESS and access.can_interview(interview.participant),
             "revisions": interview.answer_revisions.select_related("question", "changed_by")[:20] if access.can_view_sensitive else [],
             "has_hidden": any(not r["visible"] for r in rows),
+            # «Cambiar decisión de seguimiento» and its history (services.follow_up_decision), for whoever sees the record.
+            "can_change_decision": access.can_correct(interview) and interview.follow_up_decision in decision_svc.DECIDED,
+            "decision_changes": interview.follow_up_decision_changes.select_related("changed_by"),
+        },
+    )
+
+
+@require_http_methods(["GET", "POST"])
+@event_view(COORDINATOR, ADMIN)
+def interview_follow_up_change(request, event, access, public_id):
+    """«Cambiar decisión de seguimiento»: a page that says what will happen to the care follow-up and asks why, never a
+    change in place. The first decision of an interview left «Por decidir» stays on its record."""
+    interview = _scoped_interview(access, public_id)
+    if interview.status != Interview.Status.COMPLETED:
+        raise Http404
+    if not access.can_correct(interview):
+        raise PermissionDenied
+    record_url = reverse("events:interview_detail", args=[event.slug, public_id])
+    if interview.follow_up_decision not in decision_svc.DECIDED:
+        return redirect(record_url)
+    target = decision_svc.other(interview.follow_up_decision)
+    form = FollowUpDecisionChangeForm(request.POST or None, initial={"decision": target})
+    if request.method == "POST" and form.is_valid():
+        try:
+            change = decision_svc.change(access, interview, form.cleaned_data["decision"], reason=form.cleaned_data["reason"])
+        except svc.NotAllowed:
+            raise PermissionDenied from None
+        except svc.InterviewError as exc:
+            messages.error(request, exc.message)
+            return redirect(record_url)
+        messages.success(request, decision_svc.message(change))
+        return redirect(record_url)
+    return render(
+        request,
+        "events/interview/follow_up_change.html",
+        {
+            "interview": interview,
+            "participant": interview.participant,
+            "form": form,
+            "now_words": FollowUpDecisionChange.WORDS[interview.follow_up_decision],
+            "target_words": FollowUpDecisionChange.WORDS[target],
+            "care_sentence": decision_svc.preview_sentence(interview),
         },
     )
 

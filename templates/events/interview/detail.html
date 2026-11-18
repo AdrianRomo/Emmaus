@@ -37,7 +37,15 @@
   {% else %}
   <h2 id="seg-titulo" class="heading" data-inline-focus>Seguimiento</h2>
   <p>{% if interview.follow_up_decision == "requerido" %}Necesita seguimiento.{% elif interview.follow_up_decision == "no_requerido" %}No necesita seguimiento.{% elif interview.follow_up_decision == "por_evaluar" %}{% status "por_evaluar" %}{% else %}Sin decisión.{% endif %}</p>
-  {% endif %}
+  {% endif %}{% comment %}
+    A decision already taken changes on its own page, with a reason (services.follow_up_decision); every change is
+    listed here, who and when, from what to what, why and what it did to the care follow-up.
+  {% endcomment %}{% if can_change_decision %}
+  <p class="more"><a href="{% url 'events:interview_follow_up_change' event.slug interview.public_id %}">Cambiar decisión de seguimiento</a></p>{% endif %}{% if decision_changes %}
+  <h3 class="heading">Cambios de la decisión</h3>
+  <ul class="rows">{% for c in decision_changes %}
+    <li class="row row--lead">{% monogram c.changed_by.get_full_name %}<div class="row__main"><p class="row__title">De «{{ c.previous_words }}» a «{{ c.decision_words }}»</p><p class="row__meta">{{ c.changed_at|fecha_corta }}, {{ c.changed_by.get_full_name|default:"—" }}. Motivo: {{ c.reason }}</p>{% if c.care %}<p class="row__meta">{{ c.get_care_display }}</p>{% endif %}</div></li>
+  {% endfor %}</ul>{% endif %}
 </section>
 {% endif %}
 
@@ -89,7 +97,12 @@
       <button class="btn btn--primary" name="decision" value="requerido">Sí requiere seguimiento</button>
       <button class="btn btn--secondary" name="decision" value="no_requerido">No requiere seguimiento</button>
     </form>
-  {% endif %}
+  {% endif %}{% if can_change_decision %}
+  <p class="more"><a href="{% url 'events:interview_follow_up_change' event.slug interview.public_id %}">Cambiar decisión de seguimiento</a></p>{% endif %}{% if decision_changes %}
+  <h3 class="heading">Cambios de la decisión</h3>
+  <ul class="rows">{% for c in decision_changes %}
+    <li class="row"><div class="row__main"><p class="row__title">De «{{ c.previous_words }}» a «{{ c.decision_words }}»</p><p class="row__meta">{{ c.changed_at|fecha_corta }}, {{ c.changed_by.get_full_name|default:"—" }}. Motivo: {{ c.reason }}</p>{% if c.care %}<p class="row__meta">{{ c.get_care_display }}</p>{% endif %}</div></li>
+  {% endfor %}</ul>{% endif %}
 </section>
 {% endif %}
 
