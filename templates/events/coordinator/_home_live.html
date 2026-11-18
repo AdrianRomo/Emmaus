@@ -53,8 +53,8 @@
         {% monogram f.participant.full_name "sm" %}
         <div class="row__main">
           <p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ home_url|urlencode }}">{{ f.participant.full_name }}</a></p>
-          <p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}<span>{{ f.get_reason_display }}, {{ f.created_at|since }}</span></p>
-        </div>
+          <p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}<span>{{ f.get_reason_display }}, {{ f.created_at|since }}</span></p>
+        </div>{% if f.review_is_mine %}{% include "events/supervision/_decision_review.html" with back=home_url %}{% endif %}
       </li>
       {% endfor %}
     </ul>
@@ -219,7 +219,7 @@
                 <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ home_url|urlencode }}">{{ f.participant.full_name }}</a></p>
                 <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>
               </div>
-              {% follow_up_status f.status %}
+              {% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}{% if f.review_is_mine %}{% include "events/supervision/_decision_review.html" with back=home_url %}{% endif %}
             </li>
           {% endfor %}
         </ul>

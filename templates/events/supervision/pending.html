@@ -47,8 +47,8 @@
             {% monogram f.participant.full_name %}
             <div class="row__main">
               <p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.get_full_path|urlencode }}">{{ f.participant.full_name }}</a></p>
-              <p class="row__meta row__meta--con-marca">{% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Situación de riesgo</span>{% endif %}{% follow_up_status f.status %}<span>{% if f.kind != "seguridad" %}{{ f.get_reason_display }}, {% endif %}{{ f.created_at|since }}, {% if f.assigned_to %}con {{ f.assigned_to.get_full_name }}{% else %}sin responsable{% endif %}</span></p>
-            </div>
+              <p class="row__meta row__meta--con-marca">{% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Situación de riesgo</span>{% endif %}{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}<span>{% if f.kind != "seguridad" %}{{ f.get_reason_display }}, {% endif %}{{ f.created_at|since }}, {% if f.assigned_to %}con {{ f.assigned_to.get_full_name }}{% else %}sin responsable{% endif %}</span></p>
+            </div>{% if f.review_is_mine %}{% include "events/supervision/_decision_review.html" with back=request.get_full_path %}{% endif %}
           </li>
         {% endfor %}</ul>
         {% if follow_ups|length > 10 %}<p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver los {{ follow_ups|length }}</a></p>{% endif %}
@@ -111,7 +111,7 @@
             </div>
             <div class="row__end">
               {% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Urgente</span>{% endif %}
-              {% follow_up_status f.status %}
+              {% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}{% if f.review_is_mine %}{% include "events/supervision/_decision_review.html" with back=request.get_full_path %}{% endif %}
             </div>
           </li>
         {% endfor %}</ul>

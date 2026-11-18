@@ -15,6 +15,7 @@ from django.utils.http import urlencode
 from ..forms import ParticipantForm
 from ..models import ConsentRecord, FollowUp, Interview, InterviewStatus, ParticipantSession, QuestionnaireVersion, normalize_name
 from ..services import event_questionnaires as eq
+from ..services import follow_up_decision as decision_svc
 from ..services import interviews as interview_svc
 from ..services import participants as participant_svc
 from ..services import welcome as welcome_svc
@@ -62,8 +63,9 @@ def _my_context(event, access):
         eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by("room", "full_name")[:6]
     )
     _mark_missing_authorization(next_up, participants, event)
-    follow_ups = list(
-        access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5]
+    follow_ups = decision_svc.mark_for_review(
+        access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5],
+        access.user,
     )
     to_evaluate = mine.filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
     # Minors whose guardian authorization is not registered cannot be interviewed: "Esperan algo de ti" says how many
@@ -391,7 +393,7 @@ def participant_detail(request, event, access, public_id):
                 "can_interview": access.can_interview(participant),
             },
         )
-    follow_ups = access.follow_ups().filter(participant=participant)
+    follow_ups = decision_svc.mark_for_review(access.follow_ups().filter(participant=participant), request.user)
     from ..models import ConsentRecord
     from ..services.participants import latest_consent
 
