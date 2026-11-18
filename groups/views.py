@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core import notify, onboarding
+from core.nav import safe_next
 from core.paging import first_rows, paginate
 from core.authz import Action, has_scope
 from events.models import normalize_name
@@ -354,15 +355,17 @@ def _absolute(request, name: str, *args) -> str:
 @require_POST
 def group_request(request, group_id: int):
     group = _group(request, group_id)
+    # Back to where it was asked (the group's page, or a suggestion on "Mi iglesia"): emmaus.js reads the region there
+    back = safe_next(request, request.POST.get("siguiente"), reverse("community:group_detail", args=[group.pk]))
     wait = throttle.consume(f"group-join:{request.user.pk}", limit=10, window_seconds=3600, block_seconds=600)
     if wait:
         messages.error(request, throttle.wait_message(wait))
-        return redirect("community:group_detail", group.pk)
+        return redirect(back)
     try:
         join_request, created = services.request_to_join(group, request.person, request.user)
     except services.GroupError as error:
         messages.error(request, error.message)
-        return redirect("community:group_detail", group.pk)
+        return redirect(back)
     if created:
         emails = list(
             GroupMembership.objects.filter(group=group, status=ACTIVE, role=GroupMembership.Role.LEADER, person__user__isnull=False)
@@ -379,7 +382,7 @@ def group_request(request, group_id: int):
             messages.success(request, f"Pediste unirte a {group.name}. Le avisamos por correo a quien lo guía.")
         else:
             messages.success(request, f"Pediste unirte a {group.name}. Quien lo guía verá tu solicitud cuando entre a Emmaus.")
-    return redirect("community:group_detail", group.pk)
+    return redirect(back)
 
 
 @community_view
@@ -390,7 +393,8 @@ def group_withdraw(request, group_id: int):
     if pending:
         services.withdraw_request(pending, request.user)
         messages.success(request, f"Retiraste tu solicitud a {group.name}.")
-    return redirect("community:group_detail", group.pk) if group.is_active else redirect("community:home")
+    default = reverse("community:group_detail", args=[group.pk]) if group.is_active else reverse("community:home")
+    return redirect(safe_next(request, request.POST.get("siguiente"), default))
 
 
 @community_view
@@ -448,11 +452,13 @@ def request_decide(request, group_id: int, request_id: int):
     group = _managed_group(request, group_id)
     join_request = get_object_or_404(GroupJoinRequest.objects.select_related("person", "person__user"), pk=request_id, group=group)
     accept = request.POST.get("decision") == "aceptar"
+    # Back to where it was decided (the group's people, or the request raised on "Mi iglesia")
+    back = safe_next(request, request.POST.get("siguiente"), reverse("community:group_people", args=[group.pk]))
     try:
         services.decide_request(join_request, request.user, accept=accept)
     except services.GroupError as error:
         messages.error(request, error.message)
-        return redirect("community:group_people", group.pk)
+        return redirect(back)
     person = join_request.person
     outcome = notify.NOT_CONFIGURED
     if person.user_id and person.user.email:
@@ -464,8 +470,8 @@ def request_decide(request, group_id: int, request_id: int):
     if accept:
         messages.success(request, f"{person.full_name} ya es parte de {group.name}.{told}")
     else:
-        messages.success(request, f"No aceptaste la solicitud de {person.full_name}.{told}")
-    return redirect("community:group_people", group.pk)
+        messages.success(request, f"No aceptaste a {person.full_name} en {group.name}.{told}")
+    return redirect(back)
 
 
 @community_view
@@ -621,14 +627,16 @@ def member_add(request, group_id: int):
     group = _group(request, group_id)
     person = get_object_or_404(Person, pk=request.POST.get("persona") or 0, church=request.church, merged_into__isnull=True)
     role = GroupMembership.Role.LEADER if request.POST.get("rol") == "lider" else GroupMembership.Role.MEMBER
+    # Back to the search it was added from (the same page, its results), so it acts in place
+    back = safe_next(request, request.POST.get("siguiente"), reverse("community:group_people", args=[group.pk]))
     try:
         services.set_membership(group, person, request.user, role=role)
     except services.GroupError as error:
         messages.error(request, error.message)
-        return redirect("community:group_people", group.pk)
+        return redirect(back)
     if role == GroupMembership.Role.LEADER:
         note = "" if person.user_id else " Todavía no tiene acceso a Emmaus: dáselo desde Personas para que pueda responder solicitudes."
         messages.success(request, f"{person.full_name} ahora guía {group.name}.{note}")
     else:
         messages.success(request, f"{person.full_name} ya es parte de {group.name}.")
-    return redirect("community:group_people", group.pk)
+    return redirect(back)
