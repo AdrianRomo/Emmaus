@@ -4,9 +4,12 @@ same resume, which asks to take over); on the same computer it stays «Retomar e
 
 from __future__ import annotations
 
-from django.test import Client
+from datetime import timedelta
 
-from events.models import Interview
+from django.test import Client
+from django.utils import timezone
+
+from events.models import Interview, ParticipantSession
 from people import flags
 
 from .base import CampFixture
@@ -37,6 +40,15 @@ class ResumeCardSaysWhereItIsOpenTests(CampFixture):
         page = self.home(self.a)
         self.assertIn(f'href="{self.resume}">Retomar entrevista</a>', page)
         self.assertNotIn("no en esta", page)
+
+    def test_a_campero_answering_alone_is_said_and_never_offered_to_resume(self):
+        ParticipantSession.objects.create(
+            interview=self.interview, station=self.station_a, token_hash="t" * 64, lock_token_hash="l" * 64,
+            started_by=self.coord1, expires_at=timezone.now() + timedelta(minutes=30),
+        )
+        page = self.home(self.a)
+        self.assertIn(f"{self.p1.first_name} responde a solas en {self.station_a.name}", page)
+        self.assertNotIn(f'href="{self.resume}"', page)  # «Retomar» would close their screen
 
     def test_with_the_module_off_the_card_is_unchanged(self):
         flags.set_enabled(self.church, "community", False)

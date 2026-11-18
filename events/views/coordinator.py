@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.http import urlencode
 
 from ..forms import ParticipantForm
-from ..models import ConsentRecord, FollowUp, Interview, InterviewStatus, QuestionnaireVersion, normalize_name
+from ..models import ConsentRecord, FollowUp, Interview, InterviewStatus, ParticipantSession, QuestionnaireVersion, normalize_name
 from ..services import event_questionnaires as eq
 from ..services import interviews as interview_svc
 from ..services import participants as participant_svc
@@ -37,6 +37,13 @@ def _my_context(event, access):
     progress = progress_for(participants, event)
     mine = access.interviews()
     in_progress = list(mine.filter(status=Interview.Status.IN_PROGRESS).select_related("version").order_by("-last_activity_at")[:5])
+    # A campero answering alone right now (a live kiosk session): the card says so and offers no «Retomar», which would
+    # close their screen (the take-over page still can, saying it)
+    alone = set(
+        ParticipantSession.objects.filter(interview__in=in_progress, state=ParticipantSession.State.ACTIVE).values_list("interview_id", flat=True)
+    )
+    for interview in in_progress:
+        interview.a_solas = interview.pk in alone
     # "Tienes N entrevistas sin terminar" (issue #47): every interview of my camperos idle for STALE_MINUTES or more,
     # the oldest first, each with "Retomar" and "Descartar". "También sin terminar" keeps the ones still moving.
     stalled = mark_stalled(stale_interviews(participants).select_related("participant", "version", "station").order_by("last_activity_at"))

@@ -33,7 +33,9 @@
       {% monogram iv.participant.full_name "lg" %}
       <div>
         <h2 id="que-hago" class="sign__title">{{ iv.participant.full_name }}</h2>
-        {% if iv.station and station and iv.station.pk != station.pk %}{# Open on another computer: said before the button, which then says what it does (review #26) #}
+        {% if iv.a_solas %}
+        <p class="sign__text">{{ iv.participant.first_name }} responde a solas{% if iv.station %} en {{ iv.station.name }}{% endif %}; lo último, {{ iv.last_activity_at|since }}.</p>
+        {% elif iv.station and station and iv.station.pk != station.pk %}{# Open on another computer: said before the button, which then says what it does (review #26) #}
         <p class="sign__text">Abierta en {{ iv.station.name }}, no en esta; lo último, {{ iv.last_activity_at|since }}. Lo que respondió está guardado.</p>
         {% else %}
         <p class="sign__text">Se quedó {% if iv.station %}en {{ iv.station.name }}, {% endif %}{{ iv.last_activity_at|since }}. Lo que respondió está guardado.</p>
@@ -41,7 +43,7 @@
       </div>
     </div>
     <div class="sign__actions">
-      <a class="btn btn--primary btn--large" href="{% url 'events:interview_resume' event.slug iv.public_id %}">{% if iv.station and station and iv.station.pk != station.pk %}Continuar aquí{% else %}Retomar entrevista{% endif %}</a>
+      {% if not iv.a_solas %}<a class="btn btn--primary btn--large" href="{% url 'events:interview_resume' event.slug iv.public_id %}">{% if iv.station and station and iv.station.pk != station.pk %}Continuar aquí{% else %}Retomar entrevista{% endif %}</a>{% endif %}
       <a class="btn btn--link" href="{% url 'events:interview_search' event.slug %}">Entrevistar a otro campero</a>
       {% for s in stalled %}{% if s.pk == iv.pk and access.can_conduct_interviews %}<a class="btn btn--link btn--quieto sign__aparte" href="{% url 'events:interview_discard' event.slug iv.public_id %}">Descartar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>{% endif %}{% endfor %}
     </div>
