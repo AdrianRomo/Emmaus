@@ -151,15 +151,16 @@ class ParticipantContactForm(TuErrorMessagesMixin, forms.ModelForm):
         self.fields["phone_number"].widget.attrs.update({"autocomplete": "tel", "inputmode": "tel"})
 
 
+# The one sign-in error of Emmaus (church and camp alike): the same words for an unknown e-mail, a wrong password and an
+# inactive account, so the door never says whether an account exists (OWASP, authentication error messages). Who to
+# ask is said apart, only to someone who arrived from a camp's link (ThrottledLoginView).
+SIGN_IN_ERROR = "No pudimos iniciar sesión. Revisa tu correo y tu contraseña e inténtalo de nuevo."
+
+
 class EmailAuthenticationForm(TuErrorMessagesMixin, AuthenticationForm):
     """Login form labelled for people who sign in with their email address."""
 
-    error_messages = {
-        "invalid_login": (
-            "Revisa tu correo y contraseña. Si no puedes entrar, pide ayuda a la administración del evento."
-        ),
-        "inactive": "Esta cuenta está desactivada. Pide ayuda a la administración del evento.",
-    }
+    error_messages = {"invalid_login": SIGN_IN_ERROR, "inactive": SIGN_IN_ERROR}
 
     def __init__(self, request=None, *args, **kwargs):
         super().__init__(request, *args, **kwargs)

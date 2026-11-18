@@ -619,10 +619,7 @@ class EmailAuthenticationFormTests(TestCase):
         self.assertEqual(form.fields["username"].label, "Correo electrónico")
         self.assertEqual(form.fields["password"].label, "Contraseña")
         self.assertFalse(form.is_valid())
-        self.assertIn(
-            "Revisa tu correo y contraseña. Si no puedes entrar, pide ayuda a la administración del evento.",
-            form.non_field_errors(),
-        )
+        self.assertIn("No pudimos iniciar sesión. Revisa tu correo y tu contraseña e inténtalo de nuevo.", form.non_field_errors())
 
 
 class HealthTests(TestCase):

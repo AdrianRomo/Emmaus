@@ -964,10 +964,21 @@ def reflection_question_create(request, lesson_id: int):
     return render(request, "core/reflection_question_form.html", {"form": form, "lesson": lesson})
 
 
+# Paths a camp's link leads to (an event's pages, its printed code, the join form): who arrives from one is told, apart
+# from the shared error, that the event's administration can help
+EVENT_PATHS = ("/eventos/", "/e/", "/unirme/")
+
+
 class ThrottledLoginView(LoginView):
     """Login with a per-account attempt limit shared by all workers (8 tries per 15 minutes)."""
 
     template_name = "registration/login.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        target = self.request.POST.get("next") or self.request.GET.get("next") or ""
+        context["from_event"] = target.startswith(EVENT_PATHS)
+        return context
 
     def post(self, request, *args, **kwargs):
         from events.services import throttle
