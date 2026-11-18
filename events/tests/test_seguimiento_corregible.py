@@ -54,6 +54,9 @@ class ChangeFixture(CampFixture):
     def section(self, html: str) -> str:
         return html.split('id="seguimiento"')[1].split("</section>")[0]
 
+    def history(self, html: str) -> str:
+        return html.split('aria-labelledby="cambios-seguimiento"')[1].split("</section>")[0]
+
 
 class WhoMayChangeTests(ChangeFixture):
     def test_the_camperos_coordinador_may(self):
@@ -197,8 +200,10 @@ class RecordTests(ChangeFixture):
     def test_the_record_shows_the_history_to_whoever_sees_it_and_the_action_to_whoever_may_use_it(self):
         self.post(self.coord1, "requerido")
         self.post(self.admin, "no_requerido", reason="Se registró por error.")
-        tutor = self.section(self.as_user(self.tutor1).get(self.record).content.decode())
-        self.assertIn('<h3 class="heading">Cambios de la decisión</h3>', tutor)
+        tutor_html = self.as_user(self.tutor1).get(self.record).content.decode()
+        self.assertNotIn("Cambiar decisión de seguimiento", self.section(tutor_html))
+        tutor = self.history(tutor_html)
+        self.assertIn('<h2 id="cambios-seguimiento" class="heading">Cambios de la decisión de seguimiento</h2>', tutor)
         self.assertIn("De «necesita seguimiento» a «no necesita seguimiento»", tutor)
         self.assertIn("Ada Admin. Motivo: Se registró por error.", tutor)
         self.assertIn(f"Carla Uno. Motivo: {REASON}", tutor)
@@ -426,16 +431,23 @@ class BothModesTests(ChangeFixture):
 
     def test_without_the_redesign_a_reader_gets_the_section_byte_for_byte(self):
         html = self.as_user(self.tutor1).get(self.record).content.decode()
-        self.assertIn(f'<section class="block" id="seguimiento" aria-labelledby="seg-titulo">{self.OLD_SECTION}</section>', html)
+        self.assertIn(
+            f'<section class="block" id="seguimiento" aria-labelledby="seg-titulo">{self.OLD_SECTION}</section>\n\n\n'
+            '<section class="block" aria-labelledby="respuestas">',
+            html,
+        )
 
     def test_without_the_redesign(self):
         client = self.as_user(self.coord1)
         page = client.get(self.page).content.decode()
         self.assertIn('<div class="step__actions">', page)
         self.post(self.coord1, "requerido", client=client)
-        section = self.section(client.get(self.record).content.decode())
-        self.assertIn(f'<p class="more"><a href="{self.page}">Cambiar decisión de seguimiento</a></p>', section)
-        self.assertIn('<li class="row"><div class="row__main"><p class="row__title">De «no necesita seguimiento» a «necesita seguimiento»</p>', section)
+        html = client.get(self.record).content.decode()
+        self.assertIn(f'<p class="more"><a href="{self.page}">Cambiar decisión de seguimiento</a></p>', self.section(html))
+        self.assertIn(
+            '<li class="row"><div class="row__main"><p class="row__title">De «no necesita seguimiento» a «necesita seguimiento»</p>',
+            self.history(html),
+        )
 
     def test_with_the_redesign(self):
         flags.set_enabled(self.church, "community", True)
@@ -449,5 +461,6 @@ class BothModesTests(ChangeFixture):
         section = self.section(response.content.decode())
         self.assertIn("Necesita seguimiento.", section)
         self.assertIn(f'<p class="more"><a href="{self.page}">Cambiar decisión de seguimiento</a></p>', section)
-        self.assertIn('<li class="row row--lead">', section)
-        self.assertIn("De «no necesita seguimiento» a «necesita seguimiento»", section)
+        history = self.history(response.content.decode())
+        self.assertIn('<li class="row row--lead">', history)
+        self.assertIn("De «no necesita seguimiento» a «necesita seguimiento»", history)

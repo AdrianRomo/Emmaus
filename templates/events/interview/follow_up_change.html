@@ -4,19 +4,19 @@
 {% url 'events:interview_detail' event.slug interview.public_id as back_url %}
 {% if ui_v2 %}{% comment %}
   The redesign ("Ventanas"): «Cambiar decisión de seguimiento» (services.follow_up_decision). The decision as it is now,
-  then what the change does to the care follow-up, said before anything is done; the one field, why; the one action,
-  which names the decision it goes to. Nothing changes without the reason.
+  the one field, why; what the change does to the care follow-up, said beside the one action, which names the
+  decision it goes to. Nothing changes without the reason.
 {% endcomment %}
 <div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
 {% with back_label="Entrevista de "|add:participant.first_name lede=participant.full_name|add:" "|add:now_words|add:"." %}
   {% include "events/rotulo/_page_head.html" with title="Cambiar decisión de seguimiento" back_url=back_url back_label=back_label lede=lede %}
 {% endwith %}
-{% if care_sentence %}<p>{{ care_sentence }}</p>{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
   {{ form.decision }}
   {% include "partials/ui/field.html" with field=form.reason %}
+  {% if care_sentence %}<p class="aside-note">{{ care_sentence }}</p>{% endif %}
   <div class="form-actions">
     <button class="btn btn--primary" type="submit">Cambiar a «{{ target_words }}»</button>
     <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
@@ -25,10 +25,9 @@
 </div>
 {% else %}<div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
-{% with back_label="Entrevista de "|add:participant.first_name lede=participant.full_name|add:" "|add:now_words|add:"." %}
+{% with back_label="Entrevista de "|add:participant.first_name lede=participant.full_name|add:" "|add:now_words|add:". "|add:care_sentence %}
   {% include "events/rotulo/_page_head.html" with title="Cambiar decisión de seguimiento" back_url=back_url back_label=back_label lede=lede %}
 {% endwith %}
-{% if care_sentence %}<p>{{ care_sentence }}</p>{% endif %}
 <form method="post" novalidate>
   {% csrf_token %}
   {{ form.decision }}
