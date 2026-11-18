@@ -524,8 +524,8 @@ overall: PASS
 
 1. **Group meetings and attendance** (blueprint P1): a guide records who came; the member's home
    shows real meetings instead of the computed next weekday. M, medium.
-2. **Integrity checks for the new tables** in `tenant_integrity`, and `rebuild_role_assignments
-   --check` in CI. S, low.
+2. **Integrity checks for the new tables** in `tenant_integrity` (done in wave 7), and
+   `rebuild_role_assignments --check` in CI. S, low.
 3. **Events for people** (P3-8, #61): an event that is not a camp, a public page, "Inscribirme"
    from Mi iglesia, "Mis eventos". L, high (camp-adjacent): needs a short design note first.
 4. **Avisos** (#57): announcements by audience on Mi iglesia, with the notification preferences

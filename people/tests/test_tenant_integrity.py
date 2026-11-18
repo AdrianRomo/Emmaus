@@ -17,10 +17,12 @@ from core.services import assign_role
 from events.models import EventParticipant, EventQuestionnaire, FollowUp, Interview, ReportSnapshot, Sede
 from events.services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, create_questionnaire_from_definition
 from events.tests.base import CampFixture
-from people.management.commands.tenant_integrity import checks
+from people.management.commands.tenant_integrity import camp_checks, checks
 from people.models import Person
 
-KEYS = [check.key for check in checks()]
+# The camp's checks, which this file plants; the ones of the church modules are in test_tenant_integrity_community.
+KEYS = [check.key for check in camp_checks()]
+ALL_KEYS = [check.key for check in checks()]
 WARNING_KEYS = {"person_user_without_church_role"}
 
 
@@ -103,18 +105,18 @@ class TenantIntegrityTests(CampFixture):
     def assert_counted_alone_and_fails(self, key):
         getattr(self, f"break_{key}")()
         payload, code = json_counts()
-        self.assertEqual(mismatches(payload), {k: int(k == key) for k in KEYS})
+        self.assertEqual(mismatches(payload), {k: int(k == key) for k in ALL_KEYS})
         self.assertEqual((code, payload["ok"], payload["errors"], payload["warnings"]), (1, False, 1, 0))
 
     # ---- a valid fixture --------------------------------------------------------------------------
     def test_valid_data_counts_zero_and_exits_zero(self):
         payload, code = json_counts()
         self.assertEqual(code, 0)
-        self.assertEqual(list(payload["checks"]), KEYS)
-        self.assertEqual(mismatches(payload), dict.fromkeys(KEYS, 0))
-        # Every check read rows: a zero next to zero rows read would prove nothing.
-        for key, entry in payload["checks"].items():
-            self.assertGreater(entry["checked"], 0, key)
+        self.assertEqual(list(payload["checks"]), ALL_KEYS)
+        self.assertEqual(mismatches(payload), dict.fromkeys(ALL_KEYS, 0))
+        # Every check of the camp read rows: a zero next to zero rows read would prove nothing.
+        for key in KEYS:
+            self.assertGreater(payload["checks"][key]["checked"], 0, key)
         self.assertEqual((payload["ok"], payload["errors"], payload["warnings"]), (True, 0, 0))
         out, message, code = run_integrity()
         self.assertEqual((message, code), ("", 0))
@@ -131,7 +133,9 @@ class TenantIntegrityTests(CampFixture):
             self.assertEqual((entry["checked"], entry["mismatched"]), (0, 0), key)
 
     def test_runs_in_one_query_per_table(self):
-        with self.assertNumQueries(6):
+        tables = {check.model for check in checks()}
+        self.assertEqual(len(tables), 24)
+        with self.assertNumQueries(len(tables)):
             run_integrity("--json")
 
     # ---- one violation of each kind -----------------------------------------------------------------
@@ -162,7 +166,7 @@ class TenantIntegrityTests(CampFixture):
         Person.objects.create(church=self.church_b, first_name="Ada", last_name="Admin", user=self.admin,
                               created_from=Person.CreatedFrom.BACKFILL)
         payload, code = json_counts()
-        self.assertEqual(mismatches(payload), {k: 2 if k in WARNING_KEYS else 0 for k in KEYS})
+        self.assertEqual(mismatches(payload), {k: 2 if k in WARNING_KEYS else 0 for k in ALL_KEYS})
         self.assertEqual(payload["checks"]["person_user_without_church_role"]["severity"], "warning")
         self.assertEqual((code, payload["ok"], payload["errors"], payload["warnings"]), (0, True, 0, 2))
         out, message, code = run_integrity()
@@ -178,7 +182,7 @@ class TenantIntegrityTests(CampFixture):
         for key in KEYS:
             getattr(self, f"break_{key}")()
         payload, code = json_counts()
-        self.assertEqual(mismatches(payload), dict.fromkeys(KEYS, 1))
+        self.assertEqual(mismatches(payload), {k: int(k in KEYS) for k in ALL_KEYS})
         self.assertEqual((code, payload["ok"], payload["errors"], payload["warnings"]), (1, False, 7, 1))
 
         out, message, code = run_integrity()
@@ -207,7 +211,7 @@ class SeedsHaveNoMismatchesTests(TestCase):
             call_command("seed_dev_data", password="x", stdout=StringIO())
         payload, code = json_counts()
         self.assertEqual((code, payload["ok"]), (0, True))
-        self.assertEqual(mismatches(payload), dict.fromkeys(KEYS, 0))
+        self.assertEqual(mismatches(payload), dict.fromkeys(ALL_KEYS, 0))
         # The seed exercises the camp checks; nothing creates a Person yet, so that check reads no row.
         for key in set(KEYS) - WARNING_KEYS:
             self.assertGreater(payload["checks"][key]["checked"], 0, key)
