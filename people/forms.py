@@ -13,7 +13,7 @@ class PersonForm(TuErrorMessagesMixin, forms.ModelForm):
         fields = ["first_name", "last_name", "email", "phone", "preferred_contact_method", "birth_date"]
         labels = {"preferred_contact_method": "¿Cómo prefiere que la contacten?"}
         help_texts = {
-            "email": "Con este correo entrará a Emmaus cuando le des acceso.",
+            "email": "Con él entrará a Emmaus cuando le des acceso.",
             "birth_date": (
                 "Por ejemplo: 14/03/2009. Sirve para saber si es menor de edad. Escribirla o cambiarla aquí no la confirma: "
                 "la edad se confirma desde los inscritos de un evento, y si cambias la fecha hay que confirmarla otra vez."
