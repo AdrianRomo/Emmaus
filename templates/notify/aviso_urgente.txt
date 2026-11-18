@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Hay un aviso urgente para ti en {{ church_name }}. Entra a Emmaus con tu cuenta para leerlo y responder «Enterado»:
+
+{{ link }}
+
+Por privacidad, este correo no incluye el aviso: solo se lee en Emmaus. En «Mis datos» eliges qué avisos te llegan por correo.
+{% endautoescape %}

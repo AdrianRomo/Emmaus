@@ -13,7 +13,11 @@
     {% include "events/rotulo/_page_head.html" with title="Editar el aviso" lede=notice.audience|add:". Eso no se puede cambiar: si era para alguien más, retira este aviso y publica otro." back_url=back back_label="Volver al aviso" %}
   {% else %}
     {% url 'notices:list' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Publicar un aviso" lede="Lo van a leer en Mi iglesia las personas a quienes va dirigido. Emmaus no lo envía por correo." back_url=back back_label="Volver a los avisos" %}
+    {% if email_configured %}
+      {% include "events/rotulo/_page_head.html" with title="Publicar un aviso" lede="Lo van a leer en Mi iglesia las personas a quienes va dirigido. A quien lo eligió le llega además un correo que solo dice que hay un aviso: nunca lo que escribas aquí." back_url=back back_label="Volver a los avisos" %}
+    {% else %}
+      {% include "events/rotulo/_page_head.html" with title="Publicar un aviso" lede="Lo van a leer en Mi iglesia las personas a quienes va dirigido. No hay correo configurado: el aviso solo se ve en Emmaus." back_url=back back_label="Volver a los avisos" %}
+    {% endif %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}

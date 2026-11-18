@@ -47,6 +47,7 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Opinar de un evento, gracias | `/mi-iglesia/opiniones/<slug>/` | Who went | New (wave 4) | Atrio form | `feedback/tests` | — | — (loaded at 390, 1440, not looked at) |
 | Opiniones del evento | `…/opiniones/<slug>/resultados/` | Administration | New (wave 4) | summary-list, rows | `feedback/tests` | e2e-C | — (loaded, not looked at) |
 | Aviso con nivel, «Enterado», compartir por WhatsApp | `/mi-iglesia/avisos/<id>/` | Every person; counts for who published | Changed (wave 4) | notice, status | `notices/tests/test_levels_and_sharing` | — (agent: axe at 390, 1440) | 390 (home, by me); agent: detail |
+| Avisos por correo (preferencias); correos enviados en el detalle de un aviso | `/mi-iglesia/avisos/correo/`, `/mi-iglesia/avisos/<id>/` | Every person (their own choice); counts for who published | New (wave 6) | Atrio form, notice | `notices/tests/test_email` | — (agent: axe at 390, 1440) | agent: 390, 1440 |
 | Personas (lista, ficha, alta, editar) | `/mi-iglesia/personas/…` | Administration | In the shell | Atrio | `test_people_views` | e2e-C | 390, 1440 (lista, ficha) |
 | Traer personas de un evento | `…/desde-un-evento/…` | Administration | In the shell | Atrio | `test_people_views` | e2e-C | — |
 | Dar acceso, enlace | `…/acceso/…` | Administration | In the shell | Atrio | `test_people_views` | — | — |

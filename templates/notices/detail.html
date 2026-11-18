@@ -9,7 +9,8 @@
   that the number is not proof that the message arrived. After a change that asked for "Enterado" again, who had
   opened it reads that it changed and when, and who may change it reads that the count started over. "Compartir por WhatsApp" carries the church's name and this
   page's address, never the title or the body. Who may change it (its author, the administration) also reads its
-  state and gets "Editar el aviso" and "Retirar el aviso".
+  state and gets "Editar el aviso" and "Retirar el aviso", and reads how many e-mails went out about it
+  (views._emailed_lines): a number, never names, and never a claim that an e-mail was read.
 {% endcomment %}
 <div class="narrow">
   <a class="back-link" href="{% url 'notices:list' %}">Volver a los avisos</a>
@@ -48,12 +49,16 @@
   {% if share_url %}
     <p class="aside-note"><a href="{{ share_url }}" target="_blank" rel="noopener">Compartir por WhatsApp</a> (se abre en otra pestaña). El mensaje solo dice que hay un aviso y lleva el enlace a esta página: para leerlo hay que entrar a Emmaus con su cuenta.</p>
   {% endif %}
+  {% if emailed_lines %}
+    <div class="notice notice--quiet" id="correos">
+      {% for line in emailed_lines %}<p>{{ line }}</p>{% endfor %}
+    </div>
+  {% endif %}
   {% if can_edit and not notice.is_retired %}
     <div class="step__actions">
       <a class="btn btn--secondary" href="{% url 'notices:edit' notice.pk %}">Editar el aviso</a>
       <a class="btn btn--link" href="{% url 'notices:retire' notice.pk %}">Retirar el aviso</a>
     </div>
-    <p class="aside-note">Este aviso se lee aquí, en Mi iglesia. Emmaus no lo envía por correo.</p>
   {% endif %}
 </div>
 {% endblock %}

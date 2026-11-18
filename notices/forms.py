@@ -3,7 +3,7 @@ from django import forms
 from core.forms import TuErrorMessagesMixin
 
 from . import services
-from .models import Announcement
+from .models import Announcement, EmailPreference
 
 WHOLE_CHURCH = "iglesia"
 MATERIAL, DETAIL = "si", "no"
@@ -121,3 +121,14 @@ class NoticeForm(TuErrorMessagesMixin, forms.ModelForm):
     def material_answer(self) -> bool | None:
         """True: ask for "Enterado" again. False: a detail. None: not asked or not answered."""
         return {MATERIAL: True, DETAIL: False}.get(self.cleaned_data.get("material"))
+
+
+class EmailPreferenceForm(TuErrorMessagesMixin, forms.Form):
+    """"Avisos por correo": one question, four answers."""
+
+    choice = forms.ChoiceField(
+        label="¿De qué avisos quieres que te avisemos por correo?",
+        widget=FirstRadio,
+        choices=EmailPreference.Choice.choices,
+        error_messages={"required": "Elige una opción.", "invalid_choice": "Elige una de las opciones que aparecen."},
+    )

@@ -416,7 +416,8 @@ class MigrationTests(TransactionTestCase):
     def test_the_answers_given_before_versions_existed_still_count(self):
         executor = MigrationExecutor(connection)
         before = [("notices", "0002_priority_and_acknowledgement")]
-        after = [("notices", "0003_versions_of_an_urgent_notice")]
+        # Up to the newest migration: the asserts below read with today's models, which need today's columns.
+        after = [("notices", "0004_email_preferences_and_deliveries")]
         try:
             executor.migrate(before)
             apps = executor.loader.project_state(before).apps
