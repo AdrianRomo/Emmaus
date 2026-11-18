@@ -55,7 +55,7 @@ class CampToGroupJourneyTests(CommunityFixture):
         self.client.force_login(self.member_user)
         home = self.client.get(reverse("community:home"))
         self.assertContains(home, "Jóvenes Roca")
-        self.assertContains(home, "Próxima reunión: jueves")
+        self.assertContains(home, "</svg>Jueves ")  # the next meeting, as a fact with its mark
         self.assertContains(self.client.get(reverse("community:group_detail", args=[self.group.pk])), "Salón 2")
 
         # One person, one account, the same camp record; and the camp record did not change.
@@ -130,5 +130,5 @@ class CampToGroupJourneyTests(CommunityFixture):
         self.assertEqual(mail.outbox[1].to, [self.member_user.email])
         self.assertNotIn("Jóvenes Roca", mail.outbox[1].body)
         self.client.force_login(self.member_user)
-        self.assertContains(self.client.get(reverse("community:home")), "Esta vez no fue posible unirte.")
+        self.assertContains(self.client.get(reverse("community:home")), "Habla con quien lo guía o busca otro grupo.")
         self.assertFalse(GroupMembership.objects.filter(person=self.member).exists())

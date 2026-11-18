@@ -144,14 +144,14 @@ class MyDataTests(CommunityFixture):
     def test_the_home_asks_for_what_is_missing_and_the_person_fills_it_in(self):
         self.client.force_login(self.leader_user)
         home = self.client.get(reverse("community:home"))
-        self.assertContains(home, "A tu iglesia le falta tu teléfono")
+        self.assertContains(home, "Falta tu teléfono")
         response = self.client.post(
             reverse("community:profile"),
             {"phone": "55 3333 4444", "email": "gala@prueba.mx", "preferred_contact_method": "whatsapp"},
             follow=True,
         )
         self.assertContains(response, "Guardamos tus datos.")
-        self.assertNotContains(response, "A tu iglesia le falta")
+        self.assertNotContains(response, "Falta tu teléfono")
         self.leader.refresh_from_db()
         self.assertEqual((self.leader.phone, self.leader.email), ("55 3333 4444", "gala@prueba.mx"))
 
@@ -269,13 +269,13 @@ class HomeModulesTests(CommunityFixture):
         self.client.force_login(self.member_user)
         home = self.client.get(reverse("community:home"))
         self.assertContains(home, "Devocional de hoy")
-        self.assertContains(home, "Toma unos minutos.")
+        self.assertNotContains(home, "</span>Leído</span>")  # not read yet: no state is drawn
         self.assertIn(">Devocional<", rail(home))
         resources.mark_read(resources.today_devotional(self.church, self.member), self.member)
-        self.assertContains(self.client.get(reverse("community:home")), "Ya lo leíste.")
+        self.assertContains(self.client.get(reverse("community:home")), "</span>Leído</span>")
         self.client.force_login(self.admin)
         admin_home = self.client.get(reverse("community:home"))
-        self.assertContains(admin_home, "Toma unos minutos.")  # her own state, not the member's
+        self.assertNotContains(admin_home, "</span>Leído</span>")  # her own state, not the member's
         self.assertNotContains(admin_home, "Diego")
 
     def test_the_administration_s_count_never_tells_her_of_a_follow_up_about_herself(self):

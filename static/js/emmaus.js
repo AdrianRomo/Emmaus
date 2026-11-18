@@ -703,4 +703,72 @@
       if (following) slug.value = slugOf(source.value, max);
     });
   });
+
+  /* ---- The redesigned shell (santuario.css): what just happened, and a page on its way ---- */
+  // Only where the redesign is served (<html data-ui="2">); a church without the module gets none of this.
+  if (doc.documentElement.getAttribute("data-ui") === "2") {
+    // The messages of the page that sent us here ("Guardado") arrive as toasts at the top. Good news leaves by
+    // itself after six seconds, unless the pointer or the focus is on it; a problem stays until it is closed.
+    // Without this script they are notices in the page, as before.
+    $all(".messages").forEach(function (box) {
+      box.classList.add("is-toast");
+      $all(".notice", box).forEach(function (notice) {
+        var timer = null;
+        function leave() {
+          window.clearTimeout(timer);
+          if (motionOff()) { notice.remove(); return; }
+          notice.classList.add("is-leaving");
+          notice.addEventListener("animationend", function () { notice.remove(); }, { once: true });
+          window.setTimeout(function () { notice.remove(); }, 400);
+        }
+        var close = doc.createElement("button");
+        close.type = "button";
+        close.className = "toast__close";
+        close.setAttribute("aria-label", "Cerrar aviso");
+        close.addEventListener("click", leave);
+        notice.appendChild(close);
+        if (notice.classList.contains("notice--danger") || notice.classList.contains("notice--warning")) return;
+        function arm() { window.clearTimeout(timer); timer = window.setTimeout(leave, 6000); }
+        function hold() { window.clearTimeout(timer); }
+        notice.addEventListener("mouseenter", hold);
+        notice.addEventListener("mouseleave", arm);
+        notice.addEventListener("focusin", hold);
+        notice.addEventListener("focusout", arm);
+        arm();
+      });
+    });
+
+    // A link or a form that takes more than a quarter of a second to answer draws a thin line at the top, so a
+    // slow connection never looks like a press that did nothing. It goes away with the page.
+    var progressTimer = null;
+    function startProgress() {
+      window.clearTimeout(progressTimer);
+      progressTimer = window.setTimeout(function () {
+        if ($(".nav-progress")) return;
+        var bar = doc.createElement("div");
+        bar.className = "nav-progress";
+        bar.setAttribute("aria-hidden", "true");
+        body.appendChild(bar);
+      }, 250);
+    }
+    function stopProgress() {
+      window.clearTimeout(progressTimer);
+      $all(".nav-progress").forEach(function (bar) { bar.remove(); });
+    }
+    doc.addEventListener("click", function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var link = e.target.closest ? e.target.closest("a[href]") : null;
+      if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+      var href = link.getAttribute("href");
+      if (!href || href.charAt(0) === "#" || link.origin !== window.location.origin) return;
+      if (link.pathname === window.location.pathname && link.search === window.location.search && link.hash) return;
+      startProgress();
+    });
+    doc.addEventListener("submit", function (e) {
+      window.setTimeout(function () { if (!e.defaultPrevented) startProgress(); }, 0);
+    });
+    window.addEventListener("pageshow", stopProgress);
+    // A download answers without leaving the page: the line would never end
+    window.addEventListener("blur", function () { window.setTimeout(stopProgress, 1500); });
+  }
 })();

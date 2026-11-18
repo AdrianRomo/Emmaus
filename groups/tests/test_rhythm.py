@@ -86,7 +86,7 @@ class RhythmOnThePagesTests(CommunityFixture):
         services.record_meeting(group, last, [], self.leader_user)
         home = self.client.get(reverse("community:home"))
         self.assertNotContains(home, "¿Quién vino a")  # the week in between asks for nothing
-        self.assertContains(home, "Próxima reunión: ")
+        self.assertNotContains(home, "Sin día de reunión")  # the row says the next meeting's day
         detail = self.client.get(reverse("community:group_detail", args=[group.pk]))
         self.assertContains(detail, "los jueves, cada dos semanas" if last.weekday() == 3 else ", cada dos semanas")
         self.assertContains(detail, "La próxima reunión es el ")
@@ -97,7 +97,7 @@ class RhythmOnThePagesTests(CommunityFixture):
         self.client.force_login(self.leader_user)
         home = self.client.get(reverse("community:home"))
         self.assertNotContains(home, "¿Quién vino a")
-        self.assertContains(home, "No tiene día fijo.")
+        self.assertContains(home, "Sin día fijo")
         self.assertContains(self.client.get(reverse("community:group_detail", args=[group.pk])), "Este grupo no tiene día fijo.")
         meetings = self.client.get(reverse("community:group_meetings", args=[group.pk]))
         self.assertContains(meetings, "Este grupo no tiene día de reunión: elige la fecha aquí abajo.")

@@ -32,13 +32,12 @@ class MemberWelcomeTests(CommunityFixture):
         key, block = welcome_of(page)
         self.assertEqual(key, MEMBER_KEY)
         self.assertIn(MEMBER_KEY, KEYS)
-        self.assertIn("Te damos la bienvenida, Diego.", block)
-        self.assertIn(f"tu lugar en {self.church.name}.", block)
+        self.assertIn("Para empezar", block)  # the redesign: the doors, without the paragraphs
+        self.assertNotIn("Lo que puedes hacer aquí", block)
         for name, label in (("agenda:list", "Eventos"), ("community:groups", "Grupos"), ("community:profile", "Mis datos")):
             self.assertIn(f'<a href="{reverse(name)}">{label}</a>', block)
             self.client.force_login(self.member_user)
             self.assertEqual(self.client.get(reverse(name)).status_code, 200, name)
-        self.assertIn("busca un grupo y pide unirte", block)  # Diego has no group and one receives requests
         self.assertEqual(block.count("<li>"), 3)
         self.assertEqual(steps_of(block), [])
         self.assertNotIn("Primeros pasos", block)
@@ -56,9 +55,8 @@ class MemberWelcomeTests(CommunityFixture):
         page = self.home(self.leader_user)
         _, block = welcome_of(page)
         url = reverse("community:group_people", args=[self.group.pk])
-        self.assertIn(f'<a href="{url}">A tu cargo</a>: las personas de Jóvenes Roca', block)
+        self.assertIn(f'<a href="{url}">A tu cargo</a>', block)
         self.assertEqual(block.count("<li>"), 4)
-        self.assertIn("tus grupos y los demás grupos de la iglesia", block)
         self.assertEqual(self.client.get(url).status_code, 200)
         self.assertIn("A tu cargo", page.replace(block, ""))  # the shell lists it too: the line points at something real
 

@@ -397,4 +397,5 @@ class ShareTests(LevelFixture):
                 self.assertEqual(html.count("<h1"), 1, url)
                 self.assertLessEqual(main.count("btn--primary"), 1, url)
                 self.assertNotIn("·", main, url)
-                self.assertNotIn("<svg", main, url)
+                # An icon is a mark beside its word, never a control by itself: every one is hidden from a screen reader
+                self.assertEqual(main.count("<svg"), main.count('aria-hidden="true" focusable="false">'), url)
