@@ -85,30 +85,33 @@ class MemberAddedDeliveryTests(CampFixture):
         self.assertContains(response, "Nadia Nueva ya forma parte del equipo. Le enviamos un correo para crear su contraseña.")
         self.assertEqual(len(mail.outbox), 1)
 
+    # Issue #50, review: the three tests below used to pin the opposite (an existing account without a password got
+    # the link on screen like a new person). Whoever types an address does not own its account: only an account
+    # created by this very request gets a link here. The rest is in test_team_import_review.py.
     @override_settings(EMAIL_BACKEND=LOCMEM)
-    def test_an_existing_account_that_never_set_a_password_gets_the_link_like_a_new_person(self):
+    def test_an_existing_account_that_never_set_a_password_is_told_by_email_and_gets_no_link(self):
         person = User.objects.create_user(username="sin.clave@prueba.mx", email="sin.clave@prueba.mx", first_name="Sina", last_name="Clave")
         person.set_unusable_password()
         person.save()
         response = self.add(email="Sin.Clave@prueba.mx", name="Otro Nombre")
-        self.assertTemplateUsed(response, "events/admin/member_created.html")
-        self.assertContains(response, "Sina Clave ya forma parte del equipo. Le enviamos un correo para crear su contraseña.")
-        self.assertNotContains(response, "contraseña de siempre")
+        self.assertRedirects(response, self.url("team"), fetch_redirect_response=False)
+        self.assertEqual(messages_of(response), ["Sina Clave ya forma parte del equipo. Ya tiene cuenta en Emmaus: le avisamos por correo."])
         self.assertEqual([m.to for m in mail.outbox], [["sin.clave@prueba.mx"]])
-        self.assertIn(response.context["link"], mail.outbox[0].body)
+        self.assertNotIn("/cuenta/contrasena/", mail.outbox[0].body)
         self.assertEqual(User.objects.filter(email__iexact="sin.clave@prueba.mx").count(), 1)
 
     @override_settings(EMAIL_BACKEND=CONSOLE)
-    def test_an_existing_account_without_password_and_no_email_configured_gets_the_link_on_screen(self):
+    def test_an_existing_account_without_password_and_no_email_configured_gets_no_link_on_screen(self):
         person = User.objects.create_user(username="sin.clave@prueba.mx", email="sin.clave@prueba.mx", first_name="Sina", last_name="Clave")
         person.set_unusable_password()
         person.save()
         response = self.add(email="sin.clave@prueba.mx")
-        self.assertContains(response, f"Sina Clave ya forma parte del equipo. {NOT_CONFIGURED}")
+        self.assertRedirects(response, self.url("team"), fetch_redirect_response=False)
+        self.assertIn("Ya tiene cuenta en Emmaus, pero no pudimos enviarle la invitación", messages_of(response)[0])
 
     @override_settings(EMAIL_BACKEND=LOCMEM)
     def test_another_churchs_account_gets_one_message_whether_or_not_it_has_a_password(self):
-        """Its link may only go to its owner's e-mail, and this administration may not learn if it has a password."""
+        """This administration may not learn if it has a password, and no link to create one is made for it."""
         other = Church.objects.create(name="Iglesia Vecina", slug="iglesia-vecina")
         answers = []
         for email, usable in (("sin@otra.mx", False), ("con@otra.mx", True)):
@@ -123,10 +126,11 @@ class MemberAddedDeliveryTests(CampFixture):
             response = self.add(email=email)
             self.assertRedirects(response, self.url("team"), fetch_redirect_response=False)
             answers.append(messages_of(response))
-        expected = ["Vera Vecina ya forma parte del equipo. Esta cuenta ya existe y la administra otra iglesia o el sistema; "
-                    "pide a esa administración que le dé acceso."]
+        expected = ["Vera Vecina ya forma parte del equipo. Ya tiene cuenta en Emmaus: le avisamos por correo."]
         self.assertEqual(answers, [expected, expected])
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertEqual([m.to for m in mail.outbox], [["sin@otra.mx"], ["con@otra.mx"]])
+        self.assertEqual(mail.outbox[0].body.replace("sin@", "con@"), mail.outbox[1].body.replace("sin@", "con@"))
+        self.assertFalse(any("/cuenta/contrasena/" in m.body for m in mail.outbox))
 
 
 # ---- Deleting a campero says, in counts, what goes with it ------------------------------------------

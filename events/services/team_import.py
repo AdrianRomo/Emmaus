@@ -19,11 +19,13 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
 
+from core.models import UserChurchRole
+
 from ..access import resolve_access
 from ..models import Event, EventMembership, MembershipRole, normalize_name
 from . import audit
 from . import team as team_svc
-from .participants import FORMULA_STARTS, csv_reader
+from .participants import FORMULA_STARTS, csv_rows
 
 TEAM_COLUMNS = ["Nombre", "Correo", "Rol", "Equipo", "Tutor"]
 HEADER_ALIASES = {
@@ -46,6 +48,7 @@ MAX_TEAM_BYTES = 1024 * 1024
 MAX_CELL = 200  # a cell kept in the session; longer ones are cut, and the name or e-mail then fails its own check
 
 NEW, UNCHANGED = "nuevo", "sin_cambios"
+KNOWN_ACCOUNT = "Ya tiene cuenta en Emmaus: se usa esa cuenta y su nombre no cambia."  # only for this church's own
 
 
 @dataclass
@@ -88,13 +91,15 @@ def _canonical_headers(fieldnames) -> dict[str, str]:
 
 def read_file(uploaded_bytes: bytes) -> tuple[list[dict], list[str]]:
     """The file's cells, trimmed, and the problems that stop the whole file. No database, nothing written."""
-    reader = csv_reader(uploaded_bytes)
-    headers = _canonical_headers(reader.fieldnames)
+    fieldnames, file_rows, unreadable = csv_rows(uploaded_bytes)
+    if unreadable:
+        return [], [unreadable]
+    headers = _canonical_headers(fieldnames)
     missing = [label for key, label in REQUIRED if key not in headers.values()]
     if missing:
         return [], ["Faltan estas columnas: " + ", ".join(missing) + "."]
     rows: list[dict] = []
-    for index, raw in enumerate(reader, start=2):
+    for index, raw in enumerate(file_rows, start=2):
         values = {headers[k]: " ".join((v or "").split())[:MAX_CELL] for k, v in raw.items() if k in headers}
         if not any(values.values()):
             continue
@@ -174,7 +179,6 @@ def plan(event: Event, raw_rows: list[dict]) -> list[TeamRow]:
         user = team_svc.account_for_email(row.email)
         if user is None:
             continue
-        row.has_account = True
         membership = EventMembership.objects.filter(event=event, user=user).first()
         if membership is not None and membership.is_active:
             row.status = UNCHANGED
@@ -185,13 +189,19 @@ def plan(event: Event, raw_rows: list[dict]) -> list[TeamRow]:
         elif membership is not None:
             row.status = UNCHANGED
             row.notes.append("Se le retiró el acceso a este evento. Si quieres devolvérselo, hazlo en Equipo, Editar.")
-        else:
+        elif UserChurchRole.objects.filter(user=user, church_id=event.church_id).exists():
             access = resolve_access(user, event)
-            if access is not None:  # a church administrator or pastor, or the system's administration
+            if access is not None:  # an administrator or a pastor of this church
                 row.status = UNCHANGED
                 row.notes.append(f"Ya tiene acceso a este evento como {access.role_label.lower()}.")
             else:
-                row.notes.append("Ya tiene cuenta en Emmaus: se usa esa cuenta y su nombre no cambia.")
+                row.has_account = True
+                row.notes.append(KNOWN_ACCOUNT)
+        elif EventMembership.objects.filter(user=user, event__church_id=event.church_id).exists():
+            row.has_account = True
+            row.notes.append(KNOWN_ACCOUNT)
+        # Any other account (another church's, the system's administration, one with no role anywhere) reads
+        # exactly like a new person: a review writes nothing, so it must not answer "is this address in Emmaus?".
 
     _resolve_tutors(event, rows, raws)
     return rows

@@ -286,6 +286,21 @@ def csv_reader(uploaded_bytes: bytes) -> csv.DictReader:
     return csv.DictReader(io.StringIO(text), dialect=dialect)
 
 
+UNREADABLE_CSV = ("No pudimos leer el archivo: una celda es demasiado larga o tiene comillas sin cerrar. Ábrelo en tu "
+                  "hoja de cálculo, guárdalo otra vez como CSV (UTF-8) y súbelo de nuevo.")
+
+
+def csv_rows(uploaded_bytes: bytes) -> tuple[list[str], list[dict], str]:
+    """(headers, rows, problem) of an uploaded CSV, read whole. Python's reader raises ``csv.Error`` on a cell over
+    131,072 characters (which is also what a quote left open becomes) and on other malformed input: that is a
+    problem with the file, said in words, never a server error. Both imports read through here."""
+    try:
+        reader = csv_reader(uploaded_bytes)
+        return list(reader.fieldnames or []), list(reader), ""
+    except csv.Error:
+        return [], [], UNREADABLE_CSV
+
+
 def coordinator_aliases(event: Event) -> dict[str, EventMembership]:
     """normalized alias -> the active coordinator it names, for this event only."""
     aliases = MembershipAlias.objects.filter(
@@ -296,8 +311,10 @@ def coordinator_aliases(event: Event) -> dict[str, EventMembership]:
 
 def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], list[str]]:
     """Validate a CSV without writing anything. Returns rows and file-level problems."""
-    reader = csv_reader(uploaded_bytes)
-    headers = _canonical_headers(reader.fieldnames)
+    fieldnames, raw_rows, unreadable = csv_rows(uploaded_bytes)
+    if unreadable:
+        return [], [unreadable]
+    headers = _canonical_headers(fieldnames)
     problems = []
     missing = [label for key, label in [("full_name", "Nombre"), ("age", "Edad"), ("room", "Cuarto"), ("church_group", "Iglesia o grupo")] if key not in headers.values()]
     if missing:
@@ -320,7 +337,7 @@ def parse_import(event: Event, uploaded_bytes: bytes) -> tuple[list[ImportRow], 
 
     rows: list[ImportRow] = []
     seen_names: dict[str, int] = {}
-    for index, raw in enumerate(reader, start=2):
+    for index, raw in enumerate(raw_rows, start=2):
         if index - 1 > MAX_IMPORT_ROWS:
             problems.append(f"El archivo tiene más de {MAX_IMPORT_ROWS} filas. Divídelo en partes.")
             break
@@ -502,19 +519,34 @@ def save_alias(membership: EventMembership, alias: str, *, actor) -> tuple[bool,
         return False, f"«{alias}» empieza con un signo que las hojas de cálculo leen como fórmula: no se guardó."
     if membership.role != MembershipRole.COORDINATOR or not membership.is_active:
         return False, f"{membership.display_name} ya no es coordinador en este evento: «{alias}» no se guardó."
-    existing = MembershipAlias.objects.filter(event_id=membership.event_id, normalized=key).select_related("membership__user").first()
+    if len(key) > ALIAS_MAX:
+        # Some letters grow when compared ("ﬃ" is "ffi"): the comparable form must fit its column too, or PostgreSQL
+        # refuses the row and takes the whole import's transaction with it.
+        return False, "Uno de los nombres es demasiado largo para recordarlo: no se guardó."
+    found = MembershipAlias.objects.filter(event_id=membership.event_id, normalized=key).select_related("membership__user")
+    existing = found.first()
     if existing is None:
         try:
             with transaction.atomic():
                 MembershipAlias.objects.create(event_id=membership.event_id, membership=membership, alias=alias, created_by=actor)
         except IntegrityError:  # saved by somebody else a moment ago
-            existing = MembershipAlias.objects.filter(event_id=membership.event_id, normalized=key).select_related("membership__user").first()
+            existing = found.first()
             if existing is None:
                 raise
     if existing is not None:
-        if existing.membership_id == membership.id:
+        owner = existing.membership
+        if owner.pk == membership.pk:
             return True, ""
-        return False, f"«{alias}» ya es otro nombre de {existing.membership.display_name}: no se cambió."
+        if owner.role == MembershipRole.COORDINATOR and owner.is_active:
+            return False, f"«{alias}» ya es otro nombre de {owner.display_name}: no se cambió."
+        # Its owner no longer coordinates here, so the import had stopped recognising the name: it would be lost
+        # for good. It passes to the coordinator the administrator just named.
+        existing.membership, existing.alias, existing.created_by = membership, alias, actor
+        existing.save()
+        audit.record(actor, membership.event, "alias_guardado",
+                     f"Pasó «{alias}» de {owner.display_name}, que ya no coordina, a {membership.display_name} para las importaciones",
+                     membership, reasignado=True, antes=owner.pk)
+        return True, ""
     audit.record(actor, membership.event, "alias_guardado",
                  f"Guardó «{alias}» como otro nombre de {membership.display_name} para las importaciones", membership)
     return True, ""

@@ -49,7 +49,8 @@ class TeamImportFixture(CampFixture):
             "memberships": sorted(EventMembership.objects.values_list("event_id", "user_id", "role", "team_name", "can_view_sensitive", "is_active")),
             "assignments": sorted(TutorAssignment.objects.values_list("event_id", "tutor_id", "coordinator_id")),
             "church_roles": sorted(UserChurchRole.objects.values_list("user_id", "church_id", "role")),
-            "audit": AuditEvent.objects.count(),
+            # A review leaves one row of its own (ReviewAuditTests); everything else must stay as it was
+            "audit": AuditEvent.objects.exclude(action="importacion_equipo_revisada").count(),
             "mail": len(mail.outbox),
         }
 
@@ -313,14 +314,17 @@ class ConfirmTests(TeamImportFixture):
         account = make_user("Vero.Luna@Prueba.MX", "Verónica", "Luna")
         self.login(self.admin)
         response = self.review(HEADER + "Otro Nombre,vero.luna@prueba.mx,tutor,Equipo Luna,\n")
-        self.assertEqual(response.context["rows"][0].notes, ["Ya tiene cuenta en Emmaus: se usa esa cuenta y su nombre no cambia."])
+        # An account with no role or team in this church reads like a new person (no "ya tiene cuenta")
+        self.assertEqual((response.context["rows"][0].notes, response.context["rows"][0].has_account), ([], False))
         response = self.confirm(2)
         self.assertEqual(User.objects.filter(email__iexact="vero.luna@prueba.mx").count(), 1)
         account.refresh_from_db()
         self.assertEqual(account.first_name, "Verónica")  # a file never renames an account
         self.assertEqual(EventMembership.objects.get(event=self.event, user=account).role, "tutor")
-        self.assertContains(response, "Puede entrar con su contraseña de siempre.")
-        self.assertEqual(mail.outbox, [])  # it has a password: no link to create one is issued
+        self.assertContains(response, "Le enviamos un correo con su invitación.")
+        self.assertNotContains(response, "/cuenta/contrasena/")
+        self.assertEqual([m.to for m in mail.outbox], [["Vero.Luna@prueba.mx"]])  # told at the account's own address
+        self.assertNotIn("/cuenta/contrasena/", mail.outbox[0].body)  # and no link to create a password is made
 
     def test_an_account_of_another_church_gets_only_this_event_and_no_link(self):
         other_church = Church.objects.create(name="Otra iglesia", slug="otra-iglesia")
@@ -331,9 +335,10 @@ class ConfirmTests(TeamImportFixture):
         self.login(self.admin)
         self.review(HEADER + "Lía Lejos,lejos@otra.mx,coordinador,,\n")
         response = self.confirm(2)
-        self.assertContains(response, "la administra otra iglesia o el sistema")
+        self.assertContains(response, "Le enviamos un correo con su invitación.")
         self.assertNotContains(response, "/cuenta/contrasena/")
-        self.assertEqual(mail.outbox, [])
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn("/cuenta/contrasena/", mail.outbox[0].body)
         self.assertEqual(list(UserChurchRole.objects.filter(user=foreign).values_list("church_id", "role")), [(other_church.id, Role.PASTOR)])
         self.assertEqual(list(EventMembership.objects.filter(user=foreign).values_list("event_id", "role")), [(self.event.id, "coordinador")])
 

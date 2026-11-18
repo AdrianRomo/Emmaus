@@ -33,7 +33,8 @@
         <form method="post" class="mt-4">{% csrf_token %}<input type="hidden" name="action" value="link"><button class="btn btn--secondary btn--small" type="submit">Generar enlace</button></form>
       {% endif %}
     {% else %}
-      <p>Esta persona ya tiene contraseña. Si la olvidó, puede usar “¿Olvidaste tu contraseña?” en la pantalla de entrada: el enlace llega a su correo.</p>
+      {% comment %}Said the same with or without a password: the event's administration may not learn which (issue #50).{% endcomment %}
+      <p>Esta persona entra con su propia cuenta. Si no tiene contraseña o la olvidó, puede usar “¿Olvidaste tu contraseña?” en la pantalla de entrada: el enlace llega a su correo.</p>
     {% endif %}
     {% if aliases %}
       <h2 id="otros-nombres" class="heading mt-4">Otros nombres en las listas</h2>

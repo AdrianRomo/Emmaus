@@ -16,7 +16,8 @@ from django.shortcuts import redirect, render
 from ..forms import TeamImportForm
 from ..services import team_import as import_svc
 from ..services.exports import safe_cell
-from .admin import _can_issue_activation_link, _invite, _managed_elsewhere
+from ..services import audit
+from .admin import _invite, _tell_existing_account
 from .common import ADMIN, event_view
 
 SESSION_KEY = "team_import_preview"
@@ -46,6 +47,9 @@ def team_import(request, event, access):
         rows, problems = import_svc.read_file(upload.read())
         if not problems:
             request.session[SESSION_KEY] = {"event": event.id, "rows": rows, "name": upload.name[:120]}
+            # A review reads which addresses already belong to the team: it leaves a trace, with no address in it.
+            audit.record(request.user, event, "importacion_equipo_revisada",
+                         f"Revisó un archivo del equipo con {len(rows)} {'fila' if len(rows) == 1 else 'filas'}", None, filas=len(rows))
             return redirect("events:team_import", slug=event.slug)
     context = {"form": form, "problems": problems, "preview": preview, "columns": import_svc.TEAM_COLUMNS,
                "max_rows": import_svc.MAX_TEAM_ROWS}
@@ -63,25 +67,26 @@ def team_import(request, event, access):
 
 
 def _imported(request, event, result):
-    """Invite each person added and say, one by one, what happened with their e-mail. A link that could not be
-    sent is shown here once (never stored): the administrator shares it by hand, as on "Persona agregada"."""
+    """Invite each person added and say, one by one, what happened with their e-mail.
+
+    Only an account created by this import gets a link, and only here when its e-mail could not be sent: shown
+    once, never stored, for the administrator to share by hand, as on "Persona agregada". An account that already
+    existed is told at its own address and never gets a link (``admin._tell_existing_account``); when the e-mail
+    goes out, its row reads exactly like a new person's.
+    """
     people = []
     for added in result.added:
         membership, user = added.membership, added.user
-        person = {"membership": membership, "link": "", "delivery": ""}
-        if added.is_new or _can_issue_activation_link(event, user):
+        person = {"membership": membership, "link": "", "delivery": "sent"}
+        if added.is_new:
             link, sent, configured = _invite(request, event, user)
-            if sent:
-                person["delivery"] = "sent"
-            else:
+            if not sent:
                 person["delivery"] = "failed" if configured else "not_configured"
                 person["link"] = link
-        elif _managed_elsewhere(event, user) or (user.is_staff and not user.has_usable_password()):
-            person["delivery"] = "elsewhere"
-        else:
-            person["delivery"] = "has_password"
+        elif not _tell_existing_account(request, event, membership):
+            person["delivery"] = "existing_not_told"
         people.append(person)
-    counts = {key: sum(1 for p in people if p["delivery"] == key) for key in ("sent", "failed", "not_configured")}
+    counts = {key: sum(1 for p in people if p["delivery"] == key) for key in ("sent", "failed", "not_configured", "existing_not_told")}
     return render(request, "events/admin/team_import_done.html", {
         "people": people, "counts": counts, "links": counts["failed"] + counts["not_configured"],
         "unchanged": result.unchanged, "without_tutor": result.without_tutor,

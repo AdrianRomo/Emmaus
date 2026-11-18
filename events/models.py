@@ -443,6 +443,11 @@ class MembershipAlias(models.Model):
     def __str__(self) -> str:
         return self.alias
 
+    def clean(self):
+        # "ﬃ" compares as "ffi": a name that fits ``alias`` may not fit ``normalized``
+        if len(normalize_name(self.alias)) > self._meta.get_field("normalized").max_length:
+            raise ValidationError({"alias": "Este nombre es demasiado largo. Escribe uno más corto."})
+
     def save(self, *args, **kwargs):
         self.event_id = self.membership.event_id  # an alias lives in its membership's event, whatever the caller said
         self.normalized = normalize_name(self.alias)
