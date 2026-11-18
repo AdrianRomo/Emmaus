@@ -34,7 +34,7 @@
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-line">Todavía no hay ninguna reunión con lista.{% if not group.schedule %} Este grupo no tiene día de reunión: elige la fecha aquí abajo.{% endif %}</p>
+      <p class="empty-line">Todavía no hay ninguna reunión con lista.{% if not group.has_fixed_day %} Este grupo no tiene día de reunión: elige la fecha aquí abajo.{% endif %}</p>
     {% endif %}
   </section>
 

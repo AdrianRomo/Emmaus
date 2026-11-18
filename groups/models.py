@@ -10,6 +10,15 @@ from events.models import Sede
 from people.models import Person
 
 WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"]
+WEEKDAY = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+ORDINALS = {1: "primer", 2: "segundo", 3: "tercer", 4: "cuarto", 5: "último"}
+
+
+def nth_weekday(year: int, month: int, weekday: int, nth: int) -> date:
+    """The first, second, third or fourth ``weekday`` of a month; 5 is the last one (the fourth or the fifth)."""
+    first = date(year, month, 1)
+    day = first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * (min(nth, 5) - 1))
+    return day if day.month == month else day - timedelta(days=7)
 
 
 class Group(models.Model):
@@ -34,6 +43,19 @@ class Group(models.Model):
         SATURDAY = 5, "Sábado"
         SUNDAY = 6, "Domingo"
 
+    class Frequency(models.TextChoices):
+        WEEKLY = "semanal", "Cada semana"
+        BIWEEKLY = "quincenal", "Cada dos semanas"
+        MONTHLY = "mensual", "Una vez al mes"
+        VARIABLE = "variable", "Sin día fijo"
+
+    class Week(models.IntegerChoices):
+        FIRST = 1, "El primero del mes"
+        SECOND = 2, "El segundo del mes"
+        THIRD = 3, "El tercero del mes"
+        FOURTH = 4, "El cuarto del mes"
+        LAST = 5, "El último del mes"
+
     church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="groups")
     sede = models.ForeignKey(
         Sede, verbose_name="Sede", on_delete=models.SET_NULL, null=True, blank=True, related_name="groups"
@@ -43,6 +65,13 @@ class Group(models.Model):
     description = models.TextField("De qué se trata", blank=True)
     audience = models.CharField("Para quién es", max_length=120, blank=True)
     meeting_day = models.PositiveSmallIntegerField("Día en que se reúnen", choices=Weekday.choices, null=True, blank=True)
+    meeting_frequency = models.CharField(
+        "Cada cuándo se reúnen", max_length=12, choices=Frequency.choices, default=Frequency.WEEKLY, db_default=Frequency.WEEKLY
+    )
+    # Which of the month's weekdays, for a group that meets once a month ("el segundo jueves").
+    meeting_week = models.PositiveSmallIntegerField("Cuál del mes", choices=Week.choices, null=True, blank=True)
+    # A date the group does meet, for one that meets every two weeks: it says which weeks are theirs.
+    meeting_anchor = models.DateField("Una fecha en que sí se reúnen", null=True, blank=True)
     meeting_time = models.TimeField("Hora", null=True, blank=True)
     meeting_place = models.CharField("Lugar", max_length=160, blank=True)
     accepts_requests = models.BooleanField("Recibe solicitudes para unirse", default=True, db_default=True)
@@ -70,28 +99,68 @@ class Group(models.Model):
         return self.is_active and self.accepts_requests
 
     @property
+    def has_fixed_day(self) -> bool:
+        """The app can tell which days the group meets: a day, and what its rhythm needs to place it."""
+        if self.meeting_day is None or self.meeting_frequency == self.Frequency.VARIABLE:
+            return False
+        if self.meeting_frequency == self.Frequency.BIWEEKLY:
+            return self.meeting_anchor is not None
+        if self.meeting_frequency == self.Frequency.MONTHLY:
+            return self.meeting_week is not None
+        return True
+
+    @property
     def schedule(self) -> str:
-        """"Los jueves a las 19:30", "Los jueves" or "" when the day is not set."""
+        """"Los jueves a las 19:30", "Los jueves, cada dos semanas, a las 19:30", "El segundo jueves de cada mes",
+        "Sin día fijo", or "" when the day is not set."""
+        frequency = self.meeting_frequency
+        if frequency == self.Frequency.VARIABLE:
+            return "Sin día fijo"
         if self.meeting_day is None:
             return ""
+        hour = f" a las {self.meeting_time:%H:%M}" if self.meeting_time else ""
+        if frequency == self.Frequency.MONTHLY and self.meeting_week:
+            return f"El {ORDINALS[self.meeting_week]} {WEEKDAY[self.meeting_day]} de cada mes{hour}"
         text = f"Los {WEEKDAYS[self.meeting_day]}"
-        if self.meeting_time:
-            text += f" a las {self.meeting_time:%H:%M}"
-        return text
+        if frequency == self.Frequency.BIWEEKLY:
+            return f"{text}, cada dos semanas{',' if hour else ''}{hour}"
+        if frequency == self.Frequency.MONTHLY:
+            return f"{text}, una vez al mes{',' if hour else ''}{hour}"
+        return text + hour
+
+    def _meeting_near(self, day: date, forward: bool) -> date | None:
+        """The date the group meets that is nearest to ``day`` on one side of it, ``day`` included: on or after it
+        (``forward``) or on or before it. None when the app cannot know (``has_fixed_day``)."""
+        if not self.has_fixed_day:
+            return None
+        weekday = self.meeting_day
+        if self.meeting_frequency == self.Frequency.MONTHLY:
+            found = nth_weekday(day.year, day.month, weekday, self.meeting_week)
+            if (found < day) if forward else (found > day):
+                month = day.month + (1 if forward else -1)
+                year = day.year + (month == 13) - (month == 0)
+                found = nth_weekday(year, (month - 1) % 12 + 1, weekday, self.meeting_week)
+            return found
+        if self.meeting_frequency == self.Frequency.BIWEEKLY:
+            # The meeting of the anchor's own week (Monday to Sunday), then every fourteen days either way.
+            base = self.meeting_anchor + timedelta(days=weekday - self.meeting_anchor.weekday())
+            periods, rest = divmod((day - base).days, 14)
+            return base + timedelta(days=14 * (periods + (1 if forward and rest else 0)))
+        if forward:
+            return day + timedelta(days=(weekday - day.weekday()) % 7)
+        return day - timedelta(days=(day.weekday() - weekday) % 7)
 
     def next_meeting(self, today: date | None = None) -> date | None:
-        """The next date the group meets, today included; None when the day is not set."""
-        if self.meeting_day is None or not self.is_active:
+        """The next date the group meets by its rhythm, today included; None when the day is not set, the group
+        has no fixed day or it is archived."""
+        if not self.is_active:
             return None
-        today = today or timezone.localdate()
-        return today + timedelta(days=(self.meeting_day - today.weekday()) % 7)
+        return self._meeting_near(today or timezone.localdate(), forward=True)
 
     def last_meeting_day(self, today: date | None = None) -> date | None:
-        """The most recent date the group was due to meet, today included; None when the day is not set."""
-        if self.meeting_day is None:
-            return None
-        today = today or timezone.localdate()
-        return today - timedelta(days=(today.weekday() - self.meeting_day) % 7)
+        """The most recent date the group was due to meet by its rhythm, today included; None when the day is not
+        set or the group has no fixed day."""
+        return self._meeting_near(today or timezone.localdate(), forward=False)
 
 
 class GroupMembership(models.Model):

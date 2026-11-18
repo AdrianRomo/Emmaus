@@ -28,7 +28,7 @@
         {% if next_meeting %}{% date_block next_meeting %}{% endif %}
         <div>
           <p class="meeting__title">Eres parte de este grupo.</p>
-          <p class="meeting__meta">{% if next_meeting %}La próxima reunión es el {{ next_meeting|weekday_date }}{% if group.meeting_time %}, a las {{ group.meeting_time|time:"H:i" }}{% endif %}{% if group.meeting_place %}, en {{ group.meeting_place }}{% endif %}.{% else %}Todavía no tiene día de reunión. Quien guía el grupo te avisará.{% endif %}</p>
+          <p class="meeting__meta">{% if next_meeting %}La próxima reunión es el {{ next_meeting|weekday_date }}{% if group.meeting_time %}, a las {{ group.meeting_time|time:"H:i" }}{% endif %}{% if group.meeting_place %}, en {{ group.meeting_place }}{% endif %}.{% elif group.meeting_frequency == 'variable' %}Este grupo no tiene día fijo. Quien guía el grupo te avisará cuándo se reúnen.{% else %}Todavía no tiene día de reunión. Quien guía el grupo te avisará.{% endif %}</p>
         </div>
       </div>
     </section>
