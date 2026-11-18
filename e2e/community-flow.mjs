@@ -113,7 +113,7 @@ expect(await page.locator("main").getByText("todavía no publica planes de lectu
 await audit(page, "miembro-planes");
 // Serving: her team asked her for a date; she confirms it from the phone.
 await page.goto(BASE + "/mi-iglesia/");
-expect(await page.getByText("Tus fechas para servir").count() > 0, "the home shows the date her team asked for");
+expect(await page.getByText("Te toca servir").count() > 0, "the home shows the date her team asked for");
 await page.goto(BASE + "/mi-iglesia/servir/");
 await audit(page, "miembro-servir");
 await page.setViewportSize(PHONE);
@@ -191,7 +191,7 @@ await ctx.close();
 
 // 3. Valeria again: her group, the next meeting, and now the place.
 ({ ctx, page } = await session("valeria.soto@demo.invalid", PHONE));
-expect(await page.getByText("Próxima reunión: jueves").count() > 0, "home shows the next meeting");
+expect(await page.locator("main .meta").getByText(/^Jueves \d+ de /).count() > 0, "home shows the next meeting");
 await audit(page, "miembro-inicio-con-grupo");
 await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".dates .row__title a:has-text('Jóvenes Roca')")]);
