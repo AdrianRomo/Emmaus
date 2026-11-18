@@ -53,6 +53,7 @@ ACTION_LABELS = {
     "sesion_revocada": "Cerró la pantalla de un campero o liberó una entrevista",
     "consulta_confidencial": "Consultó información confidencial",
     "seguimiento": "Actualizó un seguimiento",
+    "recordatorio_seguimiento": "Envió recordatorios de seguimientos abiertos",
     "reporte_riesgo": "Reportó una situación de riesgo",
     "corte_generado": "Generó un corte",
     "exportacion": "Descargó datos",

@@ -45,7 +45,7 @@ from ..models import (
     hash_token,
     new_token,
 )
-from . import audit
+from . import audit, follow_ups
 from .event_questionnaires import BLOCKED, COMPLETED, PENDING, derive_interview_status, links_for, progress_for
 from .participants import guardian_authorized
 from .questionnaire import (
@@ -550,7 +550,7 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
         open_care = FollowUp.objects.filter(interview=locked, kind=FollowUp.Kind.CARE).exclude(status=FollowUp.Status.CANCELLED)
         if decision == Interview.FollowUpDecision.REQUIRED and not open_care.filter(confidential=False).exists():
             suggestions = follow_up_suggestions(locked, answers)
-            FollowUp.objects.create(
+            follow_ups.create(
                 event=locked.event,
                 participant=participant,
                 interview=locked,
@@ -561,7 +561,7 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
         if _confidential_support_requested(locked, answers) and not open_care.filter(confidential=True).exists():
             # The campero asked for support in a confidential area: only the care team sees this,
             # whatever the coordinator decided, and without saying which area.
-            FollowUp.objects.create(
+            follow_ups.create(
                 event=locked.event,
                 participant=participant,
                 interview=locked,
@@ -635,7 +635,7 @@ def update_follow_up_decision(access, interview: Interview, decision: str) -> In
             interview=locked, kind=FollowUp.Kind.CARE, confidential=False
         ).exclude(status=FollowUp.Status.CANCELLED).exists():
             suggestions = follow_up_suggestions(locked)
-            FollowUp.objects.create(
+            follow_ups.create(
                 event=locked.event,
                 participant=locked.participant,
                 interview=locked,
@@ -971,7 +971,7 @@ def report_safety_concern(access, participant: EventParticipant, *, details: str
     """
     from .notifications import notify_safety_report
 
-    follow_up = FollowUp.objects.create(
+    follow_up = follow_ups.create(
         event=access.event,
         participant=participant,
         interview=interview,
