@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.utils import formats, timezone
 from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.paging import first_rows
 from core.authz import Action, has_scope
 from events.models import normalize_name
@@ -117,17 +118,19 @@ def respond(request, assignment_id: int):
     answer = request.POST.get("respuesta")
     if answer not in ("aceptar", "declinar"):
         raise Http404
+    # Back to where the answer was given ("Mi iglesia" or Servir), so the page shows the answer in place
+    back = safe_next(request, request.POST.get("siguiente"), reverse("serving:home"))
     try:
         services.respond(assignment, answer == "aceptar", request.user)
     except services.ServingError as error:
         messages.error(request, error.message)
-        return redirect("serving:home")
+        return redirect(back)
     day = _weekday_date(assignment.service_date.date)
     if answer == "aceptar":
         messages.success(request, f"Confirmaste el {day}. Quien coordina ya lo sabe.")
     else:
         messages.success(request, f"Dijiste que no puedes el {day}. Quien coordina ya lo sabe.")
-    return redirect("serving:home")
+    return redirect(back)
 
 
 @community_view

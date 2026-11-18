@@ -623,3 +623,37 @@ class ServiceFunctionTests(ServingFixture):
         self.assertEqual(managed(self.leader_user), [])
         self.assertTrue(services.has_teams(self.leader))
         self.assertEqual(managed(self.member_b_user, self.church_b), [self.team_b.pk])
+
+
+
+class AnswerFromAnotherPageTests(ServingFixture):
+    """«Sí, puedo» on "Mi iglesia" comes back to "Mi iglesia" (core.nav.safe_next), so that page shows the answer
+    in place; a «siguiente» that is not a path of this site is ignored and Servir is used, as before."""
+
+    def setUp(self):
+        self.assignment = self.assign()
+        self.client.force_login(self.member_user)
+
+    def test_the_answer_returns_to_the_page_it_was_given_on(self):
+        home = reverse("community:home")
+        response = self.client.post(self.url("respond", self.assignment.pk), {"respuesta": "aceptar", "siguiente": home})
+        self.assertRedirects(response, home, fetch_redirect_response=False)
+        self.assignment.refresh_from_db()
+        self.assertEqual(self.assignment.status, "aceptada")
+
+    def test_another_site_is_never_a_way_back(self):
+        for elsewhere in ("https://otro.sitio/x", "//otro.sitio/x"):
+            response = self.client.post(self.url("respond", self.assignment.pk), {"respuesta": "declinar", "siguiente": elsewhere})
+            self.assertRedirects(response, self.url("home"), fetch_redirect_response=False)
+
+    def test_a_refused_answer_also_returns_and_says_why(self):
+        self.client.force_login(self.member_user)
+        home = reverse("community:home")
+        past = services.save_date(self.team, self.leader_user, date=self.today, what="Hoy mismo")
+        assignment = services.assign(past, self.member, self.leader_user)
+        services.respond(assignment, True, self.member_user)
+        response = self.client.post(self.url("respond", assignment.pk), {"respuesta": "declinar", "siguiente": home}, follow=True)
+        self.assertEqual(response.redirect_chain[-1][0], home)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "aceptada")  # too late to change on the day itself
+        self.assertContains(response, services.TOO_LATE)

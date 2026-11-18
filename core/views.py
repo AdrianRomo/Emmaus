@@ -20,10 +20,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template import loader
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST, require_safe
 
 from . import onboarding
+from .nav import safe_next
 from .access import (
     can_answer_question,
     get_user_role,
@@ -1044,10 +1044,7 @@ class ThrottledPasswordResetView(PasswordResetView):
 # ---- "Mi cuenta" and the welcomes ---------------------------------------------------------------------------------
 
 
-def _safe_next(request, candidate, fallback):
-    if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
-        return candidate
-    return fallback
+_safe_next = safe_next  # the welcome's «Entendido» returns where it was pressed (core.nav)
 
 
 def _community_church(request):

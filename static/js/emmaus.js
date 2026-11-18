@@ -756,33 +756,151 @@
     // The messages of the page that sent us here ("Guardado") arrive as toasts at the top. Good news leaves by
     // itself after six seconds, unless the pointer or the focus is on it; a problem stays until it is closed.
     // Without this script they are notices in the page, as before.
+    function toast(notice) {
+      var timer = null;
+      function leave() {
+        window.clearTimeout(timer);
+        if (motionOff()) { notice.remove(); return; }
+        notice.classList.add("is-leaving");
+        notice.addEventListener("animationend", function () { notice.remove(); }, { once: true });
+        window.setTimeout(function () { notice.remove(); }, 400);
+      }
+      var close = doc.createElement("button");
+      close.type = "button";
+      close.className = "toast__close";
+      close.setAttribute("aria-label", "Cerrar aviso");
+      close.addEventListener("click", leave);
+      notice.appendChild(close);
+      if (notice.classList.contains("notice--danger") || notice.classList.contains("notice--warning")) return;
+      function arm() { window.clearTimeout(timer); timer = window.setTimeout(leave, 6000); }
+      function hold() { window.clearTimeout(timer); }
+      notice.addEventListener("mouseenter", hold);
+      notice.addEventListener("mouseleave", arm);
+      notice.addEventListener("focusin", hold);
+      notice.addEventListener("focusout", arm);
+      arm();
+    }
+    function toastBox() {
+      var box = $(".messages");
+      if (!box) {
+        box = doc.createElement("div");
+        box.className = "messages";
+        box.setAttribute("role", "status");
+        body.appendChild(box);
+      }
+      box.classList.add("is-toast");
+      return box;
+    }
+    // Messages carried over from a page the browser left on purpose (see "Actions in place")
+    try {
+      var carried = window.sessionStorage.getItem("emmaus-mensajes");
+      if (carried) {
+        window.sessionStorage.removeItem("emmaus-mensajes");
+        var holder = doc.createElement("div");
+        holder.innerHTML = carried;
+        $all(".notice", holder).forEach(function (n) { toastBox().appendChild(n); });
+      }
+    } catch (err) { /* storage blocked: the message is lost, the page is right */ }
     $all(".messages").forEach(function (box) {
       box.classList.add("is-toast");
-      $all(".notice", box).forEach(function (notice) {
-        var timer = null;
-        function leave() {
-          window.clearTimeout(timer);
-          if (motionOff()) { notice.remove(); return; }
-          notice.classList.add("is-leaving");
-          notice.addEventListener("animationend", function () { notice.remove(); }, { once: true });
-          window.setTimeout(function () { notice.remove(); }, 400);
-        }
-        var close = doc.createElement("button");
-        close.type = "button";
-        close.className = "toast__close";
-        close.setAttribute("aria-label", "Cerrar aviso");
-        close.addEventListener("click", leave);
-        notice.appendChild(close);
-        if (notice.classList.contains("notice--danger") || notice.classList.contains("notice--warning")) return;
-        function arm() { window.clearTimeout(timer); timer = window.setTimeout(leave, 6000); }
-        function hold() { window.clearTimeout(timer); }
-        notice.addEventListener("mouseenter", hold);
-        notice.addEventListener("mouseleave", arm);
-        notice.addEventListener("focusin", hold);
-        notice.addEventListener("focusout", arm);
-        arm();
-      });
+      $all(".notice", box).forEach(toast);
     });
+
+    /* ---- Actions in place (form[data-inline="<id of the region it changes>"]) ---- */
+    // The form is sent in the background. The pressed button says it is working at once (aria-busy: a spinner where
+    // its words were, at the same width) and the other buttons of the form wait. Then the server's own answer
+    // decides, never a guess: the page the action returned to is read; the region with that id takes its new state
+    // (a short crossfade where the browser draws one); the counts in the rail, the tabs and "Más" are taken from the
+    // same page, so they agree everywhere; its message arrives as a toast. When the region is no longer on that page,
+    // the thing is done and the region leaves. When the answer is another page (the action needs one more step), the
+    // browser goes there. When the request fails, the buttons come back and one line under them says what to do.
+    // Without this script, without fetch, or with a modifier key, the form is sent as always.
+    var inlineErrors = {
+      network: "No se pudo guardar: parece que no hay conexión. Intenta otra vez.",
+      server: "No se pudo guardar. Intenta otra vez; si sigue pasando, recarga la página."
+    };
+    function inlineFailed(form, busy, kind) {
+      busy.removeAttribute("aria-busy");
+      $all("button", form).forEach(function (b) { b.disabled = false; });
+      var line = doc.createElement("p");
+      line.className = "inline-error";
+      line.setAttribute("role", "alert");
+      line.textContent = inlineErrors[kind];
+      form.appendChild(line);
+    }
+    function syncCounts(fresh) {
+      // The places and their counts are drawn from the same page the server answered with
+      var nav = $(".rail__nav"), freshNav = fresh.querySelector(".rail__nav");
+      if (nav && freshNav) nav.replaceWith(freshNav);
+      $all(".tabs a.tabs__item").forEach(function (tab) {
+        var twin = fresh.querySelector('.tabs a.tabs__item[href="' + tab.getAttribute("href") + '"]');
+        if (twin) tab.replaceWith(twin);
+      });
+      var panelNav = $("#menu-panel nav"), freshPanelNav = fresh.querySelector("#menu-panel nav");
+      if (panelNav && freshPanelNav) panelNav.replaceWith(freshPanelNav);
+    }
+    function settle(region, fresh, regionId) {
+      var next = fresh.getElementById(regionId);
+      var focusInside = region.contains(doc.activeElement);
+      function swap() {
+        if (next) region.replaceWith(next); else region.remove();
+        syncCounts(fresh);
+        $all(".messages .notice", fresh).forEach(function (n) { toastBox().appendChild(n); toast(n); });
+        if (next && focusInside) {
+          var target = next.querySelector("[data-inline-focus]") || next;
+          if (!target.hasAttribute("tabindex") && !/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) target.setAttribute("tabindex", "-1");
+          target.focus({ preventScroll: true });
+        }
+      }
+      if (doc.startViewTransition && !motionOff()) {
+        region.style.viewTransitionName = "accion";
+        if (next) next.style.viewTransitionName = "accion";
+        var t = doc.startViewTransition(swap);
+        [t.ready, t.finished, t.updateCallbackDone].forEach(function (p) { if (p && p.catch) p.catch(function () {}); });
+        t.finished.then(function () { if (next) next.style.viewTransitionName = ""; }, function () {});
+      } else {
+        swap();
+      }
+    }
+    if (window.fetch && window.DOMParser) {
+      doc.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (!form.matches || !form.matches("form[data-inline]")) return;
+        var regionId = form.getAttribute("data-inline");
+        var region = doc.getElementById(regionId);
+        if (!region) return;
+        e.preventDefault();
+        e.stopPropagation();  // capture phase: the page-wide submit guard and the slow-page line stay out of it
+        if (form.querySelector("[aria-busy='true']")) return;
+        var busy = e.submitter || form.querySelector("button[type=submit], button:not([type])");
+        var data;
+        try { data = new FormData(form, busy); } catch (err) {
+          data = new FormData(form);
+          if (busy && busy.name) data.append(busy.name, busy.value);
+        }
+        $all(".inline-error", form).forEach(function (l) { l.remove(); });
+        $all("button", form).forEach(function (b) { if (b !== busy) b.disabled = true; });
+        if (busy) busy.setAttribute("aria-busy", "true");
+        window.fetch(form.action, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" } })
+          .then(function (response) {
+            if (!response.ok) { inlineFailed(form, busy, "server"); return; }
+            return response.text().then(function (html) {
+              var fresh = new window.DOMParser().parseFromString(html, "text/html");
+              var answered = new URL(response.url, window.location.href);
+              if (answered.pathname !== window.location.pathname) {
+                // One more step on another page: go there, and carry its message
+                try {
+                  var msgs = fresh.querySelector(".messages");
+                  if (msgs) window.sessionStorage.setItem("emmaus-mensajes", msgs.innerHTML);
+                } catch (err) { /* storage blocked */ }
+                window.location.assign(answered.href);
+                return;
+              }
+              settle(region, fresh, regionId);
+            });
+          }, function () { inlineFailed(form, busy, "network"); });
+      }, true);
+    }
 
     // A link or a form that takes more than a quarter of a second to answer draws a thin line at the top, so a
     // slow connection never looks like a press that did nothing. It goes away with the page.
