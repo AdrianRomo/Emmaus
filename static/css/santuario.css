@@ -1342,21 +1342,43 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .camperos__todas input:is(:checked, :indeterminate) { border-color: var(--petroleo); background: var(--petroleo); }
 .camperos__todas input:checked::after { opacity: 1; }
 .camperos__todas input:indeterminate::after { opacity: 1; height: 0.125rem; border-radius: 1px; -webkit-mask: none; mask: none; }
+/* The whole row opens the record: the name stays the link, a pseudo-element covers the row; the box keeps its own
+   target above it. The cells are tight enough for the columns to fit from 36rem of content */
+.page--app .camperos tbody tr { position: relative; cursor: pointer; }
+.page--app .camperos__nombre a::after { content: ""; position: absolute; inset: 0; }
+.page--app .camperos tbody tr:has(.camperos__nombre a:focus-visible) { outline: 3px solid var(--ink); outline-offset: -3px; }
+.page--app .camperos__nombre a:focus-visible { outline: none; box-shadow: none; }
+.camperos__marca { position: relative; z-index: 1; }
+.page--app .camperos .table :is(th, td) { padding-inline: var(--s-2); }
+.page--app .camperos .table th.camperos__nombre { min-width: 11rem; white-space: normal; }
+.page--app .camperos td.camperos__coord { min-width: 8rem; }
+.page--app .camperos :is(td.camperos__estado, td.camperos__autorizacion) { white-space: nowrap; }
+.camperos__dato-cuarto { display: none; }
+/* A middle column (a laptop at 125 %, a tablet): the room joins the number under the name, its column leaves */
+@container (max-width: 52rem) {
+  .page--app .camperos .table .camperos__cuarto { display: none; }
+  .camperos__dato-cuarto { display: inline; }
+}
 /* A narrow column: each campero is a block. The name and its number, then where, how old and with whom as one line,
    then the interview and the authorization, each with its mark; the box at the left of the block. */
-@container (max-width: 44rem) {
-  :root[data-ui="2"] .camperos .table--stack tbody tr { position: relative; padding: var(--s-3) var(--s-2); }
-  :root[data-ui="2"] .camperos .table--stack tbody tr:has(.camperos__marca-col) { padding-left: 3.25rem; }
-  :root[data-ui="2"] .camperos .table--stack .camperos__marca-col { position: absolute; left: 0.25rem; top: var(--s-2); width: auto; padding: 0; }
-  .camperos .table--stack .camperos__marca { margin: 0; }
-  :root[data-ui="2"] .camperos .table--stack :is(.camperos__cuarto, .camperos__edad, .camperos__coord) { display: inline; padding: 0; font-size: var(--t-small); color: var(--ink-2); text-align: left; }
-  .camperos .table--stack :is(.camperos__cuarto, .camperos__edad)::after { content: ", "; }
-  .camperos .table--stack .camperos__coord::after { content: "\A"; white-space: pre; }
-  .camperos .table--stack .camperos__coord .chip { vertical-align: 0.0625rem; }
-  .camperos .table--stack :is(.camperos__anos, .camperos__con) { display: inline; }
-  .camperos .table--stack .camperos__que { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
-  :root[data-ui="2"] .camperos .table--stack :is(.camperos__estado, .camperos__autorizacion) { display: inline-flex; margin: var(--s-2) var(--s-4) 0 0; padding: 0; }
-  :root[data-ui="2"] .camperos .table--stack .camperos__autorizacion:empty { display: none; }
+@container (max-width: 36rem) {
+  :root[data-ui="2"] .camperos__tabla :is(table, tbody, tr, th, td) { display: block; height: auto; }
+  :root[data-ui="2"] .camperos__tabla thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :root[data-ui="2"] .camperos__tabla tbody tr { padding: var(--s-3) var(--s-2); border-bottom: 1px solid var(--line); }
+  :root[data-ui="2"] .camperos__tabla :is(tbody th, td) { border: 0; padding: 0.125rem 0; text-align: left; }
+  :root[data-ui="2"] .camperos__tabla tbody th { font-size: var(--t-body); padding-bottom: var(--s-1); min-width: 0; }
+  :root[data-ui="2"] .camperos__tabla tbody tr:has(.camperos__marca-col) { padding-left: 3.25rem; }
+  :root[data-ui="2"] .camperos__tabla .camperos__marca-col { position: absolute; left: 0.25rem; top: var(--s-2); width: auto; padding: 0; }
+  .camperos__tabla .camperos__marca { margin: 0; }
+  .camperos__dato-cuarto { display: none; }
+  :root[data-ui="2"] .camperos__tabla :is(td.camperos__cuarto, .camperos__edad, .camperos__coord) { display: inline; min-width: 0; padding: 0; font-size: var(--t-small); color: var(--ink-2); text-align: left; }
+  .camperos__tabla :is(td.camperos__cuarto, .camperos__edad)::after { content: ", "; }
+  .camperos__tabla .camperos__coord::after { content: "\A"; white-space: pre; }
+  .camperos__tabla .camperos__coord .chip { vertical-align: 0.0625rem; }
+  .camperos__tabla :is(.camperos__anos, .camperos__con) { display: inline; }
+  .camperos__tabla .camperos__que { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  :root[data-ui="2"] .camperos__tabla :is(.camperos__estado, .camperos__autorizacion) { display: inline-flex; margin: var(--s-2) var(--s-4) 0 0; padding: 0; }
+  :root[data-ui="2"] .camperos__tabla .camperos__autorizacion:empty { display: none; }
 }
 /* The marked rows' bar: solid ink, at the bottom of the screen while the list is in view (above the tabs where they
    are), in its place under the table at the end, so it never covers the last row. Without JavaScript it is simply
@@ -1403,9 +1425,11 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .admin-asignar__filas { margin-top: var(--s-3); }
 .page--app .admin-asignar__filas > .row { align-items: center; }
 .admin-asignar__filas select { width: 16rem; max-width: 100%; }
+.admin-tutores .admin-asignar__filas select { width: 22rem; }
 @container (max-width: 38rem) {
   .page--app .admin-asignar__filas > .row { flex-wrap: wrap; }
-  .page--app .admin-asignar__filas > .row > .row__main { flex: 1 1 10rem; }
+  /* The name wraps in its own column beside the circle (the event's rows take their text's width otherwise) */
+  .rail--event ~ .page--app .rows.admin-asignar__filas > .row > .row__main, .page--app .admin-asignar__filas > .row > .row__main { flex: 1 1 10rem; }
   .page--app .admin-asignar__filas > .row > .row__end { flex: 1 0 100%; padding-left: calc(var(--lead) + var(--s-4)); }
   .admin-asignar__filas select { width: 100%; }
 }

@@ -873,12 +873,18 @@ def admin_home(request, event, access):
     context["stalled_total"] = stalled.count()
     context["stalled_interviews"] = mark_stalled(stalled.order_by("last_activity_at")[:STALLED_SHOWN]) if context["stalled_total"] else []
     context["newer_versions"] = eq.newer_unused_versions(event)  # issue #48; drawn by events/admin/_newer_versions.html
-    # With the redesign (ui_v2): the minors without a registered guardian authorization (all of them, interviewed or
-    # not: the count of Camperos' "Menores sin autorización"), and the first camperos without a coordinator, each one
-    # assigned on the raised surface (admin.participants_assign) with every coordinator's load beside them
-    context["minors_missing"] = (
-        participant_svc.minors_without_authorization(access.participants(), event).count() if event.requires_guardian_authorization else 0
-    )
+    # With the redesign (ui_v2): the minors without a registered guardian authorization, split by what it means. Not
+    # interviewed yet: they wait for it (Camperos ?autorizacion=falta&estado=pendiente). Interviewed or in progress:
+    # interviewed without a current authorization, a risk to correct (?autorizacion=falta&estado=iniciada). Each count
+    # is the length of the list it opens. Then the first camperos without a coordinator, each one assigned on the
+    # raised surface (admin.participants_assign) with every coordinator's load beside them.
+    if event.requires_guardian_authorization:
+        minors = participant_svc.minors_without_authorization(access.participants(), event).order_by()
+        by_status = dict(minors.values_list("interview_status").annotate(n=Count("id")))
+        context["minors_waiting"] = by_status.get(InterviewStatus.PENDING, 0)
+        context["minors_interviewed"] = by_status.get(InterviewStatus.IN_PROGRESS, 0) + by_status.get(InterviewStatus.COMPLETED, 0)
+    else:
+        context["minors_waiting"] = context["minors_interviewed"] = 0
     context["unassigned_rows"] = list(access.participants().filter(coordinator__isnull=True).order_by("room", "full_name")[:UNASSIGNED_SHOWN]) if unassigned else []
     context["assignable"] = list(participant_svc.assignable_coordinators(access)) if unassigned else []
     # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)

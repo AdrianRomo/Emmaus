@@ -5,7 +5,8 @@
 {% if ui_v2 %}
 {% comment %}
   The redesign ("Ventanas"): the search, the views of the list as capsules with their count (the current one filled),
-  the sede as a second line of capsules, then the table, which becomes rows in a narrow column. The administration
+  the sede as a second line of capsules, then the table (the room moves into the name's line in a middle column) that
+  becomes blocks in a narrow column; the whole row opens the record, its box apart. The administration
   marks rows and assigns them a coordinator from the bar under the table (admin.participants_assign); with
   JavaScript the bar shows only while something is marked and stays at the bottom of the screen (emmaus.js).
   Authorization and interview are two facts in two columns: one never stands for the other.
@@ -35,11 +36,11 @@
   </div>
   {% if page.object_list %}
     {% if can_manage and assignable %}<label class="camperos__todas" data-seleccion-todas-caja hidden><input type="checkbox" data-seleccion-todas><span>Marcar a todos los de esta página</span></label>{% endif %}
-    <div class="table-wrap camperos__tabla" tabindex="0" role="region" aria-labelledby="resultados">
-      <table class="table admin-table table--stack">
-        <thead><tr>{% if can_manage and assignable %}<th scope="col" class="camperos__marca-col"><span class="visually-hidden">Marcar</span></th>{% endif %}{% for c in columns_v2 %}<th scope="col"{% if c.css %} class="{{ c.css }}"{% endif %}{% if c.aria_sort %} aria-sort="{{ c.aria_sort }}"{% endif %}><a href="{{ c.url }}">{{ c.label }}{% if c.active %}<span class="table__sort table__sort--{{ c.direction }}" aria-hidden="true"></span><span class="visually-hidden">, ordenado de {% if c.direction == "desc" %}mayor a menor{% else %}menor a mayor{% endif %}</span>{% else %}<span class="visually-hidden">, ordenar</span>{% endif %}</a></th>{% endfor %}{% if asks_authorization %}<th scope="col"><span class="camperos__th">Autorización</span></th>{% endif %}</tr></thead>
+    <div class="table-wrap camperos__tabla" tabindex="0" role="region" aria-label="Tabla de camperos">
+      <table class="table admin-table">
+        <thead><tr>{% if can_manage and assignable %}<th scope="col" class="camperos__marca-col"><span class="visually-hidden">Marcar</span></th>{% endif %}{% for c in columns_v2 %}<th scope="col"{% if c.css or c.key == "cuarto" %} class="{{ c.css }}{% if c.key == "cuarto" %} camperos__cuarto{% endif %}"{% endif %}{% if c.aria_sort %} aria-sort="{{ c.aria_sort }}"{% endif %}><a href="{{ c.url }}">{{ c.label }}{% if c.active %}<span class="table__sort table__sort--{{ c.direction }}" aria-hidden="true"></span><span class="visually-hidden">, ordenado de {% if c.direction == "desc" %}mayor a menor{% else %}menor a mayor{% endif %}</span>{% else %}<span class="visually-hidden">, ordenar</span>{% endif %}</a></th>{% endfor %}{% if asks_authorization %}<th scope="col"><span class="camperos__th">Autorización</span></th>{% endif %}</tr></thead>
         <tbody>{% for p in page.object_list %}
-          <tr>{% if can_manage and assignable %}<td class="camperos__marca-col">{% if p.is_active %}<label class="camperos__marca"><input type="checkbox" name="campero" value="{{ p.public_id }}" form="asignar-camperos" data-seleccion-fila><span class="visually-hidden">Marcar a {{ p.full_name }}</span></label>{% endif %}</td>{% endif %}<th scope="row" class="camperos__nombre"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a><span class="camperos__dato">#{{ p.code }}{% if p.sede %}, {{ p.sede.name }}{% endif %}{% if not p.is_active %}, ya no participa{% endif %}</span></th><td class="camperos__cuarto">{{ p.room|cuarto }}</td><td class="num camperos__edad">{{ p.age }}<span class="camperos__anos"> años</span></td><td class="camperos__coord">{% if p.coordinator %}<span class="camperos__con">con </span>{{ p.coordinator.display_name }}{% else %}<span class="chip chip--wait">Sin coordinador</span>{% endif %}</td><td class="camperos__estado">{% campero_status p %}</td>{% if asks_authorization %}<td class="camperos__autorizacion">{% if p.age < event.adult_age %}{% if p.guardian == "otorgado" %}<span class="autorizada">{% icon "check" "sm" %}Autorizada</span>{% else %}<span class="chip chip--wait">Falta<span class="camperos__que"> la autorización</span></span>{% endif %}{% endif %}</td>{% endif %}</tr>
+          <tr>{% if can_manage and assignable %}<td class="camperos__marca-col">{% if p.is_active %}<label class="camperos__marca"><input type="checkbox" name="campero" value="{{ p.public_id }}" form="asignar-camperos" data-seleccion-fila><span class="visually-hidden">Marcar a {{ p.full_name }}</span></label>{% endif %}</td>{% endif %}<th scope="row" class="camperos__nombre"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a><span class="camperos__dato">#{{ p.code }}<span class="camperos__dato-cuarto">, {{ p.room|cuarto }}</span>{% if p.sede %}, {{ p.sede.name }}{% endif %}{% if not p.is_active %}, ya no participa{% endif %}</span></th><td class="camperos__cuarto">{{ p.room|cuarto }}</td><td class="num camperos__edad">{{ p.age }}<span class="camperos__anos"> años</span></td><td class="camperos__coord">{% if p.coordinator %}<span class="camperos__con">con </span>{{ p.coordinator.display_name }}{% else %}<span class="chip chip--wait">Sin coordinador</span>{% endif %}</td><td class="camperos__estado">{% campero_status p %}</td>{% if asks_authorization %}<td class="camperos__autorizacion">{% if p.age < event.adult_age %}{% if p.guardian == "otorgado" %}<span class="autorizada">{% icon "check" "sm" %}Autorizada</span>{% else %}<span class="chip chip--wait">Falta<span class="camperos__que"> la autorización</span></span>{% endif %}{% endif %}</td>{% endif %}</tr>
         {% endfor %}</tbody>
       </table>
     </div>
@@ -58,6 +59,14 @@
     </form>
     {% endif %}
     {% include "events/rotulo/_pagination.html" with page=page %}
+  {% elif emptied_view %}
+    {% comment %}A queue emptied by work (one view, no search, no sede): said as done, with nothing to take away{% endcomment %}
+    {% if emptied_view.key == "sin_coordinador" %}{% include "partials/ui/empty.html" with title="Todos tienen coordinador" %}
+    {% elif emptied_view.key == "autorizacion" %}{% include "partials/ui/empty.html" with title="Todos los menores tienen su autorización" %}
+    {% elif emptied_view.key == "no_participan" %}{% include "partials/ui/empty.html" with title="Todos participan" %}
+    {% elif emptied_view.value == "en_curso" %}{% include "partials/ui/empty.html" with title="Ninguna entrevista en curso" %}
+    {% elif emptied_view.value == "completada" %}{% include "partials/ui/empty.html" with title="Todavía no hay entrevistas completadas" %}
+    {% else %}{% with title="Nadie "|add:emptied_view.label|lower %}{% include "partials/ui/empty.html" with title=title %}{% endwith %}{% endif %}
   {% elif filtered %}
     {% include "partials/ui/empty.html" with title="Nadie coincide" action_url=clear_url action_label="Quitar filtros" %}
   {% elif can_manage %}
