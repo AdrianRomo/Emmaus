@@ -1024,8 +1024,9 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
     A conditional question is listed only if the viewer may see the answer that
     controls it; otherwise its mere presence would reveal that hidden answer.
     Hidden rows look the same whether or not they were answered.
-    ``answered`` is "something is stored": a decline is shown as «Prefiero no responder» (``display``), a blank
-    as «Sin responder»; ``declined`` tells the decline apart. Neither is a substantive answer.
+    ``answered`` is "something is stored": a decline is shown as «Prefirió no responder» to staff and in the
+    campero's words to the campero (``for_participant``: «Prefiero no responder»), a blank as «Sin responder»;
+    ``declined`` tells the decline apart. Neither is a substantive answer.
     """
     answers = load_answers(interview)
     by_id = {q.id: q for q in all_questions(interview.version)}
@@ -1049,7 +1050,7 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
                     "visible": visible,
                     "answered": (value is not None and not value.is_empty) if visible else None,
                     "declined": (value is not None and value.declined) if visible else None,
-                    "display": describe_answer(question, value) if visible else "",
+                    "display": describe_answer(question, value, staff=not for_participant) if visible else "",
                 }
             )
     return rows

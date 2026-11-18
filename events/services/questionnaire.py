@@ -56,7 +56,10 @@ class AnswerValue:
 # No question requires an answer (the owner's decision, 2026-11-18): every question offers «Prefiero no responder»,
 # a blank is never refused, and a decline is stored apart from a blank. ``Question.required`` stays in the table only
 # for the versions already published; nothing reads it.
-DECLINE_LABEL = "Prefiero no responder"
+DECLINE_LABEL = "Prefiero no responder"  # the campero's words: the screens they answer on, and their own review
+# A decline as staff read it (the owner's decision): the review and the record, and the exports. A blank stays «Sin
+# responder» everywhere.
+DECLINED_LABEL = "Prefirió no responder"
 # What a choice question without its own ``is_decline`` option posts for «Prefiero no responder». A colon is never in
 # an option's code (a slug), so it cannot be mistaken for one.
 DECLINED_VALUE = ":prefiero_no"
@@ -272,11 +275,14 @@ def _prune_hidden(interview: Interview) -> dict[int, AnswerValue]:
     return hidden
 
 
-def describe_answer(question: Question, value: AnswerValue | None) -> str:
-    """What was answered, in words: "" for a blank, «Prefiero no responder» (or the question's own decline
-    option's label) for a decline."""
+def describe_answer(question: Question, value: AnswerValue | None, *, staff: bool = False) -> str:
+    """What was answered, in words: "" for a blank. A decline is «Prefirió no responder» for ``staff`` (the review
+    and the record, the exports) and, for the campero, the words they chose: the question's own decline option's
+    label, or «Prefiero no responder»."""
     if value is None or value.is_empty:
         return ""
+    if value.declined and staff:
+        return DECLINED_LABEL
     if question.is_choice and value.codes:
         chosen = set(value.codes)
         return ", ".join(option.label for option in question.options.all() if option.code in chosen)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from unittest import mock
 
 from django.http import QueryDict
@@ -24,6 +25,7 @@ from events.services.metrics import event_scope, outcome_counts, present_outcome
 from events.services.reports import generate_snapshot
 from events.services.questionnaire import (
     DECLINE_LABEL,
+    DECLINED_LABEL,
     DECLINED_VALUE,
     TEXT_DECLINE_ERROR,
     AnswerValue,
@@ -63,7 +65,8 @@ class ParseTests(CampFixture):
         value, error = parse_question(question, posted(**{f"q_{question.id}": "prefiero_no"}))
         self.assertIsNone(error)
         self.assertEqual((value.codes, value.declined, value.is_empty, value.is_substantive), (["prefiero_no"], True, False, False))
-        self.assertEqual(describe_answer(question, value), "Prefiero no responder")
+        self.assertEqual(describe_answer(question, value), "Prefiero no responder")  # the campero's words
+        self.assertEqual(describe_answer(question, value, staff=True), "Prefirió no responder")  # as staff read it
 
     def test_a_choice_question_without_one_gets_it(self):
         question = self.question("orientacion")  # its options have no «Prefiero no responder»
@@ -72,6 +75,7 @@ class ParseTests(CampFixture):
         self.assertIsNone(error)
         self.assertEqual((value.codes, value.declined, value.is_empty), ([], True, False))
         self.assertEqual(describe_answer(question, value), DECLINE_LABEL)
+        self.assertEqual(describe_answer(question, value, staff=True), DECLINED_LABEL)
 
     def test_the_added_decline_is_not_valid_where_the_question_has_its_own(self):
         question = self.question("salvo")
@@ -84,6 +88,8 @@ class ParseTests(CampFixture):
         self.assertIsNone(error)
         self.assertEqual((value.text, value.declined, value.is_empty, value.is_substantive), ("", True, False, False))
         self.assertEqual(describe_answer(question, value), DECLINE_LABEL)
+        self.assertEqual(describe_answer(question, value, staff=True), DECLINED_LABEL)
+        self.assertEqual(describe_answer(question, None, staff=True), "")  # a blank is no answer: «Sin responder» on screens
 
     def test_a_decline_and_an_answer_at_once_are_refused(self):
         text = self.question("impedimento")
@@ -161,8 +167,35 @@ class AssistedInterviewTests(CampFixture):
         for module_on in (False, True):
             flags.set_enabled(self.church, "community", module_on)
             html = self.client.get(self.url("interview_detail", self.interview.public_id)).content.decode()
-            self.assertEqual(html.count(DECLINE_LABEL), 3, module_on)  # salvo, apoyo_detalle, orientacion
+            self.assertEqual(html.count(DECLINED_LABEL), 3, module_on)  # salvo, apoyo_detalle, orientacion
+            self.assertNotIn(DECLINE_LABEL, html)  # the campero's words are for the campero's screens
             self.assertEqual(html.count('<span class="muted">Sin responder</span>'), 2, module_on)  # dudas, impedimento
+
+    def test_the_coordinadors_review_says_it_as_staff_read_it_in_both_modes(self):
+        orientacion = self.question("orientacion")
+        self.go("salvo", "prefiero_no")
+        self.go("dudas")
+        self.go("apoyo", ["ninguna"])
+        self.go("decision", ["recibir_cristo"], **{f"q_{orientacion.id}": DECLINED_VALUE})
+        self.go("impedimento")
+        for module_on in (False, True):
+            flags.set_enabled(self.church, "community", module_on)
+            html = self.client.get(self.url("interview_review", self.interview.public_id)).content.decode()
+            main = html.split("<main", 1)[1]
+            self.assertEqual(main.count(DECLINED_LABEL), 2, module_on)  # salvo, orientacion
+            self.assertNotIn(DECLINE_LABEL, main)
+            self.assertEqual(main.count('<span class="muted">Sin responder</span>'), 2, module_on)  # dudas, impedimento
+
+    def test_the_persons_export_says_it_as_staff_read_it(self):
+        self.interview_with_blanks_and_declines()
+        EventMembership.objects.create(event=self.event, user=self.admin, role=MembershipRole.ADMIN, can_view_sensitive=True)
+        self.login(self.admin)
+        response = self.client.get(self.url("participant_data_export", self.p2.public_id))
+        data = json.loads(response.content.decode())
+        answers = {a["pregunta"]: a["respuesta"] for a in data["entrevista"]["respuestas"]}
+        for code in ("salvo", "apoyo_detalle", "orientacion"):
+            self.assertEqual(answers[self.question(code).text], DECLINED_LABEL, code)
+        self.assertNotIn(self.question("dudas").text, answers)  # a blank is not an answer
 
     def test_a_coordinador_does_not_learn_a_confidential_decline(self):
         self.interview_with_blanks_and_declines()
@@ -173,7 +206,7 @@ class AssistedInterviewTests(CampFixture):
         self.assertTrue(all((r["answered"], r["declined"], r["display"]) == (None, None, "") for r in hidden))
         self.assertNotIn("apoyo_detalle", [r["question"].code for r in rows])
         html = self.client.get(self.url("interview_detail", self.interview.public_id)).content.decode()
-        self.assertEqual(html.count(DECLINE_LABEL), 2)  # salvo and orientacion only
+        self.assertEqual(html.count(DECLINED_LABEL), 2)  # salvo and orientacion only
 
     def test_the_answers_csv_writes_a_decline_and_leaves_a_blank_empty(self):
         self.interview_with_blanks_and_declines()
@@ -183,9 +216,9 @@ class AssistedInterviewTests(CampFixture):
         header, *rows = list(csv.reader(io.StringIO(content)))
         row = next(r for r in rows if r[1] == self.p2.full_name)
         cell = {h.split(": ", 1)[1]: row[i] for i, h in enumerate(header) if ": " in h}
-        self.assertEqual(cell[self.question("salvo").text], DECLINE_LABEL)
-        self.assertEqual(cell[self.question("apoyo_detalle").text], DECLINE_LABEL)
-        self.assertEqual(cell[self.question("orientacion").text], DECLINE_LABEL)
+        self.assertEqual(cell[self.question("salvo").text], DECLINED_LABEL)
+        self.assertEqual(cell[self.question("apoyo_detalle").text], DECLINED_LABEL)
+        self.assertEqual(cell[self.question("orientacion").text], DECLINED_LABEL)
         self.assertEqual(cell[self.question("dudas").text], "")
         self.assertEqual(cell[self.question("impedimento").text], "")
 
@@ -228,7 +261,8 @@ class KioskTests(CampFixture):
             self.answer(self.interview, "impedimento", "", url_name="kiosk", extra={decline_field(impedimento): "1"}).status_code, 302
         )
         review = self.client.get(reverse("kiosk:review")).content.decode()
-        self.assertIn(DECLINE_LABEL + "</dd>", review)  # impedimento
+        self.assertIn(DECLINE_LABEL + "</dd>", review)  # impedimento, in the campero's own words
+        self.assertNotIn(DECLINED_LABEL, review)
         self.assertIn('<span class="muted">Sin responder</span>', review)  # dudas, apoyo, decision
         self.assertIn("Te faltan 3 preguntas.", review)  # the blanks; a decline is an answer given
         self.client.post(reverse("kiosk:finish"))

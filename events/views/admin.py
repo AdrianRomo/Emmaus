@@ -620,7 +620,7 @@ def _interview_record(interview, event) -> dict:
     answers = [
         {
             "pregunta": question.text,
-            "respuesta": describe_answer(question, values[question.id]),
+            "respuesta": describe_answer(question, values[question.id], staff=True),
             "fecha": _family_date(answered_at.get(question.id), event),
         }
         for question in all_questions(interview.version)
