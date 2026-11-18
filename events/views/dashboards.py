@@ -766,6 +766,7 @@ def admin_home(request, event, access):
     stalled = stale_interviews(access.participants()).select_related("participant__coordinator__user", "station", "version")
     context["stalled_total"] = stalled.count()
     context["stalled_interviews"] = mark_stalled(stalled.order_by("last_activity_at")[:STALLED_SHOWN]) if context["stalled_total"] else []
+    context["newer_versions"] = eq.newer_unused_versions(event)  # issue #48; drawn by events/admin/_newer_versions.html
     # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)
     steps = _preparation_steps(
         event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,

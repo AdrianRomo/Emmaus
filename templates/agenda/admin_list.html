@@ -24,6 +24,7 @@
             <a class="btn btn--secondary btn--small" href="{% url 'agenda:page_edit' event.slug %}">Página del evento<span class="visually-hidden">: {{ event.name }}</span></a>
             <a class="btn btn--secondary btn--small" href="{% url 'agenda:registrations' event.slug %}">Inscritos<span class="visually-hidden"> en {{ event.name }}</span></a>
             {% if not event.camp_tools %}<a class="btn btn--secondary btn--small" href="{% url 'agenda:event_edit' event.slug %}">Datos<span class="visually-hidden"> de {{ event.name }}</span></a>{% endif %}
+            {% if not event.camp_tools %}<a class="btn btn--secondary btn--small" href="{% url 'agenda:duplicate' event.slug %}">Duplicar<span class="visually-hidden"> {{ event.name }}</span></a>{% endif %}
             {% if event.ended %}<a class="btn btn--secondary btn--small" href="{% url 'feedback:results' event.slug %}">Opiniones<span class="visually-hidden"> de {{ event.name }}</span></a>{% endif %}
           </div>
         </li>

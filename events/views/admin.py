@@ -71,7 +71,6 @@ from ..services.questionnaire import (
     describe_answer,
     duplicate_version,
     load_answers,
-    publish_version,
 )
 from ..services.exports import answers_rows
 from ..services.exports import safe_cell as _safe_cell
@@ -844,14 +843,24 @@ def version_detail(request, event, access, version_id):
             audit.record(request.user, event, "cuestionario", f"Creó el borrador versión {draft.number}", draft)
             messages.success(request, f"Se creó la versión {draft.number} como borrador. Puedes editarla.")
             return redirect("events:version_detail", slug=event.slug, version_id=draft.id)
-        if action == "publish" and version.is_editable:
+        if action in ("publish", "publish_use") and version.is_editable:
+            # "Publicar y usar en entrevistas nuevas" is one step, recorded as two movements (issue #48). "Solo
+            # publicar" says in its message that the version is not in use yet, and which one still is.
+            use = action == "publish_use"
+            current = _linked_other(event, version)
             try:
-                publish_version(version, request.user)
+                eq.publish_for_event(event, version, request.user, use=use)
             except ValueError as exc:
                 messages.error(request, str(exc))
             else:
-                audit.record(request.user, event, "cuestionario", f"Publicó la versión {version.number}", version)
-                messages.success(request, f"Versión {version.number} publicada. Ya no se puede modificar.")
+                if use and current is not None:
+                    messages.success(request, f"Versión {version.number} publicada y en uso. Las entrevistas nuevas la usarán; las que ya empezaron conservan la suya.")
+                elif use:
+                    messages.success(request, f"Versión {version.number} publicada y en uso en este evento. Las entrevistas nuevas la incluirán.")
+                elif current is not None:
+                    messages.warning(request, f"Versión {version.number} publicada. Ya no se puede modificar. Todavía no está en uso: las entrevistas nuevas siguen con la versión {current.version.number}.")
+                else:
+                    messages.warning(request, f"Versión {version.number} publicada. Ya no se puede modificar. Todavía no está en uso en este evento.")
             return redirect("events:version_detail", slug=event.slug, version_id=version.id)
         if action == "use" and version.status == QuestionnaireVersion.Status.PUBLISHED:
             swapped = _linked_other(event, version) is not None
@@ -1005,7 +1014,9 @@ def settings_view(request, event, access):
         request,
         "events/admin/settings.html",
         {"basics": basics, "settings_form": settings_form, "procedures": procedures, "stations": event.stations.all(),
-         "closing_open": closing_open},
+         "closing_open": closing_open,
+         # "Duplicar como plantilla" creates an event in the church: only its administration (views.duplicate)
+         "can_duplicate": administered_churches(request.user).filter(pk=event.church_id).exists()},
     )
 
 

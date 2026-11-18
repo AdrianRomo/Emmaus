@@ -24,6 +24,7 @@ def record(actor, event, action: str, summary: str, obj=None, **metadata) -> Aud
 
 ACTION_LABELS = {
     "evento_creado": "Creó el evento",
+    "evento_duplicado": "Duplicó el evento como plantilla",
     "evento_configurado": "Cambió la configuración",
     "procedimientos_aprobados": "Confirmó los procedimientos de la iglesia",
     "integrante_agregado": "Agregó a una persona al equipo",

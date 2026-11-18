@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import simple, views
+from . import duplicate, simple, views
 
 app_name = "agenda"
 
@@ -9,6 +9,7 @@ urlpatterns = [
     path("administrar/", views.admin_list, name="admin_list"),
     path("nuevo/", simple.create, name="create"),
     path("<slug:slug>/datos/", simple.edit, name="event_edit"),
+    path("<slug:slug>/duplicar/", duplicate.duplicate, name="duplicate"),
     path("<slug:slug>/", views.detail, name="detail"),
     path("<slug:slug>/inscribirme/", views.register, name="register"),
     path("<slug:slug>/cancelar/", views.cancel, name="cancel"),
