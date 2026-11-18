@@ -2,7 +2,75 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
-## Wave 8 — Reading plans written by the church (issue #84, branch `v2/wave-8-planes`)
+## 2026-11-18, morning — Wave 8: new issues #83–#87 and the owner's comment on #80 (branch `v2/wave-8`)
+
+Wave 7 (pull request #82) is merged. Another session delivered #83 (search in Recursos) as pull
+request #88; its required checks passed and it was merged here, then its search field was given
+the design system's field and button.
+
+### Shipped
+
+| Piece | Source | Where |
+|---|---|---|
+| Reading plans written by the church, with progress only the reader sees (details in the next section) | #84 | `resources/plans.py` |
+| A prototype of the church's public home at `/iglesia/<slug>/`: service times, public events, resources marked public; nothing about people; a review before publishing | #87 | app `sitio`, `docs/v2/discovery/public-home.md` |
+| The scheduler pass also mails notices whose day came and expires waiting-list offers; a heartbeat per job, `scheduler_status`, and the product says so when scheduled notices are not being mailed | #80 (owner's comment) | `core/scheduler.py`, `run_scheduled_jobs`, `EMMAUS_PUBLIC_BASE_URL` |
+| The owner's acceptance test for scheduled delivery, automated as written | #80 | `notices/tests/test_scheduled_delivery.py` |
+| Workshop drafts for children's check-in and for giving in Mexico: options, sources, what a professional must confirm, the cases to refuse | #85, #86 | `docs/v2/discovery/` |
+
+### Verification
+
+`scripts/agents/quality-gate.sh --postgres --e2e` on commit `91e460f`, 2026-11-18T06:35Z (the commit
+after it holds only these documents):
+
+```
+step            status           secs  detail
+lint            PASS                0  All checks passed!
+check           PASS                0  System check identified no issues (0 silenced).
+migrations      PASS                1  No changes detected
+deploy-check    PASS                0  check --deploy OK: only accepted warnings [security.W005 security.W021]
+migration-scope PASS                0  migration scope OK: 4 migration(s) added or changed since c57e9c0, all additive
+pip-audit       PASS                2  No known vulnerabilities found
+tests-sqlite    PASS              260  2578 passed, 6 skipped
+tests-postgres  PASS              398  2573 passed, 11 deselected (PostgreSQL 16, throwaway container)
+e2e             PASS              465  browser gate OK
+overall: PASS
+```
+
+- The community journey in that run: 272 checks, 0 problems.
+- An independent read-only review found no leak on the public home and none of reading progress,
+  and ten defects, fixed with tests before this gate. The ones that mattered were in the
+  scheduler: it moved the waiting list and mailed an offer for a church whose module was off; a
+  failed heartbeat write could stop the cutoffs; a refused address was retried every five minutes
+  for three days (now a backoff and five attempts); a pass where every send failed still counted
+  as running, so the product kept promising the e-mail.
+- Looked at by me as screenshots: the public home at 390 (a church with its own theme and logo)
+  and at 1440 (the demo church). The agents looked at their own screens on their own scratch
+  databases; every new page passed axe at 390 and 1440.
+- Not verified: real SMTP and a hung mail server; the `--loop` process of the scheduler; a
+  heartbeat table that is really missing; anything in a container or on a host.
+
+### To deploy this wave (a person, on the host)
+
+`migrate`; set `EMMAUS_PUBLIC_BASE_URL=https://<host>` (no path; the host in `ALLOWED_HOSTS`; a
+malformed value stops startup, an empty one is valid and means no scheduled e-mail); recreate
+`web` and `scheduler` (the compose file's scheduler command changed to `run_scheduled_jobs --loop
+300`); check with `manage.py scheduler_status`. To turn the community jobs off and keep the
+cutoffs: `EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`. To go back: the previous command line,
+`run_report_cutoffs --loop 300`.
+
+### Not done, and why
+
+- #85 and #86 are drafts for the people who decide; nothing of either is built. #87 is a
+  prototype: installability, push, live links and native apps wait for evidence from real use
+  (`docs/v2/discovery/public-home.md`).
+- Any church administrator can confirm a plan's rights; decision 0014 names pastoral leadership.
+- A parent without an account subscribing to an event's announcements (#59) is a proposal on the
+  issue, not built: one option would put a notice's text in an e-mail.
+- Alerting when `scheduler_status` fails is host work (#52). Removing `EMMAUS_PUBLIC_BASE_URL` by
+  mistake raises no alert there; only the product's line shows it.
+
+## Wave 8, detail — Reading plans written by the church (issue #84, branch `v2/wave-8-planes`)
 
 "Planes de lectura" under "Para crecer": several days in order, each with a Scripture reference, an
 optional reflection and an optional question, all written by the church. Code: `resources/plans.py`

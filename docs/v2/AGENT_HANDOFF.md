@@ -7,8 +7,8 @@ Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rul
 | Branch | Base | Holds | State |
 |---|---|---|---|
 | `v2/foundation` | | Everything through wave 4: pull requests #73, #74 and #78 are merged | The base. Never merged into `main`; nothing is deployed |
-| `v2/wave-7` | `v2/foundation` (waves 1 to 6 merged: #73, #74, #78, #79, #81) | Serving through `has_scope` (decision 0016), integrity checks, the member's welcome, pagination, "Ahora y después" | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate in `PROGRESS.md`; its pull request is named there |
-| older `v2/redesign-*`, `v2/wave-4-*`, `v2/wave-5-*`, `v2/wave-6*`, `v2/wave-7-<slice>` | | Merged | Local only; the worktrees and branches can be removed |
+| `v2/wave-8` | `v2/foundation` (waves 1 to 7 merged: #73, #74, #78, #79, #81, #82; and #88 from another session) | Reading plans (#84), the public home prototype (#87), scheduled notice e-mails with a heartbeat (#80), discovery drafts (#85, #86) | Worktree `../Emmaus.worktrees/redesign-santuario`. Gate in `PROGRESS.md`; its pull request is named there |
+| older `v2/redesign-*`, `v2/wave-4-*`, `v2/wave-5-*`, `v2/wave-6*`, `v2/wave-7*`, `v2/wave-8-<slice>` | | Merged | Local only; the worktrees and branches can be removed |
 
 The owner said on 2026-11-18 to merge pull requests as needed. The rule followed: only into
 `v2/foundation`, only when the branch's required checks pass on the pull request (never with
