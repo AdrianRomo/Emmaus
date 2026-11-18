@@ -99,10 +99,11 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 8. Event photos (#60): the arch shows the sky of the hour until the church decides.
 9. Interview questions are all optional in the demo questionnaire («Saltar pregunta» says so): should any be
    required? May campers skip in the kiosk, or only choose «Prefiero no responder»?
-10. The administration home says minors without authorization «no se les puede entrevistar», while the
-    consent step lets the coordinator confirm a signed authorization they have seen. Which is the rule?
+10. A follow-up decision («¿Necesita seguimiento?») cannot be changed once taken, before or after the redesign.
+    Should a coordinator be able to correct it?
 11. During a camp, should the camp's administration land on the camp's home? The running camp also shows
     in «Eventos de la iglesia» as «Sin publicar… sin inscritos» (it has 400 camperos, not sign-ups).
 12. The take-over message for the computer that lost control says «Vuelve a abrirla desde tu inicio»
     while the page offers «Continuar aquí» (a service message shared with the camp).
-
+13. Found while testing, not caused by the redesign: four tests in `core/test_scheduler.py` fail for a few minutes
+    after each even hour (they assume no report cutoff is due); reproduced on `origin/v2/foundation` too.
