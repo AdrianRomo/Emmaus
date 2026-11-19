@@ -93,6 +93,11 @@ ACTION_LABELS = {
     "espacio_reserva_sobre_choque": "Aprobó la reserva de un espacio aunque se empalma con otra",
     "espacio_reserva_rechazada": "Rechazó la reserva de un espacio",
     "espacio_reserva_cancelada": "Canceló la reserva de un espacio",
+    "contenido_aprobacion_pedida": "Pidió la aprobación pastoral de un contenido",
+    "contenido_aprobacion_retirada": "Retiró la solicitud de aprobación pastoral de un contenido",
+    "contenido_aprobado": "Aprobó un contenido para publicarse",
+    "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
+    "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -107,6 +112,8 @@ ALLOWED_METADATA = frozenset({
     "space_id",
     # Duplicate review and merges (people.merge): the other record of the pair and the merge, by id.
     "other_person_id", "merge_id",
+    # A pastoral approval of content (resources.approvals): which of the three fixed permitted uses.
+    "permitted_use",
 })
 
 

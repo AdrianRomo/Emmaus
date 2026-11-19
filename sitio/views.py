@@ -6,9 +6,10 @@ inside ``request.church``: there is no church in any address, and a time or a re
 church is a 404.
 
 Publishing has a review step at one address (``publish``): ``GET`` lists exactly what anybody will
-be able to read, ``POST`` publishes it. The form carries a fingerprint of what was listed; if what
-would be public is no longer that (somebody made an event public meanwhile), nothing is published
-and the list is shown again.
+be able to read, ``POST`` asks a pastor of the church to approve it. The administration does not
+publish: the pastor's approval does (``resources.approval_views``). The form carries a fingerprint
+of what was listed; if what would be public is no longer that (somebody made an event public
+meanwhile), nothing is asked and the list is shown again.
 """
 
 from django.contrib import messages
@@ -17,13 +18,28 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from groups.views import church_admin_view
+from resources import approvals
 from resources.models import MediaItem
 
 from . import public, services
 from .forms import PublicHomeForm, ServiceTimeForm
 from .models import ServiceTime
 
-STALE = "Lo que se mostraría cambió mientras revisabas. No se publicó nada: revisa otra vez."
+STALE = "Lo que se mostraría cambió mientras revisabas. No se pidió nada: revisa otra vez."
+
+
+def _approval(church, home):
+    return approvals.row_of(church, approvals.kind_of(services.HOME_KIND), home)
+
+
+LEFT = (
+    "Guardamos el cambio. La página dejó de ser pública: cambió lo que un pastor había aprobado. "
+    "Revísala y pide la aprobación pastoral otra vez."
+)
+LEAVES = (
+    "La página está publicada. Si quitas este horario, la página deja de ser pública hasta que un pastor "
+    "de tu iglesia la apruebe otra vez."
+)
 
 
 def _time(request, time_id: int) -> ServiceTime:
@@ -38,12 +54,14 @@ def edit(request):
         form = PublicHomeForm(request.POST)
         if form.is_valid():
             try:
-                services.save_home(church, request.user, **form.cleaned_data)
+                saved = services.save_home(church, request.user, **form.cleaned_data)
             except services.SiteError as error:
                 form.add_error(None, error.message)
             else:
-                if home.published:
-                    messages.success(request, "Guardamos los cambios. Ya se ven en la página pública.")
+                if home.published and not saved.published:
+                    messages.warning(request, LEFT)
+                elif home.published:
+                    messages.success(request, "No cambió nada: la página sigue publicada.")
                 else:
                     messages.success(request, "Guardamos los cambios. Nadie los ve todavía: la página no está publicada.")
                 return redirect("sitio:edit")
@@ -53,6 +71,7 @@ def edit(request):
         request, "sitio/edit.html",
         {
             "form": form, "home": home, "live": services.is_live(church), "content": services.page_content(church, home),
+            "approval": _approval(church, home), "has_pastor": approvals.has_active_pastor(church),
             "public_url": request.build_absolute_uri(public.public_path(church)),
         },
     )
@@ -73,16 +92,17 @@ def publish(request):
         return redirect("sitio:edit")
     if request.method == "POST":
         try:
-            services.publish(church, request.user, request.POST.get("revision", ""))
+            services.request_publication(church, request.user, request.POST.get("revision", ""))
         except services.StaleReview:
             messages.error(request, STALE)
             return redirect("sitio:publish")
-        messages.success(request, "Publicaste la página. Cualquier persona con el enlace puede leerla.")
+        messages.success(request, "Pedimos la aprobación pastoral de la página. Se publica cuando un pastor de tu iglesia la apruebe.")
         return redirect("sitio:edit")
     content = services.page_content(church, home)
     return render(
         request, "sitio/review.html",
         {"content": content, "home": home, "church": church, "revision": content.digest(),
+         "approval": _approval(church, home), "has_pastor": approvals.has_active_pastor(church),
          "public_url": request.build_absolute_uri(public.public_path(church))},
     )
 
@@ -112,6 +132,7 @@ def _time_form(request, row):
     if row is not None:
         initial = {"weekday": row.weekday, "time": row.time, "name": row.name, "place": row.place, "position": row.position or None}
     form = ServiceTimeForm(request.POST or None, initial=initial)
+    was_public = services.home_of(request.church).published
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
@@ -120,9 +141,12 @@ def _time_form(request, row):
         except services.SiteError as error:
             form.add_error(None, error.message)
         else:
-            messages.success(request, "Guardamos el horario." if row else "Agregaste el horario.")
+            if was_public and not services.home_of(request.church).published:
+                messages.warning(request, LEFT)
+            else:
+                messages.success(request, "Guardamos el horario." if row else "Agregaste el horario.")
             return redirect("sitio:edit")
-    return render(request, "sitio/time_form.html", {"form": form, "row": row})
+    return render(request, "sitio/time_form.html", {"form": form, "row": row, "was_public": was_public})
 
 
 @church_admin_view
@@ -138,15 +162,19 @@ def time_edit(request, time_id: int):
 @church_admin_view
 def time_delete(request, time_id: int):
     row = _time(request, time_id)
+    was_public = services.home_of(request.church).published
     if request.method == "POST":
         services.delete_time(row, request.user)
-        messages.success(request, "Quitaste el horario.")
+        if was_public:
+            messages.warning(request, LEFT)
+        else:
+            messages.success(request, "Quitaste el horario.")
         return redirect("sitio:edit")
     return render(
         request, "groups/confirm.html",
         {
             "title": f"¿Quitar el horario «{row.name}»?",
-            "text": "Dejará de verse en la página pública de la iglesia.",
+            "text": LEAVES if was_public else "Dejará de verse en la página pública de la iglesia.",
             "action": "Sí, quitar el horario",
             "back_url": reverse("sitio:edit"),
         },

@@ -25,7 +25,7 @@
     {% else %}
       {% include "events/rotulo/_page_head.html" with title=devotional.title lede=line back_url=archive back_label="Volver a los devocionales anteriores" %}
     {% endif %}
-    {% if devotional.state == "borrador" %}<div class="notice notice--quiet"><p>Este devocional es un borrador: solo lo ve la administración de la iglesia. Para publicarlo, edítalo y marca «Publicarlo».</p></div>
+    {% if devotional.state == "borrador" %}<div class="notice notice--quiet"><p>Este devocional es un borrador: solo lo ve la administración de la iglesia. Para publicarlo, edítalo y pide la aprobación pastoral.</p></div>
     {% elif devotional.state == "programado" %}<div class="notice notice--quiet"><p>Este devocional está programado: las personas de la iglesia lo leerán cuando llegue su día. Hasta entonces solo lo ve la administración.</p></div>{% endif %}
     <div class="block prose">{{ devotional.body|linebreaks }}</div>
     {% if devotional.is_readable %}

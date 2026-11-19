@@ -38,6 +38,8 @@ def media_url(name, item):
     return reverse(f"resources:media_{name}", args=[item.pk])
 
 
+from resources.tests.approving import approve, church_pastor  # noqa: E402
+
 class ResourcesFixture(CommunityFixture):
     @classmethod
     def setUpTestData(cls):
@@ -46,9 +48,11 @@ class ResourcesFixture(CommunityFixture):
 
     def devotional(self, day=None, *, church=None, actor=None, **changes):
         values = {"title": "La vid verdadera", "passage": "Juan 15:1-8", "body": BODY, "author_name": "Ana López", "publish": True}
-        return services.save_devotional(
-            church or self.church, actor or self.admin, date=day or self.today, **{**values, **changes}
-        )
+        church = church or self.church
+        saved = services.save_devotional(church, actor or self.admin, date=day or self.today, **{**values, **changes})
+        if saved.approval is not None and saved.approval.is_pending:  # asked: a pastor of the church approves, and that publishes
+            saved = approve(church, "devocional", saved)
+        return saved
 
     def media(self, *, church=None, actor=None, **changes):
         values = {"kind": "predicacion", "title": "Justificados por la fe", "url": YOUTUBE, "date": self.today}
@@ -178,14 +182,14 @@ class DevotionalTests(ResourcesFixture):
         self.assertContains(self.client.get(PAST + "?pagina=2"), "Devocional número 51.")
 
     # ---- writing --------------------------------------------------------------------------------
-    def test_the_administration_writes_a_draft_and_then_publishes_it(self):
+    def test_the_administration_writes_a_draft_and_asks_and_a_pastor_publishes_it(self):
         self.devotional(self.today, title="Ya hay uno hoy")
         self.devotional(self.today + timedelta(days=1), title="Y uno mañana", publish=False)
         self.client.force_login(self.admin)
         page = self.client.get(DEV_CREATE)
         free = self.today + timedelta(days=2)
         self.assertContains(page, f'value="{free.isoformat()}"')  # the first day without a devotional
-        self.assertContains(page, "Publicarlo")
+        self.assertContains(page, "Pedir la aprobación pastoral para publicarlo")
         self.assertContains(page, "Guardar el devocional")
         self.assertEqual(page.content.decode().count("btn--primary"), 1)
 
@@ -200,12 +204,35 @@ class DevotionalTests(ResourcesFixture):
         page = self.client.get(dev_url("edit", written))
         self.assertContains(page, "Permanezcan en mí")
         self.assertNotContains(page, 'name="publish" checked')
-        response = self.client.post(dev_url("edit", written), self.dev_data(date=free.isoformat(), title="Nuevo"), follow=True)
-        self.assertContains(response, "Se publicará el")
+        # The administration asks; that publishes nothing, whatever the form carries.
+        response = self.client.post(
+            dev_url("edit", written), {**self.dev_data(date=free.isoformat(), title="Nuevo"), "status": "publicado"}, follow=True
+        )
+        self.assertContains(response, "pedimos la aprobación pastoral")
+        self.assertContains(response, "Por aprobar")
         written.refresh_from_db()
+        self.assertEqual(written.state, "borrador")
+        self.assertContains(self.client.get(dev_url("edit", written)), 'name="publish" aria-describedby="id_publish_helptext" id="id_publish" checked')
+        self.assertContains(self.client.get(dev_url("edit", written)), "la administración no puede publicarlo por su cuenta")
+        # A pastor of the church approves: that publishes it.
+        pastor = church_pastor(self.church)
+        approve(self.church, "devocional", written)
         self.assertEqual(written.state, "programado")
-        actions = list(ChurchAuditEvent.objects.filter(object_type="Devotional", object_id=str(written.pk)).order_by("id").values_list("action", flat=True))
-        self.assertEqual(actions, ["devocional_modificado", "devocional_publicado"])
+        rows = list(ChurchAuditEvent.objects.filter(object_type="Devotional", object_id=str(written.pk)).order_by("id"))
+        self.assertEqual(
+            [(row.action, row.actor) for row in rows],
+            [("devocional_modificado", self.admin), ("devocional_modificado", self.admin),
+             ("contenido_aprobacion_pedida", self.admin), ("contenido_aprobado", pastor)],
+        )
+        # Published: the box now keeps it published, and moving its day is not a new text.
+        page = self.client.get(dev_url("edit", written))
+        self.assertContains(page, "Mantenerlo publicado")
+        self.assertContains(page, "deja de verse en cuanto guardes")
+        later = free + timedelta(days=1)
+        response = self.client.post(dev_url("edit", written), self.dev_data(date=later.isoformat(), title="Nuevo"), follow=True)
+        self.assertContains(response, "El devocional sigue aprobado y se publicará el")
+        written.refresh_from_db()
+        self.assertEqual((written.state, written.date), ("programado", later))
 
     def test_a_day_has_one_devotional(self):
         first = self.devotional()
@@ -293,8 +320,11 @@ class DevotionalTests(ResourcesFixture):
         devotional = Devotional.objects.get()
         self.client.post(dev_url("edit", devotional), self.dev_data(title="Título reservado", body="Otro texto reservado"))
         rows = list(ChurchAuditEvent.objects.filter(action__startswith="devocional_").order_by("id"))
-        self.assertEqual([row.action for row in rows], ["devocional_publicado", "devocional_modificado"])
-        self.assertEqual(rows[0].summary, f"Publicó el devocional del {self.today:%d/%m/%Y}")
+        self.assertEqual([row.action for row in rows], ["devocional_modificado", "devocional_modificado"])
+        self.assertEqual(rows[0].summary, f"Guardó un borrador del devocional del {self.today:%d/%m/%Y}")
+        approve(self.church, "devocional", devotional)
+        rows += list(ChurchAuditEvent.objects.filter(action__startswith="contenido_", actor=self.admin))
+        self.assertEqual(len(rows), 3)
         for row in rows:
             stored = f"{row.summary} {row.metadata}"
             for secret in ("Título reservado", "Permanezcan", "Otro texto", "Juan 15", "Ana López"):

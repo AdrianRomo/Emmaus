@@ -5,7 +5,8 @@
 {% comment %}
   The church's public home, for its administration (sitio.views.edit; issue #87, a prototype): whether it is
   published, what it says, when the church meets, and what else it shows by itself (events with a public page,
-  resources marked one by one). Saving never publishes: "Publicar la página" goes through the review page.
+  resources marked one by one). Saving never publishes: the review page asks a pastor to approve it, and that
+  approval publishes. Saving a change of the church's own words on a public page takes it out of publication.
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
@@ -31,10 +32,11 @@
         <a class="btn btn--link" href="{% url 'sitio:unpublish' %}">Dejar de publicar la página</a>
       </div>
     {% else %}
-      <p>{% status "borrador" "Sin publicar" %}</p>
-      <p>Nadie ve la página todavía. Antes de publicarla verás, en una lista, todo lo que va a ser público.</p>
+      <p>{% if approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}</p>
+      <p>Nadie ve la página todavía. La publica un pastor de tu iglesia al aprobarla; antes verás, en una lista, todo lo que va a ser público.</p>
+      {% include "resources/_approval_note.html" %}
       <div class="step__actions">
-        <a class="btn btn--secondary" href="{% url 'sitio:publish' %}">Publicar la página</a>
+        {% if not approval.is_pending %}<a class="btn btn--secondary" href="{% url 'sitio:publish' %}">Revisar y pedir la aprobación</a>{% endif %}
         <a class="btn btn--link" href="{% url 'sitio:preview' %}">Ver la vista previa</a>
       </div>
     {% endif %}
@@ -42,6 +44,7 @@
 
   <section class="block" aria-labelledby="datos">
     <h2 id="datos" class="heading">Lo que dice tu iglesia</h2>
+    {% if home.published %}<div class="notice notice--warning"><p>La página está publicada. Si cambias la bienvenida, la dirección, el enlace al mapa, el teléfono o un horario, deja de ser pública en cuanto guardes y hasta que un pastor de tu iglesia la apruebe otra vez.</p></div>{% endif %}
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/ui/fields.html" with form=form %}
@@ -84,6 +87,6 @@
       <div class="summary-list__row"><dt>Recursos</dt><dd>{% if content.media %}Hoy mostraría {{ content.media|length }}: {% for item in content.media %}{{ item.title }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% else %}Hoy no mostraría ninguno.{% endif %} Solo aparecen los que marques con «Mostrar en la página pública», uno por uno, en <a href="{% url 'resources:media_admin' %}">Administrar los recursos</a>. Se muestran los más recientes.</dd></div>
     </dl>
   </section>
-  <p class="aside-note">Publicar, dejar de publicar y cada cambio quedan anotados en los movimientos de la iglesia, con quién lo hizo.</p>
+  <p class="aside-note">Pedir la aprobación, aprobar, dejar de publicar y cada cambio quedan anotados en los movimientos de la iglesia, con quién lo hizo.</p>
 </div>
 {% endblock %}

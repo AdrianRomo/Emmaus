@@ -10,6 +10,7 @@
   {% else %}
     {% include "events/rotulo/_page_head.html" with title="Agregar un horario" lede="Una reunión que se repite cada semana, a la que puede llegar cualquier persona." back_url=back back_label="Volver a la página pública" %}
   {% endif %}
+  {% if was_public %}<div class="notice notice--warning"><p>La página está publicada. Si {% if row %}cambias el día, la hora, el nombre o el lugar{% else %}agregas un horario{% endif %}, deja de ser pública en cuanto guardes y hasta que un pastor de tu iglesia la apruebe otra vez.</p></div>{% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}

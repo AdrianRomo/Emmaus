@@ -11,8 +11,10 @@
   {% if devotional %}
     {% include "events/rotulo/_page_head.html" with title="Editar el devocional" lede=devotional.title back_url=back back_label="Volver a los devocionales" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Escribir un devocional" lede="Lo leerán en Emmaus las personas de tu iglesia. Emmaus no lo envía por correo." back_url=back back_label="Volver a los devocionales" %}
+    {% include "events/rotulo/_page_head.html" with title="Escribir un devocional" lede="Lo leerán en Emmaus las personas de tu iglesia cuando un pastor lo apruebe. Emmaus no lo envía por correo." back_url=back back_label="Volver a los devocionales" %}
   {% endif %}
+  {% if devotional.is_published %}<div class="notice notice--warning"><p>Este devocional está publicado. Si cambias el título, la lectura, el texto o quién lo firma, deja de verse en cuanto guardes y no vuelve a publicarse hasta que un pastor lo apruebe otra vez. Cambiar solo el día no lo saca de publicación.</p></div>{% endif %}
+  {% include "resources/_approval_note.html" %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}

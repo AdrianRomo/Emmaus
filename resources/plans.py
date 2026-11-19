@@ -2,8 +2,10 @@
 
 A plan is several days in order. Each day holds a Scripture *reference* and what the church wrote
 about it. Emmaus stores no Bible text and fetches none: the person reads the passage in their own
-Bible. A plan is published only with the administration's explicit confirmation that the church
-wrote it or has permission to publish it; who confirmed and when stay on the plan.
+Bible. The administration prepares a plan and asks for its approval; only a pastor's approval
+publishes it, with the permitted use the pastor states (``resources.approvals``). A plan that is
+published or retired and whose words change goes back to a draft until a pastor approves it again:
+meanwhile nobody reads it, and the people who had started it keep their marks for when it returns.
 
 Who reads what:
 
@@ -28,16 +30,18 @@ from __future__ import annotations
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Max
-from django.utils import timezone
 
 from people.audit import record_church
 
+from . import approvals
 from .models import ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress
 from .services import ResourceError, _fits, _line, _text
 
-CONFIRMATION = "Confirmo que este plan lo escribió nuestra iglesia o que tenemos permiso para publicarlo"
-NOT_CONFIRMED = "Para publicar el plan, marca la confirmación."
-NO_DAYS = "Este plan todavía no tiene días. Agrega por lo menos uno antes de publicarlo."
+NO_DAYS = approvals.NO_DAYS
+CHANGED_NOT_RETIRED = (
+    "Este plan cambió después de publicarse y está fuera de publicación. Pide la aprobación pastoral; "
+    "cuando un pastor lo apruebe lo podrás retirar."
+)
 GONE = "Ese plan ya no existe."
 OPEN = (ReadingPlan.Status.PUBLISHED, ReadingPlan.Status.RETIRED)
 
@@ -145,6 +149,18 @@ def _locked(plan: ReadingPlan) -> ReadingPlan:
     return locked
 
 
+def _words_changed(plan: ReadingPlan, actor, before: str) -> None:
+    """After a write, inside its transaction: when the words are no longer ``before``, the approval does
+    not cover them. A plan somebody can read (published, or retired for who had started it) becomes a draft."""
+    if before == approvals.PLAN.digest(plan):
+        return
+    readable = plan.status in OPEN
+    if readable:
+        plan.status = ReadingPlan.Status.DRAFT
+        plan.save(update_fields=["status", "updated_at"])
+    approvals.content_changed(plan.church, approvals.PLAN, plan, actor, taken_down=readable)
+
+
 def _state_words(plan: ReadingPlan) -> str:
     return "un borrador de plan de lectura" if plan.is_draft else "un plan de lectura " + plan.get_status_display().lower()
 
@@ -163,17 +179,19 @@ def save_plan(church, actor, *, title: str, description: str = "", author_line: 
     )
     with transaction.atomic():
         if plan is None:
-            plan, created = ReadingPlan(church=church, created_by=actor), True
+            plan, created, before = ReadingPlan(church=church, created_by=actor), True, None
         else:
             plan, created = _locked(plan), False
             if plan.church_id != church.pk:
                 raise ResourceError(GONE, code="missing")
+            before = approvals.PLAN.digest(plan)
         plan.title, plan.description, plan.author_line = title, description, author_line
         plan.save()
         if created:
             record_church(church, actor, "plan_modificado", "Empezó un borrador de plan de lectura", plan)
         else:
             record_church(church, actor, "plan_modificado", f"Modificó los datos de {_state_words(plan)}", plan)
+            _words_changed(plan, actor, before)
     return plan
 
 
@@ -182,7 +200,8 @@ def save_day(
     day: ReadingPlanDay | None = None,
 ) -> ReadingPlanDay:
     """Add a day at the end of ``plan``, or correct ``day``. Allowed on a published plan too (a typo,
-    one more day): it is audited, and the people who are reading see the change at once."""
+    one more day), but the approval covered the words as they were: the plan leaves publication
+    until a pastor approves it again (``_words_changed``)."""
     reference, title, question, reflection = _line(reference), _line(title), _line(question), _text(reflection)
     if not reference:
         raise ResourceError("Escribe la cita del día, por ejemplo Juan 15:1-8.", code="reference")
@@ -196,6 +215,7 @@ def save_day(
     )
     with transaction.atomic():
         plan = _locked(plan)
+        before = approvals.PLAN.digest(plan)
         if day is None:
             last = plan.days.aggregate(last=Max("position"))["last"] or 0
             day, verb = ReadingPlanDay(plan=plan, position=last + 1), "Agregó"
@@ -208,6 +228,7 @@ def save_day(
         day.save()
         link = "a" if verb == "Agregó" else "de"
         record_church(plan.church, actor, "plan_modificado", f"{verb} el día {day.position} {link} {_state_words(plan)}", plan)
+        _words_changed(plan, actor, before)
     return day
 
 
@@ -216,49 +237,46 @@ def delete_day(day: ReadingPlanDay, actor) -> None:
     its days (deleting one would delete what people marked): correct the day instead."""
     with transaction.atomic():
         plan = _locked(day.plan)
-        if not plan.is_draft:
+        if plan.was_published:
             raise ResourceError("Un plan que ya se publicó conserva sus días. Puedes corregir el día, no quitarlo.", code="published")
         day = ReadingPlanDay.objects.filter(pk=day.pk, plan=plan).first()
         if day is None:
             return
+        before = approvals.PLAN.digest(plan)
         position = day.position
         day.delete()
         for later in plan.days.filter(position__gt=position).order_by("position"):  # one at a time: (plan, position) is unique
             later.position -= 1
             later.save(update_fields=["position"])
         record_church(plan.church, actor, "plan_modificado", f"Quitó el día {position} de un borrador de plan de lectura", plan)
+        _words_changed(plan, actor, before)
 
 
-def publish_plan(plan: ReadingPlan, actor, *, confirmed: bool) -> ReadingPlan:
-    """Every person of the church can find it and start it. Refused without the confirmation of
-    authorship or permission, and without at least one day. A retired plan can be published again,
-    with a new confirmation. Publishing a published plan changes nothing."""
+def request_publication(plan: ReadingPlan, actor) -> ReadingPlan:
+    """The administration asks a pastor to approve the plan: the approval is what publishes it
+    (``approvals.approve``). Refused without at least one day. Asking twice, or for a plan that is
+    published, changes nothing. The plan that comes back carries ``approval``."""
     with transaction.atomic():
         plan = _locked(plan)
-        if plan.is_published:
-            return plan
-        if not confirmed:
-            raise ResourceError(NOT_CONFIRMED, code="confirmation")
-        total = plan.days.count()
-        if not total:
-            raise ResourceError(NO_DAYS, code="days")
-        plan.status = ReadingPlan.Status.PUBLISHED
-        plan.rights_confirmed_by, plan.rights_confirmed_at = actor, timezone.now()
-        plan.save(update_fields=["status", "rights_confirmed_by", "rights_confirmed_at", "updated_at"])
-        days = "1 día" if total == 1 else f"{total} días"
-        record_church(
-            plan.church, actor, "plan_publicado",
-            f"Publicó un plan de lectura de {days} y confirmó que la iglesia lo escribió o tiene permiso para publicarlo", plan,
-        )
+        if not plan.is_published:
+            if not plan.days.exists():
+                raise ResourceError(NO_DAYS, code="days")
+            approvals.request(plan.church, approvals.PLAN, plan, actor)
+        plan.approval = approvals.row_of(plan.church, approvals.PLAN, plan)
     return plan
 
 
 def retire_plan(plan: ReadingPlan, actor) -> ReadingPlan:
-    """Nobody new finds it or starts it; who had started it keeps reading it. Nothing is deleted. Idempotent."""
+    """Nobody new finds it or starts it; who had started it keeps reading it. Nothing is deleted. Idempotent.
+    A request for approval that was open is withdrawn."""
     with transaction.atomic():
         plan = _locked(plan)
         if plan.is_retired:
             return plan
+        if plan.is_draft and plan.was_published:
+            # Its words changed after a pastor read them: retiring it would show them to who had started it.
+            raise ResourceError(CHANGED_NOT_RETIRED, code="changed")
+        approvals.withdraw(plan.church, approvals.PLAN, plan, actor)
         plan.status = ReadingPlan.Status.RETIRED
         plan.save(update_fields=["status", "updated_at"])
         record_church(plan.church, actor, "plan_retirado", "Retiró un plan de lectura", plan)

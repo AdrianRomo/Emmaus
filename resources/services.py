@@ -6,7 +6,9 @@ devotional by its day and a resource by its kind; it never carries a title, a bo
 it" and nothing else. There is no count, list or total of readers, and none may be added.
 
 Callers have already answered who may write (``resources.views``: the church's administration);
-these functions enforce what holds whoever asks.
+these functions enforce what holds whoever asks. One of those rules: the administration prepares a
+devotional and asks for its approval, and only a pastor's approval publishes it (``resources.approvals``).
+A resource is a link to a site the church does not host: it needs no approval and is published here.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from django.utils import timezone
 
 from people.audit import record_church
 
+from . import approvals
 from .models import Devotional, DevotionalRead, MediaItem
 
 FALLBACK_DAYS = 7
@@ -135,8 +138,13 @@ def save_devotional(
     church, actor, *, date, title: str, body: str, passage: str = "", author_name: str = "",
     publish: bool = False, devotional: Devotional | None = None,
 ) -> Devotional:
-    """Write a new devotional, or correct ``devotional``. One per church and day. With ``publish``
-    the people of the church read it from its day on; without it, only the administration sees it."""
+    """Write a new devotional, or correct ``devotional``. One per church and day.
+
+    ``publish`` is what the administration wants, not what happens: a devotional that is published
+    stays published only while its words (title, passage, body, who signs it) do not change. Anything
+    else that asks to be published is saved as a draft with a request for the pastoral approval, and
+    it is the approval that publishes it. Without ``publish`` it is a draft and any request is withdrawn.
+    The devotional that comes back carries ``approval`` (its row, or None)."""
     title, passage, author_name, body = _line(title), _line(passage), _line(author_name), _text(body)
     if date is None:
         raise ResourceError("Elige el día del devocional.", code="date")
@@ -153,31 +161,38 @@ def save_devotional(
     )
     with transaction.atomic():
         if devotional is None:
-            devotional, created, was_published = Devotional(church=church, created_by=actor), True, False
+            devotional, created, was_published, before = Devotional(church=church, created_by=actor), True, False, None
         else:
             devotional = Devotional.objects.select_for_update().filter(pk=devotional.pk, church=church).first()
             if devotional is None:
                 raise ResourceError("Ese devocional ya no existe.", code="missing")
-            created, was_published = False, devotional.is_published
+            created, was_published, before = False, devotional.is_published, approvals.DEVOTIONAL.digest(devotional)
         if Devotional.objects.filter(church=church, date=date).exclude(pk=devotional.pk).exists():
             raise ResourceError(DAY_TAKEN, code="date")
         devotional.date, devotional.title, devotional.passage = date, title, passage
         devotional.body, devotional.author_name = body, author_name
-        devotional.status = Devotional.Status.PUBLISHED if publish else Devotional.Status.DRAFT
+        changed = before != approvals.DEVOTIONAL.digest(devotional)
+        stays = publish and was_published and not changed
+        devotional.status = Devotional.Status.PUBLISHED if stays else Devotional.Status.DRAFT
         try:
             with transaction.atomic():
                 devotional.save()
         except IntegrityError:  # somebody else took the day between the question and the write
             raise ResourceError(DAY_TAKEN, code="date") from None
         day = _numeric_day(date)
-        if publish and not was_published:
-            record_church(church, actor, "devocional_publicado", f"Publicó el devocional del {day}", devotional)
-        elif created:
+        if created:
             record_church(church, actor, "devocional_modificado", f"Guardó un borrador del devocional del {day}", devotional)
-        elif was_published and not publish:
+        elif was_published and not stays and not changed:
             record_church(church, actor, "devocional_modificado", f"Dejó de publicar el devocional del {day}", devotional)
         else:
             record_church(church, actor, "devocional_modificado", f"Modificó el devocional del {day}", devotional)
+        if changed and not created:
+            approvals.content_changed(church, approvals.DEVOTIONAL, devotional, actor, taken_down=was_published)
+        if publish and not stays:
+            approvals.request(church, approvals.DEVOTIONAL, devotional, actor)
+        elif not publish:
+            approvals.withdraw(church, approvals.DEVOTIONAL, devotional, actor)
+        devotional.approval = approvals.row_of(church, approvals.DEVOTIONAL, devotional)
     return devotional
 
 

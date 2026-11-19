@@ -1,0 +1,5 @@
+{% comment %}A church with no active pastor account publishes nothing new: why, and what to do (resources.approvals.has_active_pastor).{% endcomment %}
+<div class="notice notice--warning">
+  <p>En tu iglesia no hay ninguna cuenta activa con el rol de pastor, así que hoy nadie puede aprobar contenido y no se publica nada nuevo. La administración no puede aprobar en su lugar.</p>
+  <p>Qué hacer: invita a tu pastor con el rol «Pastor» en <a href="{% url 'create_invitation' %}">Invitar a alguien</a>, o cambia el rol de una cuenta que ya existe en <a href="{% url 'user_list' %}">Usuarios</a>. Lo que pidas mientras tanto se queda esperando.</p>
+</div>

@@ -14,7 +14,8 @@ from groups.tests.base import CommunityFixture
 from people import flags
 from people.models import ChurchAuditEvent
 from resources import plans
-from resources.models import ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress
+from resources.models import ContentApproval, ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress
+from resources.tests.approving import approve, church_pastor
 
 LIST = reverse("resources:plan_list")
 ADMIN = reverse("resources:plan_admin")
@@ -22,7 +23,6 @@ CREATE = reverse("resources:plan_create")
 HOME = reverse("community:home")
 PANORAMA = reverse("overview:panorama")
 REFLECTION = "Una rama no se esfuerza por dar fruto.\n\nLo da porque está unida a la vid."
-CONFIRM_WORDS = "Confirmo que este plan lo escribió nuestra iglesia o que tenemos permiso para publicarlo"
 
 
 def url(name, plan, *more):
@@ -48,8 +48,14 @@ class PlansFixture(CommunityFixture):
                 question="¿Qué te llevas hoy?",
             )
         if publish:
-            plan = plans.publish_plan(plan, actor, confirmed=True)
+            plan = self.publish(plan)
         return plan
+
+    @staticmethod
+    def publish(plan):
+        """The administration asks, a pastor of the church approves: that is what publishes a plan."""
+        plans.request_publication(plan, plan.created_by)
+        return approve(plan.church, "plan", plan)
 
     def day(self, plan, position):
         return ReadingPlanDay.objects.select_related("plan").get(plan=plan, position=position)
@@ -199,7 +205,7 @@ class ReadingTests(PlansFixture):
     def test_the_churchs_words_are_escaped(self):
         plan = self.plan(days=0, publish=False)
         plans.save_day(plan, self.admin, reference="Juan 1:1", reflection="<script>alert('x')</script> <b>negritas</b>", question="<i>¿sí?</i>")
-        plans.publish_plan(plan, self.admin, confirmed=True)
+        self.publish(plan)
         self.client.force_login(self.member_user)
         page = self.client.get(url("day", plan, 1))
         self.assertContains(page, '<h1 class="voice page-head__title">Día 1</h1>', html=True)
@@ -345,7 +351,7 @@ class WritingTests(PlansFixture):
         plan.refresh_from_db()
         self.assertEqual((plan.status, ReadingPlan.objects.count(), self.day(plan, 1).reference), ("publicado", 1, "Juan 15:1"))
 
-    def test_the_administration_writes_a_plan_and_publishes_it_with_the_confirmation(self):
+    def test_the_administration_writes_a_plan_and_asks_and_a_pastor_publishes_it(self):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(ADMIN), "Todavía no hay planes de lectura.")
         response = self.client.post(CREATE, {"title": "Plan nuevo", "description": "De qué trata.", "author_line": "Preparado por el equipo pastoral."})
@@ -354,14 +360,15 @@ class WritingTests(PlansFixture):
         self.assertEqual((plan.status, plan.church, plan.created_by, plan.author_line), ("borrador", self.church, self.admin, "Preparado por el equipo pastoral"))
         self.assertIsNone(plan.rights_confirmed_by)
 
-        # No day yet: the confirmation alone does not publish it.
+        # No day yet: there is nothing to ask a pastor about.
         page = self.client.get(url("publish", plan))
         self.assertContains(page, "Este plan todavía no tiene días.")
         self.assertNotIn("</button>", main(page))
-        response = self.client.post(url("publish", plan), {"confirm": "on"})
-        self.assertContains(response, "Agrega por lo menos uno antes de publicarlo.")
+        response = self.client.post(url("publish", plan))
+        self.assertContains(response, "Agrega por lo menos uno antes de pedir su aprobación.")
         with self.assertRaises(plans.ResourceError):
-            plans.publish_plan(plan, self.admin, confirmed=True)
+            plans.request_publication(plan, self.admin)
+        self.assertFalse(ContentApproval.objects.exists())
 
         page = self.client.get(url("day_create", plan))
         self.assertContains(page, "Agregar el día 1")
@@ -374,34 +381,43 @@ class WritingTests(PlansFixture):
         self.assertRedirects(self.client.post(url("day_create", plan), self.data(title="", reflection="", question="")), url("days", plan))
         self.assertEqual(list(plan.days.values_list("position", "title")), [(1, "La vid"), (2, "")])
 
-        # Days, and no confirmation: still a draft.
+        # Days: the administration asks for the approval. Asking publishes nothing, whatever the form carries.
         page = self.client.get(url("publish", plan))
-        self.assertContains(page, CONFIRM_WORDS)
-        self.assertContains(page, "Queda guardado quién lo confirmó y cuándo.")
-        response = self.client.post(url("publish", plan), {})
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Para publicar el plan, marca la confirmación.")
-        with self.assertRaises(plans.ResourceError):
-            plans.publish_plan(plan, self.admin, confirmed=False)
+        self.assertContains(page, "Pedir la aprobación pastoral</button>")
+        self.assertNotContains(page, "Confirmo que")
+        self.assertEqual(page.content.decode().count("btn--primary"), 1)
+        response = self.client.post(url("publish", plan), {"confirm": "on", "status": "publicado"}, follow=True)
+        self.assertRedirects(response, url("days", plan))
+        self.assertContains(response, "Pedimos la aprobación pastoral del plan.")
+        self.assertContains(response, "la administración no puede publicarlo por su cuenta")
         plan.refresh_from_db()
         self.assertEqual((plan.status, plan.rights_confirmed_by, plan.rights_confirmed_at), ("borrador", None, None))
-        self.assertFalse(ChurchAuditEvent.objects.filter(action="plan_publicado").exists())
+        self.assertContains(self.client.get(ADMIN), "Por aprobar")
+        self.client.post(url("publish", plan))  # asking twice changes nothing
+        asked = ChurchAuditEvent.objects.get(action="contenido_aprobacion_pedida")
+        self.assertEqual((asked.actor, asked.object_type, asked.object_id, asked.metadata), (self.admin, "ReadingPlan", str(plan.pk), {}))
+        self.assertEqual(asked.summary, "Pidió la aprobación pastoral de un plan de lectura")
+        self.client.force_login(self.member_user)
+        self.assertNotContains(self.client.get(LIST), "Plan nuevo")
+        self.assertEqual(self.client.get(url("detail", plan)).status_code, 404)
 
-        response = self.client.post(url("publish", plan), {"confirm": "on"}, follow=True)
-        self.assertRedirects(response, url("days", plan))
-        self.assertContains(response, "Publicaste el plan.")
-        plan.refresh_from_db()
-        self.assertEqual((plan.status, plan.rights_confirmed_by), ("publicado", self.admin))
+        # A pastor of the church approves: that publishes it, under the pastor's name.
+        pastor = church_pastor(self.church)
+        approve(self.church, "plan", plan)
+        self.assertEqual((plan.status, plan.rights_confirmed_by), ("publicado", pastor))
         self.assertIsNotNone(plan.rights_confirmed_at)
-        row = ChurchAuditEvent.objects.get(action="plan_publicado")
-        self.assertEqual((row.church, row.actor, row.object_type, row.object_id, row.metadata), (self.church, self.admin, "ReadingPlan", str(plan.pk), {}))
-        self.assertEqual(row.summary, "Publicó un plan de lectura de 2 días y confirmó que la iglesia lo escribió o tiene permiso para publicarlo")
+        row = ChurchAuditEvent.objects.get(action="contenido_aprobado")
+        self.assertEqual(
+            (row.church, row.actor, row.object_type, row.object_id, row.metadata),
+            (self.church, pastor, "ReadingPlan", str(plan.pk), {"permitted_use": "propia"}),
+        )
+        self.assertEqual(row.summary, "Aprobó y publicó un plan de lectura (obra propia de la iglesia)")
+        self.client.force_login(self.admin)
         self.assertRedirects(self.client.get(url("publish", plan)), url("days", plan))  # already published
-        self.assertEqual(ChurchAuditEvent.objects.filter(action="plan_publicado").count(), 1)
         self.client.force_login(self.member_user)
         self.assertContains(self.client.get(LIST), "Plan nuevo")
 
-    def test_a_published_plans_day_can_be_corrected_and_not_removed_and_every_write_is_audited(self):
+    def test_correcting_a_published_plan_takes_it_out_of_publication_and_keeps_its_days_and_marks(self):
         plan = self.plan(days=2, publish=False)
         first, second = self.day(plan, 1), self.day(plan, 2)
         self.client.force_login(self.admin)
@@ -412,21 +428,54 @@ class WritingTests(PlansFixture):
         self.assertRedirects(self.client.post(url("day_delete", plan, first.pk)), url("days", plan))
         self.assertEqual(list(plan.days.values_list("pk", "position")), [(second.pk, 1), (extra.pk, 2)])
 
-        plans.publish_plan(plan, self.admin, confirmed=True)
+        self.publish(plan)
         self.read(plan, self.member, 1)
-        page = self.client.get(url("days", plan))
-        self.assertNotContains(page, "Quitar")
-        self.assertEqual(self.client.get(url("day_delete", plan, second.pk)).status_code, 404)
-        self.assertEqual(self.client.post(url("day_delete", plan, second.pk)).status_code, 404)
-        with self.assertRaises(plans.ResourceError):
-            plans.delete_day(second, self.admin)
-        self.assertContains(self.client.get(url("day_edit", plan, second.pk)), "Este plan ya está publicado")
+
+        def days_are_kept():
+            self.assertNotContains(self.client.get(url("days", plan)), "Quitar")
+            self.assertEqual(self.client.get(url("day_delete", plan, second.pk)).status_code, 404)
+            self.assertEqual(self.client.post(url("day_delete", plan, second.pk)).status_code, 404)
+            with self.assertRaises(plans.ResourceError):
+                plans.delete_day(second, self.admin)
+
+        days_are_kept()
+        # The screen says, before saving, that the plan will leave publication.
+        self.assertContains(self.client.get(url("day_edit", plan, second.pk)), "el plan deja de verse en cuanto guardes")
+        self.assertContains(self.client.get(url("edit", plan)), "deja de verse en cuanto guardes")
+        self.assertContains(self.client.get(url("days", plan)), "el plan deja de verse en cuanto guardes")
+        # Saving the same words is not a change.
+        same = self.day(plan, 1)
+        self.client.post(url("day_edit", plan, second.pk), {
+            "reference": same.reference, "title": same.title, "reflection": same.reflection, "question": same.question,
+        })
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "publicado")
         self.assertRedirects(self.client.post(url("day_edit", plan, second.pk), self.data(title="Sin la errata")), url("days", plan))
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "borrador")
+        self.assertEqual(ContentApproval.objects.get(kind="plan", object_id=plan.pk).state, "cambio")
+        # A draft again, but one that was published: its days stay, and so does what people marked.
+        days_are_kept()
+        page = self.client.get(url("days", plan))
+        self.assertContains(page, "Fuera de publicación: nadie lo ve, tampoco quien ya lo había empezado (sus marcas se conservan).")
+        self.assertContains(page, "cambió después de publicarse y esos cambios no los ha aprobado un pastor")
+        self.assertNotContains(page, "Retirar el plan")
         self.assertRedirects(self.client.post(url("edit", plan), {"title": "Otro título", "description": "", "author_line": ""}), url("days", plan))
         second.refresh_from_db()
         plan.refresh_from_db()
-        self.assertEqual((second.title, plan.title, plan.status), ("Sin la errata", "Otro título", "publicado"))
-        self.assertEqual(ReadingPlanDayRead.objects.count(), 1)  # correcting a day keeps what people marked
+        self.assertEqual((second.title, plan.title, plan.status), ("Sin la errata", "Otro título", "borrador"))
+        self.assertEqual(ReadingPlanDayRead.objects.count(), 1)
+        # The reader does not see words no pastor read; nor does retiring the plan hand them over.
+        self.assertFalse(plans.may_read(plan, plans.progress_of(plan, self.member)))
+        with self.assertRaises(plans.ResourceError):
+            plans.retire_plan(plan, self.admin)
+        self.assertContains(self.client.post(url("retire", plan), follow=True), "Este plan cambió después de publicarse")
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "borrador")
+        # Approved again, the reader is where they were.
+        self.publish(plan)
+        self.assertTrue(plans.may_read(plan, plans.progress_of(plan, self.member)))
+        self.assertEqual(ReadingPlanDayRead.objects.count(), 1)
 
         rows = list(ChurchAuditEvent.objects.filter(action__startswith="plan_").order_by("id"))
         self.assertEqual([row.summary for row in rows], [
@@ -435,17 +484,20 @@ class WritingTests(PlansFixture):
             "Agregó el día 2 a un borrador de plan de lectura",
             "Agregó el día 3 a un borrador de plan de lectura",
             "Quitó el día 1 de un borrador de plan de lectura",
-            "Publicó un plan de lectura de 2 días y confirmó que la iglesia lo escribió o tiene permiso para publicarlo",
             "Modificó el día 1 de un plan de lectura publicado",
-            "Modificó los datos de un plan de lectura publicado",
+            "Modificó el día 1 de un plan de lectura publicado",
+            "Modificó los datos de un borrador de plan de lectura",
         ])
+        out = ChurchAuditEvent.objects.get(action="contenido_fuera_de_publicacion")
+        self.assertEqual((out.actor, out.object_type, out.object_id, out.metadata), (self.admin, "ReadingPlan", str(plan.pk), {}))
+        rows.append(out)
         for row in rows:  # which plan and which day, never the words
             stored = f"{row.summary} {row.metadata}"
             for secret in ("Tres días", "Otro título", "Juan 15", "errata", "Una rama", "Diego"):
                 self.assertNotIn(secret, stored)
             self.assertEqual((row.church, row.actor, row.object_type, row.object_id), (self.church, self.admin, "ReadingPlan", str(plan.pk)))
 
-    def test_retiring_is_audited_and_publishing_again_needs_a_new_confirmation(self):
+    def test_retiring_is_audited_and_publishing_again_needs_a_new_approval(self):
         plan = self.plan()
         self.client.force_login(self.admin)
         page = self.client.get(url("retire", plan))
@@ -461,12 +513,14 @@ class WritingTests(PlansFixture):
         self.assertContains(self.client.get(url("detail", plan)), "Este plan está retirado")
 
         confirmed_at = plan.rights_confirmed_at
-        self.assertContains(self.client.post(url("publish", plan), {}), "Para publicar el plan, marca la confirmación.")
-        self.assertRedirects(self.client.post(url("publish", plan), {"confirm": "on"}), url("days", plan))
+        self.assertRedirects(self.client.post(url("publish", plan)), url("days", plan))
         plan.refresh_from_db()
+        self.assertEqual(plan.status, "retirado")  # asked, not published
+        self.assertContains(self.client.get(ADMIN), "sigue retirado mientras tanto")
+        approve(self.church, "plan", plan)
         self.assertEqual(plan.status, "publicado")
         self.assertGreater(plan.rights_confirmed_at, confirmed_at)
-        self.assertEqual(ChurchAuditEvent.objects.filter(action="plan_publicado").count(), 2)
+        self.assertEqual(ChurchAuditEvent.objects.filter(action="contenido_aprobado").count(), 2)
 
 
 class PrivacyTests(PlansFixture):

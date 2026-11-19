@@ -231,9 +231,23 @@ class Command(BaseCommand):
                 agenda.save_page(event, admin, public=True)
         content = sitio.page_content(church)
         if not content.home.published:
-            sitio.publish(church, admin, content.digest())
+            from sitio.models import PublicHome
+
+            PublicHome.objects.filter(pk=content.home.pk).update(published=True, published_at=timezone.now(), published_by=admin)
+            self._published_before(church, "sitio", content.home)
 
         self._reading_plan(church, admin)
+
+    @staticmethod
+    def _published_before(church, kind, obj) -> None:
+        """The demo's content stands for what a church had published before pastoral approvals existed
+        (issue #99): it is published with the same mark the migration leaves, and a pastor finds it in
+        "Aprobación pastoral" to approve item by item. Nothing new is published this way by the screens."""
+        from resources.models import ContentApproval
+
+        ContentApproval.objects.get_or_create(
+            kind=kind, object_id=obj.pk, defaults={"church": church, "state": ContentApproval.State.LEGACY}
+        )
 
     def _reading_plan(self, church, admin) -> None:
         """One published three-day plan, written for this demo: references and our own words, no Bible text."""
@@ -263,7 +277,10 @@ class Command(BaseCommand):
         )
         for title, reference, reflection, question in days:
             plans.save_day(plan, admin, title=title, reference=reference, reflection=reflection, question=question)
-        plans.publish_plan(plan, admin, confirmed=True)
+        ReadingPlan.objects.filter(pk=plan.pk).update(
+            status=ReadingPlan.Status.PUBLISHED, rights_confirmed_by=admin, rights_confirmed_at=timezone.now()
+        )
+        self._published_before(church, "plan", plan)
 
     def _panorama(self, church, admin, password) -> None:
         """What "Panorama" counts: a pastor, the groups of PANORAMA_GROUPS with their lists, a finished event with
@@ -274,6 +291,17 @@ class Command(BaseCommand):
         pastor = self._account(*PASTOR, password)
         assign_role(pastor, church, Role.PASTOR)
         people_services.ensure_own_person(pastor, church)
+        # Something for the pastor to approve: tomorrow's devotional, prepared by the administration.
+        from resources import services as resources
+        from resources.models import Devotional
+
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        if not Devotional.objects.filter(church=church, date=tomorrow).exists():
+            resources.save_devotional(
+                church, admin, date=tomorrow, title="Dar fruto", passage="Juan 15:9-17", author_name="Alma Cisneros",
+                body="El fruto no se fabrica: llega cuando la rama sigue unida.\n\nHoy piensa en una persona a la que puedas servir sin que nadie lo sepa.",
+                publish=True,
+            )
         today = timezone.localdate()
         everybody = [
             Person.objects.get_or_create(church=church, first_name=first, last_name=last, user=None)[0] for first, last in PANORAMA_PEOPLE
@@ -334,11 +362,12 @@ class Command(BaseCommand):
         from resources.models import Devotional, MediaItem
 
         if not Devotional.objects.filter(church=church, date=timezone.localdate()).exists():
-            resources.save_devotional(
+            devotional = resources.save_devotional(
                 church, admin, date=timezone.localdate(), title="Permanecer", passage="Juan 15:1-8", author_name="Alma Cisneros",
                 body="Jesús no pide que demos fruto a la fuerza. Pide que permanezcamos en él.\n\nHoy, antes de empezar, quédate un minuto en silencio.",
-                publish=True,
             )
+            Devotional.objects.filter(pk=devotional.pk).update(status=Devotional.Status.PUBLISHED)
+            self._published_before(church, "devocional", devotional)
         if not MediaItem.objects.filter(church=church).exists():
             resources.save_media(
                 church, admin, kind="predicacion", title="La vid y las ramas", speaker="Ernesto Salas", series="Juan",
