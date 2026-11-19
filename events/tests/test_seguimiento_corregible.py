@@ -267,7 +267,8 @@ class CareFollowUpTests(ChangeFixture):
         self.assertIn("Su entrevista ya no necesita seguimiento", page)
         self.assertIn("Ada Admin cambió la decisión el", page)
         self.assertIn("Motivo: Ya lo acompaña su pastor.", page)
-        self.assertIn("Revísalo y ciérralo: en «Estado» elige «Atendido» o «Cancelado» y guarda.", page)
+        self.assertIn("Revísalo. Si ya no hace falta, ciérralo: en «Estado» elige «Atendido» o «Cancelado» y guarda. Si todavía hace falta, continúalo.", page)
+        self.assertIn(f'href="{self.url("follow_up_continue", follow_up.pk)}">Continuar seguimiento</a>', page)
         # Closed with its own form, audited as every update of a follow-up.
         self.close(follow_up, "atendido")
         follow_up.refresh_from_db()
@@ -289,10 +290,12 @@ class CareFollowUpTests(ChangeFixture):
 
         follow_up = self.ordinary().get()
         html = render_to_string(
-            "events/supervision/_decision_change_note.html", {"decision_change": decision_svc.note_for(follow_up), "can_manage": False}
+            "events/supervision/_decision_change_note.html",
+            {"decision_note": decision_svc.note_for(follow_up), "can_manage": False, "event": self.event, "follow_up": follow_up},
         )
         self.assertIn("Carla Uno cambió la decisión el", html)
         self.assertNotIn("elige «Atendido»", html)
+        self.assertNotIn("Continuar seguimiento", html)
 
     def test_back_to_required_clears_the_mark(self):
         self.post(self.coord1, "requerido")
@@ -340,7 +343,7 @@ class CareFollowUpTests(ChangeFixture):
         owner = self.as_user(self.coord1)
         self.assertIn("Mariana López Ruiz", owner.get(self.url("follow_ups") + "?responsable=mio").content.decode())  # back in the queue
         detail = owner.get(self.url("follow_up_detail", follow_up.pk)).content.decode()
-        self.assertIn("Se reabrió porque su entrevista volvió a necesitar seguimiento", detail)
+        self.assertIn(f"{decision_svc.reopened_label(FollowUpDecisionChange.objects.first())}: su entrevista volvió a necesitar seguimiento", detail)
         self.assertIn("Motivo: Volvió a pedir hablar con un líder.", detail)
         history = detail.split('aria-labelledby="historial-seguimiento"')[1].split("</section>")[0]
         titles = [chunk.split("</p>")[0] for chunk in history.split('<p class="row__title">')[1:]]
@@ -647,3 +650,206 @@ class BothModesTests(ChangeFixture):
         history = self.history(response.content.decode())
         self.assertIn('<li class="row row--lead">', history)
         self.assertIn("De «no necesita seguimiento» a «necesita seguimiento»", history)
+
+
+class ReopenedMarkTests(ChangeFixture):
+    """Owner decision of 2026-11-18 (second round): a reopened task is «Pendiente», same owner, its history kept, and
+    says «Reabierto el …» on its page and on every list row until its owner moves it on or closes it."""
+
+    def setUp(self):
+        super().setUp()
+        self.post(self.coord1, "requerido")
+        self.follow_up = self.ordinary().get()  # Carla attends it
+        self.detail = self.url("follow_up_detail", self.follow_up.pk)
+        self.owner = self.as_user(self.coord1)
+        self.owner.post(self.detail, {"status": "atendido", "assigned_to": self.coord1.pk})
+        self.post(self.coord1, "no_requerido")
+        self.post(self.admin, "requerido", reason="Volvió a pedir hablar con un líder.")
+        self.label = decision_svc.reopened_label(FollowUpDecisionChange.objects.first())
+
+    def lists(self):
+        return [
+            (self.owner, self.url("coord_home")), (self.owner, self.url("follow_ups")),
+            (self.owner, self.url("participant_detail", self.p1.public_id)),
+            (self.as_user(self.tutor1), self.url("tutor_home")), (self.as_user(self.tutor1), self.url("pending")),
+        ]
+
+    def check_marked(self):
+        self.assertTrue(self.label.startswith("Reabierto el "))
+        self.assertNotIn(":", self.label)  # the day, not the time
+        for client, url in self.lists():
+            self.assertIn(f'<span class="status__mark" aria-hidden="true"></span>{self.label}</span>', client.get(url).content.decode(), url)
+        page = self.owner.get(self.detail).content.decode()
+        self.assertIn(f"{self.label}: su entrevista volvió a necesitar seguimiento", page)
+        self.assertIn("Cuando retomes el trabajo, en «Estado» elige «En proceso» y guarda.", page)
+
+    def test_every_list_and_its_page_say_reabierto_with_the_day_both_modes(self):
+        self.follow_up.refresh_from_db()
+        self.assertEqual((self.follow_up.status, self.follow_up.assigned_to), ("pendiente", self.coord1))
+        self.check_marked()
+        flags.set_enabled(self.church, "community", True)
+        self.check_marked()
+
+    def test_its_owner_moves_it_to_en_proceso_with_its_own_audited_form(self):
+        response = self.owner.post(self.detail, {"status": "en_proceso", "assigned_to": self.coord1.pk})
+        self.assertEqual(response.status_code, 302)
+        self.follow_up.refresh_from_db()
+        self.assertEqual(self.follow_up.status, "en_proceso")
+        row = AuditEvent.objects.filter(action="seguimiento", object_id=str(self.follow_up.pk)).first()
+        self.assertEqual((row.actor, row.metadata), (self.coord1, {"status": "en_proceso"}))
+        for client, url in self.lists():
+            self.assertNotIn("Reabierto el", client.get(url).content.decode(), url)
+        page = self.owner.get(self.detail).content.decode()
+        self.assertNotIn("decision-cambiada", page)
+        self.assertIn("Reabierto: su entrevista volvió a necesitar seguimiento (estaba atendido)", page)  # the history stays
+        # Back to «Pendiente» by hand: moved on, so not «Reabierto» again
+        self.owner.post(self.detail, {"status": "pendiente", "assigned_to": self.coord1.pk})
+        self.assertNotIn("Reabierto el", self.owner.get(self.url("follow_ups")).content.decode())
+
+    def test_closing_it_ends_the_mark(self):
+        self.owner.post(self.detail, {"status": "atendido", "assigned_to": self.coord1.pk})
+        self.assertNotIn("Reabierto el", self.owner.get(self.url("follow_ups") + "?estado=todos").content.decode())
+
+    def test_a_note_or_a_new_owner_is_not_moving_it_on(self):
+        self.as_user(self.care).post(self.detail, {"status": "pendiente", "assigned_to": self.tutor1.pk, "resolution_note": "Nota sintética."})
+        self.assertIn(self.label, self.as_user(self.tutor1).get(self.url("tutor_home")).content.decode())
+
+
+class ContinueTests(ChangeFixture):
+    """Owner decision of 2026-11-18 (second round): «Continuar seguimiento» keeps a task open that the interview's decision
+    («no necesita seguimiento») left for review, with a brief reason; the interview's decision and record do not change."""
+
+    def setUp(self):
+        super().setUp()
+        self.post(self.coord1, "requerido")
+        self.follow_up = self.ordinary().get()  # Carla attends it
+        self.post(self.admin, "no_requerido")
+        self.continue_url = self.url("follow_up_continue", self.follow_up.pk)
+        self.detail = self.url("follow_up_detail", self.follow_up.pk)
+
+    def go_on(self, user, reason="Pidió seguir viéndonos los domingos.", client=None):
+        return (client or self.as_user(user)).post(self.continue_url, {"reason": reason})
+
+    def change(self):
+        return FollowUpDecisionChange.objects.first()
+
+    def test_whoever_may_manage_the_task_may(self):
+        # Its owner, and whoever may already manage it (can_manage_follow_up): an administrador, a pastor, the campero's
+        # coordinador's tutor and the care team (confidential access) may too.
+        for user in (self.coord1, self.admin, self.pastor, self.tutor1, self.care):
+            with self.subTest(user=user.email):
+                client = self.as_user(user)
+                self.assertEqual(client.get(self.continue_url).status_code, 200)
+                self.assertRedirects(self.go_on(user, client=client), self.detail, fetch_redirect_response=False)
+                change = self.change()
+                self.assertEqual(change.continued_by, user)
+                FollowUpDecisionChange.objects.filter(pk=change.pk).update(continued_by=None, continued_at=None, continued_reason="")
+
+    def test_everybody_else_is_refused(self):
+        for user, status in ((self.coord2, 404), (self.tutor2, 404), (self.outsider, 403), (self.other_coord, 403)):
+            client = self.as_user(user)
+            self.assertEqual(client.get(self.continue_url).status_code, status, user)
+            self.assertEqual(self.go_on(user, client=client).status_code, status, user)
+        anonymous = Client()
+        self.assertTrue(anonymous.post(self.continue_url, {"reason": "x"})["Location"].startswith(reverse("login")))
+        self.assertEqual(self.as_user(self.coord1).put(self.continue_url).status_code, 405)
+        self.assertIsNone(self.change().continued_at)
+        with self.assertRaises(svc.NotAllowed):
+            decision_svc.continue_follow_up(self.access(self.coord2), self.follow_up, reason="x")
+
+    def test_a_reason_is_required_and_short(self):
+        for reason, error in (("", "Escribe brevemente por qué continúas el seguimiento."), ("a" * 201, "Escribe el motivo en 200 caracteres o menos.")):
+            response = self.go_on(self.coord1, reason=reason)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, error)
+        self.assertIsNone(self.change().continued_at)
+        page = self.as_user(self.coord1).get(self.continue_url).content.decode()
+        self.assertIn('<label class="label" for="id_reason">¿Por qué continúas el seguimiento?</label>', page)
+        self.assertIn('maxlength="200"', page)
+
+    def test_the_mark_goes_the_task_stays_open_and_the_decision_stays(self):
+        client = self.as_user(self.coord1)
+        self.go_on(self.coord1, client=client)
+        self.assertEqual([m.message for m in client.get(self.detail).context["messages"]], ["El seguimiento de Mariana López Ruiz sigue abierto."])
+        self.follow_up.refresh_from_db()
+        self.assertEqual((self.follow_up.status, self.follow_up.assigned_to), ("pendiente", self.coord1))
+        self.assertEqual(decision_svc.waiting_on_owner([self.follow_up]), {})
+        for url in (self.url("coord_home"), self.url("follow_ups") + "?responsable=mio", self.url("participant_detail", self.p1.public_id)):
+            html = client.get(url).content.decode()
+            self.assertNotIn("Decisión cambiada", html, url)
+            self.assertIn("Mariana López Ruiz", html, url)  # still in her queue
+        self.assertEqual(self.decision(), "no_requerido")
+        self.assertIn("No se requiere seguimiento", self.section(client.get(self.record).content.decode()))
+        self.assertEqual(self.change().care, "abierto")  # the record's history is as it was
+
+    def test_audited_who_and_when_never_the_reason(self):
+        self.go_on(self.coord1, reason="Pidió seguir viéndonos los domingos.")
+        row = AuditEvent.objects.get(action="seguimiento_continuado")
+        self.assertEqual((row.actor, row.object_type, row.object_id, row.metadata), (self.coord1, "FollowUp", str(self.follow_up.pk), {"status": "pendiente"}))
+        for logged in AuditEvent.objects.all():
+            self.assertNotIn("domingos", logged.summary + str(logged.metadata))
+        self.assertIn("Continuó un seguimiento", self.as_user(self.admin).get(self.url("audit")).content.decode())
+
+    def test_the_reason_is_read_on_the_task_by_whoever_may_manage_it_and_nowhere_else(self):
+        self.go_on(self.coord1, reason="Pidió seguir viéndonos los domingos.")
+        for user in (self.coord1, self.tutor1, self.admin):
+            page = self.as_user(user).get(self.detail).content.decode()
+            self.assertIn("Sigue abierto aunque su entrevista ya no lo pide", page)
+            self.assertIn("Carla Uno decidió continuarlo el", page)
+            self.assertIn("Motivo: Pidió seguir viéndonos los domingos.", page)
+        for user, url in ((self.tutor1, self.url("follow_ups")), (self.tutor1, self.url("tutor_home")), (self.coord1, self.url("coord_home")),
+                          (self.tutor1, self.record), (self.pastor, self.url("follow_ups"))):
+            self.assertNotIn("domingos", self.as_user(user).get(url).content.decode(), url)
+        # Whoever may see the task but not manage it reads that it continues, not why. (Every role that sees an ordinary
+        # task may manage it today, so this is the template given such a viewer.)
+        from django.template.loader import render_to_string
+
+        html = render_to_string(
+            "events/supervision/_decision_change_note.html",
+            {"decision_note": decision_svc.note_for(self.follow_up), "can_manage": False, "event": self.event, "follow_up": self.follow_up},
+        )
+        self.assertIn("Carla Uno decidió continuarlo el", html)
+        self.assertNotIn("domingos", html)
+
+    def test_nothing_to_review_nothing_to_continue(self):
+        self.go_on(self.coord1)
+        client = self.as_user(self.coord1)
+        self.assertRedirects(client.get(self.continue_url), self.detail, fetch_redirect_response=False)
+        self.go_on(self.coord1, reason="Otra vez.", client=client)
+        self.assertEqual(AuditEvent.objects.filter(action="seguimiento_continuado").count(), 1)
+        self.assertNotIn("Otra vez", self.change().continued_reason)
+
+    def test_a_new_change_to_no_asks_for_a_fresh_review(self):
+        self.go_on(self.coord1)
+        self.post(self.admin, "requerido")
+        self.post(self.admin, "no_requerido")
+        self.follow_up.refresh_from_db()
+        self.assertIn(self.follow_up.pk, decision_svc.waiting_on_owner([self.follow_up]))
+
+    def test_the_page_in_both_modes(self):
+        page = self.as_user(self.coord1).get(self.continue_url).content.decode()
+        self.assertIn('<div class="step__actions">', page)
+        self.assertIn("El seguimiento sigue abierto con quien lo atiende y la entrevista no cambia.", page)
+        flags.set_enabled(self.church, "community", True)
+        response = self.as_user(self.coord1).get(self.continue_url)
+        self.assertTrue(response.context["ui_v2"])
+        self.assertIn('<div class="form-actions">', response.content.decode())
+
+    def test_a_confidential_note_changes_neither_the_flow_nor_what_others_see(self):
+        self.as_user(self.care).post(
+            self.detail, {"status": "pendiente", "assigned_to": self.coord1.pk, "resolution_note": "Nota sintética del equipo de cuidado."}
+        )
+        viewers = {user: self.as_user(user) for user in (self.coord1, self.tutor1, self.pastor, self.admin)}
+        urls = [self.detail, self.url("follow_ups"), self.continue_url]
+
+        def pages():
+            return [masked(client.get(url)) for client in viewers.values() for url in urls]
+
+        marked = pages()
+        self.assertTrue(all("Nota sintética" not in page for page in marked))
+        self.as_user(self.care).post(self.detail, {"status": "pendiente", "assigned_to": self.coord1.pk, "resolution_note": ""})
+        self.assertEqual(pages(), marked)
+        self.go_on(self.coord1)
+        continued = pages()
+        self.as_user(self.care).post(self.detail, {"status": "pendiente", "assigned_to": self.coord1.pk, "resolution_note": "Otra nota."})
+        self.assertEqual(pages(), continued)
