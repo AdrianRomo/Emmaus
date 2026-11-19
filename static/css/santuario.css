@@ -1893,6 +1893,10 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* Where the tab bar is drawn, what the page brings into view (a failure line, a focused field) stops above it */
 @media (max-width: 959px) { :root[data-ui="2"] { scroll-padding-bottom: calc(var(--tabs-h) + var(--s-4) + env(safe-area-inset-bottom, 0px)); } }
 
+/* An event's recent notice under its line: its own link, above the row's or the block's link that covers it */
+.aviso-reciente a { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: var(--s-1); min-height: 2.75rem; margin-block: -0.75rem; color: var(--ink); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+.aviso-reciente .icon { color: var(--ink-2); }
+
 /* What an action in place did, where the thing it acted on was (it left the list): one quiet line with a check */
 .hecho { display: flex; align-items: flex-start; gap: var(--s-2); margin: 0 0 var(--s-4); font-size: var(--t-small); line-height: 1.35; color: var(--ink); }
 .hecho--nota::before { display: none; }

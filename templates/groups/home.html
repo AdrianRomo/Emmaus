@@ -106,6 +106,7 @@
       {% if row.kind == "event" %}
       <h3 class="evento__titulo"><a href="{% url 'agenda:detail' row.event.slug %}?desde=inicio">{{ row.title }}</a></h3>
       <p class="evento__donde">{{ row.event.location }}{% if row.event.ends_on and row.event.ends_on != today %}{% if row.event.location %}, {% endif %}hasta el {{ row.event.ends_on|day_month }}{% endif %}</p>
+      {% include "agenda/_recent_notice.html" with event=row.event desde="inicio" cls="evento__donde" %}
       {% elif row.kind == "group" %}
       <h3 class="evento__titulo"><a href="{{ row.url }}">{{ row.title }}</a></h3>
       <p class="evento__donde">Tu grupo{% if row.place %}, {{ row.place }}{% endif %}</p>
@@ -134,6 +135,7 @@
         {% if row.kind == "event" %}
         <p class="row__title"><a href="{% url 'agenda:detail' row.event.slug %}?desde=inicio">{{ row.title }}</a></p>
         <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>{% if row.time %}{{ row.time|time:"H:i" }}{% if row.event.location %}, {% endif %}{% endif %}{{ row.event.location }}</p>
+        {% include "agenda/_recent_notice.html" with event=row.event desde="inicio" %}
         {% elif row.kind == "group" %}
         <p class="row__title"><a href="{{ row.url }}">{{ row.title }}</a></p>
         <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>Tu grupo{% if row.time %}, {{ row.time|time:"H:i" }}{% endif %}{% if row.place %}, {{ row.place }}{% endif %}</p>

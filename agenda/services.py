@@ -372,7 +372,28 @@ def upcoming_for(person, church, today=None) -> list[Event]:
         event.my_wait = listed.get(event.pk)
         event.my_registration = event.my_place if event.my_place is not None and event.my_place.is_active else None
         event.state = state_of(event, event.page, event.my_place or event.my_wait, event.taken, today)
+    # A change to an event is published as its notice (#101): the event's row says a recent one is there (a
+    # decision under the owner's delegation), never a church notice tied to it by guess
+    recent = recent_notices([event.pk for event in events])
+    for event in events:
+        event.recent_notice = recent.get(event.pk)
     return events
+
+
+RECENT_NOTICE_DAYS = 7
+
+
+def recent_notices(event_ids, now=None) -> dict:
+    """{event id: its newest public notice published in the last RECENT_NOTICE_DAYS days}, already published."""
+    if not event_ids:
+        return {}
+    now = now or timezone.now()
+    latest = {}
+    for notice in EventNotice.objects.filter(
+        event_id__in=event_ids, published_at__lte=now, published_at__gte=now - timedelta(days=RECENT_NOTICE_DAYS)
+    ).order_by("-published_at", "-id"):
+        latest.setdefault(notice.event_id, notice)
+    return latest
 
 
 def my_registrations(person, today=None) -> list[EventRegistration]:

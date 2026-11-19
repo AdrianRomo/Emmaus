@@ -9,6 +9,7 @@
   <div class="row__main">
     <p class="row__title"><a href="{% url 'agenda:detail' event.slug %}">{{ event.name }}</a></p>
     <p class="row__meta"><span class="visually-hidden">{{ event.starts_on|default:event.ends_on|weekday_date }}. </span>{% if event.page.starts_at %}{{ event.page.starts_at|time:"H:i" }}{% if event.location %}, {% endif %}{% endif %}{{ event.location }}{% if event.starts_on and event.ends_on and event.ends_on != event.starts_on %}{% if event.location or event.page.starts_at %}, {% endif %}hasta el {{ event.ends_on|day_month }}{% endif %}</p>
+    {% include "agenda/_recent_notice.html" with event=event %}
   </div>
   <div class="row__end">{% include "groups/_event_state.html" with region="ev-"|add:event.slug %}{% if event.state == "lista" %}{% status "descartada" "Hay lista de espera" %}{% elif event.state == "llena" %}{% status "descartada" "Ya no hay lugares" %}{% endif %}</div>
 </li>

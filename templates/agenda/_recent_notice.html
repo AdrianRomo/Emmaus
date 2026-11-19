@@ -1,0 +1,5 @@
+{% load shell %}{% comment %}
+  An event's newest public notice of the last days, under its line wherever the event is listed for a member
+  (agenda.services.recent_notices): a change to an event is published as its notice (#101), and its row says one is
+  there, linked to it. event: the event (with recent_notice); desde: "inicio" from the home; cls: the line's class.
+{% endcomment %}{% if event.recent_notice %}<p class="{{ cls|default:'row__meta' }} aviso-reciente"><a href="{% url 'agenda:detail' event.slug %}{% if desde %}?desde={{ desde }}{% endif %}#avisos">{% icon "avisos" "sm" %}<span class="visually-hidden">Aviso: </span>{{ event.recent_notice.title }}</a></p>{% endif %}
