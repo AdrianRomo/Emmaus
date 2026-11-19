@@ -24,7 +24,8 @@ administration):
 * Registrations are settled again with ``agenda.services.reevaluate_person`` (``standing`` is the
   one rule) after a merge and after an undo, for both people, so a row never stands on the age
   facts of the other record.
-* The manifest holds ids and, for ``UNDO_DAYS``, the survivor's previous contact values. The undo
+* The manifest holds ids and, for ``UNDO_DAYS``, the survivor's previous contact values (and its previous
+  stage and key dates, when the merge changed them). The undo
   puts back exactly the rows it moved that still point at the survivor and says what it could not.
 """
 
@@ -51,6 +52,24 @@ from .services import PeopleError
 
 UNDO_DAYS = 30
 CONTACT_FIELDS = ("email", "phone", "preferred_contact_method")
+# The administration's label and the key dates: the survivor keeps its own, takes the other record's when it has
+# none, and when the two disagree the administrator picks one of the two values, exactly as for the contact fields.
+# Never the date of birth, which is not a field of a merge at all.
+EXTRA_FIELDS = ("stage", "baptized_on", "arrived_on", "member_since")
+CHOICE_FIELDS = CONTACT_FIELDS + EXTRA_FIELDS
+DATE_FIELDS = frozenset({"baptized_on", "arrived_on", "member_since", "stage_changed_on"})
+EXTRA_LABELS = {"stage": "Etapa", "baptized_on": "Se bautizó el", "arrived_on": "Llegó a la iglesia el", "member_since": "Es miembro desde"}
+
+
+def _stored(name: str, value):
+    """A value as the manifest keeps it (JSON): a date as its ISO text."""
+    return value.isoformat() if name in DATE_FIELDS and value is not None else value
+
+
+def _restored(name: str, value):
+    from datetime import date
+
+    return date.fromisoformat(value) if name in DATE_FIELDS and value else value
 
 
 class MergeRefused(PeopleError):
@@ -280,7 +299,12 @@ def _may_be_minor_or_has_consent(person: Person) -> bool:
 def _display(person: Person, name: str) -> str:
     if name == "preferred_contact_method":
         return person.get_preferred_contact_method_display()
-    return getattr(person, name)
+    if name == "stage":
+        return person.get_stage_display() if person.stage else ""
+    value = getattr(person, name)
+    if name in DATE_FIELDS:
+        return value.strftime("%d/%m/%Y") if value else ""
+    return value
 
 
 def _same(name: str, a: str, b: str) -> bool:
@@ -298,6 +322,7 @@ def _token(survivor: Person, absorbed: Person) -> str:
             person.birth_date.isoformat() if person.birth_date else None,
             person.birth_date_verified_at.isoformat() if person.birth_date_verified_at else None,
             person.user_id, person.merged_into_id,
+            person.stage, *[_stored(name, getattr(person, name)) for name in sorted(DATE_FIELDS)],
         ]
         for person in (survivor, absorbed)
     ]
@@ -470,6 +495,17 @@ def _build(church, survivor: Person, absorbed: Person) -> Preview:
         else:
             state = "choose"
         preview.fields.append(FieldRow(name, labels[name], _display(survivor, name), _display(absorbed, name), state))
+    for name in EXTRA_FIELDS:
+        own, other = getattr(survivor, name), getattr(absorbed, name)
+        if not own and not other:
+            continue  # nothing to say: neither record has it
+        if not other or own == other:
+            state = "same" if other else "keeps"
+        elif not own:
+            state = "fills"
+        else:
+            state = "choose"
+        preview.fields.append(FieldRow(name, EXTRA_LABELS[name], _display(survivor, name), _display(absorbed, name), state))
 
     # ---- roles: derived from the memberships, never copied. Said before, because an account gains them.
     if preview.account != "none":
@@ -570,9 +606,13 @@ def merge(church, survivor_id: int, absorbed_id: int, actor, *, choices: dict[st
                     changes[row.name] = getattr(absorbed, row.name)
                 elif row.state == "choose":
                     if choices.get(row.name) not in (survivor.pk, absorbed.pk):
+                        if row.name in EXTRA_FIELDS:
+                            raise MergeRefused([f"Elige qué dato se queda en «{row.label}»."])
                         raise MergeRefused([f"Elige cuál {row.label.lower()} se queda."])
                     if choices[row.name] == absorbed.pk:
                         changes[row.name] = getattr(absorbed, row.name)
+            if "stage" in changes:  # the stage arrives with the day somebody set it on the other record
+                changes["stage_changed_on"] = absorbed.stage_changed_on
 
             manifest = {
                 "version": 1,
@@ -583,7 +623,7 @@ def merge(church, survivor_id: int, absorbed_id: int, actor, *, choices: dict[st
                 "closed_requests": [],
                 "fields_changed": sorted(changes),
                 # The only contact data kept, and only while the undo is possible (``clear_expired``).
-                "survivor_before": {name: getattr(survivor, name) for name in sorted(changes)},
+                "survivor_before": {name: _stored(name, getattr(survivor, name)) for name in sorted(changes)},
             }
             if preview.demote:
                 CampusAffiliation.objects.filter(pk__in=preview.demote, person=absorbed).update(is_primary=False)
@@ -626,6 +666,10 @@ def merge(church, survivor_id: int, absorbed_id: int, actor, *, choices: dict[st
                 written.append("user")
             if written:
                 survivor.save(update_fields=[*written, "updated_at"])
+            if "stage" in changes:  # a stage never changes without its own row: ids and the two words
+                record_church(church, actor, "persona_etapa", "Cambió la etapa de una persona al unir dos registros", survivor,
+                              person_id=survivor.pk, previous=manifest["survivor_before"]["stage"] or "sin_etapa",
+                              value=survivor.stage or "sin_etapa")
             rebuild_roles(absorbed.pk)
             rebuild_roles(survivor.pk)
             # The rows that arrived stand now by the survivor's age facts (``agenda.services.standing``).
@@ -681,13 +725,22 @@ def undo(church, merge_id: int, actor) -> PersonMerge:
         # A contact value goes back only if the survivor still has the one the merge gave it.
         before = manifest.get("survivor_before") or {}
         for name in manifest.get("fields_changed", []):
+            if name == "stage_changed_on":
+                continue  # goes back with the stage, below, or not at all
             if name in before and getattr(survivor, name) == getattr(absorbed, name):
-                setattr(survivor, name, before[name])
+                setattr(survivor, name, _restored(name, before[name]))
                 survivor_writes.append(name)
+                if name == "stage" and "stage_changed_on" in before:
+                    survivor.stage_changed_on = _restored("stage_changed_on", before["stage_changed_on"])
+                    survivor_writes.append("stage_changed_on")
             else:
                 report["fields_not_restored"].append(name)
+        stage_before = Person.objects.filter(pk=survivor.pk).values_list("stage", flat=True).first() or ""
         if survivor_writes:
             survivor.save(update_fields=[*survivor_writes, "updated_at"])
+        if "stage" in survivor_writes:
+            record_church(church, actor, "persona_etapa", "Cambió la etapa de una persona al deshacer una unión", survivor,
+                          person_id=survivor.pk, previous=stage_before or "sin_etapa", value=survivor.stage or "sin_etapa")
         absorbed.merged_into = None
         if moved_user_id is not None:
             absorbed.user_id = moved_user_id
@@ -793,7 +846,9 @@ def undo_report_lines(record: PersonMerge) -> list[str]:
     lines = Preview._counted(report.get("not_restored", {}))
     if report.get("account_not_restored"):
         lines.append("el acceso a Emmaus: la cuenta ya no estaba en la persona que se quedó")
-    labels = {"email": "el correo", "phone": "el teléfono", "preferred_contact_method": "el medio de contacto preferido"}
+    labels = {"email": "el correo", "phone": "el teléfono", "preferred_contact_method": "el medio de contacto preferido",
+              "stage": "la etapa", "baptized_on": "la fecha de bautismo", "arrived_on": "la fecha en que llegó a la iglesia",
+              "member_since": "la fecha desde la que es miembro"}
     for name in report.get("fields_not_restored", []):
         lines.append(f"{labels.get(name, name)} de la persona que se quedó: alguien lo cambió después de la unión, o ya se había borrado el dato anterior")
     if report.get("private_not_restored"):

@@ -39,7 +39,7 @@ from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp,
 from feedback.models import FeedbackGiven
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
-from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
+from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge, PersonTag
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
 from serving.models import Assignment, Team, TeamMembership
 from sitio.models import PublicMedia
@@ -101,6 +101,10 @@ def community_checks() -> tuple[Check, ...]:
               ~Q(survivor__church=F("church")) | ~Q(absorbed__church=F("church"))),
         Check("duplicate_dismissal_church", "Pares descartados como duplicado con una persona de otra iglesia",
               DuplicateDismissal, None, ~Q(person_a__church=F("church")) | ~Q(person_b__church=F("church"))),
+        Check("person_tag_church", "Personas con una etiqueta de otra iglesia", PersonTag, None,
+              ~Q(tag__church=F("person__church"))),
+        Check("person_import_church", "Personas creadas por una importación de otra iglesia", Person,
+              Q(imported_in__isnull=False), ~Q(imported_in__church=F("church"))),
         # A record that was merged away is hidden: nothing live may point at it. A writer that read the person
         # before the merge and wrote after it is the only way to get one; the merge itself leaves none.
         Check("merged_person_group_membership", "Integrantes activos de un grupo que son un registro ya unido a otro",
