@@ -28,7 +28,7 @@
     </section>
     <section class="form-section" aria-labelledby="en-la-iglesia">
       <h2 id="en-la-iglesia" class="form-section__title">En la iglesia</h2>
-      {% include "partials/ui/field.html" with field=form.stage %}
+      {% if form.stage %}{% include "partials/ui/field.html" with field=form.stage %}{% endif %}
       {% include "partials/ui/field.html" with field=form.baptized_on %}
       {% include "partials/ui/field.html" with field=form.arrived_on %}
       {% include "partials/ui/field.html" with field=form.member_since %}

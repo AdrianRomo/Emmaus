@@ -19,7 +19,7 @@
       <div class="row__main">
         <p class="row__title"><a href="{% url 'events:home' event.slug %}">{{ event.name }}</a></p>
         <p class="row__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% if event.location %}, {% endif %}{% endif %}{{ event.location }}</p>
-        <p class="row__meta">{{ row.access.role_label }}</p>
+        <p class="row__meta">{{ row.access.role_label }}{% if row.other_church %}. Es un evento de {{ row.other_church.name }}{% endif %}</p>
       </div>
       <div class="row__end">
         {% if event.status == "archivado" %}{% status "archivado" event.get_status_display %}{% elif event.status == "cerrado" %}{% status "completada" "Terminó" %}{% elif event.ends_on|default:event.starts_on and event.ends_on|default:event.starts_on|date:"Y-m-d" < today %}{% status "completada" "Terminó" %}{% elif event.status == "activo" and event.starts_on and event.starts_on|date:"Y-m-d" > today %}{% status "pendiente" "Próximo" %}{% elif event.status == "activo" %}{% status "en_curso" event.get_status_display %}{% else %}{% status "pendiente" event.get_status_display %}{% endif %}

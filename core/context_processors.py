@@ -92,10 +92,11 @@ def current_role(request):
 
         context["ui_v2"] = True
         context["shell"] = build_shell(request, context["shell_church"], module_items, context["show_events_link"])
-    elif context["show_events_link"] and (event_church := _event_church(request)) is not None:
+    elif where.church is None and context["show_events_link"] and (event_church := _event_church(request)) is not None:
         # An account that only works in events has no church of its own. Its pages wear the look of the church
         # that holds the event, with a rail that lists its events and, inside one, the event's pages: the same
-        # product for the whole team, whoever is a person of the church and whoever is not.
+        # product for the whole team, whoever is a person of the church and whoever is not. An account that acts in
+        # a church (core.tenancy) keeps that church's screens: with the module off there, the bar it always had.
         from .shell import build_event_shell
 
         context["ui_v2"] = True
@@ -141,12 +142,15 @@ def _event_church(request) -> Church | None:
     from events.access import accessible_events
     from people.flags import enabled
 
+    def wears(church) -> bool:  # a closed church offers nothing (core.tenancy): not its look either
+        return church.active and enabled(church, "community")
+
     access = getattr(request, "access", None)
     if access is not None:
         church = access.event.church
-        return church if enabled(church, "community") else None
+        return church if wears(church) else None
     for event in accessible_events(request.user).select_related("church").order_by("-starts_on", "id")[:10]:
-        if enabled(event.church, "community"):
+        if wears(event.church):
             return event.church
     return None
 
