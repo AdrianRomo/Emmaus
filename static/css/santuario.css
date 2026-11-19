@@ -2230,6 +2230,9 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .spaces .page-head__meta.row__meta--con-marca { display: flex; align-items: baseline; gap: var(--s-2); }
 .page--app .spaces .page-head + .aside-note, .page--app .spaces .aside-note + .notice, .page--app .spaces .page-head + .notice { margin-top: var(--s-4); }
 .page--app .spaces .notice + form, .page--app .spaces .notice + .block { margin-top: var(--s-6); }
+.page--app .spaces .aside-note + .block { margin-top: var(--s-8); }
+/* Ending a series: quiet words under their sentence, starting where the sentence starts */
+:root[data-ui="2"] .spaces .override > .btn--link { margin: var(--s-1) 0 0 -0.75rem; }
 /* A role's «Personas por fecha»: a short number with its label beside it, on the role's line */
 :root[data-ui="2"] .serving .role-edit__n { display: flex; align-items: center; gap: var(--s-2); margin-block: var(--s-1); }
 :root[data-ui="2"] .serving .role-edit__n > .label { margin: 0; font-weight: 430; color: var(--ink-2); }

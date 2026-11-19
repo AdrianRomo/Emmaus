@@ -384,6 +384,14 @@ class EventSeriesLinkTests(SeriesFixture):
         self.assertEqual(repeticion.generate(series), 1)
         self.assertTrue(BookingSeriesDay.objects.filter(series=series, day=second.day, outcome=Outcome.BOOKED).exists())
 
+    def test_a_date_called_off_after_its_booking_keeps_the_room_and_the_page_says_to_look(self):
+        followed = self.event_series()
+        series = self.approved(event_series=followed)
+        event_series.call_off(SeriesOccurrence.objects.filter(series=followed).order_by("day")[1], self.admin)
+        self.assertEqual(self.bookings(series).filter(status=Booking.Status.APPROVED).count(), WEEKS)
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(url("series", series)), "el espacio sigue apartado", count=1)
+
     def test_only_the_dates_until_the_last_day(self):
         followed = self.event_series()
         series = self.approved(event_series=followed, weeks=2)

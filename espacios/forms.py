@@ -83,14 +83,13 @@ class BookingForm(TuErrorMessagesMixin, forms.Form):
     repeat = forms.TypedChoiceField(label="¿Se repite?", choices=REPEATS, coerce=int, empty_value=0, initial=0, required=False)
     until = forms.DateField(
         label="Hasta qué día", required=False, widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
-        help_text="Solo si se repite. A lo más seis meses desde hoy.",
         error_messages={"invalid": "Elige un día del calendario."},
     )
     event_series = forms.ModelChoiceField(
         label="Serie de eventos", queryset=EventSeries.objects.none(), required=False, empty_label="Ninguna",
         help_text=(
             "Si la eliges, el espacio se aparta en cada fecha de esa serie, a la hora en que empieza cada una, hasta el día que "
-            "digas abajo. De las horas de arriba solo se toma cuánto dura. Solo lo ve la administración."
+            "digas aquí arriba. De las horas de la reserva solo se toma cuánto dura. Solo lo ve la administración."
         ),
     )
 

@@ -64,8 +64,8 @@
             {% date_block day.date %}
             <div class="row__main">
               <p class="row__title"{% if assignment.status == "pendiente" or not assignment.can_change %} data-inline-focus tabindex="-1"{% endif %}>{{ day.what }}</p>
-              {% if assignment.called_off %}<p class="row__meta">Ese día no hay: la fecha se canceló. No hace falta que respondas.</p>{% endif %}
               <p class="row__meta"><span class="visually-hidden">{% if day.date == today %}Hoy{% else %}{{ day.date|weekday_date|capfirst }}{% endif %}. </span>Equipo {{ day.team.name }}{% if day.starts_at %}, {{ day.starts_at|time:"H:i" }}{% endif %}{% if day.place %}, {{ day.place }}{% endif %}{% if assignment.role %}. Tu rol: {{ assignment.role.name }}{% endif %}</p>
+              {% if assignment.called_off %}<p class="row__meta">Ese día no hay: la fecha se canceló. No hace falta que respondas.</p>{% endif %}
               {% if assignment.swap %}<p class="row__meta">Le pediste el cambio a {{ assignment.swap.to_person.first_name }}. Mientras no acepte, la fecha sigue siendo tuya.</p>{% endif %}
               {% if assignment.has_plan or assignment.can_swap %}<p class="row__contact">{% if assignment.has_plan %}<a href="{% url 'serving:plan' day.pk %}">Ver el orden<span class="visually-hidden"> del {{ day.date|weekday_date }}</span></a>{% endif %}{% if assignment.can_swap %}<a href="{% url 'serving:swap_create' assignment.pk %}">Pedir un cambio<span class="visually-hidden"> para el {{ day.date|weekday_date }}</span></a>{% endif %}</p>{% endif %}
             </div>

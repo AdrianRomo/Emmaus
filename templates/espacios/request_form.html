@@ -47,7 +47,7 @@
     </fieldset>
     <fieldset class="form-section" aria-describedby="ayuda-repetir">
       <legend class="form-section__title">Si se repite</legend>
-      <p class="hint" id="ayuda-repetir">El mismo día de la semana y las mismas horas, desde el día de arriba. {% if request.is_church_admin or not space.needs_approval %}Cada fecha se aparta solo si el horario está libre.{% else %}La administración la aprueba una sola vez, completa.{% endif %}</p>
+      <p class="hint" id="ayuda-repetir">El mismo día de la semana y las mismas horas, desde el día de arriba y hasta el día que digas: a lo más seis meses desde hoy. {% if request.is_church_admin or not space.needs_approval %}Cada fecha se aparta solo si el horario está libre.{% else %}La administración la aprueba una sola vez, completa.{% endif %}</p>
       <div class="spaces__pair">
         {% include "partials/ui/field.html" with field=form.repeat %}
         {% include "partials/ui/field.html" with field=form.until %}
