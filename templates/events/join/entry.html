@@ -6,13 +6,14 @@
   /e/<code>/, the event's public page. Someone with access never sees it (they go to their home); anyone
   else can ask to join. Only tutor and coordinador can be asked for: pastors and administration are added
   by hand. Signed in, the e-mail is the account's and cannot be changed here. A closed event takes no requests.
+  The title is the event and the line under it its church and dates; the button says what the form does.
 {% endcomment %}
 <div class="auth-card">
 {% if closed %}
   {% include "events/rotulo/_page_head.html" with title=join_event.name lede="Este evento ya terminó." meta=meta %}
 {% else %}
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% include "events/rotulo/_page_head.html" with title=join_event.name lede="Pide acceso al equipo. La administración del evento revisará tu solicitud." meta=meta %}
+  {% include "events/rotulo/_page_head.html" with title=join_event.name meta=meta %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/field.html" with field=form.full_name %}
@@ -35,11 +36,9 @@
       <button class="btn btn--primary btn--large" type="submit">Pedir acceso</button>
     </div>
   </form>
-  {% if not user.is_authenticated %}
-    <div class="notice notice--quiet">
-      <p>¿Ya tienes cuenta? <a href="{% url 'login' %}?next={{ request.path|urlencode }}">Entra y vuelve a esta página.</a></p>
-    </div>
-  {% endif %}
 {% endif %}
 </div>
+{% if not closed and not user.is_authenticated %}<div class="auth-card door-foot mt-8">
+  <p class="aside-note">¿Ya tienes cuenta? <a href="{% url 'login' %}?next={{ request.path|urlencode }}">Entra y vuelve a esta página.</a></p>
+</div>{% endif %}
 {% endblock %}

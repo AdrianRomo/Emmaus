@@ -566,8 +566,13 @@ def suppress(value: int | None, k: int, *, hide_zero: bool = False) -> dict:
 
 def outcome_counts(event: Event) -> dict:
     """Raw counts per choice question of each questionnaire the event uses (completed interviews only):
-    ``{str(questionnaire_id): {question.code: {"respondents": n, "options": {option.code: n}}}}``. Keyed by
-    questionnaire because two questionnaires may share question codes. No questionnaire: ``{}``.
+    ``{str(questionnaire_id): {question.code: {"respondents": n, "options": {option.code: n}, "declined": n}}}``.
+    Keyed by questionnaire because two questionnaires may share question codes. No questionnaire: ``{}``.
+
+    ``respondents`` counts substantive answers only: neither a blank (no row) nor «Prefiero no responder» (the
+    decline option, or ``Answer.declined``) is an answer. ``declined`` counts the declines, its own bucket; a decline
+    option keeps its count under ``options`` too. Cutoffs saved before this have no ``declined`` and counted declines
+    among the respondents; they stay as they were saved.
 
     Never rendered directly: snapshots store a *released* copy (see reports.release_cells)
     and templates show it through ``present_outcomes``.
@@ -583,9 +588,12 @@ def outcome_counts(event: Event) -> dict:
                 continue
             answers = Answer.objects.filter(interview__in=completed, question=question)
             option_counts = dict(answers.values_list("options__code").annotate(n=Count("id", distinct=True)))
+            declines = answers.filter(Q(declined=True) | Q(options__is_decline=True)).values("id").distinct()
+            declined = declines.count()
             counts[question.code] = {
-                "respondents": answers.count(),
+                "respondents": answers.exclude(id__in=declines).count(),
                 "options": {option.code: option_counts.get(option.code, 0) for option in question.options.all()},
+                "declined": declined,
             }
         result[str(link.questionnaire_id)] = counts
     return result
@@ -639,11 +647,18 @@ def present_outcomes(event: Event, released: dict | None, *, k: int | None = Non
             if counts is None:
                 continue
             respondents = counts.get("respondents", 0)
+            # The answers' options, with their bars over the respondents. «Prefiero no responder» is not one of them:
+            # it is said apart, beside the respondents (``declined``), and never widens a bar's total.
             rows = [
-                {"label": option.label, "code": option.code, "decline": option.is_decline,
+                {"label": option.label, "code": option.code, "decline": False,
                  **suppress(counts["options"].get(option.code, 0), k, hide_zero=True)}
                 for option in question.options.all()
+                if not option.is_decline
             ]
+            declined = counts.get("declined")
+            if declined is None:  # a cutoff saved before declines were counted apart: its decline option's count
+                own = next((option for option in question.options.all() if option.is_decline), None)
+                declined = counts["options"].get(own.code) if own else None
             enough = respondents >= 2 * k
             results.append(
                 {
@@ -652,6 +667,7 @@ def present_outcomes(event: Event, released: dict | None, *, k: int | None = Non
                     "kind": question.kind,
                     "sensitivity": question.sensitivity,
                     "respondents": suppress(respondents, k, hide_zero=True),
+                    "declined": suppress(declined, k, hide_zero=True) if declined is not None and enough else None,
                     "rows": rows if enough else [],
                     "withheld": not enough,
                     "questionnaire_id": link.questionnaire_id,

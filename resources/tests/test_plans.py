@@ -97,7 +97,9 @@ class ReadingTests(PlansFixture):
         self.assertEqual(html.count("<h1"), 1)
         self.assertContains(page, '<h1 class="voice page-head__title">Título del día 1</h1>', html=True)
         self.assertContains(page, "Tres días en Juan, día 1 de 3.")
-        self.assertContains(page, "Lectura: Juan 15:1. Léela en tu Biblia: aquí va solo la cita.")
+        # The reference is the day's verse (.verso); the passage itself is read in the person's own Bible
+        self.assertContains(page, '<p class="verso devocional__verso"><span class="visually-hidden">Lectura: </span>Juan 15:1</p>', html=True)
+        self.assertContains(page, "Léela en tu Biblia: aquí va solo la cita.")
         self.assertContains(page, "<p>Lo da porque está unida a la vid.</p>")
         self.assertContains(page, "Para pensar")
         self.assertContains(page, "Ya lo leí</button>")
@@ -110,7 +112,7 @@ class ReadingTests(PlansFixture):
         for _ in range(2):  # twice: the second one changes nothing
             response = self.client.post(url("day_read", plan, 1), follow=True)
             self.assertRedirects(response, url("day", plan, 1))
-            self.assertContains(response, "Ya lo leíste.")
+            self.assertContains(response, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Leído</span>', count=1)
             self.assertNotContains(response, "Ya lo leí</button>")
         self.assertEqual(ReadingPlanDayRead.objects.count(), 1)
         self.assertEqual(self.client.get(url("day_read", plan, 1)).status_code, 405)
@@ -188,7 +190,7 @@ class ReadingTests(PlansFixture):
         self.read(plan, self.member, 1)
         page = self.client.get(HOME)
         self.assertContains(
-            page, f'<p class="more"><a href="{url("day", plan, 2)}">Continuar: Tres días en Juan, día 2</a></p>', html=True
+            page, f'<a href="{url("day", plan, 2)}">Continuar: Tres días en Juan, día 2</a>', html=True
         )
         self.assertEqual(plans.current_for(self.church, self.member), (plan, 2))
         self.assertIsNone(plans.current_for(self.church, self.leader))
@@ -353,7 +355,7 @@ class WritingTests(PlansFixture):
 
     def test_the_administration_writes_a_plan_and_asks_and_a_pastor_publishes_it(self):
         self.client.force_login(self.admin)
-        self.assertContains(self.client.get(ADMIN), "Todavía no hay planes de lectura.")
+        self.assertContains(self.client.get(ADMIN), '<p class="empty__title">Todavía no hay planes de lectura</p>')
         response = self.client.post(CREATE, {"title": "Plan nuevo", "description": "De qué trata.", "author_line": "Preparado por el equipo pastoral."})
         plan = ReadingPlan.objects.get()
         self.assertRedirects(response, url("days", plan))
@@ -460,7 +462,8 @@ class WritingTests(PlansFixture):
         # A draft again, but one that was published: its days stay, and so does what people marked.
         days_are_kept()
         page = self.client.get(url("days", plan))
-        self.assertContains(page, "Fuera de publicación: nadie lo ve, tampoco quien ya lo había empezado (sus marcas se conservan).")
+        self.assertContains(page, "Fuera de publicación")
+        self.assertContains(page, "Nadie lo ve, tampoco quien ya lo había empezado (sus marcas se conservan).")
         self.assertContains(page, "cambió después de publicarse y esos cambios no los ha aprobado un pastor")
         self.assertNotContains(page, "Retirar el plan")
         self.assertRedirects(self.client.post(url("edit", plan), {"title": "Otro título", "description": "", "author_line": ""}), url("days", plan))

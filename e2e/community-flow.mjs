@@ -63,10 +63,26 @@ function expect(condition, message) {
   if (!condition) problems.push(message);
 }
 
+// Pressing a button or a link. A form that acts in place (form[data-inline]) changes its region without a new page:
+// wait until nothing is busy and the region has settled; anything else is a page load. Either way the step ends
+// with the page as the person sees it.
+async function act(page, selector) {
+  const target = page.locator(selector).first();
+  const inPlace = await target.evaluate((node) => !!node.closest("form[data-inline]"));
+  if (!inPlace) {
+    await Promise.all([page.waitForNavigation(), target.click()]);
+    return;
+  }
+  await target.click();
+  await page.waitForFunction(() => !document.querySelector("[aria-busy='true']"), null, { timeout: 15000 });
+  await page.waitForLoadState("load");
+  await page.waitForTimeout(200);  // the region's crossfade
+}
+
 // 1. The former campero, on a phone: home, groups, ask to join.
 let { ctx, page } = await session("valeria.soto@demo.invalid", PHONE);
 expect(new URL(page.url()).pathname === "/mi-iglesia/", `member lands on ${page.url()}, not on /mi-iglesia/`);
-expect(await page.locator("h1").innerText() === "Hola, Valeria.", "home greeting");
+expect(await page.locator("h1").innerText() === "Hoy", "the home is today");
 expect(await page.getByText("Campamento de Jóvenes 2025").count() > 0, "home shows the camp she was part of");
 await audit(page, "miembro-inicio");
 await page.setViewportSize(PHONE);
@@ -99,11 +115,13 @@ expect(await page.locator("main").getByText("Nuevo", { exact: true }).count() ==
 await audit(page, "miembro-avisos");
 // The devotional of the day: she reads it and says so; the mark is hers alone.
 await page.goto(BASE + "/mi-iglesia/");
-await Promise.all([page.waitForNavigation(), page.click(".meeting__title a:has-text('Permanecer')")]);
+await Promise.all([page.waitForNavigation(), page.click("section[aria-labelledby=devocional] .row__title a:has-text('Permanecer')")]);
 await audit(page, "miembro-devocional");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Ya lo leí')")]);
-expect(await page.locator("main").getByText("Ya lo leíste.").count() > 0, "reading the devotional is confirmed");
+// The mark may act in place or reload the page: either way the button becomes the word «Leído»
+await page.click("button:has-text('Marcar como leído')");
+await page.waitForSelector(".reading__done:has-text('Leído')");
+expect(await page.locator("button:has-text('Marcar como leído')").count() === 0, "reading the devotional is confirmed");
 await page.goto(BASE + "/mi-iglesia/recursos/");
 expect(await page.locator("main a[href^='https://www.youtube.com']").getAttribute("rel") === "noopener noreferrer", "a resource opens on the other site, without a referrer");
 await audit(page, "miembro-recursos");
@@ -113,12 +131,13 @@ expect(await page.locator("main").getByText("todavía no publica planes de lectu
 await audit(page, "miembro-planes");
 // Serving: her team asked her for a date; she confirms it from the phone.
 await page.goto(BASE + "/mi-iglesia/");
-expect(await page.getByText("Tus fechas para servir").count() > 0, "the home shows the date her team asked for");
+expect(await page.locator("main").getByText(/¿Puedes servir el/).count() > 0, "the home asks for the date her team asked for");
 await page.goto(BASE + "/mi-iglesia/servir/");
 await audit(page, "miembro-servir");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Confirmar')")]);
-expect(await page.locator("main").getByText("Confirmaste").count() > 0, "confirming a date is said back");
+await act(page, "main button:has-text('Sí, puedo')");
+expect(await page.locator("main").getByText("Confirmaste").count() > 0, "confirming a date is said back, in place");
+expect(await page.locator("main button:has-text('Ya no puedo')").count() > 0, "the other answer stays at hand");
 expect((await page.goto(BASE + "/mi-iglesia/servir/equipos/1/")).status() === 403, "who serves cannot open the team's page");
 expect((await page.goto(BASE + "/mi-iglesia/acompanar/1/")).status() === 403, "a follow-up is closed to who does not own it");
 // An event the church published: she signs up from the phone.
@@ -129,21 +148,21 @@ await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".row__title a:has-text('Noche de alabanza')")]);
 await audit(page, "miembro-evento");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Inscribirme')")]);
-expect(await page.locator("main").getByText("Te inscribiste.").count() > 0, "signing up is confirmed on the page");
+await act(page, "main button:has-text('Inscribirme')");
+expect(await page.locator("main").getByText("Te inscribiste").count() > 0, "signing up is confirmed on the page");
 await audit(page, "miembro-evento-inscrita");
 await page.goto(BASE + "/mi-iglesia/");
-expect(await page.locator(".dates").getByText("Te inscribiste").count() > 0, "the home says she signed up");
+expect(await page.locator("main").getByText("Te inscribiste").count() > 0, "the home says she signed up");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click(".sign a:has-text('Ver los grupos')")]);
+await act(page, "main a:has-text('Encuentra tu grupo')");
 await audit(page, "miembro-grupos");
 await page.setViewportSize(PHONE);
 await Promise.all([page.waitForNavigation(), page.click(".row__title a:has-text('Jóvenes Roca')")]);
 expect(await page.getByText("Salón 2 de la iglesia").count() === 0, "the meeting place is hidden from a non-member");
 await audit(page, "miembro-grupo-antes");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click("button:has-text('Pedir unirme')")]);
-expect(await page.getByText("Ya pediste unirte.").count() > 0, "request confirmed on screen");
+await act(page, "button:has-text('Pedir unirme')");
+expect(await page.getByText("Ya pediste unirte.").count() > 0, "request confirmed on screen, in place");
 expect(await page.getByText("le avisamos por correo").count() === 0, "no e-mail is claimed when none can be sent");
 await audit(page, "miembro-grupo-pedido");
 for (const path of ["/mi-iglesia/personas/", "/mi-iglesia/grupos/administrar/", "/mi-iglesia/eventos/administrar/", "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/"]) {
@@ -154,14 +173,15 @@ await ctx.close();
 
 // 2. The guide: the panel names the pending requests; accept Valeria.
 ({ ctx, page } = await session("guia.grupo@demo.invalid", DESKTOP));
-expect((await page.locator(".sign__title").innerText()).startsWith("¿Recibes a 2 personas"), "guide's next step");
+const asks = await page.locator(".ask .sign__title").allInnerTexts();
+expect(asks.length === 2 && asks.some((t) => t.startsWith("Valeria Soto Marín quiere unirse")), `each request raised on its own card: ${asks.join(" | ")}`);
 expect(await page.locator(".rail__nav").isVisible() && await page.locator(".tabs").isHidden(), "wide screens get the rail, not the tabs");
 expect((await page.locator(".rail .rail__link:has-text('Jóvenes Roca') .badge").textContent()).trim().startsWith("2"), "the rail counts what waits in her group");
 await audit(page, "guia-inicio");
-await Promise.all([page.waitForNavigation(), page.click("a:has-text('Ver solicitudes')")]);
+await act(page, ".ask:has-text('Valeria Soto Marín') a:has-text('Ver solicitud')");
 await audit(page, "guia-personas");
-await Promise.all([page.waitForNavigation(), page.click("li:has-text('Valeria Soto') button[value=aceptar]")]);
-expect(await page.getByText("Valeria Soto Marín ya es parte de Jóvenes Roca.").count() > 0, "acceptance message");
+await act(page, "li:has-text('Valeria Soto') button[value=aceptar]");
+expect(await page.locator("main .hecho").getByText("Valeria Soto Marín ya es parte de Jóvenes Roca.").count() > 0, "acceptance leaves its line where the request was");
 // He coordinates a team and was asked to accompany somebody: both are under "A tu cargo".
 await page.goto(BASE + "/mi-iglesia/servir/equipos/1/");
 expect(await page.locator("main").getByText("1 de 1 confirmaron").count() > 0, "the coordinator reads who confirmed");
@@ -191,10 +211,10 @@ await ctx.close();
 
 // 3. Valeria again: her group, the next meeting, and now the place.
 ({ ctx, page } = await session("valeria.soto@demo.invalid", PHONE));
-expect(await page.getByText("Próxima reunión: jueves").count() > 0, "home shows the next meeting");
+expect(await page.locator("main").getByText(/Se reúne el jueves/).count() > 0, "home shows the next meeting");
 await audit(page, "miembro-inicio-con-grupo");
 await page.setViewportSize(PHONE);
-await Promise.all([page.waitForNavigation(), page.click(".dates .row__title a:has-text('Jóvenes Roca')")]);
+await act(page, "main .row__title a:has-text('Jóvenes Roca')");
 expect(await page.getByText("Salón 2 de la iglesia").count() > 0, "a member sees where the group meets");
 await audit(page, "miembro-grupo-despues");
 // "Mis datos": she corrects how the church reaches her, and the home stops asking.
@@ -287,7 +307,7 @@ expect(await page.getByText("Renata Aguilar").count() === 0, "a campero is not a
 await page.goto(BASE + "/mi-iglesia/personas/desde-un-evento/jovenes-2025/");
 await Promise.all([page.waitForNavigation(), page.click("li:has-text('Renata Aguilar Cruz') button")]);
 await page.goto(BASE + "/mi-iglesia/personas/?q=renata");
-await Promise.all([page.waitForNavigation(), page.click("a.row__link:has-text('Renata Aguilar Cruz')")]);
+await act(page, "main .row__title a:has-text('Renata Aguilar Cruz')");
 expect(await page.getByText("Su mamá, papá o tutor está de acuerdo").count() === 0, "no access form before there is an e-mail");
 await audit(page, "admin-persona");
 await page.goto(BASE + "/mi-iglesia/grupos/administrar/");
@@ -335,7 +355,10 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   await audit(guide.page, "guia-espacios");
   await guide.page.setViewportSize(PHONE);
   const weekPath = await guide.page.locator("main .row__title a:has-text('Salón 2')").getAttribute("href");
-  await Promise.all([guide.page.waitForNavigation(), guide.page.click("main li:has-text('Salón 2') a:has-text('Pedir')")]);
+  // A row of the list opens the week of its space; who may ask finds the page's one filled action there.
+  await Promise.all([guide.page.waitForNavigation(), guide.page.click("main .row__title a:has-text('Salón 2')")]);
+  expect(await guide.page.locator("main a.btn--primary").count() === 1, "the week of a space has one filled action for who may ask");
+  await Promise.all([guide.page.waitForNavigation(), guide.page.click("main a:has-text('Pedir este espacio')")]);
   await audit(guide.page, "guia-espacio-pedir");
   await guide.page.setViewportSize(PHONE);
   await guide.page.fill("input[name=title]", "Ensayo de prueba");
@@ -354,6 +377,7 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   expect(await member.page.locator("main a:has-text('Pedir')").count() === 0, "a member is not offered to ask for a space");
   await audit(member.page, "miembro-espacios");
   await member.page.goto(BASE + weekPath + "?semana=" + day);
+  expect(await member.page.locator("main a:has-text('Pedir')").count() === 0, "nor in the week of a space, where who may ask finds it");
   const busy = member.page.locator(`section[aria-labelledby='dia-${day}']`);
   expect(await busy.getByText("Ocupado", { exact: true }).count() === 1 && await busy.getByText("De 10:00 a 11:00.").count() === 1, "a member reads «Ocupado» and the hours");
   expect(await member.page.getByText("Ensayo de prueba").count() === 0 && await member.page.getByText("Gabriel").count() === 0, "a member reads neither the title nor who asked");
@@ -367,8 +391,12 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   await Promise.all([admin.page.waitForNavigation(), admin.page.click("main a:has-text('Solicitudes de reserva')")]);
   expect(await admin.page.locator("main li:has-text('Salón 2: Ensayo de prueba')").getByText("La pidió Gabriel Ortega Luna.").count() === 1, "the administration reads the request and who asked");
   await audit(admin.page, "admin-espacios-solicitudes");
-  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main li:has-text('Ensayo de prueba') button:has-text('Aprobar')")]);
-  expect(await admin.page.getByText("Aprobaste la reserva de Salón 2").count() > 0, "approving is said back");
+  // Approving a request that overlaps nothing acts in place: the row leaves, a line keeps the trace where it was.
+  const queueUrl = admin.page.url();
+  await act(admin.page, "main li:has-text('Ensayo de prueba') button:has-text('Aprobar')");
+  expect(admin.page.url() === queueUrl, "approving a request that overlaps nothing stays on the list");
+  expect(await admin.page.locator("#solicitudes .hecho").getByText("Aprobaste la reserva de Salón 2").count() === 1, "approving is said back, where the request was");
+  expect(await admin.page.locator("main li:has-text('Ensayo de prueba')").count() === 0, "and the request leaves the list of what waits");
   await admin.page.goto(BASE + weekPath + "pedir/?dia=" + day);
   await admin.page.fill("input[name=title]", "Junta de prueba");
   await admin.page.fill("input[name=day]", day);
@@ -443,13 +471,19 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   // The second date is called off: it leaves the member's list, and comes back with "Sí hay".
   await admin.page.goto(seriesUrl);
   const offDay = (await coming.nth(1).locator(".row__title").innerText()).trim().toLowerCase().replace(/ de \d{4}/, "");  // the member's list says the day without its year
-  await Promise.all([admin.page.waitForNavigation(), coming.nth(1).locator("button:has-text('Este día no hay')").click()]);
-  expect(await coming.nth(1).locator(".status, .badge, [class*=status]").getByText("Este día no hay").count() > 0 || await coming.nth(1).locator("button:has-text('Sí hay')").count() === 1, "the date is marked «Este día no hay»");
+  // «Este día no hay» / «Sí hay» act in place: the row stays where it is and says the real result.
+  const offRow = "#" + await coming.nth(1).getAttribute("id");
+  await act(admin.page, `${offRow} button:has-text('Este día no hay')`);
+  expect(admin.page.url() === seriesUrl, "calling a day off stays on the series");
+  expect(await admin.page.locator(`${offRow} .status`).getByText("Este día no hay").count() === 1 && await admin.page.locator(`${offRow} button:has-text('Sí hay')`).count() === 1, "the date is marked «Este día no hay» and offers «Sí hay»");
+  expect(await admin.page.locator(offRow).getByText("Ya no aparece en Eventos ni en el calendario público.").count() === 1, "and the row says what calling it off did");
   await audit(admin.page, "admin-serie-dia-sin");
   await member.page.goto(seriesPage);
   expect(await listed() === dates - 1 && !(await member.page.locator("main").innerText()).toLowerCase().includes(offDay), `a day called off (${offDay}) leaves the member's list`);
-  await Promise.all([admin.page.waitForNavigation(), coming.nth(1).locator("button:has-text('Sí hay')").click()]);
-  expect(await admin.page.getByText("Listo: ese día sí hay.").count() > 0, "bringing the day back is said");
+  await act(admin.page, `${offRow} button:has-text('Sí hay')`);
+  // The message is announced once (the hidden role="status" line); the row itself shows the new state.
+  expect(await admin.page.locator("[role=status]").getByText("Listo: ese día sí hay.").count() > 0, "bringing the day back is announced");
+  expect(await admin.page.locator(`${offRow} .status`).getByText("Este día no hay").count() === 0 && await admin.page.locator(`${offRow} button:has-text('Este día no hay')`).count() === 1, "and the row is a date again, with «Este día no hay» at hand");
   await member.page.goto(seriesPage);
   expect(await listed() === dates && (await member.page.locator("main").innerText()).toLowerCase().includes(offDay), `«Sí hay» brings ${offDay} back to the member's list`);
 
@@ -517,8 +551,9 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   await save();
   await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/administrar/");
   expect(await adminRow().getByText("Por aprobar").count() === 1, "asking for approval leaves the devotional «Por aprobar»");
-  const detail = await admin.page.locator(`main a:has-text('${title}')`).first().getAttribute("href");
-  const id = detail.match(/(\d+)\/$/)[1];
+  // The row opens by its title (the form of the devotional); a reader's page of it is one level up.
+  const id = (await adminRow().locator(".row__title a").getAttribute("href")).match(/\/devocional\/(\d+)\/editar\/$/)[1];
+  const detail = `/mi-iglesia/recursos/devocional/${id}/`;
   const review = `/mi-iglesia/recursos/aprobaciones/devocional/${id}/`;
   await member.page.goto(BASE + past);
   expect(await member.page.getByText(title).count() === 0 && (await member.page.goto(BASE + detail)).status() === 404, "a member does not see what waits for the pastor");
@@ -526,7 +561,7 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   expect(await pastor.page.locator(`.rail a[href='/mi-iglesia/recursos/aprobaciones/']`).count() === 1, "the pastor's rail leads to «Aprobación pastoral»");
   await pastor.page.goto(BASE + "/mi-iglesia/recursos/aprobaciones/");
   await audit(pastor.page, "pastor-aprobaciones");
-  await Promise.all([pastor.page.waitForNavigation(), pastor.page.click(`main li:has-text('${title}') a:has-text('Revisar')`)]);
+  await Promise.all([pastor.page.waitForNavigation(), pastor.page.click(`main li:has-text('${title}') .row__title a`)]);
   expect(await pastor.page.locator("main").getByText("Texto de prueba para la aprobación pastoral.").count() === 1, "the pastor reads the whole text before deciding");
   await audit(pastor.page, "pastor-aprobacion-revisar");
   await pastor.page.click("main details summary:has-text('No lo apruebo')");
@@ -539,7 +574,7 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/administrar/");
   expect(await adminRow().getByText("Devuelto").count() > 0, "the administration's list says «Devuelto»");
   await audit(admin.page, "admin-devocionales-devuelto");
-  await Promise.all([admin.page.waitForNavigation(), adminRow().locator("a:has-text('Editar')").click()]);
+  await Promise.all([admin.page.waitForNavigation(), adminRow().locator(".row__title a").click()]);
   expect(await admin.page.locator("main").getByText("Falta decir de qué versículos se trata.").count() === 1, "the administration reads the pastor's reason on the form");
   await audit(admin.page, "admin-devocional-devuelto");
   await admin.page.fill("input[name=passage]", "Salmo 23:1-4");
@@ -594,14 +629,14 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
   const found = async () => {
     await admin.page.goto(BASE + "/mi-iglesia/personas/?q=ibarra");
-    return (await admin.page.locator("main a.row__link").allInnerTexts()).map((text) => text.trim()).filter((name) => name.startsWith("Renata")).sort().join("|");
+    return (await admin.page.locator("main .personas-lista .row__title a").allInnerTexts()).map((text) => text.trim()).filter((name) => name.startsWith("Renata")).sort().join("|");
   };
   expect(await found() === "Renata Ibarra|Renata Ibarra Solís", `the seed's pair is in Personas: ${await found()}`);
   await admin.page.goto(BASE + "/mi-iglesia/personas/");
   await Promise.all([admin.page.waitForNavigation(), admin.page.click("main a:has-text('Revisar posibles duplicados')")]);
   expect(await admin.page.locator("main li:has-text('Renata Ibarra Solís y Renata Ibarra')").getByText("Tienen el mismo correo.").count() === 1, "the pair is listed with the signal that joins it");
   await audit(admin.page, "admin-duplicados");
-  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main li:has-text('Renata Ibarra Solís y Renata Ibarra') a:has-text('Revisar')")]);
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main li:has-text('Renata Ibarra Solís y Renata Ibarra') .row__title a")]);
   expect(await admin.page.locator("main").getByText("Nada cambia hasta que confirmes.").count() === 1, "the preview says nothing changes yet");
   expect(await admin.page.locator("input[name=elige_phone]").count() === 2, "the administrator chooses which of the two phones stays");
   await audit(admin.page, "admin-duplicados-vista-previa");
@@ -644,7 +679,8 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
 // Wave 10 (docs/v2/wave10/). As above, each step takes back what it did where a screen allows it. What stays: a closed
 // form with its two answers, an import that was undone (ids and counts), a swap that was accepted, a role that is no
 // longer used, the audit rows. They need the seed's second church, rotation and prayer requests:
-// --dos-iglesias --rotas --oracion (step 13 writes its own form, so --formularios is not needed).
+// --dos-iglesias --rotas --oracion. The gate also seeds --formularios (rows for Formularios and «Pendientes»); step 13
+// writes its own form and reads only its own rows.
 const go = (target, selector) => Promise.all([target.waitForNavigation(), target.click(selector)]);
 const mainText = async (target) => (await target.locator("main").innerText()).replace(/\s+/g, " ");
 
@@ -656,11 +692,17 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   const SECOND = "Iglesia del Norte (demostración)";
   const both = await session("dos.iglesias@demo.invalid", DESKTOP);
   const p = both.page;
-  const rail = () => p.locator(".rail").innerText();
+  // The rail folds its sections (Para crecer, A tu cargo, Administración): what it holds is read with them open.
+  const rail = async () => {
+    await p.locator(".rail details").evaluateAll((folds) => folds.forEach((fold) => { fold.open = true; }));
+    return p.locator(".rail").innerText();
+  };
+  // The redesigned home says the day («Hoy»); the church of the request is named at the top of the rail.
+  const church = async () => (await p.locator(".rail .rail__church").innerText()).trim();
   const change = (name) => go(p, `.rail form[action='/cuenta/iglesia/'] button:has-text('Cambiar a ${name}')`);
   const primary = () => p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--petroleo").trim().toLowerCase());
   await p.goto(BASE + "/mi-iglesia/");
-  expect((await mainText(p)).includes(`Esto es lo tuyo en ${FIRST}.`), "the account of two churches starts in its first church");
+  expect(await church() === FIRST, `the account of two churches starts in its first church, not in ${await church()}`);
   expect(await p.locator(".rail a[href='/church/settings/']").count() === 1 && await p.locator(".rail button:has-text('Cambiar a')").count() === 1, "its rail has «Configuración» and one church to change to");
   await audit(p, "dos-iglesias-primera");
   await p.setViewportSize(DESKTOP);
@@ -674,7 +716,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await stale.fill("input[name=name]", "Nombre de prueba que no se guarda");
   await p.goto(BASE + "/mi-iglesia/");
   await change(SECOND);
-  expect(new URL(p.url()).pathname === "/mi-iglesia/" && (await mainText(p)).includes(`Esto es lo tuyo en ${SECOND}.`), `changing church lands on the second church's «Mi iglesia», not on ${p.url()}`);
+  expect(new URL(p.url()).pathname === "/mi-iglesia/" && await church() === SECOND, `changing church lands on the second church's «Mi iglesia», not on ${p.url()}`);
   expect(await primary() === "#7a3b12" && firstColour !== "#7a3b12", `the second church has its own colour: ${await primary()} after ${firstColour}`);
   const second = await rail();
   expect(second.includes("Jóvenes del Norte") && second.includes("Discipulado") && second.includes("Seguimientos"), "its rail has her group and the discipleship section");
@@ -687,9 +729,9 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await audit(stale, "dos-iglesias-formulario-viejo");
   await stale.close();
   await p.goto(BASE + "/mi-iglesia/");
-  expect((await mainText(p)).includes(`Esto es lo tuyo en ${SECOND}.`), "and the second church kept its name");
+  expect(await church() === SECOND, "and the second church kept its name");
   const denied = await p.goto(BASE + "/church/settings/");
-  expect(denied.status() === 403 && (await mainText(p)).includes("pide a la administración de tu iglesia o del evento que te dé acceso"), `the settings of the second church answered ${denied.status()}, not the 403 with the new sentence`);
+  expect(denied.status() === 403 && (await mainText(p)).includes("pide acceso a la administración de tu iglesia o del evento"), `the settings of the second church answered ${denied.status()}, not the 403 with the new sentence`);
   await audit(p, "dos-iglesias-configuracion-403");
   expect((await p.goto(BASE + "/mentor/")).status() === 200, "the mentor's screen opens in the church where she is a mentor");
   await audit(p, "dos-iglesias-mentora");
@@ -705,7 +747,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await p.keyboard.press("Escape");
   await p.setViewportSize(DESKTOP);
   await change(FIRST);
-  expect((await mainText(p)).includes(`Esto es lo tuyo en ${FIRST}.`) && await p.locator(".rail a[href='/church/settings/']").count() === 1, "back in the first church «Configuración» is there again");
+  expect(await church() === FIRST && await p.locator(".rail a[href='/church/settings/']").count() === 1, "back in the first church «Configuración» is there again");
   expect((await p.goto(BASE + "/church/settings/")).status() === 200 && await p.inputValue("input[name=name]") === FIRST, "and its name is the one the seed gave it");
   expect((await p.goto(BASE + "/mentor/")).status() === 403, "the mentor's screen is closed where she is not a mentor");
   await both.ctx.close();
@@ -724,7 +766,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   expect(await p.getByText(`Creaste la etiqueta «${TAG}».`).count() > 0, "creating a tag is said back");
   await audit(p, "admin-etiquetas-con-una");
   await p.goto(BASE + "/mi-iglesia/personas/?q=hugo");
-  await go(p, "a.row__link:has-text('Hugo Paredes Lima')");
+  await go(p, "main .personas-lista .row__title a:has-text('Hugo Paredes Lima')");
   const hugo = p.url();
   await p.selectOption("main select[name=etapa]", "visita");
   await go(p, "main button:has-text('Guardar etapa')");
@@ -734,10 +776,13 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   expect(await p.getByText("Guardamos sus etiquetas.").count() > 0, "the tag is saved on the person");
   await audit(p, "admin-persona-etapa-etiqueta");
   await p.goto(BASE + "/mi-iglesia/personas/");
-  await p.selectOption("main select[name=etapa]", "visita");
-  await p.selectOption("main select[name=etiqueta]", { label: TAG });
-  await go(p, "main button:has-text('Buscar')");
-  const filtered = (await p.locator("main a.row__link").allInnerTexts()).map((text) => text.trim()).join("|");
+  // The list's tools: the stage is a view with its count, the tag a second filter folded under one line.
+  await go(p, "main .personas-filtros ul[aria-label=Etapa] a:has-text('Visita')");
+  expect(await p.locator("main .personas-filtros ul[aria-label=Etapa] a[aria-current=page]").getByText("Visita").count() === 1, "the stage chosen is the marked view");
+  await p.click("main .personas-filtros details > summary");
+  await go(p, `main .personas-filtros details a:has-text('${TAG}')`);
+  expect(await p.locator("main .personas-filtros details[open] > summary").getByText(`Etiqueta: ${TAG}`).count() === 1, "the fold says which tag filters the list, and stays open");
+  const filtered = (await p.locator("main .personas-lista .row__title a").allInnerTexts()).map((text) => text.trim()).join("|");
   expect(filtered === "Hugo Paredes Lima" && await p.locator("main").getByText("1 resultado").count() === 1, `the list filtered by stage and tag shows one person: ${filtered}`);
   await audit(p, "admin-personas-filtradas");
   // The file: a page first, then a POST that answers the CSV.
@@ -771,7 +816,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   const list = await admin.ctx.newPage();
   const imported = async () => {
     await list.goto(BASE + "/mi-iglesia/personas/?q=importada");
-    return list.locator("main a.row__link:has-text('Persona Importada de Prueba')").count();
+    return list.locator("main .personas-lista .row__title a:has-text('Persona Importada de Prueba')").count();
   };
   expect(await imported() === 0, "the preview saved nobody");
   await go(p, "main button:has-text('Importar 1 persona')");
@@ -787,7 +832,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   expect(await imported() === 0, "after the undo the imported person is gone");
   // Back to the seed: the tag is deleted while one person carries it (the question says how many), the stage is empty again.
   await p.goto(BASE + "/mi-iglesia/personas/etiquetas/");
-  await go(p, `main li:has-text('${TAG}') a:has-text('Borrar')`);
+  await go(p, `main li:has-text('${TAG}') .row__end a:has-text('Borrar')`);
   expect((await mainText(p)).includes("1 persona"), "deleting a tag says how many people carry it");
   await audit(p, "admin-etiqueta-borrar");
   await go(p, "main button:has-text('Sí, borrar la etiqueta')");
@@ -796,7 +841,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await p.selectOption("main select[name=etapa]", "");
   await go(p, "main button:has-text('Guardar etapa')");
   await p.goto(BASE + "/mi-iglesia/personas/?etapa=visita&q=hugo");
-  expect(await p.locator("main a.row__link").count() === 0, "the person has no stage again");
+  expect(await p.locator("main .personas-lista .row__title a").count() === 0 && (await mainText(p)).includes("Nadie coincide con lo que buscas"), "the person has no stage again");
   await admin.ctx.close();
   const member = await session("valeria.soto@demo.invalid", PHONE);
   await member.page.goto(BASE + "/mi-iglesia/mis-datos/");
@@ -930,8 +975,11 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await guide.page.fill("input[name=note]", "Nota de prueba.");
   await go(guide.page, "main button:has-text('Guardar la nota')");
   expect(await guide.page.getByText("Guardamos la nota.").count() > 0, "the note is saved");
-  await go(guide.page, "main button:has-text('Marcar como hecho')");
-  expect(await guide.page.getByText("Marcaste el pendiente como hecho.").count() > 0, "closing the task is said back");
+  // «Marcar como hecho» acts in place: the task's region says the new state and offers the way back.
+  const answerUrl = guide.page.url();
+  await act(guide.page, "main button:has-text('Marcar como hecho')");
+  expect(guide.page.url() === answerUrl && await guide.page.locator("[role=status]").getByText("Marcaste el pendiente como hecho.").count() > 0, "closing the task is announced, on the same page");
+  expect(await guide.page.locator("#seguimiento .status").getByText("Hecho").count() === 1 && await guide.page.locator("#seguimiento button:has-text('Marcar como hecho')").count() === 0, "and the task's region shows it done");
   const download = await handPost(guide.page, new URL(formUrl).pathname + "respuestas/descargar/");
   expect(download.status === 403, `a reader's own POST to download the answers answered ${download.status}`);
   await guide.page.goto(BASE + "/mi-iglesia/formularios/pendientes/");
@@ -987,14 +1035,14 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   const reader = await anon.newPage();
   reader.on("pageerror", (e) => { if (!BENIGN_JS_ERROR.test(String(e))) problems.push(`sin cuenta: JS error ${e}`); });
   expect((await reader.goto(BASE + `/evento/${SLUG}/`)).status() === 200, "the public page of the event answers");
-  const offer = reader.locator("section[aria-labelledby=avisos-correo] a:has-text('Recibir los avisos por correo')");
+  const offer = reader.locator("main a:has-text('Recibir los avisos por correo')");  // beside the notices, or in a section of its own when there is none
   if (sends) {
     expect(staff.includes("menos de 5 direcciones suscritas"), "the staff screen says «menos de 5 direcciones suscritas», never a small number");
     expect(await offer.count() === 1, "the public page offers the updates by e-mail");
     expect((await anon.cookies()).length === 0, "and reading it leaves no cookie");
     await audit(reader, "publico-evento-avisos-por-correo");
     await reader.setViewportSize(PHONE);
-    await go(reader, "section[aria-labelledby=avisos-correo] a:has-text('Recibir los avisos por correo')");
+    await go(reader, "main a:has-text('Recibir los avisos por correo')");
     await audit(reader, "publico-suscripcion");
     await reader.setViewportSize(PHONE);
     await reader.fill("main input[type=email]", "avisos.prueba@demo.invalid");
@@ -1050,7 +1098,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await audit(p, "guia-fecha-con-roles");
   await go(p, "main button:has-text('Guardar la fecha')");
   await p.goto(BASE + TEAM);
-  expect((await dateRow().innerText()).replace(/\s+/g, " ").includes(`${ROLE}: falta 1 persona de 1.`), "the team page says what the date still needs of the new role");
+  expect((await dateRow().locator(".row__meta--con-marca:has(.status:has-text('Falta'))").innerText()).replace(/\s+/g, " ").includes(`${ROLE}: 1 persona de 1`), "the team page says what the date still needs of the new role");
   await go(p, "main a:has-text('Proponer con la rotación')");
   const places = p.locator("main select[name^='lugar_']");
   const proposed = await places.evaluateAll((selects) => selects.filter((select) => select.value).length);
@@ -1079,8 +1127,12 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   expect(await tomas.page.locator("main").getByText("Rosa Rentería Demo te pide tomar su fecha").count() === 1, "the teammate reads who asks him");
   await audit(tomas.page, "companero-cambio-por-responder");
   await tomas.page.setViewportSize(PHONE);
-  await go(tomas.page, "main button[name=respuesta][value=aceptar]");
-  expect(await tomas.page.getByText("Ya está en «Tus fechas», confirmada.").count() > 0, "accepting moves the date to him, confirmed");
+  // Accepting acts in place: the request leaves the raised surface, a line keeps the trace, «Tus fechas» gets the date.
+  const hisDates = await tomas.page.locator("#fechas li.row").count();
+  await act(tomas.page, "main .ask button[name=respuesta][value=aceptar]");
+  await tomas.page.waitForSelector("main .hecho");
+  expect(await tomas.page.locator("[role=status]").getByText("Ya está en «Tus fechas», confirmada.").count() > 0 && await tomas.page.locator("main .ask").count() === 0, "accepting is announced and the request leaves");
+  expect(await tomas.page.locator("#fechas li.row").count() === hisDates + 1, "and the date is in «Tus fechas» without a new page");
   await audit(tomas.page, "companero-cambio-aceptado");
   await p.goto(BASE + TEAM);
   const after = (await dateRow().innerText()).replace(/\s+/g, " ");
@@ -1098,6 +1150,11 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await addMoment("Momento de prueba uno", "10");
   await addMoment("Momento de prueba dos", "5");
   expect(await p.getByText("Agregamos el momento al orden.").count() > 0 && await p.locator("main input[name=titulo][value^='Momento de prueba']").count() === 2, "the coordinator's order has the two moments");
+  // A moment's fields open under it («Cambiar»): closed, the list reads as who serves reads it.
+  const firstMoment = p.locator("main li:has-text('Momento de prueba uno')").first();
+  expect(await firstMoment.locator("input[name=titulo]").isHidden(), "a moment's fields are folded until asked for");
+  await firstMoment.locator("details > summary").click();
+  expect(await firstMoment.locator("input[name=titulo]").isVisible() && await firstMoment.locator("input[name=titulo]").inputValue() === "Momento de prueba uno", "«Cambiar» opens the moment's own fields");
   await audit(p, "guia-orden");
   expect((await tomas.page.goto(BASE + datePath + "orden/")).status() === 200, "who serves the date opens its order");
   const order = await mainText(tomas.page);
@@ -1108,7 +1165,13 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await rosa.ctx.close();
   await tomas.ctx.close();
   // Back to the seed: no moments, nobody asked, the need at 0 and the role out of use.
-  for (let left = 2; left > 0; left -= 1) await go(p, "main button:has-text('Quitar Momento de prueba') >> nth=0");
+  // «Quitar» lives where a moment is changed (inside «Cambiar»); a row of the order ends in «Subir» / «Bajar» only.
+  expect(await p.locator("main .plan > li > .row__end button").count() === 2 && await p.locator("main .plan > li > .row__end .btn--quieto").count() === 0, "a moment's row ends in its place in the order, nothing else");
+  for (let left = 2; left > 0; left -= 1) {
+    const moment = p.locator("main li:has-text('Momento de prueba')").first();
+    if (!(await moment.locator("details").evaluate((fold) => fold.open))) await moment.locator("details > summary").click();  // the first one is still open from above
+    await Promise.all([p.waitForNavigation(), moment.locator("button:has-text('Quitar Momento de prueba')").click()]);
+  }
   expect(await p.locator("main input[name=titulo][value^='Momento de prueba']").count() === 0, "the moments are taken out");
   await p.goto(BASE + datePath);
   for (const box of await p.locator("main input[name=sirve]:checked").all()) await box.uncheck();
@@ -1119,7 +1182,7 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   expect(await p.getByText(`El rol ${ROLE} ya no se usa.`).count() > 0, "the role is retired");
   await p.goto(BASE + TEAM);
   const restored = (await dateRow().innerText()).replace(/\s+/g, " ");
-  expect(restored.includes("Todavía no le pides a nadie servir ese día.") && !restored.includes(ROLE), `the date is as the seed left it: ${restored}`);
+  expect(restored.includes("Falta elegir quién sirve") && !restored.includes(ROLE), `the date is as the seed left it: ${restored}`);
   await guide.ctx.close();
 }
 
@@ -1174,8 +1237,10 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await go(r, `main a[href='/mi-iglesia/oracion/recibidas/${id}/']`);
   expect((await mainText(r)).includes(WORDS), "the pastor reads the words");
   await audit(r, "pastor-oracion-leer");
-  await go(r, "main button:has-text('Lo leí')");
-  expect(await r.getByText("La marcaste como leída.").count() > 0 && await unread() === before - 1, "marking it read is said back and the rail counts one less");
+  // «Lo leí» acts in place: the region says «Leída», the button leaves, the rail's count follows.
+  await act(r, "main button:has-text('Lo leí')");
+  expect(await r.locator("[role=status]").getByText("La marcaste como leída.").count() > 0 && await unread() === before - 1, "marking it read is announced and the rail counts one less");
+  expect(await r.locator("#atendida .status").getByText("Leída").count() === 1 && await r.locator("main button:has-text('Lo leí')").count() === 0, "and the page says «Leída», with nothing left to press for it");
   await r.fill("textarea[name=reply]", REPLY);
   await go(r, "main button:has-text('Enviar mi respuesta')");
   expect(await r.getByText("Guardamos tu respuesta.").count() > 0, "the reply is saved");

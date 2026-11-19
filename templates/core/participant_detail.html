@@ -1,44 +1,169 @@
 {% extends "base.html" %}
-{% load emmaus core_extras %}
+{% load emmaus core_extras shell %}
 {% block page_title %}{% if note_form.errors or follow_up_form.errors %}Error: {% endif %}{{ profile.user.get_full_name|default:profile.user.email }}{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% load community %}{% comment %}
+  The redesign ("Ventanas"): one participant, for whoever walks with them, precise. Their circle beside their name;
+  the facts (path, how far, mentor, how to reach them); what they asked, with the care it asks for; the follow-ups;
+  beside them, the pastoral notes this reader may see (core.access.visible_notes), whose rule stays said. The two
+  forms are folded under their lists and open by themselves when they come back with an error.
+{% endcomment %}
+{% include "partials/ui/error_summary.html" with form=note_form %}
+{% include "partials/ui/error_summary.html" with form=follow_up_form %}
+{% with name=profile.user.get_full_name|default:profile.user.email %}
+{% if is_pastoral_leader %}<a class="back-link" href="{% url 'participants_list' %}">Participantes</a>{% else %}<a class="back-link" href="{% url 'mentor_dashboard' %}">Inicio</a>{% endif %}
+<header class="group-head">
+  {% monogram name "lg" %}
+  <div class="page-head"><div class="page-head__text"><h1 class="voice page-head__title">{{ name }}</h1></div></div>
+</header>
+
+<div class="cols block">
+  <div class="cols__main">
+    <section class="block" aria-labelledby="datos">
+      <h2 id="datos" class="visually-hidden">Datos</h2>
+      <dl class="summary-list disc-datos">
+        <div class="summary-list__row"><dt>Ruta</dt><dd>{{ summary|path_title:"Sin ruta" }}</dd></div>
+        {% if summary.enrollment %}<div class="summary-list__row"><dt>Avance</dt><dd>{% include "core/rotulo/_avance.html" with summary=summary %}</dd></div>{% endif %}
+        <div class="summary-list__row">
+          <dt>Mentor</dt>
+          <dd>{{ profile.assigned_mentor|display_name:"Sin mentor" }}{% if is_pastoral_leader %} <a class="disc-datos__cambiar" href="{% url 'assign_mentor' profile.id %}">{% if profile.assigned_mentor %}Cambiar<span class="visually-hidden"> mentor</span>{% else %}Asignar<span class="visually-hidden"> mentor</span>{% endif %}</a>{% endif %}</dd>
+        </div>
+        <div class="summary-list__row">
+          <dt>Contacto</dt>
+          <dd>{{ profile.get_preferred_contact_method_display }}{% if profile.phone_number %}<span class="row__contact"><a href="tel:{{ profile.phone_number|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ name }}: </span>{{ profile.phone_number }}</a></span>{% endif %}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="block" aria-labelledby="preguntas">
+      <h2 id="preguntas" class="heading">Preguntas{% if questions %} <span class="count">{{ questions|length }}</span>{% endif %}</h2>
+      {% if questions %}
+        <ul class="rows">
+          {% for question in questions %}
+            <li class="row row--lead">
+              <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
+              <div class="row__main">
+                <p class="row__title"><a href="{% if is_pastoral_leader %}{% url 'church_question_detail' question.id %}{% else %}{% url 'question_detail' question.id %}{% endif %}">{{ question.question_text|truncatewords:20 }}</a></p>
+                <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}{% include "core/rotulo/_cuidado.html" %}<span>Enviada el {{ question.created_at|date:"j b Y" }}</span></p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Sin preguntas todavía.</p>
+      {% endif %}
+    </section>
+
+    <section class="block" aria-labelledby="seguimientos">
+      <h2 id="seguimientos" class="heading">Seguimientos{% if follow_ups %} <span class="count">{{ follow_ups|length }}</span>{% endif %}</h2>
+      {% if follow_ups %}
+        <ul class="rows">
+          {% for follow_up in follow_ups %}
+            <li class="row row--lead">
+              <span class="hoy__icono" aria-hidden="true">{% icon "acompanar" %}</span>
+              <div class="row__main">
+                <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
+                <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}<span>{% if follow_up.assigned_to %}Con {{ follow_up.assigned_to|display_name }}{% else %}Sin responsable{% endif %}{% if follow_up.due_date %}, para el {{ follow_up.due_date|date:"j b" }}{% endif %}</span></p>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Sin seguimientos.</p>
+      {% endif %}
+      <details class="fold" id="nuevo-seguimiento"{% if follow_up_form.errors %} open{% endif %}>
+        <summary>Crear seguimiento</summary>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="follow">
+          <input type="hidden" name="{{ follow_up_form.participant.html_name }}" value="{{ profile.user.pk }}">
+          {% include "partials/ui/field.html" with field=follow_up_form.reason %}
+          {% include "partials/ui/field.html" with field=follow_up_form.assigned_to %}
+          {% include "partials/ui/field.html" with field=follow_up_form.due_date %}
+          <div class="form-actions"><button class="btn btn--primary" type="submit">Crear seguimiento</button></div>
+        </form>
+      </details>
+    </section>
+  </div>
+
+  <div class="cols__side">
+    <section class="block" aria-labelledby="notas">
+      <h2 id="notas" class="heading">Notas pastorales{% if notes %} <span class="count">{{ notes|length }}</span>{% endif %}</h2>
+      <p class="aside-note">Confidencial. El participante nunca ve estas notas.</p>
+      {% if notes %}
+        <ul class="rows">
+          {% for note in notes %}{% with author=note.author.get_full_name|default:note.author.email %}
+            <li class="row row--lead">
+              {% monogram author %}
+              <div class="row__main">
+                <p class="row__title">{{ author }}</p>
+                <p class="row__meta">{{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}</p>
+                <p class="disc-nota">{{ note.body|linebreaksbr }}</p>
+              </div>
+            </li>
+          {% endwith %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Sin notas que puedas ver.</p>
+      {% endif %}
+      <details class="fold" id="nueva-nota"{% if note_form.errors %} open{% endif %}>
+        <summary>Escribir una nota</summary>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="note">
+          {% include "partials/ui/fields.html" with form=note_form %}
+          <div class="form-actions"><button class="btn btn--secondary" type="submit">Guardar nota</button></div>
+        </form>
+      </details>
+    </section>
+  </div>
+</div>
+{% endwith %}
+{% else %}{% comment %}
+  One participant, for whoever walks with them: how far they are and how to reach them, what they asked, the
+  follow-ups, and the pastoral notes this reader may see (core.access.visible_notes). The two forms are folded
+  under their lists and open by themselves when they come back with an error. The follow-up is always about this
+  person, so the form does not ask who (the view sets the participant too).
+{% endcomment %}
 {% include "partials/ui/error_summary.html" with form=note_form %}
 {% include "partials/ui/error_summary.html" with form=follow_up_form %}
 {% if is_pastoral_leader %}{% url 'participants_list' as back_url %}{% else %}{% url 'mentor_dashboard' as back_url %}{% endif %}
 {% if is_pastoral_leader %}
-  {% include "events/rotulo/_page_head.html" with title=profile.user.get_full_name|default:profile.user.email lede="Revisa el camino de esta persona: sus preguntas, seguimientos y notas pastorales." back_url=back_url back_label="Participantes" %}
+  {% include "events/rotulo/_page_head.html" with title=profile.user.get_full_name|default:profile.user.email back_url=back_url back_label="Participantes" %}
 {% else %}
-  {% include "events/rotulo/_page_head.html" with title=profile.user.get_full_name|default:profile.user.email lede="Revisa el camino de esta persona: sus preguntas, seguimientos y notas pastorales." back_url=back_url back_label="Inicio" %}
+  {% include "events/rotulo/_page_head.html" with title=profile.user.get_full_name|default:profile.user.email back_url=back_url back_label="Inicio" %}
 {% endif %}
 
-<div class="split">
+<div class="split disc-split">
   <div>
     <section class="block" aria-labelledby="datos">
-      <h2 id="datos" class="heading">Datos del participante</h2>
+      <h2 id="datos" class="visually-hidden">Datos</h2>
       <dl class="summary-list participant-data">
         <div class="summary-list__row">
-          <dt>Ruta de discipulado</dt>
-          <dd>{{ summary|path_title:"Sin ruta asignada" }}</dd>
+          <dt>Ruta</dt>
+          <dd>{{ summary|path_title:"Sin ruta" }}</dd>
         </div>
+        {% if summary.enrollment %}
         <div class="summary-list__row">
           <dt>Avance</dt>
           <dd>
-            {% if summary.enrollment %}
+            {% if ui_v2 %}
+              {% include "core/rotulo/_avance.html" with summary=summary %}
+            {% else %}
               {{ summary.completed_lessons }} de {{ summary.total_lessons }} lecciones terminadas, {{ summary.percent|pct }}
               <div class="participant-detail__ruler">{% ruler summary.completed_lessons 0 summary.total_lessons %}</div>
-            {% else %}
-              Sin avance todavía
             {% endif %}
           </dd>
         </div>
+        {% endif %}
         <div class="summary-list__row">
           <dt>Mentor</dt>
-          <dd>{{ profile.assigned_mentor|display_name:"Sin asignar" }}</dd>
-          {% if is_pastoral_leader %}<dd class="summary-list__action"><a href="{% url 'assign_mentor' profile.id %}">Cambiar mentor</a></dd>{% endif %}
+          <dd>{{ profile.assigned_mentor|display_name:"Sin mentor" }}</dd>
+          {% if is_pastoral_leader %}<dd class="summary-list__action"><a href="{% url 'assign_mentor' profile.id %}">{% if profile.assigned_mentor %}Cambiar<span class="visually-hidden"> mentor</span>{% else %}Asignar<span class="visually-hidden"> mentor</span>{% endif %}</a></dd>{% endif %}
         </div>
         <div class="summary-list__row">
-          <dt>Contacto preferido</dt>
-          <dd>{{ profile.get_preferred_contact_method_display }}{% if profile.phone_number %}, {{ profile.phone_number }}{% endif %}</dd>
+          <dt>Contacto</dt>
+          <dd>{{ profile.get_preferred_contact_method_display }}{% if profile.phone_number %}, <a href="tel:{{ profile.phone_number|tel }}">{{ profile.phone_number }}</a>{% endif %}</dd>
         </div>
       </dl>
     </section>
@@ -48,17 +173,24 @@
       {% if questions %}
         <ul class="rows">
           {% for question in questions %}
-            <li class="row">
+            <li class="row row--stack">
               <div class="row__main">
                 <p class="row__title"><a class="row__link" href="{% if is_pastoral_leader %}{% url 'church_question_detail' question.id %}{% else %}{% url 'question_detail' question.id %}{% endif %}">{{ question.question_text|truncatewords:20 }}</a></p>
-                <p class="row__meta">Enviada el {{ question.created_at|date:"j b Y" }}</p>
+                {% if ui_v2 %}
+                  <ul class="meta">
+                    <li>{% icon "calendario" "sm" %}<span class="visually-hidden">Enviada el </span>{{ question.created_at|date:"j b Y" }}</li>
+                    {% if question.sensitivity_level != "normal" %}<li>{% icon "candado" "sm" %}{{ question.get_sensitivity_level_display }}</li>{% endif %}
+                  </ul>
+                {% else %}
+                  <p class="row__meta">Enviada el {{ question.created_at|date:"j b Y" }}</p>
+                {% endif %}
               </div>
-              {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}
+              <div class="row__end">{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}</div>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="empty-line">Todavía no hay preguntas. Aquí aparecerán las preguntas de este participante.</p>
+        <p class="empty-line">Sin preguntas todavía.</p>
       {% endif %}
     </section>
 
@@ -67,61 +199,77 @@
       {% if follow_ups %}
         <ul class="rows">
           {% for follow_up in follow_ups %}
-            <li class="row">
+            <li class="row row--stack">
               <div class="row__main">
                 <p class="row__title">{{ follow_up.reason|truncatewords:18 }}</p>
-                <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}</p>
+                {% if ui_v2 %}
+                  <ul class="meta"><li>{% icon "personas" "sm" %}{% if follow_up.assigned_to %}<span class="visually-hidden">Responsable: </span>{{ follow_up.assigned_to|display_name }}{% else %}Sin responsable{% endif %}</li></ul>
+                {% else %}
+                  <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}</p>
+                {% endif %}
               </div>
-              {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+              <div class="row__end">{% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}</div>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="empty-line">No hay seguimientos. Aquí aparecerán las solicitudes para platicar o recibir cuidado.</p>
+        <p class="empty-line">Sin seguimientos.</p>
       {% endif %}
+      <details class="fold" id="nuevo-seguimiento"{% if follow_up_form.errors %} open{% endif %}>
+        <summary>Crear seguimiento</summary>
+        <form method="post">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="follow">
+          <input type="hidden" name="{{ follow_up_form.participant.html_name }}" value="{{ profile.user.pk }}">
+          {% include "partials/ui/field.html" with field=follow_up_form.reason %}
+          {% include "partials/ui/field.html" with field=follow_up_form.assigned_to %}
+          {% include "partials/ui/field.html" with field=follow_up_form.due_date %}
+          <div class="btn-row">
+            <button class="btn btn--primary" type="submit">Crear seguimiento</button>
+          </div>
+        </form>
+      </details>
     </section>
   </div>
 
   <div>
     <section class="block" aria-labelledby="notas">
       <h2 id="notas" class="heading">Notas pastorales</h2>
-      <p class="privacy"><span class="privacy__tag">Confidencial</span> El participante nunca ve estas notas.</p>
+      <p class="aside-note">Confidencial. El participante nunca ve estas notas.</p>
       {% if notes %}
-        <ul class="rows">
+        <ul class="rows disc-notes">
           {% for note in notes %}
             <li class="row">
               <div class="row__main">
                 <p class="prose-block">{{ note.body|linebreaksbr }}</p>
-                <p class="row__meta">{{ note.author.get_full_name|default:note.author.email }}, {{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}.</p>
+                {% if ui_v2 %}
+                  <ul class="meta">
+                    <li>{% icon "personas" "sm" %}{{ note.author.get_full_name|default:note.author.email }}</li>
+                    <li>{% icon "calendario" "sm" %}{{ note.created_at|date:"j b Y" }}</li>
+                    <li>{% icon "candado" "sm" %}Visible para: {{ note.get_visibility_display|lower }}</li>
+                  </ul>
+                {% else %}
+                  <p class="row__meta">{{ note.author.get_full_name|default:note.author.email }}, {{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}.</p>
+                {% endif %}
               </div>
             </li>
           {% endfor %}
         </ul>
       {% else %}
-        <p class="empty-line">No hay notas que puedas ver. Aquí aparecerán las notas de líderes que tienes permiso de ver.</p>
+        <p class="empty-line">Sin notas que puedas ver.</p>
       {% endif %}
-      <form method="post" class="participant-detail__form">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="note">
-        {% include "partials/ui/fields.html" with form=note_form %}
-        <div class="step__actions">
-          <button class="btn btn--secondary" type="submit">Guardar nota</button>
-        </div>
-      </form>
-    </section>
-
-    <section class="block" aria-labelledby="crear-seguimiento">
-      <h2 id="crear-seguimiento" class="heading">Crear seguimiento</h2>
-      <p class="hint">Deja una solicitud clara para que un líder pueda dar seguimiento en persona. Queda pendiente hasta que alguien la marque como atendida.</p>
-      <form method="post">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="follow">
-        {% include "partials/ui/fields.html" with form=follow_up_form %}
-        <div class="step__actions">
-          <button class="btn btn--primary" type="submit">Crear seguimiento</button>
-        </div>
-      </form>
+      <details class="fold" id="nueva-nota"{% if note_form.errors %} open{% endif %}>
+        <summary>Escribir una nota</summary>
+        <form method="post" class="participant-detail__form">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="note">
+          {% include "partials/ui/fields.html" with form=note_form %}
+          <div class="btn-row">
+            <button class="btn btn--secondary" type="submit">Guardar nota</button>
+          </div>
+        </form>
+      </details>
     </section>
   </div>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

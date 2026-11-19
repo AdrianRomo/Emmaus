@@ -75,7 +75,7 @@ class RoleTests(RotasFixture):
         services.assign(self.day, self.carlos, self.leader_user, role=self.door)
         services.assign(self.day, self.asked, self.leader_user, role=self.door)
         self.assertEqual(rotas.missing_by_date([self.day])[self.day.pk][0].missing, 0)
-        self.assertContains(self.client.get(self.url("team", self.team.pk)), "completo")
+        self.assertContains(self.client.get(self.url("team", self.team.pk)), "Completo")
 
     def test_an_assignment_without_a_role_keeps_working_and_the_page_of_a_team_without_roles_is_as_before(self):
         row = self.assign()

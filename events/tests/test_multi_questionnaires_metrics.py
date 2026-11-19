@@ -103,8 +103,8 @@ class OutcomeCountsTests(SharedCodesFixture):
         self.assertEqual(
             counts,
             {
-                str(self.q1.id): {"comun": {"respondents": 3, "options": {"si": 3, "no": 0}}},
-                str(self.q2.id): {"comun": {"respondents": 1, "options": {"si": 0, "no": 1}}},
+                str(self.q1.id): {"comun": {"respondents": 3, "options": {"si": 3, "no": 0}, "declined": 0}},
+                str(self.q2.id): {"comun": {"respondents": 1, "options": {"si": 0, "no": 1}, "declined": 0}},
             },
         )
 
@@ -170,8 +170,9 @@ class ReleaseAcrossShapesTests(SharedCodesFixture):
             self.answered(person, self.first, "si")
         snapshot = generate_snapshot(self.event, scope, trigger="automatico", cutoff_at=timezone.now())
         released = snapshot.data["released"]["outcomes"]
-        self.assertEqual(released[str(self.q1.id)]["comun"], {"respondents": 10, "options": {"si": 10, "no": 0}})
-        self.assertEqual(released[str(self.q2.id)]["comun"], {"respondents": 0, "options": {"si": 0, "no": 0}})
+        # "declined" is new since that cutoff: no previous cell, so its count is released as it is.
+        self.assertEqual(released[str(self.q1.id)]["comun"], {"respondents": 10, "options": {"si": 10, "no": 0}, "declined": 0})
+        self.assertEqual(released[str(self.q2.id)]["comun"], {"respondents": 0, "options": {"si": 0, "no": 0}, "declined": 0})
 
     def flat_cutoff(self, respondents):
         """A cutoff saved before several questionnaires: unkeyed counts of the event's only questionnaire."""
@@ -200,8 +201,9 @@ class ReleaseAcrossShapesTests(SharedCodesFixture):
             self.answered(person, self.first, "si")
         snapshot = generate_snapshot(self.event, scope, trigger="automatico", cutoff_at=timezone.now())
         released = snapshot.data["released"]["outcomes"]
-        self.assertEqual(released[str(self.q1.id)]["comun"], {"respondents": 10, "options": {"si": 10, "no": 0}})
-        self.assertEqual(released[str(self.q2.id)]["comun"], {"respondents": 0, "options": {"si": 0, "no": 0}})
+        # "declined" is new since that cutoff: no previous cell, so its count is released as it is.
+        self.assertEqual(released[str(self.q1.id)]["comun"], {"respondents": 10, "options": {"si": 10, "no": 0}, "declined": 0})
+        self.assertEqual(released[str(self.q2.id)]["comun"], {"respondents": 0, "options": {"si": 0, "no": 0}, "declined": 0})
 
     def test_a_flat_cutoff_goes_to_the_questionnaire_that_has_its_questions(self):
         """Defect: the unkeyed counts attributed by position (or to the oldest link) to a questionnaire that never

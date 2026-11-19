@@ -253,7 +253,7 @@ class VersionPageTests(AdminHelpers, CampFixture):
         """Defect: no way to stop using a questionnaire from its page."""
         second = self.second()
         html = self.page("version_detail", second.id)
-        self.assertIn("En uso en este evento.", html)
+        self.assertIn('<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>En uso</span>', html)
         self.assertIn('name="action" value="stop"', html)
         self.assertIn(">Dejar de usar en este evento</button>", html)
         self.assertNotIn('value="use"', html)
@@ -734,7 +734,14 @@ class ConfidentialLevelTests(AdminHelpers, CampFixture):
         self.answer(interview, "salvo", "si")
         self.answer(interview, "apoyo", "familia")
         Interview.objects.filter(pk=interview.pk).update(lock_token_hash="", lock_holder=None, lock_expires_at=None, station=None)
+        # Only an administradora with confidential access may pick it up (EventAccess.can_continue_interview); hers is
+        # withdrawn while she has it, so the review hides the personal answers from her.
+        membership = EventMembership.objects.create(event=self.event, user=self.admin, role=MembershipRole.ADMIN, can_view_sensitive=True)
         client = self.login(self.admin, Client())
+        # Someone else picking it up checks «Sí, es {nombre}» first (owner decision), then reads the review.
+        self.assertRedirects(client.get(self.url("interview_review", interview.public_id)), self.url("interview_conflict", interview.public_id), fetch_redirect_response=False)
+        client.post(self.url("interview_conflict", interview.public_id), {"identity": "on"})
+        EventMembership.objects.filter(pk=membership.pk).update(can_view_sensitive=False)
         response = client.get(self.url("interview_review", interview.public_id))
         self.assertEqual(response.status_code, 200)
         tags = self.hidden_tags(response.content.decode())

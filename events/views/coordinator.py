@@ -1,21 +1,26 @@
 from __future__ import annotations
 
+import uuid
+from types import SimpleNamespace
+
 from django import forms
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.db.models import Case, Count, IntegerField, Q, Value, When
+from django.db.models import Case, Count, IntegerField, OuterRef, Q, Subquery, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import urlencode
 
 from ..forms import ParticipantForm
-from ..models import FollowUp, Interview, InterviewStatus, QuestionnaireVersion, normalize_name
+from ..models import ConsentRecord, FollowUp, Interview, InterviewStatus, ParticipantSession, QuestionnaireVersion, normalize_name
 from ..services import event_questionnaires as eq
+from ..services import follow_up_decision as decision_svc
+from ..services import interviews as interview_svc
 from ..services import participants as participant_svc
 from ..services import welcome as welcome_svc
 from ..services.metrics import build_payload, coordinator_scope, mark_stalled, progress_for, stale_interviews
-from ..services.questionnaire import build_steps
+from ..services.questionnaire import DECLINE_LABEL, build_steps, load_answers, resume_step, visible_steps
 from .common import ADMIN, COORDINATOR, current_station, event_view, is_fragment, programme_now, safe_next
 
 
@@ -34,6 +39,22 @@ def _my_context(event, access):
     progress = progress_for(participants, event)
     mine = access.interviews()
     in_progress = list(mine.filter(status=Interview.Status.IN_PROGRESS).select_related("version").order_by("-last_activity_at")[:5])
+    # A campero answering alone right now (a live kiosk session): the card says so and offers no «Retomar», which would
+    # close their screen (the take-over page still can, saying it)
+    alone = set(
+        ParticipantSession.objects.filter(interview__in=in_progress, state=ParticipantSession.State.ACTIVE).values_list("interview_id", flat=True)
+    )
+    for interview in in_progress:
+        interview.a_solas = interview.pk in alone
+    if in_progress:
+        # Where «Retomar» lands, said on the card: «Pregunta 4 de 5» (questionnaire.resume_step, which «Retomar» reads:
+        # the visible question after the furthest answer, as the interview counts them; a skipped one stays skipped)
+        first = in_progress[0]
+        answers = load_answers(first)
+        numbers = [step.number for step in visible_steps(first.version, answers)]
+        resume = resume_step(first.version, answers)
+        first.pregunta = numbers.index(resume.number) + 1 if resume and resume.number in numbers else len(numbers)
+        first.preguntas = len(numbers)
     # "Tienes N entrevistas sin terminar" (issue #47): every interview of my camperos idle for STALE_MINUTES or more,
     # the oldest first, each with "Retomar" and "Descartar". "También sin terminar" keeps the ones still moving.
     stalled = mark_stalled(stale_interviews(participants).select_related("participant", "version", "station").order_by("last_activity_at"))
@@ -41,12 +62,18 @@ def _my_context(event, access):
     next_up = list(
         eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by("room", "full_name")[:6]
     )
-    follow_ups = list(
-        access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at")[:5]
-    )
+    _mark_missing_authorization(next_up, participants, event)
+    # Five, the newest; a task this coordinador has to review since its decision changed goes first («Revisar»)
+    follow_ups = decision_svc.mine_first(decision_svc.mark_for_review(
+        access.follow_ups().filter(kind=FollowUp.Kind.CARE, status__in=FollowUp.OPEN_STATUSES).order_by("-created_at"),
+        access.user,
+    ))[:5]
     to_evaluate = mine.filter(status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE).count()
     # Minors whose guardian authorization is not registered cannot be interviewed: "Esperan algo de ti" says how many
-    minors_pending = participant_svc.minors_without_authorization(participants, event).count() if event.requires_guardian_authorization else 0
+    # Blocked from an interview: only the ones not interviewed yet (an authorization withdrawn after lets an interview
+    # in progress finish and leaves completed ones as they are: the campero's record says so), as the administration's
+    # home counts them
+    minors_pending = participant_svc.minors_without_authorization(participants, event).filter(interview_status=InterviewStatus.PENDING).count() if event.requires_guardian_authorization else 0
     return {
         "progress": progress,
         "in_progress": in_progress,
@@ -96,11 +123,19 @@ def my_participants(request, event, access):
     authorization_pending = request.GET.get("autorizacion") == "falta" and event.requires_guardian_authorization
     if authorization_pending:
         participants = participant_svc.minors_without_authorization(participants, event)
+    participants = eq.annotate_questionnaire_progress(participants.select_related("sede"), event)
+    if event.requires_guardian_authorization:
+        # With the redesign a minor's row says its guardian authorization, apart from the interview: the latest
+        # guardian record of each campero, read as the administration's list reads it (admin.participants)
+        participants = participants.annotate(
+            guardian=Subquery(
+                ConsentRecord.objects.filter(participant=OuterRef("pk"), kind=ConsentRecord.Kind.GUARDIAN).order_by("-recorded_at", "-id").values("status")[:1]
+            )
+        )
     # What needs action first: an interview left half done, then the ones not started, then the finished ones
     # (the same rank as interview_search); room and name inside each.
     participants = list(
-        eq.annotate_questionnaire_progress(participants.select_related("sede"), event)
-        .annotate(
+        participants.annotate(
             rank=Case(
                 When(interview_status=InterviewStatus.IN_PROGRESS, then=Value(0)),
                 When(interview_status=InterviewStatus.PENDING, then=Value(1)),
@@ -137,6 +172,10 @@ def my_participants(request, event, access):
             "total": total,
             "empty_reason": empty_reason,
             "authorization_pending": authorization_pending,
+            # The capsule "Menores sin autorización" (the redesign): the same rows "?autorizacion=falta" lists
+            "authorization_count": (
+                participant_svc.minors_without_authorization(access.participants(), event).count() if event.requires_guardian_authorization else None
+            ),
         },
     )
 
@@ -166,12 +205,15 @@ def backup_list(request, event, access):
         if not steps:
             continue
         # Options in the order the screen shows them (interview.question_context): "Prefiero no responder" and other
-        # exclusive options last. A dict, not attributes: build_steps caches its Question objects for every request.
+        # exclusive options last, and «Prefiero no responder» on every question, a text one too (no question requires
+        # an answer). A dict, not attributes: build_steps caches its Question objects for every request.
         options = {}
         for step in steps:
             for question in step.questions:
                 listed = list(question.options.all())
                 quiet = [o for o in listed if o.is_decline or o.is_exclusive]
+                if not any(o.is_decline for o in listed):
+                    quiet.append(SimpleNamespace(label=DECLINE_LABEL, is_decline=True))
                 options[question.id] = [o for o in listed if o not in quiet] + quiet
         anchor = "cuestionario" if not paper_sheets else f"cuestionario-{len(paper_sheets) + 1}"
         paper_sheets.append({"version": version, "steps": steps, "options": options, "anchor": anchor})
@@ -212,10 +254,83 @@ def participant_create(request, event, access):
     return render(request, "events/participant_form.html", {"form": form, "groups": groups, "creating": True})
 
 
+def _decide_url(event, interview) -> str:
+    """The record where an interview's follow-up is decided, coming back here to go on with the next one."""
+    after = reverse("events:coord_pending", args=[event.slug]) + "?" + urlencode({"decidir": "siguiente", "despues": interview.public_id})
+    return reverse("events:interview_detail", args=[event.slug, interview.public_id]) + "?" + urlencode({"siguiente": after}) + "#seguimiento"
+
+
+def _following(access, to_evaluate, after):
+    """The interview of "Por decidir" that comes after ``after`` (the public id of one just decided, so no longer in the
+    list) in the list's order, wrapping to the first; None when nothing is left. Only this person's interviews count."""
+    queue = list(to_evaluate.select_related(None).only("pk", "public_id", "started_at"))
+    if not queue:
+        return None
+    decided = access.interviews().select_related(None).filter(public_id=after).only("pk", "started_at").first() if _is_uuid(after) else None
+    if decided is None:
+        return queue[0]
+    return next((iv for iv in queue if (iv.started_at, iv.pk) < (decided.started_at, decided.pk)), queue[0])
+
+
+def _next_decision(request, event, access, to_evaluate):
+    """After a decision taken on the interview's record, opened from "Por decidir" (?decidir=siguiente&despues=<the one
+    decided>): the next one's record; with none left, the list where "Por decidir" says so."""
+    following = _following(access, to_evaluate, request.GET.get("despues", ""))
+    if following is None:
+        return redirect(reverse("events:coord_pending", args=[event.slug]) + "#por-evaluar")
+    return redirect(_decide_url(event, following))
+
+
+def _decide_in_place(request, event, access):
+    """«Por decidir» answered from its row (the redesign: an action in place, form[data-inline]): the same decision the
+    interview's record takes (services.interviews.update_follow_up_decision, with its permission check), then back to
+    the list, same site only. The message names the campero and the answer."""
+    here = reverse("events:coord_pending", args=[event.slug])
+    back = safe_next(request, request.POST.get("siguiente"), here + "#por-evaluar")
+    public_id = request.POST.get("entrevista", "")
+    if not _is_uuid(public_id):
+        raise PermissionDenied
+    interview = get_object_or_404(access.interviews().select_related("participant"), public_id=public_id)
+    decision = request.POST.get("decision", "")
+    try:
+        interview_svc.update_follow_up_decision(access, interview, decision)
+    except interview_svc.InterviewError as exc:
+        messages.error(request, exc.message)
+        return redirect(back)
+    name = interview.participant.full_name
+    if decision == Interview.FollowUpDecision.REQUIRED:
+        messages.success(request, f"{name} necesita seguimiento.")
+    else:
+        messages.success(request, f"{name} no necesita seguimiento.")
+    return redirect(back)
+
+
+def _is_uuid(value) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except ValueError:
+        return False
+    return True
+
+
+def _mark_missing_authorization(rows, participants, event) -> None:
+    """Each campero of ``rows`` gets ``falta_autorizacion``: a minor whose guardian authorization is not registered
+    (the same reading as the administration's list); the redesign says it on the row, apart from the interview."""
+    blocked = set()
+    if event.requires_guardian_authorization and rows:
+        blocked = set(
+            participant_svc.minors_without_authorization(participants.filter(pk__in=[p.pk for p in rows]), event).values_list("pk", flat=True)
+        )
+    for p in rows:
+        p.falta_autorizacion = p.pk in blocked
+
+
 @event_view(COORDINATOR)
 def coord_pending(request, event, access):
+    if request.method == "POST":
+        return _decide_in_place(request, event, access)
     participants = access.participants()
-    in_progress = access.interviews().filter(status=Interview.Status.IN_PROGRESS).select_related("version").order_by("last_activity_at")
+    in_progress = access.interviews().filter(status=Interview.Status.IN_PROGRESS).select_related("participant", "version").order_by("last_activity_at")
     not_started = eq.annotate_questionnaire_progress(participants.filter(interview_status=InterviewStatus.PENDING), event).order_by(
         "room", "full_name"
     )
@@ -227,7 +342,11 @@ def coord_pending(request, event, access):
         not_started = not_started.filter(done_count=0)
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
-    ).select_related("version")
+    ).select_related("participant", "version").order_by("-started_at", "-pk")
+    if request.GET.get("decidir") == "siguiente":
+        return _next_decision(request, event, access, to_evaluate)
+    not_started = list(not_started)
+    _mark_missing_authorization(not_started + (partial or []), participants, event)
     return render(
         request,
         "events/coordinator/pending.html",
@@ -237,6 +356,8 @@ def coord_pending(request, event, access):
             "partial": partial,
             "to_evaluate": to_evaluate,
             "has_participants": participants.exists(),
+            # After a decision in place (?despues=<the one decided>) the next row of "Por decidir" takes the focus
+            "next_focus": _following(access, to_evaluate, request.GET.get("despues", "")) if request.GET.get("despues") else None,
         },
     )
 
@@ -273,7 +394,7 @@ def participant_detail(request, event, access, public_id):
                 "can_interview": access.can_interview(participant),
             },
         )
-    follow_ups = access.follow_ups().filter(participant=participant)
+    follow_ups = decision_svc.mark_for_review(access.follow_ups().filter(participant=participant), request.user)
     from ..models import ConsentRecord
     from ..services.participants import latest_consent
 

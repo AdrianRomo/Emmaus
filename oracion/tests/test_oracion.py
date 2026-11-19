@@ -156,7 +156,7 @@ class JourneyTests(PrayerFixture):
                          (self.church, self.asked, self.asked_user, BODY, False, None))
         self.assertEqual(prayer.expires_at.date(), (prayer.created_at + timedelta(days=90)).date())
         page = self.client.get(MINE)
-        self.assertContains(page, "Todavía no la han leído.")
+        self.assertContains(page, '<span class="status status--pending"><span class="status__mark" aria-hidden="true"></span>Todavía no la han leído</span>')
         self.assertContains(page, "&lt;script&gt;alert(1)&lt;/script&gt; &amp; pido oración")
         self.assertNotContains(page, "<script>alert(1)")
 
@@ -172,6 +172,10 @@ class JourneyTests(PrayerFixture):
         self.assertContains(page, "&lt;script&gt;alert(1)&lt;/script&gt; &amp; pido oración")
         self.assertNotContains(page, "<script>alert(1)")
         self.assertNotContains(page, "pidio@prueba.mx")  # the page gives a pastor no contact data
+        # «Lo leí» acts in place on the region of the states; the reply (a field) is a form of its own outside it.
+        self.assertContains(page, f'action="{url("mark_read", prayer.pk)}" data-inline="atendida"')
+        self.assertContains(page, '<section class="block" id="atendida"')
+        self.assertNotContains(page, f'action="{url("reply", prayer.pk)}" novalidate data-inline')
         self.assertRedirects(self.client.post(url("mark_read", prayer.pk)), url("read", prayer.pk))
         prayer.refresh_from_db()
         self.assertIsNotNone(prayer.read_at)
@@ -180,7 +184,7 @@ class JourneyTests(PrayerFixture):
         # The writer is told "Leída" with the date, never by whom.
         self.client.force_login(self.asked_user)
         page = self.client.get(MINE)
-        self.assertContains(page, "<strong>Leída</strong>")
+        self.assertContains(page, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Leída</span><span>el ')
         self.assertNotContains(page, "Paula")
         self.assertNotContains(page, "Pablo")
 
@@ -196,7 +200,7 @@ class JourneyTests(PrayerFixture):
         self.client.force_login(self.asked_user)
         page = self.client.get(MINE)
         self.assertContains(page, f"{REPLY_MARK} &lt;b&gt;oro por ti&lt;/b&gt;")
-        self.assertContains(page, "Hablaron en persona.")
+        self.assertContains(page, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Hablaron en persona</span><span class="oracion__estado-nota">Quien la leyó lo marcó el ')
         self.assertNotContains(page, "Pablo")
 
     def test_a_reply_or_a_talk_also_marks_it_as_read(self):

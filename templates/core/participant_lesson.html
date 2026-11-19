@@ -2,7 +2,76 @@
 {% load core_extras %}
 {% block page_title %}{{ lesson.title }}{% endblock %}
 {% block content %}
-<div class="disc-focus">
+{% if ui_v2 %}{% load shell %}{% comment %}
+  The redesign ("Ventanas"): one lesson, read like a page of «Mi iglesia» and written in like a journal. Where it sits
+  in the path is the line under the title; the passage to read, the text, one practice; then the reflection (each
+  question its own field, none required, saved as written) with the one filled button; the way to the next lesson and
+  to ask, quiet, under it.
+{% endcomment %}
+<a class="back-link" href="{% url 'participant_dashboard' %}">Mi camino</a>
+<header class="page-head">
+  <div class="page-head__text">
+    <h1 class="voice page-head__title">{{ lesson.title }}</h1>
+    <p class="page-head__meta">Lección {{ lesson.order }} de {{ summary.total_lessons }}, {{ summary.enrollment.path.title }}{% if progress.completed_at %}. Ya la terminaste{% endif %}</p>
+  </div>
+</header>
+{% if lesson.scripture_references %}<ul class="meta disc-leccion__lectura"><li>{% icon "lectura" "sm" %}Para leer en la Biblia: {{ lesson.scripture_references }}</li></ul>{% endif %}
+
+<section class="block prose disc-leccion__texto" aria-label="Contenido de la lección">
+  {{ lesson.body|linebreaks }}
+</section>
+{% if lesson.practical_step %}
+  <div class="notice">
+    <p class="notice__title">Una práctica sencilla</p>
+    <p>{{ lesson.practical_step|linebreaksbr }}</p>
+  </div>
+{% endif %}
+
+<form method="post" class="block" aria-labelledby="reflexion">
+  {% csrf_token %}
+  <section class="form-section">
+    <h2 id="reflexion" class="heading form-section__title">Reflexión</h2>
+    {% for question in lesson.reflection_questions.all %}
+      {% with answer=existing_answers|get_item:question.id %}
+        <div class="field">
+          <label class="label disc-leccion__pregunta" for="question_{{ question.id }}">{{ question.question_text }}</label>
+          <textarea class="textarea" id="question_{{ question.id }}" name="question_{{ question.id }}" rows="6" spellcheck="true">{{ answer.answer_text }}</textarea>
+        </div>
+      {% endwith %}
+    {% empty %}
+      <p class="empty-line">Esta lección no tiene preguntas de reflexión. Puedes marcarla como terminada cuando la leas.</p>
+    {% endfor %}
+    {% if lesson.reflection_questions.all %}
+      <p class="aside-note">No tienes que responder todas. Si prefieres no contestar alguna, déjala en blanco; puedes volver cuando quieras.</p>
+    {% endif %}
+  </section>
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit" name="mark_complete" value="1">Marcar lección como terminada</button>
+    <button class="btn btn--secondary" type="submit">Guardar reflexión</button>
+  </div>
+</form>
+
+<section class="block" aria-label="Después de esta lección">
+  <ul class="rows">
+    {% if next_lesson %}
+    <li class="row row--lead">
+      <span class="hoy__icono" aria-hidden="true">{% icon "lectura" %}</span>
+      <div class="row__main"><p class="row__title"><a href="{% url 'participant_lesson' next_lesson.id %}">Siguiente lección: {{ next_lesson.title }}</a></p></div>
+    </li>
+    {% endif %}
+    {% if previous_lesson %}
+    <li class="row row--lead">
+      <span class="hoy__icono" aria-hidden="true">{% icon "lectura" %}</span>
+      <div class="row__main"><p class="row__title"><a href="{% url 'participant_lesson' previous_lesson.id %}">Lección anterior: {{ previous_lesson.title }}</a></p></div>
+    </li>
+    {% endif %}
+    <li class="row row--lead">
+      <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
+      <div class="row__main"><p class="row__title"><a href="{% url 'ask_question' %}">Haz una pregunta</a></p><p class="row__meta">Tu pregunta la leerán líderes de confianza de tu iglesia que pueden acompañarte en persona.</p></div>
+    </li>
+  </ul>
+</section>
+{% else %}<div class="disc-focus">
 <article class="disc-lesson" aria-labelledby="leccion-titulo">
   {% comment %}The path as a trail, like the interview: the lessons already finished, then where you are.{% endcomment %}
   <div class="trail">
@@ -71,4 +140,4 @@
   <p class="more"><a href="{% url 'ask_question' %}">Haz una pregunta</a></p>
 </aside>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

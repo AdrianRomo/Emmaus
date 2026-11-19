@@ -4,28 +4,33 @@
 {% block content %}
 {% comment %}
   How a team is organized (serving.rota_views.organize), for who coordinates it and for the administration: the
-  roles of the team, the order each role rotates in, and two settings (swaps and reminders). Every form saves by
-  itself. Nothing here assigns a date: the rotation only proposes, on its own page.
+  roles of the team, the order each role rotates in, and two settings (swaps and reminders). Three forms, each saved
+  by itself with its own outlined button (none is the page's one action: nothing here is more urgent than the rest),
+  each a page load because each has fields. A role is a line: its name, whether it is for adults, «Guardar», and the
+  quiet «Ya no se usa». The rotation is a list per role: a name and its turn. Nothing here assigns a date: the
+  rotation only proposes, on its own page.
 {% endcomment %}
 <div class="narrow serving">
   {% url 'serving:team' team.pk as back %}
-  {% include "events/rotulo/_page_head.html" with title="Organizar el equipo" lede="Equipo "|add:team.name back_url=back back_label="Volver al equipo" %}
+  {% include "events/rotulo/_page_head.html" with title="Organizar el equipo" back_url=back back_label="Volver al equipo "|add:team.name %}
 
-  <section class="block" aria-labelledby="roles">
-    <h2 id="roles" class="heading">Roles</h2>
-    <p class="aside-note">Un rol es lo que alguien hace ese día: Bienvenida, Sonido, Proyección. En cada fecha dices cuántas personas necesita cada rol.</p>
+  <section class="form-section" aria-labelledby="roles">
+    <h2 id="roles" class="heading form-section__title">Roles</h2>
+    <p class="hint">Lo que alguien hace ese día: Bienvenida, Sonido, Proyección. En cada fecha dices cuántas personas necesita cada rol.</p>
     {% if roles %}
-      <ul class="rows">
+      <ul class="role-list">
         {% for role in roles %}
-          <li class="row row--stack">
-            <form class="row__main role-edit" method="post" action="{% url 'serving:role_save' team.pk %}">
+          <li>
+            <form class="role-edit" method="post" action="{% url 'serving:role_save' team.pk %}">
               {% csrf_token %}
               <input type="hidden" name="rol" value="{{ role.pk }}">
               <label class="visually-hidden" for="rol-nombre-{{ role.pk }}">Nombre del rol</label>
               <input class="input" id="rol-nombre-{{ role.pk }}" type="text" name="nombre" value="{{ role.name }}" maxlength="60" required>
               <label class="check" for="rol-adultos-{{ role.pk }}"><input id="rol-adultos-{{ role.pk }}" type="checkbox" name="solo_adultos" value="si"{% if role.adults_only %} checked{% endif %}><span class="check__text">Solo personas adultas</span></label>
-              <button class="btn btn--secondary btn--small" type="submit">Guardar<span class="visually-hidden"> el rol {{ role.name }}</span></button>
-              <button class="btn btn--link btn--small" type="submit" formaction="{% url 'serving:role_retire' team.pk role.pk %}" formnovalidate>Ya no se usa<span class="visually-hidden">: {{ role.name }}</span></button>
+              <span class="role-edit__end">
+                <button class="btn btn--link" type="submit">Guardar<span class="visually-hidden"> el rol {{ role.name }}</span></button>
+                <button class="btn btn--link btn--quieto" type="submit" formaction="{% url 'serving:role_retire' team.pk role.pk %}" formnovalidate>Ya no se usa<span class="visually-hidden">: {{ role.name }}</span></button>
+              </span>
             </form>
           </li>
         {% endfor %}
@@ -33,7 +38,7 @@
     {% else %}
       <p class="empty-line">Este equipo todavía no tiene roles. Sin roles todo sigue como antes: eliges quién sirve en cada fecha.</p>
     {% endif %}
-    <form method="post" action="{% url 'serving:role_save' team.pk %}">
+    <form class="role-new" method="post" action="{% url 'serving:role_save' team.pk %}">
       {% csrf_token %}
       <div class="field">
         <label class="label" for="rol-nuevo">Agregar un rol</label>
@@ -43,14 +48,16 @@
       <div class="field">
         <label class="check" for="rol-nuevo-adultos"><input id="rol-nuevo-adultos" type="checkbox" name="solo_adultos" value="si"><span class="check__text">Solo personas adultas<small>Emmaus solo deja este rol a quien la iglesia ya le confirmó la edad. Si no se sabe la edad de alguien, no se le propone ni se le asigna.</small></span></label>
       </div>
-      <button class="btn btn--secondary" type="submit">Agregar el rol</button>
+      <div class="form-actions">
+        <button class="btn btn--secondary" type="submit">Agregar el rol</button>
+      </div>
     </form>
   </section>
 
-  <section class="block" aria-labelledby="rotacion">
-    <h2 id="rotacion" class="heading">Rotación</h2>
+  <section class="form-section" aria-labelledby="rotacion">
+    <h2 id="rotacion" class="heading form-section__title">Rotación</h2>
     {% if roles and members %}
-      <p class="aside-note">Para cada rol, numera a las personas en el orden en que les toca (1, 2, 3…) y deja en blanco a quien no entra. Emmaus solo propone siguiendo ese orden; tú revisas y confirmas. No se califica a nadie.</p>
+      <p class="hint">Para cada rol, numera a las personas en el orden en que les toca (1, 2, 3…) y deja en blanco a quien no entra. Emmaus solo propone siguiendo ese orden; tú revisas y confirmas. No se califica a nadie.</p>
       <form method="post" action="{% url 'serving:rotation_save' team.pk %}">
         {% csrf_token %}
         <div class="field">
@@ -63,13 +70,13 @@
             <legend class="legend">{{ role.name }}{% if role.adults_only %} <span class="optional">(solo personas adultas)</span>{% endif %}</legend>
             {% for person, place in role.places %}
               <div class="need">
-                <label class="label" for="orden-{{ role.pk }}-{{ person.pk }}">{{ person.full_name }}</label>
+                <label class="label" for="orden-{{ role.pk }}-{{ person.pk }}">{{ person.full_name }}<span class="visually-hidden">: turno en {{ role.name }}</span></label>
                 <input class="input input--small" id="orden-{{ role.pk }}-{{ person.pk }}" type="number" name="orden_{{ role.pk }}_{{ person.pk }}" min="1" max="99" inputmode="numeric" value="{{ place }}">
               </div>
             {% endfor %}
           </fieldset>
         {% endfor %}
-        <div class="step__actions">
+        <div class="form-actions">
           <button class="btn btn--secondary" type="submit">Guardar la rotación</button>
           <a class="btn btn--link" href="{% url 'serving:rotation' team.pk %}">Ver lo que propone</a>
         </div>
@@ -81,8 +88,8 @@
     {% endif %}
   </section>
 
-  <section class="block" aria-labelledby="ajustes">
-    <h2 id="ajustes" class="heading">Cambios y recordatorios</h2>
+  <section class="form-section" aria-labelledby="ajustes">
+    <h2 id="ajustes" class="heading form-section__title">Cambios y recordatorios</h2>
     <form method="post" action="{% url 'serving:settings_save' team.pk %}">
       {% csrf_token %}
       <div class="field">
@@ -97,7 +104,9 @@
           <option value="5"{% if team.reminder_days == 5 %} selected{% endif %}>5 días antes</option>
         </select>
       </div>
-      <button class="btn btn--secondary" type="submit">Guardar los ajustes</button>
+      <div class="form-actions">
+        <button class="btn btn--secondary" type="submit">Guardar los ajustes</button>
+      </div>
     </form>
   </section>
 </div>

@@ -20,8 +20,8 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import formats, timezone
-from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.paging import paginate
 from groups.views import church_admin_view, community_view
 
@@ -221,9 +221,12 @@ def queue(request):
 
 
 @church_admin_view
-@require_POST
 def approve(request, booking_id: int):
     booking = _booking(request, booking_id)
+    if request.method != "POST":
+        # Approving is a POST. A GET is a reload or «atrás» on the clash page an action in place left at this
+        # address: back to the queue, where the booking still waits.
+        return redirect("espacios:queue")
     tz = services.church_tz(request.church)
     seen = None
     if request.POST.get("sobre") == "1":
@@ -242,7 +245,8 @@ def approve(request, booking_id: int):
     else:
         services.localize(booking, tz)
         messages.success(request, f"Aprobaste la reserva de {booking.space.name} del {_when(booking)}. Emmaus no le avisa a quien la pidió: avísale tú.")
-    return redirect("espacios:queue")
+    # Back to the list it was pressed on (its page and filter), where emmaus.js reads the new state (data-inline)
+    return redirect(safe_next(request, request.POST.get("siguiente"), reverse("espacios:queue")))
 
 
 @church_admin_view

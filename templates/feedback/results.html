@@ -1,32 +1,45 @@
 {% extends "base.html" %}
-{% load community %}
+{% load community shell emmaus %}
 {% block page_title %}Opiniones de {{ event.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  What people thought of one event (feedback.views.results), for the administration: totals per answer and the
-  comments, without names, from three opinions on.
+  What people thought of one event (feedback.views.results), for the administration. Two rules, said in one line
+  each where they apply: nothing is shown while people can still answer, and nothing is shown under the church's
+  minimum (results.minimum). Then each answer as a bar with its number, and the comments, without names.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow opinions">
   {% url 'agenda:admin_list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Opiniones del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
+  <a class="back-link" href="{{ back }}">Volver a los eventos</a>
+  <header class="page-head">
+    <h1 class="voice page-head__title">Opiniones de {{ event.name }}</h1>
+  </header>
   {% if results.open %}
-    <p class="empty-line">{% if results.total == 0 %}Todavía nadie opina{% elif results.total == 1 %}Ya llegó 1 opinión{% else %}Ya llegaron {{ results.total }} opiniones{% endif %}. Quien fue al evento puede opinar hasta el {{ results.closes_on|long_date }}; después de ese día aquí verás los resultados, todos juntos, para que nadie sepa de quién es cada opinión.</p>
+    <ul class="meta">
+      <li>{% status "en_curso" "Abierto" %}</li>
+      <li>{% icon "personas" "sm" %}{% if results.total == 0 %}Todavía nadie opina{% elif results.total == 1 %}Ya llegó 1 opinión{% else %}Ya llegaron {{ results.total }} opiniones{% endif %}</li>
+      <li>{% icon "calendario" "sm" %}Hasta el {{ results.closes_on|long_date }}</li>
+    </ul>
+    <p class="aside-note">Los resultados aparecen aquí después de ese día, todos juntos, para que nadie sepa de quién es cada opinión.</p>
   {% elif results.total == 0 %}
-    <p class="empty-line">Nadie dio su opinión de este evento.</p>
+    <p class="empty-line">Nadie dio su opinión.</p>
   {% elif not results.enough %}
     <p class="empty-line">{% if results.total == 1 %}Hubo 1 opinión{% else %}Hubo {{ results.total }} opiniones{% endif %}. Se muestran solo cuando son al menos {{ results.minimum }}, para que nadie sepa de quién es cada una.</p>
   {% else %}
-    <p class="prose">{{ results.total }} personas dieron su opinión. Se guardan sin nombre y sin nada que las una a quien las dio.</p>
+    <ul class="meta">
+      <li>{% status "descartada" "Cerrado" %}</li>
+      <li>{% icon "personas" "sm" %}{{ results.total }} personas dieron su opinión</li>
+    </ul>
+    <p class="aside-note">Se guardan sin nombre y sin nada que las una a quien las dio.</p>
     <section class="block" aria-labelledby="como-estuvo">
       <h2 id="como-estuvo" class="heading">¿Cómo estuvo?</h2>
-      <dl class="summary-list">
-        {% for label, count in results.ratings %}<div class="summary-list__row"><dt>{{ label }}</dt><dd>{{ count }}</dd></div>{% endfor %}
+      <dl class="opinion-bars">
+        {% for label, count in results.ratings %}<div class="opinion-bars__row"><dt>{{ label }}</dt><dd class="meter"><span class="meter__track" aria-hidden="true"><span class="meter__fill" style="width:{% widthratio count results.total 100 %}%"></span></span><span class="opinion-bars__n">{{ count }}</span></dd></div>{% endfor %}
       </dl>
     </section>
     <section class="block" aria-labelledby="invitaria">
       <h2 id="invitaria" class="heading">¿Invitarían a alguien la próxima vez?</h2>
-      <dl class="summary-list">
-        {% for label, count in results.recommends %}<div class="summary-list__row"><dt>{{ label }}</dt><dd>{{ count }}</dd></div>{% endfor %}
+      <dl class="opinion-bars">
+        {% for label, count in results.recommends %}<div class="opinion-bars__row"><dt>{{ label }}</dt><dd class="meter"><span class="meter__track" aria-hidden="true"><span class="meter__fill" style="width:{% widthratio count results.total 100 %}%"></span></span><span class="opinion-bars__n">{{ count }}</span></dd></div>{% endfor %}
       </dl>
     </section>
     <section class="block" aria-labelledby="mejorar">

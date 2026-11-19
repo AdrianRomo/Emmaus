@@ -326,10 +326,14 @@ def question_move(request, form_id: int, question_id: int):
     if direction not in ("arriba", "abajo"):
         raise Http404
     try:
-        _dropped(request, services.move_question(row, request.user, question_id, up=direction == "arriba"))
+        # ``desde``: the place the question had when the page was drawn, so the same press sent twice moves it once
+        drawn = request.POST.get("desde", "")
+        _dropped(request, services.move_question(row, request.user, question_id, up=direction == "arriba",
+                                                 at=int(drawn) if drawn.isdigit() else None))
     except services.FormError as error:
         messages.error(request, error.message)
-    return redirect(reverse("formularios:detail", args=[row.pk]) + "#preguntas")
+    # ``movida`` only tells the page which question to put the focus on after an action in place (templates/formularios/detail.html)
+    return redirect(reverse("formularios:detail", args=[row.pk]) + f"?movida={question_id}#preguntas")
 
 
 # ---- the staff: publishing and closing ----------------------------------------------------------

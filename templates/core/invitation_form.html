@@ -1,12 +1,14 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Nueva invitación{% endblock %}
 {% block content %}
+<div class="narrow">
 {% include "partials/ui/error_summary.html" with form=form %}
-{% include "events/rotulo/_page_head.html" with title="Invitar a una persona" lede="Envía un enlace seguro para que la persona indicada se una al espacio de tu iglesia." %}
+{% url 'invitations_list' as back_url %}
+{% include "events/rotulo/_page_head.html" with title="Invitar a una persona" back_url=back_url back_label="Invitaciones" %}
+{% comment %}After the invitation is made: its personal link, for when the e-mail does not arrive (emmaus.js copies it).{% endcomment %}
 {% if manual_link %}
   <div class="notice notice--info invitation-link">
-    <p class="notice__title">Enlace de invitación</p>
-    <p>Si el correo no llega, copia este enlace y envíalo por el medio que tu iglesia usa normalmente.</p>
+    <p class="notice__title">Si el correo no llega, comparte este enlace</p>
     <div class="field">
       <label class="label" for="enlace-invitacion">Enlace para {{ invitation.email }}</label>
       <input class="input" id="enlace-invitacion" type="text" value="{{ manual_link }}" readonly>
@@ -14,19 +16,13 @@
     <button class="btn btn--secondary btn--small" type="button" data-copy="enlace-invitacion">Copiar enlace</button>
   </div>
 {% endif %}
-<div class="split">
-  <form method="post">
-    {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
-      <button class="btn btn--primary" type="submit">Crear invitación</button>
-      <a class="btn btn--link" href="{% url 'invitations_list' %}">Ver invitaciones</a>
-    </div>
-  </form>
-  <aside class="invitation-about" aria-labelledby="sobre-invitaciones">
-    <h2 id="sobre-invitaciones" class="heading">Sobre las invitaciones</h2>
-    <p>Al invitar a un participante puedes asignarle un mentor e inscribirlo en una ruta; ambas cosas se aplican cuando acepta.</p>
-    <p>Si el correo no está configurado, copia el enlace que aparece después de crear la invitación y envíalo directamente por el medio habitual de tu iglesia.</p>
-  </aside>
+<form method="post">
+  {% csrf_token %}
+  {% include "partials/ui/fields.html" with form=form %}
+  <div class="step__actions form-actions">
+    <button class="btn btn--primary" type="submit">Enviar invitación</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
 </div>
 {% endblock %}

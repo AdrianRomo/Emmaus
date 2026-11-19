@@ -12,16 +12,17 @@
     {% include "events/rotulo/_page_head.html" with title="Editar el plan" lede=plan.title back_url=back back_label="Volver al plan" %}
   {% else %}
     {% url 'resources:plan_admin' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Escribir un plan de lectura" lede="Se guarda como borrador. Después agregas sus días y, cuando esté listo, pides su aprobación pastoral." back_url=back back_label="Volver a los planes de lectura" %}
+    {% include "events/rotulo/_page_head.html" with title="Escribir un plan de lectura" back_url=back back_label="Volver a los planes de lectura" %}
   {% endif %}
-  {% if readable %}<div class="notice notice--warning"><p>Este plan {% if plan.is_published %}está publicado{% else %}está retirado y lo sigue leyendo quien ya lo había empezado{% endif %}. Si cambias el título, la descripción o quién lo preparó, deja de verse en cuanto guardes y hasta que un pastor lo apruebe otra vez: nadie encontrará el plan en Planes de lectura ni podrá abrir sus días, tampoco quien ya lo empezó (sus marcas se conservan).</p></div>{% endif %}
+  {% if readable %}<div class="notice notice--warning"><p class="notice__title">Este plan {% if plan.is_published %}está publicado{% else %}está retirado y lo sigue leyendo quien ya lo había empezado{% endif %}.</p><p>Si cambias el título, la descripción o quién lo preparó, deja de verse en cuanto guardes y hasta que un pastor lo apruebe otra vez: nadie encontrará el plan en Planes de lectura ni podrá abrir sus días, tampoco quien ya lo empezó (sus marcas se conservan).</p></div>{% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if plan %}Guardar los cambios{% else %}Guardar el borrador{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  {% if not plan %}<p class="aside-note">Se guarda como borrador. Después agregas sus días y, cuando esté listo, pides su aprobación pastoral.</p>{% endif %}
 </div>
 {% endblock %}

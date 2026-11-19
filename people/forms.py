@@ -47,7 +47,7 @@ class PersonForm(KeyDatesMixin, TuErrorMessagesMixin, forms.ModelForm):
             "baptized_on": "Por ejemplo: 14/03/2009. Si solo sabes el año, déjala vacía.",
             "member_since": "Solo la administración la escribe: la persona no la ve ni la cambia.",
             "stage": "La anota la administración y solo la ve la administración. Emmaus nunca la cambia por su cuenta.",
-            "email": "Con este correo entrará a Emmaus cuando le des acceso.",
+            "email": "Con él entrará a Emmaus cuando le des acceso.",
             "birth_date": (
                 "Por ejemplo: 14/03/2009. Sirve para saber si es menor de edad. Escribirla o cambiarla aquí no la confirma: "
                 "la edad se confirma desde los inscritos de un evento, y si cambias la fecha hay que confirmarla otra vez."

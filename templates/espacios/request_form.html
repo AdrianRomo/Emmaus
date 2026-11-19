@@ -3,8 +3,10 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if request.is_church_admin or not space.needs_approval %}Reservar{% else %}Pedir{% endif %} {{ space.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  Asking for one space on one day (espacios.views.request_booking). When the hours are taken the page lists what is
-  in the way; only the administration gets, under that list, the button that keeps the booking anyway.
+  Asking for one space on one day (espacios.views.request_booking): what it is for, the day and its hours, the time
+  to set up and to clear. Under the button, what pressing it really does. When the hours are taken the page lists
+  what is in the way; changing the hours stays the filled action, and only the administration gets, set apart under
+  it and after that list, the button that keeps the booking anyway.
 {% endcomment %}
 <div class="narrow spaces">
   {% if clashes %}
@@ -14,24 +16,42 @@
       <ul class="clash-list">
         {% for clash in clashes %}<li>{{ clash.day|weekday_date|capfirst }}, de {{ clash.block_start|time:"H:i" }} a {{ clash.block_end|time:"H:i" }}: {{ clash.title }}{% if clash.requested_by %}, de {{ clash.requested_by.full_name }}{% endif %}{% if clash.show_details and clash.status == "solicitada" %} (por decidir){% endif %}.</li>{% endfor %}
       </ul>
-      {% if not request.is_church_admin %}<p>Elige otra hora u otro día. Si de verdad hace falta ese horario, habla con la administración de tu iglesia.</p>{% endif %}
+      {% if request.is_church_admin %}<p>Cambia el día o las horas y vuelve a intentarlo.</p>{% else %}<p>Elige otra hora u otro día. Si de verdad hace falta ese horario, habla con la administración de tu iglesia.</p>{% endif %}
     </div>
   {% else %}
     {% include "partials/ui/error_summary.html" with form=form %}
   {% endif %}
   {% url 'espacios:week' space.pk as back %}
-  {% if request.is_church_admin %}
-    {% include "events/rotulo/_page_head.html" with title="Reservar "|add:space.name lede="Como administración, tu reserva queda aprobada en el momento." back_url=back back_label="Volver a la semana" %}
-  {% elif space.needs_approval %}
-    {% include "events/rotulo/_page_head.html" with title="Pedir "|add:space.name lede="El horario queda apartado mientras la administración de tu iglesia decide." back_url=back back_label="Volver a la semana" %}
+  {% if request.is_church_admin or not space.needs_approval %}
+    {% include "events/rotulo/_page_head.html" with title="Reservar "|add:space.name back_url=back back_label="Volver a la semana" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Reservar "|add:space.name lede="Este espacio no pide aprobación: si el horario está libre, queda reservado." back_url=back back_label="Volver a la semana" %}
+    {% include "events/rotulo/_page_head.html" with title="Pedir "|add:space.name back_url=back back_label="Volver a la semana" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    {% if clashes %}<p class="aside-note">Cambia el día o las horas y vuelve a intentarlo.</p>{% endif %}
-    <div class="step__actions">
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <div class="form-section">
+      {% include "partials/ui/field.html" with field=form.title %}
+      {% if form.event %}{% include "partials/ui/field.html" with field=form.event %}{% endif %}
+    </div>
+    <fieldset class="form-section" aria-describedby="ayuda-horas">
+      <legend class="form-section__title">Día y horas</legend>
+      <p class="hint" id="ayuda-horas">{{ form.time_help }}</p>
+      {% include "partials/ui/field.html" with field=form.day %}
+      <div class="spaces__pair">
+        {% include "partials/ui/field.html" with field=form.starts %}
+        {% include "partials/ui/field.html" with field=form.ends %}
+      </div>
+    </fieldset>
+    <fieldset class="form-section" aria-describedby="ayuda-preparar">
+      <legend class="form-section__title">Preparar y recoger</legend>
+      <p class="hint" id="ayuda-preparar">{{ form.buffer_help }}</p>
+      <div class="spaces__pair">
+        {% include "partials/ui/field.html" with field=form.setup_minutes %}
+        {% include "partials/ui/field.html" with field=form.teardown_minutes %}
+      </div>
+    </fieldset>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if clashes %}{% if request.is_church_admin or not space.needs_approval %}Reservar con el horario nuevo{% else %}Pedir con el horario nuevo{% endif %}{% elif request.is_church_admin or not space.needs_approval %}Reservar{% else %}Pedir la reserva{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
@@ -43,6 +63,7 @@
       </div>
     {% endif %}
   </form>
+  <p class="aside-note">{% if request.is_church_admin %}Como administración, tu reserva queda aprobada en el momento.{% elif space.needs_approval %}El horario queda apartado mientras la administración de tu iglesia decide.{% else %}Este espacio no pide aprobación: si el horario está libre, queda reservado.{% endif %}</p>
   <p class="aside-note">Las horas son las de tu iglesia. Una reserva es de un solo día; todavía no hay reservas que se repitan cada semana.</p>
 </div>
 {% endblock %}

@@ -1,0 +1,10 @@
+{% comment %}
+  Nothing here yet (santuario.css, "Feedback"): the arch, what is missing in a few words, and one way to add the
+  first one. title; optional: text (one short sentence), action_url + action_label. For a list inside a page that
+  only needs a line, use <p class="empty-line"> instead. Only on screens served with the module on.
+{% endcomment %}
+<div class="empty">
+  <p class="empty__title">{{ title }}</p>
+  {% if text %}<p class="empty__text">{{ text }}</p>{% endif %}
+  {% if action_url %}<a class="btn btn--secondary" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+</div>

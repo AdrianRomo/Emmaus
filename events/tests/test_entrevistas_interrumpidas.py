@@ -80,7 +80,7 @@ class CoordinatorHomeTests(InterruptedBase):
         Interview.objects.filter(pk=self.older.pk).delete()
         response = self.get(self.coord1, "coord_home")
         self.assertContains(response, "Tienes 1 entrevista sin terminar")
-        self.assertContains(response, f"Lleva {STALE_MINUTES} minutos o más sin cambios. Retómala o, si ya no se va a terminar, descártala")
+        self.assertContains(response, f"Lleva {STALE_MINUTES} minutos o más sin cambios. Al descartar se borran sus respuestas.")
 
     def test_the_live_fragment_carries_the_prompt(self):
         response = self.get(self.coord1, "coord_home", headers=FETCH)

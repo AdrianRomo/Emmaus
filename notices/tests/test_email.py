@@ -110,7 +110,7 @@ class NoticeEmailTests(CommunityFixture):
         self.assertContains(page, '<input type="radio" name="choice" value="urgent" id="id_choice_0" required checked>', html=True)
         self.assertContains(page, "Solo que hay un aviso para ti en tu iglesia y el enlace para leerlo")
         self.assertContains(page, "No lleva el título ni el texto del aviso")
-        self.assertContains(page, "<strong>diego@prueba.mx</strong>")
+        self.assertContains(page, '<strong class="break-anywhere">diego@prueba.mx</strong>')
         self.assertNotContains(page, "no hay correo configurado")
         self.assertEqual(page.content.decode().count("<h1"), 1)
         self.assertEqual(email.preference(self.member), Choice.URGENT)

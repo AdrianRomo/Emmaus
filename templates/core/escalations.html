@@ -2,27 +2,38 @@
 {% load emmaus %}
 {% block page_title %}Preguntas para el pastor{% endblock %}
 {% block content %}
-<div class="disc-list">
-{% url 'questions_inbox' as back_url %}
-{% include "events/rotulo/_page_head.html" with title="Preguntas para el pastor" lede="Preguntas que mentores o participantes pasaron al pastor para recibir atención pastoral." back_url=back_url back_label="Todas las preguntas" %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): the questions passed to the pastor: pastoral care, never softened (a question that asks for it says so in chile). The two views as capsules; each question a row that opens it.
+{% endcomment %}
+{% include "events/rotulo/_page_head.html" with title="Preguntas" %}
+{% include "core/rotulo/_preguntas_vistas.html" with current="pastor" %}
+<section aria-label="Preguntas para el pastor">
+  {% if questions %}
+    <ul class="rows">
+      {% for question in questions %}
+        {% url 'church_question_detail' question.id as question_url %}
+        {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Ninguna pregunta para el pastor.</p>
+  {% endif %}
+</section>
+{% else %}<div class="disc-list">
+{% include "events/rotulo/_page_head.html" with title="Preguntas" %}
+{% include "core/rotulo/_preguntas_vistas.html" with current="pastor" %}
 {% comment %}Escalated means "a pastor should look at this", not an error: the in-progress mark, never chile.{% endcomment %}
 <section aria-label="Preguntas para el pastor">
   {% if questions %}
     <ul class="rows">
       {% for question in questions %}
-        <li class="row disc-item">
-          <div class="row__main">
-            <p class="row__title"><a class="row__link" href="{% url 'church_question_detail' question.id %}">{{ question.participant.get_full_name|default:question.participant.email }}</a></p>
-            <p class="disc-item__text">{{ question.question_text|truncatewords:30 }}</p>
-            <p class="row__meta">{% if question.sensitivity_level != "normal" %}<span class="privacy__tag">{{ question.get_sensitivity_level_display }}</span>{% endif %}Enviada el {{ question.created_at|fecha_corta }}.</p>
-          </div>
-          {% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label="Pasada al pastor" %}
-        </li>
+        {% url 'church_question_detail' question.id as question_url %}
+        {% include "core/rotulo/_pregunta_fila.html" with question=question url=question_url %}
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">No hay preguntas pasadas al pastor. Aquí aparecerán las preguntas que necesiten atención pastoral.</p>
+    <p class="empty-line">Ninguna pregunta para el pastor.</p>
   {% endif %}
 </section>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

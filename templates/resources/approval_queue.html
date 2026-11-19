@@ -1,34 +1,29 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus community %}
 {% block page_title %}Aprobación pastoral{% endblock %}
 {% block content %}
 {% comment %}
   What waits for a pastor's approval before it is published (resources.approval_views.queue): what the administration
   asked, what a pastor returned, and what is published with no approval on record. A pastor decides; the
-  administration only reads. Nothing here says who reads or how many people do.
+  administration only reads. Each list is on the row specification: the mark of its kind in the 48px lead, the row
+  opens the page where it is read and decided, and the section's title says its state (no word repeats it). What
+  waits for this pastor's decision carries the vela dot. Nothing here says who reads or how many people do.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow aprobaciones">
   {% url 'community:home' as back %}
-  {% if can_approve %}
-    {% include "events/rotulo/_page_head.html" with title="Aprobación pastoral" lede="Lo que la administración preparó y espera tu aprobación para publicarse. Tú dices con qué permiso lo publica la iglesia." back_url=back back_label="Volver a Mi iglesia" %}
-  {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Aprobación pastoral" lede="Lo que preparaste y espera a un pastor de tu iglesia. La administración prepara y pide; solo un pastor aprueba y publica." back_url=back back_label="Volver a Mi iglesia" %}
-  {% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Aprobación pastoral" back_url=back back_label="Volver a Mi iglesia" %}
   {% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}
 
   <section class="block" aria-labelledby="esperan">
-    <h2 id="esperan" class="heading">Solicitudes que esperan aprobación</h2>
+    <h2 id="esperan" class="heading">Solicitudes que esperan aprobación{% if pending %} <span class="count">{{ pending|length }}</span>{% endif %}</h2>
     {% if pending %}
       <ul class="rows">
         {% for entry in pending %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead{% if can_approve %} row--attention{% endif %}">
+            {% include "resources/_approval_mark.html" with key=entry.kind.key %}
             <div class="row__main">
               <p class="row__title"><a href="{{ entry.url }}">{{ entry.title }}</a></p>
-              <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }}{% if entry.row.requested_at %} Se pidió el {{ entry.row.requested_at|date:"j \d\e F"|lower }}.{% endif %} Todavía no se ve.</p>
-            </div>
-            <div class="row__end">
-              {% status "por_evaluar" "Por aprobar" %}
-              <a class="btn btn--secondary btn--small" href="{{ entry.url }}">{% if can_approve %}Revisar{% else %}Ver{% endif %}<span class="visually-hidden">: {{ entry.title }}</span></a>
+              <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }}{% if entry.row.requested_at %} Se pidió el {{ entry.row.requested_at|day_month }}.{% endif %} Todavía no se ve.</p>
             </div>
           </li>
         {% endfor %}
@@ -43,12 +38,13 @@
     <h2 id="devueltos" class="heading">Devueltos sin aprobar</h2>
     <ul class="rows">
       {% for entry in returned %}
-        <li class="row row--lead row--stack">
+        <li class="row row--lead">
+          {% include "resources/_approval_mark.html" with key=entry.kind.key %}
           <div class="row__main">
             <p class="row__title"><a href="{{ entry.url }}">{{ entry.title }}</a></p>
-            <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }} No se publicó. Lo que hay que corregir: {{ entry.row.return_reason }}</p>
+            <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }} No se publicó.</p>
+            <p class="row__meta">Lo que hay que corregir: {{ entry.row.return_reason }}</p>
           </div>
-          <div class="row__end">{% status "revisar" "Devuelto" %}</div>
         </li>
       {% endfor %}
     </ul>
@@ -59,16 +55,14 @@
   <section class="block" aria-labelledby="sin-aprobacion">
     <h2 id="sin-aprobacion" class="heading">Publicado antes de que existiera la aprobación</h2>
     {% if unrecorded %}
-      <p>Esto no es una solicitud: ya está publicado y se sigue viendo, nadie lo retiró. Se publicó sin la aprobación de un pastor, casi siempre porque es anterior a este paso. {% if can_approve %}Apruébalo uno por uno cuando lo hayas leído.{% else %}Un pastor lo aprueba uno por uno.{% endif %}</p>
+      <p class="aside-note">Esto no es una solicitud: ya está publicado y se sigue viendo, nadie lo retiró. Se publicó sin la aprobación de un pastor, casi siempre porque es anterior a este paso. {% if can_approve %}Apruébalo uno por uno cuando lo hayas leído.{% else %}Un pastor lo aprueba uno por uno.{% endif %}</p>
       <ul class="rows">
         {% for entry in unrecorded %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead">
+            {% include "resources/_approval_mark.html" with key=entry.kind.key %}
             <div class="row__main">
               <p class="row__title"><a href="{{ entry.url }}">{{ entry.title }}</a></p>
               <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }} {% if entry.row.is_legacy %}Se publicó antes de que existieran las aprobaciones.{% else %}Está publicado y no hay una aprobación registrada.{% endif %}</p>
-            </div>
-            <div class="row__end">
-              <a class="btn btn--secondary btn--small" href="{{ entry.url }}">{% if can_approve %}Revisar{% else %}Ver{% endif %}<span class="visually-hidden">: {{ entry.title }}</span></a>
             </div>
           </li>
         {% endfor %}
@@ -78,6 +72,6 @@
       <p class="empty-line">Todo lo que está publicado tiene la aprobación de un pastor.</p>
     {% endif %}
   </section>
-  <p class="aside-note">Los recursos son enlaces a sitios que la iglesia no hospeda: no pasan por aquí. Esta página no muestra quién lee ni cuántas personas: eso es de cada quien.</p>
+  <p class="aside-note">{% if can_approve %}La administración prepara y pide; tú apruebas y dices con qué permiso lo publica la iglesia.{% else %}La administración prepara y pide; solo un pastor aprueba y publica.{% endif %} Los recursos son enlaces a sitios que la iglesia no hospeda: no pasan por aquí. Esta página no muestra quién lee ni cuántas personas: eso es de cada quien.</p>
 </div>
 {% endblock %}

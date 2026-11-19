@@ -1,28 +1,33 @@
 {% extends "base.html" %}
+{% load shell %}
 {% block page_title %}Personas de {{ event.name }}{% endblock %}
 {% block content %}
 {% comment %}
   The camperos of a finished event that are not among the church's people yet (people.views.from_event). One
-  decision per campero: a new person, or one that is already registered. The suggestions are people of this church
-  whose name shares words with the campero's; the administrator decides, Emmaus never links by name on its own.
+  decision per campero, at the end of their row: a new person, or one that is already registered. The suggestions
+  are people of this church whose name shares words with the campero's; the administrator decides, Emmaus never
+  links by name on its own. It is a form with a field (the choice), so it is posted as a page, never in place.
 {% endcomment %}
 <div class="narrow">
   {% url 'people:from_event_list' as back %}
-  {% include "events/rotulo/_page_head.html" with title=event.name lede="Quienes participaron y todavía no están en Personas." back_url=back back_label="Volver a los eventos" meta=linked|stringformat:"d"|add:" ya están en Personas." %}
+  {% include "events/rotulo/_page_head.html" with title=event.name back_url=back back_label="Volver a los eventos" %}
   <form class="search" method="get" role="search">
     <label class="visually-hidden" for="buscar">Buscar por nombre</label>
-    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Nombre o apellido">
-    <button class="btn btn--secondary" type="submit">Buscar</button>
+    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Buscar por nombre">
   </form>
   <section class="block" aria-labelledby="faltan">
-    <h2 id="faltan" class="heading">{{ page.paginator.count }} por traer</h2>
+    <div class="heading-row">
+      <h2 id="faltan" class="heading">{{ page.paginator.count }} por traer</h2>
+      <p class="meta">{{ linked }} ya {{ linked|pluralize:"está,están" }} en Personas</p>
+    </div>
     {% if page.object_list %}
       <ul class="rows">
         {% for campero in page %}
-          <li class="row{% if campero.candidates %} row--stack{% endif %}">
+          <li class="row row--lead{% if campero.candidates %} row--stack{% endif %}">
+            {% monogram campero.full_name %}
             <div class="row__main">
               <p class="row__title">{{ campero.full_name }}</p>
-              <p class="row__meta">{{ campero.age }} años{% if campero.sede %}, sede {{ campero.sede.name }}{% endif %}{% if not campero.is_active %}, ya no participa{% endif %}.</p>
+              <p class="row__meta">{{ campero.age }} años{% if campero.sede %}, sede {{ campero.sede.name }}{% endif %}{% if not campero.is_active %}, ya no participa{% endif %}</p>
             </div>
             <form class="row__end row-assign" method="post" action="{% url 'people:from_event_link' event.slug campero.public_id %}">
               {% csrf_token %}
@@ -44,7 +49,8 @@
       </ul>
       {% include "partials/ui/pager.html" with page=page label="Páginas de personas" %}
     {% elif query %}
-      <p class="empty-line">Nadie por traer se llama así.</p>
+      {% url 'people:from_event' event.slug as everybody %}
+      {% include "partials/ui/empty.html" with title="Nadie por traer se llama así" action_url=everybody action_label="Ver a todas" %}
     {% else %}
       <p class="empty-line">Todas las personas de este evento ya están en Personas.</p>
     {% endif %}

@@ -480,7 +480,10 @@ def delete_question(form: Form, actor, question_id: int) -> int:
     return dropped
 
 
-def move_question(form: Form, actor, question_id: int, up: bool) -> int:
+def move_question(form: Form, actor, question_id: int, up: bool, at: int | None = None) -> int:
+    """One place up or down. ``at`` is the place (from 1) the question had on the page the person pressed on:
+    when it is no longer there (the same press sent twice, somebody else moved it), nothing is moved and the
+    page simply shows the order as it is, so a repeated send never moves a question twice."""
     with transaction.atomic():
         form = _locked(form)
         if form.status == Status.CLOSED:
@@ -489,6 +492,8 @@ def move_question(form: Form, actor, question_id: int, up: bool) -> int:
         index = next((i for i, q in enumerate(questions) if q.pk == question_id), None)
         other = None if index is None else index - 1 if up else index + 1
         if other is None or not 0 <= other < len(questions):
+            return 0
+        if at is not None and index + 1 != at:
             return 0
         questions[index], questions[other] = questions[other], questions[index]
         for position, question in enumerate(questions, start=1):

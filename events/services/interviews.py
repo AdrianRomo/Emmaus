@@ -33,6 +33,7 @@ from django.utils import timezone
 
 from ..models import (
     AnswerRevision,
+    AuditEvent,
     ConsentRecord,
     Event,
     EventParticipant,
@@ -53,12 +54,12 @@ from .questionnaire import (
     Step,
     all_questions,
     build_steps,
+    decline_field,
     describe_answer,
     is_visible,
     load_answers,
     options_by_code,
     validate_step,
-    visible_steps,
     write_answers,
 )
 
@@ -70,11 +71,22 @@ UNLOCK_COOLDOWN_SECONDS = 60
 HIDDEN_BY_CORRECTION = "ocultada por corrección"  # AnswerRevision.reason of an answer a correction hid
 SESSION_LOCKS_KEY = "interview_claims"
 KIOSK_KEY = "kiosk"
-# What happened and what to do, the same on every screen that loses the interview.
+# What happened, the same on every screen that loses the interview; the page it lands on says how to go on («Continuar
+# aquí»), so the message no longer sent people back to their home.
 CLAIM_LOST_MESSAGE = (
-    "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Vuelve a abrirla desde tu inicio."
+    "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Lo que se respondió sigue guardado."
 )
 NOT_IN_PROGRESS_MESSAGE = "Esta entrevista ya no está en curso. En la ficha del campero ves cómo quedó."
+# A browser that had the interview, whose person may no longer see the campero (given to another coordinador): sent to
+# its home with this, never a word about the campero (views.interview._scoped_interview). True whether or not the new
+# coordinador has taken it yet, which the claim-lost message («se abrió en otra computadora…») is not.
+NO_LONGER_IN_HAND_MESSAGE = "Esta entrevista ya no está a tu cargo. Lo que se respondió sigue guardado."
+# Who may take an interview in hand when this person may not (EventAccess.can_continue_interview): the take-over page
+# says it instead of offering «Continuar aquí», and ``claim`` refuses with it.
+WHO_CAN_CONTINUE_MESSAGE = (
+    "Esta entrevista tiene preguntas que no puedes ver: pueden continuarla su coordinador o alguien de la administración"
+    " con acceso confidencial."
+)
 NO_QUESTIONNAIRE_MESSAGE = "Todavía no hay un cuestionario publicado para este evento. Avisa a la administración."
 KIOSK_CLOSED_MESSAGE = "Esta pantalla ya se cerró. Avisa a tu coordinador."
 WRONG_PASSWORD_MESSAGE = "La contraseña no es correcta. Revísala e inténtalo otra vez."
@@ -305,9 +317,14 @@ def start_interview(
     confirmed_consents: set[str],
     session,
     questionnaire=None,
+    identity_confirmed: bool = False,
 ) -> Interview:
     """Start the campero's interview for ``questionnaire`` (a Questionnaire or its id), or for the next one
-    they can answer when it is None."""
+    they can answer when it is None.
+
+    ``identity_confirmed``: «Sí, es {nombre}» was ticked on «Antes de empezar» (InterviewStartForm requires it). It
+    is kept on the start's audit row (who and when are that row's), never asked again on resuming, taking control or
+    recovering the computer, and shown on the review and the record (``identity_confirmation``)."""
     event = access.event
     blockers = event_blockers(event, practice=participant.is_practice)
     if blockers:
@@ -363,6 +380,7 @@ def start_interview(
                 f"Inició la entrevista del campero #{locked.code} ({interview.get_mode_display().lower()})",
                 interview,
                 station=station.name if station else "",
+                **({"identity_confirmed": True} if identity_confirmed else {}),
             )
     except IntegrityError:
         # Another station created the interview between our check and insert: point at the live one, not a done one.
@@ -374,13 +392,19 @@ def start_interview(
     return interview
 
 
-def claim(access, interview: Interview, session, *, take_over: bool = False, station=None, reopen: bool = False) -> Interview:
+def claim(
+    access, interview: Interview, session, *, take_over: bool = False, station=None, reopen: bool = False, to_continue: bool = True
+) -> Interview:
     """Make this browser the editor of an in-progress interview.
 
     ``reopen`` means the person opened the interview on purpose ("Retomar entrevista" on
     "Mi inicio", a list, the camper page). Only then may a browser whose claim an administrator
     released pick the interview up again without "Tomar el control aquí"; a save, the review
     or the hand-over from that browser raise ``ClaimReleased``.
+
+    ``to_continue``: the claim is to go on with it, so whoever cannot (``EventAccess.can_continue_interview``) is
+    refused before the lock moves. Only «Descartar» claims it for something else (an administrador ends an abandoned
+    interview she could not continue).
     """
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("participant").get(pk=interview.pk)
@@ -400,6 +424,8 @@ def claim(access, interview: Interview, session, *, take_over: bool = False, sta
             )
         if locked.lock_is_active(now) and not take_over:
             raise ClaimConflict("Esta entrevista está abierta en otra computadora.", interview=locked)
+        if to_continue and not access.can_continue_interview(locked):
+            raise NotAllowed(WHO_CAN_CONTINUE_MESSAGE, interview=locked)
         was_active = locked.lock_is_active(now)
         _close_participant_sessions(locked, ParticipantSession.EndReason.TAKEN_OVER)
         token = _set_claim(locked, access.user)
@@ -436,11 +462,11 @@ def _check_writable(locked: Interview, token: str | None, revision) -> None:
 
 
 def _left_blank(question: Question, data) -> bool:
-    """Nothing chosen or written for ``question`` in the posted form."""
+    """Nothing chosen or written for ``question`` in the posted form («Prefiero no responder» is not blank)."""
     field_name = f"q_{question.id}"
     if question.is_choice:
         return not any(data.getlist(field_name))
-    return not (data.get(field_name) or "").strip()
+    return not (data.get(field_name) or "").strip() and not data.get(decline_field(question))
 
 
 def save_step(
@@ -448,27 +474,19 @@ def save_step(
 ) -> tuple[Interview, dict]:
     """Validate and save one screen; return the interview and {question_id: error}.
 
-    ``partial`` is "Parar por ahora": the same checks as "Continuar", except that a blank required
-    question is not an error. Two cases save nothing from the screen: nothing chosen where nothing
-    was stored, and a choice whose required follow-up is still blank. The second one stays
-    unanswered on purpose: the camper's review sends them back to it, while a saved choice with a
-    blank confidential follow-up could not be finalized (a coordinator may not open that screen).
-    Erasing a stored answer and pausing erases it, as "Continuar" would.
+    No question requires an answer: a blank is saved as a blank (no row) and a decline as a decline. The only
+    errors are a code not on the screen, a decline marked with another answer, and a text too long.
+    ``partial`` is "Parar por ahora": the same checks as "Continuar", except that a screen left with nothing
+    chosen where nothing was stored saves nothing, so "Retomar" still opens it. Erasing a stored answer and
+    pausing erases it, as "Continuar" would.
     """
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("version", "participant").get(pk=interview.pk)
         _check_writable(locked, token, data.get("revision"))
         answers = load_answers(locked)
         cleaned, errors = validate_step(step, data, answers)
-        if partial:
-            # Only "required" can fail on a blank answer: a wrong code, a clash or a long text is never blank.
-            blank = {q.id for q in step.questions if q.required and _left_blank(q, data)}
-            if _left_blank(step.question, data) and step.question.id not in answers:
-                return locked, {}
-            # validate_step only checks the follow-ups the posted choice shows.
-            if any(child.id in errors and child.id in blank for child in step.children):
-                return locked, {}
-            errors = {question_id: message for question_id, message in errors.items() if question_id not in blank}
+        if partial and _left_blank(step.question, data) and step.question.id not in answers:
+            return locked, {}
         if errors:
             return locked, errors
         write_answers(locked, cleaned, actor=actor, by_participant=by_participant)
@@ -528,17 +546,9 @@ def finalize(interview: Interview, *, token: str | None, revision, decision: str
         if locked.status == Interview.Status.COMPLETED:
             return locked  # idempotent: a second click or a browser retry changes nothing
         _check_writable(locked, token, revision)
+        # No question requires an answer: an interview with blanks (a confidential one too, which a coordinator
+        # without confidential access cannot open) is finalized as it is. Only "Antes de empezar" requires anything.
         answers = load_answers(locked)
-        by_id = {q.id: q for q in all_questions(locked.version)}
-        missing = [
-            q
-            for step in visible_steps(locked.version, answers)
-            for q in step.questions
-            if q.required and is_visible(q, answers, by_id) and (answers.get(q.id) is None or answers[q.id].is_empty)
-        ]
-        if missing:
-            # Name the question: the review lists them all, and "Cambiar" sits next to each one.
-            raise InterviewError(f"Falta responder “{missing[0].text}”. Toca “Cambiar” junto a ella.", interview=locked)
         now = timezone.now()
         locked.status = Interview.Status.COMPLETED
         locked.completed_at = now
@@ -723,14 +733,18 @@ def correct_step(access, interview: Interview, step: Step, data, *, reason: str)
             before = answers.get(question_id)
             before_codes = sorted(before.codes) if before else []
             before_text = before.text if before else ""
+            before_declined = before.declined if before else False
             after_codes = sorted(value.codes) if value else []
             after_text = value.text if value else ""
-            if before_codes != after_codes or before_text != after_text:
+            after_declined = value.declined if value else False
+            # «Prefiero no responder» and a blank are different answers: changing one into the other is a correction.
+            if before_codes != after_codes or before_text != after_text or before_declined != after_declined:
                 AnswerRevision.objects.create(
                     interview=locked,
                     question_id=question_id,
                     previous_option_codes=before_codes,
                     previous_text=before_text,
+                    previous_declined=before_declined,
                     reason=revision_reason(question_id, value),
                     changed_by=access.user,
                 )
@@ -745,6 +759,7 @@ def correct_step(access, interview: Interview, step: Step, data, *, reason: str)
                 question_id=question_id,
                 previous_option_codes=sorted(before.codes),
                 previous_text=before.text,
+                previous_declined=before.declined,
                 reason=HIDDEN_BY_CORRECTION,
                 changed_by=access.user,
             )
@@ -1035,6 +1050,9 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
     A conditional question is listed only if the viewer may see the answer that
     controls it; otherwise its mere presence would reveal that hidden answer.
     Hidden rows look the same whether or not they were answered.
+    ``answered`` is "something is stored": a decline is shown as «Prefirió no responder» to staff and in the
+    campero's words to the campero (``for_participant``: «Prefiero no responder»), a blank as «Sin responder»;
+    ``declined`` tells the decline apart. Neither is a substantive answer.
     """
     answers = load_answers(interview)
     by_id = {q.id: q for q in all_questions(interview.version)}
@@ -1057,10 +1075,88 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
                     "question": question,
                     "visible": visible,
                     "answered": (value is not None and not value.is_empty) if visible else None,
-                    "display": describe_answer(question, value) if visible else "",
+                    "declined": (value is not None and value.declined) if visible else None,
+                    "display": describe_answer(question, value, staff=not for_participant) if visible else "",
                 }
             )
     return rows
+
+
+def hidden_question_message(question: Question) -> str:
+    """What a step says when it sends someone to the review because they do not read one of its questions. It is the
+    same whether or not the question has an answer (a hidden row never tells: ``review_rows``), so it no longer says
+    the campero answered it: false in an assisted interview and for a question nobody answered (browser QA)."""
+    return f"Esa pregunta es {question.get_sensitivity_display().lower()} y no puedes verla."
+
+
+def answered_alone(interview: Interview) -> bool:
+    """The campero answered something on their own («Entrevista a solas», on the kiosk): only then may the review say
+    the confidential questions it hides were answered «por su cuenta» (browser QA)."""
+    return interview.answers.filter(answered_by_participant=True).exists()
+
+
+# Who took the interview in hand, in the activity log: started it, resumed it, took control, recovered the computer.
+HOLDER_ACTIONS = ("entrevista_iniciada", "entrevista_retomada", "entrevista_control", "captura_desbloqueada")
+
+
+def _interview_rows(interview: Interview, actions):
+    return AuditEvent.objects.filter(
+        event_id=interview.event_id, object_type="Interview", object_id=str(interview.public_id), action__in=actions
+    ).order_by("created_at", "id")
+
+
+def interview_people(interview: Interview) -> dict:
+    """The people of an interview, for staff (owner decision: a resumed interview shows both):
+
+    - ``confirmed``: who ticked «Sí, es {nombre}» when it started, and when (``{"by", "at"}``; None for an interview
+      started before «Antes de empezar» asked it);
+    - ``reverified``: each other staff member who ticked it again to continue it, and when (``audit.IDENTITY_VERIFIED``);
+    - ``holder``: «Entrevista a cargo de …», the last person who took it in hand in the activity log (``HOLDER_ACTIONS``),
+      else the person who started it;
+    - ``holder_shown``: say «Entrevista a cargo de …» only when the holder is not the account that started it (who
+      confirmed the identity, or ``conducted_by`` before the confirmation was asked): compared by account, not by name
+      (two people may share one), so the record never says the same person twice.
+    """
+    rows = list(_interview_rows(interview, (*HOLDER_ACTIONS, audit.IDENTITY_VERIFIED)))
+    started = next((r for r in rows if r.action == "entrevista_iniciada" and r.metadata.get("identity_confirmed")), None)
+    holders = [r for r in rows if r.action in HOLDER_ACTIONS]
+    holder = holders[-1].actor_label if holders else (interview.conducted_by.get_full_name() if interview.conducted_by else "")
+    holder_id = holders[-1].actor_id if holders else interview.conducted_by_id
+    return {
+        "confirmed": {"by": started.actor_label, "at": started.created_at} if started else None,
+        "reverified": [{"by": r.actor_label, "at": r.created_at} for r in rows if r.action == audit.IDENTITY_VERIFIED],
+        "holder": holder,
+        "holder_shown": bool(holder) and holder_id != (started.actor_id if started else interview.conducted_by_id),
+    }
+
+
+def identity_confirmation(interview: Interview) -> dict | None:
+    """Who confirmed «Sí, es {nombre}» when the interview started, and when (``interview_people``'s ``confirmed``)."""
+    return interview_people(interview)["confirmed"]
+
+
+def needs_identity_check(interview: Interview, user) -> bool:
+    """True when ``user`` is about to continue an interview in progress they did not start and has not yet ticked
+    «Sí, es {nombre}» for it (owner decision). The person who started it (``conducted_by``, who ticked the box on
+    «Antes de empezar») is never asked again, nor anyone who already checked it once."""
+    if interview.status != Interview.Status.IN_PROGRESS or user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if interview.conducted_by_id == user.id:
+        return False
+    return not _interview_rows(interview, (audit.IDENTITY_VERIFIED,)).filter(actor=user).exists()
+
+
+def record_identity_check(access, interview: Interview) -> None:
+    """«Sí, es {nombre}» ticked by someone continuing the interview: its own audit row (who, when, which interview), so
+    the confirmation at the start stays as it was."""
+    if needs_identity_check(interview, access.user):
+        audit.record(
+            access.user,
+            interview.event,
+            audit.IDENTITY_VERIFIED,
+            f"Verificó la identidad del campero #{interview.participant.code} para continuar su entrevista",
+            interview,
+        )
 
 
 def visible_question_ids(access, interview: Interview, *, during_capture: bool = False) -> set[int]:

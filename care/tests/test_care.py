@@ -18,7 +18,7 @@ from people.models import ChurchAuditEvent
 MINE = reverse("care:mine")
 ALL = reverse("care:admin_list")
 CREATE = reverse("care:create")
-EMPTY = "Nadie espera que la busques por ahora."
+EMPTY = "No acompañas a nadie por ahora."
 
 
 def url(name, follow_up):
@@ -82,13 +82,14 @@ class CareTests(CommunityFixture):
         self.assertContains(response, "Cambiar responsable o fecha")
         self.assertContains(response, "Cancelar el seguimiento")
         page = self.client.get(ALL)
-        self.assertContains(page, "Responsable: Gala Guía.")
+        self.assertContains(page, "Responsable: Gala Guía")
 
         self.client.force_login(self.leader_user)
         page = self.client.get(MINE)
         self.assertContains(page, "Personas que acompañas")
         self.assertContains(page, "Diego Hernández Cruz")
-        self.assertContains(page, "Vino por primera vez. Para el ")
+        self.assertContains(page, "Vino por primera vez")
+        self.assertContains(page, "Para el ")
         self.assertContains(page, "Pendiente")
         self.assertNotContains(page, "Crear un seguimiento")
         self.assertEqual(page.content.decode().count("<h1"), 1)
@@ -104,7 +105,7 @@ class CareTests(CommunityFixture):
         self.assertEqual(page.content.decode().count("<h1"), 1)
 
         response = self.client.post(url("step", follow_up), {"paso": "llamada"}, follow=True)
-        self.assertContains(response, "Le llamé, ")
+        self.assertContains(response, "Le llamé")
         self.assertContains(response, "En proceso")
         follow_up.refresh_from_db()
         step = follow_up.steps.get()
@@ -123,7 +124,7 @@ class CareTests(CommunityFixture):
         follow_up = self.make(owner=None)
         self.client.force_login(self.admin)
         page = self.client.get(ALL)
-        self.assertContains(page, "Sin responsable.")
+        self.assertContains(page, "Sin responsable")
         self.assertContains(page, "row--attention")
         due = self.today + timedelta(days=5)
         page = self.client.get(url("edit", follow_up))
@@ -327,9 +328,9 @@ class CareTests(CommunityFixture):
         self.assertEqual([row.pk for row in services.mine(self.leader, limit=2)], [very_late.pk, late.pk])
         self.client.force_login(self.leader_user)
         page = self.client.get(MINE)
-        self.assertContains(page, "Ya pasó la fecha.", count=2)
+        self.assertContains(page, "Ya pasó", count=2)
         self.assertContains(page, "row--attention", count=2)
-        self.assertContains(page, "Sin fecha.", count=2)
+        self.assertContains(page, "Para el ", count=4)  # the two without a date say nothing
 
     def test_the_counts(self):
         self.assertEqual((services.open_count(self.leader), services.unassigned_count(self.church)), (0, 0))

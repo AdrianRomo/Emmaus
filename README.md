@@ -5,7 +5,7 @@ Emmaus is a Spanish-language (es-MX) Django platform that helps a church care fo
 - **Emmaus Campamentos** runs a camp's interview operation: 350–400 camperos without accounts, ten shared interview computers, volunteer coordinadores, tutores who supervise them, pastors who need an honest overview, and leadership meetings that need a privacy-safe projector view.
 - **Discipulado**, the original module, is still supported: discipleship paths, lessons, reflections, participant questions and pastoral follow-up for participants who have accounts. It is shown only to churches that turn it on.
 
-The interface is Mexican Spanish throughout and every screen uses one design system, "Atrio" ([`docs/design-system.md`](docs/design-system.md)), which replaced "Rótulo" on 2026-10-26: white pages, one action colour (petróleo `#0B6270`), Figtree with sentences as headings, no icons, shadows or yellow, the church's own logo as the only ornament, and at most one tinted panel per screen that asks the next question and holds its one button. The stylesheet keeps its name, `static/css/rotulo.css`. Why the direction changed: `docs/design-direction.md`.
+The interface is Mexican Spanish throughout. With the community module off (the camp as it runs on `main`), every screen uses one design system, "Atrio" ([`docs/design-system.md`](docs/design-system.md)), which replaced "Rótulo" on 2026-10-26: white pages, one action colour (petróleo `#0B6270`), Figtree with sentences as headings, no icons, shadows or yellow, the church's own logo as the only ornament, and at most one tinted panel per screen that asks the next question and holds its one button. The stylesheet keeps its name, `static/css/rotulo.css`. Why the direction changed: `docs/design-direction.md`. A church that turns on the community module (next version) gets "Ventanas" instead, a layer over Atrio's classes served under `<html data-ui="2">` ([`docs/v2/DESIGN_SYSTEM.md`](docs/v2/DESIGN_SYSTEM.md); how it behaves: [`docs/v2/CRAFT.md`](docs/v2/CRAFT.md)); with the module off, the screens are Atrio byte for byte.
 
 ## What a camp gets
 
@@ -42,7 +42,7 @@ A server that has shown the demo goes back to an empty database with `manage.py 
 ## Tests
 
 ```bash
-DATABASE_URL=postgres://… .venv/bin/python manage.py test          # 1279 tests, use PostgreSQL (6 skip on SQLite)
+DATABASE_URL=postgres://… .venv/bin/python manage.py test          # the whole suite (pytest collects 2863 on v2/redesign-claridad, 2026-11-18); use PostgreSQL, some skip on SQLite
 python scripts/simulate_camp_day.py --base http://127.0.0.1:8000 --event carga-2026 --password …   # 10-station load test
 cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… npm test              # browser check
 ```
@@ -73,8 +73,10 @@ cd e2e && npm install && npx playwright install chromium && EMMAUS_PASSWORD=… 
 ## Next version (this branch)
 
 `main` runs the camp in production and only takes the small fixes the camp needs. This branch, `v2/foundation`, is the
-foundation for the next version of Emmaus. It starts from the camp code and adds the two documents above; nothing in the
-application changes here until the audit has been done and reviewed.
+foundation for the next version of Emmaus. It started from the camp code and the two documents above. The audit is done
+(`docs/audits/`), and the next version's modules (people, groups, events, notices, resources, serving, care, Panorama, the
+public page) are built behind per-church flags (`people/flags.py`, decision 0004). Where it stands: `docs/v2/README.md`,
+`docs/v2/PROGRESS.md` and `docs/v2/FEATURE_MATRIX.md`.
 
 Order of work: read `docs/EMMAUS_PRODUCT_VISION.md`; run the audit in `docs/EMMAUS_AUDIT_PROMPT.md` (it writes only under
 `docs/audits/`); agree the first implementation slice; then build it in small, reversible steps that keep every camp flow

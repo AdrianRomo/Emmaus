@@ -1,13 +1,16 @@
 {% load emmaus %}
 {% comment %}
   The questions of one version, as a person answers them (formularios.fields.AnswerForm.bound_items). Shared by the
-  form of the church, the public form and the preview before publishing. One fieldset for several options and one for
-  the contact block; everything else is the common field partial. A question that depends on another says so in its hint.
+  form of the church, the public form and the preview before publishing. One group per question (.forms__preguntas
+  keeps them a step apart, the question heavier than its options); one fieldset for several options and one for the
+  contact block; everything else is the common field partial. A question that depends on another is always drawn and
+  says so in its hint: no script hides it.
 {% endcomment %}
+<div class="forms__preguntas">
 {% for item in items %}
   {% if item.kind == "contacto" %}
     <fieldset class="form-block" aria-describedby="{{ item.key }}-nota">
-      <legend class="heading">{{ item.label }}{% if not item.required %} <span class="optional">(opcional)</span>{% endif %}</legend>
+      <legend class="form-section__title">{{ item.label }}{% if not item.required %} <span class="optional">(opcional)</span>{% endif %}</legend>
       <p class="hint" id="{{ item.key }}-nota">{% if item.required %}Hace falta tu nombre.{% else %}Déjalos solo si quieres que te contacten. Si los dejas, hace falta tu nombre.{% endif %}{% if item.either %} Correo electrónico o teléfono: escribe al menos uno.{% else %} También la forma de contactarte que se pide aquí.{% endif %}</p>
       {% for entry in item.fields %}{% include "formularios/_contact_field.html" with field=entry.field optional=entry.optional %}{% endfor %}
     </fieldset>
@@ -30,3 +33,4 @@
     {% include "partials/ui/field.html" with field=item.field %}
   {% endif %}
 {% endfor %}
+</div>

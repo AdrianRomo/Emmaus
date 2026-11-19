@@ -1,22 +1,26 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 
 from core import tenancy
 from core.onboarding import for_church_role
 
 from ..access import resolve_access
 from ..forms import EventForm, StationChoiceForm
-from ..models import Event, InterviewStation
+from ..models import Event, Interview, InterviewStation
 from ..services import audit
 from ..services.event_questionnaires import use_version
 from ..services.questionnaire import DEFAULT_CAMP_QUESTIONNAIRE, create_questionnaire_from_definition
-from .common import COORDINATOR, EVERYONE, event_view, remember_station, role_home_url, safe_next
+from ..services.metrics import STALE_MINUTES
+from .common import EVERYONE, event_view, remember_station, role_home_url, safe_next
 
 
 @login_required
@@ -49,6 +53,20 @@ def events_home(request):
     # The welcome of the church role (or of someone with no role yet), the first time; put away with "Entendido"
     welcome = for_church_role(request.user, where.role, can_create_event=can_create)
     return render(request, "events/events_list.html", {"rows": rows, "can_create": can_create, "welcome": welcome})
+
+
+@login_required
+def live_camps(request):
+    """«¿A qué campamento entras?»: the camps underway that this person administers, each to its administration home,
+    and «Todos los eventos». One left: straight to it; none: the usual home."""
+    from ..services.landing import live_camps_administered
+
+    camps = live_camps_administered(request.user)
+    if len(camps) == 1:
+        return redirect("events:admin_home", slug=camps[0].slug)
+    if not camps:
+        return redirect("dashboard")
+    return render(request, "events/live_camps.html", {"camps": camps})
 
 
 @login_required
@@ -97,4 +115,14 @@ def choose_station(request, event, access):
         remember_station(request, event, form.cleaned_data["station"])
         messages.success(request, f"Esta computadora quedó registrada como {form.cleaned_data['station'].name}.")
         return redirect(next_url)
-    return render(request, "events/choose_station.html", {"form": form, "next_url": next_url, "shell": "bar" if access.role == COORDINATOR else "rail"})
+    # No "shell" key here: the name is the redesigned shell's (core.context_processors), and a string in its place
+    # drew an empty rail on this page, also for a church that keeps Atrio's bar.
+    # The computers where someone else has an interview moving now (activity in the last STALE_MINUTES) are marked
+    # "En uso", so two laptops do not take the same name; who it is is not said
+    since = timezone.now() - timedelta(minutes=STALE_MINUTES)
+    in_use = set(
+        Interview.objects.filter(event=event, status=Interview.Status.IN_PROGRESS, last_activity_at__gte=since, station__isnull=False)
+        .exclude(conducted_by=request.user)
+        .values_list("station_id", flat=True)
+    )
+    return render(request, "events/choose_station.html", {"form": form, "next_url": next_url, "in_use": in_use})

@@ -60,4 +60,23 @@ pages = {
   "": [["x-entrar", reverse("login")], ["x-inicio", reverse("landing")], ["x-olvide", reverse("password_reset")], ["x-404", "/no-existe/"],
      ["x-unirme", reverse("join")], ["x-evento", reverse("event_entry", args=[ev.join_code])]],
 }
+# The screens of the community modules that need no object (lists, queues, forms), per role. Their accounts and the
+# modules themselves exist only after seed_community_demo, so e2e/review-all.mjs visits this group only when asked
+# (COMMUNITY=1: the gate's second review, modules on). With the modules off these addresses answer nobody.
+r = reverse
+pages["@comunidad"] = {
+  "admin.comunidad@demo.invalid": [["k-espacios", r("espacios:list")], ["k-espacios-solicitudes", r("espacios:queue")], ["k-espacios-decididas", r("espacios:queue") + "?estado=decididas"],
+     ["k-espacios-administrar", r("espacios:manage")], ["k-espacio-nuevo", r("espacios:space_create")], ["k-espacios-uso", r("espacios:usage")],
+     ["k-personas", r("people:list")], ["k-personas-visita", r("people:list") + "?etapa=visita"], ["k-duplicados", r("people:duplicates")], ["k-etiquetas", r("people:tags")],
+     ["k-importar", r("people:import")], ["k-exportar", r("people:export")],
+     ["k-formularios", r("formularios:manage")], ["k-formulario-nuevo", r("formularios:create")], ["k-pendientes-sin-responsable", r("formularios:loose_tasks")],
+     ["k-eventos-administrar", r("agenda:admin_list")], ["k-serie-nueva", r("agenda:series_create")],
+     ["k-devocionales", r("resources:devotional_admin")], ["k-planes", r("resources:plan_admin")], ["k-aprobaciones-admin", r("resources:approval_queue")],
+     ["k-equipos", r("serving:team_admin")], ["k-cuenta", r("account")]],
+  "pastor.iglesia@demo.invalid": [["k-aprobaciones", r("resources:approval_queue")], ["k-oracion-recibidas", r("oracion:inbox")], ["k-oracion-politica", r("oracion:terms")]],
+  "guia.grupo@demo.invalid": [["k-guia-espacios", r("espacios:list")], ["k-guia-servir", r("serving:home")], ["k-guia-formularios", r("formularios:list")],
+     ["k-guia-pendientes", r("formularios:queue")], ["k-guia-oracion", r("oracion:mine")], ["k-guia-oracion-nueva", r("oracion:new")]],
+  "rosa.rotas@demo.invalid": [["k-sirve-servir", r("serving:home")]],
+  "valeria.soto@demo.invalid": [["k-miembro-espacios", r("espacios:list")], ["k-miembro-eventos", r("agenda:list")], ["k-miembro-pendientes", r("formularios:queue")]],
+}
 print(json.dumps(pages))

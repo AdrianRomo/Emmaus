@@ -101,7 +101,7 @@ class ShellTests(CommunityFixture):
         response = self.client.get(reverse("events:admin_home", args=[self.event.slug]))
         self.assertNotContains(response, '<header class="bar')
         nav = response.content.decode()
-        nav = nav[nav.index('<header class="rail rail--event">'):nav.index("</header>")]
+        nav = nav[nav.index('<header class="rail rail--event'):nav.index("</header>")]
         self.assertIn('<p class="rail__label" id="rail-evento">Campamento A</p>', nav)
         self.assertIn("Tu rol: administrador.", nav)
         for label in ("Inicio", "Camperos", "Equipo", "Cuestionarios", "Reportes", "Configuración"):
@@ -116,7 +116,27 @@ class ShellTests(CommunityFixture):
         self.assertRegex(listing, r'aria-current="page">.*?<span class="rail__text">Eventos donde sirves</span>')
         self.assertEqual(listing.count('aria-current="page"'), 1)
 
-    def test_an_event_role_without_a_church_role_keeps_the_bar(self):
+    def test_an_event_role_without_a_church_role_wears_the_shell_of_the_event_s_church(self):
+        # The same product for the whole team: who only works in the event gets the rail with the event as a
+        # place in it, and nothing of "Mi iglesia", whose pages would not answer them.
+        self.client.force_login(self.tutor1)
+        response = self.client.get(reverse("events:tutor_home", args=[self.event.slug]))
+        self.assertContains(response, "santuario.css")
+        self.assertNotContains(response, '<header class="bar')
+        nav = response.content.decode()
+        nav = nav[nav.index('<header class="rail rail--event'):nav.index("</header>")]
+        self.assertIn("Eventos donde sirves", nav)
+        self.assertIn('<p class="rail__label" id="rail-evento">Campamento A</p>', nav)
+        for hidden in ("Mi iglesia", "Avisos", "Grupos", "Administración", "Panorama"):
+            self.assertNotIn(hidden, nav)
+        self.assertEqual(nav.count('aria-current="page"'), 1)
+        self.assertEqual(self.client.get(reverse("community:home")).status_code, 404)  # the shell lists; the views decide
+        listing = self.client.get(reverse("events:list") + "?todos=1")
+        self.assertContains(listing, '<header class="rail">')
+        self.assertNotContains(listing, "Mi iglesia")
+
+    def test_an_event_role_keeps_the_bar_when_the_event_s_church_has_the_module_off(self):
+        flags.set_enabled(self.church, "community", False)
         self.client.force_login(self.tutor1)
         response = self.client.get(reverse("events:tutor_home", args=[self.event.slug]))
         self.assertContains(response, '<header class="bar')
@@ -144,14 +164,14 @@ class MyDataTests(CommunityFixture):
     def test_the_home_asks_for_what_is_missing_and_the_person_fills_it_in(self):
         self.client.force_login(self.leader_user)
         home = self.client.get(reverse("community:home"))
-        self.assertContains(home, "A tu iglesia le falta tu teléfono")
+        self.assertContains(home, "Agrega tu teléfono")
         response = self.client.post(
             reverse("community:profile"),
             {"phone": "55 3333 4444", "email": "gala@prueba.mx", "preferred_contact_method": "whatsapp"},
             follow=True,
         )
         self.assertContains(response, "Guardamos tus datos.")
-        self.assertNotContains(response, "A tu iglesia le falta")
+        self.assertNotContains(response, "Agrega tu teléfono")
         self.leader.refresh_from_db()
         self.assertEqual((self.leader.phone, self.leader.email), ("55 3333 4444", "gala@prueba.mx"))
 
@@ -212,6 +232,18 @@ class PiecesTests(SimpleTestCase):
         self.assertEqual(initials("ana.lopez@demo.invalid"), "AL")
         self.assertEqual(initials(""), "")
 
+    def test_the_sky_of_an_arch_is_the_hour_and_nothing_else(self):
+        from datetime import time
+
+        from core.templatetags.shell import event_arch, sky_of
+
+        self.assertEqual([sky_of(time(h)) for h in (7, 12, 17, 19, 21)], ["manana", "mediodia", "tarde", "atardecer", "noche"])
+        self.assertEqual(sky_of(None), "sin-hora")
+        self.assertEqual(
+            str(event_arch(time(17, 0), "sm")),
+            '<span class="arco arco--sm" aria-hidden="true"><span class="cielo luz-tarde"></span></span>',
+        )
+
     def test_tel(self):
         self.assertEqual(tel("55 1111 2222"), "5511112222")
         self.assertEqual(tel("+52 (55) 1111-2222"), "+525511112222")
@@ -221,14 +253,25 @@ class PiecesTests(SimpleTestCase):
         self.assertEqual(css.count("{"), css.count("}"))
         self.assertIn(':root[data-ui="2"] {', css)
         self.assertNotRegex(css, r"(?m)^:root\s*\{")  # never a bare :root: the church's own colours must win
-        self.assertNotIn("linear-gradient", css)
-        self.assertNotIn("box-shadow: 0 ", css.replace("box-shadow: 0 0 0 2px", ""))  # no depth shadows, as in Atrio
+        # Gradients only where they carry information: the sky of a gathering's hour (.cielo, .luz-*) and the
+        # stripes of "in progress". Nowhere as decoration.
+        informative = re.sub(r"[^{}]*\.(?:cielo|luz-[a-z-]+)[^{}]*\{[^{}]*\}", "", css)
+        informative = re.sub(r"--raya:[^;]*;", "", informative)  # the stripes of "in progress", one token
+        self.assertNotIn("gradient", informative)
+        # One elevation, a token, for the raised surface; no other depth shadow (a 2px ring is not depth)
+        self.assertEqual(len(re.findall(r"--elevacion:", css)), 1)
+        self.assertNotIn("box-shadow: 0 ", css.replace("box-shadow: 0 0 0 2px", ""))
 
-    def test_the_serif_range_is_what_the_file_was_cut_to(self):
-        face = re.search(r"@font-face\s*\{(.*?)\}", SHEET.read_text(), re.S).group(1)
-        self.assertIn('url("../fonts/newsreader-display-latin.woff2")', face)
-        self.assertIn("U+0020-007E, U+00A0-00FF, U+2013-2014, U+2018-2019, U+201C-201D, U+2022, U+2026", face)
-        self.assertTrue((settings.BASE_DIR / "static" / "fonts" / "OFL-Newsreader.txt").is_file())
+    def test_the_faces_are_the_self_hosted_subsets_with_their_licences(self):
+        faces = re.findall(r"@font-face\s*\{(.*?)\}", SHEET.read_text(), re.S)
+        self.assertEqual(len(faces), 2)
+        self.assertIn('url("../fonts/mona-sans-latin.woff2")', faces[0])
+        self.assertIn("font-stretch: 98% 112%", faces[0])
+        self.assertIn('url("../fonts/source-serif-italic-latin.woff2")', faces[1])
+        for face in faces:
+            self.assertIn("font-display: swap", face)
+        for licence in ("OFL-MonaSans.txt", "OFL-SourceSerif4.txt"):
+            self.assertTrue((settings.BASE_DIR / "static" / "fonts" / licence).is_file())
 
 
 class HomeModulesTests(CommunityFixture):
@@ -272,13 +315,13 @@ class HomeModulesTests(CommunityFixture):
         self.client.force_login(self.member_user)
         home = self.client.get(reverse("community:home"))
         self.assertContains(home, "Devocional de hoy")
-        self.assertContains(home, "Toma unos minutos.")
+        self.assertNotContains(home, "</span>Leído</span>")  # not read yet: no state is drawn
         self.assertIn(">Devocional<", rail(home))
         resources.mark_read(resources.today_devotional(self.church, self.member), self.member)
-        self.assertContains(self.client.get(reverse("community:home")), "Ya lo leíste.")
+        self.assertContains(self.client.get(reverse("community:home")), "</span>Leído</span>")
         self.client.force_login(self.admin)
         admin_home = self.client.get(reverse("community:home"))
-        self.assertContains(admin_home, "Toma unos minutos.")  # her own state, not the member's
+        self.assertNotContains(admin_home, "</span>Leído</span>")  # her own state, not the member's
         self.assertNotContains(admin_home, "Diego")
 
     def test_the_administration_s_count_never_tells_her_of_a_follow_up_about_herself(self):

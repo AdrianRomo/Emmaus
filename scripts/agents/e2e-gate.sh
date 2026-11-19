@@ -67,13 +67,11 @@ fi
 if ! $skip_community; then
   log "community-flow.mjs (modules on: camp-to-group journey, axe, overflow, targets)"
   # --panorama gives the pastor who approves content and --duplicados the pair of records to join (wave 9's steps).
-  # Wave 10's steps: --dos-iglesias (the account of two churches), --rotas (the team's roles, dates and two more people)
-  # and --oracion (prayer requests switched on by the pastor). --formularios is NOT here on purpose: today the seed
-  # answers the church's form as the 17-year-old demo campera and formularios.services.submit refuses a known minor
-  # (FormChanged), so the flag aborts the whole seed. Step 13 creates its own form and does not need it; add the flag
-  # back when the seed is fixed.
-  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" --panorama --duplicados --dos-iglesias --rotas --oracion >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo FAILED (see $out/seed.log)"; }
-  if AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" EMMAUS_PASSWORD="$pw" timeout 600 node community-flow.mjs "$out/community" >"$out/community-flow.log" 2>&1; then
+  # Wave 10's steps: --dos-iglesias (the account of two churches), --rotas (the team's roles, dates and two more people),
+  # --oracion (prayer requests switched on by the pastor) and --formularios (a form of the church and a public one with
+  # their answers and tasks, so Formularios and «Pendientes» are reviewed with rows; step 13 still writes its own form).
+  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" --panorama --duplicados --dos-iglesias --rotas --oracion --formularios >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo FAILED (see $out/seed.log)"; }
+  if AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" EMMAUS_PASSWORD="$pw" timeout 1200 node community-flow.mjs "$out/community" >"$out/community-flow.log" 2>&1; then
     tail -n 1 "$out/community-flow.log"
   else
     status=1; log "community-flow FAILED (see $out/community-flow.log)"; tail -n 8 "$out/community-flow.log"
@@ -81,9 +79,10 @@ if ! $skip_community; then
 fi
 if ! $skip_review && ! $skip_community; then
   # The same review again, now that the church of the camp uses the new modules: its church-role accounts get the
-  # redesigned shell and stylesheet on every screen, the camp's included.
+  # redesigned shell and stylesheet on every screen, the camp's included. COMMUNITY=1 adds the screens of the
+  # community modules that need no object (the "@comunidad" group of e2e/all_urls.py): they exist only now.
   log "review-all.mjs again, modules on (the redesigned shell over every screen)"
-  if AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" timeout 1200 node review-all.mjs "$out/urls.json" "$out/review-on" >"$out/review-all-on.log" 2>&1; then
+  if COMMUNITY=1 AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" timeout 1800 node review-all.mjs "$out/urls.json" "$out/review-on" >"$out/review-all-on.log" 2>&1; then
     grep -E "page/width checks" "$out/review-all-on.log" || tail -n 2 "$out/review-all-on.log"
   else
     status=1; log "review-all (modules on) FAILED (see $out/review-all-on.log and $out/review-on/results.json)"; tail -n 8 "$out/review-all-on.log"

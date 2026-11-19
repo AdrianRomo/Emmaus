@@ -6,21 +6,97 @@
   The preview of one merge (people.merge_views.merge_preview): which record stays, what it keeps field by field (the
   administrator picks between the two values, never types one), and how many rows of each kind move. Counts only:
   never what a row says. Private reading marks move without a number. Nothing is written until the POST.
+  The two records are one table, so they are compared at a glance: a row per field, the record that stays and the
+  one that joins it side by side, and what the union leaves. A value that stays is drawn in ink with its weight, one
+  that is not kept in the quiet ink, and the last column says it in words. Where the two differ the choice is made in
+  the row itself (radios of the form below, by their `form` attribute). In a narrow column each field is a block
+  that names the record before each value (table--stack, data-label).
+  Then what moves, every warning (roles an account gains, two possible siblings with their own confirmation), what is
+  never touched, and one filled button; «No son la misma persona» has its own section after it.
 {% endcomment %}
 <div class="narrow">
   {% url 'people:duplicates' as back %}
-  {% include "events/rotulo/_page_head.html" with title="¿Son la misma persona?" lede="Revisa qué pasaría al unir estos dos registros. Nada cambia hasta que confirmes." back_url=back back_label="Volver a Posibles duplicados" %}
+  {% include "events/rotulo/_page_head.html" with title="¿Son la misma persona?" back_url=back back_label="Volver a Posibles duplicados" %}
 
   {% if stale %}<div class="notice notice--warning" role="alert"><p><strong>No unimos nada.</strong> Los datos de alguno de los dos registros cambiaron mientras revisabas. Esto es lo que hay ahora: revísalo otra vez.</p></div>{% endif %}
 
   <section class="block" aria-labelledby="quienes">
     <h2 id="quienes" class="heading">Los dos registros</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Este registro se queda</dt><dd><a href="{% url 'people:detail' survivor.pk %}">{{ survivor.full_name }}</a>. Se registró desde: {{ survivor.get_created_from_display|lower }}, el {{ survivor.created_at|long_date }}.</dd></div>
-      <div class="summary-list__row"><dt>Este se une al otro</dt><dd><a href="{% url 'people:detail' absorbed.pk %}">{{ absorbed.full_name }}</a>. Se registró desde: {{ absorbed.get_created_from_display|lower }}, el {{ absorbed.created_at|long_date }}.</dd></div>
-      {% if reasons %}<div class="summary-list__row"><dt>Por qué te mostramos este par</dt><dd>{{ reasons|join:". " }}.</dd></div>{% endif %}
-    </dl>
-    <p class="more"><a href="{% url 'people:merge_preview' absorbed.pk survivor.pk %}">Dejar mejor a {{ absorbed.full_name }} como el registro que se queda</a></p>
+    {% if reasons %}<p class="hint">{{ reasons|join:". " }}. Por eso te mostramos este par.</p>{% endif %}
+    <div class="table-wrap">
+      <table class="table table--stack comparar">
+        <thead>
+          <tr>
+            <th scope="col">Dato</th>
+            <th scope="col">Este registro se queda</th>
+            <th scope="col">Este se une al otro</th>
+            <th scope="col">Al unirlos</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Registro</th>
+            <td data-label="Se queda"><a class="comparar__quien" href="{% url 'people:detail' survivor.pk %}">{{ survivor.full_name }}</a></td>
+            <td data-label="Se une"><a class="comparar__quien" href="{% url 'people:detail' absorbed.pk %}">{{ absorbed.full_name }}</a></td>
+            <td data-label="Al unirlos">Queda un solo registro</td>
+          </tr>
+          <tr>
+            <th scope="row">Se registró desde</th>
+            <td data-label="Se queda">{{ survivor.get_created_from_display|capfirst }}, el {{ survivor.created_at|long_date }}</td>
+            <td data-label="Se une">{{ absorbed.get_created_from_display|capfirst }}, el {{ absorbed.created_at|long_date }}</td>
+            <td data-label="Al unirlos">No cambia</td>
+          </tr>
+          {% for row in preview.fields %}
+          <tr>
+            <th scope="row">{{ row.label }}</th>
+            {% if row.state == "choose" and preview.allowed %}
+              <td data-label="Se queda"><label class="check" for="elige-{{ row.name }}-queda"><input type="radio" form="unir" id="elige-{{ row.name }}-queda" name="elige_{{ row.name }}" value="{{ survivor.pk }}" checked><span class="check__text">{{ row.survivor }}<span class="visually-hidden">: {{ row.label|lower }} del registro que se queda</span></span></label></td>
+              <td data-label="Se une"><label class="check" for="elige-{{ row.name }}-otro"><input type="radio" form="unir" id="elige-{{ row.name }}-otro" name="elige_{{ row.name }}" value="{{ absorbed.pk }}"><span class="check__text">{{ row.absorbed }}<span class="visually-hidden">: {{ row.label|lower }} del registro que se une</span></span></label></td>
+              <td data-label="Al unirlos"><strong>Tú eliges cuál se queda</strong></td>
+            {% elif row.state == "choose" %}
+              <td data-label="Se queda">{{ row.survivor }}</td>
+              <td data-label="Se une">{{ row.absorbed }}</td>
+              <td data-label="Al unirlos">Son distintos</td>
+            {% elif row.state == "fills" %}
+              <td data-label="Se queda" class="comparar__sin">Sin dato</td>
+              <td data-label="Se une" class="comparar__queda">{{ row.absorbed }}</td>
+              <td data-label="Al unirlos">Lo toma del registro que se une, porque no tenía</td>
+            {% elif row.state == "same" and row.survivor %}
+              <td data-label="Se queda" class="comparar__queda">{{ row.survivor }}</td>
+              <td data-label="Se une">{{ row.absorbed }}</td>
+              <td data-label="Al unirlos">Es igual en los dos</td>
+            {% elif row.survivor and row.absorbed %}
+              <td data-label="Se queda" class="comparar__queda">{{ row.survivor }}</td>
+              <td data-label="Se une" class="comparar__sale">{{ row.absorbed }}</td>
+              <td data-label="Al unirlos">{% if row.name == "name" %}Ese nombre no se conserva{% else %}Se queda el del registro que se queda{% endif %}</td>
+            {% elif row.survivor %}
+              <td data-label="Se queda" class="comparar__queda">{{ row.survivor }}</td>
+              <td data-label="Se une" class="comparar__sin">Sin dato</td>
+              <td data-label="Al unirlos">No cambia</td>
+            {% else %}
+              <td data-label="Se queda" class="comparar__sin">Sin dato</td>
+              <td data-label="Se une" class="comparar__sin">Sin dato</td>
+              <td data-label="Al unirlos">Ninguno de los dos lo tiene</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+          <tr>
+            <th scope="row">Fecha de nacimiento</th>
+            <td data-label="Se queda"{% if not survivor.birth_date %} class="comparar__sin"{% endif %}>{% if survivor.birth_date %}{{ survivor.birth_date|date:"d/m/Y" }}<span class="comparar__nota">{% if survivor.birth_date_verified %}Edad confirmada por el equipo{% else %}Edad sin confirmar por el equipo{% endif %}</span>{% else %}Sin fecha de nacimiento{% endif %}</td>
+            <td data-label="Se une"{% if not absorbed.birth_date %} class="comparar__sin"{% endif %}>{% if absorbed.birth_date %}{{ absorbed.birth_date|date:"d/m/Y" }}<span class="comparar__nota">{% if absorbed.birth_date_verified %}Edad confirmada por el equipo{% else %}Edad sin confirmar por el equipo{% endif %}</span>{% else %}Sin fecha de nacimiento{% endif %}</td>
+            <td data-label="Al unirlos">No cambia la del registro que se queda</td>
+          </tr>
+          <tr>
+            <th scope="row">Acceso a Emmaus</th>
+            <td data-label="Se queda">{% if survivor.user_id %}{% status "completada" "Con acceso" %}{% else %}{% status "pendiente" "Sin acceso" %}{% endif %}</td>
+            <td data-label="Se une">{% if absorbed.user_id %}{% status "completada" "Con acceso" %}{% else %}{% status "pendiente" "Sin acceso" %}{% endif %}</td>
+            <td data-label="Al unirlos">{% if preview.account == "moves" %}La cuenta pasa al registro que se queda{% elif preview.account == "survivor" %}Sigue con su cuenta{% else %}Nadie gana acceso{% endif %}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="aside-note">Una unión nunca escribe ni confirma una fecha de nacimiento. {% if preview.account == "moves" %}La cuenta con la que hoy entra {{ absorbed.full_name }} pasa a {{ survivor.full_name }}: seguirá entrando con el mismo correo y la misma contraseña.{% elif preview.account == "survivor" %}{{ survivor.full_name }} sigue entrando con su cuenta de siempre.{% else %}Ninguno de los dos registros tiene acceso. La unión no crea una cuenta.{% endif %}</p>
+    <p class="comparar__cambiar"><a class="btn btn--link" href="{% url 'people:merge_preview' absorbed.pk survivor.pk %}">Dejar mejor a {{ absorbed.full_name }} como el registro que se queda</a></p>
   </section>
 
   {% if not preview.allowed %}
@@ -32,53 +108,22 @@
     <p class="aside-note">No se cambió nada. Los dos registros siguen como estaban.</p>
   </section>
   {% else %}
-  <form class="block" method="post" action="{% url 'people:merge_preview' survivor.pk absorbed.pk %}">
+  <form id="unir" class="block" method="post" action="{% url 'people:merge_preview' survivor.pk absorbed.pk %}">
     {% csrf_token %}
     <input type="hidden" name="revision" value="{{ preview.token }}">
-    <section class="block" aria-labelledby="conserva">
-      <h2 id="conserva" class="heading">Qué conserva {{ survivor.full_name }}</h2>
-      <dl class="summary-list">
-        {% for row in preview.fields %}{% if row.state != "choose" %}
-          <div class="summary-list__row"><dt>{{ row.label }}</dt><dd>{% if row.state == "fills" %}{{ row.absorbed }}. Lo toma del otro registro, porque no tenía.{% elif row.state == "keeps" and row.absorbed and row.name == "name" %}{{ row.survivor }}. El otro registro dice «{{ row.absorbed }}»: ese nombre no se conserva.{% elif row.survivor %}{{ row.survivor }}{% if row.state == "same" %}. Es igual en los dos.{% endif %}{% else %}Ninguno de los dos lo tiene.{% endif %}</dd></div>
-        {% endif %}{% endfor %}
-        <div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{% if survivor.birth_date %}{{ survivor.birth_date|long_date }}. {% if survivor.birth_date_verified %}Edad confirmada por el equipo.{% else %}Edad sin confirmar por el equipo.{% endif %}{% else %}Sin fecha de nacimiento.{% endif %} Una unión nunca escribe ni confirma una fecha de nacimiento.</dd></div>
-        <div class="summary-list__row"><dt>Acceso a Emmaus</dt><dd>{% if preview.account == "moves" %}La cuenta con la que hoy entra {{ absorbed.full_name }} pasa a {{ survivor.full_name }}: seguirá entrando con el mismo correo y la misma contraseña.{% elif preview.account == "survivor" %}{{ survivor.full_name }} sigue entrando con su cuenta de siempre.{% else %}Ninguno de los dos registros tiene acceso. La unión no crea una cuenta.{% endif %}</dd></div>
-      </dl>
-    </section>
-    {% if preview.choices %}
-    <section class="block" aria-labelledby="elige">
-      <h2 id="elige" class="heading">Elige qué dato se queda</h2>
-      {% for row in preview.choices %}
-        <fieldset class="field">
-          <legend class="legend">{{ row.label }}: ¿cuál se queda?</legend>
-          <div class="choices">
-            <div class="choice">
-              <input class="choice__input" type="radio" id="elige-{{ row.name }}-queda" name="elige_{{ row.name }}" value="{{ survivor.pk }}" checked>
-              <label class="choice__label" for="elige-{{ row.name }}-queda"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.survivor }}<span class="choice__sub">El del registro que se queda.</span></span></label>
-            </div>
-            <div class="choice">
-              <input class="choice__input" type="radio" id="elige-{{ row.name }}-otro" name="elige_{{ row.name }}" value="{{ absorbed.pk }}">
-              <label class="choice__label" for="elige-{{ row.name }}-otro"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.absorbed }}<span class="choice__sub">El del registro que se une.</span></span></label>
-            </div>
-          </div>
-        </fieldset>
-      {% endfor %}
-    </section>
-    {% endif %}
-
     <section class="block" aria-labelledby="pasa">
       <h2 id="pasa" class="heading">Qué pasa a {{ survivor.full_name }}</h2>
-      <div class="prose">
       {% if preview.move_lines %}
-        <p>Del registro que se une: {{ preview.move_lines|join:"; " }}.</p>
+        <p>Del registro que se une:</p>
+        <ul class="comparar__cuentas">{% for line in preview.move_lines %}<li>{{ line }}</li>{% endfor %}</ul>
       {% else %}
         <p>El registro que se une no tiene grupos, equipos, inscripciones ni seguimientos que pasar.</p>
       {% endif %}
-      <p>Si tiene marcas privadas de lectura (devocionales o planes), pasan también. Nadie las ve ni las cuenta, tampoco aquí.</p>
       {% if preview.stay_lines %}
-        <p>Se quedan en el registro que se une, porque {{ survivor.full_name }} ya tiene lo mismo: {{ preview.stay_lines|join:"; " }}.</p>
+        <p>Se quedan en el registro que se une, porque {{ survivor.full_name }} ya tiene lo mismo:</p>
+        <ul class="comparar__cuentas">{% for line in preview.stay_lines %}<li>{{ line }}</li>{% endfor %}</ul>
       {% endif %}
-      </div>
+      <p class="aside-note">Si tiene marcas privadas de lectura (devocionales o planes), pasan también. Nadie las ve ni las cuenta, tampoco aquí.</p>
       {% if preview.moves_registrations %}<p class="aside-note">Si pasa una inscripción a un evento que pide la autorización de un tutor, se revisa otra vez con la edad de {{ survivor.full_name }}: puede quedar confirmada o volver a esperar.</p>{% endif %}
       {% if preview.close_requests %}<p class="aside-note">Una solicitud para unirse a un grupo en el que el otro registro ya está no pasa: se cierra.</p>{% endif %}
       {% if preview.groups_gained or preview.teams_gained %}
@@ -110,7 +155,8 @@
     </section>
     {% endif %}
 
-    <div class="step__actions">
+    <p class="aside-note comparar__antes">Nada cambia hasta que confirmes.</p>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Unir estos registros</button>
       <a class="btn btn--link" href="{{ back }}">Volver sin unir</a>
     </div>
@@ -124,7 +170,7 @@
       {% csrf_token %}
       <input type="hidden" name="a" value="{{ survivor.pk }}">
       <input type="hidden" name="b" value="{{ absorbed.pk }}">
-      <div class="step__actions"><button class="btn btn--secondary" type="submit">No son la misma persona</button></div>
+      <div class="form-actions"><button class="btn btn--secondary" type="submit">No son la misma persona</button></div>
     </form>
   </section>
 </div>

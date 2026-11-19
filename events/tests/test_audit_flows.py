@@ -195,51 +195,42 @@ class KioskPauseTests(KioskFixture):
         Question.objects.filter(pk=question.pk).update(required=True)  # a published version: only for this test
         with mock.patch.dict(questionnaire._structure_cache, clear=True):
             step = self.step("dudas")
-            # "Continuar" with nothing chosen is refused...
-            refused = self.post_kiosk(step, {})
-            self.assertContains(refused, "Elige una respuesta para continuar.")
-            # ... "Parar por ahora" with nothing chosen pauses and saves nothing.
+            # "Parar por ahora" with nothing chosen pauses and saves nothing...
             revision = Interview.objects.get(pk=self.interview.pk).revision
             response = self.post_kiosk(step, {}, direction="pause")
             self.assertRedirects(response, reverse("kiosk:review"), fetch_redirect_response=False)
             self.assertNotIn(question.id, load_answers(self.interview))
             self.assertEqual(Interview.objects.get(pk=self.interview.pk).revision, revision)
+            # ... and "Continuar" with nothing chosen goes on: an old "Obligatoria" is ignored.
+            skipped = self.post_kiosk(step, {})
+            self.assertEqual(skipped.status_code, 302)
+            self.assertNotIn(question.id, load_answers(self.interview))
 
-    def test_pause_with_a_required_follow_up_left_blank_saves_nothing_from_that_screen(self):
+    def test_a_follow_up_left_blank_is_saved_as_a_blank_whatever_its_old_flag_says(self):
         detail = self.question("dudas_detalle")  # revealed by "dudas" = "si", on the same screen
         Question.objects.filter(pk=detail.pk).update(required=True)  # a published version: only for this test
         with mock.patch.dict(questionnaire._structure_cache, clear=True):
             step = self.step("dudas")
             data = {f"q_{step.question.id}": "si", f"q_{detail.id}": ""}
-            self.assertContains(self.post_kiosk(step, data), "Escribe una respuesta para continuar.")
-            revision = Interview.objects.get(pk=self.interview.pk).revision
             response = self.post_kiosk(step, data, direction="pause")
             self.assertRedirects(response, reverse("kiosk:review"), fetch_redirect_response=False)
             answers = load_answers(self.interview)
-            self.assertNotIn(step.question.id, answers)
-            self.assertNotIn(detail.id, answers)
-            self.assertEqual(Interview.objects.get(pk=self.interview.pk).revision, revision)
+            self.assertEqual(answers[step.question.id].codes, ["si"])
+            self.assertNotIn(detail.id, answers)  # a blank: no row, and not a decline
 
-    def test_a_paused_required_follow_up_can_be_completed_by_the_camper(self):
-        """The dead end: "si" saved without its required confidential follow-up, then "Ya terminé". The coordinator
-        cannot finalize ("Falta responder …") and may not open a confidential screen the camper answered. After the
-        pause the review sends the camper back to that screen, and the interview can be finalized."""
+    def test_the_camper_finishes_with_a_confidential_follow_up_blank_and_the_coordinator_finalizes(self):
+        """The dead end that was documented: "si" saved without its (once required) confidential follow-up, then
+        "Ya terminé". A coordinador without confidential access finalizes the interview as it is."""
         detail = self.question("dudas_detalle")
         Question.objects.filter(pk=detail.pk).update(required=True)  # a published version: only for this test
         with mock.patch.dict(questionnaire._structure_cache, clear=True):
             first, step = self.step("salvo"), self.step("dudas")
             self.assertEqual(self.post_kiosk(first, {f"q_{first.question.id}": "si"}).status_code, 302)
-            response = self.post_kiosk(step, {f"q_{step.question.id}": "si", f"q_{detail.id}": ""}, direction="pause")
-            self.assertRedirects(response, reverse("kiosk:review"), fetch_redirect_response=False)
-            (keep_going,) = _Page(self.client.get(reverse("kiosk:review")).content.decode()).find("a", "Seguir contestando")
-            self.assertEqual(keep_going["href"], reverse("kiosk:step", args=[step.number]))
-            # The camper finishes that screen and the others, and taps "Ya terminé".
-            done = self.post_kiosk(step, {f"q_{step.question.id}": "si", f"q_{detail.id}": "Texto de prueba"})
-            self.assertEqual(done.status_code, 302)
-            self.answer_everything()
+            self.assertEqual(self.post_kiosk(step, {f"q_{step.question.id}": "si", f"q_{detail.id}": ""}).status_code, 302)
             self.client.post(reverse("kiosk:finish"))
-            # The coordinator recovers the computer and finalizes.
+            # The coordinator recovers the computer and finalizes, without opening the confidential screen.
             self.client.post(reverse("kiosk:unlock"), {"password": PASSWORD})
+            self.assertFalse(self.m_coord1.can_view_sensitive)
             self.interview.refresh_from_db()
             response = self.client.post(
                 self.url("interview_review", self.interview.public_id), {"revision": self.interview.revision, "follow_up_decision": "no_requerido"}
@@ -247,19 +238,19 @@ class KioskPauseTests(KioskFixture):
             self.assertRedirects(response, self.url("interview_done", self.interview.public_id), fetch_redirect_response=False)
             self.interview.refresh_from_db()
             self.assertEqual(self.interview.status, Interview.Status.COMPLETED)
+            self.assertNotIn(detail.id, load_answers(self.interview))
 
-    def test_review_sends_the_camper_back_to_a_required_follow_up_left_blank(self):
-        """An answer stored before its follow-up became required: the review counts the follow-up as missing."""
+    def test_the_review_counts_only_screens_left_blank(self):
+        """A follow-up left blank is not counted (none is required, an old flag neither); a decline is an answer given."""
         step, detail = self.step("dudas"), self.question("dudas_detalle")
-        self.answer_everything()  # "dudas" = "si" (its first option), follow-up blank while it is optional
+        self.answer_everything()  # "dudas" = "si" (its first option), follow-up blank
         self.assertEqual(load_answers(self.interview)[step.question.id].codes, ["si"])
         self.assertNotIn(detail.id, load_answers(self.interview))
         Question.objects.filter(pk=detail.pk).update(required=True)  # a published version: only for this test
         with mock.patch.dict(questionnaire._structure_cache, clear=True):
             response = self.client.get(reverse("kiosk:review"))
-        (keep_going,) = _Page(response.content.decode()).find("a", "Seguir contestando")
-        self.assertEqual(keep_going["href"], reverse("kiosk:step", args=[step.number]))
-        self.assertContains(response, "Te falta 1 pregunta.")
+        self.assertEqual(_Page(response.content.decode()).find("a", "Seguir contestando"), [])
+        self.assertNotContains(response, "Te falta")
 
     def test_erasing_a_stored_text_then_pausing_deletes_it(self):
         """A blank screen keeps what is stored only if nothing was stored: an erased answer is erased, as with

@@ -27,7 +27,8 @@
     return input ? input.value : "";
   }
   function timeLabel(date) {
-    return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    var calm = doc.documentElement.getAttribute("data-ui") === "2";  // the redesign: hours and minutes are enough
+    return date.toLocaleTimeString("es-MX", calm ? { hour: "numeric", minute: "2-digit", hour12: false } : { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
   }
 
   /* ---- Mobile menu: a modal dialog (audit A11Y-02) ------------------------ */
@@ -252,18 +253,79 @@
   window.addEventListener("beforeunload", function (e) {
     if (dirtyForms.length) { e.preventDefault(); e.returnValue = ""; }
   });
+  var redesign = doc.documentElement.getAttribute("data-ui") === "2";
   $all("form").forEach(function (form) {
     form.addEventListener("submit", function (e) {
       if (form.classList.contains("is-submitting")) { e.preventDefault(); return; }
       dirtyForms = dirtyForms.filter(function (f) { return f !== form; });
       form.classList.add("is-submitting");
-      window.setTimeout(function () { form.classList.remove("is-submitting"); }, 8000);
+      // The redesign marks the button that was pressed as busy (never another one: «No aceptar» must not spin «Aceptar»)
+      var pressed = redesign ? (e.submitter || form.querySelector("button[type=submit], button:not([type])")) : null;
+      if (pressed) pressed.setAttribute("aria-busy", "true");
+      window.setTimeout(function () {
+        form.classList.remove("is-submitting");
+        if (pressed) pressed.removeAttribute("aria-busy");
+      }, 8000);
     });
   });
-  $all("[data-confirm]").forEach(function (el) {
-    el.addEventListener("click", function (e) {
-      if (!window.confirm(el.getAttribute("data-confirm"))) e.preventDefault();
+  // Coming back with the browser's Back button shows the page as it was left: nothing still busy
+  window.addEventListener("pageshow", function () {
+    $all("form.is-submitting").forEach(function (f) { f.classList.remove("is-submitting"); });
+    if (redesign) $all("[aria-busy='true']").forEach(function (b) { b.removeAttribute("aria-busy"); });
+  });
+  // [data-confirm="<question>"] on a button or a link asks before it acts. Where the redesign is served and the browser
+  // has <dialog>, the question is Emmaus's own dialog: the question, "Cancelar", and a button with the very words of
+  // the one that was pressed (red when that one is). Focus starts on "Cancelar", Escape cancels, and focus goes back to
+  // where it was. Anywhere else it is the browser's confirm, as before.
+  function askInDialog(el, e) {
+    if (doc.documentElement.getAttribute("data-ui") !== "2" || typeof HTMLDialogElement === "undefined") return false;
+    var form = el.form || null;
+    if (form && typeof form.requestSubmit !== "function") return false;
+    if (!form && !el.href) return false;
+    e.preventDefault();
+    var dialog = doc.createElement("dialog");
+    dialog.className = "dialog";
+    dialog.setAttribute("aria-labelledby", "dialogo-pregunta");
+    var bodyBox = doc.createElement("div");
+    bodyBox.className = "dialog__body";
+    var text = doc.createElement("p");
+    text.className = "dialog__text";
+    text.id = "dialogo-pregunta";
+    text.textContent = el.getAttribute("data-confirm");
+    bodyBox.appendChild(text);
+    var actions = doc.createElement("div");
+    actions.className = "dialog__actions";
+    var cancel = doc.createElement("button");
+    cancel.type = "button";
+    cancel.className = "btn btn--secondary";
+    cancel.textContent = "Cancelar";
+    var ok = doc.createElement("button");
+    ok.type = "button";
+    ok.className = "btn " + (/btn--danger/.test(el.className) ? "btn--danger" : "btn--primary");
+    ok.textContent = (el.getAttribute("data-confirm-label") || el.textContent || "Continuar").trim();
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    dialog.appendChild(bodyBox);
+    dialog.appendChild(actions);
+    doc.body.appendChild(dialog);
+    cancel.addEventListener("click", function () { dialog.close(); });
+    ok.addEventListener("click", function () {
+      dialog.close();
+      if (!form) { window.location.href = el.href; return; }
+      form.setAttribute("data-confirmado", "");  // asked already: its submit goes through (the marked rows' guard)
+      if (el.type === "submit") form.requestSubmit(el); else form.requestSubmit();
     });
+    dialog.addEventListener("close", function () { dialog.remove(); el.focus(); });
+    dialog.showModal();
+    cancel.focus();
+    return true;
+  }
+  // Delegated: a button that arrives with an action in place (a region replaced) asks too
+  doc.addEventListener("click", function (e) {
+    var el = e.target && e.target.closest ? e.target.closest("[data-confirm]") : null;
+    if (!el || e.defaultPrevented) return;
+    if (askInDialog(el, e)) return;
+    if (!window.confirm(el.getAttribute("data-confirm"))) e.preventDefault();
   });
 
   /* ---- Error summary focus ----------------------------------------------- */
@@ -497,7 +559,16 @@
   /* ---- Kiosk: idle lock and server heartbeat ----------------------------- */
   var idleSeconds = parseInt(body.getAttribute("data-kiosk-idle") || "0", 10);
   if (idleSeconds > 0) {
-    var timeoutUrl = body.getAttribute("data-kiosk-timeout-url");
+    // The page the idle computer goes to comes from the server, in an attribute. Only a path of this same site is
+    // followed: anything else (another site, a scheme) is treated as absent.
+    var timeoutUrl = samePath(body.getAttribute("data-kiosk-timeout-url"));
+    function samePath(value) {
+      if (!value) return "";
+      try {
+        var target = new URL(value, window.location.origin);
+        return target.origin === window.location.origin ? target.pathname + target.search : "";
+      } catch (e) { return ""; }
+    }
     var heartbeatUrl = body.getAttribute("data-kiosk-heartbeat-url");
     var warning = doc.getElementById("idle-warning");
     var warningReturn = null;
@@ -524,7 +595,7 @@
         var answer = $("[data-idle-continue]", warning);
         if (answer) answer.focus();
       }
-      if (idle > idleSeconds) { dirtyForms = []; window.location.replace(timeoutUrl); }
+      if (idle > idleSeconds && timeoutUrl) { dirtyForms = []; window.location.replace(timeoutUrl); }
     }, 5000);
     if (warning) {
       warning.setAttribute("role", "alertdialog");  // it interrupts: read at once, answered before anything else
@@ -703,4 +774,454 @@
       if (following) slug.value = slugOf(source.value, max);
     });
   });
+
+  /* ---- The redesigned shell (santuario.css): what just happened, and a page on its way ---- */
+  // Only where the redesign is served (<html data-ui="2">); a church without the module gets none of this.
+  if (doc.documentElement.getAttribute("data-ui") === "2") {
+    // The messages of the page that sent us here ("Guardado") arrive as toasts at the top. Good news leaves by
+    // itself after six seconds, unless the pointer or the focus is on it; a problem stays until it is closed.
+    // Without this script they are notices in the page, as before.
+    function toast(notice) {
+      var timer = null;
+      function leave() {
+        window.clearTimeout(timer);
+        if (motionOff()) { notice.remove(); return; }
+        notice.classList.add("is-leaving");
+        notice.addEventListener("animationend", function () { notice.remove(); }, { once: true });
+        window.setTimeout(function () { notice.remove(); }, 400);
+      }
+      var close = doc.createElement("button");
+      close.type = "button";
+      close.className = "toast__close";
+      close.setAttribute("aria-label", "Cerrar aviso");
+      close.addEventListener("click", leave);
+      notice.appendChild(close);
+      if (notice.classList.contains("notice--danger") || notice.classList.contains("notice--warning")) return;
+      function arm() { window.clearTimeout(timer); timer = window.setTimeout(leave, 5000); }
+      function hold() { window.clearTimeout(timer); }
+      notice.addEventListener("mouseenter", hold);
+      notice.addEventListener("mouseleave", arm);
+      notice.addEventListener("focusin", hold);
+      notice.addEventListener("focusout", arm);
+      arm();
+    }
+    doc.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape" || $("dialog[open]") || ($("#menu-panel") && !$("#menu-panel").hidden)) return;
+      $all(".messages.is-toast .toast__close").forEach(function (b) { b.click(); });
+    });
+    // One toast at a time: a new one replaces what was there, so two messages never contradict each other
+    function showToast(notice) {
+      var box = toastBox();
+      $all(".notice", box).forEach(function (old) { if (old !== notice) old.remove(); });
+      if (notice.parentNode !== box) box.appendChild(notice);
+      toast(notice);
+    }
+    function toastBox() {
+      var box = $(".messages");
+      if (!box) {
+        box = doc.createElement("div");
+        box.className = "messages";
+        box.setAttribute("role", "status");
+        body.appendChild(box);
+      }
+      box.classList.add("is-toast");
+      return box;
+    }
+    // Messages carried over from a page the browser left on purpose (see "Actions in place")
+    try {
+      var carried = window.sessionStorage.getItem("emmaus-mensajes");
+      if (carried) {
+        window.sessionStorage.removeItem("emmaus-mensajes");
+        var holder = doc.createElement("div");
+        holder.innerHTML = carried;
+        $all(".notice", holder).forEach(function (n) { toastBox().appendChild(n); });
+      }
+    } catch (err) { /* storage blocked: the message is lost, the page is right */ }
+    $all(".messages").forEach(function (box) {
+      box.classList.add("is-toast");
+      $all(".notice", box).forEach(toast);
+    });
+
+    /* ---- Actions in place (form[data-inline="<id of the region it changes>"]) ---- */
+    // The form is sent in the background. The pressed button says it is working at once (aria-busy: a spinner where
+    // its words were, at the same width) and the other buttons of the form wait. Then the server's own answer
+    // decides, never a guess: the page the action returned to is read; the region with that id takes its new state
+    // (a short crossfade where the browser draws one); the counts in the rail, the tabs and "Más" are taken from the
+    // same page, so they agree everywhere; its message arrives as a toast. When the region is no longer on that page,
+    // the thing is done and the region leaves. When the answer is another page (the action needs one more step), the
+    // browser goes there. When the request fails, the buttons come back and one line under them says what to do.
+    // Without this script, without fetch, or with a modifier key, the form is sent as always.
+    var inlineErrors = {
+      network: "No se pudo guardar: parece que no hay conexión. Intenta otra vez.",
+      server: "No se pudo guardar. Intenta otra vez; si sigue pasando, recarga la página.",
+      // A request that took too long may have been saved: say only what is known
+      unknown: "Tardó demasiado y no sabemos si se guardó. Revisa antes de intentarlo otra vez."
+    };
+    function inlineFailed(form, busy, kind) {
+      busy.removeAttribute("aria-busy");
+      busy.classList.add("is-fallido");  // the answer that did not go stays marked, so the person knows which one
+      $all("button", form).forEach(function (b) { b.disabled = false; });
+      var line = doc.createElement("p");
+      line.className = "inline-error";
+      line.setAttribute("role", "alert");
+      var words = doc.createElement("span");
+      words.textContent = inlineErrors[kind];
+      var again = doc.createElement("button");
+      again.type = "button";
+      again.className = "btn btn--link";
+      again.textContent = "Reintentar";
+      again.addEventListener("click", function () {
+        if (typeof form.requestSubmit === "function") form.requestSubmit(busy); else busy.click();
+      });
+      line.appendChild(words);
+      line.appendChild(again);
+      form.appendChild(line);
+      // Never under the phone's tab bar (the page's scroll padding leaves its height)
+      line.scrollIntoView({ block: "nearest", behavior: motionOff() ? "auto" : "smooth" });
+    }
+    // What an action in place did is shown by the region itself; a screen reader hears it once from here
+    var announcer = doc.createElement("p");
+    announcer.className = "visually-hidden";
+    announcer.setAttribute("role", "status");
+    announcer.setAttribute("aria-live", "polite");
+    body.appendChild(announcer);
+    function syncCounts(fresh) {
+      // The places and their counts are drawn from the same page the server answered with
+      var nav = $(".rail__nav"), freshNav = fresh.querySelector(".rail__nav");
+      if (nav && freshNav) nav.replaceWith(freshNav);
+      // Tabs by position: a tab's own address can change with what waits (the guide's tab opens the group with requests)
+      var tabs = $all(".tabs a.tabs__item"), freshTabs = Array.prototype.slice.call(fresh.querySelectorAll(".tabs a.tabs__item"));
+      if (tabs.length === freshTabs.length) tabs.forEach(function (tab, i) { tab.replaceWith(freshTabs[i]); });
+      var panelNav = $("#menu-panel nav"), freshPanelNav = fresh.querySelector("#menu-panel nav");
+      if (panelNav && freshPanelNav) panelNav.replaceWith(freshPanelNav);
+    }
+    function settle(region, fresh, regionId, form, note) {
+      var next = fresh.getElementById(regionId);
+      var focusInside = region.contains(doc.activeElement);
+      var action = form ? form.getAttribute("action") : "";
+      // The row the action was taken on (a request, a follow-up to decide): where it was, how tall, and what it was
+      var row = form ? form.closest("li, .row") : null;
+      if (row && !region.contains(row)) row = null;
+      var path = [];
+      if (row && row !== region) {
+        for (var n = row; n !== region; n = n.parentNode) path.unshift(Array.prototype.indexOf.call(n.parentNode.children, n));
+      }
+      var box = row ? row.getBoundingClientRect() : null;
+      var title = row ? row.querySelector(".row__title a[href], a.row__link[href]") : null;
+      var titleHref = title ? title.getAttribute("href") : "";
+      // A value written inside a quoted attribute selector: the backslash first, then the quote, so an address with
+      // either one stays one value and never breaks the selector.
+      function inQuotes(value) { return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"'); }
+      function swap() {
+        var said = $all(".messages .notice", fresh).map(function (n) { return n.textContent.replace(/\s+/g, " ").trim(); }).join(" ");
+        var problem = fresh.querySelector(".messages .notice--danger, .messages .notice--warning");
+        // A trace of what was done only when the thing acted on left (a request decided, a follow-up answered): when
+        // it stays (an event signed up for, a day read, an answer that can change), its new state says it. The line
+        // takes the row's place and height, so nothing moves under the finger that pressed.
+        // A row is known by its title's link (forms of a list often share one action); without one, by its form
+        var stayed = titleHref && next && next.querySelector('a[href="' + inQuotes(titleHref) + '"]');
+        var left = (row && row !== region && titleHref) ? !stayed : (action && !(next && next.querySelector('form[action="' + inQuotes(action) + '"]')));
+        var rowLeft = row && row !== region && left;
+        var trace = null;
+        if (!problem && (note || (said && left && (rowLeft || !row)))) {
+          trace = doc.createElement(row && row.tagName === "LI" && rowLeft && !note ? "li" : "p");
+          trace.className = note ? "hecho hecho--nota" : "hecho";
+          trace.textContent = note || said;
+        }
+        var placed = false;
+        if (next) {
+          region.replaceWith(next);
+          if (trace && rowLeft && !note) {
+            var parent = next;
+            for (var i = 0; i < path.length - 1 && parent; i++) parent = parent.children[path[i]];
+            if (parent && parent.tagName === row.parentNode.tagName) {
+              parent.insertBefore(trace, parent.children[path[path.length - 1]] || null);
+              if (box) trace.style.minHeight = Math.round(box.height) + "px";
+              placed = true;
+            }
+          }
+          if (trace && !placed) next.insertBefore(trace, next.firstChild);
+        } else {
+          if (trace) region.parentNode.insertBefore(trace, region);
+          region.remove();
+        }
+        if (placed && box) window.scrollBy(0, trace.getBoundingClientRect().top - box.top);
+        // Other places of the page that show the same facts (a count in a header): data-inline-also="<id> <id>"
+        ((form && form.getAttribute("data-inline-also")) || "").split(/\s+/).forEach(function (id) {
+          var mine = id && doc.getElementById(id), theirs = id && fresh.getElementById(id);
+          if (mine && theirs) mine.replaceWith(theirs);
+        });
+        syncCounts(fresh);
+        if (problem) showToast(problem);  // a refusal is said where it cannot be missed
+        if (note) said = note;
+        announcer.textContent = "";
+        window.setTimeout(function () { announcer.textContent = said; }, 60);
+        if (next && focusInside) {
+          var target = next.querySelector("[data-inline-focus]") || next;
+          if (!target.hasAttribute("tabindex") && !/^(A|BUTTON|INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) target.setAttribute("tabindex", "-1");
+          target.focus({ preventScroll: true });
+        }
+      }
+      if (doc.startViewTransition && !motionOff()) {
+        region.style.viewTransitionName = "accion";
+        if (next) next.style.viewTransitionName = "accion";
+        var t = doc.startViewTransition(swap);
+        [t.ready, t.finished, t.updateCallbackDone].forEach(function (p) { if (p && p.catch) p.catch(function () {}); });
+        t.finished.then(function () { if (next) next.style.viewTransitionName = ""; }, function () {});
+      } else {
+        swap();
+      }
+    }
+    // Any other form, while the browser knows it is offline: not sent (it would land on the browser's error page and
+    // lose what was typed); one line under its buttons says so and offers to try again. Capture phase, before
+    // everything else; forms in place have their own failure path below.
+    doc.addEventListener("submit", function (e) {
+      var form = e.target;
+      if (e.defaultPrevented || navigator.onLine !== false || !form.matches || form.matches("form[data-inline]") || (form.getAttribute("method") || "").toLowerCase() !== "post") return;
+      if (form.querySelector("[data-offline-notice]")) return;  // a step of an interview has its own notice
+      e.preventDefault();
+      e.stopPropagation();
+      var pressed = e.submitter || form.querySelector("button[type=submit], button:not([type])");
+      $all(".inline-error", form).forEach(function (l) { l.remove(); });
+      var line = doc.createElement("p");
+      line.className = "inline-error";
+      line.setAttribute("role", "alert");
+      var words = doc.createElement("span");
+      words.textContent = "No se envió: parece que no hay conexión. Lo que escribiste sigue aquí.";
+      var again = doc.createElement("button");
+      again.type = "button";
+      again.className = "btn btn--link";
+      again.textContent = "Reintentar";
+      again.addEventListener("click", function () { if (typeof form.requestSubmit === "function") form.requestSubmit(pressed || undefined); else form.submit(); });
+      line.appendChild(words);
+      line.appendChild(again);
+      (pressed && pressed.parentNode ? pressed.parentNode : form).appendChild(line);
+      line.scrollIntoView({ block: "nearest", behavior: motionOff() ? "auto" : "smooth" });
+    }, true);
+    if (window.fetch && window.DOMParser) {
+      doc.addEventListener("submit", function (e) {
+        var form = e.target;
+        if (!form.matches || !form.matches("form[data-inline]")) return;
+        var regionId = form.getAttribute("data-inline");
+        var region = doc.getElementById(regionId);
+        if (!region) return;
+        e.preventDefault();
+        e.stopPropagation();  // capture phase: the page-wide submit guard and the slow-page line stay out of it
+        if (form.querySelector("[aria-busy='true']")) return;
+        var busy = e.submitter || form.querySelector("button[type=submit], button:not([type])");
+        var data;
+        try { data = new FormData(form, busy); } catch (err) {
+          data = new FormData(form);
+          if (busy && busy.name) data.append(busy.name, busy.value);
+        }
+        $all(".inline-error", form).forEach(function (l) { l.remove(); });
+        $all(".hecho").forEach(function (l) { l.remove(); });
+        $all(".is-fallido", form).forEach(function (b) { b.classList.remove("is-fallido"); });
+        $all("button", form).forEach(function (b) { if (b !== busy) b.disabled = true; });
+        if (busy) busy.setAttribute("aria-busy", "true");
+        // A request that hangs is given up after 12 seconds: nothing spins forever. It may have been saved, so the page
+        // is asked again and shows what is really there, with a line that says so; only when the browser knows it is
+        // offline is the connection named.
+        var controller = window.AbortController ? new window.AbortController() : null;
+        var timedOut = false;
+        var giveUp = controller ? window.setTimeout(function () { timedOut = true; controller.abort(); }, 12000) : null;
+        // The attribute, never form.action: a field named «action» shadows the property (it posted to "[object …]")
+        window.fetch(form.getAttribute("action") || window.location.href, { method: "POST", body: data, credentials: "same-origin", headers: { "X-Emmaus-Inline": "1" }, signal: controller ? controller.signal : undefined })
+          .then(function (response) {
+            window.clearTimeout(giveUp);
+            if (!response.ok) { inlineFailed(form, busy, "server"); return; }
+            return response.text().then(function (html) {
+              var fresh = new window.DOMParser().parseFromString(html, "text/html");
+              var answered = new URL(response.url, window.location.href);
+              if (!response.redirected && answered.pathname !== window.location.pathname) {
+                // The server answered with a page of its own (a form to complete): show it as it is, since asking for
+                // it again would repeat the action
+                window.history.pushState(null, "", answered.href);
+                doc.open(); doc.write(html); doc.close();
+                return;
+              }
+              if (answered.pathname !== window.location.pathname) {
+                // One more step on another page: go there, and carry its message
+                try {
+                  var msgs = fresh.querySelector(".messages");
+                  if (msgs) window.sessionStorage.setItem("emmaus-mensajes", msgs.innerHTML);
+                } catch (err) { /* storage blocked */ }
+                window.location.assign(answered.href);
+                return;
+              }
+              settle(region, fresh, regionId, form);
+            });
+          }, function () {
+            window.clearTimeout(giveUp);
+            if (!timedOut || navigator.onLine === false) { inlineFailed(form, busy, "network"); return; }
+            window.fetch(window.location.href, { credentials: "same-origin", cache: "no-store" })
+              .then(function (response) { if (!response.ok) throw new Error("status"); return response.text(); })
+              .then(function (html) {
+                var fresh = new window.DOMParser().parseFromString(html, "text/html");
+                if (!fresh.getElementById(regionId) && doc.getElementById(regionId)) throw new Error("gone");
+                settle(region, fresh, regionId, form, "Tardó demasiado; esto es lo que quedó guardado. Si no ves tu respuesta, inténtalo otra vez.");
+              })
+              .catch(function () { inlineFailed(form, busy, "unknown"); });
+          });
+      }, true);
+    }
+
+    /* ---- Marked rows ([data-seleccion]: Camperos, to assign a coordinator) ---- */
+    // Without this script the bar is simply under the table and works. With it the bar shows only while a row is
+    // marked and says how many; "Marcar a todos los de esta página" appears and marks or clears the page's rows.
+    $all("[data-seleccion]").forEach(function (list) {
+      var bar = $("[data-seleccion-barra]", list);
+      var count = $("[data-seleccion-cuenta]", list);
+      var all = $("[data-seleccion-todas]", list);
+      var allBox = $("[data-seleccion-todas-caja]", list);
+      var markedNow = 0;
+      function rows() { return $all("[data-seleccion-fila]", list); }
+      function refresh() {
+        var total = rows().length;
+        var marked = rows().filter(function (box) { return box.checked; }).length;
+        if (bar) bar.hidden = marked === 0;
+        if (count) count.textContent = marked === 1 ? "1 seleccionado" : marked + " seleccionados";
+        if (all) {
+          all.checked = total > 0 && marked === total;
+          all.indeterminate = marked > 0 && marked < total;
+        }
+        markedNow = marked;
+        // While rows are marked, a link that changes the list (a filter, a sede, an order, a page) or leaves the page (a
+        // campero, the menu) asks first: the marks belong to this page and would be lost without a word. A link with a
+        // question of its own keeps it; one opening elsewhere (a new tab, a download, an anchor) loses nothing.
+        var said = marked === 1 ? "Tienes 1 campero marcado" : "Tienes " + marked + " camperos marcados";
+        $all("a[href]").forEach(function (link) {
+          var href = link.getAttribute("href");
+          if (href.charAt(0) === "#" || link.target === "_blank" || link.hasAttribute("download")) return;
+          if (link.hasAttribute("data-confirm") && !link.hasAttribute("data-confirm-seleccion")) return;
+          if (marked) {
+            var changes = href.charAt(0) === "?";
+            link.setAttribute("data-confirm", said + (changes ? ". Si cambias la lista, se desmarcan." : ". Si sales de esta página, se desmarcan."));
+            link.setAttribute("data-confirm-seleccion", "");
+            link.setAttribute("data-confirm-label", changes ? "Cambiar la lista" : "Salir de esta página");
+          } else if (link.hasAttribute("data-confirm-seleccion")) {
+            link.removeAttribute("data-confirm");
+            link.removeAttribute("data-confirm-label");
+            link.removeAttribute("data-confirm-seleccion");
+          }
+        });
+      }
+      // A search (Enter in its box, a GET form outside the list) asks too, in the same words
+      $all('main form[method="get"]').forEach(function (search) {
+        if (list.contains(search)) return;
+        search.addEventListener("submit", function (e) {
+          if (search.hasAttribute("data-confirmado")) { search.removeAttribute("data-confirmado"); return; }
+          if (!markedNow) return;
+          var field = e.submitter || $("input[type=search], input[name=q]", search) || search.elements[0];
+          if (!field) return;
+          field.setAttribute("data-confirm", (markedNow === 1 ? "Tienes 1 campero marcado" : "Tienes " + markedNow + " camperos marcados") + ". Si cambias la lista, se desmarcan.");
+          field.setAttribute("data-confirm-label", "Buscar");
+          var asked = askInDialog(field, e);
+          field.removeAttribute("data-confirm");
+          field.removeAttribute("data-confirm-label");
+          if (!asked && !window.confirm((markedNow === 1 ? "Tienes 1 campero marcado" : "Tienes " + markedNow + " camperos marcados") + ". Si cambias la lista, se desmarcan.")) e.preventDefault();
+          // Held back to ask: not being sent (the busy guard above marked it, and would refuse the confirmed one)
+          if (e.defaultPrevented) {
+            search.classList.remove("is-submitting");
+            $all("[aria-busy='true']", search).forEach(function (b) { b.removeAttribute("aria-busy"); });
+          }
+        });
+      });
+      if (allBox && rows().length) allBox.hidden = false;
+      if (all) {
+        all.addEventListener("change", function () {
+          rows().forEach(function (box) { box.checked = all.checked; });
+          refresh();
+        });
+      }
+      list.addEventListener("change", function (e) {
+        if (e.target.matches && e.target.matches("[data-seleccion-fila]")) refresh();
+      });
+      window.addEventListener("pageshow", refresh);  // the browser may bring the boxes back marked
+      refresh();
+    });
+
+    // A line of capsules that scrolls sideways on a phone ([data-desliza]) opens with the current one in view
+    $all("[data-desliza]").forEach(function (line) {
+      var current = $('[aria-current="page"]', line);
+      if (!current || line.scrollWidth <= line.clientWidth) return;
+      line.scrollLeft += current.getBoundingClientRect().left - line.getBoundingClientRect().left - 16;
+    });
+
+    /* ---- Choices kept across a refresh (form[data-conserva] inside a live region) ---- */
+    // The administration home refreshes itself every 30 s; a coordinator chosen on a row and not yet saved is chosen
+    // again in the fresh region, while that row and that choice are still there.
+    var conserved = {};
+    doc.addEventListener("change", function (e) {
+      var field = e.target;
+      if (field.form && field.form.hasAttribute("data-conserva") && field.name) conserved[field.name] = field.value;
+    });
+    doc.addEventListener("submit", function (e) {
+      if (e.target.hasAttribute && e.target.hasAttribute("data-conserva")) conserved = {};
+    });
+    doc.addEventListener("emmaus:updated", function (e) {
+      $all("form[data-conserva] select", e.target).forEach(function (field) {
+        if (!(field.name in conserved)) return;
+        var wanted = conserved[field.name];
+        if (Array.prototype.some.call(field.options, function (o) { return o.value === wanted; })) field.value = wanted;
+      });
+    });
+
+    // A rail longer than its screen scrolls (santuario.css, .rail__nav): this page's place is brought into view at
+    // once, without motion, so the rail never opens on a list that hides where the person is; and the edges where
+    // the list is cut are named (data-corte), so a hairline says there is more that way.
+    (function () {
+      var nav = $(".rail__nav");
+      if (!nav) return;
+      var here = nav.querySelector("[aria-current='page']");
+      if (here && nav.scrollHeight > nav.clientHeight) {
+        var box = nav.getBoundingClientRect(), at = here.getBoundingClientRect();
+        if (at.bottom > box.bottom) nav.scrollTop += at.bottom - box.bottom + 8;
+        else if (at.top < box.top) nav.scrollTop -= box.top - at.top + 8;
+      }
+      function cut() {
+        var edges = [];
+        if (nav.scrollTop > 1) edges.push("arriba");
+        if (nav.scrollTop + nav.clientHeight < nav.scrollHeight - 1) edges.push("abajo");
+        if (edges.length) nav.setAttribute("data-corte", edges.join(" ")); else nav.removeAttribute("data-corte");
+      }
+      cut();
+      nav.addEventListener("scroll", cut, { passive: true });
+      nav.addEventListener("toggle", cut, true);  // a fold of the rail opens or closes
+      window.addEventListener("resize", cut);
+    })();
+
+    // A link or a form that takes more than a quarter of a second to answer draws a thin line at the top, so a
+    // slow connection never looks like a press that did nothing. It goes away with the page.
+    var progressTimer = null;
+    function startProgress() {
+      window.clearTimeout(progressTimer);
+      progressTimer = window.setTimeout(function () {
+        if ($(".nav-progress")) return;
+        var bar = doc.createElement("div");
+        bar.className = "nav-progress";
+        bar.setAttribute("aria-hidden", "true");
+        body.appendChild(bar);
+      }, 250);
+    }
+    function stopProgress() {
+      window.clearTimeout(progressTimer);
+      $all(".nav-progress").forEach(function (bar) { bar.remove(); });
+    }
+    doc.addEventListener("click", function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var link = e.target.closest ? e.target.closest("a[href]") : null;
+      if (!link || link.target === "_blank" || link.hasAttribute("download")) return;
+      var href = link.getAttribute("href");
+      if (!href || href.charAt(0) === "#" || link.origin !== window.location.origin) return;
+      if (link.pathname === window.location.pathname && link.search === window.location.search && link.hash) return;
+      startProgress();
+    });
+    doc.addEventListener("submit", function (e) {
+      window.setTimeout(function () { if (!e.defaultPrevented) startProgress(); }, 0);
+    });
+    window.addEventListener("pageshow", stopProgress);
+    // A download answers without leaving the page: the line would never end
+    window.addEventListener("blur", function () { window.setTimeout(stopProgress, 1500); });
+  }
 })();

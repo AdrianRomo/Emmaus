@@ -126,7 +126,7 @@ class PruneAttendanceTests(CommunityFixture):
         run("--apply")
         self.client.force_login(self.member_user)
         html = self.client.get(reverse("community:group_detail", args=[self.group.pk])).content.decode()
-        self.assertEqual((html.count("<strong>Fuiste</strong>"), html.count("No fuiste")), (1, 0))
+        self.assertEqual((html.count("</span>Fuiste</span>"), html.count("No fuiste")), (1, 0))
 
 
 class PruneByChurchPolicyTests(PruneAttendanceTests):

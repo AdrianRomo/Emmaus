@@ -1,24 +1,39 @@
 {% extends "base.html" %}
-{% load brand %}
+{% load brand shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Configuración de la iglesia{% endblock %}
 {% block content %}
+{% comment %}
+  "Configuración" (core.views.church_settings), for the church's administration. First the other places of the
+  configuration, as rows that are their own link (who has access; with the community module, the policies and the
+  public page); then one form in four sections, each a thing: the church's data, its logo, access, colours. A hint
+  stays only where it states a limit nobody could guess: the logo's format, the contrast the colours need (said
+  once for the group), what a switch turns on. What few churches touch is folded: the white logo, six of the eight
+  colours. A fold with an error in it is drawn open.
+  With the redesign each row of the first list is led by its mark (the row specification), and the logo needs no
+  sentence of its own: its hint says the format.
+{% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% include "events/rotulo/_page_head.html" with title="Configuración de la iglesia" lede="Mantén claros la bienvenida, los datos de contacto, el aviso para participantes, el logotipo, las invitaciones y los colores." %}
+  {% include "events/rotulo/_page_head.html" with title="Configuración de la iglesia" %}
+  <ul class="rows{% if ui_v2 %} ajustes{% endif %}">
+    <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}<span class="hoy__icono" aria-hidden="true">{% icon "personas" %}</span>{% endif %}<div class="row__main"><p class="row__title"><a href="{% url 'user_list' %}">Personas con acceso</a></p></div></li>{% if policies_url %}
+    <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}<span class="hoy__icono" aria-hidden="true">{% icon "candado" %}</span>{% endif %}<div class="row__main"><p class="row__title"><a href="{{ policies_url }}">Políticas de la iglesia</a></p></div></li>{% endif %}{% if public_home_url %}
+    <li class="row{% if ui_v2 %} row--lead{% endif %}">{% if ui_v2 %}<span class="hoy__icono" aria-hidden="true">{% icon "inicio" %}</span>{% endif %}<div class="row__main"><p class="row__title"><a href="{{ public_home_url }}">Página pública de la iglesia</a></p></div></li>{% endif %}
+  </ul>
   {% comment %}admin-upload: the file controls drawn like the camper import's (rotulo.css, G3).{% endcomment %}
-  <form method="post" enctype="multipart/form-data" class="admin-upload">
+  <form method="post" enctype="multipart/form-data" class="admin-upload mt-8">
     {% csrf_token %}
-    <section class="block" aria-labelledby="datos-iglesia">
-      <h2 id="datos-iglesia" class="heading">Datos de la iglesia</h2>
+    <section class="form-section" aria-labelledby="datos-iglesia">
+      <h2 id="datos-iglesia" class="heading form-section__title">Datos de la iglesia</h2>
       {% include "partials/ui/field.html" with field=form.name %}
       {% include "partials/ui/field.html" with field=form.public_welcome_text %}
       {% include "partials/ui/field.html" with field=form.contact_email %}
       {% include "partials/ui/field.html" with field=form.basic_disclaimer_text %}
     </section>
 
-    <section class="block" aria-labelledby="logotipo">
-      <h2 id="logotipo" class="heading">Logotipo</h2>
-      <p class="logo-settings__intro">Tu logotipo va en la barra de arriba, al entrar, en la pantalla del campero, en cada diapositiva de la presentación y en el PDF de los cortes; el título de la pestaña y el autor del PDF llevan el nombre de tu iglesia. Se muestra tal cual, sin cambiarle los colores. Mientras no subas uno, en esos lugares se ve el nombre “Emmaus”.</p>
+    <section class="form-section mt-8" aria-labelledby="logotipo">
+      <h2 id="logotipo" class="heading form-section__title">Logotipo</h2>
+      {% if not ui_v2 %}<p class="logo-settings__intro">Va en lugar de “Emmaus” en cada pantalla, en la presentación y en el PDF, tal cual lo subas.</p>{% endif %}
       {% if logo_church|has_logo %}
         <figure class="logo-preview">
           <div class="logo-preview__plate">{% church_brand logo_church size="auth" %}</div>
@@ -27,58 +42,51 @@
       {% endif %}
       {% include "partials/ui/field.html" with field=form.logo %}
       {% if logo_church.logo %}{% include "partials/ui/field.html" with field=form.logo_clear %}{% endif %}
-      {% if logo_church.logo_dark %}
-        <figure class="logo-preview logo-preview--dark">
-          <div class="logo-preview__plate">{% church_brand logo_church variant="oscuro" size="auth" %}</div>
-          <figcaption>Tu versión en blanco, sobre fondo oscuro.</figcaption>
-        </figure>
-      {% endif %}
-      {% include "partials/ui/field.html" with field=form.logo_dark %}
-      {% if logo_church.logo_dark %}{% include "partials/ui/field.html" with field=form.logo_dark_clear %}{% endif %}
+      <details class="fold fold--inline"{% if logo_church.logo_dark or form.logo_dark.errors or form.logo_dark_clear.errors %} open{% endif %}>
+        <summary>Versión para fondo oscuro</summary>
+        {% if logo_church.logo_dark %}
+          <figure class="logo-preview logo-preview--dark">
+            <div class="logo-preview__plate">{% church_brand logo_church variant="oscuro" size="auth" %}</div>
+            <figcaption>Tu versión en blanco, sobre fondo oscuro.</figcaption>
+          </figure>
+        {% endif %}
+        {% include "partials/ui/field.html" with field=form.logo_dark %}
+        {% if logo_church.logo_dark %}{% include "partials/ui/field.html" with field=form.logo_dark_clear %}{% endif %}
+      </details>
     </section>
 
-    <section class="block" aria-labelledby="acceso">
-      <h2 id="acceso" class="heading">Acceso e invitaciones</h2>
+    <section class="form-section mt-8" aria-labelledby="acceso">
+      <h2 id="acceso" class="heading form-section__title">Acceso e invitaciones</h2>
       {% include "partials/ui/field.html" with field=form.self_registration_enabled %}
       {% include "partials/ui/field.html" with field=form.leaders_can_invite_participants %}
       {% include "partials/ui/field.html" with field=form.discipleship_enabled %}
-      <p class="more"><a href="{% url 'user_list' %}">Ver personas con acceso</a></p>
     </section>
 
-    <section class="block" aria-labelledby="colores">
-      <h2 id="colores" class="heading">Colores</h2>
-      <p class="theme-colors__intro">El color principal pinta botones, enlaces y cifras; el de “estás aquí”, el punto de la computadora y la página actual. Al guardar, Emmaus revisa que los dos se lean sobre blanco, y que el principal y los textos se lean sobre el fondo y sobre los campos y paneles. Los bordes revísalos tú.</p>
+    <section class="form-section mt-8" aria-labelledby="colores">
+      <h2 id="colores" class="heading form-section__title">Colores</h2>
       {% include "partials/ui/field.html" with field=form.custom_theme_enabled %}
-      {% if not form.instance.custom_theme_enabled %}
-        <div class="notice notice--quiet">
-          <p>Hoy tu iglesia usa la paleta de Emmaus, revisada para contraste y legibilidad. Estos colores solo se aplican cuando se activan los colores propios de la iglesia.</p>
-        </div>
-      {% endif %}
       <div class="theme-colors">
         {% include "partials/ui/field.html" with field=form.theme_primary_color %}
         {% include "partials/ui/field.html" with field=form.theme_accent_color %}
-        {% include "partials/ui/field.html" with field=form.theme_secondary_color %}
-        {% include "partials/ui/field.html" with field=form.theme_background_color %}
-        {% include "partials/ui/field.html" with field=form.theme_surface_color %}
-        {% include "partials/ui/field.html" with field=form.theme_text_color %}
-        {% include "partials/ui/field.html" with field=form.theme_muted_text_color %}
-        {% include "partials/ui/field.html" with field=form.theme_border_color %}
       </div>
+      <p class="hint theme-colors__rule">Sobre blanco, el color principal necesita un contraste de al menos 4.5 a 1 y el de “estás aquí”, de al menos 3 a 1.</p>
+      <details class="fold fold--inline"{% if form.theme_background_color.errors or form.theme_surface_color.errors or form.theme_text_color.errors or form.theme_muted_text_color.errors or form.theme_border_color.errors or form.theme_secondary_color.errors %} open{% endif %}>
+        <summary>Más colores</summary>
+        <div class="theme-colors">
+          {% include "partials/ui/field.html" with field=form.theme_background_color %}
+          {% include "partials/ui/field.html" with field=form.theme_surface_color %}
+          {% include "partials/ui/field.html" with field=form.theme_text_color %}
+          {% include "partials/ui/field.html" with field=form.theme_muted_text_color %}
+          {% include "partials/ui/field.html" with field=form.theme_border_color %}
+          {% include "partials/ui/field.html" with field=form.theme_secondary_color %}
+        </div>
+        <p class="hint theme-colors__rule">El color principal y los dos de texto necesitan un contraste de al menos 4.5 a 1 sobre el fondo y sobre los campos y paneles. Los bordes revísalos tú.</p>
+      </details>
     </section>
 
-    <div class="step__actions">
+    <div class="step__actions form-actions">
       <button class="btn btn--primary" type="submit">Guardar cambios</button>
     </div>
-  </form>{% if policies_url %}
-  <section class="block" aria-labelledby="politicas">
-    <h2 id="politicas" class="heading">Políticas de la iglesia</h2>
-    <p>Lo que tu iglesia decide sobre la privacidad de los totales, las opiniones, los avisos urgentes, los menores de edad y la asistencia.</p>
-    <p class="more"><a href="{{ policies_url }}">Ver las políticas de la iglesia</a></p>
-  </section>{% endif %}{% if public_home_url %}
-  <section class="block" aria-labelledby="pagina-publica">
-    <h2 id="pagina-publica" class="heading">Página pública de la iglesia</h2>
-    <p>Lo que lee quien todavía no tiene cuenta: cuándo se reúnen, dónde, cómo preguntar, los eventos públicos y los recursos que elijas. Nada se muestra hasta que la publiques.</p>
-    <p class="more"><a href="{{ public_home_url }}">Ver la página pública de la iglesia</a></p>
-  </section>{% endif %}
+  </form>
 </div>
 {% endblock %}

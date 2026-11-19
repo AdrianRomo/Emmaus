@@ -1,9 +1,131 @@
-{% load emmaus %}{% include "events/_now_next.html" %}
+{% load emmaus %}{% if ui_v2 %}{% load shell %}{% include "events/_now_next.html" %}
+{% comment %}The interviews left half done, except the one raised above (it is the first of in_progress): said once.{% endcomment %}
+{% with raised=in_progress.0 %}{% if stalled|length > 1 or stalled and stalled.0.pk != raised.pk %}
+<section class="block" aria-labelledby="entrevistas-interrumpidas">
+  <h2 id="entrevistas-interrumpidas" class="heading">Otras sin terminar</h2>
+  <ul class="rows">
+    {% for iv in stalled %}{% if iv.pk != raised.pk %}
+    <li class="row row--lead">
+      {% monogram iv.participant.full_name %}
+      <div class="row__main">
+        <p class="row__title">{{ iv.participant.full_name }}</p>
+        <p class="row__meta">{{ iv.station.name|default:"Computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}</p>
+      </div>
+      {% if access.can_conduct_interviews and iv.participant.is_active %}
+      <div class="row__end">
+        <a class="btn btn--link btn--quieto" href="{% url 'events:interview_discard' event.slug iv.public_id %}">Descartar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+        <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+      </div>
+      {% endif %}
+    </li>
+    {% endif %}{% endfor %}
+  </ul>
+  <p class="aside-note">Al descartar se borran sus respuestas.</p>
+</section>
+{% endif %}{% endwith %}
+<div class="tablero">
+  <section class="block tablero__esperan" aria-labelledby="seguimientos">
+    <h2 id="seguimientos" class="heading">Esperan tu decisión</h2>
+    {% if to_evaluate or minors_pending %}
+    {% if to_evaluate %}
+    <a class="decision" href="{% url 'events:coord_pending' event.slug %}#por-evaluar">
+      <span class="decision__cifra">{{ to_evaluate }}</span>
+      <span class="decision__texto"><span class="decision__titulo">{{ to_evaluate|pluralize:"Entrevista,Entrevistas" }} por decidir</span><span class="decision__nota">¿Necesita{{ to_evaluate|pluralize:"n" }} seguimiento?</span></span>
+      <span class="decision__ir" aria-hidden="true"></span>
+    </a>
+    {% endif %}
+    {% if minors_pending %}
+    <a class="decision decision--bloqueo" href="{% url 'events:my_participants' event.slug %}?autorizacion=falta">
+      <span class="decision__cifra">{{ minors_pending }}</span>
+      <span class="decision__texto"><span class="decision__titulo">{{ minors_pending|pluralize:"Menor,Menores" }} sin autorización registrada</span><span class="decision__nota">Sin la autorización de su padre, madre o tutor legal no se {{ minors_pending|pluralize:"le,les" }} puede entrevistar.</span></span>
+      <span class="decision__ir" aria-hidden="true"></span>
+    </a>
+    {% endif %}
+    {% else %}
+    <p class="empty-line">Nada por decidir.</p>
+    {% endif %}
+    {% if follow_ups %}
+    {% url 'events:coord_home' event.slug as home_url %}
+    <div class="heading-row tablero__sub-fila"><h3 class="tablero__sub">Tus seguimientos</h3><a href="{% url 'events:follow_ups' event.slug %}">Ver todos<span class="visually-hidden"> los seguimientos</span></a></div>
+    <ul class="rows">
+      {% for f in follow_ups %}
+      <li class="row row--lead">
+        {% monogram f.participant.full_name "sm" %}
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ home_url|urlencode }}">{{ f.participant.full_name }}</a></p>
+          <p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}{% if f.reopened %}{% include "events/supervision/_decision_reopened.html" %}{% endif %}<span>{{ f.get_reason_display }}, {{ f.created_at|since }}</span></p>{% if f.review_is_mine %}<p class="row__meta">{% include "events/supervision/_decision_review.html" with back=home_url %}</p>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <section class="block tablero__cola" aria-labelledby="siguientes">
+    <div class="heading-row">
+      <h2 id="siguientes" class="heading">Por entrevistar{% if next_up %} <span class="count">{{ progress.not_started|add:progress.partial }}</span>{% endif %}</h2>
+      <a href="{% url 'events:participant_create' event.slug %}">Registrar campero</a>
+    </div>
+    {% if next_up %}
+    <ul class="rows">
+      {% for p in next_up %}
+      <li class="row row--lead">
+        {% monogram p.full_name %}
+        <div class="row__main">
+          <p class="row__title">{{ p.full_name }}</p>
+          <p class="row__meta">{{ p.room|cuarto }}, {{ p.age }} años{% if p.questionnaire_total > 1 %}, {% campero_status p %}{% endif %}</p>
+          {% if p.falta_autorizacion %}<p class="row__meta"><span class="chip chip--wait">Falta la autorización</span></p>{% endif %}
+        </div>
+        <div class="row__end"><a class="btn {% if forloop.first and not in_progress and not p.falta_autorizacion %}btn--primary{% else %}btn--secondary{% endif %} btn--small" href="{% url 'events:interview_start' event.slug p.public_id %}">Entrevistar<span class="visually-hidden"> a {{ p.full_name }}</span></a></div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% with left=progress.not_started|add:progress.partial %}{% if left > next_up|length %}<p class="more"><a href="{% url 'events:coord_pending' event.slug %}">Ver los {{ left }}</a></p>{% endif %}{% endwith %}
+    {% elif progress.eligible %}
+    <p class="empty-line">Nadie por entrevistar.</p>
+    {% else %}
+    <p class="empty-line">Sin camperos por entrevistar.</p>
+    {% endif %}
+    {% if also_in_progress %}
+    <h3 class="tablero__sub">También sin terminar</h3>
+    <ul class="rows">
+      {% for iv in also_in_progress %}
+      <li class="row row--lead">
+        {% monogram iv.participant.full_name %}
+        <div class="row__main">
+          <p class="row__title">{{ iv.participant.full_name }}</p>
+          <p class="row__meta">Última actividad {{ iv.last_activity_at|since }}{% if iv.station %}, en {{ iv.station.name }}{% endif %}</p>
+        </div>
+        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a></div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  {% if progress.eligible %}
+  <section class="block tablero__avance" aria-labelledby="mi-avance">
+    <div class="heading-row">
+      <h2 id="mi-avance" class="heading">Tu avance</h2>
+      <a href="{% url 'events:coord_progress' event.slug %}">Ver detalle</a>
+    </div>
+    <p class="avance__cifra"><span class="avance__n" data-count="llevas">{{ progress.completed }} <span>de {{ progress.eligible }}</span></span></p>
+    {% tally progress.completed progress.in_progress progress.eligible partial=progress.partial %}
+    <ul class="key" aria-hidden="true">
+      <li><span class="key__mark key__mark--done"></span>{{ progress.completed }} hecha{{ progress.completed|pluralize }}</li>
+      {% if progress.in_progress %}<li><span class="key__mark key__mark--progress"></span>{{ progress.in_progress }} en curso</li>{% endif %}
+      <li><span class="key__mark"></span>{{ progress.not_started }} sin iniciar</li>
+    </ul>
+    {% if progress.questionnaires %}{% include "events/rotulo/_questionnaire_progress.html" with progress=progress %}{% endif %}
+  </section>
+  {% endif %}
+</div>
+{% else %}{% include "events/_now_next.html" %}
 {% comment %}Issue #47: the interviews left half done, with the two actions that already existed. Inside the live region, so one that stalls while this page is open shows up by itself.{% endcomment %}
 {% if stalled %}
   <section aria-labelledby="entrevistas-interrumpidas">
     <h2 id="entrevistas-interrumpidas" class="heading">Tienes {{ stalled|length }} entrevista{{ stalled|length|pluralize }} sin terminar</h2>
-    <p class="hint">{{ stalled|length|pluralize:"Lleva,Llevan" }} {% stale_minutes %} minutos o más sin cambios. {{ stalled|length|pluralize:"Retómala,Retómalas" }} o, si ya no se {{ stalled|length|pluralize:"va,van" }} a terminar, {{ stalled|length|pluralize:"descártala,descártalas" }}: al descartar se borran sus respuestas.</p>
+    <p class="hint">{{ stalled|length|pluralize:"Lleva,Llevan" }} {% stale_minutes %} minutos o más sin cambios. Al descartar se borran sus respuestas.</p>
     {% include "events/rotulo/_interrupted_rows.html" with rows=stalled %}
   </section>
 {% endif %}
@@ -39,7 +161,7 @@
         </ul>
         {% with left=progress.not_started|add:progress.partial %}{% if left > next_up|length %}<p class="more"><a href="{% url 'events:coord_pending' event.slug %}">{% if progress.not_started and progress.partial %}Ver los {{ progress.not_started }} sin iniciar y {{ progress.partial }} a medias{% elif progress.partial %}Ver los {{ progress.partial }} a medias{% else %}Ver los {{ progress.not_started }} sin iniciar{% endif %}</a></p>{% endif %}{% endwith %}
       {% elif progress.eligible %}
-        <p class="empty-line">No hay entrevistas por iniciar. Cuando registres o te asignen camperos aparecerán aquí.</p>
+        <p class="empty-line">Nadie por entrevistar.</p>
       {% else %}
         {% comment %}The sign above already says what to do without camperos: here only that the list is empty.{% endcomment %}
         <p class="empty-line">Sin camperos por entrevistar.</p>
@@ -73,7 +195,7 @@
         <div class="row row--attention">
           <div class="row__main">
             <p class="row__title">{{ to_evaluate }} entrevista{{ to_evaluate|pluralize }} espera{{ to_evaluate|pluralize:"n" }} tu decisión</p>
-            <p class="row__meta">Decide si necesita{{ to_evaluate|pluralize:"n" }} seguimiento.</p>
+            <p class="row__meta">¿Necesita{{ to_evaluate|pluralize:"n" }} seguimiento?</p>
           </div>
           <a class="btn btn--secondary btn--small" href="{% url 'events:coord_pending' event.slug %}#por-evaluar">Decidir</a>
         </div>
@@ -95,7 +217,7 @@
             <li class="row">
               <div class="row__main">
                 <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ home_url|urlencode }}">{{ f.participant.full_name }}</a></p>
-                <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>
+                <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>{% if f.decision_change %}<p class="row__meta">{% include "events/supervision/_decision_mark.html" %}{% if f.review_is_mine %} {% include "events/supervision/_decision_review.html" with back=home_url %}{% endif %}</p>{% endif %}{% if f.reopened %}<p class="row__meta">{% include "events/supervision/_decision_reopened.html" %}</p>{% endif %}
               </div>
               {% follow_up_status f.status %}
             </li>
@@ -103,8 +225,9 @@
         </ul>
         <p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver todos los seguimientos</a></p>
       {% elif not to_evaluate and not minors_pending %}
-        <p class="empty-line">Nada espera tu decisión por ahora.</p>
+        <p class="empty-line">Nada por ahora.</p>
       {% endif %}
     </section>
   </div>
 </div>
+{% endif %}

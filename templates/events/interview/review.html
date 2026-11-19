@@ -3,13 +3,19 @@
 {% block page_title %}{% if error %}Error: {% endif %}Revisa y finaliza{% endblock %}
 {% block focus_actions %}<a class="btn btn--small btn--secondary" href="{% if access.is_coordinator %}{% url 'events:coord_home' event.slug %}{% else %}{% url 'events:admin_home' event.slug %}{% endif %}">Guardar y salir</a>{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): the answers, who reads the confidential ones, then the one question left and the one
+  filled action. The decision is its own section (.revision__seguimiento: the system's .decision is the count that
+  leads to a list, and drew this form as one). What the campero asked for is said as a list, without a verdict.
+  Reporting a risk keeps its chile; discarding is the quiet removal whose page asks first, as on «Mi inicio».
+{% endcomment %}
 {% if error %}
   <div class="error-summary" role="alert"><h2>Hay un problema</h2><ul><li><a href="#decision">{{ error }}</a></li></ul></div>
 {% endif %}
 <header class="page-head">
   <h1 class="voice page-head__title">Revisa las respuestas de {{ participant.first_name }}</h1>
-  <p class="lede">Si algo no está bien, usa “Cambiar”. Al final decide si necesita seguimiento.</p>
   <p class="page-head__meta">{{ interview.get_mode_display }}, iniciada {{ interview.started_at|since }}</p>
+  {% if people.confirmed or people.holder_shown %}<p class="page-head__meta">{% include "events/interview/_people.html" %}</p>{% endif %}
 </header>
 
 <dl class="summary-list summary-list--answers">
@@ -23,7 +29,68 @@
 </dl>
 {% if has_hidden %}
   {% if interview.effective_confidential_level == "cuidado" %}
-  <p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>
+  {% if answered_alone %}<p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% else %}<p class="aside-note">Algunas preguntas son confidenciales y solo el equipo de cuidado autorizado puede leerlas. Si {{ participant.first_name }} pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% endif %}
+  {% elif interview.effective_confidential_level == "coordinacion" %}
+  <p class="aside-note">Algunas preguntas son confidenciales y llevan su etiqueta: las leen quien entrevistó a {{ participant.first_name }}, su coordinador y el equipo de cuidado.</p>
+  {% else %}
+  <p class="aside-note">Algunas preguntas son confidenciales y llevan su etiqueta: las leen su coordinador y el equipo del campamento.</p>
+  {% endif %}
+{% endif %}
+
+<form method="post" class="revision__seguimiento" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="revision" value="{{ interview.revision }}">
+  <fieldset id="decision"{% if error %} class="question--error" aria-describedby="decision-error"{% endif %}>
+    <legend><h2 class="voice revision__pregunta">¿Necesita seguimiento?</h2></legend>
+    {% if suggestions %}
+      <div class="notice">
+        <p class="notice__title">Lo que {{ participant.first_name }} pidió</p>
+        <ul class="revision__pidio">{% for code, label in suggestions %}<li>{{ label }}</li>{% endfor %}</ul>
+      </div>
+    {% endif %}
+    {% if error %}<p class="error-message" id="decision-error">{{ error }}</p>{% endif %}
+    <div class="choices">
+      {% for value, label in decision_choices %}
+        <div class="choice">
+          <input class="choice__input" type="radio" id="decision-{{ value }}" name="follow_up_decision" value="{{ value }}"{% if selected_decision == value %} checked{% endif %}>
+          <label class="choice__label" for="decision-{{ value }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ label }}</span></label>
+        </div>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="step__actions">
+    <button class="btn btn--primary btn--large" type="submit">Finalizar entrevista</button>
+  </div>
+</form>
+
+<section class="other-actions" aria-labelledby="otras">
+  <h2 id="otras" class="heading">Si algo no salió como se esperaba</h2>
+  <ul class="rows">
+    {% if not participant.is_practice %}<li class="row"><div class="row__main"><p class="row__title"><a class="btn btn--secondary btn--danger-outline" href="{% url 'events:safety_report' event.slug participant.public_id %}?siguiente={{ request.path|urlencode }}">Reportar una situación de riesgo</a></p><p class="row__meta">Si el campero contó algo que pone en riesgo su seguridad o la de otra persona.</p></div></li>{% endif %}
+    <li class="row"><div class="row__main"><p class="row__title"><a class="btn btn--link btn--quieto" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Descartar esta entrevista</a></p><p class="row__meta">Si se abrió por error o el campero ya no quiere continuar. Se borran las respuestas.</p></div></li>
+  </ul>
+</section>
+{% else %}{% if error %}
+  <div class="error-summary" role="alert"><h2>Hay un problema</h2><ul><li><a href="#decision">{{ error }}</a></li></ul></div>
+{% endif %}
+<header class="page-head">
+  <h1 class="voice page-head__title">Revisa las respuestas de {{ participant.first_name }}</h1>
+  <p class="page-head__meta">{{ interview.get_mode_display }}, iniciada {{ interview.started_at|since }}</p>
+  {% if people.confirmed or people.holder_shown %}<p class="page-head__meta">{% include "events/interview/_people.html" %}</p>{% endif %}
+</header>
+
+<dl class="summary-list summary-list--answers">
+  {% for row in rows %}
+    <div class="summary-list__row">
+      <dt>{{ row.question.text }}</dt>
+      <dd>{% if not row.visible %}<span class="privacy__tag">{{ row.question.get_sensitivity_display }}</span>{% else %}{% if row.question.sensitivity == "confidencial" %}<span class="privacy__tag">Confidencial</span> {% endif %}{% if row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}{% endif %}</dd>
+      <dd class="summary-list__action">{% if row.visible %}<a href="{% url 'events:interview_step' event.slug interview.public_id row.step.number %}?volver=revision">Cambiar<span class="visually-hidden"> la respuesta a “{{ row.question.text }}”</span></a>{% endif %}</dd>
+    </div>
+  {% endfor %}
+</dl>
+{% if has_hidden %}
+  {% if interview.effective_confidential_level == "cuidado" %}
+  {% if answered_alone %}<p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% else %}<p class="aside-note">Algunas preguntas son confidenciales y solo el equipo de cuidado autorizado puede leerlas. Si {{ participant.first_name }} pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% endif %}
   {% elif interview.effective_confidential_level == "coordinacion" %}
   <p class="aside-note">Algunas preguntas son confidenciales y llevan su etiqueta: las leen quien entrevistó a {{ participant.first_name }}, su coordinador y el equipo de cuidado.</p>
   {% else %}
@@ -65,4 +132,4 @@
     <li class="row"><div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:interview_discard' event.slug interview.public_id %}">Descartar esta entrevista</a></p><p class="row__meta">Si se abrió por error o el campero ya no quiere continuar. Se borran las respuestas.</p></div></li>
   </ul>
 </section>
-{% endblock %}
+{% endif %}{% endblock %}

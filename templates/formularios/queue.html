@@ -1,19 +1,22 @@
 {% extends "base.html" %}
-{% load community %}
+{% load community shell %}
 {% block page_title %}Pendientes{% endblock %}
 {% block content %}
 {% comment %}
   «Pendientes» (formularios.views.pending, formularios.queue): what waits for this person, from the places they
-  already work in. Read-only: each row says what kind of thing it is, when, and leads to the screen where it is done.
-  It never shows who a follow-up is about, why, what a booking is for or what somebody answered.
+  already work in, as one list on the row specification: the mark of the place it belongs to in the leading slot, a
+  neutral title that is the way to the screen where it is done, then the place and the day (an overdue one carries
+  the vela dot and says so). Read-only: nothing is done from here.
+  It never shows who a follow-up is about, why, what a booking is for or what somebody answered: a row has only what
+  formularios.queue.Row gives it.
 {% endcomment %}
 <div class="narrow forms">
-  {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Pendientes" lede="Lo que espera por ti en tu iglesia, en una sola lista." back_url=back back_label="Volver a Mi iglesia" %}
+  {% include "events/rotulo/_page_head.html" with title="Pendientes" %}
   {% if rows %}
     <ul class="rows">
       {% for row in rows %}
-        <li class="row row--stack{% if row.overdue %} row--attention{% endif %}">
+        <li class="row row--lead{% if row.overdue %} row--attention{% endif %}">
+          <span class="hoy__icono" aria-hidden="true">{% if row.kind == "Acompañar" %}{% icon "acompanar" %}{% elif row.kind == "Grupos" %}{% icon "grupos" %}{% elif row.kind == "Aprobación pastoral" %}{% icon "devocional" %}{% elif row.kind == "Servir" %}{% icon "servir" %}{% elif row.kind == "Espacios" %}{% icon "equipo" %}{% elif row.kind == "Formularios" %}{% icon "recursos" %}{% else %}{% icon "plan" %}{% endif %}</span>
           <div class="row__main">
             <p class="row__title"><a href="{{ row.url }}">{{ row.title }}</a></p>
             <p class="row__meta">{{ row.kind }}.{% if row.due_on %} Para el {{ row.due_on|weekday_date }}.{% if row.overdue %} Ya pasó la fecha.{% endif %}{% endif %}</p>
@@ -23,7 +26,7 @@
     </ul>
     <p class="aside-note">Esta lista solo reúne lo que ya puedes ver en cada parte de Emmaus. Aquí no se cambia nada: cada pendiente se atiende en su propia pantalla.</p>
   {% else %}
-    <p class="empty-line">No hay nada esperando por ti. Cuando te asignen un seguimiento, una solicitud o una respuesta de un formulario, aparece aquí.</p>
+    {% include "partials/ui/empty.html" with title="No hay nada esperando por ti." text="Cuando te asignen un seguimiento, una solicitud o una respuesta de un formulario, aparece aquí." %}
   {% endif %}
 </div>
 {% endblock %}

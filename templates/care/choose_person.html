@@ -2,33 +2,32 @@
 {% load shell %}
 {% block page_title %}Crear un seguimiento{% endblock %}
 {% block content %}
-{% comment %}First step of a new follow-up (care.views.create without ?persona=): the administration finds the person by name.{% endcomment %}
+{% comment %}First step of a new follow-up (care.views.create without ?persona=): the administration finds the person by name; the row is the way on.{% endcomment %}
 <div class="narrow">
   {% url 'care:admin_list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="¿A quién hay que buscar?" lede="Busca a la persona por su nombre. Ella no verá el seguimiento." back_url=back back_label="Volver a todos los seguimientos" %}
+  {% include "events/rotulo/_page_head.html" with title="¿A quién hay que buscar?" back_url=back back_label="Volver a todos los seguimientos" %}
   <form class="search" method="get" role="search" action="{% url 'care:create' %}">
     <label class="visually-hidden" for="buscar">Nombre de la persona</label>
-    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" aria-describedby="buscar-ayuda">
+    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Buscar por nombre">
     <button class="btn btn--secondary" type="submit">Buscar</button>
   </form>
-  <p class="aside-note" id="buscar-ayuda">Escribe su nombre o apellido. Si todavía no está en Personas, regístrala ahí primero.</p>
   {% if query %}
     {% if found %}
-      {% if found_total > found|length %}<p class="list-count">Estas son las primeras {{ found|length }} de {{ found_total }} personas con ese nombre. Escribe más del nombre para encontrar a quien buscas.</p>{% endif %}
       <ul class="rows">
         {% for person in found %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead">
             {% monogram person.full_name %}
             <div class="row__main">
-              <p class="row__title">{{ person.full_name }}</p>
+              <p class="row__title"><a href="{% url 'care:create' %}?persona={{ person.pk }}">{{ person.full_name }}</a></p>
             </div>
-            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'care:create' %}?persona={{ person.pk }}">Elegir<span class="visually-hidden"> a {{ person.full_name }}</span></a></div>
           </li>
         {% endfor %}
       </ul>
+      {% if found_total > found|length %}<p class="list-count">Primeras {{ found|length }} de {{ found_total }}. Escribe más del nombre.</p>{% endif %}
     {% else %}
-      <p class="empty-line">Nadie de la iglesia se llama así. Revisa cómo lo escribiste o regístrala en Personas.</p>
+      <p class="empty-line">Nadie se llama así. Si no está en Personas, regístrala ahí primero.</p>
     {% endif %}
   {% endif %}
+  <p class="aside-note">La persona no verá el seguimiento.</p>
 </div>
 {% endblock %}

@@ -20,7 +20,7 @@ from core.onboarding import (
     with_name_step,
 )
 
-from ..models import FollowUp, Interview, ReportSnapshot
+from ..models import FollowUp, Interview, InterviewStatus, ReportSnapshot
 from .participants import minors_without_authorization
 
 
@@ -40,14 +40,16 @@ def for_coordinator(event, access, *, station) -> Welcome | None:
         # Pending, it links nowhere: "Elegir computadora" is the line right above this block (coordinator/home.html)
         steps.append(Step(
             "Elige tu computadora", station is not None, "", "",
-            "El número está pegado en la computadora; el enlace para elegirla está arriba de este recuadro. Así tu tutor sabe dónde estás.",
+            "El número está pegado en la computadora. El enlace para elegirla está arriba de este recuadro.",
         ))
     steps.append(Step(
         "Ten camperos asignados", has_people, _url("participant_create", event), "Registrar campero",
         "" if has_people else "Regístralos tú o pide a la administración del evento que te los asigne.",
     ))
     if has_people and event.requires_guardian_authorization:
-        minors = minors_without_authorization(participants, event).count()
+        # The ones not interviewed yet, as Mi inicio counts them: an authorization withdrawn after an interview leaves it
+        # as it is, so an interviewed minor is not one who «no se puede entrevistar»
+        minors = minors_without_authorization(participants, event).filter(interview_status=InterviewStatus.PENDING).count()
         steps.append(Step(
             "Registra la autorización de tus camperos menores de edad", minors == 0,
             _url("my_participants", event, "?autorizacion=falta"), "Ver quiénes la necesitan",
@@ -118,11 +120,11 @@ def for_pastor(event, access) -> Welcome | None:
     steps = [
         Step(
             "Hay camperos registrados", has_people, _url("progress", event), "Ver el avance",
-            "" if has_people else "Todavía no hay. En cuanto la administración registre o importe la lista, el avance aparece aquí.",
+            "" if has_people else "La administración registra o importa la lista.",
         ),
         Step(
             "Hay un corte guardado", has_cutoff, _url("reports", event), "Ver reportes",
-            "Un corte es la foto del avance a cierta hora: sirve para la reunión y para el PDF.",
+            "La foto del avance a cierta hora, para la reunión y el PDF.",
         ),
         Step(
             "Cada seguimiento tiene responsable", unassigned == 0,

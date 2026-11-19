@@ -4,13 +4,13 @@
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'path_detail' path.id as back_url %}
-  {% include "events/rotulo/_page_head.html" with title=title lede="Arma la lección con una enseñanza fácil de leer, pasajes bíblicos y un paso práctico." back_url=back_url back_label=path.title %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=path.title %}
   <form method="post">
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="step__actions form-actions">
       <button class="btn btn--primary" type="submit">Guardar lección</button>
-      <a class="btn btn--link" href="{% url 'path_detail' path.id %}">Volver a la ruta</a>
+      <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
     </div>
   </form>
 </div>

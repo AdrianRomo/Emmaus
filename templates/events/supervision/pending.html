@@ -1,8 +1,90 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Pendientes{% endblock %}
-{% block content %}
-{% include "events/rotulo/_page_head.html" with title="Pendientes" lede="Lo que necesita una decisión o un empujón, en orden de urgencia." %}
+{% block content %}{% if ui_v2 %}{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): what is left pending in the team or the event, one row per person as on "Mi inicio". The
+  interrupted interviews first, by coordinador (only who conducts interviews gets "Retomar" and "Descartar", and
+  "Descartar" asks first on its own page); the open follow-ups (a situación de riesgo in chile); the decisions their
+  coordinators owe; the camperos without an interview per coordinador.
+{% endcomment %}
+{% include "events/rotulo/_page_head.html" with title="Pendientes" %}
+<div class="cols">
+  <div class="cols__main">
+    <section class="block" id="interrumpidas" aria-labelledby="t-interrumpidas">
+      <h2 id="t-interrumpidas" class="heading">Entrevistas interrumpidas{% if stale %} <span class="count">{{ stale|length }}</span>{% endif %}</h2>
+      {% if stale %}
+        {% for group in stale_groups %}
+        <h3 class="tablero__sub">{% if group.coordinator %}<a href="{% url 'events:coordinator_detail' event.slug group.coordinator.id %}">{{ group.coordinator.display_name }}</a>{% else %}Sin coordinador{% endif %}</h3>
+        <ul class="rows">{% for iv in group.rows %}
+          <li class="row row--lead row--stack">
+            {% monogram iv.participant.full_name %}
+            <div class="row__main">
+              <p class="row__title">{{ iv.participant.full_name }}</p>
+              <p class="row__meta">{{ iv.station.name|default:"Computadora sin registrar" }}, última actividad {{ iv.last_activity_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
+            </div>
+            {% if access.can_conduct_interviews and iv.participant.is_active %}
+            <div class="row__end">
+              <a class="btn btn--link btn--quieto" href="{% url 'events:interview_discard' event.slug iv.public_id %}">Descartar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+              <a class="btn btn--secondary btn--small" href="{% url 'events:interview_resume' event.slug iv.public_id %}">Retomar<span class="visually-hidden"> la entrevista de {{ iv.participant.full_name }}</span></a>
+            </div>
+            {% endif %}
+          </li>
+        {% endfor %}</ul>
+        {% endfor %}
+        <p class="aside-note">{% stale_minutes %} minutos o más sin cambios. {% if access.can_conduct_interviews %}Su coordinador también puede retomarla o descartarla desde “Mi inicio”. Al descartar se borran sus respuestas.{% else %}Cada coordinador la retoma o la descarta desde “Mi inicio”.{% endif %}</p>
+      {% else %}<p class="empty-line">No hay entrevistas interrumpidas.</p>{% endif %}
+    </section>
+
+    <section class="block" id="seguimientos" aria-labelledby="t-seg">
+      <div class="heading-row">
+        <h2 id="t-seg" class="heading">Seguimientos abiertos{% if follow_ups %} <span class="count">{{ follow_ups|length }}</span>{% endif %}</h2>
+        {% if follow_ups %}<a href="{% url 'events:follow_ups' event.slug %}">Ver todos<span class="visually-hidden"> los seguimientos</span></a>{% endif %}
+      </div>
+      {% if follow_ups %}
+        <ul class="rows">{% for f in follow_ups|slice:":10" %}
+          <li class="row row--lead">
+            {% monogram f.participant.full_name %}
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.get_full_path|urlencode }}">{{ f.participant.full_name }}</a></p>
+              <p class="row__meta row__meta--con-marca">{% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Situación de riesgo</span>{% endif %}{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}{% if f.reopened %}{% include "events/supervision/_decision_reopened.html" %}{% endif %}<span>{% if f.kind != "seguridad" %}{{ f.get_reason_display }}, {% endif %}{{ f.created_at|since }}, {% if f.assigned_to %}con {{ f.assigned_to.get_full_name }}{% else %}sin responsable{% endif %}</span></p>{% if f.review_is_mine %}<p class="row__meta">{% include "events/supervision/_decision_review.html" with back=request.get_full_path %}</p>{% endif %}
+            </div>
+          </li>
+        {% endfor %}</ul>
+        {% if follow_ups|length > 10 %}<p class="more"><a href="{% url 'events:follow_ups' event.slug %}">Ver los {{ follow_ups|length }}</a></p>{% endif %}
+      {% else %}<p class="empty-line">No hay seguimientos abiertos.</p>{% endif %}
+    </section>
+  </div>
+
+  <div class="cols__side">
+    <section class="block" id="por-evaluar" aria-labelledby="t-eval">
+      <h2 id="t-eval" class="heading">Por decidir{% if to_evaluate %} <span class="count">{{ to_evaluate|length }}</span>{% endif %}</h2>
+      {% if to_evaluate %}
+        <ul class="rows">{% for iv in to_evaluate %}
+          <li class="row row--lead">
+            {% monogram iv.participant.full_name %}
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'events:interview_detail' event.slug iv.public_id %}">{{ iv.participant.full_name }}</a></p>
+              <p class="row__meta">{{ iv.participant.coordinator.display_name|default:"Sin coordinador" }}, completada {{ iv.completed_at|since }}{% if event.questionnaire_count > 1 %}, «{{ iv.version.title }}»{% endif %}</p>
+            </div>
+          </li>
+        {% endfor %}</ul>
+      {% else %}<p class="empty-line">Nada por decidir.</p>{% endif %}
+    </section>
+
+    <section class="block" aria-labelledby="t-sin">
+      <h2 id="t-sin" class="heading">{% if several_questionnaires %}Sin terminar, por coordinador{% else %}Sin iniciar, por coordinador{% endif %}</h2>
+      {% if not_started_by_coordinator %}
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla por coordinador"><table class="table"><thead><tr><th scope="col">Coordinador</th><th scope="col" class="num">{% if several_questionnaires %}Sin terminar{% else %}Sin iniciar{% endif %}</th></tr></thead>
+          <tbody>{% for row in not_started_by_coordinator %}<tr><td>{% if row.coordinator__id %}<a href="{% url 'events:coordinator_detail' event.slug row.coordinator__id %}">{{ row.coordinator__user__first_name }} {{ row.coordinator__user__last_name }}</a>{% else %}Sin coordinador{% endif %}</td><td class="num">{% if several_questionnaires %}{{ row.n }} sin iniciar y {{ row.partial }} a medias{% else %}{{ row.n }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+      {% elif access.participants.exists %}<p class="empty-line">{% if several_questionnaires %}Ningún campero está sin iniciar ni a medias.{% else %}Todas las entrevistas ya se iniciaron.{% endif %}</p>
+      {% elif access.is_tutor %}<p class="empty-line">Tu equipo todavía no tiene camperos.</p>
+      {% else %}<p class="empty-line">Todavía no hay camperos registrados.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% else %}
+{% include "events/rotulo/_page_head.html" with title="Pendientes" %}
 <div class="split">
   <div>
     <section class="block" id="interrumpidas" aria-labelledby="t-interrumpidas">
@@ -14,7 +96,7 @@
           <h3 class="heading mt-6">{% if group.coordinator %}<a href="{% url 'events:coordinator_detail' event.slug group.coordinator.id %}">{{ group.coordinator.display_name }}</a>{% else %}Sin coordinador{% endif %} <span class="count">{{ group.rows|length }}</span></h3>
           {% include "events/rotulo/_interrupted_rows.html" with rows=group.rows %}
         {% endfor %}
-        <p class="aside-note">{% if access.can_conduct_interviews %}Retómalas o descártalas aquí, o pide a su coordinador que lo haga desde “Mi inicio”. Nada se descarta solo.{% else %}Pide a cada coordinador que las retome o las descarte desde “Mi inicio”. Si no puede, la administración lo hace desde su inicio.{% endif %}</p>
+        <p class="aside-note">{% if access.can_conduct_interviews %}Su coordinador también puede hacerlo desde “Mi inicio”. Nada se descarta solo.{% else %}Pide a cada coordinador que las retome o las descarte desde “Mi inicio”. Si no puede, la administración lo hace desde su inicio.{% endif %}</p>
       {% else %}<p class="empty-line">No hay entrevistas interrumpidas.</p>{% endif %}
     </section>
 
@@ -25,7 +107,7 @@
           <li class="row">
             <div class="row__main">
               <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.get_full_path|urlencode }}">{{ f.participant.full_name }}</a></p>
-              <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.created_at|since }}. {% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name }}{% else %}Sin asignar{% endif %}</p>
+              <p class="row__meta">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}, {{ f.created_at|since }}. {% if f.assigned_to %}Responsable: {{ f.assigned_to.get_full_name }}{% else %}Sin asignar{% endif %}</p>{% if f.decision_change %}<p class="row__meta">{% include "events/supervision/_decision_mark.html" %}{% if f.review_is_mine %} {% include "events/supervision/_decision_review.html" with back=request.get_full_path %}{% endif %}</p>{% endif %}{% if f.reopened %}<p class="row__meta">{% include "events/supervision/_decision_reopened.html" %}</p>{% endif %}
             </div>
             <div class="row__end">
               {% if f.kind == "seguridad" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>Urgente</span>{% endif %}
@@ -64,4 +146,4 @@
     </section>
   </div>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

@@ -7,7 +7,7 @@
 {% endcomment %}
 <div class="narrow">
   {% url 'church_policies' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Revisa los cambios" lede="Todavía no se guarda nada. Esto es lo que cambia en las políticas de tu iglesia." back_url=back|add:"?editar=1" back_label="Volver a editar" %}
+  {% include "events/rotulo/_page_head.html" with title="Revisa los cambios" lede="Todavía no se guarda nada." back_url=back|add:"?editar=1" back_label="Volver a editar" %}
   <dl class="summary-list">
     {% for change in changes %}
     <div class="summary-list__row"><dt>{{ change.label }}</dt><dd>Antes: {{ change.old_words }}.<br>Ahora: <strong>{{ change.new_words }}</strong>.</dd></div>
@@ -17,7 +17,7 @@
     {% csrf_token %}
     <input type="hidden" name="paso" value="confirmar">
     <input type="hidden" name="revision" value="{{ token }}">
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Confirmar los cambios</button>
       <a class="btn btn--link" href="{{ back }}?editar=1">Volver a editar</a>
     </div>

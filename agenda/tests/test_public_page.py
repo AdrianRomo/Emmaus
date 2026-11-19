@@ -13,6 +13,7 @@ from agenda import services
 from agenda.models import EventPage, EventRegistration
 from agenda.tests.test_event_extras import CONSENT, ExtrasFixture
 from core.models import Church
+from core.templatetags.shell import icon
 from events.models import Event, EventParticipant
 from people import flags
 from people.models import Person
@@ -65,10 +66,18 @@ class PublicPageTests(PublicFixture):
     def test_anybody_reads_what_the_event_is(self):
         response = self.client.get(public_url(self.retiro))
         self.assertEqual(response.status_code, 200)
-        for text in ("Retiro de jóvenes", "Tres días para descansar.", "Retiro", "A las 19:30", "Rancho El Olivo",
-                     "¿Qué llevo?", "Ropa abrigadora y tu Biblia.", "Bienvenida", "A las 18:00, en Salón grande.",
-                     "Para inscribirte, entra con tu cuenta", self.church.name):
+        for text in ("Retiro de jóvenes", "Tres días para descansar.", "Retiro", f'<li>{icon("reloj", "sm")}19:30</li>',
+                     f'<li>{icon("lugar", "sm")}Rancho El Olivo</li>', "¿Qué llevo?", "Ropa abrigadora y tu Biblia.",
+                     "La inscripción se hace en Emmaus, con la cuenta de quien va a ir.", "Entrar para inscribirme",
+                     self.church.name):
             self.assertContains(response, text)
+        # The programme: the hour drawn, then where.
+        self.assertContains(
+            response,
+            '<li class="row row--lead"><span class="hora">18:00</span><div class="row__main"><p class="row__title">Bienvenida</p>'
+            f'<ul class="meta"><li>{icon("lugar", "sm")}Salón grande</li></ul></div></li>',
+            html=True,
+        )
         self.assertContains(response, "<h1", count=1)
         self.assertContains(response, 'class="bar bar--public"')
         self.assertContains(response, '<meta name="robots" content="noindex, nofollow">')
@@ -104,11 +113,14 @@ class PublicPageTests(PublicFixture):
 
     def test_what_it_says_about_signing_up_never_says_whether_there_is_room(self):
         self.set_page(capacity=1)  # full, with a waiting list: the page says the same
-        self.assertContains(self.client.get(public_url(self.retiro)), "Para inscribirte, entra con tu cuenta")
+        full = self.client.get(public_url(self.retiro))
+        self.assertContains(full, "La inscripción se hace en Emmaus, con la cuenta de quien va a ir.")
+        self.assertContains(full, "Entrar para inscribirme")
         self.set_page(registration_closes_on=self.today - timedelta(days=1))
         closed = self.client.get(public_url(self.retiro))
         self.assertContains(closed, "La inscripción a este evento ya cerró.")
-        self.assertNotContains(closed, "Para inscribirte")
+        self.assertNotContains(closed, "Entrar para inscribirme")
+        self.assertNotContains(closed, "La inscripción se hace en Emmaus")
         self.set_page(registration="cerrada")
         self.assertContains(self.client.get(public_url(self.retiro)), "La inscripción a este evento no se hace desde Emmaus.")
 

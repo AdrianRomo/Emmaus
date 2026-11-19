@@ -1,73 +1,78 @@
 {% extends "base.html" %}
-{% load emmaus community %}
-{% block page_title %}Administrar los eventos{% endblock %}
+{% load emmaus community shell %}
+{% block page_title %}Eventos de la iglesia{% endblock %}
 {% block content %}
 {% comment %}
-  Every event of the church (agenda.views.admin_list), newest first: whether its page is published for the
-  people of the church, how many signed up, and the two doors: the page and who signed up.
+  Every event of the church (agenda.views.admin_list), for its administration, on the row specification: what is
+  underway, what is coming, the nearest first, and then what already happened. A row leads to the event's page (its data, programme,
+  questions, «Duplicar» and opinions are there); its one trailing action is «Inscritos». Until an event is published
+  only the administration sees it: its state word says which ones. Above them, what repeats every week: one row per
+  series, the way into its dates. Last, as on the event's page, the address of the church's public calendar while it
+  answers: a field to copy, and under it what whoever subscribes sees.
 {% endcomment %}
 <div class="narrow">
-  {% url 'agenda:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Administrar los eventos" lede="Publica un evento para que las personas de la iglesia lo vean y se inscriban. Mientras no lo publiques, solo lo ve la administración." back_url=back back_label="Volver a Eventos" %}
-  <div class="step__actions">
-    <a class="btn btn--primary" href="{% url 'agenda:create' %}">Crear un evento</a>
-    <a class="btn btn--secondary" href="{% url 'agenda:series_create' %}">Crear una serie</a>
-  </div>
+  {% url 'agenda:create' as create %}{% url 'agenda:series_create' as create_series %}
+  {% include "events/rotulo/_page_head.html" with title="Eventos de la iglesia" action_url=create action_label="Crear un evento" secondary_url=create_series secondary_label="Crear una serie" %}
   {% if series_list %}
-  <section class="block mt-6" aria-labelledby="series">
-    <h2 id="series" class="heading">Series</h2>
-    <p class="hint">Lo que se repite cada semana. Sus fechas están dentro de cada serie.</p>
+  <section class="block" aria-labelledby="series">
+    <h2 id="series" class="heading">Series <span class="count">{{ series_list|length }}</span></h2>
     <ul class="rows">
       {% for item in series_list %}
-        <li class="row row--below">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "calendario" %}</span>
           <div class="row__main">
             <p class="row__title"><a href="{% url 'agenda:series_admin' item.pk %}">{{ item.name }}</a></p>
-            <p class="row__meta">{{ item.rule|capfirst }}, a las {{ item.starts_at|time:"H:i" }}{% if item.location %}, en {{ item.location }}{% endif %}. {% if not item.active %}Ya no se agregan fechas.{% elif item.next %}La que sigue: {{ item.next.event.starts_on|long_date }}.{% else %}Sin fechas por venir.{% endif %}</p>
-          </div>
-          <div class="row__end">
-            {% if not item.active %}{% status "descartada" "Terminada" %}{% elif item.published %}{% status "publicada" "Publicada" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}
+            <p class="row__meta row__meta--con-marca">{% if not item.active %}{% status "descartada" "Terminada" %}{% elif item.published %}{% status "publicada" "Publicada" %}{% else %}{% status "pendiente" "Sin publicar" %}{% endif %}<span>{{ item.rule|capfirst }}, a las {{ item.starts_at|time:"H:i" }}{% if item.location %}, en {{ item.location }}{% endif %}.</span></p>
+            <p class="row__meta">{% if not item.active %}Ya no se agregan fechas.{% elif item.next %}La que sigue: {{ item.next.event.starts_on|long_date }}.{% else %}Sin fechas por venir.{% endif %}</p>
           </div>
         </li>
       {% endfor %}
     </ul>
+    <p class="aside-note">Lo que se repite cada semana. Sus fechas están dentro de cada serie.</p>
   </section>
+  {% endif %}
+  {% if events %}
+    {% if running %}
+    <section class="block" aria-labelledby="en-curso">
+      <h2 id="en-curso" class="heading">En curso <span class="count">{{ running|length }}</span></h2>
+      <ul class="dates rows">
+        {% for event in running %}{% include "agenda/_admin_row.html" %}{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    <section class="block" aria-labelledby="proximos">
+      <h2 id="proximos" class="heading">Próximos{% if upcoming %} <span class="count">{{ upcoming|length }}</span>{% endif %}</h2>
+      {% if upcoming %}
+        <ul class="dates rows">
+          {% for event in upcoming %}{% include "agenda/_admin_row.html" %}{% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty-line">Sin eventos próximos.</p>
+      {% endif %}
+    </section>
+    {% if past %}
+    <section class="block" aria-labelledby="pasados">
+      <h2 id="pasados" class="heading">Ya pasaron <span class="count">{{ past|length }}</span></h2>
+      <ul class="dates rows">
+        {% for event in past %}{% include "agenda/_admin_row.html" %}{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  {% else %}
+    {% include "partials/ui/empty.html" with title="Sin eventos todavía" action_url=create action_label="Crear un evento" %}
   {% endif %}
   {% if calendar_link %}
   <section class="block public-link" aria-labelledby="calendario">
     <h2 id="calendario" class="heading">Calendario público de la iglesia</h2>
-    <p>Quien se suscribe a esta dirección desde su calendario ve los eventos que marcaste como públicos: nombre, día, hora y lugar. Nunca quién va.</p>
     <div class="field admin-link">
       <label class="label" for="enlace-calendario">Dirección del calendario</label>
       <input class="input" id="enlace-calendario" value="{{ calendar_link }}" readonly>
     </div>
-    <div class="step__actions">
+    <div class="form-actions pagina-evento__compartir">
       <button class="btn btn--secondary" type="button" data-copy="enlace-calendario" data-copy-done="Dirección copiada">Copiar dirección</button>
     </div>
+    <p class="aside-note">Quien se suscribe a esta dirección desde su calendario ve los eventos que marcaste como públicos: nombre, día, hora y lugar. Nunca quién va.</p>
   </section>
-  {% endif %}
-  {% if series_list %}<h2 class="heading mt-6">Eventos</h2>{% endif %}
-  {% if events %}
-    <ul class="rows">
-      {% for event in events %}
-        <li class="row row--below">
-          <div class="row__main">
-            <p class="row__title">{{ event.name }}</p>
-            <p class="row__meta">{{ event.get_kind_display }}{% if event.starts_on %}, {{ event.starts_on|date_range:event.ends_on }}{% else %}, sin fecha todavía{% endif %}. {% if event.ended and not event.camp_tools %}Ya pasó{% else %}{{ event.get_status_display }}{% endif %}.</p>
-            <p class="row__meta">{% if event.signed == 0 %}Nadie se ha inscrito{% elif event.signed == 1 %}1 persona inscrita{% else %}{{ event.signed }} personas inscritas{% endif %}{% if event.waiting_age == 1 %}, 1 con edad por confirmar{% elif event.waiting_age %}, {{ event.waiting_age }} con edad por confirmar{% endif %}{% if event.waiting == 1 %}, 1 pendiente de autorización{% elif event.waiting %}, {{ event.waiting }} pendientes de autorización{% endif %}{% if event.published and event.page.capacity %}, de {{ event.page.capacity }} lugar{{ event.page.capacity|pluralize:"es" }}{% endif %}.</p>
-          </div>
-          <div class="row__end">
-            {% if event.published %}{% status "publicada" "Publicada" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}
-            <a class="btn btn--secondary btn--small" href="{% url 'agenda:page_edit' event.slug %}">Página del evento<span class="visually-hidden">: {{ event.name }}</span></a>
-            <a class="btn btn--secondary btn--small" href="{% url 'agenda:registrations' event.slug %}">Inscritos<span class="visually-hidden"> en {{ event.name }}</span></a>
-            {% if not event.camp_tools %}<a class="btn btn--secondary btn--small" href="{% url 'agenda:event_edit' event.slug %}">Datos<span class="visually-hidden"> de {{ event.name }}</span></a>{% endif %}
-            {% if not event.camp_tools %}<a class="btn btn--secondary btn--small" href="{% url 'agenda:duplicate' event.slug %}">Duplicar<span class="visually-hidden"> {{ event.name }}</span></a>{% endif %}
-            {% if event.ended %}<a class="btn btn--secondary btn--small" href="{% url 'feedback:results' event.slug %}">Opiniones<span class="visually-hidden"> de {{ event.name }}</span></a>{% endif %}
-          </div>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="empty-line">La iglesia todavía no tiene eventos. Crea el primero y después publícalo para que las personas lo vean.</p>
   {% endif %}
 </div>
 {% endblock %}

@@ -67,7 +67,7 @@ class PublicReadingTests(NoticesFixture):
         text = page.content.decode()
         self.assertLess(text.index("Aviso de hoy"), text.index("Aviso de ayer"))
         self.assertLess(text.index("Aviso de ayer"), text.index("Aviso viejo"))
-        self.assertLess(text.index('id="datos"'), text.index('id="avisos"'))
+        self.assertLess(text.index('event-facts'), text.index('id="avisos"'))  # after the event's facts
         self.assertIn("3 de enero a las 07:05</time>.", text)
         self.assertNotIn("Editado", text)
         for word in (self.admin.first_name, self.admin.last_name, self.admin.email, "csrfmiddlewaretoken"):

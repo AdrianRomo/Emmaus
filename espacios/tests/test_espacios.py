@@ -427,7 +427,15 @@ class ViewTests(SpacesFixture):
     def test_approving_is_a_post(self):
         booking = self.book()
         self.client.force_login(self.admin)
-        self.assertEqual(self.client.get(url("approve", booking)).status_code, 405)
+        # A GET (a reload or «atrás» on the clash page an action in place left at this address) approves nothing and
+        # goes back to the queue; who is not the administration, or is of another church, gets what they always got.
+        self.assertRedirects(self.client.get(url("approve", booking)), reverse("espacios:queue"))
+        self.assertEqual(self.status(booking), Status.REQUESTED)
+        for user, status in ((self.member_user, 403), (self.admin_b, 404)):
+            self.client.force_login(user)
+            response = self.client.get(url("approve", booking))
+            self.assertEqual(response.status_code, status)
+            self.assertNotContains(response, booking.space.name, status_code=status)
         self.assertEqual(self.status(booking), Status.REQUESTED)
 
     # ---- what each reader sees --------------------------------------------------------------------
@@ -511,7 +519,9 @@ class ViewTests(SpacesFixture):
                          (Status.REQUESTED, self.leader, self.at(18), self.at(17, 30), None))
         self.assertContains(response, "Por decidir")
         self.client.force_login(self.admin)
-        self.assertContains(self.client.get(LIST), "Hay 1 solicitud por decidir.")
+        waiting = self.client.get(LIST)                                # the count that leads to the requests
+        self.assertContains(waiting, '<span class="decision__cifra">1</span>', html=True)
+        self.assertContains(waiting, "Solicitud por decidir")
         self.assertContains(self.client.get(QUEUE), "La pidió Gala Guía.")
         response = self.client.post(url("approve", booking), follow=True)
         self.assertContains(response, "Aprobaste la reserva de Salón 2")
@@ -801,10 +811,33 @@ class PolishRoundTests(SpacesFixture):
         self.assertLess(html.index("Reservar con el horario nuevo"), html.index("Reservar aunque se empalme"))
         self.assertIn(f'name="visto" value="{first.pk}"', html)
 
+    def test_approving_in_place_returns_to_the_list_it_was_pressed_on_and_never_over_a_clash(self):
+        """The queue approves in place (form[data-inline]) only a request that overlaps nothing; one that overlaps
+        is sent as a page, and whatever the form said the server still answers a clash with the clash page."""
+        free, taken = self.book(8, 9), self.book(18, 20)
+        self.client.force_login(self.admin)
+        over = self.client.post(url("request", self.room), self.form())
+        self.client.post(url("request", self.room), self.form(sobre="1", visto=str(taken.pk)))
+        self.assertContains(over, "Ese horario ya está apartado")
+        html = self.client.get(QUEUE).content.decode()
+        forms = {pk: html[html.index(f'action="{url("approve", pk)}"'):].split(">", 1)[0] for pk in (free, taken)}
+        self.assertIn('data-inline="solicitudes"', forms[free])
+        self.assertNotIn("data-inline", forms[taken])
+        self.assertIn('<div id="solicitudes">', html)
+        # A clash is the clash page, with or without «siguiente»; nothing is approved
+        self.assertContains(self.client.post(url("approve", taken), {"siguiente": QUEUE}), "La reserva se empalma con otra")
+        self.assertEqual(self.status(taken), Status.REQUESTED)
+        # Back to the page it was pressed on; an address of another site is ignored
+        self.assertRedirects(self.client.post(url("approve", free), {"siguiente": "https://otro.example/"}), QUEUE)
+        self.assertEqual(self.status(free), Status.APPROVED)
+        other = self.book(10, 11)
+        self.assertRedirects(self.client.post(url("approve", other), {"siguiente": QUEUE + "?pagina=1"}), QUEUE + "?pagina=1")
+
     def test_every_row_of_what_you_asked_for_is_one_style(self):
         self.book(8, 9)
         self.book(10, 11, space=self.projector)
         self.client.force_login(self.leader_user)
         html = self.client.get(LIST).content.decode()
         self.assertNotIn("row--attention", html)
-        self.assertEqual(html.count('class="row__state"'), 2)
+        self.assertEqual(html.count('<li class="row row--lead row--stack">'), 2)   # the day leads each one, its state under the title
+        self.assertEqual(html.count('class="status '), 2)

@@ -1,8 +1,55 @@
 # Screen migration matrix
 
-**Date:** 2026-11-17. One row per screen for the community modules, one per family for the camp
-(its screens are listed one by one, per role, in `e2e/all_urls.py` and described in
-`docs/design-system.md` §4). Counts are template files that are pages (partials excluded).
+**Date:** 2026-11-18, the state on `v2/redesign-claridad` at `d59e1ee` (not merged into `v2/foundation`).
+The next section is current. The tables after it are the 2026-11-17 round, before «Ventanas», kept as
+recorded: their Status, Components and Visual columns describe that round, and the next section supersedes
+them where they differ.
+
+## State on `v2/redesign-claridad` (`d59e1ee`), 2026-11-18
+
+**Status words.** **Ventanas**: rebuilt on «Ventanas» (`DESIGN_SYSTEM.md`; how it behaves: `CRAFT.md`) under
+`<html data-ui="2">`: the shell (a rail on wide screens; on a phone a top bar, tabs and «Más»), the row
+specification, actions in place. **Unchanged**: with the module off, every shared template keeps its old markup
+byte for byte in an `{% else %}` branch (`people/tests/test_screens_unchanged.py` and per-area byte checks).
+
+Every area in `REDESIGN_CHECKLIST.md` («Areas») is done on «Ventanas», with its merge; the error pages are
+unchanged on purpose. An account that only works in events wears the shell of the event's church
+when that church has the module on (`core/context_processors.py`, `f9ff48b`); in the 2026-11-17 round below such
+accounts still had the bar. The redesign's own visual review (360/390/820/1093/1440) and its fixes are in
+`REVIEW_2026-11-18.md`. The browser gate on the final commit is phase F of the checklist, not done yet.
+
+| Family | Module on | Module off | Tests changed or added for it on this branch | Merged |
+|---|---|---|---|---|
+| Shell, rail, tabs, «Más», toasts, actions in place | Ventanas | Unchanged (the bar) | `core/test_shell.py`, `core/test_template_comments.py` | built on the branch |
+| Mi iglesia | Ventanas (reference screen) | Not served | `groups/tests/test_journey.py`, `groups/tests/test_home_decide.py`, `serving/tests/test_home_nadie_sirve.py`, `agenda/tests/test_recent_notice.py` | built on the branch |
+| Grupos, Mis datos; Servir; Acompañar | Ventanas | Not served | `groups/tests/test_views.py`, `serving/tests/test_serving.py`, `care/tests/test_care.py` | `0304f2e` |
+| Eventos (people and administration), Avisos, devotional, resources, reading plans | Ventanas | Not served | `agenda/tests/test_agenda.py`, `agenda/tests/test_event_extras.py`, `notices/tests/test_notices.py`, `resources/tests/test_resources.py` | `d2ef40e` |
+| Personas, Panorama, opinions, policies, public page, church settings | Ventanas | Settings: Unchanged; the rest not served | `people/tests/test_ventanas.py`, `overview/tests/test_panorama.py`, `policies/tests/test_views.py`, `sitio/tests/test_public_home.py`, `core/test_ventanas_iglesia.py` | `6303cd8` |
+| Mi cuenta, sign-in, passwords, landing, `/unirme/`, help; discipleship | Ventanas | Unchanged | `core/test_puertas_ventanas.py`, `core/test_sign_in_error.py`, `core/test_discipulado_ventanas.py` | `71f3a36` |
+| Camp administration (home, events list, Camperos, forms, configuration) | Ventanas | Unchanged | `events/tests/test_santuario_admin.py`, `events/tests/test_camperos_admin.py`, `events/tests/test_camperos_filtro.py` | `0ebcd48`; Camperos `ba97839` |
+| Camp team (coordinator, tutor, pastor, supervision, reports) | Ventanas | Unchanged | `events/tests/test_santuario_equipo.py`, `events/tests/test_inicio_retomar.py`, `events/tests/test_tutor_esperan.py` | `c9e5857`, `0ebcd48` |
+| Interview, kiosk, a campero's record | Ventanas, no navigation by design | Unchanged | `events/tests/test_santuario_entrevista.py`, `events/tests/test_antes_de_empezar.py`, `events/tests/test_preguntas_opcionales.py` | `5199698` |
+
+New screens and states since the 2026-11-17 round:
+
+| Screen or state | Route | For | Modes | Tests | Commit |
+|---|---|---|---|---|---|
+| «¿A qué campamento entras?» after signing in | `/eventos/en-curso/` | An administrator of two or more camps underway | Both, one markup | `events/tests/test_landing.py` | `388765c` |
+| One sign-in error; the event's help line | `/cuenta/entrar/` | Anyone | Both | `core/test_sign_in_error.py` | `0f8117d` |
+| The landing's promise «Tu iglesia, entre domingo y domingo.» | `/` | Anyone | Module on (off keeps the camp's) | `core/test_puertas_ventanas.py` | `970d340` |
+| «Sí, es {nombre}» on «Antes de empezar»; «Antes de continuar con {nombre}» | `/eventos/<slug>/camperos/<id>/entrevista/`, `…/entrevistas/<id>/otra-computadora/` | Coordinador, administrador | Both | `events/tests/test_antes_de_empezar.py` | `dfae14b`, `03255ff` |
+| «Prefiero no responder» on every question; «Prefirió no responder» / «Sin responder» for staff | the interview, the kiosk, the record, the exports | Campero, staff | Both | `events/tests/test_preguntas_opcionales.py` | `d19861f`, `e4e6f69` |
+| «Cambiar decisión de seguimiento» | `…/entrevistas/<id>/seguimiento/` | The campero's coordinador, an administrador | Both | `events/tests/test_seguimiento_corregible.py` | `95cf6b3` |
+| «Decisión cambiada», «Revisar», «Reabierto el …», «Continuar seguimiento» | every follow-up list; `…/seguimiento/<id>/continuar/` | Whoever may manage the task | Both | `events/tests/test_seguimiento_corregible.py` | `e92f8f4`, `d05c45b` |
+| «En curso» and «N camperos» in «Eventos de la iglesia» | `/mi-iglesia/eventos/administrar/` | Church administration | Module on | `agenda/tests/test_agenda.py` | `9dfc09a` |
+| An event's recent public notice under its line | `/mi-iglesia/`, `/mi-iglesia/eventos/` | Every person | Module on | `agenda/tests/test_recent_notice.py` | `d59e1ee` |
+| «Nadie sirve el …» on «Mi iglesia» | `/mi-iglesia/` | A team's coordinator | Module on | `serving/tests/test_home_nadie_sirve.py` | `24d4970` |
+
+## 2026-11-17 round (before «Ventanas»)
+
+One row per screen for the community modules, one per family for the camp (its screens are listed one by one,
+per role, in `e2e/all_urls.py` and described in `docs/design-system.md` §4). Counts are template files that are
+pages (partials excluded).
 
 **Status words.** **Redesigned**: rebuilt on Santuario's components and in the shell.
 **In the shell**: wears the shell and the tokens; its content is still Atrio's layout.
@@ -13,7 +60,7 @@
 one `h1` + 44 px targets at 390/768/1440. *e2e-R*: `review-all.mjs`, modules **off**, the same checks
 at three widths. "Visual" names what was looked at as a rendered screenshot in this round.
 
-## Community and people (module on; these screens do not exist with it off)
+### Community and people (module on; these screens do not exist with it off)
 
 | Screen | Route | For | Status | Components | Unit | Browser | Visual |
 |---|---|---|---|---|---|---|---|
@@ -66,7 +113,7 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Traer personas de un evento | `…/desde-un-evento/…` | Administration | In the shell | Atrio | `test_people_views` | e2e-C | — |
 | Dar acceso, enlace | `…/acceso/…` | Administration | In the shell | Atrio | `test_people_views` | — | — |
 
-## Church pages on `base.html` (30 discipleship and account templates, 6 sign-in, 5 errors)
+### Church pages on `base.html` (30 discipleship and account templates, 6 sign-in, 5 errors)
 
 | Family | Routes | For | Module on | Module off | Unit | Browser | Visual |
 |---|---|---|---|---|---|---|---|
@@ -79,7 +126,7 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Página pública de la iglesia (prototype, #87) | `/iglesia/<slug>/` | Anyone | Redesigned, no shell and no bar by design | New | `sitio/tests/test_public_home.py` | By hand with axe (not in e2e-C yet) | 390, 768, 1440, with and without theme and logo |
 | Página pública: editar, horario, revisar, vista previa | `/mi-iglesia/pagina-publica/…` | Administration | In the shell (the preview has none) | New | `sitio/tests/test_public_home.py` | By hand with axe (not in e2e-C yet) | 390, 1440 |
 
-## The camp (55 templates under `events/`)
+### The camp (55 templates under `events/`)
 
 "Module on" is for an account with a church role in a church that uses the module; an account
 with only an event role, and every church without the module, get the "module off" column.
@@ -103,9 +150,14 @@ stylesheet, JavaScript errors), with the redesigned shell on every screen of the
 2. **Done.** The camp inside the shell; "Eventos" as the word; a modules-on review of every screen.
    Left from it: look at the interview and the campero's screens with the module on, and add a
    coordinator who is also a person of the church to the seed so the automated review sees it too.
+   The first was done with the redesign (`5199698`); since `f9ff48b` an account that only works in
+   events wears the shell of the event's church, so a coordinator no longer needs to be a person of
+   the church to be served it.
 3. **Done in a first version.** Avisos, events for people (sign-up, attendance), the devotional of
    the day, resources, serving (teams and dates), accompanying (follow-ups of people).
 3b. **Then, with each module.** Atrio's tables, figures, charts and reports get their Santuario
    treatment when the pastor's view of groups and events is built (issue #66).
+3c. **Done on `v2/redesign-claridad`, not merged.** «Ventanas», the second edition of the system, on
+   every screen of a church with the module on (the section at the top of this file).
 4. **Last.** When every church is on the new modules, fold `santuario.css` into `rotulo.css` and
    retire the bar. Until then the split is by flag, not by screen: a church sees one system.

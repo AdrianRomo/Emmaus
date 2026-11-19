@@ -1,22 +1,87 @@
 {% extends "base.html" %}
-{% load core_extras %}
+{% load core_extras shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Seguimientos{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% load community %}{% comment %}
+  The redesign ("Ventanas"): the follow-ups, pending ones on top (the view orders them), as rows: who, what for, its
+  state, with whom and by when; «Marcar como atendido» acts in place: the list takes the row's new state. Creating one is the less frequent
+  task, folded under the list (open when the form came back with an error).
+{% endcomment %}
 {% include "partials/ui/error_summary.html" with form=form %}
-{% include "events/rotulo/_page_head.html" with title="Seguimientos" lede="Solicitudes para platicar, acompañar, saludar o acordar un siguiente paso. Primero los pendientes." %}
+{% include "events/rotulo/_page_head.html" with title="Seguimientos" %}
+<section id="lista-seguimientos" aria-labelledby="lista">
+  {% if follow_ups %}
+    <h2 id="lista" class="heading" data-inline-focus tabindex="-1">{{ follow_ups|length }} seguimiento{{ follow_ups|length|pluralize }}</h2>
+    <ul class="rows">
+      {% for follow_up in follow_ups %}{% with name=follow_up.participant.get_full_name|default:follow_up.participant.email %}
+        <li class="row row--lead row--stack">
+          {% monogram name %}
+          <div class="row__main">
+            <p class="row__title">{{ name }}</p>
+            <p class="row__meta">{{ follow_up.reason|linebreaksbr }}</p>
+            <p class="row__meta row__meta--con-marca">{% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}<span>{% if follow_up.assigned_to %}Con {{ follow_up.assigned_to|display_name }}{% else %}Sin responsable{% endif %}{% if follow_up.due_date %}, para el {{ follow_up.due_date|date:"j b" }}{% endif %}</span></p>
+          </div>
+          {% if follow_up.status == "open" or follow_up.status == "in_progress" %}
+            <form class="row__end" method="post" action="{% url 'complete_follow_up' follow_up.id %}" data-inline="lista-seguimientos">
+              {% csrf_token %}
+              <button class="btn btn--secondary btn--small" type="submit">Marcar como atendido<span class="visually-hidden">: {{ name }}</span></button>
+            </form>
+          {% endif %}
+        </li>
+      {% endwith %}{% endfor %}
+    </ul>
+  {% else %}
+    <h2 id="lista" class="visually-hidden">Seguimientos</h2>
+    <p class="empty-line">Sin seguimientos todavía.</p>
+  {% endif %}
+</section>
+
+<details class="fold block" id="nuevo-seguimiento"{% if form.errors %} open{% endif %}>
+  <summary>Crear un seguimiento</summary>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="form-actions"><button class="btn btn--primary" type="submit">Crear seguimiento</button></div>
+  </form>
+</details>
+{% else %}{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Seguimientos" %}
 {% comment %}
   The list first, pending ones on top (the view orders by state, then newest); creating one is the less frequent
   task, folded under it (open when the form came back with an error).
 {% endcomment %}
 <div class="disc-follow">
   <section aria-labelledby="lista">
-    <h2 id="lista" class="heading">Lista de seguimientos{% if follow_ups %} <span class="count">{{ follow_ups|length }}</span>{% endif %}</h2>
     {% if follow_ups %}
+      <h2 id="lista" class="heading">{{ follow_ups|length }} seguimiento{{ follow_ups|length|pluralize }}</h2>
       <ul class="rows">
         {% for follow_up in follow_ups %}
+          {% with name=follow_up.participant.get_full_name|default:follow_up.participant.email %}
+          {% if ui_v2 %}
+          <li class="row row--lead row--stack">
+            {% monogram name "sm" %}
+            <div class="row__main">
+              <p class="row__title">{{ name }}</p>
+              <p class="row__meta">{{ follow_up.reason|linebreaksbr }}</p>
+              <ul class="meta">
+                <li>{% icon "personas" "sm" %}{% if follow_up.assigned_to %}<span class="visually-hidden">Responsable: </span>{{ follow_up.assigned_to|display_name }}{% else %}Sin responsable{% endif %}</li>
+                {% if follow_up.due_date %}<li>{% icon "calendario" "sm" %}Para el {{ follow_up.due_date|date:"j b" }}</li>{% endif %}
+              </ul>
+            </div>
+            <div class="row__end">
+              {% include "core/rotulo/_acompanamiento_estado.html" with value=follow_up.status label=follow_up.get_status_display %}
+              {% if follow_up.status == "open" or follow_up.status == "in_progress" %}
+                <form method="post" action="{% url 'complete_follow_up' follow_up.id %}" class="row__form">
+                  {% csrf_token %}
+                  <button class="btn btn--secondary btn--small" type="submit">Marcar como atendido<span class="visually-hidden">: {{ name }}</span></button>
+                </form>
+              {% endif %}
+            </div>
+          </li>
+          {% else %}
           <li class="row disc-item">
             <div class="row__main">
-              <p class="row__title">{{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</p>
+              <p class="row__title">{{ name }}</p>
               <p class="disc-item__text">{{ follow_up.reason|linebreaksbr }}</p>
               <p class="row__meta">Responsable: {{ follow_up.assigned_to|display_name:"Sin asignar" }}{% if follow_up.due_date %}, fecha límite: {{ follow_up.due_date|date:"j b Y" }}{% endif %}.</p>
             </div>
@@ -24,20 +89,22 @@
             {% if follow_up.status == "open" or follow_up.status == "in_progress" %}
               <form method="post" action="{% url 'complete_follow_up' follow_up.id %}" class="disc-item__action">
                 {% csrf_token %}
-                <button class="btn btn--secondary btn--small" type="submit">Marcar como atendido<span class="visually-hidden">: {{ follow_up.participant.get_full_name|default:follow_up.participant.email }}</span></button>
+                <button class="btn btn--secondary btn--small" type="submit">Marcar como atendido<span class="visually-hidden">: {{ name }}</span></button>
               </form>
             {% endif %}
           </li>
+          {% endif %}
+          {% endwith %}
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-line">Todavía no hay seguimientos. Crea uno abajo, o aparecerán aquí cuando alguien pida platicar.</p>
+      <h2 id="lista" class="visually-hidden">Seguimientos</h2>
+      <p class="empty-line">Sin seguimientos todavía.</p>
     {% endif %}
   </section>
 
   <details class="fold" id="nuevo-seguimiento"{% if form.errors %} open{% endif %}>
     <summary>Crear un seguimiento</summary>
-    <p class="disc-section__intro">Crea una solicitud cuando alguien necesite que lo busquen en persona o acordar un siguiente paso. Queda pendiente hasta que alguien la marque como atendida.</p>
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/ui/fields.html" with form=form %}
@@ -45,4 +112,4 @@
     </form>
   </details>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

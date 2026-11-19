@@ -11,6 +11,7 @@ from .models import (
     EventMembership,
     EventParticipant,
     FollowUp,
+    Interview,
     InterviewStation,
     MembershipRole,
     Question,
@@ -44,7 +45,7 @@ class EventForm(SpanishErrorsMixin, forms.ModelForm):
     required_messages = {"name": "Escribe el nombre del evento."}
     # Routed before an event's address (events/urls.py): /eventos/nuevo/ is "Crear evento", /eventos/cuenta/… the
     # session ping. An event with one of these would open that page instead of its own.
-    RESERVED_SLUGS = frozenset({"nuevo", "cuenta"})
+    RESERVED_SLUGS = frozenset({"nuevo", "cuenta", "en-curso"})  # the paths under /eventos/ before <slug>/
 
     class Meta:
         model = Event
@@ -105,7 +106,7 @@ MEXICO_TIME_ZONES = [
 
 
 class EventSettingsForm(forms.ModelForm):
-    time_zone = forms.ChoiceField(label="Zona horaria", choices=MEXICO_TIME_ZONES, help_text="Define a qué hora caen los cortes y cómo se muestran las horas.")
+    time_zone = forms.ChoiceField(label="Zona horaria", choices=MEXICO_TIME_ZONES)
     # The event's questionnaires are chosen in Cuestionarios (admin.questionnaires), not here.
 
     class Meta:
@@ -130,7 +131,6 @@ class EventSettingsForm(forms.ModelForm):
             "safeguarding_instructions": forms.Textarea(attrs={"rows": 5}),
         }
         help_texts = {
-            "report_window_start": "Los cortes se generan solo dentro de este horario.",
             "retention_days": "Después de este tiempo se borran las respuestas individuales. Los resúmenes se conservan.",
         }
 
@@ -212,7 +212,7 @@ class ParticipantForm(SpanishErrorsMixin, forms.ModelForm):
             "room": forms.TextInput(attrs={"autocomplete": "off"}),
             "church_group": forms.TextInput(attrs={"autocomplete": "off", "list": "church-groups"}),
         }
-        labels = {"full_name": "Nombre completo del campero"}
+        labels = {"full_name": "Nombre completo"}
 
     def __init__(self, *args, event: Event, can_choose_coordinator: bool, show_guardian: bool = True, **kwargs):
         super().__init__(*args, **kwargs)
@@ -267,7 +267,18 @@ class ParticipantForm(SpanishErrorsMixin, forms.ModelForm):
 class ParticipantAdminForm(ParticipantForm):
     class Meta(ParticipantForm.Meta):
         fields = ["full_name", "age", "room", "church_group", "sede", "coordinator", "is_active", "withdrawn_reason"]
-        labels = {"full_name": "Nombre completo del campero", "is_active": "Sigue participando en el evento"}
+        labels = {"full_name": "Nombre completo", "is_active": "Sigue participando en el evento"}
+
+
+class IdentityCheckForm(forms.Form):
+    """«Sí, es {nombre}» again, for someone who did not start the interview and is about to continue it with the
+    campero (owner decision): the same box as on «Antes de empezar», checked on the server."""
+
+    identity = forms.BooleanField(required=True, error_messages={"required": "Para continuar, confirma que es la persona correcta."})
+
+    def __init__(self, *args, participant_name: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["identity"].label = f"Sí, es {participant_name}"
 
 
 class InterviewStartForm(forms.Form):
@@ -282,9 +293,16 @@ class InterviewStartForm(forms.Form):
         error_messages={"required": "Elige cómo se va a responder la entrevista."},
     )
 
-    def __init__(self, *args, requirements, questionnaire_choices=(), **kwargs):
+    def __init__(self, *args, requirements, participant_name="", questionnaire_choices=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.requirements = requirements
+        # «¿Es la persona correcta?» (owner decision): the identity is confirmed before anything else, the one required
+        # check of «Antes de empezar» besides the applicable authorizations; no question of the interview is required
+        self.fields["identity"] = forms.BooleanField(
+            label=f"Sí, es {participant_name}" if participant_name else "Sí, es la persona correcta",
+            required=True,
+            error_messages={"required": "Para comenzar, confirma que es la persona correcta."},
+        )
         # [(str(questionnaire_id), version title), ...]: the questionnaires the campero can start now.
         self.questionnaire_choices = list(questionnaire_choices)
         if len(self.questionnaire_choices) > 1:
@@ -344,6 +362,41 @@ class SafetyReportForm(forms.Form):
     )
 
 
+class FollowUpDecisionChangeForm(forms.Form):
+    """«Cambiar decisión de seguimiento»: the decision it goes to (the page names it on its button) and why."""
+
+    decision = forms.ChoiceField(
+        choices=[(value, label) for value, label in Interview.FollowUpDecision.choices if value != Interview.FollowUpDecision.TO_EVALUATE],
+        widget=forms.HiddenInput,
+        error_messages={"required": "Elige la nueva decisión.", "invalid_choice": "Elige la nueva decisión."},
+    )
+    reason = forms.CharField(
+        label="¿Por qué cambias la decisión?",
+        help_text="Queda en el historial de la entrevista, con tu nombre.",
+        max_length=200,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+        error_messages={
+            "required": "Escribe brevemente por qué cambias la decisión.",
+            "max_length": "Escribe el motivo en 200 caracteres o menos.",
+        },
+    )
+
+
+class FollowUpContinueForm(forms.Form):
+    """«Continuar seguimiento»: why the task stays open although its interview no longer asks for it."""
+
+    reason = forms.CharField(
+        label="¿Por qué continúas el seguimiento?",
+        help_text="Lo leen quienes pueden atender este seguimiento, con tu nombre.",
+        max_length=200,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+        error_messages={
+            "required": "Escribe brevemente por qué continúas el seguimiento.",
+            "max_length": "Escribe el motivo en 200 caracteres o menos.",
+        },
+    )
+
+
 def _follow_up_leader_ids(event: Event):
     return EventMembership.objects.filter(event=event, is_active=True).exclude(
         role=MembershipRole.COORDINATOR
@@ -355,12 +408,60 @@ def follow_up_leaders(event: Event):
     return User.objects.filter(id__in=_follow_up_leader_ids(event)).order_by("first_name")
 
 
+def _could_open_follow_up(membership: EventMembership, follow_up: FollowUp, tutor_id: int | None) -> bool:
+    """Whether this person, given the follow-up, could open it: ``EventAccess.follow_ups`` and ``participants`` read for
+    one membership, without a query each (a task given to someone who cannot open it disappears for them)."""
+    is_reader = follow_up.created_by_id == membership.user_id
+    if follow_up.confidential and not (membership.can_view_sensitive or is_reader):
+        return False
+    if follow_up.kind != FollowUp.Kind.CARE and not (membership.can_view_sensitive or membership.role == MembershipRole.ADMIN or is_reader):
+        return False
+    if membership.role in (MembershipRole.ADMIN, MembershipRole.PASTOR):
+        return True
+    coordinator_id = follow_up.participant.coordinator_id
+    if membership.role == MembershipRole.TUTOR:
+        return bool(tutor_id and tutor_id == membership.pk)
+    return membership.role == MembershipRole.COORDINATOR and coordinator_id == membership.pk
+
+
+def follow_up_staff(event: Event) -> list[EventMembership]:
+    """The event's active memberships with their user and tutor, read once per request (``assignable``)."""
+    staff = getattr(event, "_follow_up_staff", None)
+    if staff is None:
+        staff = event._follow_up_staff = list(
+            EventMembership.objects.filter(event=event, is_active=True).select_related("user", "tutor_assignment")
+        )
+    return staff
+
+
+def assignable(follow_up: FollowUp, event: Event) -> tuple[list[User], User | None]:
+    """Who a follow-up can go to: the leaders (every active member who is not a coordinador) and the campero's own
+    coordinador, each only if they could open this follow-up (a tutor sees their own coordinadores' camperos; a
+    confidential or safety one, fewer people). Returns (the leaders by first name, the coordinador or None). One rule
+    for the detail form, the row of the list and what each row offers."""
+    staff = follow_up_staff(event)
+    coordinator = getattr(follow_up.participant, "coordinator", None)
+    tutor_id = None
+    if coordinator is not None:
+        assignment = next((m for m in staff if m.pk == coordinator.pk), coordinator)
+        tutor_id = getattr(getattr(assignment, "tutor_assignment", None), "tutor_id", None)
+    leaders = sorted(
+        (m.user for m in staff if m.role != MembershipRole.COORDINATOR and _could_open_follow_up(m, follow_up, tutor_id)),
+        key=lambda user: (user.first_name, user.pk),
+    )
+    own = None
+    if coordinator is not None and coordinator.is_active and _could_open_follow_up(coordinator, follow_up, tutor_id):
+        own = coordinator.user if coordinator.user_id not in {user.pk for user in leaders} else None
+    return leaders, own
+
+
 def _limit_assigned_to(form: forms.ModelForm, event: Event) -> None:
-    """The people a follow-up can go to: the leaders above plus the campero's own coordinador.
-    One rule for the detail form and for the row of the list."""
-    coordinator_id = getattr(getattr(form.instance.participant, "coordinator", None), "user_id", None)
+    """The people a follow-up can go to (``assignable``). Someone who has it and no longer qualifies (left the team,
+    or could not open it) is refused when sent again; the list shows them selected, so a row sent unchanged cannot
+    unassign them by accident."""
+    leaders, own = assignable(form.instance, event)
     field = form.fields["assigned_to"]
-    field.queryset = User.objects.filter(id__in=[*_follow_up_leader_ids(event), coordinator_id]).order_by("first_name")
+    field.queryset = User.objects.filter(id__in=[user.pk for user in leaders] + ([own.pk] if own else [])).order_by("first_name")
     field.label_from_instance = lambda u: u.get_full_name() or u.email
     field.required = False
     field.empty_label = "Sin asignar"
@@ -376,8 +477,29 @@ class FollowUpForm(forms.ModelForm):
     def __init__(self, *args, event: Event, can_write_notes: bool, **kwargs):
         super().__init__(*args, **kwargs)
         _limit_assigned_to(self, event)
+        # Whoever has it and no longer qualifies (left the team, or could not open it) stays chosen here, said why:
+        # this form saves a status or a note, and must not take the follow-up from them in silence. Not offered on others.
+        current = self.instance.assigned_to if self.instance.pk else None
+        field = self.fields["assigned_to"]
+        if current is not None and not field.queryset.filter(pk=current.pk).exists():
+            in_team = any(membership.user_id == current.pk for membership in follow_up_staff(event))
+            why = "no puede ver este seguimiento" if in_team else "ya no está en el equipo"
+            field.queryset = User.objects.filter(pk__in=[*field.queryset.values_list("pk", flat=True), current.pk]).order_by("first_name")
+            field.label_from_instance = lambda u: f"{u.get_full_name() or u.email} ({why})" if u.pk == current.pk else (u.get_full_name() or u.email)
         if not can_write_notes:
             self.fields.pop("resolution_note")
+
+    def clean_status(self):
+        """A cancelled follow-up is not reopened beside another one of its interview that is not cancelled: the database
+        allows one (one_open_care_follow_up_per_interview), and saving it would fail. «Cambiar decisión de seguimiento»
+        reopens the interview's task instead of creating a second one, so this guards data from before it."""
+        status = self.cleaned_data["status"]
+        item = self.instance
+        if item.pk and item.status == FollowUp.Status.CANCELLED and status != FollowUp.Status.CANCELLED and item.interview_id:
+            others = FollowUp.objects.filter(interview_id=item.interview_id, kind=item.kind, confidential=item.confidential)
+            if item.kind == FollowUp.Kind.CARE and others.exclude(pk=item.pk).exclude(status=FollowUp.Status.CANCELLED).exists():
+                raise ValidationError("Su entrevista ya tiene otro seguimiento. Continúa en ese.")
+        return status
 
 
 class FollowUpAssignForm(forms.ModelForm):
@@ -397,7 +519,6 @@ class MemberForm(forms.Form):
     full_name = forms.CharField(label="Nombre completo", max_length=150, error_messages={"required": "Escribe el nombre completo."})
     email = forms.EmailField(
         label="Correo electrónico",
-        help_text="Lo usará para entrar a Emmaus.",
         error_messages={"required": "Escribe el correo electrónico.", "invalid": "Escribe un correo válido, como nombre@ejemplo.com."},
     )
     role = forms.ChoiceField(label="Rol en este evento", choices=MembershipRole.choices, widget=forms.RadioSelect,
@@ -500,7 +621,6 @@ class MembershipEditForm(forms.ModelForm):
 class ImportForm(forms.Form):
     file = forms.FileField(
         label="Archivo CSV",
-        help_text="Columnas: Nombre, Edad, Cuarto, Iglesia o grupo. Opcionales: Coordinador (correo o nombre), Autorización (sí/no) y Sede.",
         error_messages={"required": "Elige un archivo CSV."},
     )
 
@@ -516,7 +636,6 @@ class ImportForm(forms.Form):
 class TeamImportForm(forms.Form):
     file = forms.FileField(
         label="Archivo CSV",
-        help_text="Columnas: Nombre, Correo y Rol (coordinador, tutor o pastor). Opcionales: Equipo y Tutor.",
         error_messages={"required": "Elige un archivo CSV."},
     )
 
@@ -538,19 +657,18 @@ class SectionForm(forms.ModelForm):
         widgets = {"description": forms.Textarea(attrs={"rows": 2})}
 
 
-CONFIDENTIAL_REQUIRED_WARNING = "Si el campero no la contesta, solo el equipo de cuidado autorizado podrá completarla."
-
-
 class QuestionForm(forms.ModelForm):
+    """A question of a draft. There is no «Obligatoria»: no question requires an answer (services.questionnaire)."""
+
     condition_codes = forms.CharField(
         required=False,
         label="Respuestas que la muestran",
-        help_text="Los identificadores internos de esas respuestas, separados por comas. Están en “Datos técnicos”, en esta página y debajo de cada pregunta del cuestionario. Por ejemplo: si",
+        help_text="Sus identificadores internos, separados por comas (están en “Datos técnicos”). Por ejemplo: si",
     )
 
     class Meta:
         model = Question
-        fields = ["text", "help_text", "kind", "sensitivity", "required", "condition_question", "order"]
+        fields = ["text", "help_text", "kind", "sensitivity", "condition_question", "order"]
         labels = {"condition_question": "Mostrar solo si en esta pregunta se respondió…"}
 
     def __init__(self, *args, version: QuestionnaireVersion, **kwargs):
@@ -564,17 +682,6 @@ class QuestionForm(forms.ModelForm):
         self.fields["condition_question"].required = False
         self.fields["condition_question"].empty_label = "Siempre se muestra"
         self.initial.setdefault("condition_codes", ", ".join(self.instance.condition_option_codes or []))
-        if self.confidential_and_required:
-            # A coordinador without confidential access can neither open nor finalize it after an "Entrevista a solas"
-            # (docs/roles-and-permissions.md, "Known gaps"): said next to the box that causes it. The bound field
-            # copied the (empty) help when the check above created it, so it gets the warning too.
-            self.fields["required"].help_text = CONFIDENTIAL_REQUIRED_WARNING
-            self["required"].help_text = CONFIDENTIAL_REQUIRED_WARNING
-
-    @property
-    def confidential_and_required(self) -> bool:
-        """What was just submitted, or else what is stored."""
-        return self["sensitivity"].value() == Question.Sensitivity.CONFIDENTIAL and bool(self["required"].value())
 
     def clean(self):
         cleaned = super().clean()

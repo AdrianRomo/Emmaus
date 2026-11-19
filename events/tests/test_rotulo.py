@@ -347,12 +347,17 @@ class AtrioFoundationTests(SimpleTestCase):
         for retired in ("Recursive", "Atkinson", "CASL", "--font-voice"):
             self.assertNotIn(retired, css)
         fonts = settings.BASE_DIR / "static" / "fonts"
-        # Atrio's sheet has one family. The serif of the redesign's titles lives in santuario.css, which only a church
-        # that uses the new modules loads (core/test_shell.py).
+        # Atrio's sheet has one family. The redesign's (Mona Sans, and Source Serif italic for a verse) live in
+        # santuario.css, which only a church that uses the new modules loads (core/test_shell.py).
         self.assertEqual(
             sorted(p.name for p in fonts.iterdir()),
-            ["OFL-Figtree.txt", "OFL-Newsreader.txt", "figtree-latin.woff2", "newsreader-display-latin.woff2"],
+            ["OFL-Figtree.txt", "OFL-MonaSans.txt", "OFL-SourceSerif4.txt", "figtree-latin.woff2",
+             "mona-sans-latin.woff2", "source-serif-italic-latin.woff2"],
         )
+        santuario = (settings.BASE_DIR / "static" / "css" / "santuario.css").read_text()
+        for redesign_only in ("mona-sans-latin.woff2", "source-serif-italic-latin.woff2"):
+            self.assertIn(f'url("../fonts/{redesign_only}")', santuario)
+            self.assertNotIn(redesign_only, css)
         pdf_fonts = settings.BASE_DIR / "events" / "fonts"
         self.assertEqual(sorted(p.name for p in pdf_fonts.iterdir()),
                          ["Figtree-Bold.ttf", "Figtree-ExtraBold.ttf", "Figtree-Regular.ttf", "OFL-Figtree.txt"])
@@ -377,9 +382,13 @@ class AtrioFoundationTests(SimpleTestCase):
 
     def test_the_skeleton_preloads_the_one_font_file(self):
         skeleton = (settings.BASE_DIR / "templates" / "layout" / "skeleton.html").read_text()
-        preloads = re.findall(r'<link rel="preload" href="\{% static \'([^\']+)\' %\}" as="font"', skeleton)
-        self.assertEqual(preloads, ["fonts/figtree-latin.woff2"])
-        self.assertTrue((settings.BASE_DIR / "static" / preloads[0]).is_file())
+        # One preload line: Atrio's Figtree, or Mona Sans where the redesign is served (santuario.css)
+        line = re.search(r'<link rel="preload" href="(.*?)" as="font"', skeleton).group(1)
+        preloads = re.findall(r"\{% static '([^']+)' %\}", line)
+        self.assertEqual(preloads, ["fonts/mona-sans-latin.woff2", "fonts/figtree-latin.woff2"])
+        self.assertIn("{% if ui_v2 %}", line)
+        for path in preloads:
+            self.assertTrue((settings.BASE_DIR / "static" / path).is_file())
 
     def test_the_tokens_are_atrio(self):
         tokens = root_tokens(stylesheet_text())

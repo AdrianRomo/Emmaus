@@ -1,23 +1,66 @@
 {% extends "base.html" %}
+{% load shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Mis datos{% endblock %}
 {% block content %}
 {% comment %}
   "Mis datos" (groups.views.profile): a person of the church corrects how the church reaches them and may say
-  two dates of their own (baptism, arrival), which only the administration reads. One form, one filled button. The name and the date of birth are the administration's; the page says who to ask.
+  two dates of their own (baptism, arrival), which only the administration reads: a section of their own under the
+  contact fields, each date saying who reads it. Who they are on
+  record (their circle and their name, which the administration changes), one form with one filled button and,
+  said once, who sees it; then the two other places a person looks for here: which notices also arrive by e-mail,
+  and the account they sign in with.
 {% endcomment %}
 <div class="narrow">
   {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Mis datos" lede="Así te encuentra tu iglesia. Tu teléfono y tu correo solo los ven quien guía tu grupo y la administración; las fechas, solo la administración." back_url=back back_label="Volver a Mi iglesia" %}
+  {% include "events/rotulo/_page_head.html" with title="Mis datos" back_url=back back_label="Volver a Mi iglesia" %}
   {% include "partials/ui/error_summary.html" %}
-  <form method="post" novalidate>
+  <ul class="rows block">
+    <li class="row row--lead">
+      {% monogram person.full_name %}
+      <div class="row__main">
+        <p class="row__title">{{ person.full_name }}</p>
+        <p class="row__meta">Tu nombre lo corrige la administración de tu iglesia.</p>
+      </div>
+    </li>
+  </ul>
+  <form class="block" method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" %}
-    <div class="step__actions">
+    <section class="form-section" aria-labelledby="como-contactarte">
+      <h2 id="como-contactarte" class="form-section__title">Cómo contactarte</h2>
+      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+      {% for field in form.visible_fields %}{% if field.name != "baptized_on" and field.name != "arrived_on" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+      <p class="aside-note">Tu teléfono y tu correo solo los ven quien guía tu grupo y la administración de tu iglesia.</p>
+    </section>
+    {% if form.baptized_on or form.arrived_on %}
+    <section class="form-section" aria-labelledby="tus-fechas">
+      <h2 id="tus-fechas" class="form-section__title">Tus fechas en la iglesia</h2>
+      {% if form.baptized_on %}{% include "partials/ui/field.html" with field=form.baptized_on %}{% endif %}
+      {% if form.arrived_on %}{% include "partials/ui/field.html" with field=form.arrived_on %}{% endif %}
+    </section>
+    {% endif %}
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Guardar mis datos</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  <p class="aside-note">Tú eliges de qué avisos de tu iglesia te enteras también por correo: <a href="{% url 'notices:email_preferences' %}">Avisos por correo</a>.</p>
-  <p class="aside-note">Tu nombre en la iglesia es {{ person.full_name }}. Si hay que corregirlo, pídelo a la administración de tu iglesia. La contraseña y el correo con el que entras se cambian en <a href="{% url 'account' %}">Mi cuenta</a>.</p>
+  <section class="block" aria-labelledby="tambien">
+    <h2 id="tambien" class="visually-hidden">También</h2>
+    <ul class="rows">
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "correo" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'notices:email_preferences' %}">Avisos por correo</a></p>
+          <p class="row__meta">Tú eliges cuáles te llegan</p>
+        </div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "candado" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'account' %}">Mi cuenta</a></p>
+          <p class="row__meta">El correo y la contraseña con que entras</p>
+        </div>
+      </li>
+    </ul>
+  </section>
 </div>
 {% endblock %}

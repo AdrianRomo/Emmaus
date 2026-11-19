@@ -1,8 +1,40 @@
 {% extends rotulo_shell %}
 {% block page_title %}Asignar tutores{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% load shell %}
+{% comment %}
+  The redesign ("Ventanas"): each coordinator as a row (their camperos in the line under the name) with the tutor chosen
+  at the end, as the home assigns camperos; one «Guardar asignaciones».
+{% endcomment %}
 {% url 'events:team' event.slug as team_url %}
-{% include "events/rotulo/_page_head.html" with title="Asignar tutores" lede="Elige qué tutor acompaña a cada coordinador. Un tutor solo ve a sus coordinadores y sus camperos." back_url=team_url back_label="Equipo" %}
+{% include "events/rotulo/_page_head.html" with title="Asignar tutores" back_url=team_url back_label="Equipo" %}
+{% if rows and tutors %}
+<form method="post" class="admin-tutores">
+  {% csrf_token %}
+  <ul class="rows admin-asignar__filas">
+    {% for row in rows %}
+    <li class="row row--lead">
+      {% monogram row.coordinator.display_name %}
+      <div class="row__main">
+        <p class="row__title"><label for="t-{{ row.coordinator.id }}">{{ row.coordinator.display_name }}</label></p>
+        <p class="row__meta">{{ row.count }} campero{{ row.count|pluralize }}{% if not row.coordinator.is_active %}, sin acceso{% endif %}</p>
+      </div>
+      <div class="row__end">
+        <select id="t-{{ row.coordinator.id }}" name="tutor_{{ row.coordinator.id }}"><option value="">Sin tutor</option>{% for t in row.options %}<option value="{{ t.id }}"{% if row.current and row.current.tutor_id == t.id %} selected{% endif %}>{{ t.team_label }}, {{ t.display_name }}{% if not t.is_active %} (sin acceso){% endif %}</option>{% endfor %}</select>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="aside-note">Un tutor solo ve a sus coordinadores y sus camperos.</p>
+  <div class="form-actions"><button class="btn btn--primary" type="submit">Guardar asignaciones</button></div>
+</form>
+{% else %}
+  {% url 'events:member_add' event.slug as add_url %}
+  {% include "partials/ui/empty.html" with title="Falta al menos un tutor y un coordinador" action_url=add_url action_label="Agregar persona" %}
+{% endif %}
+{% else %}{# v1 #}
+{% url 'events:team' event.slug as team_url %}
+{% include "events/rotulo/_page_head.html" with title="Asignar tutores" back_url=team_url back_label="Equipo" %}
 {% if rows and tutors %}
 <form method="post" class="admin-assign">
   {% csrf_token %}
@@ -18,10 +50,11 @@
       {% endfor %}</tbody>
     </table>
   </div>
+  <p class="aside-note">Un tutor solo ve a sus coordinadores y sus camperos.</p>
   <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar asignaciones</button></div>
 </form>
 {% else %}
-  <p class="empty-line">Faltan tutores o coordinadores. Agrega al menos un tutor y un coordinador para poder asignarlos.</p>
+  <p class="empty-line">Falta al menos un tutor y un coordinador.</p>
   <p class="mt-4"><a class="btn btn--primary" href="{% url 'events:member_add' event.slug %}">Agregar persona</a></p>
 {% endif %}
-{% endblock %}
+{% endif %}{% endblock %}

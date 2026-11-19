@@ -1,19 +1,47 @@
 {% extends "base.html" %}
 {% load brand %}
-{% block page_title %}Platicar con cada joven, sin perder a nadie{% endblock %}
+{% block page_title %}{% if ui_v2 %}Tu iglesia, entre domingo y domingo{% else %}Platicar con cada joven, sin perder a nadie{% endif %}{% endblock %}
 {% block content %}
-{% comment %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"), the front door of a church that uses Emmaus for its life (the community module): the
+  church's logo, or its name above the promise of church life between Sundays; one way in, filled; the way in for a
+  volunteer with an event's code; under the sheet, two promises true for any member (who sees what; how they are
+  contacted) and what the church uses it for. The camp's door (module off) keeps its own promise below.
+{% endcomment %}
+<div class="auth-card">
+  {% if church|has_logo %}<div class="auth-card__brand">{% church_brand church size="auth" %}</div>
+  {% endif %}<header class="page-head">
+    <div class="page-head__text">
+      {% include "core/_door_church.html" with church=church %}
+      <h1 class="voice page-head__title">Tu iglesia, entre domingo y domingo.</h1>
+    </div>
+  </header>
+  <div class="step__actions">
+    <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar a Emmaus</a>
+    <a class="auth-card__link" href="{% url 'join' %}">¿Vas a ayudar en un evento? Escribe el código</a>
+  </div>
+</div>
+<div class="auth-card door-foot">
+  <ul class="rows">
+    <li class="row">Cada persona ve solo lo que le toca.</li>
+    <li class="row">Tú decides cómo te contactan.</li>
+  </ul>
+  <p class="aside-note">{% if church %}{{ church.name }} usa Emmaus para sus eventos, sus grupos y sus campamentos.{% else %}Emmaus reúne en un lugar los eventos, los grupos y los campamentos de una iglesia.{% endif %}</p>
+</div>
+{% else %}{% comment %}
   The public front door (Atrio, docs/design-direction.md): one column like the sign-in page, no photos, no icons.
   The church's logo leads when it has one (base.html then draws no bar, so it is never drawn twice and nothing says "Emmaus");
-  then the promise as the one heading, one way in, the way in for a volunteer who has an event's code, three
-  promises in one sentence each, and who uses it. Signed-in visitors never see it: core.views.landing sends
-  them to their dashboard.
+  then the promise as the one heading, one way in, the way in for a volunteer who has an event's code and, under
+  the card, three promises in one sentence each, and who uses it. Signed-in visitors never see it:
+  core.views.landing sends them to their dashboard.
 {% endcomment %}
 <div class="auth-card">
   {% if church|has_logo %}<div class="auth-card__brand">{% church_brand church size="auth" %}</div>
   {% endif %}{% include "events/rotulo/_page_head.html" with title="Platicar con cada joven, sin perder a nadie." lede="Emmaus ayuda al equipo del campamento a conversar con cada campero sobre su fe y a recordar a quién buscar después." %}
   <a class="btn btn--primary btn--large" href="{% url 'login' %}">Entrar a Emmaus</a>
   <p class="mt-4"><a class="auth-card__link" href="{% url 'join' %}">¿Vas a ayudar en un evento? Escribe el código</a></p>
+</div>
+<div class="auth-card door-foot">
   <ul class="rows mt-8">
     <li class="row">Cada pregunta se puede dejar sin contestar.</li>
     <li class="row">Cada persona ve solo lo que le toca.</li>
@@ -21,4 +49,4 @@
   </ul>
   <p class="aside-note">{% if church %}{{ church.name }} usa Emmaus en sus campamentos{% if church.discipleship_enabled %} y en su discipulado{% endif %}.{% else %}Emmaus es la herramienta de la iglesia para entrevistar y acompañar.{% endif %}</p>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

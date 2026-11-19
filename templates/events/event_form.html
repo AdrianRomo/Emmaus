@@ -1,10 +1,40 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Crear evento{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}The redesign ("Ventanas"): the event in two sections, its address and its state folded (they have a default).{% endcomment %}
+{% url 'events:list' as list_url %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Crear evento" meta=church.name back_url=list_url|add:"?todos=1" back_label="Eventos donde sirves" %}
+<form method="post" novalidate class="event-create">
+  {% csrf_token %}
+  <section class="form-section" aria-labelledby="f-evento">
+    <h2 id="f-evento" class="form-section__title">El evento</h2>
+    {% include "partials/ui/field.html" with field=form.name %}
+    {% include "partials/ui/field.html" with field=form.kind %}
+    {% include "partials/ui/field.html" with field=form.location %}
+  </section>
+  <section class="form-section" aria-labelledby="f-fechas">
+    <h2 id="f-fechas" class="form-section__title">Fechas</h2>
+    {% include "partials/ui/field.html" with field=form.starts_on %}
+    {% include "partials/ui/field.html" with field=form.ends_on %}
+  </section>
+  <details class="fold"{% if form.slug.errors or form.status.errors %} open{% endif %}>
+    <summary>Dirección y estado</summary>
+    {% include "partials/ui/field.html" with field=form.slug %}
+    {% include "partials/ui/field.html" with field=form.status %}
+  </details>
+  <div class="form-actions">
+    <button class="btn btn--primary btn--large" type="submit">Crear evento</button>
+    <a class="btn btn--link" href="{{ list_url }}?todos=1">Cancelar</a>
+  </div>
+</form>
+</div>
+{% else %}{# v1 #}
 <div class="narrow">
 <a class="back-link" href="{% url 'events:list' %}?todos=1">Eventos</a>
 {% include "partials/ui/error_summary.html" with form=form %}
-{% include "events/rotulo/_page_head.html" with title="Crear evento" lede="Podrás cambiar todo esto después en Configuración." meta=church.name %}
+{% include "events/rotulo/_page_head.html" with title="Crear evento" meta=church.name %}
 <form method="post" novalidate class="event-create">
   {% csrf_token %}
   {% include "partials/ui/fields.html" with form=form %}
@@ -14,4 +44,4 @@
   </div>
 </form>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

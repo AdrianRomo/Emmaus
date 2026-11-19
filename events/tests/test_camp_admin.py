@@ -348,9 +348,9 @@ class GuardianAuthorizationTests(CampFixture):
         guardian = next(r for r in consent_requirements(EventParticipant.objects.get(pk=minor.pk)) if r.key == "guardian")
         self.assertEqual((guardian.satisfied, guardian.confirm_now), (False, True))
         self.choose_station()
-        self.client.post(self.url("interview_start", minor.public_id), {"mode": "asistida", "consent_assent": "on"})
+        self.client.post(self.url("interview_start", minor.public_id), {"identity": "on", "mode": "asistida", "consent_assent": "on"})
         self.assertFalse(Interview.objects.filter(participant=minor).exists())
-        self.client.post(self.url("interview_start", minor.public_id), {"mode": "asistida", "consent_assent": "on", "consent_guardian": "on"})
+        self.client.post(self.url("interview_start", minor.public_id), {"identity": "on", "mode": "asistida", "consent_assent": "on", "consent_guardian": "on"})
         self.assertTrue(Interview.objects.filter(participant=minor).exists())  # what blocked it was the authorization
 
     def test_only_who_can_edit_the_campero_can_attest_or_remove(self):
@@ -370,7 +370,7 @@ class GuardianAuthorizationTests(CampFixture):
         self.login(self.coord1)
         self.choose_station()
         minor = self.p_minor_no_auth
-        self.client.post(self.url("interview_start", minor.public_id), {"mode": "asistida", "consent_assent": "on", "consent_guardian": "on"})
+        self.client.post(self.url("interview_start", minor.public_id), {"identity": "on", "mode": "asistida", "consent_assent": "on", "consent_guardian": "on"})
         interview = Interview.objects.get(participant=minor)
         url = self.url("guardian_authorization_withdraw", minor.public_id)
         self.assertContains(self.client.get(url), "Hay una entrevista en curso; se podrá terminar. Las siguientes necesitarán una autorización nueva.")

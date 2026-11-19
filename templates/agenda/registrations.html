@@ -3,32 +3,32 @@
 {% block page_title %}Inscritos en {{ event.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  Who signed up for one event or arrived (agenda.views.registrations), for the church's administration only: first
-  the review queue (whose age the team has to confirm, then the minors who wait for a guardian's authorization),
-  then each person or visitor with how to reach them, and from the event's first day on, who came, as large
-  options and one filled button. Who is not marked did not come. Nobody else reads this list, and the
-  authorization of a guardian, with what it allows (transport, photographs), is shown nowhere else.
+  Who signed up for one event or arrived (agenda.views.registrations), for the church's administration only. The
+  counts as facts (who waits for the team in vela: it blocks somebody); first the review queue (whose age the team has
+  to confirm, then the minors who wait for a guardian's authorization), then the waiting list, then each person or
+  visitor with how to reach them, and from the event's first day on, who came, with the one filled button. Every row
+  has its circle and at most one action, after a quiet «Anular registro» or «Quitar» whose page asks first. Nobody
+  else reads this list, and a guardian's authorization, with what it allows (transport, photographs), is shown nowhere
+  else. The notes about minors, the age and the authorization are policy (issue #75): they are not shortened.
 {% endcomment %}
 <div class="narrow">
   {% url 'agenda:admin_list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Inscritos en "|add:event.name lede="Quién le avisó a la iglesia que quiere ir, y cómo contactarle." back_url=back back_label="Volver a los eventos" %}
-  <div class="block">
-    <p class="page-head__meta">{% if rows|length == 1 %}1 persona inscrita{% else %}{{ rows|length }} personas inscritas{% endif %}{% if waiting_age|length == 1 %}, 1 con edad por confirmar{% elif waiting_age %}, {{ waiting_age|length }} con edad por confirmar{% endif %}{% if waiting|length == 1 %}, 1 pendiente de autorización{% elif waiting %}, {{ waiting|length }} pendientes de autorización{% endif %}{% if page.capacity %} de {{ page.capacity }} lugar{{ page.capacity|pluralize:"es" }}{% endif %}{% if listed|length == 1 %}, 1 en lista de espera{% elif listed %}, {{ listed|length }} en lista de espera{% endif %}{% if listed and list_block %} ({% if list_block == "empezo" or list_block == "terminado" %}ya no avanza{% else %}detenida{% endif %}){% endif %}{% if cancelled == 1 %}, 1 canceló{% elif cancelled %}, {{ cancelled }} cancelaron{% endif %}.{% if recorded %} {% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }} inscrito{{ rows|length|pluralize }}.{% endif %}</p>
-  </div>
-
-  {% if started %}
-  <section class="block" aria-labelledby="llego">
-    <h2 id="llego" class="heading">¿Llegó alguien que no se había inscrito?</h2>
-    <p>Regístrala aquí, sea de la iglesia o una visita. No necesita cuenta de Emmaus.</p>
-    <div class="step__actions"><a class="btn btn--secondary" href="{% url 'agenda:walkup' event.slug %}">Registrar a alguien que llegó</a></div>
-  </section>
-  {% endif %}
+  {% if started %}{% url 'agenda:walkup' event.slug as walkup_url %}{% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Inscritos" lede=event.name back_url=back back_label="Volver a los eventos" secondary_url=walkup_url secondary_label="Registrar a alguien que llegó" %}
+  <ul class="meta inscritos__cuentas" aria-label="Cuántos">
+    <li>{% icon "personas" "sm" %}{% if rows|length == 1 %}1 persona inscrita{% else %}{{ rows|length }} personas inscritas{% endif %}{% if page.capacity %} de {{ page.capacity }} lugar{{ page.capacity|pluralize:"es" }}{% endif %}</li>
+    {% if waiting_age %}<li><span class="chip chip--wait">{{ waiting_age|length }} con edad por confirmar</span></li>{% endif %}
+    {% if waiting|length == 1 %}<li><span class="chip chip--wait">1 pendiente de autorización</span></li>{% elif waiting %}<li><span class="chip chip--wait">{{ waiting|length }} pendientes de autorización</span></li>{% endif %}
+    {% if listed %}<li>{% icon "lista" "sm" %}{{ listed|length }} en lista de espera{% if list_block %} ({% if list_block == "empezo" or list_block == "terminado" %}ya no avanza{% else %}detenida{% endif %}){% endif %}</li>{% endif %}
+    {% if cancelled == 1 %}<li>1 canceló</li>{% elif cancelled %}<li>{{ cancelled }} cancelaron</li>{% endif %}
+    {% if recorded %}<li>{% icon "check" "sm" %}{% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }}</li>{% endif %}
+  </ul>
 
   {% if waiting_age %}
   <section class="block" aria-labelledby="edad">
     <h2 id="edad" class="heading">Edad por confirmar</h2>
     <p class="aside-note">Este evento cuida a los menores de edad: una fecha que la persona escribió no basta. Conservan su lugar, pero su inscripción no está confirmada hasta que confirmes su edad.</p>
-    <ul class="rows">
+    <ul class="rows filas-evento">
       {% for row in waiting_age %}
         <li class="row row--lead row--stack row--attention">
           {% monogram row.display_name %}
@@ -38,8 +38,8 @@
             {% include "agenda/_registration_who.html" %}
           </div>
           <div class="row__end">
+            {% if row.is_walkup %}<a class="btn btn--link btn--quieto" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
             <a class="btn btn--secondary btn--small" href="{% if row.is_guest %}{% url 'agenda:guest_age' event.slug row.pk %}{% else %}{% url 'agenda:confirm_age' event.slug row.pk %}{% endif %}">Confirmar edad<span class="visually-hidden"> de {{ row.display_name }}</span></a>
-            {% if row.is_walkup %}<a class="btn btn--link btn--small" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
           </div>
         </li>
       {% endfor %}
@@ -51,7 +51,7 @@
   <section class="block" aria-labelledby="pendientes">
     <h2 id="pendientes" class="heading">Pendientes de autorización</h2>
     <p class="aside-note">Son menores de edad. Conservan su lugar, pero su inscripción no está confirmada hasta que registres la autorización de su madre, padre o tutor: el formato firmado, o en persona.</p>
-    <ul class="rows">
+    <ul class="rows filas-evento">
       {% for row in waiting %}
         <li class="row row--lead row--stack row--attention">
           {% monogram row.display_name %}
@@ -63,8 +63,8 @@
             {% include "agenda/_registration_who.html" %}
           </div>
           <div class="row__end">
+            {% if row.is_walkup %}<a class="btn btn--link btn--quieto" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
             <a class="btn btn--secondary btn--small" href="{% url 'agenda:consent' event.slug row.pk %}">Registrar autorización<span class="visually-hidden"> de {{ row.display_name }}</span></a>
-            {% if row.is_walkup %}<a class="btn btn--link btn--small" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
           </div>
         </li>
       {% endfor %}
@@ -75,13 +75,12 @@
   {% if listed %}
   <section class="block" aria-labelledby="lista-espera">
     <h2 id="lista-espera" class="heading">Lista de espera</h2>
-    <p class="aside-note">En el orden en que se anotaron. Cuando se libera un lugar, Emmaus se lo ofrece a la primera persona y ella decide si lo acepta. Desde aquí no se puede cambiar el orden ni inscribir a nadie: solo quitar a alguien de la lista.</p>
     {% if list_block == "sin_inscripcion" %}<div class="notice notice--warning"><p><strong>La lista está detenida.</strong> La página dice «No hay inscripción desde Emmaus»: mientras siga así no se ofrecen lugares, y quien ya tiene uno ofrecido no puede aceptarlo (su plazo sigue corriendo). Para que la lista avance, abre la inscripción en <a href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a>.</p></div>
     {% elif list_block == "sin_publicar" %}<div class="notice notice--warning"><p><strong>La lista está detenida.</strong> El evento no está publicado: mientras siga así no se ofrecen lugares, y quien ya tiene uno ofrecido no puede aceptarlo (su plazo sigue corriendo). Para que la lista avance, publícalo en <a href="{% url 'agenda:page_edit' event.slug %}">Página del evento</a>.</p></div>
-    {% elif list_block %}<div class="notice notice--quiet"><p><strong>La lista ya no avanza.</strong> {% if list_block == "empezo" %}El evento ya empezó{% else %}El evento ya terminó{% endif %}: no se ofrecen más lugares y los ya ofrecidos no se pueden aceptar. A quien llegue, regístrala en «Registrar a alguien que llegó».</p></div>{% endif %}
-    <ol class="rows">
+    {% elif list_block %}<div class="notice"><p><strong>La lista ya no avanza.</strong> {% if list_block == "empezo" %}El evento ya empezó{% else %}El evento ya terminó{% endif %}: no se ofrecen más lugares y los ya ofrecidos no se pueden aceptar. A quien llegue, regístrala en «Registrar a alguien que llegó».</p></div>{% endif %}
+    <ol class="rows filas-evento">
       {% for row in listed %}
-        <li class="row row--lead row--stack{% if row.is_offered %} row--attention{% endif %}">
+        <li class="row row--lead row--stack">
           {% monogram row.display_name %}
           <div class="row__main">
             <p class="row__title">{{ row.display_name }}</p>
@@ -90,18 +89,19 @@
             {% include "agenda/_registration_who.html" %}
           </div>
           <div class="row__end">
-            <a class="btn btn--link btn--small" href="{% url 'agenda:waiting_remove' event.slug row.pk %}">Quitar de la lista<span class="visually-hidden"> de espera a {{ row.display_name }}</span></a>
+            <a class="btn btn--link btn--quieto" href="{% url 'agenda:waiting_remove' event.slug row.pk %}">Quitar de la lista<span class="visually-hidden"> de espera a {{ row.display_name }}</span></a>
           </div>
         </li>
       {% endfor %}
     </ol>
+    <p class="aside-note">En el orden en que se anotaron. Cuando se libera un lugar, Emmaus se lo ofrece a la primera persona y ella decide si lo acepta. Desde aquí no se puede cambiar el orden ni inscribir a nadie: solo quitar a alguien de la lista.</p>
   </section>
   {% endif %}
 
   <section class="block" aria-labelledby="inscritos">
-    <h2 id="inscritos" class="heading">Personas inscritas</h2>
+    <h2 id="inscritos" class="heading">Personas inscritas{% if rows %} <span class="count">{{ rows|length }}</span>{% endif %}</h2>
     {% if rows %}
-      <ul class="rows">
+      <ul class="rows filas-evento">
         {% for row in rows %}
           <li class="row row--lead row--stack">
             {% monogram row.display_name %}
@@ -114,8 +114,8 @@
             </div>
             {% if row.valid_consent or row.is_walkup %}
             <div class="row__end">
-              {% if row.valid_consent %}<a class="btn btn--secondary btn--small" href="{% url 'agenda:consent_revoke' event.slug row.pk %}">Retirar autorización<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
-              {% if row.is_walkup %}<a class="btn btn--link btn--small" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
+              {% if row.is_walkup %}<a class="btn btn--link btn--quieto" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
+              {% if row.valid_consent %}<a class="btn btn--link btn--quieto" href="{% url 'agenda:consent_revoke' event.slug row.pk %}">Retirar autorización<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
             </div>
             {% endif %}
           </li>
@@ -134,11 +134,10 @@
   <section class="block" aria-labelledby="asistencia">
     <h2 id="asistencia" class="heading">Asistencia</h2>
     {% if started %}
-      {% if recorded %}<div class="notice notice--quiet"><p>Ya guardaste la asistencia. Puedes corregirla y guardarla otra vez.</p></div>{% endif %}
       <form method="post">
         {% csrf_token %}
         <fieldset>
-          <legend class="legend">Marca a quienes vinieron</legend>
+          <legend class="legend">{% if recorded %}Ya guardaste la asistencia. Corrígela si hace falta{% else %}Marca a quienes vinieron{% endif %}</legend>
           <div class="choices">
             {% for row in rows %}
             <div class="choice choice--multi">
@@ -148,7 +147,7 @@
             {% endfor %}
           </div>
         </fieldset>
-        <div class="step__actions">
+        <div class="form-actions">
           <button class="btn btn--primary btn--large" type="submit">Guardar la asistencia</button>
         </div>
       </form>

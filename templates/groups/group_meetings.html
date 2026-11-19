@@ -4,50 +4,49 @@
 {% block content %}
 {% comment %}
   The meetings of a group (groups.views.group_meetings), for who guides it and the administration. The panel asks
-  for the one list that is missing; under it, the last meetings with how many came, each one open to correct.
-  Who came is read here and nowhere else: not on the person's home, not on the group's public page.
+  for the one list that is missing; under it, the meetings with a list, newest first: the day, how many came (said
+  and drawn), and the row is the way in to see or correct it. Who came is read here and nowhere else: not on the
+  person's home, not on the group's public page.
 {% endcomment %}
 <div class="narrow">
-  {% include "groups/_work_head.html" with here="reuniones" lede="Cada vez que se reúnen, di quién vino. Así sabes a quién buscar." %}
+  {% include "groups/_work_head.html" with here="reuniones" %}
 
   {% if due %}
   <section class="sign" aria-labelledby="pasar-lista">
     <h2 id="pasar-lista" class="sign__title">¿Quién vino el {{ due|weekday_date }}?</h2>
-    <p class="sign__text">Todavía no pasas lista de esa reunión. Toma un minuto.</p>
     <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'community:meeting_record' group.pk due.isoformat %}">Pasar lista</a></div>
   </section>
   {% endif %}
 
   <section class="block" aria-labelledby="reuniones">
-    <h2 id="reuniones" class="heading">Reuniones con lista</h2>
+    <h2 id="reuniones" class="heading">Listas</h2>
     {% if meetings %}
-      <ul class="dates rows">
+      <ul class="dates rows meeting-rows">
         {% for meeting in meetings %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead">
             {% date_block meeting.date %}
             <div class="row__main">
-              <p class="row__title">{% if meeting.present == 1 %}Vino 1 de {{ meeting.expected }}{% else %}Vinieron {{ meeting.present }} de {{ meeting.expected }}{% endif %}</p>
-              <p class="row__meta">{{ meeting.date|weekday_date|capfirst }}.</p>
+              <p class="row__title">{% if meeting.names_deleted %}<span class="visually-hidden">{{ meeting.date|weekday_date|capfirst }}: </span>{% if meeting.present == 1 %}Vino 1 de {{ meeting.expected }}{% else %}Vinieron {{ meeting.present }} de {{ meeting.expected }}{% endif %}{% else %}<a href="{% url 'community:meeting_record' group.pk meeting.date.isoformat %}"><span class="visually-hidden">{{ meeting.date|weekday_date|capfirst }}: </span>{% if meeting.present == 1 %}Vino 1 de {{ meeting.expected }}{% else %}Vinieron {{ meeting.present }} de {{ meeting.expected }}{% endif %}</a>{% endif %}</p>
+              <div class="meter" aria-hidden="true"><span class="meter__track"><span class="meter__fill" style="width:{% widthratio meeting.present meeting.expected 100 %}%"></span></span></div>
             </div>
-            {% if meeting.names_deleted %}<div class="row__end"><span class="row__meta">Solo totales</span></div>{% else %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'community:meeting_record' group.pk meeting.date.isoformat %}">Ver o corregir<span class="visually-hidden"> la lista del {{ meeting.date|weekday_date }}</span></a></div>{% endif %}
+            {% if meeting.names_deleted %}<div class="row__end">{% status "descartada" "Solo totales" %}</div>{% endif %}
           </li>
         {% endfor %}
       </ul>
       {% include "partials/ui/pager.html" with page=meetings label="Páginas de reuniones" %}
     {% else %}
-      <p class="empty-line">Todavía no hay ninguna reunión con lista.{% if not group.has_fixed_day %} Este grupo no tiene día de reunión: elige la fecha aquí abajo.{% endif %}</p>
+      <p class="empty-line">Sin listas todavía.</p>
     {% endif %}
   </section>
 
   {% if group.is_active %}
   <section class="block" aria-labelledby="otra-fecha">
-    <h2 id="otra-fecha" class="heading">Pasar lista de otro día</h2>
-    <form class="search" method="get" action="{% url 'community:group_meetings' group.pk %}">
+    <h2 id="otra-fecha" class="heading">{% if group.has_fixed_day %}Pasar lista de otro día{% else %}Pasar lista{% endif %}</h2>
+    <form class="day-pick" method="get" action="{% url 'community:group_meetings' group.pk %}">
       <label class="visually-hidden" for="fecha">Día de la reunión</label>
-      <input class="input search__input" id="fecha" type="date" name="fecha" max="{{ today.isoformat }}" required aria-describedby="fecha-ayuda">
+      <input class="input" id="fecha" type="date" name="fecha" max="{{ today.isoformat }}" required>
       <button class="btn btn--secondary" type="submit">Elegir este día</button>
     </form>
-    <p class="aside-note" id="fecha-ayuda">Sirve si se reunieron otro día o si falta una lista de antes.</p>
   </section>
   {% endif %}
   <p class="aside-note">La lista la ven quienes guían este grupo y la administración de la iglesia. Nadie más.</p>

@@ -1,12 +1,107 @@
 {% extends "events/shell_focus.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Antes de empezar{% endblock %}
-{% block focus_actions %}
+{% block focus_actions %}{% if ui_v2 %}
+  {% if station %}<p class="here">{% icon "computadora" "sm" %}{{ station.name }}</p>{% endif %}
+  <a class="btn btn--small btn--secondary" href="{% url 'events:interview_search' event.slug %}">Volver</a>
+{% else %}
   {% if station %}<p class="here"><span class="here__blaze" aria-hidden="true"></span>{{ station.name }}</p>{% endif %}
   <a class="btn btn--small btn--secondary" href="{% url 'events:interview_search' event.slug %}">Volver</a>
-{% endblock %}
+{% endif %}{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): the consent step, in its numbered parts, without a line that explains the page. The
+  campero is drawn as a person (circle, name, the facts that tell them apart) with the way to correct them; a
+  guardian authorization already registered is the check with its full words. Every consent box, its words and what
+  it requires are the form's (events/services/interviews.py consent_requirements), unchanged. The way back is in the
+  bar.
+{% endcomment %}
 {% include "partials/ui/error_summary.html" with form=form %}
+<header class="page-head">
+  <h1 class="voice page-head__title">Antes de empezar con {{ participant.first_name }}</h1>
+</header>
+
+{% if blockers %}
+  <div class="notice notice--warning"><p class="notice__title">Todavía no se puede iniciar</p>{% for b in blockers %}<p>{{ b }}</p>{% endfor %}</div>
+{% endif %}
+
+<form method="post" class="checks" novalidate>
+  {% csrf_token %}
+  <section class="checks__step" aria-labelledby="paso-1">
+    <h2 id="paso-1" class="checks__title"><span class="checks__n">1</span>¿Es la persona correcta?</h2>
+    <div class="checks__quien">
+      {% monogram participant.full_name "lg" %}
+      <div>
+        <p class="checks__nombre">{{ participant.full_name }}</p>
+        <p class="checks__datos">{{ participant.age }} años{% if participant.is_minor %}, menor de edad{% endif %}. {{ participant.room|cuarto }}. {{ participant.church_group }}.</p>
+      </div>
+    </div>
+    {% include "partials/ui/field.html" with field=form.identity %}
+    {% if not participant.is_practice %}<p class="checks__aside"><a class="btn btn--link ir" href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>{% endif %}
+  </section>
+
+  <section class="checks__step" aria-labelledby="paso-2">
+    <h2 id="paso-2" class="checks__title"><span class="checks__n">2</span>Autorización</h2>
+    <details class="details">
+      <summary>Leer el aviso de privacidad para explicárselo</summary>
+      <p class="details__body">{{ privacy_notice|linebreaksbr }}</p>
+    </details>
+    {% for r in requirements %}
+      {% if r.satisfied %}<p class="autorizada checks__autorizada">{% icon "check" "sm" %}Autorización de padre, madre o tutor legal: registrada.</p>{% elif r.key == "guardian" %}<p class="notice notice--warning checks__autorizada"><span class="notice__title">En el registro: falta la autorización de padre, madre o tutor legal.</span></p>{% endif %}
+    {% endfor %}
+    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" and field.name != "identity" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+  </section>
+{% if questionnaire_rows %}
+  {% comment %}Only when the event has two or more questionnaires: a radio when the campero can start more than one now, else the one that opens,
+  posted in a hidden field so a page made stale by another computer is refused rather than starting another one (interview_start).{% endcomment %}
+  <section class="checks__step"{% if not ask_questionnaire %} aria-labelledby="paso-3"{% endif %}>
+    {% if ask_questionnaire %}
+    <fieldset{% if form.questionnaire.errors %} class="question--error" aria-describedby="cuestionario-error"{% endif %}>
+      <legend><h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Qué cuestionario?</h2></legend>
+      <p>{{ participant.full_name }} lleva {{ questionnaires_done }} de {{ questionnaire_rows|length }} cuestionarios.</p>
+      {% if done_titles %}<p class="hint">Ya respondió: {{ done_titles }}.</p>{% endif %}
+      {% if form.questionnaire.errors %}<p class="error-message" id="cuestionario-error">{{ form.questionnaire.errors.0 }}</p>{% endif %}
+      <div class="choices" id="{{ form.questionnaire.auto_id }}">
+        {% for radio in form.questionnaire %}
+          <div class="choice">
+            {{ radio.tag }}
+            <label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span></label>
+          </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% else %}
+    <h2 id="paso-3" class="checks__title"><span class="checks__n">3</span>¿Qué cuestionario?</h2>
+    <p>{{ participant.full_name }} lleva {{ questionnaires_done }} de {{ questionnaire_rows|length }} cuestionarios.</p>
+    {% if next_title %}<input type="hidden" name="questionnaire" value="{{ next_questionnaire_id }}"><p>Cuestionario: <strong>{{ next_title }}</strong>.</p>{% endif %}
+    {% if after_title %}<p class="hint">Después: {{ after_title }}.</p>{% endif %}
+    {% if done_titles %}<p class="hint">Ya respondió: {{ done_titles }}.</p>{% endif %}
+    {% endif %}
+  </section>
+{% endif %}
+  <section class="checks__step">
+    <fieldset{% if form.mode.errors %} class="question--error" aria-describedby="modo-error"{% endif %}>
+      <legend><h2 id="paso-{% if questionnaire_rows %}4{% else %}3{% endif %}" class="checks__title"><span class="checks__n">{% if questionnaire_rows %}4{% else %}3{% endif %}</span>¿Cómo se va a responder?</h2></legend>
+      {% if form.mode.errors %}<p class="error-message" id="modo-error">{{ form.mode.errors.0 }}</p>{% endif %}
+      {% comment %}The group takes the field id (the error summary links here), never the first radio's "id_mode_0".{% endcomment %}
+      <div class="choices" id="{{ form.mode.auto_id }}">
+        {% for radio in form.mode %}
+          <div class="choice">
+            {{ radio.tag }}
+            <label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span>
+              <span>{% if radio.data.value == "asistida" %}Entrevista asistida<small class="choice__sub">Tú haces las preguntas y anotas las respuestas.</small>{% else %}Entrevista a solas<small class="choice__sub">El campero responde solo en la computadora. Necesitarás tu contraseña para recuperarla.</small>{% endif %}</span>
+            </label>
+          </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+  </section>
+
+  <div class="step__actions">
+    <button class="btn btn--primary btn--large" type="submit"{% if blockers %} disabled{% endif %}>Comenzar entrevista</button>
+  </div>
+</form>
+{% else %}{% include "partials/ui/error_summary.html" with form=form %}
 <header class="page-head">
   <h1 class="voice page-head__title">Antes de empezar con {{ participant.first_name }}</h1>
   <p class="lede">Confirma {% if questionnaire_rows %}cuatro{% else %}tres{% endif %} cosas. Toma menos de un minuto.</p>
@@ -26,6 +121,7 @@
       <div class="summary-list__row"><dt>Cuarto</dt><dd>{{ participant.room }}</dd></div>
       <div class="summary-list__row"><dt>Iglesia o grupo</dt><dd>{{ participant.church_group }}</dd></div>
     </dl>
+    {% include "partials/ui/field.html" with field=form.identity %}
     {% if not participant.is_practice %}<p class="checks__aside"><a href="{% url 'events:participant_edit' event.slug participant.public_id %}">Corregir datos del campero</a></p>{% endif %}
   </section>
 
@@ -38,7 +134,7 @@
     {% for r in requirements %}
       {% if r.satisfied %}<p class="notice notice--success"><span class="notice__title">Autorización de padre, madre o tutor legal: registrada.</span></p>{% endif %}
     {% endfor %}
-    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    {% for field in form %}{% if field.name != "mode" and field.name != "questionnaire" and field.name != "identity" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
   </section>
 {% if questionnaire_rows %}
   {% comment %}Only when the event has two or more questionnaires: a radio when the campero can start more than one now, else the one that opens,
@@ -91,4 +187,4 @@
     <a class="btn btn--link" href="{% url 'events:interview_search' event.slug %}">Elegir a otro campero</a>
   </div>
 </form>
-{% endblock %}
+{% endif %}{% endblock %}

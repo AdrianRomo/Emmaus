@@ -1,7 +1,55 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Haz una pregunta{% endblock %}
 {% block content %}
-<div class="disc-ask">
+{% if ui_v2 %}{% load shell %}{% comment %}
+  The redesign ("Ventanas"): one question, asked like a question of the interview: the question is the title and
+  labels the field. Who reads it is said once; how carefully to treat it is the one choice; the safety notice of the
+  church stays whole, beside the button.
+{% endcomment %}
+<a class="back-link" href="{% url 'participant_questions' %}">Mis preguntas</a>
+{% include "partials/ui/error_summary.html" with form=form %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% with field=form.question_text %}
+    <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+      <header class="page-head">
+        <div class="page-head__text">
+          <h1 class="voice page-head__title"><label for="{{ field.id_for_label }}">{{ field.label }}</label></h1>
+        </div>
+      </header>
+      <p class="aside-note" id="{{ field.auto_id }}-hint">Tu pregunta la leerán líderes de confianza de tu iglesia que pueden acompañarte en persona.</p>
+      {% if field.errors %}<p class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</p>{% endif %}
+      <textarea class="textarea disc-pregunta__campo" name="{{ field.html_name }}" id="{{ field.auto_id }}" rows="{{ field.field.widget.attrs.rows }}" placeholder="{{ field.field.widget.attrs.placeholder }}" spellcheck="true"{% if field.field.required %} required{% endif %} aria-describedby="{{ field.auto_id }}-hint{% if field.errors %} {{ field.auto_id }}-error{% endif %}">{{ field.value|default_if_none:"" }}</textarea>
+    </div>
+  {% endwith %}
+
+  {% with field=form.sensitivity_level %}
+    <fieldset class="form-section field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}" aria-describedby="{{ field.auto_id }}-hint{% if field.errors %} {{ field.auto_id }}-error{% endif %}">
+      <legend class="form-section__title">{{ field.label }}</legend>
+      <p class="hint" id="{{ field.auto_id }}-hint">{{ field.help_text }}</p>
+      {% if field.errors %}<p class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</p>{% endif %}
+      <div class="choices">
+        {% for option in field %}
+          <div class="choice">
+            <input class="choice__input" type="radio" id="{{ field.auto_id }}{% if not forloop.first %}_{{ forloop.counter0 }}{% endif %}" name="{{ field.html_name }}" value="{{ option.data.value }}"{% if option.data.selected %} checked{% endif %}>
+            <label class="choice__label" for="{{ field.auto_id }}{% if not forloop.first %}_{{ forloop.counter0 }}{% endif %}"><span class="choice__mark" aria-hidden="true"></span><span>{{ option.choice_label }}</span></label>
+          </div>
+        {% endfor %}
+      </div>
+    </fieldset>
+  {% endwith %}
+
+  <aside class="notice" aria-label="Aviso de seguridad">
+    <p class="notice__title">Un aviso importante</p>
+    {% for paragraph in question_disclaimer %}<p>{{ paragraph|linebreaksbr }}</p>{% endfor %}
+  </aside>
+
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit">Enviar pregunta</button>
+    <a class="btn btn--link" href="{% url 'participant_questions' %}">Cancelar</a>
+  </div>
+</form>
+{% else %}<div class="disc-ask">
 {% include "partials/ui/error_summary.html" with form=form %}
 <form method="post" class="disc-ask__form" novalidate>
   {% csrf_token %}
@@ -43,4 +91,4 @@
   </div>
 </form>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

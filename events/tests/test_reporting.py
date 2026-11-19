@@ -385,7 +385,7 @@ class HistoryPageTests(CampFixture):
         self.make(30, lambda i: 30 - i)  # every cutoff different: nothing folds
         self.login(self.pastor)
         page1 = self.client.get(self.url("reports"))
-        self.assertContains(page1, "30 cortes, del más reciente al más antiguo. 12 por página.")
+        self.assertContains(page1, "30 cortes.</p>")
         self.assertEqual(len(self.rows(page1)), 12)
         self.assertContains(page1, "Página 1 de 3")
         self.assertContains(page1, 'href="?pagina=2">Siguiente</a>')
@@ -402,7 +402,7 @@ class HistoryPageTests(CampFixture):
         self.make(5, lambda i: 30 - i)
         self.login(self.pastor)
         response = self.client.get(self.url("reports"))
-        self.assertContains(response, "5 cortes, del más reciente al más antiguo.</p>")
+        self.assertContains(response, "5 cortes.</p>")
         self.assertNotContains(response, 'class="pager"')
 
     def test_a_quiet_stretch_is_one_row_until_it_is_unfolded(self):
@@ -426,7 +426,7 @@ class HistoryPageTests(CampFixture):
         self.assertEqual(html.count("Presentación<span"), 8)
         # the folded row names its span, oldest to newest
         self.assertContains(response, f'<td><span class="keep-together">{fecha_corta(snaps[5].cutoff_at)}</span><br><span class="keep-together">a {fecha_corta(snaps[1].cutoff_at)}</span></td>')
-        self.assertContains(response, "8 cortes, del más reciente al más antiguo.</p>")
+        self.assertContains(response, "8 cortes.</p>")
 
     def test_the_stylesheet_and_the_script_unfold_and_degrade(self):
         from django.conf import settings

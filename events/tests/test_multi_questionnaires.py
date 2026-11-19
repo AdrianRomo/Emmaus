@@ -54,7 +54,8 @@ MIGRATION_0011 = import_module("events.migrations.0011_event_questionnaires")
 
 
 def definition(name, title, code):
-    """A published questionnaire of one screen whose only question is required."""
+    """A published questionnaire of one screen whose only question is marked required (as an older version could be:
+    nothing enforces it any more, services.questionnaire)."""
     return {
         "name": name,
         "title": title,
@@ -210,8 +211,6 @@ class FreeOrderTests(TwoQuestionnairesFixture):
         interview = self.begin(questionnaire=self.q2)
         self.assertEqual((interview.questionnaire, interview.version), (self.q2, self.second))
         self.assertEqual(self.status(), "en_curso")
-        with self.assertRaisesMessage(svc.InterviewError, "Falta responder"):
-            self.finish(interview)  # the required question is real
         self.complete(interview)
         self.assertEqual(self.status(), "pendiente")
         with self.assertRaisesMessage(svc.QuestionnaireNotAvailable, "Ese cuestionario ya se respondió."):
@@ -348,7 +347,7 @@ class RefreshTests(IsolatedCacheMixin, ServiceHelpers, CampFixture):
 
 
 class StartFormTests(SimpleTestCase):
-    MODE = {"mode": "asistida"}
+    MODE = {"identity": "on", "mode": "asistida"}
 
     def test_one_questionnaire_adds_no_field(self):
         """Defect: a one-questionnaire event asking "¿Qué cuestionario?" (the screen must look as before)."""

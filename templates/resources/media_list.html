@@ -5,24 +5,27 @@
 {% comment %}
   Recursos (resources.views.media_list): what the church preached, sang or taught, newest first, fifty to a page
   (the filter by kind and the series travel in each page's link).
-  Each one is a link that opens on the site that hosts it and says where it goes; nothing is embedded. The filter
-  by kind appears only when there is more than one kind; "Ver la serie" narrows the list to one series.
+  Each one has its kind's mark in the leading slot and one trailing action, the link that opens on the site that
+  hosts it and says where it goes; nothing is embedded. The filter
+  by kind appears only when there is more than one kind; the series of a resource narrows the list to that series.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as back %}{% url 'resources:media_list' as all %}
-  {% include "events/rotulo/_page_head.html" with title="Recursos" lede="Predicaciones, música y estudios de tu iglesia. Cada uno se abre en el sitio donde está publicado." back_url=back back_label="Volver a Mi iglesia" %}
-  <form method="get" action="{{ all }}" role="search">
-    <label class="label" for="resource-search">Buscar por título, persona o serie</label>
-    <div class="list-search">
-      <input class="input" id="resource-search" type="search" name="q" maxlength="160" value="{{ query }}" autocomplete="off" spellcheck="false">
-      <button class="btn btn--secondary" type="submit">Buscar</button>
-    </div>
+  {% url 'resources:media_list' as all %}
+  {% include "events/rotulo/_page_head.html" with title="Recursos" %}
+  {% if items or query or series or chosen %}
+  <form class="search" method="get" action="{{ all }}" role="search">
+    <label class="visually-hidden" for="resource-search">Buscar por título, persona o serie</label>
+    <input class="input search__input" id="resource-search" type="search" name="q" maxlength="160" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Buscar por título, persona o serie">
     {% if chosen %}<input type="hidden" name="tipo" value="{{ chosen }}">{% endif %}
     {% if series %}<input type="hidden" name="serie" value="{{ series }}">{% endif %}
-    {% if query or chosen %}<p class="more"><a href="{{ all }}">Ver todos los recursos</a></p>{% endif %}
+    <button class="btn btn--secondary" type="submit">Buscar</button>
   </form>
+  {% endif %}
   {% if series %}
-    <div class="notice notice--quiet"><p>Estás viendo la serie «{{ series }}». <a href="{{ all }}">Ver todos los recursos</a></p></div>
+    <ul class="filters" aria-label="Serie">
+      <li><a href="{{ all }}">Todos</a></li>
+      <li><a href="{% querystring pagina=None %}" aria-current="page">Serie «{{ series }}»</a></li>
+    </ul>
   {% elif kinds %}
     <ul class="filters" aria-label="Tipo de recurso">
       <li><a href="{% querystring tipo=None pagina=None %}"{% if not chosen %} aria-current="page"{% endif %}>Todos <span class="count">{{ total }}</span></a></li>
@@ -34,11 +37,11 @@
     <ul class="rows">
       {% for item in items %}
         <li class="row row--lead row--stack">
+          {% include "resources/_media_mark.html" %}
           <div class="row__main">
             <p class="row__title">{{ item.title }}</p>
-            <p class="row__meta">{% include "resources/_media_sentence.html" with item=item %}</p>
+            {% if series %}{% include "resources/_media_facts.html" with item=item %}{% else %}{% include "resources/_media_facts.html" with item=item series_link=True %}{% endif %}
             {% if item.description %}<p class="row__meta">{{ item.description }}</p>{% endif %}
-            {% if item.series and not series %}<p class="row__meta"><a href="?serie={{ item.series|urlencode:'' }}">Ver la serie<span class="visually-hidden"> «{{ item.series }}»</span></a></p>{% endif %}
           </div>
           <div class="row__end">
             <a class="btn btn--secondary btn--small" href="{{ item.url }}" rel="noopener noreferrer">{{ item.link_label }}<span class="visually-hidden">: {{ item.title }}</span></a>
@@ -47,14 +50,16 @@
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=items label="Páginas de recursos" %}
+    {% if query %}<p class="more"><a href="{{ all }}">Ver todos los recursos</a></p>{% endif %}
   {% elif query %}
-    <p class="empty-line">No encontramos recursos con esa búsqueda.</p>
+    <p class="empty-line">No encontramos recursos con esa búsqueda. <a href="{{ all }}">Ver todos los recursos</a></p>
   {% elif series %}
     <p class="empty-line">No hay recursos de esa serie. <a href="{{ all }}">Ver todos los recursos</a></p>
   {% elif request.is_church_admin %}
-    <p class="empty-line">Todavía no hay recursos. Agrega el primero: solo necesitas su enlace.</p>
+    {% url 'resources:media_create' as create %}
+    {% include "partials/ui/empty.html" with title="Sin recursos todavía" action_url=create action_label="Agregar un recurso" %}
   {% else %}
-    <p class="empty-line">Tu iglesia todavía no comparte recursos aquí. Cuando agregue uno, lo vas a encontrar en esta página.</p>
+    <p class="empty-line">Tu iglesia todavía no comparte recursos aquí.</p>
   {% endif %}
   {% if request.is_church_admin %}<p class="more"><a href="{% url 'resources:media_admin' %}">Administrar los recursos</a></p>{% endif %}
 </div>

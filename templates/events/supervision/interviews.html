@@ -2,7 +2,7 @@
 {% load emmaus %}
 {% block page_title %}Entrevistas{% endblock %}
 {% block content %}
-{% include "events/rotulo/_page_head.html" with title="Entrevistas" lede="Filtra para encontrar lo que necesitas revisar." %}
+{% include "events/rotulo/_page_head.html" with title="Entrevistas" %}
 <form method="get" class="filter-form" aria-label="Filtros">
   <div class="field"><label class="label" for="f-coord">Coordinador</label><select id="f-coord" name="coordinador"><option value="">Todos</option>{% for c in coordinators %}<option value="{{ c.id }}"{% if selected.coordinador == c.id|stringformat:"s" %} selected{% endif %}>{{ c.display_name }}</option>{% endfor %}</select></div>
   <div class="field"><label class="label" for="f-cuarto">Cuarto</label><select id="f-cuarto" name="cuarto"><option value="">Todos</option>{% for r in rooms %}<option value="{{ r }}"{% if selected.cuarto == r %} selected{% endif %}>{{ r }}</option>{% endfor %}</select></div>

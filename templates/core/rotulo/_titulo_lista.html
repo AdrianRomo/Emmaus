@@ -1,0 +1,8 @@
+{% comment %}
+  The title of a list on a home: its name, how many it has (count, optional) and, with the redesign, the way to
+  the whole list beside it (url + link + link_hidden, optional). In Atrio the title stands alone and the page
+  writes that link under the list (<p class="more">).
+{% endcomment %}{% if ui_v2 and url %}<div class="heading-row">
+  <h2 id="{{ id }}" class="heading">{{ title }}{% if count %} <span class="count">{{ count }}</span>{% endif %}</h2>
+  <a href="{{ url }}">{{ link }}<span class="visually-hidden">{{ link_hidden }}</span></a>
+</div>{% else %}<h2 id="{{ id }}" class="heading">{{ title }}{% if count %} <span class="count">{{ count }}</span>{% endif %}</h2>{% endif %}

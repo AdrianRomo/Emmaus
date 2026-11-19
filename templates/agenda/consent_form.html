@@ -14,7 +14,7 @@
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Registrar la autorización</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>

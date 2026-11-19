@@ -123,7 +123,7 @@ class JourneyTests(ServingFixture):
         day = ServiceDate.objects.get(team=team)
         self.assertEqual((day.date, day.starts_at, day.place), (self.week, time(9, 30), "Salón 3"))
         page = self.client.get(self.url("team", team.pk))
-        self.assertContains(page, "0 de 1 confirmaron.")
+        self.assertContains(page, "0 de 1 confirmaron")
         self.assertContains(page, "Por confirmar")
 
         # The member reads the date and confirms.
@@ -132,9 +132,10 @@ class JourneyTests(ServingFixture):
         self.assertContains(page, "<h1", count=1)
         self.assertContains(page, "Tus fechas")
         self.assertContains(page, "Salón de niños")
-        self.assertContains(page, "a las 9:30, en Salón 3.")
+        self.assertContains(page, "09:30")
+        self.assertContains(page, "Salón 3")
         self.assertContains(page, "row--attention")
-        self.assertContains(page, "Coordina el equipo: Gala Guía.")
+        self.assertContains(page, "Coordina Gala Guía")
         assignment = Assignment.objects.get(service_date=day, person=self.member)
         response = self.client.post(self.url("respond", assignment.pk), {"respuesta": "aceptar"})
         self.assertRedirects(response, self.url("home"))
@@ -143,19 +144,19 @@ class JourneyTests(ServingFixture):
         self.assertIsNotNone(assignment.responded_at)
         page = self.client.get(self.url("home"))
         self.assertContains(page, "Confirmaste")
-        self.assertContains(page, "Cambiar")
+        self.assertContains(page, ">Ya no puedo<")  # the other answer, in place, until the day before
         self.assertNotContains(page, "row--attention")
 
         # Who coordinates sees the answer.
         self.client.force_login(self.leader_user)
         page = self.client.get(self.url("team", team.pk))
-        self.assertContains(page, "1 de 1 confirmaron.")
+        self.assertContains(page, "1 de 1 confirmaron")
         self.assertContains(page, "Confirmó")
 
     def test_someone_in_no_team_reads_how_to_join(self):
         self.client.force_login(self.coord1)
         page = self.client.get(self.url("home"))
-        self.assertContains(page, "Todavía no estás en ningún equipo.")
+        self.assertContains(page, "Todavía no estás en ningún equipo")
         self.assertContains(page, "la administración de tu iglesia")
         self.assertNotContains(page, "Tus fechas")
         self.assertNotContains(page, "Equipos de la iglesia")
@@ -205,9 +206,12 @@ class AnswerTests(ServingFixture):
     def test_decline_and_change_the_answer(self):
         self.assertContains(self.respond("declinar"), "Dijiste que no puedes")
         self.assertEqual(self.status(), "declinada")
+        # An answered date offers the other answer in place, one tap (as on "Mi iglesia"); an old ?cambiar= link
+        # lands on the same page.
         page = self.client.get(self.url("home"), {"cambiar": self.assignment.pk})
-        self.assertContains(page, 'value="aceptar"')
-        self.assertContains(page, "No puedo")
+        self.assertContains(page, 'value="aceptar" data-inline-focus>Sí, puedo')
+        self.assertNotContains(page, 'value="declinar"')
+        self.assertNotContains(page, "fold cambiar")
         self.respond("aceptar")
         self.assertEqual(self.status(), "aceptada")
         self.assertEqual(self.client.post(self.url("respond", self.assignment.pk), {"respuesta": "otra"}).status_code, 404)
@@ -257,7 +261,7 @@ class UnavailableTests(ServingFixture):
 
         self.client.force_login(self.leader_user)
         page = self.client.get(self.url("date_detail", self.day.pk))
-        self.assertContains(page, "(ese día no puede)")
+        self.assertContains(page, "Ese día no puede")
         self.assertContains(page, f'value="{self.member.pk}" disabled')
         page = self.client.post(self.url("date_detail", self.day.pk), self.date_post(self.member, self.asked))
         self.assertContains(page, "Diego marcó que ese día no puede.")
@@ -390,7 +394,7 @@ class PermissionTests(ServingFixture):
         type(self.leader).objects.filter(pk=self.leader.pk).update(phone="55 9999 0000")
         self.client.force_login(self.asked_user)
         page = self.client.get(self.url("home"))
-        self.assertContains(page, "Coordina el equipo: Gala Guía.")
+        self.assertContains(page, "Coordina Gala Guía")
         self.assertContains(page, "Dijiste que no puedes")
         for hidden in ("Diego", "55 1111 2222", "diego@prueba.mx", "guia@prueba.mx", "55 9999 0000", "tel:", "mailto:",
                        "Por confirmar", "No puede", "confirmaron", self.url("team", self.team.pk)):
@@ -596,7 +600,7 @@ class ServiceFunctionTests(ServingFixture):
         self.client.force_login(self.member_user)
         page = self.client.get(self.url("home"))
         self.assertNotContains(page, "Bienvenida del domingo")
-        self.assertContains(page, "Todavía no estás en ningún equipo.")
+        self.assertContains(page, "Todavía no estás en ningún equipo")
         self.assertEqual(self.client.post(self.url("respond", assignment.pk), {"respuesta": "aceptar"}).status_code, 404)
         self.client.force_login(self.leader_user)
         self.assertEqual(self.client.get(self.url("team", self.team.pk)).status_code, 404)
@@ -622,3 +626,91 @@ class ServiceFunctionTests(ServingFixture):
         self.assertEqual(managed(self.leader_user), [])
         self.assertTrue(services.has_teams(self.leader))
         self.assertEqual(managed(self.member_b_user, self.church_b), [self.team_b.pk])
+
+
+
+class AnswerFromAnotherPageTests(ServingFixture):
+    """«Sí, puedo» on "Mi iglesia" comes back to "Mi iglesia" (core.nav.safe_next), so that page shows the answer
+    in place; a «siguiente» that is not a path of this site is ignored and Servir is used, as before."""
+
+    def setUp(self):
+        self.assignment = self.assign()
+        self.client.force_login(self.member_user)
+
+    def test_the_answer_returns_to_the_page_it_was_given_on(self):
+        home = reverse("community:home")
+        response = self.client.post(self.url("respond", self.assignment.pk), {"respuesta": "aceptar", "siguiente": home})
+        self.assertRedirects(response, home, fetch_redirect_response=False)
+        self.assignment.refresh_from_db()
+        self.assertEqual(self.assignment.status, "aceptada")
+
+    def test_another_site_is_never_a_way_back(self):
+        for elsewhere in ("https://otro.sitio/x", "//otro.sitio/x"):
+            response = self.client.post(self.url("respond", self.assignment.pk), {"respuesta": "declinar", "siguiente": elsewhere})
+            self.assertRedirects(response, self.url("home"), fetch_redirect_response=False)
+
+    def test_a_refused_answer_also_returns_and_says_why(self):
+        self.client.force_login(self.member_user)
+        home = reverse("community:home")
+        past = services.save_date(self.team, self.leader_user, date=self.today, what="Hoy mismo")
+        assignment = services.assign(past, self.member, self.leader_user)
+        services.respond(assignment, True, self.member_user)
+        response = self.client.post(self.url("respond", assignment.pk), {"respuesta": "declinar", "siguiente": home}, follow=True)
+        self.assertEqual(response.redirect_chain[-1][0], home)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, "aceptada")  # too late to change on the day itself
+        self.assertContains(response, services.TOO_LATE)
+
+
+class NobodyServesTests(ServingFixture):
+    """A date where everyone asked said no is the first thing on the team's page, in vela, with the way to ask
+    somebody else. Only when it is true: a pending answer may still be a yes, and a date nobody was asked for says so
+    on its own row."""
+
+    def team_page(self, user=None):
+        self.client.force_login(user or self.leader_user)
+        return self.client.get(self.url("team", self.team.pk))
+
+    def test_a_date_everyone_declined_waits_first_with_the_way_to_ask_someone(self):
+        for person in (self.member, self.asked):
+            services.respond(self.assign(person), False, self.leader_user)
+        page = self.team_page()
+        html = page.content.decode()
+        self.assertContains(page, "Esperan tu decisión")
+        self.assertContains(page, "Nadie sirve el ")
+        self.assertContains(page, "Las 2 personas a quienes se pidió dijeron que no pueden.")
+        ask = f'{self.url("date_detail", self.day.pk)}#quien-sirve'
+        self.assertContains(page, ask)
+        self.assertLess(html.index("Esperan tu decisión"), html.index("Próximas fechas"))
+        # The one filled action of the page is asking; adding a date steps back
+        self.assertIn('class="btn btn--primary btn--small" href="' + ask, html)
+        self.assertNotIn('class="btn btn--primary" href="' + self.url("date_create", self.team.pk), html)
+        # The administration reads it too; the date's page has the place the action lands on
+        self.assertContains(self.team_page(self.admin), "Nadie sirve el ")
+        self.assertContains(self.client.get(self.url("date_detail", self.day.pk)), 'id="quien-sirve"')
+
+    def test_one_person_who_declined_is_named(self):
+        services.respond(self.assign(self.member), False, self.leader_user)
+        self.assertContains(self.team_page(), "Diego dijo que no puede.")
+
+    def test_not_while_someone_may_still_say_yes_or_already_did(self):
+        services.respond(self.assign(self.member), False, self.leader_user)
+        self.assign(self.asked)  # still to answer
+        page = self.team_page()
+        self.assertNotContains(page, "Esperan tu decisión")
+        self.assertNotContains(page, "Nadie sirve")
+        services.respond(Assignment.objects.get(service_date=self.day, person=self.asked), True, self.leader_user)
+        self.assertNotContains(self.team_page(), "Nadie sirve")
+
+    def test_not_for_a_date_nobody_was_asked_for(self):
+        page = self.team_page()
+        self.assertNotContains(page, "Esperan tu decisión")
+        self.assertContains(page, "Falta elegir quién sirve")
+        self.assertContains(page, f'class="btn btn--primary" href="{self.url("date_create", self.team.pk)}"')
+
+    def test_nobody_who_only_serves_reads_it(self):
+        for person in (self.member, self.asked):
+            services.respond(self.assign(person), False, self.leader_user)
+        self.client.force_login(self.member_user)
+        self.assertEqual(self.client.get(self.url("team", self.team.pk)).status_code, 403)
+        self.assertNotContains(self.client.get(self.url("home")), "Nadie sirve")

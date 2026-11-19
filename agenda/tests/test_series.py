@@ -390,6 +390,11 @@ class AdministrationScreenTests(ScreenFixture):
         self.assertContains(response, "Hay personas inscritas: avísales tú, Emmaus no les envía nada.")
         self.assertContains(response, "Sí hay")
         self.assertEqual(SeriesOccurrence.objects.get(pk=row.pk).status, "cancelada")
+        # The answer acts in place (CRAFT §3), where the message is only announced: the row itself keeps saying what
+        # calling the day off did and that who signed up must be told, with the message long gone.
+        screen = self.client.get(reverse("agenda:series_admin", args=[self.item.pk]))
+        self.assertContains(screen, "Hay personas inscritas: avísales tú, Emmaus no les envía nada.", count=1)
+        self.assertContains(screen, "Ya no aparece en Eventos ni en el calendario público.", count=1)
         response = self.client.post(reverse("agenda:series_restore", args=[self.item.pk, row.pk]), follow=True)
         self.assertContains(response, "Listo: ese día sí hay.")
         self.assertEqual(SeriesOccurrence.objects.get(pk=row.pk).status, "activa")
@@ -442,7 +447,9 @@ class MemberScreenTests(ScreenFixture):
         self.assertContains(page, f'href="{self.member_url()}"')
         self.assertContains(page, "Retiro de jóvenes")
         self.assertNotContains(page, "Culto de la iglesia B")
-        self.assertEqual(self.links(self.client.get(reverse("community:home"))), 1)
+        # "Mi iglesia" leads to an event with the way back to itself (?desde=inicio)
+        home = self.client.get(reverse("community:home")).content.decode()
+        self.assertEqual(sum(home.count(f'href="{reverse("agenda:detail", args=[row.event.slug])}?desde=inicio"') for row in self.rows), 1)
         rest = self.client.get(self.member_url())
         self.assertContains(rest, "<h1", count=1)
         self.assertContains(rest, "Se repite cada domingo")
@@ -765,9 +772,16 @@ class PolishedScreenTests(ScreenFixture):
         html = self.client.get(reverse("agenda:series_admin", args=[self.item.pk])).content.decode()
         first = self.rows[0]
         self.assertIn(f"Domingo {first.day.day} de", html)
-        self.assertIn(", 10:00</p>", html)
-        self.assertEqual(html.count(">Abrir<"), len(self.rows))
+        self.assertIn(", 10:00</a></p>", html)
+        # The way in is the date itself (a row that opens: no «Abrir» button), once per date.
+        self.assertNotIn(">Abrir<", html)
+        for row in self.rows:
+            self.assertEqual(html.count(f'<a href="{reverse("agenda:page_edit", args=[row.event.slug])}">'), 1)
         self.assertEqual(html.count("Este día no hay<span"), len(self.rows))
+        # The one action answers in place, on its own row (CRAFT §3), and stays an ordinary POST form without JavaScript.
+        self.assertEqual(html.count(f'data-inline="fecha-{first.pk}"'), 1)
+        self.assertIn(f'<li class="row row--lead row--stack" id="fecha-{first.pk}">', html)
+        self.assertEqual(html.count('<span class="date-block"'), len(self.rows))
         for word in (">Página<", ">Datos<", ">Inscritos<"):
             self.assertNotIn(word, html)
         self.assertLess(html.index('id="fechas"'), html.index('id="terminar"'))  # ending it is by itself, at the end

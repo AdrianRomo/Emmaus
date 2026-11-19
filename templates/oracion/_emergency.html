@@ -1,5 +1,15 @@
-{% comment %}The two fixed sentences about an emergency. The second is the church's own line when a pastor wrote one.{% endcomment %}
-<div class="notice notice--quiet">
+{% load shell %}{% comment %}
+  The two fixed sentences about an emergency: the one strong element of these screens. The second sentence is the
+  church's own line when a pastor wrote one. With the module off (the writer's own page still answers) it is the old
+  notice, byte for byte.
+{% endcomment %}
+{% if ui_v2 %}<div class="oracion__urgencia" role="note" aria-label="Si es una emergencia">
+  {% icon "telefono" %}
+  <div class="oracion__urgencia-texto">
+    <p>{{ emergency }}</p>
+    <p>{{ terms.crisis_line }}</p>
+  </div>
+</div>{% else %}<div class="notice notice--quiet">
   <p>{{ emergency }}</p>
   <p>{{ terms.crisis_line }}</p>
-</div>
+</div>{% endif %}

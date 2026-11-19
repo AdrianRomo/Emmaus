@@ -1,19 +1,96 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Camperos{% endblock %}
 {% block content %}
-{% url 'events:participant_import' event.slug as import_url %}
-{% with lede=total|stringformat:"s"|add:" camperos participando." %}
-  {% if can_manage %}
-    {% url 'events:participant_create' event.slug as create_url %}
-    {% include "events/rotulo/_page_head.html" with title="Camperos" lede=lede action_url=create_url action_label="Registrar campero" secondary_url=import_url secondary_label="Importar CSV" %}
+{% if ui_v2 %}
+{% comment %}
+  The redesign ("Ventanas"): the search, the views of the list as capsules with their count (the current one filled),
+  the sede as a second line of capsules, then the table (the room moves into the name's line in a middle column) that
+  becomes blocks in a narrow column; the whole row opens the record, its box apart. The administration
+  marks rows and assigns them a coordinator from the bar under the table (admin.participants_assign); with
+  JavaScript the bar shows only while something is marked and stays at the bottom of the screen (emmaus.js).
+  Authorization and interview are two facts in two columns: one never stands for the other.
+{% endcomment %}
+{% if can_manage %}{% url 'events:participant_create' event.slug as create_url %}{% url 'events:participant_import' event.slug as import_url %}
+{% include "events/rotulo/_page_head.html" with title="Camperos" action_url=create_url action_label="Registrar campero" secondary_url=import_url secondary_label="Importar CSV" %}
+{% else %}
+{% include "events/rotulo/_page_head.html" with title="Camperos" %}
+{% endif %}
+<div class="camperos__filtrar">
+  <form class="search camperos__buscar" method="get" role="search">
+    {% for name, value in kept_filters %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <label class="visually-hidden" for="q">Buscar camperos</label>
+    <input class="input search__input" id="q" type="search" name="q" value="{{ query }}" placeholder="Nombre, número, cuarto o iglesia" autocomplete="off" spellcheck="false">
+  </form>
+  <ul class="filters camperos__vistas" aria-label="Mostrar" data-desliza>
+    {% for v in views %}<li><a href="{{ v.url }}"{% if v.current %} aria-current="page"{% endif %}>{{ v.label }} <span class="count">{{ v.count }}</span></a></li>{% endfor %}
+  </ul>
+  {% if sede_capsules %}<details class="camperos__sede"{% if sede_current %} open{% endif %}>
+    <summary>Sede: {% if sede_current %}{{ sede_current }}{% else %}todas{% endif %}</summary>
+    <ul class="filters camperos__vistas" aria-label="Sede" data-desliza>
+    {% for v in sede_capsules %}<li><a href="{{ v.url }}"{% if v.current %} aria-current="page"{% endif %}>{{ v.label }} <span class="count">{{ v.count }}</span></a></li>{% endfor %}
+    </ul>
+  </details>{% endif %}
+</div>
+<section class="camperos" aria-labelledby="resultados"{% if can_manage and assignable %} data-seleccion{% endif %}>
+  <div class="heading-row">
+    <h2 id="resultados" class="heading">{{ page.paginator.count }} campero{{ page.paginator.count|pluralize }}{% if filter_words %}<span class="camperos__filtro">: {{ filter_words }}</span>{% endif %}</h2>
+    {% if page.object_list and can_manage and assignable %}<label class="camperos__todas" data-seleccion-todas-caja hidden><input type="checkbox" data-seleccion-todas><span>Marcar a todos los de esta página</span></label>{% endif %}
+    {% if filtered and page.object_list %}<a href="{{ clear_url }}">Quitar filtros</a>{% endif %}
+  </div>
+  {% if page.object_list %}
+    <div class="table-wrap camperos__tabla" tabindex="0" role="region" aria-label="Tabla de camperos">
+      <table class="table admin-table">
+        <thead><tr>{% if can_manage and assignable %}<th scope="col" class="camperos__marca-col"><span class="visually-hidden">Marcar</span></th>{% endif %}{% for c in columns_v2 %}<th scope="col"{% if c.css or c.key == "cuarto" %} class="{{ c.css }}{% if c.key == "cuarto" %} camperos__cuarto{% endif %}"{% endif %}{% if c.aria_sort %} aria-sort="{{ c.aria_sort }}"{% endif %}><a href="{{ c.url }}">{{ c.label }}{% if c.active %}<span class="table__sort table__sort--{{ c.direction }}" aria-hidden="true"></span><span class="visually-hidden">, ordenado de {% if c.direction == "desc" %}mayor a menor{% else %}menor a mayor{% endif %}</span>{% else %}<span class="visually-hidden">, ordenar</span>{% endif %}</a></th>{% endfor %}{% if asks_authorization %}<th scope="col"><span class="camperos__th">Autorización</span></th>{% endif %}</tr></thead>
+        <tbody>{% for p in page.object_list %}
+          <tr>{% if can_manage and assignable %}<td class="camperos__marca-col">{% if p.is_active %}<label class="camperos__marca"><input type="checkbox" name="campero" value="{{ p.public_id }}" form="asignar-camperos" data-seleccion-fila><span class="visually-hidden">Marcar a {{ p.full_name }}</span></label>{% endif %}</td>{% endif %}<th scope="row" class="camperos__nombre"><a href="{% url 'events:participant_detail' event.slug p.public_id %}">{{ p.full_name }}</a><span class="camperos__dato">#{{ p.code }}<span class="camperos__dato-cuarto">, {{ p.room|cuarto }}</span>{% if p.sede %}, {{ p.sede.name }}{% endif %}{% if not p.is_active %}, ya no participa{% endif %}</span></th><td class="camperos__cuarto">{{ p.room|cuarto }}</td><td class="num camperos__edad">{{ p.age }}<span class="camperos__anos"> años</span></td><td class="camperos__coord">{% if p.coordinator %}<span class="camperos__con">con </span>{{ p.coordinator.display_name }}{% else %}<span class="chip chip--wait">Sin coordinador</span>{% endif %}</td><td class="camperos__estado">{% campero_status p %}</td>{% if asks_authorization %}<td class="camperos__autorizacion">{% if p.age < event.adult_age %}{% if p.guardian == "otorgado" %}<span class="autorizada">{% icon "check" "sm" %}Autorizada</span>{% else %}<span class="chip chip--wait">Falta<span class="camperos__que"> la autorización</span></span>{% endif %}{% endif %}</td>{% endif %}</tr>
+        {% endfor %}</tbody>
+      </table>
+    </div>
+    {% if can_manage and assignable %}
+    <form class="seleccion" id="asignar-camperos" method="post" action="{% url 'events:participants_assign' event.slug %}" data-seleccion-barra>
+      {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+      <p class="seleccion__cuenta" role="status" data-seleccion-cuenta>Asignar a los marcados</p>
+      <div class="seleccion__accion">
+        <label class="visually-hidden" for="asignar-a">Coordinador, con los camperos que ya tiene</label>
+        <select class="seleccion__quien" id="asignar-a" name="coordinador" required>
+          <option value="">Elige coordinador</option>
+          {% for c in assignable %}<option value="{{ c.pk }}">{{ c.display_name }} · {{ c.load }}</option>{% endfor %}
+        </select>
+        <button class="btn btn--on-dark" type="submit">Asignar</button>
+      </div>
+    </form>
+    {% endif %}
+    {% include "events/rotulo/_pagination.html" with page=page %}
+  {% elif emptied_view %}
+    {% comment %}A queue emptied by work (one view, no search, no sede): said as done, with nothing to take away{% endcomment %}
+    {% if emptied_view.key == "sin_coordinador" %}{% include "partials/ui/empty.html" with title="Todos tienen coordinador" %}
+    {% elif emptied_view.key == "autorizacion" %}{% include "partials/ui/empty.html" with title="Todos los menores tienen su autorización" %}
+    {% elif emptied_view.key == "no_participan" %}{% include "partials/ui/empty.html" with title="Todos participan" %}
+    {% elif emptied_view.value == "en_curso" %}{% include "partials/ui/empty.html" with title="Ninguna entrevista en curso" %}
+    {% elif emptied_view.value == "completada" %}{% include "partials/ui/empty.html" with title="Todavía no hay entrevistas completadas" %}
+    {% else %}{% with title="Nadie "|add:emptied_view.label|lower %}{% include "partials/ui/empty.html" with title=title %}{% endwith %}{% endif %}
+  {% elif filtered %}
+    {% include "partials/ui/empty.html" with title="Nadie coincide" action_url=clear_url action_label="Quitar filtros" %}
+  {% elif can_manage %}
+    {% include "partials/ui/empty.html" with title="Todavía no hay camperos" action_url=import_url action_label="Importar camperos" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Camperos" lede=lede %}
+    {% include "partials/ui/empty.html" with title="Todavía no hay camperos" %}
   {% endif %}
-{% endwith %}
+  {% if can_manage %}<p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a> (CSV, sin respuestas){% if access.is_admin and access.can_view_sensitive %} o <a href="{% url 'events:answers_export' event.slug %}">descargar las respuestas</a>{% endif %}.</p>
+  <p class="more"><a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a></p>{% endif %}
+</section>
+{% else %}{% url 'events:participant_import' event.slug as import_url %}
+{% comment %}No lede: "N resultados" under the filters is the count, and the filter says "Participando".{% endcomment %}
+{% if can_manage %}
+  {% url 'events:participant_create' event.slug as create_url %}
+  {% include "events/rotulo/_page_head.html" with title="Camperos" action_url=create_url action_label="Registrar campero" secondary_url=import_url secondary_label="Importar CSV" %}
+{% else %}
+  {% include "events/rotulo/_page_head.html" with title="Camperos" %}
+{% endif %}
 
 <form method="get" class="filter-bar admin-people__filters" role="search" aria-label="Buscar y filtrar camperos">
-  <div class="field filter-bar__search"><label class="label" for="q">Buscar</label><span class="hint" id="q-ayuda">Nombre, número, cuarto o iglesia</span><input id="q" type="search" name="q" value="{{ query }}" aria-describedby="q-ayuda"></div>
+  <div class="field filter-bar__search"><label class="label" for="q">Buscar</label><span class="visually-hidden" id="q-ayuda">Nombre, número, cuarto o iglesia</span><input id="q" type="search" name="q" value="{{ query }}" placeholder="Nombre, número, cuarto o iglesia" aria-describedby="q-ayuda"></div>
   <div class="field"><label class="label" for="f-estado">Entrevista</label><select id="f-estado" name="estado"><option value="">Todas</option>{% for v, l in status_choices %}<option value="{{ v }}"{% if selected.estado == v %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
   <div class="field"><label class="label" for="f-coord">Coordinador</label><select id="f-coord" name="coordinador"><option value="">Todos</option><option value="ninguno"{% if selected.coordinador == "ninguno" %} selected{% endif %}>Sin coordinador</option>{% for c in coordinators %}<option value="{{ c.id }}"{% if selected.coordinador == c.id|stringformat:"s" %} selected{% endif %}>{{ c.display_name }}</option>{% endfor %}</select></div>
   {% if sede_options %}<div class="field"><label class="label" for="f-sede">Sede</label><select id="f-sede" name="sede"><option value="">Todas</option>{% for o in sede_options %}<option value="{{ o.value }}"{% if selected.sede == o.value %} selected{% endif %}>{{ o.label }}</option>{% endfor %}</select></div>{% endif %}
@@ -56,9 +133,9 @@
     </div>
     {% include "events/rotulo/_pagination.html" with page=page %}
   {% else %}
-    <p class="empty-line">No encontramos camperos con estos filtros. Cambia los filtros{% if access.is_admin %} o <a href="{{ import_url }}">importa la lista de camperos</a> desde un archivo{% endif %}.</p>
+    <p class="empty-line">Sin camperos con estos filtros.{% if access.is_admin %} <a href="{{ import_url }}">Importar la lista</a>{% endif %}</p>
   {% endif %}
   {% if can_manage %}<p class="more"><a href="{% url 'events:participant_export' event.slug %}">Descargar la lista de camperos</a> (CSV, sin respuestas){% if access.is_admin and access.can_view_sensitive %} o <a href="{% url 'events:answers_export' event.slug %}">descargar las respuestas</a>{% endif %}.</p>
-  <p class="more"><a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a>, para saber de dónde viene cada campero.</p>{% endif %}
+  <p class="more"><a href="{% url 'events:sedes' event.slug %}">Sedes de la iglesia</a></p>{% endif %}
 </section>
-{% endblock %}
+{% endif %}{% endblock %}

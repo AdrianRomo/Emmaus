@@ -480,7 +480,8 @@ class EventListTests(LegacyFixture):
         account = self.names(reverse("account"))
         self.assertIn("Retiro B", account)
         self.assertNotIn("Campamento A", account)
-        self.assertIn("En <strong>Iglesia B</strong>: administración de la iglesia.", account)
+        self.assertIn('>Iglesia B</a></p>', account)
+        self.assertIn('<p class="row__meta">Administración de la iglesia</p>', account)
         # Not listed is not closed: the event of the other church still answers by its own rule (events/access.py)
         self.assertEqual(self.client.get(reverse("events:admin_home", args=[self.event.slug])).status_code, 200)
 
@@ -490,7 +491,7 @@ class EventListTests(LegacyFixture):
         self.choose(self.church_b)
         page = self.names()
         self.assertIn("Campamento A", page)
-        self.assertIn("Es un evento de Iglesia de prueba.", page)
+        self.assertIn("Es un evento de Iglesia de prueba", page)
         self.assertEqual(page.count("Es un evento de"), 1)
         self.assertLess(page.index("Retiro B"), page.index("Campamento A"))  # this church's first
         self.assertNotIn("Campamento B", page)  # A's other event, reached only through the church role there
@@ -532,10 +533,13 @@ class EventListTests(LegacyFixture):
 
     def test_the_welcome_is_the_one_of_the_role_held_here(self):
         self.client.force_login(self.mixed)
-        self.assertContains(self.client.get(reverse("events:list") + "?todos=1"), "En Iglesia de prueba administras Emmaus.")
+        # The redesigned screen draws only the first steps of a welcome (templates/partials/ui/welcome.html): which
+        # welcome the view chose is read from what it hands the template.
+        page = self.client.get(reverse("events:list") + "?todos=1")
+        self.assertEqual(page.context["welcome"].role_line, "En Iglesia de prueba administras Emmaus.")
         self.choose(self.church_b)
         page = self.client.get(reverse("events:list") + "?todos=1")
-        self.assertContains(page, "En Iglesia B acompañas a quienes te asignan.")
+        self.assertEqual(page.context["welcome"].role_line, "En Iglesia B acompañas a quienes te asignan.")
         self.assertNotContains(page, "administras Emmaus")
 
 
@@ -602,17 +606,23 @@ class EventPageTests(LegacyFixture):
         own = self.client.get(reverse("events:coord_home", args=[self.event_b.slug]))
         self.assertIn(f'href="{reverse("community:home")}"', self.rail(own))
 
-    def test_an_account_with_no_church_keeps_the_bar_it_had(self):
+    def test_an_account_with_no_church_wears_the_look_of_the_church_of_the_event(self):
+        """The redesign (core.shell.build_event_shell): who only works in an event gets the rail of that event, under
+        the church that holds it and in its colours, and none of that church's general links."""
         self.client.force_login(self.tutor1)
         page = self.client.get(reverse("events:tutor_home", args=[self.event.slug]))
         self.assertEqual(page.status_code, 200)
-        self.assertNotContains(page, '<header class="rail')
-        self.assertNotContains(page, "--petroleo:#112233")
+        self.assertContains(page, "--petroleo:#112233")
+        rail = self.rail(page)
+        self.assertIn('<p class="rail__church">Iglesia de prueba</p>', rail)
+        self.assertNotIn(f'href="{reverse("community:home")}"', rail)
+        self.assertNotIn(f'href="{reverse("agenda:list")}"', rail)
+        self.assertIn(reverse("events:list") + "?todos=1", rail)
 
 
 class ForbiddenPageTests(LegacyFixture):
-    BOTH = "pide a la administración de tu iglesia o del evento que te dé acceso."
-    CAMP = "pide a la administración del evento que te dé acceso."
+    BOTH = "pide acceso a la administración de tu iglesia o del evento."
+    CAMP = "pide acceso a la administración del evento."
 
     def test_a_church_with_the_community_module_reads_both(self):
         self.client.force_login(self.member_user)
@@ -697,7 +707,10 @@ class RoleWordsTests(LegacyFixture):
         foot = home.split('class="rail__foot"', 1)[1].split("</a>", 1)[0]
         self.assertIn("Mentoría", foot)
         self.assertNotIn("Mentor<", foot)
-        self.assertIn("En <strong>Iglesia B</strong>: mentoría.", main(self.client.get(reverse("account"))))
+        account = main(self.client.get(reverse("account")))
+        self.assertIn('>Iglesia B</a></p>', account)
+        self.assertIn('<p class="row__meta">Mentoría</p>', account)
+        self.assertNotIn(">Mentor<", account)
         self.assertNotIn("eres mentor", main(self.client.get(reverse("mentor_dashboard"))))
         self.choose(self.church)
         self.assertIn("Administración de la iglesia", self.client.get(reverse("community:home")).content.decode().split('class="rail__foot"', 1)[1].split("</a>", 1)[0])
@@ -712,8 +725,8 @@ class RoleWordsTests(LegacyFixture):
         self.choose(self.church_b)
         page = main(self.client.get(reverse("mentor_dashboard")))  # a question and a follow-up wait
         self.assertEqual(page.count('id="bienvenida"'), 1)
-        self.assertLess(page.index("espera tu respuesta"), page.index('id="bienvenida"'))
+        self.assertLess(page.index("Espera tu respuesta"), page.index('id="bienvenida"'))
         ParticipantQuestion.objects.filter(church=self.church_b).delete()
         FollowUpRequest.objects.filter(church=self.church_b).delete()
         page = main(self.client.get(reverse("mentor_dashboard")))
-        self.assertLess(page.index('id="bienvenida"'), page.index('id="acompanas"'))
+        self.assertLess(page.index('id="bienvenida"'), page.index('id="assigned-participants"'))

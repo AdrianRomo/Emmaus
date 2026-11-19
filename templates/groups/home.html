@@ -9,237 +9,285 @@
   the place, never anything that was answered there. Beside it, quietly: the data the church is
   missing to reach them. What a guide or the administration works on is in the shell (core/shell.py). A section with nothing to say is not drawn.
 {% endcomment %}
-<header class="page-head hero">
-  <h1 class="voice page-head__title hero__title">Hola, {{ person.first_name }}.</h1>
-  <p class="lede">Hoy es {{ today|weekday_date }}. Esto es lo tuyo en {{ church.name }}.</p>
+<div class="hoy hoy--ancho">
+<header class="hoy__cabecera">
+  <div>
+    <p class="hoy__fecha">{{ today|weekday_date|capfirst }}</p>
+    <h1 class="voice hoy__titulo">Hoy</h1>
+  </div>
 </header>
 
-<div class="cols">
-  <div class="cols__main">
-    {% for notice in urgent_notices %}
-    <section class="notice notice--danger urgent" aria-labelledby="urgente-{{ notice.pk }}">
-      <h2 id="urgente-{{ notice.pk }}" class="notice__title">Aviso urgente: {{ notice.title }}</h2>
-      <p>{{ notice.body|truncatechars:200 }}</p>
-      <p><a href="{% url 'notices:detail' notice.pk %}">Leer el aviso y responder «Enterado»</a></p>
-    </section>
-    {% endfor %}
-    {% comment %}The welcome, the first time on "Mi iglesia" (core.onboarding.for_member), above the next-step panel.{% endcomment %}
-    {% include "partials/ui/welcome.html" with welcome=welcome %}
-    {% if sign %}
-    <section class="sign sign--lead" aria-labelledby="que-sigue">
-      <div>
-        <h2 id="que-sigue" class="sign__title">{{ sign.title }}</h2>
-        <p class="sign__text">{{ sign.text }}</p>
-      </div>
-      <div class="sign__actions"><a class="btn btn--on-dark btn--large" href="{{ sign.url }}">{{ sign.action }}</a></div>
-    </section>
-    {% endif %}
+<div class="hoy__principal" id="principal">
+{% for notice in urgent_notices %}
+<section class="notice notice--danger urgent" aria-labelledby="urgente-{{ notice.pk }}">
+  <h2 id="urgente-{{ notice.pk }}" class="notice__title">Aviso urgente: {{ notice.title }}</h2>
+  <p>{{ notice.body|truncatechars:200 }}</p>
+  <p><a href="{% url 'notices:detail' notice.pk %}">Leer el aviso y responder «Enterado»</a></p>
+</section>
+{% endfor %}
 
-    {% if notices %}
-    <section class="block" aria-labelledby="avisos">
-      <div class="heading-row">
-        <h2 id="avisos" class="heading">Avisos</h2>
-        <a href="{% url 'notices:list' %}">Ver todos los avisos</a>
-      </div>
-      <ul class="rows">
-        {% for notice in notices %}
-          <li class="row row--lead row--stack">
-            <div class="row__main">
-              <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
-              <p class="row__meta">{% if notice.group %}Para {{ notice.group.name }}{% else %}Para toda la iglesia{% endif %}, {{ notice.publish_on|day_month }}.</p>
-            </div>
-            {% if notice.level or notice.is_unread %}<div class="row__end">{% include "notices/_level.html" %}{% if notice.is_unread %}{% status "pendiente" "Nuevo" %}{% endif %}</div>{% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    {% if devotional %}
-    <section class="block" aria-labelledby="devocional">
-      <h2 id="devocional" class="heading">{% if devotional.is_today %}Devocional de hoy{% else %}El devocional más reciente{% endif %}</h2>
-      <div class="meeting">
-        {% date_block devotional.date %}
+{% if asks_pending or sign or uncovered %}
+{% comment %}
+  What waits for this person: the one raised surface of the page, with only what is still unanswered. A serving
+  date is answered in place: the main column is the region that changes (data-inline="principal"), so the date
+  leaves the raised surface and appears, answered, in the list of what comes; focus follows it (?respondida=).
+{% endcomment %}
+<section class="block" aria-labelledby="que-sigue">
+  <h2 id="que-sigue" class="heading">Esperan tu respuesta</h2>
+  <div class="sign sign--lead esperan">
+    {% for a in asks_pending %}
+    <div class="ask" id="servir-{{ a.pk }}">
+      <div class="sign__who">
+        {% date_block a.service_date.date %}
         <div>
-          <p class="meeting__title"><a href="{% url 'resources:devotional_today' %}">{{ devotional.title }}</a></p>
-          <p class="meeting__meta">{% if devotional.passage %}Lectura: {{ devotional.passage }}. {% endif %}{% if devotional.is_read %}Ya lo leíste.{% else %}Toma unos minutos.{% endif %}</p>
+          <p class="sign__kind">Equipo {{ a.service_date.team.name }}</p>
+          <h3 class="sign__title">¿Puedes servir el {% if a.service_date.date.month == today.month %}{{ a.service_date.date|date:"l j"|lower }}{% else %}{{ a.service_date.date|weekday_date }}{% endif %}?</h3>
+          <p class="sign__text">{% if a.service_date.starts_at %}{{ a.service_date.starts_at|time:"H:i" }}{% if a.service_date.place %}, {% endif %}{% endif %}{{ a.service_date.place }}</p>
         </div>
       </div>
-      {% if reading %}<p class="more"><a href="{% url 'resources:plan_day' reading.0.pk reading.1 %}">Continuar: {{ reading.0.title }}, día {{ reading.1 }}</a></p>{% endif %}
-    </section>
-    {% elif reading %}
-    <p class="more"><a href="{% url 'resources:plan_day' reading.0.pk reading.1 %}">Continuar: {{ reading.0.title }}, día {{ reading.1 }}</a></p>
-    {% endif %}
-
-    <section class="block" aria-labelledby="proximos">
-      <h2 id="proximos" class="heading">Lo que viene</h2>
-      {% if agenda %}
-        <ul class="dates rows">
-          {% for item in agenda %}
-            <li class="row row--lead row--stack{% if item.today %} row--today{% endif %}">
-              {% date_block item.date %}
-              <div class="row__main">
-                {% if item.kind == "group" %}
-                  <p class="row__title"><a href="{{ item.url }}">{{ item.title }}</a></p>
-                  <p class="row__meta">{% if item.today %}Hoy se reúne tu grupo{% else %}Tu grupo se reúne el {{ item.date|weekday_date }}{% endif %}{% if item.time %}, a las {{ item.time|time:"H:i" }}{% endif %}{% if item.place %}, en {{ item.place }}{% endif %}.</p>
-                {% else %}
-                  <p class="row__title"><a href="{% url 'agenda:detail' item.event.slug %}">{{ item.title }}</a></p>
-                  <p class="row__meta">{% if item.event.kind != "otro" %}{{ item.event.get_kind_display }}, {% endif %}{{ item.event.starts_on|date_range:item.event.ends_on }}{% if item.event.page.starts_at %}, a las {{ item.event.page.starts_at|time:"H:i" }}{% endif %}{% if item.event.location %}, en {{ item.event.location }}{% endif %}.</p>
-                {% endif %}
-              </div>
-              {% if item.kind == "event" %}{% if item.event.my_registration %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>{% elif item.event.state == "pendiente" %}<div class="row__end">{% if item.event.my_place.waits_for == "age" %}{% status "pendiente" "Falta confirmar tu edad" %}{% else %}{% status "pendiente" "Pendiente de autorización" %}{% endif %}</div>{% elif item.event.state == "ofrecido" %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:detail' item.event.slug %}">Aceptar mi lugar<span class="visually-hidden"> en {{ item.title }}</span></a></div>{% elif item.event.state == "ofrecido_pausa" %}<div class="row__end">{% status "pendiente" "Lugar ofrecido, en pausa" %}</div>{% elif item.event.state == "en_espera" %}<div class="row__end">{% status "pendiente" "En lista de espera" %}</div>{% elif item.event.state == "abierta" %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:detail' item.event.slug %}">Inscribirme<span class="visually-hidden"> a {{ item.title }}</span></a></div>{% endif %}{% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-        <p class="more"><a href="{% url 'agenda:list' %}">Ver todos los eventos</a></p>
-      {% else %}
-        <p class="empty-line">Por ahora no hay eventos anunciados{% if memberships %} y tus grupos todavía no tienen día de reunión{% endif %}.</p>
-      {% endif %}
-    </section>
-
-    {% if serving_dates %}
-    <section class="block" aria-labelledby="servicio">
-      <div class="heading-row">
-        <h2 id="servicio" class="heading">Tus fechas para servir</h2>
-        <a href="{% url 'serving:home' %}">Ver todo en Servir</a>
+      <form class="sign__actions sign__actions--pair" method="post" action="{% url 'serving:respond' a.pk %}" data-inline="principal">
+        {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}?respondida={{ a.pk }}">
+        <button class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--large" type="submit" name="respuesta" value="aceptar">Sí, puedo</button>
+        <button class="btn btn--secondary btn--large" type="submit" name="respuesta" value="declinar">No puedo</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% for d in uncovered %}{# A date of a team this person coordinates where everyone asked said no: it blocks the date #}
+    <div class="ask">
+      <div class="sign__who">
+        {% date_block d.date %}
+        <div>
+          <p class="sign__kind">Equipo {{ d.team.name }}</p>
+          <h3 class="sign__title">Nadie sirve el {% if d.date.month == today.month %}{{ d.date|date:"l j"|lower }}{% else %}{{ d.date|weekday_date }}{% endif %}</h3>
+          <p class="sign__text">{% if d.asked == 1 %}La persona a quien se pidió dijo que no puede{% else %}Las {{ d.asked }} personas a quienes se pidió dijeron que no pueden{% endif %}.</p>
+        </div>
       </div>
-      <ul class="dates rows">
-        {% for assignment in serving_dates %}
-          <li class="row row--lead row--stack">
-            {% date_block assignment.service_date.date %}
-            <div class="row__main">
-              <p class="row__title">{{ assignment.service_date.what }}</p>
-              <p class="row__meta">{{ assignment.service_date.team.name }}, {{ assignment.service_date.date|weekday_date }}{% if assignment.service_date.starts_at %}, a las {{ assignment.service_date.starts_at|time:"H:i" }}{% endif %}{% if assignment.service_date.place %}, en {{ assignment.service_date.place }}{% endif %}.</p>
-            </div>
-            <div class="row__end">{% if assignment.status == "aceptada" %}{% status "completada" "Confirmaste" %}{% else %}<a class="btn btn--secondary btn--small" href="{% url 'serving:home' %}">Responder<span class="visually-hidden"> si puedes servir el {{ assignment.service_date.date|weekday_date }}</span></a>{% endif %}</div>
-          </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    <section class="block" aria-labelledby="mis-grupos">
-      <div class="heading-row">
-        <h2 id="mis-grupos" class="heading">Tus grupos</h2>
-        {% if memberships and open_groups %}<a href="{% url 'community:groups' %}">Ver todos los grupos</a>{% endif %}
+      <div class="sign__actions"><a class="btn {% if forloop.first and not asks_pending %}btn--primary{% else %}btn--secondary{% endif %} btn--large" href="{% url 'serving:date_detail' d.pk %}#quien-sirve">Pedir a alguien<span class="visually-hidden"> para el {{ d.date|weekday_date }}</span></a></div>
+    </div>
+    {% endfor %}
+    {% if sign.requests %}{% for r in sign.requests %}
+    <div class="ask">
+      <div class="sign__who">
+        {% monogram r.who %}
+        <div><h3 class="sign__title">{{ r.title }}</h3><p class="sign__text">Lo pidió el {{ r.asked_on|day_month }}</p></div>
       </div>
-      {% if memberships %}
-        <ul class="rows">
-          {% for membership in memberships %}
-            <li class="row row--lead">
-              {% monogram membership.group.name %}
-              <div class="row__main">
-                <p class="row__title"><a href="{% url 'community:group_detail' membership.group.pk %}">{{ membership.group.name }}</a></p>
-                <p class="row__meta">{% if membership.is_leader %}Tú guías este grupo. {% endif %}{% if membership.next_meeting %}Próxima reunión: {{ membership.next_meeting|weekday_date }}{% if membership.group.meeting_time %}, a las {{ membership.group.meeting_time|time:"H:i" }}{% endif %}.{% elif membership.group.meeting_frequency == 'variable' %}No tiene día fijo.{% else %}Todavía no tiene día de reunión.{% endif %}</p>
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
-      {% elif my_requests %}
-        <p class="empty-line">Todavía no eres parte de un grupo. Tu solicitud está abajo.</p>
-      {% elif open_groups %}
-        <p class="empty-line">Todavía no eres parte de un grupo. <a href="{% url 'community:groups' %}">Ver los grupos de la iglesia</a></p>
-      {% else %}
-        <p class="empty-line">Todavía no eres parte de un grupo, y por ahora ningún grupo recibe solicitudes. Pregunta en tu iglesia.</p>
-      {% endif %}
-    </section>
-
-    {% if my_requests or declined %}
-    <section class="block" aria-labelledby="solicitudes">
-      <h2 id="solicitudes" class="heading">Lo que pediste</h2>
-      <ul class="rows">
-        {% for item in my_requests %}
-          <li class="row row--lead row--stack">
-            {% monogram item.group.name %}
-            <div class="row__main">
-              <p class="row__title"><a href="{% url 'community:group_detail' item.group.pk %}">{{ item.group.name }}</a></p>
-              <p class="row__meta">Pediste unirte el {{ item.created_at|day_month }}. Quien guía el grupo te responderá.</p>
-            </div>
-            <div class="row__end">{% status "por_evaluar" "Por decidir" %}</div>
-          </li>
-        {% endfor %}
-        {% for item in declined %}
-          <li class="row row--lead row--stack">
-            {% monogram item.group.name %}
-            <div class="row__main">
-              <p class="row__title">{{ item.group.name }}</p>
-              <p class="row__meta">Esta vez no fue posible unirte. Puedes hablar con quien guía el grupo o buscar otro.</p>
-            </div>
-            <div class="row__end">{% status "descartada" "No aceptada" %}</div>
-          </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    {% if media %}
-    <section class="block" aria-labelledby="recursos">
-      <div class="heading-row">
-        <h2 id="recursos" class="heading">Recursos recientes</h2>
-        <a href="{% url 'resources:media_list' %}">Ver todos los recursos</a>
+      <form class="sign__actions sign__actions--pair" method="post" action="{{ r.decide }}" data-inline="principal">
+        {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}">
+        <button class="btn btn--secondary btn--large" type="submit" name="decision" value="declinar" data-confirm="¿No aceptar a {{ r.who }} en {{ r.group }}? Lo verá en su inicio, sin el motivo." data-confirm-label="No aceptar">No aceptar<span class="visually-hidden"> a {{ r.who }}</span></button>
+        <button class="btn {% if forloop.first and not asks_pending and not uncovered %}btn--primary{% else %}btn--secondary{% endif %} btn--large" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ r.who }}</span></button>
+      </form>
+      <p class="sign__aparte"><a class="btn btn--link btn--small" href="{{ r.url }}">Ver solicitud<span class="visually-hidden"> de {{ r.who }}</span></a></p>
+    </div>
+    {% endfor %}{% elif sign %}
+    <div class="ask">
+      <div class="sign__who">
+        {% if sign.who %}{% monogram sign.who %}{% endif %}
+        <div>
+          {% if sign.kind %}<p class="sign__kind">{{ sign.kind }}</p>{% endif %}
+          <h3 class="sign__title">{{ sign.title }}</h3>
+          {% if sign.text %}<p class="sign__text">{{ sign.text }}</p>{% endif %}
+        </div>
       </div>
-      <ul class="rows">
-        {% for item in media %}
-          <li class="row">
-            <div class="row__main">
-              <p class="row__title">{{ item.title }}</p>
-              <p class="row__meta">{{ item.get_kind_display }}{% if item.speaker %}, de {{ item.speaker }}{% endif %}{% if item.series %}, serie «{{ item.series }}»{% endif %}, {{ item.date|long_date }}.</p>
-            </div>
-          </li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
-
-    {% if history %}
-    <section class="block" aria-labelledby="historia">
-      <h2 id="historia" class="heading">Donde has estado</h2>
-      <ol class="camino">
-        {% for step in journey %}
-          {% if step.membership %}
-          <li class="camino__step camino__step--now">
-            <p class="camino__when">Desde el {{ step.date|long_date }}</p>
-            <p class="camino__what">{{ step.membership.group.name }}</p>
-            <p class="camino__note">{% if step.membership.is_leader %}Guías este grupo.{% else %}Eres parte de este grupo.{% endif %}</p>
-          </li>
-          {% else %}
-          <li class="camino__step">
-            <p class="camino__when">{{ step.event.starts_on|date_range:step.event.ends_on|capfirst }}</p>
-            <p class="camino__what">{{ step.event.name }}</p>
-            <p class="camino__note">{{ step.event.get_kind_display }}{% if step.event.location %}, en {{ step.event.location }}{% endif %}.</p>
-          </li>
-          {% endif %}
-        {% endfor %}
-      </ol>
-      <p class="aside-note">De un evento, aquí solo aparece que participaste. Lo que respondiste en el evento no se muestra en esta página ni lo ve quien guía tu grupo.</p>
-    </section>
+      <div class="sign__actions">{% if sign.groups %}{% for g in sign.groups %}<a class="btn {% if forloop.first and not asks_pending %}btn--primary{% else %}btn--secondary{% endif %} btn--large" href="{{ g.url }}">Ver {{ g.total }} en {{ g.name }}</a>{% endfor %}{% else %}<a class="btn {% if asks_pending %}btn--secondary{% else %}btn--primary{% endif %} btn--large" href="{{ sign.url }}">{{ sign.action }}</a>{% endif %}</div>
+    </div>
     {% endif %}
   </div>
+</section>
+{% endif %}
 
-  {% if missing or accompanying or opinions %}
-  <div class="cols__side">
+{% if today_rows %}
+<section class="block" aria-labelledby="hoy-titulo">
+  <h2 id="hoy-titulo" class="heading">Hoy en la iglesia</h2>
+  {% for row in today_rows %}
+  <div class="evento hoy__evento"{% if row.kind == "event" %} id="ev-{{ row.event.slug }}"{% endif %}>
+    {% event_arch row.time %}
+    <div class="evento__texto">
+      <p class="evento__cuando">{% if row.time %}{{ row.time|time:"H:i" }}{% else %}Hoy{% endif %}</p>
+      {% if row.kind == "event" %}
+      <h3 class="evento__titulo"><a href="{% url 'agenda:detail' row.event.slug %}?desde=inicio">{{ row.title }}</a></h3>
+      <p class="evento__donde">{{ row.event.location }}{% if row.event.ends_on and row.event.ends_on != today %}{% if row.event.location %}, {% endif %}hasta el {{ row.event.ends_on|day_month }}{% endif %}</p>
+      {% include "agenda/_recent_notice.html" with event=row.event desde="inicio" cls="evento__donde" %}
+      {% elif row.kind == "group" %}
+      <h3 class="evento__titulo"><a href="{{ row.url }}">{{ row.title }}</a></h3>
+      <p class="evento__donde">Tu grupo{% if row.place %}, {{ row.place }}{% endif %}</p>
+      {% else %}
+      <h3 class="evento__titulo"{% if row.assignment.just_answered %} data-inline-focus tabindex="-1"{% endif %}>{{ row.title }}</h3>
+      <p class="evento__donde">Equipo {{ row.assignment.service_date.team.name }}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
+      {% endif %}
+    </div>
+    {% if row.kind == "event" %}<div class="evento__pie">{% include "groups/_event_state.html" with desde="inicio" event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="evento__pie">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+<section class="block" aria-labelledby="proximos">
+  <div class="heading-row">
+    <h2 id="proximos" class="heading">Más adelante</h2>
+    <a href="{% url 'agenda:list' %}">Ver todos<span class="visually-hidden"> los eventos</span></a>
+  </div>
+  {% if later_rows %}
+  <ul class="rows dates" id="mas-adelante">
+    {% for row in later_rows %}
+    <li class="row row--lead row--stack"{% if row.kind == "event" %} id="ev-{{ row.event.slug }}"{% endif %}>
+      {% date_block row.date %}
+      <div class="row__main">
+        {% if row.kind == "event" %}
+        <p class="row__title"><a href="{% url 'agenda:detail' row.event.slug %}?desde=inicio">{{ row.title }}</a></p>
+        <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>{% if row.time %}{{ row.time|time:"H:i" }}{% if row.event.location %}, {% endif %}{% endif %}{{ row.event.location }}</p>
+        {% include "agenda/_recent_notice.html" with event=row.event desde="inicio" %}
+        {% elif row.kind == "group" %}
+        <p class="row__title"><a href="{{ row.url }}">{{ row.title }}</a></p>
+        <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>Tu grupo{% if row.time %}, {{ row.time|time:"H:i" }}{% endif %}{% if row.place %}, {{ row.place }}{% endif %}</p>
+        {% else %}
+        <p class="row__title"{% if row.assignment.just_answered %} data-inline-focus tabindex="-1"{% endif %}>{{ row.title }}</p>
+        <p class="row__meta"><span class="visually-hidden">{{ row.date|weekday_date }}. </span>Equipo {{ row.assignment.service_date.team.name }}{% if row.time %}, {{ row.time|time:"H:i" }}{% endif %}{% if row.assignment.service_date.place %}, {{ row.assignment.service_date.place }}{% endif %}</p>
+        {% endif %}
+      </div>
+      {% if row.kind == "event" %}<div class="row__end">{% include "groups/_event_state.html" with desde="inicio" event=row.event region="ev-"|add:row.event.slug %}</div>{% elif row.kind == "serving" %}<div class="row__end">{% include "groups/_serving_state.html" with a=row.assignment %}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty-line">Sin eventos por ahora.</p>
+  {% endif %}
+</section>
+
+{% if memberships or my_requests or declined or suggestion %}
+<section class="block" aria-labelledby="mis-grupos">
+  <h2 id="mis-grupos" class="heading">{% if memberships %}Tus grupos{% else %}Grupos{% endif %}</h2>
+  <ul class="rows">
+    {% for membership in memberships %}
+    <li class="row row--lead">
+      {% monogram membership.group.name "" "grupo" %}
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'community:group_detail' membership.group.pk %}">{{ membership.group.name }}</a></p>
+        <p class="row__meta">{% if membership.is_leader %}Lo guías. {% endif %}{% if membership.next_meeting %}Se reúne el {{ membership.next_meeting|weekday_date }}{% if membership.group.meeting_time %}, {{ membership.group.meeting_time|time:"H:i" }}{% endif %}{% elif membership.group.meeting_frequency == 'variable' %}Sin día fijo{% else %}Sin día de reunión{% endif %}</p>
+      </div>
+    </li>
+    {% endfor %}
+    {% for item in my_requests %}
+    <li class="row row--lead">
+      {% monogram item.group.name "" "grupo" %}
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'community:group_detail' item.group.pk %}">{{ item.group.name }}</a></p>
+        <p class="row__meta">Pediste unirte el {{ item.created_at|day_month }}</p>
+      </div>
+      <div class="row__end">{% status "por_evaluar" "Por decidir" %}</div>
+    </li>
+    {% endfor %}
+    {% for item in declined %}
+    <li class="row row--lead">
+      {% monogram item.group.name "" "grupo" %}
+      <div class="row__main">
+        <p class="row__title">{{ item.group.name }}</p>
+        <p class="row__meta">Habla con quien lo guía o busca otro grupo.</p>
+      </div>
+      <div class="row__end">{% status "descartada" "No aceptada" %}</div>
+    </li>
+    {% endfor %}
+    {% if suggestion %}
+    <li class="row row--lead">
+      <span class="sugerencia" aria-hidden="true">{% icon "grupos" %}</span>
+      <div class="row__main">
+        <p class="row__title"><a href="{{ suggestion.url }}">{{ suggestion.title }}</a></p>
+        <p class="row__meta">{{ suggestion.text }}</p>
+      </div>
+    </li>
+    {% endif %}
+  </ul>
+</section>
+{% endif %}
+</div>
+
+<div class="hoy__lateral">
+{% if notices %}
+<section class="block" aria-labelledby="avisos">
+  <div class="heading-row">
+    <h2 id="avisos" class="heading">Avisos</h2>
+    <a href="{% url 'notices:list' %}">Ver todos<span class="visually-hidden"> los avisos</span></a>
+  </div>
+  <ul class="rows">
+    {% for notice in notices %}
+    <li class="row row--lead">
+      <span class="hoy__marca">{% if notice.is_unread %}<span class="hoy__punto"></span><span class="visually-hidden">Sin leer</span>{% endif %}</span>
+      <div class="row__main">
+        <p class="row__title{% if not notice.is_unread %} row__title--leido{% endif %}"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
+        <p class="row__meta row__meta--con-marca">{% include "notices/_level.html" %}<span>{{ notice.publish_on|day_month|capfirst }}{% if notice.group %}, {{ notice.group.name }}{% endif %}</span></p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if devotional or reading %}
+<section class="block" aria-labelledby="devocional">
+  <h2 id="devocional" class="heading">{% if devotional %}{% if devotional.is_today %}Devocional de hoy{% else %}Devocional más reciente{% endif %}{% else %}Tu lectura{% endif %}</h2>
+  <ul class="rows">
+    {% if devotional %}
+    <li class="row row--lead lectura">
+      <span class="hoy__icono" aria-hidden="true">{% icon "lectura" %}</span>
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'resources:devotional_today' %}">{{ devotional.title }}</a></p>
+        {% if devotional.passage %}<p class="verso"><span class="visually-hidden">Lectura: </span>{{ devotional.passage }}</p>{% endif %}
+        {% if opening %}<p class="row__meta lectura__inicio">{{ opening }}</p>{% endif %}
+        {% if devotional.is_read %}<p class="row__meta">{% status "completada" "Leído" %}</p>{% endif %}
+      </div>
+    </li>
+    {% endif %}
+    {% if reading %}
+    <li class="row row--lead">
+      <span class="hoy__icono" aria-hidden="true">{% icon "plan" %}</span>
+      <div class="row__main">
+        <p class="row__title"><a href="{% url 'resources:plan_day' reading.0.pk reading.1 %}">Continuar: {{ reading.0.title }}, día {{ reading.1 }}</a></p>
+        <p class="row__meta">Tu plan de lectura</p>
+      </div>
+    </li>
+    {% endif %}
+  </ul>
+</section>
+{% endif %}
+
+{% if opinions or accompanying or missing %}
+<section class="block" aria-labelledby="pendientes">
+  <h2 id="pendientes" class="heading">Cuando puedas</h2>
+  <ul class="rows">
     {% for event in opinions %}
-    <section class="quiet" aria-labelledby="opinion-{{ event.pk }}">
-      <h2 id="opinion-{{ event.pk }}" class="quiet__title">¿Cómo estuvo {{ event.name }}?</h2>
-      <p class="quiet__text">Tres preguntas. Tu opinión se guarda sin tu nombre.</p>
-      <a class="btn btn--secondary btn--small" href="{% url 'feedback:give' event.slug %}">Dar mi opinión<span class="visually-hidden"> de {{ event.name }}</span></a>
-    </section>
+    <li class="row row--lead"><span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'feedback:give' event.slug %}">¿Cómo estuvo {{ event.name }}?</a></p><p class="row__meta">3 preguntas, sin tu nombre</p></div></li>
     {% endfor %}
     {% if accompanying %}
-    <section class="quiet" aria-labelledby="acompanas">
-      <h2 id="acompanas" class="quiet__title">{% if accompanying == 1 %}Hay 1 persona que te toca buscar{% else %}Hay {{ accompanying }} personas que te toca buscar{% endif %}</h2>
-      <p class="quiet__text">Tu iglesia te pidió acompañarlas. Ahí está cómo contactarlas.</p>
-      <a class="btn btn--secondary btn--small" href="{% url 'care:mine' %}">Ver a quién acompañas</a>
-    </section>
+    <li class="row row--lead"><span class="hoy__icono" aria-hidden="true">{% icon "acompanar" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'care:mine' %}">{% if accompanying == 1 %}Te toca buscar a 1 persona{% else %}Te toca buscar a {{ accompanying }} personas{% endif %}</a></p></div></li>
     {% endif %}
     {% if missing %}
-    <section class="quiet" aria-labelledby="tus-datos">
-      <h2 id="tus-datos" class="quiet__title">A tu iglesia le falta {{ missing|join:" y " }}</h2>
-      <p class="quiet__text">Con eso, quien guía tu grupo puede avisarte de una reunión o de un cambio.</p>
-      <a class="btn btn--secondary btn--small" href="{% url 'community:profile' %}">Completar mis datos</a>
-    </section>
+    <li class="row row--lead"><span class="hoy__icono" aria-hidden="true">{% icon "telefono" %}</span><div class="row__main"><p class="row__title"><a href="{% url 'community:profile' %}">Agrega {{ missing|join:" y " }}</a></p><p class="row__meta">Para que tu iglesia te pueda avisar</p></div></li>
     {% endif %}
-  </div>
-  {% endif %}
+  </ul>
+</section>
+{% endif %}
+
+{% if history %}
+<details class="fold block">
+  <summary>Donde has estado</summary>
+  <ol class="camino">
+    {% for step in journey %}
+      {% if step.membership %}
+      <li class="camino__step camino__step--now">
+        <p class="camino__when">Desde el {{ step.date|long_date }}</p>
+        <p class="camino__what">{{ step.membership.group.name }}</p>
+      </li>
+      {% else %}
+      <li class="camino__step">
+        <p class="camino__when">{{ step.event.starts_on|date_range:step.event.ends_on|capfirst }}</p>
+        <p class="camino__what">{{ step.event.name }}</p>
+        {% if step.event.location %}<p class="camino__note">{{ step.event.location }}</p>{% endif %}
+      </li>
+      {% endif %}
+    {% endfor %}
+  </ol>
+  <p class="aside-note">Solo aparece que participaste. Lo que respondiste no se muestra aquí ni lo ve quien guía tu grupo.</p>
+</details>
+{% endif %}
+</div>
 </div>
 {% endblock %}

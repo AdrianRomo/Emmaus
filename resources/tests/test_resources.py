@@ -7,6 +7,8 @@ from django.db import IntegrityError, transaction
 from django.urls import reverse
 from django.utils import timezone
 
+from core.templatetags.shell import icon
+from groups.templatetags.community import weekday_date
 from groups.tests.base import CommunityFixture
 from people import flags
 from people.models import ChurchAuditEvent
@@ -22,6 +24,8 @@ MEDIA_ADMIN = reverse("resources:media_admin")
 MEDIA_CREATE = reverse("resources:media_create")
 BODY = "Permanezcan en mí, y yo permaneceré en ustedes.\n\nLa rama no da fruto por sí misma."
 YOUTUBE = "https://www.youtube.com/watch?v=abc123"
+# The person's own mark, once they said they read it (a pill: the word with its mark).
+READ_MARK = '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Leído</span>'
 
 
 def dev_url(name, devotional):
@@ -76,27 +80,28 @@ class DevotionalTests(ResourcesFixture):
         html = page.content.decode()
         self.assertEqual(html.count("<h1"), 1)
         self.assertContains(page, '<h1 class="voice page-head__title">La vid verdadera</h1>', html=True)
-        self.assertContains(page, "Devocional de hoy, ")
-        self.assertContains(page, ", por Ana López.")
-        self.assertContains(page, "Lectura: Juan 15:1-8")
+        # Its verse (the passage, in the serif of a verse), then its day (today) and who signs it, each a fact with its mark.
+        self.assertContains(page, f'{icon("calendario", "sm")}Hoy, {weekday_date(self.today)}</li>')
+        self.assertContains(page, f'{icon("personas", "sm")}<span class="visually-hidden">Escrito por </span>Ana López</li>')
+        self.assertContains(page, '<p class="verso devocional__verso"><span class="visually-hidden">Lectura: </span>Juan 15:1-8</p>', html=True)
         self.assertContains(page, '<div class="block prose">')
         self.assertContains(page, "La rama no da fruto por sí misma.")
-        self.assertContains(page, "Ya lo leí</button>")
+        self.assertContains(page, "Marcar como leído</button>")
         self.assertEqual(html.count("btn--primary"), 1)
         self.assertContains(page, "Devocionales anteriores")
-        self.assertNotContains(page, "Ya lo leíste.")
+        self.assertContains(page, "Esta marca es solo para ti: nadie más ve qué has leído.")
+        self.assertNotContains(page, READ_MARK)
         self.assertNotContains(page, "Administrar los devocionales")
 
         for _ in range(2):  # twice: the second one changes nothing
             response = self.client.post(dev_url("read", devotional), follow=True)
             self.assertRedirects(response, TODAY_URL)
-            self.assertContains(response, "Ya lo leíste.")
-            self.assertContains(response, "notice notice--success")
-            self.assertNotContains(response, "Ya lo leí</button>")
+            self.assertContains(response, READ_MARK, count=1)
+            self.assertNotContains(response, "Marcar como leído</button>")
         self.assertEqual(DevotionalRead.objects.filter(devotional=devotional, person=self.member).count(), 1)
         self.assertEqual(self.client.get(dev_url("read", devotional)).status_code, 405)
         self.assertContains(self.client.get(PAST), "Leído")
-        self.assertContains(self.client.get(dev_url("detail", devotional)), "Ya lo leíste.")
+        self.assertContains(self.client.get(dev_url("detail", devotional)), READ_MARK)
 
     def test_mark_read_is_idempotent_and_refuses_what_is_not_readable(self):
         devotional = self.devotional()
@@ -133,9 +138,13 @@ class DevotionalTests(ResourcesFixture):
             self.assertContains(page, words)
         self.assertNotContains(self.client.get(PAST), "El de mañana")
         page = self.client.get(dev_url("detail", draft))
-        self.assertContains(page, "es un borrador")
-        self.assertNotContains(page, "Ya lo leí</button>")
-        self.assertContains(self.client.get(dev_url("detail", future)), "está programado")
+        self.assertContains(page, "Borrador</span></li>")
+        self.assertContains(page, '<p class="aside-note">Solo lo ve la administración de la iglesia. Para publicarlo, edítalo y pide la aprobación pastoral.</p>', html=True)
+        self.assertNotContains(page, "Marcar como leído</button>")
+        page = self.client.get(dev_url("detail", future))
+        self.assertContains(page, "Programado</span></li>")
+        self.assertContains(page, '<p class="aside-note">Hasta su día solo lo ve la administración de la iglesia.</p>', html=True)
+        self.assertNotContains(page, "Marcar como leído</button>")
         self.assertEqual(self.client.post(dev_url("read", future)).status_code, 404)
 
     def test_without_one_today_the_newest_of_the_last_seven_days_is_shown(self):
@@ -155,8 +164,10 @@ class DevotionalTests(ResourcesFixture):
         page = self.client.get(TODAY_URL)
         self.assertContains(page, "El de antier")
         self.assertContains(page, "Hoy no hay devocional nuevo.")
-        self.assertContains(page, "Devocional del ")
-        self.assertContains(page, "Ya lo leíste.")
+        # Its own day, not today's.
+        self.assertContains(page, f'{icon("calendario", "sm")}{weekday_date(recent.date)}')
+        self.assertNotContains(page, "Hoy, ")
+        self.assertContains(page, READ_MARK)
         page = self.client.get(PAST)
         self.assertContains(page, "Demasiado viejo")
         self.assertEqual(page.content.decode().count("status--done"), 1)
@@ -173,7 +184,7 @@ class DevotionalTests(ResourcesFixture):
             self.devotional(self.today - timedelta(days=back), title=f"Devocional número {back:02d}.")
         self.client.force_login(self.member_user)
         html = self.client.get(PAST).content.decode()
-        self.assertEqual(html.count('class="row row--lead row--stack"'), 50)
+        self.assertEqual(html.count('class="row row--lead"'), 50)
         self.assertIn('<ul class="dates rows">', html)
         self.assertIn("date-block", html)
         self.assertLess(html.index("Devocional número 00."), html.index("Devocional número 49."))
@@ -295,7 +306,7 @@ class DevotionalTests(ResourcesFixture):
         self.assertEqual(self.client.get(PAST).content.decode().count("Leído"), 1)
         self.client.force_login(self.coord1)  # read nothing
         self.assertNotContains(self.client.get(PAST), "Leído")
-        self.assertContains(self.client.get(TODAY_URL), "Ya lo leí</button>")
+        self.assertContains(self.client.get(TODAY_URL), "Marcar como leído</button>")
 
         self.client.force_login(self.admin)
         audit_before = ChurchAuditEvent.objects.count()
@@ -372,12 +383,22 @@ class MediaTests(ResourcesFixture):
             'Ver en YouTube<span class="visually-hidden">: En YouTube</span></a>',
             html=True,
         )
-        self.assertContains(page, "Predicación, de Ana López, serie «Romanos», 15 de noviembre de 2026.")
+        # What it is, whose, its series and its day, each a fact with its mark.
+        self.assertContains(
+            page,
+            f'<ul class="meta"><li>Predicación</li><li>{icon("personas", "sm")}Ana López</li>'
+            f'<li>{icon("lista", "sm")}<a href="?serie=Romanos">Serie «Romanos»</a></li>'
+            f'<li>{icon("calendario", "sm")}15 de noviembre de 2026</li></ul>',
+            html=True,
+        )
         self.assertContains(page, "Escuchar en Spotify")
         self.assertContains(page, "Abrir el recurso")
         self.assertContains(page, 'class="row row--lead row--stack"', count=5)
+        # The only drawing on the page is the design's own marks (aria-hidden icons); nothing of the resource's site.
+        # Decorative marks (a fact's icon, a row's leading mark) are drawn here; nothing from another site is
+        without_marks = re.sub(r'<svg class="icon( icon--sm)?" [^>]*aria-hidden="true" focusable="false">.*?</svg>', "", main(page), flags=re.S)
         for forbidden in ("<iframe", "<embed", "<video", "<audio", "<object", "<script", "<svg", "·", 'target="_blank"'):
-            self.assertNotIn(forbidden, main(page))
+            self.assertNotIn(forbidden, without_marks)
         self.assertNotContains(page, "Administrar los recursos")
         self.assertNotContains(page, "Agregar un recurso")
 
@@ -385,9 +406,10 @@ class MediaTests(ResourcesFixture):
         self.client.force_login(self.member_user)
         match = self.media(title="Camino nuevo", speaker="Ana Torres", series="Cartas")
         library = self.client.get(MEDIA)
-        self.assertContains(library, f'<form method="get" action="{MEDIA}" role="search">')
-        self.assertContains(library, '<label class="label" for="resource-search">Buscar por título, persona o serie</label>', html=True)
-        self.assertContains(library, '<input class="input" id="resource-search" type="search" name="q" maxlength="160" value="" autocomplete="off" spellcheck="false">', html=True)
+        self.assertContains(library, f'<form class="search" method="get" action="{MEDIA}" role="search">')
+        # The field keeps its label (read by a screen reader; the placeholder says the same on screen).
+        self.assertContains(library, '<label class="visually-hidden" for="resource-search">Buscar por título, persona o serie</label>', html=True)
+        self.assertContains(library, '<input class="input search__input" id="resource-search" type="search" name="q" maxlength="160" value="" autocomplete="off" spellcheck="false" placeholder="Buscar por título, persona o serie">', html=True)
         other = self.media(title="La vid")
         services.retire_media(self.media(title="Camino anterior", kind="musica"), self.admin)
         saved_filter = self.client.get(MEDIA, {"tipo": "musica"})
@@ -435,7 +457,12 @@ class MediaTests(ResourcesFixture):
 
         self.assertContains(self.client.get(MEDIA), "?serie=Romanos")
         page = self.client.get(MEDIA + "?serie=Romanos")
-        self.assertContains(page, "Estás viendo la serie «Romanos».")
+        self.assertContains(
+            page,
+            f'<ul class="filters" aria-label="Serie"><li><a href="{MEDIA}">Todos</a></li>'
+            '<li><a href="?serie=Romanos" aria-current="page">Serie «Romanos»</a></li></ul>',
+            html=True,
+        )
         self.assertContains(page, "Romanos uno")
         self.assertContains(page, "Romanos dos")
         self.assertNotContains(page, "Canto nuevo")
@@ -457,8 +484,10 @@ class MediaTests(ResourcesFixture):
         item = self.media()
         self.client.force_login(self.admin)
         page = self.client.get(MEDIA_ADMIN)
-        self.assertContains(page, "Retirar el recurso")
+        self.assertContains(page, f'<a href="{media_url("edit", item)}">Justificados por la fe</a>', html=True)
         self.assertContains(page, "Agregar un recurso")
+        # Retiring is on the resource's own page, and asks first.
+        self.assertContains(self.client.get(media_url("edit", item)), f'<a class="btn btn--link btn--quieto plan__dejar" href="{media_url("retire", item)}">Retirar el recurso</a>', html=True)
         page = self.client.get(media_url("retire", item))
         self.assertContains(page, "¿Retirar el recurso")
         self.assertEqual(MediaItem.objects.get().status, "publicado")

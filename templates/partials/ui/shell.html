@@ -7,13 +7,48 @@
   The panel stays a direct child of <body>: emmaus.js makes every other child inert while it is open.
   Never included with "only": the logout form needs csrf_token.
 {% endcomment %}
-<header class="rail{% if event_nav %} rail--event{% endif %}">
+<header class="rail{% if event_nav %} rail--event{% if not access.is_coordinator %} rail--ancha{% endif %}{% endif %}">
   <div class="rail__brand">
     {% url 'dashboard' as shell_home %}{% church_brand brand_church size="bar" href=shell_home %}
     {% if shell.church %}<p class="rail__church">{{ shell.church.name }}</p>{% endif %}
   </div>
   <nav class="rail__nav" aria-label="Principal">
     {% for section in shell.sections %}
+    {% if event_nav and forloop.first %}{# Inside an event: the way back to the church, the event's places, then the rest of the church in one fold, so the rail fits a laptop's screen #}
+    <div class="rail__section">
+      <ul>
+        {% with item=section.items.0 %}<li><a class="rail__link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{% icon item.icon %}<span class="rail__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>{% endwith %}
+      </ul>
+    </div>
+    <div class="rail__section rail__section--event">
+      <p class="rail__label" id="rail-evento">{{ event.name }}</p>
+      <p class="rail__role">Tu rol: {{ access.role_label|lower }}.{% if station %} Estás en <strong>{{ station.name }}</strong>.{% endif %}</p>
+      <ul aria-labelledby="rail-evento">
+        {% for item in event_nav %}<li><a class="rail__link rail__link--sub" href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}>{% with mark=item|nav_icon %}{% icon mark %}{% endwith %}<span class="rail__text">{{ item.label }}</span></a></li>
+        {% endfor %}
+        {# The way to every event stays in sight inside one; an account that only works in events has it first already #}
+        {% if shell.sections|length > 1 %}<li><a class="rail__link rail__link--sub" href="{% url 'events:list' %}?todos=1">{% icon "eventos" %}<span class="rail__text">Todos los eventos</span></a></li>{% endif %}
+      </ul>
+    </div>
+    {% if section.items|length > 1 or not forloop.last %}
+    <details class="rail__mas">
+      <summary class="rail__link">{% icon "mas" %}<span class="rail__text">Más de la iglesia</span></summary>
+      {% if section.items|length > 1 %}<div class="rail__section">
+        <ul>
+          {% for item in section.items|slice:"1:" %}<li><a class="rail__link" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{% icon item.icon %}<span class="rail__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>
+          {% endfor %}
+        </ul>
+      </div>{% endif %}
+    {% endif %}
+    {% elif section.fold and not event_nav %}
+    <details class="rail__mas rail__section">
+      <summary class="rail__link">{% icon section.icon %}<span class="rail__text">{{ section.label }}</span></summary>
+      <ul>
+        {% for item in section.items %}<li><a class="rail__link" href="{{ item.url }}">{% icon item.icon %}<span class="rail__text">{{ item.label }}</span>{% if item.badge %}<span class="badge">{{ item.badge }}<span class="visually-hidden"> {{ item.badge_label }}</span></span>{% endif %}</a></li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% else %}
     <div class="rail__section">
       {% if section.label %}<p class="rail__label" id="rail-seccion-{{ forloop.counter }}">{{ section.label }}</p>{% endif %}
       <ul{% if section.label %} aria-labelledby="rail-seccion-{{ forloop.counter }}"{% endif %}>
@@ -21,16 +56,8 @@
         {% endfor %}
       </ul>
     </div>
-    {% if forloop.first and event_nav %}
-    <div class="rail__section rail__section--event">
-      <p class="rail__label" id="rail-evento">{{ event.name }}</p>
-      <p class="rail__role">Tu rol: {{ access.role_label|lower }}.{% if station %} Estás en <strong>{{ station.name }}</strong>.{% endif %}</p>
-      <ul aria-labelledby="rail-evento">
-        {% for item in event_nav %}<li><a class="rail__link rail__link--sub" href="{{ item.url }}"{% if item.active or active_url_name in item.names %} aria-current="page"{% endif %}><span class="rail__text">{{ item.label }}</span></a></li>
-        {% endfor %}
-      </ul>
-    </div>
     {% endif %}
+    {% if event_nav and forloop.last %}{% if not forloop.first or section.items|length > 1 %}</details>{% endif %}{% endif %}
     {% endfor %}
   </nav>
   <div class="rail__foot">

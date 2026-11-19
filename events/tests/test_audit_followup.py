@@ -6,7 +6,8 @@ LANG-04 / 17    the slug is the "nombre corto" on Equipo, on the sede form and o
 Typo            "Corregida 2 veces", not "vezes".
 Coordinador     "Mi inicio" with 0 camperos: the sign says what to do, the list under it only that it is empty.
 Kiosk           the welcome's "Retomar" opens the screen the review's "Seguir contestando" opens.
-Known gap       a confidential and required question warns whoever edits it; docs say how to recover.
+Optional        no question is required: the editor offers no «Obligatoria», and a blank confidential question no
+                longer stops a coordinador from finalizing (the known gap that was documented).
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ from events.services.questionnaire import (
     load_answers,
 )
 from events.services.reports import generate_snapshot
+from people import flags
 
 from .base import PASSWORD, CampFixture, make_user
 
@@ -169,14 +171,19 @@ class PaperQuestionnaireTests(CampFixture):
             self.assertIn(question.text, self.own_text(block))
             if question.is_choice:
                 # One small square per option, in the order the screen shows them: "Prefiero no responder" and the
-                # other exclusive options ("Por ahora no") last, after the others.
+                # other exclusive options ("Por ahora no") last, after the others. A question without its own
+                # «Prefiero no responder» ("orientacion") gets one, as on the screen: no question requires an answer.
                 listed = list(question.options.all())
-                quiet = [o for o in listed if o.is_decline or o.is_exclusive]
-                expected = [o for o in listed if o not in quiet] + quiet
-                self.assertEqual(self.options(block), [f"☐ {o.label}" for o in expected], question.text)
+                quiet = [o.label for o in listed if o.is_decline or o.is_exclusive]
+                if not any(o.is_decline for o in listed):
+                    quiet.append("Prefiero no responder")
+                expected = [o.label for o in listed if not (o.is_decline or o.is_exclusive)] + quiet
+                self.assertEqual(self.options(block), [f"☐ {label}" for label in expected], question.text)
             else:
                 room = [n for n in block.iter() if {"textarea", "input"} & set(n.classes)]
                 self.assertEqual(len(room), 1, question.text)
+                self.assertEqual(self.options(block), ["☐ Prefiero no responder"], question.text)
+            self.assertIn(", opcional.", self.own_text(block))
 
     def test_exclusive_options_go_last_as_on_the_screen(self):
         self.isolate_structure_cache()
@@ -459,19 +466,19 @@ class KioskResumeTests(CampFixture):
         self.assertEqual(len(links), 1)
         return links[0].text(), links[0].attrs["href"]
 
-    def test_retomar_opens_a_required_follow_up_left_blank(self):
+    def test_retomar_does_not_stop_at_a_follow_up_left_blank(self):
         first, doubts, detail = self.step("salvo"), self.step("dudas"), self.question("dudas_detalle")
         self.assertEqual(self.post_kiosk(first, {f"q_{first.question.id}": "si"}).status_code, 302)
-        # "Sí" stored with its follow-up blank while it was optional ...
-        self.assertEqual(self.post_kiosk(doubts, {f"q_{doubts.question.id}": "si", f"q_{detail.id}": ""}).status_code, 302)
-        self.assertNotIn(detail.id, load_answers(self.interview))
-        # ... and then the follow-up became required.
+        # "Sí" stored with its follow-up blank, even one an older version marked "Obligatoria": none is required.
         Question.objects.filter(pk=detail.pk).update(required=True)  # a published version: only for this test
         with mock.patch.dict(questionnaire._structure_cache, clear=True):
-            self.assertEqual(self.welcome_link(), ("Retomar", reverse("kiosk:step", args=[doubts.number])))
+            self.assertEqual(self.post_kiosk(doubts, {f"q_{doubts.question.id}": "si", f"q_{detail.id}": ""}).status_code, 302)
+            self.assertNotIn(detail.id, load_answers(self.interview))
+            following = self.step("apoyo")
+            self.assertEqual(self.welcome_link(), ("Retomar", reverse("kiosk:step", args=[following.number])))
             review = _Tree(self.client.get(reverse("kiosk:review")).content.decode()).root
             (keep_going,) = [n for n in review.iter() if n.tag == "a" and n.text() == "Seguir contestando"]
-            self.assertEqual(keep_going.attrs["href"], reverse("kiosk:step", args=[doubts.number]))
+            self.assertEqual(keep_going.attrs["href"], reverse("kiosk:step", args=[following.number]))
 
     def test_retomar_opens_the_first_question_left(self):
         first = self.step("salvo")
@@ -480,66 +487,57 @@ class KioskResumeTests(CampFixture):
         self.assertEqual(self.welcome_link(), ("Retomar", reverse("kiosk:step", args=[self.step("dudas").number])))
 
 
-# ---- known gap: a confidential and required question --------------------------------------------------
+# ---- no question is required: the editor, and the dead end that was documented --------------------------
 
 
-WARNING = "Si el campero no la contesta, solo el equipo de cuidado autorizado podrá completarla."
+class QuestionEditorHasNoRequiredTests(CampFixture):
+    """The question editor offers no «Obligatoria», nor its warning: no question requires an answer."""
 
+    WARNING = "Si el campero no la contesta, solo el equipo de cuidado autorizado podrá completarla."
 
-class ConfidentialRequiredWarningTests(CampFixture):
     def setUp(self):
         self.draft = duplicate_version(self.version, self.admin)
         self.login(self.admin)
 
-    def edit_url(self, question):
-        return self.url("question_edit", self.draft.id, question.id)
-
-    def draft_question(self, code, **values):
-        question = Question.objects.get(section__version=self.draft, code=code)
-        for name, value in values.items():
-            setattr(question, name, value)
-        question.save()
-        return question
-
-    def test_the_warning_shows_only_for_a_confidential_required_question(self):
-        cases = [
-            ("impedimento", "confidencial", True, True),
-            ("impedimento", "confidencial", False, False),
-            ("salvo", "sensible", True, False),
-            ("salvo", "general", True, False),
-            ("salvo", "sensible", False, False),
-        ]
-        for code, sensitivity, required, warned in cases:
-            question = self.draft_question(code, sensitivity=sensitivity, required=required)
-            response = self.client.get(self.edit_url(question))
-            self.assertEqual(response.status_code, 200)
-            if warned:
-                self.assertContains(response, f'<small id="id_required_helptext">{WARNING}</small>', count=1, html=False)
-                self.assertContains(response, 'aria-describedby="id_required_helptext"')
-            else:
-                self.assertNotContains(response, WARNING, msg_prefix=f"{code} {sensitivity} {required}")
-
-    def test_the_warning_follows_what_was_just_submitted(self):
-        question = self.draft_question("salvo", sensitivity="sensible", required=False)
-        data = {"text": "", "help_text": "", "kind": "unica", "sensitivity": "confidencial", "required": "on", "order": 1}
-        response = self.client.post(self.edit_url(question), data)  # no text: the form comes back with the error
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, WARNING, count=1)
-        response = self.client.post(self.edit_url(question), {**data, "required": ""})
-        self.assertNotContains(response, WARNING)
-
-    def test_a_new_question_has_no_warning(self):
+    def test_neither_the_box_nor_its_warning_in_either_screen(self):
+        question = Question.objects.get(section__version=self.draft, code="impedimento")  # confidential
+        Question.objects.filter(pk=question.pk).update(required=True)  # what an older draft could hold
         section = self.draft.sections.first()
-        response = self.client.get(self.url("question_add", self.draft.id, section.id))
-        self.assertNotContains(response, WARNING)
-        self.assertFalse(QuestionForm(version=self.draft).fields["required"].help_text)
+        pages = [self.url("question_edit", self.draft.id, question.id), self.url("question_add", self.draft.id, section.id)]
+        for module_on in (False, True):
+            flags.set_enabled(self.church, "community", module_on)
+            for url in pages:
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertNotContains(response, "Obligatoria")
+                self.assertNotContains(response, 'name="required"')
+                self.assertNotContains(response, self.WARNING)
+                self.assertContains(response, "Ninguna pregunta es obligatoria: todas ofrecen “Prefiero no responder” y se pueden dejar sin responder.")
+        self.assertNotIn("required", QuestionForm(version=self.draft).fields)
+
+    def test_saving_a_question_ignores_a_posted_required(self):
+        question = Question.objects.get(section__version=self.draft, code="salvo")
+        data = {"text": "¿Te consideras salvo?", "help_text": "", "kind": "unica", "sensitivity": "confidencial", "required": "on", "order": 1}
+        response = self.client.post(self.url("question_edit", self.draft.id, question.id), data)
+        self.assertEqual(response.status_code, 302)
+        question.refresh_from_db()
+        self.assertFalse(question.required)
+        self.assertEqual(question.sensitivity, "confidencial")
+
+    def test_a_new_draft_does_not_carry_an_old_required(self):
+        Question.objects.filter(section__version=self.version, code="salvo").update(required=True)  # a published version: only for this test
+        draft = duplicate_version(self.version, self.admin)
+        self.assertFalse(Question.objects.get(section__version=draft, code="salvo").required)
 
 
-class ConfidentialRequiredGapTests(CampFixture):
-    """The documented gap (docs/roles-and-permissions.md, "Known gaps") and both ways out, as they are today."""
+class BlankConfidentialQuestionFinalizesTests(CampFixture):
+    """The dead end that docs/roles-and-permissions.md listed under "Known gaps" is gone: a coordinador without
+    confidential access finalizes an "Entrevista a solas" left with a blank confidential question (even one an older
+    version marked "Obligatoria"), and still cannot open that question. The ways to complete it stay open."""
 
     def leave_blank(self, code, *, answer_first=False):
-        """Make ``code`` required, hand the computer over, and let the campero tap "Ya terminé" without answering it."""
+        """Mark ``code`` required as an older version could, hand the computer over, and let the campero tap
+        "Ya terminé" without answering it."""
         question = self.question(code)
         Question.objects.filter(pk=question.pk).update(required=True)  # a published version: only for this test
         patcher = mock.patch.dict(questionnaire._structure_cache, clear=True)
@@ -567,21 +565,26 @@ class ConfidentialRequiredGapTests(CampFixture):
         return client.post(self.url("interview_review", self.interview.public_id),
                            {"revision": self.interview.revision, "follow_up_decision": "no_requerido"})
 
-    def assert_dead_end(self, question, step, *, offers_change):
-        self.assertContains(self.finalize(self.client), f"Falta responder “{question.text}”.")
-        step_url = self.url("interview_step", self.interview.public_id, step.number)
+    def assert_finalized_without_opening_it(self, question, step, *, offers_change):
+        self.assertFalse(self.m_coord1.can_view_sensitive)
         review = self.client.get(self.url("interview_review", self.interview.public_id))
+        step_url = self.url("interview_step", self.interview.public_id, step.number)
         self.assertContains(review, f'href="{step_url}?volver=revision"', count=1 if offers_change else 0)
-        response = self.client.get(step_url)
-        self.assertRedirects(response, self.url("interview_review", self.interview.public_id), fetch_redirect_response=False)
+        self.assertNotContains(review, "Falta responder")
+        # The confidential screen stays closed to this coordinador, as before.
+        self.assertRedirects(self.client.get(step_url), self.url("interview_review", self.interview.public_id), fetch_redirect_response=False)
+        self.assertRedirects(self.finalize(self.client), self.url("interview_done", self.interview.public_id), fetch_redirect_response=False)
+        self.interview.refresh_from_db()
+        self.assertEqual(self.interview.status, Interview.Status.COMPLETED)
+        self.assertNotIn(question.id, load_answers(self.interview))
 
-    def test_a_required_confidential_question_is_a_dead_end_for_the_coordinador(self):
+    def test_a_blank_confidential_question_no_longer_stops_the_coordinador(self):
         question = self.leave_blank("impedimento")
-        self.assert_dead_end(question, self.step("impedimento"), offers_change=False)
+        self.assert_finalized_without_opening_it(question, self.step("impedimento"), offers_change=False)
 
-    def test_so_is_a_required_question_sharing_its_screen_with_a_confidential_follow_up(self):
+    def test_nor_a_blank_question_sharing_its_screen_with_a_confidential_follow_up(self):
         question = self.leave_blank("dudas")  # sensible itself; "dudas_detalle" on its screen is confidential
-        self.assert_dead_end(question, self.step("dudas"), offers_change=True)  # "Cambiar" is there, and bounces
+        self.assert_finalized_without_opening_it(question, self.step("dudas"), offers_change=True)
 
     def test_the_camper_can_answer_it_on_the_kiosk_again(self):
         question = self.leave_blank("impedimento", answer_first=True)
@@ -601,7 +604,7 @@ class ConfidentialRequiredGapTests(CampFixture):
         EventMembership.objects.create(event=self.event, user=self.admin, role=MembershipRole.ADMIN, can_view_sensitive=True)
         care = self.login(self.admin, Client())
         self.choose_station(care, number=2)
-        care.post(self.url("interview_conflict", self.interview.public_id))  # "Tomar el control aquí"
+        care.post(self.url("interview_conflict", self.interview.public_id), {"identity": "on"})  # "Tomar el control aquí", «Sí, es …»
         self.interview.refresh_from_db()
         step_url = self.url("interview_step", self.interview.public_id, self.step("impedimento").number)
         self.assertEqual(care.get(step_url).status_code, 200)

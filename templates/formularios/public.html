@@ -4,8 +4,11 @@
 {% block body %}
 {% comment %}
   A public form (formularios.public.fill): anybody with the address answers, without an account. It extends the
-  skeleton and not base.html on purpose: no rail and no session, whoever reads it. It shows the published version and
-  nothing about who else answered. The box in .form-trap is the honeypot: people never see or reach it.
+  skeleton and not base.html on purpose: no rail and no session, whoever reads it. Like the public page of an event:
+  the church's bar, the church's name over the title, the larger type of a door, one column at a reading measure;
+  what it is for and until when the answers are kept come before the first question, and the one button sends.
+  It shows the published version and nothing about who else answered. The box in .form-trap is the honeypot: people
+  never see or reach it. «sello» is the signed seal of this drawing of the page. Neither is touched by the design.
 {% endcomment %}
 <header class="bar bar--public">
   <div class="bar__inner">{% church_brand church size="bar" %}</div>
@@ -33,8 +36,8 @@
       <input type="text" id="id_{{ honeypot }}" name="{{ honeypot }}" value="" tabindex="-1" autocomplete="off">
     </div>
     {% include "formularios/_questions.html" %}
-    <div class="step__actions">
-      <button class="btn btn--primary" type="submit">Enviar mis respuestas</button>
+    <div class="form-actions">
+      <button class="btn btn--primary btn--large" type="submit">Enviar mis respuestas</button>
     </div>
   </form>
   <p class="aside-note">No necesitas cuenta. Esta página no te pide más datos que los que ves y Emmaus no envía tus respuestas por correo. Por favor no escribas aquí datos de salud ni de otras personas.</p>

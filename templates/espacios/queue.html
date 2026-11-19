@@ -1,14 +1,20 @@
 {% extends "base.html" %}
-{% load emmaus community %}
+{% load emmaus community shell %}
 {% block page_title %}Solicitudes de reserva{% endblock %}
 {% block content %}
 {% comment %}
   The administration's list (espacios.views.queue): what waits for a decision, earliest first, each with what it
   overlaps if anything; under "Ya decididas", everything else, newest first, with the reason of a rejection.
+  Approving a request that overlaps nothing acts in place (data-inline="solicitudes": the row leaves, a line keeps
+  the trace, the counts follow). One that overlaps is sent as a page, because its answer is the clash page; and if a
+  clash appears between the list and the press, the server answers with that page and the browser shows it.
+  Rejecting has a field: its own page. The two answers are a row's small capsules, the yes first; only the first
+  row's «Aprobar» is filled (the screen's one filled action).
 {% endcomment %}
 <div class="narrow spaces">
   {% url 'espacios:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Solicitudes de reserva" lede="Quién pidió qué espacio y para cuándo. Mientras decides, el horario está apartado." back_url=back back_label="Volver a Espacios" %}
+  {% include "events/rotulo/_page_head.html" with title="Solicitudes de reserva" back_url=back back_label="Volver a Espacios" %}
+  <div id="solicitudes">
   <ul class="filters" aria-label="Estado de las solicitudes">
     <li><a href="{% url 'espacios:queue' %}"{% if not chosen %} aria-current="page"{% endif %}>Por decidir <span class="count">{{ pending }}</span></a></li>
     <li><a href="{% url 'espacios:queue' %}?estado=decididas"{% if chosen %} aria-current="page"{% endif %}>Ya decididas</a></li>
@@ -19,28 +25,31 @@
         {% if chosen %}
           {% include "espacios/_booking.html" with booking=booking with_space=True with_day=True %}
         {% else %}
-          <li class="row row--stack row--attention">
+          <li class="row row--lead row--stack row--attention">
+            {% date_block booking.day %}
             <div class="row__main">
-              <p class="row__title">{{ booking.space.name }}: {{ booking.title }}</p>
+              <p class="row__title"{% if forloop.first %} data-inline-focus tabindex="-1"{% endif %}>{{ booking.space.name }}: {{ booking.title }}</p>
               <p class="row__meta">{{ booking.day|weekday_date|capfirst }}, de {{ booking.start_time|time:"H:i" }} a {{ booking.end_time|time:"H:i" }}.{% if booking.has_buffer %} Apartado de {{ booking.block_start|time:"H:i" }} a {{ booking.block_end|time:"H:i" }}, con el tiempo para preparar y recoger.{% endif %}</p>
               <p class="row__meta">{% if booking.requested_by %}La pidió {{ booking.requested_by.full_name }}.{% else %}Quien la pidió ya no está en las personas de la iglesia.{% endif %}{% if booking.event %} Para el evento {{ booking.event.name }}.{% endif %}</p>
-              {% if booking.clashes %}<p class="row__meta"><strong>Se empalma con:</strong> {% for clash in booking.clashes %}{{ clash.title }}, de {{ clash.block_start|time:"H:i" }} a {{ clash.block_end|time:"H:i" }}{% if not forloop.last %}; {% endif %}{% endfor %}.</p>{% endif %}
+              {% if booking.clashes %}<p class="row__meta spaces__clash"><strong>Se empalma con:</strong> {% for clash in booking.clashes %}{{ clash.title }}, de {{ clash.block_start|time:"H:i" }} a {{ clash.block_end|time:"H:i" }}{% if not forloop.last %}; {% endif %}{% endfor %}.</p>{% endif %}
             </div>
-            <form class="row__end" method="post" action="{% url 'espacios:approve' booking.pk %}">
+            <form class="row__end" method="post" action="{% url 'espacios:approve' booking.pk %}"{% if not booking.clashes %} data-inline="solicitudes"{% endif %}>
               {% csrf_token %}
+              <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+              <button class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" type="submit">Aprobar<span class="visually-hidden">: {{ booking.title }}, {{ booking.day|weekday_date }}</span></button>
               <a class="btn btn--secondary btn--small" href="{% url 'espacios:reject' booking.pk %}">Rechazar<span class="visually-hidden">: {{ booking.title }}, {{ booking.day|weekday_date }}</span></a>
-              <button class="btn btn--primary btn--small" type="submit">Aprobar<span class="visually-hidden">: {{ booking.title }}, {{ booking.day|weekday_date }}</span></button>
             </form>
           </li>
         {% endif %}
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=bookings label="Páginas de solicitudes" %}
-    {% if not chosen %}<p class="aside-note">Emmaus no le avisa a nadie lo que decidas: avísale tú a quien la pidió.</p>{% endif %}
   {% elif chosen %}
     <p class="empty-line">Todavía no hay reservas decididas.</p>
   {% else %}
     <p class="empty-line">No hay solicitudes por decidir.</p>
   {% endif %}
+  </div>
+  {% if not chosen %}<p class="aside-note">Mientras decides, el horario está apartado. Emmaus no le avisa a nadie lo que decidas: avísale tú a quien la pidió.</p>{% endif %}
 </div>
 {% endblock %}

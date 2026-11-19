@@ -1,41 +1,43 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Página pública de la iglesia{% endblock %}
 {% block content %}
 {% comment %}
   The church's public home, for its administration (sitio.views.edit; issue #87, a prototype): whether it is
-  published, what it says, when the church meets, and what else it shows by itself (events with a public page,
-  resources marked one by one). Saving never publishes: the review page asks a pastor to approve it, and that
-  approval publishes. Saving another welcome on a public page takes it out of publication; the facts do not.
+  published (its state, its link, and the quiet way to withdraw it, whose page asks first), what it says (one form,
+  the screen's one filled button), when the church meets (a row per time: the row opens its form, where it can be
+  taken out), and what else it shows by itself (events with a public page, resources marked one by one), each
+  a row that leads to where that is decided. Saving never publishes: the review page asks a pastor to approve it, and
+  that approval publishes. Saving another welcome on a public page takes it out of publication; the facts do not.
+  The privacy line (what it never shows) stays under the title.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow sitio-admin">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'church_settings' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Página pública de la iglesia" lede="Lo que lee quien todavía no tiene cuenta: cuándo se reúnen, dónde, cómo preguntar y lo que tú elijas mostrar. Nunca muestra personas, grupos, avisos ni asistencia." back_url=back back_label="Volver a Configuración" %}
+  {% include "events/rotulo/_page_head.html" with title="Página pública de la iglesia" back_url=back back_label="Volver a Configuración" %}
+  <p class="aside-note">La lee quien todavía no tiene cuenta. Nunca muestra personas, grupos, avisos ni asistencia.</p>
 
-  <section class="block public-link" aria-labelledby="publicacion">
+  <section class="block" aria-labelledby="publicacion">
     <h2 id="publicacion" class="heading">Publicación</h2>
     {% if home.published %}
-      <p>{% status "publicada" "Publicada" %}</p>
+      <p class="meta">{% status "publicada" "Publicada" %}{% if live %}<span>Cualquier persona con el enlace la lee sin entrar a Emmaus.</span>{% endif %}</p>
       {% if live %}
-      <p>Cualquier persona con este enlace lee la página sin entrar a Emmaus.</p>
       <div class="field admin-link">
         <label class="label" for="enlace-publico">Enlace de la página pública</label>
         <input class="input" id="enlace-publico" value="{{ public_url }}" readonly>
       </div>
       {% else %}
-      <div class="notice notice--quiet"><p>La página está marcada como publicada, pero hoy no se puede ver: la iglesia tiene que estar activa.</p></div>
+      <div class="notice notice--warning"><p>La página está marcada como publicada, pero hoy no se puede ver: la iglesia tiene que estar activa.</p></div>
       {% endif %}
-      <div class="step__actions">
+      <div class="form-actions sitio-admin__acciones">
         {% if live %}<button class="btn btn--secondary" type="button" data-copy="enlace-publico" data-copy-done="Enlace copiado">Copiar enlace</button>
         <a class="btn btn--link" href="{{ public_url }}" target="_blank" rel="noopener">Ver la página pública<span class="visually-hidden"> (se abre en otra pestaña)</span></a>{% endif %}
-        <a class="btn btn--link" href="{% url 'sitio:unpublish' %}">Dejar de publicar la página</a>
+        <a class="btn btn--link btn--quieto" href="{% url 'sitio:unpublish' %}">Dejar de publicar la página</a>
       </div>
     {% else %}
-      <p>{% if approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}</p>
-      <p>Nadie ve la página todavía. La publica un pastor de tu iglesia al aprobarla; antes verás, en una lista, todo lo que va a ser público.</p>
+      <p class="meta">{% if approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}<span>Nadie la ve todavía. La publica un pastor de tu iglesia al aprobarla; antes verás, en una lista, todo lo que va a ser público.</span></p>
       {% include "resources/_approval_note.html" %}
-      <div class="step__actions">
+      <div class="form-actions sitio-admin__acciones">
         {% if not approval.is_pending %}<a class="btn btn--secondary" href="{% url 'sitio:publish' %}">Revisar y pedir la aprobación</a>{% endif %}
         <a class="btn btn--link" href="{% url 'sitio:preview' %}">Ver la vista previa</a>
       </div>
@@ -49,7 +51,7 @@
       {% csrf_token %}
       {% include "partials/ui/fields.html" with form=form %}
       <p class="aside-note">El nombre, el logotipo, los colores y el correo de contacto{% if request.church.contact_email %} ({{ request.church.contact_email }}){% endif %} son los de <a href="{{ back }}">Configuración</a>. El correo se muestra en la página: si no quieres mostrarlo, déjalo vacío allá.</p>
-      <div class="step__actions">
+      <div class="form-actions">
         <button class="btn btn--primary" type="submit">Guardar cambios</button>
       </div>
     </form>
@@ -63,29 +65,40 @@
     {% if content.days %}
     <ul class="rows">
       {% for day in content.days %}{% for item in day.times %}
-      <li class="row row--lead row--stack">
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "reloj" %}</span>
         <div class="row__main">
-          <p class="row__title">{{ day.day }}, {{ item.time|time:"H:i" }}</p>
-          <p class="row__meta">{{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}.</p>
-        </div>
-        <div class="row__end">
-          <a class="btn btn--secondary btn--small" href="{% url 'sitio:time_edit' item.pk %}">Editar<span class="visually-hidden">: {{ day.day }}, {{ item.time|time:"H:i" }}, {{ item.name }}</span></a>
-          <a class="btn btn--secondary btn--small" href="{% url 'sitio:time_delete' item.pk %}">Quitar<span class="visually-hidden">: {{ day.day }}, {{ item.time|time:"H:i" }}, {{ item.name }}</span></a>
+          <p class="row__title"><a href="{% url 'sitio:time_edit' item.pk %}">{{ day.day }}, {{ item.time|time:"H:i" }}</a></p>
+          <p class="row__meta">{{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}</p>
         </div>
       </li>
       {% endfor %}{% endfor %}
     </ul>
     {% else %}
-    <p class="empty-line">Todavía no hay horarios. Es lo primero que busca quien quiere visitarlos.</p>
+    <p class="empty-line">Todavía no hay horarios.</p>
     {% endif %}
   </section>
 
   <section class="block" aria-labelledby="solo">
-    <h2 id="solo" class="heading">Lo que la página muestra por sí sola</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Eventos</dt><dd>{% if content.events %}Hoy mostraría {{ content.events|length }}: {% for event in content.events %}{{ event.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% else %}Hoy no mostraría ninguno.{% endif %} Solo aparecen los eventos que tienen su propia página pública. Eso se decide en la página de cada evento, en <a href="{% url 'agenda:admin_list' %}">Eventos de la iglesia</a>.</dd></div>
-      <div class="summary-list__row"><dt>Recursos</dt><dd>{% if content.media %}Hoy mostraría {{ content.media|length }}: {% for item in content.media %}{{ item.title }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% else %}Hoy no mostraría ninguno.{% endif %} Solo aparecen los que marques con «Mostrar en la página pública», uno por uno, en <a href="{% url 'resources:media_admin' %}">Administrar los recursos</a>. Se muestran los más recientes.</dd></div>
-    </dl>
+    <h2 id="solo" class="heading">Lo que muestra por sí sola</h2>
+    <ul class="rows">
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "eventos" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'agenda:admin_list' %}">Eventos<span class="visually-hidden"> de la iglesia</span></a></p>
+          <p class="row__meta">{% if content.events %}Hoy mostraría {{ content.events|length }}: {% for event in content.events %}{{ event.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% else %}Hoy no mostraría ninguno.{% endif %}</p>
+          <p class="row__meta">Solo los que tienen su propia página pública.</p>
+        </div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "recursos" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'resources:media_admin' %}">Recursos<span class="visually-hidden">: administrar los recursos</span></a></p>
+          <p class="row__meta">{% if content.media %}Hoy mostraría {{ content.media|length }}: {% for item in content.media %}{{ item.title }}{% if not forloop.last %}, {% endif %}{% endfor %}.{% else %}Hoy no mostraría ninguno.{% endif %}</p>
+          <p class="row__meta">Solo los que marques con «Mostrar en la página pública», los más recientes.</p>
+        </div>
+      </li>
+    </ul>
   </section>
   <p class="aside-note">Pedir la aprobación, aprobar, dejar de publicar y cada cambio quedan anotados en los movimientos de la iglesia, con quién lo hizo.</p>
 </div>

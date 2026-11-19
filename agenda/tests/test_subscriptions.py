@@ -131,7 +131,7 @@ class OfferTests(SubscriptionFixture):
         self.assertContains(with_notices, f'href="{subscribe_url(self.retiro)}"', count=1)
         text = with_notices.content.decode()
         self.assertLess(text.index('id="avisos"'), text.index('id="avisos-correo"'))
-        self.assertLess(text.index('id="avisos-correo"'), text.index('id="inscripcion"'))
+        self.assertLess(text.index('id="inscripcion"'), text.index('id="avisos"'))  # the sign-up leads the page; the notices follow
         self.assertContains(with_notices, "btn--primary", count=1)
         self.assertNotContains(with_notices, "btn--secondary\" href=\"" + subscribe_url(self.retiro))
         self.assertEqual(dict(page.cookies), {})

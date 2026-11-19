@@ -15,11 +15,12 @@ from functools import wraps
 from django.contrib import messages
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import PermissionDenied
+from django.db.models import Count
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
+from django.utils.http import urlencode, urlsafe_base64_encode
 from django.views.decorators.http import require_POST
 
 from core.authz import Action, has_scope
@@ -86,6 +87,7 @@ def person_list(request):
     tags = list(church_tags(request.church))
     chosen = request.GET.get("etiqueta", "")
     tag = next((tag for tag in tags if str(tag.pk) == chosen), None)  # a tag of another church is no filter at all
+    named = people  # the search and the stage, before the tag: what each tag's capsule counts
     if tag is not None:
         people = people.filter(tag_links__tag=tag)
     # The search runs over the whole church before the list is cut in pages, and the filters travel in each page's link.
@@ -93,7 +95,38 @@ def person_list(request):
     return render(request, "people/person_list.html", {
         "page": page, "query": query, "total": _people(request.church).count(), "filtered": bool(query or stage or tag),
         "stages": Person.Stage.choices, "stage": stage, "no_stage": NO_STAGE, "tags": tags, "tag": tag,
+        **_list_views(request.church, query, stage, tag, tags, named),
     })
+
+
+def _list_url(**filters) -> str:
+    kept = urlencode({name: value for name, value in filters.items() if value})
+    return reverse("people:list") + (f"?{kept}" if kept else "")
+
+
+def _list_views(church, query: str, stage: str, tag, tags: list, named) -> dict:
+    """The list's views as capsules (DESIGN_SYSTEM.md §8): each stage and each tag with how many people it would
+    show, keeping the search and the other filter. Only what the list itself shows: a count per view, never a name."""
+    chosen = str(tag.pk) if tag else ""
+    scope = _name_filter(_people(church), query) if query else _people(church)
+    if tag is not None:
+        scope = scope.filter(tag_links__tag=tag)
+    by_stage = dict(scope.values_list("stage").annotate(n=Count("pk")).order_by())
+    stage_views = [{"label": "Todas", "url": _list_url(q=query, etiqueta=chosen), "count": sum(by_stage.values()), "current": not stage}]
+    stage_views += [
+        {"label": label, "url": _list_url(q=query, etapa=value, etiqueta=chosen), "count": by_stage.get(value, 0), "current": stage == value}
+        for value, label in Person.Stage.choices
+    ]
+    stage_views.append({"label": "Sin anotar", "url": _list_url(q=query, etapa=NO_STAGE, etiqueta=chosen), "count": by_stage.get("", 0), "current": stage == NO_STAGE})
+    tag_views = []
+    if tags:
+        by_tag = dict(named.filter(tag_links__tag__in=tags).values_list("tag_links__tag").annotate(n=Count("pk")).order_by())
+        tag_views = [{"label": "Todas", "url": _list_url(q=query, etapa=stage), "count": named.count(), "current": tag is None}]
+        tag_views += [
+            {"label": one.name, "url": _list_url(q=query, etapa=stage, etiqueta=one.pk), "count": by_tag.get(one.pk, 0), "current": tag is not None and one.pk == tag.pk}
+            for one in tags
+        ]
+    return {"stage_views": stage_views, "tag_views": tag_views, "stage_label": dict(Person.Stage.choices).get(stage, "Sin anotar" if stage else "")}
 
 
 @church_admin_required
@@ -119,7 +152,7 @@ def person_edit(request, person_id: int):
         except services.PeopleError as error:  # somebody merged this record while the form was open
             messages.error(request, error.message)
             return redirect("people:list")
-        messages.success(request, "Guardamos los cambios.")
+        messages.success(request, "Guardado.")
         return redirect("people:detail", person.pk)
     return render(request, "people/person_form.html", {"form": form, "person": person})
 

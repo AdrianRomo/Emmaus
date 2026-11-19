@@ -2,7 +2,15 @@
 
 Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rules: `AGENTS.md`.
 
-## Read this first (2026-11-18, night)
+## Read this first (2026-11-19)
+
+**Design law.** Since wave 11 every screen follows [`CRAFT.md`](CRAFT.md) (how a screen behaves; §8 is the
+definition of done), [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) and [`wave11/CONSISTENCY.md`](wave11/CONSISTENCY.md).
+A new screen is built to those, not to "the neighbouring screen". The design work comes from another session
+on `v2/redesign-claridad`: when it gains commits, merge it again (design wins on look and structure, feature
+work wins on function) and never commit to it. Nothing goes to `main` until the owner says v2 is ready.
+
+## Earlier note (2026-11-18, night)
 
 The owner delegated product decisions to the building session: [decision 0017](../decisions/0017-product-decisions-delegated-and-wave-9.md)
 says what that covers and what it does not (the church leadership's release gates #75 and #76, giving,

@@ -12,6 +12,8 @@ urlpatterns = [
     # "Seguir aquí" (emmaus.js): keeps a staff session open. Before the event URLs, so no slug can shadow it.
     path("cuenta/sigo-aqui/", session.still_here, name="still_here"),
     path("nuevo/", home.event_create, name="create"),
+    # After signing in, when several camps this person administers are underway: which one (events.services.landing)
+    path("en-curso/", home.live_camps, name="live_camps"),
     path(E, home.event_home, name="home"),
     path(E + "ayuda/", ayuda.ayuda, name="ayuda"),
     path(E + "computadora/", home.choose_station, name="choose_station"),
@@ -39,6 +41,7 @@ urlpatterns = [
     path(E + "entrevistas/" + I + "entregar/", interview.interview_handoff, name="interview_handoff"),
     path(E + "entrevistas/" + I + "descartar/", interview.interview_discard, name="interview_discard"),
     path(E + "entrevistas/" + I + "corregir/<int:number>/", interview.interview_correct, name="interview_correct"),
+    path(E + "entrevistas/" + I + "seguimiento/", interview.interview_follow_up_change, name="interview_follow_up_change"),
     # Tutor / pastor
     path(E + "mi-equipo/", dashboards.tutor_home, name="tutor_home"),
     path(E + "coordinadores/", dashboards.coordinators, name="coordinators"),
@@ -51,6 +54,7 @@ urlpatterns = [
     path(E + "seguimiento/asignar/", dashboards.follow_ups_bulk_assign, name="follow_ups_bulk_assign"),
     path(E + "seguimiento/<int:follow_up_id>/", dashboards.follow_up_detail, name="follow_up_detail"),
     path(E + "seguimiento/<int:follow_up_id>/asignar/", dashboards.follow_up_assign, name="follow_up_assign"),
+    path(E + "seguimiento/<int:follow_up_id>/continuar/", dashboards.follow_up_continue, name="follow_up_continue"),
     path(E + "equipo/", dashboards.team, name="team"),
     # Reportes
     path(E + "reportes/", reports.reports, name="reports"),
@@ -63,6 +67,7 @@ urlpatterns = [
     path(E + "administracion/", dashboards.admin_home, name="admin_home"),
     path(E + "administracion/practica/", practice.practice, name="practice"),  # the practice campero (issue #49)
     path(E + "participantes/", admin.participants, name="participants"),
+    path(E + "participantes/asignar/", admin.participants_assign, name="participants_assign"),
     path(E + "participantes/importar/", admin.participant_import, name="participant_import"),
     path(E + "participantes/exportar/", admin.participant_export, name="participant_export"),
     path(E + "respuestas/exportar/", admin.answers_export, name="answers_export"),

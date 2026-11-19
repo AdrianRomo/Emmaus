@@ -1,0 +1,18 @@
+{% load emmaus community shell %}{% comment %}
+  One event that happens today, drawn as "Hoy" on Mi iglesia draws it: the arch with the sky of its hour (never a
+  photo: issue #60), the hour, the name as the way in, the place (and the last day of a long one), and where this
+  person stands in the words of groups/_event_state.html. The block is the region that changes (id="ev-<slug>").
+  Needs: event (with page, state, my_place, my_registration), today.
+{% endcomment %}
+<div class="evento hoy__evento" id="ev-{{ event.slug }}">
+  {% event_arch event.page.starts_at %}
+  <div class="evento__texto">
+    <p class="evento__cuando">{% if event.page.starts_at %}{{ event.page.starts_at|time:"H:i" }}{% else %}Hoy{% endif %}</p>
+    <h3 class="evento__titulo"><a href="{% url 'agenda:detail' event.slug %}">{{ event.name }}</a></h3>
+    <p class="evento__donde">{{ event.location }}{% if event.ends_on and event.ends_on != today %}{% if event.location %}, {% endif %}hasta el {{ event.ends_on|day_month }}{% endif %}</p>
+    {% if event.called_off %}<p class="evento__donde"><strong>Este día no hay.</strong></p>
+    {% elif event.series_rule and not hide_series %}<p class="evento__donde">Se repite {{ event.series_rule }}. <a href="{% url 'agenda:series' event.series.pk %}">Ver las otras fechas<span class="visually-hidden"> de {{ event.name }}</span></a></p>{% endif %}
+    {% include "agenda/_recent_notice.html" with event=event cls="evento__donde" %}
+  </div>
+  <div class="evento__pie">{% include "groups/_event_state.html" with region="ev-"|add:event.slug %}{% if event.state == "lista" %}{% status "descartada" "Hay lista de espera" %}{% elif event.state == "llena" %}{% status "descartada" "Ya no hay lugares" %}{% endif %}</div>
+</div>
