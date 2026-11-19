@@ -99,6 +99,16 @@ ACTION_LABELS = {
     "contenido_aprobado": "Aprobó un contenido para publicarse",
     "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
     "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
+    "formulario_creado": "Creó un formulario",
+    "formulario_modificado": "Modificó un formulario o sus preguntas",
+    "formulario_publicado": "Publicó un formulario o una versión nueva de sus preguntas",
+    "formulario_cerrado": "Cerró un formulario",
+    "formulario_lectores": "Agregó o quitó un lector de un formulario",
+    "formulario_respuesta": "Llegó una respuesta a un formulario",
+    "formulario_tarea": "Se creó o cambió un pendiente de un formulario",
+    "formulario_persona_agregada": "Agregó a personas de la iglesia a quien respondió un formulario",
+    "formulario_exportado": "Descargó las respuestas de un formulario",
+    "formulario_respuestas_borradas": "Se borraron las respuestas de un formulario al terminar el tiempo que se guardan",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -115,6 +125,8 @@ ALLOWED_METADATA = frozenset({
     "other_person_id", "merge_id",
     # A pastoral approval of content (resources.approvals): which of the three fixed permitted uses.
     "permitted_use",
+    # A general form (formularios.services), by its id: never its title, a question, an answer or a contact.
+    "form_id",
 })
 
 

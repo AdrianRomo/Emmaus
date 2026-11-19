@@ -95,6 +95,17 @@ class CommunityIntegrityTests(CommunityFixture):
         cls.care = FollowUp.objects.create(church=cls.church, person=cls.member, owner=cls.leader, reason="visita")
         cls.care_b = FollowUp.objects.create(church=cls.church_b, person=cls.member_b, reason="visita")
         FollowUpStep.objects.create(follow_up=cls.care, kind="nota", by=cls.leader)
+        cls.form, cls.form_version, cls.form_answer = cls._form_answer(cls.church, cls.member)
+        cls.form_b, cls.form_version_b, cls.form_answer_b = cls._form_answer(cls.church_b, cls.member_b)
+
+    @staticmethod
+    def _form_answer(church, person):
+        from formularios.models import Form, FormVersion, Submission
+
+        form = Form.objects.create(church=church, title="Convivio", purpose="Para organizar", opens_on=timezone.localdate(),
+                                   closes_on=timezone.localdate())
+        version = FormVersion.objects.create(form=form, number=1, title=form.title, purpose=form.purpose, schema=[])
+        return form, version, Submission.objects.create(form=form, version=version, person=person, purpose_shown=form.purpose)
 
     # One builder per check: each returns the row that disagrees.
     def break_person_merged_into_church(self):
@@ -201,6 +212,14 @@ class CommunityIntegrityTests(CommunityFixture):
     def break_booking_event_church(self):
         Booking.objects.filter(pk=self.booking.pk).update(event=self.event_b)
         return self.booking
+
+    def break_form_submission_person_church(self):
+        type(self.form_answer_b).objects.filter(pk=self.form_answer_b.pk).update(person=self.leader)
+        return self.form_answer_b
+
+    def break_form_submission_version_form(self):
+        type(self.form_answer).objects.filter(pk=self.form_answer.pk).update(version=self.form_version_b)
+        return self.form_answer
 
     def break_role_assignment_scope_church(self):
         return RoleAssignment.objects.create(
@@ -360,6 +379,12 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_booking_event_church(self):
         self.assert_counted_alone_and_fails("booking_event_church")
+
+    def test_form_submission_person_church(self):
+        self.assert_counted_alone_and_fails("form_submission_person_church")
+
+    def test_form_submission_version_form(self):
+        self.assert_counted_alone_and_fails("form_submission_version_form")
 
     def test_role_assignment_scope_church(self):
         self.assert_counted_alone_and_fails("role_assignment_scope_church")

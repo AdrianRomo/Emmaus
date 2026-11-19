@@ -1,0 +1,22 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus brand %}
+{% block title %}Gracias · {{ church.name }}{% endblock %}
+{% block body %}
+{% comment %}After a public form was sent (formularios.public.thanks). The same page whatever happened to the send (a first answer, a second one, a bot): it says nothing about anybody.{% endcomment %}
+<header class="bar bar--public">
+  <div class="bar__inner">{% church_brand church size="bar" %}</div>
+</header>
+<main id="contenido" class="page" tabindex="-1">
+<div class="narrow forms public-form">
+  <header class="page-head">
+    <div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Gracias</h1>
+      <p class="lede">Recibimos tus respuestas a «{{ version.title }}».</p>
+    </div>
+  </header>
+  <p>El equipo de {{ church.name }} que atiende este formulario ya puede leerlas. No te llegará un correo de confirmación.</p>
+  <p>Si enviaste lo mismo dos veces hoy, se queda la primera vez.</p>
+</div>
+</main>
+{% endblock %}

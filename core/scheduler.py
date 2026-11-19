@@ -42,7 +42,8 @@ NOTICE_MAIL = "avisos_correo"
 WAITING_OFFERS = "lista_espera"
 SERIES = "series_eventos"
 PERSON_MERGES = "uniones_personas"
-JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES)
+FORM_ANSWERS = "respuestas_formularios"
+JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS)
 # A job that has not ended well for this long is not running: three passes of 300 seconds.
 STALE_MINUTES = 15
 

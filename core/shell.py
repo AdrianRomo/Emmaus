@@ -58,6 +58,13 @@ OVERVIEW_VIEWS = {"overview:panorama"}
 CARE_VIEWS = {"care:mine", "care:detail"}
 CARE_ADMIN_VIEWS = {"care:admin_list", "care:create", "care:edit", "care:cancel"}
 # Rooms and equipment: one destination, "Espacios". The administration's pages mark the same link.
+# General forms (issue #92): answering one, the staff's screens, and «Pendientes».
+FORM_VIEWS = {"formularios:list", "formularios:fill", "formularios:thanks"}
+FORM_ADMIN_VIEWS = {
+    "formularios:manage", "formularios:create", "formularios:detail", "formularios:edit", "formularios:question_create",
+    "formularios:question_edit", "formularios:publish", "formularios:close", "formularios:readers", "formularios:submissions",
+    "formularios:submission", "formularios:task_assign", "formularios:add_person", "formularios:loose_tasks",
+}
 SPACE_VIEWS = {
     "espacios:list", "espacios:week", "espacios:request", "espacios:cancel", "espacios:queue", "espacios:approve",
     "espacios:reject", "espacios:manage", "espacios:space_create", "espacios:space_edit", "espacios:usage",
@@ -164,6 +171,21 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         request.user, church, guides_group=bool(managed)
     ):
         charge.append(_item("Espacios", reverse("espacios:list"), "equipo", view in SPACE_VIEWS))
+    # General forms: who reads the answers of one through a group or a team gets the door to them; and «Pendientes»,
+    # everything that waits for this person in one list, when something does (always for the administration).
+    from formularios import access as forms_access
+    from formularios import queue as pending_queue
+    from formularios import views as forms_views
+
+    if not is_admin and forms_access.readable_form_ids(request.user, church):
+        charge.append(_item("Respuestas de formularios", reverse("formularios:manage"), "recursos", view in FORM_ADMIN_VIEWS))
+    waiting_all = pending_queue.count(request.user, church, person, is_church_admin=is_admin, care_mine=accompanying,
+                                      group_requests=sum(pending.values()))
+    if waiting_all or is_admin:
+        charge.insert(0, _item("Pendientes", reverse("formularios:queue"), "plan", view == "formularios:queue", waiting_all,
+                               "pendiente" if waiting_all == 1 else "pendientes"))
+    if forms_views.open_member_form_count(church):
+        main.append(_item("Formularios", reverse("formularios:list"), "recursos", view in FORM_VIEWS))
     if charge:
         sections.append({"label": "A tu cargo", "items": charge})
 
@@ -185,6 +207,7 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         admin.append(_item("Seguimiento de personas", reverse("care:admin_list"), "acompanar",
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
+        admin.append(_item("Formularios de la iglesia", reverse("formularios:manage"), "recursos", view in FORM_ADMIN_VIEWS))
         admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional",
                            view in RESOURCE_ADMIN_VIEWS or view in APPROVAL_VIEWS))
         if settings_link:
@@ -207,7 +230,7 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         sections.append({"label": "Administración", "items": admin})
 
     # Phones: Mi iglesia, then the two places this person uses most, and "Más" (the panel).
-    home, _notices, events, groups = main
+    home, _notices, events, groups = main[:4]
     if managed:
         first = managed[0]
         total = sum(pending.values())

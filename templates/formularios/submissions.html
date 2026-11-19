@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}Respuestas: {{ form_row.title }}{% endblock %}
+{% block content %}
+{% comment %}
+  The answers of ONE form (formularios.views.submissions), for the administration and the form's readers: who and
+  when, and the state of its task. The answers themselves are one click further, on each one's page.
+{% endcomment %}
+<div class="narrow forms">
+  {% if request.is_church_admin %}{% url 'formularios:detail' form_row.pk as back %}{% else %}{% url 'formularios:manage' as back %}{% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Respuestas" lede=form_row.title back_url=back back_label="Volver" %}
+  <p>{{ total }} respuesta{{ total|pluralize }}. Se borran después del {{ delete_after|long_date }}, con sus pendientes.</p>
+  {% if submissions %}
+    <ul class="rows">
+      {% for submission in submissions %}
+        <li class="row row--stack{% if submission.task_row.is_overdue %} row--attention{% endif %}">
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'formularios:submission' form_row.pk submission.pk %}">{% if submission.person %}{{ submission.person.full_name }}{% elif submission.contact_name %}{{ submission.contact_name }}{% else %}Alguien que no dejó sus datos{% endif %}</a></p>
+            <p class="row__meta">Respondió el {{ submission.created_at|day_and_hour }}. Versión {{ submission.version.number }}.</p>
+            {% if submission.task_row %}<p class="row__meta">{% if submission.task_row.is_open %}Pendiente{% if submission.task_row.due_on %} para el {{ submission.task_row.due_on|weekday_date }}{% endif %}{% if submission.task_row.is_mine %}, a tu cargo{% elif not submission.task_row.owner_id %}, sin responsable{% endif %}.{% if submission.task_row.is_overdue %} Ya pasó la fecha.{% endif %}{% else %}Seguimiento hecho.{% endif %}</p>{% endif %}
+          </div>
+          {% if submission.task_row %}<div class="row__end">{% status submission.task_row.status_mark submission.task_row.get_status_display %}</div>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/ui/pager.html" with page=submissions label="Páginas de respuestas" %}
+    {% if request.is_church_admin %}
+    <section class="block" aria-labelledby="descargar">
+      <h2 id="descargar" class="heading">Descargar</h2>
+      <p>Un archivo CSV con las respuestas de este formulario y de ningún otro. La descarga queda anotada en la actividad de la iglesia. Fuera de Emmaus, el archivo ya no se borra solo: bórralo tú cuando termines.</p>
+      <form method="post" action="{% url 'formularios:export' form_row.pk %}">
+        {% csrf_token %}
+        <div class="step__actions"><button class="btn btn--secondary" type="submit">Descargar las respuestas (CSV)</button></div>
+      </form>
+    </section>
+    {% endif %}
+  {% else %}
+    <p class="empty-line">Todavía no hay respuestas.</p>
+  {% endif %}
+</div>
+{% endblock %}

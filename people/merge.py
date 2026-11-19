@@ -158,6 +158,9 @@ TABLES: tuple[Table, ...] = (
     Table("espacios.Booking", "requested_by", "reserva de un espacio que pidió", "reservas de espacios que pidió"),
     # A column nobody reads since feedback/0002. Whether somebody gave an opinion is theirs alone: not counted.
     Table("feedback.FeedbackGiven", "person", "", "", private=True),
+    # Who answered a form of the church, or the record "Agregar a personas" made from a public answer. The answers
+    # are not read; every row moves to the survivor (no "one per person" rule: the same-day rule is by time).
+    Table("formularios.Submission", "person", "respuesta a un formulario", "respuestas a formularios"),
 )
 CAMP_KEY = "people.EventParticipantLink.person"
 CAMP_LABELS = ("vínculo con un evento en el que participó", "vínculos con eventos en los que participó")

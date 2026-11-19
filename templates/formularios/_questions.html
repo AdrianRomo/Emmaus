@@ -1,0 +1,32 @@
+{% load emmaus %}
+{% comment %}
+  The questions of one version, as a person answers them (formularios.fields.AnswerForm.bound_items). Shared by the
+  form of the church, the public form and the preview before publishing. One fieldset for several options and one for
+  the contact block; everything else is the common field partial. A question that depends on another says so in its hint.
+{% endcomment %}
+{% for item in items %}
+  {% if item.kind == "contacto" %}
+    <fieldset class="form-block" aria-describedby="{{ item.key }}-nota">
+      <legend class="heading">{{ item.label }}{% if not item.required %} <span class="optional">(opcional)</span>{% endif %}</legend>
+      <p class="hint" id="{{ item.key }}-nota">{% if item.required %}Hacen falta tu nombre y una forma de contactarte.{% else %}Déjalos solo si quieres que te contacten. Si los dejas, hacen falta tu nombre y una forma de contactarte.{% endif %}</p>
+      {% for field in item.fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}
+    </fieldset>
+  {% elif item.kind == "varias" %}
+    {% with field=item.field %}
+    <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+      <fieldset id="{{ field.auto_id }}" tabindex="-1"{% if field.help_text or field.errors %} aria-describedby="{% if field.help_text %}{{ field.auto_id }}_helptext{% endif %}{% if field.errors %} {{ field.auto_id }}-error{% endif %}"{% endif %}>
+        <legend class="legend">{{ field.label }}{% if not field.field.required %} <span class="optional">(opcional)</span>{% endif %}</legend>
+        <span class="hint" id="{{ field.auto_id }}_helptext">{% if field.help_text %}{{ field.help_text }} {% endif %}Marca las que quieras.</span>
+        {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+        <div class="radio-list">
+          {% for box in field %}
+            <label class="check" for="{{ box.id_for_label }}">{{ box.tag }}<span class="check__text">{{ box.choice_label }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    </div>
+    {% endwith %}
+  {% else %}
+    {% include "partials/ui/field.html" with field=item.field %}
+  {% endif %}
+{% endfor %}

@@ -99,6 +99,8 @@ class Command(BaseCommand):
         parser.add_argument("--duplicados", action="store_true", help="Agrega dos registros de una misma persona (mismo correo, sin cuenta), para ver Posibles duplicados.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
+        parser.add_argument("--formularios", action="store_true", help="Agrega un formulario de la iglesia y uno público, publicados, con respuestas sintéticas y sus pendientes, para ver Formularios y Pendientes.")
+
     def handle(self, *args, **opts):
         if not settings.DEBUG:
             raise CommandError("Este comando solo funciona con DEBUG=true. Nunca uses datos de demostración en producción.")
@@ -134,12 +136,72 @@ class Command(BaseCommand):
                 self._panorama(church, admin, password)
             if opts["eventos"]:
                 self._events_extras(church, admin, member)
+            if opts["formularios"]:
+                self._forms(church, admin, leader, member, groups[0])
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
             accounts.append(("Pastor (Panorama)", PASTOR))
         for label, (email, *_rest) in accounts:
             self.stdout.write(f"  {label:<26} {email}")
+
+    def _forms(self, church, admin, leader, member, group) -> None:
+        """A form of the church (who brings what to a meal; the guide of the first group reads it and follows up) and
+        a public one (a visitor leaves their contact), both published, with a few synthetic answers. Each form is
+        looked up by its title, so running the seed again adds nothing. Every contact is ``@demo.invalid``."""
+        from formularios import services as forms
+        from formularios.fields import AnswerForm
+        from formularios.models import Form
+
+        today = forms.church_today(church)
+
+        def form(title, **fields):
+            row = Form.objects.filter(church=church, title=title).first()
+            if row is not None:
+                return row, False
+            return forms.create_form(church, admin, title=title, opens_on=today, closes_on=today + timedelta(days=30),
+                                     retention_days=90, **fields), True
+
+        def answer(row, data, person=None, actor=None):
+            checked = AnswerForm(data, schema=row.current_version.schema)
+            if not checked.is_valid():
+                raise CommandError(f"La respuesta de demostración no es válida: {checked.errors.as_json()}")
+            forms.submit(row, row.current_version.pk, answers=checked.answers, contact=checked.contact, person=person, actor=actor)
+
+        meal, new = form("Convivio de aniversario", purpose="Para organizar la comida del convivio y saber cuántos lugares preparar.",
+                         audience=Form.Audience.MEMBERS, creates_task=True, task_due_days=5)
+        if new:
+            forms.add_reader(meal, admin, f"group:{group.pk}")
+            forms.update_form(meal, admin, title=meal.title, purpose=meal.purpose, audience=meal.audience, retention_days=90,
+                              opens_on=meal.opens_on, closes_on=meal.closes_on, creates_task=True, task_owner=leader.user, task_due_days=5)
+            goes, _ = forms.save_question(meal, admin, kind="si_no", label="¿Vas a venir al convivio?", required=True)
+            forms.save_question(meal, admin, kind="opcion", label="¿Qué puedes traer?", options=["Guisado", "Postre", "Bebidas", "Nada esta vez"],
+                                show_if_question_id=goes.pk, show_if_value="Sí")
+            forms.save_question(meal, admin, kind="varias", label="¿En qué puedes ayudar?", options=["Acomodar sillas", "Servir", "Recoger al final"])
+            forms.save_question(meal, admin, kind="corto", label="¿Cuántas personas vienen contigo?")
+            meal, _ = forms.publish(meal, admin, forms.preview_token(meal))
+            keys = [item["key"] for item in meal.current_version.schema]
+            answer(meal, {keys[0]: "Sí", keys[1]: "Postre", keys[2]: ["Servir"], keys[3]: "2"}, person=member, actor=member.user)
+            answer(meal, {keys[0]: "No"}, person=Person.objects.get(church=church, user=admin), actor=admin)
+
+        visit, new = form("Quiero conocer la iglesia", purpose="Para que alguien del equipo de bienvenida te escriba y te cuente de nuestras reuniones.",
+                          audience=Form.Audience.PUBLIC, creates_task=True, task_due_days=3)
+        if new:
+            forms.save_question(visit, admin, kind="contacto", label="Tus datos para contactarte", required=True, ask_email=True, ask_phone=True,
+                                consent=forms.default_consent(church))
+            forms.save_question(visit, admin, kind="opcion", label="¿Cómo prefieres que te contactemos?", options=["Por mensaje", "Por llamada", "Por correo"], required=True)
+            forms.save_question(visit, admin, kind="fecha", label="¿Qué domingo te gustaría visitarnos?")
+            visit, _ = forms.publish(visit, admin, forms.preview_token(visit))
+            contact = next(item["key"] for item in visit.current_version.schema if item["kind"] == "contacto")
+            how, when = [item["key"] for item in visit.current_version.schema if item["kind"] != "contacto"]
+            for first, last, email, phone, way in (
+                ("Renata", "Ibarra Demo", "renata.visita@demo.invalid", "", "Por correo"),
+                ("Tomás", "Quiroz Demo", "", "55 5550 0101", "Por mensaje"),
+                ("Lucía", "Paredes Demo", "lucia.visita@demo.invalid", "55 5550 0102", "Por llamada"),
+            ):
+                answer(visit, {f"{contact}_nombre": first, f"{contact}_apellidos": last, f"{contact}_correo": email,
+                               f"{contact}_telefono": phone, f"{contact}_acepto": "on", how: way,
+                               when: (today + timedelta(days=7)).isoformat()})
 
     def _events_extras(self, church, admin, member) -> None:
         """A simple event that starts today (programme, questions, a visitor, two minors), an important notice and

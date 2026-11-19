@@ -26,7 +26,11 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    what ``prune_person_merges --apply`` runs), in every church whatever its module flags: it only empties
    those values. No record of a person and no record of a merge is deleted. Doing it twice changes nothing.
 
-2 to 5 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
+6. ``respuestas_formularios``: the answers to a general form are deleted when the time the form said it keeps
+   them ended (``formularios.services.prune``, what ``prune_form_submissions --apply`` runs), with their tasks,
+   in every church whatever its module flags: it only deletes. The form and its questions stay.
+
+2 to 6 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
 switch) leaves only the first, and the line it prints is then the one ``run_report_cutoffs`` prints.
 Not here, on purpose: ``remind_follow_up_owners`` (it mails again on every run) and
 ``prune_attendance`` (it deletes). Both stay manual.
@@ -95,6 +99,12 @@ def clear_merge_contact_values() -> dict:
     return {"cleared": merge.clear_expired(apply=True)}
 
 
+def prune_form_answers() -> dict:
+    from formularios import services
+
+    return services.prune(apply=True)
+
+
 class Command(BaseCommand):
     help = (
         "Una pasada del programador: los cortes y la limpieza de siempre (run_report_cutoffs) y, después, los correos de "
@@ -151,6 +161,12 @@ class Command(BaseCommand):
             return False, "uniones de personas: error"
         return True, f"uniones de personas: {run.counts['cleared']} con datos anteriores borrados"
 
+    def form_answers_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.FORM_ANSWERS, prune_form_answers)
+        if run.counts is None:
+            return False, "formularios: error"
+        return True, f"formularios: {run.counts['submissions']} respuestas vencidas borradas"
+
     def run_once(self) -> bool:
         """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
@@ -160,7 +176,7 @@ class Command(BaseCommand):
             head += " · la pasada de cortes no terminó"
         if scheduler.community_jobs_enabled():
             for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary(), self.series_summary(),
-                                    self.person_merges_summary()):
+                                    self.person_merges_summary(), self.form_answers_summary()):
                 ok = ok and job_ok
                 head += f" · {summary}"
         self.stdout.write(head)
