@@ -485,7 +485,7 @@ En **"Seguimiento"** ves a los camperos que pidieron o necesitan acompañamiento
 
 * **Filtros.** Arriba eliges el estado y el responsable: **"Todos"**, **"Sin asignar"** o **"Míos"**, cada uno con su cuenta. Encima de la lista dice cuántos son; si son más de 200, dice "Mostrando 200 de N. Usa los filtros para ver los demás."
 * **Quién lo atiende.** Cada renglón dice el motivo, el coordinador y hace cuánto, y debajo "Responsable: …" o "Sin asignar".
-* **Asignar sin abrirlo.** Si puedes atenderlo, junto al renglón elige a la persona y toca **"Asignar"**. Solo cambia al responsable; el estado se queda igual. Si alguien ya dejó el equipo, aparece como "(ya no está en el equipo)" hasta que elijas a otra persona.
+* **Asignar sin abrirlo.** Si puedes atenderlo, junto al renglón elige a la persona y toca **"Asignar"**. Solo cambia al responsable; el estado se queda igual. Solo aparecen las personas que pueden abrir ese seguimiento: un tutor, si el campero es de uno de sus coordinadores; uno confidencial o de seguridad, solo quienes tienen ese acceso. Si quien lo tiene ya dejó el equipo o ya no puede verlo, aparece como "(ya no está en el equipo)" o "(no puede ver este seguimiento)" hasta que elijas a otra persona; al guardar el estado desde el seguimiento, se queda con él.
 * **Cambiar el estado.** Abre el seguimiento, elige el estado y el **"Líder responsable"**, y toca **"Guardar"**. Emmaus te regresa a la página desde la que lo abriste, con los mismos filtros.
 
 Los detalles y la nota de cierre solo los ve el equipo de cuidado autorizado.
