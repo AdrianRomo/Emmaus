@@ -38,6 +38,12 @@ entras?» (`events:live_camps`) lists them with «Todos los eventos»; with none
 the sign-in does this: visiting the home later follows the usual rules. Inside an event, a person of the church
 finds «Todos los eventos» under the event's places in the rail and in «Más».
 
+A failed sign-in says one thing, the same for an unknown e-mail, a wrong password and an inactive account, so the
+door never tells whether an account exists: «No pudimos iniciar sesión. Revisa tu correo y tu contraseña e
+inténtalo de nuevo.» (`core.forms.SIGN_IN_ERROR`, owner decision of 2026-11-18, `0f8117d`). When the sign-in's
+`next` is an event path (`/eventos/`, `/e/`, `/unirme/`), a line of its own follows the failed attempt: «Si no
+puedes entrar al evento, pide ayuda a su administración.» (`ThrottledLoginView`, `core/test_sign_in_error.py`).
+
 ## One role per user per event
 
 * `EventMembership` has the unique constraint `(event, user)`: one role per person per event.
@@ -78,7 +84,7 @@ Every event has a `join_code` (6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ2345678
 | Remove it ("Quitar la autorización", reason required and kept on the `ConsentRecord` and in the campero's export, not in the log; audited `autorizacion_retirada`, with `interview` metadata when one is in progress, which can still be finished; completed interviews unchanged) | Yes | No | No | Own | No |
 | Campero list / detail | Whole event | Whole event | Team | Own | No |
 | "Sede" filter on "Camperos", with counts | Whole event | Whole event | Team (counts too) | No (sede shown in "Mis camperos") | No |
-| Start, continue, take over an interview | Any active campero | No | No | Own | No |
+| Start, continue, take over an interview (whoever did not start it confirms "Sí, es {nombre}" once before going on, audited `identidad_verificada`) | Any active campero | No | No | Own | No |
 | Answer questions on a computer handed over ("Entrevista a solas") | No | No | No | No | Own interview only |
 | Recover the computer (unlock) | Yes | No | No | Own camperos | No |
 | Finalize, choose follow-up decision | Yes | No | No | Own | No |
@@ -221,7 +227,22 @@ nothing in this section exists. Decision 0008 records why.
 * Ending a membership, archiving a group or deactivating an account ends the role at once; `start_at` and
   `end_at` are compared when read.
 * No community screen shows a camp answer, a follow-up or a pastoral note. Of an event a person's home shows
-  the name, the dates and the place.
+  the name, the dates and the place, and, when the event has a public notice published in the last 7 days, that
+  notice's title on a line of its own, linked to the event's notices; Eventos does the same
+  (`agenda.services.recent_notices`, a decision under the owner's delegation, `d59e1ee`,
+  `agenda/tests/test_recent_notice.py`). A public notice is written for anybody with the event's public address
+  (`agenda.EventNotice`, #101); only the church's administration writes, edits, retires and deletes them
+  (`church_admin_view`). A notice for the members (`notices.Announcement`) has no link to an event, so it never shows under one.
+* A team's coordinator (an active `serving.TeamMembership` with role «Coordina el equipo», in an active team)
+  sees on «Mi iglesia», as well as on the team's page, up to three coming dates of that team where everyone asked
+  said no: «Nadie sirve el …», with «Pedir a alguien» (`serving.services.uncovered_dates`, a decision under the
+  owner's delegation, `24d4970`). A date with an answer still pending does not count, and who only serves in the
+  team never sees it (`serving/tests/test_home_nadie_sirve.py`).
+* «Eventos de la iglesia» (`agenda.views.admin_list`) is the church administration's. An event underway (status
+  «En curso», today between its first and last day) is listed under «En curso». A camp without a page for the
+  church shows its active camperos («N camperos», practice ones left out) instead of publication and sign-ups,
+  and leads to the camp's administration («Camperos»), which a church administrator opens as Administrador
+  (owner decision, `9dfc09a`).
 
 ## Known gaps
 
