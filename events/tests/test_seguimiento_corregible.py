@@ -259,7 +259,9 @@ class CareFollowUpTests(ChangeFixture):
         listed = owner.get(self.url("follow_ups") + "?responsable=mio").content.decode()
         self.assertIn("Decisión cambiada", listed)
         self.assertIn("Su entrevista cambió a «no necesita seguimiento»: Ada Admin,", listed)
-        self.assertIn("Motivo: Ya lo acompaña su pastor.", listed)
+        # The reason, free text about a campero, is read on the task and the record, never in a list (a decision under
+        # the owner's delegation, like the reason to continue it)
+        self.assertNotIn("Ya lo acompaña su pastor.", listed)
         self.assertIn(f'href="{detail}?siguiente=', listed)
         self.assertIn('#decision-cambiada">Revisar<span class="visually-hidden"> el seguimiento de Mariana López Ruiz</span></a>', listed)
         page = owner.get(detail).content.decode()

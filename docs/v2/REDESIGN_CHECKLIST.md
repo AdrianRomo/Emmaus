@@ -153,6 +153,11 @@ overturn any of them.
 - 12 (the lost-interview message): «… Lo que se respondió sigue guardado.» — the page it lands on says how to go on.
 - 13 (the scheduler tests' flake): fixed on `v2/foundation` (the fixture turns automatic cutoffs off), merged.
 - «Entrevista a cargo de …» shows only when it is not the person who confirmed the identity (no name said twice).
+- The reason for changing a follow-up decision is free text about a campero: it is read on the task and on the
+  interview record (whoever may see them), not in the follow-up lists, which say what changed, who and when — the
+  rule the owner set for the reason to continue a task. From the security review (2026-11-18).
+- Someone who did not start an interview checks «Sí, es {nombre}» before taking it in hand, also when nobody else has
+  it (a free or expired claim): «Entrevista a cargo de …» never names a person who did not check. From the same review.
 - Reserved, not decided here (church leadership, safeguarding, privacy or legal): #75, #76, #85, #86, #97, #58, #60
   and the anonymous-subscription part of #59/#96. Operational, needs the owner on the host: #45, #39, #52, #13.
 
