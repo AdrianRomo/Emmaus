@@ -136,6 +136,9 @@ TABLES: tuple[Table, ...] = (
     Table("care.FollowUp", "person", "seguimiento sobre esta persona", "seguimientos sobre esta persona"),
     Table("care.FollowUp", "owner", "seguimiento a su cargo", "seguimientos a su cargo"),
     Table("care.FollowUpStep", "by", "paso de seguimiento que registró", "pasos de seguimiento que registró"),
+    # Who asked for a space. The words of the booking are not read; the survivor keeps the requests, and with them
+    # what ``espacios.access`` gives to who asked. ``decided_by`` is an account, not a person: untouched.
+    Table("espacios.Booking", "requested_by", "reserva de un espacio que pidió", "reservas de espacios que pidió"),
     # A column nobody reads since feedback/0002. Whether somebody gave an opinion is theirs alone: not counted.
     Table("feedback.FeedbackGiven", "person", "", "", private=True),
 )

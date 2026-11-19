@@ -29,7 +29,7 @@ from events.services import throttle
 from people import flags
 from people.decorators import module_required
 from people.models import Person
-from people.services import ensure_own_person, save_person
+from people.services import PeopleError, ensure_own_person, save_person
 
 from agenda import series as agenda_series
 from agenda import services as agenda_services
@@ -235,7 +235,11 @@ def profile(request):
     the contact fields: the name on record and the date of birth are the administration's."""
     form = MyDataForm(request.POST or None, instance=request.person)
     if request.method == "POST" and form.is_valid():
-        save_person(form.save(commit=False), request.user, created=False)
+        try:
+            save_person(form.save(commit=False), request.user, created=False)
+        except PeopleError:  # the administration merged this record into another one while the form was open
+            messages.error(request, "No pudimos guardar tus datos porque tu registro cambió. Revísalos e inténtalo otra vez.")
+            return redirect("community:profile")
         messages.success(request, "Guardamos tus datos.")
         return redirect("community:home")
     return render(request, "groups/profile.html", {"form": form, "person": request.person})

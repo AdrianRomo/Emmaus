@@ -16,6 +16,7 @@ from core.models import Church, Role
 from core.services import assign_role
 from events.models import Event, EventMembership, MembershipRole
 from events.tests.base import make_user
+from resources.tests.approving import approve
 from sitio import services as sitio
 
 from .test_church_logo import MediaRootMixin, png_bytes
@@ -153,7 +154,9 @@ class PagesAboutAChurchTests(TwoBrandsFixture):
 
     def test_the_public_home_of_a_church(self):
         sitio.save_home(self.church_b, self.admin_b, welcome="Bienvenida de la iglesia B.", address="Avenida B 99")
-        sitio.publish(self.church_b, self.admin_b, sitio.page_content(self.church_b).digest())
+        # The administration asks with the review; a pastor of the church approves, and that makes it public (#99).
+        home = sitio.request_publication(self.church_b, self.admin_b, sitio.page_content(self.church_b).digest())
+        approve(self.church_b, "sitio", home)
         for label, user in self.readers():
             self.client.logout()
             if user:

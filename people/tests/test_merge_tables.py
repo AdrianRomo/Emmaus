@@ -28,7 +28,7 @@ class InventoryTests(MergeFixture):
         self.assertEqual(merge.undecided_relations(), [])
         decided = {(table.model, table.field) for table in merge.TABLES} | merge.HANDLED_ELSEWHERE
         self.assertEqual(sorted(decided), merge.relations_to_person())
-        self.assertGreaterEqual(len(merge.relations_to_person()), 23)
+        self.assertGreaterEqual(len(merge.relations_to_person()), 24)
         for table in merge.TABLES:
             self.assertIsNotNone(self.row_for(table.key, self.dup).pk, table.key)  # and a builder for each
 

@@ -37,21 +37,27 @@ administration alone. This slice separates the two responsibilities.
 1. **A material edit takes the item out of publication until a pastor approves it again.** Emmaus keeps no copy
    of the approved words, so the approved version cannot be served cheaply while another text waits; storing a
    copy of every approved body was judged more than this slice should add. Every editing screen says so *before*
-   saving. Consistent for the three kinds. *Cost the owner should know*: correcting a typo in a published plan
-   hides it (its readers keep their marks and find them again after the approval), and changing a service time
-   takes the public home offline until a pastor approves. If that proves too harsh for the public home, the
-   remedy is a stored snapshot of the approved fields, not a weaker rule.
+   saving, and names what readers stop seeing. *Cost the owner should know*: correcting a typo in a published
+   plan hides it (its readers keep their marks and find them again after the approval). On the public home the
+   rule applies to the welcome only (decision 2, changed at integration).
 2. **What is material**: devotional: title, passage, body, who signs (the day is not: moving it keeps the
    approval). Plan: title, description, author line and every day's position, title, reference, reflection and
-   question (adding or removing a day too). Public home: welcome, address, map link, phone, and each time's day,
-   hour, name and place (the order number is not). Saving the same words is not a change.
+   question (adding or removing a day too). Public home: **only the welcome** (owner's decision at integration, replacing the builder's
+   wider set). The first publication is a pastor's approval of the whole page as it stands (the form's
+   fingerprint covers everything listed); afterwards the times, the address, the map link and the phone are
+   facts the administration keeps current: they change at once, never take the page offline and need no new
+   approval. `ContentApproval.approved_digest` of a home is the fingerprint of its welcome
+   (`sitio.services.authored_digest`). Saving the same words is not a change.
 3. **The public home's events and resources are not part of the approval.** They have their own publication
    steps and keep appearing or leaving by themselves, as before. The pastor's preview lists them and the form's
    fingerprint covers them, so an approval of a list that changed meanwhile is refused.
 4. **Media links need no approval of rights**: a resource is an address on a site the church does not host.
    `save_media` and "Mostrar en la página pública" are unchanged. The list says so.
 5. **No active pastor account**: asking still works and waits; nothing new is published; the administration's
-   screens say why and what to do (invite a pastor, or change a role in Usuarios). No fallback to the
+   screens say why and what to do. The links to "Invitar a alguien" and "Usuarios" are offered only when they
+   open for this account in this church (those legacy screens act in the church of the account's first role;
+   `resources/templatetags/approvals.py::team_screens_open` reuses `core.tenancy.Resolution.elsewhere`, the rule
+   by which the shell hides "Configuración"); otherwise the notice says in words what to do. No fallback to the
    administration, in the view or in the service.
 6. **Existing published content stays published.** Migrations `resources/0004` and `sitio/0002` mark it
    (`state="anterior"`, no approver, no date, reversible). Anything published with no row at all (a seed, a shell)
@@ -70,6 +76,10 @@ administration alone. This slice separates the two responsibilities.
 12. **Audit**: one row per act (`contenido_aprobacion_pedida`, `contenido_aprobacion_retirada`,
     `contenido_aprobado`, `contenido_devuelto`, `contenido_fuera_de_publicacion`), with the object's type and id
     and the permitted use (a fixed word). Never a title, the reason or the note.
+
+13. **Series on the public home** (integration): of a public weekly series the page, the review list and the
+    fingerprint carry only the next date, with "Se repite cada …" (`agenda.series.collapse` in
+    `sitio.services.public_events`); a date that was called off is not listed.
 
 ## Routes and permissions
 

@@ -10,9 +10,11 @@ never carries a title, an address, a phone or the words of the welcome.
 Callers have already answered who may write (``sitio.views``: the church's administration). The
 administration prepares the page and asks for its approval; only a pastor's approval makes it public
 (``resources.approvals``, with the kind in ``sitio.approval``). What the church says about itself
-(the welcome, the address, the map, the phone and the times) is what the approval covers: when one
-of those changes on a public page, the page stops being public until a pastor approves it again.
-The events and the resources the page lists have their own publication steps and are not part of it.
+The first publication is a pastor's approval of the whole page as it stands. After that, only the
+welcome is authored content: when it changes on a public page, the page stops being public until a
+pastor approves it again. The times, the address, the map link and the phone are facts the
+administration keeps current, and the events and the resources have their own publication steps:
+none of those needs a new approval.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from agenda import series as agenda_series
 from core.models import Church
 from events.models import Event
 from people import flags
@@ -122,14 +125,17 @@ def service_days(church) -> list[dict]:
 
 def public_events(church, today=None) -> list[Event]:
     """The church's events that have their own public page (``agenda.public.public_page``): active,
-    page published and public, not over. Each one carries ``page``."""
+    page published and public, not over. Each one carries ``page``. Of a series (what the church does
+    every week) only the next date is listed, with ``series_rule`` ("cada domingo"): a weekly meeting
+    is one row, not eight. A date that was called off is not listed."""
     today = today or timezone.localdate()
     events = (
         Event.objects.filter(church=church, status=Event.Status.ACTIVE, page__published=True, page__public=True)
         .filter(Q(ends_on__gte=today) | Q(ends_on__isnull=True, starts_on__gte=today))
-        .select_related("page").order_by("starts_on", "name", "pk")
+        .select_related("page", "series_occurrence__series").order_by("starts_on", "name", "pk")
     )
-    return list(events[:EVENT_LIMIT])
+    dates = [event for event in events if not getattr(agenda_series.occurrence_of(event), "cancelled", False)]
+    return agenda_series.collapse(dates)[:EVENT_LIMIT]
 
 
 def public_media_items(church):
@@ -153,12 +159,10 @@ def public_ids(items) -> set[int]:
 
 
 def authored_digest(church, home: PublicHome) -> str:
-    """The fingerprint of what the church wrote for the page: the words a pastor approves. The order of
-    the times is not part of it."""
-    times = ServiceTime.objects.filter(church=church).order_by("pk").values_list("pk", "weekday", "time", "name", "place")
-    return approvals.fingerprint(
-        home.welcome, home.address, home.map_url, home.contact_phone, *("\x1e".join(str(part) for part in row) for row in times)
-    )
+    """The fingerprint of the one thing on the page that is authored: the welcome. The times, the address,
+    the map link and the phone are facts the administration keeps current (a changed hour on a Saturday
+    night cannot wait for a pastor): they are not part of what an approval covers."""
+    return approvals.fingerprint(home.welcome)
 
 
 # ---- writing ------------------------------------------------------------------------------------
@@ -201,8 +205,8 @@ def _locked_home(church) -> PublicHome:
 
 
 def _words_changed(church, home: PublicHome, actor, before: str) -> None:
-    """After a write, inside its transaction: when what the church wrote is no longer ``before``, the
-    approval does not cover it and a public page stops being public."""
+    """After a write, inside its transaction: when the welcome is no longer ``before``, the approval
+    does not cover it and a public page stops being public."""
     if before == authored_digest(church, home):
         return
     was_public = home.published
@@ -214,7 +218,8 @@ def _words_changed(church, home: PublicHome, actor, before: str) -> None:
 
 def save_home(church, actor, *, welcome: str = "", address: str = "", map_url: str = "", contact_phone: str = "") -> PublicHome:
     """Save what the church says about itself. It does not publish: a pastor's approval does. On a
-    public page a change takes it out of publication until it is approved again."""
+    public page, another welcome takes it out of publication until a pastor approves it again; the
+    address, the map link and the phone change at once, with no approval."""
     welcome, address = _line(welcome), _text(address)
     if len(welcome) > PublicHome.WELCOME_MAX:
         raise SiteError(f"La bienvenida puede tener hasta {PublicHome.WELCOME_MAX} caracteres y esta tiene {len(welcome)}. Acórtala.", code="welcome")
@@ -247,8 +252,6 @@ def save_time(church, actor, *, weekday: int, time, name: str, place: str = "", 
     if len(name) > 80 or len(place) > 120:
         raise SiteError("Ese texto es demasiado largo. Acórtalo.", code="name")
     with transaction.atomic():
-        home = _locked_home(church)
-        before = authored_digest(church, home)
         if row is None:
             row, words = ServiceTime(church=church), "Agregó un horario de reunión a la página pública"
         else:
@@ -259,18 +262,14 @@ def save_time(church, actor, *, weekday: int, time, name: str, place: str = "", 
         row.weekday, row.time, row.name, row.place, row.position = weekday, time, name, place, position
         row.save()
         record_church(church, actor, "sitio_modificado", words, row)
-        _words_changed(church, home, actor, before)
     return row
 
 
 def delete_time(row: ServiceTime, actor) -> None:
     with transaction.atomic():
         church = row.church
-        home = _locked_home(church)
-        before = authored_digest(church, home)
         record_church(church, actor, "sitio_modificado", "Quitó un horario de reunión de la página pública", row)
         row.delete()
-        _words_changed(church, home, actor, before)
 
 
 def request_publication(church, actor, reviewed: str) -> PublicHome:

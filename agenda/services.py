@@ -474,7 +474,10 @@ def set_birth_date(person, birth_date: date, actor):
         raise AgendaError("Revisa la fecha de nacimiento.", code="birth_date")
     if person.birth_date is None:
         person.birth_date = birth_date
-        people_services.save_person(person, actor, created=False)
+        try:
+            people_services.save_person(person, actor, created=False)
+        except people_services.PeopleError as error:  # the record was merged into another one meanwhile
+            raise AgendaError("No pudimos guardar tu fecha de nacimiento. Vuelve a entrar a Mi iglesia e inténtalo otra vez.", code=error.code) from error
     return person
 
 

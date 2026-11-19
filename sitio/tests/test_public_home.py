@@ -528,41 +528,82 @@ class AdministrationTests(HomeFixture):
         for action in ("sitio_modificado", "sitio_publicado", "sitio_despublicado", "recurso_publico", "recurso_privado"):
             self.assertIn(action, ACTION_LABELS)
 
-    def test_changing_the_churchs_words_on_a_public_page_takes_it_out_until_a_pastor_approves_again(self):
+    def test_only_another_welcome_takes_a_public_page_out_and_the_facts_change_at_once(self):
         home = PublicHome.objects.get(church=self.church)
         data = {"welcome": home.welcome, "address": home.address, "map_url": home.map_url, "contact_phone": home.contact_phone}
-        # The screens say it before saving.
-        self.assertContains(self.client.get(reverse("sitio:edit")), "deja de ser pública en cuanto guardes")
-        self.assertContains(self.client.get(reverse("sitio:time_create")), "deja de ser pública en cuanto guardes")
+        # The screen says, before saving, what leaves publication and what does not.
+        page = self.client.get(reverse("sitio:edit"))
+        self.assertContains(page, "Si cambias la bienvenida, la página completa deja de ser pública en cuanto guardes")
+        self.assertContains(page, "quien abra el enlace no la encontrará")
+        self.assertContains(page, "La dirección, el enlace al mapa, el teléfono y los horarios sí se pueden cambiar: se ven de inmediato.")
         row = ServiceTime.objects.filter(church=self.church).first()
-        self.assertContains(self.client.get(reverse("sitio:time_delete", args=[row.pk])), "la página deja de ser pública hasta que un pastor")
-        # The same words, a resource marked and the order of a time are not a change of what was approved.
-        self.assertContains(self.client.post(reverse("sitio:edit"), data, follow=True), "la página sigue publicada")
+        for address in (reverse("sitio:time_create"), reverse("sitio:time_edit", args=[row.pk]), reverse("sitio:time_delete", args=[row.pk])):
+            self.assertNotContains(self.client.get(address), "deja de ser pública")
+        # The facts the administration keeps current: the address, the map, the phone, a time added, changed, taken away.
+        facts = {**data, "address": "Calle Nueva 5", "map_url": "https://mapas.invalid/nuevo", "contact_phone": "55 0000 1111"}
+        self.assertContains(self.client.post(reverse("sitio:edit"), facts, follow=True), "Ya se ven en la página pública.")
+        self.client.post(reverse("sitio:time_create"), {"weekday": "5", "time": "20:00", "name": "Vigilia del sábado", "place": "", "position": ""})
+        added = ServiceTime.objects.get(church=self.church, name="Vigilia del sábado")
+        self.client.post(reverse("sitio:time_edit", args=[added.pk]), {"weekday": "5", "time": "21:30", "name": "Vigilia del sábado", "place": "", "position": ""})
+        self.client.post(reverse("sitio:time_delete", args=[row.pk]))
         services.show_media(self.private_sermon, self.admin)
-        services.save_time(self.church, self.admin, weekday=row.weekday, time=row.time, name=row.name, place=row.place, position=7, row=row)
-        self.assertEqual(self.get().status_code, 200)
+        response = self.get()
+        self.assertEqual(response.status_code, 200)
+        for text in ("Calle Nueva 5", "https://mapas.invalid/nuevo", "55 0000 1111", "21:30", "Vigilia del sábado"):
+            self.assertContains(response, text)
+        self.assertNotContains(response, row.name)
+        mark = ContentApproval.objects.get(kind="sitio", object_id=home.pk)
+        home.refresh_from_db()
+        self.assertEqual((mark.state, mark.approved_digest), ("aprobado", services.authored_digest(self.church, home)))
+        self.assertFalse(self.audits("contenido_fuera_de_publicacion").exists())
         # Another welcome: out of publication at once, and the administration cannot put it back.
-        response = self.client.post(reverse("sitio:edit"), {**data, "welcome": "Otra bienvenida que nadie aprobó."}, follow=True)
-        self.assertContains(response, "La página dejó de ser pública")
+        response = self.client.post(reverse("sitio:edit"), {**facts, "welcome": "Otra bienvenida que nadie aprobó."}, follow=True)
+        self.assertContains(response, "La página dejó de ser pública: cambió la bienvenida que un pastor había aprobado.")
         self.assertContains(response, "cambió después de publicarse y esos cambios no los ha aprobado un pastor")
         self.assertEqual(self.get().status_code, 404)
-        self.assertEqual(ContentApproval.objects.get(kind="sitio", object_id=home.pk).state, "cambio")
+        mark.refresh_from_db()
+        self.assertEqual(mark.state, "cambio")
         out = self.audits("contenido_fuera_de_publicacion").get()
         self.assertEqual((out.actor, out.object_type, out.object_id, out.metadata), (self.admin, "PublicHome", str(home.pk), {}))
         self.assertNotIn("bienvenida", out.summary.lower())
-        self.publish(self.church, self.admin)
-        self.assertContains(self.get(), "Otra bienvenida que nadie aprobó.")
-        # A time: the same rule, by adding, changing and taking away.
-        self.client.post(reverse("sitio:time_create"), {"weekday": "4", "time": "20:00", "name": "Jóvenes", "place": "", "position": ""})
+        # While it is out, the facts still change; a pastor approves the page as it stands and it is public again.
+        self.client.post(reverse("sitio:edit"), {**facts, "welcome": "Otra bienvenida que nadie aprobó.", "contact_phone": "55 2222 3333"})
         self.assertEqual(self.get().status_code, 404)
         self.publish(self.church, self.admin)
-        added = ServiceTime.objects.get(church=self.church, name="Jóvenes")
-        self.client.post(reverse("sitio:time_edit", args=[added.pk]), {"weekday": "4", "time": "20:30", "name": "Jóvenes", "place": "", "position": ""})
-        self.assertEqual(self.get().status_code, 404)
-        self.publish(self.church, self.admin)
-        self.client.post(reverse("sitio:time_delete", args=[added.pk]))
-        self.assertEqual(self.get().status_code, 404)
+        response = self.get()
+        self.assertContains(response, "Otra bienvenida que nadie aprobó.")
+        self.assertContains(response, "55 2222 3333")
         self.assertEqual(self.client.get(home_url(self.church_b)).status_code, 200)  # the other church's page is untouched
+
+    def test_a_public_weekly_series_is_one_row_with_its_next_date(self):
+        from agenda import series as agenda_series
+        from agenda.models import SeriesOccurrence
+
+        today = date.today()
+        weekly = agenda_series.create_series(
+            self.church, self.admin, name="Servicio de cada semana", weekdays=str(today.weekday()), starts_at=time(10, 0),
+            starts_on=today, published=True, public=True,
+        )
+        rows = list(SeriesOccurrence.objects.filter(series=weekly).select_related("event").order_by("day"))
+        self.assertGreater(len(rows), 4)  # more dates than the page lists: without the rule they would fill it
+        listed = services.public_events(self.church)
+        ours = [event for event in listed if event.name == "Servicio de cada semana"]
+        self.assertEqual([event.pk for event in ours], [rows[0].event.pk])
+        self.assertTrue(any(event.name == "Retiro de jóvenes" for event in listed))  # the other events are still there
+        response = self.get()
+        self.assertContains(response, "Servicio de cada semana", count=1)
+        self.assertContains(response, f"Se repite {agenda_series.rule_words(weekly)}.")
+        self.assertContains(response, reverse("evento:detail", args=[rows[0].event.slug]))
+        self.assertNotContains(response, reverse("evento:detail", args=[rows[1].event.slug]))
+        review = self.client.get(reverse("sitio:preview"))
+        self.assertContains(review, "Servicio de cada semana", count=1)
+        # What the administration reviews and a pastor approves is that same list: one row in its fingerprint.
+        self.assertEqual(sum(event.name == "Servicio de cada semana" for event in services.page_content(self.church).events), 1)
+        # A date that was called off is not announced: the next one is.
+        agenda_series.call_off(rows[0], self.admin)
+        ours = [event for event in services.public_events(self.church) if event.name == "Servicio de cada semana"]
+        self.assertEqual([event.pk for event in ours], [rows[1].event.pk])
+        self.assertFalse(any(event.name == "Servicio de cada semana" for event in services.public_events(self.church_b)))
 
 
 @override_settings(DEBUG=True)

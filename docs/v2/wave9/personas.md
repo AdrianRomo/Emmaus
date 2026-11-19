@@ -92,6 +92,7 @@ has the equivalent row; it is counted in the preview and never deleted.
 | `care.FollowUp.person` | | Moves | No free text exists in `care`. |
 | `care.FollowUp.owner` | | Moves | The owner is a person with an account; the survivor has the account after the merge. |
 | `care.FollowUpStep.by` | | Moves | |
+| `espacios.Booking.requested_by` (wave 9, added at integration) | | Moves; counted as "reservas de espacios que pidió" | No rule "one per person". The survivor keeps the requests, and with them what `espacios.access.can_read_details` gives to who asked. The booking's words, state and hours are not read or changed. |
 | `feedback.FeedbackGiven.person` | | Moves; not counted | A column nobody reads since `feedback/0002` (kept by decision 0013). See the token below. |
 | `people.PersonMerge.survivor`, `.absorbed` (new) | | Not moved | The record of earlier merges. |
 | `people.DuplicateDismissal.person_a`, `.person_b` (new) | | Not moved | A dismissal is about that pair of records. |
@@ -111,7 +112,10 @@ Not foreign keys, checked on purpose:
   are open. Accepted and recorded; the alternative reads who answered.
 * `people.ChurchAuditEvent` and `events.AuditEvent` keep ids as text. History is not rewritten.
 * Columns to `auth.User` (`added_by`, `registered_by`, `checked_in_by`, `linked_by`, …) are about the
-  account that acted and are untouched.
+  account that acted and are untouched. The same holds for the two added by the sibling slices of
+  wave 9, checked at integration: `espacios.Booking.decided_by` and `resources.ContentApproval.approved_by`
+  name an account, so there is nothing to move: the account that decided or approved is the same
+  account after a merge, whichever person record it is attached to. `agenda/series.py` holds no person.
 
 ### 1.6 Refusals (each with a plain sentence in the preview)
 
@@ -247,10 +251,11 @@ Never in this line of work: matching across churches.
 
 ## 6. Left alone, worth a look
 
-* `groups.views.profile` ("Mis datos") and `agenda.services.set_birth_date` call `save_person`
-  without catching `PeopleError`: if a member saves in the instant the administration merges their
-  record away, they now get an error page instead of silently undoing the merge. Rare; a friendly
-  message there belongs to those apps.
+* Fixed at integration: `groups.views.profile` ("Mis datos") and `agenda.services.set_birth_date`
+  now answer a save that races a merge with a plain message (the second as an `AgendaError`, which
+  its view already shows on the form) instead of an error page.
 * `Person.merged_into` is `SET_NULL` (1.2).
-* The demo seed's people share one phone, so the review shows them as pairs on a demo database.
+* Fixed at integration: the demo seed gave every person one phone, so the review showed them all
+  as pairs. Each now gets their own invented phone, and `seed_community_demo --duplicados` adds one
+  synthetic pair (same e-mail, no account) for the browser journey; the plain seed suggests nobody.
 * Somebody may give an event opinion twice across a merge (1.5, the token).

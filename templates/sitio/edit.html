@@ -6,7 +6,7 @@
   The church's public home, for its administration (sitio.views.edit; issue #87, a prototype): whether it is
   published, what it says, when the church meets, and what else it shows by itself (events with a public page,
   resources marked one by one). Saving never publishes: the review page asks a pastor to approve it, and that
-  approval publishes. Saving a change of the church's own words on a public page takes it out of publication.
+  approval publishes. Saving another welcome on a public page takes it out of publication; the facts do not.
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
@@ -44,7 +44,7 @@
 
   <section class="block" aria-labelledby="datos">
     <h2 id="datos" class="heading">Lo que dice tu iglesia</h2>
-    {% if home.published %}<div class="notice notice--warning"><p>La página está publicada. Si cambias la bienvenida, la dirección, el enlace al mapa, el teléfono o un horario, deja de ser pública en cuanto guardes y hasta que un pastor de tu iglesia la apruebe otra vez.</p></div>{% endif %}
+    {% if home.published %}<div class="notice notice--warning"><p>La página está publicada. Si cambias la bienvenida, la página completa deja de ser pública en cuanto guardes y hasta que un pastor de tu iglesia la apruebe otra vez: quien abra el enlace no la encontrará. La dirección, el enlace al mapa, el teléfono y los horarios sí se pueden cambiar: se ven de inmediato.</p></div>{% endif %}
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/ui/fields.html" with form=form %}

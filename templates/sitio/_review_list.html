@@ -38,7 +38,7 @@
     {% if content.events %}
     <ul class="rows">
       {% for event in content.events %}
-      <li class="row"><div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.</p></div></li>
+      <li class="row"><div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if event.series_rule %} Se repite {{ event.series_rule }}: se muestra solo la fecha que sigue.{% endif %}</p></div></li>
       {% endfor %}
     </ul>
     <p class="aside-note">Cada uno lleva a su página pública, que ya existe. No se muestra quién se inscribió ni cuántos lugares quedan.</p>

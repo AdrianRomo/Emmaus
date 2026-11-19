@@ -17,6 +17,7 @@ plain seed.
 Idempotent: every object is looked up by a fixed key. The password comes from --password or EMMAUS_DEMO_PASSWORD.
 """
 
+import hashlib
 import os
 from datetime import date, time, timedelta
 
@@ -95,6 +96,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--password", default="", help="Contraseña de las cuentas (o EMMAUS_DEMO_PASSWORD). Nunca se muestra.")
         parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones, una serie semanal (Reunión general, cada domingo) y la página pública de la iglesia, publicada.")
+        parser.add_argument("--duplicados", action="store_true", help="Agrega dos registros de una misma persona (mismo correo, sin cuenta), para ver Posibles duplicados.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
     def handle(self, *args, **opts):
@@ -126,6 +128,8 @@ class Command(BaseCommand):
                 group_services.request_to_join(groups[0], asked, asked.user)
             self._agenda_and_notices(church, admin, leader, groups[0])
             self._spaces(church, admin, leader)
+            if opts["duplicados"]:
+                self._duplicates(church)
             if opts["panorama"]:
                 self._panorama(church, admin, password)
             if opts["eventos"]:
@@ -437,10 +441,20 @@ class Command(BaseCommand):
 
     def _person(self, church, email, first, last, password) -> Person:
         user = self._account(email, first, last, password)
+        # Each demo person has their own (invented) phone: a shared one would make every pair a "posible duplicado".
+        phone = f"55 5551 {int(hashlib.sha256(email.encode()).hexdigest(), 16) % 10000:04d}"
         person, _ = Person.objects.get_or_create(
-            church=church, user=user, defaults={"first_name": first, "last_name": last, "email": email, "phone": "55 5550 0100"}
+            church=church, user=user, defaults={"first_name": first, "last_name": last, "email": email, "phone": phone}
         )
         return person
+
+    def _duplicates(self, church) -> None:
+        """--duplicados: one synthetic pair for "Posibles duplicados". Same e-mail, another phone, no account, no rows."""
+        for last, phone in (("Ibarra Solís", "55 5552 0101"), ("Ibarra", "55 5552 0199")):
+            Person.objects.get_or_create(
+                church=church, first_name="Renata", last_name=last, user=None,
+                defaults={"email": "renata.ibarra@demo.invalid", "phone": phone},
+            )
 
     def _event(self, church) -> Event:
         event, created = Event.objects.get_or_create(

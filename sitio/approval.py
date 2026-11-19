@@ -1,8 +1,10 @@
 """The public home of the church as a kind of content a pastor approves (``resources.approvals``).
 
-What the approval covers is what the church wrote for the page (``services.authored_digest``). What the
-pastor reads before approving is the whole review list, the events and the resources included, and the
-form carries the fingerprint of that list: if anything in it changed meanwhile, nothing is approved.
+The pastor reads the whole review list before approving (the times, the place, the events and the
+resources included), and the form carries the fingerprint of that list: if anything in it changed
+meanwhile, nothing is approved. So the first publication is an approval of the page as it stands. What the
+approval then records and protects is the welcome (``services.authored_digest``), the one authored text:
+the facts around it change without a pastor.
 """
 
 from django.urls import reverse

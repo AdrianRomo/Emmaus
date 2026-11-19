@@ -42,7 +42,7 @@ class HomeApprovalTests(HomeFixture):
         page = self.client.get(self.address("review"))
         self.assertContains(page, "<h1", count=1)
         for text in ("Bienvenida &lt;b&gt;nueva&lt;/b&gt;.", "Calle de la Paz 12", PHONE_A, "Domingos, 09:00: Primera reunión, en Templo principal.",
-                     "Retiro de jóvenes", "La vid y las ramas", "Tu aprobación cubre lo que la iglesia dice de sí misma"):
+                     "Retiro de jóvenes", "La vid y las ramas", "Apruebas la página como está en esta lista."):
             self.assertContains(page, text)
         for text in ("<b>nueva</b>", "Sermón solo para la iglesia", "Culto sabatino B", PHONE_B, "Aviso interno reservado", "<h2 id=\"rev-"):
             self.assertNotContains(page, text)

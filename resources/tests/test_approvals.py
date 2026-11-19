@@ -441,6 +441,36 @@ class WithoutAPastorTests(ApprovalFixture):
         self.assertNotContains(self.client.get(reverse("resources:devotional_today")), NO_PASTOR)  # the member is not told
 
 
+    def test_the_notice_offers_the_two_links_only_when_they_open_for_this_account_in_this_church(self):
+        """ "Invitar a alguien" and "Usuarios" act in the church of the account's first role. An administrator who is
+        working in their second church is told what to do in words instead of being sent to a page that is not there."""
+        from core.authz import SESSION_KEY
+        from core.models import UserChurchRole
+
+        assign_role(self.admin, self.church_b, Role.CHURCH_ADMIN)  # the same account administers both churches
+        self._person(self.church_b, self.admin)
+        UserChurchRole.objects.filter(role=Role.PASTOR).delete()
+        self.client.force_login(self.admin)
+        pages = (QUEUE, reverse("resources:devotional_admin"), reverse("resources:plan_admin"))
+        for address in pages:  # in the church of the first role: the links open, so they are offered
+            page = self.client.get(address)
+            self.assertContains(page, NO_PASTOR)
+            self.assertContains(page, reverse("create_invitation"))
+            self.assertContains(page, reverse("user_list"))
+        self.assertEqual(self.client.get(reverse("create_invitation")).status_code, 200)
+
+        session = self.client.session
+        session[SESSION_KEY] = self.church_b.pk
+        session.save()
+        for address in pages:  # working in the second church: no link that would not open, and what to do in words
+            page = self.client.get(address)
+            self.assertContains(page, NO_PASTOR, msg_prefix=address)
+            self.assertNotIn(reverse("create_invitation"), main(page))
+            self.assertNotIn(reverse("user_list"), main(page))
+            self.assertContains(page, "Desde aquí no puedes invitar ni cambiar roles en esta iglesia")
+            self.assertContains(page, "hace falta que una cuenta de esta iglesia tenga el rol «Pastor»")
+
+
 class AfterApprovalTests(ApprovalFixture):
     def test_a_material_edit_takes_it_out_of_publication_and_other_changes_do_not(self):
         devotional = approve(self.church, "devocional", self.prepared())

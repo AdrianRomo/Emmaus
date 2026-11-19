@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from agenda.models import EventRegistration
 from care.models import FollowUp, FollowUpStep
+from espacios.models import Booking, Space
 from events.models import Sede
 from feedback.models import FeedbackGiven
 from groups import services as groups
@@ -59,6 +60,10 @@ class MergeFixture(CommunityFixture):
             "care.FollowUp.owner": lambda: FollowUp.objects.create(church=self.church, person=self.member, owner=person, reason="visita"),
             "care.FollowUpStep.by": lambda: FollowUpStep.objects.create(
                 follow_up=FollowUp.objects.create(church=self.church, person=self.member, reason="visita"), kind="llamada", by=person
+            ),
+            "espacios.Booking.requested_by": lambda: Booking.objects.create(
+                space=Space.objects.get_or_create(church=self.church, name="Salón 1")[0], title="Ensayo", requested_by=person,
+                starts_at=timezone.now() + timedelta(days=3), ends_at=timezone.now() + timedelta(days=3, hours=1),
             ),
             "feedback.FeedbackGiven.person": lambda: FeedbackGiven.objects.create(event=self.other_event, person=person),
         }

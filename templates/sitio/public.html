@@ -57,7 +57,7 @@
           {% if event.starts_on %}{% date_block event.starts_on %}{% endif %}
           <div class="row__main">
             <p class="row__title"><a href="{% url 'evento:detail' event.slug %}">{{ event.name }}</a></p>
-            <p class="row__meta">{{ event.starts_on|date_range:event.ends_on|capfirst }}{% if event.page.starts_at %}, a las {{ event.page.starts_at|time:"H:i" }}{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}.</p>
+            <p class="row__meta">{{ event.starts_on|date_range:event.ends_on|capfirst }}{% if event.page.starts_at %}, a las {{ event.page.starts_at|time:"H:i" }}{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}.{% if event.series_rule %} Se repite {{ event.series_rule }}.{% endif %}</p>
           </div>
         </li>
         {% endfor %}

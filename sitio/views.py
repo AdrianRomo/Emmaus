@@ -33,12 +33,8 @@ def _approval(church, home):
 
 
 LEFT = (
-    "Guardamos el cambio. La página dejó de ser pública: cambió lo que un pastor había aprobado. "
+    "Guardamos el cambio. La página dejó de ser pública: cambió la bienvenida que un pastor había aprobado. "
     "Revísala y pide la aprobación pastoral otra vez."
-)
-LEAVES = (
-    "La página está publicada. Si quitas este horario, la página deja de ser pública hasta que un pastor "
-    "de tu iglesia la apruebe otra vez."
 )
 
 
@@ -61,7 +57,7 @@ def edit(request):
                 if home.published and not saved.published:
                     messages.warning(request, LEFT)
                 elif home.published:
-                    messages.success(request, "No cambió nada: la página sigue publicada.")
+                    messages.success(request, "Guardamos los cambios. Ya se ven en la página pública.")
                 else:
                     messages.success(request, "Guardamos los cambios. Nadie los ve todavía: la página no está publicada.")
                 return redirect("sitio:edit")
@@ -132,7 +128,6 @@ def _time_form(request, row):
     if row is not None:
         initial = {"weekday": row.weekday, "time": row.time, "name": row.name, "place": row.place, "position": row.position or None}
     form = ServiceTimeForm(request.POST or None, initial=initial)
-    was_public = services.home_of(request.church).published
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
         try:
@@ -141,12 +136,9 @@ def _time_form(request, row):
         except services.SiteError as error:
             form.add_error(None, error.message)
         else:
-            if was_public and not services.home_of(request.church).published:
-                messages.warning(request, LEFT)
-            else:
-                messages.success(request, "Guardamos el horario." if row else "Agregaste el horario.")
+            messages.success(request, "Guardamos el horario." if row else "Agregaste el horario.")
             return redirect("sitio:edit")
-    return render(request, "sitio/time_form.html", {"form": form, "row": row, "was_public": was_public})
+    return render(request, "sitio/time_form.html", {"form": form, "row": row})
 
 
 @church_admin_view
@@ -162,19 +154,15 @@ def time_edit(request, time_id: int):
 @church_admin_view
 def time_delete(request, time_id: int):
     row = _time(request, time_id)
-    was_public = services.home_of(request.church).published
     if request.method == "POST":
         services.delete_time(row, request.user)
-        if was_public:
-            messages.warning(request, LEFT)
-        else:
-            messages.success(request, "Quitaste el horario.")
+        messages.success(request, "Quitaste el horario.")
         return redirect("sitio:edit")
     return render(
         request, "groups/confirm.html",
         {
             "title": f"¿Quitar el horario «{row.name}»?",
-            "text": LEAVES if was_public else "Dejará de verse en la página pública de la iglesia.",
+            "text": "Dejará de verse en la página pública de la iglesia.",
             "action": "Sí, quitar el horario",
             "back_url": reverse("sitio:edit"),
         },
