@@ -49,10 +49,11 @@ RESOURCE_ADMIN_VIEWS = {
 }
 # The pastoral approval of content: the pastor's own place; for the administration it belongs to "Devocionales y recursos".
 APPROVAL_VIEWS = {"resources:approval_queue", "resources:approval_review", "resources:approval_approve", "resources:approval_return"}
-SERVING_VIEWS = {"serving:home"}
+SERVING_VIEWS = {"serving:home", "serving:swap_create", "serving:plan"}
 SERVING_ADMIN_VIEWS = {
     "serving:team_admin", "serving:team_create", "serving:team", "serving:team_edit", "serving:team_archive",
     "serving:member_remove", "serving:date_create", "serving:date_detail", "serving:date_delete",
+    "serving:organize", "serving:rotation",
 }
 OVERVIEW_VIEWS = {"overview:panorama"}
 CARE_VIEWS = {"care:mine", "care:detail"}

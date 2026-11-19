@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Orden del día, {{ day.date|weekday_date }}{% endblock %}
+{% block content %}
+{% comment %}
+  The order of one date (serving.rota_views.plan): moments in order, each with its minutes and, if somebody is in
+  charge, their name. Read by who serves that date; changed by who coordinates the team. Names only: no contact data.
+  No songs, lyrics, chords, files or links (their rights need another approval), and the page says so.
+{% endcomment %}
+<div class="narrow">
+  {% if manages %}{% url 'serving:team' team.pk as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what back_url=back back_label="Volver al equipo" %}
+  {% else %}{% url 'serving:home' as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what back_url=back back_label="Volver a Servir" %}{% endif %}
+  <p class="page-head__meta">Equipo {{ team.name }}, {{ day.date|weekday_date }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+
+  <section class="block" aria-labelledby="orden">
+    <h2 id="orden" class="heading">Momentos</h2>
+    {% if items %}
+      <ol class="rows plan">
+        {% for item in items %}
+          <li class="row row--stack">
+            {% if manages %}
+              <form class="row__main role-edit" method="post" action="{% url 'serving:plan_item' day.pk item.pk %}">
+                {% csrf_token %}
+                <label class="visually-hidden" for="titulo-{{ item.pk }}">Qué (momento {{ forloop.counter }})</label>
+                <input class="input" id="titulo-{{ item.pk }}" type="text" name="titulo" value="{{ item.title }}" maxlength="80" required>
+                <label class="visually-hidden" for="minutos-{{ item.pk }}">Minutos de {{ item.title }}</label>
+                <input class="input input--small" id="minutos-{{ item.pk }}" type="number" name="minutos" value="{{ item.minutes }}" min="1" max="300" inputmode="numeric" required>
+                <label class="visually-hidden" for="responsable-{{ item.pk }}">Responsable de {{ item.title }}</label>
+                <select class="input input--small" id="responsable-{{ item.pk }}" name="responsable">
+                  <option value="">Sin responsable</option>
+                  {% for person in people %}<option value="{{ person.pk }}"{% if person.pk == item.responsible_id %} selected{% endif %}>{{ person.full_name }}</option>{% endfor %}
+                </select>
+                <button class="btn btn--secondary btn--small" type="submit" name="accion" value="guardar">Guardar<span class="visually-hidden"> {{ item.title }}</span></button>
+                {% if not forloop.first %}<button class="btn btn--link btn--small" type="submit" name="accion" value="subir" formnovalidate>Subir<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
+                {% if not forloop.last %}<button class="btn btn--link btn--small" type="submit" name="accion" value="bajar" formnovalidate>Bajar<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
+                <button class="btn btn--link btn--small" type="submit" name="accion" value="quitar" formnovalidate>Quitar<span class="visually-hidden"> {{ item.title }}</span></button>
+              </form>
+            {% else %}
+              <div class="row__main">
+                <p class="row__title">{{ item.title }}</p>
+                <p class="row__meta">{{ item.minutes }} minuto{{ item.minutes|pluralize }}{% if item.responsible %}. A cargo: {{ item.responsible.full_name }}{% endif %}.</p>
+              </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+      <p class="list-count">{{ items|length }} momento{{ items|length|pluralize }}, {{ total }} minuto{{ total|pluralize }} en total.</p>
+    {% else %}
+      <p class="empty-line">{% if manages %}Esta fecha todavía no tiene un orden. Agrega el primer momento{% if previous %} o copia el de la fecha anterior{% endif %}.{% else %}Esta fecha todavía no tiene un orden.{% endif %}</p>
+      {% if previous %}
+        <form method="post" action="{% url 'serving:plan_copy' day.pk %}">
+          {% csrf_token %}
+          <button class="btn btn--secondary" type="submit">Copiar del anterior<span class="visually-hidden">: {{ previous.what }}, {{ previous.date|weekday_date }}</span></button>
+        </form>
+      {% endif %}
+    {% endif %}
+    <p class="aside-note">El orden lleva solo el nombre de cada momento, sus minutos y quién está a cargo. No lleva canciones, letras, acordes, archivos ni enlaces: para eso hace falta la aprobación de derechos de la iglesia, que todavía no existe en Emmaus.</p>
+  </section>
+
+  {% if manages %}
+  <section class="block" aria-labelledby="agregar">
+    <h2 id="agregar" class="heading">Agregar un momento</h2>
+    <form method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label class="label" for="titulo">Qué</label>
+        <span class="hint" id="titulo-ayuda">Por ejemplo: Bienvenida, Anuncios, Mensaje. Lo lee quien sirve ese día.</span>
+        <input id="titulo" type="text" name="titulo" maxlength="80" required aria-describedby="titulo-ayuda">
+      </div>
+      <div class="field">
+        <label class="label" for="minutos">Minutos</label>
+        <input id="minutos" type="number" name="minutos" min="1" max="300" inputmode="numeric" required>
+      </div>
+      <div class="field">
+        <label class="label" for="responsable">Responsable <span class="optional">(opcional)</span></label>
+        <select id="responsable" name="responsable">
+          <option value="">Sin responsable</option>
+          {% for person in people %}<option value="{{ person.pk }}">{{ person.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn--primary" type="submit">Agregar al orden</button>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
