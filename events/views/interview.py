@@ -25,6 +25,7 @@ from ..services.questionnaire import (
     decline_option,
     load_answers,
     neighbor_steps,
+    resume_step,
     visible_steps,
 )
 from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view, safe_next
@@ -279,10 +280,10 @@ def _resume(request, event, access, interview: Interview, *, reopen: bool):
     interview.refresh_from_db()
     if interview.mode == Interview.Mode.SUPERVISED and not interview.participant_sessions.exists():
         return redirect("events:interview_handoff", slug=event.slug, public_id=interview.public_id)
-    answers = load_answers(interview)
-    for step in visible_steps(interview.version, answers):
-        if step.question.id not in answers:
-            return redirect("events:interview_step", slug=event.slug, public_id=interview.public_id, number=step.number)
+    # After the furthest answer, never back to a question skipped on purpose; nothing after it: the review
+    step = resume_step(interview.version, load_answers(interview))
+    if step is not None:
+        return redirect("events:interview_step", slug=event.slug, public_id=interview.public_id, number=step.number)
     return redirect("events:interview_review", slug=event.slug, public_id=interview.public_id)
 
 
