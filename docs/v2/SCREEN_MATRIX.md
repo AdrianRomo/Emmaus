@@ -45,6 +45,7 @@ at three widths. "Visual" names what was looked at as a rendered screenshot in t
 | Tu asistencia (en la página del grupo) | `/mi-iglesia/grupos/<id>/` | The member, about themselves | New (wave 4) | rows | `groups/tests/test_own_attendance` | — (agent: axe at 390, 768, 1440) | 768 (agent) |
 | Crear un evento, datos del evento | `/mi-iglesia/eventos/nuevo/`, `…/<slug>/datos/` | Administration | New (wave 4) | Atrio form | `agenda/tests/test_simple` | e2e-C | 390, 1440 (list) |
 | Preguntas frecuentes, programa (administrar) | `…/<slug>/preguntas/`, `…/programa/` | Administration | New (wave 4) | rows, Atrio form | `agenda/tests/test_event_extras` | e2e-C | agent: 390, 1440 |
+| Avisos públicos del evento (administrar, retirar, borrar) y sección «Avisos» de la página pública | `…/<slug>/avisos-publicos/…`, `/evento/<slug>/#avisos` | Administration; anybody (public page) | New (#96) | rows, Atrio form, prose | `agenda/tests/test_public_notices` | e2e-C | agent: 390, 1440 |
 | Registrar a alguien que llegó, autorización, agregar a personas | `…/<slug>/inscritos/llego/`, `…/autorizacion/`… | Administration | New (wave 4) | choices, Atrio form | `agenda/tests/test_event_extras` | e2e-C (llegó) | 1440 (inscritos); agent: 390 |
 | Opinar de un evento, gracias | `/mi-iglesia/opiniones/<slug>/` | Who went | New (wave 4) | Atrio form | `feedback/tests` | — | — (loaded at 390, 1440, not looked at) |
 | Opiniones del evento | `…/opiniones/<slug>/resultados/` | Administration | New (wave 4) | summary-list, rows | `feedback/tests` | e2e-C | — (loaded, not looked at) |

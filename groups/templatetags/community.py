@@ -1,7 +1,7 @@
 import copy
 
 from django import template
-from django.utils import formats
+from django.utils import formats, timezone
 
 register = template.Library()
 
@@ -52,6 +52,16 @@ def rhythm(group) -> dict:
     plain.meeting_time = None
     days = plain.schedule
     return {"days": days, "time": group.meeting_time if group.schedule != days else None}
+
+
+@register.filter(expects_localtime=True)
+def day_and_hour(value) -> str:
+    """"18 de noviembre a las 07:05" for a moment of this year, "3 de marzo de 2025 a las 07:05" for another year.
+    In the time zone in force where it is used (``{% timezone %}``); the hour in 24-hour form."""
+    if not value:
+        return ""
+    day = SHORT if value.year == timezone.localtime().year else LONG
+    return f"{formats.date_format(value, day).lower()} a las {formats.date_format(value, 'H:i')}"
 
 
 @register.simple_tag(takes_context=True)

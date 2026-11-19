@@ -99,7 +99,7 @@ class PublicPageTests(PublicFixture):
         for table in ("agenda_eventregistration", "agenda_guardianconsent", "people_person", "events_eventparticipant",
                       "auth_user", "care_followup"):
             self.assertNotIn(table, sql)
-        self.assertLessEqual(len(queries), 6)
+        self.assertLessEqual(len(queries), 7)  # one more since issue #96: the event's public notices
 
     def test_who_is_signed_in_is_not_treated_differently(self):
         anonymous = self.client.get(public_url(self.retiro)).content

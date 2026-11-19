@@ -32,6 +32,7 @@ WITH_DAY = "with_day"  # copied only when the copy has a first day to hang it fr
 RELATIONS = {
     "page": COPIED,  # never published: somebody reads it again first
     "faqs": COPIED,
+    "public_notices": NEVER,  # dated news of the original ("el camión sale a las 7"): the copy starts without any
     "schedule_items": WITH_DAY,
     "registrations": NEVER,  # who signed up, who came, and with them the guardians' authorizations
     "feedback": NEVER,

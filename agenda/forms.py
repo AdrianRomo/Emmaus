@@ -8,7 +8,7 @@ from core.forms import TuErrorMessagesMixin
 from . import services
 from people.models import Person
 
-from .models import EventFaq, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
+from .models import EventFaq, EventNotice, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
 
 DATE_FORMATS = ["%d/%m/%Y", "%Y-%m-%d"]
 
@@ -130,6 +130,42 @@ class EventFaqForm(TuErrorMessagesMixin, forms.ModelForm):
         self.fields["answer"].max_length = 1200
         self.fields["answer"].validators.append(MaxLengthValidator(1200, "Escribe 1200 caracteres o menos."))
         self.fields["position"].min_value = 1
+
+
+class EventNoticeForm(TuErrorMessagesMixin, forms.ModelForm):
+    """One public notice of an event. Whoever has the link reads it, so the form says what never to write."""
+
+    class Meta:
+        model = EventNotice
+        fields = ["title", "body"]
+        help_texts = {
+            "title": "Lo más importante en pocas palabras, por ejemplo: «El camión sale a las 7:00».",
+            "body": (
+                "Cualquiera con el enlace lo puede leer, sin cuenta. No escribas nombres ni datos personales de nadie, "
+                "sobre todo de menores de edad."
+            ),
+        }
+        widgets = {"body": forms.Textarea(attrs={"rows": 5, "maxlength": 1200})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["title"].error_messages["required"] = "Escribe el título del aviso."
+        self.fields["body"].error_messages["required"] = "Escribe el aviso."
+        # The message is the field's own "max_length" one (core.forms.use_tu_error_messages), as for the title.
+        self.fields["body"].validators.append(MaxLengthValidator(1200))
+
+    def _written(self, name: str) -> str:
+        """The field, refused when nothing in it can be seen (only zero-width spaces, for example)."""
+        value = self.cleaned_data[name]
+        if not services.visible_text(value):
+            raise forms.ValidationError(self.fields[name].error_messages["required"], code="required")
+        return value
+
+    def clean_title(self) -> str:
+        return self._written("title")
+
+    def clean_body(self) -> str:
+        return self._written("body")
 
 
 class EventScheduleItemForm(TuErrorMessagesMixin, forms.ModelForm):

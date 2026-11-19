@@ -6,7 +6,7 @@
   The public page of one event (agenda.public.event; decision 0010, guardian access phase A): what the event is,
   for anybody with the address, without an account. It extends the skeleton and not base.html on purpose: the
   bar is always the public one and there is no rail, whoever reads it, so a signed-in person sees the same page.
-  It shows the event and its page, the programme and the frequent questions, its day drawn as the member's page draws
+  It shows the event and its page, its public notices, the programme and the frequent questions, its day drawn as the member's page draws
   it (the arch with the sky of its hour on the day itself; no photo, issue #60). NEVER a person, a count, the places
   left or the waiting list: for those, and to sign up, the reader enters Emmaus.
   Read on a phone by a parent who was sent the link: the day drawn, the facts, the one way to sign up, and then
@@ -52,6 +52,8 @@
     {% else %}<p>La inscripción a este evento no se hace desde Emmaus. Pregunta en {{ church.name }}.</p>{% endif %}
   </section>
   {% endif %}
+
+  {% include "agenda/_public_notices.html" %}
 
   {% include "agenda/_read.html" %}
 

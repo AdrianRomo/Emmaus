@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import urlsafe_base64_decode
 
-from agenda.models import EventFaq, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
+from agenda.models import EventFaq, EventNotice, EventPage, EventRegistration, EventScheduleItem, GuardianConsent
 from core.models import Church, Invitation, Role
 from core.services import assign_role
 from events.models import (
@@ -119,6 +119,7 @@ class NothingOfThePeopleTests(DuplicateFixture):
         registration = EventRegistration.objects.create(event=event, person=person)
         GuardianConsent.objects.create(registration=registration, guardian_name="Mamá", relationship="madre", method="papel")
         EventFaq.objects.create(event=event, question="¿Qué llevo?", answer="Ropa abrigadora.")
+        EventNotice.objects.create(event=event, title="El camión sale a las 7:00", body="Lleguen media hora antes.")
         EventScheduleItem.objects.create(event=event, day=event.starts_on, starts_at=time(9, 0), title="Bienvenida")
         EventFeedback.objects.create(event=event, rating="bien", recommend="si")
         FeedbackGiven.objects.create(event=event, token="a" * 64)

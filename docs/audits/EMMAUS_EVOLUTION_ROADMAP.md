@@ -1,5 +1,65 @@
 # Emmaus — evolution roadmap
 
+## Current priorities — 2026-11-18
+
+This section supersedes stale implementation statuses, camp-era freezes and the conflicting cut-over
+wording below. Sections 1–10 remain the historical 2026-10-28 audit/backlog, not a current checklist.
+Current migration governance is [ADR 0013](../decisions/0013-migrations-after-the-camp.md), with
+additive reviewed changes on v2; branch/release handling follows AGENTS.md and a human-reviewed
+rollout. This review does not choose a stack cut-over or authorize a merge/deployment.
+
+Source baselines: stable `main` **75d42dd** (camp + optional discipleship), v2 integration
+**519e738** (church modules). Source implemented is not production verified. The
+[refreshed matrix](../v2/FEATURE_MATRIX.md) and [issue decision record](../v2/CAPABILITY_REVIEW_2026-11-18.md)
+replace the old missing-feature list. Tracking review: [#90](https://github.com/AdrianRomo/Emmaus/issues/90).
+
+### Prioritized issue-linked work
+
+| Priority | Scope / issue | Effort; dependency and acceptance gate |
+|---|---|---|
+| P0 | Off-site backups and restore drill [#45](https://github.com/AdrianRomo/Emmaus/issues/45) | M / ops; encrypted copy plus synthetic/scratch restore and retention evidence before v2 touches real camp storage |
+| P0 | Runtime/security configuration [#39](https://github.com/AdrianRomo/Emmaus/issues/39) and unresolved owner prerequisites [#13](https://github.com/AdrianRomo/Emmaus/issues/13) | S / owner; dated yes/no runbook evidence, no secret values; checked boxes alone do not prove current state |
+| P0 | Delivery/monitoring [#52](https://github.com/AdrianRomo/Emmaus/issues/52); scheduler defaults [#80](https://github.com/AdrianRomo/Emmaus/issues/80) | M / ops; logs + error alert + heartbeat/configuration/SMTP failure alert; prove one due delivery and no duplicate/opted-out delivery |
+| P0 before church two | Church switching [#32](https://github.com/AdrianRomo/Emmaus/issues/32) then tenant-aware branding [#37](https://github.com/AdrianRomo/Emmaus/issues/37) | M / high; supervised authorization review and two-church request/scope/brand denial tests |
+| P0 before affected production use | Minor authorization [#75](https://github.com/AdrianRomo/Emmaus/issues/75); attendance/retention [#76](https://github.com/AdrianRomo/Emmaus/issues/76) | Leadership/privacy approval artifacts; no named pastoral attendance; retention jobs stay unscheduled pending approved periods and backup treatment |
+| P1 | Public event updates [#96](https://github.com/AdrianRomo/Emmaus/issues/96) / [#59](https://github.com/AdrianRomo/Emmaus/issues/59) Phase A; validate public home [#87](https://github.com/AdrianRomo/Emmaus/issues/87) | M / high for subscriptions; public links first, no child data. Two churches/anonymous phone tasks and unpublished-content denial |
+| P1 next gated family slice | Verified households/guardians [#59](https://github.com/AdrianRomo/Emmaus/issues/59) Phase B | L / high; [#75](https://github.com/AdrianRomo/Emmaus/issues/75) first; revocation, own-child logistics, no confidential answers/care/safety reports |
+| P1 before broader publication | Pastoral/content publication authority and rights [#99](https://github.com/AdrianRomo/Emmaus/issues/99) | M / high; reconcile ADR 0014 with admin confirmation, versioned approval; private reading progress unchanged |
+| P1 discovery / staged P2 | People quality/consent directory [#91](https://github.com/AdrianRomo/Emmaus/issues/91); forms and safe work queue [#92](https://github.com/AdrianRomo/Emmaus/issues/92) | L / high each; reversible provenance-aware identity changes, permission-filtered metadata, no automatic cross-church matching |
+| P2 | Moderated moments/photos [#60](https://github.com/AdrianRomo/Emmaus/issues/60); map/workshops [#58](https://github.com/AdrianRomo/Emmaus/issues/58) | M–L / high; [#75](https://github.com/AdrianRomo/Emmaus/issues/75) and approved image/location policy, protected storage, retention and scoped denial tests |
+| P2 after family approvals | Child handoff [#85](https://github.com/AdrianRomo/Emmaus/issues/85) | L / high; [#59](https://github.com/AdrianRomo/Emmaus/issues/59)/[#75](https://github.com/AdrianRomo/Emmaus/issues/75) and ministry walk-through, changed pickup authority/lost code/offline denial cases |
+| P2 | Event recurrence and registration depth [#93](https://github.com/AdrianRomo/Emmaus/issues/93) | L / high; families [#59](https://github.com/AdrianRomo/Emmaus/issues/59), payments [#86](https://github.com/AdrianRomo/Emmaus/issues/86); PostgreSQL capacity races, series exceptions and cancellation |
+| P2 | Rooms/equipment bookings [#94](https://github.com/AdrianRomo/Emmaus/issues/94) | L / medium; approval model, clash and buffer tests; not the media library |
+| P2 | Advanced rotas/service/music planning [#95](https://github.com/AdrianRomo/Emmaus/issues/95) | L / medium; ministry/content approval, swaps/recurrence/clash cases; no unlicensed song/Bible imports |
+| P2 discovery only | Private prayer requests [#97](https://github.com/AdrianRomo/Emmaus/issues/97) | M / high; leadership defines access, response/escalation and retention before text collection |
+| P3 / last of ADR 0014 modules | Giving and reconciliation [#86](https://github.com/AdrianRomo/Emmaus/issues/86) | XL / high; church administration/accounting/legal go/no-go; hosted flow first, no provider or financial ledger chosen here |
+| P3 | Integrations, portable data, tenant operations and optional network [#98](https://github.com/AdrianRomo/Emmaus/issues/98) | XL / high; [#32](https://github.com/AdrianRomo/Emmaus/issues/32)/[#37](https://github.com/AdrianRomo/Emmaus/issues/37)/[#45](https://github.com/AdrianRomo/Emmaus/issues/45) and approved purposes/scopes; network organisations are not tenants |
+| Deferred / evidence first | Native/TV/car apps, site builder, NFC, hosted streaming/podcasts, AI extras [#87](https://github.com/AdrianRomo/Emmaus/issues/87); extra messaging channels [#96](https://github.com/AdrianRomo/Emmaus/issues/96) | No implementation commitment; demonstrated need, operating cost, rights/privacy and provider review first |
+
+Within remaining ADR 0014 modules preserve its accepted order: verified families, moderated photos,
+child check-in, giving. New parity epics are discovery/slicing work, not permission to bypass those
+approvals or to start all modules at once. No new epic is `agent:ready`.
+
+### Already in v2; do not rebuild
+
+Person/campus/link foundations, scope projection and flags; Mi iglesia and contact self-service;
+groups/joining/meetings/attendance; Panorama aggregates; simple events, capacity/waitlists/walkups,
+programme and FAQ; notices/preferences/urgent versions; serving responses/unavailability;
+visitor follow-up, feedback, media search, devotionals, private reading-plan progress; practice/team
+imports/templates; policy settings; public-home prototype; scheduled job code and health heartbeats.
+Limits and pinned source links are in the matrix. A real SMTP/restore/visitor test is still separate.
+
+### Decision boundaries
+
+Retain ADR 0015 privacy floors, pending unverified age, audited door overrides, restricted parent
+visibility and confidential camp access. Accept technical defaults only as recorded in the review.
+Church leadership/safeguarding decides guardian/pickup authority, minors/photos/medical handling,
+urgent publishers, retention and privacy wording. Pastoral/content leadership approves authored or
+licensed material; finance/legal/accounting approves giving. UK Gift Aid/DBS is not a Mexico rule.
+Do not add spiritual scoring or send sensitive answers to AI, email, public pages or guardians.
+
+---
+
 Commit `6f4664f`, 2026-10-28. Risk-ranked, dependency-aware plan from the camp application to the church platform in `docs/EMMAUS_PRODUCT_VISION.md`, built on `EMMAUS_CURRENT_STATE_AUDIT.md` and `EMMAUS_GAP_ANALYSIS.md`. Effort is relative (`S` ≤ one session, `M` two to three, `L` a week of sessions, `XL` more); no dates, no costs. Risk uses the repository's labels.
 
 ## 1. Rules that apply to every phase
