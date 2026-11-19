@@ -10,32 +10,30 @@
   {% url 'community:home' as back %}{% url 'people:create' as create %}{% url 'people:from_event_list' as from_event %}
   {% include "events/rotulo/_page_head.html" with title="Personas" lede="Quienes forman parte de la iglesia, tengan o no acceso a Emmaus." back_url=back back_label="Volver a Mi iglesia" action_url=create action_label="Registrar a una persona" secondary_url=from_event secondary_label="Traer de un evento" %}
   {% if total %}
-  <form method="get" role="search">
-    <div class="search">
-      <label class="visually-hidden" for="buscar">Buscar por nombre</label>
-      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Nombre o apellido">
-      <button class="btn btn--secondary" type="submit">Buscar</button>
+  <form class="filter-bar people-filters" method="get" role="search" aria-label="Buscar y filtrar personas">
+    <div class="field filter-bar__search">
+      <label class="label" for="buscar">Nombre o apellido</label>
+      <input class="input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false">
     </div>
-    <div class="filter-form people-filters">
-      <div class="field">
-        <label class="label" for="f-etapa">Etapa</label>
-        <select id="f-etapa" name="etapa">
-          <option value="">Todas</option>
-          {% for value, label in stages %}<option value="{{ value }}"{% if stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
-          <option value="{{ no_stage }}"{% if stage == no_stage %} selected{% endif %}>Sin anotar</option>
-        </select>
-      </div>
-      {% if tags %}
-      <div class="field">
-        <label class="label" for="f-etiqueta">Etiqueta</label>
-        <select id="f-etiqueta" name="etiqueta">
-          <option value="">Todas</option>
-          {% for one in tags %}<option value="{{ one.pk }}"{% if tag.pk == one.pk %} selected{% endif %}>{{ one.name }}</option>{% endfor %}
-        </select>
-      </div>
-      {% endif %}
-      <div class="filter-form__actions"><button class="btn btn--secondary" type="submit">Filtrar</button>{% if filtered %} <a href="{% url 'people:list' %}">Quitar filtros</a>{% endif %}</div>
+    <div class="field">
+      <label class="label" for="f-etapa">Etapa</label>
+      <select id="f-etapa" name="etapa">
+        <option value="">Todas</option>
+        {% for value, label in stages %}<option value="{{ value }}"{% if stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        <option value="{{ no_stage }}"{% if stage == no_stage %} selected{% endif %}>Sin anotar</option>
+      </select>
     </div>
+    {% if tags %}
+    <div class="field">
+      <label class="label" for="f-etiqueta">Etiqueta</label>
+      <select id="f-etiqueta" name="etiqueta">
+        <option value="">Todas</option>
+        {% for one in tags %}<option value="{{ one.pk }}"{% if tag.pk == one.pk %} selected{% endif %}>{{ one.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <button class="btn btn--secondary" type="submit">Buscar</button>
+    {% if filtered %}<a class="people-filters__clear" href="{% url 'people:list' %}">Quitar filtros</a>{% endif %}
   </form>
   {% endif %}
   <section class="block" aria-labelledby="lista">

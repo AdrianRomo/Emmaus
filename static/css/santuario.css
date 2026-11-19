@@ -508,3 +508,8 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] .spaces .override { margin-top: var(--s-8); padding-top: var(--s-5); border-top: 1px solid var(--line); max-width: 46rem; }
 :root[data-ui="2"] .spaces .override .btn { margin-top: var(--s-4); }
 :root[data-ui="2"] .spaces .rows + form { margin-top: var(--s-8); }
+
+/* Personas: the list's search and its two filters (stage, tag) are one GET form, Atrio's .filter-bar, set apart
+   from the page's actions above it; "Quitar filtros" lines up with the button */
+:root[data-ui="2"] .people-filters { margin-top: var(--s-6); }
+:root[data-ui="2"] .people-filters__clear { align-self: center; }
