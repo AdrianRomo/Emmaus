@@ -71,7 +71,7 @@
         <ul class="rows">{% for f in follow_ups %}
           <li class="row row--lead{% if f.kind == 'seguridad' %} ficha__riesgo{% endif %}">
             <span class="admin-icono">{% if f.kind == "seguridad" %}{% icon "alerta" %}{% else %}{% icon "acompanar" %}{% endif %}</span>
-            <div class="row__main"><p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.path|urlencode }}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}<span>{{ f.created_at|since|capfirst }}</span></p>{% if f.review_is_mine %}<p class="row__meta">{% include "events/supervision/_decision_review.html" with back=request.path %}</p>{% endif %}</div>
+            <div class="row__main"><p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.path|urlencode }}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}{% if f.reopened %}{% include "events/supervision/_decision_reopened.html" %}{% endif %}<span>{{ f.created_at|since|capfirst }}</span></p>{% if f.review_is_mine %}<p class="row__meta">{% include "events/supervision/_decision_review.html" with back=request.path %}</p>{% endif %}</div>
           </li>
         {% endfor %}</ul>
       </section>
@@ -150,7 +150,7 @@
         <h2 id="seguimiento" class="heading">Seguimiento</h2>
         <ul class="rows">{% for f in follow_ups %}
           <li class="row">
-            <div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.path|urlencode }}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta">{{ f.created_at|since|capfirst }}</p>{% if f.decision_change %}<p class="row__meta">{% include "events/supervision/_decision_mark.html" %}{% if f.review_is_mine %} {% include "events/supervision/_decision_review.html" with back=request.path %}{% endif %}</p>{% endif %}</div>
+            <div class="row__main"><p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ request.path|urlencode }}">{% if f.kind == "seguridad" %}Situación de riesgo{% else %}{{ f.get_reason_display }}{% endif %}</a></p><p class="row__meta">{{ f.created_at|since|capfirst }}</p>{% if f.decision_change %}<p class="row__meta">{% include "events/supervision/_decision_mark.html" %}{% if f.review_is_mine %} {% include "events/supervision/_decision_review.html" with back=request.path %}{% endif %}</p>{% endif %}{% if f.reopened %}<p class="row__meta">{% include "events/supervision/_decision_reopened.html" %}</p>{% endif %}</div>
             {% follow_up_status f.status %}
           </li>
         {% endfor %}</ul>
