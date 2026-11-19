@@ -15,7 +15,7 @@
 <header class="page-head">
   <h1 class="voice page-head__title">Revisa las respuestas de {{ participant.first_name }}</h1>
   <p class="page-head__meta">{{ interview.get_mode_display }}, iniciada {{ interview.started_at|since }}</p>
-  {% if people.confirmed or people.holder %}<p class="page-head__meta">{% include "events/interview/_people.html" %}</p>{% endif %}
+  {% if people.confirmed or people.holder_shown %}<p class="page-head__meta">{% include "events/interview/_people.html" %}</p>{% endif %}
 </header>
 
 <dl class="summary-list summary-list--answers">
@@ -76,7 +76,7 @@
 <header class="page-head">
   <h1 class="voice page-head__title">Revisa las respuestas de {{ participant.first_name }}</h1>
   <p class="page-head__meta">{{ interview.get_mode_display }}, iniciada {{ interview.started_at|since }}</p>
-  {% if people.confirmed or people.holder %}<p class="page-head__meta">{% include "events/interview/_people.html" %}</p>{% endif %}
+  {% if people.confirmed or people.holder_shown %}<p class="page-head__meta">{% include "events/interview/_people.html" %}</p>{% endif %}
 </header>
 
 <dl class="summary-list summary-list--answers">

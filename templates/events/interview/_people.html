@@ -1,6 +1,7 @@
 {% load emmaus %}{% comment %}
   The people of an interview, for staff (owner decision; services.interviews.interview_people): who confirmed the campero's
   identity when it started, who checked it again to continue it in someone else's place, and who has it now. Each
-  sentence starts with a space, so it can follow another one. Who has it is said only when it is not who confirmed
+  sentence starts with a space, so it can follow another one. The computer (``interview.station``) is the holder's: said
+  with them when they are someone else, else on the record's first line. Who has it is said only when it is not who confirmed
   it at the start (a decision under the owner's delegation: no name said twice).
-{% endcomment %}{% if people.confirmed %} Identidad confirmada por {{ people.confirmed.by }}, {{ people.confirmed.at|fecha_corta }}.{% endif %}{% for check in people.reverified %} Identidad verificada de nuevo por {{ check.by }}, {{ check.at|fecha_corta }}.{% endfor %}{% if people.holder and not people.holder_is_confirmer %} Entrevista a cargo de {{ people.holder }}.{% endif %}
+{% endcomment %}{% if people.confirmed %} Identidad confirmada por {{ people.confirmed.by }}, {{ people.confirmed.at|fecha_corta }}.{% endif %}{% for check in people.reverified %} Identidad verificada de nuevo por {{ check.by }}, {{ check.at|fecha_corta }}.{% endfor %}{% if people.holder_shown %} Entrevista a cargo de {{ people.holder }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}.{% endif %}

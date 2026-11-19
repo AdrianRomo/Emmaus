@@ -129,7 +129,9 @@ class IdentityConfirmationIsKeptTests(CampFixture):
         self.assertEqual((check.actor_id, check.metadata), (self.admin.id, {}))
         started = AuditEvent.objects.get(action="entrevista_iniciada", object_id=str(interview.public_id))
         self.assertEqual((started.actor_id, started.metadata.get("identity_confirmed")), (self.coord1.id, True))  # unchanged
-        both = f"{said} Identidad verificada de nuevo por {self.admin.get_full_name()}, {fecha_corta(check.created_at)}. Entrevista a cargo de {self.admin.get_full_name()}."
+        interview.refresh_from_db()
+        at = f", en {interview.station.name}" if interview.station else ""  # the computer goes with whoever has it now
+        both = f"{said} Identidad verificada de nuevo por {self.admin.get_full_name()}, {fecha_corta(check.created_at)}. Entrevista a cargo de {self.admin.get_full_name()}{at}."
         self.assertContains(other.get(self.url("interview_review", interview.public_id)), both)
         self.assertNotContains(other.get(conflict), 'name="identity"')  # asked once per person
         self.assertRedirects(self.finalize(other, interview), self.url("interview_done", interview.public_id), fetch_redirect_response=False)
@@ -161,6 +163,22 @@ class IdentityConfirmationIsKeptTests(CampFixture):
         interview.refresh_from_db()
         self.assertEqual(interview.lock_holder_id, self.admin.pk)  # taken in hand once checked
 
+    def test_an_interview_from_before_the_confirmation_keeps_its_line_and_says_no_name_twice(self):
+        """Started before «Antes de empezar» asked «Sí, es …» (the seeded camp, the first camp): the record's first line
+        says who did it, as it always did, and «Entrevista a cargo de …» only for someone else."""
+        interview, _ = self.started(self.p2)
+        started = AuditEvent.objects.get(action="entrevista_iniciada", object_id=str(interview.public_id))
+        started.metadata.pop("identity_confirmed", None)
+        AuditEvent.objects.filter(pk=started.pk).update(metadata=started.metadata)
+        self.assertRedirects(self.finalize(self.client, interview), self.url("interview_done", interview.public_id), fetch_redirect_response=False)
+        for module in (False, True):
+            flags.set_enabled(self.church, "community", module)
+            with self.subTest(module=module):
+                record = self.client.get(self.url("interview_detail", interview.public_id))
+                self.assertContains(record, f"del cuestionario, por {self.coord1.get_full_name()}")
+                self.assertNotContains(record, "Identidad confirmada por")
+                self.assertNotContains(record, "Entrevista a cargo de")
+
     def test_recovering_the_computer_after_the_campero_keeps_it(self):
         """The coordinator who handed the computer over recovers it: they started it, so nothing is asked."""
         interview, said = self.started(self.p1, mode="supervisada")
@@ -173,6 +191,7 @@ class IdentityConfirmationIsKeptTests(CampFixture):
         record = self.client.get(self.url("interview_detail", interview.public_id))
         self.assertContains(record, said)
         self.assertNotContains(record, "Entrevista a cargo de")  # the same person: no name said twice
+        self.assertNotContains(record, f"del cuestionario, por {self.coord1.get_full_name()}")  # nor on the first line
         self.assertFalse(self.checks(interview).exists())
 
     def test_another_coordinator_recovering_the_computer_checks_it_before_the_review(self):
@@ -191,7 +210,9 @@ class IdentityConfirmationIsKeptTests(CampFixture):
         self.client.post(self.url("interview_conflict", interview.public_id), {"identity": "on"})
         review = self.client.get(self.url("interview_review", interview.public_id))
         self.assertContains(review, said)
-        self.assertContains(review, f"Entrevista a cargo de {self.admin.get_full_name()}.")
+        interview.refresh_from_db()
+        at = f", en {interview.station.name}" if interview.station else ""
+        self.assertContains(review, f"Entrevista a cargo de {self.admin.get_full_name()}{at}.")
         self.assertEqual(self.checks(interview).count(), 1)
 
     def test_an_interview_started_without_the_box_says_nothing_about_it(self):

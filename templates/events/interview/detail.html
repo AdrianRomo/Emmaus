@@ -14,7 +14,7 @@
   {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Retomar entrevista" %}
 {% endwith %}
 {% if participant.is_practice %}{% include "events/_practice_notice.html" %}{% endif %}
-<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.{% include "events/interview/_people.html" %}</span></p>
+<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario{% if not people.confirmed %}, por {{ interview.conducted_by.get_full_name|default:"—" }}{% endif %}{% if interview.station and not people.holder_shown %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.{% include "events/interview/_people.html" %}</span></p>
 
 <div class="narrow">
 {% if interview.status == "completada" %}
@@ -84,7 +84,7 @@
   {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Retomar entrevista" %}
 {% endwith %}
 {% if participant.is_practice %}{% include "events/_practice_notice.html" %}{% endif %}
-<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.{% include "events/interview/_people.html" %}</span></p>
+<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario{% if not people.confirmed %}, por {{ interview.conducted_by.get_full_name|default:"—" }}{% endif %}{% if interview.station and not people.holder_shown %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.{% include "events/interview/_people.html" %}</span></p>
 
 <div class="narrow">
 {% if interview.status == "completada" %}
