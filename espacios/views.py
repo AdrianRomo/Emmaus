@@ -20,7 +20,6 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import formats, timezone
-from django.views.decorators.http import require_POST
 
 from core.nav import safe_next
 from core.paging import paginate
@@ -222,9 +221,12 @@ def queue(request):
 
 
 @church_admin_view
-@require_POST
 def approve(request, booking_id: int):
     booking = _booking(request, booking_id)
+    if request.method != "POST":
+        # Approving is a POST. A GET is a reload or «atrás» on the clash page an action in place left at this
+        # address: back to the queue, where the booking still waits.
+        return redirect("espacios:queue")
     tz = services.church_tz(request.church)
     seen = None
     if request.POST.get("sobre") == "1":

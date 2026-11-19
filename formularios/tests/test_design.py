@@ -47,6 +47,34 @@ class InPlaceTests(FormFixture):
         self.assertNotIn(url("question_delete", form.pk, first.pk), page)
         self.assertContains(self.client.get(url("question_edit", form.pk, first.pk)), url("question_delete", form.pk, first.pk))
 
+    def test_the_same_move_sent_twice_moves_once_and_keeps_the_condition(self):
+        """«Reintentar» after a failure the server did not share sends the same POST again: the form carries the
+        place the question had when the page was drawn (``desde``), and a question no longer there is not moved."""
+        form = self.draft()
+        parent, _ = services.save_question(form, self.admin, kind="si_no", label="Primera")
+        moved, _ = services.save_question(form, self.admin, kind="corto", label="La que se mueve")
+        child, _ = services.save_question(form, self.admin, kind="corto", label="Depende", show_if_question_id=parent.pk, show_if_value="Sí")
+        self.client.force_login(self.admin)
+        order = lambda: list(form.questions.order_by("position", "id").values_list("pk", flat=True))  # noqa: E731
+        page = self.client.get(url("detail", form.pk)).content.decode()
+        drawn = page[page.index(url("question_move", form.pk, moved.pk)):]
+        self.assertIn('name="desde" value="2"', drawn[:drawn.index("</form>")])
+        data = {"hacia": "abajo", "desde": "2"}
+        for _attempt in range(2):
+            response = self.client.post(url("question_move", form.pk, moved.pk), data, follow=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(order(), [parent.pk, child.pk, moved.pk])
+            self.assertEqual(len(response.context["messages"]), 0)  # the second is silent: the page shows the order
+        child.refresh_from_db()
+        self.assertEqual((child.show_if_question_id, child.show_if_value), (parent.pk, "Sí"))
+        # A stale place (somebody else moved it meanwhile) does nothing; the place it has now moves it
+        self.client.post(url("question_move", form.pk, child.pk), {"hacia": "arriba", "desde": "3"})
+        self.assertEqual(order(), [parent.pk, child.pk, moved.pk])
+        self.assertEqual(services.move_question(form, self.admin, moved.pk, up=True, at=2), 0)
+        self.assertEqual(order(), [parent.pk, child.pk, moved.pk])
+        services.move_question(form, self.admin, moved.pk, up=True, at=3)
+        self.assertEqual(order(), [parent.pk, moved.pk, child.pk])
+
     def test_pendientes_has_no_action_of_its_own(self):
         form = self.public_form(creates_task=True, task_due_days=3)
         submission, _ = self.answer(form)

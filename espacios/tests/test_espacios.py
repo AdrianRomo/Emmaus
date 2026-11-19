@@ -427,7 +427,15 @@ class ViewTests(SpacesFixture):
     def test_approving_is_a_post(self):
         booking = self.book()
         self.client.force_login(self.admin)
-        self.assertEqual(self.client.get(url("approve", booking)).status_code, 405)
+        # A GET (a reload or «atrás» on the clash page an action in place left at this address) approves nothing and
+        # goes back to the queue; who is not the administration, or is of another church, gets what they always got.
+        self.assertRedirects(self.client.get(url("approve", booking)), reverse("espacios:queue"))
+        self.assertEqual(self.status(booking), Status.REQUESTED)
+        for user, status in ((self.member_user, 403), (self.admin_b, 404)):
+            self.client.force_login(user)
+            response = self.client.get(url("approve", booking))
+            self.assertEqual(response.status_code, status)
+            self.assertNotContains(response, booking.space.name, status_code=status)
         self.assertEqual(self.status(booking), Status.REQUESTED)
 
     # ---- what each reader sees --------------------------------------------------------------------

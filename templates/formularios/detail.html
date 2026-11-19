@@ -10,7 +10,8 @@
   (a draft never published has no answers to see yet).
   A question's title opens it (editing and removing it are on its page); «Subir» and «Bajar» act in place
   (data-inline="preguntas-lista"; the head and the publish state are taken from the same answer, data-inline-also;
-  focus goes to the question that moved). Publishing, closing and removing are never in place.
+  focus goes to the question that moved; «desde» is the place it had when this page was drawn, so a press sent
+  twice, as «Reintentar» can, moves it once). Publishing, closing and removing are never in place.
 {% endcomment %}
 <div class="narrow forms">
   {% url 'formularios:manage' as back %}{% url 'formularios:submissions' form_row.pk as answers_url %}{% url 'formularios:edit' form_row.pk as edit_url %}
@@ -92,6 +93,7 @@
             {% if form_row.status != "cerrado" and questions|length > 1 %}
             <form class="row__end" method="post" action="{% url 'formularios:question_move' form_row.pk question.pk %}" data-inline="preguntas-lista" data-inline-also="cabeza-formulario estado-publicacion">
               {% csrf_token %}
+              <input type="hidden" name="desde" value="{{ forloop.counter }}">
               {% if not forloop.first %}<button class="btn btn--link" type="submit" name="hacia" value="arriba">Subir<span class="visually-hidden">: {{ question.label }}</span></button>{% endif %}
               {% if not forloop.last %}<button class="btn btn--link" type="submit" name="hacia" value="abajo">Bajar<span class="visually-hidden">: {{ question.label }}</span></button>{% endif %}
             </form>
