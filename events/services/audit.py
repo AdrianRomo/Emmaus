@@ -65,6 +65,7 @@ ACTION_LABELS = {
     "consulta_confidencial": "Consultó información confidencial",
     "seguimiento": "Actualizó un seguimiento",
     "seguimiento_corregido": "Cambió una decisión de seguimiento",  # services.follow_up_decision: never the reason
+    "seguimiento_continuado": "Continuó un seguimiento que su entrevista ya no pide",  # never the reason either
     "recordatorio_seguimiento": "Envió recordatorios de seguimientos abiertos",
     "reporte_riesgo": "Reportó una situación de riesgo",
     "corte_generado": "Generó un corte",
