@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block page_title %}Aparecer en el directorio{% endblock %}
+{% block content %}
+{% comment %}
+  «Aparecer en el directorio» (people.directory_views.mine): the person's own choice, reached from «Mis datos».
+  First what is true today (the row exactly as others see it, or the one sentence that says why nobody sees it);
+  then the four choices, which lead to the preview and save nothing by themselves; last, the way out, which is one
+  press and clears everything. Nothing here names another person and nothing acts in place: choosing has fields and
+  a second step.
+{% endcomment %}
+<div class="narrow directorio">
+  {% url 'community:profile' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Aparecer en el directorio" meta="El directorio es la lista de personas de tu iglesia que eligieron aparecer. Tú decides si estás y qué muestras; nadie lo elige por ti." back_url=back back_label="Volver a Mis datos" %}
+  {% if row %}
+  <section class="block" aria-labelledby="hoy">
+    <h2 id="hoy" class="heading">Así te ven hoy</h2>
+    <ul class="rows">{% include "people/_directory_row.html" %}</ul>
+  </section>
+  {% elif outdated and offered %}
+    <div class="notice notice--warning"><p>Cambió lo que aceptas al aparecer, así que hoy no apareces. Lo que habías elegido sigue marcado abajo: si quieres volver a aparecer, revísalo y acéptalo de nuevo.</p></div>
+  {% elif has_choice and not switch_on %}
+    <div class="notice"><p>Tu iglesia apagó el directorio: hoy nadie lo ve y tú no apareces. Lo que elegiste se queda guardado; si tu iglesia lo enciende otra vez, vuelves a aparecer con lo mismo, salvo que lo retires aquí.</p></div>
+  {% elif has_choice %}
+    <div class="notice"><p>Hoy no apareces en el directorio y no puedes cambiar lo que elegiste. Si crees que es un error, habla con la administración de tu iglesia. Lo que elegiste se queda guardado, salvo que lo retires aquí.</p></div>
+  {% endif %}
+
+  {% if offered %}
+  <form class="block" method="post">
+    {% csrf_token %}
+    <section class="form-section" aria-labelledby="mostrar">
+      <h2 id="mostrar" class="form-section__title">{% if row %}Cambiar lo que muestras{% else %}Qué quieres mostrar{% endif %}</h2>
+      <fieldset class="field" aria-describedby="mostrar-ayuda">
+        <legend class="legend">Además de tu nombre, que aparece siempre</legend>
+        <span class="hint" id="mostrar-ayuda">Marca solo lo que quieras. Puedes no marcar nada: entonces aparece solo tu nombre.</span>
+        {% for option in options %}
+        <label class="check" for="mostrar-{{ option.name }}">
+          <input type="checkbox" id="mostrar-{{ option.name }}" name="mostrar" value="{{ option.name }}"{% if option.checked %} checked{% endif %}>
+          <span class="check__text">{{ option.label }}</span>
+        </label>
+        {% endfor %}
+      </fieldset>
+    </section>
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit" name="paso" value="ver">Ver cómo me verán</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+    <p class="aside-note">Todavía no se guarda nada: primero ves cómo te verán y lo que aceptas.</p>
+  </form>
+  {% endif %}
+
+  {% if has_choice %}
+  <section class="block" aria-labelledby="salir">
+    <h2 id="salir" class="heading">{% if row %}Dejar de aparecer{% else %}Retirar lo que elegiste{% endif %}</h2>
+    <p>{% if row %}Desapareces del directorio en ese momento y se borra lo que elegiste mostrar.{% else %}Se borra lo que elegiste: no vuelves a aparecer aunque el directorio se encienda o tu registro cambie.{% endif %} Puedes volver a elegir cuando quieras, mientras tu iglesia lo ofrezca.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-actions"><button class="btn btn--link btn--quieto" type="submit" name="paso" value="salir">{% if row %}Dejar de aparecer{% else %}Retirar lo que elegí{% endif %}</button></div>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

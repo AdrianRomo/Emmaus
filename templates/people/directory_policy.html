@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Directorio entre miembros: lo que ofrece tu iglesia{% endblock %}
+{% block content %}
+{% comment %}
+  The church's switch of the directory between members (people.directory_views.policy), for a pastor of the church
+  only. It states what the church offers its people, in the sentences each person reads before appearing; switching
+  it on needs the acceptance, recorded with the account and the moment. «texto» is the version of the wording that
+  was on this screen: if it changed, nothing is switched on. Nothing here acts in place: each step changes what a
+  whole church can see.
+{% endcomment %}
+<div class="narrow directorio">
+  {% if state.enabled %}{% url 'directorio:list' as back %}{% include "events/rotulo/_page_head.html" with title="Lo que ofrece tu iglesia" meta="Directorio entre miembros. Solo quien tiene el rol de pastor puede encenderlo o apagarlo; la administración no." back_url=back back_label="Volver al Directorio" %}{% else %}{% url 'community:home' as back %}{% include "events/rotulo/_page_head.html" with title="Lo que ofrece tu iglesia" meta="Directorio entre miembros. Solo quien tiene el rol de pastor puede encenderlo o apagarlo; la administración no." back_url=back back_label="Volver a Mi iglesia" %}{% endif %}
+  {% include "partials/ui/error_summary.html" %}
+  {% if state.enabled %}
+    <div class="notice notice--success"><p>Está encendido: quien eligió aparecer se ve en el directorio.</p></div>
+  {% elif state.outdated %}
+    <div class="notice notice--warning"><p>Cambió lo que Emmaus ofrece en nombre de tu iglesia desde que se aceptó. Mientras nadie con el rol de pastor acepte el texto de abajo, nadie ve el directorio.</p></div>
+  {% else %}
+    <div class="notice"><p>Está apagado: nadie ve el directorio y nadie puede elegir aparecer.</p></div>
+  {% endif %}
+
+  <section class="block" aria-labelledby="ofrece">
+    <h2 id="ofrece" class="heading">Qué es</h2>
+    <ul class="directorio__texto">
+      <li>Una lista de personas de tu iglesia que <strong>eligieron aparecer</strong>, para que se encuentren entre sí. Encenderlo no hace aparecer a nadie: cada persona lo elige por su cuenta, en «Mis datos». Ni tú ni la administración pueden elegir por alguien.</li>
+      <li>Se le ofrece solo a personas adultas con cuenta que la administración tiene anotadas como «Miembro» o «Asistente» en Personas. Quien no tiene etapa anotada, o está como «Visita» o «Ya no asiste», no lo ve ni aparece.</li>
+      <li>Una persona menor de edad nunca aparece y nunca lo ve.</li>
+      <li>Lo ve quien aparece en él. La administración y quienes tienen el rol de pastor lo ven aunque no aparezcan.</li>
+    </ul>
+  </section>
+  <section class="block" aria-labelledby="lee">
+    <h2 id="lee" class="heading">Lo que lee cada persona antes de aparecer</h2>
+    {% include "people/_directory_wording.html" %}
+  </section>
+
+  {% if not state.enabled %}
+  <form class="block" method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="texto" value="{{ version }}">
+    <section class="form-section" aria-labelledby="encender">
+      <h2 id="encender" class="form-section__title">Encenderlo</h2>
+      {% include "partials/ui/field.html" with field=form.accepted %}
+    </section>
+    <div class="form-actions"><button class="btn btn--primary" type="submit" name="paso" value="encender">Encender el directorio entre miembros</button></div>
+  </form>
+  {% else %}
+  <section class="block" aria-labelledby="apagar">
+    <h2 id="apagar" class="heading">Apagarlo</h2>
+    <p>Desde ese momento nadie ve el directorio, tampoco la administración. Lo que cada persona eligió se queda guardado: si lo enciendes otra vez, aparece quien ya había elegido aparecer, con lo mismo que eligió, y nadie más.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-actions"><button class="btn btn--link btn--quieto" type="submit" name="paso" value="apagar">Apagar el directorio entre miembros</button></div>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

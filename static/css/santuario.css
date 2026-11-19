@@ -2192,6 +2192,14 @@ p.sitio__leaves { margin-top: var(--s-2); }
 }
 /* === fin oracion === */
 
+/* === directorio (wave 12) === */
+/* The directory between members (templates/people/directory*.html). Its rows are the system's rows and its contact
+   links are .row__contact; the one thing of its own is the wording a person accepts and a pastor reads: every
+   sentence a line of its own, as the promises of oración. */
+.directorio__texto { display: grid; gap: var(--s-2); padding-left: 1.25rem; list-style: disc; max-width: 62ch; font-size: var(--t-small); line-height: 1.45; }
+.directorio__texto ::marker { color: var(--ink-2); }
+/* === fin directorio === */
+
 /* === aprobaciones (wave 11) === */
 /* Pastoral approval (resources/approval_queue.html, approval_review.html and the kinds' previews). The list is the
    row specification with nothing added. The review page reads as the published thing: the reader's own pieces

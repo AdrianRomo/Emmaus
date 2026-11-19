@@ -29,7 +29,7 @@
       <h2 id="como-contactarte" class="form-section__title">Cómo contactarte</h2>
       {% for field in form.hidden_fields %}{{ field }}{% endfor %}
       {% for field in form.visible_fields %}{% if field.name != "baptized_on" and field.name != "arrived_on" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
-      <p class="aside-note">Tu teléfono y tu correo solo los ven quien guía tu grupo y la administración de tu iglesia.</p>
+      <p class="aside-note">Tu teléfono y tu correo solo los ven quien guía tu grupo y la administración de tu iglesia.{% if directory_contact %} Y, porque así lo elegiste, quienes ven el directorio de tu iglesia: lo que guardes aquí cambia también allá.{% endif %}</p>
     </section>
     {% if form.baptized_on or form.arrived_on %}
     <section class="form-section" aria-labelledby="tus-fechas">
@@ -46,6 +46,13 @@
   <section class="block" aria-labelledby="tambien">
     <h2 id="tambien" class="visually-hidden">También</h2>
     <ul class="rows">
+      {% if directory_choice %}<li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'directorio:mine' %}">Aparecer en el directorio</a></p>
+          <p class="row__meta">{% if directory_shown %}Hoy apareces. Cambia lo que muestras o deja de aparecer{% else %}Hoy no apareces. Tú eliges si otras personas de tu iglesia te ven{% endif %}</p>
+        </div>
+      </li>{% endif %}
       <li class="row row--lead">
         <span class="hoy__icono" aria-hidden="true">{% icon "correo" %}</span>
         <div class="row__main">

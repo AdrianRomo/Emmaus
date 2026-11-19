@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load shell %}
+{% block page_title %}Directorio{% endblock %}
+{% block content %}
+{% comment %}
+  The directory between members (people.directory_views.directory): the people of this church who chose to appear,
+  each with their circle, their name and only what they chose to show. A list that is read: a row opens nothing, and
+  a phone or an address is a link of that one person. The search looks at names only. No download, no «copiar
+  todos», no link with more than one address. Counted against the account on every view: past the limit the page
+  says how long to wait (429) and shows nobody. Under the list, this person's own two doors: how they appear, and,
+  for a pastor, the church's switch.
+{% endcomment %}
+<div class="narrow directorio">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Directorio" meta="Personas de tu iglesia que eligieron aparecer. Cada quien decide qué muestra." back_url=back back_label="Volver a Mi iglesia" %}
+  {% if wait %}
+    <div class="notice notice--warning" role="alert"><p>Abriste el directorio muchas veces en poco tiempo. {{ wait }}</p></div>
+  {% else %}
+  {% if page.paginator.count or query %}
+  <form class="search" method="get" role="search">
+    <label class="visually-hidden" for="buscar">Buscar por nombre o apellido</label>
+    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" placeholder="Nombre o apellido" maxlength="80" autocomplete="off" spellcheck="false">
+  </form>
+  {% endif %}
+  <section class="block" aria-labelledby="lista">
+    {% if rows %}
+      <div class="heading-row">
+        <h2 id="lista" class="heading">{% if query %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}<span class="camperos__filtro">: «{{ query }}»</span>{% else %}{{ page.paginator.count }} persona{{ page.paginator.count|pluralize }}{% endif %}</h2>
+        {% if query %}<a href="{% url 'directorio:list' %}">Quitar la búsqueda</a>{% endif %}
+      </div>
+      <ul class="rows">
+        {% for row in rows %}{% include "people/_directory_row.html" %}{% endfor %}
+      </ul>
+      {% include "partials/ui/pager.html" with page=page label="Páginas del directorio" %}
+    {% elif query %}
+      <h2 id="lista" class="visually-hidden">Resultados</h2>
+      {% url 'directorio:list' as everybody %}
+      {% include "partials/ui/empty.html" with title="Nadie que aparezca se llama así" text="Aquí se busca solo por nombre o apellido." action_url=everybody action_label="Ver a todas las personas" %}
+    {% else %}
+      <h2 id="lista" class="visually-hidden">Personas</h2>
+      {% include "partials/ui/empty.html" with title="Todavía nadie aparece" text="Aparece quien lo elige, desde «Mis datos»." %}
+    {% endif %}
+  </section>
+  {% endif %}
+  {% if may_choose or is_pastor %}
+  <section class="block" aria-labelledby="tambien">
+    <h2 id="tambien" class="visually-hidden">También</h2>
+    <ul class="rows">
+      {% if may_choose %}<li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "cuenta" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'directorio:mine' %}">{% if in_it %}Cómo apareces tú{% else %}Aparecer en el directorio{% endif %}</a></p>
+          <p class="row__meta">{% if in_it %}Cambia lo que muestras o deja de aparecer{% else %}Hoy no apareces. Tú eliges si apareces y qué muestras{% endif %}</p>
+        </div>
+      </li>{% endif %}
+      {% if is_pastor %}<li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "ajustes" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'directorio:policy' %}">Lo que ofrece tu iglesia, y cómo apagarlo</a></p>
+          <p class="row__meta">Solo lo cambia quien tiene el rol de pastor</p>
+        </div>
+      </li>{% endif %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

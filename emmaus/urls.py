@@ -70,6 +70,8 @@ urlpatterns = [
     path("mi-iglesia/oracion/", include("oracion.urls")),
     # «Mis datos en Emmaus» and «Quién puede qué» (issue #98): a person's own data, and who holds a power in the church.
     path("mi-iglesia/cuenta/", include("cuenta_datos.urls")),
+    # The directory between members (issue #91): off until a pastor switches it on and each person chooses to appear.
+    path("mi-iglesia/directorio/", include("people.directory_urls")),
     path("mi-iglesia/", include("groups.urls")),
     # The public page of one event of the church (decision 0010, phase A): no account, nothing about people.
     path("evento/", include("agenda.public_urls")),

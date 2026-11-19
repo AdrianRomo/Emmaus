@@ -211,6 +211,11 @@ HANDLED_ELSEWHERE = frozenset({
 # belongs to the ACCOUNT that wrote it (``oracion.PrayerRequest.author``); ``person`` only records which record
 # that account was that day and no screen decides by it. Accounts are never joined, so the writer keeps it.
 NOTHING_MOVES: tuple[tuple[str, str], ...] = (("oracion.PrayerRequest", "person"),)
+# A person's choice about the directory between members (``people.directory``) is that record's consent. The
+# survivor keeps its own; the absorbed record's stays on the absorbed record, which no directory query reads
+# (``merged_into``), so it is dropped for as long as the merge holds and is never unioned: consent given by one
+# record must not widen the other. The undo makes the absorbed record a person again, with the choice it had.
+NOTHING_MOVES += (("people.DirectoryEntry", "person"),)
 HANDLED_ELSEWHERE = HANDLED_ELSEWHERE | frozenset(NOTHING_MOVES)
 _BY_KEY = {table.key: table for table in TABLES}
 

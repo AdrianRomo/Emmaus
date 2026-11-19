@@ -90,3 +90,12 @@ class PersonForm(KeyDatesMixin, TuErrorMessagesMixin, forms.ModelForm):
             if taken.exists():
                 raise forms.ValidationError("Otra persona de la iglesia ya tiene este correo. Revisa si es la misma persona.")
         return email
+
+
+class DirectoryPolicyForm(forms.Form):
+    """The pastor's acceptance before the directory between members is switched on (``people.directory``)."""
+
+    accepted = forms.BooleanField(
+        label="Leí lo que mi iglesia ofrece a su gente con el directorio, y lo acepto", required=False,
+        help_text="Queda anotado, en los movimientos de la iglesia, que tú lo aceptaste y cuándo.",
+    )

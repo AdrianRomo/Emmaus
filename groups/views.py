@@ -310,7 +310,9 @@ def profile(request):
             return redirect("community:profile")
         messages.success(request, "Guardamos tus datos.")
         return redirect("community:home")
-    return render(request, "groups/profile.html", {"form": form, "person": request.person})
+    from people import directory  # the person's own choice about the directory between members: a row of this page
+
+    return render(request, "groups/profile.html", {"form": form, "person": request.person, **directory.profile_context(request.church, request.person)})
 
 
 # ---- discovery ----------------------------------------------------------------------------------

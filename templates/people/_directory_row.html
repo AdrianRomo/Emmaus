@@ -1,0 +1,13 @@
+{% load shell %}{% comment %}
+  One person as the directory shows them (people.directory.Row): the circle and the name, and only what that person
+  chose that has a value. The same partial draws the list and the person's own preview «Así te verán», so the two
+  cannot differ. `row` is never a Person: a field that was not chosen is not in it. Each link is of this one person.
+{% endcomment %}<li class="row row--lead">
+  {% monogram row.name %}
+  <div class="row__main">
+    <p class="row__title">{{ row.name }}</p>
+    {% if row.groups %}<p class="row__meta">{% if row.groups|length == 1 %}Grupo{% else %}Grupos{% endif %}: {{ row.groups|join:", " }}</p>{% endif %}
+    {% if row.teams %}<p class="row__meta">Sirve en: {{ row.teams|join:", " }}</p>{% endif %}
+    {% if row.phone or row.email %}<p class="row__contact">{% if row.phone %}<a href="tel:{{ row.phone|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ row.name }}: </span>{{ row.phone }}</a>{% endif %}{% if row.email %}<a href="mailto:{{ row.email }}">{% icon "correo" "sm" %}<span class="visually-hidden">Escribir a {{ row.name }}: </span>{{ row.email }}</a>{% endif %}</p>{% endif %}
+  </div>
+</li>

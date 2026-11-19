@@ -131,6 +131,9 @@ ACTION_LABELS = {
     "mis_datos_borrado_pedido": "Pidió que borren sus datos",
     "mis_datos_borrado_retirado": "Retiró su solicitud de borrar sus datos",
     "mis_datos_borrado_atendido": "Marcó como atendida una solicitud de borrar datos",
+    # The directory between members (people.directory): the pastor's switch, and each person's own choice.
+    "directorio_politica": "Encendió o apagó el directorio entre miembros",
+    "directorio_eleccion": "Eligió aparecer en el directorio entre miembros, o dejó de aparecer",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -153,6 +156,9 @@ ALLOWED_METADATA = frozenset({
     "import_id", "kept",
     # A general form (formularios.services), by its id: never its title, a question, an answer or a contact.
     "form_id",
+    # The directory between members (people.directory): which of the four fixed fields a person chose to show
+    # (phone, email, groups, teams), by those words: never a number, an address or a name.
+    "fields",
 })
 
 

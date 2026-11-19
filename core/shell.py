@@ -87,6 +87,8 @@ PRAYER_READER_VIEWS = {
     "oracion:inbox", "oracion:read", "oracion:mark_read", "oracion:reply", "oracion:mark_talked", "oracion:reader_email",
     "oracion:terms",
 }
+# The directory between members: the list, and the church's switch (a pastor's). A person's own choice is part of "Mis datos".
+DIRECTORY_VIEWS = {"directorio:list", "directorio:policy"}
 # Icons for the discipleship module's links, by url name (core.context_processors builds those links): one each, so
 # two links of the same rail never share a drawing.
 MODULE_ICONS = {
@@ -140,7 +142,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     person = Person.objects.filter(church=church, user=request.user, merged_into__isnull=True).first()
     unread = notices_services.unread_count(person, is_admin=is_admin) if person else 0
     main = [
-        _item("Mi iglesia", reverse("community:home"), "inicio", view in {"community:home", "community:profile"}),
+        _item("Mi iglesia", reverse("community:home"), "inicio", view in {"community:home", "community:profile", "directorio:mine"}),
         _item("Avisos", reverse("notices:list"), "avisos", view.startswith("notices:"), unread,
               "aviso nuevo" if unread == 1 else "avisos nuevos"),
         _item("Eventos", reverse("agenda:list"), "eventos", view in AGENDA_VIEWS),
@@ -218,6 +220,14 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     # A person whose date of birth says they are under 18 gets a 404 from the forms (formularios.views): no link to it.
     if forms_views.open_member_form_count(church) and not _minor_by_birth_date(person):
         main.append(_item("Formularios", reverse("formularios:list"), "recursos", view in FORM_VIEWS))
+    # The directory between members: listed only while the church's switch is on AND this person may read it (who
+    # is in it, the administration, a pastor). While it is off, a pastor alone gets the door to the switch.
+    from people import directory as member_directory
+
+    if member_directory.shows_link(request.user, church, person):
+        main.append(_item("Directorio", reverse("directorio:list"), "lista", view in DIRECTORY_VIEWS))
+    elif not member_directory.is_on(church) and member_directory.is_pastor(request.user, church):
+        charge.append(_item("Directorio entre miembros", reverse("directorio:policy"), "lista", view in DIRECTORY_VIEWS))
     if charge:
         sections.append({"label": "A tu cargo", "items": charge})
 
