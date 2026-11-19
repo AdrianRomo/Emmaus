@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import OuterRef
+from django.db.models import OuterRef, Q
 from django.utils import timezone
 
 from access.models import RoleAssignment, ScopeType
@@ -45,6 +45,15 @@ PAST = "Esa fecha ya pasó: ya no se puede cambiar."
 # ``assign(role=KEEP)``: leave the role of an assignment as it is (and give none to a new one).
 KEEP = object()
 TOO_LATE = "Tu respuesta se puede cambiar hasta un día antes. Si ya no puedes servir, avisa a quien coordina el equipo."
+# A date written for a date of a series of events (serving.follow) whose day the series called off.
+CALLED_OFF = "Ese día no hay: la serie de eventos que sigue el equipo no tiene esa fecha. Mientras siga así, la fecha no se puede cambiar."
+FOLLOWS = ("Esta fecha sigue la serie de eventos del equipo: si la borras, Emmaus la vuelve a escribir. Si ese día el equipo no "
+           "sirve, pon en cero lo que necesita la fecha y quita a las personas; o deja de seguir la serie en «Organizar».")
+
+
+def off_q(prefix: str = "") -> Q:
+    """The dates that are called off (``ServiceDate.called_off``), for a query: ``prefix`` leads to the date."""
+    return Q(**{f"{prefix}occurrence__isnull": False}) & ~Q(**{f"{prefix}occurrence__status": "activa"})
 
 
 class ServingError(ValidationError):
@@ -125,24 +134,25 @@ def _upcoming(person, today=None):
     today = today or timezone.localdate()
     return (
         Assignment.objects.filter(person=person, service_date__date__gte=today, service_date__team__status=Team.Status.ACTIVE)
-        .select_related("service_date", "service_date__team", "role")
+        .select_related("service_date", "service_date__team", "service_date__occurrence", "role")
         .order_by("service_date__date", "service_date__starts_at", "id")
     )
 
 
 def my_dates(person, today=None, limit: int = 5) -> list[Assignment]:
-    """The person's assignments from today on that are not declined, by date."""
-    return list(_upcoming(person, today).exclude(status=DECLINED)[:limit])
+    """The person's assignments from today on that are not declined, by date. Never a date that was called off."""
+    return list(_upcoming(person, today).exclude(status=DECLINED).exclude(off_q("service_date__"))[:limit])
 
 
 def all_my_dates(person, today=None) -> list[Assignment]:
-    """Every assignment from today on, the declined ones too: "Tus fechas", where an answer can change."""
+    """Every assignment from today on, the declined ones too: "Tus fechas", where an answer can change. A date
+    that was called off is here too, so the person reads that it is off (``service_date.called_off``)."""
     return list(_upcoming(person, today))
 
 
 def pending_count(person, today=None) -> int:
     """How many dates from today on still wait for this person's answer."""
-    return _upcoming(person, today).filter(status=PENDING).count()
+    return _upcoming(person, today).filter(status=PENDING).exclude(off_q("service_date__")).count()
 
 
 def uncovered_dates(person, today=None, limit: int = 3) -> list[ServiceDate]:
@@ -154,7 +164,7 @@ def uncovered_dates(person, today=None, limit: int = 3) -> list[ServiceDate]:
     today = today or timezone.localdate()
     teams = TeamMembership.objects.filter(person=person, role=COORDINATOR, status=ACTIVE, team__status=Team.Status.ACTIVE).values("team_id")
     return list(
-        ServiceDate.objects.filter(team_id__in=teams, date__gte=today)
+        ServiceDate.objects.filter(team_id__in=teams, date__gte=today).exclude(off_q())
         .annotate(
             asked=Count("assignments"),
             confirmed=Count("assignments", filter=Q(assignments__status=ACCEPTED)),
@@ -189,7 +199,7 @@ def assigned_on(person, day) -> bool:
     """The person is asked to serve on ``day`` and has not said no."""
     return (
         Assignment.objects.filter(person=person, service_date__date=day, service_date__team__status=Team.Status.ACTIVE)
-        .exclude(status=DECLINED)
+        .exclude(status=DECLINED).exclude(off_q("service_date__"))
         .exists()
     )
 
@@ -300,6 +310,8 @@ def _open_date(service_date: ServiceDate, today=None) -> ServiceDate:
         raise ServingError(ARCHIVED, code="archived")
     if locked.date < today:
         raise ServingError(PAST, code="past")
+    if locked.called_off:
+        raise ServingError(CALLED_OFF, code="called_off")
     locked.team = team
     return locked
 
@@ -351,6 +363,8 @@ def delete_date(service_date: ServiceDate, actor, today=None) -> None:
     with transaction.atomic():
         service_date = _open_date(service_date, today)
         team = service_date.team
+        if service_date.occurrence_id is not None and team.follows_series_id == service_date.occurrence.series_id:
+            raise ServingError(FOLLOWS, code="follows")
         record_church(team.church, actor, "equipo_fecha", f"Borró una fecha del equipo {team.name}", service_date)
         _lock_assignments(Assignment.objects.filter(service_date=service_date))
         service_date.delete()
@@ -438,6 +452,8 @@ def respond(assignment: Assignment, accepted: bool, actor, today=None) -> Assign
             raise ServingError(ARCHIVED, code="archived")
         if service_date.date < today:
             raise ServingError(PAST, code="past")
+        if service_date.called_off:
+            raise ServingError("Ese día no hay: la fecha se canceló. No hace falta que respondas.", code="called_off")
         if assignment.status == wanted:
             return assignment
         if assignment.status != PENDING and service_date.date <= today:

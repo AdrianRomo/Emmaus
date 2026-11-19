@@ -15,7 +15,7 @@ from django.utils import timezone
 from access.models import RoleAssignment
 from agenda.models import EventRegistration, GuardianConsent
 from care.models import FollowUp, FollowUpStep
-from espacios.models import Booking, Space
+from espacios.models import Booking, BookingSeries, Space
 from events.models import Sede
 from feedback.models import FeedbackGiven
 from groups.models import GroupAttendance, GroupJoinRequest, GroupMeeting, GroupMembership
@@ -98,6 +98,22 @@ class CommunityIntegrityTests(CommunityFixture):
         cls.booking_b = Booking.objects.create(
             space=cls.space_b, title="Ensayo B", starts_at=start, ends_at=start + timedelta(hours=1), requested_by=cls.member_b, event=cls.event_b,
         )
+        # Wave 12, what repeats: a series of events of each church; in church A a booking that repeats tied to it, and
+        # a team that follows it with one date written for one of its dates.
+        from datetime import time
+
+        from agenda.models import EventSeries, SeriesOccurrence
+
+        cls.event_series = EventSeries.objects.create(church=cls.church, name="Reunión", weekdays="6", starts_at=time(11), starts_on=today)
+        cls.event_series_b = EventSeries.objects.create(church=cls.church_b, name="Reunión B", weekdays="6", starts_at=time(11), starts_on=today)
+        cls.occurrence = SeriesOccurrence.objects.create(series=cls.event_series, day=today, event=cls.event)
+        cls.occurrence_b = SeriesOccurrence.objects.create(series=cls.event_series_b, day=today, event=cls.event_b)
+        cls.booking_series = BookingSeries.objects.create(
+            space=cls.space, title="Ensayo", requested_by=cls.leader, event_series=cls.event_series, starts_on=today,
+            ends_on=today + timedelta(weeks=4), starts_at=time(18), ends_at=time(20),
+        )
+        type(cls.team).objects.filter(pk=cls.team.pk).update(follows_series=cls.event_series)
+        ServiceDate.objects.filter(pk=cls.day.pk).update(occurrence=cls.occurrence)
         serving.assign(cls.day, cls.leader, cls.admin)
         # Wave 10 of Servir: a role of each team, and one valid row of each new table in church A.
         cls.team_role = TeamRole.objects.create(team=cls.team, name="Puerta")
@@ -256,6 +272,22 @@ class CommunityIntegrityTests(CommunityFixture):
     def break_booking_event_church(self):
         Booking.objects.filter(pk=self.booking.pk).update(event=self.event_b)
         return self.booking
+
+    def break_booking_series_requester_church(self):
+        BookingSeries.objects.filter(pk=self.booking_series.pk).update(requested_by=self.member_b)
+        return self.booking_series
+
+    def break_booking_series_event_series_church(self):
+        BookingSeries.objects.filter(pk=self.booking_series.pk).update(event_series=self.event_series_b)
+        return self.booking_series
+
+    def break_team_follows_series_church(self):
+        type(self.team).objects.filter(pk=self.team.pk).update(follows_series=self.event_series_b)
+        return self.team
+
+    def break_service_date_occurrence_church(self):
+        ServiceDate.objects.filter(pk=self.day.pk).update(occurrence=self.occurrence_b)
+        return self.day
 
     def break_form_submission_person_church(self):
         type(self.form_answer_b).objects.filter(pk=self.form_answer_b.pk).update(person=self.leader)
@@ -452,6 +484,18 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_booking_event_church(self):
         self.assert_counted_alone_and_fails("booking_event_church")
+
+    def test_booking_series_requester_church(self):
+        self.assert_counted_alone_and_fails("booking_series_requester_church")
+
+    def test_booking_series_event_series_church(self):
+        self.assert_counted_alone_and_fails("booking_series_event_series_church")
+
+    def test_team_follows_series_church(self):
+        self.assert_counted_alone_and_fails("team_follows_series_church")
+
+    def test_service_date_occurrence_church(self):
+        self.assert_counted_alone_and_fails("service_date_occurrence_church")
 
     def test_form_submission_person_church(self):
         self.assert_counted_alone_and_fails("form_submission_person_church")

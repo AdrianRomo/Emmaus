@@ -2219,6 +2219,28 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .aprobacion__camino { margin-top: var(--s-6); }
 /* === fin aprobaciones === */
 
+/* === repeticion (wave 12) === */
+/* What a church repeats every week: bookings that repeat (espacios) and a team that follows a series (servir).
+   Existing pieces only; these rules place them. */
+/* «Suele ocuparse…»: the administration's quiet line on a day a repeating booking has not reached. One more line
+   of the day, never a row: nothing holds the space */
+.page--app .week-day .week-day__usual { margin-top: var(--s-1); max-width: 62ch; }
+.page--app .week-day__usual a { display: inline-block; padding-block: 0.75rem; margin-block: -0.75rem; }
+/* The series' state and its rule, under the title: the word keeps its line and the sentence wraps beside it */
+.page--app .spaces .page-head__meta.row__meta--con-marca { display: flex; align-items: baseline; gap: var(--s-2); }
+.page--app .spaces .page-head + .aside-note, .page--app .spaces .aside-note + .notice, .page--app .spaces .page-head + .notice { margin-top: var(--s-4); }
+.page--app .spaces .notice + form, .page--app .spaces .notice + .block { margin-top: var(--s-6); }
+/* A role's «Personas por fecha»: a short number with its label beside it, on the role's line */
+:root[data-ui="2"] .serving .role-edit__n { display: flex; align-items: center; gap: var(--s-2); margin-block: var(--s-1); }
+:root[data-ui="2"] .serving .role-edit__n > .label { margin: 0; font-weight: 430; color: var(--ink-2); }
+:root[data-ui="2"] .serving .role-edit__n > .input { width: 5rem; }
+/* Starting an order from a template, and keeping one: a field and its button, under the list or the empty line */
+:root[data-ui="2"] .serving .plan__start { max-width: 28rem; margin-top: var(--s-5); }
+:root[data-ui="2"] .serving .plan__start .field { margin-bottom: var(--s-3); }
+:root[data-ui="2"] .serving .plan__keep { margin-top: var(--s-4); }
+.page--app .serving .heading + .aside-note { margin-bottom: var(--s-3); }
+/* === fin repeticion === */
+
 /* ---------- 15. Motion ---------------------------------------------------- */
 /* Motion answers a person or shows what changed (docs/v2/CRAFT.md §4). Atrio's rules stay (rotulo.css §13). Added:
    a toast arrives and leaves, a sheet rises, a bar fills once, a busy button turns, a slow page draws its line, a

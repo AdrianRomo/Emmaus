@@ -84,7 +84,9 @@ def start_instant(service_date: ServiceDate) -> datetime:
 
 
 def is_coming(service_date: ServiceDate, now=None) -> bool:
-    return start_instant(service_date) > (now or timezone.now())
+    """The date has not started and is on: a date its series called off is not coming (no reminder, no swap,
+    no proposal), whatever its day."""
+    return not service_date.called_off and start_instant(service_date) > (now or timezone.now())
 
 
 # ---- who can take a role on a date --------------------------------------------------------------
@@ -122,7 +124,7 @@ def busy_elsewhere(person_ids, day, service_date_id=None) -> set[int]:
     """Who of ``person_ids`` serves on ``day`` on another date, of any active team, and has not said no."""
     rows = Assignment.objects.filter(
         person_id__in=list(person_ids), service_date__date=day, service_date__team__status=Team.Status.ACTIVE
-    ).exclude(status=DECLINED)
+    ).exclude(status=DECLINED).exclude(services.off_q("service_date__"))
     if service_date_id is not None:
         rows = rows.exclude(service_date_id=service_date_id)
     return set(rows.values_list("person_id", flat=True))
@@ -195,7 +197,7 @@ def _release_token(role: TeamRole, affected: list[Assignment]) -> str:
 
 
 def save_role(team: Team, actor, *, role: TeamRole | None = None, name: str, adults_only: bool = False,
-              release_token: str = "", now=None) -> TeamRole:
+              release_token: str = "", now=None, default_count: int | None = None) -> TeamRole:
     """Add a role to ``team`` or change one. A name that was retired comes back as it was.
 
     Making a role "solo personas adultas" while people the church has not verified as adults hold
@@ -204,6 +206,9 @@ def save_role(team: Team, actor, *, role: TeamRole | None = None, name: str, adu
     is missing again, and the coordinator fills it). If the list changed meanwhile, it is shown again."""
     name = _one_line(name, 60, "Escribe el nombre del rol.")
     now = now or timezone.now()
+    # ``default_count``: how many people of the role a new date asks for. None leaves it as it is.
+    if default_count is not None and (not isinstance(default_count, int) or not 0 <= default_count <= MAX_NEED):
+        raise ServingError(f"Escribe un número entre 0 y {MAX_NEED} para las personas por fecha.", code="count")
     with transaction.atomic():
         team = _active_team(team)
         same = TeamRole.objects.select_for_update().filter(team=team, name__iexact=name).first()
@@ -226,6 +231,8 @@ def save_role(team: Team, actor, *, role: TeamRole | None = None, name: str, adu
                 ids = services._lock_assignments(Assignment.objects.filter(pk__in=[row.pk for row in affected]))
                 released = Assignment.objects.filter(pk__in=ids, role=role).update(role=None)
         role.name, role.adults_only, role.active = name, bool(adults_only), True
+        if default_count is not None:
+            role.default_count = default_count
         role.save()
         record_church(team.church, actor, "equipo_rol", f"Agregó o modificó un rol del equipo {team.name}", role,
                       value="solo_adultos" if role.adults_only else "abierto")
@@ -416,7 +423,7 @@ def build_proposal(team: Team, now=None, weeks: int = HORIZON_WEEKS) -> Proposal
     rest = timedelta(weeks=team.rotation_every_weeks)
     dates = [
         service_date for service_date in
-        ServiceDate.objects.filter(team=team, date__gte=today, date__lte=today + timedelta(weeks=weeks)).order_by("date", "starts_at", "id")
+        ServiceDate.objects.filter(team=team, date__gte=today, date__lte=today + timedelta(weeks=weeks)).select_related("occurrence").order_by("date", "starts_at", "id")
         if is_coming(service_date, now)
     ]
     missing = missing_by_date(dates)
@@ -424,7 +431,7 @@ def build_proposal(team: Team, now=None, weeks: int = HORIZON_WEEKS) -> Proposal
     held: dict[int, set] = {}
     near = Assignment.objects.filter(
         service_date__team=team, service_date__date__gte=today - rest, service_date__date__lte=today + timedelta(weeks=weeks) + rest,
-    ).exclude(status=DECLINED)
+    ).exclude(status=DECLINED).exclude(services.off_q("service_date__"))
     for person_id, day in near.values_list("person_id", "service_date__date"):
         held.setdefault(person_id, set()).add(day)
     # Where each role's turn is: after the last person who had it before the window's first open date.

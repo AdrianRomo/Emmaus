@@ -188,6 +188,8 @@ TABLES: tuple[Table, ...] = (
     # Who asked for a space. The words of the booking are not read; the survivor keeps the requests, and with them
     # what ``espacios.access`` gives to who asked. ``decided_by`` is an account, not a person: untouched.
     Table("espacios.Booking", "requested_by", "reserva de un espacio que pidió", "reservas de espacios que pidió"),
+    # Who asked for a booking that repeats (wave 12): it moves like a booking, and with it who may read and end the series.
+    Table("espacios.BookingSeries", "requested_by", "reserva que se repite que pidió", "reservas que se repiten que pidió"),
     # A column nobody reads since feedback/0002. Whether somebody gave an opinion is theirs alone: not counted.
     Table("feedback.FeedbackGiven", "person", "", "", private=True),
     # The administration's own labels: the survivor ends with the union of both (a tag both carry stays on the

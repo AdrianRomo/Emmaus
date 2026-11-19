@@ -88,7 +88,7 @@ def due(now=None) -> list[Assignment]:
         .exclude(status=Assignment.Status.DECLINED).exclude(person__email="")
         .exclude(person__serving_preference__reminders=False)
         .filter(Q(reminder__isnull=True) | _retriable(now))
-        .select_related("service_date__team__church", "person")
+        .select_related("service_date__team__church", "service_date__occurrence", "person")
         .order_by("service_date__date", "pk")
     )
     churches: dict[int, bool] = {}

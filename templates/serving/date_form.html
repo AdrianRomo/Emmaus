@@ -76,8 +76,9 @@
     {% endif %}
     <div class="form-actions">
       <button class="btn btn--primary" type="submit">Guardar la fecha</button>
-      {% if service_date %}<a class="btn btn--link" href="{% url 'serving:plan' service_date.pk %}">Orden del día</a><a class="btn btn--danger-outline" href="{% url 'serving:date_delete' service_date.pk %}">Borrar la fecha</a>{% else %}<a class="btn btn--link" href="{{ back }}">Cancelar</a>{% endif %}
+      {% if service_date %}<a class="btn btn--link" href="{% url 'serving:plan' service_date.pk %}">Orden del día</a>{% if not follows_series %}<a class="btn btn--danger-outline" href="{% url 'serving:date_delete' service_date.pk %}">Borrar la fecha</a>{% endif %}{% else %}<a class="btn btn--link" href="{{ back }}">Cancelar</a>{% endif %}
     </div>
   </form>
+  {% if follows_series %}<p class="aside-note">Esta fecha se escribió porque el equipo sirve en cada fecha de una serie de eventos: no se borra (Emmaus la volvería a escribir). Si ese día el equipo no sirve, pon en cero lo que necesita y quita a las personas.</p>{% endif %}
 </div>
 {% endblock %}

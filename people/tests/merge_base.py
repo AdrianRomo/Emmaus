@@ -80,6 +80,7 @@ class MergeFixture(CommunityFixture):
                 space=Space.objects.get_or_create(church=self.church, name="Salón 1")[0], title="Ensayo", requested_by=person,
                 starts_at=timezone.now() + timedelta(days=3), ends_at=timezone.now() + timedelta(days=3, hours=1),
             ),
+            "espacios.BookingSeries.requested_by": lambda: self._booking_series(person),
             "feedback.FeedbackGiven.person": lambda: FeedbackGiven.objects.create(event=self.other_event, person=person),
             "people.PersonTag.person": lambda: PersonTag.objects.create(
                 person=person, tag=Tag.objects.get_or_create(church=self.church, name="Coro", normalized_name="coro")[0]
@@ -87,6 +88,17 @@ class MergeFixture(CommunityFixture):
             "formularios.Submission.person": lambda: self._form_submission(person),
         }
         return builders[key]()
+
+    def _booking_series(self, person):
+        from datetime import time
+
+        from espacios.models import BookingSeries
+
+        day = timezone.localdate() + timedelta(days=3)
+        return BookingSeries.objects.create(
+            space=Space.objects.get_or_create(church=self.church, name="Salón 1")[0], title="Ensayo", requested_by=person,
+            starts_on=day, ends_on=day + timedelta(weeks=8), starts_at=time(18), ends_at=time(20),
+        )
 
     def _form_submission(self, person):
         from formularios.models import Form, FormVersion, Submission
