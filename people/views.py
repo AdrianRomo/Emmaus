@@ -82,7 +82,11 @@ def person_edit(request, person_id: int):
     person = _person(request, person_id)
     form = PersonForm(request.POST or None, instance=person, church=request.church)
     if request.method == "POST" and form.is_valid():
-        services.save_person(form.save(commit=False), request.user, created=False)
+        try:
+            services.save_person(form.save(commit=False), request.user, created=False)
+        except services.PeopleError as error:  # somebody merged this record while the form was open
+            messages.error(request, error.message)
+            return redirect("people:list")
         messages.success(request, "Guardamos los cambios.")
         return redirect("people:detail", person.pk)
     return render(request, "people/person_form.html", {"form": form, "person": person})
