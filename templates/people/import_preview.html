@@ -1,34 +1,36 @@
 {% extends "base.html" %}
-{% load community %}
+{% load community shell %}
 {% block page_title %}Revisa antes de importar{% endblock %}
 {% block content %}
 {% comment %}
   The preview of an import (people.import_views._preview): what would happen with every row of the file: the counts, the
-  lists (created, already here, repeated, with errors) and only then the confirmation. Nothing
+  lists (created, already here, repeated, with errors: each row led by its section's mark) and only then the confirmation. Nothing
   has been written. The file's cells travel back in a signed field (`datos`); `revision` covers what this page says.
 {% endcomment %}
 <div class="narrow">
   {% url 'people:import' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Revisa antes de importar" lede="Esto es lo que pasaría con cada fila de tu archivo. Todavía no se guarda nada." back_url=back back_label="Volver a Importar personas" %}
+  {% include "events/rotulo/_page_head.html" with title="Revisa antes de importar" back_url=back back_label="Volver a Importar personas" %}
 
   {% if stale %}<div class="notice notice--warning" role="alert"><p><strong>No registramos a nadie.</strong> Lo que ibas a confirmar ya no es lo que hay: cambió la lista de personas de tu iglesia, o esta importación ya se había hecho. Esto es lo que pasaría ahora: revísalo otra vez.</p></div>{% endif %}
 
   <section class="block" aria-labelledby="resumen">
     <h2 id="resumen" class="heading">Tu archivo tiene {{ total }} fila{{ total|pluralize }} con datos</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Se registran</dt><dd>{{ new_count }}{% if minors %}. {% if minors == 1 %}Una es menor de edad{% else %}{{ minors }} son menores de edad{% endif %}: su fecha de nacimiento queda sin confirmar, como si la escribieras a mano.{% endif %}</dd></div>
-      <div class="summary-list__row"><dt>Ya existen: no se crean</dt><dd>{{ exists|length }}</dd></div>
-      <div class="summary-list__row"><dt>Repetidas en el archivo: no se crean</dt><dd>{{ repeated|length }}</dd></div>
-      <div class="summary-list__row"><dt>Con errores: no se crean</dt><dd>{{ errors|length }}</dd></div>
+    <p class="hint">Esto es lo que pasaría con cada fila. Todavía no se guarda nada.</p>
+    <dl class="summary-list ficha ficha--cuentas">
+      <div class="summary-list__row"><dt>Se registran</dt><dd><strong class="num">{{ new_count }}</strong>{% if minors %} <span class="ficha__nota">{% if minors == 1 %}Una es menor de edad{% else %}{{ minors }} son menores de edad{% endif %}: su fecha de nacimiento queda sin confirmar, como si la escribieras a mano.</span>{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Ya existen: no se crean</dt><dd><strong class="num">{{ exists|length }}</strong></dd></div>
+      <div class="summary-list__row"><dt>Repetidas en el archivo: no se crean</dt><dd><strong class="num">{{ repeated|length }}</strong></dd></div>
+      <div class="summary-list__row"><dt>Con errores: no se crean</dt><dd><strong class="num">{{ errors|length }}</strong></dd></div>
     </dl>
   </section>
 
   {% if new %}
   <section class="block" aria-labelledby="se-registran">
-    <h2 id="se-registran" class="heading">Se registran</h2>
-    <ul class="rows">
+    <h2 id="se-registran" class="heading">Se registran <span class="count">{{ new_count }}</span></h2>
+    <ul class="rows filas-archivo">
       {% for row in new %}
-        <li class="row">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "check" %}</span>
           <div class="row__main">
             <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
             <p class="row__meta">{% if row.email %}{{ row.email }}. {% endif %}{% if row.phone %}{{ row.phone }}. {% endif %}{% if row.birth_date %}Nació el {{ row.birth_date|long_date }}{% if row.is_minor %}: es menor de edad{% endif %}. {% endif %}{% if row.stage %}{{ row.stage_label }}. {% endif %}{% if row.tag_names %}Etiquetas: {{ row.tag_names|join:", " }}.{% endif %}</p>
@@ -42,10 +44,11 @@
 
   {% if exists %}
   <section class="block" aria-labelledby="ya-existen">
-    <h2 id="ya-existen" class="heading">Ya existen: no se crean</h2>
-    <ul class="rows">
+    <h2 id="ya-existen" class="heading">Ya existen: no se crean <span class="count">{{ exists|length }}</span></h2>
+    <ul class="rows filas-archivo">
       {% for row in exists %}
-        <li class="row">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "personas" %}</span>
           <div class="row__main">
             <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
             <p class="row__meta">Tiene {{ row.reason }} que {% if row.match %}<a href="{% url 'people:detail' row.match.pk %}">{{ row.match.full_name }}</a>{% else %}una persona de tu lista{% endif %}. No se crea y esa persona no cambia.</p>
@@ -59,10 +62,11 @@
 
   {% if repeated %}
   <section class="block" aria-labelledby="repetidas">
-    <h2 id="repetidas" class="heading">Repetidas en el archivo: no se crean</h2>
-    <ul class="rows">
+    <h2 id="repetidas" class="heading">Repetidas en el archivo: no se crean <span class="count">{{ repeated|length }}</span></h2>
+    <ul class="rows filas-archivo">
       {% for row in repeated %}
-        <li class="row">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "copiar" %}</span>
           <div class="row__main">
             <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
             <p class="row__meta">Tiene {{ row.reason }} que la fila {{ row.same_as_line }}. Solo se registra la primera.</p>
@@ -75,10 +79,11 @@
 
   {% if errors %}
   <section class="block" aria-labelledby="con-errores">
-    <h2 id="con-errores" class="heading">Filas con errores</h2>
-    <ul class="rows">
+    <h2 id="con-errores" class="heading">Filas con errores <span class="count">{{ errors|length }}</span></h2>
+    <ul class="rows filas-archivo">
       {% for row in errors %}
-        <li class="row">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "alerta" %}</span>
           <div class="row__main">
             <p class="row__title">Fila {{ row.line }}{% if row.full_name %}: {{ row.full_name }}{% endif %}</p>
             <p class="row__meta">{{ row.errors|join:" " }}</p>
@@ -100,15 +105,15 @@
     <div class="prose">
       <p>Al confirmar se registra{{ new_count|pluralize:"n" }} {{ new_count }} persona{{ new_count|pluralize }}, sin acceso a Emmaus y sin enviarle{{ new_count|pluralize }} ningún correo. Las demás filas no cambian nada. Puedes deshacer la importación durante {{ undo_hours }} horas.</p>
     </div>
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Importar {{ new_count }} persona{{ new_count|pluralize }}</button>
       <a class="btn btn--link" href="{{ back }}">Volver sin importar</a>
     </div>
   </form>
   {% else %}
   <section class="block">
-    <div class="notice notice--quiet"><p>Este archivo no registra a nadie: todas sus filas son de personas que ya tienes, están repetidas o tienen errores.</p></div>
-    <p class="more"><a href="{{ back }}">Subir otro archivo</a></p>
+    <div class="notice"><p>Este archivo no registra a nadie: todas sus filas son de personas que ya tienes, están repetidas o tienen errores.</p></div>
+    <div class="form-actions"><a class="btn btn--secondary" href="{{ back }}">Subir otro archivo</a></div>
   </section>
   {% endif %}
 </div>

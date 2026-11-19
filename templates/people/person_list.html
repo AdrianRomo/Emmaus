@@ -5,44 +5,37 @@
 {% comment %}
   The church's people, for its administration (people.views.person_list). A person is here whether or not they
   have an account, and whether or not they went to an event. Each row is the person's circle and name, the way into
-  their page, their stage when somebody wrote it down, and whether they can sign in. The search and the two filters
-  (stage, tag) are one GET form.
+  their page, their stage when somebody wrote it down, and whether they can sign in. The list's tools as every list
+  of the redesign has them (DESIGN_SYSTEM.md §8): the search as a capsule, the stage as views with their count, and
+  the tags, a secondary filter, folded under one line («Etiqueta: todas»). After the list, the four places where
+  the list itself is cared for (duplicates, tags, import, download), as rows that open.
 {% endcomment %}
 <div class="narrow">
   {% url 'people:create' as create %}{% url 'people:from_event_list' as from_event %}
   {% include "events/rotulo/_page_head.html" with title="Personas" action_url=create action_label="Registrar a una persona" secondary_url=from_event secondary_label="Traer de un evento" %}
   {% if total %}
-  <form class="filter-bar people-filters" method="get" role="search" aria-label="Buscar y filtrar personas">
-    <div class="field filter-bar__search">
-      <label class="label" for="buscar">Nombre o apellido</label>
-      <input class="input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false">
-    </div>
-    <div class="field">
-      <label class="label" for="f-etapa">Etapa</label>
-      <select id="f-etapa" name="etapa">
-        <option value="">Todas</option>
-        {% for value, label in stages %}<option value="{{ value }}"{% if stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
-        <option value="{{ no_stage }}"{% if stage == no_stage %} selected{% endif %}>Sin anotar</option>
-      </select>
-    </div>
-    {% if tags %}
-    <div class="field people-filters__tag">
-      <label class="label" for="f-etiqueta">Etiqueta</label>
-      <select id="f-etiqueta" name="etiqueta">
-        <option value="">Todas</option>
-        {% for one in tags %}<option value="{{ one.pk }}"{% if tag.pk == one.pk %} selected{% endif %}>{{ one.name }}</option>{% endfor %}
-      </select>
-    </div>
-    {% endif %}
-    <button class="btn btn--secondary" type="submit">Buscar</button>
-    {% if filtered %}<a class="people-filters__clear" href="{% url 'people:list' %}">Quitar filtros</a>{% endif %}
-  </form>
+  <div class="camperos__filtrar personas-filtros">
+    <form class="search camperos__buscar" method="get" role="search">
+      {% if stage %}<input type="hidden" name="etapa" value="{{ stage }}">{% endif %}{% if tag %}<input type="hidden" name="etiqueta" value="{{ tag.pk }}">{% endif %}
+      <label class="visually-hidden" for="buscar">Buscar por nombre o apellido</label>
+      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" placeholder="Nombre o apellido" autocomplete="off" spellcheck="false">
+    </form>
+    <ul class="filters camperos__vistas" aria-label="Etapa" data-desliza>
+      {% for v in stage_views %}<li><a href="{{ v.url }}"{% if v.current %} aria-current="page"{% endif %}>{{ v.label }} <span class="count">{{ v.count }}</span></a></li>{% endfor %}
+    </ul>
+    {% if tag_views %}<details class="camperos__sede"{% if tag %} open{% endif %}>
+      <summary>Etiqueta: {% if tag %}{{ tag.name }}{% else %}todas{% endif %}</summary>
+      <ul class="filters camperos__vistas" aria-label="Etiqueta" data-desliza>
+      {% for v in tag_views %}<li><a href="{{ v.url }}"{% if v.current %} aria-current="page"{% endif %}>{{ v.label }} <span class="count">{{ v.count }}</span></a></li>{% endfor %}
+      </ul>
+    </details>{% endif %}
+  </div>
   {% endif %}
   <section class="block" aria-labelledby="lista">
     {% if page.object_list %}
       <div class="heading-row">
-        <h2 id="lista" class="heading">{% if filtered %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% else %}{{ total }} persona{{ total|pluralize }}{% endif %}</h2>
-        {% if filtered %}<a href="{% url 'people:list' %}">Ver a todas<span class="visually-hidden"> las personas</span></a>{% endif %}
+        <h2 id="lista" class="heading">{% if filtered %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}<span class="camperos__filtro">: {% if query %}«{{ query }}»{% if stage or tag %}, {% endif %}{% endif %}{% if stage %}{{ stage_label|lower }}{% if tag %}, {% endif %}{% endif %}{% if tag %}{{ tag.name }}{% endif %}</span>{% else %}{{ total }} persona{{ total|pluralize }}{% endif %}</h2>
+        {% if filtered %}<a href="{% url 'people:list' %}">Quitar filtros</a>{% endif %}
       </div>
       <ul class="rows personas-lista">
         {% for person in page %}
@@ -66,9 +59,38 @@
       {% include "partials/ui/empty.html" with title="Sin personas todavía" action_url=create action_label="Registrar a una persona" %}
     {% endif %}
   </section>
-  {% if total > 1 %}<p class="more"><a href="{% url 'people:duplicates' %}">Revisar posibles duplicados</a></p>{% endif %}
-  <p class="more"><a href="{% url 'people:tags' %}">Etiquetas de la iglesia</a></p>
-  <p class="more"><a href="{% url 'people:import' %}">Importar personas desde un archivo</a></p>
-  {% if total %}<p class="more"><a href="{% url 'people:export' %}">Descargar la lista</a></p>{% endif %}
+  <section class="block" aria-labelledby="cuidar">
+    <h2 id="cuidar" class="heading">Cuidar la lista</h2>
+    <ul class="rows">
+      {% if total > 1 %}<li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "copiar" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'people:duplicates' %}">Revisar posibles duplicados</a></p>
+          <p class="row__meta">Registros que podrían ser de la misma persona</p>
+        </div>
+      </li>{% endif %}
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'people:tags' %}">Etiquetas de la iglesia</a></p>
+          <p class="row__meta">Palabras para filtrar esta lista; solo las ve la administración</p>
+        </div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "agregar" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'people:import' %}">Importar personas desde un archivo</a></p>
+          <p class="row__meta">Primero ves qué pasaría con cada fila</p>
+        </div>
+      </li>
+      {% if total %}<li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "descargar" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'people:export' %}">Descargar la lista</a></p>
+          <p class="row__meta">Un archivo CSV para tu hoja de cálculo</p>
+        </div>
+      </li>{% endif %}
+    </ul>
+  </section>
 </div>
 {% endblock %}

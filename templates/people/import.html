@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load community %}
+{% load community shell %}
 {% block page_title %}{% if form.errors or problems %}Error: {% endif %}Importar personas{% endblock %}
 {% block content %}
 {% comment %}
@@ -10,16 +10,17 @@
   {% url 'people:list' as back %}
   {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul></div>{% endif %}
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% include "events/rotulo/_page_head.html" with title="Importar personas" lede="Sube la lista que ya tienes en una hoja de cálculo. Primero verás qué pasaría con cada fila: nada se guarda hasta que confirmes." back_url=back back_label="Volver a Personas" %}
+  {% include "events/rotulo/_page_head.html" with title="Importar personas" back_url=back back_label="Volver a Personas" %}
 
-  <section class="block" aria-labelledby="archivo">
-    <h2 id="archivo" class="heading">El archivo</h2>
-    <form method="post" enctype="multipart/form-data" novalidate>
-      {% csrf_token %}
+  <form class="block" method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <section class="form-section" aria-labelledby="archivo">
+      <h2 id="archivo" class="heading">El archivo</h2>
       {% include "partials/ui/field.html" with field=form.file %}
-      <div class="step__actions"><button class="btn btn--primary" type="submit">Revisar el archivo</button></div>
-    </form>
-  </section>
+      <p class="aside-note">Primero verás qué pasaría con cada fila: nada se guarda hasta que confirmes.</p>
+    </section>
+    <div class="form-actions"><button class="btn btn--primary" type="submit">Revisar el archivo</button></div>
+  </form>
 
   <section class="block" aria-labelledby="preparar">
     <h2 id="preparar" class="heading">Cómo preparar el archivo</h2>
@@ -40,15 +41,15 @@
 
   {% if recent %}
   <section class="block" aria-labelledby="recientes">
-    <h2 id="recientes" class="heading">Importaciones recientes</h2>
-    <ul class="rows">
+    <h2 id="recientes" class="heading">Importaciones recientes <span class="count">{{ recent|length }}</span></h2>
+    <ul class="dates rows">
       {% for record in recent %}
-        <li class="row">
+        <li class="row row--lead">
+          {% date_block record.imported_at %}
           <div class="row__main">
-            <p class="row__title">{{ record.imported_at|day_and_hour }}</p>
+            <p class="row__title"><a href="{% url 'people:import_detail' record.pk %}">{{ record.imported_at|day_and_hour|capfirst }}</a></p>
             <p class="row__meta">{% if record.created_count == 1 %}1 persona{% else %}{{ record.created_count }} personas{% endif %}. {% if record.is_undone %}Se deshizo el {{ record.undone_at|day_and_hour }}.{% elif record.can_undo %}Todavía se puede deshacer.{% else %}Ya no se puede deshacer.{% endif %}</p>
           </div>
-          <a class="btn btn--secondary btn--small" href="{% url 'people:import_detail' record.pk %}">Abrir<span class="visually-hidden"> la importación del {{ record.imported_at|day_and_hour }}</span></a>
         </li>
       {% endfor %}
     </ul>

@@ -53,13 +53,13 @@
       <input type="hidden" name="antes" value="{{ tags.seen }}">
       <fieldset class="field" aria-describedby="etiquetas-ayuda">
         <legend class="visually-hidden">Etiquetas de {{ person.full_name }}</legend>
-        <div class="radio-list">
+        <div class="radio-list etiquetas-persona">
           {% for row in tags.rows %}
             <label class="check" for="etiqueta-{{ row.tag.pk }}"><input type="checkbox" id="etiqueta-{{ row.tag.pk }}" name="etiqueta" value="{{ row.tag.pk }}"{% if row.set %} checked{% endif %}><span class="check__text">{{ row.tag.name }}</span></label>
           {% endfor %}
         </div>
       </fieldset>
-      <div class="step__actions"><button class="btn btn--secondary" type="submit">Guardar etiquetas</button></div>
+      <div class="form-actions"><button class="btn btn--secondary" type="submit">Guardar etiquetas</button></div>
     </form>
     <p class="aside-note" id="etiquetas-ayuda">Las etiquetas son para que la administración filtre la lista. Ni esta persona ni nadie más de la iglesia las ve, y no dan ningún permiso. <a href="{% url 'people:tags' %}">Ver las etiquetas de la iglesia</a>.</p>
     {% else %}

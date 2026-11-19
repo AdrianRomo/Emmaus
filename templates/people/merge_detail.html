@@ -12,7 +12,7 @@
 
   <section class="block" aria-labelledby="union">
     <h2 id="union" class="heading">Qué se hizo</h2>
-    <dl class="summary-list">
+    <dl class="summary-list ficha">
       <div class="summary-list__row"><dt>Este registro se quedó</dt><dd>{% if survivor_open %}<a href="{% url 'people:detail' record.survivor.pk %}">{{ record.survivor.full_name }}</a>{% else %}{{ record.survivor.full_name }}{% endif %}</dd></div>
       <div class="summary-list__row"><dt>Este se unió al otro</dt><dd>{% if absorbed_open %}<a href="{% url 'people:detail' record.absorbed.pk %}">{{ record.absorbed.full_name }}</a>{% else %}{{ record.absorbed.full_name }}. Su registro no se borró: ya no aparece en Personas.{% endif %}</dd></div>
       <div class="summary-list__row"><dt>Cuándo</dt><dd>El {{ record.merged_at|long_date }}{% if record.merged_by %}, por {{ record.merged_by.get_full_name|default:record.merged_by.email }}{% endif %}.</dd></div>
@@ -40,7 +40,7 @@
       <p>Puedes deshacerla hasta el {{ until|long_date }}. {{ record.absorbed.full_name }} vuelve a aparecer en Personas y recupera lo que pasó con la unión, si sigue ahí. Lo que {{ record.survivor.full_name }} hizo o cambió después no se mueve, y te diremos qué no se pudo regresar.</p>
       <form method="post" action="{% url 'people:merge_undo' record.pk %}">
         {% csrf_token %}
-        <div class="step__actions"><button class="btn btn--secondary" type="submit">Deshacer la unión</button></div>
+        <div class="form-actions"><button class="btn btn--secondary" type="submit">Deshacer la unión</button></div>
       </form>
     </section>
   {% else %}
