@@ -37,7 +37,9 @@ class PeopleOnVentanasTests(CommunityFixture):
         for private in ("55 1111 2222", "diego@prueba.mx", "Jóvenes Roca", "Campamento A"):
             self.assertNotIn(private, listing)
         self.assertTrue(all(css == "mono" for css in monograms(listing)))  # every person a circle, one size
-        self.assertNotIn(">Buscar</button>", html)  # the search runs on Enter, as the camper list's
+        # The search shares one GET form with the two filters of the administration (stage, tag): its button stays,
+        # because a select does not send itself without JavaScript
+        self.assertEqual(html.count(">Buscar</button>"), 1)
 
     def test_unlinking_is_a_quiet_action_that_asks_first(self):
         person = services.create_person_from_participant(self.p4, self.admin)

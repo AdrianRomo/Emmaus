@@ -139,7 +139,7 @@ class DevotionalTests(ResourcesFixture):
         self.assertNotContains(self.client.get(PAST), "El de mañana")
         page = self.client.get(dev_url("detail", draft))
         self.assertContains(page, "Borrador</span></li>")
-        self.assertContains(page, '<p class="aside-note">Solo lo ve la administración de la iglesia.</p>', html=True)
+        self.assertContains(page, '<p class="aside-note">Solo lo ve la administración de la iglesia. Para publicarlo, edítalo y pide la aprobación pastoral.</p>', html=True)
         self.assertNotContains(page, "Marcar como leído</button>")
         page = self.client.get(dev_url("detail", future))
         self.assertContains(page, "Programado</span></li>")

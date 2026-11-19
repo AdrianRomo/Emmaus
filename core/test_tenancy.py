@@ -90,12 +90,14 @@ class ReaderTests(TwoBrandsFixture):
         Church.objects.filter(pk=self.church.pk).update(active=False)
         self.assertEqual(self.client.get(reverse("landing")).context["church"], self.church_b)
 
-    def test_an_account_with_no_church_keeps_the_first_active_church_and_no_colours(self):
-        """Somebody who only works in an event: the logo of the public pages, and no church's colours (as before)."""
+    def test_an_account_with_no_church_wears_the_church_of_its_event(self):
+        """Somebody who only works in an event: the logo and the colours of the church that holds it (the redesign,
+        core.context_processors._event_church), never those of a church they have nothing to do with."""
         self.client.force_login(self.coord2)
         response = self.client.get(reverse("account"))
         self.assertContains(response, logo(self.church))
-        self.assertNotContains(response, "--petroleo:#")
+        self.assertNotContains(response, logo(self.church_b))
+        self.assertContains(response, "--petroleo:#", count=1)
 
     def test_the_function(self):
         request = RequestFactory().get("/")

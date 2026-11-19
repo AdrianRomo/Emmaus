@@ -159,12 +159,13 @@ class PersonTagTests(TagFixture):
         self.assertContains(page, "1 resultado")
         page = self.client.get(url, {"etapa": "miembro"})
         self.assertContains(page, "Gala")
-        self.assertContains(page, "Miembro. Con acceso a Emmaus.")
+        self.assertContains(page, '<p class="row__meta">Miembro</p>')  # the stage under the name; the access is the row's state word
+        self.assertContains(page, "Con acceso")
         self.assertNotContains(page, "Diego")
         page = self.client.get(url, {"etapa": "sin-anotar", "q": "diego"})
         self.assertContains(page, "Diego")
         self.assertNotContains(page, "Gala")
-        self.assertContains(self.client.get(url, {"etapa": "miembro", "etiqueta": self.coro.pk}), "Nadie coincide con lo que buscas.")
+        self.assertContains(self.client.get(url, {"etapa": "miembro", "etiqueta": self.coro.pk}), "Nadie coincide con lo que buscas")
         # A tag of another church, a word that is no stage: no filter, and nothing of church B.
         page = self.client.get(url, {"etiqueta": self.tag_b.pk, "etapa": "<b>"})
         self.assertContains(page, "Diego")

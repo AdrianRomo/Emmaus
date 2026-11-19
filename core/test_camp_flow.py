@@ -267,7 +267,7 @@ class ErrorPageTests(EmmausFixture):
     def test_forbidden_and_not_found_without_an_eyebrow(self):
         self.client.force_login(self.participant)
         forbidden = self.client.get(reverse("church_dashboard"))
-        self.assertContains(forbidden, "Si lo necesitas, pide acceso a la administración.", status_code=403)
+        self.assertContains(forbidden, "Si lo necesitas, pide acceso a la administración del evento.", status_code=403)
         self.assertNotContains(forbidden, "revise tu rol", status_code=403)
         missing = self.client.get("/no-existe/")
         for response, code in ((forbidden, 403), (missing, 404)):

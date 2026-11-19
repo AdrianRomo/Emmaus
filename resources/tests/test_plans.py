@@ -462,7 +462,8 @@ class WritingTests(PlansFixture):
         # A draft again, but one that was published: its days stay, and so does what people marked.
         days_are_kept()
         page = self.client.get(url("days", plan))
-        self.assertContains(page, "Fuera de publicación: nadie lo ve, tampoco quien ya lo había empezado (sus marcas se conservan).")
+        self.assertContains(page, "Fuera de publicación")
+        self.assertContains(page, "Nadie lo ve, tampoco quien ya lo había empezado (sus marcas se conservan).")
         self.assertContains(page, "cambió después de publicarse y esos cambios no los ha aprobado un pastor")
         self.assertNotContains(page, "Retirar el plan")
         self.assertRedirects(self.client.post(url("edit", plan), {"title": "Otro título", "description": "", "author_line": ""}), url("days", plan))

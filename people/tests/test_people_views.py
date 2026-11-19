@@ -332,7 +332,7 @@ class PolishTests(CommunityFixture):
             for words in ("vinculada", "vinculado", "la acompañe", "lo acompañe", "búscala", "búscalo"):
                 self.assertNotIn(words, page, person.first_name)
             self.assertIn("Pedir que alguien acompañe a esta persona", page)
-        self.assertContains(self.client.get(reverse("people:detail", args=[self.no_account.pk])), "Sin vínculo con ningún evento. Si esta persona fue a uno")
+        self.assertContains(self.client.get(reverse("people:detail", args=[self.no_account.pk])), "Sin eventos. Si esta persona fue a uno")
         self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "El vínculo se hizo el")
         form = self.client.get(reverse("people:create"))
         self.assertContains(form, "¿Cómo prefiere que se le contacte?")
