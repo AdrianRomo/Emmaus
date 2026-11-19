@@ -12,9 +12,9 @@ mixes tenants. This command finds them so drift is visible (roadmap P1-12, audit
   ``--ids`` adds one query for each check that found something.
 * The camp's tables come first (``camp_checks``), then the church modules added after the camp
   (``community_checks``): people, groups, notices, events of the church, resources, serving, care,
-  opinions, the public home and the roles by scope. ``policies.ChurchPolicy``,
-  ``sitio.PublicHome`` and ``sitio.ServiceTime`` hold one church and nothing else: there is
-  nothing in them that could cross.
+  opinions, the public home, the bookings of a room and the roles by scope. ``policies.ChurchPolicy``,
+  ``sitio.PublicHome``, ``sitio.ServiceTime`` and ``espacios.Space`` hold one church and nothing
+  else: there is nothing in them that could cross.
 * Each check also reports how many rows it read: a zero next to zero rows read is not an all-clear.
 * Exit status 1 (``CommandError``) when any error-level check finds a row. The ``Person`` check is a
   warning: it is reported and never fails the run.
@@ -34,6 +34,7 @@ from agenda.models import EventRegistration, GuardianConsent
 from care.models import FollowUp as CareFollowUp
 from care.models import FollowUpStep
 from core.models import UserChurchRole
+from espacios.models import Booking
 from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp, Interview, ReportSnapshot
 from feedback.models import FeedbackGiven
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
@@ -141,6 +142,11 @@ def community_checks() -> tuple[Check, ...]:
               Q(owner__isnull=False), ~Q(owner__church=F("church"))),
         Check("care_step_by_church", "Pasos de un acompañamiento dados por una persona de otra iglesia", FollowUpStep,
               Q(by__isnull=False), ~Q(by__church=F("follow_up__church"))),
+        # rooms and equipment: the church is the space's; who asked and the event it is for must be of the same one
+        Check("booking_requester_church", "Reservas de un espacio pedidas por una persona de otra iglesia", Booking,
+              Q(requested_by__isnull=False), ~Q(requested_by__church=F("space__church"))),
+        Check("booking_event_church", "Reservas de un espacio para un evento de otra iglesia", Booking,
+              Q(event__isnull=False), ~Q(event__church=F("space__church"))),
         # roles by scope
         Check("role_assignment_scope_church", "Roles por ámbito que apuntan fuera de su iglesia", RoleAssignment, None,
               scope_elsewhere),
