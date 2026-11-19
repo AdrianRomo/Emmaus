@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}{{ space.name }}: semana del {{ monday|date_range:sunday }}{% endblock %}
+{% block content %}
+{% comment %}
+  One week of one space, as a list by day (espacios.views.week): a list reads on a phone where a grid of hours does
+  not. Each day says what holds the space, or that it is free. Who is not the administration or who asked reads
+  "Ocupado" and the hours, nothing else.
+{% endcomment %}
+<div class="narrow spaces">
+  {% url 'espacios:list' as back %}
+  <a class="back-link" href="{{ back }}">Volver a Espacios</a>
+  <header class="page-head{% if may_request %} page-head--actions{% endif %}">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">{{ space.name }}</h1>
+      <p class="lede">Semana del {{ monday|date_range:sunday }}.</p>
+      <p class="page-head__meta">{{ space.get_kind_display }}{% if space.capacity %}, para {{ space.capacity }} persona{{ space.capacity|pluralize }}{% endif %}. {% if space.needs_approval %}La administración aprueba cada reserva.{% else %}Se reserva sin esperar aprobación.{% endif %}</p>
+    </div>
+    {% if may_request %}<div class="page-head__actions"><a class="btn btn--primary" href="{% url 'espacios:request' space.pk %}">Pedir este espacio</a></div>{% endif %}
+  </header>
+  {% if not space.active %}<div class="notice notice--quiet"><p>Este espacio está apagado: no aparece en la lista y nadie puede pedirlo.</p></div>{% endif %}
+  {% if request.is_church_admin and space.notes %}<div class="notice notice--quiet"><p><strong>Notas para la administración:</strong> {{ space.notes|linebreaksbr }}</p></div>{% endif %}
+
+  <nav class="pager" aria-label="Semanas">
+    <a class="btn btn--secondary btn--small" rel="prev" href="?semana={{ previous }}">Semana anterior</a>
+    <p class="pager__where">{% if is_this_week %}Esta semana{% else %}<a href="{% url 'espacios:week' space.pk %}">Ir a esta semana</a>{% endif %}</p>
+    <a class="btn btn--secondary btn--small" rel="next" href="?semana={{ next }}">Semana siguiente</a>
+  </nav>
+
+  {% for day in days %}
+  <section class="block week-day" aria-labelledby="dia-{{ day.date|date:'Y-m-d' }}">
+    <h2 id="dia-{{ day.date|date:'Y-m-d' }}" class="heading">{{ day.date|weekday_date|capfirst }}{% if day.date == today %} <span class="muted">(hoy)</span>{% endif %}</h2>
+    {% if day.bookings %}
+      <ul class="rows">
+        {% for booking in day.bookings %}{% include "espacios/_booking.html" with booking=booking %}{% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Libre todo el día.</p>
+    {% endif %}
+    {% if may_request and day.date >= today %}<p class="more"><a href="{% url 'espacios:request' space.pk %}?dia={{ day.date|date:'Y-m-d' }}">Pedir el {{ day.date|weekday_date }}</a></p>{% endif %}
+  </section>
+  {% endfor %}
+  <p class="aside-note">Las horas son las de tu iglesia, en formato de 24 horas. «Ocupado» incluye el tiempo para preparar y recoger.</p>
+</div>
+{% endblock %}

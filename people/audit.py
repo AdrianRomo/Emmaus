@@ -77,6 +77,13 @@ ACTION_LABELS = {
     "sitio_despublicado": "Dejó de publicar la página pública de la iglesia",
     "recurso_publico": "Mostró un recurso en la página pública",
     "recurso_privado": "Quitó un recurso de la página pública",
+    "espacio_creado": "Agregó un espacio o un equipo",
+    "espacio_modificado": "Modificó un espacio o un equipo",
+    "espacio_reserva_solicitada": "Pidió la reserva de un espacio",
+    "espacio_reserva_aprobada": "Aprobó la reserva de un espacio",
+    "espacio_reserva_sobre_choque": "Aprobó la reserva de un espacio aunque se empalma con otra",
+    "espacio_reserva_rechazada": "Rechazó la reserva de un espacio",
+    "espacio_reserva_cancelada": "Canceló la reserva de un espacio",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -87,6 +94,8 @@ ALLOWED_METADATA = frozenset({
     "override", "reason", "minor", "standing", "age_checked",
     # A church policy (policies.services.save): which one, by its column, and the number or yes/no before ("value" is after).
     "policy", "previous",
+    # A room or a piece of equipment (espacios.services), by its id: never its name or what a booking is for.
+    "space_id",
 })
 
 

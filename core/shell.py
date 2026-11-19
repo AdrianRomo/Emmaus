@@ -54,6 +54,11 @@ SERVING_ADMIN_VIEWS = {
 OVERVIEW_VIEWS = {"overview:panorama"}
 CARE_VIEWS = {"care:mine", "care:detail"}
 CARE_ADMIN_VIEWS = {"care:admin_list", "care:create", "care:edit", "care:cancel"}
+# Rooms and equipment: one destination, "Espacios". The administration's pages mark the same link.
+SPACE_VIEWS = {
+    "espacios:list", "espacios:week", "espacios:request", "espacios:cancel", "espacios:queue", "espacios:approve",
+    "espacios:reject", "espacios:manage", "espacios:space_create", "espacios:space_edit", "espacios:usage",
+}
 PEOPLE_VIEWS = {
     "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
     "people:grant_access", "people:access_link",
@@ -75,6 +80,9 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     from groups.access import managed_group_ids
     from groups.models import Group, GroupJoinRequest
     from care import services as care_services
+    from espacios import access as spaces_access
+    from espacios import services as spaces_services
+    from espacios.models import Space
     from notices import services as notices_services
     from overview.access import can_see_overview
     from serving import services as serving_services
@@ -137,6 +145,12 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     if accompanying:
         charge.append(_item("Acompañar", reverse("care:mine"), "acompanar", view in CARE_VIEWS, accompanying,
                             "persona que acompañas" if accompanying == 1 else "personas que acompañas"))
+    # Who is responsible for something may ask for a room, once the church has listed one. (The administration
+    # has its own link below; everybody else may read the weeks but is not sent there.)
+    if not is_admin and Space.objects.filter(church=church, active=True).exists() and spaces_access.can_request(
+        request.user, church, guides_group=bool(managed)
+    ):
+        charge.append(_item("Espacios", reverse("espacios:list"), "equipo", view in SPACE_VIEWS))
     if charge:
         sections.append({"label": "A tu cargo", "items": charge})
 
@@ -151,6 +165,9 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
         ))
         admin.append(_item("Eventos de la iglesia", reverse("agenda:admin_list"), "eventos", view in AGENDA_ADMIN_VIEWS))
         admin.append(_item("Equipos de la iglesia", reverse("serving:team_admin"), "servir", view in SERVING_ADMIN_VIEWS))
+        asked = spaces_services.pending_count(church)
+        admin.append(_item("Espacios y equipo", reverse("espacios:list"), "equipo", view in SPACE_VIEWS, asked,
+                           "solicitud de reserva por decidir" if asked == 1 else "solicitudes de reserva por decidir"))
         loose = care_services.unassigned_count(church, person)
         admin.append(_item("Seguimiento de personas", reverse("care:admin_list"), "acompanar",
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,

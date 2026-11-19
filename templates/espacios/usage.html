@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Uso de los espacios{% endblock %}
+{% block content %}
+{% comment %}
+  Hours booked per space between two days (espacios.views.usage), for the administration. Approved bookings only.
+  Bookings and hours: no person is named or counted here.
+{% endcomment %}
+<div class="narrow spaces">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'espacios:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Uso de los espacios" lede="Cuántas horas estuvo reservado cada espacio. Solo cuentan las reservas aprobadas." back_url=back back_label="Volver a Espacios" %}
+  <form method="get" novalidate>
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions"><button class="btn btn--secondary" type="submit">Ver ese periodo</button></div>
+  </form>
+  {% if period %}
+  <section class="block" aria-labelledby="resultado">
+    <h2 id="resultado" class="heading">Del {{ period.0|date_range:period.1 }}</h2>
+    {% if rows %}
+    <table class="table table--stack" role="table">
+      <caption class="visually-hidden">Reservas aprobadas y horas por espacio en el periodo.</caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Espacio</th>
+          <th scope="col" role="columnheader" class="num">Reservas</th>
+          <th scope="col" role="columnheader" class="num">Horas de uso</th>
+          <th scope="col" role="columnheader" class="num">Horas con preparación y recogida</th>
+        </tr>
+      </thead>
+      <tbody role="rowgroup">
+        {% for row in rows %}
+        <tr role="row">
+          <th scope="row" role="rowheader">{{ row.space.name }}<span class="table__sub">{{ row.space.get_kind_display }}{% if not row.space.active %}, apagado{% endif %}</span></th>
+          <td role="cell" class="num" data-label="Reservas">{{ row.bookings }}</td>
+          <td role="cell" class="num" data-label="Horas de uso">{{ row.used_hours }}</td>
+          <td role="cell" class="num" data-label="Horas con preparación y recogida">{{ row.blocked_hours }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="aside-note">Una reserva que empieza o termina fuera del periodo cuenta solo por las horas que caen dentro.</p>
+    {% else %}
+      <p class="empty-line">Todavía no hay espacios.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

@@ -492,3 +492,12 @@ p.sitio__leaves { margin-top: var(--s-2); }
    line with the row's other buttons */
 :root[data-ui="2"] .break-anywhere { overflow-wrap: anywhere; }
 :root[data-ui="2"] .row__form { display: contents; }
+
+/* Espacios (rooms and equipment): a booking row has no monogram to lead it, so on a phone its text keeps its own
+   height instead of the 12rem basis of a stacked row; and the week's "anterior / siguiente" sits above the days */
+:root[data-ui="2"] .spaces .row--stack .row__main { flex-basis: auto; }
+:root[data-ui="2"] .spaces .pager { margin-top: var(--s-6); margin-bottom: var(--s-8); }
+:root[data-ui="2"] .spaces form + .block { margin-top: var(--s-10); }
+@container (max-width: 44rem) {
+  :root[data-ui="2"] .spaces .table--stack tbody th, :root[data-ui="2"] .spaces .table--stack td { border: 0; padding: var(--s-1) 0; text-align: left; }
+}

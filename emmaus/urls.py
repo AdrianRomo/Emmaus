@@ -61,6 +61,8 @@ urlpatterns = [
     path("mi-iglesia/panorama/", include("overview.urls")),
     path("mi-iglesia/politicas/", include("policies.urls")),
     path("mi-iglesia/pagina-publica/", include("sitio.urls")),
+    # Rooms and equipment (issue #94): signed-in people of the church only, never a public page.
+    path("mi-iglesia/espacios/", include("espacios.urls")),
     path("mi-iglesia/", include("groups.urls")),
     # The public page of one event of the church (decision 0010, phase A): no account, nothing about people.
     path("evento/", include("agenda.public_urls")),

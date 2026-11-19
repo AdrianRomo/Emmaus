@@ -104,6 +104,7 @@ INSTALLED_APPS = [
     "overview",
     "policies",
     "sitio",
+    "espacios",
 ]
 
 MIDDLEWARE = [
