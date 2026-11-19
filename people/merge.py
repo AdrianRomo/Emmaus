@@ -180,6 +180,9 @@ TABLES: tuple[Table, ...] = (
     # The administration's own labels: the survivor ends with the union of both (a tag both carry stays on the
     # absorbed record, as every "one per person and …" row), and the undo takes back exactly the ones that moved.
     Table("people.PersonTag", "person", "etiqueta", "etiquetas", unique_with=("tag_id",)),
+    # Who answered a form of the church, or the record "Agregar a personas" made from a public answer. The answers
+    # are not read; every row moves to the survivor (no "one per person" rule: the same-day rule is by time).
+    Table("formularios.Submission", "person", "respuesta a un formulario", "respuestas a formularios"),
 )
 CAMP_KEY = "people.EventParticipantLink.person"
 CAMP_LABELS = ("vínculo con un evento en el que participó", "vínculos con eventos en los que participó")

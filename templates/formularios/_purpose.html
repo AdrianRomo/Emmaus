@@ -1,0 +1,6 @@
+{% load community %}
+{% comment %}What a person reads before answering: why the church asks, and until when the answers are kept. Both true of the code.{% endcomment %}
+<div class="notice notice--quiet form-purpose">
+  <p><strong>Para qué lo pedimos:</strong> {{ purpose }}</p>
+  <p>Tus respuestas las lee el equipo de {{ church_name }} que atiende este formulario. Se borran a más tardar el {{ delete_after|long_date }}.</p>
+</div>

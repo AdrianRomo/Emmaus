@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{{ version.title }}{% endblock %}
+{% block content %}
+{% comment %}
+  A form of the church, for a person of the church (formularios.views.fill). The title, the purpose and the questions
+  are the published version's. The same person answering the same version twice in a day keeps the first answer.
+{% endcomment %}
+<div class="narrow forms">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'formularios:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title=version.title back_url=back back_label="Volver a Formularios" %}
+  {% include "formularios/_purpose.html" with purpose=version.purpose church_name=form_row.church.name %}
+  {% if changed %}<div class="notice notice--warning" role="status"><p>Este formulario cambió mientras lo llenabas. Revisa las preguntas y respóndelo otra vez.</p></div>{% endif %}
+  {% if full %}<div class="notice notice--warning" role="alert"><p>Este formulario ya no puede recibir más respuestas. Avisa a tu iglesia.</p></div>{% endif %}
+  {% if answered %}<div class="notice notice--info"><p>Ya respondiste este formulario hoy. Si lo envías otra vez, se queda tu primera respuesta: no se cambia ni se duplica.</p></div>{% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="version" value="{{ version.pk }}">
+    {% include "formularios/_questions.html" %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Enviar mis respuestas</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Respondes con tu nombre: quien atiende este formulario verá que estas respuestas son tuyas. Emmaus no las envía por correo ni las califica.</p>
+</div>
+{% endblock %}

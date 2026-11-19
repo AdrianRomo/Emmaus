@@ -513,3 +513,16 @@ p.sitio__leaves { margin-top: var(--s-2); }
    from the page's actions above it; "Quitar filtros" lines up with the button */
 :root[data-ui="2"] .people-filters { margin-top: var(--s-6); }
 :root[data-ui="2"] .people-filters__clear { align-self: center; }
+/* Formularios (general forms, issue #92). The honeypot of a public form is out of the page for everybody (it is
+   also aria-hidden and out of the tab order); a row has no monogram, so on a phone its text keeps its own height;
+   the contact block and the preview are fieldsets without a frame; the list of what stops a publish has marks */
+:root[data-ui="2"] .form-trap { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+:root[data-ui="2"] .forms .row--stack .row__main { flex-basis: auto; }
+:root[data-ui="2"] .forms fieldset.form-block, :root[data-ui="2"] .forms__preview fieldset { border: 0; padding: 0; margin: var(--s-6) 0 0; min-width: 0; }
+:root[data-ui="2"] .forms .form-purpose { margin-bottom: var(--s-6); }
+:root[data-ui="2"] .forms .form-purpose p + p { margin-top: var(--s-2); }
+:root[data-ui="2"] .forms__problems { list-style: disc; padding-left: 1.25rem; margin: var(--s-2) 0; }
+:root[data-ui="2"] .forms__questions { list-style: none; padding-left: 0; }
+:root[data-ui="2"] .forms .notice + .block, :root[data-ui="2"] .forms .summary-list + .block { margin-top: var(--s-8); }
+:root[data-ui="2"] .forms .rows + form.block { margin-top: var(--s-8); }
+:root[data-ui="2"] .public-form { padding-bottom: var(--s-16); }

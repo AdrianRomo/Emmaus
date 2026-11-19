@@ -69,8 +69,17 @@ class MergeFixture(CommunityFixture):
             "people.PersonTag.person": lambda: PersonTag.objects.create(
                 person=person, tag=Tag.objects.get_or_create(church=self.church, name="Coro", normalized_name="coro")[0]
             ),
+            "formularios.Submission.person": lambda: self._form_submission(person),
         }
         return builders[key]()
+
+    def _form_submission(self, person):
+        from formularios.models import Form, FormVersion, Submission
+
+        form = Form.objects.create(church=self.church, title="Convivio", purpose="Para organizar", opens_on=timezone.localdate(),
+                                   closes_on=timezone.localdate())
+        version = FormVersion.objects.create(form=form, number=1, title=form.title, purpose=form.purpose, schema=[])
+        return Submission.objects.create(form=form, version=version, person=person, purpose_shown=form.purpose)
 
     def do_merge(self, survivor=None, absorbed=None, actor=None, not_siblings=False, **choices):
         survivor, absorbed = survivor or self.keep, absorbed or self.dup

@@ -64,6 +64,8 @@ urlpatterns = [
     path("mi-iglesia/pagina-publica/", include("sitio.urls")),
     # Rooms and equipment (issue #94): signed-in people of the church only, never a public page.
     path("mi-iglesia/espacios/", include("espacios.urls")),
+    # General forms and «Pendientes» (issue #92): signed-in people of the church.
+    path("mi-iglesia/formularios/", include("formularios.urls")),
     path("mi-iglesia/", include("groups.urls")),
     # The public page of one event of the church (decision 0010, phase A): no account, nothing about people.
     path("evento/", include("agenda.public_urls")),
@@ -72,6 +74,8 @@ urlpatterns = [
     # The church's public calendar file (issue #93): /iglesia/<slug>/calendario.ics, only the public events.
     path("iglesia/", include("agenda.calendar_urls")),
     path("iglesia/", include("sitio.public_urls")),
+    # A public form of the church (issue #92): no account, the address is a random token.
+    path("formulario/", include("formularios.public_urls")),
     path("eventos/", include("events.urls")),
     path("estacion/", include("events.kiosk_urls")),
     # The printed sign: "Entra a /unirme/ y escribe el código". Public, outside /eventos/.

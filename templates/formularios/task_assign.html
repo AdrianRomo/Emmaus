@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Cambiar responsable o fecha{% endblock %}
+{% block content %}
+{% comment %}Who follows up one answer and by when (formularios.views.task_assign), the administration's.{% endcomment %}
+<div class="narrow forms">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'formularios:submission' form_row.pk submission_id as back %}
+  {% include "events/rotulo/_page_head.html" with title="Cambiar responsable o fecha" lede="Dar seguimiento a una respuesta de «"|add:form_row.title|add:"»." back_url=back back_label="Volver a la respuesta" %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Guardar cambios</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

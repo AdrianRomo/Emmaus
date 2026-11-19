@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}{{ form_row.title }}{% endblock %}
+{% block content %}
+{% comment %}
+  One form, for the administration (formularios.views.detail): what it is, where it stands, its questions as a draft
+  (what people answer is the last published version), who reads its answers, and the doors to the answers.
+{% endcomment %}
+<div class="narrow forms">
+  {% url 'formularios:manage' as back %}{% url 'formularios:submissions' form_row.pk as answers_url %}{% url 'formularios:edit' form_row.pk as edit_url %}
+  {% if form_row.status == "cerrado" %}
+    {% include "events/rotulo/_page_head.html" with title=form_row.title lede=form_row.purpose back_url=back back_label="Volver a los formularios" secondary_url=answers_url secondary_label="Ver las respuestas" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title=form_row.title lede=form_row.purpose back_url=back back_label="Volver a los formularios" action_url=answers_url action_label="Ver las respuestas" secondary_url=edit_url secondary_label="Editar el formulario" %}
+  {% endif %}
+
+  <div class="notice notice--warning">
+    <p><strong>Qué no preguntar.</strong> {{ warning }}</p>
+    <p>{{ minors }}</p>
+  </div>
+
+  <section class="block" aria-labelledby="datos">
+    <h2 id="datos" class="heading">El formulario</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Estado</dt><dd>{% status form_row.phase_mark form_row.phase_label %}{% if form_row.current_version %} <span class="muted">Versión {{ form_row.current_version.number }} publicada.</span>{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Quién responde</dt><dd>{{ form_row.get_audience_display }}</dd></div>
+      <div class="summary-list__row"><dt>Cuándo</dt><dd>Del {{ form_row.opens_on|long_date }} al {{ form_row.last_day|long_date }}</dd></div>
+      <div class="summary-list__row"><dt>Respuestas</dt><dd>{{ answers }} recibida{{ answers|pluralize }}. Se guardan {{ form_row.get_retention_days_display|lower }} después del cierre: se borran después del {{ delete_after|long_date }}.</dd></div>
+      <div class="summary-list__row"><dt>Pendientes</dt><dd>{% if form_row.creates_task %}Cada respuesta deja un pendiente «Dar seguimiento» a {{ form_row.task_due_days }} día{{ form_row.task_due_days|pluralize }}{% if owner_name %}, para {{ owner_name }}{% else %}, sin responsable hasta que lo asignes{% endif %}.{% else %}Las respuestas no dejan pendientes.{% endif %}</dd></div>
+    </dl>
+  </section>
+
+  {% if public_url %}
+  <section class="block public-link" aria-labelledby="publica">
+    <h2 id="publica" class="heading">Enlace público</h2>
+    <p>{% if is_open %}Cualquiera con este enlace puede responder sin entrar a Emmaus, y reenviarlo.{% else %}Este enlace no abre nada mientras el formulario no esté abierto.{% endif %} La página no muestra quién más respondió.</p>
+    <div class="field admin-link">
+      <label class="label" for="enlace-publico">Enlace del formulario</label>
+      <input class="input" id="enlace-publico" value="{{ public_url }}" readonly>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="preguntas">
+    <h2 id="preguntas" class="heading">Preguntas{% if form_row.current_version %} (borrador){% endif %}</h2>
+    {% if form_row.status != "cerrado" %}
+      {% if unpublished and form_row.current_version %}<div class="notice notice--info"><p>Hay cambios sin publicar. Quien responde sigue viendo la versión {{ form_row.current_version.number }} hasta que publiques.</p></div>{% endif %}
+    {% endif %}
+    {% if questions %}
+      <ol class="rows forms__questions">
+        {% for question in questions %}
+          <li class="row row--stack">
+            <div class="row__main">
+              <p class="row__title">{{ question.label }}</p>
+              <p class="row__meta">{{ question.get_kind_display }}{% if question.required %}, obligatoria{% endif %}.{% if question.options %} Opciones: {{ question.options|join:", " }}.{% endif %}{% if question.kind == "contacto" %} Pide el nombre{% if question.ask_email %}, el correo{% endif %}{% if question.ask_phone %}, el teléfono{% endif %}.{% endif %}</p>
+              {% if question.show_if_question %}<p class="row__meta">Solo si en «{{ question.show_if_question.label }}» eligen «{{ question.show_if_value }}».</p>{% endif %}
+            </div>
+            {% if form_row.status != "cerrado" %}
+            <div class="row__end">
+              <form class="row__form" method="post" action="{% url 'formularios:question_move' form_row.pk question.pk %}">
+                {% csrf_token %}
+                {% if not forloop.first %}<button class="btn btn--link btn--small" type="submit" name="hacia" value="arriba">Subir<span class="visually-hidden">: {{ question.label }}</span></button>{% endif %}
+                {% if not forloop.last %}<button class="btn btn--link btn--small" type="submit" name="hacia" value="abajo">Bajar<span class="visually-hidden">: {{ question.label }}</span></button>{% endif %}
+              </form>
+              <a class="btn btn--secondary btn--small" href="{% url 'formularios:question_edit' form_row.pk question.pk %}">Editar<span class="visually-hidden">: {{ question.label }}</span></a>
+              <form class="row__form" method="post" action="{% url 'formularios:question_delete' form_row.pk question.pk %}">
+                {% csrf_token %}
+                <button class="btn btn--link btn--small" type="submit">Quitar<span class="visually-hidden">: {{ question.label }}</span></button>
+              </form>
+            </div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="empty-line">Todavía no hay preguntas.</p>
+    {% endif %}
+
+    {% if form_row.status != "cerrado" %}
+      {% if questions|length < max_questions %}
+      <h3 class="row__title mt-2" id="agregar">Agregar una pregunta</h3>
+      <ul class="rows" aria-labelledby="agregar">
+        {% for value, label, help in kinds %}
+          <li class="row"><div class="row__main"><p class="row__title"><a href="{% url 'formularios:question_create' form_row.pk %}?tipo={{ value }}">{{ label }}</a></p><p class="row__meta">{{ help }}</p></div></li>
+        {% endfor %}
+      </ul>
+      <p class="aside-note">Hasta {{ max_questions }} preguntas. No hay archivos, calificaciones ni resultados calculados, a propósito.</p>
+      {% else %}
+      <p class="aside-note">Este formulario ya tiene {{ max_questions }} preguntas, el máximo.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  {% if form_row.status != "cerrado" %}
+  <section class="block" aria-labelledby="publicar">
+    <h2 id="publicar" class="heading">Publicar</h2>
+    {% if problems %}
+      <p>Antes de publicar:</p>
+      <ul class="forms__problems">{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul>
+    {% elif unpublished or form_row.status == "borrador" %}
+      <p>{% if form_row.current_version %}Publica los cambios para que quien responda los vea. Las respuestas que ya llegaron se quedan con la versión que respondieron.{% else %}Revisa cómo se verá y publícalo. Se podrá responder del {{ form_row.opens_on|long_date }} al {{ form_row.closes_on|long_date }}.{% endif %}</p>
+      <div class="step__actions"><a class="btn btn--primary" href="{% url 'formularios:publish' form_row.pk %}">Revisar y publicar</a></div>
+    {% else %}
+      <p>Lo publicado es lo que ves aquí: no hay cambios pendientes.</p>
+    {% endif %}
+    {% if form_row.status == "publicado" %}
+      <div class="step__actions"><a class="btn btn--link" href="{% url 'formularios:close' form_row.pk %}">Cerrar el formulario hoy</a></div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="lectores">
+    <h2 id="lectores" class="heading">Quién lee las respuestas</h2>
+    <p>La administración de la iglesia{% if readers %}, y además:{% else %}. Nadie más: ni los pastores ni quien guía un grupo las leen por su rol.{% endif %}</p>
+    {% if readers %}
+      <ul class="rows">
+        {% for reader in readers %}<li class="row"><div class="row__main"><p>{% if reader.active %}{{ reader.label }}{% else %}Un grupo o equipo que ya no está activo (no da acceso){% endif %}</p></div></li>{% endfor %}
+      </ul>
+    {% endif %}
+    <div class="step__actions"><a class="btn btn--secondary" href="{% url 'formularios:readers' form_row.pk %}">Cambiar los lectores</a></div>
+  </section>
+</div>
+{% endblock %}

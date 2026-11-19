@@ -12,7 +12,7 @@ mixes tenants. This command finds them so drift is visible (roadmap P1-12, audit
   ``--ids`` adds one query for each check that found something.
 * The camp's tables come first (``camp_checks``), then the church modules added after the camp
   (``community_checks``): people, groups, notices, events of the church, resources, serving, care,
-  opinions, the public home, the bookings of a room and the roles by scope. ``policies.ChurchPolicy``,
+  opinions, the public home, the bookings of a room, the roles by scope and the answers to the general forms. ``policies.ChurchPolicy``,
   ``sitio.PublicHome``, ``sitio.ServiceTime`` and ``espacios.Space`` hold one church and nothing
   else: there is nothing in them that could cross.
 * Each check also reports how many rows it read: a zero next to zero rows read is not an all-clear.
@@ -37,6 +37,7 @@ from core.models import UserChurchRole
 from espacios.models import Booking
 from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp, Interview, ReportSnapshot
 from feedback.models import FeedbackGiven
+from formularios.models import Submission as FormSubmission
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge, PersonTag
@@ -169,6 +170,11 @@ def community_checks() -> tuple[Check, ...]:
         # roles by scope
         Check("role_assignment_scope_church", "Roles por ámbito que apuntan fuera de su iglesia", RoleAssignment, None,
               scope_elsewhere),
+        # general forms: the church is the form's; who answered and the version answered must be of the same form
+        Check("form_submission_person_church", "Respuestas a un formulario de una persona de otra iglesia", FormSubmission,
+              Q(person__isnull=False), ~Q(person__church=F("form__church"))),
+        Check("form_submission_version_form", "Respuestas a un formulario con la versión de otro formulario", FormSubmission, None,
+              ~Q(version__form=F("form"))),
     )
 
 
