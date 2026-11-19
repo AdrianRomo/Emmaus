@@ -77,6 +77,16 @@ CLAIM_LOST_MESSAGE = (
     "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Lo que se respondió sigue guardado."
 )
 NOT_IN_PROGRESS_MESSAGE = "Esta entrevista ya no está en curso. En la ficha del campero ves cómo quedó."
+# A browser that had the interview, whose person may no longer see the campero (given to another coordinador): sent to
+# its home with this, never a word about the campero (views.interview._scoped_interview). True whether or not the new
+# coordinador has taken it yet, which the claim-lost message («se abrió en otra computadora…») is not.
+NO_LONGER_IN_HAND_MESSAGE = "Esta entrevista ya no está a tu cargo. Lo que se respondió sigue guardado."
+# Who may take an interview in hand when this person may not (EventAccess.can_continue_interview): the take-over page
+# says it instead of offering «Continuar aquí», and ``claim`` refuses with it.
+WHO_CAN_CONTINUE_MESSAGE = (
+    "Esta entrevista tiene preguntas que no puedes ver: pueden continuarla su coordinador o alguien de la administración"
+    " con acceso confidencial."
+)
 NO_QUESTIONNAIRE_MESSAGE = "Todavía no hay un cuestionario publicado para este evento. Avisa a la administración."
 KIOSK_CLOSED_MESSAGE = "Esta pantalla ya se cerró. Avisa a tu coordinador."
 WRONG_PASSWORD_MESSAGE = "La contraseña no es correcta. Revísala e inténtalo otra vez."
@@ -382,13 +392,19 @@ def start_interview(
     return interview
 
 
-def claim(access, interview: Interview, session, *, take_over: bool = False, station=None, reopen: bool = False) -> Interview:
+def claim(
+    access, interview: Interview, session, *, take_over: bool = False, station=None, reopen: bool = False, to_continue: bool = True
+) -> Interview:
     """Make this browser the editor of an in-progress interview.
 
     ``reopen`` means the person opened the interview on purpose ("Retomar entrevista" on
     "Mi inicio", a list, the camper page). Only then may a browser whose claim an administrator
     released pick the interview up again without "Tomar el control aquí"; a save, the review
     or the hand-over from that browser raise ``ClaimReleased``.
+
+    ``to_continue``: the claim is to go on with it, so whoever cannot (``EventAccess.can_continue_interview``) is
+    refused before the lock moves. Only «Descartar» claims it for something else (an administrador ends an abandoned
+    interview she could not continue).
     """
     with transaction.atomic():
         locked = Interview.objects.select_for_update().select_related("participant").get(pk=interview.pk)
@@ -408,6 +424,8 @@ def claim(access, interview: Interview, session, *, take_over: bool = False, sta
             )
         if locked.lock_is_active(now) and not take_over:
             raise ClaimConflict("Esta entrevista está abierta en otra computadora.", interview=locked)
+        if to_continue and not access.can_continue_interview(locked):
+            raise NotAllowed(WHO_CAN_CONTINUE_MESSAGE, interview=locked)
         was_active = locked.lock_is_active(now)
         _close_participant_sessions(locked, ParticipantSession.EndReason.TAKEN_OVER)
         token = _set_claim(locked, access.user)
@@ -1062,6 +1080,19 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
                 }
             )
     return rows
+
+
+def hidden_question_message(question: Question) -> str:
+    """What a step says when it sends someone to the review because they do not read one of its questions. It is the
+    same whether or not the question has an answer (a hidden row never tells: ``review_rows``), so it no longer says
+    the campero answered it: false in an assisted interview and for a question nobody answered (browser QA)."""
+    return f"Esa pregunta es {question.get_sensitivity_display().lower()} y no puedes verla."
+
+
+def answered_alone(interview: Interview) -> bool:
+    """The campero answered something on their own («Entrevista a solas», on the kiosk): only then may the review say
+    the confidential questions it hides were answered «por su cuenta» (browser QA)."""
+    return interview.answers.filter(answered_by_participant=True).exists()
 
 
 # Who took the interview in hand, in the activity log: started it, resumed it, took control, recovered the computer.

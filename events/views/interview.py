@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import wraps
 from types import SimpleNamespace
 
 from django.contrib import messages
@@ -28,7 +29,7 @@ from ..services.questionnaire import (
     resume_step,
     visible_steps,
 )
-from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view, safe_next
+from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view, role_home_url, safe_next
 
 
 # ---- view models ----------------------------------------------------------------------------
@@ -102,15 +103,43 @@ def step_context(interview: Interview, step, *, errors=None, posted=None, answer
     }
 
 
-def _scoped_interview(access, public_id) -> Interview:
+class _NoLongerInHand(Http404):
+    """This browser had the interview (its session holds or held the claim's token), but its person may no longer see
+    the campero (given to another coordinador). ``_capture_screen`` says so instead of the 404; a screen without it
+    still answers 404."""
+
+
+def _scoped_interview(access, public_id, session=None) -> Interview:
+    """The interview, when this person may see its campero; else the 404. ``session``: the capture screens'
+    (``_capture_screen``), so the browser that had it is told it is no longer in its hands (browser QA, owner
+    decision). Told by the server from the claim's token in the session, never from anything the browser sends."""
     interview = get_object_or_404(
         Interview.objects.select_related("participant__coordinator__user", "version", "station", "conducted_by"),
         public_id=public_id,
         event=access.event,
     )
     if not access.can_view_participant(interview.participant):
+        if session is not None and svc.session_claim_token(session, interview):
+            raise _NoLongerInHand
         raise Http404
     return interview
+
+
+def _capture_screen(view):
+    """The screens that capture an interview (resume, take-over, steps, review, hand-over, discard, done). A browser
+    that had it and whose person may no longer see the campero goes to its home, told the interview is no longer in its
+    hands and that the answers are kept, without a word about the campero; nothing it posted is written (the view stops
+    at ``_scoped_interview``, its first line)."""
+
+    @wraps(view)
+    def wrapped(request, event, access, *args, **kwargs):
+        try:
+            return view(request, event, access, *args, **kwargs)
+        except _NoLongerInHand:
+            messages.error(request, svc.NO_LONGER_IN_HAND_MESSAGE)
+            return redirect(role_home_url(event, access))
+
+    return wrapped
 
 
 def _step_or_404(interview: Interview, number: int):
@@ -120,14 +149,17 @@ def _step_or_404(interview: Interview, number: int):
     raise Http404
 
 
-def _claim_or_conflict(request, access, interview: Interview, *, reopen: bool = False):
+def _claim_or_conflict(request, access, interview: Interview, *, reopen: bool = False, to_continue: bool = True):
     """Ensure this browser is the editor; returns a response when it is not.
 
     ``reopen`` only for opening the interview on purpose (``interview_resume``): see ``svc.claim``.
     A released claim (``svc.ClaimReleased``) lands on the same conflict URL, which then says so.
+    ``to_continue``: False for «Descartar» only (``svc.claim``).
     """
     try:
-        svc.claim(access, interview, request.session, station=current_station(request, access.event), reopen=reopen)
+        svc.claim(
+            access, interview, request.session, station=current_station(request, access.event), reopen=reopen, to_continue=to_continue
+        )
     except svc.ClaimConflict:
         return redirect("events:interview_conflict", slug=access.event.slug, public_id=interview.public_id)
     except svc.AlreadyCompleted:
@@ -288,28 +320,33 @@ def _resume(request, event, access, interview: Interview, *, reopen: bool):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_resume(request, event, access, public_id):
     # The links of "Mi inicio", the lists and the camper page land here: opening on purpose.
-    return _resume(request, event, access, _scoped_interview(access, public_id), reopen=True)
+    return _resume(request, event, access, _scoped_interview(access, public_id, request.session), reopen=True)
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_conflict(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if not access.can_interview(interview.participant):
         raise PermissionDenied
     participant = interview.participant
+    holds_it = interview.lock_matches(svc.session_claim_token(request.session, interview))
+    # Whoever could not go on with it (questions they do not read: EventAccess.can_continue_interview) is offered
+    # nothing to take, and told who can (owner decision); svc.claim refuses them too, so the lock never moves.
+    cannot_continue = not holds_it and not access.can_continue_interview(interview)
     # Someone who did not start it, about to continue it with the campero, ticks «Sí, es {nombre}» first (owner
     # decision), here: before taking it from another computer, or, already holding it (a free or expired claim picked
     # up, the computer recovered after an «Entrevista a solas»), before going on (``_identity_check``).
-    check = svc.needs_identity_check(interview, request.user)
+    check = not cannot_continue and svc.needs_identity_check(interview, request.user)
     posted = request.POST if request.method == "POST" else None  # bound even when nothing was ticked
     form = IdentityCheckForm(posted, participant_name=participant.full_name) if check else None
-    holds_it = interview.lock_matches(svc.session_claim_token(request.session, interview))
     # Another computer has it now (an active claim not this browser's): continuing here takes it from there. A free or
     # expired claim is only picked up, after the check: the page is the check alone.
     elsewhere = not holds_it and interview.lock_is_active()
-    if request.method == "POST" and (form is None or form.is_valid()):
+    if request.method == "POST" and not cannot_continue and (form is None or form.is_valid()):
         if not holds_it:
             try:
                 svc.claim(access, interview, request.session, take_over=True, station=current_station(request, event))
@@ -332,6 +369,8 @@ def interview_conflict(request, event, access, public_id):
             "identity_form": form,
             # Nobody else has it (this browser, or a free or expired claim): nothing to take over, only the identity.
             "verify_only": check and not elsewhere,
+            "cannot_continue": cannot_continue,
+            "who_can_continue": svc.WHO_CAN_CONTINUE_MESSAGE,
         },
     )
 
@@ -351,8 +390,9 @@ RETURN_TO_REVIEW = "revision"
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_step(request, event, access, public_id, number):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.IN_PROGRESS:
         return redirect("events:interview_detail", slug=event.slug, public_id=interview.public_id)
     if not access.can_interview(interview.participant):
@@ -377,8 +417,9 @@ def interview_step(request, event, access, public_id, number):
         return redirect("events:interview_review", slug=event.slug, public_id=public_id)
     for question in step.questions:
         if not access.can_view_answer(interview, question, during_capture=True):
-            # Supervised capture already happened for this question; coordinators may not see it.
-            messages.info(request, "Esa pregunta es confidencial y la respondió el campero.")
+            # A question this person does not read here (a confidential one in an «Entrevista a solas», or the holder's
+            # confidential access withdrawn): said truly, answered or not (svc.hidden_question_message).
+            messages.info(request, svc.hidden_question_message(question))
             return redirect("events:interview_review", slug=event.slug, public_id=public_id)
     return_to_review = request.GET.get("volver") == RETURN_TO_REVIEW
     marker = f"?volver={RETURN_TO_REVIEW}" if return_to_review else ""
@@ -423,8 +464,9 @@ def interview_step(request, event, access, public_id, number):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_review(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status == Interview.Status.COMPLETED:
         return redirect("events:interview_done", slug=event.slug, public_id=public_id)
     if interview.status != Interview.Status.IN_PROGRESS:
@@ -475,6 +517,8 @@ def interview_review(request, event, access, public_id):
             "selected_decision": request.POST.get("follow_up_decision") or (Interview.FollowUpDecision.REQUIRED if suggestions else ""),
             "error": error,
             "has_hidden": any(not r["visible"] for r in rows),
+            # «… las respondió por su cuenta» only when the campero did answer on their own (browser QA)
+            "answered_alone": svc.answered_alone(interview),
             # «Identidad confirmada por …» (at the start), «verificada de nuevo por …» (whoever continued it in someone
             # else's place) and «Entrevista a cargo de …» (who has it now): svc.interview_people.
             "people": svc.interview_people(interview),
@@ -483,8 +527,9 @@ def interview_review(request, event, access, public_id):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_done(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.COMPLETED:
         # Not a deliberate "Retomar": a stale "done" tab must not re-open a released claim.
         return _resume(request, event, access, interview, reopen=False)
@@ -513,8 +558,9 @@ def interview_done(request, event, access, public_id):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_handoff(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.IN_PROGRESS or not access.can_interview(interview.participant):
         raise Http404
     response = _identity_check(request, access, interview)  # before taking it in hand and giving the computer
@@ -548,13 +594,15 @@ def interview_handoff(request, event, access, public_id):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_discard(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.IN_PROGRESS or not access.can_interview(interview.participant):
         raise Http404
     if not interview.lock_matches(svc.session_claim_token(request.session, interview)):
         # Same claim check as a step save: an expired claim is picked up again, a released or taken one is refused.
-        response = _claim_or_conflict(request, access, interview)
+        # Not to continue it: an administrador ends an abandoned interview she could not continue (svc.claim).
+        response = _claim_or_conflict(request, access, interview, to_continue=False)
         if response:
             return response
         interview.refresh_from_db()

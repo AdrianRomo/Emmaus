@@ -183,6 +183,30 @@ class EventAccess:
     def can_interview(self, participant: EventParticipant) -> bool:
         return self.can_conduct_interviews and self.can_edit_participant(participant) and participant.is_active
 
+    def _is_interviewer(self, interview: Interview) -> bool:
+        """The campero's coordinador, or the administrador who conducts the interview (who started it,
+        ``conducted_by``): who reads its personal answers without explicit confidential access (``can_view_answer``)."""
+        return (self.is_coordinator and interview.participant.coordinator_id == getattr(self.membership, "id", None)) or (
+            self.is_admin and interview.conducted_by_id == self.user.id
+        )
+
+    def can_continue_interview(self, interview: Interview) -> bool:
+        """Whether this person may take an interview in progress in hand: resume it, pick up a free claim, take it from
+        another computer (``svc.claim``, the take-over page).
+
+        The rule an interview already follows when it starts: whoever starts it conducts it, and conducting an assisted
+        interview means reading every question while recording it (``can_view_answer`` during the capture). That is
+        someone with explicit confidential access, the campero's coordinador, or the administrador who started it; or
+        anyone who may interview the campero when the questionnaire has no question they could not read. Taking an
+        interview over does not make an administrador its conductor, so one without confidential access would land on
+        questions she cannot read: she cannot take it (browser QA, owner decision)."""
+        if not self.can_interview(interview.participant):
+            return False
+        if self.can_view_sensitive or self._is_interviewer(interview):
+            return True
+        personal = Question.objects.filter(section__version_id=interview.version_id).exclude(sensitivity=Question.Sensitivity.GENERAL)
+        return all(self.can_view_answer(interview, question, during_capture=True) for question in personal)
+
     def can_view_answer(self, interview: Interview, question: Question, *, during_capture: bool = False) -> bool:
         """Field-level visibility of an individual answer.
 
@@ -202,9 +226,7 @@ class EventAccess:
             return True
         if self.can_view_sensitive:
             return True
-        is_assigned_coordinator = (
-            self.is_coordinator and interview.participant.coordinator_id == getattr(self.membership, "id", None)
-        ) or (self.is_admin and interview.conducted_by_id == self.user.id)
+        is_assigned_coordinator = self._is_interviewer(interview)
         if sensitivity == Question.Sensitivity.SENSITIVE:
             return is_assigned_coordinator
         level = stricter_confidential_level(interview.confidential_level, self.event.confidential_level)

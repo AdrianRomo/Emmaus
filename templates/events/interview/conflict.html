@@ -1,9 +1,18 @@
 {% extends "events/shell_focus.html" %}
 {% load emmaus %}
-{% block page_title %}{% if identity_form.errors %}Error: {% endif %}{% if verify_only %}Antes de continuar con {{ participant.first_name }}{% elif ui_v2 %}{% if released %}La administración liberó esta entrevista{% elif interview.station and interview.station != station %}Abierta en {{ interview.station.name }}{% else %}Abierta en otra computadora{% endif %}{% else %}{% if released %}La administración liberó esta entrevista{% else %}La entrevista está abierta en otra computadora{% endif %}{% endif %}{% endblock %}
+{% block page_title %}{% if cannot_continue %}No puedes continuar esta entrevista{% else %}{% if identity_form.errors %}Error: {% endif %}{% if verify_only %}Antes de continuar con {{ participant.first_name }}{% elif ui_v2 %}{% if released %}La administración liberó esta entrevista{% elif interview.station and interview.station != station %}Abierta en {{ interview.station.name }}{% else %}Abierta en otra computadora{% endif %}{% else %}{% if released %}La administración liberó esta entrevista{% else %}La entrevista está abierta en otra computadora{% endif %}{% endif %}{% endif %}{% endblock %}
 {% block focus_actions %}{% if ui_v2 %}<a class="btn btn--small btn--secondary" href="{% url 'events:home' event.slug %}">Volver</a>{% endif %}{% endblock %}
 {% block content %}
-{% if ui_v2 %}{% comment %}
+{% if cannot_continue %}{% comment %}
+  Whoever could not go on with it (questions they do not read: EventAccess.can_continue_interview) is offered nothing
+  to take, in both modes: one line says who can (owner decision). The server refuses the take-over too (svc.claim).
+{% endcomment %}
+<header class="page-head">
+  <h1 class="voice page-head__title">No puedes continuar esta entrevista</h1>
+  <p class="{% if ui_v2 %}page-head__meta{% else %}lede{% endif %}">{{ who_can_continue }}</p>
+</header>
+{% if not ui_v2 %}<div class="step__actions"><a class="btn btn--link" href="{% url 'events:home' event.slug %}">Volver</a></div>{% endif %}
+{% elif ui_v2 %}{% comment %}
   The redesign ("Ventanas"): where the interview is open, said plainly, and the one way to go on here. «Continuar
   aquí» is the take-over it always was (interview_conflict, POST): the computer that had it stops saving and, when the
   campero is answering alone there, their screen closes; the line under the title says so. The way out is in the bar.

@@ -84,7 +84,7 @@ Every event has a `join_code` (6 characters from `ABCDEFGHJKMNPQRSTUVWXYZ2345678
 | Remove it ("Quitar la autorización", reason required and kept on the `ConsentRecord` and in the campero's export, not in the log; audited `autorizacion_retirada`, with `interview` metadata when one is in progress, which can still be finished; completed interviews unchanged) | Yes | No | No | Own | No |
 | Campero list / detail | Whole event | Whole event | Team | Own | No |
 | "Sede" filter on "Camperos", with counts | Whole event | Whole event | Team (counts too) | No (sede shown in "Mis camperos") | No |
-| Start, continue, take over an interview (whoever did not start it confirms "Sí, es {nombre}" once before going on, audited `identidad_verificada`) | Any active campero | No | No | Own | No |
+| Start, continue, take over an interview (whoever did not start it confirms "Sí, es {nombre}" once before going on, audited `identidad_verificada`) | Any active campero; another person's in progress only with confidential access, or when its questionnaire has no question they could not read (`can_continue_interview`) | No | No | Own | No |
 | Answer questions on a computer handed over ("Entrevista a solas") | No | No | No | No | Own interview only |
 | Recover the computer (unlock) | Yes | No | No | Own camperos | No |
 | Finalize, choose follow-up decision | Yes | No | No | Own | No |
