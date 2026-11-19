@@ -6,7 +6,8 @@
   The public page of one event (agenda.public.event; decision 0010, guardian access phase A): what the event is,
   for anybody with the address, without an account. It extends the skeleton and not base.html on purpose: the
   bar is always the public one and there is no rail, whoever reads it, so a signed-in person sees the same page.
-  It shows the event and its page, its public notices, the programme and the frequent questions. NEVER a person, a count, the places
+  It shows the event and its page, its public notices, a link to ask for them by e-mail when the administration
+  turned that on (a link, not a form: this page sets no cookie), the programme and the frequent questions. NEVER a person, a count, the places
   left or the waiting list: for those, and to sign up, the reader enters Emmaus.
 {% endcomment %}
 <header class="bar bar--public">
@@ -37,6 +38,14 @@
   </section>
 
   {% include "agenda/_public_notices.html" %}
+
+  {% if subscribe_path %}
+  <section class="block" aria-labelledby="avisos-correo">
+    <h2 id="avisos-correo" class="heading">Avisos por correo</h2>
+    <p>Te avisamos por correo cuando haya un aviso nuevo de este evento. Nada más. Solo pedimos tu correo, lo confirmas desde tu bandeja y no necesitas cuenta.</p>
+    <div class="step__actions"><a class="btn btn--secondary" href="{{ subscribe_path }}">Recibir los avisos por correo</a></div>
+  </section>
+  {% endif %}
 
   {% if schedule %}
   <section class="block" aria-labelledby="programa">

@@ -120,6 +120,9 @@ class NothingOfThePeopleTests(DuplicateFixture):
         GuardianConsent.objects.create(registration=registration, guardian_name="Mamá", relationship="madre", method="papel")
         EventFaq.objects.create(event=event, question="¿Qué llevo?", answer="Ropa abrigadora.")
         EventNotice.objects.create(event=event, title="El camión sale a las 7:00", body="Lleguen media hora antes.")
+        from agenda.models import EventSubscription
+
+        EventSubscription.objects.create(event=event, email="suscrita@demo.invalid", email_hash="h" * 64, key="k" * 43)
         EventScheduleItem.objects.create(event=event, day=event.starts_on, starts_at=time(9, 0), title="Bienvenida")
         # A camp is never a date of a series (agenda.series); the row is here so that the copy is proven to have none.
         from agenda.models import EventSeries, SeriesOccurrence

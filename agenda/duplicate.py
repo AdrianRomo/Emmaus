@@ -33,6 +33,7 @@ RELATIONS = {
     "page": COPIED,  # never published: somebody reads it again first
     "faqs": COPIED,
     "public_notices": NEVER,  # dated news of the original ("el camión sale a las 7"): the copy starts without any
+    "notice_subscriptions": NEVER,  # e-mail addresses left for the original's notices (issue #96): one event each, never reused
     "schedule_items": WITH_DAY,
     "series_occurrence": NEVER,  # a copy of one date of a series is an event on its own, not another date of it
     "registrations": NEVER,  # who signed up, who came, and with them the guardians' authorizations
@@ -56,6 +57,7 @@ RELATIONS = {
 
 EVENT_FIELDS = ("kind", "location", "time_zone")
 # ``waiting_list`` is configuration; ``public``, like ``published``, is never copied: somebody reads the page first.
+# ``notice_mail`` (e-mail subscriptions) is not copied either: it is off until somebody turns it on for that event.
 PAGE_FIELDS = ("description", "starts_at", "registration", "capacity", "requires_guardian_consent", "waiting_list")
 
 

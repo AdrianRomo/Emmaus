@@ -37,6 +37,9 @@ class EventPage(models.Model):
     public = models.BooleanField(
         "Cualquiera con el enlace puede ver la información del evento, sin entrar a Emmaus", default=False, db_default=False
     )
+    # Issue #96, second part: whoever reads the public page may leave an e-mail address to be told that there
+    # is a new public notice of THIS event (``agenda.subscriptions``). Off unless the administration turns it on.
+    notice_mail = models.BooleanField("Avisos por correo para quien no tiene cuenta", default=False, db_default=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -342,6 +345,9 @@ class EventNotice(models.Model):
     # When the title or the text last changed after it was published: readers are told that it changed.
     edited_at = models.DateTimeField(null=True, blank=True)
     retired_at = models.DateTimeField(null=True, blank=True)
+    # Decided once, when it was published: the event took e-mail subscriptions and e-mail could go out, and the
+    # screen said so to who published. A notice written while it could not is never mailed later.
+    mail_subscribers = models.BooleanField(default=False, db_default=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -357,6 +363,60 @@ class EventNotice(models.Model):
     @property
     def retired(self) -> bool:
         return self.retired_at is not None
+
+
+class MailOutcome(models.TextChoices):
+    PENDING = "pending", "Por enviar"
+    SENT = "sent", "Enviado"
+    FAILED = "failed", "No se pudo enviar"
+
+
+class EventSubscription(models.Model):
+    """An e-mail address that asked to be told about new public notices of ONE event (issue #96, second part;
+    ``agenda.subscriptions``). It is an address and nothing else: never a ``Person``, never linked to one or to a
+    child, never an account, never a visitor, and it opens nothing. Nobody is shown it: no screen, no admin page,
+    no audit row, no log. ``email_hash`` (keyed) is what finds a row by its address. ``key`` is what the signed
+    links of its e-mails carry, so no link holds the address. Only a row with ``confirmed_at`` is ever told about
+    a notice. The row is deleted when the person unsubscribes, 48 hours after an unconfirmed request, and some
+    days after the event ends."""
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="notice_subscriptions")
+    email = models.EmailField(max_length=254)
+    email_hash = models.CharField(max_length=64)
+    key = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # The one e-mail that asks to confirm: sent by the scheduled pass, with attempts and waits like a notice's.
+    confirm_outcome = models.CharField(max_length=10, choices=MailOutcome.choices, default=MailOutcome.PENDING, db_default=MailOutcome.PENDING)
+    confirm_attempts = models.PositiveSmallIntegerField(default=0, db_default=0)
+    confirm_last_attempt_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "suscripción por correo a los avisos de un evento"
+        verbose_name_plural = "suscripciones por correo a los avisos de eventos"
+        constraints = [models.UniqueConstraint(fields=["event", "email_hash"], name="agenda_subscription_once_per_event")]
+        indexes = [models.Index(fields=["email_hash", "created_at"], name="agenda_subscription_hash_idx")]
+
+    def __str__(self) -> str:  # never the address
+        return f"Suscripción {self.pk} a los avisos de {self.event}"
+
+
+class EventNoticeEmail(models.Model):
+    """One e-mail about one public notice to one subscription. The row is written before the e-mail is handed
+    over and the constraint lets one writer win: nobody is mailed twice for a notice, whoever sends. It keeps no
+    address and no text. ``sent``: the mail server accepted it, never that it arrived or was read."""
+
+    notice = models.ForeignKey(EventNotice, on_delete=models.CASCADE, related_name="emails")
+    subscription = models.ForeignKey(EventSubscription, on_delete=models.CASCADE, related_name="emails")
+    outcome = models.CharField(max_length=10, choices=MailOutcome.choices, default=MailOutcome.PENDING, db_default=MailOutcome.PENDING)
+    created_at = models.DateTimeField(default=timezone.now)
+    attempts = models.PositiveSmallIntegerField(default=0, db_default=0)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "correo de un aviso público"
+        verbose_name_plural = "correos de avisos públicos"
+        constraints = [models.UniqueConstraint(fields=["notice", "subscription"], name="agenda_notice_email_once")]
 
 
 class EventSeries(models.Model):

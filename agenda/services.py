@@ -791,7 +791,7 @@ def remove_from_waiting(registration: EventRegistration, actor, *, base_url: str
 # ---- the administration's writes ----------------------------------------------------------------
 PAGE_FIELDS = (
     "published", "description", "starts_at", "registration", "capacity", "registration_closes_on",
-    "requires_guardian_consent", "waiting_list", "public",
+    "requires_guardian_consent", "waiting_list", "public", "notice_mail",
 )
 
 
@@ -1343,7 +1343,11 @@ def save_public_notice(event: Event, actor, notice: EventNotice | None = None, *
     title = title[:120]
     with transaction.atomic():
         if notice is None:
-            notice = EventNotice.objects.create(event=event, created_by=actor, title=title, body=body)
+            from . import subscriptions  # it imports this module
+
+            # Decided now and never again: whether this notice is followed by e-mails to the event's subscribers.
+            mails = subscriptions.will_mail(event, EventPage.objects.filter(event=event).first())
+            notice = EventNotice.objects.create(event=event, created_by=actor, title=title, body=body, mail_subscribers=mails)
             record_church(event.church, actor, "evento_aviso_publico_publicado", f"Publicó un aviso público en {event.name}",
                           notice, event_id=event.pk)
             return notice
