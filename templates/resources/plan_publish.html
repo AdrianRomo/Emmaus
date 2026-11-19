@@ -24,7 +24,7 @@
         <a class="btn btn--link" href="{{ back }}">Cancelar</a>
       </div>
     </form>
-    <p class="aside-note">Emmaus no envía un correo al pastor: lo ve en «Aprobación pastoral» cuando entra.</p>
+    <p class="aside-note">La solicitud queda en la lista «Aprobación pastoral» de los pastores de tu iglesia. Emmaus no le avisa a nadie: lo ven cuando entran.</p>
   {% else %}
     <p class="empty-line">Este plan todavía no tiene días. <a href="{% url 'resources:plan_day_create' plan.pk %}">Agrega por lo menos uno</a> antes de pedir su aprobación.</p>
   {% endif %}

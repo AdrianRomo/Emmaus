@@ -23,19 +23,19 @@ def date_range(start, end=None) -> str:
     return f"{first} al {last}"
 
 
-@register.filter
+@register.filter(expects_localtime=True)
 def weekday_date(value) -> str:
     """"jueves 19 de noviembre"."""
     return formats.date_format(value, "l " + SHORT).lower() if value else ""
 
 
-@register.filter
+@register.filter(expects_localtime=True)
 def day_month(value) -> str:
     """"17 de noviembre"."""
     return formats.date_format(value, SHORT).lower() if value else ""
 
 
-@register.filter
+@register.filter(expects_localtime=True)
 def long_date(value) -> str:
     """"17 de noviembre de 2026"."""
     return formats.date_format(value, LONG).lower() if value else ""

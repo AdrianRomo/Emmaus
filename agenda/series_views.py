@@ -4,6 +4,8 @@ people of the church read its dates. The rules live in ``agenda.series``.
 Every view goes through ``church_admin_view`` (church ``manage``) or ``community_view``, and a series is
 always fetched inside ``request.church``: the number of another church's series is a 404."""
 
+from collections import Counter
+from datetime import timedelta
 from zoneinfo import available_timezones
 
 from django import forms
@@ -118,6 +120,13 @@ def _form_page(request, form, item):
 
 
 # ---- the administration -------------------------------------------------------------------------
+def _ended(request, item):
+    """A series that ended is not changed, by its form or by its address: changing it would rewrite the dates
+    that ending left as they are."""
+    messages.error(request, "Esta serie terminó y no cambiamos nada. Para cambiarla, primero reanúdala.")
+    return redirect("agenda:series_admin", series_id=item.pk)
+
+
 @church_admin_view
 def create(request):
     form = SeriesForm(request.POST or None, initial={"starts_on": timezone.localdate(), "duration_minutes": 90})
@@ -131,12 +140,19 @@ def create(request):
 @church_admin_view
 def edit(request, series_id: int):
     item = _series(request, series_id)
+    if not item.active:
+        return _ended(request, item)
     form = SeriesForm(request.POST or None, instance=item)
     if request.method == "POST" and form.is_valid():
-        applied = series.update_series(item, request.user, **form.cleaned_data)
+        try:
+            applied = series.update_series(item, request.user, **form.cleaned_data)
+        except series.SeriesEnded:  # somebody ended it while this form was open
+            return _ended(request, item)
         text = "Guardamos la serie y actualizamos las fechas que vienen."
         if any(row.has_people for row in applied.kept):
             text += " No cambiamos las fechas que ya tienen personas inscritas: revísalas abajo."
+        if applied.retired:
+            text += " Las fechas en días que la serie ya no incluye dejaron de publicarse: están al final de esta página."
         messages.success(request, text)
         return redirect("agenda:series_admin", series_id=item.pk)
     return _form_page(request, form, item)
@@ -148,15 +164,22 @@ def admin_detail(request, series_id: int):
     today = timezone.localdate()
     signed = Count("event__registrations", filter=Q(event__registrations__status=EventRegistration.Status.ACTIVE))
     rows = SeriesOccurrence.objects.filter(series=item).select_related("event", "event__page").annotate(signed=signed)
-    coming = list(rows.filter(Q(event__ends_on__gte=today) | Q(event__ends_on__isnull=True, event__starts_on__gte=today))
-                  .exclude(status=series.OFF_RULE).order_by("event__starts_on", "pk"))
+    not_over = list(rows.filter(Q(event__ends_on__gte=today) | Q(event__ends_on__isnull=True, event__starts_on__gte=today))
+                    .exclude(status=series.OFF_RULE).order_by("event__starts_on", "pk"))
+    # "Coming" is by the clock: the date of this morning is, tonight, the first of the ones that passed.
+    now = timezone.now()
+    coming = [row for row in not_over if not series.has_started(row.event, now)]
+    begun = [row for row in not_over if series.has_started(row.event, now)]
     for row in coming:
         page = getattr(row.event, "page", None)
         row.is_published = page is not None and page.published
-    past = list(rows.filter(event__ends_on__lt=today).exclude(status=series.OFF_RULE).order_by("-event__starts_on")[:PAST_SHOWN])
+    earlier = rows.filter(event__ends_on__lt=today).exclude(status=series.OFF_RULE).order_by("-event__starts_on")
+    past = [*reversed(begun), *earlier[:PAST_SHOWN]][:PAST_SHOWN]
+    # Dates the series left behind when its rule changed: unpublished, kept, and found here and nowhere else.
+    retired = list(rows.filter(status=series.OFF_RULE, day__gte=today).order_by("day"))
     return render(request, "agenda/series_admin.html", {
         "series": item, "rule": series.rule_words(item), "coming": coming, "past": past,
-        "review": series.to_review(item, today), "weeks": series.WINDOW_WEEKS,
+        "review": series.to_review(item, today), "weeks": series.WINDOW_WEEKS, "retired": retired,
     })
 
 
@@ -202,14 +225,15 @@ def restore(request, series_id: int, occurrence_id: int):
 def admin_context(request) -> dict:
     """What "Administrar los eventos" says about series: each one with its next date, and the address of
     the church's public calendar while it answers."""
-    today = timezone.localdate()
+    today, now = timezone.localdate() - timedelta(days=1), timezone.now()  # a day of margin: zones differ
     items = list(EventSeries.objects.filter(church=request.church).order_by("-active", "name", "pk"))
     for item in items:
         item.rule = series.rule_words(item)
-        item.next = (
+        candidates = (
             SeriesOccurrence.objects.filter(series=item, status=series.ACTIVE, event__starts_on__gte=today)
-            .select_related("event").order_by("event__starts_on").first()
+            .select_related("event", "event__page").order_by("event__starts_on")[:3]
         )
+        item.next = next((row for row in candidates if not series.has_started(row.event, now)), None)
     feed = request.build_absolute_uri(calendar.feed_path(request.church)) if calendar.church_pages(request.church) else ""
     return {"series_list": items, "calendar_link": feed}
 
@@ -218,12 +242,25 @@ def admin_context(request) -> dict:
 @community_view
 def member_detail(request, series_id: int):
     """The dates of one series this person may see. A series with none (nothing published, or all of it
-    over) does not exist for them."""
+    over) does not exist for them.
+
+    The page is built from those dates and never from the series' own row: the template may be unpublished
+    and rewritten while one of its dates stays published (somebody is signed up), and a member reads only
+    what a published date itself shows. The name is the next date's; the rule is said only while the series
+    is published."""
     item = _series(request, series_id)
+    now = timezone.now()
     events = [event for event in services.upcoming_for(request.person, request.church)
-              if (row := series.occurrence_of(event)) is not None and row.series_id == item.pk]
+              if (row := series.occurrence_of(event)) is not None and row.series_id == item.pk
+              and (event.my_place or event.my_wait or not series.has_started(event, now))]
     if not events:
         raise Http404
+    # One name and one place above the list; a date says its own only when it is another.
+    title = events[0].name
+    place = Counter(event.location for event in events).most_common(1)[0][0]
     for event in events:
         event.called_off = event.series_occurrence.cancelled
-    return render(request, "agenda/series.html", {"series": item, "rule": series.rule_words(item), "events": events})
+        event.other_name = event.name if event.name != title else ""
+        event.other_place = event.location if event.location != place else ""
+    rule = series.rule_words(item) if item.published and item.active else ""
+    return render(request, "agenda/series.html", {"title": title, "place": f"En {place}" if place else "", "rule": rule, "events": events})

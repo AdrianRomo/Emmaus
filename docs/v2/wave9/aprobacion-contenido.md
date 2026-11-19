@@ -23,7 +23,7 @@ administration alone. This slice separates the two responsibilities.
   the public home's review page (`pagina-publica/publicar/`). `plans.publish_plan` and `sitio.services.publish`
   no longer exist; the plan's old confirmation checkbox is gone.
 - **The pastor's screens** (`resources/approval_views.py`): the list "Aprobación pastoral" (what waits, what was
-  returned, and "Pendiente de aprobación pastoral": what is published with no approval on record), and one page
+  returned, and "Publicado antes de que existiera la aprobación": what is published with no approval on record), and one page
   per item with the whole text, "Aprobar y publicar" (permitted use, optional note) and "Devolver sin aprobar"
   (a reason). The administration opens the same pages read-only. The pastor has a link in "A tu cargo" with the
   number of pieces of content waiting (content, never people).
@@ -80,6 +80,25 @@ administration alone. This slice separates the two responsibilities.
 13. **Series on the public home** (integration): of a public weekly series the page, the review list and the
     fingerprint carry only the next date, with "Se repite cada …" (`agenda.series.collapse` in
     `sitio.services.public_events`); a date that was called off is not listed.
+
+14. **The facts of the public home cannot carry a text** (review at integration). Because they change with
+    no pastor, they are kept plain, in the service and in the form: the address is one line of up to 160
+    characters (line breaks become spaces); a time's name up to 40 and its place up to 80, one line each; at
+    most 12 times per church; the map link only `https://` to a map site (`maps.app.goo.gl`, `goo.gl/maps`,
+    `google.com/maps`, `maps.google.com`, the `.com.mx` forms Google gives in Mexico, OpenStreetMap,
+    `maps.apple.com`, Waze). No data migration: what was written before keeps showing and can be edited or
+    removed; the limit holds from the next save and the error says it is new. 40 characters fits a bilingual
+    name such as "Reunión general / Sunday service".
+15. **What the screen says after asking** is what happens: the request waits in the pastors' list and nobody is
+    sent anything; with no active pastor account it says that nobody can approve it (a warning).
+
+## Known limit: who appoints the pastor
+
+A church administrator can invite a person with the role pastor (`core/forms.py`, `InvitationForm`), and change
+roles in Usuarios. So the separation of duties holds only while the administration does not appoint itself or
+an account it controls: it is an organisational control, not a technical one. What the software gives is the
+trail: the approval record names who approved, and the invitation and role rows show who granted the role.
+Closing it (a second pastor, or the owner, confirming a new pastor) is a later decision, not built here.
 
 ## Routes and permissions
 

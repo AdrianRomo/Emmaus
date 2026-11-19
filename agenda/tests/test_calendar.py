@@ -37,6 +37,14 @@ class TextTests(SimpleTestCase):
         # A line break somebody typed can never start a property of its own; control characters go.
         self.assertEqual(calendar.escape("Culto\r\nATTENDEE:mailto:a@prueba.mx\x00\x07\x7f"), "Culto\\nATTENDEE:mailto:a@prueba.mx")
 
+    def test_no_kind_of_line_break_or_control_character_survives(self):
+        """Unicode's own line breaks and the C1 controls: some readers take them for the end of a line."""
+        for mark in ("\u2028", "\u2029", "\x85", "\x0b", "\x0c"):
+            self.assertEqual(calendar.escape(f"Culto{mark}ATTENDEE:x"), "Culto" + chr(92) + "nATTENDEE:x", repr(mark))
+        self.assertEqual(calendar.escape("a\x00b\x1bc\x7fd\x9be"), "abcde")
+        folded = calendar.fold("SUMMARY:" + calendar.escape("Culto\u2028de oración\u2029" * 12))
+        self.assertEqual(folded.splitlines(), folded.split("\r\n"))  # no break but the standard's own
+
     def test_lines_fold_at_75_octets_without_cutting_a_character(self):
         line = "SUMMARY:" + "Reunión de oración y alabanza ñ " * 9
         folded = calendar.fold(line)
@@ -146,6 +154,38 @@ class FeedTests(PublicFixture):
         lines = unfold(self.feed().content.decode())
         self.assertIn("URL:https://emmaus.prueba.mx/evento/retiro-jovenes/", lines)
         self.assertIn("UID:retiro-jovenes@emmaus.prueba.mx", lines)
+
+    def test_what_is_over_is_left_out_by_the_database(self):
+        """Defect: every public page the church ever had was read and thrown away in Python on each request."""
+        for number in range(6):
+            old = self._future(self.church, f"Culto pasado {number}", f"culto-pasado-{number}", -30 - number, -30 - number)
+            services.save_page(old, self.admin, published=True, public=True)
+        with mock.patch("agenda.calendar.services.has_ended", wraps=services.has_ended) as asked:
+            body = self.feed().content.decode()
+        self.assertEqual(asked.call_count, 1)  # the one event that is not over
+        self.assertEqual(body.count("BEGIN:VEVENT"), 1)
+        self.assertNotIn("culto-pasado", body)
+
+    def test_a_calendar_may_be_kept_for_a_few_minutes_and_a_refusal_never(self):
+        for url in (feed_url(self.church), file_url(self.retiro)):
+            response = self.client.get(url)
+            self.assertEqual(response["Cache-Control"], "public, max-age=300")
+            self.assertNotIn("Pragma", response)
+            self.assertEqual(dict(response.cookies), {})
+        for url in (feed_url(self.church_b), file_url(self.hidden)):
+            self.assertEqual(self.client.get(url)["Cache-Control"], "no-store, max-age=0")
+        # Signed in, the bytes are the same; if the session left a cookie on the answer, it is not kept by anybody.
+        self.client.force_login(self.member_user)
+        response = self.client.get(feed_url(self.church))
+        self.assertEqual(response["Cache-Control"], "no-store, max-age=0" if response.cookies else "public, max-age=300")
+
+    def test_an_event_without_a_first_day_is_the_same_404_and_not_an_error(self):
+        Event.objects.filter(pk=self.retiro.pk).update(starts_on=None)
+        self.assertEqual(self.client.get(public_url(self.retiro)).status_code, 200)  # its page answers: it has a last day
+        absent = self.client.get(reverse("evento:calendar", args=["no-existe"]))
+        response = self.client.get(file_url(self.retiro))
+        self.assertEqual((response.status_code, response.content), (404, absent.content))
+        self.assertEqual(self.client.get(feed_url(self.church)).status_code, 404)
 
     def test_one_events_file_downloads_with_the_same_facts(self):
         response = self.client.get(file_url(self.retiro))

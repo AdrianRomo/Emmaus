@@ -29,7 +29,8 @@ class Screens(MergeFixture):
 
     def confirm(self, client=None, survivor=None, absorbed=None, **data):
         survivor, absorbed = survivor or self.keep, absorbed or self.dup
-        token = merge._token(Person.objects.get(pk=survivor.pk), Person.objects.get(pk=absorbed.pk))
+        survivor, absorbed = Person.objects.get(pk=survivor.pk), Person.objects.get(pk=absorbed.pk)
+        token = merge.build_preview(survivor.church, survivor, absorbed).token  # what the screen would carry
         return (client or self.client).post(self.preview_url(survivor, absorbed), {"revision": token, **data})
 
     def gets(self):
@@ -189,7 +190,8 @@ class ReviewFlowTests(Screens):
         response = self.client.post(reverse("people:duplicate_dismiss"), {"a": self.dup.pk, "b": self.keep.pk})
         self.assertRedirects(response, reverse("people:duplicates"))
         page = self.client.get(reverse("people:duplicates"))
-        self.assertContains(page, "0 pares por revisar")
+        self.assertContains(page, "No hay posibles duplicados por revisar.")
+        self.assertNotContains(page, "0 pares")
         self.assertNotContains(page, self.preview_url())
         row = DuplicateDismissal.objects.get(person_a=self.keep, person_b=self.dup)
         self.assertEqual(row.dismissed_by, self.admin)
@@ -245,23 +247,23 @@ class ReviewFlowTests(Screens):
         groups.set_membership(self.other_group, self.dup, self.admin)
         response = self.client.get(self.preview_url())
         self.assertContains(response, "Esta unión no se puede hacer")
-        self.assertContains(response, "Las dos están en un mismo grupo")
-        self.assertNotContains(response, "unirlas</button>")
+        self.assertContains(response, "Los dos registros están en un mismo grupo")
+        self.assertNotContains(response, "Unir estos registros</button>")
         self.assertContains(response, "No son la misma persona")
-        self.assertContains(self.confirm(), "Las dos están en un mismo grupo")  # posted by hand all the same
+        self.assertContains(self.confirm(), "Los dos registros están en un mismo grupo")  # posted by hand all the same
         self.assertEqual(PersonMerge.objects.filter(absorbed=self.dup).count(), 0)
 
-    def test_the_second_administrator_is_told_and_merges_nothing(self):
+    def test_a_second_confirmation_of_the_same_old_preview_finds_no_pair_and_merges_nothing(self):
         other = Client()
         other.force_login(self.admin)
-        token = merge._token(self.keep, self.dup)
+        token = merge.build_preview(self.church, self.keep, self.dup).token
         self.assertEqual(self.client.post(self.preview_url(), {"revision": token}).status_code, 302)
         self.assertEqual(other.post(self.preview_url(), {"revision": token}).status_code, 404)  # the pair is not there any more
         self.assertEqual(other.post(self.preview_url(self.dup, self.keep), {"revision": token}).status_code, 404)
         self.assertEqual(PersonMerge.objects.filter(absorbed=self.dup).count(), 1)
 
     def test_a_stale_confirmation_shows_the_preview_again(self):
-        token = merge._token(self.keep, self.dup)
+        token = merge.build_preview(self.church, self.keep, self.dup).token
         Person.objects.filter(pk=self.dup.pk).update(first_name="Lía Fernanda")
         response = self.client.post(self.preview_url(), {"revision": token})
         self.assertContains(response, "No unimos nada")

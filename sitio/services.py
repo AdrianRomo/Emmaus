@@ -13,7 +13,8 @@ administration prepares the page and asks for its approval; only a pastor's appr
 The first publication is a pastor's approval of the whole page as it stands. After that, only the
 welcome is authored content: when it changes on a public page, the page stops being public until a
 pastor approves it again. The times, the address, the map link and the phone are facts the
-administration keeps current, and the events and the resources have their own publication steps:
+administration keeps current (and are kept short and plain so they cannot carry a text: one line of
+address, a link that only goes to a map site, twelve times at most with short names), and the events and the resources have their own publication steps:
 none of those needs a new approval.
 """
 
@@ -47,6 +48,26 @@ MEDIA_LIMIT = 4
 DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábados", "Domingos"]
 HTTPS_ONLY = "El enlace debe empezar con https://. Copia la dirección completa desde tu aplicación de mapas, en «Compartir»."
 BAD_URL = "Ese enlace no se entiende. Copia la dirección completa, por ejemplo https://maps.app.goo.gl/…"
+NOT_A_MAP = (
+    "Ese enlace no es de un mapa. Pega el enlace que da «Compartir» en Google Maps, Apple Maps, Waze u OpenStreetMap. "
+    "Para enlazar otra cosa usa un recurso o la página de un evento."
+)
+# Where a link to the map may go. Whole hosts, and hosts where only the map's own path counts. google.com.mx is
+# here because that is the address Google gives in Mexico.
+MAP_HOSTS = frozenset({
+    "maps.app.goo.gl", "maps.google.com", "maps.google.com.mx", "maps.apple.com", "waze.com", "www.waze.com", "ul.waze.com",
+    "www.openstreetmap.org", "openstreetmap.org", "osm.org",
+})
+MAP_PATHS = (("www.google.com", "/maps"), ("google.com", "/maps"), ("www.google.com.mx", "/maps"), ("goo.gl", "/maps"))
+NAME_TOO_LONG = (
+    "El nombre de la reunión puede tener hasta 40 caracteres y este tiene {length}. El límite es nuevo y vale desde "
+    "este guardado: di solo qué reunión es, por ejemplo «Reunión general»."
+)
+PLACE_TOO_LONG = (
+    "El lugar puede tener hasta 80 caracteres y este tiene {length}. El límite es nuevo y vale desde este guardado: "
+    "di solo el salón o el lugar."
+)
+TOO_MANY_TIMES = "Ya hay 12 horarios, que es el máximo. Quita uno que tu iglesia ya no use para agregar otro."
 BAD_PHONE = "Escribe el teléfono solo con números, espacios o guiones, con al menos 8 dígitos. Por ejemplo: 55 1234 5678."
 
 
@@ -174,8 +195,18 @@ def _text(text: str) -> str:
     return (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
+def is_map_address(url: str) -> bool:
+    """Whether ``url`` goes to one of the map sites (``MAP_HOSTS``, ``MAP_PATHS``)."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if host in MAP_HOSTS:
+        return True
+    return any(host == site and (parts.path == path or parts.path.startswith(path + "/")) for site, path in MAP_PATHS)
+
+
 def clean_map_url(url: str) -> str:
-    """Empty, or an ``https://`` address with a host."""
+    """Empty, or an ``https://`` address of a map site. The link to the map is a fact about where the
+    church meets: it changes without a pastor's approval, so it cannot be a link to anything else."""
     url = (url or "").strip()
     if not url:
         return ""
@@ -187,7 +218,21 @@ def clean_map_url(url: str) -> str:
         raise SiteError(BAD_URL, code="map_url") from None
     if len(url) > 500:
         raise SiteError("Ese enlace es demasiado largo. Usa el enlace corto que da el mapa en «Compartir».", code="map_url")
+    if not is_map_address(url):
+        raise SiteError(NOT_A_MAP, code="map_url")
     return url
+
+
+def clean_address(address: str) -> str:
+    """One line, up to ``PublicHome.ADDRESS_MAX``: line breaks and runs of spaces become one space. An
+    address written before the limit keeps showing; the limit holds from the next save."""
+    address = _line(address)
+    if len(address) > PublicHome.ADDRESS_MAX:
+        raise SiteError(
+            f"La dirección puede tener hasta {PublicHome.ADDRESS_MAX} caracteres y esta tiene {len(address)}. "
+            "El límite es nuevo y vale desde este guardado: deja solo calle, número, colonia y ciudad.", code="address",
+        )
+    return address
 
 
 def clean_phone(phone: str) -> str:
@@ -220,11 +265,9 @@ def save_home(church, actor, *, welcome: str = "", address: str = "", map_url: s
     """Save what the church says about itself. It does not publish: a pastor's approval does. On a
     public page, another welcome takes it out of publication until a pastor approves it again; the
     address, the map link and the phone change at once, with no approval."""
-    welcome, address = _line(welcome), _text(address)
+    welcome, address = _line(welcome), clean_address(address)
     if len(welcome) > PublicHome.WELCOME_MAX:
         raise SiteError(f"La bienvenida puede tener hasta {PublicHome.WELCOME_MAX} caracteres y esta tiene {len(welcome)}. Acórtala.", code="welcome")
-    if len(address) > PublicHome.ADDRESS_MAX:
-        raise SiteError(f"La dirección puede tener hasta {PublicHome.ADDRESS_MAX} caracteres. Acórtala.", code="address")
     map_url, contact_phone = clean_map_url(map_url), clean_phone(contact_phone)
     with transaction.atomic():
         home = _locked_home(church)
@@ -249,10 +292,15 @@ def save_time(church, actor, *, weekday: int, time, name: str, place: str = "", 
         raise SiteError("Escribe la hora de la reunión.", code="time")
     if not name:
         raise SiteError("Escribe qué reunión es, por ejemplo «Reunión general».", code="name")
-    if len(name) > 80 or len(place) > 120:
-        raise SiteError("Ese texto es demasiado largo. Acórtalo.", code="name")
+    if len(name) > ServiceTime.NAME_MAX:
+        raise SiteError(NAME_TOO_LONG.format(length=len(name)), code="name")
+    if len(place) > ServiceTime.PLACE_MAX:
+        raise SiteError(PLACE_TOO_LONG.format(length=len(place)), code="place")
     with transaction.atomic():
         if row is None:
+            _locked_home(church)  # one at a time per church: two tabs cannot both add the last one
+            if ServiceTime.objects.filter(church=church).count() >= ServiceTime.PER_CHURCH:
+                raise SiteError(TOO_MANY_TIMES, code="limit")
             row, words = ServiceTime(church=church), "Agregó un horario de reunión a la página pública"
         else:
             row = ServiceTime.objects.select_for_update().filter(pk=row.pk, church=church).first()

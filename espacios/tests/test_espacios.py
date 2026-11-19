@@ -304,8 +304,8 @@ class DecisionTests(SpacesFixture):
         late = services.request_booking(self.projector, self.leader, self.leader_user, title="Noche",
                                         starts_at=self.at(22), ends_at=self.at(22) + timedelta(hours=4))   # two hours fall on the next day
         self.assertEqual(late.status, Status.APPROVED)
-        rows = {row["space"].name: (row["bookings"], row["used_hours"], row["blocked_hours"]) for row in services.usage(self.church, self.day, self.day, self.tz)}
-        self.assertEqual(rows, {"Salón 2": (2, 3.0, 4.0), "Proyector": (1, 2.0, 2.0)})
+        rows = {row["space"].name: (row["bookings"], row["used_text"]) for row in services.usage(self.church, self.day, self.day, self.tz)}
+        self.assertEqual(rows, {"Salón 2": (2, "3 h"), "Proyector": (1, "2 h")})   # booked time: the buffers do not count
         before = services.usage(self.church, self.day - timedelta(days=9), self.day - timedelta(days=1), self.tz)
         self.assertEqual({row["bookings"] for row in before}, {0})
         self.assertNotIn("Salón de la iglesia B", [row["space"].name for row in before])
@@ -596,9 +596,11 @@ class ViewTests(SpacesFixture):
         services.approve(self.book(18, 20, title=SECRET), self.admin)
         self.client.force_login(self.admin)
         page = self.client.get(USAGE, {"desde": self.day.isoformat(), "hasta": self.day.isoformat()})
-        self.assertContains(page, '<td role="cell" class="num" data-label="Horas de uso">2.0</td>', html=True)
+        self.assertContains(page, '<td role="cell" class="num" data-label="Tiempo de uso">2 h</td>', html=True)
         for hidden in (SECRET, "Gala", "Guía"):
             self.assertNotContains(page, hidden)
+        self.assertContains(page, f"El {self.day.day} de")          # one day is "El", not "Del"
+        self.assertContains(page, "Sin uso")                          # the projector
         self.assertContains(self.client.get(USAGE), "Salón 2")
         self.assertContains(self.client.get(USAGE, {"desde": self.day.isoformat(), "hasta": (self.day - timedelta(days=1)).isoformat()}),
                             "igual o posterior al primero")
@@ -639,3 +641,170 @@ class ShellTests(SpacesFixture):
         self.assertEqual(self.nav(self.leader_b_user), before)
         Space.objects.filter(church=self.church).update(active=False)
         self.assertNotIn(LIST, self.nav(self.leader_user))   # nothing to ask for: no link under "A tu cargo"
+
+
+class ReviewRoundTests(SpacesFixture):
+    """Defects found by the independent review of the slice."""
+
+    TIJUANA = ZoneInfo("America/Tijuana")
+    SPRING = (2027, 3, 14)   # 02:00 jumps to 03:00
+    AUTUMN = (2027, 11, 7)   # 02:00 goes back to 01:00
+
+    def tijuana(self):
+        type(self.church).objects.filter(pk=self.church.pk).update(time_zone="America/Tijuana")
+
+    # ---- 1. the night the clock changes -----------------------------------------------------------
+    def test_an_hour_the_clock_skips_is_refused_with_words_not_a_server_error(self):
+        self.tijuana()
+        self.client.force_login(self.leader_user)
+        response = self.client.post(url("request", self.room), self.form("02:30", "03:15", day="2027-03-14"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Esa hora no existe ese día")
+        with self.assertRaisesMessage(services.SpaceError, "no existe ese día"):
+            services.request_booking(self.room, self.leader, self.leader_user, title="Ensayo",
+                                     starts_at=datetime(*self.SPRING, 2, 30, tzinfo=self.TIJUANA),
+                                     ends_at=datetime(*self.SPRING, 3, 15, tzinfo=self.TIJUANA))
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_hours_are_compared_as_moments_across_the_change(self):
+        self.tijuana()
+        # 01:30 to 03:30 on the wall is one real hour that night; the booking and its block say so.
+        booking = services.request_booking(self.room, self.leader, self.leader_user, title="Vigilia", setup_minutes=30,
+                                           starts_at=datetime(*self.SPRING, 1, 30, tzinfo=self.TIJUANA),
+                                           ends_at=datetime(*self.SPRING, 3, 30, tzinfo=self.TIJUANA))
+        self.assertEqual(booking.ends_at - booking.starts_at, timedelta(hours=1))
+        self.assertEqual(booking.starts_at - booking.blocked_from, timedelta(minutes=30))
+        # The hour that happens twice is the first of the two, every time.
+        twice = services.local_instant(datetime(*self.AUTUMN).date(), time(1, 30), self.TIJUANA)
+        self.assertEqual(twice, datetime(2027, 11, 7, 8, 30, tzinfo=ZoneInfo("UTC")))
+        self.assertEqual(services.instant(datetime(*self.AUTUMN, 1, 30, tzinfo=self.TIJUANA, fold=1)), twice)
+        self.client.force_login(self.leader_user)
+        self.client.post(url("request", self.projector), self.form("01:30", "02:30", day="2027-11-07"))
+        saved = Booking.objects.get(space=self.projector)
+        self.assertEqual((saved.starts_at, saved.ends_at - saved.starts_at), (twice, timedelta(hours=2)))
+
+    def test_a_row_the_database_refuses_is_a_message(self):
+        self.client.force_login(self.leader_user)
+        from django.db import IntegrityError
+
+        with mock.patch.object(Booking, "save", side_effect=IntegrityError("CHECK constraint failed")):
+            response = self.client.post(url("request", self.room), self.form())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No pudimos guardar la reserva con esas horas.")
+        self.assertEqual((Booking.objects.count(), ChurchAuditEvent.objects.filter(action__startswith="espacio_").count()), (0, 0))
+
+    # ---- 2. the week shows the buffers on the day they fall ---------------------------------------
+    def test_setup_that_falls_on_the_day_before_is_listed_on_that_day(self):
+        monday = services.week_of(self.day) + timedelta(days=7)
+        tuesday = monday + timedelta(days=1)
+        booking = services.request_booking(
+            self.room, self.pastor_person, self.pastor_user, title=SECRET, setup_minutes=120,
+            starts_at=datetime.combine(tuesday, time(0, 30), tzinfo=self.tz), ends_at=datetime.combine(tuesday, time(2, 0), tzinfo=self.tz),
+        )
+        days = {day["date"]: day["bookings"] for day in services.week(self.room, monday, self.tz)}
+        self.assertEqual([(row.pk, row.day_part, row.day_hours) for row in days[monday]], [(booking.pk, "preparacion", "22:30 a 24:00")])
+        self.assertEqual([(row.pk, row.day_part, row.day_hours) for row in days[tuesday]], [(booking.pk, "uso", "00:00 a 02:00")])
+        with self.assertRaises(services.Clash):   # and what the page says agrees with what a request gets
+            services.request_booking(self.room, self.leader, self.leader_user, title="Otra",
+                                     starts_at=datetime.combine(monday, time(23, 0), tzinfo=self.tz),
+                                     ends_at=datetime.combine(monday, time(23, 30), tzinfo=self.tz))
+        week = url("week", self.room) + f"?semana={monday.isoformat()}"
+        self.client.force_login(self.member_user)
+        page = self.client.get(week)
+        self.assertContains(page, "Ocupado (preparación)")
+        self.assertContains(page, "De 22:30 a 24:00.")
+        self.assertContains(page, "Libre todo el día.", count=5)
+        self.assertNotContains(page, SECRET)
+        self.client.force_login(self.admin)
+        page = self.client.get(week)
+        self.assertContains(page, f"{SECRET} (preparación)")
+        self.assertContains(page, "Este día, de 22:30 a 24:00, para preparar.")
+        # The week before: its Sunday is not touched; a block that ends at midnight stays in its own day.
+        late = services.request_booking(self.projector, self.leader, self.leader_user, title="Cine", teardown_minutes=60,
+                                        starts_at=datetime.combine(monday, time(21, 0), tzinfo=self.tz),
+                                        ends_at=datetime.combine(monday, time(23, 0), tzinfo=self.tz))
+        days = {day["date"]: [row.pk for row in day["bookings"]] for day in services.week(self.projector, monday, self.tz)}
+        self.assertEqual((days[monday], days[tuesday]), ([late.pk], []))
+
+    def test_teardown_after_midnight_is_listed_on_the_next_day(self):
+        monday = services.week_of(self.day) + timedelta(days=7)
+        services.request_booking(self.room, self.leader, self.leader_user, title="Vigilia", teardown_minutes=90,
+                                 starts_at=datetime.combine(monday, time(21, 0), tzinfo=self.tz),
+                                 ends_at=datetime.combine(monday, time(23, 30), tzinfo=self.tz))
+        days = services.week(self.room, monday, self.tz)
+        self.assertEqual([(row.day_part, row.day_hours) for row in days[1]["bookings"]], [("recogida", "00:00 a 01:00")])
+        self.client.force_login(self.member_user)
+        self.assertContains(self.client.get(url("week", self.room) + f"?semana={monday.isoformat()}"), "Ocupado (recogida)")
+
+    # ---- 3. the lock is the space's row alone -----------------------------------------------------
+    def test_the_lock_names_only_the_space(self):
+        manager = type(Space.objects)
+        with mock.patch.object(manager, "select_for_update", autospec=True, side_effect=manager.select_for_update) as lock:
+            self.book()
+        self.assertEqual([call.kwargs for call in lock.call_args_list], [{"of": ("self",)}])
+
+    # ---- 4. a person absorbed by a merge ----------------------------------------------------------
+    def test_a_person_merged_into_another_asks_for_nothing(self):
+        stale = type(self.leader).objects.get(pk=self.leader.pk)     # read before the merge
+        type(self.leader).objects.filter(pk=self.leader.pk).update(merged_into=self.coordinator)
+        with self.assertRaisesMessage(services.SpaceError, "no es de esta iglesia"):
+            self.book(person=stale, actor=self.leader_user)
+        self.assertEqual(Booking.objects.count(), 0)
+        # The screens take the person from the account (people.services.ensure_own_person), which never
+        # answers with an absorbed one; the form has no field that lists people.
+        from espacios.forms import BookingForm
+
+        form = BookingForm(church=self.church, tz=self.tz, with_event=True)
+        self.assertEqual(set(form.fields), {"title", "day", "starts", "ends", "setup_minutes", "teardown_minutes", "event"})
+
+    # ---- 5. an account of two churches ------------------------------------------------------------
+    def test_the_church_is_the_one_the_session_acts_in(self):
+        from core.authz import SESSION_KEY
+
+        both = make_user("dos-iglesias@prueba.mx", "Dora", "Dos")
+        self._person(self.church, both)
+        self._person(self.church_b, both)
+        self.book(title=SECRET)
+        self.client.force_login(both)
+        for church, mine, other in ((self.church_b, self.room_b, self.room), (self.church, self.room, self.room_b)):
+            session = self.client.session
+            session[SESSION_KEY] = church.pk
+            session.save()
+            self.assertEqual(self.client.get(url("week", mine)).status_code, 200, church.slug)
+            self.assertEqual(self.client.get(url("week", other)).status_code, 404, church.slug)
+            self.assertEqual(self.client.get(url("request", other)).status_code, 404, church.slug)
+            page = self.client.get(LIST)
+            self.assertContains(page, mine.name)
+            self.assertNotContains(page, other.name)
+
+
+class PolishRoundTests(SpacesFixture):
+    def test_time_two_approved_bookings_share_counts_once(self):
+        first = self.book(18, 20, person=self.admin_person, actor=self.admin, approve=True, setup_minutes=60)
+        second = self.book(19, 20, title="Encima", person=self.admin_person, actor=self.admin, approve=True, seen=[first.pk])
+        services.request_booking(self.room, self.admin_person, self.admin, title="Otra", approve=True, seen=[first.pk, second.pk],
+                                 starts_at=self.at(19, 30), ends_at=self.at(21, 30))
+        row = next(row for row in services.usage(self.church, self.day, self.day, self.tz) if row["space"] == self.room)
+        self.assertEqual((row["bookings"], row["used_text"]), (3, "3 h 30 min"))   # 18:00 to 21:30 once, not 5 h
+
+    def test_durations_in_words(self):
+        for minutes, text in ((0, "Sin uso"), (45, "45 min"), (60, "1 h"), (90, "1 h 30 min"), (120, "2 h"), (1500, "25 h")):
+            self.assertEqual(services.duration_text(timedelta(minutes=minutes)), text)
+
+    def test_the_clash_and_the_two_choices_are_together(self):
+        first = self.book()
+        self.client.force_login(self.admin)
+        html = self.client.post(url("request", self.room), self.form()).content.decode()
+        self.assertEqual(html.count('role="alert"'), 1)                 # one summary, and the list is inside it
+        summary = html[html.index('role="alert"'):html.index("</div>", html.index('role="alert"'))]
+        self.assertIn("de 18:00 a 20:00: Ensayo", summary)
+        self.assertLess(html.index("Reservar con el horario nuevo"), html.index("Reservar aunque se empalme"))
+        self.assertIn(f'name="visto" value="{first.pk}"', html)
+
+    def test_every_row_of_what_you_asked_for_is_one_style(self):
+        self.book(8, 9)
+        self.book(10, 11, space=self.projector)
+        self.client.force_login(self.leader_user)
+        html = self.client.get(LIST).content.decode()
+        self.assertNotIn("row--attention", html)
+        self.assertEqual(html.count('class="row__state"'), 2)

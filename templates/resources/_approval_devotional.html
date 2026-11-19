@@ -1,11 +1,13 @@
 {% load community %}
 {% comment %}A devotional as the pastor reads it before approving (resources.approvals.DevotionalKind.preview). Plain text, escaped.{% endcomment %}
+<div class="block">
 <dl class="summary-list">
   <div class="summary-list__row"><dt>Título</dt><dd>{{ devotional.title }}</dd></div>
   <div class="summary-list__row"><dt>Día</dt><dd>{{ devotional.date|weekday_date }}</dd></div>
   <div class="summary-list__row"><dt>Lectura</dt><dd>{% if devotional.passage %}{{ devotional.passage }}. Solo la cita: cada quien la lee en su Biblia.{% else %}Sin cita.{% endif %}</dd></div>
   <div class="summary-list__row"><dt>Quién lo firma</dt><dd>{{ devotional.author_name|default:"Nadie: se publica sin firma." }}</dd></div>
 </dl>
+</div>
 <section class="block" aria-labelledby="texto-devocional">
   <h3 id="texto-devocional" class="heading">El texto</h3>
   <div class="prose">{{ devotional.body|linebreaks }}</div>

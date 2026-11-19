@@ -197,7 +197,7 @@ class DevotionalTests(ResourcesFixture):
         del data["publish"]
         response = self.client.post(DEV_CREATE, data, follow=True)
         self.assertRedirects(response, DEV_ADMIN)
-        self.assertContains(response, "Guardamos el borrador")
+        self.assertContains(response, "como borrador. No lo enviamos a la aprobación pastoral")
         written = Devotional.objects.get(title="Nuevo")
         self.assertEqual((written.status, written.church, written.created_by, written.body), ("borrador", self.church, self.admin, BODY))
 
@@ -208,7 +208,7 @@ class DevotionalTests(ResourcesFixture):
         response = self.client.post(
             dev_url("edit", written), {**self.dev_data(date=free.isoformat(), title="Nuevo"), "status": "publicado"}, follow=True
         )
-        self.assertContains(response, "pedimos la aprobación pastoral")
+        self.assertContains(response, "y tu solicitud para publicarlo. Queda en la lista «Aprobación pastoral» de los pastores de tu iglesia. Emmaus no le avisa a nadie")
         self.assertContains(response, "Por aprobar")
         written.refresh_from_db()
         self.assertEqual(written.state, "borrador")

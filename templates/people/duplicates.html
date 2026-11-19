@@ -12,7 +12,7 @@
   {% include "events/rotulo/_page_head.html" with title="Posibles duplicados" lede="Registros que podrían ser de la misma persona. Emmaus solo te los muestra: tú decides, de dos en dos." back_url=back back_label="Volver a Personas" %}
 
   <section class="block" aria-labelledby="pares">
-    <h2 id="pares" class="heading">{{ page.paginator.count }} par{{ page.paginator.count|pluralize:"es" }} por revisar</h2>
+    <h2 id="pares" class="heading">{% if page.paginator.count %}{{ page.paginator.count }} par{{ page.paginator.count|pluralize:"es" }} por revisar{% else %}Por revisar{% endif %}</h2>
     {% if page.object_list %}
       <ul class="rows">
         {% for pair in page %}
@@ -35,7 +35,7 @@
       </ul>
       {% include "partials/ui/pager.html" with page=page label="Páginas de posibles duplicados" %}
     {% else %}
-      <p class="empty-line">No hay pares por revisar. Aparecen aquí cuando dos personas tienen el mismo correo, el mismo teléfono, o el mismo nombre con la misma fecha de nacimiento.</p>
+      <p class="empty-line">No hay posibles duplicados por revisar. Aparecen aquí cuando dos personas tienen el mismo correo, el mismo teléfono, o el mismo nombre con la misma fecha de nacimiento.</p>
     {% endif %}
   </section>
 

@@ -10,6 +10,7 @@ people screen (one answer everywhere: a merged-away id does not exist, for anybo
 from datetime import timedelta
 
 from django.contrib import messages
+from django.db import OperationalError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -20,6 +21,9 @@ from core.paging import paginate
 from . import duplicates, merge
 from .models import DuplicateDismissal, Person, PersonMerge
 from .views import _people, church_admin_required
+
+
+BUSY = "Alguien más estaba cambiando estos datos en ese momento. No se cambió nada: inténtalo de nuevo."
 
 
 def _pair(request, first_id, second_id) -> tuple[Person, Person]:
@@ -65,7 +69,7 @@ def duplicate_dismiss(request):
     except merge.MergeRefused as error:
         messages.error(request, error.message)
     else:
-        messages.success(request, "Listo: ya no te las mostraremos como posible duplicado.")
+        messages.success(request, "Listo: ya no te mostraremos este par como posible duplicado.")
     return redirect("people:duplicates")
 
 
@@ -91,10 +95,14 @@ def merge_preview(request, survivor_id: int, absorbed_id: int):
         choices = {name: _int(request.POST.get(f"elige_{name}")) for name in merge.CONTACT_FIELDS}
         try:
             record = merge.merge(
-                request.church, survivor.pk, absorbed.pk, request.user, choices=choices, token=request.POST.get("revision", "")
+                request.church, survivor.pk, absorbed.pk, request.user, choices=choices, token=request.POST.get("revision", ""),
+                confirmed_siblings=request.POST.get("no_son_hermanos") == "si",
             )
         except merge.StalePreview:
             stale = True
+        except (merge.Busy, OperationalError):  # somebody was writing the same rows (or the database broke a deadlock)
+            messages.error(request, BUSY)
+            return redirect("people:merge_preview", survivor_id, absorbed_id)
         except merge.MergeRefused as error:
             if _people(request.church).filter(pk__in=[survivor_id, absorbed_id]).count() != 2:
                 messages.error(request, error.message)  # somebody else merged one of them meanwhile
@@ -129,6 +137,7 @@ def merge_detail(request, merge_id: int):
         "can_undo": merge.can_undo(record),
         "until": merge.undoable_until(record),
         "not_restored": merge.undo_report_lines(record) if record.is_undone else [],
+        "changed": merge.undo_change_lines(record) if record.is_undone else [],
         "survivor_open": record.survivor.merged_into_id is None,
         "absorbed_open": record.absorbed.merged_into_id is None,
         "undo_days": merge.UNDO_DAYS,
@@ -143,6 +152,8 @@ def merge_undo(request, merge_id: int):
         merge.undo(request.church, record.pk, request.user)
     except merge.MergeRefused as error:
         messages.error(request, error.message)
+    except (merge.Busy, OperationalError):
+        messages.error(request, BUSY)
     else:
         messages.success(request, "Deshiciste la unión: vuelven a ser dos registros.")
     return redirect("people:merge_detail", record.pk)

@@ -146,7 +146,10 @@ def _series_context(event: Event) -> dict:
     row = series.occurrence_of(event)
     if row is None:
         return {}
-    return {"series": row.series, "series_rule": series.rule_words(row.series), "called_off": row.cancelled}
+    # The rule is the template's: said only while the series itself is published (see ``series.collapse``).
+    says_rule = row.series.published and row.series.active
+    return {"series": row.series if says_rule else None, "series_rule": series.rule_words(row.series) if says_rule else "",
+            "called_off": row.cancelled}
 
 
 @community_view

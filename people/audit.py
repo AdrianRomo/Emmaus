@@ -23,6 +23,7 @@ ACTION_LABELS = {
     "grupo_solicitud_retirada": "Retiró su solicitud a un grupo",
     "grupo_solicitud_aceptada": "Aceptó una solicitud a un grupo",
     "grupo_solicitud_declinada": "Declinó una solicitud a un grupo",
+    "grupo_solicitud_cerrada_union": "Se cerró una solicitud a un grupo al unir dos registros de la misma persona",
     "grupo_integrante_agregado": "Agregó a una persona a un grupo",
     "grupo_integrante_salio": "Sacó a una persona de un grupo o la persona salió",
     "grupo_reunion": "Pasó lista de una reunión de un grupo",

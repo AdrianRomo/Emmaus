@@ -51,8 +51,9 @@
     {% else %}
     <section class="block" aria-labelledby="aprobar">
       <h2 id="aprobar" class="heading">Aprobar</h2>
-      <p>Al aprobar dices que leíste todo lo de arriba y que la iglesia puede publicarlo. {% if published %}Sigue publicado.{% else %}Se publica en ese momento.{% endif %} Queda guardado tu nombre, la fecha y el permiso que elijas.</p>
-      <form method="post" action="{% url 'resources:approval_approve' kind.key obj.pk %}" novalidate>
+      <p>Al aprobar dices que leíste todo lo de arriba y que la iglesia puede publicarlo. {% if published %}Sigue publicado.{% else %}Se publica en ese momento.{% endif %}</p>
+      <p class="aside-note">Queda guardado tu nombre, la fecha y el permiso que elijas.</p>
+      <form class="block" method="post" action="{% url 'resources:approval_approve' kind.key obj.pk %}" novalidate>
         {% csrf_token %}
         {% include "partials/ui/fields.html" with form=approve_form %}
         <div class="step__actions">
@@ -62,17 +63,21 @@
     </section>
     {% endif %}
     {% if can_return %}
-    <section class="block" aria-labelledby="devolver">
-      <h2 id="devolver" class="heading">Devolver sin aprobar</h2>
-      <p>No se publica. La administración lee tu motivo en Emmaus, lo corrige y lo pide otra vez.</p>
-      <form method="post" action="{% url 'resources:approval_return' kind.key obj.pk %}" novalidate>
-        {% csrf_token %}
-        {% include "partials/ui/fields.html" with form=return_form %}
-        <div class="step__actions">
-          <button class="btn btn--secondary" type="submit">Devolver sin aprobar</button>
-        </div>
-      </form>
-    </section>
+    {# The other decision, folded so approving is the one that leads. Plain HTML: it opens without scripts, and it is open when its form came back with an error. #}
+    <details class="details"{% if return_form.errors %} open{% endif %}>
+      <summary>No lo apruebo: devolverlo a la administración</summary>
+      <div class="details__body">
+        <p>No se publica. La administración lee tu motivo en Emmaus, lo corrige y lo pide otra vez.</p>
+        <p class="aside-note">Queda guardado tu nombre y la fecha.</p>
+        <form class="block" method="post" action="{% url 'resources:approval_return' kind.key obj.pk %}" novalidate>
+          {% csrf_token %}
+          {% include "partials/ui/fields.html" with form=return_form %}
+          <div class="step__actions">
+            <button class="btn btn--secondary" type="submit">Devolver sin aprobar</button>
+          </div>
+        </form>
+      </div>
+    </details>
     {% else %}
       <p class="aside-note">Si no debe seguir publicado, pide a la administración que lo retire: aquí solo se aprueba.</p>
     {% endif %}

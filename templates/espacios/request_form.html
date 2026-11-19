@@ -7,7 +7,18 @@
   in the way; only the administration gets, under that list, the button that keeps the booking anyway.
 {% endcomment %}
 <div class="narrow spaces">
-  {% include "partials/ui/error_summary.html" with form=form %}
+  {% if clashes %}
+    <div class="error-summary" role="alert" aria-labelledby="error-summary-title" id="empalme">
+      <h2 id="error-summary-title">Ese horario ya está apartado</h2>
+      <p>Se empalma con {% if clashes|length == 1 %}otra reserva{% else %}otras reservas{% endif %} de este espacio, contando el tiempo para preparar y recoger:</p>
+      <ul class="clash-list">
+        {% for clash in clashes %}<li>{{ clash.day|weekday_date|capfirst }}, de {{ clash.block_start|time:"H:i" }} a {{ clash.block_end|time:"H:i" }}: {{ clash.title }}{% if clash.requested_by %}, de {{ clash.requested_by.full_name }}{% endif %}{% if clash.show_details and clash.status == "solicitada" %} (por decidir){% endif %}.</li>{% endfor %}
+      </ul>
+      {% if not request.is_church_admin %}<p>Elige otra hora u otro día. Si de verdad hace falta ese horario, habla con la administración de tu iglesia.</p>{% endif %}
+    </div>
+  {% else %}
+    {% include "partials/ui/error_summary.html" with form=form %}
+  {% endif %}
   {% url 'espacios:week' space.pk as back %}
   {% if request.is_church_admin %}
     {% include "events/rotulo/_page_head.html" with title="Reservar "|add:space.name lede="Como administración, tu reserva queda aprobada en el momento." back_url=back back_label="Volver a la semana" %}
@@ -16,27 +27,19 @@
   {% else %}
     {% include "events/rotulo/_page_head.html" with title="Reservar "|add:space.name lede="Este espacio no pide aprobación: si el horario está libre, queda reservado." back_url=back back_label="Volver a la semana" %}
   {% endif %}
-  {% if clashes %}
-    <div class="notice notice--warning" id="empalme">
-      <p><strong>Ese horario ya está apartado:</strong></p>
-      <ul>
-        {% for clash in clashes %}<li>{{ clash.day|weekday_date|capfirst }}, de {{ clash.block_start|time:"H:i" }} a {{ clash.block_end|time:"H:i" }}: {{ clash.title }}{% if clash.requested_by %}, de {{ clash.requested_by.full_name }}{% endif %}{% if clash.show_details and clash.status == "solicitada" %} (por decidir){% endif %}.</li>{% endfor %}
-      </ul>
-      {% if not request.is_church_admin %}<p>Elige otra hora u otro día. Si de verdad hace falta ese horario, habla con la administración de tu iglesia.</p>{% endif %}
-    </div>
-  {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}
+    {% if clashes %}<p class="aside-note">Cambia el día o las horas y vuelve a intentarlo.</p>{% endif %}
     <div class="step__actions">
-      <button class="btn btn--primary" type="submit">{% if request.is_church_admin or not space.needs_approval %}Reservar{% else %}Pedir la reserva{% endif %}</button>
+      <button class="btn btn--primary" type="submit">{% if clashes %}{% if request.is_church_admin or not space.needs_approval %}Reservar con el horario nuevo{% else %}Pedir con el horario nuevo{% endif %}{% elif request.is_church_admin or not space.needs_approval %}Reservar{% else %}Pedir la reserva{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
     {% if clashes and request.is_church_admin %}
       {% for clash in clashes %}<input type="hidden" name="visto" value="{{ clash.pk }}">{% endfor %}
-      <div class="notice notice--quiet">
-        <p>Puedes reservar aunque se empalme con lo que aparece arriba. Las dos reservas quedan en pie y queda registrado que tú lo decidiste. Ponte de acuerdo con quien tiene el otro horario.</p>
-        <p><button class="btn btn--secondary" type="submit" name="sobre" value="1">Reservar aunque se empalme</button></p>
+      <div class="override">
+        <p>O deja el horario como está: las dos reservas quedan en pie y queda registrado que tú lo decidiste.</p>
+        <button class="btn btn--secondary" type="submit" name="sobre" value="1">Reservar aunque se empalme</button>
       </div>
     {% endif %}
   </form>

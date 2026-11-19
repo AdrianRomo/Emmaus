@@ -120,3 +120,26 @@ whose first role is elsewhere; cross-church search; onboarding a second church; 
   switching (390px; 1440px only for overflow), "Políticas" in the elsewhere state (overflow only).
   No horizontal scroll on any. Not looked at: event screens for a two-church account, the legacy bar.
 - The logo on event shells for an account of another church was checked by test, not by eye.
+
+## After review: a form opened in one church must not write into another
+
+A form of the community modules names no church; it writes into the church of the request that
+receives it. Opened in A and sent after the session moved to B, it used to write into B. Fixed in
+one place, `core.authz._church_changed`, not form by form:
+
+- The session also keeps `church_seen`, the church its last request acted in. It decides nothing.
+- When the resolved church differs from it (the person switched; a role or a person ended; a church
+  was closed; the default itself moved), the CSRF secret is rotated
+  (`django.middleware.csrf.rotate_token`; the secret lives in the `csrftoken` cookie, shared by
+  every tab), so Django refuses every form drawn before, from the next request on.
+- The request that *discovers* the change has already passed the CSRF check. If it is a write, the
+  resolver raises `core.authz.StaleChurch` before the view runs; `core.views.permission_denied`
+  answers it with the page of an expired form ("Esta pantalla ya no está al día. Regresa,
+  recárgala y repite el paso.", 403). Reading is never refused.
+- The switch view resolves with `refuse_stale=False`, so somebody whose church just changed can
+  still choose. Choosing the church one is already in rotates nothing.
+- An account of one church never triggers any of this (tested: same cookie, old form accepted).
+
+Left as is: one audit row per switch has no cap. `events.services.throttle` blocks for a time once
+a limit is passed, and a blocked switcher (or a switch that silently is not audited) is worse than
+rows that hold two ids; a member can only toggle among their own churches.

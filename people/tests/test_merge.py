@@ -1,5 +1,5 @@
 """The merge as a rule about identity and authorization: who may be merged, what an account gains,
-what happens to minors, and what two administrators at once (or a stale copy) can do."""
+what happens to minors, and what a confirmation or a copy read before somebody else's change can do afterwards."""
 
 from datetime import timedelta
 from io import StringIO
@@ -51,7 +51,7 @@ class WhoMayBeMergedTests(MergeFixture):
         self.assertEqual(duplicates.signals_between(self.keep, twin), ["email"])  # they do look alike
         before = self.pointers()
         for church, survivor, absorbed in ((self.church, self.keep, twin), (self.church, twin, self.keep), (self.church_b, twin, self.keep)):
-            token = merge._token(survivor, absorbed)
+            token = merge.build_preview(church, survivor, absorbed).token
             with self.assertRaises(merge.MergeRefused):
                 merge.merge(church, survivor.pk, absorbed.pk, self.admin, choices={}, token=token)
             self.assertFalse(merge.build_preview(church, survivor, absorbed).allowed)
@@ -87,7 +87,7 @@ class WhoMayBeMergedTests(MergeFixture):
         self.do_merge()
         third = Person.objects.create(church=self.church, first_name="Lia", last_name="Luna Ríos", email="lia@prueba.mx")
         with self.assertRaises(merge.MergeRefused):
-            merge.merge(self.church, third.pk, self.dup.pk, self.admin, choices={}, token=merge._token(third, self.dup))
+            merge.merge(self.church, third.pk, self.dup.pk, self.admin, choices={}, token=merge.build_preview(self.church, third, self.dup).token)
 
 
 class ContactFieldTests(MergeFixture):
@@ -151,7 +151,7 @@ class AccountAndRoleTests(MergeFixture):
     def test_two_accounts_are_never_merged(self):
         self.give(self.keep)
         Person.objects.filter(pk=self.dup.pk).update(user=make_user("lia2@prueba.mx"))
-        self.assert_refused("Las dos tienen acceso a Emmaus")
+        self.assert_refused("Los dos registros tienen acceso a Emmaus")
 
     def test_a_group_guided_by_the_record_without_account_reaches_the_account_and_the_preview_says_so(self):
         self.give(self.keep)
@@ -280,8 +280,11 @@ class MinorTests(MergeFixture):
         self.assertTrue(Person.objects.get(pk=self.dup.pk).birth_date_verified)
 
 
-class RaceTests(MergeFixture):
-    def test_two_administrators_merging_the_same_pair_make_one_merge(self):
+class StaleCopyTests(MergeFixture):
+    """One after the other, each with what it read before the other wrote. NOT two transactions at once:
+    the suite runs on SQLite, which has no row locks (the lock order is in ``test_merge_review``)."""
+
+    def test_a_second_merge_confirmed_on_the_same_old_preview_is_refused_and_one_merge_exists(self):
         second_admin = User.objects.get(pk=self.admin.pk)
         token = merge.build_preview(self.church, self.keep, self.dup).token  # both opened the same preview
         merge.merge(self.church, self.keep.pk, self.dup.pk, self.admin, choices={}, token=token)
@@ -323,7 +326,7 @@ class RaceTests(MergeFixture):
         self.keep.refresh_from_db()
         self.assertEqual((self.keep.user_id, self.keep.merged_into_id, self.keep.phone), (account, None, "55 1212 3434"))
 
-    def test_an_undo_asked_twice_is_one_undo(self):
+    def test_an_undo_asked_again_after_it_was_done_is_one_undo(self):
         record = self.do_merge()
         merge.undo(self.church, record.pk, self.admin)
         state = self.pointers()

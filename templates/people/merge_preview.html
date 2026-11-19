@@ -11,14 +11,14 @@
   {% url 'people:duplicates' as back %}
   {% include "events/rotulo/_page_head.html" with title="¿Son la misma persona?" lede="Revisa qué pasaría al unir estos dos registros. Nada cambia hasta que confirmes." back_url=back back_label="Volver a Posibles duplicados" %}
 
-  {% if stale %}<div class="notice notice--warning" role="alert"><p><strong>No unimos nada.</strong> Los datos de alguna de las dos cambiaron mientras revisabas. Esto es lo que hay ahora: revísalo otra vez.</p></div>{% endif %}
+  {% if stale %}<div class="notice notice--warning" role="alert"><p><strong>No unimos nada.</strong> Los datos de alguno de los dos registros cambiaron mientras revisabas. Esto es lo que hay ahora: revísalo otra vez.</p></div>{% endif %}
 
   <section class="block" aria-labelledby="quienes">
     <h2 id="quienes" class="heading">Los dos registros</h2>
     <dl class="summary-list">
-      <div class="summary-list__row"><dt>Se queda</dt><dd><a href="{% url 'people:detail' survivor.pk %}">{{ survivor.full_name }}</a>. Se registró desde: {{ survivor.get_created_from_display|lower }}, el {{ survivor.created_at|long_date }}.</dd></div>
-      <div class="summary-list__row"><dt>Se une a ella</dt><dd><a href="{% url 'people:detail' absorbed.pk %}">{{ absorbed.full_name }}</a>. Se registró desde: {{ absorbed.get_created_from_display|lower }}, el {{ absorbed.created_at|long_date }}.</dd></div>
-      {% if reasons %}<div class="summary-list__row"><dt>Por qué te las mostramos</dt><dd>{{ reasons|join:". " }}.</dd></div>{% endif %}
+      <div class="summary-list__row"><dt>Este registro se queda</dt><dd><a href="{% url 'people:detail' survivor.pk %}">{{ survivor.full_name }}</a>. Se registró desde: {{ survivor.get_created_from_display|lower }}, el {{ survivor.created_at|long_date }}.</dd></div>
+      <div class="summary-list__row"><dt>Este se une al otro</dt><dd><a href="{% url 'people:detail' absorbed.pk %}">{{ absorbed.full_name }}</a>. Se registró desde: {{ absorbed.get_created_from_display|lower }}, el {{ absorbed.created_at|long_date }}.</dd></div>
+      {% if reasons %}<div class="summary-list__row"><dt>Por qué te mostramos este par</dt><dd>{{ reasons|join:". " }}.</dd></div>{% endif %}
     </dl>
     <p class="more"><a href="{% url 'people:merge_preview' absorbed.pk survivor.pk %}">Dejar mejor a {{ absorbed.full_name }} como el registro que se queda</a></p>
   </section>
@@ -44,13 +44,17 @@
         <div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{% if survivor.birth_date %}{{ survivor.birth_date|long_date }}. {% if survivor.birth_date_verified %}Edad confirmada por el equipo.{% else %}Edad sin confirmar por el equipo.{% endif %}{% else %}Sin fecha de nacimiento.{% endif %} Una unión nunca escribe ni confirma una fecha de nacimiento.</dd></div>
         <div class="summary-list__row"><dt>Acceso a Emmaus</dt><dd>{% if preview.account == "moves" %}La cuenta con la que hoy entra {{ absorbed.full_name }} pasa a {{ survivor.full_name }}: seguirá entrando con el mismo correo y la misma contraseña.{% elif preview.account == "survivor" %}{{ survivor.full_name }} sigue entrando con su cuenta de siempre.{% else %}Ninguno de los dos registros tiene acceso. La unión no crea una cuenta.{% endif %}</dd></div>
       </dl>
+    </section>
+    {% if preview.choices %}
+    <section class="block" aria-labelledby="elige">
+      <h2 id="elige" class="heading">Elige qué dato se queda</h2>
       {% for row in preview.choices %}
         <fieldset class="field">
           <legend class="legend">{{ row.label }}: ¿cuál se queda?</legend>
           <div class="choices">
             <div class="choice">
               <input class="choice__input" type="radio" id="elige-{{ row.name }}-queda" name="elige_{{ row.name }}" value="{{ survivor.pk }}" checked>
-              <label class="choice__label" for="elige-{{ row.name }}-queda"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.survivor }}<span class="choice__sub">El de {{ survivor.full_name }}, que se queda.</span></span></label>
+              <label class="choice__label" for="elige-{{ row.name }}-queda"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.survivor }}<span class="choice__sub">El del registro que se queda.</span></span></label>
             </div>
             <div class="choice">
               <input class="choice__input" type="radio" id="elige-{{ row.name }}-otro" name="elige_{{ row.name }}" value="{{ absorbed.pk }}">
@@ -60,6 +64,7 @@
         </fieldset>
       {% endfor %}
     </section>
+    {% endif %}
 
     <section class="block" aria-labelledby="pasa">
       <h2 id="pasa" class="heading">Qué pasa a {{ survivor.full_name }}</h2>
@@ -69,13 +74,15 @@
       {% else %}
         <p>El registro que se une no tiene grupos, equipos, inscripciones ni seguimientos que pasar.</p>
       {% endif %}
-      <p>Si tiene marcas privadas de lectura (devocionales o planes), pasan con ella. Nadie las ve ni las cuenta, tampoco aquí.</p>
+      <p>Si tiene marcas privadas de lectura (devocionales o planes), pasan también. Nadie las ve ni las cuenta, tampoco aquí.</p>
       {% if preview.stay_lines %}
         <p>Se quedan en el registro que se une, porque {{ survivor.full_name }} ya tiene lo mismo: {{ preview.stay_lines|join:"; " }}.</p>
       {% endif %}
       </div>
+      {% if preview.moves_registrations %}<p class="aside-note">Si pasa una inscripción a un evento que pide la autorización de un tutor, se revisa otra vez con la edad de {{ survivor.full_name }}: puede quedar confirmada o volver a esperar.</p>{% endif %}
+      {% if preview.close_requests %}<p class="aside-note">Una solicitud para unirse a un grupo en el que el otro registro ya está no pasa: se cierra.</p>{% endif %}
       {% if preview.groups_gained or preview.teams_gained %}
-        <div class="notice notice--warning"><p><strong>La cuenta gana permisos.</strong> Al unirlas, la cuenta con la que se entra podrá administrar {% if preview.groups_gained %}{{ preview.groups_gained }} grupo{{ preview.groups_gained|pluralize }} que hoy guía un registro sin acceso{% endif %}{% if preview.groups_gained and preview.teams_gained %} y {% endif %}{% if preview.teams_gained %}{{ preview.teams_gained }} equipo{{ preview.teams_gained|pluralize }} que hoy coordina un registro sin acceso{% endif %}. Los roles no se copian: salen de sus grupos y equipos, como siempre.</p></div>
+        <div class="notice notice--warning"><p><strong>La cuenta gana permisos.</strong> Al unir los registros, la cuenta con la que se entra podrá administrar {% if preview.groups_gained %}{{ preview.groups_gained }} grupo{{ preview.groups_gained|pluralize }} que hoy guía un registro sin acceso{% endif %}{% if preview.groups_gained and preview.teams_gained %} y {% endif %}{% if preview.teams_gained %}{{ preview.teams_gained }} equipo{{ preview.teams_gained|pluralize }} que hoy coordina un registro sin acceso{% endif %}. Los roles no se copian: salen de sus grupos y equipos, como siempre.</p></div>
       {% endif %}
     </section>
 
@@ -83,22 +90,42 @@
       <h2 id="no-cambia" class="heading">Lo que no se toca</h2>
       <div class="prose">
       <p>Las respuestas de los cuestionarios, las entrevistas y las notas de un evento no se leen, no se copian y no se mueven: siguen en el evento, con los permisos del evento. Lo que cada quien opinó de un evento tampoco.</p>
-      <p>{{ absorbed.full_name }} deja de aparecer en Personas y en las búsquedas, pero su registro no se borra. Puedes deshacer la unión durante {{ undo_days }} días; lo que {{ survivor.full_name }} cambie después de hoy se queda con ella.</p>
+      <p>{{ absorbed.full_name }} deja de aparecer en Personas y en las búsquedas, pero su registro no se borra. Puedes deshacer la unión durante {{ undo_days }} días; lo que cambie después de hoy en el registro que se queda no se regresa.</p>
       </div>
     </section>
 
+    {% if preview.sibling_warning %}
+    <section class="block" aria-labelledby="hermanos">
+      <h2 id="hermanos" class="heading">Antes de unir: ¿no serán hermanos?</h2>
+      <div class="notice notice--warning prose">
+        <p><strong>Dos hermanos pueden compartir teléfono y correo.</strong> Son menores de edad (o tienen la autorización de su tutor), nacieron el mismo día y lo único que los une es el teléfono o el correo, que suele ser el de su mamá o su papá. Los gemelos se ven así.</p>
+        <p>Si unes los registros y eran dos personas, una sola se queda con las inscripciones y la autorización de ambas.</p>
+      </div>
+      <div class="field">
+        <label class="check" for="no_son_hermanos">
+          <input type="checkbox" id="no_son_hermanos" name="no_son_hermanos" value="si" required>
+          <span class="check__text">Revisé que no son dos hermanos: es una sola persona registrada dos veces</span>
+        </label>
+      </div>
+    </section>
+    {% endif %}
+
     <div class="step__actions">
-      <button class="btn btn--primary" type="submit">Sí, son la misma persona: unirlas</button>
+      <button class="btn btn--primary" type="submit">Unir estos registros</button>
       <a class="btn btn--link" href="{{ back }}">Volver sin unir</a>
     </div>
   </form>
   {% endif %}
 
-  <form method="post" action="{% url 'people:duplicate_dismiss' %}">
-    {% csrf_token %}
-    <input type="hidden" name="a" value="{{ survivor.pk }}">
-    <input type="hidden" name="b" value="{{ absorbed.pk }}">
-    <div class="step__actions"><button class="btn btn--secondary" type="submit">No son la misma persona</button></div>
-  </form>
+  <section class="block" aria-labelledby="no-son">
+    <h2 id="no-son" class="heading">Si no son la misma persona</h2>
+    <p>Dilo aquí y no te volveremos a mostrar este par. Los dos registros siguen como están.</p>
+    <form method="post" action="{% url 'people:duplicate_dismiss' %}">
+      {% csrf_token %}
+      <input type="hidden" name="a" value="{{ survivor.pk }}">
+      <input type="hidden" name="b" value="{{ absorbed.pk }}">
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">No son la misma persona</button></div>
+    </form>
+  </section>
 </div>
 {% endblock %}

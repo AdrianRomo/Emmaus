@@ -262,6 +262,11 @@ def dashboard(request):
 
 
 def permission_denied(request, exception=None):
+    from .authz import StaleChurch
+
+    if isinstance(exception, StaleChurch):
+        # A form sent after the church of the session changed: the same page as an expired form.
+        return csrf_failure(request)
     return render(request, "errors/403.html", status=403)
 
 
@@ -1072,14 +1077,16 @@ def switch_church(request):
     POST only, with the CSRF token. The id must be one of the account's own churches
     (``core.authz.switch_church``): any other id, real or invented, answers 404 and changes nothing.
     Only the id is kept, in the session, and every later request checks it again
-    (``core.authz.church_choices``); choosing gives no permission. One audit row in the chosen
+    (``core.authz.church_choices``); choosing gives no permission. Changing church rotates the CSRF
+    secret, so a form opened before (in this tab or another) is refused instead of writing into the
+    new church. One audit row in the chosen
     church, with the account and nothing else. ``next`` is followed only when it is a path of this
     site; without one, the chosen church's "Mi iglesia"."""
     from people.audit import record_church
 
     from . import authz
 
-    before = authz.current_church(request)
+    before = authz.church_choices(request, refuse_stale=False)[0]
     church = authz.switch_church(request, request.POST.get("church", ""))
     if church is None:
         raise Http404

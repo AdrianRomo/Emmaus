@@ -102,7 +102,9 @@ class RoundTripTests(MergeFixture):
         record = self.do_merge(phone=self.dup.pk)
         manifest = record.manifest
         self.assertEqual(
-            sorted(manifest), ["camp_participants", "demoted_affiliations", "fields_changed", "moved", "moved_user_id", "survivor_before", "version"]
+            sorted(manifest),
+            ["camp_participants", "closed_requests", "demoted_affiliations", "fields_changed", "moved", "moved_user_id", "resettled",
+             "survivor_before", "version"],
         )
         self.assertEqual(manifest["survivor_before"], {"phone": "55 3333 4444"})
         for ids in manifest["moved"].values():
@@ -146,7 +148,7 @@ class ConflictTests(MergeFixture):
     def test_a_live_membership_of_the_same_group_refuses_and_a_past_one_stays(self):
         groups.set_membership(self.other_group, self.keep, self.admin)
         mine = groups.set_membership(self.other_group, self.dup, self.admin, role="lider")
-        self.assert_refused("Las dos están en un mismo grupo")
+        self.assert_refused("Los dos registros están en un mismo grupo")
         groups.end_membership(mine, self.admin)
         self.assertEqual(self.refusals(), [])
         record = self.do_merge()
@@ -157,7 +159,7 @@ class ConflictTests(MergeFixture):
     def test_a_live_membership_of_the_same_team_refuses_and_a_past_one_stays(self):
         serving.set_member(self.team, self.keep, self.admin)
         serving.set_member(self.team, self.dup, self.admin, role="coordina")
-        self.assert_refused("Las dos están en un mismo equipo")
+        self.assert_refused("Los dos registros están en un mismo equipo")
         serving.remove_member(self.team, self.dup, self.admin)
         self.assertEqual(self.refusals(), [])
         self.do_merge()
@@ -276,7 +278,7 @@ class EarlierMergeTests(MergeFixture):
         PersonMerge.objects.filter(pk=first.pk).update(merged_at=timezone.now() - timedelta(days=merge.UNDO_DAYS - 1))
         # keep cannot be absorbed (its merge can still be undone), so the later merge is forced the plain way:
         Person.objects.filter(pk=self.keep.pk).update(merged_into=third)
-        with self.assertRaisesMessage(merge.MergeRefused, "fue unida después a otra"):
+        with self.assertRaisesMessage(merge.MergeRefused, "se unió después a otro"):
             merge.undo(self.church, first.pk, self.admin)
 
     def test_people_in_a_merge_are_not_deleted_from_under_it(self):
@@ -300,7 +302,7 @@ class ConsentFollowsItsRegistrationTests(MergeFixture):
         registration = EventRegistration.objects.create(event=self.other_event, person=self.dup, status="pendiente", pending_reason="consent")
         consent = GuardianConsent.objects.create(registration=registration, guardian_name="Mamá de prueba", relationship="madre", method="papel")
         self.assertEqual(self.refusals(), [])
-        self.do_merge()
+        self.do_merge(not_siblings=True)
         registration.refresh_from_db()
         self.assertEqual((registration.person_id, registration.status, registration.pending_reason), (self.keep.pk, "pendiente", "consent"))
         self.assertEqual(GuardianConsent.objects.get().pk, consent.pk)

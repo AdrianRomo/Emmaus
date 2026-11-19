@@ -69,12 +69,13 @@ class MergeFixture(CommunityFixture):
         }
         return builders[key]()
 
-    def do_merge(self, survivor=None, absorbed=None, actor=None, **choices):
+    def do_merge(self, survivor=None, absorbed=None, actor=None, not_siblings=False, **choices):
         survivor, absorbed = survivor or self.keep, absorbed or self.dup
         survivor.refresh_from_db()
         absorbed.refresh_from_db()
         token = merge.build_preview(survivor.church, survivor, absorbed).token
-        return merge.merge(survivor.church, survivor.pk, absorbed.pk, actor or self.admin, choices=choices, token=token)
+        return merge.merge(survivor.church, survivor.pk, absorbed.pk, actor or self.admin, choices=choices, token=token,
+                           confirmed_siblings=not_siblings)
 
     def refusals(self, survivor=None, absorbed=None) -> list[str]:
         survivor, absorbed = survivor or self.keep, absorbed or self.dup

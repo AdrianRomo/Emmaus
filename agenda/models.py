@@ -442,7 +442,8 @@ class SeriesOccurrence(models.Model):
     edited_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancelled_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
-    # Whether the page was published when the day was called off, to put it back as it was.
+    # Whether the page was published when the day was called off: a fact kept for the record. "Sí hay" does not
+    # put the page back as it was; it follows the series as it is then (``agenda.series.restore``).
     published_before = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

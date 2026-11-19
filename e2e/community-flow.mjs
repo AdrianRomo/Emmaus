@@ -311,6 +311,327 @@ await page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/lle
 expect(await page.getByText("todavía no empieza").count() > 0 || (await page.locator("main form").count()) > 0, "the walk-up page answers");
 await audit(page, "admin-evento-llego");
 await ctx.close();
+
+// Wave 9 (docs/v2/wave9/). Each step below ends by taking back what it did, as far as the screens allow: what cannot
+// be deleted (a cancelled booking, an ended series without published dates, a draft devotional, an undone join) stays
+// where only the administration reads it. They need the seed's pastor and its pair of records: --panorama --duplicados.
+const TZ = "America/Mexico_City";
+const localDay = (days) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(Date.now() + days * 864e5));
+const anonymous = () => browser.newContext({ viewport: PHONE, locale: "es-MX", timezoneId: TZ, bypassCSP: true });
+// A POST written by hand from a signed-in page, with that page's own CSRF token: what answers is the permission rule.
+const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) => {
+  const token = document.querySelector("input[name=csrfmiddlewaretoken]").value;
+  const response = await fetch(url, { method: "POST", body: new URLSearchParams({ csrfmiddlewaretoken: token, ...data }), redirect: "manual" });
+  return { status: response.status, text: response.status === 403 ? await response.text() : "" };
+}, [path, fields]);
+
+// 6. Spaces (issue #94): the guide asks for a room, a member reads "Ocupado", the administration approves, books the
+// same hours over the clash it was shown, and both bookings are cancelled.
+{
+  const day = localDay(9);
+  const guide = await session("guia.grupo@demo.invalid", PHONE);
+  await guide.page.goto(BASE + "/mi-iglesia/espacios/");
+  expect(await guide.page.locator("main").getByText("Lo que pediste").count() === 1, "the guide reads what he asked for");
+  await audit(guide.page, "guia-espacios");
+  await guide.page.setViewportSize(PHONE);
+  const weekPath = await guide.page.locator("main .row__title a:has-text('Salón 2')").getAttribute("href");
+  await Promise.all([guide.page.waitForNavigation(), guide.page.click("main li:has-text('Salón 2') a:has-text('Pedir')")]);
+  await audit(guide.page, "guia-espacio-pedir");
+  await guide.page.setViewportSize(PHONE);
+  await guide.page.fill("input[name=title]", "Ensayo de prueba");
+  await guide.page.fill("input[name=day]", day);
+  await guide.page.fill("input[name=starts]", "10:00");
+  await guide.page.fill("input[name=ends]", "11:00");
+  await Promise.all([guide.page.waitForNavigation(), guide.page.click("main button:has-text('Pedir la reserva')")]);
+  await guide.page.goto(BASE + "/mi-iglesia/espacios/");
+  expect(await guide.page.locator("main li:has-text('Ensayo de prueba')").getByText("Por decidir").count() === 1, "the guide's request waits: «Por decidir»");
+  await guide.page.goto(BASE + weekPath + "?semana=" + day);
+  expect(await guide.page.locator(`section[aria-labelledby='dia-${day}'] .row__title`).getByText("Ensayo de prueba").count() === 1, "who asked reads the title in the week");
+  await audit(guide.page, "guia-espacio-semana");
+
+  const member = await session("valeria.soto@demo.invalid", PHONE);
+  await member.page.goto(BASE + "/mi-iglesia/espacios/");
+  expect(await member.page.locator("main a:has-text('Pedir')").count() === 0, "a member is not offered to ask for a space");
+  await audit(member.page, "miembro-espacios");
+  await member.page.goto(BASE + weekPath + "?semana=" + day);
+  const busy = member.page.locator(`section[aria-labelledby='dia-${day}']`);
+  expect(await busy.getByText("Ocupado", { exact: true }).count() === 1 && await busy.getByText("De 10:00 a 11:00.").count() === 1, "a member reads «Ocupado» and the hours");
+  expect(await member.page.getByText("Ensayo de prueba").count() === 0 && await member.page.getByText("Gabriel").count() === 0, "a member reads neither the title nor who asked");
+  await audit(member.page, "miembro-espacio-semana");
+  expect((await member.page.goto(BASE + weekPath + "pedir/")).status() === 403, "a member cannot open the request form");
+  expect((await member.page.goto(BASE + "/mi-iglesia/espacios/solicitudes/")).status() === 403, "nor the administration's requests");
+
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  await admin.page.goto(BASE + "/mi-iglesia/espacios/");
+  await audit(admin.page, "admin-espacios");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main a:has-text('Solicitudes de reserva')")]);
+  expect(await admin.page.locator("main li:has-text('Salón 2: Ensayo de prueba')").getByText("La pidió Gabriel Ortega Luna.").count() === 1, "the administration reads the request and who asked");
+  await audit(admin.page, "admin-espacios-solicitudes");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main li:has-text('Ensayo de prueba') button:has-text('Aprobar')")]);
+  expect(await admin.page.getByText("Aprobaste la reserva de Salón 2").count() > 0, "approving is said back");
+  await admin.page.goto(BASE + weekPath + "pedir/?dia=" + day);
+  await admin.page.fill("input[name=title]", "Junta de prueba");
+  await admin.page.fill("input[name=day]", day);
+  await admin.page.fill("input[name=starts]", "10:00");
+  await admin.page.fill("input[name=ends]", "11:00");
+  await admin.page.click("main button[type=submit]:not([name])");
+  await admin.page.waitForSelector("#empalme");
+  expect(await admin.page.locator("#empalme").getByText("de 10:00 a 11:00: Ensayo de prueba, de Gabriel Ortega Luna").count() === 1, "the clash is listed before anything is booked");
+  await audit(admin.page, "admin-espacio-empalme");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Reservar aunque se empalme')")]);
+  expect(await admin.page.getByText("Reservaste Salón 2").count() > 0, "the administration books over the clash it saw");
+  await admin.page.goto(BASE + "/mi-iglesia/espacios/solicitudes/?estado=decididas");
+  expect(await admin.page.locator("main li:has-text('Junta de prueba')").getByText("Se aprobó aunque se empalma con otra reserva.").count() === 1, "the override is on the record");
+  await audit(admin.page, "admin-espacios-decididas");
+  await admin.page.goto(BASE + `/mi-iglesia/espacios/uso/?desde=${day}&hasta=${day}`);
+  expect((await admin.page.locator("main tr:has-text('Salón 2') td[data-label='Reservas']").innerText()).trim() === "2", "the usage of that day counts both approved bookings");
+  await audit(admin.page, "admin-espacios-uso");
+  await admin.page.goto(BASE + "/mi-iglesia/espacios/administrar/");
+  await audit(admin.page, "admin-espacios-administrar");
+
+  // The guide cancels his; the administration cancels its own: the day is free again.
+  await guide.page.setViewportSize(PHONE);
+  await guide.page.goto(BASE + "/mi-iglesia/espacios/");
+  await Promise.all([guide.page.waitForNavigation(), guide.page.click("main li:has-text('Ensayo de prueba') a:has-text('Cancelar')")]);
+  await audit(guide.page, "guia-espacio-cancelar");
+  await Promise.all([guide.page.waitForNavigation(), guide.page.click("main button:has-text('Sí, cancelar la reserva')")]);
+  expect(await guide.page.getByText("Cancelaste la reserva de Salón 2").count() > 0, "the guide's cancellation is said back");
+  await admin.page.goto(BASE + weekPath + "?semana=" + day);
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main li:has-text('Junta de prueba') a:has-text('Cancelar')")]);
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Sí, cancelar la reserva')")]);
+  await member.page.goto(BASE + weekPath + "?semana=" + day);
+  expect(await member.page.locator(`section[aria-labelledby='dia-${day}']`).getByText("Libre todo el día.").count() === 1, "with both cancelled the day is free again");
+  await guide.ctx.close();
+  await member.ctx.close();
+  await admin.ctx.close();
+}
+
+// 7. Series and the calendar (issue #93): a weekly series, its dates, one row for a member, a day called off and
+// brought back, and the church's calendar file, which answers only while a public event exists.
+{
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  const member = await session("valeria.soto@demo.invalid", PHONE);
+  await admin.page.goto(BASE + "/mi-iglesia/eventos/administrar/");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main a:has-text('Crear una serie')")]);
+  await audit(admin.page, "admin-serie-nueva");
+  await admin.page.fill("input[name=name]", "Oración de prueba");
+  await admin.page.check("input[name=weekdays][value='2']");
+  await admin.page.fill("input[name=starts_at]", "07:00");
+  await admin.page.fill("input[name=location]", "Salón 2");
+  await admin.page.check("input[name=published]");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Crear la serie')")]);
+  const seriesUrl = admin.page.url();
+  const coming = admin.page.locator("section[aria-labelledby=fechas] li.row");
+  const dates = await coming.count();
+  expect(/\/administrar\/series\/\d+\/$/.test(seriesUrl) && dates >= 7 && dates <= 9, `a new weekly series shows its dates of the coming eight weeks, not ${dates} on ${seriesUrl}`);
+  expect(await admin.page.locator(".summary-list").getByText("Cada miércoles, a las 07:00, 90 minutos").count() === 1, "the series says when it happens");
+  await audit(admin.page, "admin-serie");
+  await admin.page.goto(seriesUrl + "editar/");
+  await audit(admin.page, "admin-serie-editar");
+
+  await member.page.goto(BASE + "/mi-iglesia/eventos/");
+  const row = member.page.locator("main li.row:has-text('Oración de prueba')");
+  expect(await row.count() === 1, `a member's Eventos shows one row for the series, not ${await row.count()}`);
+  expect(await row.getByText("Se repite cada miércoles.").count() === 1, "and the row says it repeats");
+  await audit(member.page, "miembro-eventos-con-serie");
+  await member.page.setViewportSize(PHONE);
+  await Promise.all([member.page.waitForNavigation(), row.locator("a:has-text('Ver las otras fechas')").click()]);
+  const seriesPage = member.page.url();
+  const listed = () => member.page.locator("main ul.dates > li").count();
+  expect(await listed() === dates, `the member reads every date of the series: ${await listed()} of ${dates}`);
+  await audit(member.page, "miembro-serie");
+  // The second date is called off: it leaves the member's list, and comes back with "Sí hay".
+  await admin.page.goto(seriesUrl);
+  const offDay = (await coming.nth(1).locator(".row__title").innerText()).trim().toLowerCase();
+  await Promise.all([admin.page.waitForNavigation(), coming.nth(1).locator("button:has-text('Este día no hay')").click()]);
+  expect(await coming.nth(1).locator(".status, .badge, [class*=status]").getByText("Este día no hay").count() > 0 || await coming.nth(1).locator("button:has-text('Sí hay')").count() === 1, "the date is marked «Este día no hay»");
+  await audit(admin.page, "admin-serie-dia-sin");
+  await member.page.goto(seriesPage);
+  expect(await listed() === dates - 1 && !(await member.page.locator("main").innerText()).toLowerCase().includes(offDay), `a day called off (${offDay}) leaves the member's list`);
+  await Promise.all([admin.page.waitForNavigation(), coming.nth(1).locator("button:has-text('Sí hay')").click()]);
+  expect(await admin.page.getByText("Listo: ese día sí hay.").count() > 0, "bringing the day back is said");
+  await member.page.goto(seriesPage);
+  expect(await listed() === dates && (await member.page.locator("main").innerText()).toLowerCase().includes(offDay), `«Sí hay» brings ${offDay} back to the member's list`);
+
+  // The calendar file. The seed has no public event: the address is the same 404 as one that never existed.
+  const anon = await anonymous();
+  const calendar = BASE + "/iglesia/iglesia-demo/calendario.ics";
+  expect((await anon.request.get(calendar)).status() === 404, "with no public event the church's calendar is a 404");
+  expect((await anon.request.get(BASE + "/evento/noche-de-alabanza-demo/calendario.ics")).status() === 404, "and so is the calendar of an event that is not public");
+  await admin.page.goto(BASE + "/mi-iglesia/eventos/administrar/");
+  expect(await admin.page.locator("#enlace-calendario").count() === 0, "the administration is not shown an address that does not answer");
+  await admin.page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/pagina/");
+  await admin.page.check("input[name=public]");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Guardar la página del evento')")]);
+  await admin.page.goto(BASE + "/mi-iglesia/eventos/administrar/");
+  expect(((await admin.page.locator("#enlace-calendario").inputValue().catch(() => "")) || "").endsWith("/iglesia/iglesia-demo/calendario.ics"), "with a public event the administration reads the calendar's address");
+  await audit(admin.page, "admin-eventos-con-serie-y-calendario");
+  const feed = await anon.request.get(calendar);
+  const ics = feed.status() === 200 ? await feed.text() : "";
+  expect(feed.status() === 200 && (feed.headers()["content-type"] || "").startsWith("text/calendar"), `the church's calendar answered ${feed.status()} ${feed.headers()["content-type"]}`);
+  expect(ics.startsWith("BEGIN:VCALENDAR") && ics.includes("SUMMARY:Noche de alabanza") && ics.includes("/evento/noche-de-alabanza-demo/"), "the calendar carries the public event and its address");
+  expect(!ics.includes("Oración de prueba") && !/ATTENDEE|ORGANIZER|@demo\.invalid/.test(ics), "it carries neither the dates that are not public nor any person");
+  const reader = await anon.newPage();
+  await reader.goto(BASE + "/evento/noche-de-alabanza-demo/");
+  const add = reader.locator("main a:has-text('Agregar a mi calendario')");
+  expect(await add.count() === 1, "the public page of the event offers «Agregar a mi calendario»");
+  const one = await anon.request.get(new URL((await add.getAttribute("href").catch(() => null)) || "/missing", BASE).href);
+  expect(one.status() === 200 && (await one.text()).includes("SUMMARY:Noche de alabanza"), `the event's own calendar file answered ${one.status()}`);
+  expect((await anon.cookies()).length === 0, "the calendar and the public page leave no cookie");
+  await audit(reader, "publico-evento-calendario");
+  // Back to the seed: the event is not public, the series publishes nothing and adds no more dates.
+  await admin.page.goto(BASE + "/mi-iglesia/eventos/noche-de-alabanza-demo/pagina/");
+  await admin.page.uncheck("input[name=public]");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Guardar la página del evento')")]);
+  expect((await anon.request.get(calendar)).status() === 404, "the calendar is a 404 again once nothing is public");
+  await anon.close();
+  await admin.page.goto(seriesUrl + "editar/");
+  await admin.page.uncheck("input[name=published]");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Guardar la serie')")]);
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Terminar la serie')")]);
+  expect(await admin.page.getByText("Esta serie terminó.").count() === 1, "the series is ended");
+  await audit(admin.page, "admin-serie-terminada");
+  await member.page.goto(BASE + "/mi-iglesia/eventos/");
+  expect(await member.page.getByText("Oración de prueba").count() === 0, "a series that is not published is gone from the member's Eventos");
+  expect((await member.page.goto(seriesPage)).status() === 404, "and its page is a 404 for her");
+  await admin.ctx.close();
+  await member.ctx.close();
+}
+
+// 8. Pastoral approval (issue #99): the administration prepares and asks, only the pastor publishes, and a change of
+// the published words takes them out of sight.
+{
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  const member = await session("valeria.soto@demo.invalid", PHONE);
+  const pastor = await session("pastor.iglesia@demo.invalid", DESKTOP);
+  const title = "Devocional de prueba";
+  const save = () => Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Guardar el devocional')")]);
+  const adminRow = () => admin.page.locator(`main li:has-text('${title}')`);
+  const past = "/mi-iglesia/recursos/devocional/anteriores/";
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/nuevo/");
+  await admin.page.fill("input[name=date]", localDay(-3));
+  await admin.page.fill("input[name=title]", title);
+  await admin.page.fill("input[name=passage]", "Salmo 23");
+  await admin.page.fill("textarea[name=body]", "Texto de prueba para la aprobación pastoral.");
+  await admin.page.check("input[name=publish]");
+  await save();
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/administrar/");
+  expect(await adminRow().getByText("Por aprobar").count() === 1, "asking for approval leaves the devotional «Por aprobar»");
+  const detail = await admin.page.locator(`main a:has-text('${title}')`).first().getAttribute("href");
+  const id = detail.match(/(\d+)\/$/)[1];
+  const review = `/mi-iglesia/recursos/aprobaciones/devocional/${id}/`;
+  await member.page.goto(BASE + past);
+  expect(await member.page.getByText(title).count() === 0 && (await member.page.goto(BASE + detail)).status() === 404, "a member does not see what waits for the pastor");
+
+  expect(await pastor.page.locator(`.rail a[href='/mi-iglesia/recursos/aprobaciones/']`).count() === 1, "the pastor's rail leads to «Aprobación pastoral»");
+  await pastor.page.goto(BASE + "/mi-iglesia/recursos/aprobaciones/");
+  await audit(pastor.page, "pastor-aprobaciones");
+  await Promise.all([pastor.page.waitForNavigation(), pastor.page.click(`main li:has-text('${title}') a:has-text('Revisar')`)]);
+  expect(await pastor.page.locator("main").getByText("Texto de prueba para la aprobación pastoral.").count() === 1, "the pastor reads the whole text before deciding");
+  await audit(pastor.page, "pastor-aprobacion-revisar");
+  await pastor.page.fill("textarea[name=reason]", "Falta decir de qué versículos se trata.");
+  await Promise.all([pastor.page.waitForNavigation(), pastor.page.click("main button:has-text('Devolver sin aprobar')")]);
+  expect(await pastor.page.getByText(`Devolviste «${title}».`).count() > 0, "returning it is said back to the pastor");
+  await audit(pastor.page, "pastor-aprobaciones-devuelto");
+
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/administrar/");
+  expect(await adminRow().getByText("Devuelto").count() > 0, "the administration's list says «Devuelto»");
+  await audit(admin.page, "admin-devocionales-devuelto");
+  await Promise.all([admin.page.waitForNavigation(), adminRow().locator("a:has-text('Editar')").click()]);
+  expect(await admin.page.locator("main").getByText("Falta decir de qué versículos se trata.").count() === 1, "the administration reads the pastor's reason on the form");
+  await audit(admin.page, "admin-devocional-devuelto");
+  await admin.page.fill("input[name=passage]", "Salmo 23:1-4");
+  await admin.page.check("input[name=publish]");
+  await save();
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/administrar/");
+  expect(await adminRow().getByText("Por aprobar").count() === 1, "saved and asked again: «Por aprobar»");
+  await admin.page.goto(BASE + review);
+  expect(await admin.page.locator("main form").count() === 0 && await admin.page.locator("main").getByText("Solo un pastor de tu iglesia puede aprobarlo.").count() === 1, "the administration reads the review page without the decision");
+  await audit(admin.page, "admin-aprobacion-revisar");
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/aprobaciones/");
+  await audit(admin.page, "admin-aprobaciones");
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/" + id + "/editar/");
+  const forged = await handPost(admin.page, review + "aprobar/", { permitted_use: "propia" });
+  expect(forged.status === 403 && forged.text.includes("No tienes acceso a esta página"), `the administration's own POST to approve answered ${forged.status}, not the 403 of the permission`);
+  await member.page.goto(BASE + past);
+  expect(await member.page.getByText(title).count() === 0, "and it published nothing");
+
+  await pastor.page.goto(BASE + review);
+  await pastor.page.check("input[name=permitted_use][value=propia]");
+  await Promise.all([pastor.page.waitForNavigation(), pastor.page.click("main button:has-text('Aprobar y publicar')")]);
+  expect(await pastor.page.getByText(`Aprobaste «${title}».`).count() > 0, "the pastor's approval is said back");
+  await member.page.goto(BASE + past);
+  await Promise.all([member.page.waitForNavigation(), member.page.click(`main a:has-text('${title}')`)]);
+  expect(await member.page.locator("main").getByText("Texto de prueba para la aprobación pastoral.").count() === 1, "once approved, the member reads it");
+  await audit(member.page, "miembro-devocional-aprobado");
+
+  // A change of the published words: the form warns before saving, and the member stops finding it.
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/" + id + "/editar/");
+  expect(await admin.page.locator("main").getByText("Este devocional está publicado. Si cambias").count() === 1, "the form of a published devotional warns before saving");
+  await audit(admin.page, "admin-devocional-publicado");
+  await admin.page.fill("textarea[name=body]", "Texto de prueba, cambiado después de publicarse.");
+  await save();
+  await member.page.goto(BASE + past);
+  expect(await member.page.getByText(title).count() === 0 && (await member.page.goto(BASE + detail)).status() === 404, "editing the published text takes it away from the member");
+  // Back to a draft nobody was asked about: the pastor's list is as the seed left it.
+  await admin.page.goto(BASE + "/mi-iglesia/recursos/devocional/" + id + "/editar/");
+  await audit(admin.page, "admin-devocional-fuera-de-publicacion");
+  await admin.page.uncheck("input[name=publish]");
+  await save();
+  await pastor.page.goto(BASE + "/mi-iglesia/recursos/aprobaciones/");
+  expect(await pastor.page.locator("main").getByText(title).count() === 0, "a draft nobody asked about is not on the pastor's list");
+  expect(await pastor.page.locator("main").getByText("Dar fruto").count() > 0, "what the seed left waiting still waits");
+  await admin.ctx.close();
+  await member.ctx.close();
+  await pastor.ctx.close();
+}
+
+// 9. Possible duplicates (issue #91): the pair of the seed is reviewed, joined, gone from the search, and two again
+// after the undo.
+{
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  const found = async () => {
+    await admin.page.goto(BASE + "/mi-iglesia/personas/?q=ibarra");
+    return (await admin.page.locator("main a.row__link").allInnerTexts()).map((text) => text.trim()).filter((name) => name.startsWith("Renata")).sort().join("|");
+  };
+  expect(await found() === "Renata Ibarra|Renata Ibarra Solís", `the seed's pair is in Personas: ${await found()}`);
+  await admin.page.goto(BASE + "/mi-iglesia/personas/");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main a:has-text('Revisar posibles duplicados')")]);
+  expect(await admin.page.locator("main li:has-text('Renata Ibarra Solís y Renata Ibarra')").getByText("Tienen el mismo correo.").count() === 1, "the pair is listed with the signal that joins it");
+  await audit(admin.page, "admin-duplicados");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main li:has-text('Renata Ibarra Solís y Renata Ibarra') a:has-text('Revisar')")]);
+  expect(await admin.page.locator("main").getByText("Nada cambia hasta que confirmes.").count() === 1, "the preview says nothing changes yet");
+  expect(await admin.page.locator("input[name=elige_phone]").count() === 2, "the administrator chooses which of the two phones stays");
+  await audit(admin.page, "admin-duplicados-vista-previa");
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Sí, son la misma persona: unirlas')")]);
+  expect(await admin.page.getByText("Uniste los dos registros.").count() > 0, "the join is said back");
+  const merge = admin.page.url();
+  await audit(admin.page, "admin-union");
+  expect(await found() === "Renata Ibarra Solís", `the absorbed record is gone from the search: ${await found()}`);
+  await admin.page.goto(BASE + "/mi-iglesia/personas/duplicados/");
+  expect(await admin.page.locator("main").getByText("Tienen el mismo correo.").count() === 0, "a joined pair is not suggested again");
+  await audit(admin.page, "admin-duplicados-con-union");
+  await admin.page.goto(merge);
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Deshacer la unión')")]);
+  expect(await admin.page.getByText("Deshiciste la unión: vuelven a ser dos registros.").count() > 0, "the undo is said back");
+  expect(await admin.page.locator("main").getByText("Regresó todo lo que la unión había pasado.").count() === 1, "and everything went back");
+  await audit(admin.page, "admin-union-deshecha");
+  expect(await found() === "Renata Ibarra|Renata Ibarra Solís", `after the undo both are back: ${await found()}`);
+  await admin.ctx.close();
+  const member = await session("valeria.soto@demo.invalid", PHONE);
+  for (const path of ["/mi-iglesia/personas/duplicados/", "/mi-iglesia/personas/duplicados/5/6/", "/mi-iglesia/recursos/aprobaciones/"]) {
+    const response = await member.page.goto(BASE + path);
+    expect(response.status() === 403, `member got ${response.status()} on ${path}`);
+  }
+  // 10. The church of the request (issue #32): an account of one church is never offered another one. The seed has no
+  // account in two churches, so the switcher itself is not walked here.
+  for (const path of ["/mi-iglesia/", "/cuenta/", "/mi-iglesia/eventos/"]) {
+    await member.page.goto(BASE + path);
+    expect(await member.page.locator("form[action='/cuenta/iglesia/']").count() === 0 && await member.page.getByText("Cambiar a «").count() === 0, `an account of one church is offered no other church on ${path}`);
+  }
+  expect((await member.page.goto(BASE + "/cuenta/iglesia/")).status() === 405, "the address that changes church takes no GET");
+  await member.ctx.close();
+}
 await browser.close();
 
 fs.writeFileSync(`${out}/results.json`, JSON.stringify({ checks, problems }, null, 2));

@@ -56,6 +56,37 @@ because it is an `events.Event` with an `EventPage` like any other.
 11. **Audit rows** carry actions, ids and counts; never the series' name.
 12. The seeded series is published but **not public**, so the demonstration's public home is not filled with Sundays.
 
+## After the independent review (wave 9 integration)
+
+- **"Sí hay" never puts a date back as it was.** Changes to a series skip a day that is called off, so on restore:
+  a date nobody changed by hand and nobody signed up for takes what the series says *now* (place, hour, published,
+  public) or is retired if the series left its day; a date changed by hand or with sign-ups is not rewritten and
+  comes back **unpublished**, listed under «Fechas que no cambiamos» ("No está publicada: revísala").
+- **Members read dates, never the template.** The member's series page takes its title from the next visible date
+  and shows no description of the series; "Se repite…" (list, date page, series page) is said only while the series
+  itself is published and active.
+- `generate` refuses a church that is not active, as well as one without the module.
+- A series that ended cannot be changed, by its form or its address (`SeriesEnded`): resume it first.
+- Dates retired by a change of day (`fuera`) are listed on the series screen: «Fechas que la serie ya no incluye».
+- Calendar: Unicode line breaks (U+2028, U+2029, U+0085, VT, FF) become the escaped line break and every control
+  character (C0, DEL, C1) is dropped; ended events are left out by the query; an event with no first day answers
+  the same 404. The two calendar answers carry `Cache-Control: public, max-age=300` through the existing
+  `public_asset` mark of `events.middleware.PrivateResponseMiddleware` (the bytes are the same for every reader);
+  a response that got a cookie, and every 404, stays `no-store`. A day called off can stay in a cache five minutes.
+
+## Polish round (browser journey and a designer's read)
+
+- **"Coming" is by the clock, in the series' zone** (`agenda.series.has_started`). Today's date is written only
+  while its hour has not passed; the member's list, the home, the member's series page, «La que sigue» and «Fechas
+  que vienen» skip a date that already began (on the series screen it becomes the first of «Las últimas que
+  pasaron»). The rest of the agenda still counts by days, on purpose: the date's own page opens all day, and a date
+  somebody signed up for keeps its row until the day ends, like any event.
+- The window is eight whole weeks counting today (`horizon`), so a weekly series has exactly eight dates ahead.
+- Series screen: a row is weekday, date and hour, a quiet «Abrir» (the date's page, which now links its sign-ups
+  and its data) and one action, «Este día no hay». «Terminar la serie» is its own block at the end.
+- Member's series page: the name and the place once, then a plain list of weekday, date and hour, each one the link
+  to its date; a date says its own name or place only when it differs.
+
 ## Routes and permissions
 
 | Route | Who | Rule |

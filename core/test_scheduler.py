@@ -123,7 +123,7 @@ class SchedulerPassTests(CommunityFixture):
             r"^\d{4}-\d\d-\d\d \d\d:\d\d · cortes: 0 nuevos, 0 ya existían, 0 con error · entrevistas liberadas: 0 · "
             r"capturas vencidas: 0 · contadores borrados: 0 · solicitudes antiguas borradas: 0 · "
             r"correos de avisos: 0 enviados, 0 fallidos, 0 pendientes · lista de espera: 0 lugares liberados, 0 ofrecidos · "
-            r"series: 0 fechas nuevas$",
+            r"series: 0 fechas nuevas · uniones de personas: 0 con datos anteriores borrados$",
         )
         lines = [json.loads(record.getMessage()) for record in logs.records]
         self.assertEqual([line["job"] for line in lines], list(scheduler.JOBS))
@@ -207,8 +207,8 @@ class SchedulerPassTests(CommunityFixture):
         self.assertIn(CUTOFFS_LINE, printed)
         self.assertIn("correos de avisos: 1 enviados, 0 fallidos, 0 pendientes · lista de espera: 0 lugares liberados", printed)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True, True, True, True])
-        self.assertEqual(len(plain.records), 8)  # each write, by its class name only
+        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True, True, True, True, True])
+        self.assertEqual(len(plain.records), 10)  # each write, by its class name only
         self.assertTrue(all("OperationalError" in line and "no such table" not in line for line in plain.output))
         self.assertFalse(SchedulerHeartbeat.objects.exists())
 
@@ -285,7 +285,7 @@ class SchedulerStatusTests(CommunityFixture):
         code, printed, error = self.status()
         self.assertEqual(code, 1)
         self.assertEqual(printed.splitlines(), [f"{job}: SIN CORRER · nunca ha terminado bien" for job in scheduler.JOBS])
-        self.assertIn("4 de 4 trabajos programados", error)
+        self.assertIn("5 de 5 trabajos programados", error)
 
     def test_it_is_fine_after_a_pass_and_late_after_the_threshold(self):
         call_command("run_scheduled_jobs", stdout=StringIO())
@@ -315,7 +315,8 @@ class SchedulerStatusTests(CommunityFixture):
         self.assertIn("avisos_correo: SIN CORRER · terminó bien por última vez hace 20 min · último error: ValueError", printed)
         self.assertIn("lista_espera: bien", printed)
         self.assertIn("series_eventos: bien", printed)
-        self.assertIn("1 de 4", error)
+        self.assertIn("uniones_personas: bien", printed)
+        self.assertIn("1 de 5", error)
         self.assertNotIn("secreto", printed + error)
 
     def test_notice_mail_that_is_not_set_up_is_said_and_is_not_a_missed_run(self):

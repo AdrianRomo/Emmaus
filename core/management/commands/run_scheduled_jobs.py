@@ -21,7 +21,12 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    the horizon (``agenda.series.generate_due``), in the churches that use the ``community`` module. A date
    is written once however many passes run; a series that could not be written makes the pass a failed one.
 
-2, 3 and 4 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
+5. ``uniones_personas``: a merge of two records of a person keeps, for its undo, the contact values the
+   surviving record had before; when the undo ends (30 days) they are emptied (``people.merge.clear_expired``,
+   what ``prune_person_merges --apply`` runs), in every church whatever its module flags: it only empties
+   those values. No record of a person and no record of a merge is deleted. Doing it twice changes nothing.
+
+2 to 5 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
 switch) leaves only the first, and the line it prints is then the one ``run_report_cutoffs`` prints.
 Not here, on purpose: ``remind_follow_up_owners`` (it mails again on every run) and
 ``prune_attendance`` (it deletes). Both stay manual.
@@ -84,6 +89,12 @@ def write_series_dates() -> dict:
     return series.generate_due()
 
 
+def clear_merge_contact_values() -> dict:
+    from people import merge
+
+    return {"cleared": merge.clear_expired(apply=True)}
+
+
 class Command(BaseCommand):
     help = (
         "Una pasada del programador: los cortes y la limpieza de siempre (run_report_cutoffs) y, después, los correos de "
@@ -134,6 +145,12 @@ class Command(BaseCommand):
         line = f"series: {done['created']} fechas nuevas"
         return run.ok, line if run.ok else f"{line}, {done['failed']} series con error"
 
+    def person_merges_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.PERSON_MERGES, clear_merge_contact_values)
+        if run.counts is None:
+            return False, "uniones de personas: error"
+        return True, f"uniones de personas: {run.counts['cleared']} con datos anteriores borrados"
+
     def run_once(self) -> bool:
         """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
@@ -142,7 +159,8 @@ class Command(BaseCommand):
         if lines and not ok:
             head += " · la pasada de cortes no terminó"
         if scheduler.community_jobs_enabled():
-            for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary(), self.series_summary()):
+            for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary(), self.series_summary(),
+                                    self.person_merges_summary()):
                 ok = ok and job_ok
                 head += f" · {summary}"
         self.stdout.write(head)

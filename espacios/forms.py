@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from django import forms
 from django.core.validators import MaxLengthValidator, MinValueValidator
@@ -8,6 +8,7 @@ from django.utils import timezone
 from core.forms import TuErrorMessagesMixin
 from events.models import Event
 
+from . import services
 from .models import Space
 
 BUFFERS = [(0, "Nada"), (15, "15 minutos"), (30, "30 minutos"), (60, "1 hora"), (90, "1 hora y media"), (120, "2 horas")]
@@ -93,9 +94,15 @@ class BookingForm(TuErrorMessagesMixin, forms.Form):
         data = super().clean()
         day, starts, ends = data.get("day"), data.get("starts"), data.get("ends")
         if day and starts and ends:
-            data["starts_at"] = datetime.combine(day, starts, tzinfo=self.tz)
-            data["ends_at"] = datetime.combine(day, ends, tzinfo=self.tz)
-            if ends <= starts:
+            # Moments, not hours on a wall clock: the night the clock changes they are not in the same order.
+            for name, hour in (("starts", starts), ("ends", ends)):
+                try:
+                    data[f"{name}_at"] = services.local_instant(day, hour, self.tz)
+                except services.SpaceError as error:
+                    self.add_error(name, error.message)
+            if self.errors:
+                return data
+            if data["ends_at"] <= data["starts_at"]:
                 self.add_error("ends", "La hora en que termina tiene que ser después de la hora en que empieza.")
             elif data["starts_at"] <= timezone.now():
                 self.add_error("starts" if day == timezone.now().astimezone(self.tz).date() else "day",

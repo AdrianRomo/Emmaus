@@ -222,8 +222,24 @@ class PastorApprovesTests(ApprovalFixture):
         self.assertNotContains(self.client.get(HOME), "Falta decir")
         self.assertEqual(self.client.get(reverse("resources:devotional_detail", args=[devotional.pk])).status_code, 404)
 
-        # Corrected and asked again: the old reason is gone and it waits for a pastor again.
-        self.prepared(passage="Juan 15:1-8 (cita de la iglesia)", devotional=devotional)
+        # The form of a returned one opens with the request ticked: who edits it is answering the pastor.
+        self.client.force_login(self.admin)
+        edit = reverse("resources:devotional_edit", args=[devotional.pk])
+        page = self.client.get(edit)
+        self.assertContains(page, 'name="publish" aria-describedby="id_publish_helptext" id="id_publish" checked')
+        self.assertContains(page, "mientras no la pidas, sigue devuelto y no se publica")
+        data = {"date": self.today.isoformat(), "title": "La vid verdadera", "passage": "Juan 15:1-8 (cita de la iglesia)", "body": BODY,
+                "author_name": "Ana López"}
+        # Unticked on purpose: a draft, and the screen says plainly that it was not sent.
+        response = self.client.post(edit, data, follow=True)
+        self.assertContains(response, "como borrador. No lo enviamos a la aprobación pastoral")
+        self.assertNotContains(response, "tu solicitud para publicarlo")
+        row.refresh_from_db()
+        self.assertEqual(row.state, "devuelto")
+        # Saved as the form opens (ticked): sent again, the old reason is gone and it waits for a pastor.
+        response = self.client.post(edit, {**data, "publish": "on"}, follow=True)
+        self.assertContains(response, "y tu solicitud para publicarlo. Queda en la lista «Aprobación pastoral»")
+        self.assertNotContains(response, "como borrador")
         row.refresh_from_db()
         self.assertEqual((row.state, row.return_reason, row.returned_by), ("pendiente", "", None))
 
@@ -427,8 +443,15 @@ class WithoutAPastorTests(ApprovalFixture):
         no_pastor()
         self.assertTrue(approvals.has_active_pastor(self.church_b))  # another church's pastor does not count
 
-        # Asking still works and waits; the administration is not a fallback, by screen, by address or by service.
-        self.assertRedirects(self.client.post(reverse("resources:plan_publish", args=[plan.pk])), reverse("resources:plan_days", args=[plan.pk]))
+        # Asking still works and waits; the screen says nobody can approve it, not that a pastor was asked.
+        response = self.client.post(reverse("resources:plan_publish", args=[plan.pk]), follow=True)
+        self.assertRedirects(response, reverse("resources:plan_days", args=[plan.pk]))
+        self.assertContains(response, "Queda esperando, pero hoy en tu iglesia no hay ninguna cuenta activa con el rol de pastor")
+        self.assertNotContains(response, "Pedimos la aprobación")
+        data = {"date": (self.today + timedelta(days=3)).isoformat(), "title": "Otro", "passage": "", "body": BODY, "author_name": "", "publish": "on"}
+        response = self.client.post(reverse("resources:devotional_create"), data, follow=True)
+        self.assertContains(response, "y tu solicitud para publicarlo. Queda esperando, pero hoy en tu iglesia no hay ninguna cuenta activa")
+        self.assertContains(response, NO_PASTOR)
         for kind, obj in (("devocional", devotional), ("plan", plan)):
             data = {"revision": self.revision(kind, obj), "permitted_use": "propia"}
             self.assertEqual(self.client.post(url("approve", kind, obj), data).status_code, 403)
@@ -490,7 +513,7 @@ class AfterApprovalTests(ApprovalFixture):
             if devotional.status != "publicado":
                 approve(self.church, "devocional", devotional)
             response = self.client.post(edit, {**data, field: value}, follow=True)
-            self.assertContains(response, "pedimos la aprobación pastoral", msg_prefix=field)
+            self.assertContains(response, "tu solicitud para publicarlo", msg_prefix=field)
             devotional.refresh_from_db()
             self.assertEqual((devotional.status, self.row("devocional", devotional).state), ("borrador", "pendiente"), field)
             self.client.force_login(self.member_user)
@@ -614,8 +637,10 @@ class PublishedBeforeTests(ApprovalFixture):
         for user, verb in ((self.admin, "Ver"), (self.church_pastor, "Revisar")):
             self.client.force_login(user)
             page = self.client.get(QUEUE)
-            self.assertContains(page, "Pendiente de aprobación pastoral")
-            self.assertContains(page, "Esto ya está publicado y se sigue viendo: nadie lo retiró.")
+            self.assertContains(page, "Publicado antes de que existiera la aprobación</h2>")
+            self.assertContains(page, "Solicitudes que esperan aprobación</h2>")
+            self.assertNotContains(page, "Pendiente de aprobación pastoral")
+            self.assertContains(page, "Esto no es una solicitud: ya está publicado y se sigue viendo, nadie lo retiró.")
             self.assertContains(page, "Se publicó antes de que existieran las aprobaciones.")
             self.assertContains(page, "Está publicado y no hay una aprobación registrada.")
             self.assertContains(page, f"{verb}<span")

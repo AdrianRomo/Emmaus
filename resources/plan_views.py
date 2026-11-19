@@ -264,9 +264,7 @@ def plan_publish(request, plan_id: int):
         except plans.ResourceError as refused:
             error = refused.message
         else:
-            messages.success(
-                request, "Pedimos la aprobación pastoral del plan. Se publica cuando un pastor de tu iglesia lo apruebe."
-            )
+            approvals.tell_asked(request, "Guardamos tu solicitud para publicar el plan.")
             return redirect("resources:plan_days", plan.pk)
     return render(
         request, "resources/plan_publish.html",

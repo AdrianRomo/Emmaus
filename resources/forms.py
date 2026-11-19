@@ -37,7 +37,9 @@ class DevotionalForm(TuErrorMessagesMixin, forms.ModelForm):
         self.church = church
         if self.instance.pk:
             approval = getattr(self.instance, "approval", None)
-            self.fields["publish"].initial = self.instance.is_published or bool(approval and approval.is_pending)
+            # After a return the box is ticked too: who opens the form is answering the pastor, and saving sends it
+            # again. Unticking it is the way to keep a draft, and the screen then says it was not sent.
+            self.fields["publish"].initial = self.instance.is_published or bool(approval and (approval.is_pending or approval.is_returned))
             if self.instance.is_published:
                 self.fields["publish"].label = "Mantenerlo publicado"
                 self.fields["publish"].help_text = "Si lo desmarcas, vuelve a ser un borrador y deja de verse."

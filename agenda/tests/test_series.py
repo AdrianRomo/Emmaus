@@ -1,7 +1,7 @@
 """Series (issue #93, first slice) on synthetic data: what the church does every week is a template, and each
 date is an ordinary event written once, ahead of time."""
 
-from datetime import date, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from io import StringIO
 from unittest import mock
 
@@ -206,7 +206,9 @@ class ChangeTests(SeriesFixture):
             services.register(row.event, self.leader, self.leader_user)
         series.restore(row, self.admin)
         row = self.date_of(self.item, SUNDAYS[1])
-        self.assertEqual((row.status, row.cancelled_at, row.event.page.published), ("activa", None, True))
+        # On again, but somebody is signed up: it waits, not published, for the administration to review it.
+        self.assertEqual((row.status, row.cancelled_at, row.event.page.published), ("activa", None, False))
+        self.assertEqual([(found.pk, found.why) for found in series.to_review(self.fresh(), MONDAY)], [(row.pk, "sin_publicar")])
 
     def test_a_stale_copy_never_undoes_what_somebody_else_did(self):
         stale_row = self.date_of(self.item, SUNDAYS[1])
@@ -217,8 +219,10 @@ class ChangeTests(SeriesFixture):
         series.call_off(stale_row, self.admin)
         self.assertEqual(ChurchAuditEvent.objects.filter(action="serie_fecha").count(), 1)
         self.assertIsNone(stale_row.cancelled_at)
-        series.update_series(stale_series, self.admin, today=MONDAY, location="Auditorio")
+        with self.assertRaises(series.SeriesEnded):  # the copy says it is active; the row says it ended
+            series.update_series(stale_series, self.admin, today=MONDAY, location="Auditorio")
         self.assertFalse(EventSeries.objects.get(pk=self.item.pk).active)
+        self.assertFalse(Event.objects.filter(series_occurrence__series=self.item, location="Auditorio").exists())
         self.assertEqual(self.date_of(self.item, SUNDAYS[1]).status, "cancelada")
         series.restore(stale_row, self.admin)
         series.restore(stale_row, self.admin)
@@ -238,10 +242,12 @@ class ScreenFixture(SeriesFixture):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
+        # From tomorrow on: whether today's hour already passed must not change what these tests see.
+        tomorrow = cls.today + timedelta(days=1)
         cls.item = series.create_series(cls.church, cls.admin, name="Servicio dominical", weekdays="6", starts_at=time(10, 0),
-                                        location="Templo central", starts_on=cls.today, published=True)
+                                        location="Templo central", starts_on=tomorrow, published=True)
         cls.item_b = series.create_series(cls.church_b, cls.admin_b, name="Culto de la iglesia B", weekdays="6", starts_at=time(9, 0),
-                                          starts_on=cls.today, published=True)
+                                          starts_on=tomorrow, published=True)
         cls.rows = list(SeriesOccurrence.objects.filter(series=cls.item).select_related("event").order_by("day"))
 
     def admin_urls(self, item=None, row=None):
@@ -576,3 +582,209 @@ class SeedTests(SeriesFixture):
         self.assertEqual((item.weekdays, item.published, item.public, item.registration), ("6", True, False, "cerrada"))
         self.assertIn(SeriesOccurrence.objects.filter(series=item).count(), (8, 9))
         self.assertEqual(EventSeries.objects.filter(church=item.church).count(), 1)
+
+
+class ReviewFixesTests(ScreenFixture):
+    """What an independent review of this slice found (wave 9): each test is one of its findings."""
+
+    def page_of(self, row) -> EventPage:
+        return EventPage.objects.select_related("event").get(event_id=row.event_id)
+
+    def test_a_day_that_is_on_again_takes_what_the_series_says_now(self):
+        """Defect: called off, the series changed (not public, another hour and place), "Sí hay" put it back public as it was."""
+        series.update_series(self.item, self.admin, public=True)
+        untouched, signed, by_hand = self.rows[1], self.rows[2], self.rows[3]
+        services.save_page(signed.event, self.admin, registration="abierta")
+        SeriesOccurrence.objects.filter(pk=signed.pk).update(edited_at=None)
+        services.register(signed.event, self.member, self.member_user)
+        services.save_page(by_hand.event, self.admin, description="Con bautizos.")
+        for row in (untouched, signed, by_hand):
+            series.call_off(row, self.admin)
+        series.update_series(self.item, self.admin, public=False, starts_at=time(12, 30), location="Auditorio")
+        for row in (untouched, signed, by_hand):
+            series.restore(row, self.admin)
+        page = self.page_of(untouched)
+        self.assertEqual((page.published, page.public, page.starts_at, page.event.location), (True, False, time(12, 30), "Auditorio"))
+        # Somebody is signed up, or somebody changed it: nothing is rewritten, and it does NOT come back published.
+        for row in (signed, by_hand):
+            page = self.page_of(row)
+            self.assertEqual((page.published, page.starts_at, page.event.location), (False, time(10, 0), "Templo central"))
+        fresh = EventSeries.objects.get(pk=self.item.pk)
+        self.assertEqual({row.pk: row.why for row in series.to_review(fresh)}, {signed.pk: "sin_publicar", by_hand.pk: "sin_publicar"})
+        for row in (untouched, signed, by_hand):
+            self.assertEqual(self.client.get(reverse("evento:detail", args=[row.event.slug])).status_code, 404)
+            self.assertEqual(self.client.get(reverse("evento:calendar", args=[row.event.slug])).status_code, 404)
+        self.client.force_login(self.admin)
+        screen = self.client.get(reverse("agenda:series_admin", args=[self.item.pk]))
+        self.assertContains(screen, "No está publicada: revísala", count=2)
+
+    def test_a_day_that_is_on_again_stays_hidden_if_the_series_is_no_longer_published_or_left_its_day(self):
+        series.call_off(self.rows[1], self.admin)
+        series.update_series(self.item, self.admin, published=False)
+        series.restore(self.rows[1], self.admin)
+        self.assertFalse(self.page_of(self.rows[1]).published)
+        series.call_off(self.rows[2], self.admin)
+        other_day = (self.rows[2].day.weekday() + 1) % 7
+        series.update_series(self.item, self.admin, published=True, weekdays=str(other_day))
+        series.restore(self.rows[2], self.admin)
+        row = SeriesOccurrence.objects.get(pk=self.rows[2].pk)
+        self.assertEqual((row.status, self.page_of(row).published), ("fuera", False))
+
+    def test_a_member_never_reads_the_template_of_a_series_that_is_not_published(self):
+        """Defect: a date with a sign-up stays published by design, and the series page showed the rewritten template."""
+        kept = self.rows[2]
+        services.save_page(kept.event, self.admin, registration="abierta")
+        SeriesOccurrence.objects.filter(pk=kept.pk).update(edited_at=None)
+        services.register(kept.event, self.member, self.member_user)
+        series.update_series(self.item, self.admin, published=False, name="Borrador interno", description="Nota solo para el equipo.",
+                             weekdays="2")
+        self.assertTrue(self.page_of(kept).published)
+        self.client.force_login(self.member_user)
+        urls = [self.member_url(), reverse("agenda:list"), reverse("agenda:detail", args=[kept.event.slug]), reverse("community:home")]
+        for url in urls:
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200, url)
+            for secret in ("Borrador interno", "Nota solo para el equipo.", "Se repite"):
+                self.assertNotContains(response, secret)
+        own = self.client.get(self.member_url())
+        self.assertContains(own, "Servicio dominical")  # what the published date itself says
+        self.assertContains(own, 'class="heading">Fechas<')
+        # The one date that stays published is all anybody sees of the series.
+        html = own.content.decode()
+        self.assertEqual(sum(html.count(reverse("agenda:detail", args=[row.event.slug])) for row in self.rows), 1)
+
+    def test_a_church_that_is_not_active_gets_no_dates_even_when_asked_directly(self):
+        from core.models import Church
+
+        Church.objects.filter(pk=self.church.pk).update(active=False)
+        before = SeriesOccurrence.objects.filter(series=self.item).count()
+        later = self.today + timedelta(weeks=4)
+        self.assertEqual(series.generate(EventSeries.objects.get(pk=self.item.pk), today=later), 0)
+        self.assertEqual(series.generate_due(today=later)["series"], 1)  # church B only
+        self.assertEqual(SeriesOccurrence.objects.filter(series=self.item).count(), before)
+
+    def test_a_series_that_ended_is_not_changed_by_its_address(self):
+        series.set_active(self.item, self.admin, False)
+        self.client.force_login(self.admin)
+        url = reverse("agenda:series_edit", args=[self.item.pk])
+        shown = self.client.get(url, follow=True)
+        self.assertRedirects(shown, reverse("agenda:series_admin", args=[self.item.pk]))
+        self.assertContains(shown, "Esta serie terminó y no cambiamos nada.")
+        posted = self.client.post(url, self.form(name="Otra cosa", weekdays=["2"], location="Auditorio", published="on"), follow=True)
+        self.assertContains(posted, "primero reanúdala")
+        self.assertEqual(EventSeries.objects.get(pk=self.item.pk).name, "Servicio dominical")
+        self.assertEqual(set(Event.objects.filter(series_occurrence__series=self.item).values_list("location", flat=True)), {"Templo central"})
+        self.assertEqual(SeriesOccurrence.objects.filter(series=self.item, status="activa").count(), len(self.rows))
+        with self.assertRaises(series.SeriesEnded):
+            series.update_series(self.item, self.admin, location="Auditorio")
+
+    def test_the_dates_a_change_of_day_left_behind_are_listed_on_the_series_screen(self):
+        other_day = (self.rows[0].day.weekday() + 1) % 7
+        self.client.force_login(self.admin)
+        screen = self.client.get(reverse("agenda:series_admin", args=[self.item.pk]))
+        self.assertNotContains(screen, "Fechas que la serie ya no incluye")
+        series.update_series(self.item, self.admin, weekdays=str(other_day))
+        screen = self.client.get(reverse("agenda:series_admin", args=[self.item.pk]))
+        self.assertContains(screen, "Fechas que la serie ya no incluye")
+        for row in self.rows:
+            self.assertContains(screen, reverse("agenda:page_edit", args=[row.event.slug]), count=1)
+        self.assertEqual(SeriesOccurrence.objects.filter(series=self.item, status="fuera").count(), len(self.rows))
+
+
+class ClockTests(SeriesFixture):
+    """A date whose hour already passed today is not "coming" (the browser journey, wave 9): Wednesday 18 November
+    2026, 21:00 in Mexico City, and a series of Wednesdays at 07:00."""
+
+    NIGHT = datetime(2026, 11, 19, 3, 0, tzinfo=UTC)  # 21:00 on the 18th in Mexico City
+    DAWN = datetime(2026, 11, 18, 12, 0, tzinfo=UTC)  # 06:00 the same day
+    WEDNESDAY = date(2026, 11, 18)
+
+    def at(self, moment):
+        return mock.patch("django.utils.timezone.now", return_value=moment)
+
+    def create(self, **fields):
+        values = {"name": "Oración de la mañana", "weekdays": "2", "starts_at": time(7, 0), "starts_on": self.WEDNESDAY,
+                  "published": True, **fields}
+        return series.create_series(self.church, self.admin, **values)
+
+    def test_created_at_night_the_first_date_is_next_week_and_there_are_exactly_eight(self):
+        with self.at(self.NIGHT):
+            item = self.create()
+            self.assertEqual(self.days(item), [date(2026, 11, 25) + timedelta(weeks=n) for n in range(8)])
+            self.assertEqual(series.generate(item), 0)
+            self.assertEqual(series.generate_due(), {"series": 0, "created": 0, "failed": 0})  # nor does the scheduler write today
+            series.update_series(item, self.admin, location="Capilla")  # nor a change of the series
+            self.assertEqual(len(self.days(item)), 8)
+            late = self.create(name="Vigilia", starts_at=time(23, 0))  # its hour has not passed: today counts
+            self.assertEqual(self.days(late), [self.WEDNESDAY + timedelta(weeks=n) for n in range(8)])
+
+    def test_the_hour_is_the_one_of_the_series_zone(self):
+        """21:00 in Mexico City is 19:00 in Tijuana: a series there at 20:00 still has today's date."""
+        with self.at(self.NIGHT):
+            self.assertEqual(self.days(self.create(starts_at=time(20, 0), time_zone="America/Tijuana"))[0], self.WEDNESDAY)
+            self.assertEqual(self.days(self.create(name="Otra", starts_at=time(20, 0)))[0], date(2026, 11, 25))
+
+    def test_a_date_that_began_this_morning_is_not_the_next_one_tonight(self):
+        with self.at(self.DAWN):
+            item = self.create()
+            today, following = (self.date_of(item, day) for day in self.days(item)[:2])
+            self.assertEqual(today.day, self.WEDNESDAY)
+            self.assertFalse(series.has_started(today.event))
+        admin_list, screen, member = reverse("agenda:admin_list"), reverse("agenda:series_admin", args=[item.pk]), reverse("agenda:series", args=[item.pk])
+        today_url, following_url = (reverse("agenda:detail", args=[row.event.slug]) for row in (today, following))
+        with self.at(self.DAWN):
+            self.client.force_login(self.admin)
+            self.assertContains(self.client.get(admin_list), "La que sigue: 18 de noviembre de 2026.")
+            self.client.force_login(self.member_user)
+            self.assertContains(self.client.get(reverse("agenda:list")), today_url)
+        with self.at(self.NIGHT):
+            self.assertTrue(series.has_started(today.event))
+            self.client.force_login(self.admin)
+            self.assertContains(self.client.get(admin_list), "La que sigue: 25 de noviembre de 2026.")
+            html = self.client.get(screen).content.decode()
+            coming, passed = html.split("Las últimas que pasaron")
+            self.assertNotIn("Miércoles 18 de noviembre de 2026", coming)
+            self.assertIn("Miércoles 18 de noviembre de 2026, 07:00", passed)
+            self.assertIn("Miércoles 25 de noviembre de 2026, 07:00", coming)
+            self.client.force_login(self.member_user)
+            for url in (reverse("agenda:list"), member, reverse("community:home")):
+                page = self.client.get(url)
+                self.assertNotContains(page, today_url)
+                self.assertContains(page, following_url)
+            # As for any event of today, the date itself still opens, and a sign-up keeps its row.
+            self.assertEqual(self.client.get(today_url).status_code, 200)
+            EventPage.objects.filter(event=today.event).update(registration="abierta")
+            services.register(today.event, self.member, self.member_user)
+            self.assertContains(self.client.get(reverse("agenda:list")), today_url)
+            self.assertContains(self.client.get(member), today_url)
+
+
+class PolishedScreenTests(ScreenFixture):
+    def test_a_row_of_the_series_screen_is_when_one_way_in_and_one_action(self):
+        self.client.force_login(self.admin)
+        html = self.client.get(reverse("agenda:series_admin", args=[self.item.pk])).content.decode()
+        first = self.rows[0]
+        self.assertIn(f"Domingo {first.day.day} de", html)
+        self.assertIn(", 10:00</p>", html)
+        self.assertEqual(html.count(">Abrir<"), len(self.rows))
+        self.assertEqual(html.count("Este día no hay<span"), len(self.rows))
+        for word in (">Página<", ">Datos<", ">Inscritos<"):
+            self.assertNotIn(word, html)
+        self.assertLess(html.index('id="fechas"'), html.index('id="terminar"'))  # ending it is by itself, at the end
+        # The rarer doors are on the date's own page.
+        page = self.client.get(reverse("agenda:page_edit", args=[first.event.slug]))
+        self.assertContains(page, reverse("agenda:registrations", args=[first.event.slug]))
+        self.assertContains(page, reverse("agenda:event_edit", args=[first.event.slug]))
+
+    def test_the_members_page_says_the_name_and_the_place_once_and_each_date_once(self):
+        Event.objects.filter(pk=self.rows[3].event_id).update(location="Parque central")
+        self.client.force_login(self.member_user)
+        html = self.client.get(self.member_url()).content.decode()
+        main = html[html.index("<main"):]
+        self.assertEqual(main.count("Servicio dominical"), 1)
+        self.assertEqual(main.count("Templo central"), 1)
+        self.assertEqual(main.count("En Parque central."), 1)
+        for row in self.rows:
+            self.assertEqual(main.count(reverse("agenda:detail", args=[row.event.slug])), 1)
+        self.assertEqual(main.count(", 10:00</a>"), len(self.rows))
+        self.assertIn(f"Domingo {self.rows[0].day.day} de", main)

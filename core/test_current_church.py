@@ -14,7 +14,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from agenda import services as agenda
-from core.authz import SESSION_KEY, church_choices, current_church, has_scope
+from core.authz import SEEN_KEY, SESSION_KEY, church_choices, current_church, has_scope
 from core.models import Church, Role, UserChurchRole
 from core.services import assign_role
 from events.models import Event
@@ -101,7 +101,7 @@ class ChoosingTests(TwoChurchFixture):
         self.choose(self.church_b)
         session = self.client.session
         self.assertIs(type(session[SESSION_KEY]), int)
-        self.assertEqual(set(session.keys()) - before - {"_messages", "last_seen"}, {SESSION_KEY})
+        self.assertEqual(set(session.keys()) - before - {"_messages", "last_seen", SEEN_KEY}, {SESSION_KEY})
 
     def test_a_person_without_a_role_chooses_too_and_gains_nothing(self):
         self.client.force_login(self.dual_member)
@@ -305,6 +305,101 @@ class ValidatedOnEveryRequestTests(TwoChurchFixture):
         request.user = self.member_user  # the same session in another account's hands
         self.assertEqual(church_choices(request), (self.church, [self.church]))
         self.assertNotIn(SESSION_KEY, request.session)
+
+
+class OpenFormTests(TwoChurchFixture):
+    """A form of the community modules names no church: it writes where the request that receives it acts. A form
+    opened in one church must never write into another one."""
+
+    CREATE = reverse("people:create")
+    DATA = {"first_name": "Zoila", "last_name": "Formulario Abierto", "preferred_contact_method": "email"}
+    STALE = "Esta pantalla ya no está al día"
+
+    def setUp(self):
+        self.browser = Client(enforce_csrf_checks=True)  # the two tabs of one browser: one session, one CSRF cookie
+        self.browser.force_login(self.dual)
+
+    def open_form(self) -> str:
+        response = self.browser.get(self.CREATE)
+        self.assertEqual(response.status_code, 200)
+        return re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', response.content.decode()).group(1)
+
+    def send(self, token):
+        return self.browser.post(self.CREATE, {**self.DATA, "csrfmiddlewaretoken": token})
+
+    def switch(self, church):
+        token = self.open_form()
+        response = self.browser.post(SWITCH, {"church": church.pk, "csrfmiddlewaretoken": token})
+        self.assertEqual(response.status_code, 302)
+
+    def written(self):
+        return list(Person.objects.filter(first_name="Zoila").values_list("church_id", flat=True))
+
+    def test_a_form_opened_before_switching_is_refused(self):
+        old = self.open_form()  # in church A
+        self.switch(self.church_b)  # in the other tab
+        response = self.send(old)
+        self.assertEqual(response.status_code, 403)
+        self.assertContains(response, self.STALE, status_code=403)
+        self.assertContains(response, "Regresa, recárgala y repite el paso.", status_code=403)
+        self.assertEqual(self.written(), [])
+        # The same form, opened again, works, and writes where the person now is
+        self.assertEqual(self.send(self.open_form()).status_code, 302)
+        self.assertEqual(self.written(), [self.church_b.pk])
+
+    def test_switching_back_does_not_revive_the_old_form(self):
+        old = self.open_form()
+        self.switch(self.church_b)
+        self.switch(self.church)
+        self.assertEqual(self.send(old).status_code, 403)
+        self.assertEqual(self.written(), [])
+
+    def test_choosing_the_church_one_is_in_keeps_open_forms(self):
+        old = self.open_form()
+        self.switch(self.church)
+        self.assertEqual(self.send(old).status_code, 302)
+        self.assertEqual(self.written(), [self.church.pk])
+
+    def test_a_form_of_a_church_the_account_left_does_not_write_into_the_default(self):
+        """Chosen B, form opened in B, then the account stops being of B: the next request acts in A, and that
+        request is the form's. Its token is still good (nothing rotated it yet), so the resolver refuses it."""
+        self.switch(self.church_b)
+        old = self.open_form()
+        UserChurchRole.objects.filter(user=self.dual, church=self.church_b).delete()
+        Person.objects.filter(pk=self.dual_b.pk).update(user=None)
+        response = self.send(old)
+        self.assertContains(response, self.STALE, status_code=403)
+        self.assertEqual(self.written(), [])
+        self.assertIsNone(self.browser.session.get(SESSION_KEY))
+        self.assertEqual(self.send(old).status_code, 403)  # and now Django's own check refuses it too
+        self.assertEqual(self.written(), [])
+        self.assertEqual(self.send(self.open_form()).status_code, 302)
+        self.assertEqual(self.written(), [self.church.pk])
+
+    def test_a_form_of_the_default_church_does_not_write_into_the_next_one(self):
+        """No choice at all: the form was opened in A, the first church. A is closed (or the account leaves it), so
+        the default becomes B. Nothing in the session says "A" except what the last request saw."""
+        old = self.open_form()
+        Church.objects.filter(pk=self.church.pk).update(active=False)
+        response = self.send(old)
+        self.assertContains(response, self.STALE, status_code=403)
+        self.assertEqual(self.written(), [])
+        self.assertEqual(self.send(self.open_form()).status_code, 302)
+        self.assertEqual(self.written(), [self.church_b.pk])
+
+    def test_reading_is_never_refused_and_an_account_of_one_church_is_untouched(self):
+        self.switch(self.church_b)
+        Person.objects.filter(pk=self.dual_b.pk).update(user=None)
+        UserChurchRole.objects.filter(user=self.dual, church=self.church_b).delete()
+        self.assertEqual(self.browser.get(reverse("community:home")).status_code, 200)  # church A, by a GET
+        single = Client(enforce_csrf_checks=True)
+        single.force_login(self.admin)
+        response = single.get(self.CREATE)
+        token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', response.content.decode()).group(1)
+        cookie = single.cookies["csrftoken"].value
+        single.get(reverse("community:home"))
+        self.assertEqual(single.cookies["csrftoken"].value, cookie)  # nothing rotates for them
+        self.assertEqual(single.post(self.CREATE, {**self.DATA, "csrfmiddlewaretoken": token}).status_code, 302)
 
 
 class SwitcherTests(TwoChurchFixture):

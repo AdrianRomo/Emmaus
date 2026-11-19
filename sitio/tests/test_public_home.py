@@ -44,7 +44,7 @@ class HomeFixture(PublicFixture):
         cls.church.refresh_from_db()
         cls.church_b.refresh_from_db()
         services.save_home(cls.church, cls.admin, welcome="Llega como eres: te esperamos en la entrada.",
-                           address="Calle de la Paz 12\nColonia Centro", map_url="https://mapas.invalid/iglesia-a",
+                           address="Calle de la Paz 12\nColonia Centro", map_url="https://maps.app.goo.gl/iglesia-a",
                            contact_phone=PHONE_A)
         sunday, wednesday = ServiceTime.Weekday.SUNDAY, ServiceTime.Weekday.WEDNESDAY
         services.save_time(cls.church, cls.admin, weekday=wednesday, time=time(19, 30), name="Oración entre semana")
@@ -58,7 +58,7 @@ class HomeFixture(PublicFixture):
         cls.publish(cls.church, cls.admin)
 
         services.save_home(cls.church_b, cls.admin_b, welcome="Bienvenida de la iglesia B.", address="Avenida B 99",
-                           map_url="https://mapas.invalid/iglesia-b", contact_phone=PHONE_B)
+                           map_url="https://maps.app.goo.gl/iglesia-b", contact_phone=PHONE_B)
         services.save_time(cls.church_b, cls.admin_b, weekday=ServiceTime.Weekday.SATURDAY, time=time(18, 15), name="Culto sabatino B")
         cls.sermon_b = cls._media(cls.church_b, cls.admin_b, "Mensaje de la iglesia B", "https://videos.invalid/b", speaker="Predicador Be")
         services.show_media(cls.sermon_b, cls.admin_b)
@@ -93,7 +93,7 @@ class PublicHomeTests(HomeFixture):
         response = self.get()
         self.assertEqual(response.status_code, 200)
         for text in (self.church.name, "Llega como eres: te esperamos en la entrada.", "Cuándo nos reunimos", "Domingos", "Miércoles",
-                     "Primera reunión", ", en Templo principal", "Reunión general", "Oración entre semana", "Calle de la Paz 12<br>Colonia Centro",
+                     "Primera reunión", ", en Templo principal", "Reunión general", "Oración entre semana", "Calle de la Paz 12 Colonia Centro",
                      "Retiro de jóvenes", "Rancho El Olivo", "La vid y las ramas", "Predicación, de Pastor Ejemplo Público, serie «Juan», 15 de noviembre de 2026.",
                      "¿Ya eres parte de esta iglesia?", "Entra a Emmaus"):
             self.assertContains(response, text)
@@ -112,7 +112,7 @@ class PublicHomeTests(HomeFixture):
         # Contact as links with their text in sight; the map and the sermon leave Emmaus and say so.
         self.assertContains(response, f'<a href="tel:5512345678">{PHONE_A}</a>')
         self.assertContains(response, '<a href="mailto:hola@iglesia-a.invalid">hola@iglesia-a.invalid</a>')
-        self.assertContains(response, '<a href="https://mapas.invalid/iglesia-a" rel="noopener noreferrer">')
+        self.assertContains(response, '<a href="https://maps.app.goo.gl/iglesia-a" rel="noopener noreferrer">')
         self.assertContains(response, '<a href="https://videos.invalid/vid" rel="noopener noreferrer" aria-describedby="recursos-nota">')
         self.assertContains(response, "fuera de Emmaus", count=2)
         # The event leads to its own public page; the way in leads to the sign-in.
@@ -183,10 +183,10 @@ class PublicHomeTests(HomeFixture):
 class OnlyWhatWasPublishedTests(HomeFixture):
     def test_each_church_shows_only_its_own(self):
         page_a, page_b = self.get().content, self.get(self.church_b).content
-        of_a = [self.church.name, "Llega como eres", "Calle de la Paz", "mapas.invalid/iglesia-a", PHONE_A, "5512345678",
+        of_a = [self.church.name, "Llega como eres", "Calle de la Paz", "maps.app.goo.gl/iglesia-a", PHONE_A, "5512345678",
                 "hola@iglesia-a.invalid", "Primera reunión", "Oración entre semana", "09:00", "19:30", "Retiro de jóvenes",
                 "retiro-jovenes", "La vid y las ramas", "Pastor Ejemplo Público", "videos.invalid/vid"]
-        of_b = [self.church_b.name, "Bienvenida de la iglesia B.", "Avenida B 99", "mapas.invalid/iglesia-b", PHONE_B, "9998765432",
+        of_b = [self.church_b.name, "Bienvenida de la iglesia B.", "Avenida B 99", "maps.app.goo.gl/iglesia-b", PHONE_B, "9998765432",
                 "hola@iglesia-b.invalid", "Culto sabatino B", "18:15", "Vigilia de la iglesia B", "vigilia-b",
                 "Mensaje de la iglesia B", "Predicador Be", "videos.invalid/b"]
         for word in of_a:
@@ -341,13 +341,13 @@ class AdministrationTests(HomeFixture):
     def test_saving_the_data_never_publishes_and_leaves_one_audit_row(self):
         services.unpublish(self.church, self.admin)
         before = self.audits("sitio_modificado").count()
-        data = {"welcome": "  Te esperamos   el domingo. ", "address": "Calle Nueva 5", "map_url": "https://mapas.invalid/nuevo",
+        data = {"welcome": "  Te esperamos   el domingo. ", "address": "Calle Nueva 5", "map_url": "https://maps.app.goo.gl/nuevo",
                 "contact_phone": "55 0000 1111"}
         response = self.client.post(reverse("sitio:edit"), data, follow=True)
         self.assertContains(response, "Nadie los ve todavía")
         home = PublicHome.objects.get(church=self.church)
         self.assertEqual((home.welcome, home.address, home.map_url, home.contact_phone, home.published),
-                         ("Te esperamos el domingo.", "Calle Nueva 5", "https://mapas.invalid/nuevo", "55 0000 1111", False))
+                         ("Te esperamos el domingo.", "Calle Nueva 5", "https://maps.app.goo.gl/nuevo", "55 0000 1111", False))
         self.assertEqual(self.audits("sitio_modificado").count(), before + 1)
         audit = self.audits("sitio_modificado").latest("id")
         self.assertEqual(audit.metadata, {})
@@ -360,7 +360,7 @@ class AdministrationTests(HomeFixture):
 
     def test_what_the_form_refuses(self):
         cases = [
-            ({"map_url": "http://mapas.invalid/x"}, "El enlace debe empezar con https://"),
+            ({"map_url": "http://maps.app.goo.gl/x"}, "El enlace debe empezar con https://"),
             ({"map_url": "javascript:alert(1)"}, "El enlace debe empezar con https://"),
             ({"map_url": "https://"}, "Ese enlace no se entiende"),
             ({"contact_phone": "llámame"}, "Escribe el teléfono solo con números"),
@@ -408,7 +408,7 @@ class AdministrationTests(HomeFixture):
         response = self.client.get(reverse("sitio:publish"))
         self.assertContains(response, "<h1", count=1)
         for text in ("Todavía no se publica nada.", self.church.name, "Llega como eres: te esperamos en la entrada.", "Calle de la Paz 12",
-                     "https://mapas.invalid/iglesia-a", PHONE_A, "hola@iglesia-a.invalid", "Domingos, 09:00: Primera reunión, en Templo principal.",
+                     "https://maps.app.goo.gl/iglesia-a", PHONE_A, "hola@iglesia-a.invalid", "Domingos, 09:00: Primera reunión, en Templo principal.",
                      "Miércoles, 19:30: Oración entre semana.", "Retiro de jóvenes", "La vid y las ramas", "https://videos.invalid/vid",
                      "El nombre de quien predicó o enseñó será público.", "Pedir la aprobación pastoral</button>",
                      "cuando un pastor de tu iglesia lo apruebe", f"http://testserver{home_url(self.church)}"):
@@ -438,7 +438,7 @@ class AdministrationTests(HomeFixture):
         self.assertEqual(self.audits("contenido_aprobacion_pedida").count(), asked)
         # With the review: asked, and still not public, whatever else the form carries.
         response = self.client.post(reverse("sitio:publish"), {"revision": response.context["revision"], "published": "on"}, follow=True)
-        self.assertContains(response, "Pedimos la aprobación pastoral de la página.")
+        self.assertContains(response, "Guardamos tu solicitud para publicar la página. Queda en la lista «Aprobación pastoral» de los pastores de tu iglesia. Emmaus no le avisa a nadie")
         self.assertContains(response, "Por aprobar")
         self.assertNotContains(response, "Revisar y pedir la aprobación")
         home.refresh_from_db()
@@ -540,7 +540,7 @@ class AdministrationTests(HomeFixture):
         for address in (reverse("sitio:time_create"), reverse("sitio:time_edit", args=[row.pk]), reverse("sitio:time_delete", args=[row.pk])):
             self.assertNotContains(self.client.get(address), "deja de ser pública")
         # The facts the administration keeps current: the address, the map, the phone, a time added, changed, taken away.
-        facts = {**data, "address": "Calle Nueva 5", "map_url": "https://mapas.invalid/nuevo", "contact_phone": "55 0000 1111"}
+        facts = {**data, "address": "Calle Nueva 5", "map_url": "https://maps.app.goo.gl/nuevo", "contact_phone": "55 0000 1111"}
         self.assertContains(self.client.post(reverse("sitio:edit"), facts, follow=True), "Ya se ven en la página pública.")
         self.client.post(reverse("sitio:time_create"), {"weekday": "5", "time": "20:00", "name": "Vigilia del sábado", "place": "", "position": ""})
         added = ServiceTime.objects.get(church=self.church, name="Vigilia del sábado")
@@ -549,7 +549,7 @@ class AdministrationTests(HomeFixture):
         services.show_media(self.private_sermon, self.admin)
         response = self.get()
         self.assertEqual(response.status_code, 200)
-        for text in ("Calle Nueva 5", "https://mapas.invalid/nuevo", "55 0000 1111", "21:30", "Vigilia del sábado"):
+        for text in ("Calle Nueva 5", "https://maps.app.goo.gl/nuevo", "55 0000 1111", "21:30", "Vigilia del sábado"):
             self.assertContains(response, text)
         self.assertNotContains(response, row.name)
         mark = ContentApproval.objects.get(kind="sitio", object_id=home.pk)
@@ -604,6 +604,100 @@ class AdministrationTests(HomeFixture):
         ours = [event for event in services.public_events(self.church) if event.name == "Servicio de cada semana"]
         self.assertEqual([event.pk for event in ours], [rows[1].event.pk])
         self.assertFalse(any(event.name == "Servicio de cada semana" for event in services.public_events(self.church_b)))
+
+
+    def test_the_facts_cannot_carry_a_text_of_their_own(self):
+        """What changes with no pastor is kept plain: one line of address, a link that only goes to a map, a few
+        times with short names. On an approved public page, none of these can be used to publish a text."""
+        home = PublicHome.objects.get(church=self.church)
+        data = {"welcome": home.welcome, "address": home.address, "map_url": home.map_url, "contact_phone": home.contact_phone}
+        edit = reverse("sitio:edit")
+        # The address: one line (line breaks become spaces), 160 characters.
+        self.client.post(edit, {**data, "address": "Calle Uno 1\r\n\r\nUn párrafo   más\nColonia Centro"})
+        home.refresh_from_db()
+        self.assertEqual(home.address, "Calle Uno 1 Un párrafo más Colonia Centro")
+        response = self.client.post(edit, {**data, "address": "a" * 161})
+        self.assertContains(response, "La dirección puede tener hasta 160 caracteres y esta tiene 161.")
+        self.assertContains(response, "El límite es nuevo y vale desde este guardado")
+        with self.assertRaises(services.SiteError):
+            services.save_home(self.church, self.admin, **{**data, "address": "a" * 161})
+        self.assertEqual(services.save_home(self.church, self.admin, **{**data, "address": "a" * 160}).address, "a" * 160)
+        # The link: only to a map site.
+        allowed = (
+            "https://maps.app.goo.gl/AbC123", "https://www.google.com/maps/place/Iglesia", "https://goo.gl/maps/AbC",
+            "https://maps.google.com/?q=19.4,-99.1", "https://www.google.com.mx/maps/@19.4,-99.1,15z",
+            "https://www.openstreetmap.org/#map=17/19.4/-99.1", "https://maps.apple.com/?ll=19.4,-99.1", "https://waze.com/ul?ll=19.4,-99.1",
+        )
+        for good in allowed:
+            self.assertEqual(services.clean_map_url(good), good)
+        refused = (
+            "https://blog.invalid/lo-que-pienso", "https://www.google.com/search?q=x", "https://www.google.com/mapsfalso",
+            "https://goo.gl/abc", "https://maps.app.goo.gl.malo.invalid/x", "https://malo.invalid/maps.app.goo.gl/",
+            "https://docs.google.com/document/d/1", "https://user@maps.google.com.malo.invalid/",
+        )
+        for bad in refused:
+            with self.assertRaises(services.SiteError, msg=bad):
+                services.save_home(self.church, self.admin, **{**data, "map_url": bad})
+            self.assertContains(self.client.post(edit, {**data, "map_url": bad}), "Ese enlace no es de un mapa.", msg_prefix=bad)
+        home.refresh_from_db()
+        self.assertEqual(home.map_url, data["map_url"])
+        # A time: a short name, a short place, one line each.
+        create = reverse("sitio:time_create")
+        time_data = {"weekday": "4", "time": "20:00", "name": "Jóvenes", "place": "", "position": ""}
+        response = self.client.post(create, {**time_data, "name": "n" * 41})
+        self.assertContains(response, "El nombre de la reunión puede tener hasta 40 caracteres y este tiene 41.")
+        self.assertContains(response, "Error: ")
+        self.assertContains(self.client.post(create, {**time_data, "place": "p" * 81}), "El lugar puede tener hasta 80 caracteres y este tiene 81.")
+        for bad in ({"name": "n" * 41}, {"place": "p" * 81}):
+            with self.assertRaises(services.SiteError):
+                services.save_time(self.church, self.admin, weekday=4, time=time(20, 0), **{"name": "Jóvenes", **bad})
+        row = services.save_time(self.church, self.admin, weekday=4, time=time(20, 0), name="Reunión\nde   jóvenes", place="Salón\n2")
+        self.assertEqual((row.name, row.place), ("Reunión de jóvenes", "Salón 2"))
+        # Twelve at most, counted in the church (the other church's do not count), by the screen and by the service.
+        while ServiceTime.objects.filter(church=self.church).count() < 12:
+            services.save_time(self.church, self.admin, weekday=1, time=time(7, 0), name="Otra reunión")
+        self.assertContains(self.client.post(create, time_data), "Ya hay 12 horarios, que es el máximo.")
+        with self.assertRaises(services.SiteError):
+            services.save_time(self.church, self.admin, weekday=4, time=time(20, 0), name="La número trece")
+        self.assertEqual(ServiceTime.objects.filter(church=self.church).count(), 12)
+        services.save_time(self.church, self.admin, weekday=5, time=time(8, 0), name="Con otro nombre", row=row)  # editing one of the twelve
+        services.save_time(self.church_b, self.admin_b, weekday=4, time=time(20, 0), name="Jóvenes de B")
+        # None of it took the page out or asked for an approval: they are facts.
+        self.assertEqual(self.get().status_code, 200)
+        self.assertEqual(ContentApproval.objects.get(kind="sitio", object_id=home.pk).state, "aprobado")
+
+    def test_what_was_written_before_the_limits_keeps_showing_and_is_shortened_on_the_next_save(self):
+        long_address, long_name, long_place = "Calle Larga 1\n" + "b" * 250, "m" * 70, "l" * 110
+        PublicHome.objects.filter(church=self.church).update(address=long_address, map_url="https://un-sitio-de-antes.invalid/mapa")
+        row = ServiceTime.objects.filter(church=self.church).first()
+        ServiceTime.objects.filter(pk=row.pk).update(name=long_name, place=long_place)
+        for _ in range(14):
+            ServiceTime.objects.create(church=self.church, weekday=2, time=time(6, 0), name="De antes")
+        response = self.get()
+        self.assertEqual(response.status_code, 200)
+        for text in ("Calle Larga 1<br>" + "b" * 250, long_name, long_place, "https://un-sitio-de-antes.invalid/mapa"):
+            self.assertContains(response, text)
+        self.assertContains(response, "De antes", count=14)
+        # The forms open with what is there; saving asks for the new limits and says they are new.
+        page = self.client.get(reverse("sitio:edit"))
+        self.assertContains(page, "b" * 250)
+        home = PublicHome.objects.get(church=self.church)
+        data = {"welcome": home.welcome, "address": home.address, "map_url": home.map_url, "contact_phone": home.contact_phone}
+        response = self.client.post(reverse("sitio:edit"), data)
+        self.assertContains(response, "El límite es nuevo y vale desde este guardado")
+        self.assertContains(response, "Ese enlace no es de un mapa.")
+        response = self.client.post(reverse("sitio:edit"), {**data, "address": "Calle Larga 1, Centro", "map_url": "https://maps.app.goo.gl/x"}, follow=True)
+        self.assertContains(response, "Ya se ven en la página pública.")
+        edit = reverse("sitio:time_edit", args=[row.pk])
+        self.assertContains(self.client.get(edit), long_name)
+        time_data = {"weekday": str(row.weekday), "time": row.time.strftime("%H:%M"), "name": long_name, "place": "", "position": ""}
+        self.assertContains(self.client.post(edit, time_data), "El límite es nuevo y vale desde este guardado")
+        self.assertRedirects(self.client.post(edit, {**time_data, "name": "Reunión general"}), reverse("sitio:edit"))
+        # Over the twelve from before: each one can still be changed or taken away; no new one until there is room.
+        self.assertContains(self.client.post(reverse("sitio:time_create"), {**time_data, "name": "Una más"}), "Ya hay 12 horarios")
+        old = ServiceTime.objects.filter(church=self.church, name="De antes").first()
+        self.assertRedirects(self.client.post(reverse("sitio:time_delete", args=[old.pk])), reverse("sitio:edit"))
+        self.assertEqual(self.get().status_code, 200)
 
 
 @override_settings(DEBUG=True)

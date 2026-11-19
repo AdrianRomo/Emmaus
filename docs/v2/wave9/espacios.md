@@ -112,3 +112,30 @@ stay unused (or `migrate espacios zero`, which drops only them).
   `select_for_update()` on the space (no nullable join) and `of=("self",)` on the booking.
 - Two real concurrent connections.
 - Screen readers; only axe and the keyboard-neutral checks ran.
+
+## After the independent review (same wave)
+
+- **Hours are moments.** `services.instant` turns every hour into UTC before anything is compared
+  or stored. An hour the clock skips (the night it is set forward) is refused with a sentence; an
+  hour that happens twice (the night it goes back) is the first of the two, always. A row the
+  database refuses becomes a message (`SpaceError`), never a server error.
+- **The week lists a booking on every day its blocked hours touch**, with that day's hours and
+  "(preparación)" or "(recogida)" when only a buffer falls there. Who may not read the title reads
+  "Ocupado (preparación)". A block that ends at midnight does not touch the next day.
+- **The lock is the space's row only** (`select_for_update(of=("self",))`): the joined church row is
+  not locked, so two spaces of one church do not wait for each other.
+- **Merged people**: the requester is read again inside the transaction; a person absorbed by a
+  merge cannot ask. There is no field that lists people; the screens take the person from the
+  account (`ensure_own_person`), and `people.merge` moves `Booking.requested_by` to who remains.
+- **Several churches**: every view reads `request.church` (set by `community_view`); no other
+  source of the church exists in the app. Nothing changed.
+
+## Polish round
+
+- The clash form has one summary with the clashes listed inside it; the two choices sit together at
+  the end: change the hours (filled button) or, for the administration, "Reservar aunque se empalme"
+  under the sentence that says what it means.
+- Usage is the booked time ("2 h", "1 h 30 min", "Sin uso"), **without** setup and teardown, and it
+  is the time the space was occupied: a stretch two approved bookings share counts once. A one-day
+  period is headed "El …".
+- Every booking row has one style; its state is a word beside the title.

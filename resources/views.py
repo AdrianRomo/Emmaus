@@ -115,16 +115,12 @@ def _devotional_form(request, devotional):
             form.add_error(None, error.message)
         else:
             if saved.approval is not None and saved.approval.is_pending:
-                messages.success(
-                    request,
-                    f"Guardamos el devocional del {_day(saved.date)} y pedimos la aprobación pastoral. "
-                    "Nadie lo ve todavía: se publica cuando un pastor de tu iglesia lo apruebe.",
-                )
+                approvals.tell_asked(request, f"Guardamos el devocional del {_day(saved.date)} y tu solicitud para publicarlo.")
             elif saved.state == "borrador":
-                messages.success(
+                messages.warning(
                     request,
-                    f"Guardamos el borrador del {_day(saved.date)}. Nadie lo ve todavía: para publicarlo, edítalo y marca "
-                    "«Pedir la aprobación pastoral para publicarlo».",
+                    f"Guardamos el devocional del {_day(saved.date)} como borrador. No lo enviamos a la aprobación pastoral y "
+                    "nadie lo ve: para pedirla, edítalo y marca «Pedir la aprobación pastoral para publicarlo».",
                 )
             elif saved.state == "programado":
                 messages.success(request, f"Guardamos los cambios. El devocional sigue aprobado y se publicará el {_day(saved.date)}.")

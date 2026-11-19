@@ -118,6 +118,18 @@ class CommunityIntegrityTests(CommunityFixture):
         low, high = sorted([self.member, self.member_b], key=lambda person: person.pk)
         return DuplicateDismissal.objects.create(church=self.church, person_a=low, person_b=high)
 
+    def break_merged_person_group_membership(self):
+        return GroupMembership.objects.create(group=self.other_group, person=self.old)
+
+    def break_merged_person_join_request(self):
+        return GroupJoinRequest.objects.create(group=self.other_group, person=self.old)
+
+    def break_merged_person_registration(self):
+        return EventRegistration.objects.create(event=self.other_event, person=self.old, status="pendiente", pending_reason="age")
+
+    def break_merged_person_team_membership(self):
+        return TeamMembership.objects.create(team=self.team, person=self.old)  # no service: no role row either
+
     def break_group_sede_church(self):
         type(self.other_group).objects.filter(pk=self.other_group.pk).update(sede=self.sede_b)
         return self.other_group
@@ -265,6 +277,26 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_duplicate_dismissal_church(self):
         self.assert_counted_alone_and_fails("duplicate_dismissal_church")
+
+    def test_merged_person_group_membership(self):
+        row = self.assert_counted_alone_and_fails("merged_person_group_membership")
+        GroupMembership.objects.filter(pk=row.pk).update(status="inactiva")  # history may stay on a merged record
+        self.assertEqual(json_counts()[1], 0)
+
+    def test_merged_person_join_request(self):
+        row = self.assert_counted_alone_and_fails("merged_person_join_request")
+        GroupJoinRequest.objects.filter(pk=row.pk).update(status="retirada")
+        self.assertEqual(json_counts()[1], 0)
+
+    def test_merged_person_registration(self):
+        row = self.assert_counted_alone_and_fails("merged_person_registration")
+        EventRegistration.objects.filter(pk=row.pk).update(status="cancelada", pending_reason="")
+        self.assertEqual(json_counts()[1], 0)
+
+    def test_merged_person_team_membership(self):
+        row = self.assert_counted_alone_and_fails("merged_person_team_membership")
+        TeamMembership.objects.filter(pk=row.pk).update(status="inactiva")
+        self.assertEqual(json_counts()[1], 0)
 
     def test_group_sede_church(self):
         self.assert_counted_alone_and_fails("group_sede_church")

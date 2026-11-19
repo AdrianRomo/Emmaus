@@ -20,11 +20,12 @@ Callers have already answered who may act (``espacios.views``, ``espacios.access
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+import copy
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -59,6 +60,27 @@ def church_tz(church) -> ZoneInfo:
         return ZoneInfo("America/Mexico_City")
 
 
+NO_SUCH_HOUR = "Esa hora no existe ese día: es cuando se adelanta el reloj por el cambio de horario. Elige otra hora."
+
+
+def instant(value: datetime) -> datetime:
+    """``value`` as a moment in UTC, which is what every comparison here uses: two hours in the same
+    zone compare by the clock on the wall, and on the night the clock changes that is not the order
+    they happen in. An hour the clock skips (02:30 the night it jumps from 02:00 to 03:00) is refused.
+    An hour that happens twice (the night the clock goes back) is the first of the two, always."""
+    if timezone.is_naive(value):
+        raise ValueError("Booking times must be timezone-aware.")
+    moment = value.replace(fold=0).astimezone(UTC)
+    if moment.astimezone(value.tzinfo).replace(tzinfo=None) != value.replace(tzinfo=None, fold=0):
+        raise SpaceError(NO_SUCH_HOUR, code="no_such_hour")
+    return moment
+
+
+def local_instant(day: date, hour: time, tz) -> datetime:
+    """The moment ``hour`` of ``day`` is in ``tz`` (see ``instant``)."""
+    return instant(datetime.combine(day, hour, tzinfo=tz))
+
+
 def localize(booking: Booking, tz) -> Booking:
     """Attach the day and the hours of ``booking`` in ``tz``: plain dates and times, so a template
     cannot convert them to another zone."""
@@ -69,7 +91,28 @@ def localize(booking: Booking, tz) -> Booking:
     booking.block_start = booking.blocked_from.astimezone(tz).time()
     booking.block_end = booking.blocked_until.astimezone(tz).time()
     booking.has_buffer = bool(booking.setup_minutes or booking.teardown_minutes)
+    # The days the space is held, buffers included. A block that ends at midnight does not touch the next day.
+    booking.block_day = booking.blocked_from.astimezone(tz).date()
+    booking.block_last_day = (booking.blocked_until - timedelta(microseconds=1)).astimezone(tz).date()
     return booking
+
+
+def _day_slice(booking: Booking, day: date, tz) -> Booking:
+    """A copy of ``booking`` for one day of a week: the hours it holds the space **that day**
+    (``day_hours``, "22:30 a 24:00") and what they are (``day_part``: the use itself, or only the
+    time to set up before it or to put away after it)."""
+    row = copy.copy(booking)
+    opens = datetime.combine(day, time.min, tzinfo=tz).astimezone(UTC)
+    closes = datetime.combine(day + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
+    start, end = max(booking.blocked_from, opens), min(booking.blocked_until, closes)
+    until = "24:00" if end == closes else f"{end.astimezone(tz):%H:%M}"
+    row.day_hours = f"{start.astimezone(tz):%H:%M} a {until}"
+    if booking.starts_at < closes and booking.ends_at > opens:
+        row.day_part = "uso"
+    else:
+        row.day_part = "preparacion" if booking.starts_at >= closes else "recogida"
+    row.split = booking.block_day != booking.block_last_day
+    return row
 
 
 # ---- spaces -------------------------------------------------------------------------------------
@@ -112,14 +155,16 @@ def week_of(day: date) -> date:
 
 
 def week(space: Space, monday: date, tz) -> list[dict]:
-    """Seven days from ``monday``, each with the bookings that hold the space that day, localized."""
+    """Seven days from ``monday``, each with what holds the space that day, localized: a booking is
+    listed on every day its blocked hours touch, the time to set up and to put away included, so a
+    day never reads as free while a request for it would be refused."""
     start = datetime.combine(monday, time.min, tzinfo=tz)
-    end = start + timedelta(days=7)
+    end = datetime.combine(monday + timedelta(days=7), time.min, tzinfo=tz)
     rows = [localize(row, tz) for row in overlapping(space.pk, start, end).select_related("requested_by", "event").order_by("starts_at", "id")]
     days = []
     for offset in range(7):
         day = monday + timedelta(days=offset)
-        days.append({"date": day, "bookings": [row for row in rows if row.day <= day <= row.end_day]})
+        days.append({"date": day, "bookings": [_day_slice(row, day, tz) for row in rows if row.block_day <= day <= row.block_last_day]})
     return days
 
 
@@ -128,27 +173,41 @@ def pending_count(church) -> int:
     return Booking.objects.filter(space__church=church, status=Status.REQUESTED, ends_at__gt=timezone.now()).count()
 
 
+def duration_text(length: timedelta) -> str:
+    """"2 h", "1 h 30 min", "45 min"; nothing at all is "Sin uso"."""
+    minutes = round(length.total_seconds() / 60)
+    if minutes <= 0:
+        return "Sin uso"
+    hours, rest = divmod(minutes, 60)
+    return " ".join(part for part in (f"{hours} h" if hours else "", f"{rest} min" if rest else "") if part)
+
+
 def usage(church, first: date, last: date, tz) -> list[dict]:
-    """Hours each space was booked from ``first`` to ``last`` (both included): approved bookings
-    only, cut at the edges of the range. Counts of bookings and hours, nothing about people."""
-    start = datetime.combine(first, time.min, tzinfo=tz)
-    end = datetime.combine(last + timedelta(days=1), time.min, tzinfo=tz)
-    totals = {space.pk: {"space": space, "bookings": 0, "used": timedelta(), "blocked": timedelta()}
-              for space in Space.objects.filter(church=church)}
+    """How long each space was in use from ``first`` to ``last`` (both included): the booked time
+    of approved bookings, cut at the edges of the range, **without** the time to set up or put away.
+    It is the time the space was occupied: an hour two approved bookings share (the administration
+    kept one over the other) counts once. Bookings and time, nothing about people."""
+    start = datetime.combine(first, time.min, tzinfo=tz).astimezone(UTC)
+    end = datetime.combine(last + timedelta(days=1), time.min, tzinfo=tz).astimezone(UTC)
+    totals = {space.pk: {"space": space, "bookings": 0, "spans": []} for space in Space.objects.filter(church=church)}
     rows = Booking.objects.filter(
-        space__church=church, status=Status.APPROVED, blocked_from__lt=end, blocked_until__gt=start,
-    ).values_list("space_id", "starts_at", "ends_at", "blocked_from", "blocked_until")
-    for space_id, starts_at, ends_at, blocked_from, blocked_until in rows:
+        space__church=church, status=Status.APPROVED, starts_at__lt=end, ends_at__gt=start,
+    ).order_by("starts_at", "id").values_list("space_id", "starts_at", "ends_at")
+    for space_id, starts_at, ends_at in rows:
         total = totals[space_id]
         total["bookings"] += 1
-        total["used"] += max(min(ends_at, end) - max(starts_at, start), timedelta())
-        total["blocked"] += min(blocked_until, end) - max(blocked_from, start)
+        begins, stops = max(starts_at, start), min(ends_at, end)
+        spans = total["spans"]
+        if spans and begins <= spans[-1][1]:      # ordered by start: it can only reach into the last span
+            spans[-1][1] = max(spans[-1][1], stops)
+        else:
+            spans.append([begins, stops])
     result = []
     for total in totals.values():
         if not total["space"].active and not total["bookings"]:
             continue
-        total["used_hours"] = round(total["used"].total_seconds() / 3600, 1)
-        total["blocked_hours"] = round(total["blocked"].total_seconds() / 3600, 1)
+        total["used"] = sum((stops - begins for begins, stops in total.pop("spans")), timedelta())
+        total["used_text"] = duration_text(total["used"])
         result.append(total)
     return sorted(result, key=lambda total: (total["space"].kind, total["space"].name.lower(), total["space"].pk))
 
@@ -156,7 +215,9 @@ def usage(church, first: date, last: date, tz) -> list[dict]:
 # ---- writing ------------------------------------------------------------------------------------
 def _locked_space(space_id: int) -> Space:
     """The one lock every booking of a space is written under. Call inside ``atomic()``."""
-    return Space.objects.select_for_update().select_related("church").get(pk=space_id)
+    # of=("self",): only the space's row. Without it PostgreSQL also locks the joined church row, and every
+    # booking of every space of the church would wait in one line.
+    return Space.objects.select_for_update(of=("self",)).select_related("church").get(pk=space_id)
 
 
 def _locked_booking(booking_id: int) -> Booking:
@@ -191,8 +252,7 @@ def request_booking(space: Space, person: Person, actor, *, title: str, starts_a
     title = " ".join(title.split())
     if not title:
         raise SpaceError("Escribe para qué es la reserva.", code="title")
-    if timezone.is_naive(starts_at) or timezone.is_naive(ends_at):
-        raise ValueError("Booking times must be timezone-aware.")
+    starts_at, ends_at = instant(starts_at), instant(ends_at)   # moments, never hours on a wall clock
     if ends_at <= starts_at:
         raise SpaceError("La hora en que termina tiene que ser después de la hora en que empieza.", code="ends_at")
     if ends_at - starts_at > timedelta(hours=MAX_HOURS):
@@ -201,29 +261,38 @@ def request_booking(space: Space, person: Person, actor, *, title: str, starts_a
         raise SpaceError(f"El tiempo para preparar o recoger es de {MAX_BUFFER_MINUTES} minutos a lo más.", code="setup_minutes")
     if starts_at <= timezone.now():
         raise SpaceError("Esa hora ya pasó. Elige un día y una hora que todavía no lleguen.", code="starts_at")
-    with transaction.atomic():
-        space = _locked_space(space.pk)
-        if not space.active:
-            raise SpaceError("Este espacio ya no se puede reservar.", code="space")
-        if person.church_id != space.church_id or person.merged_into_id:
-            raise SpaceError("Esa persona no es de esta iglesia.", code="person")
-        if event is not None and event.church_id != space.church_id:
-            raise SpaceError("Ese evento no es de esta iglesia.", code="event")
-        booking = Booking(
-            space=space, title=title, starts_at=starts_at, ends_at=ends_at, setup_minutes=setup_minutes,
-            teardown_minutes=teardown_minutes, requested_by=person, event=event,
-        )
-        booking.set_block()
-        over = _check_clash(space, booking, seen if approve else None)
-        if approve or not space.needs_approval:
-            booking.status, booking.decided_at = Status.APPROVED, timezone.now()
-            booking.decided_by = actor if approve else None
-        booking.overrode_clash = over
-        booking.save()
-        _audit(booking, actor, "espacio_reserva_solicitada", "Pidió la reserva de un espacio.",
-               **({"event_id": event.pk} if event is not None else {}))
-        if booking.status == Status.APPROVED:
-            _audit_approval(booking, actor, over, direct=not approve)
+    try:
+        with transaction.atomic():
+            return _write_request(space, person, actor, title, starts_at, ends_at, setup_minutes, teardown_minutes, event, approve, seen)
+    except IntegrityError as error:
+        # The database refused the row (its own checks on the hours). Never a server error for who asked.
+        raise SpaceError("No pudimos guardar la reserva con esas horas. Revisa el día y las horas.", code="hours") from error
+
+
+def _write_request(space, person, actor, title, starts_at, ends_at, setup_minutes, teardown_minutes, event, approve, seen) -> Booking:
+    space = _locked_space(space.pk)
+    if not space.active:
+        raise SpaceError("Este espacio ya no se puede reservar.", code="space")
+    # Read now, not from the caller's copy: a person absorbed by a merge a moment ago asks for nothing.
+    if not Person.objects.filter(pk=person.pk, church_id=space.church_id, merged_into__isnull=True).exists():
+        raise SpaceError("Esa persona no es de esta iglesia.", code="person")
+    if event is not None and event.church_id != space.church_id:
+        raise SpaceError("Ese evento no es de esta iglesia.", code="event")
+    booking = Booking(
+        space=space, title=title, starts_at=starts_at, ends_at=ends_at, setup_minutes=setup_minutes,
+        teardown_minutes=teardown_minutes, requested_by=person, event=event,
+    )
+    booking.set_block()
+    over = _check_clash(space, booking, seen if approve else None)
+    if approve or not space.needs_approval:
+        booking.status, booking.decided_at = Status.APPROVED, timezone.now()
+        booking.decided_by = actor if approve else None
+    booking.overrode_clash = over
+    booking.save()
+    _audit(booking, actor, "espacio_reserva_solicitada", "Pidió la reserva de un espacio.",
+           **({"event_id": event.pk} if event is not None else {}))
+    if booking.status == Status.APPROVED:
+        _audit_approval(booking, actor, over, direct=not approve)
     return booking
 
 

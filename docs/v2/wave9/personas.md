@@ -150,7 +150,7 @@ Not foreign keys, checked on purpose:
   `merge_detail.html`), a link from Personas, and the three view names in `core/shell.py` so the
   rail marks "Personas".
 * `manage.py prune_person_merges [--apply]`: empties the previous contact values of merges older
-  than 30 days. Nothing schedules it.
+  than 30 days. The scheduler runs the same on every pass (section 7, point 4).
 * `tenant_integrity`: two checks (`person_merge_church`, `duplicate_dismissal_church`).
 * `people.services.save_person` (the one write path of the screens) now locks the row, refuses a
   record that was merged away and writes only the fields a screen may change, never `user` or
@@ -259,3 +259,48 @@ Never in this line of work: matching across churches.
   as pairs. Each now gets their own invented phone, and `seed_community_demo --duplicados` adds one
   synthetic pair (same e-mail, no account) for the browser journey; the plain seed suggests nobody.
 * Somebody may give an event opinion twice across a merge (1.5, the token).
+
+## 7. After the independent review (integration branch)
+
+What the review reproduced and what changed. Tests: `people/tests/test_merge_review.py`.
+
+1. **Registrations are settled again, after a merge and after an undo, for both people**, with
+   `agenda.services.reevaluate_person` (the rule is `standing`), in the same transaction. A row that
+   arrives stands by the survivor's age facts at once; a row that goes back stands by the returning
+   record's own, so an age the team confirmed for the survivor confirms nothing for the other record.
+   **An authorization a guardian recorded after the merge does not travel on undo**: that
+   registration stays with the survivor (the child the team had in front of it) and is reported.
+   Chosen over invalidating the authorization: nobody else is left confirmed, and a guardian's real
+   yes is not destroyed by an administrative step. The merge page says how many registrations
+   changed standing ("Revisa las inscripciones") instead of "Regresó todo" alone.
+2. **The confirmation covers everything the preview states**: both records, every row id that
+   moves (private ones too), what stays, the camp links, the requests that close, the account, the
+   roles gained, the signals and the sibling warning. Anything different: nothing is merged and the
+   preview is shown again.
+3. **Lock order** (top of `people/merge.py`): the merge record (undo), the serving teams by id,
+   both people by id, then rows. Teams first because `serving.services` lock the team and then write
+   a row that needs the person. A team that turns up between the two locks raises `Busy`; the
+   screens answer `Busy` and a database `OperationalError` (a deadlock it broke) with "inténtalo de
+   nuevo" and nothing written. The rows to move were already read under the lock (the preview is
+   rebuilt there); a test now pins it. A writer in another app that checked `merged_into` on an
+   unlocked copy can still write after the merge commits: four `tenant_integrity` checks report a
+   live row on a merged-away record (active group or team membership, pending request, registration
+   in force).
+4. **The 30 days are kept by the scheduler**: job `uniones_personas` of `run_scheduled_jobs`, for
+   **every church whatever its module flags** (it only deletes data nothing needs; a church that
+   switched the module off must not keep it for that). The server's own switch of the community jobs
+   still stops it; `prune_person_merges --apply` does the same by hand.
+5. **Mergeable is exactly "suggested now"** (`duplicates.suggested_signals`): a value shared by more
+   than eight records merges nobody, by the list or by a typed address.
+6. **A pending request to a group the other record is already in** is not moved: the merge closes
+   it and counts it with what stays; both directions. The undo makes it pending again if nobody
+   answered it meanwhile. Its audit row is its own action, `grupo_solicitud_cerrada_union`, with ids
+   only: the member's "retiró su solicitud" would say something that did not happen.
+7. **Siblings.** Minors (or an authorization on record) with the same date of birth whose full
+   names are not the same: a different given name refuses; the same given name shows "Dos hermanos
+   pueden compartir teléfono y correo…" and needs its own checkbox, checked by the service too.
+8. The tests that said "two administrators at once" are sequential and now say so
+   (`StaleCopyTests`). True concurrency is still untested: the suite runs on SQLite.
+9. Copy: the screens speak of "registros" and never assume a person's gender; the empty review is a
+   sentence, not "0 pares"; the choices between two values are their own section; the way out for
+   "No son la misma persona" is its own section under the merge's actions.

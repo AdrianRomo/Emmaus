@@ -92,7 +92,7 @@ def publish(request):
         except services.StaleReview:
             messages.error(request, STALE)
             return redirect("sitio:publish")
-        messages.success(request, "Pedimos la aprobación pastoral de la página. Se publica cuando un pastor de tu iglesia la apruebe.")
+        approvals.tell_asked(request, "Guardamos tu solicitud para publicar la página.")
         return redirect("sitio:edit")
     content = services.page_content(church, home)
     return render(
@@ -134,7 +134,7 @@ def _time_form(request, row):
             services.save_time(request.church, request.user, weekday=data["weekday"], time=data["time"], name=data["name"],
                                place=data["place"], position=data["position"] or 0, row=row)
         except services.SiteError as error:
-            form.add_error(None, error.message)
+            form.add_error(error.code if error.code in form.fields else None, error.message)
         else:
             messages.success(request, "Guardamos el horario." if row else "Agregaste el horario.")
             return redirect("sitio:edit")

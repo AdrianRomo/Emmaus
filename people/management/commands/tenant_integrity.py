@@ -101,6 +101,17 @@ def community_checks() -> tuple[Check, ...]:
               ~Q(survivor__church=F("church")) | ~Q(absorbed__church=F("church"))),
         Check("duplicate_dismissal_church", "Pares descartados como duplicado con una persona de otra iglesia",
               DuplicateDismissal, None, ~Q(person_a__church=F("church")) | ~Q(person_b__church=F("church"))),
+        # A record that was merged away is hidden: nothing live may point at it. A writer that read the person
+        # before the merge and wrote after it is the only way to get one; the merge itself leaves none.
+        Check("merged_person_group_membership", "Integrantes activos de un grupo que son un registro ya unido a otro",
+              GroupMembership, None, Q(status="activa", person__merged_into__isnull=False)),
+        Check("merged_person_join_request", "Solicitudes pendientes a un grupo de un registro ya unido a otro",
+              GroupJoinRequest, None, Q(status="pendiente", person__merged_into__isnull=False)),
+        Check("merged_person_registration", "Inscripciones vigentes a un evento de un registro ya unido a otro",
+              EventRegistration, None,
+              Q(status__in=["inscrita", "pendiente", "en_espera", "ofrecida"], person__merged_into__isnull=False)),
+        Check("merged_person_team_membership", "Integrantes activos de un equipo que son un registro ya unido a otro",
+              TeamMembership, None, Q(status="activa", person__merged_into__isnull=False)),
         # groups
         Check("group_sede_church", "Grupos con una sede de otra iglesia", Group, Q(sede__isnull=False),
               ~Q(sede__church=F("church"))),

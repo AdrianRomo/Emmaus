@@ -17,7 +17,7 @@
   {% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}
 
   <section class="block" aria-labelledby="esperan">
-    <h2 id="esperan" class="heading">Esperan aprobación</h2>
+    <h2 id="esperan" class="heading">Solicitudes que esperan aprobación</h2>
     {% if pending %}
       <ul class="rows">
         {% for entry in pending %}
@@ -57,9 +57,9 @@
   {% endif %}
 
   <section class="block" aria-labelledby="sin-aprobacion">
-    <h2 id="sin-aprobacion" class="heading">Pendiente de aprobación pastoral</h2>
+    <h2 id="sin-aprobacion" class="heading">Publicado antes de que existiera la aprobación</h2>
     {% if unrecorded %}
-      <p>Esto ya está publicado y se sigue viendo: nadie lo retiró. Se publicó sin la aprobación de un pastor, casi siempre porque es anterior a este paso. {% if can_approve %}Apruébalo uno por uno cuando lo hayas leído.{% else %}Un pastor lo aprueba uno por uno.{% endif %}</p>
+      <p>Esto no es una solicitud: ya está publicado y se sigue viendo, nadie lo retiró. Se publicó sin la aprobación de un pastor, casi siempre porque es anterior a este paso. {% if can_approve %}Apruébalo uno por uno cuando lo hayas leído.{% else %}Un pastor lo aprueba uno por uno.{% endif %}</p>
       <ul class="rows">
         {% for entry in unrecorded %}
           <li class="row row--lead row--stack">

@@ -15,6 +15,7 @@ The text is written here, with the standard's escaping and line folding, so no d
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
@@ -33,14 +34,26 @@ from .models import EventPage, SeriesOccurrence
 # A calendar is not an archive: the events that have not ended, the nearest first, up to this many.
 FEED_LIMIT = 200
 CONTENT_TYPE = "text/calendar; charset=utf-8"
+BACKSLASH, SEMICOLON = chr(92), chr(59)
+# Seconds a browser or a proxy may keep a calendar: every reader gets the same bytes (nothing in them or in the
+# view depends on who asks), so the answer is public. A day called off may be shown that much longer.
+CACHE_SECONDS = 300
+
+
+# Characters some readers take for a line break, besides the two the standard names.
+LINE_BREAKS = ("\r\n", "\r", "\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029")
 
 
 def escape(text: str) -> str:
-    """A TEXT value (RFC 5545, 3.3.11): backslash, semicolon and comma escaped, a line break as ``\\n``,
-    and no other control character."""
-    text = str(text).replace("\r\n", "\n").replace("\r", "\n")
-    text = "".join(char for char in text if char == "\n" or (char >= " " and char != "\x7f"))
-    return text.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,").replace("\n", "\\n")
+    """A TEXT value (RFC 5545, 3.3.11): backslash, semicolon and comma escaped, every kind of line break
+    (the Unicode ones too) as the two characters backslash and n, and no other control character (C0, DEL, C1)."""
+    text = str(text)
+    for mark in LINE_BREAKS:
+        text = text.replace(mark, "\n")
+    text = "".join(char for char in text if char == "\n" or unicodedata.category(char) != "Cc")
+    for char in (BACKSLASH, SEMICOLON, ","):
+        text = text.replace(char, BACKSLASH + char)
+    return text.replace("\n", BACKSLASH + "n")
 
 
 def fold(line: str) -> str:
@@ -106,16 +119,18 @@ def render(name: str, pages: list[EventPage], base_url: str) -> str:
 
 
 def church_pages(church) -> list[EventPage]:
-    """The public pages of ``church`` that have not ended, by first day. Empty when the module is off."""
+    """The public pages of ``church`` that have not ended, by first day. Empty when the module is off. The
+    database leaves out what is over and stops at ``FEED_LIMIT``: the feed costs the same in a church's tenth year."""
     if not flags.enabled(church, "community"):
         return []
+    today = timezone.localdate()
     pages = (
         public.public_pages().filter(event__church=church, event__starts_on__isnull=False)
+        .filter(services._not_ended(today, "event__"))
         .select_related("event", "event__series_occurrence__series")
         .order_by("event__starts_on", "event__pk")
     )
-    today = timezone.localdate()
-    return [page for page in pages if not services.has_ended(page.event, today)][:FEED_LIMIT]
+    return [page for page in pages[:FEED_LIMIT] if not services.has_ended(page.event, today)]
 
 
 def feed_path(church) -> str:
@@ -133,6 +148,10 @@ def _base_url(request) -> str:
 def _response(body: str, filename: str = "") -> HttpResponse:
     response = HttpResponse(body, content_type=CONTENT_TYPE)
     response["X-Robots-Tag"] = "noindex, nofollow"
+    # events.middleware.PrivateResponseMiddleware keeps these headers for a response marked so (as it does for
+    # the church's logo), unless something attached a cookie to it.
+    response["Cache-Control"] = f"public, max-age={CACHE_SECONDS}"
+    response.public_asset = True
     if filename:
         response["Content-Disposition"] = f'attachment; filename="{filename}.ics"'
     return response
@@ -150,6 +169,7 @@ def feed(request, slug: str):
 @require_safe
 def event(request, slug: str):
     page = public.public_page(slug)
-    if page is None:
+    # No first day (only a last one was written): there is nothing to put in a calendar. The same 404.
+    if page is None or page.event.starts_on is None:
         raise Http404
     return _response(render(page.event.name, [page], _base_url(request)), filename=page.event.slug)

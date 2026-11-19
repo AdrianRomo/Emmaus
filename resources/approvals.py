@@ -87,6 +87,27 @@ def has_active_pastor(church) -> bool:
     return UserChurchRole.objects.filter(church=church, role=Role.PASTOR, user__is_active=True).exists()
 
 
+WAITS = (
+    "Queda en la lista «Aprobación pastoral» de los pastores de tu iglesia. Emmaus no le avisa a nadie: lo verán "
+    "cuando entren. Nadie más lo ve hasta que uno de ellos lo apruebe."
+)
+WAITS_FOR_NOBODY = (
+    "Queda esperando, pero hoy en tu iglesia no hay ninguna cuenta activa con el rol de pastor: nadie puede aprobarlo "
+    "y no se publicará hasta que haya una."
+)
+
+
+def tell_asked(request, saved: str) -> None:
+    """What the administration reads after asking: what really happens next. The request waits in a list; nobody
+    is sent anything; and with no pastor account, that nobody can approve it (a warning, not a success)."""
+    from django.contrib import messages
+
+    if has_active_pastor(request.church):
+        messages.success(request, f"{saved} {WAITS}")
+    else:
+        messages.warning(request, f"{saved} {WAITS_FOR_NOBODY}")
+
+
 # ---- the kinds of content -----------------------------------------------------------------------
 class ContentKind:
     """How one kind of content is fetched, fingerprinted, published and shown. Every fetch is

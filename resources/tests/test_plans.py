@@ -388,7 +388,10 @@ class WritingTests(PlansFixture):
         self.assertEqual(page.content.decode().count("btn--primary"), 1)
         response = self.client.post(url("publish", plan), {"confirm": "on", "status": "publicado"}, follow=True)
         self.assertRedirects(response, url("days", plan))
-        self.assertContains(response, "Pedimos la aprobación pastoral del plan.")
+        # No pastor account yet in this church: the message says that, not that somebody was asked.
+        self.assertContains(response, "Guardamos tu solicitud para publicar el plan. Queda esperando, pero hoy en tu iglesia no hay ninguna cuenta activa con el rol de pastor")
+        self.assertNotContains(response, "Emmaus no le avisa a nadie: lo verán")
+        self.assertContains(response, "notice--warning")
         self.assertContains(response, "la administración no puede publicarlo por su cuenta")
         plan.refresh_from_db()
         self.assertEqual((plan.status, plan.rights_confirmed_by, plan.rights_confirmed_at), ("borrador", None, None))

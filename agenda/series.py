@@ -27,7 +27,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from django.db import IntegrityError, transaction
 from django.db.models import F, Q
@@ -90,7 +91,33 @@ def days_between(series: EventSeries, first: date, last: date) -> list[date]:
 
 
 def horizon(today: date) -> date:
-    return today + timedelta(weeks=WINDOW_WEEKS)
+    """The last day of the window: ``WINDOW_WEEKS`` whole weeks counting today, so a weekly series has that
+    many dates written ahead, never one more."""
+    return today + timedelta(weeks=WINDOW_WEEKS) - timedelta(days=1)
+
+
+def zone_of(name: str):
+    try:
+        return ZoneInfo(name)
+    except (KeyError, ValueError, OSError):
+        return timezone.get_current_timezone()
+
+
+def has_started(event: Event, now: datetime | None = None) -> bool:
+    """Whether a date of a series already began: its day and hour, in its own zone, against the clock.
+
+    The rest of the agenda counts by days (an ordinary event of today is "coming" until midnight, and a date
+    somebody signed up for keeps its row in their list the same way). A series is read as "the next one", and
+    this morning's service is not the next one tonight: every "next" and "coming" of a series asks this.
+    Without an hour, the date counts by its day like any event."""
+    now = now or timezone.now()
+    if event.starts_on is None:
+        return True
+    zone = zone_of(event.time_zone)
+    page = getattr(event, "page", None)
+    if page is None or page.starts_at is None:
+        return event.starts_on < now.astimezone(zone).date()
+    return datetime.combine(event.starts_on, page.starts_at, tzinfo=zone) <= now
 
 
 def _join(words: list[str]) -> str:
@@ -158,14 +185,24 @@ def _write_day(series: EventSeries, day: date, actor) -> bool:
     raise IntegrityError("A date of a series could not be written.")
 
 
-def generate(series: EventSeries, actor=None, today: date | None = None) -> int:
+def generate(series: EventSeries, actor=None, today: date | None = None, now: datetime | None = None) -> int:
     """Write the dates of ``series`` that are missing between today and the horizon. Returns how many it
-    wrote. A second run writes nothing; a series that ended, or of a church without the module, writes nothing."""
-    today = today or timezone.localdate()
+    wrote. A second run writes nothing; a series that ended, or of a church that is not active or does not
+    use the module, writes nothing.
+
+    Today is today where the series happens (its zone), and today's date is written only while its hour has
+    not passed there: a series created at 21:00 for 07:00 starts next week. ``today`` alone (the tests, a
+    catch-up) is taken as that whole day."""
+    now = now or timezone.now()
     with transaction.atomic():
         locked = EventSeries.objects.select_for_update().get(pk=series.pk)
-        if not locked.active or not flags.enabled(locked.church, "community"):
+        if not locked.active or not locked.church.active or not flags.enabled(locked.church, "community"):
             return 0
+        zone = zone_of(locked.time_zone)
+        if today is None:
+            today = now.astimezone(zone).date()
+            if datetime.combine(today, locked.starts_at, tzinfo=zone) <= now:
+                today += timedelta(days=1)  # today's hour passed: the window starts tomorrow
         until = horizon(today)
         wanted = days_between(locked, today, until)
         known = {row.day: row for row in SeriesOccurrence.objects.filter(series=locked, day__in=wanted)}
@@ -188,7 +225,7 @@ def generate_due(today: date | None = None) -> dict:
     """The scheduler's pass: every series that is not written up to the horizon. Counts only. One series
     that fails never stops the next; it is counted in ``failed`` and logged by its error's class name.
     While a church has the module off its series wait as they are."""
-    today = today or timezone.localdate()
+    given, today = today, today or timezone.localdate()
     until = horizon(today)
     due = (
         EventSeries.objects.filter(active=True, church__active=True, starts_on__lte=until)
@@ -202,7 +239,7 @@ def generate_due(today: date | None = None) -> dict:
             continue
         totals["series"] += 1
         try:
-            totals["created"] += generate(series, today=today)
+            totals["created"] += generate(series, today=given)
         except Exception as error:  # noqa: BLE001 - the other series are still written
             totals["failed"] += 1
             logger.error("The dates of a series could not be written: %s", type(error).__name__)
@@ -227,6 +264,10 @@ def _clean(fields: dict) -> dict:
     return fields
 
 
+class SeriesEnded(Exception):
+    """The series ended: it is taken up again before it is changed."""
+
+
 def create_series(church, actor, today: date | None = None, **fields) -> EventSeries:
     with transaction.atomic():
         series = EventSeries.objects.create(church=church, created_by=actor, **_clean(fields))
@@ -236,17 +277,21 @@ def create_series(church, actor, today: date | None = None, **fields) -> EventSe
 
 
 def update_series(series: EventSeries, actor, today: date | None = None, **fields) -> Applied:
-    """Change the template and bring the dates that may follow it up to date (see the module's rules)."""
-    today = today or timezone.localdate()
+    """Change the template and bring the dates that may follow it up to date (see the module's rules).
+    A series that ended raises ``SeriesEnded`` and nothing changes."""
+    given, today = today, today or timezone.localdate()
     with transaction.atomic():
         locked = EventSeries.objects.select_for_update().get(pk=series.pk)
+        if not locked.active:
+            # Changing it would rewrite the dates it left behind, which ending promised to leave as they are.
+            raise SeriesEnded
         for name, value in _clean(fields).items():
             setattr(locked, name, value)
         locked.generated_through = None  # the rule may have changed: look at the whole window again
         locked.save()
         applied = _apply(locked, today)
         record_church(locked.church, actor, "serie_modificada", "Modificó una serie de eventos", locked, value=applied.changed)
-        generate(locked, actor, today)
+        generate(locked, actor, given)
     return applied
 
 
@@ -292,9 +337,16 @@ def _follow(series: EventSeries, occurrence_id: int, today: date, applied: Appli
             row.has_people = taken
             applied.kept.append(row)
         return
-    now = timezone.now()
-    if not on_rule:
-        if row.status != OFF_RULE:
+    _align(series, row, page, applied)
+
+
+def _align(series: EventSeries, row: SeriesOccurrence, page: EventPage | None, applied: Applied) -> None:
+    """Write what the series says NOW on a date nobody touched and nobody signed up for (the caller checked
+    both, with the page locked): its place, hour, publication and the rest; or retire it when the series no
+    longer falls on its day."""
+    event, now = row.event, timezone.now()
+    if not falls_on(series, row.day):
+        if row.status != OFF_RULE or (page is not None and page.published):
             EventPage.objects.filter(event_id=event.pk).update(published=False, updated_at=now)
             row.status = OFF_RULE
             row.save(update_fields=["status"])
@@ -322,11 +374,16 @@ def _apply(series: EventSeries, today: date) -> Applied:
 
 
 def to_review(series: EventSeries, today: date | None = None) -> list[SeriesOccurrence]:
-    """The dates to come that do not say what the series says and that Emmaus will not change: somebody is
-    signed up. (A date changed by hand differs on purpose and is not listed.) Reads only."""
+    """The dates to come that Emmaus will not change and that somebody should look at. Reads only. Each row
+    carries ``why``:
+
+    * ``sin_publicar``: the series publishes its dates and this one is not published, and it has sign-ups or
+      was changed by hand (a day that was called off and is on again comes back like this);
+    * ``fuera_de_regla`` / ``otros_datos``: somebody is signed up and the date is not what the series says.
+      (A date changed by hand differs on purpose and is not listed for that.)"""
     today = today or timezone.localdate()
     rows = (
-        SeriesOccurrence.objects.filter(series=series, day__gte=today, status=ACTIVE, edited_at__isnull=True)
+        SeriesOccurrence.objects.filter(series=series, day__gte=today, status=ACTIVE)
         .select_related("event", "event__page").order_by("day")
     )
     taken = set(EventRegistration.objects.filter(event__series_occurrence__series=series, status__in=SIGNED_UP)
@@ -334,9 +391,17 @@ def to_review(series: EventSeries, today: date | None = None) -> list[SeriesOccu
     found = []
     for row in rows:
         page = getattr(row.event, "page", None)
+        signed, edited = row.event_id in taken, row.edited_at is not None
         row.off_rule = not falls_on(series, row.day)
-        if row.event_id in taken and (row.off_rule or _differs(series, row.event, page)):
-            found.append(row)
+        if series.published and (page is None or not page.published) and (signed or edited):
+            row.why = "sin_publicar"
+        elif signed and not edited and row.off_rule:
+            row.why = "fuera_de_regla"
+        elif signed and not edited and _differs(series, row.event, page):
+            row.why = "otros_datos"
+        else:
+            continue
+        found.append(row)
     return found
 
 
@@ -370,35 +435,50 @@ def call_off(occurrence: SeriesOccurrence, actor) -> SeriesOccurrence:
     return row
 
 
-def restore(occurrence: SeriesOccurrence, actor) -> SeriesOccurrence:
-    """"Sí hay": undo ``call_off``. The page is published again only if it was when the day was called off."""
+def restore(occurrence: SeriesOccurrence, actor, today: date | None = None) -> SeriesOccurrence:
+    """"Sí hay": undo ``call_off``. The series may have changed while the day was off (changes skip a day
+    that was called off), so the date never comes back as it was:
+
+    * nobody changed it by hand and nobody is signed up: it takes what the series says NOW (place, hour,
+      whether it is published and public), or is retired if the series no longer falls on its day;
+    * somebody changed it by hand, or somebody is signed up: nothing of it is rewritten and it comes back
+      NOT published, listed for the administration to review (``to_review``) and publish by hand."""
+    today = today or timezone.localdate()
     with transaction.atomic():
         row, page = _locked_occurrence(occurrence)
         if row.status != CANCELLED:
             return row
         row.status, row.cancelled_at, row.cancelled_by = ACTIVE, None, None
         row.save(update_fields=["status", "cancelled_at", "cancelled_by"])
-        if page is not None and row.published_before and not page.published:
-            EventPage.objects.filter(pk=page.pk).update(published=True, updated_at=timezone.now())
+        taken = EventRegistration.objects.filter(event_id=row.event_id, status__in=SIGNED_UP).exists()
+        over = (row.event.ends_on or row.event.starts_on or row.day) < today
+        if row.edited_at is None and not taken and not over:
+            _align(row.series, row, page, Applied())
         record_church(row.series.church, actor, "serie_fecha", "Dijo que un día de una serie sí hay", row,
                       event_id=row.event_id, reason="si_hay")
     return row
 
 
 # ---- what people read ---------------------------------------------------------------------------
-def collapse(events: list[Event]) -> list[Event]:
+def collapse(events: list[Event], now: datetime | None = None) -> list[Event]:
     """A list of events without the same thing eight times: of each series, the next date only, with
     ``event.series`` (so the row can say "se repite cada domingo") and ``event.series_more`` (how many more
-    dates the list had). A date this person signed up for, or waits for, always keeps its own row."""
+    dates the list had). A date this person signed up for, or waits for, always keeps its own row. The next
+    date is the first that has not begun (``has_started``)."""
+    now = now or timezone.now()
     shown, firsts = [], {}
     for event in events:
         row = occurrence_of(event)
         event.series, event.series_more = (row.series if row else None), 0
         event.called_off = bool(row and row.cancelled)
-        event.series_rule = rule_words(row.series) if row else ""
+        # The rule is the template's: said only while the series is published. A date that stays published
+        # on its own (somebody is signed up) says what the date says and nothing of the template.
+        event.series_rule = rule_words(row.series) if row and row.series.published and row.series.active else ""
         mine = getattr(event, "my_place", None) or getattr(event, "my_wait", None)
         if row is None or mine:
             shown.append(event)
+        elif has_started(event, now):
+            continue  # this morning's date is not "the next one" tonight
         elif row.series_id in firsts:
             firsts[row.series_id].series_more += 1
         else:

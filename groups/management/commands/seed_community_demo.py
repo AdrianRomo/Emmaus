@@ -220,7 +220,7 @@ class Command(BaseCommand):
             church.save(update_fields=["contact_email"])
         sitio.save_home(
             church, admin, welcome="Somos una iglesia de barrio. Si es tu primera vez, llega como eres: te esperamos en la entrada.",
-            address="Av. de los Olivos 120, Col. Jardines\nCiudad de México", map_url="https://maps.example.invalid/iglesia-demo",
+            address="Av. de los Olivos 120, Col. Jardines\nCiudad de México", map_url="https://www.openstreetmap.org/#map=17/19.4326/-99.1332",
             contact_phone="55 5550 0100",
         )
         if not ServiceTime.objects.filter(church=church).exists():

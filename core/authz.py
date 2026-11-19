@@ -12,11 +12,22 @@ or pastoral notes: those stay behind ``events.access``.
 
 from __future__ import annotations
 
+from django.core.exceptions import PermissionDenied
 from django.db import models
+from django.middleware.csrf import rotate_token
 
 from .models import Church, Role, UserChurchRole
 
 SESSION_KEY = "current_church"
+# The church the last request of this session acted in. It decides nothing: it only tells that the church
+# changed under a form that was already open (``_church_changed``).
+SEEN_KEY = "church_seen"
+SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
+
+
+class StaleChurch(PermissionDenied):
+    """A form was sent after the church of its session changed. Answered with the page of an expired
+    form (``core.views.permission_denied``): go back, reload, repeat."""
 
 # Group roles that may manage their group (groups.GroupMembership.Role.LEADER). A literal: core must not import groups.
 GROUP_MANAGE_ROLES = frozenset({"lider"})
@@ -101,7 +112,34 @@ def churches_of(user) -> list[Church]:
     return [church for church in churches if church.active]
 
 
-def church_choices(request) -> tuple[Church | None, list[Church]]:
+def _church_changed(request, church: Church | None, *, refuse: bool) -> None:
+    """Keep forms of one church from writing into another.
+
+    A form of the community modules names no church: it writes into the church of the request that
+    receives it. So when the church of a session changes (the person chose another one, perhaps in
+    another tab; a role or a person ended; a church was closed) every form drawn before must die:
+
+    - the CSRF secret is rotated, so Django's own check refuses them from the next request on;
+    - the request that *discovers* the change already passed that check, so if it is a write it is
+      refused here, before its view runs.
+    """
+    session = request.session
+    seen, now = session.get(SEEN_KEY), church.pk if church else None
+    if seen == now:
+        return
+    if now is None:
+        session.pop(SEEN_KEY, None)
+    else:
+        session[SEEN_KEY] = now
+    if seen is None:
+        return  # the first request of this session with a church: no form of another church can be open
+    if hasattr(request, "META"):
+        rotate_token(request)
+    if refuse and getattr(request, "method", "GET") not in SAFE_METHODS:
+        raise StaleChurch
+
+
+def church_choices(request, *, refuse_stale: bool = True) -> tuple[Church | None, list[Church]]:
     """The church this request acts in, and every church the account may choose (decision 0017).
 
     The session holds only a church id, and it is never trusted by itself: on every request the id is
@@ -110,17 +148,23 @@ def church_choices(request) -> tuple[Church | None, list[Church]]:
     or left behind by a role or a person that ended, or of a church that was closed) is removed from
     the session and grants nothing; the request then acts in the default, the first of the list.
     Being a superuser adds no church here.
+
+    When the answer is not the church this session last acted in, a write is refused
+    (``StaleChurch``, see ``_church_changed``); ``refuse_stale=False`` is for the switch view alone.
     """
     churches = churches_of(request.user)
     chosen = request.session.get(SESSION_KEY)
+    church = None
     if chosen is not None:
         # ``type(...) is int``: ``switch_church`` never stores anything else, and True == 1.
         if type(chosen) is int:
-            for church in churches:
-                if church.pk == chosen:
-                    return church, churches
-        request.session.pop(SESSION_KEY, None)
-    return (churches[0] if churches else None), churches
+            church = next((one for one in churches if one.pk == chosen), None)
+        if church is None:
+            request.session.pop(SESSION_KEY, None)
+    if church is None and churches:
+        church = churches[0]
+    _church_changed(request, church, refuse=refuse_stale)
+    return church, churches
 
 
 def current_church(request) -> Church | None:
@@ -141,6 +185,7 @@ def switch_church(request, church_id) -> Church | None:
     for church in churches_of(request.user):
         if str(church.pk) == str(church_id):
             request.session[SESSION_KEY] = church.pk
+            _church_changed(request, church, refuse=False)  # rotates the CSRF secret when the church changed
             return church
     return None
 
@@ -151,3 +196,4 @@ def forget_choice(sender, request, **kwargs):
     session = getattr(request, "session", None)
     if session is not None:
         session.pop(SESSION_KEY, None)
+        session.pop(SEEN_KEY, None)

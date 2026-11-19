@@ -51,7 +51,8 @@ def keys_of(person) -> set[tuple[str, str]]:
 
 
 def signals_between(a: Person, b: Person) -> list[str]:
-    """Which signals join two people, in a fixed order. Empty: nothing suggests they are the same."""
+    """What two records have in common, in a fixed order, looking at nobody else. NOT the rule of the
+    review: a value half the church shares is here and is no signal (``suggested_signals``)."""
     shared = {signal for signal, _ in keys_of(a) & keys_of(b)}
     return [signal for signal in SIGNAL_LABELS if signal in shared]
 
@@ -76,8 +77,8 @@ class Pair:
         return [SIGNAL_LABELS[signal] for signal in self.signals]
 
 
-def suggestions(church) -> list[Pair]:
-    """Every pair of active people of ``church`` that shares a signal and was not dismissed. Three queries."""
+def _found(church) -> dict[tuple[int, int], set[str]]:
+    """Every pair of active people of ``church`` joined by a signal, dismissed or not. One query."""
     rows = list(
         Person.objects.filter(church=church, merged_into__isnull=True)
         .values("pk", "email", "phone", "normalized_name", "birth_date")
@@ -91,6 +92,19 @@ def suggestions(church) -> list[Pair]:
         if 2 <= len(ids) <= MAX_SHARED:
             for a_id, b_id in combinations(sorted(ids), 2):
                 found.setdefault((a_id, b_id), set()).add(signal)
+    return found
+
+
+def suggested_signals(church, a_id: int, b_id: int) -> list[str]:
+    """The signals for which the review shows (or, if dismissed, showed) this pair: the same rule as the
+    list, value shared by too many included. Empty: the review never suggests them, so nothing merges them."""
+    signals = _found(church).get(ordered(a_id, b_id), set())
+    return [signal for signal in SIGNAL_LABELS if signal in signals]
+
+
+def suggestions(church) -> list[Pair]:
+    """Every pair of active people of ``church`` that shares a signal and was not dismissed. Three queries."""
+    found = _found(church)
     if not found:
         return []
     dismissed = set(DuplicateDismissal.objects.filter(church=church).values_list("person_a_id", "person_b_id"))
