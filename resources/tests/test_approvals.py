@@ -465,8 +465,8 @@ class WithoutAPastorTests(ApprovalFixture):
 
 
     def test_the_notice_offers_the_two_links_only_when_they_open_for_this_account_in_this_church(self):
-        """ "Invitar a alguien" and "Usuarios" act in the church of the account's first role. An administrator who is
-        working in their second church is told what to do in words instead of being sent to a page that is not there."""
+        """ "Invitar a alguien" and "Usuarios" act in the church of the request: the administration of that church is
+        offered them, in whichever of its churches it is working; a pastor, who cannot open them, is told in words."""
         from core.authz import SESSION_KEY
         from core.models import UserChurchRole
 
@@ -475,23 +475,29 @@ class WithoutAPastorTests(ApprovalFixture):
         UserChurchRole.objects.filter(role=Role.PASTOR).delete()
         self.client.force_login(self.admin)
         pages = (QUEUE, reverse("resources:devotional_admin"), reverse("resources:plan_admin"))
-        for address in pages:  # in the church of the first role: the links open, so they are offered
-            page = self.client.get(address)
-            self.assertContains(page, NO_PASTOR)
-            self.assertContains(page, reverse("create_invitation"))
-            self.assertContains(page, reverse("user_list"))
-        self.assertEqual(self.client.get(reverse("create_invitation")).status_code, 200)
+        for church in (self.church, self.church_b):  # the first church, then working in the second one
+            session = self.client.session
+            session[SESSION_KEY] = church.pk
+            session.save()
+            for address in pages:
+                page = self.client.get(address)
+                self.assertContains(page, NO_PASTOR, msg_prefix=address)
+                self.assertContains(page, reverse("create_invitation"))
+                self.assertContains(page, reverse("user_list"))
+            self.assertEqual(self.client.get(reverse("create_invitation")).status_code, 200)
+            self.assertEqual(self.client.get(reverse("user_list")).status_code, 200)
 
-        session = self.client.session
-        session[SESSION_KEY] = self.church_b.pk
-        session.save()
-        for address in pages:  # working in the second church: no link that would not open, and what to do in words
-            page = self.client.get(address)
-            self.assertContains(page, NO_PASTOR, msg_prefix=address)
-            self.assertNotIn(reverse("create_invitation"), main(page))
-            self.assertNotIn(reverse("user_list"), main(page))
-            self.assertContains(page, "Desde aquí no puedes invitar ni cambiar roles en esta iglesia")
-            self.assertContains(page, "hace falta que una cuenta de esta iglesia tenga el rol «Pastor»")
+    def test_the_notice_tells_in_words_who_cannot_open_the_two_screens(self):
+        from django.template import Context, Template
+        from django.test import RequestFactory
+
+        request = RequestFactory().get("/")
+        request.is_church_admin = False
+        html = Template('{% include "resources/_no_pastor.html" %}').render(Context({"request": request}))
+        self.assertNotIn(reverse("create_invitation"), html)
+        self.assertNotIn(reverse("user_list"), html)
+        self.assertIn("Desde aquí no puedes invitar ni cambiar roles en esta iglesia: pídelo a la administración de la iglesia", html)
+        self.assertIn("hace falta que una cuenta de esta iglesia tenga el rol «Pastor»", html)
 
 
 class AfterApprovalTests(ApprovalFixture):

@@ -232,3 +232,69 @@ class ChurchAuditTests(CommunityFixture):
             self.assertNotIn("@", text)
             self.assertNotIn("9999", text)
         self.assertFalse(ChurchAuditEvent.objects.filter(church=self.church_b).exists())
+
+
+class NotFoundBeforeForbiddenTests(CommunityFixture):
+    """Somebody who may not manage the church's people gets 404 for an id that is not of this church (the answer the
+    administration gets) and 403 only for a row that is. The id of another church never answers differently from
+    an id that does not exist."""
+
+    def setUp(self):
+        from people import merge
+        from people.models import EventParticipantLink, PersonMerge
+
+        self.twin = Person.objects.create(church=self.church, first_name="Nora", last_name="Sin Cuenta Dos")
+        self.twin_b = Person.objects.create(church=self.church_b, first_name="Bruno", last_name="Miembro Dos")
+        self.dismissal = merge.dismiss(self.church, self.no_account.pk, self.twin.pk, self.admin)
+        self.dismissal_b = merge.dismiss(self.church_b, self.member_b.pk, self.twin_b.pk, self.admin_b)
+        self.link = EventParticipantLink.objects.get(person=self.member)
+        self.merge_b = PersonMerge.objects.create(church=self.church_b, survivor=self.member_b, absorbed=self.twin_b, merged_by=self.admin_b)
+        self.church_pastor = User.objects.create_user(username="pastora-404@prueba.mx", email="pastora-404@prueba.mx")
+        UserChurchRole.objects.create(church=self.church, user=self.church_pastor, role="pastor")
+
+    def routes(self, person, other, slug, dismissal, link_person, link, merge_id):
+        return [
+            ("get", reverse("people:detail", args=[person])),
+            ("get", reverse("people:edit", args=[person])),
+            ("post", reverse("people:edit", args=[person])),
+            ("post", reverse("people:grant_access", args=[person])),
+            ("post", reverse("people:access_link", args=[person])),
+            ("get", reverse("people:merge_preview", args=[person, other])),
+            ("post", reverse("people:merge_preview", args=[person, other])),
+            ("get", reverse("people:from_event", args=[slug])),
+            ("post", reverse("people:duplicate_reopen", args=[dismissal])),
+            ("post", reverse("people:unlink", args=[link_person, link])),
+            ("get", reverse("people:merge_detail", args=[merge_id])),
+            ("post", reverse("people:merge_undo", args=[merge_id])),
+        ]
+
+    def test_an_id_of_this_church_is_forbidden_and_an_id_of_another_is_not_found(self):
+        own = self.routes(self.no_account.pk, self.twin.pk, self.event.slug, self.dismissal.pk, self.member.pk, self.link.pk, 0)[:10]
+        foreign = self.routes(self.member_b.pk, self.twin_b.pk, self.event_b.slug, self.dismissal_b.pk, self.member_b.pk, self.link.pk, self.merge_b.pk)
+        invented = self.routes(987654, 987655, "no-existe", 987654, 987654, 987654, 987654)
+        mixed = [
+            ("get", reverse("people:merge_preview", args=[self.no_account.pk, self.member_b.pk])),  # one of each church
+            ("post", reverse("people:unlink", args=[self.no_account.pk, self.link.pk])),  # a link of another person
+        ]
+        for user in (self.member_user, self.leader_user, self.church_pastor):
+            self.client.force_login(user)
+            for method, url in own:
+                with self.subTest(user=user.email, own=url):
+                    self.assertEqual(getattr(self.client, method)(url).status_code, 403)
+            for method, url in foreign + invented + mixed:
+                with self.subTest(user=user.email, foreign=url):
+                    self.assertEqual(getattr(self.client, method)(url).status_code, 404)
+        # and nothing was written by any of it
+        self.assertTrue(type(self.dismissal).objects.filter(pk=self.dismissal_b.pk).exists())
+        self.merge_b.refresh_from_db()
+        self.assertIsNone(self.merge_b.undone_at)
+
+    def test_the_administration_of_another_church_still_gets_404(self):
+        self.client.force_login(self.admin_b)
+        for name in ("people:detail", "people:edit"):
+            self.assertEqual(self.client.get(reverse(name, args=[self.no_account.pk])).status_code, 404)
+
+    def test_a_merged_record_is_not_found_for_anybody(self):
+        Person.objects.filter(pk=self.twin.pk).update(merged_into=self.no_account)
+        self.client.force_login(self.member_user)
+        self.assertEqual(self.client.get(reverse("people:detail", args=[self.twin.pk])).status_code, 404)

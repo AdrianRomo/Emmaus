@@ -7,10 +7,10 @@ from django.db import transaction
 from django.shortcuts import redirect, render
 from django.urls import reverse
 
-from core.access import get_user_role
+from core import tenancy
 from core.onboarding import for_church_role
 
-from ..access import accessible_events, administered_churches, resolve_access
+from ..access import resolve_access
 from ..forms import EventForm, StationChoiceForm
 from ..models import Event, InterviewStation
 from ..services import audit
@@ -22,8 +22,14 @@ from .common import COORDINATOR, EVERYONE, event_view, remember_station, role_ho
 @login_required
 def events_home(request):
     """Entry point after login: go straight to the last event, the only one in course or the only one, else list them."""
-    events = list(accessible_events(request.user).order_by("-starts_on", "name"))
-    can_create = administered_churches(request.user).exists()
+    # A church screen: the events of the church this request acts in, and those where the account holds an event
+    # role of its own (core.tenancy.listed_events). An account of one church gets the list it always had.
+    where = tenancy.resolve(request)
+    events = list(tenancy.listed_events(request, where).order_by("-starts_on", "name"))
+    here = where.church.pk if where.church is not None and where.others else None
+    if here is not None:
+        events.sort(key=lambda event: event.church_id != here)  # stable: this church's first, then the others
+    can_create = tenancy.church_for_new_event(request) is not None
     last = request.session.get("current_event")
     if not request.GET.get("todos"):
         preferred = next((e for e in events if e.slug == last), None)
@@ -38,18 +44,19 @@ def events_home(request):
     for event in events:
         access = resolve_access(request.user, event)
         if access:
-            rows.append({"event": event, "access": access})
+            # Said aloud, for an account of several churches: an event of another church than the one it works in.
+            rows.append({"event": event, "access": access, "other_church": event.church if here not in (None, event.church_id) else None})
     # The welcome of the church role (or of someone with no role yet), the first time; put away with "Entendido"
-    welcome = for_church_role(request.user, get_user_role(request.user), can_create_event=can_create)
+    welcome = for_church_role(request.user, where.role, can_create_event=can_create)
     return render(request, "events/events_list.html", {"rows": rows, "can_create": can_create, "welcome": welcome})
 
 
 @login_required
 def event_create(request):
-    churches = list(administered_churches(request.user))
-    if not churches:
+    # In the church this request acts in, and only for who administers it (core.tenancy.church_for_new_event).
+    church = tenancy.church_for_new_event(request)
+    if church is None:
         raise PermissionDenied
-    church = churches[0]
     form = EventForm(request.POST or None, initial={"kind": Event.Kind.CAMP, "status": Event.Status.ACTIVE})
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():

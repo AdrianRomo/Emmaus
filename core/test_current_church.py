@@ -128,7 +128,9 @@ class ChoosingTests(TwoChurchFixture):
         self.assertFalse(has_scope(self.dual, self.church_b, "church", self.church_b.pk, "manage"))
         # An object of church A by its id, from church B: it does not exist there
         self.assertEqual(self.client.get(reverse("community:group_detail", args=[self.group.pk])).status_code, 404)
-        self.assertEqual(self.client.get(reverse("people:detail", args=[self.no_account.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("people:detail", args=[self.no_account.pk])).status_code, 404)
+        # 403 is only for a row that is of this church and that they may not manage
+        self.assertEqual(self.client.get(reverse("people:detail", args=[self.member_b.pk])).status_code, 403)
 
     def test_an_object_of_the_other_church_is_not_found_by_its_id(self):
         self.client.force_login(self.dual)
@@ -488,31 +490,37 @@ class SwitcherTests(TwoChurchFixture):
 
 
 class LegacyDiscipleshipTests(TwoChurchFixture):
-    """The discipleship screens follow the account's first church role (core/access.py, not edited here). While the
-    account works in another church they are neither offered nor answered: church A's data never shows under church B."""
+    """The discipleship screens act in the church of the request, with the role held there (docs/v2/wave10/legado.md; every
+    screen, by list, id and POST: ``core/test_legacy_church.py``). Church A's data never shows under church B."""
 
-    def test_they_answer_only_in_the_church_of_the_first_role(self):
+    def test_they_answer_in_the_chosen_church_with_its_own_data(self):
         self.client.force_login(self.dual)
-        self.assertEqual(self.client.get(reverse("church_settings")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("church_settings")).context["form"].instance, self.church)
         self.assertContains(self.client.get(reverse("community:home")), reverse("church_settings"))
         self.choose(self.church_b)
         for name in ("church_settings", "user_list", "church_dashboard", "participants_list", "path_list", "invitations_list"):
-            self.assertEqual(self.client.get(reverse(name)).status_code, 404, name)
-        self.assertEqual(self.client.post(reverse("church_settings"), {"name": "Otra"}).status_code, 404)
-        self.church.refresh_from_db()
-        self.assertEqual(self.church.name, "Iglesia de prueba")
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 200, name)
+            self.assertNotContains(response, "admin@prueba.mx", msg_prefix=name)  # church A's administrator
+        self.assertEqual(self.client.get(reverse("church_settings")).context["form"].instance, self.church_b)
+        self.assertContains(self.client.get(reverse("user_list")), "admin-b@prueba.mx")
         home = self.client.get(reverse("community:home"))
-        self.assertNotContains(home, reverse("church_settings"))
-        # What does follow the request stays within reach, and is church B's
-        self.assertContains(home, reverse("church_policies"))
-        self.assertContains(home, reverse("sitio:edit"))
+        self.assertContains(home, reverse("church_settings"))  # "Configuración" opens here now, so it is offered
         for name in ("church_policies", "sitio:edit"):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 200, name)
-            self.assertNotContains(response, "Volver a Configuración", msg_prefix=name)
+            self.assertContains(response, "Volver a Configuración", msg_prefix=name)
         self.choose(self.church)
-        self.assertEqual(self.client.get(reverse("church_settings")).status_code, 200)
-        self.assertContains(self.client.get(reverse("church_policies")), "Volver a Configuración")
+        self.assertEqual(self.client.get(reverse("church_settings")).context["form"].instance, self.church)
+        # A person of church B whose role is in church A: these screens do not exist for them in B
+        self.client.force_login(self.admin)
+        self._person(self.church_b, self.admin)
+        self.choose(self.church_b)
+        self.assertEqual(self.client.get(reverse("church_settings")).status_code, 404)
+        self.assertEqual(self.client.post(reverse("church_settings"), {"name": "Otra"}).status_code, 404)
+        self.church_b.refresh_from_db()
+        self.assertEqual(self.church_b.name, "Iglesia B")
+        self.assertNotContains(self.client.get(reverse("community:home")), reverse("church_settings"))
 
     def test_the_dashboard_leads_to_the_chosen_church(self):
         participant = make_user("participa-a@prueba.mx", "Pablo", "Participa")
