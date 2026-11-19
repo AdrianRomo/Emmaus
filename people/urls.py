@@ -16,6 +16,7 @@ urlpatterns = [
     path("duplicados/<int:survivor_id>/<int:absorbed_id>/", merge_views.merge_preview, name="merge_preview"),
     path("uniones/<int:merge_id>/", merge_views.merge_detail, name="merge_detail"),
     path("uniones/<int:merge_id>/deshacer/", merge_views.merge_undo, name="merge_undo"),
+    path("exportar/", data_views.people_export, name="export"),
     path("etiquetas/", data_views.tag_list, name="tags"),
     path("etiquetas/<int:tag_id>/borrar/", data_views.tag_delete, name="tag_delete"),
     path("<int:person_id>/", views.person_detail, name="detail"),

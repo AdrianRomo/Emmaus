@@ -61,5 +61,6 @@
   </section>
   {% if total > 1 %}<p class="more"><a href="{% url 'people:duplicates' %}">Revisar posibles duplicados</a></p>{% endif %}
   <p class="more"><a href="{% url 'people:tags' %}">Etiquetas de la iglesia</a></p>
+  {% if total %}<p class="more"><a href="{% url 'people:export' %}">Descargar la lista</a></p>{% endif %}
 </div>
 {% endblock %}

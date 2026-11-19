@@ -103,6 +103,7 @@ ACTION_LABELS = {
     "etiqueta_creada": "Creó una etiqueta para las personas",
     "etiqueta_borrada": "Borró una etiqueta de las personas",
     "persona_etiquetas": "Cambió las etiquetas de una persona",
+    "personas_exportadas": "Descargó la lista de personas de la iglesia",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

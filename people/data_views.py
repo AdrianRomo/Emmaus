@@ -1,15 +1,22 @@
-"""Tags of the people list, for the church's administration only.
+"""Tags of the people list and its download, for the church's administration only.
 
 Every view: ``people.views.church_admin_required`` (the ``people`` module on for the current church,
 404 otherwise; then church ``manage`` through ``core.authz.has_scope``, 403 otherwise). Tags and
 people are fetched inside ``request.church``: an id of another church is a 404.
 """
 
+import csv
+
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from . import tags
+from events.services import throttle
+
+from . import export, tags
+from .audit import record_church
 from .services import PeopleError
 from .views import _person, church_admin_required
 
@@ -78,3 +85,39 @@ def person_tags(request, person_id: int):
     else:
         messages.success(request, "Guardamos sus etiquetas.")
     return redirect("people:detail", person.pk)
+
+
+# ---- the download ---------------------------------------------------------------------------------
+# Per administrator and church: a list is downloaded now and then, not in a loop.
+EXPORT_LIMIT = {"limit": 5, "window_seconds": 60 * 60, "block_seconds": 10 * 60}
+
+
+@church_admin_required
+def people_export(request):
+    """"Descargar la lista": what the file holds (GET) and the file (POST): one CSV per request, counted
+    against a limit, with one audit row that says how many rows went out and nothing about who is in them."""
+    context = {"columns": export.HEADER, "total": _people_count(request.church)}
+    if request.method != "POST":
+        return render(request, "people/export.html", context)
+    wait = throttle.consume(f"people-export:{request.church.pk}:{request.user.pk}", **EXPORT_LIMIT)
+    if wait:
+        context["wait"] = throttle.wait_message(wait).replace("Demasiados intentos.", "Ya descargaste la lista varias veces.")
+        return render(request, "people/export.html", context, status=429)
+    table = export.rows(request.church)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    stamp = timezone.localtime().strftime("%Y%m%d-%H%M")
+    response["Content-Disposition"] = f'attachment; filename="personas-{request.church.slug}-{stamp}.csv"'
+    response["Cache-Control"] = "no-store"
+    response.write("\ufeff")  # Excel opens UTF-8 correctly with a BOM
+    writer = csv.writer(response)
+    writer.writerow(export.HEADER)
+    writer.writerows(table)
+    record_church(request.church, request.user, "personas_exportadas", "Descargó la lista de personas de la iglesia (CSV)", None,
+                  count=len(table))
+    return response
+
+
+def _people_count(church) -> int:
+    from .views import _people
+
+    return _people(church).count()
