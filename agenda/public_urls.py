@@ -2,10 +2,11 @@
 
 from django.urls import path
 
-from . import public
+from . import calendar, public
 
 app_name = "evento"
 
 urlpatterns = [
     path("<slug:slug>/", public.event, name="detail"),
+    path("<slug:slug>/calendario.ics", calendar.event, name="calendar"),
 ]

@@ -11,6 +11,7 @@
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Página del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
   <p class="aside-note">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}. {% if event.camp_tools %}El nombre, las fechas y el lugar se cambian en la configuración del evento.{% else %}<a href="{% url 'agenda:event_edit' event.slug %}">Cambiar el nombre, las fechas o el lugar</a>.{% endif %}</p>
+  {% if series_row %}<div class="notice notice--quiet"><p>Esta fecha es parte de la serie <a href="{% url 'agenda:series_admin' series_row.series_id %}">{{ series_row.series.name }}</a>. Si la cambias aquí, deja de seguir los cambios que le hagas a la serie.</p></div>{% endif %}
   {% if public_link %}
   <section class="block public-link" aria-labelledby="publica">
     <h2 id="publica" class="heading">Página pública del evento</h2>

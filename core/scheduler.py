@@ -10,7 +10,8 @@ which writes the job's heartbeat (``SchedulerHeartbeat``) and one JSON line on `
 Counts and a class name only: never an address, a name, a title or an error message. The same holds
 for what a failing community job writes to the ordinary log: its class and its stack, not its message.
 A job is not "ok" when it raised, and also when its own counts say it did nothing useful
-(``AllSendsFailed``: every e-mail was refused; ``EventsFailed``: a waiting list could not be moved).
+(``AllSendsFailed``: every e-mail was refused; ``EventsFailed``: a waiting list could not be moved;
+``SeriesFailed``: the dates of a series could not be written).
 
 Who reads the heartbeat: ``manage.py scheduler_status`` (for cron or a monitor on the host) and the
 notice screens (``notice_mail_problem``), which must not promise an e-mail on a later day while
@@ -39,7 +40,8 @@ log = logging.getLogger(__name__)
 CUTOFFS = "cortes"
 NOTICE_MAIL = "avisos_correo"
 WAITING_OFFERS = "lista_espera"
-JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS)
+SERIES = "series_eventos"
+JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES)
 # A job that has not ended well for this long is not running: three passes of 300 seconds.
 STALE_MINUTES = 15
 

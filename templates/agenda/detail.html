@@ -11,6 +11,9 @@
   {% url 'agenda:list' as back %}
   {% include "events/rotulo/_page_head.html" with title=event.name lede=page.description back_url=back back_label="Volver a Eventos" %}
 
+  {% if called_off %}<div class="notice notice--warning"><p><strong>Este día no hay.</strong> Tu iglesia avisó que esta fecha no se hace. Si tienes dudas, pregunta en tu iglesia.</p></div>
+  {% elif series and page.published and state != "terminado" %}<p class="aside-note">Se repite {{ series_rule }}. <a href="{% url 'agenda:series' series.pk %}">Ver las otras fechas</a></p>{% endif %}
+
   {% if state == "abierta" %}
     {% if list_outcome == "expiro" %}<div class="notice notice--quiet"><p><strong>No respondiste a tiempo.</strong> El lugar que te ofrecimos venció. Ahora hay lugares: si todavía quieres ir, inscríbete.</p></div>{% endif %}
     <section class="sign sign--lead" aria-labelledby="inscribirme">

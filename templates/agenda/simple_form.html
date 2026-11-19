@@ -13,6 +13,7 @@
   {% else %}
     {% include "events/rotulo/_page_head.html" with title="Crear un evento" lede="Un culto especial, una convivencia, una noche de alabanza. Después escribes su página y decides si las personas se inscriben." back_url=back back_label="Volver a los eventos" %}
   {% endif %}
+  {% if series_row %}<div class="notice notice--quiet"><p>Esta fecha es parte de la serie <a href="{% url 'agenda:series_admin' series_row.series_id %}">{{ series_row.series.name }}</a>. Si la cambias aquí, deja de seguir los cambios que le hagas a la serie.</p></div>{% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% include "partials/ui/fields.html" with form=form %}

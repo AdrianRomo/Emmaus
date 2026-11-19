@@ -69,6 +69,8 @@ urlpatterns = [
     path("evento/", include("agenda.public_urls")),
     # The church's public home (issue #87, a prototype): only what the administration published on purpose.
     # core.urls keeps /iglesia/<slug>/logotipo/<variant>/, which this include does not match.
+    # The church's public calendar file (issue #93): /iglesia/<slug>/calendario.ics, only the public events.
+    path("iglesia/", include("agenda.calendar_urls")),
     path("iglesia/", include("sitio.public_urls")),
     path("eventos/", include("events.urls")),
     path("estacion/", include("events.kiosk_urls")),

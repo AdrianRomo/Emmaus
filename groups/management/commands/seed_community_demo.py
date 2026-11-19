@@ -94,7 +94,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", default="", help="Contraseña de las cuentas (o EMMAUS_DEMO_PASSWORD). Nunca se muestra.")
-        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones y la página pública de la iglesia, publicada.")
+        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones, una serie semanal (Reunión general, cada domingo) y la página pública de la iglesia, publicada.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
     def handle(self, *args, **opts):
@@ -182,7 +182,25 @@ class Command(BaseCommand):
                        ("bien", "si", ""), ("muy_bien", "si", "Que se repita."))
             for rating, recommend, comment in answers:
                 EventFeedback.objects.create(event=ended, rating=rating, recommend=recommend, comment=comment)
+        self._weekly_series(church, admin)
         self._public_home(church, admin, event)
+
+    def _weekly_series(self, church, admin) -> None:
+        """What the church does every Sunday (issue #93): a series, with its dates of the coming weeks written as
+        events, published for the church and without sign-up. Run again, it only writes the dates that are missing.
+        Not public on purpose: the demonstration's public home lists the two events above, not eight Sundays."""
+        from agenda import series
+        from agenda.models import EventSeries
+
+        existing = EventSeries.objects.filter(church=church, name="Reunión general").first()
+        if existing is not None:
+            series.generate(existing, admin)
+            return
+        series.create_series(
+            church, admin, name="Reunión general", weekdays="6", interval_weeks=1, starts_at=time(11, 0), duration_minutes=90,
+            location="Templo principal", time_zone="America/Mexico_City", starts_on=timezone.localdate(),
+            description="Cada domingo nos reunimos para cantar, orar y escuchar la Biblia.", published=True,
+        )
 
     def _public_home(self, church, admin, simple_event) -> None:
         """The church's public home (issue #87), published: a welcome, two times, where and how to ask, one

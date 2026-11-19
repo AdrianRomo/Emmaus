@@ -32,13 +32,16 @@ from . import services
 from .models import EventFaq, EventPage
 
 
+def public_pages():
+    """The pages anybody may read, before the two checks ``is_served`` makes on each: the one set the public
+    page of an event, its calendar file and the church's calendar feed (``agenda.calendar``) answer for."""
+    return EventPage.objects.filter(published=True, public=True, event__status=Event.Status.ACTIVE,
+                                    event__church__active=True)
+
+
 def public_page(slug: str):
     """The event and its page when anybody may read them, else None."""
-    page = (
-        EventPage.objects.filter(event__slug=slug, published=True, public=True, event__status=Event.Status.ACTIVE,
-                                 event__church__active=True)
-        .select_related("event", "event__church").first()
-    )
+    page = public_pages().filter(event__slug=slug).select_related("event", "event__church").first()
     if page is None or services.has_ended(page.event) or not flags.enabled(page.event.church, "community"):
         return None
     return page
@@ -102,6 +105,8 @@ def event(request, slug: str):
             "church": event.church,
             "sign_up": sign_up,
             "member_path": reverse("agenda:detail", args=[event.slug]),
+            # "Agregar a mi calendario": this event as a calendar file (agenda.calendar), the same public facts.
+            "calendar_path": reverse("evento:calendar", args=[event.slug]),
             "faqs": EventFaq.objects.filter(event=event),
             # Public notices (issue #96): title, text and when. Never who wrote them.
             "notices": services.public_notices(event),

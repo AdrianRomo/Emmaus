@@ -43,6 +43,7 @@ RELATIONS = {
     "faqs": NEVER,
     "public_notices": NEVER,  # dated news of the original (issue #96)
     "schedule_items": NEVER,
+    "series_occurrence": NEVER,  # a camp is never a date of a series (agenda.series, issue #93)
     "feedback": NEVER,
     "feedback_given": NEVER,
     "space_bookings": NEVER,  # a room booked for the original, on its dates: the copy books its own

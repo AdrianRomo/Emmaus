@@ -21,7 +21,7 @@ from groups.views import church_admin_view, community_view
 from people import flags, policy
 from people.models import Person
 
-from . import public, services
+from . import public, series, series_views, services
 from .forms import (
     AnnulForm,
     BirthDateForm,
@@ -82,7 +82,8 @@ def _seen_event(request, slug: str):
 # ---- the person ---------------------------------------------------------------------------------
 @community_view
 def event_list(request):
-    events = services.upcoming_for(request.person, request.church)
+    # Of a series, the next date only: the row says that it repeats and leads to the rest.
+    events = series.collapse(services.upcoming_for(request.person, request.church))
     return render(
         request,
         "agenda/list.html",
@@ -134,8 +135,18 @@ def detail(request, slug: str):
             # The event's public notices (issue #96): who is going reads them here too.
             "notices": services.public_notices(event),
             "notice_zone": public.notice_zone(event),
+            **_series_context(event),
         },
     )
+
+
+def _series_context(event: Event) -> dict:
+    """For a date of a series: that it repeats (with the way to its other dates, which exists only while the
+    date itself is in the list) and whether the administration called this day off."""
+    row = series.occurrence_of(event)
+    if row is None:
+        return {}
+    return {"series": row.series, "series_rule": series.rule_words(row.series), "called_off": row.cancelled}
 
 
 @community_view
@@ -259,7 +270,8 @@ def cancel(request, slug: str):
 @church_admin_view
 def admin_list(request):
     events = list(
-        Event.objects.filter(church=request.church)
+        # The dates of a series are under their series ("Series", above the list), not one row each here.
+        Event.objects.filter(church=request.church, series_occurrence__isnull=True)
         .select_related("page")
         .annotate(
             signed=Count("registrations", filter=Q(registrations__status=ACTIVE)),
@@ -271,7 +283,7 @@ def admin_list(request):
     for event in events:
         event.published = getattr(event, "page", None) is not None and event.page.published
         event.ended = event.starts_on is not None and services.has_ended(event)
-    return render(request, "agenda/admin_list.html", {"events": events})
+    return render(request, "agenda/admin_list.html", {"events": events, **series_views.admin_context(request)})
 
 
 @church_admin_view
@@ -303,6 +315,7 @@ def page_edit(request, slug: str):
             "faq_count": EventFaq.objects.filter(event=event).count(),
             "notice_count": EventNotice.objects.filter(event=event, retired_at__isnull=True).count(),
             "schedule_count": EventScheduleItem.objects.filter(event=event).count(),
+            "series_row": series.occurrence_of(event),
         },
     )
 
