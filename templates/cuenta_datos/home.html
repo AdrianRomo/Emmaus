@@ -27,7 +27,9 @@
           <div class="row__main">
             <p class="row__title">{{ item.category.title }}</p>
             <p class="row__meta">{{ item.category.why }}</p>
-            {% if item.parts %}
+            {% if item.words %}
+              {% for line in item.words %}<p class="row__meta">{{ line }}</p>{% endfor %}
+            {% elif item.parts %}
               <ul class="mis-datos__cuenta">
                 {% for label, count in item.parts %}<li>{{ label }}: <strong>{{ count }}</strong></li>{% endfor %}
               </ul>

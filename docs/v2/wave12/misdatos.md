@@ -70,11 +70,14 @@ All under `/mi-iglesia/cuenta/`, module `community` on (404 otherwise), through
    the groups the person is in now, while names are kept. Only the meetings they came to are rows.
 10. **«E-mail verified» does not exist in the schema.** The page and the file say what does: when the
     account was created, the last sign-in, whether it has a password.
-11. **The directory** is being built in parallel. A category exists and is drawn only while an app
-    labelled `directorio` (or `directory`) is installed; then every relation of that app to a person or
-    account is registered automatically and only COUNTED (its fields are not read: another slice owns
-    them). **Integrator: if the directory's app label is different, change `registry.DIRECTORY_APPS`,
-    or the inventory test will ask for a decision — which is the intended failure.**
+11. **The directory** was built in parallel, inside the `people` app. Since the integration the category
+    answers for `people.DirectoryEntry.person`: the page says in one sentence what the person chose and since
+    when, with a link to «Aparecer en el directorio» while that page opens for them; the download holds the
+    four choices and the date, never a value; the administration's task names the category and never counts
+    it. `people.DirectoryPolicy.accepted_by` is the pastor's act for the church (`NOT_THEIRS`). Also since the
+    integration: a booking that repeats is the requester's (`espacios.BookingSeries.requested_by`); what a
+    person answered when signing up is in their registration's row (how many always, the words behind the box
+    of the answers); a headcount and a template of an order are the church's.
 12. **«Quién puede qué» change links only for the administration.** A pastor reads the same rows without
     them (those screens would answer 403), except «Personas con acceso», which pastors already open.
 13. **Inactive accounts are not listed**: `has_scope` answers no for them. Participants (the church role

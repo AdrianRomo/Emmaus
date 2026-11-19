@@ -34,8 +34,8 @@ class RequestError(Exception):
 
 
 def may_download(person) -> bool:
-    """A known minor asks through the church, with a guardian (the rule of ``oracion.access.known_minor``)."""
-    from oracion.access import known_minor
+    """A known minor asks through the church, with a guardian (the one rule, ``people.minors.known_minor``)."""
+    from people.minors import known_minor
 
     return person is not None and not person.merged_into_id and not known_minor(person)
 

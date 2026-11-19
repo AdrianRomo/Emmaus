@@ -12,7 +12,7 @@
   {% include "events/rotulo/_page_head.html" with title="Quién puede qué" meta=current_church.name %}
 
   {% if review.no_pastor %}
-    <div class="notice notice--warning"><p><strong>Esta iglesia no tiene ninguna cuenta con rol de pastor.</strong> Mientras sea así, nadie puede aprobar devocionales, planes ni recursos para publicarlos, nadie lee peticiones de oración y no se puede encender lo que pide la aprobación de un pastor, como el directorio. <a href="{% url 'user_list' %}">Ver personas con acceso</a></p></div>
+    <div class="notice notice--warning"><p><strong>Esta iglesia no tiene ninguna cuenta con rol de pastor.</strong> Mientras sea así, nadie puede aprobar devocionales, planes ni recursos para publicarlos, nadie lee las peticiones de oración, y nadie puede encender ni apagar las peticiones de oración ni el directorio entre miembros: esos dos interruptores son solo de un pastor. <a href="{% url 'user_list' %}">Ver personas con acceso</a></p></div>
   {% elif review.lone_pastor_named_by_admin %}
     <div class="notice"><p><strong>La única cuenta con rol de pastor la nombró la administración.</strong> Emmaus pide que un pastor apruebe lo que la administración prepara; eso solo separa las dos tareas si son personas distintas y la una no depende de la otra. Cuidarlo le toca a la iglesia: Emmaus solo guarda quién aprobó y quién invitó.</p></div>
   {% endif %}

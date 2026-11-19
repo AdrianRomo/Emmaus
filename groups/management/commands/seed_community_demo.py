@@ -202,7 +202,7 @@ class Command(BaseCommand):
         a public one (a visitor leaves their contact), both published, with a few synthetic answers. Each form is
         looked up by its title, so running the seed again adds nothing. Every contact is ``@demo.invalid``.
         Only adults answer the form of the church: a person on record as a minor (``member`` is 17) neither sees
-        nor answers one (``formularios.services.is_known_minor``), and the seed must not do what the screens refuse."""
+        nor answers one (``people.minors.known_minor``, asked by ``formularios.services.is_known_minor``), and the seed must not do what the screens refuse."""
         from formularios import services as forms
         from formularios.fields import AnswerForm
         from formularios.models import Form

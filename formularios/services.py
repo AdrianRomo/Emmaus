@@ -679,9 +679,9 @@ def submit(form: Form, version_id: int, *, answers: dict, contact: dict | None =
 
 
 def is_known_minor(person: Person) -> bool:
-    """Whether the church's records say ``person`` is under 18: the rule of ``oracion.access.known_minor``.
+    """Whether the church's records say ``person`` is under 18: the one rule, ``people.minors.known_minor``.
     Such a person neither sees nor answers the forms of the church in this slice."""
-    from oracion.access import known_minor
+    from people.minors import known_minor
 
     return known_minor(person)
 

@@ -305,7 +305,7 @@ def build_event_shell(request, church) -> dict:
 
 def _minor_by_birth_date(person) -> bool:
     """Whether the person's own date of birth says they are under 18 today. No query: the fuller rule
-    (oracion.access.known_minor) decides at the door of the form; this only keeps a dead link out of the menu."""
+    (people.minors.known_minor) decides at the door of the form; this only keeps a dead link out of the menu."""
     born = getattr(person, "birth_date", None)
     if not born:
         return False

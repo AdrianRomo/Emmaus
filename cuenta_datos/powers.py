@@ -166,7 +166,7 @@ def build(church, *, can_change: bool, now=None) -> Review:
     roles_section = Section(
         "iglesia", "Roles de la iglesia",
         "La administración maneja todo en la iglesia y en cada uno de sus eventos. Un pastor aprueba lo que se publica, lee las "
-        "peticiones de oración y entra como pastor a cada evento. Un mentor acompaña a quienes le asignan.",
+        "peticiones de oración, es el único que las enciende o apaga, igual que el directorio entre miembros, y entra como pastor a cada evento. Un mentor acompaña a quienes le asignan.",
         [
             people.holder(
                 row.user_id, CHURCH_ROLE_WORDS.get(row.role, row.get_role_display()), since=row.created_at,

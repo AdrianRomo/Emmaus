@@ -20,6 +20,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import formats, timezone
+from django.views.decorators.http import require_POST
 
 from core.nav import safe_next
 from core.paging import paginate

@@ -213,8 +213,8 @@ class SchedulerPassTests(CommunityFixture):
         self.assertIn(CUTOFFS_LINE, printed)
         self.assertIn("correos de avisos: 1 enviados, 0 fallidos, 0 pendientes · lista de espera: 0 lugares liberados", printed)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True] * 10)
-        self.assertEqual(len(plain.records), 20)  # each write, by its class name only
+        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True] * 11)
+        self.assertEqual(len(plain.records), 22)  # each write, by its class name only
         self.assertTrue(all("OperationalError" in line and "no such table" not in line for line in plain.output))
         self.assertFalse(SchedulerHeartbeat.objects.exists())
 
@@ -377,7 +377,7 @@ class SchedulerStatusTests(CommunityFixture):
         code, printed, error = self.status()
         self.assertEqual(code, 1)
         self.assertEqual(printed.splitlines(), [f"{job}: SIN CORRER · nunca ha terminado bien" for job in scheduler.JOBS])
-        self.assertIn("10 de 10 trabajos programados", error)
+        self.assertIn("11 de 11 trabajos programados", error)
 
     def test_it_is_fine_after_a_pass_and_late_after_the_threshold(self):
         call_command("run_scheduled_jobs", stdout=StringIO())
@@ -409,7 +409,7 @@ class SchedulerStatusTests(CommunityFixture):
         self.assertIn("series_eventos: bien", printed)
         self.assertIn("uniones_personas: bien", printed)
         self.assertIn("suscripciones_evento: bien", printed)
-        self.assertIn("1 de 10", error)
+        self.assertIn("1 de 11", error)
         self.assertNotIn("secreto", printed + error)
 
     def test_notice_mail_that_is_not_set_up_is_said_and_is_not_a_missed_run(self):

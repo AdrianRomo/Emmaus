@@ -133,7 +133,7 @@ class PageTests(RichFixture):
         self.assertEqual(by_key["espacios"].count, 1)
         self.assertEqual(by_key["campamentos"].count, 1)
         self.assertEqual(dict(by_key["lectura"].parts)["Planes de lectura que empezaste"], 1)
-        self.assertNotIn("directorio", by_key)  # no directory installed on this base: no line
+        self.assertEqual((by_key["directorio"].count, by_key["directorio"].where), (0, None))  # the church's switch is off
         self.assertIn("Descargar mis datos", page)
         self.assertIn("Lo que no está aquí", page)
         for text in [MY_PRAYER, "No puedo los jueves", *FOREIGN]:

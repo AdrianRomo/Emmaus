@@ -33,10 +33,8 @@ from people.models import Person
 TEXT_PRAYER, TEXT_FORMS = "oracion", "formularios"
 TEXT_KINDS = {
     TEXT_PRAYER: "El texto de mis peticiones de oración",
-    TEXT_FORMS: "Lo que respondí en los formularios de la iglesia",
+    TEXT_FORMS: "Lo que respondí en los formularios de la iglesia y al inscribirme a un evento",
 }
-# The directory of the church is built in another slice: found by its app label when it is installed, never imported.
-DIRECTORY_APPS = ("directorio", "directory")
 
 
 @dataclass(frozen=True)
@@ -140,13 +138,19 @@ def _events(ctx: Ctx) -> dict:
     if ctx.person is None:
         return {}
     rows = apps.get_model("agenda.EventRegistration").objects.filter(person=ctx.person, event__church=ctx.church)
-    return {
-        "Inscripciones a eventos": [
-            {"evento": row.event.name, "día del evento": day(row.event.starts_on), "estado": row.get_status_display(),
-             "te inscribiste": moment(ctx, row.created_at), "cancelada": moment(ctx, row.cancelled_at)}
-            for row in rows.select_related("event").order_by("created_at", "id")
-        ]
-    }
+    found = []
+    for row in rows.select_related("event").prefetch_related("answers__question").order_by("created_at", "id"):
+        one = {"evento": row.event.name, "día del evento": day(row.event.starts_on), "estado": row.get_status_display(),
+               "te inscribiste": moment(ctx, row.created_at), "cancelada": moment(ctx, row.cancelled_at)}
+        # What the person answered when signing up (wave 12) hangs from their own registration: theirs. How many,
+        # always; the words only with the box of the answers, as a form's.
+        answers = sorted(row.answers.all(), key=lambda answer: (answer.question.position, answer.pk))
+        if answers:
+            one["preguntas que respondiste al inscribirte"] = len(answers)
+            if TEXT_FORMS in ctx.texts:
+                one["lo que respondiste al inscribirte"] = [{"pregunta": answer.question.text, "respuesta": answer.value} for answer in answers]
+        found.append(one)
+    return {"Inscripciones a eventos": found}
 
 
 def _serving(ctx: Ctx) -> dict:
@@ -287,39 +291,60 @@ def _spaces(ctx: Ctx) -> dict:
     if ctx.person is None:
         return {}
     rows = apps.get_model("espacios.Booking").objects.filter(requested_by=ctx.person, space__church=ctx.church)
+    series = apps.get_model("espacios.BookingSeries").objects.filter(requested_by=ctx.person, space__church=ctx.church)
     return {
         "Reservas de espacios que pediste": [
             {"espacio": row.space.name, "para qué (lo escribiste tú)": row.title, "empieza": moment(ctx, row.starts_at),
              "termina": moment(ctx, row.ends_at), "estado": row.get_status_display(), "pedida": moment(ctx, row.created_at)}
             for row in rows.select_related("space").order_by("created_at", "id")
-        ]
+        ],
+        # A booking that repeats (wave 12) is one request: its rule, as the person wrote it. Each date it wrote is a
+        # booking of the list above. Never the reason the administration gave, nor who decided or ended it.
+        "Reservas que se repiten que pediste": [
+            {"espacio": row.space.name, "para qué (lo escribiste tú)": row.title, "cada cuántas semanas": row.interval_weeks,
+             "desde": day(row.starts_on), "hasta": day(row.ends_on), "de": f"{row.starts_at:%H:%M}", "a": f"{row.ends_at:%H:%M}",
+             "estado": row.get_status_display(), "pedida": moment(ctx, row.created_at)}
+            for row in series.select_related("space").order_by("created_at", "id")
+        ],
     }
 
 
-def directory_relations() -> list[tuple[object, str]]:
-    """(model, field) for every relation to a person or an account in a directory app, when one is installed."""
-    found = []
-    for config in apps.get_app_configs():
-        if config.label in DIRECTORY_APPS:
-            for model in config.get_models():
-                for relation in model._meta.get_fields():
-                    if _points_at_a_person(relation):
-                        found.append((model, relation.name))
-    return found
+DIRECTORY_SHOWN = (("show_phone", "tu teléfono"), ("show_email", "tu correo"), ("show_groups", "tus grupos"), ("show_teams", "tus equipos"))
+
+
+def _directory_entry(ctx: Ctx):
+    """The person's own row of the directory between members (``people.DirectoryEntry``), or None. A row that
+    says «no» is still a row Emmaus holds: somebody who left keeps it, with every choice cleared."""
+    if ctx.person is None or ctx.person.church_id != ctx.church.pk:
+        return None
+    return apps.get_model("people.DirectoryEntry").objects.filter(person=ctx.person).first()
 
 
 def _directory(ctx: Ctx) -> dict:
-    """The directory's own table is not read field by field (it is another slice's): how many rows are this
-    person's, and its own screen shows and changes them."""
-    total = 0
-    for model, name in directory_relations():
-        target = model._meta.get_field(name).related_model
-        if target is Person:
-            if ctx.person is not None:
-                total += model._base_manager.filter(**{name: ctx.person}).count()
-        elif any(one.name == "church" for one in model._meta.concrete_fields):
-            total += model._base_manager.filter(**{name: ctx.user, "church": ctx.church}).count()
-    return {"Lo que elegiste mostrar en el directorio": [{"elecciones guardadas": total}] if total else []}
+    """What the person chose for the directory, from the row their own screen writes («Aparecer en el directorio»):
+    whether they said yes, each of the four choices and since when. Never a value (the phone is in the profile) and
+    never whether anybody is shown today: that also depends on the church's switch, which is not theirs."""
+    entry = _directory_entry(ctx)
+    if entry is None:
+        return {}
+    row = {"elegiste aparecer con tu nombre": yes_no(entry.listed)}
+    row.update({f"elegiste mostrar {label}": yes_no(getattr(entry, name)) for name, label in DIRECTORY_SHOWN})
+    row["lo aceptaste"] = moment(ctx, entry.accepted_at) if entry.listed else ""
+    row["último cambio"] = moment(ctx, entry.updated_at)
+    return {"Lo que elegiste para el directorio": [row]}
+
+
+def _directory_words(ctx: Ctx) -> list[str]:
+    """The same choice in one sentence, for the page (a count of one row would say nothing)."""
+    entry = _directory_entry(ctx)
+    if entry is None:
+        return []
+    if not entry.listed:
+        return ["Elegiste no aparecer. No se muestra nada tuyo."]
+    shown = ["tu nombre"] + [label for name, label in DIRECTORY_SHOWN if getattr(entry, name)]
+    listed = shown[0] if len(shown) == 1 else ", ".join(shown[:-1]) + " y " + shown[-1]
+    since = f", desde el {day(timezone.localtime(entry.accepted_at, church_tz(ctx.church)))}" if entry.accepted_at else ""
+    return [f"Elegiste aparecer con {listed}{since}."]
 
 
 def _camps(ctx: Ctx) -> dict:
@@ -412,9 +437,9 @@ def _where_prayer(ctx: Ctx):
 
 
 def _where_forms(ctx: Ctx):
-    from formularios.services import is_known_minor
+    from people.minors import known_minor
 
-    if ctx.person is None or is_known_minor(ctx.person):
+    if ctx.person is None or known_minor(ctx.person):
         return None  # the forms answer 404 to a known minor
     return ("Ver los formularios", reverse("formularios:list"))
 
@@ -428,11 +453,12 @@ def _where_discipleship(ctx: Ctx):
 
 
 def _where_directory(ctx: Ctx):
-    for label in DIRECTORY_APPS:
-        for name in ("mine", "choices", "preferences", "home", "list"):
-            url = _url(f"{label}:{name}")
-            if url:
-                return ("Ver el directorio", url)
+    """«Aparecer en el directorio», while that page opens for this person (``people.directory.shows_choice``: it is
+    offered to them, or they have a choice of their own to take back)."""
+    from people import directory
+
+    if directory.shows_choice(ctx.church, ctx.person):
+        return ("Aparecer en el directorio", reverse("directorio:mine"))
     return None
 
 
@@ -451,7 +477,8 @@ class Category:
     where: Callable[[Ctx], tuple[str, str] | None] = lambda ctx: None
     staff_count: bool = False
     text_kind: str = ""
-    dynamic: bool = False  # its relations are found at runtime (the directory)
+    # Sentences for the page where a count would say nothing (the one row of the directory): never a contact value.
+    words: Callable[[Ctx], list[str]] = lambda ctx: []
 
     @property
     def staff_title(self) -> str:
@@ -534,13 +561,13 @@ CATEGORIES: tuple[Category, ...] = (
     Category(
         "espacios", "Reservas de espacios",
         "Para apartar el lugar que pediste y avisarte qué se decidió.", "equipo",
-        (("espacios.Booking", "requested_by"),),
+        (("espacios.Booking", "requested_by"), ("espacios.BookingSeries", "requested_by")),
         _spaces, _where("Ver los espacios", "espacios:list"), staff_count=True,
     ),
     Category(
         "directorio", "Lo que muestras en el directorio",
-        "Para mostrar a otras personas de tu iglesia solo lo que tú elegiste.", "personas",
-        (), _directory, _where_directory, dynamic=True,
+        "Para mostrar a otras personas de tu iglesia solo lo que tú elegiste, y solo mientras tu iglesia ofrece el directorio.", "personas",
+        (("people.DirectoryEntry", "person"),), _directory, _where_directory, words=_directory_words,
     ),
     Category(
         "campamentos", "Eventos en los que participaste",
@@ -691,6 +718,16 @@ NOT_THEIRS: dict[tuple[str, str], str] = {
     ("oracion.PrayerPolicy", "accepted_by"): STAFF_ACT,
     ("oracion.PrayerRequest", "only_reader"): OTHER_PERSON,
     ("cuenta_datos.RemovalRequest", "closed_by"): STAFF_ACT,
+    # Wave 12. The pastor who switched the directory on for the church: the church's decision, not a choice of a person.
+    ("people.DirectoryPolicy", "accepted_by"): STAFF_ACT,
+    # A booking that repeats: who approved or rejected it, and who ended it (the administration, or who asked: the
+    # series' state is in the download of who asked; which account pressed the button is the church's record).
+    ("espacios.BookingSeries", "decided_by"): STAFF_ACT,
+    ("espacios.BookingSeries", "ended_by"): STAFF_ACT,
+    # A template of a team's order holds titles and minutes, no people: it is the team's, whoever saved it.
+    ("serving.PlanTemplate", "created_by"): STAFF_ACT,
+    # How many came to a gathering, typed by the administration: a number of the church, about no person.
+    ("agenda.EventHeadcount", "recorded_by"): STAFF_ACT,
 }
 
 
@@ -715,11 +752,7 @@ def relations_to_people() -> list[tuple[str, str]]:
 
 def registered() -> dict[tuple[str, str], str]:
     """(model, field) -> the key of the category that answers for it."""
-    found = {relation: category.key for category in CATEGORIES for relation in category.relations}
-    dynamic = next(category.key for category in CATEGORIES if category.dynamic)
-    for model, name in directory_relations():
-        found.setdefault((model._meta.label, name), dynamic)
-    return found
+    return {relation: category.key for category in CATEGORIES for relation in category.relations}
 
 
 def undecided_relations() -> list[tuple[str, str]]:
@@ -738,18 +771,16 @@ class Summary:
     count: int
     parts: list[tuple[str, int]]
     where: tuple[str, str] | None
+    words: list[str] = field(default_factory=list)
 
 
 def summaries(ctx: Ctx) -> list[Summary]:
-    """One line per category for the page: how many rows, by kind, and where they are seen or changed.
-    The directory's line exists only while that module is installed."""
+    """One line per category for the page: how many rows, by kind, and where they are seen or changed."""
     found = []
     for category in CATEGORIES:
-        if category.dynamic and not directory_relations():
-            continue
         data = category.collect(ctx)
         parts = [(label, len(rows)) for label, rows in data.items() if rows]
-        found.append(Summary(category, _count(data), parts, category.where(ctx)))
+        found.append(Summary(category, _count(data), parts, category.where(ctx), category.words(ctx)))
     return found
 
 
@@ -758,8 +789,6 @@ def staff_counts(ctx: Ctx) -> list[tuple[Category, int | None]]:
     private to the person (named, never counted)."""
     found = []
     for category in CATEGORIES:
-        if category.dynamic and not directory_relations():
-            continue
         found.append((category, _count(category.collect(ctx)) if category.staff_count else None))
     return found
 
@@ -782,8 +811,6 @@ def export(ctx: Ctx, *, now=None) -> dict:
     """The download: plain words for keys, the church of the request only."""
     categories = []
     for category in CATEGORIES:
-        if category.dynamic and not directory_relations():
-            continue
         data = {label: rows for label, rows in category.collect(ctx).items() if rows}
         categories.append({"categoría": category.title, "para qué lo tiene Emmaus": category.why, "datos": data})
     included = [TEXT_KINDS[kind] for kind in TEXT_KINDS if kind in ctx.texts]
