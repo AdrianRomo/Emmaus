@@ -757,7 +757,9 @@ class ReviewRoundTests(SpacesFixture):
         from espacios.forms import BookingForm
 
         form = BookingForm(church=self.church, tz=self.tz, with_event=True)
-        self.assertEqual(set(form.fields), {"title", "day", "starts", "ends", "setup_minutes", "teardown_minutes", "event"})
+        # (wave 12: how often it repeats, its last day and a series of events; still nobody to pick)
+        self.assertEqual(set(form.fields), {"title", "day", "starts", "ends", "setup_minutes", "teardown_minutes", "event",
+                                            "repeat", "until", "event_series"})
 
     # ---- 5. an account of two churches ------------------------------------------------------------
     def test_the_church_is_the_one_the_session_acts_in(self):

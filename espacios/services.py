@@ -32,11 +32,11 @@ from django.utils import timezone
 from people.audit import record_church
 from people.models import Person
 
-from .models import MAX_BUFFER_MINUTES, Booking, Space
+from .models import MAX_BUFFER_MINUTES, Booking, BookingSeries, Space
 
 Status = Booking.Status
 HOLDING = Booking.HOLDING
-MAX_HOURS = 24  # one booking; several days are several bookings (a series is a later slice)
+MAX_HOURS = 24  # one booking; several days are several bookings (what repeats is espacios.repeticion)
 DECIDED = "Esta reserva ya no está por decidir: alguien más la aprobó, la rechazó o la canceló. Revisa la lista otra vez."
 
 
@@ -160,7 +160,7 @@ def week(space: Space, monday: date, tz) -> list[dict]:
     day never reads as free while a request for it would be refused."""
     start = datetime.combine(monday, time.min, tzinfo=tz)
     end = datetime.combine(monday + timedelta(days=7), time.min, tzinfo=tz)
-    rows = [localize(row, tz) for row in overlapping(space.pk, start, end).select_related("requested_by", "event").order_by("starts_at", "id")]
+    rows = [localize(row, tz) for row in overlapping(space.pk, start, end).select_related("requested_by", "event", "series_day__series").order_by("starts_at", "id")]
     days = []
     for offset in range(7):
         day = monday + timedelta(days=offset)
@@ -169,8 +169,12 @@ def week(space: Space, monday: date, tz) -> list[dict]:
 
 
 def pending_count(church) -> int:
-    """Requests the administration has not decided and that have not ended."""
-    return Booking.objects.filter(space__church=church, status=Status.REQUESTED, ends_at__gt=timezone.now()).count()
+    """Requests the administration has not decided and that have not ended: bookings of one day,
+    and bookings that repeat (each series is one decision)."""
+    now = timezone.now()
+    series = BookingSeries.objects.filter(space__church=church, status=BookingSeries.Status.REQUESTED,
+                                          ends_on__gte=now.astimezone(church_tz(church)).date())
+    return Booking.objects.filter(space__church=church, status=Status.REQUESTED, ends_at__gt=now).count() + series.count()
 
 
 def duration_text(length: timedelta) -> str:
@@ -354,10 +358,11 @@ def cancel(booking: Booking, actor, *, by_admin: bool) -> Booking:
 
 
 def mine(person: Person, tz, limit: int = 20) -> list[Booking]:
-    """What ``person`` asked for and has not ended, plus what was rejected or cancelled in the last two weeks."""
+    """What ``person`` asked for and has not ended, plus what was rejected or cancelled in the last two weeks.
+    The dates of a booking that repeats are not here: its series is one row (``repeticion.mine``)."""
     now = timezone.now()
     rows = (
-        Booking.objects.filter(requested_by=person, space__church_id=person.church_id)
+        Booking.objects.filter(requested_by=person, space__church_id=person.church_id, series_day__isnull=True)
         .filter(Q(status__in=HOLDING, ends_at__gt=now) | Q(status__in=(Status.REJECTED, Status.CANCELLED), decided_at__gte=now - timedelta(days=14), ends_at__gt=now))
         .select_related("space", "event").order_by("starts_at", "id")[:limit]
     )

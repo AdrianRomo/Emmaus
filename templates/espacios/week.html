@@ -6,7 +6,8 @@
   One week of one space, as a list by day (espacios.views.week): a list reads on a phone where a grid of hours does
   not. The day, drawn, leads each group (today filled); beside it what holds the space that day, or that it is free,
   and for who may ask the way to ask for that very day. Who is not the administration or who asked reads "Ocupado"
-  and the hours, nothing else.
+  and the hours, nothing else. Only the administration also reads, on a day a repeating booking has not reached yet
+  (its dates are written eight weeks ahead), the quiet line «Suele ocuparse…»: nothing holds that day.
 {% endcomment %}
 <div class="narrow spaces">
   {% url 'espacios:list' as back %}
@@ -49,6 +50,7 @@
       {% else %}
         <p class="empty-line">Libre todo el día.</p>
       {% endif %}
+      {% for usual in day.usual %}<p class="empty-line week-day__usual">Suele ocuparse de {{ usual.start|time:"H:i" }} a {{ usual.end|time:"H:i" }}: {{ usual.series.title }}, {{ usual.rule }}. Todavía no está apartado. <a href="{% url 'espacios:series' usual.series.pk %}">Ver la serie<span class="visually-hidden">: {{ usual.series.title }}</span></a></p>{% endfor %}
     </div>
   </section>
   {% endfor %}

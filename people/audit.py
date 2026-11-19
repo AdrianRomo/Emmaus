@@ -126,6 +126,16 @@ ACTION_LABELS = {
     "oracion_politica": "Encendió, apagó o ajustó las peticiones de oración",
     "oracion_abierta": "Abrió una petición de oración",
     "oracion_atendida": "Marcó o respondió una petición de oración",
+    # What repeats (wave 12): bookings that repeat (espacios.repeticion), and the dates and order templates of a
+    # team that follows a series of events (serving.follow). Ids, counts and fixed words: never a title or a name.
+    "espacio_serie_solicitada": "Pidió una reserva que se repite",
+    "espacio_serie_aprobada": "Aprobó una reserva que se repite",
+    "espacio_serie_rechazada": "Rechazó una reserva que se repite",
+    "espacio_serie_terminada": "Terminó una reserva que se repite, o retiró su solicitud",
+    "espacio_serie_fechas": "Se apartaron fechas de una reserva que se repite",
+    "equipo_serie": "Dijo que un equipo sirve en cada fecha de una serie de eventos, o que ya no",
+    "equipo_serie_fechas": "Se escribieron fechas de un equipo que sigue una serie de eventos",
+    "equipo_plantilla": "Guardó, usó o quitó una plantilla del orden de un equipo",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

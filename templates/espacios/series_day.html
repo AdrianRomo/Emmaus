@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}{{ wanted.day|weekday_date|capfirst }}: no se pudo apartar{% endblock %}
+{% block content %}
+{% comment %}
+  One day a repeating booking could not take (espacios.views.series_day_book), for the administration: what the
+  series wanted and what holds those hours now. The only page that books that day over another booking, and its form
+  names the bookings listed here: if the list changed before the button is pressed, it comes back with the new one.
+  With nothing in the way any more, the day is simply booked.
+{% endcomment %}
+<div class="narrow spaces">
+  {% include "events/rotulo/_page_head.html" with title="No se pudo apartar ese día" back_url=back back_label="Volver a la serie" %}
+  {% if again %}<div class="notice notice--warning"><p>Lo que se empalma cambió mientras decidías. Esta es la lista de ahora. No apartamos nada todavía.</p></div>{% endif %}
+  <section class="block" aria-labelledby="quiere">
+    <h2 id="quiere" class="heading">Lo que la serie quería apartar</h2>
+    <ul class="rows">
+      <li class="row row--lead">
+        {% date_block wanted.day %}
+        <div class="row__main">
+          <p class="row__title">{{ series.space.name }}: {{ series.title }}</p>
+          <p class="row__meta">{{ wanted.day|weekday_date|capfirst }}, de {{ wanted.start_time|time:"H:i" }} a {{ wanted.end_time|time:"H:i" }}.{% if wanted.has_buffer %} Apartado de {{ wanted.block_start|time:"H:i" }} a {{ wanted.block_end|time:"H:i" }}, con el tiempo para preparar y recoger.{% endif %} Se repite {{ series.rule }}.</p>
+        </div>
+      </li>
+    </ul>
+  </section>
+  <section class="block" aria-labelledby="empalmes">
+    <h2 id="empalmes" class="heading">Se empalma con</h2>
+    {% if clashes %}
+      <ul class="rows">{% for clash in clashes %}{% include "espacios/_booking.html" with booking=clash with_day=True hide_cancel=True %}{% endfor %}</ul>
+    {% else %}
+      <p class="empty-line">Ya nada ocupa ese horario: lo que lo ocupaba se canceló o se rechazó.</p>
+    {% endif %}
+  </section>
+  <form method="post">
+    {% csrf_token %}
+    {% if clashes %}<input type="hidden" name="sobre" value="1">{% endif %}
+    {% for clash in clashes %}<input type="hidden" name="visto" value="{{ clash.pk }}">{% endfor %}
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">{% if clashes %}Apartar aunque se empalme{% else %}Apartar ese día{% endif %}</button>
+      <a class="btn btn--link" href="{{ back }}">Dejarlo sin apartar</a>
+    </div>
+    {% if clashes %}<p class="aside-note">Si lo apartas, las reservas quedan en pie al mismo tiempo y queda registrado que tú lo decidiste después de ver esta lista. Emmaus no le avisa a nadie.</p>{% endif %}
+  </form>
+</div>
+{% endblock %}
