@@ -924,7 +924,6 @@ body:has(> .rail) > main { grid-column: 2; grid-row: 1; }
 :root[data-ui="2"] .break-anywhere { overflow-wrap: anywhere; }
 /* The public page of an event (templates/agenda/public.html): read without an account, mostly on a phone */
 :root[data-ui="2"] .public-event__church { font-size: var(--t-small); font-weight: 600; color: var(--ink-2); margin-bottom: var(--s-2); }
-@media (max-width: 760px) { :root[data-ui="2"] .public-event .step__actions .btn { width: 100%; } }
 
 /* The church's public home (templates/sitio/public.html, issue #87): no bar and no rail, the page is the
    church's. One column at the reading measure; the arch with the church's initials (or its logo) is the only
@@ -1845,8 +1844,8 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .ficha__descargar { margin-top: var(--s-3); }
 /* end: evento-entrevista */
 
-/* ---- Waves 9 and 10 (espacios, personas, formularios, servir): the rules of their screens, on this sheet's tokens.
-   Their restyle to DESIGN_SYSTEM.md follows; these keep the screens laid out meanwhile. ---- */
+/* ---- Waves 9 and 10, restyled to DESIGN_SYSTEM.md in wave 11: one block per area (espacios, personas, formularios,
+   servir, agenda, oración, aprobaciones). Each holds only what no component above gives. ---- */
 
 /* === espacios (wave 11) === */
 /* Rooms and equipment, on the system's rows. The week of a space is the screen opened on a phone at the church's

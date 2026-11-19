@@ -18,9 +18,9 @@
     {% include "events/rotulo/_page_head.html" with title="Tus peticiones de oración" lede="Lo que le confiaste a quien pastorea tu iglesia. Solo tú ves esta página." back_url=back back_label="Volver a Mi iglesia" %}
   {% endif %}
   {% if not may_write %}
-    <div class="notice notice--quiet"><p>Tu iglesia ya no recibe peticiones nuevas aquí. Las que escribiste siguen abajo hasta la fecha que dice cada una, o hasta que las borres.</p></div>
+    <div class="notice"><p>Tu iglesia ya no recibe peticiones nuevas aquí. Las que escribiste siguen abajo hasta la fecha que dice cada una, o hasta que las borres.</p></div>
   {% elif full %}
-    <div class="notice notice--quiet"><p>Puedes tener hasta {{ limit }} peticiones guardadas. Borra una para escribir otra.</p></div>
+    <div class="notice"><p>Puedes tener hasta {{ limit }} peticiones guardadas. Borra una para escribir otra.</p></div>
   {% endif %}
   {% for prayer in prayers %}
     <section class="block stack" aria-labelledby="peticion-{{ prayer.pk }}">

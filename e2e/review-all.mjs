@@ -10,6 +10,11 @@ const BASE = process.env.EMMAUS_URL || "http://127.0.0.1:8000";
 const PASS = "DemoCamp-2026";
 const AXE = fs.readFileSync(process.env.AXE, "utf8");
 const pages = JSON.parse(fs.readFileSync(urlsFile, "utf8"));
+// The screens of the community modules ("@comunidad" in e2e/all_urls.py): their accounts exist only after
+// seed_community_demo, so they are visited only when the run says the modules are on (COMMUNITY=1).
+const community = pages["@comunidad"] || {};
+delete pages["@comunidad"];
+if (process.env.COMMUNITY === "1") Object.assign(pages, community);
 const WIDTHS = { desktop: { width: 1440, height: 900 }, tablet: { width: 820, height: 1180 }, mobile: { width: 390, height: 844 } };
 fs.mkdirSync(out, { recursive: true });
 const results = [];
@@ -27,6 +32,8 @@ for (const [email, list] of Object.entries(pages)) {
     await page.fill("input[name=username]", email);
     await page.fill("input[name=password]", PASS);
     await Promise.all([page.waitForNavigation(), page.click("form button:has-text('Entrar')")]);
+    // An account that did not get in would have every one of its screens "pass" as the login page.
+    if (new URL(page.url()).pathname === "/cuenta/entrar/") results.push({ email, jsErrors: ["could not sign in"] });
   }
   for (const [name, path] of list) {
     if (name === "x-404") continue; // DEBUG renders Django's debug 404, not ours
