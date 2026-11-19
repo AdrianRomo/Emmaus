@@ -2,6 +2,46 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-19, later — Wave 11: the design layer «claridad» joined with waves 9 and 10 (branch `v2/wave-11-diseno`)
+
+The owner pointed at the design session's branch, `v2/redesign-claridad`, as the most recent design decisions:
+follow it, bring the new flows to the same guidelines, merge it into v2, nothing to `main` yet.
+
+- **Merged:** `v2/redesign-claridad` (231 commits: nearly every screen that existed redesigned, actions in
+  place, new type, four additive migrations `events/0016`–`0019` for the interview and follow-up fixes, and
+  the design law: [`CRAFT.md`](CRAFT.md), [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md),
+  [`REDESIGN_CHECKLIST.md`](REDESIGN_CHECKLIST.md)). It had forked before waves 9 and 10: 38 files in
+  conflict. Rule of the merge: design wins on look and structure, the waves win on function.
+- **Not merged, on purpose:** one commit each on `v2/rc-avisos-recursos` and `v2/rc-cuenta-puertas`, from
+  02:30 on 2026-11-18. The design branch holds merges named "the area's work in progress, kept from the
+  interrupted session" for both, and reworked the same screens for eighteen more hours. The two branches
+  were left as they are.
+- **Restyled to the law, one area each, in parallel:** series and e-mail subscriptions, rooms and equipment,
+  forms and «Pendientes», prayer requests, people (duplicates, joins, import, tags, stage), pastoral
+  approval and the church switcher, serving (roles, rotation, swaps, order of service). Look and structure
+  only: no rule, permission, URL, token or promise changed. Notes per area and the before-table of each
+  screen: [`wave11/`](wave11/).
+- **Acting in place (CRAFT §3) now:** approving a space request without a clash, «Este día no hay» / «Sí hay»,
+  a form task done or reopened, moving a question, «Lo leí» and «Hablamos en persona», dismissing or
+  reopening a pair of records, a swap answered, withdrawn or decided, the reminder choice. Never in place:
+  deleting, publishing, merging, importing, anything with fields, the church switch.
+- **One hand:** a last pass made the seven areas agree with each other and wrote each rule down in
+  [`wave11/CONSISTENCY.md`](wave11/CONSISTENCY.md) (where a row's state word goes, a row's trailing
+  action, how ending and deleting are drawn, wrapping, the long rail).
+- **Open for the owner:** `DESIGN_SYSTEM.md` §5 says a row's trailing action is text, while the design
+  session's own rows («Inscritos», group people, plans) use small outlined capsules. The seven areas follow
+  §5; the reference screens were left alone. One of the two should move.
+- **Found on the way:** the rail hid five of the administration's links at 900 px of height with nothing
+  to show it (it now brings the current link into view and marks a cut edge); the pager under dismissed
+  pairs paged the wrong list; on a phone a long recent notice overlaps today's event's place in Eventos
+  (a design-session screen: listed, not changed).
+- **Gate:** SQLite 3621 passed, 6 skipped; lint, check, migrations, migration-scope (15 added, all
+  additive) PASS; browser gate OK, community flow 805 checks, 0 problems; `review-all` now also visits 35
+  screens of waves 9 and 10 with the modules on. PostgreSQL: by the pull request's own check.
+- **Not verified:** the subscription form inside the gate (its server cannot send); offline and failure
+  states of each in-place action were tried by the restylers once each, not in the journey; most screens
+  were opened as images by their restyler at one or two widths, not three.
+
 ## 2026-11-19 — Wave 10: six more slices under the delegation (branch `v2/wave-10`)
 
 Built in parallel, joined by a dedicated integrator, reviewed by three independent read-only reviewers,
