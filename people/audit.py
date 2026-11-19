@@ -77,6 +77,7 @@ ACTION_LABELS = {
     "sitio_despublicado": "Dejó de publicar la página pública de la iglesia",
     "recurso_publico": "Mostró un recurso en la página pública",
     "recurso_privado": "Quitó un recurso de la página pública",
+    "iglesia_elegida": "Eligió trabajar en esta iglesia (una cuenta que es parte de más de una)",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

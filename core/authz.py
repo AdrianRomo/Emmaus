@@ -101,6 +101,28 @@ def churches_of(user) -> list[Church]:
     return [church for church in churches if church.active]
 
 
+def church_choices(request) -> tuple[Church | None, list[Church]]:
+    """The church this request acts in, and every church the account may choose (decision 0017).
+
+    The session holds only a church id, and it is never trusted by itself: on every request the id is
+    looked for among the churches the account belongs to *now* (``churches_of``: a church role, or a
+    person that was not merged away, in a church that is active). An id that is not there (forged,
+    or left behind by a role or a person that ended, or of a church that was closed) is removed from
+    the session and grants nothing; the request then acts in the default, the first of the list.
+    Being a superuser adds no church here.
+    """
+    churches = churches_of(request.user)
+    chosen = request.session.get(SESSION_KEY)
+    if chosen is not None:
+        # ``type(...) is int``: ``switch_church`` never stores anything else, and True == 1.
+        if type(chosen) is int:
+            for church in churches:
+                if church.pk == chosen:
+                    return church, churches
+        request.session.pop(SESSION_KEY, None)
+    return (churches[0] if churches else None), churches
+
+
 def current_church(request) -> Church | None:
     """The church this request acts in for the new modules.
 
@@ -109,23 +131,23 @@ def current_church(request) -> Church | None:
     the first church role, as ``core.access.get_user_church`` answers, else the first church where
     the account is a person.
     """
-    churches = churches_of(request.user)
-    if not churches:
-        return None
-    chosen = request.session.get(SESSION_KEY)
-    if chosen is not None:
-        for church in churches:
-            if church.pk == chosen:
-                return church
-        request.session.pop(SESSION_KEY, None)
-    return churches[0]
+    return church_choices(request)[0]
 
 
 def switch_church(request, church_id) -> Church | None:
     """Choose the current church (called from a POST view). None, and nothing stored, when the
-    account does not belong to that church."""
+    account does not belong to that church. Choosing carries no permission: every check that follows
+    asks ``has_scope`` about the church of its own request."""
     for church in churches_of(request.user):
         if str(church.pk) == str(church_id):
             request.session[SESSION_KEY] = church.pk
             return church
     return None
+
+
+def forget_choice(sender, request, **kwargs):
+    """Signing in starts from the default church: a choice is not remembered from one sign-in to the
+    next (``user_logged_in``; Django keeps an anonymous session's data when somebody signs in)."""
+    session = getattr(request, "session", None)
+    if session is not None:
+        session.pop(SESSION_KEY, None)

@@ -9,7 +9,7 @@
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% url 'church_settings' as back %}
+  {% if not church_elsewhere %}{% url 'church_settings' as back %}{% endif %}
   {% include "events/rotulo/_page_head.html" with title="Página pública de la iglesia" lede="Lo que lee quien todavía no tiene cuenta: cuándo se reúnen, dónde, cómo preguntar y lo que tú elijas mostrar. Nunca muestra personas, grupos, avisos ni asistencia." back_url=back back_label="Volver a Configuración" %}
 
   <section class="block public-link" aria-labelledby="publicacion">

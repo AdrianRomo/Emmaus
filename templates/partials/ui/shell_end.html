@@ -30,7 +30,8 @@
     <p class="rail__label" id="mas-seccion-cuenta">{{ shell.name }}{% if event_nav %}, {{ access.role_label|lower }}{% if station %}, en {{ station.name }}{% endif %}{% if access.can_view_sensitive %}, con acceso confidencial{% endif %}{% endif %}</p>
     <ul class="menu-panel__list" aria-labelledby="mas-seccion-cuenta">
       <li><a class="rail__link" href="{% url 'account' %}">{% icon "cuenta" %}<span class="rail__text">Mi cuenta</span></a></li>
-      <li><a class="rail__link" href="{% if shell_help_url %}{{ shell_help_url }}{% else %}{% url 'ayuda' %}{% endif %}">{% icon "ayuda" %}<span class="rail__text">Ayuda</span></a></li>
+      {% if not event_nav %}{% for other in church_choices %}<li><form method="post" action="{% url 'switch_church' %}">{% csrf_token %}<input type="hidden" name="church" value="{{ other.pk }}"><button class="rail__link rail__link--button" type="submit">{% icon "inicio" %}<span class="rail__text">Cambiar a {{ other.name }}</span></button></form></li>
+      {% endfor %}{% endif %}<li><a class="rail__link" href="{% if shell_help_url %}{{ shell_help_url }}{% else %}{% url 'ayuda' %}{% endif %}">{% icon "ayuda" %}<span class="rail__text">Ayuda</span></a></li>
       <li><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="rail__link rail__link--button" type="submit">{% icon "salir" %}<span class="rail__text">Cerrar sesión</span></button></form></li>
     </ul>
   </nav>

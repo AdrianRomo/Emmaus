@@ -69,7 +69,7 @@ def _item(label, url, icon, active=False, badge=0, badge_label=""):
     return {"label": label, "url": url, "icon": icon, "active": active, "badge": badge, "badge_label": badge_label}
 
 
-def build_shell(request, church, module_items, show_events: bool) -> dict:
+def build_shell(request, church, module_items, show_events: bool, settings_link: bool = True) -> dict:
     """The rail's sections and the phone's tabs for ``request``. ``module_items`` are the
     discipleship links the bar would have shown (label, url, names)."""
     from groups.access import managed_group_ids
@@ -156,7 +156,14 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
         admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional", view in RESOURCE_ADMIN_VIEWS))
-        admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"} or view.startswith("sitio:")))
+        if settings_link:
+            # "Configuración" is a discipleship-era screen: it acts in the church of the account's first role
+            # (core/access.py). While the request acts in another church, the two pages under it that do follow the
+            # request are offered by themselves instead.
+            admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"} or view.startswith("sitio:")))
+        else:
+            admin.append(_item("Políticas de la iglesia", reverse("church_policies"), "ajustes", url_name == "church_policies"))
+            admin.append(_item("Página pública", reverse("sitio:edit"), "inicio", view.startswith("sitio:")))
         admin_urls = {item["url"] for item in admin}
 
     module = [
