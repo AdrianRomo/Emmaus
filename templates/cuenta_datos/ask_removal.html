@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load community shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Pedir que borren mis datos{% endblock %}
+{% block content %}
+{% comment %}
+  «Pedir que borren mis datos» (cuenta_datos.views.ask_removal): one fixed choice, no free text. It creates one task
+  for the church's administration and deletes nothing; the page says both, and that some records are kept by rule.
+{% endcomment %}
+<div class="narrow mis-datos">
+  {% url 'cuenta_datos:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Pedir que borren mis datos" meta=current_church.name back_url=back back_label="Volver a Mis datos en Emmaus" %}
+  {% if existing %}
+    <div class="notice"><p>Ya pediste que borren: {{ existing.get_ask_display|lower }}, el {{ existing.created_at|long_date }}. La administración de tu iglesia te responderá. <a href="{{ back }}#borrado">Ver tu solicitud</a></p></div>
+  {% else %}
+    {% if form.errors %}{% include "partials/ui/error_summary.html" with form=form %}{% endif %}
+    <div class="prose">
+      <p>Tu solicitud le llega a la administración de {{ current_church.name }}. Emmaus no borra nada por sí solo: una persona de la administración la revisa y te responde.</p>
+      <p>Algunos registros se conservan por regla de la iglesia aunque lo pidas, por ejemplo el registro de actividad y lo que la iglesia debe guardar de un evento con personas menores de edad. La administración te dirá qué se borró y qué no.</p>
+    </div>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <section class="form-section">
+        {% include "partials/ui/field.html" with field=form.ask %}
+      </section>
+      <p class="aside-note">Puedes retirar tu solicitud mientras nadie la haya atendido. Emmaus no manda ningún correo: verás aquí que sigue pendiente.</p>
+      <div class="form-actions">
+        <button class="btn btn--primary" type="submit">Enviar mi solicitud</button>
+        <a class="btn btn--link" href="{{ back }}">Volver sin pedir nada</a>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

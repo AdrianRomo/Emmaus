@@ -14,6 +14,7 @@ again on every request, so a row never outlives the permission behind it:
 | Tasks of forms without an owner | the administration | church ``manage`` |
 | A swap of a date somebody asked this person | who was asked | ``serving.rotas.swaps_to_answer`` (what «Servir» lists) |
 | Swaps that wait for the coordinator's approval | who coordinates that active team, or the administration | ``has_scope`` (ministry, manage), as ``serving.views._may_manage`` |
+| Requests of a person to have their data removed | the administration | ``cuenta_datos.services.open_count`` (church ``manage``) |
 
 A row carries a kind, neutral words, a day and the address of the screen where the work is done.
 Never the reason of a follow-up, the name of who it is about, the title of a booking, an answer or a
@@ -29,6 +30,7 @@ from datetime import date
 from django.urls import reverse
 
 from care import services as care_services
+from cuenta_datos import services as data_requests
 from core.authz import Action, has_scope
 from espacios import services as spaces_services
 from groups.access import managed_group_ids
@@ -101,6 +103,10 @@ def rows(user, church, person, *, is_church_admin: bool) -> list[Row]:
         if unowned:
             found.append(Row("Formularios", _plural(unowned, "pendiente de formulario sin responsable", "pendientes de formularios sin responsable"),
                              reverse("formularios:loose_tasks"), count=unowned))
+        removals = data_requests.open_count(church)
+        if removals:
+            found.append(Row("Datos personales", _plural(removals, "solicitud sobre datos personales", "solicitudes sobre datos personales"),
+                             reverse("cuenta_datos:requests"), count=removals))
 
     found.sort(key=lambda row: (row.due_on is None, not row.overdue, row.due_on or date.max))
     return found
@@ -176,4 +182,5 @@ def count(user, church, person, *, is_church_admin: bool, care_mine: int | None 
         total += approvals.pending_count(church)
     if is_church_admin:
         total += care_services.unassigned_count(church, person) + spaces_services.pending_count(church) + unowned_tasks(church).count()
+        total += data_requests.open_count(church)
     return total
