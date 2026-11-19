@@ -1,13 +1,17 @@
 {% extends "base.html" %}
 {% block page_title %}Pedir oración{% endblock %}
 {% block content %}
-{% comment %}The church has it switched on, but today nobody could read a request (oracion.views.new): no form, nothing is collected.{% endcomment %}
-<div class="narrow">
+{% comment %}
+  The church has it switched on, but today nobody could read a request (oracion.views.new): no form, nothing is
+  collected. The emergency sentences come first here too; then why, and what to do instead.
+{% endcomment %}
+<div class="narrow oracion">
   {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Pedir oración" lede="Por ahora no está disponible." back_url=back back_label="Volver a Mi iglesia" %}
+  {% include "events/rotulo/_page_head.html" with title="Pedir oración" back_url=back back_label="Volver a Mi iglesia" %}
+  {% include "oracion/_emergency.html" %}
   <div class="notice notice--warning">
+    <p class="notice__title">Por ahora no está disponible.</p>
     <p>Hoy no hay nadie en tu iglesia que pueda leer una petición, así que Emmaus no la recibe: no queremos que escribas algo que nadie va a leer. Busca en persona a quien pastorea tu iglesia.</p>
   </div>
-  {% include "oracion/_emergency.html" %}
 </div>
 {% endblock %}

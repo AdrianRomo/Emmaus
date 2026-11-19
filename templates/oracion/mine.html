@@ -1,12 +1,15 @@
 {% extends "base.html" %}
-{% load community %}
+{% load emmaus community %}
 {% block page_title %}Tus peticiones de oración{% endblock %}
 {% block content %}
 {% comment %}
-  What this person wrote (oracion.views.mine): each request with its state, its one answer if there is one, the day
-  Emmaus deletes it and the way to delete it now. "Leída" never says by whom, unless the person chose one reader.
+  What this person wrote (oracion.views.mine): each request as its date (a quiet label), its words on the ground, its
+  state as a word with its mark, its one answer if there is one (set apart by a rule), the day Emmaus deletes it and
+  the quiet way to delete it now (its page asks first). "Leída" never says by whom, unless the person chose one reader.
+  The first branch is the page as it is served with the module off (the writer keeps this page whatever is switched
+  off): the old markup, byte for byte, because the redesigned stylesheet is not served there.
 {% endcomment %}
-<div class="narrow">
+{% if not ui_v2 %}<div class="narrow">
   {% url 'oracion:new' as write %}
   {% if community_on %}{% url 'community:home' as back %}{% endif %}
   {% if may_write and not full %}
@@ -47,5 +50,47 @@
   {% endfor %}
   {% include "oracion/_emergency.html" %}
   {% if may_write %}<p class="aside-note">No es un servicio de emergencia ni de respuesta inmediata. Emmaus no te manda correo cuando la leen o te responden: lo ves aquí.</p>{% endif %}
-</div>
+</div>{% else %}<div class="narrow oracion">
+  {% url 'oracion:new' as write %}
+  {% url 'community:home' as back %}
+  {% if may_write and not full %}
+    {% include "events/rotulo/_page_head.html" with title="Tus peticiones de oración" meta="Solo tú ves esta página." back_url=back back_label="Volver a Mi iglesia" action_url=write action_label="Pedir oración" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Tus peticiones de oración" meta="Solo tú ves esta página." back_url=back back_label="Volver a Mi iglesia" %}
+  {% endif %}
+  {% if not may_write %}
+    <div class="notice"><p>Tu iglesia ya no recibe peticiones nuevas aquí. Las que escribiste siguen abajo hasta la fecha que dice cada una, o hasta que las borres.</p></div>
+  {% elif full %}
+    <div class="notice"><p>Puedes tener hasta {{ limit }} peticiones guardadas. Borra una para escribir otra.</p></div>
+  {% endif %}
+  {% for prayer in prayers %}
+    <section class="block oracion__peticion" aria-labelledby="peticion-{{ prayer.pk }}">
+      <h2 id="peticion-{{ prayer.pk }}" class="oracion__cuando">Escrita el {{ prayer.created_at|day_and_hour }}</h2>
+      <p class="oracion__palabras">{{ prayer.body|linebreaksbr }}</p>
+      {% if prayer.nobody_reads %}
+        <div class="notice notice--warning"><p><strong>Hoy nadie la puede leer.</strong> {% if prayer.restricted %}La persona que elegiste ya no puede leer peticiones, y nadie más la ve.{% else %}En tu iglesia no hay ahora quien pueda leer peticiones.{% endif %} Puedes borrarla.</p></div>
+      {% elif prayer.talked_at %}
+        <p class="oracion__estado">{% status "completada" "Hablaron en persona" %}<span class="oracion__estado-nota">Quien la leyó lo marcó el {{ prayer.talked_at|long_date }}{% if prayer.reader_name %}: {{ prayer.reader_name }}{% endif %}.</span></p>
+      {% elif prayer.read_at %}
+        <p class="oracion__estado">{% status "completada" "Leída" %}<span>el {{ prayer.read_at|long_date }}{% if prayer.reader_name %}, por {{ prayer.reader_name }}{% endif %}.</span></p>
+      {% else %}
+        <p class="oracion__estado">{% status "pendiente" "Todavía no la han leído" %}{% if prayer.reader_name %}<span class="oracion__estado-nota">Solo la puede leer {{ prayer.reader_name }}.</span>{% endif %}</p>
+      {% endif %}
+      {% if prayer.replied_at %}
+      <div class="oracion__respuesta">
+        <h3 class="oracion__cuando">Lo que te respondieron</h3>
+        <p class="oracion__palabras">{{ prayer.reply|linebreaksbr }}</p>
+      </div>
+      {% endif %}
+      <div class="oracion__pie">
+        <p class="aside-note">Emmaus la borra el {{ prayer.expires_at|long_date }}{% if prayer.replied_at %}, con su respuesta{% endif %}.</p>
+        <a class="btn btn--link btn--quieto" href="{% url 'oracion:delete' prayer.pk %}">Borrarla ahora<span class="visually-hidden">: la petición escrita el {{ prayer.created_at|long_date }}</span></a>
+      </div>
+    </section>
+  {% empty %}
+    {% include "partials/ui/empty.html" with title="No has escrito ninguna petición" text="Cuando escribas una, aquí vas a ver si ya la leyeron y lo que te respondan." %}
+  {% endfor %}
+  {% include "oracion/_emergency.html" %}
+  {% if may_write %}<p class="aside-note">No es un servicio de emergencia ni de respuesta inmediata. Emmaus no te manda correo cuando la leen o te responden: lo ves aquí.</p>{% endif %}
+</div>{% endif %}
 {% endblock %}

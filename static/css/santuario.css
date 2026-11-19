@@ -2049,6 +2049,57 @@ p.sitio__leaves { margin-top: var(--s-2); }
 }
 /* === fin agenda === */
 
+/* === oracion (wave 11) === */
+/* Peticiones de oración (templates/oracion/): the quietest screens of the product. One reading column. What a
+   person wrote sits on the ground at reading size under a small label (its date); a state is a word with its mark and
+   the rest of its sentence; a reply is set apart by a rule. The emergency sentences are the one strong element: a
+   white field with an ink edge, drawn nowhere else. */
+.page--app > .oracion { max-width: 38rem; }
+.page--app > .oracion--lista { max-width: none; }  /* the pastors' list keeps the width of every list */
+.oracion__urgencia {
+  display: flex; align-items: flex-start; gap: var(--s-3); margin: var(--s-6) 0; padding: var(--s-4) var(--s-5) var(--s-4) var(--s-4);
+  border: 1.5px solid var(--ink); border-radius: var(--r-card); background: var(--surface); color: var(--ink);
+}
+.page-head + .oracion__urgencia, .error-summary + .oracion__urgencia { margin-top: 0; }
+.oracion__urgencia > .icon { flex: none; }
+.oracion__urgencia-texto { min-width: 0; }
+.oracion__urgencia-texto > p { font-size: var(--t-small); line-height: 1.4; }
+.oracion__urgencia-texto > p:first-child { font-size: var(--t-body); font-weight: 600; line-height: 1.4; }
+.oracion__urgencia-texto > p + p { margin-top: var(--s-1); }
+.oracion__urgencia + .aside-note { margin-top: calc(-1 * var(--s-2)); }
+/* Who reads it, by name, between the emergency sentences and the field */
+.oracion__lectores { margin-bottom: var(--s-6); text-wrap: pretty; }
+/* The promises before the button: every one a sentence of its own */
+.oracion__promesas { display: grid; gap: var(--s-2); padding-left: 1.25rem; list-style: disc; font-size: var(--t-small); line-height: 1.45; }
+.oracion__promesas ::marker { color: var(--ink-2); }
+.oracion .prose + .prose { margin-top: var(--s-3); }
+/* A request: its date as a label, its words, its state, its reply */
+.page--app .oracion__peticion + .oracion__peticion { padding-top: var(--s-8); border-top: 1px solid var(--line); }
+.oracion__cuando { font-size: var(--t-small); font-weight: 600; line-height: 1.35; color: var(--ink-2); }
+.page--app .oracion__palabras { margin-top: var(--s-2); font-size: var(--t-body); line-height: 1.55; overflow-wrap: anywhere; }
+.oracion__palabras + .aside-note, .oracion__palabras + .notice { margin-top: var(--s-4); }
+.oracion__estado { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.375rem; margin-top: var(--s-4); font-size: var(--t-small); line-height: 1.4; color: var(--ink-2); }
+.oracion__estado > .status { align-items: baseline; white-space: normal; }
+.oracion__estado > .status > .status__mark { align-self: center; }
+.oracion__estado-nota { flex-basis: 100%; }
+.oracion__respuesta { margin-top: var(--s-5); padding-left: var(--s-4); border-left: 2px solid var(--line-strong); }
+.oracion__pie { margin-top: var(--s-4); }
+.page--app .oracion__pie > .aside-note { margin-top: 0; }
+.oracion__pie > .btn--link { margin-left: -0.75rem; }  /* its words on the text's column */
+/* The door to the church's switch, under the pastors' list: one row, its mark and its chevron on the title's line */
+.page--app .rows > .oracion__puerta { align-items: center; }
+/* What a reader has marked (read.html): a short list of states; the two marks are one press each */
+.oracion__hechos { list-style: none; }
+.oracion__hechos > .oracion__estado:first-child { margin-top: 0; }
+.oracion__hechos > .oracion__estado + .oracion__estado { margin-top: var(--s-2); }
+.oracion__marcar { margin-top: var(--s-5); }
+.oracion__marcar + .aside-note { margin-top: var(--s-4); }
+@media (max-width: 600px) {
+  .oracion__marcar > form { flex: 1 1 100%; }
+  :root[data-ui="2"] .oracion__marcar .btn { width: 100%; }
+}
+/* === fin oracion === */
+
 /* ---------- 15. Motion ---------------------------------------------------- */
 /* Motion answers a person or shows what changed (docs/v2/CRAFT.md §4). Atrio's rules stay (rotulo.css §13). Added:
    a toast arrives and leaves, a sheet rises, a bar fills once, a busy button turns, a slow page draws its line, a
