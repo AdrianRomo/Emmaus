@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.views.decorators.http import require_http_methods, require_POST
 
-from ..forms import FollowUpAssignForm, FollowUpContinueForm, FollowUpForm, follow_up_leaders
+from ..forms import FollowUpAssignForm, FollowUpContinueForm, FollowUpForm, assignable, follow_up_leaders, follow_up_staff
 from ..models import (
     AccessRequest,
     AuditEvent,
@@ -379,17 +379,18 @@ def follow_ups(request, event, access):
     ).order_by("-kind", "status_rank", "-sin_responsable", "-created_at")
     # «Decisión cambiada»: its interview no longer needs follow-up; its owner reviews and closes it («Revisar»)
     rows = decision_svc.mark_for_review(qs[:FOLLOW_UPS_SHOWN], request.user)
-    leaders = list(follow_up_leaders(event))
-    leader_ids = {user.id for user in leaders}
+    leaders = list(follow_up_leaders(event))  # the bar that gives several at once: each row is checked on its own
+    in_team = {membership.user_id for membership in follow_up_staff(event)}
     for f in rows:
         f.can_assign = _can_assign(access, f)
-        # The form also accepts the campero's own coordinador; offer them on that row only.
-        coordinator = f.participant.coordinator
-        f.coordinator_option = coordinator.user if coordinator and coordinator.user_id not in leader_ids else None
-        # Someone who left the team stays shown and selected, so sending the row unchanged cannot
-        # unassign them by accident; the form still refuses them ("Elige a una persona del equipo.").
-        eligible = leader_ids | ({coordinator.user_id} if coordinator else set())
+        # Each row offers who could open that follow-up (forms.assignable: a tutor, their own coordinadores' camperos;
+        # a confidential or safety one, fewer people), and the campero's own coordinador on that row only.
+        f.options, f.coordinator_option = assignable(f, event)
+        eligible = {user.pk for user in f.options} | ({f.coordinator_option.pk} if f.coordinator_option else set())
+        # Someone who has it and no longer qualifies stays shown and selected, so sending the row unchanged cannot
+        # unassign them by accident; the form still refuses them ("Elige a una persona del equipo."). Said why.
         f.former_assignee = f.assigned_to if f.assigned_to_id and f.assigned_to_id not in eligible else None
+        f.former_why = "ya no está en el equipo" if f.former_assignee and f.assigned_to_id not in in_team else "no puede ver este seguimiento"
     counts = dict(access.follow_ups().values_list("status").annotate(n=Count("id")))
     return render(
         request,

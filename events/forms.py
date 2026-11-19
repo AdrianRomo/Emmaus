@@ -408,12 +408,60 @@ def follow_up_leaders(event: Event):
     return User.objects.filter(id__in=_follow_up_leader_ids(event)).order_by("first_name")
 
 
+def _could_open_follow_up(membership: EventMembership, follow_up: FollowUp, tutor_id: int | None) -> bool:
+    """Whether this person, given the follow-up, could open it: ``EventAccess.follow_ups`` and ``participants`` read for
+    one membership, without a query each (a task given to someone who cannot open it disappears for them)."""
+    is_reader = follow_up.created_by_id == membership.user_id
+    if follow_up.confidential and not (membership.can_view_sensitive or is_reader):
+        return False
+    if follow_up.kind != FollowUp.Kind.CARE and not (membership.can_view_sensitive or membership.role == MembershipRole.ADMIN or is_reader):
+        return False
+    if membership.role in (MembershipRole.ADMIN, MembershipRole.PASTOR):
+        return True
+    coordinator_id = follow_up.participant.coordinator_id
+    if membership.role == MembershipRole.TUTOR:
+        return bool(tutor_id and tutor_id == membership.pk)
+    return membership.role == MembershipRole.COORDINATOR and coordinator_id == membership.pk
+
+
+def follow_up_staff(event: Event) -> list[EventMembership]:
+    """The event's active memberships with their user and tutor, read once per request (``assignable``)."""
+    staff = getattr(event, "_follow_up_staff", None)
+    if staff is None:
+        staff = event._follow_up_staff = list(
+            EventMembership.objects.filter(event=event, is_active=True).select_related("user", "tutor_assignment")
+        )
+    return staff
+
+
+def assignable(follow_up: FollowUp, event: Event) -> tuple[list[User], User | None]:
+    """Who a follow-up can go to: the leaders (every active member who is not a coordinador) and the campero's own
+    coordinador, each only if they could open this follow-up (a tutor sees their own coordinadores' camperos; a
+    confidential or safety one, fewer people). Returns (the leaders by first name, the coordinador or None). One rule
+    for the detail form, the row of the list and what each row offers."""
+    staff = follow_up_staff(event)
+    coordinator = getattr(follow_up.participant, "coordinator", None)
+    tutor_id = None
+    if coordinator is not None:
+        assignment = next((m for m in staff if m.pk == coordinator.pk), coordinator)
+        tutor_id = getattr(getattr(assignment, "tutor_assignment", None), "tutor_id", None)
+    leaders = sorted(
+        (m.user for m in staff if m.role != MembershipRole.COORDINATOR and _could_open_follow_up(m, follow_up, tutor_id)),
+        key=lambda user: (user.first_name, user.pk),
+    )
+    own = None
+    if coordinator is not None and coordinator.is_active and _could_open_follow_up(coordinator, follow_up, tutor_id):
+        own = coordinator.user if coordinator.user_id not in {user.pk for user in leaders} else None
+    return leaders, own
+
+
 def _limit_assigned_to(form: forms.ModelForm, event: Event) -> None:
-    """The people a follow-up can go to: the leaders above plus the campero's own coordinador.
-    One rule for the detail form and for the row of the list."""
-    coordinator_id = getattr(getattr(form.instance.participant, "coordinator", None), "user_id", None)
+    """The people a follow-up can go to (``assignable``). Someone who has it and no longer qualifies (left the team,
+    or could not open it) is refused when sent again; the list shows them selected, so a row sent unchanged cannot
+    unassign them by accident."""
+    leaders, own = assignable(form.instance, event)
     field = form.fields["assigned_to"]
-    field.queryset = User.objects.filter(id__in=[*_follow_up_leader_ids(event), coordinator_id]).order_by("first_name")
+    field.queryset = User.objects.filter(id__in=[user.pk for user in leaders] + ([own.pk] if own else [])).order_by("first_name")
     field.label_from_instance = lambda u: u.get_full_name() or u.email
     field.required = False
     field.empty_label = "Sin asignar"
@@ -429,6 +477,15 @@ class FollowUpForm(forms.ModelForm):
     def __init__(self, *args, event: Event, can_write_notes: bool, **kwargs):
         super().__init__(*args, **kwargs)
         _limit_assigned_to(self, event)
+        # Whoever has it and no longer qualifies (left the team, or could not open it) stays chosen here, said why:
+        # this form saves a status or a note, and must not take the follow-up from them in silence. Not offered on others.
+        current = self.instance.assigned_to if self.instance.pk else None
+        field = self.fields["assigned_to"]
+        if current is not None and not field.queryset.filter(pk=current.pk).exists():
+            in_team = any(membership.user_id == current.pk for membership in follow_up_staff(event))
+            why = "no puede ver este seguimiento" if in_team else "ya no está en el equipo"
+            field.queryset = User.objects.filter(pk__in=[*field.queryset.values_list("pk", flat=True), current.pk]).order_by("first_name")
+            field.label_from_instance = lambda u: f"{u.get_full_name() or u.email} ({why})" if u.pk == current.pk else (u.get_full_name() or u.email)
         if not can_write_notes:
             self.fields.pop("resolution_note")
 
