@@ -11,7 +11,7 @@ The result says what happened, so a screen never claims an e-mail that did not g
 * ``"sent"``: the backend accepted the message.
 * ``"not_configured"``: the backend delivers nothing (console, file or dummy; ``email_is_configured``) and nothing was
   handed to it. The caller says "No hay correo configurado" instead of "Te enviamos un correo".
-* ``"failed"``: the backend raised; ``send_email_safely`` logged the subject and the error.
+* ``"failed"``: the backend raised; ``send_email_safely`` logged the kind and the class of the error, never its text.
 """
 
 from __future__ import annotations
@@ -94,7 +94,7 @@ def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str], conne
 
     if not email_is_configured():
         return NOT_CONFIGURED
-    return SENT if send_email_safely(subject, body, recipients, connection) else FAILED
+    return SENT if send_email_safely(subject, body, recipients, connection, kind=kind) else FAILED
 
 
 def _recipients(to: str | Iterable[str]) -> list[str]:
