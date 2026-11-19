@@ -2,6 +2,35 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-20 — Wave 12: the last wave before the sandbox (branch `v2/wave-12`)
+
+The owner asked for one more wave and then a deploy to the sandbox. Four slices, built to the design law of
+wave 11 from the start. Detail per slice: [`wave12/`](wave12/).
+
+| Slice | Issue | What exists now |
+|---|---|---|
+| Sign-up without an account, questions at sign-up, headcounts | #93 | A public event can take sign-ups from people without an account: adults only, never on an event that protects minors, a place held only after the e-mail is confirmed, a private link to cancel. Up to five questions at sign-up. «¿Cuántos vinimos?»: a headcount with no names, the children's number under the minimum shown as «Menos de N». |
+| Directory between members | #91 | Off until a pastor turns it on, and off for each person until they choose to appear; each field a separate choice; read only by people who appear themselves; minors never; search by name only; no export. |
+| What a church repeats every week | #94, #95 | Repeating room bookings (the clash rule is never bypassed: a clashing day is listed, not booked); serving dates that follow an event series; order-of-service templates. |
+| «Mis datos en Emmaus» and «Quién puede qué» | #98, first part | A person sees what Emmaus holds about them, downloads their own data after typing their password, and can ask the church to remove it (a task, not an automatic deletion). Administration and pastors see, read-only, every account with power in the church. |
+
+- **Migrations (additive; one replaced constraint):** `agenda/0010` (it replaces the waiting-list constraint
+  that allowed only people with a record by a looser one that also allows a confirmed visitor), `people/0010`,
+  `espacios/0002`, `serving/0003`, `cuenta_datos/0001`, plus the visitor-consent migration of the review round.
+- **Scheduler:** eleven jobs; visitor requests nobody confirmed are deleted on every pass, whatever the switches.
+- **Independent review:** no hole in the directory, the repeating bookings or «Mis datos». Reproduced and fixed
+  before the pull request: sign-ups could be flooded by a script without a session, and junk in one church's
+  events could delay other churches' confirmations; the form's privacy promise was false once staff added a
+  visitor to Personas (now only with the visitor's own unticked-by-default consent); confirm links worked with
+  the module off or the church inactive; a visitor's typed name reached the activity log; the permission
+  review's drift test missed some sources of power.
+- **Found and filed:** deleting a staff member's account would also delete church records they wrote (#105).
+  Nothing triggers it today: no deletion tool exists.
+- **Gate on `v2/wave-12` before the review fixes:** SQLite 3902 passed, 6 skipped; lint, migrations, migration
+  scope PASS; browser gate OK, community flow 1031 checks, 0 problems. PostgreSQL: by the pull request's check.
+- **Not verified:** real two-connection races on PostgreSQL; real SMTP; the visitor form inside the gate (its
+  server cannot send, as with subscriptions).
+
 ## 2026-11-19, later — Wave 11: the design layer «claridad» joined with waves 9 and 10 (branch `v2/wave-11-diseno`)
 
 The owner pointed at the design session's branch, `v2/redesign-claridad`, as the most recent design decisions:
