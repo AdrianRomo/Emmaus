@@ -77,6 +77,11 @@ class Person(models.Model):
     stage = models.CharField("Etapa", max_length=12, choices=Stage.choices, blank=True, default="", db_default="")
     # The day somebody of the administration last set ``stage``. Never the day a person "became" anything.
     stage_changed_on = models.DateField("Etapa anotada el", null=True, blank=True, editable=False)
+    # Key dates, all optional. The administration writes the three; the person writes the first two in
+    # "Mis datos" (they are theirs to say), never the third. No other member ever reads them.
+    baptized_on = models.DateField("Se bautizó el", null=True, blank=True)
+    arrived_on = models.DateField("Llegó a la iglesia el", null=True, blank=True)
+    member_since = models.DateField("Es miembro desde", null=True, blank=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="Cuenta",

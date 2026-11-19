@@ -17,6 +17,9 @@
       <div class="summary-list__row"><dt>Correo</dt><dd>{{ person.email|default:"Sin correo" }}</dd></div>
       <div class="summary-list__row"><dt>Teléfono</dt><dd>{{ person.phone|default:"Sin teléfono" }}</dd></div>
       {% if person.birth_date %}<div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{{ person.birth_date|long_date }}. {% if person.birth_date_verified %}Edad confirmada por el equipo el {{ person.birth_date_verified_at|long_date }}: {{ person.get_birth_date_verified_method_display|lower }}.{% else %}Edad sin confirmar por el equipo.{% endif %}</dd></div>{% endif %}
+      {% if person.baptized_on %}<div class="summary-list__row"><dt>Se bautizó el</dt><dd>{{ person.baptized_on|long_date }}</dd></div>{% endif %}
+      {% if person.arrived_on %}<div class="summary-list__row"><dt>Llegó a la iglesia el</dt><dd>{{ person.arrived_on|long_date }}</dd></div>{% endif %}
+      {% if person.member_since %}<div class="summary-list__row"><dt>Es miembro desde</dt><dd>{{ person.member_since|long_date }}</dd></div>{% endif %}
       <div class="summary-list__row"><dt>Se registró desde</dt><dd>{{ person.get_created_from_display }}</dd></div>
     </dl>
   </section>

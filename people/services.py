@@ -68,7 +68,11 @@ def ensure_own_person(user, church) -> Person | None:
 
 
 # What a screen may change on a person that already exists. Never ``user`` or ``merged_into``.
-SCREEN_FIELDS = ("first_name", "last_name", "birth_date", "email", "phone", "preferred_contact_method", "updated_at")
+# Never ``stage`` either: it has its own write (``set_stage``).
+SCREEN_FIELDS = (
+    "first_name", "last_name", "birth_date", "email", "phone", "preferred_contact_method", "baptized_on", "arrived_on",
+    "member_since", "updated_at",
+)
 
 
 def save_person(person: Person, actor, *, created: bool) -> Person:
