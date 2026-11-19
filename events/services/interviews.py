@@ -1081,16 +1081,20 @@ def interview_people(interview: Interview) -> dict:
       started before «Antes de empezar» asked it);
     - ``reverified``: each other staff member who ticked it again to continue it, and when (``audit.IDENTITY_VERIFIED``);
     - ``holder``: «Entrevista a cargo de …», the last person who took it in hand in the activity log (``HOLDER_ACTIONS``),
-      else the person who started it.
+      else the person who started it;
+    - ``holder_is_confirmer``: the holder is the same account that confirmed it at the start (compared by account, not
+      by name: two people may share one), so the record does not say the same person twice.
     """
     rows = list(_interview_rows(interview, (*HOLDER_ACTIONS, audit.IDENTITY_VERIFIED)))
     started = next((r for r in rows if r.action == "entrevista_iniciada" and r.metadata.get("identity_confirmed")), None)
     holders = [r for r in rows if r.action in HOLDER_ACTIONS]
     holder = holders[-1].actor_label if holders else (interview.conducted_by.get_full_name() if interview.conducted_by else "")
+    holder_id = holders[-1].actor_id if holders else interview.conducted_by_id
     return {
         "confirmed": {"by": started.actor_label, "at": started.created_at} if started else None,
         "reverified": [{"by": r.actor_label, "at": r.created_at} for r in rows if r.action == audit.IDENTITY_VERIFIED],
         "holder": holder,
+        "holder_is_confirmer": bool(started and holder_id and started.actor_id == holder_id),
     }
 
 

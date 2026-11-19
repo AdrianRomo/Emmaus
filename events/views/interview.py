@@ -270,6 +270,9 @@ def _resume(request, event, access, interview: Interview, *, reopen: bool):
     """Send this browser to where the interview continues, claiming it first."""
     if interview.status != Interview.Status.IN_PROGRESS:
         return redirect("events:interview_detail", slug=event.slug, public_id=interview.public_id)
+    response = _identity_check(request, access, interview)  # before taking it in hand (the check's page claims it)
+    if response:
+        return response
     response = _claim_or_conflict(request, access, interview, reopen=reopen)
     if response:
         return response
@@ -302,6 +305,9 @@ def interview_conflict(request, event, access, public_id):
     posted = request.POST if request.method == "POST" else None  # bound even when nothing was ticked
     form = IdentityCheckForm(posted, participant_name=participant.full_name) if check else None
     holds_it = interview.lock_matches(svc.session_claim_token(request.session, interview))
+    # Another computer has it now (an active claim not this browser's): continuing here takes it from there. A free or
+    # expired claim is only picked up, after the check: the page is the check alone.
+    elsewhere = not holds_it and interview.lock_is_active()
     if request.method == "POST" and (form is None or form.is_valid()):
         if not holds_it:
             try:
@@ -311,7 +317,7 @@ def interview_conflict(request, event, access, public_id):
                 return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
         if check:
             svc.record_identity_check(access, interview)
-        if not holds_it:
+        if elsewhere:
             messages.success(request, "Ahora esta computadora tiene el control de la entrevista.")
         return redirect("events:interview_resume", slug=event.slug, public_id=interview.public_id)
     return render(
@@ -323,8 +329,8 @@ def interview_conflict(request, event, access, public_id):
             # Nobody else has it: "Liberar" stopped this browser. The page must not say "otra computadora".
             "released": svc.claim_released_here(interview, request.session),
             "identity_form": form,
-            # This browser already holds it: nothing to take over, only the identity to check.
-            "verify_only": holds_it and check,
+            # Nobody else has it (this browser, or a free or expired claim): nothing to take over, only the identity.
+            "verify_only": check and not elsewhere,
         },
     )
 
@@ -350,6 +356,10 @@ def interview_step(request, event, access, public_id, number):
         return redirect("events:interview_detail", slug=event.slug, public_id=interview.public_id)
     if not access.can_interview(interview.participant):
         raise PermissionDenied
+    # Who did not start it checks the campero first, before taking it in hand: never «a cargo de» unchecked
+    response = _identity_check(request, access, interview)
+    if response:
+        return response
     token = svc.session_claim_token(request.session, interview)
     if not interview.lock_matches(token):
         response = _claim_or_conflict(request, access, interview)
@@ -357,9 +367,6 @@ def interview_step(request, event, access, public_id, number):
             return response
         interview.refresh_from_db()
         token = svc.session_claim_token(request.session, interview)
-    response = _identity_check(request, access, interview)
-    if response:
-        return response
     step = _step_or_404(interview, number)
     answers = load_answers(interview)
     if step.number not in [s.number for s in visible_steps(interview.version, answers)]:
@@ -423,6 +430,10 @@ def interview_review(request, event, access, public_id):
         raise Http404
     if not access.can_interview(interview.participant):
         raise PermissionDenied
+    # Who did not start it checks the campero first, before taking it in hand: never «a cargo de» unchecked
+    response = _identity_check(request, access, interview)
+    if response:
+        return response
     token = svc.session_claim_token(request.session, interview)
     if not interview.lock_matches(token):
         response = _claim_or_conflict(request, access, interview)
@@ -430,9 +441,6 @@ def interview_review(request, event, access, public_id):
             return response
         interview.refresh_from_db()
         token = svc.session_claim_token(request.session, interview)
-    response = _identity_check(request, access, interview)
-    if response:
-        return response
     error = None
     if request.method == "POST":
         decision = request.POST.get("follow_up_decision", "")
@@ -508,15 +516,15 @@ def interview_handoff(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if interview.status != Interview.Status.IN_PROGRESS or not access.can_interview(interview.participant):
         raise Http404
+    response = _identity_check(request, access, interview)  # before taking it in hand and giving the computer
+    if response:
+        return response
     if request.method == "GET" or not interview.lock_matches(svc.session_claim_token(request.session, interview)):
         # Like a step: an expired claim is picked up again, a released or taken one is refused.
         response = _claim_or_conflict(request, access, interview)
         if response:
             return response
         interview.refresh_from_db()
-    response = _identity_check(request, access, interview)  # before handing the computer to the campero
-    if response:
-        return response
     if request.method == "POST" and request.POST.get("action") == "asistida":
         try:
             svc.switch_to_assisted(access, interview, session=request.session)

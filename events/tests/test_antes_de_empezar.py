@@ -147,11 +147,19 @@ class IdentityConfirmationIsKeptTests(CampFixture):
             response = other.get(url, follow=True)
             self.assertEqual(response.redirect_chain[-1][0], self.url("interview_conflict", interview.public_id), url)
             self.assertContains(response, f"Antes de continuar con {self.p2.first_name}")
+            self.assertNotContains(response, "otra computadora")  # nobody else has it: only the check
+        # Nothing is taken in hand before the check: the claim stays free and the record does not name the admin
+        interview.refresh_from_db()
+        self.assertNotEqual(interview.lock_holder_id, self.admin.pk)
+        record = self.client.get(self.url("interview_detail", interview.public_id))
+        self.assertNotContains(record, f"Entrevista a cargo de {self.admin.get_full_name()}")
         refused = other.post(self.url("interview_conflict", interview.public_id))
         self.assertContains(refused, "Para continuar, confirma que es la persona correcta.")
         other.post(self.url("interview_conflict", interview.public_id), {"identity": "on"})
         self.assertEqual(other.get(self.url("interview_review", interview.public_id)).status_code, 200)
         self.assertEqual(self.checks(interview).count(), 1)
+        interview.refresh_from_db()
+        self.assertEqual(interview.lock_holder_id, self.admin.pk)  # taken in hand once checked
 
     def test_recovering_the_computer_after_the_campero_keeps_it(self):
         """The coordinator who handed the computer over recovers it: they started it, so nothing is asked."""
