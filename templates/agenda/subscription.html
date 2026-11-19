@@ -1,0 +1,100 @@
+{% extends "layout/skeleton.html" %}
+{% load brand %}
+{% block title %}{% if form.errors %}Error: {% endif %}Avisos por correo{% if event %} de {{ event.name }}{% endif %}{% endblock %}
+{% block body %}
+{% comment %}
+  The pages of an event's e-mail subscriptions (agenda.subscription_views; issue #96, second part), for somebody
+  without an account: the form, what it answers, the button that confirms, the button that unsubscribes, and the
+  one text for a link that does not work. Like the public page it extends the skeleton: whoever reads it sees the
+  same page. It NEVER shows an address (only the one somebody is correcting in the form) or anything about people.
+{% endcomment %}
+<header class="bar bar--public">
+  <div class="bar__inner">
+    {% if church %}{% church_brand church size="bar" %}{% else %}<span class="wordmark">Emmaus</span>{% endif %}
+  </div>
+</header>
+<main id="contenido" class="page" tabindex="-1">
+<div class="narrow public-event">
+  {% if state == "form" %}
+    {% include "partials/ui/error_summary.html" with form=form %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Avisos por correo de {{ event.name }}</h1>
+      <p class="lede">{{ purpose }}</p>
+    </div></header>
+    <form class="block" method="post" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" with form=form %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Pedir los avisos por correo</button>
+      </div>
+    </form>
+    <section class="block" aria-labelledby="como">
+      <h2 id="como" class="heading">Qué pasa con tu correo</h2>
+      <ul class="prose">
+        <li>Te enviamos un solo correo con un enlace para confirmar que la dirección es tuya. Sin confirmar no recibes nada más y tu dirección se borra a las {{ confirm_hours }} horas.</li>
+        <li>Después, un correo cada vez que se publique un aviso nuevo de este evento. El correo solo dice que hay un aviso y lleva el enlace para leerlo aquí.</li>
+        <li>Tu dirección no se usa para nada más, no se comparte y nadie de la iglesia ve la lista de direcciones.</li>
+        <li>Cada correo trae un enlace para darte de baja: al usarlo, tu dirección se borra en ese momento. Si no, se borra sola {{ retention_days }} días después de que termine el evento.</li>
+        <li>Dejar tu correo no te inscribe al evento ni te da una cuenta.</li>
+      </ul>
+    </section>
+    <p class="more"><a href="{{ back }}">Volver a la información del evento</a></p>
+  {% elif state == "asked" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Revisa tu correo</h1>
+      <p class="lede">Si esa dirección todavía no estaba en la lista de este evento, en unos minutos le llega un correo con un enlace para confirmar. Sin confirmar no te avisamos de nada.</p>
+    </div></header>
+    <p>El enlace sirve {{ confirm_hours }} horas. Si el correo no llega, revisa la carpeta de correo no deseado. Para cuidar las bandejas de otras personas, enviamos un solo correo de confirmación por dirección cada {{ confirm_hours }} horas: después de ese tiempo puedes pedirlo otra vez.</p>
+    <p>Si ya habías confirmado esa dirección para este evento, no cambia nada y no recibes otro correo de confirmación.</p>
+    <p class="more"><a href="{{ back }}">Volver a la información del evento</a></p>
+  {% elif state == "confirm" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Confirma tu correo</h1>
+      <p class="lede">Para recibir un correo cuando haya un aviso nuevo de {{ event.name }}. Nada más.</p>
+    </div></header>
+    <form class="block" method="post">
+      {% csrf_token %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Sí, avísenme por correo</button>
+      </div>
+    </form>
+    <p class="aside-note">Si no fuiste tú quien lo pidió, cierra esta página: sin confirmar no recibes nada más y la dirección se borra sola.</p>
+  {% elif state == "confirmed" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Listo, tu correo quedó confirmado</h1>
+      <p class="lede">Cuando se publique un aviso nuevo de {{ event.name }}, Emmaus envía un correo a esta dirección con el enlace para leerlo.</p>
+    </div></header>
+    <p>Los avisos que ya están publicados no se envían: léelos en la página del evento. Un correo puede tardar o no llegar, así que la página del evento es siempre el lugar donde están todos.</p>
+    <p>Cada correo trae un enlace para darte de baja. Tu dirección se borra sola {{ retention_days }} días después de que termine el evento.</p>
+    <div class="step__actions"><a class="btn btn--secondary" href="{{ back }}">Ver los avisos del evento</a></div>
+  {% elif state == "leave" %}
+    <header class="page-head"><div class="page-head__text">
+      {% if church %}<p class="public-event__church">{{ church.name }}</p>{% endif %}
+      <h1 class="voice page-head__title">¿Quieres dejar de recibir estos avisos?</h1>
+      <p class="lede">Dejas de recibir los correos de {% if event %}{{ event.name }}{% else %}este evento{% endif %} y tu dirección se borra en este momento.</p>
+    </div></header>
+    <form class="block" method="post">
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Sí, darme de baja</button>
+      </div>
+    </form>
+  {% elif state == "left" %}
+    <header class="page-head"><div class="page-head__text">
+      {% if church %}<p class="public-event__church">{{ church.name }}</p>{% endif %}
+      <h1 class="voice page-head__title">Listo, te dimos de baja</h1>
+      <p class="lede">Borramos tu dirección. Ya no recibes correos de {% if event %}{{ event.name }}{% else %}este evento{% endif %}.</p>
+    </div></header>
+  {% else %}
+    <header class="page-head"><div class="page-head__text">
+      <h1 class="voice page-head__title">Este enlace ya no sirve</h1>
+      <p class="lede">Puede que haya vencido, que esté incompleto o que la dirección ya se haya borrado. Si ya te habías dado de baja, no tienes que hacer nada más.</p>
+    </div></header>
+    <p>Para recibir avisos por correo, pídelos otra vez desde la página del evento.</p>
+  {% endif %}
+</div>
+</main>
+{% endblock %}

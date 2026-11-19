@@ -10,6 +10,9 @@ One answer for everything that is not such a page (no event with that address, a
 page, not published, not public, over, the church not using the module): the same 404, so the
 address is no oracle. Who is signed in is never looked at: the page is the same for everybody.
 
+The page has no form: "Avisos por correo" (``agenda.subscriptions``, when the administration turned it on) is a
+link to its own page, so that reading this one still sets no cookie.
+
 No throttle: ``events.services.throttle`` counts attempts per browser session or account to slow
 down guessing and repeated writes (a sign-in, a printed code, a sign-up). Here there is nothing to
 guess that is not meant to be public, nothing is written, and counting would give every anonymous
@@ -61,6 +64,19 @@ def notices_path(event: Event) -> str:
     return public_path(event) + "#avisos"
 
 
+def subscribe_path(event: Event) -> str:
+    """Where somebody leaves an e-mail address to hear about the event's public notices (``agenda.subscriptions``)."""
+    return reverse("evento:subscribe", args=[event.slug])
+
+
+def confirm_path(token: str) -> str:
+    return reverse("evento:subscription_confirm", args=[token])
+
+
+def unsubscribe_path(token: str) -> str:
+    return reverse("evento:subscription_unsubscribe", args=[token])
+
+
 def notices_share_url(church_name: str, link: str) -> str:
     """A WhatsApp message that says there is news and where: the church and the link. Never the notice's
     title or text, and not the event's name: the message travels through groups nobody controls."""
@@ -90,6 +106,10 @@ def event(request, slug: str):
         raise Http404
     event = page.event
     today = timezone.localdate()
+    from . import subscriptions  # it imports this module
+
+    # A link to the form, never the form: the form needs a CSRF cookie, and this page sets none.
+    mail_offer = page.notice_mail and not subscriptions.not_sending()
     if not page.registration_open:
         sign_up = "no"
     elif page.registration_closes_on and page.registration_closes_on < today:
@@ -107,6 +127,8 @@ def event(request, slug: str):
             "member_path": reverse("agenda:detail", args=[event.slug]),
             # "Agregar a mi calendario": this event as a calendar file (agenda.calendar), the same public facts.
             "calendar_path": reverse("evento:calendar", args=[event.slug]),
+            # "Avisos por correo" (issue #96, second part): only when the administration turned it on and e-mail can go out.
+            "subscribe_path": subscribe_path(event) if mail_offer else "",
             "faqs": EventFaq.objects.filter(event=event),
             # Public notices (issue #96): title, text and when. Never who wrote them.
             "notices": services.public_notices(event),

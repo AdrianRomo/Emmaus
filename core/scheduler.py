@@ -11,7 +11,8 @@ Counts and a class name only: never an address, a name, a title or an error mess
 for what a failing community job writes to the ordinary log: its class and its stack, not its message.
 A job is not "ok" when it raised, and also when its own counts say it did nothing useful
 (``AllSendsFailed``: every e-mail was refused; ``EventsFailed``: a waiting list could not be moved;
-``SeriesFailed``: the dates of a series could not be written).
+``SeriesFailed``: the dates of a series could not be written; ``AllSendsFailed`` also for the e-mails of
+an event's subscribers, ``agenda.subscriptions``).
 
 Who reads the heartbeat: ``manage.py scheduler_status`` (for cron or a monitor on the host) and the
 notice screens (``notice_mail_problem``), which must not promise an e-mail on a later day while
@@ -43,7 +44,8 @@ WAITING_OFFERS = "lista_espera"
 SERIES = "series_eventos"
 PERSON_MERGES = "uniones_personas"
 FORM_ANSWERS = "respuestas_formularios"
-JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS)
+SUBSCRIPTIONS = "suscripciones_evento"
+JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS)
 # A job that has not ended well for this long is not running: three passes of 300 seconds.
 STALE_MINUTES = 15
 

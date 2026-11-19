@@ -30,7 +30,14 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    them ended (``formularios.services.prune``, what ``prune_form_submissions --apply`` runs), with their tasks,
    in every church whatever its module flags: it only deletes. The form and its questions stay.
 
-2 to 6 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
+7. ``suscripciones_evento``: the e-mail addresses left on an event's public page to hear about its public
+   notices (``agenda.subscriptions.run_pass``; issue #96). First it deletes what is over (unconfirmed requests
+   after 48 hours, every address 14 days after its event ended), in every church whatever its flags. Then, only
+   with ``EMMAUS_PUBLIC_BASE_URL`` and a mail backend that delivers, and only for events of churches that use
+   the ``community`` module whose public page takes subscriptions: the e-mails that ask to confirm an address
+   and one e-mail per new public notice to each confirmed address, for at most ``SUBSCRIPTION_BUDGET_SECONDS``.
+
+2 to 7 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
 switch) leaves only the first, and the line it prints is then the one ``run_report_cutoffs`` prints.
 Not here, on purpose: ``remind_follow_up_owners`` (it mails again on every run) and
 ``prune_attendance`` (it deletes). Both stay manual.
@@ -55,6 +62,8 @@ logger = logging.getLogger(__name__)
 # Seconds one pass may spend sending notice e-mails: a mail server that hangs must not hold the
 # cutoffs of the next pass. What is left goes out on the following passes.
 NOTICE_MAIL_BUDGET_SECONDS = 120
+# The same bound for the e-mails of an event's subscribers.
+SUBSCRIPTION_BUDGET_SECONDS = 60
 SKIPPED_WORDS = {
     scheduler.NO_BASE_URL: "sin dirección pública (EMMAUS_PUBLIC_BASE_URL)",
     scheduler.NO_EMAIL: "sin correo configurado",
@@ -103,6 +112,18 @@ def prune_form_answers() -> dict:
     from formularios import services
 
     return services.prune(apply=True)
+
+
+def event_subscriptions() -> dict:
+    from agenda import subscriptions
+
+    return subscriptions.run_pass(budget_seconds=SUBSCRIPTION_BUDGET_SECONDS)
+
+
+def event_subscriptions_verdict(done: dict) -> str:
+    from agenda import subscriptions
+
+    return subscriptions.verdict(done)
 
 
 class Command(BaseCommand):
@@ -167,6 +188,17 @@ class Command(BaseCommand):
             return False, "formularios: error"
         return True, f"formularios: {run.counts['submissions']} respuestas vencidas borradas"
 
+    def event_subscriptions_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.SUBSCRIPTIONS, event_subscriptions, verdict=event_subscriptions_verdict)
+        done = run.counts
+        if done is None:
+            return False, "suscripciones de eventos: error"
+        line = f"suscripciones de eventos: {done['unconfirmed'] + done['expired']} direcciones borradas"
+        if done["not_configured"]:
+            return True, f"{line}, sin correos (falta la dirección pública o el correo)"
+        line += f", {done['confirmations'] + done['sent']} correos enviados, {done['failed']} fallidos, {done['left']} pendientes"
+        return run.ok, line if run.ok else f"{line} (ningún correo está saliendo)"
+
     def run_once(self) -> bool:
         """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
@@ -176,7 +208,8 @@ class Command(BaseCommand):
             head += " · la pasada de cortes no terminó"
         if scheduler.community_jobs_enabled():
             for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary(), self.series_summary(),
-                                    self.person_merges_summary(), self.form_answers_summary()):
+                                    self.person_merges_summary(), self.form_answers_summary(),
+                                    self.event_subscriptions_summary()):
                 ok = ok and job_ok
                 head += f" · {summary}"
         self.stdout.write(head)
