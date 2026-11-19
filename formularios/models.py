@@ -193,6 +193,16 @@ class Submission(models.Model):
     email_key = models.CharField(max_length=64, blank=True, default="")
     phone_key = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
+    # The last day this answer may exist: what the person was told when they answered (the form's last day plus
+    # its retention, as they were then). A later change of the form only ever brings it earlier
+    # (``services.shorten_kept_until``); extending or reopening the form counts for new answers only.
+    delete_after = models.DateField(null=True, blank=True)
+    # A public answer whose e-mail or phone another answer to this form gave within a day. Both are kept:
+    # anybody can type somebody else's contact, so a repeated contact never discards an answer.
+    same_contact = models.BooleanField(default=False)
+    # "Por revisar": a public answer that arrived while the form was receiving more than people send, or after the
+    # form was full. Kept, with no task and no line in the activity log, for the administration to accept or delete.
+    held = models.BooleanField(default=False)
 
     class Meta:
         verbose_name = "respuesta a un formulario"
@@ -202,6 +212,8 @@ class Submission(models.Model):
             models.Index(fields=["form", "-created_at"], name="form_submission_recent_idx"),
             models.Index(fields=["version", "email_key"], name="form_submission_email_idx"),
             models.Index(fields=["version", "phone_key"], name="form_submission_phone_idx"),
+            models.Index(fields=["form", "held", "-created_at"], name="form_submission_held_idx"),
+            models.Index(fields=["delete_after"], name="form_submission_delete_idx"),
         ]
 
     def __str__(self) -> str:
@@ -210,6 +222,19 @@ class Submission(models.Model):
     @property
     def contact_name(self) -> str:
         return f"{self.contact_first_name} {self.contact_last_name}".strip()
+
+
+class SeenSeal(models.Model):
+    """That the seal of one drawn public form page was already used to send an answer
+    (``formularios.public``). ``key`` is a keyed hash of the seal's random part: it names no person, no
+    device and no network. Deleted when the seal could no longer be accepted anyway (``services.prune``)."""
+
+    key = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        verbose_name = "sello usado de un formulario público"
+        verbose_name_plural = "sellos usados de formularios públicos"
 
 
 class FormTask(models.Model):

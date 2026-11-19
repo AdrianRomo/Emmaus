@@ -50,7 +50,10 @@ CRISIS_LINE = (
 
 OFF = "Tu iglesia no está recibiendo peticiones de oración."
 NO_READER = "Hoy no hay nadie en tu iglesia que pueda leer una petición. No se guardó nada."
-READERS_CHANGED = "Cambió quién lee las peticiones mientras escribías. No se guardó nada: revisa los nombres y envíala otra vez."
+READERS_CHANGED = (
+    "Mientras escribías cambió algo de lo que dice esta página: quién lee las peticiones, cuántos días se guardan "
+    "o la línea de ayuda. No se guardó nada: revísala y envíala otra vez."
+)
 TOO_MANY = f"Ya tienes {MAX_KEPT} peticiones guardadas. Borra una para escribir otra."
 NOT_ACCEPTED = "Para encenderlo, marca que leíste y aceptas lo que tu iglesia promete."
 PROMISES_CHANGED = "Cambió quién lee las peticiones mientras leías esta página. No se encendió nada: léela otra vez."
@@ -71,9 +74,10 @@ class Gone(Exception):
 class Terms:
     """What a church promises today, as the screens state it."""
 
-    enabled: bool
+    enabled: bool  # takes new requests today: switched on AND accepted under the promises in force
     retention_days: int
     own_line: str
+    outdated: bool = False  # switched on under an older text of the promises: a pastor has to accept again
 
     @property
     def crisis_line(self) -> str:
@@ -82,18 +86,25 @@ class Terms:
 
 # ---- the switch ---------------------------------------------------------------------------------
 def terms(church) -> Terms:
-    row = PrayerPolicy.objects.filter(church=church).values("enabled", "emergency_line").first() or {}
-    return Terms(bool(row.get("enabled")), policy.prayer_retention_days(church), row.get("emergency_line") or "")
+    row = PrayerPolicy.objects.filter(church=church).values("enabled", "emergency_line", "promises_version").first() or {}
+    switched, current = bool(row.get("enabled")), row.get("promises_version") == PROMISES_VERSION
+    return Terms(switched and current, policy.prayer_retention_days(church), row.get("emergency_line") or "", switched and not current)
 
 
 def is_on(church) -> bool:
-    return PrayerPolicy.objects.filter(church=church, enabled=True).exists()
+    """The church takes new requests: a pastor switched it on and accepted the promises in force today.
+    A church that accepted an older text keeps what was written, to be read, and takes nothing new
+    until a pastor accepts the current one."""
+    return PrayerPolicy.objects.filter(church=church, enabled=True, promises_version=PROMISES_VERSION).exists()
 
 
-def readers_token(readers) -> str:
-    """A fingerprint of who was named as a reader and of the promises' version. Only the hash travels."""
-    stated = "\x1f".join([PROMISES_VERSION, *(str(pk) for pk in sorted(user.pk for user in readers))])
-    return hashlib.sha256(stated.encode()).hexdigest()
+def readers_token(readers, stated: Terms | None = None) -> str:
+    """A fingerprint of what a page stated: who reads and the promises' version; with ``stated`` (the
+    member's form) also the days a request is kept and the church's own line. Only the hash travels."""
+    parts = [PROMISES_VERSION, *(str(pk) for pk in sorted(user.pk for user in readers))]
+    if stated is not None:
+        parts += ["dias", str(stated.retention_days), "linea", stated.own_line]
+    return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
 
 
 def clean_line(text: str) -> str:
@@ -130,7 +141,7 @@ def switch_on(church, actor, *, accepted: bool, token: str, emergency_line: str,
         row, _ = PrayerPolicy.objects.select_for_update().get_or_create(church=church)
         if token != readers_token(access.readers(church)):
             raise PrayerError(PROMISES_CHANGED, code="stale")
-        if row.enabled:
+        if row.enabled and row.promises_version == PROMISES_VERSION:
             return row
         row.enabled, row.accepted_by, row.accepted_at = True, actor, timezone.now()
         row.promises_version, row.emergency_line, row.retention_days = PROMISES_VERSION, line, days
@@ -160,7 +171,7 @@ def change_terms(church, actor, *, emergency_line: str, retention_days: int) -> 
     _pastor_or_refuse(church, actor)
     line, days = clean_line(emergency_line), clean_days(retention_days)
     with transaction.atomic():
-        row = PrayerPolicy.objects.select_for_update().filter(church=church, enabled=True).first()
+        row = PrayerPolicy.objects.select_for_update().filter(church=church, enabled=True, promises_version=PROMISES_VERSION).first()
         if row is None:
             raise PrayerError(OFF, code="off")
         if (row.emergency_line, row.retention_days) == (line, days):
@@ -191,25 +202,28 @@ def create(church, person: Person, *, body: str, token: str, only_reader_id: int
         readers = access.readers(church, apart_from=person.user)
         if not readers:
             raise PrayerError(NO_READER, code="readers")
-        if token != readers_token(readers):
+        if token != readers_token(readers, terms(church)):  # the names, the days and the line the form stated
             raise PrayerError(READERS_CHANGED, code="stale")
         chosen = None
         if only_reader_id is not None:
             chosen = next((user for user in readers if user.pk == only_reader_id), None)
             if chosen is None:
                 raise PrayerError(READERS_CHANGED, code="stale")
-        if PrayerRequest.objects.filter(church=church, person=person).count() >= MAX_KEPT:
+        if access.own(person.user, church).count() >= MAX_KEPT:
             raise PrayerError(TOO_MANY, code="limit")
         now = timezone.now()
         return PrayerRequest.objects.create(
-            church=church, person=person, body=body, restricted=chosen is not None, only_reader=chosen,
+            church=church, person=person, author=person.user, body=body, restricted=chosen is not None, only_reader=chosen,
             expires_at=now + timedelta(days=policy.prayer_retention_days(church)),
         )
 
 
-def delete_own(church, person: Person, prayer_id: int) -> bool:
-    """The writer deletes their own request, with its reply. Nothing is kept and nothing is recorded."""
-    deleted, _ = PrayerRequest.objects.filter(pk=prayer_id, church=church, person=person).delete()
+def delete_own(church, user, prayer_id: int) -> bool:
+    """The account that wrote a request deletes it, with its reply. Nothing is kept and nothing is recorded.
+    Whatever the church's module flags and its switch say: the form promised "cuando quiera"."""
+    if church is None or not getattr(user, "is_authenticated", False):
+        return False
+    deleted, _ = PrayerRequest.objects.filter(pk=prayer_id, church=church, author=user).delete()
     return bool(deleted)
 
 

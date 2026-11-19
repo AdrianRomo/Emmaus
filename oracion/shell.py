@@ -2,7 +2,6 @@
 views decide again what is allowed."""
 
 from . import access, services
-from .models import PrayerRequest
 
 
 def shows_writer_link(church, person) -> bool:
@@ -10,7 +9,7 @@ def shows_writer_link(church, person) -> bool:
     if services.is_on(church):
         if access.may_write(person):
             return True
-    return PrayerRequest.objects.filter(church=church, person=person).exists()
+    return access.own(person.user, church).exists() if person.user_id else False
 
 
 def reader_badge(user, church) -> int | None:

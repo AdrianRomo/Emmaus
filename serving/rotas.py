@@ -14,8 +14,15 @@ screens offer (``excluded``). Somebody is left out when they:
 * are not an adult by a date of birth the church verified, when the role is for adults only. An
   unknown age counts as not adult there.
 
-Locks, always in this order: the date, the team, the assignment, the swap. ``serving.services``
-takes the first three in that order already.
+Locks, always in this order (``serving.services`` says it for every writer of Servir): the team,
+the date, the assignment, the swap request. Every swap writer holds the team, so taking somebody
+out of the team (``services.remove_member``) can never run between "can they take it?" and the
+date changing hands.
+
+Eligibility is evaluated when it is READ, for anything in the future: an assignment made while
+somebody could take a role says nothing once the role became "solo personas adultas" or their date
+of birth was corrected. ``unfit`` flags it for who coordinates, it stops counting towards what the
+date needs, and an order never names somebody who can no longer be named (``plan_items``).
 
 Moments are compared as instants: a date with an hour starts at that hour, a date without one lasts
 its whole day. "Coming" is "starts after now".
@@ -92,10 +99,7 @@ def excluded(service_date: ServiceDate, role: TeamRole | None, person_ids) -> di
     )
     cannot = services.unavailable_ids(ids, day)
     asked = set(Assignment.objects.filter(service_date=service_date, person_id__in=ids).values_list("person_id", flat=True))
-    busy = set(
-        Assignment.objects.filter(person_id__in=ids, service_date__date=day, service_date__team__status=Team.Status.ACTIVE)
-        .exclude(status=DECLINED).exclude(service_date=service_date).values_list("person_id", flat=True)
-    )
+    busy = busy_elsewhere(ids, day, service_date.pk)
     not_adult: set[int] = set()
     if role is not None and role.adults_only:
         not_adult = {person.pk for person in Person.objects.filter(pk__in=ids) if not is_adult_on(person, day)}
@@ -112,6 +116,27 @@ def excluded(service_date: ServiceDate, role: TeamRole | None, person_ids) -> di
         elif pk in not_adult:
             out[pk] = "adults_only"
     return out
+
+
+def busy_elsewhere(person_ids, day, service_date_id=None) -> set[int]:
+    """Who of ``person_ids`` serves on ``day`` on another date, of any active team, and has not said no."""
+    rows = Assignment.objects.filter(
+        person_id__in=list(person_ids), service_date__date=day, service_date__team__status=Team.Status.ACTIVE
+    ).exclude(status=DECLINED)
+    if service_date_id is not None:
+        rows = rows.exclude(service_date_id=service_date_id)
+    return set(rows.values_list("person_id", flat=True))
+
+
+def unfit(assignment: Assignment) -> bool:
+    """The person can no longer cover the role this assignment gave them, as things are now: the
+    role is for adults and the church has not verified them as adult on that day, or their record
+    was joined to another. Read every time, never stored. Needs ``person``, ``role`` and
+    ``service_date`` loaded."""
+    if assignment.person.merged_into_id is not None:
+        return True
+    role = assignment.role
+    return role is not None and role.active and role.adults_only and not is_adult_on(assignment.person, assignment.service_date.date)
 
 
 def _members(team: Team) -> list[Person]:
@@ -145,9 +170,40 @@ def active_roles(team: Team) -> list[TeamRole]:
     return list(TeamRole.objects.filter(team=team, active=True))
 
 
-def save_role(team: Team, actor, *, role: TeamRole | None = None, name: str, adults_only: bool = False) -> TeamRole:
-    """Add a role to ``team`` or change one. A name that was retired comes back as it was."""
+class RoleNeedsConfirmation(Exception):
+    """Saving the role as "solo personas adultas" would leave these future assignments with a role
+    their person cannot cover. ``token`` covers exactly those rows: confirm with it."""
+
+    def __init__(self, affected: list[Assignment], token: str):
+        super().__init__("confirm")
+        self.affected, self.token = affected, token
+
+
+def _holders_who_cannot(role: TeamRole, now) -> list[Assignment]:
+    """The assignments of dates that are coming, not declined, that hold ``role`` and whose person
+    is not an adult the church verified on that day."""
+    today = timezone.localtime(now).date()
+    rows = (
+        Assignment.objects.filter(role=role, service_date__date__gte=today).exclude(status=DECLINED)
+        .select_related("person", "service_date").order_by("service_date__date", "service_date__starts_at", "pk")
+    )
+    return [row for row in rows if is_coming(row.service_date, now) and not is_adult_on(row.person, row.service_date.date)]
+
+
+def _release_token(role: TeamRole, affected: list[Assignment]) -> str:
+    return hashlib.sha256(json.dumps([role.pk, [row.pk for row in affected]]).encode()).hexdigest()
+
+
+def save_role(team: Team, actor, *, role: TeamRole | None = None, name: str, adults_only: bool = False,
+              release_token: str = "", now=None) -> TeamRole:
+    """Add a role to ``team`` or change one. A name that was retired comes back as it was.
+
+    Making a role "solo personas adultas" while people the church has not verified as adults hold
+    it on dates that are coming is not done silently: ``RoleNeedsConfirmation`` lists them, and
+    saving again with its ``token`` keeps each of them on their date WITHOUT the role (the place
+    is missing again, and the coordinator fills it). If the list changed meanwhile, it is shown again."""
     name = _one_line(name, 60, "Escribe el nombre del rol.")
+    now = now or timezone.now()
     with transaction.atomic():
         team = _active_team(team)
         same = TeamRole.objects.select_for_update().filter(team=team, name__iexact=name).first()
@@ -159,10 +215,23 @@ def save_role(team: Team, actor, *, role: TeamRole | None = None, name: str, adu
             role = TeamRole.objects.select_for_update().get(pk=role.pk, team=team)
             if same is not None and same.pk != role.pk:
                 raise ServingError("El equipo ya tiene un rol con ese nombre.", code="duplicate")
+        released = 0
+        if adults_only and role.pk is not None:
+            # Under the team's lock nobody assigns in this team: the list cannot grow behind us.
+            affected = _holders_who_cannot(role, now)
+            if affected:
+                token = _release_token(role, affected)
+                if release_token != token:
+                    raise RoleNeedsConfirmation(affected, token)
+                ids = services._lock_assignments(Assignment.objects.filter(pk__in=[row.pk for row in affected]))
+                released = Assignment.objects.filter(pk__in=ids, role=role).update(role=None)
         role.name, role.adults_only, role.active = name, bool(adults_only), True
         role.save()
         record_church(team.church, actor, "equipo_rol", f"Agregó o modificó un rol del equipo {team.name}", role,
                       value="solo_adultos" if role.adults_only else "abierto")
+        if released:
+            record_church(team.church, actor, "equipo_asignacion",
+                          f"Dejó sin rol a quien ya no puede cubrirlo en fechas del equipo {team.name}", role, value=str(released))
     return role
 
 
@@ -215,13 +284,19 @@ class Missing:
 
 
 def missing_by_date(dates) -> dict[int, list[Missing]]:
-    """For each date, what it needs of each role and how many people who have not said no hold it."""
+    """For each date, what it needs of each role and how many people who have not said no, and can
+    still cover the role (``unfit``), hold it."""
     dates = list(dates)
     out: dict[int, list[Missing]] = {service_date.pk: [] for service_date in dates}
     filled: dict[tuple[int, int], int] = {}
-    held = Assignment.objects.filter(service_date__in=dates, role__isnull=False).exclude(status=DECLINED)
-    for date_id, role_id in held.values_list("service_date_id", "role_id"):
-        filled[(date_id, role_id)] = filled.get((date_id, role_id), 0) + 1
+    held = (
+        Assignment.objects.filter(service_date__in=dates, role__isnull=False).exclude(status=DECLINED)
+        .select_related("person", "role", "service_date")
+    )
+    for row in held:
+        if not unfit(row):  # read now: who can no longer cover the role does not fill its place
+            key = (row.service_date_id, row.role_id)
+            filled[key] = filled.get(key, 0) + 1
     for need in RoleNeed.objects.filter(service_date__in=dates, role__active=True).select_related("role").order_by("role__name", "id"):
         out[need.service_date_id].append(Missing(need.role, need.count, filled.get((need.service_date_id, need.role_id), 0)))
     return out
@@ -389,8 +464,8 @@ def confirm_proposal(team: Team, actor, *, token: str, choices: dict[str, int | 
     today = timezone.localtime(now).date()
     with transaction.atomic():
         horizon = today + timedelta(weeks=HORIZON_WEEKS)
+        team = _active_team(team)  # the team, then its dates: the lock order of Servir
         list(ServiceDate.objects.select_for_update().filter(team=team, date__gte=today, date__lte=horizon).order_by("pk"))
-        team = _active_team(team)
         proposal = build_proposal(team, now)
         if proposal.token != token:
             raise StaleProposal
@@ -423,9 +498,14 @@ def _expires_at(swap: SwapRequest) -> datetime:
 
 
 def is_live(swap: SwapRequest, now=None) -> bool:
-    """The request still waits for somebody: open, younger than ``SWAP_DAYS`` and its date is coming."""
+    """The request still waits for somebody: open, younger than ``SWAP_DAYS``, its date is coming,
+    and the date is still the asker's and they have not said no to it."""
     now = now or timezone.now()
-    return swap.status in SwapRequest.OPEN and _expires_at(swap) > now and is_coming(swap.assignment.service_date, now)
+    assignment = swap.assignment
+    return (
+        swap.status in SwapRequest.OPEN and _expires_at(swap) > now and is_coming(assignment.service_date, now)
+        and assignment.status != DECLINED and assignment.person_id == swap.from_person_id
+    )
 
 
 def _close_expired(assignment_id: int, now) -> None:
@@ -455,13 +535,18 @@ def swap_candidates(assignment: Assignment) -> list[Person]:
 
 
 def _locked(assignment_id: int):
-    """The date, its team and the assignment, locked in the order every writer of Servir uses."""
-    date_id = Assignment.objects.filter(pk=assignment_id).values_list("service_date_id", flat=True).first()
-    service_date = ServiceDate.objects.select_for_update().filter(pk=date_id).first()
+    """The team, the date and the assignment, locked in the order every writer of Servir uses and
+    read again under the locks."""
+    ids = Assignment.objects.filter(pk=assignment_id).values_list("service_date_id", "service_date__team_id").first()
+    if ids is None:
+        raise ServingError(GONE, code="gone")
+    date_id, team_id = ids
+    team = Team.objects.select_for_update(of=("self",)).select_related("church").get(pk=team_id)
+    service_date = ServiceDate.objects.select_for_update().filter(pk=date_id, team_id=team_id).first()
     assignment = Assignment.objects.select_for_update(of=("self",)).select_related("person", "role").filter(pk=assignment_id).first()
     if service_date is None or assignment is None:
         raise ServingError(GONE, code="gone")
-    service_date.team = Team.objects.select_related("church").get(pk=service_date.team_id)
+    service_date.team = team
     assignment.service_date = service_date
     return service_date, assignment
 
@@ -504,12 +589,12 @@ def _open_swap(swap_id: int, expected: str, now):
     swap.assignment = assignment
     if swap.status != expected:
         raise ServingError(GONE, code="gone")
-    if not is_live(swap, now):
-        SwapRequest.objects.filter(pk=swap.pk).update(status=Swap.EXPIRED, decided_at=now)
-        raise _Expired(GONE, code="expired")
     if not service_date.team.is_active or assignment.person_id != swap.from_person_id or assignment.status == DECLINED:
         SwapRequest.objects.filter(pk=swap.pk).update(status=Swap.CANCELLED, decided_at=now)
         raise _Expired(GONE, code="gone")
+    if not is_live(swap, now):
+        SwapRequest.objects.filter(pk=swap.pk).update(status=Swap.EXPIRED, decided_at=now)
+        raise _Expired(GONE, code="expired")
     return service_date, assignment, swap
 
 
@@ -702,7 +787,16 @@ def _plan_responsible(service_date: ServiceDate, person) -> Person | None:
 
 
 def plan_items(service_date: ServiceDate) -> list[PlanItem]:
-    return list(PlanItem.objects.filter(service_date=service_date).select_related("responsible"))
+    """The moments of the date, to SHOW. Who is in charge is read now: a person who left the team,
+    whose record was joined to another, or whose record says they are a minor is not named (the
+    moment reads as having nobody in charge). The row is not written here; these objects are for a
+    template and are never saved."""
+    items = list(PlanItem.objects.filter(service_date=service_date).select_related("responsible"))
+    allowed = {person.pk for person in plan_people(service_date)} if any(item.responsible_id for item in items) else set()
+    for item in items:
+        if item.responsible_id is not None and item.responsible_id not in allowed:
+            item.responsible = None
+    return items
 
 
 def may_read_plan(person, service_date: ServiceDate) -> bool:

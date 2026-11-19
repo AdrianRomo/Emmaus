@@ -30,13 +30,17 @@ from events.services.team import email_is_configured
 logger = logging.getLogger(__name__)
 
 CONFIRM = "confirmar"
+# The same request, when it is the last one this address will get for the event: the text says so.
+CONFIRM_LAST = "confirmar_ultimo"
 NOTICE = "aviso_nuevo"
 SUBJECTS = {
     CONFIRM: "Emmaus: confirma tu correo para los avisos de un evento",
+    CONFIRM_LAST: "Emmaus: confirma tu correo para los avisos de un evento",
     NOTICE: "Emmaus: hay un aviso nuevo de un evento",
 }
 ALLOWED = {
     CONFIRM: frozenset({"church_name", "event_name", "link"}),
+    CONFIRM_LAST: frozenset({"church_name", "event_name", "link"}),
     NOTICE: frozenset({"church_name", "event_name", "link", "unsubscribe_link"}),
 }
 LINKS = ("link", "unsubscribe_link")

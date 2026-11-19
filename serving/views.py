@@ -13,7 +13,7 @@ the views say ``is_church_admin or has_scope(ministry manage)`` explicitly, as t
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -35,6 +35,27 @@ from .models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
 ACTIVE = TeamMembership.Status.ACTIVE
 COORDINATOR = TeamMembership.Role.COORDINATOR
 MEMBER_ORDER = ("person__first_name", "person__last_name", "id")
+
+
+BUSY = "Alguien más estaba cambiando lo mismo en este momento. No se guardó nada: inténtalo de nuevo."
+
+
+def try_again(view_func):
+    """A view that writes: when the database gives up on a lock (two people changing the same date
+    at the same instant), nothing was written and the person is told so, plainly, on "Servir"."""
+    from functools import wraps
+
+    @wraps(view_func)
+    def wrapped(request, *args, **kwargs):
+        try:
+            return view_func(request, *args, **kwargs)
+        except OperationalError:
+            if request.method != "POST":
+                raise
+            messages.error(request, BUSY)
+            return redirect("serving:home")
+
+    return wrapped
 
 
 def _weekday_date(day) -> str:
@@ -122,6 +143,7 @@ def home(request):
 
 @community_view
 @require_POST
+@try_again
 def respond(request, assignment_id: int):
     assignment = get_object_or_404(
         Assignment.objects.select_related("service_date", "service_date__team"),
@@ -146,6 +168,7 @@ def respond(request, assignment_id: int):
 
 @community_view
 @require_POST
+@try_again
 def unavailable_add(request):
     form = UnavailableForm(request.POST)
     if not form.is_valid():
@@ -170,6 +193,7 @@ def unavailable_add(request):
 
 @community_view
 @require_POST
+@try_again
 def unavailable_remove(request, day_id: int):
     day = get_object_or_404(Unavailable, pk=day_id, person=request.person)
     services.clear_unavailable(day, request.user)
@@ -186,6 +210,10 @@ def team(request, team_id: int):
     missing = rotas.missing_by_date(dates)
     for service_date in dates:
         service_date.people = sorted(service_date.assignments.all(), key=lambda row: (row.person.full_name, row.pk))
+        for row in service_date.people:
+            row.service_date = service_date
+            # Read now, not when it was assigned: the role may have become for adults, or the age corrected.
+            row.unfit = row.status != Assignment.Status.DECLINED and rotas.unfit(row)
         service_date.confirmed = sum(1 for row in service_date.people if row.status == Assignment.Status.ACCEPTED)
         service_date.role_needs = missing.get(service_date.pk, [])
     members = list(TeamMembership.objects.filter(team=team, status=ACTIVE).select_related("person").order_by("role", *MEMBER_ORDER))
@@ -223,7 +251,18 @@ def _date_page(request, team: Team, service_date: ServiceDate | None):
         value = request.POST.get(name, "").strip()
         return int(value) if value.isdigit() and len(value) <= 4 else 0
 
+    warned: list = []
     if posted and form.is_valid():
+        # Who serves that day on another date can still be asked: who coordinates may know better.
+        # It is said first, with the names, and saving again with the same names goes ahead.
+        day = form.cleaned_data["date"]
+        moved = service_date is not None and service_date.date != day
+        asking = {pk for pk in chosen if moved or pk not in assigned} & {membership.person_id for membership in members}
+        elsewhere = rotas.busy_elsewhere(asking, day, service_date.pk if service_date else None)
+        stated = ",".join(str(pk) for pk in sorted(elsewhere))
+        if elsewhere and request.POST.get("ocupados", "") != stated:
+            warned = [membership.person for membership in members if membership.person_id in elsewhere]
+    if posted and form.is_valid() and not warned:
         try:
             with transaction.atomic():
                 saved = services.save_date(team, request.user, service_date=service_date, **form.cleaned_data)
@@ -259,16 +298,23 @@ def _date_page(request, team: Team, service_date: ServiceDate | None):
         membership.role_id = number(f"rol_{membership.person_id}") if posted else (current.pk if current else 0)
         # A role that was retired stays on who has it, and is offered only to them.
         membership.old_role = current if current is not None and not current.active else None
+        membership.unfit = False
+        if membership.assignment is not None and membership.assignment.status != Assignment.Status.DECLINED:
+            membership.assignment.service_date, membership.assignment.person = service_date, membership.person
+            membership.unfit = rotas.unfit(membership.assignment)
     needs = {need.role.pk: need for need in rotas.missing_by_date([service_date])[service_date.pk]} if service_date else {}
     for role in roles:
         need = needs.get(role.pk)
         role.needed = number(f"necesita_{role.pk}") if posted else (need.needed if need else 0)
         role.state = need
-    return render(request, "serving/date_form.html", {"form": form, "team": team, "service_date": service_date, "members": members,
-                                                       "roles": roles})
+    return render(request, "serving/date_form.html", {
+        "form": form, "team": team, "service_date": service_date, "members": members, "roles": roles,
+        "warned": warned, "warned_ids": ",".join(str(person.pk) for person in sorted(warned, key=lambda person: person.pk)),
+    })
 
 
 @community_view
+@try_again
 def date_create(request, team_id: int):
     team = _coordinated_team(request, team_id)
     if not team.is_active:
@@ -277,12 +323,14 @@ def date_create(request, team_id: int):
 
 
 @community_view
+@try_again
 def date_detail(request, date_id: int):
     service_date = _coordinated_date(request, date_id)
     return _date_page(request, service_date.team, service_date)
 
 
 @community_view
+@try_again
 def date_delete(request, date_id: int):
     service_date = _coordinated_date(request, date_id)
     team, day = service_date.team, _weekday_date(service_date.date)
@@ -323,6 +371,7 @@ def team_admin(request):
 
 
 @church_admin_view
+@try_again
 def team_create(request):
     form = TeamForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -333,6 +382,7 @@ def team_create(request):
 
 
 @church_admin_view
+@try_again
 def team_edit(request, team_id: int):
     team = _team(request, team_id)
     form = TeamForm(request.POST or None, instance=team)
@@ -344,6 +394,7 @@ def team_edit(request, team_id: int):
 
 
 @church_admin_view
+@try_again
 def team_archive(request, team_id: int):
     team = _team(request, team_id)
     if request.method == "POST":
@@ -364,6 +415,7 @@ def team_archive(request, team_id: int):
 
 @church_admin_view
 @require_POST
+@try_again
 def member_add(request, team_id: int):
     """The administration puts a person of the church in a team, to serve or to coordinate it."""
     team = _team(request, team_id)
@@ -384,6 +436,7 @@ def member_add(request, team_id: int):
 
 
 @church_admin_view
+@try_again
 def member_remove(request, team_id: int, membership_id: int):
     team = _team(request, team_id)
     membership = get_object_or_404(TeamMembership.objects.select_related("person"), pk=membership_id, team=team, status=ACTIVE)

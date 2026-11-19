@@ -42,7 +42,7 @@ class StageTests(CommunityFixture):
     def test_only_the_administration_of_this_church(self):
         data = {"etapa": "miembro", "antes": ""}
         self.assertEqual(self.client.post(self.url(), data).status_code, 302)  # signed out: to sign in
-        for user, expected in ((self.member_user, 403), (self.leader_user, 403), (self.coord1, 403), (self.admin_b, 404)):
+        for user, expected in ((self.member_user, 404), (self.leader_user, 404), (self.coord1, 404), (self.admin_b, 404)):
             self.client.force_login(user)
             self.assertEqual(self.client.post(self.url(), data).status_code, expected, user.email)
         self.client.force_login(self.admin)

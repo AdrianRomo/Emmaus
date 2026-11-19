@@ -77,11 +77,13 @@ class PrayerFixture(CommunityFixture):
         person = person or self.asked
         readers = access.readers(person.church, apart_from=person.user)
         return services.create(
-            person.church, person, body=body, token=services.readers_token(readers), only_reader_id=only.pk if only else None,
+            person.church, person, body=body, token=services.readers_token(readers, services.terms(person.church)),
+            only_reader_id=only.pk if only else None,
         )
 
     def token_for(self, user, church=None):
-        return services.readers_token(access.readers(church or self.church, apart_from=user))
+        church = church or self.church
+        return services.readers_token(access.readers(church, apart_from=user), services.terms(church))
 
     def reader_requests(self, prayer_id):
         """Every address a reader uses, as (method, url, data)."""
@@ -150,7 +152,8 @@ class JourneyTests(PrayerFixture):
         response = self.client.post(NEW, {"body": BODY, "reader": "", "lectores": self.token_for(self.asked_user)})
         self.assertRedirects(response, MINE)
         prayer = PrayerRequest.objects.get()
-        self.assertEqual((prayer.church, prayer.person, prayer.body, prayer.restricted, prayer.only_reader), (self.church, self.asked, BODY, False, None))
+        self.assertEqual((prayer.church, prayer.person, prayer.author, prayer.body, prayer.restricted, prayer.only_reader),
+                         (self.church, self.asked, self.asked_user, BODY, False, None))
         self.assertEqual(prayer.expires_at.date(), (prayer.created_at + timedelta(days=90)).date())
         page = self.client.get(MINE)
         self.assertContains(page, "Todavía no la han leído.")
@@ -213,6 +216,11 @@ class JourneyTests(PrayerFixture):
         self.assertContains(page, "Línea de la iglesia: 55 0000 0000, de 9:00 a 18:00")
         self.assertContains(page, services.EMERGENCY_911)  # the 911 sentence is never replaced
         self.assertNotContains(page, PHONE)
+        self.client.force_login(self.pastor)
+        page = self.client.get(TERMS)
+        self.assertNotContains(page, "estas dos frases")
+        self.assertContains(page, "Hoy aparece la de tu iglesia.")
+        self.assertContains(page, "<p>Línea de la iglesia: 55 0000 0000, de 9:00 a 18:00</p>")
 
 
 class SwitchTests(PrayerFixture):
@@ -344,17 +352,76 @@ class SwitchTests(PrayerFixture):
         self.assertNotContains(self.client.get(HOME), "oracion")
         self.assertEqual(PrayerRequest.objects.count(), 0)
 
-    def test_with_the_module_off_nothing_answers(self):
+    def test_with_the_module_off_only_the_writers_own_page_and_delete_answer(self):
         self.turn_on()
         prayer = self.write()
+        services.reply(self.church, self.pastor, prayer.pk, REPLY)
         flags.set_enabled(self.church, "community", False)
-        for user in (self.pastor, self.asked_user, self.admin):
+        for user in (self.pastor, self.asked_user, self.admin, self.leader_user):
             self.client.force_login(user)
-            for address in (MINE, NEW, INBOX, TERMS, url("read", prayer.pk), url("delete", prayer.pk)):
+            for address in (NEW, INBOX, TERMS, url("read", prayer.pk)):
                 self.assertEqual(self.client.get(address).status_code, 404, address)
-            for address in (NEW, url("delete", prayer.pk), url("mark_read", prayer.pk), url("reply", prayer.pk), TERMS, READER_EMAIL):
-                self.assertEqual(self.client.post(address, {"paso": "apagar"}).status_code, 404, address)
-        self.assertTrue(PrayerRequest.objects.filter(pk=prayer.pk, read_at__isnull=True).exists())
+            for address in (NEW, url("mark_read", prayer.pk), url("reply", prayer.pk), TERMS, READER_EMAIL):
+                self.assertEqual(self.client.post(address, {"paso": "apagar", "body": "x"}).status_code, 404, address)
+            if user != self.asked_user:  # nobody else's page shows it, and nobody else deletes it
+                self.assertEqual(self.client.get(MINE).status_code, 404)
+                self.assertEqual(self.client.get(url("delete", prayer.pk)).status_code, 404)
+                self.assertEqual(self.client.post(url("delete", prayer.pk)).status_code, 404)
+        self.assertEqual(PrayerRequest.objects.count(), 1)
+        # The writer: a plain page with what they wrote, the answer and the way to delete; no way to write.
+        self.client.force_login(self.asked_user)
+        page = self.client.get(MINE)
+        self.assertContains(page, MARK)
+        self.assertContains(page, REPLY_MARK)
+        self.assertContains(page, "ya no recibe peticiones nuevas")
+        self.assertContains(page, services.EMERGENCY_911)
+        self.assertNotContains(page, f'href="{NEW}"')
+        self.assertNotContains(page, f'href="{HOME}"')
+        self.assertContains(self.client.get(url("delete", prayer.pk)), "¿Borrar esta petición de oración?")
+        response = self.client.post(url("delete", prayer.pk))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(PrayerRequest.objects.count(), 0)
+        self.assertEqual(self.client.get(MINE).status_code, 404)
+
+    def test_the_module_off_and_the_switch_off_and_the_kill_switch_do_not_keep_the_writer_from_deleting(self):
+        self.turn_on()
+        prayer = self.write()
+        services.switch_off(self.church, self.pastor)
+        flags.set_enabled(self.church, "community", False)
+        self.client.force_login(self.asked_user)
+        with self.settings(EMMAUS_V2_MODULES=False):
+            self.assertContains(self.client.get(MINE), MARK)
+            self.assertEqual(self.client.post(url("delete", prayer.pk)).status_code, 302)
+        self.assertEqual(PrayerRequest.objects.count(), 0)
+
+    def test_a_newer_text_of_the_promises_needs_a_pastor_to_accept_again(self):
+        self.turn_on()
+        prayer = self.write()
+        with mock.patch.object(services, "PROMISES_VERSION", "2099-01"):
+            self.assertFalse(services.is_on(self.church))
+            self.assertEqual((services.terms(self.church).enabled, services.terms(self.church).outdated), (False, True))
+            # Nothing new; what was written is read and not worked on; its writer keeps it.
+            self.client.force_login(self.leader_user)
+            self.assertEqual(self.client.get(NEW).status_code, 404)
+            with self.assertRaises(services.PrayerError):
+                self.write(self.leader)
+            self.client.force_login(self.asked_user)
+            self.assertContains(self.client.get(MINE), MARK)
+            self.client.force_login(self.pastor)
+            self.assertContains(self.client.get(url("read", prayer.pk)), MARK)
+            self.assertEqual(self.client.post(url("mark_read", prayer.pk)).status_code, 404)
+            page = self.client.get(TERMS)
+            self.assertContains(page, "Cambió lo que Emmaus promete")
+            self.assertContains(page, 'name="paso" value="encender"')
+            with self.assertRaises(services.PrayerError):
+                services.change_terms(self.church, self.pastor, emergency_line="", retention_days=30)
+            # Only the acceptance of the text in force switches it back on, and it is recorded again.
+            self.turn_on(actor=self.pastor2)
+            row = PrayerPolicy.objects.get(church=self.church)
+            self.assertEqual((row.promises_version, row.accepted_by), ("2099-01", self.pastor2))
+            self.assertTrue(services.is_on(self.church))
+            self.assertEqual(self.client.post(url("mark_read", prayer.pk)).status_code, 302)
+        self.assertFalse(services.is_on(self.church))  # and the constant decides, not the row alone
 
 
 class DenialTests(PrayerFixture):
@@ -421,7 +488,7 @@ class DenialTests(PrayerFixture):
         for user in (self.pastor, self.admin, self.leader_user, self.root, self.member_b_user, self.pastor_b):
             self.client.force_login(user)
             for prayer in (self.prayer, theirs):
-                if prayer.person.user_id == user.pk:
+                if prayer.author_id == user.pk:
                     continue
                 self.assertEqual(self.client.get(url("delete", prayer.pk)).status_code, 404)
                 self.assertEqual(self.client.post(url("delete", prayer.pk)).status_code, 404)
@@ -545,7 +612,7 @@ class WriterTests(PrayerFixture):
         response = self.client.post(NEW, {"body": BODY, "lectores": "x"})
         self.assertNotContains(response, "<textarea")
         with self.assertRaises(services.PrayerError):
-            services.create(self.church, self.asked, body=BODY, token=services.readers_token([]))
+            services.create(self.church, self.asked, body=BODY, token=services.readers_token([], services.terms(self.church)))
         self.assertEqual(PrayerRequest.objects.count(), 0)
         # The only pastor of a church has nobody to write to.
         self.turn_on(self.church_b, self.pastor_b)
@@ -566,6 +633,27 @@ class WriterTests(PrayerFixture):
             self.client.post(NEW, {"body": BODY, **missing})
         self.assertEqual(PrayerRequest.objects.count(), 0)
 
+    def test_it_is_not_saved_when_the_days_or_the_line_changed_while_writing(self):
+        self.client.force_login(self.asked_user)
+        page = self.client.get(NEW)
+        self.assertContains(page, 'autocomplete="off"')
+        token = self.token_for(self.asked_user)
+        services.change_terms(self.church, self.pastor, emergency_line="", retention_days=7)
+        response = self.client.post(NEW, {"body": BODY, "lectores": token})
+        self.assertContains(response, "a los 7 días")  # the form again, with what is true now
+        self.assertContains(response, "No se guardó nada")
+        self.assertEqual(PrayerRequest.objects.count(), 0)
+        token = self.token_for(self.asked_user)
+        services.change_terms(self.church, self.pastor, emergency_line="Línea nueva 55 1111 0000", retention_days=7)
+        response = self.client.post(NEW, {"body": BODY, "lectores": token})
+        self.assertContains(response, "Línea nueva 55 1111 0000")
+        self.assertEqual(PrayerRequest.objects.count(), 0)
+        with self.assertRaises(services.PrayerError):
+            services.create(self.church, self.asked, body=BODY, token=token)
+        self.assertRedirects(self.client.post(NEW, {"body": BODY, "lectores": self.token_for(self.asked_user)}), MINE)
+        prayer = PrayerRequest.objects.get()
+        self.assertEqual(prayer.expires_at.date(), (prayer.created_at + timedelta(days=7)).date())
+
     def test_the_text_is_one_and_short(self):
         self.assertContains(self.post(self.asked_user, body="  "), "Escribe tu petición.")
         self.assertContains(self.post(self.asked_user, body="x" * 1001), "Escribe 1,000 caracteres o menos.")
@@ -575,7 +663,7 @@ class WriterTests(PrayerFixture):
         self.assertRedirects(self.post(self.asked_user, body="x" * 1000), MINE)
         fields = {field.name for field in PrayerRequest._meta.get_fields()}
         self.assertEqual(fields, {
-            "id", "church", "person", "body", "restricted", "only_reader", "created_at", "expires_at", "read_at", "reply",
+            "id", "church", "person", "author", "body", "restricted", "only_reader", "created_at", "expires_at", "read_at", "reply",
             "replied_at", "talked_at",
         })
         with self.assertRaises(services.PrayerError):
@@ -653,7 +741,7 @@ class RaceTests(PrayerFixture):
     def test_the_writer_deleted_it_while_a_pastor_had_it_open(self):
         self.client.force_login(self.pastor)
         self.client.get(url("read", self.prayer.pk))
-        services.delete_own(self.church, self.asked, self.prayer.pk)
+        services.delete_own(self.church, self.asked_user, self.prayer.pk)
         for name, data in (("mark_read", {}), ("reply", {"reply": "x"}), ("mark_talked", {})):
             self.assertEqual(self.client.post(url(name, self.prayer.pk), data).status_code, 404)
         self.assertFalse(PrayerRequest.objects.exists())
@@ -752,7 +840,7 @@ class NowhereElseTests(PrayerFixture):
         for _ in range(services.MAIL_PER_HOUR + 3):
             prayer = self.write()
             services.notify_readers(prayer, "https://emmaus.invalid/mi-iglesia/oracion/recibidas/")
-            services.delete_own(self.church, self.asked, prayer.pk)
+            services.delete_own(self.church, self.asked_user, prayer.pk)
         self.assertEqual(len(mail.outbox), services.MAIL_PER_HOUR)
         # The counter is the reader's: nothing in it says who wrote.
         self.assertEqual(list(AuthThrottle.objects.values_list("key", flat=True)), [f"oracion-aviso:{self.church.pk}:{self.pastor.pk}"])
@@ -835,19 +923,57 @@ class RetentionTests(PrayerFixture):
         PrayerRequest.objects.filter(pk=prayer.pk).update(expires_at=timezone.now() - timedelta(minutes=1))
         self.assertEqual(services.prune(), 1)
 
+    def test_a_request_past_its_date_is_gone_for_every_screen_before_the_job_runs(self):
+        prayer, fresh = self.write(), self.write(self.leader, body="Vigente-6612")
+        self.client.force_login(self.pastor)
+        self.client.post(url("mark_read", fresh.pk))
+        PrayerRequest.objects.filter(pk=prayer.pk).update(expires_at=timezone.now() - timedelta(seconds=1))
+        self.assertTrue(PrayerRequest.objects.filter(pk=prayer.pk).exists())  # the job has not run
+        page = self.client.get(INBOX)
+        self.assertNotContains(page, "Pía")
+        self.assertContains(page, "Gala Guía")
+        self.assertNotContains(self.client.get(HOME), "sin leer</span>")
+        self.assertEqual(services.unread_count(self.pastor, self.church), 0)
+        self.assertEqual(self.client.get(url("read", prayer.pk)).status_code, 404)
+        for name, data in (("mark_read", {}), ("reply", {"reply": "x"}), ("mark_talked", {})):
+            self.assertEqual(self.client.post(url(name, prayer.pk), data).status_code, 404, name)
+        for call in (services.mark_read, services.mark_talked):
+            with self.assertRaises(services.Gone):
+                call(self.church, self.pastor, prayer.pk)
+        self.assertEqual(PrayerRequest.objects.get(pk=prayer.pk).read_at, None)
+        self.client.force_login(self.asked_user)
+        self.assertNotContains(self.client.get(MINE), MARK)
+        self.assertEqual(self.client.get(url("delete", prayer.pk)).status_code, 404)
+        self.assertFalse(access.own(self.asked_user, self.church).exists())
+        # The same for one older than the platform's 90 days, whatever its row says.
+        PrayerRequest.objects.filter(pk=fresh.pk).update(created_at=timezone.now() - timedelta(days=91))
+        self.assertFalse(access.readable(self.pastor, self.church).exists())
+        self.assertFalse(access.own(self.leader_user, self.church).exists())
+        services.switch_off(self.church, self.pastor)
+        self.assertEqual(self.client.get(MINE).status_code, 404)  # no door left to something that is gone
+        self.client.force_login(self.leader_user)
+        self.assertNotContains(self.client.get(HOME), MINE)
+
     def test_the_scheduled_job_deletes_whatever_the_switches_say(self):
-        prayer, kept = self.write(), self.write(self.leader)
-        self.age(prayer, 100)
+        """Through the command: the church's module off, its own switch off, and each of the two settings
+        that stop the community jobs."""
         services.switch_off(self.church, self.pastor)
         flags.set_enabled(self.church, "community", False)
-        out = StringIO()
-        with self.assertLogs("emmaus.scheduler", "INFO") as logs:
-            call_command("run_scheduled_jobs", stdout=out)
-        self.assertIn("peticiones de oración: 1 vencidas borradas", out.getvalue())
-        self.assertEqual(list(PrayerRequest.objects.values_list("pk", flat=True)), [kept.pk])
-        line = next(output for output in logs.output if "oracion_retencion" in output)
-        self.assertIn('"deleted": 1', line)
-        self.assertNotIn(MARK, "\n".join(logs.output) + out.getvalue())
+        for off in ({}, {"EMMAUS_SCHEDULED_COMMUNITY_JOBS": False}, {"EMMAUS_V2_MODULES": False}):
+            with self.subTest(off=off), self.settings(**off):
+                self.turn_on()
+                prayer, kept = self.write(), self.write(self.leader)
+                services.switch_off(self.church, self.pastor)
+                self.age(prayer, 100)
+                out = StringIO()
+                with self.assertLogs("emmaus.scheduler", "INFO") as logs:
+                    call_command("run_scheduled_jobs", stdout=out)
+                self.assertIn("peticiones de oración: 1 vencidas borradas", out.getvalue())
+                self.assertEqual(list(PrayerRequest.objects.values_list("pk", flat=True)), [kept.pk])
+                line = next(output for output in logs.output if "oracion_retencion" in output)
+                self.assertIn('"deleted": 1', line)
+                self.assertNotIn(MARK, "\n".join(logs.output) + out.getvalue())
+                PrayerRequest.objects.all().delete()
 
     def test_the_command_says_how_many_and_deletes_only_with_apply(self):
         prayer = self.write()
@@ -868,23 +994,75 @@ class RetentionTests(PrayerFixture):
 
 
 class MergeTests(PrayerFixture):
-    def test_a_record_with_a_prayer_request_is_never_joined_to_another(self):
+    """A request belongs to the account that wrote it: joining two records of a person moves nothing,
+    counts nothing, and is never refused or even changed by a request, so a preview tells nothing."""
+
+    def setUp(self):
         self.turn_on()
-        twin = Person.objects.create(church=self.church, first_name="Pía", last_name="Pidió", email=self.asked.email)
-        self.assertNotIn(merge.UNMERGEABLE, merge.build_preview(self.church, self.asked, twin).refusals)
-        prayer = self.write()
-        for survivor, absorbed in ((self.asked, twin), (twin, self.asked)):
-            preview = merge.build_preview(self.church, survivor, absorbed)
-            self.assertIn(merge.UNMERGEABLE, preview.refusals)
-            self.assertFalse(preview.allowed)
-            with self.assertRaises(merge.MergeRefused):
-                merge.merge(self.church, survivor.pk, absorbed.pk, self.admin, choices={}, token=preview.token)
-        self.assertNotIn("oraci", merge.UNMERGEABLE.lower())  # the administration is not told which kind
-        self.assertEqual(PrayerRequest.objects.get().person, self.asked)
+        self.twin = Person.objects.create(church=self.church, first_name="Pía", last_name="Pidió", email=self.asked.email)
+
+    def stated(self, survivor, absorbed):
+        survivor.refresh_from_db()
+        absorbed.refresh_from_db()
+        preview = merge.build_preview(self.church, survivor, absorbed)
+        return (preview.token, preview.refusals, preview.moves, preview.stays, preview.move_lines, preview.stay_lines, preview.account)
+
+    def join(self, survivor, absorbed):
+        token = self.stated(survivor, absorbed)[0]
+        return merge.merge(self.church, survivor.pk, absorbed.pk, self.admin, choices={}, token=token)
+
+    def assert_writer_keeps_it(self, prayer):
+        self.client.force_login(self.asked_user)
+        self.assertContains(self.client.get(MINE), MARK)
+        self.assertContains(self.client.get(url("delete", prayer.pk)), "¿Borrar esta petición de oración?")
+        self.client.force_login(self.pastor)
+        self.assertContains(self.client.get(INBOX), "Pía Pidió")
+        self.assertContains(self.client.get(url("read", prayer.pk)), MARK)
+
+    def test_the_preview_and_the_merge_are_the_same_with_and_without_a_request(self):
+        for survivor, absorbed in ((self.asked, self.twin), (self.twin, self.asked)):
+            without = self.stated(survivor, absorbed)
+            self.assertEqual(without[1], [])
+            prayer = self.write()
+            self.assertEqual(self.stated(survivor, absorbed), without)
+            self.assertNotIn("oracion.PrayerRequest.person", without[2])
+            record = self.join(survivor, absorbed)
+            self.assertNotIn("oraci", str(record.manifest).lower())
+            row = PrayerRequest.objects.get()
+            self.assertEqual((row.person_id, row.author_id), (self.asked.pk, self.asked_user.pk))  # nothing moved
+            self.assert_writer_keeps_it(prayer)
+            merge.undo(self.church, record.pk, self.admin)
+            self.assertEqual(PrayerRequest.objects.get().author_id, self.asked_user.pk)
+            self.assert_writer_keeps_it(prayer)
+            self.client.force_login(self.asked_user)
+            self.assertRedirects(self.client.post(url("delete", prayer.pk)), MINE)
         self.assertEqual(merge.undecided_relations(), [])
-        self.assertIn(("oracion.PrayerRequest", "person"), merge.REFUSED)
-        services.delete_own(self.church, self.asked, prayer.pk)
-        self.assertNotIn(merge.UNMERGEABLE, merge.build_preview(self.church, self.asked, twin).refusals)
+        self.assertIn(("oracion.PrayerRequest", "person"), merge.NOTHING_MOVES)
+        self.assertFalse(hasattr(merge, "UNMERGEABLE"))
+
+    def test_the_writer_deletes_after_a_merge_moved_the_account_to_the_other_record(self):
+        prayer = self.write()
+        self.join(self.twin, self.asked)  # the account now belongs to the record that was the twin
+        self.assertEqual(Person.objects.get(pk=self.twin.pk).user, self.asked_user)
+        self.client.force_login(self.asked_user)
+        self.assertRedirects(self.client.post(url("delete", prayer.pk)), MINE)
+        self.assertEqual(PrayerRequest.objects.count(), 0)
+
+    def test_the_account_of_the_surviving_record_never_sees_what_another_account_wrote(self):
+        prayer = self.write()
+        # The record lost its account, and is then joined to the record of another account.
+        Person.objects.filter(pk=self.asked.pk).update(user=None)
+        other_user = make_user("otra-pia@prueba.mx", "Pía", "Pidió")
+        other = self._person(self.church, other_user)
+        Person.objects.filter(pk=other.pk).update(email=self.asked.email)
+        self.join(other, self.asked)
+        self.client.force_login(other_user)
+        self.assertNotContains(self.client.get(MINE), MARK)
+        self.assertEqual(self.client.get(url("delete", prayer.pk)).status_code, 404)
+        self.assertEqual(self.client.post(url("delete", prayer.pk)).status_code, 404)
+        self.assertFalse(access.own(other_user, self.church).exists())
+        self.assertFalse(services.delete_own(self.church, other_user, prayer.pk))
+        self.assertTrue(PrayerRequest.objects.filter(pk=prayer.pk, author=self.asked_user).exists())
 
 
 class SeedTests(PrayerFixture):

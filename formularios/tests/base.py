@@ -1,11 +1,12 @@
 from datetime import timedelta
 
 from django.urls import reverse
+from django.utils import timezone
 
 from core.models import Role
 from core.services import assign_role
 from events.tests.base import make_user
-from formularios import services
+from formularios import public, services
 from formularios.fields import AnswerForm
 from formularios.models import Form
 from groups.tests.base import CommunityFixture
@@ -66,15 +67,20 @@ class FormFixture(CommunityFixture):
         return [item["key"] for item in form.current_version.schema]
 
     def member_data(self, form, **changes) -> dict:
-        goes, brings, more = self.keys(form)
+        goes, brings, more = self.keys(form)[:3]
         return {"version": form.current_version_id, goes: "Sí", brings: "Postre", more: OTHER_ANSWER, **changes}
 
     def public_data(self, form, email="visita@demo.invalid", phone="", text="Informes", **changes) -> dict:
         contact, what = self.keys(form)[:2]
         return {
             "version": form.current_version_id, f"{contact}_nombre": "Vera", f"{contact}_apellidos": "Visita", f"{contact}_correo": email,
-            f"{contact}_telefono": phone, f"{contact}_acepto": "on", what: text, **changes,
+            f"{contact}_telefono": phone, f"{contact}_acepto": "on", what: text, "sello": self.seal(form), **changes,
         }
+
+    @staticmethod
+    def seal(form, seconds_ago=10) -> str:
+        """The seal of a public page drawn ``seconds_ago``: old enough to be sent, as a person's is."""
+        return public.new_seal(form, issued=timezone.now() - timedelta(seconds=seconds_ago))
 
     def answer(self, form, data=None, person=None, **kwargs):
         """Through the same two steps a view takes: validate against the version, then ``submit``."""

@@ -569,7 +569,7 @@ class Command(BaseCommand):
         for person, body in texts:
             if not PrayerRequest.objects.filter(church=church, person=person).exists():
                 readers = prayer_access.readers(church, apart_from=person.user)
-                prayers.create(church, person, body=body, token=prayers.readers_token(readers))
+                prayers.create(church, person, body=body, token=prayers.readers_token(readers, prayers.terms(church)))
 
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})

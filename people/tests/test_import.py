@@ -234,6 +234,62 @@ class PreviewAndConfirmTests(ImportFixture):
         self.assertEqual(Person.objects.get(pk=self.member_b.pk).church, self.church_b)
 
 
+class CellsThatCannotBeStoredTests(ImportFixture):
+    """What the independent review reproduced: a cell is refused in the preview, never cleaned, never cut."""
+
+    def assert_refused(self, cell_row: str, words: str):
+        response = self.review(HEAD + cell_row + "Buena,Fila,buena@prueba.mx,,,,\n")
+        self.assertContains(response, "Fila 2")
+        self.assertContains(response, words)
+        self.assertContains(response, "Importar 1 persona")
+        self.confirm(response)
+        self.assertEqual(list(self.created().values_list("first_name", flat=True)), ["Buena"])
+        self.created().delete()
+
+    def test_a_control_character_is_an_error_of_its_row(self):
+        for bad in ("\x00", "\x01", "\x1f", "\x7f", "\x85", "\u202e", "\u2066", "\u200f", "\u061c", "\u2028", "\u2029", "\t"):
+            for row in (f"Ro{bad}sa,Peña,,,,,\n", f"Rosa,Peña,ro{bad}sa@prueba.mx,,,,\n", f"Rosa,Peña,,55 1{bad}2,,,\n"):
+                with self.subTest(repr(bad), row=row[:12]):
+                    self.assert_refused(row, "caracteres que no se ven")
+        for person in Person.objects.all():
+            self.assertFalse(any(ord(ch) < 32 for ch in person.first_name + person.email + person.phone))
+        rows, _ = imports.read_file((HEAD + "Ro\x00sa,Peña,,,,,\n").encode())
+        self.assertEqual((rows[0]["first_name"], rows[0]["unfit"]), ("", ["control"]))  # not even carried to the confirmation
+
+    def test_a_cell_that_is_too_long_is_an_error_and_is_never_cut(self):
+        tags.create_tag(self.church, "Coro", self.admin)
+        long_tags = "Coro;" + ";".join(["Inexistente"] * 20)  # cut at 200 it read as «Coro» alone
+        long_mail = "a" * 191 + "@prueba.mx.invalid"  # cut at 200 it was another, valid address
+        self.assertGreater(len(long_mail), 200)
+        for row in (f"Rosa,Peña,,,,,{long_tags}\n", f"Rosa,Peña,{long_mail},,,,\n", f"Rosa,{'x' * 201},,,,,\n"):
+            self.assert_refused(row, "Una celda es demasiado larga")
+        self.assertFalse(PersonTag.objects.exists())
+        self.assertFalse(Person.objects.filter(email__startswith="aaaa").exists())
+        # 200 characters is not too long for the cell; the field's own limit then speaks.
+        self.assertContains(self.review(HEAD + f"Rosa,{'x' * 200},,,,,\n"), "son muy largos")
+
+    def test_a_name_that_grows_when_normalised_is_an_error_not_a_failed_import(self):
+        grows = "\ufb03" * 100  # 100 characters, 300 once normalised: more than ``normalized_name`` holds
+        self.assert_refused(f"{grows},Peña,,,,,\n", "letras especiales que ocupan más")
+        # The manual form says the same instead of failing on PostgreSQL.
+        response = self.client.post(reverse("people:create"), {"first_name": grows, "preferred_contact_method": "email"})
+        self.assertContains(response, "letras especiales que ocupan más")
+        response = self.client.post(reverse("people:create"), {"first_name": "Ro\u202esa", "preferred_contact_method": "email"})
+        self.assertContains(response, "caracteres que no se ven")
+        self.assertEqual(Person.objects.count(), self.before)
+
+    def test_a_value_the_database_refuses_is_said_in_words(self):
+        from unittest import mock
+
+        from django.db import DataError
+
+        response = self.review(HEAD + "Rosa,Peña,,,,,\n")
+        with mock.patch.object(Person, "save", side_effect=DataError("value too long")):
+            answer = self.confirm(response, follow=True) if False else self.client.post(self.url, self.fields(response), follow=True)
+        self.assertContains(answer, "No se registró a nadie.")
+        self.assertEqual((Person.objects.count(), PeopleImport.objects.count()), (self.before, 0))
+
+
 class ConfirmationTests(ImportFixture):
     TEXT = HEAD + "Rosa,Peña,rosa@prueba.mx,,,,\nLuis,Sosa,luis@prueba.mx,,,,\n"
 
@@ -361,6 +417,16 @@ class UndoTests(ImportFixture):
         FollowUp.objects.create(church=self.church, person=eva, reason="visita")
         self.assertEqual(imports.undo_plan(self.record).delete, [])
         FollowUp.objects.all().delete()
+        self.assertEqual(imports.undo_plan(self.record).delete, [eva.pk])
+        # A relation of wave 10 that this module never names: a place in a team's rotation.
+        from serving import services as serving
+        from serving.models import RotationEntry, TeamRole
+
+        team = serving.save_team(self.church, self.admin, name="Sonido")
+        entry = RotationEntry.objects.create(role=TeamRole.objects.create(team=team, name="Consola"), person=eva, position=1)
+        self.assertEqual(imports.undo_plan(self.record).delete, [])
+        entry.delete()
+        self.assertEqual(imports.undo_plan(self.record).delete, [eva.pk])
         # A record that received a merge, and the one that was merged away, both stay.
         twin = Person.objects.create(church=self.church, first_name="Eva", last_name="Lara B", email="EVA@prueba.mx")
         token = merge.build_preview(self.church, eva, twin).token
@@ -369,6 +435,11 @@ class UndoTests(ImportFixture):
         self.assertNotContains(self.client.get(self.detail), 'action="' + self.undo_url)
         # Only a tag (the import's own, or one added since) does not keep anybody.
         self.assertEqual(imports.IGNORED_RELATIONS, {("people.PersonTag", "person")})
+
+    def test_the_page_says_everything_the_undo_deletes(self):
+        page = self.client.get(self.detail)
+        for words in ("sus etiquetas", "su etapa", "sus fechas clave", "la confirmación de su edad", "cualquier corrección que les hayas hecho a mano"):
+            self.assertContains(page, words)
 
     def test_the_confirmation_is_of_what_the_page_said(self):
         token = self.token()
@@ -425,7 +496,8 @@ class ImportDenialTests(ImportFixture):
         for user in (self.member_user, self.leader_user, self.coord1):
             self.client.force_login(user)
             for page in self.pages():
-                self.assertEqual(self.ask(*page).status_code, 403, (user.email, page[1]))
+                named = any(part.isdigit() for part in page[1].split("/"))  # an import by its id: one answer, 404
+                self.assertEqual(self.ask(*page).status_code, 404 if named else 403, (user.email, page[1]))
         # Church B's administration: the import of church A does not exist, by its guessed id.
         self.client.force_login(self.admin_b)
         self.assertEqual(self.client.get(reverse("people:import_detail", args=[self.record.pk])).status_code, 404)

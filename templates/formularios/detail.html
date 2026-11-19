@@ -25,7 +25,7 @@
       <div class="summary-list__row"><dt>Estado</dt><dd>{% status form_row.phase_mark form_row.phase_label %}{% if form_row.current_version %} <span class="muted">Versión {{ form_row.current_version.number }} publicada.</span>{% endif %}</dd></div>
       <div class="summary-list__row"><dt>Quién responde</dt><dd>{{ form_row.get_audience_display }}</dd></div>
       <div class="summary-list__row"><dt>Cuándo</dt><dd>Del {{ form_row.opens_on|long_date }} al {{ form_row.last_day|long_date }}</dd></div>
-      <div class="summary-list__row"><dt>Respuestas</dt><dd>{{ answers }} recibida{{ answers|pluralize }}. Se guardan {{ form_row.get_retention_days_display|lower }} después del cierre: se borran después del {{ delete_after|long_date }}.</dd></div>
+      <div class="summary-list__row"><dt>Respuestas</dt><dd>{{ answers }} recibida{{ answers|pluralize }}. Se guardan {{ form_row.get_retention_days_display|lower }} después del cierre: una respuesta de hoy se borra a más tardar el {{ delete_after|long_date }}. Si después alargas el cierre, las que ya llegaron conservan su fecha.</dd></div>
       <div class="summary-list__row"><dt>Pendientes</dt><dd>{% if form_row.creates_task %}Cada respuesta deja un pendiente «Dar seguimiento» a {{ form_row.task_due_days }} día{{ form_row.task_due_days|pluralize }}{% if owner_name %}, para {{ owner_name }}{% else %}, sin responsable hasta que lo asignes{% endif %}.{% else %}Las respuestas no dejan pendientes.{% endif %}</dd></div>
     </dl>
   </section>

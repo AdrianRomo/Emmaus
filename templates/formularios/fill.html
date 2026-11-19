@@ -16,6 +16,7 @@
   <form method="post" novalidate>
     {% csrf_token %}
     <input type="hidden" name="version" value="{{ version.pk }}">
+    <input type="hidden" name="hasta" value="{{ delete_after|date:"Y-m-d" }}">
     {% include "formularios/_questions.html" %}
     <div class="step__actions">
       <button class="btn btn--primary" type="submit">Enviar mis respuestas</button>

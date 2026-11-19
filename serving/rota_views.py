@@ -23,7 +23,7 @@ from people.models import Person
 
 from . import reminders, rotas, services
 from .models import Assignment, PlanItem, ServiceDate, SwapRequest, Team, TeamRole
-from .views import _coordinated_team, _may_manage, _weekday_date
+from .views import _coordinated_team, _may_manage, _weekday_date, try_again
 
 
 def _number(value, default=None):
@@ -37,6 +37,16 @@ def _working_team(request, team_id: int) -> Team:
     if not team.is_active:
         raise Http404
     return team
+
+
+def _date_words(service_date: ServiceDate) -> str:
+    """"Equipo X, lunes 23 de noviembre, a las 10:30, en Y." for the head of a page about one date."""
+    words = f"Equipo {service_date.team.name}, {_weekday_date(service_date.date)}"
+    if service_date.starts_at:
+        words += f", a las {service_date.starts_at:%-H:%M}"
+    if service_date.place:
+        words += f", en {service_date.place}"
+    return words + "."
 
 
 def _organize_url(team: Team, anchor: str) -> str:
@@ -59,14 +69,22 @@ def organize(request, team_id: int):
 
 @community_view
 @require_POST
+@try_again
 def role_save(request, team_id: int):
     team = _working_team(request, team_id)
     role = None
     if request.POST.get("rol"):
         role = get_object_or_404(TeamRole, pk=_number(request.POST.get("rol"), 0), team=team, active=True)
+    fields = {"name": request.POST.get("nombre", ""), "adults_only": request.POST.get("solo_adultos") == "si"}
     try:
-        saved = rotas.save_role(team, request.user, role=role, name=request.POST.get("nombre", ""),
-                                adults_only=request.POST.get("solo_adultos") == "si")
+        saved = rotas.save_role(team, request.user, role=role, release_token=request.POST.get("confirmar", ""), **fields)
+    except rotas.RoleNeedsConfirmation as pending:
+        # People the church has not verified as adults hold this role on dates that are coming: say who,
+        # and what saving does, before anything changes.
+        if request.POST.get("confirmar"):
+            messages.warning(request, "La lista cambió desde que la viste. Revísala otra vez antes de confirmar.")
+        return render(request, "serving/role_confirm.html", {"team": team, "role": role, "affected": pending.affected,
+                                                              "token": pending.token, **fields})
     except services.ServingError as error:
         messages.error(request, error.message)
     else:
@@ -76,6 +94,7 @@ def role_save(request, team_id: int):
 
 @community_view
 @require_POST
+@try_again
 def role_retire(request, team_id: int, role_id: int):
     team = _working_team(request, team_id)
     role = get_object_or_404(TeamRole, pk=role_id, team=team, active=True)
@@ -90,6 +109,7 @@ def role_retire(request, team_id: int, role_id: int):
 
 @community_view
 @require_POST
+@try_again
 def rotation_save(request, team_id: int):
     team = _working_team(request, team_id)
     members = rotas._members(team)
@@ -112,6 +132,7 @@ def rotation_save(request, team_id: int):
 
 @community_view
 @require_POST
+@try_again
 def settings_save(request, team_id: int):
     team = _working_team(request, team_id)
     try:
@@ -125,6 +146,7 @@ def settings_save(request, team_id: int):
 
 
 @community_view
+@try_again
 def rotation(request, team_id: int):
     """What the rotation proposes for the next weeks, to change and confirm. Nothing is assigned on GET."""
     team = _working_team(request, team_id)
@@ -171,6 +193,7 @@ def _swap(request, swap_id: int, **who) -> SwapRequest:
 
 
 @community_view
+@try_again
 def swap_create(request, assignment_id: int):
     assignment = _own_assignment(request, assignment_id)
     if not rotas.may_ask_swap(assignment):
@@ -189,12 +212,14 @@ def swap_create(request, assignment_id: int):
             messages.success(request, f"Le pediste el cambio a {person.first_name}. Lo verá en «Servir» cuando entre a Emmaus; la fecha sigue siendo tuya hasta que acepte.")
             return redirect(reverse("serving:home") + "#cambios")
     waiting = rotas.open_swap_ids([assignment.pk]).get(assignment.pk)
-    return render(request, "serving/swap_form.html", {"assignment": assignment, "day": assignment.service_date,
+    meta = _date_words(assignment.service_date) + (f" Tu rol: {assignment.role.name}." if assignment.role else "")
+    return render(request, "serving/swap_form.html", {"assignment": assignment, "day": assignment.service_date, "meta": meta,
                                                         "candidates": candidates, "waiting": waiting})
 
 
 @community_view
 @require_POST
+@try_again
 def swap_answer(request, swap_id: int):
     swap = _swap(request, swap_id, to_person=request.person)
     answer = request.POST.get("respuesta")
@@ -217,6 +242,7 @@ def swap_answer(request, swap_id: int):
 
 @community_view
 @require_POST
+@try_again
 def swap_cancel(request, swap_id: int):
     swap = _swap(request, swap_id, from_person=request.person)
     rotas.cancel_swap(swap, request.user)
@@ -226,6 +252,7 @@ def swap_cancel(request, swap_id: int):
 
 @community_view
 @require_POST
+@try_again
 def swap_decide(request, swap_id: int):
     swap = _swap(request, swap_id)
     team = swap.assignment.service_date.team
@@ -250,6 +277,7 @@ def swap_decide(request, swap_id: int):
 
 @community_view
 @require_POST
+@try_again
 def reminders_choice(request):
     wanted = request.POST.get("recordatorios")
     if wanted not in ("si", "no"):
@@ -287,6 +315,7 @@ def _plan_fields(request, service_date: ServiceDate) -> dict:
 
 
 @community_view
+@try_again
 def plan(request, date_id: int):
     service_date, manages = _plan_date(request, date_id, to_edit=request.method == "POST")
     if request.method == "POST":
@@ -299,6 +328,7 @@ def plan(request, date_id: int):
         return redirect(reverse("serving:plan", args=[service_date.pk]) + "#agregar")
     items = rotas.plan_items(service_date)
     return render(request, "serving/plan.html", {
+        "meta": _date_words(service_date),
         "day": service_date, "team": service_date.team, "items": items, "manages": manages,
         "total": sum(item.minutes for item in items), "people": rotas.plan_people(service_date) if manages else [],
         "previous": rotas.previous_with_plan(service_date) if manages and not items else None,
@@ -307,6 +337,7 @@ def plan(request, date_id: int):
 
 @community_view
 @require_POST
+@try_again
 def plan_item(request, date_id: int, item_id: int):
     service_date, _ = _plan_date(request, date_id, to_edit=True)
     item = get_object_or_404(PlanItem, pk=item_id, service_date=service_date)
@@ -329,6 +360,7 @@ def plan_item(request, date_id: int, item_id: int):
 
 @community_view
 @require_POST
+@try_again
 def plan_copy(request, date_id: int):
     service_date, _ = _plan_date(request, date_id, to_edit=True)
     try:

@@ -54,6 +54,37 @@ class TagScreenTests(TagFixture):
         for url in (reverse("people:detail", args=[self.member.pk]), reverse("people:list"), reverse("people:tag_delete", args=[tag.pk])):
             self.assertNotContains(self.client.get(url), "<script>alert(1)")
 
+    def test_names_a_file_could_not_carry_or_the_column_could_not_hold_are_refused(self):
+        cases = [("Coro, voces", "coma, punto y coma ni barra"), ("Coro; voces", "coma, punto y coma ni barra"), ("Coro|voces", "coma, punto y coma ni barra"),
+                 ("Co\u202ero", "caracteres que no se ven"), ("Co\x00ro", "caracteres que no se ven"), ("Co\u2028ro", "caracteres que no se ven"),
+                 ("\ufb03" * 40, "letras especiales que ocupan más")]  # 40 characters, 120 once normalised
+        for name, words in cases:
+            with self.subTest(repr(name)):
+                self.assertContains(self.client.post(self.url, {"nombre": name}), words)
+                with self.assertRaises(PeopleError):
+                    tags.create_tag(self.church, name, self.admin)
+        self.assertEqual(Tag.objects.filter(church=self.church).count(), 2)
+        for tag in Tag.objects.all():
+            self.assertLessEqual(len(tag.normalized_name), 40)
+
+    def test_a_value_the_database_refuses_is_said_in_words(self):
+        from unittest import mock
+
+        from django.db import DataError
+
+        with mock.patch.object(Tag.objects, "create", side_effect=DataError("value too long")):
+            self.assertContains(self.client.post(self.url, {"nombre": "Ujieres"}), "No pudimos guardar ese nombre.")
+
+    def test_every_tag_that_can_be_created_comes_back_from_an_export(self):
+        from people import imports
+
+        tag = tags.create_tag(self.church, "Llaves: templo (lado norte) / 2", self.admin)
+        tags.set_tags(self.church, self.member.pk, {tag.pk, self.coro.pk}, self.admin, seen=set())
+        rows, problems = imports.read_file(self.client.post(reverse("people:export")).content)
+        self.assertEqual(problems, [])
+        diego = next(row for row in imports.plan(self.church, rows).rows if row.first_name == "Diego")
+        self.assertEqual((diego.errors, sorted(diego.tag_ids)), ([], sorted([tag.pk, self.coro.pk])))
+
     def test_at_most_thirty_per_church(self):
         for number in range(28):
             tags.create_tag(self.church, f"Etiqueta {number}", self.admin)
@@ -161,7 +192,8 @@ class TagDenialTests(TagFixture):
         for user, expected in ((self.member_user, 403), (self.leader_user, 403), (self.coord1, 403)):
             self.client.force_login(user)
             for url, data in pages:
-                self.assertEqual(ask(url, data).status_code, expected, (user.email, url))
+                named = any(part.isdigit() for part in url.split("/"))  # a tag or a person by its id: one answer, 404
+                self.assertEqual(ask(url, data).status_code, 404 if named else expected, (user.email, url))
         # The administration of church B: its own tag screen answers, church A's tag and person do not exist.
         self.client.force_login(self.admin_b)
         self.assertEqual(self.client.get(reverse("people:tag_delete", args=[self.coro.pk])).status_code, 404)

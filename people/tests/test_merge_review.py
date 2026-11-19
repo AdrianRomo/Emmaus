@@ -363,15 +363,16 @@ class ScheduledRetentionTests(MergeFixture):
         self.assertIn("uniones de personas: 1 con", self.run_pass())
         self.assertEqual(self.before(record), {})
 
-    def test_the_switches_of_the_community_jobs_stop_it_too(self):
-        record = self.expired_merge()
+    def test_the_switches_of_the_community_jobs_do_not_stop_it(self):
+        """It only deletes what the product promised to delete: no switch keeps those values past the 30 days."""
         for off in ({"EMMAUS_SCHEDULED_COMMUNITY_JOBS": False}, {"EMMAUS_V2_MODULES": False}):
+            record = self.expired_merge()
             with self.settings(**off):
-                self.assertNotIn("uniones de personas", self.run_pass())
-                self.assertEqual(scheduler.skipped(scheduler.PERSON_MERGES), scheduler.OFF)
-        self.assertEqual(self.before(record), {"phone": "55 3333 4444"})
-        call_command("prune_person_merges", "--apply", stdout=StringIO())  # by hand, every church
-        self.assertEqual(self.before(record), {})
+                self.assertEqual(scheduler.skipped(scheduler.PERSON_MERGES), "")
+                self.assertIn("uniones de personas: 1 con", self.run_pass())
+            self.assertEqual(self.before(record), {})
+            PersonMerge.objects.filter(pk=record.pk).update(undone_at=timezone.now())
+            Person.objects.filter(pk=self.dup.pk).update(merged_into=None)
 
     def test_a_job_that_breaks_is_named_by_its_class_and_fails_the_pass(self):
         from django.core.management.base import CommandError

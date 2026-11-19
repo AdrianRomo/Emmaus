@@ -13,6 +13,7 @@ decide what is *allowed* (decision 0004, rule 4).
 """
 
 from django.urls import reverse
+from django.utils import timezone
 
 from .authz import Action, has_scope
 
@@ -203,7 +204,8 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     if waiting_all or is_admin:
         charge.insert(0, _item("Pendientes", reverse("formularios:queue"), "plan", view == "formularios:queue", waiting_all,
                                "pendiente" if waiting_all == 1 else "pendientes"))
-    if forms_views.open_member_form_count(church):
+    # A person whose date of birth says they are under 18 gets a 404 from the forms (formularios.views): no link to it.
+    if forms_views.open_member_form_count(church) and not _minor_by_birth_date(person):
         main.append(_item("Formularios", reverse("formularios:list"), "recursos", view in FORM_VIEWS))
     if charge:
         sections.append({"label": "A tu cargo", "items": charge})
@@ -268,3 +270,13 @@ def event_shell(request, church) -> dict:
     serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "equipo")
     name = request.user.get_full_name() or request.user.email
     return {"sections": [{"label": "", "items": [serving]}], "tabs": [serving], "name": name, "church": church}
+
+
+def _minor_by_birth_date(person) -> bool:
+    """Whether the person's own date of birth says they are under 18 today. No query: the fuller rule
+    (oracion.access.known_minor) decides at the door of the form; this only keeps a dead link out of the menu."""
+    born = getattr(person, "birth_date", None)
+    if not born:
+        return False
+    today = timezone.localdate()
+    return (today.year - born.year - ((today.month, today.day) < (born.month, born.day))) < 18

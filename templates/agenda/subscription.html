@@ -32,7 +32,7 @@
     <section class="block" aria-labelledby="como">
       <h2 id="como" class="heading">Qué pasa con tu correo</h2>
       <ul class="prose">
-        <li>Te enviamos un solo correo con un enlace para confirmar que la dirección es tuya. Sin confirmar no recibes nada más y tu dirección se borra a las {{ confirm_hours }} horas.</li>
+        <li>Te enviamos un solo correo con un enlace para confirmar que la dirección es tuya. Puede tardar un rato. Sin confirmar no recibes nada más y tu dirección se borra cuando el enlace vence, a las {{ confirm_hours }} horas.</li>
         <li>Después, un correo cada vez que se publique un aviso nuevo de este evento. El correo solo dice que hay un aviso y lleva el enlace para leerlo aquí.</li>
         <li>Tu dirección no se usa para nada más, no se comparte y nadie de la iglesia ve la lista de direcciones.</li>
         <li>Cada correo trae un enlace para darte de baja: al usarlo, tu dirección se borra en ese momento. Si no, se borra sola {{ retention_days }} días después de que termine el evento.</li>
@@ -44,9 +44,9 @@
     <header class="page-head"><div class="page-head__text">
       <p class="public-event__church">{{ church.name }}</p>
       <h1 class="voice page-head__title">Revisa tu correo</h1>
-      <p class="lede">Si esa dirección todavía no estaba en la lista de este evento, en unos minutos le llega un correo con un enlace para confirmar. Sin confirmar no te avisamos de nada.</p>
+      <p class="lede">Si esa dirección todavía no estaba en la lista de este evento, te enviaremos un correo para confirmar. Puede tardar un rato. Sin confirmar no te avisamos de nada.</p>
     </div></header>
-    <p>El enlace sirve {{ confirm_hours }} horas. Si el correo no llega, revisa la carpeta de correo no deseado. Para cuidar las bandejas de otras personas, enviamos un solo correo de confirmación por dirección cada {{ confirm_hours }} horas: después de ese tiempo puedes pedirlo otra vez.</p>
+    <p>El enlace del correo sirve {{ confirm_hours }} horas desde que se envía. Si no llega, revisa la carpeta de correo no deseado. Para cuidar las bandejas de otras personas, Emmaus envía muy pocos correos de confirmación a una misma dirección.</p>
     <p>Si ya habías confirmado esa dirección para este evento, no cambia nada y no recibes otro correo de confirmación.</p>
     <p class="more"><a href="{{ back }}">Volver a la información del evento</a></p>
   {% elif state == "confirm" %}

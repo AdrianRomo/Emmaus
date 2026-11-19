@@ -1,0 +1,10 @@
+{% autoescape off %}Hola:
+
+Alguien pidió otra vez recibir en esta dirección un correo cada vez que haya un aviso nuevo de «{{ event_name }}», de {{ church_name }}. Si fuiste tú, abre este enlace y confirma:
+
+{{ link }}
+
+El enlace sirve 48 horas. Si no fuiste tú, no hagas nada: sin tu confirmación no recibes ningún aviso, tu dirección se borra cuando el enlace vence y no le escribiremos más a esta dirección por este evento.
+
+Solo te avisaremos cuando haya un aviso nuevo de este evento. Nada más.
+{% endautoescape %}

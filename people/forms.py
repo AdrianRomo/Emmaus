@@ -4,6 +4,7 @@ from django.utils import timezone
 from core.forms import TuErrorMessagesMixin
 
 from .models import Person
+from .text import has_control, normalized_fits
 
 
 # The key dates of a person. Which of them a form carries is the form's own decision.
@@ -69,6 +70,16 @@ class PersonForm(KeyDatesMixin, TuErrorMessagesMixin, forms.ModelForm):
         self.fields["birth_date"].error_messages["invalid"] = "Escribe la fecha así: día/mes/año, por ejemplo 14/03/2009."
         self.fields["phone"].widget.attrs.update({"inputmode": "tel", "autocomplete": "off"})
         self.fields["email"].widget.attrs["autocomplete"] = "off"
+
+    def clean(self):
+        data = super().clean()
+        full = f"{data.get('first_name') or ''} {data.get('last_name') or ''}"
+        if has_control(full):
+            self.add_error("first_name", "El nombre no puede llevar caracteres que no se ven. Escríbelo de nuevo a mano.")
+        elif not normalized_fits(full, Person._meta.get_field("normalized_name").max_length):
+            # ``normalized_name`` is what the column holds, and compatibility letters grow when normalised.
+            self.add_error("first_name", "El nombre tiene letras especiales que ocupan más de lo que cabe: escríbelo con letras comunes.")
+        return data
 
     def clean_email(self):
         email = self.cleaned_data["email"].strip().lower()

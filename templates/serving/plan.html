@@ -5,12 +5,13 @@
 {% comment %}
   The order of one date (serving.rota_views.plan): moments in order, each with its minutes and, if somebody is in
   charge, their name. Read by who serves that date; changed by who coordinates the team. Names only: no contact data.
+  Who is in charge is decided when the page is read (rotas.plan_items): somebody who left the team, whose record was
+  joined to another or whose record says they are a minor is not named, here or in the coordinator's list.
   No songs, lyrics, chords, files or links (their rights need another approval), and the page says so.
 {% endcomment %}
 <div class="narrow">
-  {% if manages %}{% url 'serving:team' team.pk as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what back_url=back back_label="Volver al equipo" %}
-  {% else %}{% url 'serving:home' as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what back_url=back back_label="Volver a Servir" %}{% endif %}
-  <p class="page-head__meta">Equipo {{ team.name }}, {{ day.date|weekday_date }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+  {% if manages %}{% url 'serving:team' team.pk as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what meta=meta back_url=back back_label="Volver al equipo" %}
+  {% else %}{% url 'serving:home' as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what meta=meta back_url=back back_label="Volver a Servir" %}{% endif %}
 
   <section class="block" aria-labelledby="orden">
     <h2 id="orden" class="heading">Momentos</h2>
@@ -38,7 +39,7 @@
             {% else %}
               <div class="row__main">
                 <p class="row__title">{{ item.title }}</p>
-                <p class="row__meta">{{ item.minutes }} minuto{{ item.minutes|pluralize }}{% if item.responsible %}. A cargo: {{ item.responsible.full_name }}{% endif %}.</p>
+                <p class="row__meta">{{ item.minutes }} minuto{{ item.minutes|pluralize }}. {% if item.responsible %}A cargo: {{ item.responsible.full_name }}{% else %}Sin responsable{% endif %}.</p>
               </div>
             {% endif %}
           </li>

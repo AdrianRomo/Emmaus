@@ -21,7 +21,7 @@
       {% for prayer in prayers %}
         <li class="row row--lead row--stack{% if not prayer.read_at %} row--attention{% endif %}">
           <div class="row__main">
-            <p class="row__title"><a href="{% url 'oracion:read' prayer.pk %}">{{ prayer.person.full_name }}</a></p>
+            <p class="row__title"><a href="{% url 'oracion:read' prayer.pk %}">{{ prayer.writer_name }}</a></p>
             <p class="row__meta">La escribió el {{ prayer.created_at|long_date }}.{% if prayer.restricted %} Solo para ti.{% endif %} Emmaus la borra el {{ prayer.expires_at|long_date }}.</p>
           </div>
           <div class="row__end">

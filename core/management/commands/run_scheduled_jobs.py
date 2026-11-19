@@ -46,8 +46,15 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    (``oracion.services.prune``, what ``prune_prayer_requests --apply`` runs), in every church whatever its module
    flags and whatever its own switch: it only deletes. The count it logs is one number for the whole server.
 
-2 to 9 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
-switch) leaves only the first, and the line it prints is then the one ``run_report_cutoffs`` prints.
+Two classes of work (``core.scheduler.DELETING_JOBS``):
+
+* 2, 3, 4, 8 and the e-mails of 7 ACT for a church (send, generate, move a list). They are the community jobs:
+  ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill switch, ``EMMAUS_V2_MODULES=false``) stops
+  them, and each one works only in the churches that use its module.
+* 5, 6, 9 and the deletions of 7 only DELETE what the product promised to delete. They run on every pass
+  whatever those switches and every church's flags say: switching Emmaus off never keeps data past its date.
+  With the switches off the line is the cutoffs' line followed by these four counts.
+
 Not here, on purpose: ``remind_follow_up_owners`` (it mails again on every run) and
 ``prune_attendance`` (it deletes). Both stay manual.
 
@@ -124,8 +131,13 @@ def prune_form_answers() -> dict:
 
 
 def event_subscriptions() -> dict:
+    """The deletions always; the e-mails only while the community jobs are on (``subscriptions.purge`` asks no
+    flag; ``run_pass`` runs it first and then sends)."""
     from agenda import subscriptions
 
+    if not scheduler.community_jobs_enabled():
+        return {"confirmations": 0, "sent": 0, "failed": 0, "first_failed": 0, "left": 0, **subscriptions.purge(),
+                "not_configured": True}
     return subscriptions.run_pass(budget_seconds=SUBSCRIPTION_BUDGET_SECONDS)
 
 
@@ -221,6 +233,8 @@ class Command(BaseCommand):
         if done is None:
             return False, "suscripciones de eventos: error"
         line = f"suscripciones de eventos: {done['unconfirmed'] + done['expired']} direcciones borradas"
+        if not scheduler.community_jobs_enabled():
+            return True, f"{line}, sin correos (los trabajos de comunidad están apagados)"
         if done["not_configured"]:
             return True, f"{line}, sin correos (falta la dirección pública o el correo)"
         line += f", {done['confirmations'] + done['sent']} correos enviados, {done['failed']} fallidos, {done['left']} pendientes"
@@ -252,13 +266,19 @@ class Command(BaseCommand):
         head = lines[0] if lines else f"{stamp} · cortes: error"
         if lines and not ok:
             head += " · la pasada de cortes no terminó"
-        if scheduler.community_jobs_enabled():
-            for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary(), self.series_summary(),
-                                    self.person_merges_summary(), self.form_answers_summary(),
-                                    self.event_subscriptions_summary(), self.serving_reminders_summary(),
-                                    self.prayer_retention_summary()):
-                ok = ok and job_ok
-                head += f" · {summary}"
+        # In the order of the docstring. What acts for a church waits for the switch; what only deletes never does.
+        acting = scheduler.community_jobs_enabled()
+        jobs = [
+            (self.notice_mail_summary, acting), (self.waiting_offers_summary, acting), (self.series_summary, acting),
+            (self.person_merges_summary, True), (self.form_answers_summary, True), (self.event_subscriptions_summary, True),
+            (self.serving_reminders_summary, acting), (self.prayer_retention_summary, True),
+        ]
+        for job, runs in jobs:
+            if not runs:
+                continue
+            job_ok, summary = job()
+            ok = ok and job_ok
+            head += f" · {summary}"
         self.stdout.write(head)
         for line in lines[1:]:
             self.stdout.write(line)

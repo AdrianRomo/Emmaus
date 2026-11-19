@@ -291,10 +291,14 @@ class BuilderTests(FormFixture):
         submission, _ = self.answer(form)
         before = (Form.objects.count(), Question.objects.count(), form.readers.count(), FormVersion.objects.count())
         staff, reading = self.staff_requests(form, submission), self.reader_requests(form, submission)
-        for user in (self.member_user, self.pastor_user, self.coord1, self.leader_user):  # the reader builds nothing either
-            self.assert_all(user, staff, 403)
+        with_id, without_id = staff[3:], staff[:3]
+        self.assert_all(self.leader_user, staff, 403)  # the reader of this form builds nothing
         for user in (self.member_user, self.pastor_user, self.coord1):
-            self.assert_all(user, reading, 403)
+            # who reads no form: a form's number is the 404 of a form that does not exist, at every staff address
+            self.assert_all(user, with_id + reading, 404)
+            self.assert_all(user, without_id, 403)
+            missing = [(method, address.replace(f"/{form.pk}/", "/987654/"), data) for method, address, data in with_id + reading]
+            self.assert_all(user, missing, 404)
         self.assertEqual(self.client.get(url("manage")).status_code, 403)
         # another church: its administration, with its own module on, finds nothing at these addresses
         self.assert_all(self.admin_b, staff[3:] + reading, 404)
@@ -308,7 +312,8 @@ class BuilderTests(FormFixture):
         self.client.force_login(self.leader_user)
         for method, address, data in reading:
             self.assertIn(getattr(self.client, method)(address, data).status_code, (200, 302), address)
-        self.assert_all(self.leader_user, self.reader_requests(other, other_submission), 403)
+        self.assert_all(self.leader_user, self.reader_requests(other, other_submission), 404)
+        self.assert_all(self.leader_user, [("get", url("detail", other.pk), {}), ("post", url("export", other.pk), {})], 404)
         page = self.client.get(url("manage"))
         self.assertContains(page, "Convivio de aniversario")
         self.assertNotContains(page, "Otro formulario")

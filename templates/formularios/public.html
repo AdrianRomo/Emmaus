@@ -21,11 +21,13 @@
   </header>
   {% include "formularios/_purpose.html" with purpose=version.purpose church_name=church.name %}
   {% if changed %}<div class="notice notice--warning" role="status"><p>Este formulario cambió mientras lo llenabas. Revisa las preguntas y respóndelo otra vez.</p></div>{% endif %}
-  {% if full %}<div class="notice notice--warning" role="alert"><p>Este formulario ya no puede recibir más respuestas. Si necesitas algo, busca directamente a la iglesia.</p></div>{% endif %}
-  {% if wait %}<div class="notice notice--warning" role="alert"><p>Están llegando muchas respuestas al mismo tiempo y no guardamos la tuya. Espera unos minutos y envíala otra vez: lo que escribiste sigue aquí abajo.</p></div>{% endif %}
+  {% if full %}<div class="notice notice--warning" role="alert"><p>No pudimos guardar tu respuesta: este formulario ya no puede recibir más. Lo que escribiste sigue aquí abajo; si necesitas algo, busca directamente a la iglesia.</p></div>{% endif %}
+  {% if problem %}<div class="notice notice--warning" role="alert"><p>{{ problem }}</p></div>{% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     <input type="hidden" name="version" value="{{ version.pk }}">
+    <input type="hidden" name="sello" value="{{ seal }}">
+    <input type="hidden" name="hasta" value="{{ delete_after|date:"Y-m-d" }}">
     <div class="form-trap" aria-hidden="true">
       <label for="id_{{ honeypot }}">Deja este cuadro vacío</label>
       <input type="text" id="id_{{ honeypot }}" name="{{ honeypot }}" value="" tabindex="-1" autocomplete="off">

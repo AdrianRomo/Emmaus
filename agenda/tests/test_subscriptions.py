@@ -12,14 +12,22 @@ from unittest import mock
 from django.core import mail
 from django.core.mail.backends.base import BaseEmailBackend
 from django.core.management import call_command
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import Client, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
 from agenda import public, services, subscription_mail, subscriptions
 from agenda.duplicate import duplicate_simple_event
-from agenda.models import EventNoticeEmail, EventPage, EventRegistration, EventSubscription, MailOutcome
+from agenda.models import (
+    EventNoticeEmail,
+    EventPage,
+    EventRegistration,
+    EventSubscription,
+    MailOutcome,
+    SubscriptionSuppression,
+)
 from agenda.tests.test_public_notices import BODY, TITLE, NoticesFixture, public_url
 from core.models import Church
 from events.models import AuthThrottle, Event
@@ -209,13 +217,13 @@ class NoOracleTests(SubscriptionFixture):
         asked_twice = self.answer()
         subscriptions.confirm(self.row())
         already_confirmed = self.answer()
-        for _ in range(subscriptions.EVENT_REQUESTS_PER_HOUR):
+        with mock.patch.object(subscriptions, "PENDING_PER_EVENT", 1):  # the event's ceiling of unconfirmed rows
             subscriptions.request(self.retiro, OTHER)
-        over_the_limit = self.answer("tercera@demo.invalid")
+            over_the_limit = self.answer("tercera@demo.invalid")
         self.assertEqual(new, asked_twice)
         self.assertEqual(new, already_confirmed)
         self.assertEqual(new, over_the_limit)
-        self.assertEqual(EventSubscription.objects.filter(event=self.retiro).count(), 2)
+        self.assertFalse(EventSubscription.objects.filter(email="tercera@demo.invalid").exists())
         self.assertNotIn(ADDRESS.encode(), new[2])
         self.assertNotIn(b"demo.invalid", new[2])
 
@@ -256,15 +264,140 @@ class NoOracleTests(SubscriptionFixture):
         self.run_pass()
         self.assertEqual(len(mail.outbox), subscriptions.ADDRESS_REQUESTS_PER_DAY)
 
-    def test_an_event_takes_a_bounded_number_of_requests_per_hour(self):
-        for number in range(subscriptions.EVENT_REQUESTS_PER_HOUR + 5):
-            subscriptions.request(self.retiro, f"persona{number}@demo.invalid")
-        self.assertEqual(EventSubscription.objects.filter(event=self.retiro).count(), subscriptions.EVENT_REQUESTS_PER_HOUR)
-        subscriptions.request(self.retiro_b, ADDRESS)  # another event has its own count
+    def test_an_event_holds_a_bounded_number_of_unconfirmed_rows(self):
+        """The hard ceiling: over it an unknown address is not stored. Nothing is counted per hour at the form."""
+        with mock.patch.object(subscriptions, "PENDING_PER_EVENT", 5):
+            for number in range(9):
+                subscriptions.request(self.retiro, f"persona{number}@demo.invalid")
+            self.assertEqual(EventSubscription.objects.filter(event=self.retiro).count(), 5)
+            subscriptions.request(self.retiro_b, ADDRESS)  # another event has its own
+            subscriptions.confirm(self.row("persona0@demo.invalid"))  # a confirmed row makes room
+            subscriptions.request(self.retiro, "nueva@demo.invalid")
+        self.assertEqual(EventSubscription.objects.filter(event=self.retiro).count(), 6)
         self.assertEqual(EventSubscription.objects.filter(event=self.retiro_b).count(), 1)
-        # The counter is keyed by the event and holds no address.
-        self.assertFalse(AuthThrottle.objects.filter(key__contains="@").exists())
-        self.assertFalse(AuthThrottle.objects.filter(key__contains="demo").exists())
+        self.assertFalse(AuthThrottle.objects.exists())
+
+    def test_spellings_of_one_inbox_are_one_address_for_the_limits(self):
+        """Defect (review, reproduced): ``victima+0…29@`` made thirty rows and thirty e-mails in one pass."""
+        for number in range(30):
+            self.ask(f"victima+{number}@demo.invalid")
+        self.ask("Victima@demo.invalid")
+        self.run_pass()
+        self.assertEqual([message.to for message in mail.outbox], [["victima+0@demo.invalid"]])  # one row per inbox
+        self.assertEqual(EventSubscription.objects.count(), 1)
+        key = subscriptions.limit_key
+        self.assertEqual(key(" Ana.Ruiz+retiro@Demo.Invalid "), "ana.ruiz@demo.invalid")  # dots kept: unknown provider
+        self.assertEqual(key("ana.ruiz+x@googlemail.com"), key("anaruiz@gmail.com"))  # the one provider known to ignore them
+        self.assertNotEqual(subscriptions.limit_hash(ADDRESS), subscriptions.address_hash(ADDRESS))
+        # What is stored for the limits is a hash: no address, no part of one.
+        stored = json.dumps(list(SubscriptionSuppression.objects.values()), default=str)
+        self.assertNotIn("victima", stored)
+        self.assertNotIn("demo", stored)
+
+    def test_a_hundred_families_on_one_provider_the_same_evening_lose_nobody(self):
+        """Defect (product correction): a cap per mail provider at the form dropped ninety parents of a camp.
+        Every request is stored; the confirmations leave at a pace, oldest first, and each link works 48 hours
+        from the moment it was SENT."""
+        for number in range(100):
+            self.ask(f"familia{number:03}@demo.invalid")
+        self.assertEqual(EventSubscription.objects.count(), 100)
+        sent = [self.run_pass()["confirmations"] for _ in range(3)]
+        self.assertEqual(sent, [subscriptions.CONFIRMATIONS_PER_PASS, subscriptions.DOMAIN_CONFIRMATIONS_PER_HOUR - subscriptions.CONFIRMATIONS_PER_PASS, 0])
+        self.assertEqual([message.to[0] for message in mail.outbox[:2]], ["familia000@demo.invalid", "familia001@demo.invalid"])
+        subscriptions.request(self.retiro, "otra@otra.demo.invalid")  # another provider is not held back by this one
+        self.assertEqual(self.run_pass()["confirmations"], 1)
+        with self.later(hours=1, minutes=1):
+            self.assertEqual(self.run_pass()["confirmations"], 40)
+            self.assertEqual(self.run_pass()["left"], 0)
+        self.assertEqual(len(mail.outbox), 101)
+        self.assertEqual(len({message.to[0] for message in mail.outbox}), 101)
+        # Who waited in the queue for two days still gets a link that works, and 48 hours from then.
+        subscriptions.request(self.retiro, "tarde@tercera.demo.invalid")
+        with self.later(hours=60):
+            self.assertEqual(subscriptions.delete_due()["unconfirmed"], 101)
+            self.run_pass()
+            path = self.link_in(mail.outbox[-1], "confirmar")
+            self.assertEqual(mail.outbox[-1].to, ["tarde@tercera.demo.invalid"])
+        with self.later(hours=60 + 47):
+            self.assertEqual(self.client.get(path).status_code, 200)
+        with self.later(days=subscriptions.QUEUE_DAYS + 1):  # and one never sent does not wait for ever
+            subscriptions.request(self.retiro_b, OTHER)
+        with self.later(days=2 * subscriptions.QUEUE_DAYS + 2):
+            self.assertEqual(subscriptions.delete_due()["unconfirmed"], 2)
+
+    def test_an_address_that_never_answers_is_not_asked_for_ever(self):
+        """Defect (review, reproduced): a new request every 49 hours mailed an unconfirmed address without end."""
+        for round_ in range(5):
+            with self.later(hours=49 * round_):
+                self.ask()
+                self.run_pass()
+        self.assertEqual(len(mail.outbox), subscriptions.UNANSWERED_PER_EVENT)
+        first, last = mail.outbox
+        self.assertIn("como mucho, le escribiremos una vez más a esta dirección por este evento", first.body)
+        self.assertIn("no le escribiremos más a esta dirección por este evento", last.body)  # and it is true:
+        with self.later(days=9):  # the day before the event, and the deletions have run: still none
+            subscriptions.delete_due()
+            self.ask()
+            self.run_pass()
+        self.assertEqual(len(mail.outbox), 2)
+        # Across the church's events: four unanswered in thirty days, then none.
+        for number in range(4):
+            event = self._future(self.church, f"Evento {number}", f"evento-{number}", 4, 4)
+            services.save_page(event, self.admin, published=True, public=True, notice_mail=True)
+            with self.later(days=1 + number):
+                subscriptions.request(event, ADDRESS)
+        self.assertEqual(EventSubscription.objects.filter(email_hash=subscriptions.address_hash(ADDRESS)).count(), 2)
+
+    def test_confirming_takes_the_request_off_the_count(self):
+        self.ask()
+        subscriptions.confirm(self.row())
+        self.assertEqual(SubscriptionSuppression.objects.get().unanswered, 0)
+        subscriptions.confirm(self.row())  # twice changes nothing
+        self.assertEqual(SubscriptionSuppression.objects.get().unanswered, 0)
+
+    def test_the_church_and_the_pass_have_a_ceiling_of_confirmations(self):
+        """Defect: many addresses at once leaving the server as one burst. Over a ceiling they wait; none is lost."""
+        for number in range(6):
+            subscriptions.request(self.retiro, f"persona@casa{number}.demo.invalid")
+        with mock.patch.object(subscriptions, "CONFIRMATIONS_PER_PASS", 4):
+            self.assertEqual((self.run_pass()["confirmations"], len(mail.outbox)), (4, 4))
+        with mock.patch.object(subscriptions, "CONFIRMATIONS_PER_CHURCH_PER_DAY", 5):
+            counts = self.run_pass()
+            self.assertEqual((counts["confirmations"], counts["left"]), (1, 1))
+            self.assertEqual(EventSubscription.objects.filter(event=self.retiro).count(), 6)  # waiting, not dropped
+            subscriptions.request(self.retiro_b, ADDRESS)  # another church has its own ceiling
+            self.assertEqual(self.run_pass()["confirmations"], 1)
+            with self.later(hours=25):
+                self.assertEqual(self.run_pass()["confirmations"], 1)
+        self.assertEqual(len(mail.outbox), 7)
+
+    def test_repeating_a_known_address_blocks_nobody(self):
+        """Defect (review, reproduced): 31 requests, even of one known address, closed an event's form for an hour."""
+        self.ask()
+        for _ in range(40):
+            self.ask()
+            self.ask("mama.de.prueba+otra@demo.invalid")  # another spelling of the same inbox: the same row
+        self.ask(OTHER)
+        self.assertTrue(EventSubscription.objects.filter(email=OTHER).exists())
+        self.assertEqual(EventSubscription.objects.count(), 2)
+        self.assertEqual(SubscriptionSuppression.objects.get(address_hash=subscriptions.limit_hash(ADDRESS)).unanswered, 1)
+
+    def test_a_known_address_costs_the_form_about_what_a_new_one_does(self):
+        """Defect: the form answering sooner for an address that is already there. Both do the same reads and
+        write; a new one writes its row and its count besides."""
+        self.ask()
+        self.ask(OTHER)
+        with CaptureQueriesContext(connection) as known:
+            subscriptions.request(self.retiro, ADDRESS)
+        with CaptureQueriesContext(connection) as new:
+            subscriptions.request(self.retiro, "tercera@demo.invalid")
+
+        def kinds(queries, word):
+            return sum(1 for query in queries if query["sql"].startswith(word))
+
+        self.assertEqual(kinds(known, "SELECT"), kinds(new, "SELECT"))  # the same reads, whoever asks
+        self.assertEqual(kinds(known, "UPDATE"), 1)
+        self.assertLessEqual(len(new) - len(known), 4)  # its row, its count, and the savepoint around them
 
     def test_the_same_address_twice_at_once_is_one_row(self):
         subscriptions.request(self.retiro, ADDRESS)
@@ -319,7 +452,7 @@ class ConfirmTests(SubscriptionFixture):
         self.assertIsNone(self.row().confirmed_at)
         # The row's own age counts too, whatever the link says, and so for a copy read before it expired.
         stale = self.row()
-        EventSubscription.objects.filter(pk=stale.pk).update(created_at=timezone.now() - timedelta(hours=49))
+        EventSubscription.objects.filter(pk=stale.pk).update(confirm_last_attempt_at=timezone.now() - timedelta(hours=49))
         self.assertEqual(self.client.post(self.path).status_code, 404)
         subscriptions.confirm(stale)
         self.assertIsNone(self.row().confirmed_at)
@@ -567,15 +700,23 @@ class SendingTests(SubscriptionFixture):
             self.run_pass()
         self.assertEqual(self.row().confirm_attempts, 2)
 
-    def test_a_sender_that_died_is_taken_over_after_a_while(self):
+    def test_a_sender_that_died_is_never_taken_over(self):
+        """Defect (review): a crash between handing the e-mail over and writing how it went, and a second copy
+        later. The attempt is written first, and a claim nobody finished is never taken again: at most once."""
         row = self.confirmed()
         notice = self.publish()
         self.assertEqual(subscriptions._claim_notice(notice, row.pk), subscriptions.FIRST_ATTEMPT)  # and then it died
-        self.run_pass()
+        claim = EventNoticeEmail.objects.get()
+        self.assertEqual((claim.outcome, claim.attempts), (MailOutcome.PENDING, 1))
+        for wait in ({"minutes": 1}, {"minutes": 11}, {"hours": 13}, {"days": 2}):
+            with self.later(**wait):
+                self.run_pass()
         self.assertEqual(mail.outbox, [])
-        with self.later(minutes=subscriptions.PENDING_STALE_MINUTES + 1):
+        self.ask(OTHER)
+        self.assertEqual(subscriptions._claim_confirmation(self.row(OTHER)), subscriptions.FIRST_ATTEMPT)  # the same
+        with self.later(hours=1):
             self.run_pass()
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox, [])
 
     def test_the_whole_journey_leaves_the_address_in_no_log_no_audit_row_and_no_page(self):
         """Defect: the address copied to where somebody else reads it."""
@@ -607,13 +748,15 @@ class SendingTests(SubscriptionFixture):
 
 
 class EndingTests(SubscriptionFixture):
-    def test_an_unconfirmed_request_is_deleted_after_48_hours(self):
+    def test_an_unconfirmed_request_is_deleted_48_hours_after_its_e_mail_was_sent(self):
         self.ask()
+        self.run_pass()
         self.confirmed(OTHER)
         with self.later(hours=47):
-            self.assertEqual(subscriptions.purge(), {"unconfirmed": 0, "expired": 0})
+            self.assertEqual(subscriptions.delete_due(), {"unconfirmed": 0, "expired": 0, "limits": 0})
         with self.later(hours=49):
-            self.assertEqual(subscriptions.purge(), {"unconfirmed": 1, "expired": 0})
+            self.assertEqual(subscriptions.delete_due(), {"unconfirmed": 1, "expired": 0, "limits": 0})
+        self.assertEqual(SubscriptionSuppression.objects.count(), 2)  # the counts stay: that is their point
         self.assertEqual([row.email for row in EventSubscription.objects.all()], [OTHER])
 
     def test_every_address_is_deleted_14_days_after_the_event_ends(self):
@@ -621,34 +764,49 @@ class EndingTests(SubscriptionFixture):
         self.confirmed(OTHER, event=self.retiro_b)
         EventNoticeEmail.objects.create(notice=self.publish(), subscription=self.row(), attempts=1)
         self.move(self.retiro, -20, -subscriptions.RETENTION_DAYS)
-        self.assertEqual(subscriptions.purge()["expired"], 0)  # the fourteenth day is still inside
+        self.assertEqual(subscriptions.delete_due()["expired"], 0)  # the fourteenth day is still inside
         self.move(self.retiro, -20, -subscriptions.RETENTION_DAYS - 1)
-        self.assertEqual(subscriptions.purge()["expired"], 1)
+        self.assertEqual(subscriptions.delete_due()["expired"], 1)
         self.assertEqual([row.email for row in EventSubscription.objects.all()], [OTHER])
         self.assertFalse(EventNoticeEmail.objects.exists())
         # An event of one day, and one that lost its dates.
         Event.objects.filter(pk=self.retiro_b.pk).update(starts_on=self.today - timedelta(days=15), ends_on=None)
-        self.assertEqual(subscriptions.purge()["expired"], 1)
+        self.assertEqual(subscriptions.delete_due()["expired"], 1)
         self.confirmed()
         Event.objects.filter(pk=self.retiro.pk).update(starts_on=None, ends_on=None)
-        self.assertEqual(subscriptions.purge()["expired"], 0)
+        self.assertEqual(subscriptions.delete_due()["expired"], 0)
         with self.later(days=15):
-            self.assertEqual(subscriptions.purge()["expired"], 1)
+            self.assertEqual(subscriptions.delete_due()["expired"], 1)
 
     def test_the_deletions_run_whatever_the_flags_and_without_e_mail(self):
         """Defect: addresses kept for ever in a church that stopped using the module, or on a server without e-mail."""
         self.ask()
-        EventSubscription.objects.update(created_at=timezone.now() - timedelta(hours=49))
+        EventSubscription.objects.update(confirm_attempts=1, confirm_last_attempt_at=timezone.now() - timedelta(hours=49))
         flags.set_enabled(self.church, "community", False)
         with self.settings(EMMAUS_PUBLIC_BASE_URL="", EMAIL_BACKEND=CONSOLE):
             counts = subscriptions.run_pass()
         self.assertEqual((counts["unconfirmed"], counts["not_configured"]), (1, True))
         self.assertFalse(EventSubscription.objects.exists())
 
+    def test_the_deletions_are_a_function_of_their_own_that_reads_no_switch(self):
+        """Defect (review, reproduced): with the community jobs switched off nothing deleted the addresses.
+        ``delete_due`` takes no flag and no setting, so whoever schedules it runs it always."""
+        self.ask()
+        EventSubscription.objects.update(confirm_attempts=1, confirm_last_attempt_at=timezone.now() - timedelta(hours=49))
+        self.confirmed(OTHER, event=self.retiro_b)
+        self.move(self.retiro_b, -40, -30)
+        off = {"EMMAUS_SCHEDULED_COMMUNITY_JOBS": False, "EMMAUS_V2_MODULES": False, "EMMAUS_PUBLIC_BASE_URL": "", "EMAIL_BACKEND": CONSOLE}
+        with self.settings(**off), mock.patch("agenda.subscriptions.send_due") as send:
+            self.assertEqual(subscriptions.delete_due(), {"unconfirmed": 1, "expired": 1, "limits": 1})
+        send.assert_not_called()
+        self.assertFalse(EventSubscription.objects.exists())
+        self.assertEqual(SubscriptionSuppression.objects.count(), 1)  # of the event that is not over
+
     def test_deleting_the_event_deletes_its_addresses(self):
         self.confirmed()
         self.retiro.delete()
         self.assertFalse(EventSubscription.objects.exists())
+        self.assertFalse(SubscriptionSuppression.objects.exists())
 
 
 class StaffTests(SubscriptionFixture):
@@ -697,10 +855,18 @@ class StaffTests(SubscriptionFixture):
         self.confirmed("quinta@demo.invalid")
         subscriptions.request(self.retiro, "sin.confirmar@demo.invalid")  # an unconfirmed row is not counted
         page = self.notices_page()
-        self.assertContains(page, "5 direcciones suscritas", count=2)
+        self.assertContains(page, "5 o más direcciones suscritas", count=2)
         self.assertNotContains(page, "demo.invalid")
+        for number in range(4):  # one more, or four more, reads the same; the tenth changes the step
+            self.confirmed(f"mas{number}@demo.invalid")
+            self.assertContains(self.notices_page(), "5 o más direcciones suscritas", count=2)
+        self.confirmed("decima@otra.demo.invalid")
+        self.assertContains(self.notices_page(), "10 o más direcciones suscritas", count=2)
         ChurchPolicy.objects.update_or_create(church=self.church, defaults={"min_reporting_size": 8})
-        self.assertContains(self.notices_page(), "menos de 8 direcciones suscritas")
+        self.assertContains(self.notices_page(), "10 o más direcciones suscritas")
+        self.assertEqual(subscriptions._stepped(9, 8), 8)  # never a step under the minimum
+        ChurchPolicy.objects.update_or_create(church=self.church, defaults={"min_reporting_size": 12})
+        self.assertContains(self.notices_page(), "menos de 12 direcciones suscritas")
 
     def test_publishing_says_whether_an_e_mail_follows(self):
         self.confirmed()
@@ -740,9 +906,16 @@ class StaffTests(SubscriptionFixture):
             EventNoticeEmail.objects.create(notice=notice, subscription=row, outcome=MailOutcome.SENT, attempts=1)
         self.assertContains(self.notices_page(), "Por este aviso salieron menos de 5 correos (puede que ninguno).")
         EventNoticeEmail.objects.create(notice=notice, subscription=rows[4], outcome=MailOutcome.FAILED, attempts=1)
-        self.assertContains(self.notices_page(), "menos de 5 correos (puede que ninguno). Algunos correos no se pudieron enviar.")
+        # Under the minimum a failure is not mentioned: "some failed" would say that there is somebody.
+        page = self.notices_page()
+        self.assertContains(page, "menos de 5 correos (puede que ninguno).")
+        self.assertNotContains(page, "no se pudieron enviar")
         EventNoticeEmail.objects.update(outcome=MailOutcome.SENT)
-        self.assertContains(self.notices_page(), "Salieron 5 correos por este aviso.")
+        self.assertContains(self.notices_page(), "Salieron 5 o más correos por este aviso.")
+        extra = [self.confirmed(f"mas{number}@otra.demo.invalid") for number in range(2)]
+        EventNoticeEmail.objects.create(notice=notice, subscription=extra[0], outcome=MailOutcome.SENT, attempts=1)
+        EventNoticeEmail.objects.create(notice=notice, subscription=extra[1], outcome=MailOutcome.FAILED, attempts=1)
+        self.assertContains(self.notices_page(), "Salieron 5 o más correos por este aviso. Algunos correos no se pudieron enviar.")
 
     def test_the_addresses_have_no_admin_page(self):
         from django.contrib import admin

@@ -1,10 +1,13 @@
 """The church's people, for its administration: who they are, which campero they were, and their account.
 
 Every view: the ``people`` module on for the current church (404 otherwise), then church ``manage``
-(``core.authz.has_scope``; 403 otherwise). Every person is fetched inside ``request.church``: an id
-of another church is a 404, for everybody: who may not manage gets 403 only for a row of this church
-(``_names_a_row_here``). Camperos are read only through ``events.access.resolve_access``, the
-camp's own chokepoint, and only their name, age and sede are shown here: never an answer.
+(``core.authz.has_scope``). Somebody who may not manage gets 403 on the screens whose address names
+no row (the list, "Registrar", the duplicate review, tags, export, import), and 404 on EVERY address
+that names one (a person, a merge, a dismissed pair, a tag, an import, an event, a link), whether
+the row exists or not: nothing about the church's rows can be told apart. For the administration
+every row is fetched inside ``request.church``: an id of another church is a 404. Camperos are read
+only through ``events.access.resolve_access``, the camp's own chokepoint, and only their name, age
+and sede are shown here: never an answer.
 """
 
 from functools import wraps
@@ -27,7 +30,7 @@ from events.models import Event, EventParticipant, normalize_name
 from . import services
 from .decorators import module_required
 from .forms import PersonForm
-from .models import DuplicateDismissal, EventParticipantLink, Person, PersonMerge
+from .models import EventParticipantLink, Person
 
 
 
@@ -36,31 +39,15 @@ def church_admin_required(view_func):
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
         if not has_scope(request.user, request.church, "church", request.church.pk, Action.MANAGE):
-            if not _names_a_row_here(request.church, kwargs):
-                raise Http404  # an id of another church (or of nothing) is the same 404 the administration gets
-            raise PermissionDenied
+            if kwargs:
+                # The address names a row (a person, a merge, a dismissed pair, a tag, an import, an event, a link).
+                # Somebody who may not manage gets ONE answer whether it exists or not, in this church or another:
+                # a 403 for the rows that exist would let any member count the church's people and merges.
+                raise Http404
+            raise PermissionDenied  # a screen with no row in its address: that the directory exists is no secret
         return view_func(request, *args, **kwargs)
 
     return wrapped
-
-
-def _names_a_row_here(church, kwargs) -> bool:
-    """Whether every row the address names (a person, a merge, a dismissed pair, an event, a link) is of ``church``.
-    Asked only to refuse: it decides between 404 and 403 for somebody who may not manage, never grants anything."""
-    people = [kwargs[name] for name in ("person_id", "survivor_id", "absorbed_id") if name in kwargs]
-    if people and Person.objects.filter(church=church, merged_into__isnull=True, pk__in=people).count() != len(set(people)):
-        return False
-    if "merge_id" in kwargs and not PersonMerge.objects.filter(church=church, pk=kwargs["merge_id"]).exists():
-        return False
-    if "dismissal_id" in kwargs and not DuplicateDismissal.objects.filter(church=church, pk=kwargs["dismissal_id"]).exists():
-        return False
-    if "slug" in kwargs and not Event.objects.filter(church=church, slug=kwargs["slug"], camp_tools=True).exists():
-        return False
-    if "link_id" in kwargs and not EventParticipantLink.objects.filter(
-        pk=kwargs["link_id"], person_id=kwargs.get("person_id"), person__church=church
-    ).exists():
-        return False
-    return True
 
 
 def _people(church):

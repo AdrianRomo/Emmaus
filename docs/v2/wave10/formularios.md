@@ -63,18 +63,17 @@ each reader row and that the group or team is active; the administration is `has
    filled the name, one way to reach the person and the consent box are required.
 7. **Conditional questions without new JavaScript**: the question is always drawn with a hint
    ("Responde solo si…"); the server drops its answer and never demands it when the condition fails.
-8. **Duplicates**: the same person (church form), or the same e-mail or phone (public form, compared
-   as HMAC keys of version + normalised contact, like `feedback`), answering the same version within
-   24 hours keeps the first answer and makes no second task. The second send gets the same "gracias".
-9. **Public POST**: Django's CSRF cookie is the only cookie; no session, no `messages`. Throttle is
-   per form (20 valid answers per 10 minutes from everybody together), with no network address or
-   session in the key. Honeypot field. A form keeps at most 2000 answers.
+8. **Twice** (changed after the review, see below): a person of the church answering the same
+   version again within 24 hours keeps the first answer. A public answer is never discarded for
+   repeating a contact.
+9. **Public POST** (changed after the review, see below): Django's CSRF cookie is the only cookie;
+   no session, no `messages`; a signed single-use seal; a honeypot; no shared counter that refuses.
 10. **Identical 404** for a public address that is unknown, a church form, a draft, not yet open,
     over, closed, module off or church inactive. Who is signed in is not looked at.
 11. **Task owner is an account, not a person record**, because what reads a form is the account.
     The owner must read the form; when a reader is removed, or the owner's role ends, the task shows
     as "sin responsable" for the administration and leaves the owner's list.
-12. **A task is deleted with its answer** when retention ends. The note never holds answers; the
+12. **A task is deleted with its answer** when the answer's own day comes. The note never holds answers; the
     audit log never holds the note.
 13. **"Agregar a personas"** needs the `people` module, goes through `people.services.save_person`,
     offers people with the same e-mail or phone first, refuses a new record when the e-mail is taken
@@ -90,6 +89,53 @@ each reader row and that the group or team is active; the administration is `has
 19. Answer counts on staff screens are shown to people who can read each answer by name, so the
     minimum reporting size does not apply; no aggregate of answers is shown to anybody else.
 
+## After the independent review (2026-11-19)
+
+1. **Each answer keeps the day it was told** (`Submission.delete_after`): the form's last day plus
+   its retention as they were when the person answered, or the day printed on the page they sent
+   if that is earlier (hidden field `hasta`; a later value is ignored). Changing the form later
+   only brings that day earlier (`services.shorten_kept_until`, on every edit and on closing).
+   Extending or reopening a form counts for new answers only. `prune` deletes by answer, on that day.
+2. **A flood is set aside, never refused.** The per-form throttle is gone. Mechanics:
+   - *Seal*: every drawn public page carries `Signer("formularios.public.sello")` over form id,
+     96 random bits and the second it was drawn. A send needs a seal of that form between 3 seconds
+     and 12 hours old, not used before (`SeenSeal`: HMAC of the random part, deleted after 12 h).
+     A missing, too new or too old seal re-draws the form with everything typed and a plain
+     sentence; a seal sent twice is the answer already kept. It proves a page was fetched and a
+     wait, not a person: a script that fetches, waits and posts passes, so it bounds nothing alone.
+   - *Flow*: beyond 20 listed public answers of one form in 10 minutes, and beyond 2,000 listed
+     answers, a valid answer is still saved and thanked, but as "por revisar" (`held`): no task, no
+     audit row, not in the lists, the export or "Agregar a personas". Only the administration sees
+     that bucket; it accepts one (then it is listed, logged and gets its task) or deletes all of
+     them with one confirmed POST (one audit row with the count). It can also delete any single answer.
+   - *Tasks*: a form has at most 200 open tasks at a time; further answers are listed without one.
+   - *Worst case for one form*, however many clients: 2,000 listed answers (no faster than 120 an
+     hour, so about 17 hours), at most 200 open tasks at a time and about 4,000 audit rows
+     (2,000 without tasks); plus 20,000 held answers with no task and no audit row, removed in one
+     step. Only after 20,000 held does the form say it could not keep an answer, with the answer
+     still on the page. Before: 20 sends silenced everybody for minutes and 2,000 closed the form.
+   - *What it does not solve*: a sender who stays under 2 a minute looks like people and is listed;
+     during a flood real answers wait among junk until somebody reviews. Telling them apart needs
+     knowing who sends, which this slice refuses to store.
+3. **A repeated contact discards nothing**: both answers are kept, the later one is marked "Mismo
+   contacto que otra respuesta" and links to the others; the same e-mail or phone leaves at most
+   one task per form per day. The key is now of the form, not of the version.
+4. **Minors**: a person on record as a minor (`oracion.access.known_minor`) gets 404 on the list,
+   the form and its thanks, and `services.submit` refuses them. The builder says so.
+5. **"Agregar a personas"** compares with `people.duplicates.keys_of` (e-mail and phone; an answer
+   has no date of birth for the third signal), over every person with no row limit. A match
+   replaces the "new" button with the people to link. "Es otra persona" exists only over a shared
+   phone and is audited with `override: mismo_telefono`; a shared e-mail is never overridden.
+6. **A form's number says nothing**: every staff address answers 404 for a form the person does
+   not read, the same as a missing one. A reader gets 403 only on the administration's actions of
+   a form they do read.
+
+Left for the integrator (files outside this slice):
+- `people/audit.py`: deleting answers by hand reuses the action `formulario_respuestas_borradas`,
+  whose label speaks of retention; a label of its own would read better.
+- `core/shell.py`: the "Formularios" link is still drawn for a known minor when a church form is
+  open (it leads to the 404); `open_member_form_count` takes only the church.
+
 ## Shared files touched (append-only)
 
 `emmaus/settings.py`, `emmaus/urls.py`, `people/audit.py` (10 actions, `form_id`), `core/shell.py`
@@ -102,7 +148,7 @@ each reader row and that the group or team is active; the administration is `has
 
 Anonymous forms; forms about minors; file uploads; scoring; e-mail of any kind; automatic creation
 of people, memberships or groups; a task created by hand on an answer without one; repeating forms;
-templates of forms; editing or deleting a single answer; hiding conditional questions in the browser;
+templates of forms; editing a single answer; hiding conditional questions in the browser;
 a person's own history of what they answered; camp and discipleship tasks in «Pendientes».
 
 ## Not verified

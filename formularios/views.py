@@ -11,11 +11,15 @@ Who (``formularios.access``):
 * creating, editing, publishing, closing, naming readers, exporting, "Agregar a personas",
   assigning a task: the administration (``_admin_form``; 403 otherwise);
 * the answers of one form and working on its tasks: the administration and the form's readers
-  (``_readable_form``: ``access.can_read``, asked on every request; 403 otherwise);
+  (``_readable_form``: ``access.can_read``, asked on every request). For anybody else a form's number is
+  the 404 of a form that does not exist, at every staff address, so nobody can count the church's forms;
+* a person on record as a minor neither sees nor answers the forms of the church (404, as ``oracion``);
 * «Pendientes»: everybody signed in gets the page; its rows are what ``formularios.queue`` allows.
 
 The public form (no account) is ``formularios.public``.
 """
+
+from datetime import date
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
@@ -52,19 +56,27 @@ def _form(request, form_id: int) -> Form:
 
 
 def _admin_form(request, form_id: int) -> Form:
-    """A form of this church, for its administration: 404 for another church's, 403 for anybody else."""
-    form = _form(request, form_id)
+    """A form of this church, for its administration. For anybody who does not read this form it is the 404 of
+    a form that does not exist, so its number says nothing; a reader of this very form gets a 403."""
+    form = _readable_form(request, form_id)
     if not request.is_church_admin:
         raise PermissionDenied
     return form
 
 
 def _readable_form(request, form_id: int) -> Form:
-    """A form of this church whose answers this person reads right now."""
+    """A form of this church whose answers this person reads right now; otherwise the same 404 as a form that
+    does not exist or is of another church (a member cannot learn which numbers are forms)."""
     form = _form(request, form_id)
     if not access.can_read(request.user, form, is_church_admin=request.is_church_admin):
-        raise PermissionDenied
+        raise Http404
     return form
+
+
+def _no_minors(request) -> None:
+    """A person the church has on record as a minor neither sees nor answers the forms of the church: 404."""
+    if services.is_known_minor(request.person):
+        raise Http404
 
 
 def _submission(form: Form, submission_id: int) -> Submission:
@@ -100,6 +112,7 @@ def open_member_form_count(church) -> int:
 
 @community_view
 def member_list(request):
+    _no_minors(request)
     forms = list(_open_member_forms(request.church))
     for form in forms:
         form.answered = services.answered_recently(form, request.person)
@@ -111,6 +124,7 @@ def member_list(request):
 def fill(request, form_id: int):
     """A form of the church, for a person of the church. Not open (a draft, another audience, before
     its first day, after its last, closed): the same 404 as a form that does not exist."""
+    _no_minors(request)
     form = _form(request, form_id)
     if form.is_public or not services.is_open(form):
         raise Http404
@@ -123,7 +137,8 @@ def fill(request, form_id: int):
             answer = AnswerForm(schema=version.schema)
         elif answer.is_valid():
             try:
-                services.submit(form, version.pk, answers=answer.answers, person=request.person, actor=request.user)
+                services.submit(form, version.pk, answers=answer.answers, person=request.person, actor=request.user,
+                                shown_until=_day(request.POST.get("hasta")))
             except services.FormChanged:
                 return redirect("formularios:fill", form.pk)  # shows the form as it is now, or its 404
             except services.FormFull:
@@ -138,6 +153,7 @@ def fill(request, form_id: int):
 
 @community_view
 def thanks(request, form_id: int):
+    _no_minors(request)
     form = _form(request, form_id)
     if form.is_public or form.current_version is None or form.status == Form.Status.DRAFT:
         raise Http404
@@ -162,7 +178,7 @@ def manage(request):
     page = paginate(request, forms.select_related("current_version", "church").order_by("-created_at", "-id"))
     for form in page:
         _decorate(form)
-        form.answers = form.submissions.count()
+        form.answers = form.submissions.filter(held=False).count()
         form.open_tasks = form.tasks.filter(status=FormTask.Status.OPEN).count()
     return render(request, "formularios/manage.html", {"forms": page})
 
@@ -232,7 +248,7 @@ def detail(request, form_id: int):
         "problems": services.publish_problems(row) if row.status != Form.Status.CLOSED else [],
         "public_url": _public_url(request, row) if row.is_public and row.current_version_id else "",
         "is_open": services.is_open(row), "delete_after": services.delete_after(row),
-        "readers": services.readers_of(row), "answers": row.submissions.count(),
+        "readers": services.readers_of(row), "answers": row.submissions.filter(held=False).count(),
         "warning": services.SENSITIVE_WARNING, "minors": services.MINORS_OUT, "max_questions": services.MAX_QUESTIONS,
         "owner_name": _owner_name(row.church, row.task_owner),
     })
@@ -389,10 +405,23 @@ def readers(request, form_id: int):
 
 
 # ---- the staff: answers and their tasks ---------------------------------------------------------
+def _day(value):
+    try:
+        return date.fromisoformat(value or "")
+    except ValueError:
+        return None
+
+
 @community_view
 def submissions(request, form_id: int):
+    """The listed answers; and, for the administration alone, the ones kept "por revisar" (``?ver=por-revisar``)."""
     row = _decorate(_readable_form(request, form_id))
-    page = paginate(request, row.submissions.select_related("version", "person", "task", "task__owner"))
+    chosen = request.GET.get("ver", "")
+    if chosen not in ("", "por-revisar") or (chosen and not request.is_church_admin):
+        raise Http404
+    held_total = row.submissions.filter(held=True).count() if request.is_church_admin else 0
+    rows = row.submissions.filter(held=bool(chosen)).select_related("version", "person", "task", "task__owner", "form")
+    page = paginate(request, rows)
     today = services.church_today(row.church)
     for submission in page:
         task = getattr(submission, "task", None)
@@ -401,26 +430,82 @@ def submissions(request, form_id: int):
             task.is_overdue = bool(task.is_open and task.due_on and task.due_on < today)
             task.is_mine = task.owner_id == request.user.pk
     return render(request, "formularios/submissions.html", {
-        "form_row": row, "submissions": page, "total": row.submissions.count(), "delete_after": services.delete_after(row),
+        "form_row": row, "submissions": page, "total": row.submissions.filter(held=False).count(), "held_total": held_total,
+        "chosen": chosen, "delete_after": services.delete_after(row),
     })
+
+
+def _listed_submission(request, row: Form, submission_id: int) -> Submission:
+    """An answer of ``row`` this reader may open: one "por revisar" exists only for the administration."""
+    found = _submission(row, submission_id)
+    if found.held and not request.is_church_admin:
+        raise Http404
+    return found
 
 
 @community_view
 def submission(request, form_id: int, submission_id: int):
     row = _readable_form(request, form_id)
-    found = _submission(row, submission_id)
+    found = _listed_submission(request, row, submission_id)
     task = FormTask.objects.filter(submission=found).select_related("owner").first()
     if task is not None:
         task.is_overdue = bool(task.is_open and task.due_on and task.due_on < services.church_today(row.church))
         task.owner_name = _owner_name(row.church, task.owner)
     can_add = bool(
         request.is_church_admin and row.is_public and found.person_id is None and found.contact_first_name
-        and flags.enabled(row.church, "people")
+        and not found.held and flags.enabled(row.church, "people")
     )
+    others = services.same_contact_answers(found)
+    if not request.is_church_admin:
+        others = others.filter(held=False)
     return render(request, "formularios/submission.html", {
         "form_row": row, "submission": found, "answers": services.describe(found), "task": task,
         "note_form": TaskNoteForm(initial={"note": task.note}) if task else None, "can_add": can_add,
-        "delete_after": services.delete_after(row),
+        "delete_after": services.kept_until(found), "others": list(others.order_by("created_at", "id")[:20]),
+    })
+
+
+@community_view
+def submission_delete(request, form_id: int, submission_id: int):
+    """The administration deletes one answer (and its task): a confirmation, then a POST."""
+    row = _admin_form(request, form_id)
+    found = _submission(row, submission_id)
+    if request.method == "POST":
+        services.delete_submission(found, request.user)
+        messages.success(request, "Borraste la respuesta. Si tenía un pendiente, se fue con ella.")
+        return redirect(reverse("formularios:submissions", args=[row.pk]) + ("?ver=por-revisar" if found.held else ""))
+    return render(request, "groups/confirm.html", {
+        "title": "¿Borrar esta respuesta?",
+        "text": "Se borra para siempre, con su pendiente si lo tiene. En la actividad de la iglesia queda que se borró una respuesta, no qué decía.",
+        "action": "Sí, borrar la respuesta", "back_url": reverse("formularios:submission", args=[row.pk, found.pk]),
+    })
+
+
+@community_view
+@require_POST
+def submission_accept(request, form_id: int, submission_id: int):
+    row = _admin_form(request, form_id)
+    services.accept_held(_submission(row, submission_id), request.user)
+    messages.success(request, "La respuesta ya está con las demás.")
+    return redirect("formularios:submission", row.pk, submission_id)
+
+
+@community_view
+def held_delete(request, form_id: int):
+    """Every answer "por revisar" of one form at once: a confirmation that says how many, then a POST."""
+    row = _admin_form(request, form_id)
+    back = reverse("formularios:submissions", args=[row.pk]) + "?ver=por-revisar"
+    total = row.submissions.filter(held=True).count()
+    if request.method == "POST":
+        deleted = services.delete_held(row, request.user)
+        messages.success(request, f"Borraste {deleted} respuesta{'' if deleted == 1 else 's'} por revisar.")
+        return redirect("formularios:submissions", row.pk)
+    if not total:
+        return redirect(back)
+    return render(request, "groups/confirm.html", {
+        "title": f"¿Borrar {total} respuesta{'' if total == 1 else 's'} por revisar?",
+        "text": "Se borran todas para siempre. Si entre ellas hay respuestas de personas reales, acéptalas primero una por una.",
+        "action": "Sí, borrarlas todas", "back_url": back,
     })
 
 
@@ -429,7 +514,7 @@ def submission(request, form_id: int, submission_id: int):
 def task(request, form_id: int, submission_id: int):
     """Mark the task done, open it again, or write its note: whoever reads the form's answers."""
     row = _readable_form(request, form_id)
-    found = get_object_or_404(FormTask, submission=_submission(row, submission_id), form=row)
+    found = get_object_or_404(FormTask, submission=_listed_submission(request, row, submission_id), form=row)
     action = request.POST.get("accion", "")
     try:
         if action == "hecho":
@@ -471,7 +556,7 @@ def add_person(request, form_id: int, submission_id: int):
     row = _admin_form(request, form_id)
     found = _submission(row, submission_id)
     back = reverse("formularios:submission", args=[row.pk, found.pk])
-    if not flags.enabled(row.church, "people") or not row.is_public or not found.contact_first_name:
+    if not flags.enabled(row.church, "people") or not row.is_public or not found.contact_first_name or found.held:
         raise Http404
     if found.person_id is not None:
         return redirect(back)
@@ -484,13 +569,16 @@ def add_person(request, form_id: int, submission_id: int):
                 raise Http404
             existing = get_object_or_404(Person, pk=int(chosen), church=request.church, merged_into__isnull=True)
         try:
-            person = services.add_to_people(found, request.user, existing=existing)
+            person = services.add_to_people(found, request.user, existing=existing, another=request.POST.get("otra") == "1")
         except services.FormError as error:
             messages.error(request, error.message)
             return redirect("formularios:add_person", row.pk, found.pk)
         messages.success(request, f"{person.full_name} está en las personas de la iglesia. No se le dio acceso a Emmaus ni se le envió nada.")
         return redirect(back)
-    return render(request, "formularios/add_person.html", {"form_row": row, "submission": found, "similar": similar, "back": back})
+    return render(request, "formularios/add_person.html", {
+        "form_row": row, "submission": found, "similar": similar, "back": back,
+        "same_email": any(person.same_email for person in similar),
+    })
 
 
 @community_view

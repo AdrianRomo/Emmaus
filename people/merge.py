@@ -206,11 +206,12 @@ HANDLED_ELSEWHERE = frozenset({
     ("people.PersonMerge", "survivor"), ("people.PersonMerge", "absorbed"),
     ("people.DuplicateDismissal", "person_a"), ("people.DuplicateDismissal", "person_b"),
 })
-# Relations whose rows never move to another record: while either record has one, the merge is refused. The
-# sentence does not name the kind: who merges (the administration) is not a reader of what these tables hold.
-REFUSED: tuple[tuple[str, str], ...] = (("oracion.PrayerRequest", "person"),)
-UNMERGEABLE = "Alguno de los dos registros tiene información que no se puede unir. Esta unión no se puede hacer."
-HANDLED_ELSEWHERE = HANDLED_ELSEWHERE | frozenset(REFUSED)
+# Relations a merge does nothing with, on purpose: nothing moves, nothing is counted, nothing is in the manifest
+# and nothing is ever refused because of them, so a preview cannot tell who has such a row. A prayer request
+# belongs to the ACCOUNT that wrote it (``oracion.PrayerRequest.author``); ``person`` only records which record
+# that account was that day and no screen decides by it. Accounts are never joined, so the writer keeps it.
+NOTHING_MOVES: tuple[tuple[str, str], ...] = (("oracion.PrayerRequest", "person"),)
+HANDLED_ELSEWHERE = HANDLED_ELSEWHERE | frozenset(NOTHING_MOVES)
 _BY_KEY = {table.key: table for table in TABLES}
 
 
@@ -436,12 +437,6 @@ def _build(church, survivor: Person, absorbed: Person) -> Preview:
     # ---- an earlier merge that can still be undone
     if any(can_undo(earlier) for earlier in PersonMerge.objects.filter(survivor=absorbed, undone_at__isnull=True)):
         refuse(f"El registro que se uniría recibió otra unión hace menos de {UNDO_DAYS} días. Mientras esa se pueda deshacer, no se puede unir a otra persona.")
-
-    # ---- what never moves
-    for model, name in REFUSED:
-        if apps.get_model(model)._base_manager.filter(**{f"{name}__in": [survivor.pk, absorbed.pk]}).exists():
-            refuse(UNMERGEABLE)
-            break
 
     # ---- the rows
     for table in TABLES:

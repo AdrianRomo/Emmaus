@@ -63,12 +63,16 @@ class PermissionTests(Screens):
         for user, expected in ((self.member_user, 403), (self.leader_user, 403), (self.coord1, 403), (self.tutor1, 404),
                                (self.church_pastor, 403)):
             self.client.force_login(user)
+            # An address that names a row is a 404 for whoever may not manage, as for a row that does not exist.
+            def answer(url, expected=expected):
+                return 404 if any(part.isdigit() for part in url.split("/")) else expected
+
             for url in self.gets():
                 with self.subTest(user=user.email, url=url):
-                    self.assertEqual(self.client.get(url).status_code, expected)
+                    self.assertEqual(self.client.get(url).status_code, answer(url))
             for url, data in self.posts():
                 with self.subTest(user=user.email, url=url):
-                    self.assertEqual(self.client.post(url, data).status_code, expected)
+                    self.assertEqual(self.client.post(url, data).status_code, answer(url))
         self.assertEqual(self.state(), before)
         self.client.force_login(self.admin)
         for url in self.gets():

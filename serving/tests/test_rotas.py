@@ -4,6 +4,8 @@ from datetime import date, datetime, time, timedelta
 from unittest import mock
 from zoneinfo import ZoneInfo
 
+from django.db import OperationalError, connection
+from django.db.models import QuerySet
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -13,7 +15,7 @@ from people import services as people
 from people.models import ChurchAuditEvent, Person
 from serving import rotas, services
 from serving.models import (
-    Assignment, PlanItem, RoleNeed, RotationEntry, ServiceDate, ServiceReminder, SwapRequest, TeamRole, Unavailable,
+    Assignment, PlanItem, RoleNeed, RotationEntry, ServiceDate, ServiceReminder, SwapRequest, Team, TeamRole, Unavailable,
 )
 
 from .test_serving import ServingFixture
@@ -796,3 +798,188 @@ class AccessTests(RotasFixture):
         self.client.force_login(self.member_user)
         self.assertEqual(self.client.get(self.url("swap_create", self.mine.pk)).status_code, 404)
         self.assertFalse(Unavailable.objects.filter(person=self.member).exists())
+
+
+class ReadTimeTests(RotasFixture):
+    """What the review of wave 10 found: eligibility is read when a page is read, not kept from the day of the assignment."""
+
+    def minor(self, person):
+        return people.verify_birth_date(person, self.admin, METHOD, date(self.today.year - 15, 1, 1))
+
+    def test_making_a_role_adults_only_lists_who_holds_it_and_needs_a_confirmation(self):
+        self.need(door=1)
+        self.minor(self.member)
+        self.member.refresh_from_db()
+        mine = services.assign(self.day, self.member, self.leader_user, role=self.door)
+        past = self.new_day(3)
+        old = services.assign(past, self.member, self.leader_user, role=self.door)
+        self.move(past, -2)
+        self.client.force_login(self.leader_user)
+        data = {"rol": self.door.pk, "nombre": "Puerta", "solo_adultos": "si"}
+        page = self.client.post(self.url("role_save", self.team.pk), data)
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "Diego Hernández Cruz")
+        self.assertContains(page, "queda sin rol")
+        self.door.refresh_from_db()
+        mine.refresh_from_db()
+        self.assertEqual((self.door.adults_only, mine.role), (False, self.door))  # nothing changed yet
+        # A confirmation of a list that changed meanwhile shows the new list instead of saving.
+        services.assign(self.day, self.asked, self.leader_user, role=self.door)
+        again = self.client.post(self.url("role_save", self.team.pk), {**data, "confirmar": page.context["token"]})
+        self.assertEqual(again.status_code, 200)
+        self.assertContains(again, "Pía Pidió")
+        self.assertFalse(TeamRole.objects.get(pk=self.door.pk).adults_only)
+        response = self.client.post(self.url("role_save", self.team.pk), {**data, "confirmar": again.context["token"]})
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(TeamRole.objects.get(pk=self.door.pk).adults_only)
+        self.assertEqual(self.held(), {self.member.pk: None, self.asked.pk: None})  # they keep the date, without the role
+        old.refresh_from_db()
+        self.assertEqual(old.role, self.door)  # what already happened stays as it was
+        self.assertEqual(rotas.missing_by_date([self.day])[self.day.pk][0].missing, 1)
+        # Nobody holds it now: saving again asks nothing.
+        self.assertEqual(self.client.post(self.url("role_save", self.team.pk), data).status_code, 302)
+
+    def test_an_age_corrected_later_is_flagged_when_the_coordinator_reads_with_no_hook(self):
+        self.need(kids=1)
+        self.adult(self.asked)
+        self.asked.refresh_from_db()
+        row = services.assign(self.day, self.asked, self.leader_user, role=self.kids)
+        self.client.force_login(self.leader_user)
+        self.assertNotContains(self.client.get(self.url("team", self.team.pk)), "ya no puede cubrir este rol")
+        self.assertEqual(rotas.missing_by_date([self.day])[self.day.pk][0].missing, 0)
+        self.minor(self.asked)  # people.services, which knows nothing about Servir
+        row.refresh_from_db()
+        self.assertEqual(row.role, self.kids)  # nothing ran
+        self.assertContains(self.client.get(self.url("team", self.team.pk)), "ya no puede cubrir este rol")
+        self.assertContains(self.client.get(self.url("date_detail", self.day.pk)), "Ya no puede cubrir este rol")
+        self.assertEqual(rotas.missing_by_date([self.day])[self.day.pk][0].missing, 1)  # the place is missing again
+        self.adult(self.leader)
+        rotas.save_rotation(self.team, self.leader_user, every_weeks=1, orders={self.kids.pk: [self.leader.pk]})
+        self.assertEqual(rotas.build_proposal(self.team).dates[0].slots[0].proposed, self.leader.pk)
+        # A record joined to another is flagged too; a date typed by the person (agenda) for an unknown age as well.
+        services.assign(self.day, self.member, self.leader_user, role=self.door)
+        Person.objects.filter(pk=self.member.pk).update(merged_into=self.plain)
+        self.assertContains(self.client.get(self.url("team", self.team.pk)), "ya no puede cubrir este rol", count=2)
+        Person.objects.filter(pk=self.member.pk).update(merged_into=None)
+
+    def test_the_order_never_names_somebody_who_can_no_longer_be_named(self):
+        services.assign(self.day, self.asked, self.leader_user)
+        for title, person in (("Bienvenida", self.member), ("Anuncios", self.carlos), ("Cierre", self.no_account)):
+            rotas.save_plan_item(self.day, self.leader_user, title=title, minutes=5, responsible=person)
+        self.minor(self.member)
+        Person.objects.filter(pk=self.no_account.pk).update(merged_into=self.plain)
+        services.remove_member(self.team, self.carlos, self.admin)
+        self.assertIsNone(PlanItem.objects.get(title="Anuncios").responsible_id)  # cleared when they left
+        self.assertEqual(PlanItem.objects.get(title="Bienvenida").responsible, self.member)  # nothing ran for the age: read time
+        self.assertEqual([item.responsible for item in rotas.plan_items(self.day)], [None, None, None])
+        for user in (self.asked_user, self.leader_user):
+            self.client.force_login(user)
+            page = self.client.get(self.url("plan", self.day.pk))
+            for hidden in ("Diego", "Carla", "Nora", "selected"):
+                self.assertNotContains(page, hidden)
+        self.assertContains(page, "Bienvenida")
+        self.client.force_login(self.asked_user)
+        self.assertContains(self.client.get(self.url("plan", self.day.pk)), "Sin responsable", count=3)
+        Person.objects.filter(pk=self.no_account.pk).update(merged_into=None)
+
+    def test_a_request_of_who_said_no_is_closed_and_never_offered(self):
+        mine = services.assign(self.day, self.member, self.leader_user)
+        swap = rotas.request_swap(mine, self.asked, self.member_user)
+        services.respond(mine, False, self.member_user)
+        swap.refresh_from_db()
+        self.assertEqual(swap.status, "cancelada")
+        self.assertEqual((rotas.swaps_to_answer(self.asked), rotas.open_swap_ids([mine.pk])), ([], {}))
+        # And were the row left open by an older writer, nobody is offered it and nobody can take it.
+        SwapRequest.objects.filter(pk=swap.pk).update(status="pendiente")
+        swap.refresh_from_db()
+        self.assertFalse(rotas.is_live(swap))
+        self.assertEqual(rotas.swaps_to_answer(self.asked), [])
+        with self.assertRaises(services.ServingError):
+            rotas.answer_swap(swap, True, self.asked_user)
+        self.assertEqual(Assignment.objects.get(pk=mine.pk).person, self.member)
+
+    def test_every_swap_writer_holds_the_team_and_a_removed_member_never_ends_with_the_date(self):
+        mine = services.assign(self.day, self.member, self.leader_user)
+        swap = rotas.request_swap(mine, self.asked, self.member_user)
+        services.remove_member(self.team, self.asked, self.admin)
+        with self.assertRaises(services.ServingError):
+            rotas.answer_swap(swap, True, self.asked_user)
+        self.assertEqual(Assignment.objects.get(pk=mine.pk).person, self.member)
+
+        # The order the locks are asked in (SQLite takes none): team, date, assignment, swap, for every writer.
+        asked_for = []
+        real = QuerySet.select_for_update
+
+        def spy(queryset, *args, **kwargs):
+            asked_for.append(queryset.model.__name__)
+            return real(queryset, *args, **kwargs)
+
+        order = ["Team", "ServiceDate", "Assignment", "SwapRequest"]
+
+        def in_order(work) -> list:
+            asked_for.clear()
+            with mock.patch.object(QuerySet, "select_for_update", spy):
+                work()
+            locks = [name for name in asked_for if name in order]
+            self.assertEqual(locks, sorted(locks, key=order.index), locks)
+            return locks
+
+        self.assertEqual(in_order(lambda: rotas.request_swap(mine, self.carlos, self.member_user)), ["Team", "ServiceDate", "Assignment"])
+        swap = SwapRequest.objects.get(status="pendiente")
+        self.assertEqual(in_order(lambda: rotas.answer_swap(swap, True, self.coord1)), order)
+        mine.refresh_from_db()
+        again = rotas.request_swap(mine, self.member, self.coord1)
+        self.assertEqual(in_order(lambda: rotas.cancel_swap(again, self.coord1)), order)
+        rotas.request_swap(mine, self.member, self.coord1)
+        # Deleting takes the assignment before the cascade reaches its swap; taking somebody out starts at the team.
+        self.assertEqual(in_order(lambda: services.unassign(self.day, self.carlos, self.leader_user)), ["Team", "ServiceDate", "Assignment"])
+        services.assign(self.day, self.member, self.leader_user)
+        self.assertEqual(in_order(lambda: services.remove_member(self.team, self.member, self.admin))[0], "Team")
+        self.need(door=1)
+        proposal = rotas.build_proposal(self.team)
+        in_order(lambda: rotas.confirm_proposal(self.team, self.leader_user, token=proposal.token, choices={}))
+
+    def test_a_lock_the_database_gave_up_on_is_a_plain_try_again(self):
+        mine = services.assign(self.day, self.member, self.leader_user)
+        swap = rotas.request_swap(mine, self.asked, self.member_user)
+        self.client.force_login(self.asked_user)
+        with mock.patch.object(rotas, "answer_swap", side_effect=OperationalError("deadlock detected")):
+            response = self.client.post(self.url("swap_answer", swap.pk), {"respuesta": "aceptar"}, follow=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "inténtalo de nuevo")
+        self.assertNotContains(response, "deadlock")
+        self.assertEqual(Assignment.objects.get(pk=mine.pk).person, self.member)
+
+    def test_the_date_form_warns_about_who_serves_elsewhere_and_lets_the_coordinator_go_on(self):
+        services.set_member(self.other_team, self.asked, self.admin)
+        services.assign(self.new_day(7, team=self.other_team, hour=time(18, 0)), self.asked, self.admin)
+        self.client.force_login(self.leader_user)
+        data = self.date_post(self.member, self.asked)
+        page = self.client.post(self.url("date_detail", self.day.pk), data)
+        self.assertEqual(page.status_code, 200)
+        self.assertContains(page, "Pía Pidió ya sirve ese día en otra fecha")
+        self.assertEqual(self.held(), {})  # nothing was saved, Diego neither
+        # Saying yes to another list than the one shown warns again.
+        self.assertEqual(self.client.post(self.url("date_detail", self.day.pk), {**data, "ocupados": "999"}).status_code, 200)
+        response = self.client.post(self.url("date_detail", self.day.pk), {**data, "ocupados": page.context["warned_ids"]})
+        self.assertRedirects(response, self.url("team", self.team.pk))
+        self.assertEqual(set(self.held()), {self.member.pk, self.asked.pk})
+        # Saving the page again does not ask again about who is already on the date.
+        self.assertEqual(self.client.post(self.url("date_detail", self.day.pk), data).status_code, 302)
+        # The hard rules stay hard: a role for adults is not something to confirm past.
+        data[f"rol_{self.carlos.pk}"] = str(self.kids.pk)
+        data["sirve"] = [*data["sirve"], self.carlos.pk]
+        refused = self.client.post(self.url("date_detail", self.day.pk), {**data, "ocupados": ""})
+        self.assertContains(refused, "solo para personas adultas")
+        self.assertNotIn(self.carlos.pk, self.held())
+
+    def test_the_team_columns_keep_their_default_in_the_database(self):
+        for name, value in (("swap_needs_approval", False), ("reminder_days", 0), ("rotation_every_weeks", 1)):
+            self.assertEqual(Team._meta.get_field(name).db_default, value, name)
+        with connection.cursor() as cursor:  # as the previous release's code would: without the new columns
+            cursor.execute(
+                "INSERT INTO serving_team (church_id, name, description, status, created_at, updated_at) VALUES (%s, 'Antes', '', 'activo', %s, %s)",
+                [self.church.pk, timezone.now(), timezone.now()],
+            )
+        team = Team.objects.get(name="Antes")
+        self.assertEqual((team.swap_needs_approval, team.reminder_days, team.rotation_every_weeks), (False, 0, 1))

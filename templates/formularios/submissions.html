@@ -9,14 +9,25 @@
 <div class="narrow forms">
   {% if request.is_church_admin %}{% url 'formularios:detail' form_row.pk as back %}{% else %}{% url 'formularios:manage' as back %}{% endif %}
   {% include "events/rotulo/_page_head.html" with title="Respuestas" lede=form_row.title back_url=back back_label="Volver" %}
-  <p>{{ total }} respuesta{{ total|pluralize }}. Se borran después del {{ delete_after|long_date }}, con sus pendientes.</p>
+  {% if request.is_church_admin and held_total or chosen %}
+  <ul class="filters" aria-label="Qué respuestas ver">
+    <li><a href="{% url 'formularios:submissions' form_row.pk %}"{% if not chosen %} aria-current="page"{% endif %}>Recibidas <span class="count">{{ total }}</span></a></li>
+    <li><a href="{% url 'formularios:submissions' form_row.pk %}?ver=por-revisar"{% if chosen %} aria-current="page"{% endif %}>Por revisar <span class="count">{{ held_total }}</span></a></li>
+  </ul>
+  {% endif %}
+  {% if chosen %}
+    <p>Estas respuestas llegaron cuando el formulario recibía muchas más de lo normal, o cuando ya estaba lleno. Están guardadas, pero no dejaron pendientes ni aparecen en la descarga. Acepta las que sean de personas reales y borra el resto.</p>
+    {% if held_total %}<p><a class="btn btn--secondary" href="{% url 'formularios:held_delete' form_row.pk %}">Borrar todas las que están por revisar</a></p>{% endif %}
+  {% else %}
+    <p>{{ total }} respuesta{{ total|pluralize }}. Cada una se borra, con su pendiente, a más tardar el día que se le dijo a quien respondió.</p>
+  {% endif %}
   {% if submissions %}
     <ul class="rows">
       {% for submission in submissions %}
         <li class="row row--stack{% if submission.task_row.is_overdue %} row--attention{% endif %}">
           <div class="row__main">
             <p class="row__title"><a href="{% url 'formularios:submission' form_row.pk submission.pk %}">{% if submission.person %}{{ submission.person.full_name }}{% elif submission.contact_name %}{{ submission.contact_name }}{% else %}Alguien que no dejó sus datos{% endif %}</a></p>
-            <p class="row__meta">Respondió el {{ submission.created_at|day_and_hour }}. Versión {{ submission.version.number }}.</p>
+            <p class="row__meta">Respondió el {{ submission.created_at|day_and_hour }}. Versión {{ submission.version.number }}.{% if submission.same_contact %} Mismo contacto que otra respuesta.{% endif %}</p>
             {% if submission.task_row %}<p class="row__meta">{% if submission.task_row.is_open %}Pendiente{% if submission.task_row.due_on %} para el {{ submission.task_row.due_on|weekday_date }}{% endif %}{% if submission.task_row.is_mine %}, a tu cargo{% elif not submission.task_row.owner_id %}, sin responsable{% endif %}.{% if submission.task_row.is_overdue %} Ya pasó la fecha.{% endif %}{% else %}Seguimiento hecho.{% endif %}</p>{% endif %}
           </div>
           {% if submission.task_row %}<div class="row__end">{% status submission.task_row.status_mark submission.task_row.get_status_display %}</div>{% endif %}
@@ -24,7 +35,7 @@
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=submissions label="Páginas de respuestas" %}
-    {% if request.is_church_admin %}
+    {% if request.is_church_admin and not chosen %}
     <section class="block" aria-labelledby="descargar">
       <h2 id="descargar" class="heading">Descargar</h2>
       <p>Un archivo CSV con las respuestas de este formulario y de ningún otro. La descarga queda anotada en la actividad de la iglesia. Fuera de Emmaus, el archivo ya no se borra solo: bórralo tú cuando termines.</p>
@@ -35,7 +46,7 @@
     </section>
     {% endif %}
   {% else %}
-    <p class="empty-line">Todavía no hay respuestas.</p>
+    <p class="empty-line">{% if chosen %}No hay respuestas por revisar.{% else %}Todavía no hay respuestas.{% endif %}</p>
   {% endif %}
 </div>
 {% endblock %}

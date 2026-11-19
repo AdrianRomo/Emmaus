@@ -9,8 +9,12 @@ follow-up, a pastor of another church and a superuser are not readers: no rule h
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.db.models import Q
 from django.utils import timezone
+
+from people import policy
 
 from core.models import Role, UserChurchRole
 from people.models import Person
@@ -19,6 +23,33 @@ from resources.approvals import can_approve
 from .models import PrayerRequest
 
 NAMELESS = "Una persona con el rol de pastor"
+
+
+def alive(rows, now=None):
+    """Only the requests whose date has not passed. Every screen, count and action reads through this:
+    a request past ``expires_at`` (or older than the platform's 90 days) is gone for everybody whether
+    or not the job that deletes it has run."""
+    now = now or timezone.now()
+    return rows.filter(expires_at__gt=now, created_at__gt=now - timedelta(days=policy.PRAYER_RETENTION_DAYS))
+
+
+def own(user, church):
+    """What the ACCOUNT ``user`` wrote in ``church`` and is still there. Never by person record."""
+    if church is None or not getattr(user, "is_authenticated", False):
+        return PrayerRequest.objects.none()
+    return alive(PrayerRequest.objects.filter(church=church, author=user))
+
+
+def name_writers(church, prayers: list) -> None:
+    """``prayer.writer_name`` for a pastor's screen: the name of the person the writing account is in
+    this church today, else the account's own name."""
+    people = {
+        person.user_id: person.full_name
+        for person in Person.objects.filter(church=church, user_id__in={p.author_id for p in prayers}, merged_into__isnull=True)
+    }
+    for prayer in prayers:
+        account = prayer.author
+        prayer.writer_name = people.get(prayer.author_id) or (account.get_full_name().strip() if account else "") or "Una persona de tu iglesia"
 
 
 def is_reader(user, church) -> bool:
@@ -72,13 +103,12 @@ def readable(user, church):
     rows = PrayerRequest.objects.filter(church=church)
     if church is None or not is_reader(user, church):
         return rows.none()
-    return rows.filter(Q(restricted=False) | Q(only_reader=user)).exclude(person__user=user)
+    return alive(rows).filter(Q(restricted=False) | Q(only_reader=user), author__isnull=False).exclude(author=user)
 
 
 def reader_of(prayer: PrayerRequest):
     """Who can read ``prayer`` today, as ``readers`` returns them (empty: nobody)."""
-    writer = prayer.person.user if prayer.person.user_id else None
-    everybody = readers(prayer.church, apart_from=writer)
+    everybody = readers(prayer.church, apart_from=prayer.author)
     if not prayer.restricted:
         return everybody
     return [user for user in everybody if user.pk == prayer.only_reader_id]

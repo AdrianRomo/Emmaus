@@ -35,7 +35,7 @@
               {% for need in day.role_needs %}<p class="row__meta">{{ need.role.name }}: {% if need.missing %}{% status "por_evaluar" "falta" %}{% if need.missing == 1 %} 1 persona{% else %} {{ need.missing }} personas{% endif %} de {{ need.needed }}{% else %}{% status "completada" "completo" %} ({{ need.filled }} de {{ need.needed }}){% endif %}.</p>{% endfor %}
               {% if day.people %}
                 <p class="row__meta">{{ day.confirmed }} de {{ day.people|length }} confirmaron.</p>
-                {% for row in day.people %}<p class="row__meta">{{ row.person.full_name }}{% if row.role %} ({{ row.role.name }}){% endif %}: {% if row.status == "aceptada" %}{% status "completada" "Confirmó" %}{% elif row.status == "declinada" %}{% status "descartada" "No puede" %}{% else %}{% status "por_evaluar" "Por confirmar" %}{% endif %}</p>{% endfor %}
+                {% for row in day.people %}<p class="row__meta">{{ row.person.full_name }}{% if row.role %} ({{ row.role.name }}){% endif %}{% if row.unfit %} <strong>ya no puede cubrir este rol</strong>{% endif %}: {% if row.status == "aceptada" %}{% status "completada" "Confirmó" %}{% elif row.status == "declinada" %}{% status "descartada" "No puede" %}{% else %}{% status "por_evaluar" "Por confirmar" %}{% endif %}</p>{% endfor %}
               {% else %}
                 <p class="row__meta">Todavía no le pides a nadie servir ese día.</p>
               {% endif %}

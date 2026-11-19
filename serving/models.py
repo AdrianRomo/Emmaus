@@ -21,10 +21,11 @@ class Team(models.Model):
     description = models.TextField("Qué hace el equipo", blank=True)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
     # Wave 10 (docs/v2/wave10/rotas.md). All three start "off": nothing changes for a team until who
-    # coordinates it says so.
-    swap_needs_approval = models.BooleanField("Los cambios necesitan mi visto bueno", default=False)
-    reminder_days = models.PositiveSmallIntegerField("Recordatorio por correo", choices=REMINDER_CHOICES, default=0)
-    rotation_every_weeks = models.PositiveSmallIntegerField("Cada cuántas semanas le toca a una persona", default=1)
+    # coordinates it says so. ``db_default``: the column keeps its default in the database, so the
+    # previous release's code can still create a team during a rolling deploy or after a rollback.
+    swap_needs_approval = models.BooleanField("Los cambios necesitan mi visto bueno", default=False, db_default=False)
+    reminder_days = models.PositiveSmallIntegerField("Recordatorio por correo", choices=REMINDER_CHOICES, default=0, db_default=0)
+    rotation_every_weeks = models.PositiveSmallIntegerField("Cada cuántas semanas le toca a una persona", default=1, db_default=1)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

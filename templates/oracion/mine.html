@@ -7,7 +7,8 @@
   Emmaus deletes it and the way to delete it now. "Leída" never says by whom, unless the person chose one reader.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as back %}{% url 'oracion:new' as write %}
+  {% url 'oracion:new' as write %}
+  {% if community_on %}{% url 'community:home' as back %}{% endif %}
   {% if may_write and not full %}
     {% include "events/rotulo/_page_head.html" with title="Tus peticiones de oración" lede="Lo que le confiaste a quien pastorea tu iglesia. Solo tú ves esta página." back_url=back back_label="Volver a Mi iglesia" action_url=write action_label="Pedir oración" %}
   {% else %}
@@ -40,6 +41,7 @@
   {% empty %}
     <p class="empty-line">No has escrito ninguna petición. Cuando escribas una, aquí vas a ver si ya la leyeron y lo que te respondan.</p>
   {% endfor %}
+  {% include "oracion/_emergency.html" %}
   {% if may_write %}<p class="aside-note">No es un servicio de emergencia ni de respuesta inmediata. Emmaus no te manda correo cuando la leen o te responden: lo ves aquí.</p>{% endif %}
 </div>
 {% endblock %}

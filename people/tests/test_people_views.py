@@ -1,3 +1,4 @@
+import re
 from django.contrib.auth.models import User
 from django.urls import reverse
 
@@ -21,8 +22,9 @@ class PeoplePermissionTests(CommunityFixture):
         for name, args in ADMIN_PAGES:
             url = reverse(name, args=args(self))
             self.assertEqual(self.client.get(url).status_code, 302)  # anonymous: sign in
-            for user, expected in ((self.admin, 200), (self.member_user, 403), (self.leader_user, 403),
-                                   (self.coord1, 403), (self.tutor1, 404), (self.admin_b, 200 if not args(self) else 404)):
+            named = 404 if args(self) else 403  # an address that names a row: one answer for whoever may not manage
+            for user, expected in ((self.admin, 200), (self.member_user, named), (self.leader_user, named),
+                                   (self.coord1, named), (self.tutor1, 404), (self.admin_b, 200 if not args(self) else 404)):
                 self.client.force_login(user)
                 with self.subTest(page=name, user=user.email):
                     self.assertEqual(self.client.get(url).status_code, expected)
@@ -268,7 +270,21 @@ class NotFoundBeforeForbiddenTests(CommunityFixture):
             ("post", reverse("people:merge_undo", args=[merge_id])),
         ]
 
-    def test_an_id_of_this_church_is_forbidden_and_an_id_of_another_is_not_found(self):
+    def wave10(self, person, real: bool):
+        """The routes of wave 10 that name a row: a person's stage and tags, a tag, an import."""
+        from people import tags
+        from people.models import PeopleImport
+
+        tag = tags.church_tags(self.church).first() or tags.create_tag(self.church, "Coro", self.admin)
+        record = PeopleImport.objects.filter(church=self.church).first() or PeopleImport.objects.create(church=self.church, created_count=1)
+        tag_id, import_id = (tag.pk, record.pk) if real else (987654, 987654)
+        return [
+            ("post", reverse("people:stage", args=[person])), ("post", reverse("people:person_tags", args=[person])),
+            ("get", reverse("people:tag_delete", args=[tag_id])), ("post", reverse("people:tag_delete", args=[tag_id])),
+            ("get", reverse("people:import_detail", args=[import_id])), ("post", reverse("people:import_undo", args=[import_id])),
+        ]
+
+    def test_who_may_not_manage_cannot_tell_a_row_that_exists_from_one_that_does_not(self):
         own = self.routes(self.no_account.pk, self.twin.pk, self.event.slug, self.dismissal.pk, self.member.pk, self.link.pk, 0)[:10]
         foreign = self.routes(self.member_b.pk, self.twin_b.pk, self.event_b.slug, self.dismissal_b.pk, self.member_b.pk, self.link.pk, self.merge_b.pk)
         invented = self.routes(987654, 987655, "no-existe", 987654, 987654, 987654, 987654)
@@ -278,12 +294,18 @@ class NotFoundBeforeForbiddenTests(CommunityFixture):
         ]
         for user in (self.member_user, self.leader_user, self.church_pastor):
             self.client.force_login(user)
-            for method, url in own:
-                with self.subTest(user=user.email, own=url):
-                    self.assertEqual(getattr(self.client, method)(url).status_code, 403)
-            for method, url in foreign + invented + mixed:
-                with self.subTest(user=user.email, foreign=url):
-                    self.assertEqual(getattr(self.client, method)(url).status_code, 404)
+            pages = set()
+            for method, url in own + foreign + invented + mixed + self.wave10(self.no_account.pk, True) + self.wave10(987654, False):
+                with self.subTest(user=user.email, url=url):
+                    response = getattr(self.client, method)(url)
+                    self.assertEqual(response.status_code, 404)
+                    pages.add(re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"|data-idle-remaining="\d+"', "", response.content.decode()))
+            # The screens whose address names no row are the only ones that say "no puedes": they tell nothing about a row.
+            for name in ("people:list", "people:create", "people:duplicates", "people:tags", "people:export", "people:import"):
+                self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
+            self.assertEqual(self.client.post(reverse("people:duplicate_dismiss"), {"a": self.no_account.pk, "b": self.twin.pk}).status_code, 403)
+            self.assertEqual(self.client.post(reverse("people:duplicate_dismiss"), {"a": 987654, "b": 987655}).status_code, 403)
+            self.assertEqual(len(pages), 1, user.email)  # and every 404 is the same page, byte for byte
         # and nothing was written by any of it
         self.assertTrue(type(self.dismissal).objects.filter(pk=self.dismissal_b.pk).exists())
         self.merge_b.refresh_from_db()

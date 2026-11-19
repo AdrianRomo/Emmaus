@@ -27,7 +27,7 @@
     <div class="prose">
       <p>Puedes deshacerla hasta el {{ until|day_and_hour }}.</p>
       {% if undo.delete %}
-        <p>Al deshacerla {% if undo.delete|length == 1 %}se borra 1 persona de las que registró{% else %}se borran {{ undo.delete|length }} personas de las que registró{% endif %}, con sus etiquetas. Las personas que ya tenías antes no cambian. Borrarlas no se puede deshacer: tendrías que importar el archivo otra vez.</p>
+        <p>Al deshacerla {% if undo.delete|length == 1 %}se borra 1 persona de las que registró{% else %}se borran {{ undo.delete|length }} personas de las que registró{% endif %}, con todo lo que tengan hoy: sus etiquetas, su etapa, sus fechas clave, la confirmación de su edad si alguien la hizo y cualquier corrección que les hayas hecho a mano desde la importación. Las personas que ya tenías antes no cambian. Borrarlas no se puede deshacer: tendrías que importar el archivo otra vez.</p>
       {% else %}
         <p>Ya no hay nada que borrar: ninguna de las personas que registró se puede quitar.</p>
       {% endif %}

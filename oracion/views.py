@@ -1,8 +1,12 @@
 """Peticiones de oración: the writer's pages, the pastors' pages and the church's switch.
 
-Every view is behind the ``community`` module (``groups.views.community_view``: 404 with the module
-off or without a person in the church) and works inside ``request.church``. Two rules, asked again
-on every request and never taken from a link that was or was not shown:
+Every view works inside the church of the request. All but two are behind the ``community`` module
+(``groups.views.community_view``: 404 with the module off or without a person in the church). The two
+are the writer's own page and its delete (``own_requests_view``): they answer whatever the module flags
+and the church's switch say, because the form promised "lo puede borrar cuando quiera". They show and
+delete only what the ACCOUNT of the request wrote, and offer nothing else while the module is off.
+A request past its date is gone for every view (``access.alive``), whether or not the job deleted it.
+Two rules, asked again on every request and never taken from a link that was or was not shown:
 
 * **who writes**: an adult person of the church, while a pastor has the church's switch on
   (``_writer_or_404``). With the switch off the form is a 404; a person keeps the page of what they
@@ -18,8 +22,10 @@ receive them mark them as sensitive, so an error report of a failed request does
 
 import logging
 from datetime import timedelta
+from functools import wraps
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -27,9 +33,12 @@ from django.utils import timezone
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_POST
 
+from core.authz import current_church
 from core.paging import paginate
 from events.services.team import email_is_configured
 from groups.views import community_view
+from people import flags
+from people.services import ensure_own_person
 
 from . import access, services
 from .forms import PrayerForm, ReplyForm, TermsForm
@@ -38,8 +47,36 @@ from .models import PrayerRequest
 log = logging.getLogger(__name__)
 
 
+def own_requests_view(view_func):
+    """The writer's own page and its delete: signed in and in a church, nothing more. ``request.person``
+    is set only while the church uses the community module (it is what "may write" needs)."""
+
+    @login_required
+    @wraps(view_func)
+    def wrapped(request, *args, **kwargs):
+        church = current_church(request)
+        if church is None:
+            raise Http404
+        request.church = church
+        request.community_on = flags.enabled(church, "community")
+        request.person = ensure_own_person(request.user, church) if request.community_on else None
+        return view_func(request, *args, **kwargs)
+
+    return wrapped
+
+
 def _own(request):
-    return PrayerRequest.objects.filter(church=request.church, person=request.person)
+    return access.own(request.user, request.church)
+
+
+def _may_write(request) -> bool:
+    return bool(request.person is not None and services.is_on(request.church) and access.may_write(request.person))
+
+
+def _readable_or_404(request, prayer_id: int) -> PrayerRequest:
+    prayer = get_object_or_404(access.readable(request.user, request.church).select_related("author"), pk=prayer_id)
+    access.name_writers(request.church, [prayer])
+    return prayer
 
 
 def _writer_or_404(request) -> None:
@@ -53,11 +90,11 @@ def _reader_or_404(request) -> None:
 
 
 # ---- who writes ---------------------------------------------------------------------------------
-@community_view
+@own_requests_view
 def mine(request):
-    """What this person wrote, with its state and its answer. Nobody else's, ever."""
+    """What this account wrote, with its state and its answer. Nobody else's, ever."""
     own = list(_own(request))
-    may_write = services.is_on(request.church) and access.may_write(request.person)
+    may_write = _may_write(request)
     if not own and not may_write:
         raise Http404
     readers = {user.pk: user for user in access.readers(request.church, apart_from=request.user)}
@@ -67,6 +104,7 @@ def mine(request):
         prayer.nobody_reads = not readers or (prayer.restricted and chosen is None)
     return render(request, "oracion/mine.html", {
         "prayers": own, "may_write": may_write, "full": len(own) >= services.MAX_KEPT, "limit": services.MAX_KEPT,
+        "community_on": request.community_on, "terms": services.terms(request.church), "emergency": services.EMERGENCY_911,
     })
 
 
@@ -83,7 +121,7 @@ def new(request):
     }
     if not readers:
         return render(request, "oracion/unavailable.html", context)
-    token = services.readers_token(readers)
+    token = services.readers_token(readers, terms)
     form = PrayerForm(request.POST or None, readers=readers)
     if request.method == "POST" and form.is_valid():
         try:
@@ -105,14 +143,15 @@ def new(request):
     return render(request, "oracion/form.html", {**context, "form": form, "token": token, "several": len(readers) > 1})
 
 
-@community_view
+@own_requests_view
 def delete(request, prayer_id: int):
     prayer = get_object_or_404(_own(request), pk=prayer_id)
     if request.method == "POST":
-        services.delete_own(request.church, request.person, prayer.pk)
+        services.delete_own(request.church, request.user, prayer.pk)
         messages.success(request, "Borramos tu petición y su respuesta. Ya no la puede leer nadie.")
-        still = _own(request).exists() or (services.is_on(request.church) and access.may_write(request.person))
-        return redirect("oracion:mine" if still else "community:home")
+        if _own(request).exists() or _may_write(request):
+            return redirect("oracion:mine")
+        return redirect("community:home" if request.community_on else "dashboard")
     return render(request, "groups/confirm.html", {
         "title": "¿Borrar esta petición de oración?",
         "text": "Se borra de Emmaus junto con su respuesta, y quien la leía deja de verla. No se puede recuperar.",
@@ -126,9 +165,11 @@ def delete(request, prayer_id: int):
 def inbox(request):
     """The requests this pastor may read: who and when, never the words (those are one page each)."""
     _reader_or_404(request)
-    rows = access.readable(request.user, request.church).select_related("person")
+    page = paginate(request, access.readable(request.user, request.church).select_related("author"))
+    page.object_list = list(page.object_list)
+    access.name_writers(request.church, page.object_list)
     return render(request, "oracion/inbox.html", {
-        "prayers": paginate(request, rows), "terms": services.terms(request.church),
+        "prayers": page, "terms": services.terms(request.church),
         "wants_email": services.wants_email(request.church, request.user),
         "email_configured": email_is_configured(), "address": request.user.email,
     })
@@ -143,7 +184,7 @@ def _detail(request, prayer, form=None, status=200):
 @community_view
 def read(request, prayer_id: int):
     _reader_or_404(request)
-    prayer = get_object_or_404(access.readable(request.user, request.church).select_related("person"), pk=prayer_id)
+    prayer = _readable_or_404(request, prayer_id)
     services.opened(request.church, request.user, prayer)
     return _detail(request, prayer)
 
@@ -165,7 +206,7 @@ def mark_read(request, prayer_id: int):
 @require_POST
 def reply(request, prayer_id: int):
     _reader_or_404(request)
-    prayer = get_object_or_404(access.readable(request.user, request.church).select_related("person"), pk=prayer_id)
+    prayer = _readable_or_404(request, prayer_id)
     if not services.is_on(request.church):
         raise Http404
     form = ReplyForm(request.POST)

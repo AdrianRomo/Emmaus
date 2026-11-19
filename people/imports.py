@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
@@ -35,7 +36,7 @@ from django.apps import apps
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.db import transaction
+from django.db import DataError, transaction
 from django.utils import timezone
 
 from core.services import full_name_to_parts
@@ -46,6 +47,7 @@ from . import duplicates
 from .audit import record_church
 from .models import ChurchSettings, PeopleImport, Person, PersonTag, Tag
 from .services import PeopleError
+from .text import has_control, normalized_fits
 
 COLUMNS = ["Nombre", "Apellidos", "Correo", "Teléfono", "Fecha de nacimiento", "Etapa", "Etiquetas"]
 HEADER_ALIASES = {
@@ -59,9 +61,10 @@ HEADER_ALIASES = {
     "tags": {"etiquetas", "etiqueta"},
 }
 STAGE_WORDS = {normalize_name(label): value for value, label in Person.Stage.choices}
+NORMALIZED_NAME_MAX = Person._meta.get_field("normalized_name").max_length
 MAX_ROWS = 2000
 MAX_BYTES = 1024 * 1024
-MAX_CELL = 200  # a cell carried to the confirmation; longer ones are cut, and the name or e-mail then fails its own check
+MAX_CELL = 200  # a longer cell is an error of its row (never cut: a cut value can be valid and be somebody else's)
 UNDO_HOURS = 24
 PACK_SALT = "people.imports.rows"
 PACK_MAX_AGE = 2 * 60 * 60  # a preview left open longer than this is uploaded again
@@ -102,12 +105,25 @@ def read_file(uploaded_bytes: bytes) -> tuple[list[dict], list[str]]:
         return [], ["Falta la columna Nombre. La primera fila del archivo debe tener los nombres de las columnas."]
     rows: list[dict] = []
     for index, raw in enumerate(file_rows, start=2):
-        values = {headers[key]: " ".join((value or "").split())[:MAX_CELL] for key, value in raw.items() if key in headers}
-        if not any(values.values()):
+        values, unfit = {}, []
+        for key, value in raw.items():
+            if key not in headers:
+                continue
+            value = (value if isinstance(value, str) else "").strip(" ")
+            # A cell that cannot be stored as it is is never cleaned or cut: its row is refused, and the cell is
+            # not carried to the confirmation. ``_basic`` turns the code into the sentence of the preview.
+            if has_control(value):
+                unfit.append("control")
+                value = ""
+            elif len(value) > MAX_CELL:
+                unfit.append("long")
+                value = ""
+            values[headers[key]] = re.sub(r" {2,}", " ", value)
+        if not any(values.values()) and not unfit:
             continue
         if len(rows) >= MAX_ROWS:
             return [], [f"El archivo tiene más de {MAX_ROWS:,} filas con datos. Divídelo en partes y súbelas una por una.".replace(",", " ")]
-        rows.append({"line": index, **{key: values.get(key, "") for key in HEADER_ALIASES}})
+        rows.append({"line": index, **{key: values.get(key, "") for key in HEADER_ALIASES}, "unfit": sorted(set(unfit))})
     if not rows:
         return [], ["El archivo no tiene filas con datos."]
     return rows, []
@@ -199,17 +215,26 @@ def _basic(raw: dict, tags: dict[str, Tag], today: date) -> Row:
     """One row by itself: the same limits as "Registrar a una persona" (``people.forms.PersonForm``)."""
     row = Row(line=int(raw.get("line") or 0))
     wrong = row.errors.append
+    unfit = raw.get("unfit") or []
+    if "control" in unfit:
+        wrong("Una celda tiene caracteres que no se ven (un salto de línea, un tabulador u otro carácter de control). Escríbela de nuevo a mano.")
+    if "long" in unfit:
+        wrong(f"Una celda es demasiado larga: escribe {MAX_CELL} caracteres o menos.")
     first, last = str(raw.get("first_name", "")), str(raw.get("last_name", ""))
     if not first and raw.get("full_name"):
         first, rest = full_name_to_parts(str(raw["full_name"]))
         last = last or rest
     row.first_name, row.last_name = first, last
-    if not first:
+    if not first and unfit:
+        pass  # the cell was refused above: "falta el nombre" would be a second, false reason
+    elif not first:
         wrong("Falta el nombre.")
     elif len(first) > 120 or len(last) > 120:
         wrong("El nombre o los apellidos son muy largos: escribe 120 caracteres o menos en cada uno.")
     elif _starts_like_formula(first) or _starts_like_formula(last):
         wrong("El nombre y los apellidos no pueden empezar con =, +, - o @.")
+    elif not normalized_fits(f"{first} {last}", NORMALIZED_NAME_MAX):
+        wrong("El nombre tiene letras especiales que ocupan más de lo que cabe: escríbelo con letras comunes.")
     email = str(raw.get("email", "")).strip().lower()
     row.email = email
     if email:
@@ -335,30 +360,34 @@ def _lock_church(church) -> None:
 def apply(church, raw_rows: list[dict], actor, *, token: str) -> PeopleImport:
     """Create the people of the rows planned as new. Everything or nothing, one transaction, under the
     church's lock; the plan is made again there and compared with ``token`` (``StalePreview``)."""
-    with transaction.atomic():
-        _lock_church(church)
-        current = plan(church, raw_rows)
-        if current.token != token:
-            raise StalePreview
-        new = current.new
-        if not new:
-            raise PeopleError("Este archivo no tiene a nadie por registrar.", code="empty")
-        record = PeopleImport.objects.create(church=church, imported_by=actor, created_count=len(new))
-        today = timezone.localdate()
-        links = []
-        for row in new:
-            method = Person.ContactMethod.EMAIL if row.email else Person.ContactMethod.PHONE if row.phone else Person.ContactMethod.UNSPECIFIED
-            person = Person(
-                church=church, first_name=row.first_name, last_name=row.last_name, email=row.email, phone=row.phone,
-                birth_date=row.birth_date, preferred_contact_method=method, stage=row.stage,
-                stage_changed_on=today if row.stage else None, created_from=Person.CreatedFrom.IMPORT, imported_in=record,
-            )
-            person.save()  # never ``bulk_create``: ``save`` normalises the name and refuses a verified date on a new row
-            links.extend(PersonTag(person=person, tag_id=tag_id, added_by=actor) for tag_id in row.tag_ids)
-        PersonTag.objects.bulk_create(links)
-        record_church(church, actor, "personas_importadas", "Importó personas desde un archivo", record,
-                      import_id=record.pk, count=len(new))
-        return record
+    try:
+        with transaction.atomic():
+            _lock_church(church)
+            current = plan(church, raw_rows)
+            if current.token != token:
+                raise StalePreview
+            new = current.new
+            if not new:
+                raise PeopleError("Este archivo no tiene a nadie por registrar.", code="empty")
+            record = PeopleImport.objects.create(church=church, imported_by=actor, created_count=len(new))
+            today = timezone.localdate()
+            links = []
+            for row in new:
+                method = Person.ContactMethod.EMAIL if row.email else Person.ContactMethod.PHONE if row.phone else Person.ContactMethod.UNSPECIFIED
+                person = Person(
+                    church=church, first_name=row.first_name, last_name=row.last_name, email=row.email, phone=row.phone,
+                    birth_date=row.birth_date, preferred_contact_method=method, stage=row.stage,
+                    stage_changed_on=today if row.stage else None, created_from=Person.CreatedFrom.IMPORT, imported_in=record,
+                )
+                person.save()  # never ``bulk_create``: ``save`` normalises the name and refuses a verified date on a new row
+                links.extend(PersonTag(person=person, tag_id=tag_id, added_by=actor) for tag_id in row.tag_ids)
+            PersonTag.objects.bulk_create(links)
+            record_church(church, actor, "personas_importadas", "Importó personas desde un archivo", record,
+                          import_id=record.pk, count=len(new))
+            return record
+    except DataError as error:  # a value the database cannot hold got past the preview: nothing was written
+        raise PeopleError("No pudimos registrar a estas personas: algún dato del archivo no se puede guardar. No se registró a nadie.",
+                          code="data") from error
 
 
 # ---- undo -----------------------------------------------------------------------------------------

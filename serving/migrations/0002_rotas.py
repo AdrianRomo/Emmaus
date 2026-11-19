@@ -18,17 +18,17 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='team',
             name='reminder_days',
-            field=models.PositiveSmallIntegerField(choices=[(0, 'No enviar'), (2, '2 días antes'), (5, '5 días antes')], default=0, verbose_name='Recordatorio por correo'),
+            field=models.PositiveSmallIntegerField(choices=[(0, 'No enviar'), (2, '2 días antes'), (5, '5 días antes')], db_default=0, default=0, verbose_name='Recordatorio por correo'),
         ),
         migrations.AddField(
             model_name='team',
             name='rotation_every_weeks',
-            field=models.PositiveSmallIntegerField(default=1, verbose_name='Cada cuántas semanas le toca a una persona'),
+            field=models.PositiveSmallIntegerField(db_default=1, default=1, verbose_name='Cada cuántas semanas le toca a una persona'),
         ),
         migrations.AddField(
             model_name='team',
             name='swap_needs_approval',
-            field=models.BooleanField(default=False, verbose_name='Los cambios necesitan mi visto bueno'),
+            field=models.BooleanField(db_default=False, default=False, verbose_name='Los cambios necesitan mi visto bueno'),
         ),
         migrations.CreateModel(
             name='PlanItem',

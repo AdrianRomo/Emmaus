@@ -10,7 +10,9 @@ from django.urls import reverse
 from events.models import AuthThrottle
 from formularios import public, services
 from formularios.fields import HONEYPOT, AnswerForm
-from formularios.models import Form, FormTask, Submission
+from django.utils import timezone
+
+from formularios.models import Form, FormTask, SeenSeal, Submission
 from people import flags
 from people.models import ChurchAuditEvent
 
@@ -48,7 +50,7 @@ class MemberAnswerTests(FormFixture):
             self.assertNotIn(OTHER_ANSWER, row.summary + str(row.metadata))
             self.assertNotIn("Diego", row.summary + str(row.metadata))
         # whoever answered does not read answers, not even their own, at the staff's addresses
-        self.assertEqual(self.client.get(url("submission", form.pk, submission.pk)).status_code, 403)
+        self.assertEqual(self.client.get(url("submission", form.pk, submission.pk)).status_code, 404)
         self.client.force_login(self.leader_user)
         page = self.client.get(url("submission", form.pk, submission.pk))
         self.assertContains(page, "Diego Hernández Cruz")
@@ -263,27 +265,35 @@ class PublicAnswerTests(FormFixture):
         self.client.force_login(self.admin)
         self.assertEqual(self.client.get(public_url(form)).status_code, 404)
 
-    def test_the_same_contact_twice_in_a_day_is_one_answer_and_one_task_and_says_nothing(self):
+    def test_a_repeated_contact_discards_nothing_and_leaves_one_task(self):
+        """Anybody can type somebody else's e-mail: a junk answer sent first must not make the real one vanish."""
         form = self.public_form(creates_task=True)
-        first = self.client.post(public_url(form), self.public_data(form, email="Vera@Demo.Invalid ", text="Primera"))
-        second = self.client.post(public_url(form), self.public_data(form, email="vera@demo.invalid", text="Segunda"))
+        first = self.client.post(public_url(form), self.public_data(form, email="Vera@Demo.Invalid ", text="Basura con su correo"))
+        second = self.client.post(public_url(form), self.public_data(form, email="vera@demo.invalid", text="La respuesta de verdad"))
         self.assertEqual((first.status_code, first["Location"]), (second.status_code, second["Location"]))  # no oracle
-        submission = Submission.objects.get()
-        self.assertEqual(submission.answers[self.keys(form)[1]], "Primera")
-        self.assertEqual(FormTask.objects.count(), 1)
-        # the same phone written another way; another contact; the same contact a day later
+        junk, real = Submission.objects.order_by("id")
+        what = self.keys(form)[1]
+        self.assertEqual((junk.answers[what], real.answers[what]), ("Basura con su correo", "La respuesta de verdad"))
+        self.assertEqual((junk.same_contact, real.same_contact), (False, True))
+        self.assertEqual(FormTask.objects.count(), 1)  # the idempotency is the task's: one per contact, form and day
+        self.assertEqual(ChurchAuditEvent.objects.filter(action="formulario_respuesta").count(), 2)
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(url("submissions", form.pk)), "Mismo contacto que otra respuesta.")
+        page = self.client.get(url("submission", form.pk, junk.pk))  # from the answer with the task, the other one is one click away
+        self.assertContains(page, url("submission", form.pk, real.pk))
+        self.client.logout()
+        # the same phone written another way: kept too, one task
         self.client.post(public_url(form), self.public_data(form, email="", phone="+52 55 1111 2222"))
         self.client.post(public_url(form), self.public_data(form, email="", phone="5511112222"))
-        self.assertEqual((Submission.objects.count(), FormTask.objects.count()), (2, 2))
-        self.client.post(public_url(form), self.public_data(form, email="otra@demo.invalid"))
-        self.assertEqual(Submission.objects.count(), 3)
-        _again, created = self.answer(form, self.public_data(form, email="vera@demo.invalid"), now=submission.created_at + timedelta(days=1, minutes=1))
-        self.assertTrue(created)
-        # the key is of the version: the same contact answers a new version
+        self.assertEqual((Submission.objects.count(), FormTask.objects.count()), (4, 2))
+        # a day later the same contact leaves a task again; and the key is of the form, so a new version changes nothing
         services.save_question(form, self.admin, kind="si_no", label="¿Vienes?")
         form = self.publish(form)
-        self.client.post(public_url(form), self.public_data(form, email="otra@demo.invalid"))
-        self.assertEqual(Submission.objects.count(), 5)
+        self.client.post(public_url(form), self.public_data(form, email="vera@demo.invalid"))
+        self.assertEqual((Submission.objects.count(), FormTask.objects.count()), (5, 2))
+        _later, created = self.answer(form, self.public_data(form, email="vera@demo.invalid"), now=junk.created_at + timedelta(days=1, minutes=5))
+        self.assertTrue(created)
+        self.assertEqual(FormTask.objects.count(), 3)
 
     def test_the_honeypot_gets_the_same_thanks_and_writes_nothing(self):
         form = self.public_form(creates_task=True)
@@ -292,7 +302,7 @@ class PublicAnswerTests(FormFixture):
         self.assertContains(page, 'class="form-trap" aria-hidden="true"')
         response = self.client.post(public_url(form), {**self.public_data(form), HONEYPOT: "https://spam.invalid"})
         self.assertRedirects(response, public_url(form, "thanks"), fetch_redirect_response=False)
-        self.assertEqual((Submission.objects.count(), FormTask.objects.count(), AuthThrottle.objects.count()), (0, 0, 0))
+        self.assertEqual((Submission.objects.count(), FormTask.objects.count(), SeenSeal.objects.count()), (0, 0, 0))
         self.assertFalse(ChurchAuditEvent.objects.filter(action="formulario_respuesta").exists())
 
     def test_the_contact_block_wants_a_name_a_way_to_reach_and_the_consent(self):
@@ -314,29 +324,131 @@ class PublicAnswerTests(FormFixture):
         services.save_question(optional, self.admin, kind="corto", label="Comentario", required=True)
         optional = self.publish(optional)
         contact, what = self.keys(optional)
-        self.client.post(public_url(optional), {"version": optional.current_version_id, what: "Hola"})
+        self.client.post(public_url(optional), {"version": optional.current_version_id, what: "Hola", "sello": self.seal(optional)})
         kept = Submission.objects.get()
         self.assertEqual((kept.contact_first_name, kept.contact_email, kept.consent_shown, kept.email_key, kept.phone_key), ("", "", "", "", ""))
-        response = self.client.post(public_url(optional), {"version": optional.current_version_id, what: "Hola", f"{contact}_correo": "a@demo.invalid"})
+        response = self.client.post(public_url(optional), {"version": optional.current_version_id, what: "Hola", f"{contact}_correo": "a@demo.invalid", "sello": self.seal(optional)})
         self.assertContains(response, "Escribe tu nombre.")
         self.assertContains(response, "Marca la casilla")
 
-    def test_a_flood_slows_one_form_down_and_keeps_no_address(self):
+    def test_a_send_needs_the_seal_of_a_drawn_page_and_never_loses_what_was_typed(self):
         form, other = self.public_form(), self.public_form(title="Otro")
-        with mock.patch.object(public, "LIMIT", 2):
-            for number in range(2):
-                self.assertEqual(self.client.post(public_url(form), self.public_data(form, email=f"v{number}@demo.invalid")).status_code, 302)
-            response = self.client.post(public_url(form), self.public_data(form, email="v3@demo.invalid", text="Lo que escribí"))
-            self.assertEqual(response.status_code, 429)
-            self.assertContains(response, "Espera unos minutos", status_code=429)
-            self.assertContains(response, "Lo que escribí", status_code=429)  # what was typed is still on the page
-            self.assertEqual(self.client.post(public_url(other), self.public_data(other)).status_code, 302)  # the other form is not slowed
-        self.assertEqual(Submission.objects.filter(form=form).count(), 2)
-        self.assertEqual(sorted(AuthThrottle.objects.values_list("key", flat=True)), [f"formulario:{form.pk}", f"formulario:{other.pk}"])
-        # an invalid send is not counted: only what would be written
-        AuthThrottle.objects.all().delete()
-        self.client.post(public_url(form), {"version": form.current_version_id})
-        self.assertEqual(AuthThrottle.objects.count(), 0)
+        page = self.client.get(public_url(form))
+        fresh = page.context["seal"]
+        self.assertContains(page, f'name="sello" value="{fresh}"')
+        cases = {
+            "": "todavía no guardamos nada", "inventado": "todavía no guardamos nada", fresh: "Eso fue muy rápido",
+            self.seal(other): "todavía no guardamos nada",  # the seal of another form
+            self.seal(form, seconds_ago=public.MAX_SECONDS + 5): "estuvo abierta mucho tiempo",
+        }
+        for seal, words in cases.items():
+            response = self.client.post(public_url(form), self.public_data(form, text="Lo que escribí con cuidado", sello=seal))
+            self.assertEqual(response.status_code, 200, seal[:12])  # never a 429, never a silent "gracias"
+            self.assertContains(response, words)
+            self.assertContains(response, "Lo que escribí con cuidado")  # everything typed is still on the page
+            self.assertContains(response, 'value="visita@demo.invalid"')
+        self.assertContains(response, 'name="sello" value="')
+        self.assertEqual((Submission.objects.count(), SeenSeal.objects.count()), (0, 0))
+        # a page that was too new keeps its own seal, so sending again a moment later works
+        early = self.client.post(public_url(form), self.public_data(form, sello=fresh))
+        self.assertEqual(early.context["seal"], fresh)
+        # one page, one answer: the same seal again is the answer already kept, with the same "gracias"
+        seal = self.seal(form)
+        for _ in range(3):
+            response = self.client.post(public_url(form), self.public_data(form, sello=seal, text="Una vez"))
+            self.assertRedirects(response, public_url(form, "thanks"), fetch_redirect_response=False)
+        self.assertEqual((Submission.objects.count(), SeenSeal.objects.count()), (1, 1))
+        kept = SeenSeal.objects.get()
+        self.assertEqual(len(kept.key), 64)
+        self.assertNotIn(kept.key, seal)  # a keyed hash of the random part: no address, no device
+        self.assertEqual(AuthThrottle.objects.count(), 0)  # no shared counter that could refuse somebody else
+        # an invalid form consumes nothing
+        seal = self.seal(form)
+        self.client.post(public_url(form), {"version": form.current_version_id, "sello": seal})
+        self.assertEqual(SeenSeal.objects.count(), 1)
+        # used seals are forgotten once they could not be accepted anyway
+        SeenSeal.objects.update(expires_at=timezone.now() - timedelta(minutes=1))
+        services.prune(apply=True)
+        self.assertEqual(SeenSeal.objects.count(), 0)
+
+    def test_a_flood_is_set_aside_for_review_and_nobody_is_refused(self):
+        form = self.public_form(creates_task=True)
+        with mock.patch.object(services, "FLOW_LIMIT", 2):
+            for number in range(5):
+                response = self.client.post(public_url(form), self.public_data(form, email=f"v{number}@demo.invalid", text=f"Respuesta {number}"))
+                self.assertRedirects(response, public_url(form, "thanks"), fetch_redirect_response=False)  # always true: it was kept
+        self.assertEqual(Submission.objects.count(), 5)
+        self.assertEqual(Submission.objects.filter(held=True).count(), 3)
+        self.assertEqual(FormTask.objects.count(), 2)  # held answers leave no task
+        self.assertEqual(ChurchAuditEvent.objects.filter(action="formulario_respuesta").count(), 2)  # and no line in the log each
+        held = Submission.objects.filter(held=True).order_by("id")
+        self.client.force_login(self.admin)
+        page = self.client.get(url("submissions", form.pk))
+        self.assertContains(page, "Por revisar")
+        self.assertNotContains(page, url("submission", form.pk, held[0].pk))
+        page = self.client.get(url("submissions", form.pk) + "?ver=por-revisar")
+        self.assertContains(page, url("submission", form.pk, held[0].pk))
+        self.assertContains(page, "Borrar todas las que están por revisar")
+        self.assertEqual(len(services.export_rows(form)[1]), 2)  # not in the download
+        self.assertEqual(self.client.get(url("add_person", form.pk, held[0].pk)).status_code, 404)
+        # the administration accepts the one that is a person's: listed, logged, with its task
+        self.client.post(url("submission_accept", form.pk, held[0].pk))
+        self.assertEqual((Submission.objects.filter(held=True).count(), FormTask.objects.count()), (2, 3))
+        self.assertEqual(ChurchAuditEvent.objects.filter(action="formulario_respuesta").count(), 3)
+        # and deletes the rest at once: one line in the log, with how many
+        self.assertContains(self.client.get(url("held_delete", form.pk)), "¿Borrar 2 respuestas por revisar?")
+        self.assertEqual(Submission.objects.count(), 5)  # looking deletes nothing
+        self.client.post(url("held_delete", form.pk))
+        self.assertEqual((Submission.objects.count(), Submission.objects.filter(held=True).count()), (3, 0))
+        row = ChurchAuditEvent.objects.filter(action="formulario_respuestas_borradas_a_mano").get()
+        self.assertEqual((row.actor, row.metadata), (self.admin, {"form_id": form.pk, "value": 2}))
+        # one answer: a confirmation, then gone with its task
+        one = Submission.objects.filter(task__isnull=False).first()
+        self.assertContains(self.client.get(url("submission_delete", form.pk, one.pk)), "¿Borrar esta respuesta?")
+        self.client.post(url("submission_delete", form.pk, one.pk))
+        self.assertEqual((Submission.objects.count(), FormTask.objects.count()), (2, 2))
+
+    def test_what_is_set_aside_is_the_administration_s_alone(self):
+        form = self.draft(audience=PUBLIC)
+        services.save_question(form, self.admin, kind="corto", label="¿Qué necesitas?")
+        services.add_reader(form, self.admin, f"group:{self.group.pk}")
+        form = self.publish(form)
+        with mock.patch.object(services, "FLOW_LIMIT", 0):
+            held, _ = self.answer(form, {"version": form.current_version_id, self.keys(form)[0]: "Basura"})
+        self.assertTrue(held.held)
+        self.client.force_login(self.leader_user)  # a reader of the form
+        self.assertNotContains(self.client.get(url("submissions", form.pk)), "Por revisar")
+        for method, address in (("get", url("submissions", form.pk) + "?ver=por-revisar"), ("get", url("submission", form.pk, held.pk)),
+                                ("post", url("task", form.pk, held.pk))):
+            self.assertEqual(getattr(self.client, method)(address).status_code, 404, address)
+        for name, args in (("held_delete", (form.pk,)), ("submission_delete", (form.pk, held.pk)), ("submission_accept", (form.pk, held.pk))):
+            self.assertEqual(self.client.post(url(name, *args)).status_code, 403, name)
+        self.client.force_login(self.member_user)
+        for name, args in (("held_delete", (form.pk,)), ("submission_delete", (form.pk, held.pk)), ("submission_accept", (form.pk, held.pk))):
+            self.assertEqual(self.client.post(url(name, *args)).status_code, 404, name)
+        self.client.force_login(self.admin_b)
+        self.assertEqual(self.client.post(url("held_delete", form.pk)).status_code, 404)
+        self.assertEqual(Submission.objects.filter(held=True).count(), 1)
+        csrf = Client(enforce_csrf_checks=True)
+        csrf.force_login(self.admin)
+        for name, args in (("held_delete", (form.pk,)), ("submission_delete", (form.pk, held.pk)), ("submission_accept", (form.pk, held.pk))):
+            self.assertEqual(csrf.post(url(name, *args)).status_code, 403, name)
+        self.assertEqual(self.client.get(url("submission_accept", form.pk, held.pk)).status_code, 405)
+
+    def test_the_ceilings_set_aside_first_and_refuse_only_at_the_very_end(self):
+        form = self.public_form(creates_task=True)
+        with mock.patch.object(services, "MAX_OPEN_TASKS", 1):
+            self.client.post(public_url(form), self.public_data(form, email="a@demo.invalid"))
+            self.client.post(public_url(form), self.public_data(form, email="b@demo.invalid"))
+        self.assertEqual((Submission.objects.filter(held=False).count(), FormTask.objects.count()), (2, 1))  # kept, listed, no second task
+        with mock.patch.object(services, "MAX_SUBMISSIONS", 2):
+            self.client.post(public_url(form), self.public_data(form, email="c@demo.invalid"))
+            self.assertEqual(Submission.objects.filter(held=True).count(), 1)  # a full form sets aside, it does not refuse
+            with mock.patch.object(services, "MAX_HELD", 1):
+                response = self.client.post(public_url(form), self.public_data(form, email="d@demo.invalid", text="No se perdió en silencio"))
+        self.assertContains(response, "No pudimos guardar tu respuesta")
+        self.assertContains(response, "No se perdió en silencio")
+        self.assertEqual(Submission.objects.count(), 3)
 
     def test_a_public_answer_is_escaped_and_never_a_person_by_itself(self):
         from people.models import Person

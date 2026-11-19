@@ -194,7 +194,7 @@ class ExportTests(FormFixture):
     def test_a_reader_and_another_church_do_not_download(self):
         form = self.member_form(reader=True)
         self.answer(form)
-        for user, status in ((self.leader_user, 403), (self.pastor_user, 403), (self.member_user, 403), (self.admin_b, 404)):
+        for user, status in ((self.leader_user, 403), (self.pastor_user, 404), (self.member_user, 404), (self.admin_b, 404)):
             self.client.force_login(user)
             self.assertEqual(self.client.post(url("export", form.pk)).status_code, status, user.email)
         self.client.force_login(self.leader_user)
@@ -216,22 +216,24 @@ class ExportTests(FormFixture):
 
 class RetentionTests(FormFixture):
     def aged(self, days_after_close, **changes):
-        """A form with one answer and its task, whose last day was ``days_after_close`` days ago."""
+        """A form with one answer and its task, as they are ``days_after_close`` days after the form's last day:
+        the form's days and the day the answer was told it would be kept until, moved back together."""
         form = self.member_form(creates_task=True, **changes)
         self.answer(form)
         last = self.today - timedelta(days=days_after_close)
         Form.objects.filter(pk=form.pk).update(opens_on=last - timedelta(days=3), closes_on=last)
         form.refresh_from_db()
+        Submission.objects.filter(form=form).update(delete_after=last + timedelta(days=form.retention_days))
         return form
 
     def test_answers_are_deleted_when_the_form_s_own_time_ended(self):
-        kept = self.aged(90, title="En su último día de guardado")
-        gone = self.aged(91, title="Vencido")
+        kept = self.aged(89, title="Un día antes del último")
+        gone = self.aged(90, title="En el día que se le dijo")
         short = self.aged(31, title="Treinta", retention_days=30)
         long = self.aged(200, title="Un año", retention_days=365)
         open_form = self.member_form(title="Abierto")
         self.answer(open_form, person=self.leader)
-        self.assertEqual(services.delete_after(gone), self.today - timedelta(days=1))
+        self.assertEqual(services.kept_until(gone.submissions.get()), self.today)  # "a más tardar" that day: it goes that day
         self.assertEqual(services.prune(apply=False), {"forms": 2, "submissions": 2})
         self.assertEqual(Submission.objects.count(), 5)  # the rehearsal writes nothing
         self.assertFalse(ChurchAuditEvent.objects.filter(action="formulario_respuestas_borradas").exists())
@@ -247,9 +249,51 @@ class RetentionTests(FormFixture):
     def test_a_form_closed_by_hand_counts_from_that_day(self):
         form = self.member_form(retention_days=30)
         self.answer(form)
+        answer = form.submissions.get()
+        self.assertEqual(answer.delete_after, form.closes_on + timedelta(days=30))
         services.close_form(form, self.admin)
-        Form.objects.filter(pk=form.pk).update(closed_on=self.today - timedelta(days=31))  # closes_on is still in the future
-        self.assertEqual(services.prune(apply=True)["submissions"], 1)
+        answer.refresh_from_db()
+        self.assertEqual(answer.delete_after, self.today + timedelta(days=30))  # earlier than it was told: allowed
+        self.assertEqual(services.prune(apply=True, now=timezone.now() + timedelta(days=29))["submissions"], 0)
+        self.assertEqual(services.prune(apply=True, now=timezone.now() + timedelta(days=31))["submissions"], 1)
+
+    def test_extending_or_reopening_a_form_never_keeps_an_answer_longer_than_it_was_told(self):
+        """Review finding: ``closes_on`` stays editable, and the day of deletion followed it."""
+        form = self.member_form(retention_days=30)
+        self.client.force_login(self.member_user)
+        page = self.client.get(url("fill", form.pk))
+        told = form.closes_on + timedelta(days=30)
+        self.assertEqual(page.context["delete_after"], told)
+        self.assertContains(page, f'name="hasta" value="{told.isoformat()}"')
+        self.client.post(url("fill", form.pk), {**self.member_data(form), "hasta": told.isoformat()})
+        first = Submission.objects.get()
+        self.assertEqual(first.delete_after, told)
+        values = {"title": form.title, "purpose": form.purpose, "audience": form.audience, "retention_days": 30, "opens_on": form.opens_on,
+                  "creates_task": False, "task_owner": None, "task_due_days": 7}
+        form = services.update_form(form, self.admin, closes_on=form.closes_on + timedelta(days=300), **values)  # extended
+        first.refresh_from_db()
+        self.assertEqual(first.delete_after, told)  # what its person read, not what the form says now
+        second, _ = self.answer(form, person=self.leader)
+        self.assertEqual(second.delete_after, form.closes_on + timedelta(days=30))  # the extension counts for new answers
+        # a page drawn before the extension and sent after it keeps the day that page printed
+        third, _ = self.answer(form, person=self.asked, shown_until=told)
+        self.assertEqual(third.delete_after, told)
+        fourth, _ = self.answer(form, person=self.coord_person, shown_until=told + timedelta(days=5000))  # a forged later day: ignored
+        self.assertEqual(fourth.delete_after, form.closes_on + timedelta(days=30))
+        # bringing the last day or the retention in brings every answer in; pushing them out again brings none back
+        form = services.update_form(form, self.admin, closes_on=self.today + timedelta(days=2), **values)
+        early = self.today + timedelta(days=32)
+        self.assertEqual(set(Submission.objects.values_list("delete_after", flat=True)), {early})
+        form = services.update_form(form, self.admin, closes_on=self.today + timedelta(days=200), **values)
+        self.assertEqual(set(Submission.objects.values_list("delete_after", flat=True)), {early})
+        # a finished form that is reopened: its old answers go on their day
+        Form.objects.filter(pk=form.pk).update(opens_on=self.today - timedelta(days=60), closes_on=self.today - timedelta(days=40))
+        Submission.objects.update(delete_after=self.today - timedelta(days=10))
+        form.refresh_from_db()
+        services.update_form(form, self.admin, closes_on=self.today + timedelta(days=30), **values)  # reopened
+        self.assertEqual(services.prune(apply=True)["submissions"], 4)
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(url("detail", form.pk)), "las que ya llegaron conservan su fecha")
 
     def test_it_deletes_whatever_the_module_flags_say_and_only_counts_out_loud(self):
         gone = self.aged(120)
@@ -471,7 +515,7 @@ class QueueTests(FormFixture):
         prayers.switch_on(self.church, self.pastor_user, accepted=True, token=prayers.readers_token(prayer_access.readers(self.church)),
                           emergency_line="", retention_days=prayers.policy.PRAYER_RETENTION_DAYS)
         readers = prayer_access.readers(self.church, apart_from=self.member_user)
-        prayers.create(self.church, self.member, body=body, token=prayers.readers_token(readers))
+        prayers.create(self.church, self.member, body=body, token=prayers.readers_token(readers, prayers.terms(self.church)))
         self.assertEqual(PrayerRequest.objects.filter(church=self.church, read_at__isnull=True).count(), 1)
         self.assertEqual(prayers.unread_count(self.pastor_user, self.church), 1)  # it does wait for the pastor, on their screen
         for name, (user, person) in self.everybody().items():

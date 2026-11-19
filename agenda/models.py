@@ -384,6 +384,8 @@ class EventSubscription(models.Model):
     email = models.EmailField(max_length=254)
     email_hash = models.CharField(max_length=64)
     key = models.CharField(max_length=64, unique=True)
+    # The keyed hash of the address as the LIMITS see it (no capitals, no ``+tag``): one row per inbox and event.
+    limit_hash = models.CharField(max_length=64, default="", db_default="")
     created_at = models.DateTimeField(default=timezone.now)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     # The one e-mail that asks to confirm: sent by the scheduled pass, with attempts and waits like a notice's.
@@ -399,6 +401,29 @@ class EventSubscription(models.Model):
 
     def __str__(self) -> str:  # never the address
         return f"Suscripción {self.pk} a los avisos de {self.event}"
+
+
+class SubscriptionSuppression(models.Model):
+    """How many e-mails that ask to confirm were requested for one address on one event's page and never
+    answered (``agenda.subscriptions``). It outlives the unconfirmed request, which is deleted after 48 hours,
+    so that an address that never confirms is not asked again and again. It holds a keyed hash and no address:
+    the hash is of the address as the LIMITS see it (no capitals, no ``+tag``), so spellings of one inbox share
+    a row. It hangs from the event's page, not from the event, and is deleted with it or when the event's
+    subscriptions end."""
+
+    page = models.ForeignKey(EventPage, on_delete=models.CASCADE, related_name="subscription_limits")
+    address_hash = models.CharField(max_length=64)
+    unanswered = models.PositiveSmallIntegerField(default=0, db_default=0)
+    last_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "límite de confirmaciones por correo"
+        verbose_name_plural = "límites de confirmaciones por correo"
+        constraints = [models.UniqueConstraint(fields=["page", "address_hash"], name="agenda_subscription_limit_once")]
+        indexes = [models.Index(fields=["address_hash", "last_at"], name="agenda_sub_limit_hash_idx")]
+
+    def __str__(self) -> str:
+        return f"Límite de confirmaciones {self.pk}"
 
 
 class EventNoticeEmail(models.Model):

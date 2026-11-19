@@ -51,11 +51,14 @@ permission did not change.
 
 Every route above: `people.views.church_admin_required` (`people/views.py`), the decorator the
 people screens already used: signed in, the `people` module on for `request.church` (404 otherwise,
-before anything else), then `core.authz.has_scope(user, church, "church", church.pk, MANAGE)` (403
-otherwise). A pastor who is not an administrator, a guide, a coordinator and an event role get 403.
-People, tags and imports are fetched inside `request.church`; the services check the church again.
-Nothing in `core/authz.py`, `access/`, `events/access.py` or `core/access.py` reads a tag (a test
-reads those sources).
+before anything else), then `core.authz.has_scope(user, church, "church", church.pk, MANAGE)`.
+Somebody who may not manage (a member, a guide, a coordinator, a pastor who is not an
+administrator) gets **403 on the screens whose address names no row** (the list, "Registrar", the
+duplicate review, tags, export, import) and **404 on every address that names one** (a person, a
+merge, a dismissed pair, a tag, an import, an event, a link), whether the row exists or not and
+whatever its church: the same page, byte for byte. People, tags and imports are fetched inside
+`request.church`; the services check the church again. Nothing in `core/authz.py`, `access/`,
+`events/access.py` or `core/access.py` reads a tag (a test reads those sources).
 
 ## 2. Decisions taken, and why
 
@@ -188,3 +191,27 @@ reads those sources).
 * `tenant_integrity`'s table count (31) and `people/audit.py` are shared with other builders.
 * The manual form does not refuse a date of birth in the future; the import does.
 * `Tag` and `PeopleImport` are not registered in the Django admin.
+
+## 6. After the independent review (integration branch)
+
+1. **A cell is refused, never cleaned or cut** (`people/text.py`, `people/imports.py`). A control
+   character (below U+0020, U+007F to U+009F, a bidi control, U+2028/2029) or more than 200
+   characters makes its row an error in the preview, and the cell is not carried to the
+   confirmation. Before, a NUL passed the preview (a 500 on PostgreSQL at the confirmation) and a
+   cut cell could be a different, valid value (a tag list that read as its first tag; another
+   e-mail address).
+2. **The normalised length is the one measured**: a tag's name (40) and a person's full name (250,
+   in the import and in "Registrar a una persona"). Compatibility letters grow when normalised. A
+   `DataError` in `create_tag` or `imports.apply` is a sentence, never an error page.
+3. **A tag's name refuses `,` `;` `|` and control characters**, so every tag that can be created
+   comes back from an export.
+4. **404 for every address that names a row** for whoever may not manage (see Permissions); it
+   replaces the 403-for-rows-that-exist rule, which let a member count people, merges and imports.
+5. **A participant role with no path** goes from the dashboard to "Mi cuenta" with a sentence
+   instead of to "Mi camino" (404), and the rail does not draw the discipleship links
+   (`core/views.py::dashboard`, `core/context_processors.py`).
+6. The undo's page says everything that is deleted with a person: tags, stage, key dates, a
+   confirmed age, and corrections made by hand since.
+
+Left alone: other writers of a person's name (`ensure_own_person`, a campero brought from an
+event) do not measure the normalised length.

@@ -46,14 +46,20 @@ class PrayerRequest(models.Model):
     * read only through ``oracion.access.readable`` (the church's pastors now, or the one the writer
       chose) and by its writer; never by the administration, a guide or a superuser;
     * ``body`` and ``reply`` never leave this table: no log, audit row, e-mail, export, count or admin page;
-    * it never moves to another person (``people.merge.REFUSED``) and is deleted, not archived: by its
-      writer at any time, and by ``services.prune`` once ``expires_at`` passes.
+    * it belongs to the ACCOUNT that wrote it (``author``): the writer's page and the delete ask for that
+      account and never for a person record, so joining two records of a person (``people.merge``) moves
+      nothing here, counts nothing and is never refused because of a request. ``person`` is only the record
+      the account was that day; nothing reads it to decide who sees what;
+    * it is deleted, not archived: by its writer at any time, and by ``services.prune`` once ``expires_at``
+      passes. A request past its date is gone for every screen even before the job runs (``access.alive``).
 
     Who marked it or replied is not stored: the writer is told "Leída", never by whom.
     """
 
     church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="+")
     person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
+    # Who wrote it and who may see and delete it as its writer. Null only for a row from before this column.
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
     body = models.TextField("Tu petición", max_length=BODY_MAX)
     # ``restricted`` with no ``only_reader`` (the account is gone): nobody reads it; it never widens to every pastor.
     restricted = models.BooleanField(default=False, db_default=False)

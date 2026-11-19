@@ -33,7 +33,7 @@ from people.audit import record_church
 from people.models import Person
 
 from . import access
-from .models import MAX_OPTIONS, MAX_QUESTIONS, OPTION_MAX, Form, FormReader, FormTask, FormVersion, Question, Submission
+from .models import MAX_OPTIONS, MAX_QUESTIONS, OPTION_MAX, Form, FormReader, FormTask, FormVersion, Question, SeenSeal, Submission
 
 Kind = Question.Kind
 Status = Form.Status
@@ -45,6 +45,15 @@ MAX_OPEN_DAYS = 366
 MAX_TASK_DAYS = 60
 # Answers one form keeps at a time. A public address can be flooded; past this the form says it takes no more.
 MAX_SUBMISSIONS = 2000
+# Public answers of one form in ``FLOW_WINDOW`` after which the following ones are kept "por revisar" instead of
+# listed: more than people send to a church form, little enough that a real campaign is only delayed a click.
+FLOW_LIMIT = 20
+FLOW_WINDOW = timedelta(minutes=10)
+# Answers "por revisar" one form keeps. Past this a public form says, with the person's answers still on the
+# page, that it could not keep the answer: the only refusal left, and it takes 20,000 sends to reach.
+MAX_HELD = 20000
+# Open tasks one form has at a time. Past this an answer is kept and listed but leaves no task.
+MAX_OPEN_TASKS = 200
 DUPLICATE_WINDOW = timedelta(days=1)
 DEFAULT_CONSENT = "Acepto que {church} use estos datos solo para contactarme por este formulario."
 CLOSED = "Este formulario ya está cerrado: ya no cambia ni recibe respuestas."
@@ -52,7 +61,10 @@ SENSITIVE_WARNING = (
     "No preguntes por salud, vida espiritual, conflictos familiares ni datos de menores de edad en un formulario general. "
     "Para eso están las conversaciones en persona y los procesos que tu iglesia ya cuida."
 )
-MINORS_OUT = "Los formularios generales no sirven para inscribir a niñas, niños o adolescentes a algo: eso todavía no existe en Emmaus."
+MINORS_OUT = (
+    "Los formularios generales no sirven para inscribir a niñas, niños o adolescentes a algo: eso todavía no existe en Emmaus. "
+    "Quien la iglesia tiene registrado como menor de edad no ve ni responde los formularios de la iglesia."
+)
 
 
 class FormError(ValidationError):
@@ -114,13 +126,13 @@ def clean_phone(phone: str) -> str:
     return phone
 
 
-def contact_key(version_id: int, kind: str, value: str) -> str:
-    """The same contact answering the same version, as a keyed hash (as ``feedback.services.token_for``):
+def contact_key(form_id: int, kind: str, value: str) -> str:
+    """The same contact answering the same form, as a keyed hash (as ``feedback.services.token_for``):
     enough to notice a second answer, useless to list contacts. Empty for an empty value."""
     value = duplicates.normal_email(value) if kind == "email" else duplicates.normal_phone(value)
     if not value:
         return ""
-    message = f"formularios:{version_id}:{kind}:{value}".encode()
+    message = f"formularios:{form_id}:{kind}:{value}".encode()
     return hmac.new(settings.SECRET_KEY.encode(), message, hashlib.sha256).hexdigest()
 
 
@@ -161,8 +173,20 @@ PHASE_LABELS = {
 
 
 def delete_after(form: Form) -> date:
-    """The last day the answers of ``form`` are kept."""
+    """The day an answer given to ``form`` now is deleted at the latest: what the person reads before answering.
+    Each answer keeps its own (``Submission.delete_after``), which later changes of the form never push back."""
     return form.last_day + timedelta(days=form.retention_days)
+
+
+def kept_until(submission: Submission) -> date:
+    return submission.delete_after or delete_after(submission.form)
+
+
+def shorten_kept_until(form: Form) -> int:
+    """After the form's last day or retention changed: every answer whose own day is later than what the form
+    says now is brought to it. Never the other way: a longer form or retention counts for new answers only."""
+    limit = delete_after(form)
+    return form.submissions.filter(Q(delete_after__gt=limit) | Q(delete_after__isnull=True)).update(delete_after=limit)
 
 
 # ---- the form -----------------------------------------------------------------------------------
@@ -248,6 +272,7 @@ def update_form(form: Form, actor, *, title, purpose, audience, retention_days, 
         form.creates_task, form.task_owner, form.task_due_days = creates_task, task_owner, task_due_days
         form.save(update_fields=["title", "purpose", "audience", "retention_days", "opens_on", "closes_on", "creates_task",
                                  "task_owner", "task_due_days", "updated_at"])
+        shorten_kept_until(form)
         _audit(form, actor, "formulario_modificado", "Modificó un formulario")
     return form
 
@@ -263,6 +288,7 @@ def close_form(form: Form, actor) -> Form:
         form.status = Status.CLOSED
         form.closed_on = min(church_today(form.church), form.closes_on)
         form.save(update_fields=["status", "closed_on", "updated_at"])
+        shorten_kept_until(form)
         _audit(form, actor, "formulario_cerrado", "Cerró un formulario")
     return form
 
@@ -553,65 +579,106 @@ def publish(form: Form, actor, token: str) -> tuple[Form, bool]:
 
 
 # ---- answers ------------------------------------------------------------------------------------
-def _recent_duplicate(form: Form, version: FormVersion, *, person, email_key: str, phone_key: str, now):
+def _same_contact(form: Form, *, email_key: str, phone_key: str, now):
+    """The earlier answers to ``form`` within a day that gave this e-mail or this phone."""
     same = Q()
-    if person is not None:
-        same |= Q(person=person)
     if email_key:
         same |= Q(email_key=email_key)
     if phone_key:
         same |= Q(phone_key=phone_key)
     if not same:
+        return Submission.objects.none()
+    return Submission.objects.filter(same, form=form, created_at__gt=now - DUPLICATE_WINDOW, created_at__lte=now)
+
+
+def _leave_task(form: Form, submission: Submission, actor, now) -> FormTask | None:
+    """The task of one answer, when the form asks for one and has room for it."""
+    if not form.creates_task or form.tasks.filter(status=FormTask.Status.OPEN).count() >= MAX_OPEN_TASKS:
         return None
-    return Submission.objects.filter(same, form=form, version=version, created_at__gt=now - DUPLICATE_WINDOW).order_by("id").first()
+    owner = form.task_owner if form.task_owner_id and access.can_read(form.task_owner, form) else None
+    task = FormTask.objects.create(
+        submission=submission, form=form, owner=owner, due_on=church_today(form.church, now) + timedelta(days=form.task_due_days),
+    )
+    _audit(form, actor, "formulario_tarea", "Una respuesta a un formulario dejó un pendiente", task)
+    return task
 
 
 def submit(form: Form, version_id: int, *, answers: dict, contact: dict | None = None, person: Person | None = None,
-           actor=None, now=None) -> tuple[Submission, bool]:
+           actor=None, now=None, shown_until: date | None = None) -> tuple[Submission, bool]:
     """Keep one answer to the version that is published right now, and its task if the form says so.
 
-    Returns ``(submission, created)``. The same person, the same e-mail or the same phone answering
-    the same version again within a day changes nothing: the first answer is returned, nothing is
-    replaced and no second task is made. Raises ``FormChanged`` when the form is not open any more
-    or its published version is another one, so the caller shows the form again; ``FormFull`` when
-    the form keeps as many answers as one form may.
+    Returns ``(submission, created)``. Raises ``FormChanged`` when the form is not open any more or its
+    published version is another one, so the caller shows the form again; ``FormFull`` when nothing more fits.
 
-    ``answers`` and ``contact`` come from ``formularios.fields.AnswerForm``, which validated them
-    against the version's questions. The form's row is locked: two answers at once are written one
-    after the other, so both see each other."""
+    * A person of the church (an account: nobody else can send as them) answering the same version again within
+      a day changes nothing: the first answer is returned, nothing is replaced and no second task is made.
+    * A public answer is never discarded for repeating a contact, because anybody can type somebody else's
+      e-mail: both are kept, the later one is marked ``same_contact``, and that contact leaves at most one task
+      per form per day (the idempotency is the task's).
+    * A public answer that arrives while the form is receiving more than ``FLOW_LIMIT`` in ``FLOW_WINDOW``, or
+      when the form already lists ``MAX_SUBMISSIONS``, is kept "por revisar" (``held``): no task, no line in the
+      activity log, out of the lists and the export until the administration accepts it.
+    * ``delete_after`` is what the person was told: the form's day now, or ``shown_until`` (the day printed on
+      the page they sent) when that is earlier.
+
+    ``answers`` and ``contact`` come from ``formularios.fields.AnswerForm``, which validated them against the
+    version's questions. The form's row is locked: two answers at once are written one after the other."""
     contact = contact or {}
     now = now or timezone.now()
     with transaction.atomic():
         form = _locked(form)
         version = form.current_version
-        if not is_open(form, church_today(form.church, now)) or version is None or version.pk != version_id:
+        today = church_today(form.church, now)
+        if not is_open(form, today) or version is None or version.pk != version_id:
             raise FormChanged
         if person is not None and (person.church_id != form.church_id or person.merged_into_id is not None or form.is_public):
             raise FormChanged
         if person is None and not form.is_public:
             raise FormChanged
-        email_key = contact_key(version.pk, "email", contact.get("email", ""))
-        phone_key = contact_key(version.pk, "phone", contact.get("phone", ""))
-        existing = _recent_duplicate(form, version, person=person, email_key=email_key, phone_key=phone_key, now=now)
-        if existing is not None:
-            return existing, False
-        if form.submissions.count() >= MAX_SUBMISSIONS:
-            raise FormFull
+        if person is not None and is_known_minor(person):
+            raise FormChanged
+        until = delete_after(form)
+        if shown_until is not None and today <= shown_until < until:
+            until = shown_until
+        email_key = contact_key(form.pk, "email", contact.get("email", ""))
+        phone_key = contact_key(form.pk, "phone", contact.get("phone", ""))
+        held = same_contact = task_exists = False
+        if person is not None:
+            existing = Submission.objects.filter(
+                form=form, version=version, person=person, created_at__gt=now - DUPLICATE_WINDOW
+            ).order_by("id").first()
+            if existing is not None:
+                return existing, False
+            if form.submissions.filter(held=False).count() >= MAX_SUBMISSIONS:
+                raise FormFull
+        else:
+            earlier = _same_contact(form, email_key=email_key, phone_key=phone_key, now=now)
+            same_contact = earlier.exists()
+            task_exists = same_contact and FormTask.objects.filter(submission__in=earlier).exists()
+            listed = form.submissions.filter(held=False)
+            held = listed.count() >= MAX_SUBMISSIONS or listed.filter(created_at__gt=now - FLOW_WINDOW).count() >= FLOW_LIMIT
+            if held and form.submissions.filter(held=True).count() >= MAX_HELD:
+                raise FormFull
         submission = Submission.objects.create(
             form=form, version=version, person=person, answers=answers, purpose_shown=version.purpose,
             contact_first_name=contact.get("first_name", ""), contact_last_name=contact.get("last_name", ""),
             contact_email=contact.get("email", ""), contact_phone=contact.get("phone", ""),
             consent_shown=contact.get("consent", ""), email_key=email_key, phone_key=phone_key,
+            delete_after=until, same_contact=same_contact, held=held,
         )
-        _audit(form, actor, "formulario_respuesta", "Llegó una respuesta a un formulario", submission)
-        if form.creates_task:
-            owner = form.task_owner if form.task_owner_id and access.can_read(form.task_owner, form) else None
-            task = FormTask.objects.create(
-                submission=submission, form=form, owner=owner,
-                due_on=church_today(form.church, now) + timedelta(days=form.task_due_days),
-            )
-            _audit(form, actor, "formulario_tarea", "Una respuesta a un formulario dejó un pendiente", task)
+        if not held:
+            _audit(form, actor, "formulario_respuesta", "Llegó una respuesta a un formulario", submission)
+            if not task_exists:
+                _leave_task(form, submission, actor, now)
     return submission, True
+
+
+def is_known_minor(person: Person) -> bool:
+    """Whether the church's records say ``person`` is under 18: the rule of ``oracion.access.known_minor``.
+    Such a person neither sees nor answers the forms of the church in this slice."""
+    from oracion.access import known_minor
+
+    return known_minor(person)
 
 
 def answered_recently(form: Form, person: Person, now=None) -> bool:
@@ -620,6 +687,55 @@ def answered_recently(form: Form, person: Person, now=None) -> bool:
     return form.current_version_id is not None and Submission.objects.filter(
         form=form, version_id=form.current_version_id, person=person, created_at__gt=now - DUPLICATE_WINDOW
     ).exists()
+
+
+def same_contact_answers(submission: Submission):
+    """The other answers to the same form that gave the same e-mail or phone."""
+    same = Q()
+    if submission.email_key:
+        same |= Q(email_key=submission.email_key)
+    if submission.phone_key:
+        same |= Q(phone_key=submission.phone_key)
+    if not same:
+        return Submission.objects.none()
+    return Submission.objects.filter(same, form_id=submission.form_id).exclude(pk=submission.pk)
+
+
+# ---- the administration deletes or accepts answers ----------------------------------------------
+def delete_submission(submission: Submission, actor) -> None:
+    """One answer, and its task with it. The log keeps that it happened and in which form, nothing of the answer."""
+    with transaction.atomic():
+        form = _locked(submission.form_id)
+        if Submission.objects.filter(pk=submission.pk, form=form).delete()[0]:
+            _audit(form, actor, "formulario_respuestas_borradas_a_mano", "Borró una respuesta de un formulario", value=1)
+
+
+def delete_held(form: Form, actor) -> int:
+    """Every answer "por revisar" of ``form`` at once: one row in the log, with how many."""
+    with transaction.atomic():
+        form = _locked(form)
+        total = form.submissions.filter(held=True).count()
+        if total:
+            form.submissions.filter(held=True).delete()
+            _audit(form, actor, "formulario_respuestas_borradas_a_mano", "Borró las respuestas por revisar de un formulario", value=total)
+    return total
+
+
+def accept_held(submission: Submission, actor) -> Submission:
+    """An answer "por revisar" is a person's after all: it is listed, logged and leaves its task like any other."""
+    with transaction.atomic():
+        form = _locked(submission.form_id)
+        submission = Submission.objects.select_for_update(of=("self",)).get(pk=submission.pk, form=form)
+        if not submission.held:
+            return submission
+        submission.held = False
+        submission.save(update_fields=["held"])
+        _audit(form, actor, "formulario_respuesta", "Aceptó una respuesta por revisar de un formulario", submission)
+        around = _same_contact(form, email_key=submission.email_key, phone_key=submission.phone_key,
+                               now=submission.created_at + DUPLICATE_WINDOW).exclude(pk=submission.pk)
+        if not FormTask.objects.filter(submission__in=around).exists():
+            _leave_task(form, submission, actor, timezone.now())
+    return submission
 
 
 def described(submission: Submission) -> list[tuple[str, str, str]]:
@@ -697,48 +813,65 @@ def assign_task(task: FormTask, actor, owner, due_on) -> FormTask:
 
 
 # ---- "Agregar a personas" -----------------------------------------------------------------------
+def _answer_keys(submission: Submission) -> set[tuple[str, str]]:
+    """The signals of ``people.duplicates`` an answer can carry: its e-mail and its phone (an answer has no date
+    of birth, so the third one, name with date of birth, cannot match)."""
+    return duplicates.keys_of({"email": submission.contact_email, "phone": submission.contact_phone,
+                               "normalized_name": "", "birth_date": None})
+
+
 def similar_people(submission: Submission) -> list[Person]:
-    """People of the church with the same e-mail or the same phone as the contact of this answer:
-    the two signals ``people.duplicates`` uses that an answer can carry. A hint for a human."""
-    email, phone = duplicates.normal_email(submission.contact_email), duplicates.normal_phone(submission.contact_phone)
-    if not email and not phone:
+    """Every person of the church who shares a signal of ``people.duplicates.keys_of`` with the contact of this
+    answer. Each signal is marked on the person (``same_email``, ``same_phone``). One query over the values
+    that matter, with no limit: a phone is compared after normalising, which the database cannot do."""
+    wanted = _answer_keys(submission)
+    if not wanted:
         return []
-    people = Person.objects.filter(church_id=submission.form.church_id, merged_into__isnull=True)
-    match = Q()
-    if email:
-        match |= Q(email__iexact=email)
-    if phone:
-        match |= ~Q(phone="")
-    found = [
-        person for person in people.filter(match).order_by("first_name", "last_name", "id")[:500]
-        if (email and duplicates.normal_email(person.email) == email) or (phone and duplicates.normal_phone(person.phone) == phone)
-    ]
-    return found[:5]
+    rows = Person.objects.filter(church_id=submission.form.church_id, merged_into__isnull=True).exclude(email="", phone="")
+    hits: dict[int, set[str]] = {}
+    for row in rows.values("pk", "email", "phone").iterator():
+        shared = wanted & duplicates.keys_of({**row, "normalized_name": "", "birth_date": None})
+        if shared:
+            hits[row["pk"]] = {signal for signal, _ in shared}
+    people = list(Person.objects.filter(pk__in=hits).order_by("first_name", "last_name", "id"))
+    for person in people:
+        person.same_email = duplicates.EMAIL in hits[person.pk]
+        person.same_phone = duplicates.PHONE in hits[person.pk]
+    return people
 
 
-def add_to_people(submission: Submission, actor, *, existing: Person | None = None) -> Person:
+def add_to_people(submission: Submission, actor, *, existing: Person | None = None, another: bool = False) -> Person:
     """The contact of a public answer becomes a ``Person`` (through ``people.services.save_person``,
     audited like any other), or is recognized as ``existing``. Never automatic: an administrator
-    asked for it on the screen. A new record is refused while somebody of the church has the same
-    e-mail (the rule of ``people.forms.PersonForm``): the administrator picks that person instead."""
+    asked for it on the screen.
+
+    While somebody of the church shares the e-mail or the phone (``similar_people``) no new record is made: the
+    administrator picks that person. ``another`` is their explicit "es otra persona", written in the log; it is
+    possible only over a shared phone (families share one). A shared e-mail is never overridden: one e-mail is
+    one person in a church (the rule of ``people.forms.PersonForm``)."""
     with transaction.atomic():
         form = _locked(submission.form_id)
-        submission = Submission.objects.select_for_update(of=("self",)).get(pk=submission.pk, form=form)
+        submission = Submission.objects.select_for_update(of=("self",)).select_related("form").get(pk=submission.pk, form=form)
         if not flags.enabled(form.church, "people"):
             raise FormError("Tu iglesia no usa Personas en Emmaus.", code="no_people")
         if submission.person_id is not None:
             raise FormError("Esta respuesta ya es de una persona de la iglesia.", code="already")
-        if not form.is_public or not submission.contact_first_name:
+        if not form.is_public or not submission.contact_first_name or submission.held:
             raise FormError("Esta respuesta no trae datos de contacto.", code="no_contact")
+        override = False
         if existing is not None:
             existing = Person.objects.select_for_update().filter(pk=existing.pk, church=form.church, merged_into__isnull=True).first()
             if existing is None:
                 raise FormError("Esa persona no es de esta iglesia.", code="other_church")
             person = existing
         else:
-            email = duplicates.normal_email(submission.contact_email)
-            if email and Person.objects.filter(church=form.church, email__iexact=email, merged_into__isnull=True).exists():
+            similar = similar_people(submission)
+            if any(one.same_email for one in similar):
                 raise FormError("Otra persona de la iglesia ya tiene este correo. Si es la misma, elígela en la lista.", code="duplicate")
+            if similar and not another:
+                raise FormError("Alguien de la iglesia ya tiene este teléfono. Elígela en la lista, o di que es otra persona.", code="duplicate")
+            override = bool(similar)
+            email = duplicates.normal_email(submission.contact_email)
             person = people_services.save_person(
                 Person(
                     church=form.church, first_name=submission.contact_first_name, last_name=submission.contact_last_name,
@@ -749,8 +882,10 @@ def add_to_people(submission: Submission, actor, *, existing: Person | None = No
             )
         submission.person = person
         submission.save(update_fields=["person"])
-        _audit(form, actor, "formulario_persona_agregada", "Agregó a personas de la iglesia a quien respondió un formulario",
-               submission, person_id=person.pk)
+        extra = {"override": "mismo_telefono"} if override else {}
+        _audit(form, actor, "formulario_persona_agregada",
+               "Agregó a personas de la iglesia a quien respondió un formulario, aunque alguien más tiene ese teléfono" if override
+               else "Agregó a personas de la iglesia a quien respondió un formulario", submission, person_id=person.pk, **extra)
     return person
 
 
@@ -769,7 +904,7 @@ def export_rows(form: Form) -> tuple[list[str], list[list[str]]]:
     header = ["Recibida", "Versión", *who, *columns.values()]
     tz = church_tz(form.church)
     rows = []
-    for submission in form.submissions.select_related("version", "person").order_by("created_at", "id"):
+    for submission in form.submissions.filter(held=False).select_related("version", "person").order_by("created_at", "id"):
         by_key = {key: value for key, _label, value in described(submission)}
         if form.is_public:
             person = [submission.contact_first_name, submission.contact_last_name, submission.contact_email, submission.contact_phone]
@@ -795,24 +930,28 @@ def export_csv(form: Form, actor) -> str:
 
 # ---- retention ----------------------------------------------------------------------------------
 def prune(apply: bool = False, now=None) -> dict:
-    """Delete the answers (and with them their tasks) of every form whose retention ended: more than
-    ``retention_days`` days after its last day, in every church whatever its module flags (it only
-    deletes). The form, its questions and its versions stay. Returns counts only."""
+    """Delete every answer whose own last day came (``Submission.delete_after``: what its person was told, or
+    earlier), and with it its task, in every church whatever its module flags (it only deletes). The form, its
+    questions and its versions stay. Also forgets the seals of public pages that could no longer be accepted.
+    Returns counts only; ``submissions`` is what the scheduler prints."""
     now = now or timezone.now()
     forms = submissions = 0
-    for form in Form.objects.exclude(status=Status.DRAFT).filter(submissions__isnull=False).distinct().select_related("church"):
-        if delete_after(form) >= church_today(form.church, now):
-            continue
+    for form in Form.objects.filter(submissions__isnull=False).distinct().select_related("church"):
+        today = church_today(form.church, now)
         with transaction.atomic():
             form = _locked(form)
-            if delete_after(form) >= church_today(form.church, now):
-                continue  # its last day was moved while this pass ran
-            total = form.submissions.count()
+            due = Q(delete_after__lte=today)
+            if delete_after(form) <= today:
+                due |= Q(delete_after__isnull=True)  # written before each answer kept its own day: the form's
+            rows = form.submissions.filter(due)
+            total = rows.count()
             if not total:
                 continue
             if apply:
-                form.submissions.all().delete()
+                rows.delete()
                 _audit(form, None, "formulario_respuestas_borradas", "Se borraron las respuestas de un formulario al terminar el tiempo que se guardan", value=total)
             forms += 1
             submissions += total
+    if apply:
+        SeenSeal.objects.filter(expires_at__lt=now).delete()
     return {"forms": forms, "submissions": submissions}

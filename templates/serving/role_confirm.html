@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}¿Dejar el rol {{ name }} solo para personas adultas?{% endblock %}
+{% block content %}
+{% comment %}
+  Before a role becomes "solo personas adultas" (serving.rota_views.role_save): who holds it on dates that are coming
+  and is not an adult the church verified. Saving keeps each of them on their date without the role. The token covers
+  exactly this list; if it changed, the page comes back. Only who coordinates the team or the administration is here.
+{% endcomment %}
+<div class="narrow">
+  {% url 'serving:organize' team.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="¿Dejar este rol solo para personas adultas?" lede="Rol "|add:name back_url=back back_label="Volver a organizar el equipo" %}
+  <p>{{ affected|length|pluralize:"Esta persona tiene,Estas personas tienen" }} una fecha por venir con este rol y la iglesia no ha confirmado que {{ affected|length|pluralize:"sea persona adulta,sean personas adultas" }}:</p>
+  <ul class="rows">
+    {% for row in affected %}
+      <li class="row row--stack"><div class="row__main">
+        <p class="row__title">{{ row.person.full_name }}</p>
+        <p class="row__meta">{{ row.service_date.what }}, {{ row.service_date.date|weekday_date }}.</p>
+      </div></li>
+    {% endfor %}
+  </ul>
+  <p class="aside-note">Si confirmas, cada quien conserva su fecha pero queda sin rol, y a la fecha le vuelve a faltar una persona en este rol. Nadie recibe un aviso: vale la pena decírselo. Si la persona sí es adulta, la administración puede confirmar su edad desde Personas y después le vuelves a dar el rol.</p>
+  <form method="post" action="{% url 'serving:role_save' team.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="rol" value="{{ role.pk }}">
+    <input type="hidden" name="nombre" value="{{ name }}">
+    <input type="hidden" name="solo_adultos" value="si">
+    <input type="hidden" name="confirmar" value="{{ token }}">
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Sí, dejarlo solo para personas adultas</button>
+      <a class="btn btn--link" href="{{ back }}#roles">No, volver</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

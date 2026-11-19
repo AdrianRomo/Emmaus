@@ -19,6 +19,12 @@
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
+    {% if warned %}
+      <div class="notice" role="alert">
+        <p><strong>Todavía no guardamos la fecha.</strong> {% for person in warned %}{{ person.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %} ya sirve{{ warned|length|pluralize:"n" }} ese día en otra fecha. Si aun así quieres pedírselo, guarda otra vez; si no, desmarca su nombre.</p>
+      </div>
+      <input type="hidden" name="ocupados" value="{{ warned_ids }}">
+    {% endif %}
     {% include "partials/ui/fields.html" with form=form %}
     {% if roles %}
     <fieldset class="needs">
@@ -40,7 +46,7 @@
         {% for membership in members %}
         <div class="choice choice--multi">
           <input class="choice__input" type="checkbox" id="sirve-{{ membership.person_id }}" name="sirve" value="{{ membership.person_id }}"{% if membership.checked and not membership.blocked %} checked{% endif %}{% if membership.blocked %} disabled{% endif %}>
-          <label class="choice__label" for="sirve-{{ membership.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ membership.person.full_name }}{% if membership.blocked %} <span class="muted">(ese día no puede)</span>{% endif %}{% if membership.assignment %}<span class="choice__sub">{% if membership.assignment.status == "aceptada" %}Confirmó.{% elif membership.assignment.status == "declinada" %}No puede.{% else %}Por confirmar.{% endif %}{% if membership.busy %} Después marcó que ese día no puede.{% endif %}</span>{% endif %}</span></label>
+          <label class="choice__label" for="sirve-{{ membership.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ membership.person.full_name }}{% if membership.blocked %} <span class="muted">(ese día no puede)</span>{% endif %}{% if membership.assignment %}<span class="choice__sub">{% if membership.assignment.status == "aceptada" %}Confirmó.{% elif membership.assignment.status == "declinada" %}No puede.{% else %}Por confirmar.{% endif %}{% if membership.busy %} Después marcó que ese día no puede.{% endif %}{% if membership.unfit %} <strong>Ya no puede cubrir este rol</strong>: es solo para personas adultas y la iglesia no ha confirmado su edad. Cámbiale el rol o quítale la fecha.{% endif %}</span>{% endif %}</span></label>
           {% if roles and not membership.blocked %}
           <div class="choice__extra">
             <label class="hint" for="rol-{{ membership.person_id }}">Rol de {{ membership.person.first_name }}</label>

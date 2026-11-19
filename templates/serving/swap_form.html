@@ -8,8 +8,7 @@
 {% endcomment %}
 <div class="narrow">
   {% url 'serving:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Pedir un cambio" lede=day.what back_url=back back_label="Volver a Servir" %}
-  <p class="page-head__meta">Equipo {{ day.team.name }}, {{ day.date|weekday_date }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.{% if assignment.role %} Tu rol: {{ assignment.role.name }}.{% endif %}</p>
+  {% include "events/rotulo/_page_head.html" with title="Pedir un cambio" lede=day.what meta=meta back_url=back back_label="Volver a Servir" %}
   {% if waiting %}
     <div class="notice notice--quiet"><p>Ya le pediste este cambio a {{ waiting.to_person.full_name }}. Para pedírselo a alguien más, retira primero esa solicitud en «Servir».</p></div>
   {% elif candidates %}

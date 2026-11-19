@@ -14,7 +14,7 @@ class PrayerForm(forms.Form):
     body = forms.CharField(
         label="Tu petición", max_length=BODY_MAX, strip=True,
         help_text="Escribe sobre ti. No pongas nombres ni datos de otras personas. Hasta 1,000 caracteres.",
-        widget=forms.Textarea(attrs={"rows": 8, "maxlength": BODY_MAX}),
+        widget=forms.Textarea(attrs={"rows": 8, "maxlength": BODY_MAX, "autocomplete": "off"}),
         error_messages={"required": "Escribe tu petición.", "max_length": "Escribe 1,000 caracteres o menos."},
     )
     reader = forms.ChoiceField(
@@ -41,7 +41,7 @@ class ReplyForm(forms.Form):
     reply = forms.CharField(
         label="Tu respuesta", max_length=REPLY_MAX, strip=True,
         help_text="Una sola, breve. Solo la lee quien escribió la petición, y no se puede cambiar después. Hasta 500 caracteres.",
-        widget=forms.Textarea(attrs={"rows": 4, "maxlength": REPLY_MAX}),
+        widget=forms.Textarea(attrs={"rows": 4, "maxlength": REPLY_MAX, "autocomplete": "off"}),
         error_messages={"required": "Escribe tu respuesta.", "max_length": "Escribe 500 caracteres o menos."},
     )
 

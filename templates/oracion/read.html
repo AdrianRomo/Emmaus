@@ -8,7 +8,7 @@
 {% endcomment %}
 <div class="narrow">
   {% url 'oracion:inbox' as back %}
-  {% include "events/rotulo/_page_head.html" with title=prayer.person.full_name lede="Petición de oración." back_url=back back_label="Volver a Peticiones de oración" %}
+  {% include "events/rotulo/_page_head.html" with title=prayer.writer_name lede="Petición de oración." back_url=back back_label="Volver a Peticiones de oración" %}
   {% include "partials/ui/error_summary.html" %}
   <section class="block stack" aria-labelledby="peticion">
     <h2 id="peticion" class="heading">Lo que escribió el {{ prayer.created_at|long_date }}</h2>

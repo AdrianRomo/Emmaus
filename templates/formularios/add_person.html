@@ -12,7 +12,7 @@
   {% if similar %}
   <section class="block" aria-labelledby="parecidas">
     <h2 id="parecidas" class="heading">¿Ya está en Personas?</h2>
-    <p class="aside-note">Estas personas de la iglesia tienen el mismo correo o el mismo teléfono. Si es una de ellas, elígela y no se crea otra.</p>
+    <p class="aside-note">Estas personas de la iglesia tienen el mismo correo o el mismo teléfono que dejó en el formulario. Si es una de ellas, elígela y no se crea otra.</p>
     <ul class="rows">
       {% for person in similar %}
         <li class="row row--lead row--stack">
@@ -20,6 +20,7 @@
           <div class="row__main">
             <p class="row__title">{{ person.full_name }}</p>
             {% if person.phone or person.email %}<p class="row__meta">{{ person.phone }}{% if person.phone and person.email %}, {% endif %}{{ person.email }}</p>{% endif %}
+            <p class="row__meta">{% if person.same_email %}Tiene el mismo correo.{% endif %}{% if person.same_phone %} Tiene el mismo teléfono.{% endif %}</p>
           </div>
           <form class="row__end" method="post">
             {% csrf_token %}
@@ -33,7 +34,23 @@
   {% endif %}
 
   <section class="block" aria-labelledby="nueva">
-    <h2 id="nueva" class="heading">{% if similar %}Es alguien nuevo{% else %}Registrarla como persona de la iglesia{% endif %}</h2>
+  {% if same_email %}
+    <h2 id="nueva" class="heading">No se crea otro registro</h2>
+    <p>Alguien de la iglesia ya tiene este correo, y en una iglesia un correo es de una sola persona. Elige a esa persona arriba. Si de verdad son dos personas, corrige primero el correo en Personas.</p>
+    <div class="step__actions"><a class="btn btn--secondary" href="{{ back }}">Volver a la respuesta</a></div>
+  {% elif similar %}
+    <h2 id="nueva" class="heading">Es otra persona</h2>
+    <p>Solo si estás segura o seguro de que no es ninguna de las de arriba (por ejemplo, alguien de la misma casa que comparte el teléfono). Se guardará con los datos que dejó en el formulario: {{ submission.contact_name }}{% if submission.contact_email %}, {{ submission.contact_email }}{% endif %}{% if submission.contact_phone %}, {{ submission.contact_phone }}{% endif %}. Queda anotado en la actividad de la iglesia que la agregaste aunque el teléfono se repite.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="otra" value="1">
+      <div class="step__actions">
+        <button class="btn btn--secondary" type="submit">Es otra persona: agregarla</button>
+        <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      </div>
+    </form>
+  {% else %}
+    <h2 id="nueva" class="heading">Registrarla como persona de la iglesia</h2>
     <p>Se guardará con los datos que dejó en el formulario: {{ submission.contact_name }}{% if submission.contact_email %}, {{ submission.contact_email }}{% endif %}{% if submission.contact_phone %}, {{ submission.contact_phone }}{% endif %}. Sus respuestas no se copian a Personas.</p>
     <form method="post">
       {% csrf_token %}
@@ -42,6 +59,7 @@
         <a class="btn btn--link" href="{{ back }}">Cancelar</a>
       </div>
     </form>
+  {% endif %}
   </section>
   <p class="aside-note">Agregarla no le da acceso a Emmaus, no la suma a ningún grupo y no le envía nada. Solo para personas adultas: los formularios generales no son para registrar a menores de edad.</p>
 </div>

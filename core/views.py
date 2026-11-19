@@ -262,6 +262,10 @@ def dashboard(request):
         return redirect("events:list")
     if role_record and role_record.role == Role.PARTICIPANT:
         profile = getattr(request.user, "participant_profile", None)
+        if profile is None:
+            # The role with no path behind it: "Mi camino" does not exist for this account (_own_profile answers 404).
+            messages.info(request, "Tu cuenta todavía no tiene un camino de discipulado. Pide a la administración de tu iglesia que te lo asigne.")
+            return redirect("account")
         if profile is not None and profile.church_id != role_record.church_id:
             role_record = None  # an account has one path, and theirs is in another church (_own_profile): no home of it here
     if not role_record:

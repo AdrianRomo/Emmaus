@@ -27,8 +27,8 @@ def current_role(request):
     role = context.get("current_role")
     nav_items = []
 
-    if role == Role.PARTICIPANT and getattr(getattr(request.user, "participant_profile", None), "church_id", where.role.church_id) != where.role.church_id:
-        pass  # an account has one path (ParticipantProfile), and theirs is in another church: its screens answer 404 here
+    if role == Role.PARTICIPANT and getattr(getattr(request.user, "participant_profile", None), "church_id", None) != where.role.church_id:
+        pass  # an account has one path (ParticipantProfile): with none, or with theirs in another church, its screens answer 404 here
     elif role == Role.PARTICIPANT:
         nav_items = [
             {"label": "Mi camino", "url": reverse("participant_dashboard"), "names": ["participant_dashboard"]},

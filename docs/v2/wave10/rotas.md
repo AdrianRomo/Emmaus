@@ -62,6 +62,25 @@ Branch `v2/wave-10-rotas`. App: `serving` (migration `0002_rotas`, additive). Ev
     only; no free-text notes, no revision history. Read by who serves that date and has not said no.
 12. **Role and moment names** are one short line; audit rows carry ids and fixed words, never those names.
 
+## After the independent review (integration branch)
+
+13. **Eligibility is read, not remembered.** `rotas.unfit` is evaluated whenever the coordinator's pages list a
+    future assignment ("ya no puede cubrir este rol"), and such an assignment stops counting towards what the date
+    needs, so the rotation proposes somebody for the place. Nothing runs when a date of birth changes.
+14. **Making a role "solo personas adultas"** lists who holds it on dates that are coming without a verified adult
+    age and asks for a confirmation (token over that list). Confirming keeps each person on their date **without
+    the role**; the screen says so and that nobody is notified. Past dates are untouched.
+15. **An order never names** who left the team (cleared on removal), a joined record or a person whose record says
+    they are a minor (decided when the page is read; the row is not rewritten).
+16. **Lock order for every writer of Servir: team, date, assignment, swap.** Swap writers hold the team; deletes
+    lock the assignments before the cascade reaches their swaps; a lock the database gives up on is answered with
+    "inténtalo de nuevo" (`views.try_again`).
+17. **Declining a date closes the request** its person had made, and `is_live` refuses a request whose assignment
+    was declined or is no longer the asker's.
+18. **The date form warns** when somebody newly chosen already serves that day on another date; saving again with
+    the same names goes ahead. A joined record, "ese día no puedo" and adults-only stay refusals.
+19. The three new `Team` columns carry `db_default` (migration `0002` edited in place before publication).
+
 ## Routes (all under `/mi-iglesia/servir/`) and who may use them
 
 Coordinator of the team or church administration (`views._coordinated_team` → `_may_manage`:
@@ -91,3 +110,4 @@ The person: `mis-fechas/<assignment>/cambio/` (own assignment), `cambios/<id>/re
 - Real concurrency: races are tested with stale copies and a patched reader, not with two connections.
 - Mail delivery beyond the in-memory backend. Screens were looked at with the synthetic seed only.
 - A residual race: a teammate assigned by **another team** at the instant a swap is accepted is not locked out.
+- The lock order is asserted by the order `select_for_update` is asked in, not by two PostgreSQL connections.

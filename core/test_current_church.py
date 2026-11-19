@@ -129,8 +129,9 @@ class ChoosingTests(TwoChurchFixture):
         # An object of church A by its id, from church B: it does not exist there
         self.assertEqual(self.client.get(reverse("community:group_detail", args=[self.group.pk])).status_code, 404)
         self.assertEqual(self.client.get(reverse("people:detail", args=[self.no_account.pk])).status_code, 404)
-        # 403 is only for a row that is of this church and that they may not manage
-        self.assertEqual(self.client.get(reverse("people:detail", args=[self.member_b.pk])).status_code, 403)
+        # and a row of this church answers the same to somebody who may not manage: nothing tells the two apart
+        self.assertEqual(self.client.get(reverse("people:detail", args=[self.member_b.pk])).status_code, 404)
+        self.assertEqual(self.client.get(reverse("people:list")).status_code, 403)
 
     def test_an_object_of_the_other_church_is_not_found_by_its_id(self):
         self.client.force_login(self.dual)
@@ -528,7 +529,17 @@ class LegacyDiscipleshipTests(TwoChurchFixture):
         self._person(self.church, participant)
         self._person(self.church_b, participant)
         self.client.force_login(participant)
+        # The role with no path behind it has no "Mi camino" (it answered 404): its home is "Mi cuenta", which says why.
+        response = self.client.get(reverse("dashboard"), follow=True)
+        self.assertRedirects(response, reverse("account"))
+        self.assertContains(response, "Tu cuenta todavía no tiene un camino de discipulado.")
+        self.assertNotContains(response, reverse("participant_dashboard"))
+        self.assertEqual(self.client.get(reverse("participant_dashboard")).status_code, 404)
+        from core.models import ParticipantProfile
+
+        ParticipantProfile.objects.create(user=participant, church=self.church)
         self.assertRedirects(self.client.get(reverse("dashboard")), reverse("participant_dashboard"), fetch_redirect_response=False)
+        self.assertContains(self.client.get(reverse("account")), reverse("participant_dashboard"))
         self.choose(self.church_b)
         self.assertRedirects(self.client.get(reverse("dashboard")), reverse("community:home"), fetch_redirect_response=False)
         self.assertEqual(self.client.get(reverse("participant_dashboard")).status_code, 404)

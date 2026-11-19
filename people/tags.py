@@ -9,13 +9,14 @@ church, and audit rows with ids and counts only (never the name, which a person 
 
 from __future__ import annotations
 
-from django.db import IntegrityError, transaction
+from django.db import DataError, IntegrityError, transaction
 
 from events.models import normalize_name
 
 from .audit import record_church
 from .models import ChurchSettings, Person, PersonTag, Tag
 from .services import PeopleError
+from .text import has_control, normalized_fits
 
 MAX_TAGS = 30
 MAX_NAME = 40
@@ -29,16 +30,25 @@ def church_tags(church):
     return Tag.objects.filter(church=church)
 
 
+SEPARATORS = ",;|"  # what separates tags in a cell of the import and of the export: never part of a name
+
+
 def clean_name(raw: str) -> str:
-    """One line, single-spaced, at most ``MAX_NAME`` characters. Raises ``PeopleError`` with a sentence for the screen."""
+    """One line, single-spaced, at most ``MAX_NAME`` characters, also once normalised (the form the unique
+    column holds), with no control character and none of the separators of a file's tag cell: a name with one
+    could be exported and never imported back. Raises ``PeopleError`` with a sentence for the screen."""
     raw = raw or ""
-    if any(ch in raw for ch in "\r\n") or any(ord(ch) < 32 or ord(ch) == 127 for ch in raw.strip()):
-        raise PeopleError("El nombre de la etiqueta va en una sola línea.", code="name")
+    if has_control(raw.strip(" ")):
+        raise PeopleError("El nombre de la etiqueta va en una sola línea y sin caracteres que no se ven.", code="name")
     name = " ".join(raw.split())
     if not name or not normalize_name(name):
         raise PeopleError("Escribe el nombre de la etiqueta.", code="name")
+    if any(ch in name for ch in SEPARATORS):
+        raise PeopleError("El nombre de la etiqueta no puede llevar coma, punto y coma ni barra (|).", code="name")
     if len(name) > MAX_NAME:
         raise PeopleError(f"El nombre es muy largo: escribe {MAX_NAME} caracteres o menos.", code="name")
+    if not normalized_fits(name, MAX_NAME):
+        raise PeopleError("El nombre tiene letras especiales que ocupan más de lo que cabe: escríbelo con letras comunes.", code="name")
     return name
 
 
@@ -61,6 +71,8 @@ def create_tag(church, raw_name: str, actor) -> Tag:
             return tag
     except IntegrityError as error:  # two people created the same name at once
         raise PeopleError("Ya hay una etiqueta con ese nombre.", code="taken") from error
+    except DataError as error:  # the database cannot hold it: said in words, never an error page
+        raise PeopleError("No pudimos guardar ese nombre. Escríbelo con letras comunes.", code="name") from error
 
 
 def delete_tag(church, tag_id: int, actor, *, seen_count: int) -> int:

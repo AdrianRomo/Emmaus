@@ -15,13 +15,13 @@ A new app, `oracion`, under the `community` module **and** its own switch per ch
 
 | Piece | Where |
 |---|---|
-| Models: `PrayerPolicy` (one row per church: on/off, who accepted, when, version of the promises, the church's own line, days kept), `PrayerRequest` (church, person, body ≤ 1,000, optional single reader, dates, one reply ≤ 500), `ReaderPreference` (a pastor's own e-mail choice) | `oracion/models.py`, migration `oracion/0001_initial` (three `CreateModel`, nothing else) |
+| Models: `PrayerPolicy` (one row per church: on/off, who accepted, when, version of the promises, the church's own line, days kept), `PrayerRequest` (church, person, body ≤ 1,000, optional single reader, dates, one reply ≤ 500), `ReaderPreference` (a pastor's own e-mail choice) | `oracion/models.py`, migrations `oracion/0001_initial` (three `CreateModel`) and `0002` (`AddField author`, a `RunPython` that fills it, reversible) |
 | Who writes, who reads | `oracion/access.py` |
 | Every write, the switch, the retention | `oracion/services.py` |
 | Screens | `oracion/views.py`, `templates/oracion/` |
 | Platform bounds of the retention (90 days, floor 7) and its one read path | `people/policy.py::prayer_retention_days` |
 | Scheduled deletion, job `oracion_retencion`; by hand `manage.py prune_prayer_requests [--apply]` | `core/scheduler.py`, `core/management/commands/run_scheduled_jobs.py`, `oracion/management/commands/` |
-| Merge: refused while either record has a request | `people/merge.py` (`REFUSED`, `UNMERGEABLE`) |
+| Merge: nothing moves and nothing is refused | `people/merge.py` (`NOTHING_MOVES`) |
 | Navigation | `core/shell.py`, `oracion/shell.py` |
 | Content-free e-mail kind `peticion_oracion_nueva` | `core/notify.py`, `templates/notify/peticion_oracion_nueva.txt` |
 | Tenant check `prayer_request_person_church` (its table size is never printed) | `people/management/commands/tenant_integrity.py` |
@@ -32,14 +32,14 @@ app imports the other, and a follow-up's owner reads nothing here (tested).
 
 ## Routes and who may use each
 
-All under `/mi-iglesia/oracion/`, all behind `groups.views.community_view` (404 with the module off or
+All under `/mi-iglesia/oracion/`, all but the first and the third behind `groups.views.community_view` (404 with the module off or
 without a person in the church of the request). Everything is fetched inside `request.church`.
 
 | Route | Name | Who | Rule |
 |---|---|---|---|
-| `` | `oracion:mine` | The person, about their own requests | `views.mine`: own rows only; 404 when there is none and they may not write |
+| `` | `oracion:mine` | The account, about what it wrote (not behind the module) | `views.own_requests_view` + `access.own`: rows whose `author` is the account; 404 when there is none and it may not write |
 | `nueva/` (GET, POST) | `oracion:new` | An adult person of the church, while the switch is on | `views._writer_or_404` → `services.is_on` and `access.may_write`; again under a lock in `services.create` |
-| `<id>/borrar/` (GET confirm, POST) | `oracion:delete` | The writer | `views.delete`: fetched from the person's own rows, 404 otherwise |
+| `<id>/borrar/` (GET confirm, POST) | `oracion:delete` | The account that wrote it (not behind the module) | `views.delete`: fetched from `access.own`, 404 otherwise |
 | `recibidas/` | `oracion:inbox` | A pastor of this church | `views._reader_or_404` → `access.is_reader` (= `resources.approvals.can_approve`) |
 | `recibidas/<id>/` | `oracion:read` | A pastor the request is addressed to | `access.readable` (the row filter) |
 | `recibidas/<id>/leida/`, `responder/`, `hablamos/` (POST) | `oracion:mark_read`, `reply`, `mark_talked` | The same, while the switch is on | `services._locked`: the row again through `access.readable`, under `select_for_update(of=("self",))` |
@@ -57,7 +57,8 @@ known minor, the writer. Signed out: the sign-in page. No rule looks at `is_supe
 Given by the brief and implemented as given: off until a pastor accepts; only pastors read, named on
 the form; optional single reader; one plain text, no title, category, attachment or urgency; "Lo leí",
 one reply, "Hablamos en persona", no thread; content-free opt-in e-mail to readers only; the writer
-deletes at any time; 90 days; a merge is refused; a known minor does not see the feature.
+deletes at any time; 90 days; a known minor does not see the feature. (The brief's "a merge is refused" was
+replaced after review: see 14.)
 
 Decided where the brief did not, always towards less data and fewer readers:
 
@@ -88,11 +89,11 @@ Decided where the brief did not, always towards less data and fewer readers:
 7. **The retention date is fixed when the request is written** (`expires_at`). A later change of the
    church's number never moves an existing request, in either direction: the member's screen shows a
    date and that date holds. `prune` also deletes anything older than 90 days whatever its row says.
-8. **With the switch off the writer keeps the page of what they wrote**, to read the answer and to
-   delete it: the form and any new request answer 404, and a person with no request gets 404
-   everywhere. The brief said "feature off → 404 for writers"; a strict reading would have broken
-   "the writer can delete at any time", which was promised on the form they accepted. Readers then
-   read only: no mark and no reply.
+8. **The writer's own page and its delete answer whatever is switched off**: the church's prayer switch,
+   its `community` module and `EMMAUS_V2_MODULES`. They are the only two routes outside `community_view`
+   (`views.own_requests_view`): they show and delete only what the account of the request wrote, and offer
+   nothing else. The form promised "lo puede borrar cuando quiera". Readers then read only (switch off) or
+   not at all (module off).
 9. **At most 5 stored requests per person** (a guard against a flood; shown only to that person), and
    **at most 6 e-mails an hour per reader**, counted by reader and church so the counter says nothing
    about who wrote.
@@ -106,13 +107,24 @@ Decided where the brief did not, always towards less data and fewer readers:
 13. **Who counts as an adult**: by the date of birth when there is one (typed or verified, the same
     count as `agenda.services.age_on`). With none: an adult unless a camp link says under the event's
     adult age, a door of an event said "es menor de edad", or a guardian's authorization is on record.
-14. **The merge sentence does not name the kind**: "Alguno de los dos registros tiene información que
-    no se puede unir." It does tell an administrator that one of two records has *something*; today
-    prayer requests are the only table behind that sentence, so it is not perfectly opaque.
+14. **A request belongs to the account that wrote it, and a merge of two person records ignores it.**
+    (Changed after review: refusing a merge told the administration who had written one.) `author` decides
+    the writer's page and the delete; `person` only records which record the account was that day. A merge
+    moves nothing, counts nothing, keeps nothing in its manifest and is never refused because of a request
+    (`people.merge.NOTHING_MOVES`), so a preview is identical with and without one. Accounts are never
+    joined, so the writer keeps it through a merge and its undo. Pastors see the name of the person that
+    account is in the church today.
 15. **Navigation**: "Pedir oración" for the member under "Para crecer", with no number; "Peticiones de
     oración" for a pastor under "A tu cargo", with the count of unread ones addressed to them. That
     number is a list of things that pastor can open, not a statistic about people, so the minimum
     reporting size does not apply; nobody else sees it and there are no totals, trends or exports.
+
+16. **A request past its date is gone for every screen before the job deletes it** (`access.alive`: the
+    lists, the request's page, the reader's actions, the writer's page, the counts and the links).
+17. **The form's fingerprint covers what it stated**: the readers, the days and the church's own line. If
+    any changed while the person wrote, nothing is saved and the form is shown again.
+18. **A new version of the promises (`services.PROMISES_VERSION`) needs a pastor to accept again**: until
+    then the church takes nothing new and what exists is read only.
 
 ## Emergency wording and its source
 
@@ -165,10 +177,9 @@ The number should be re-checked before each release that touches this screen.
 - **Backups**: deleting a row does not remove it from a database dump. The copy says so; when backups
   expire is host work (#45) and nothing here checks it.
 - **E-mail delivery**: tested with Django's in-memory backend only.
-- **The scheduler's kill switch**: the retention job runs with the other community jobs, so
-  `EMMAUS_SCHEDULED_COMMUNITY_JOBS=false` or `EMMAUS_V2_MODULES=false` stops it too (the same as the
-  job that empties merge data). It ignores a church's module flag and its own switch, as asked. While
-  those settings are off, run `prune_prayer_requests --apply` by hand.
+- **The scheduler**: the deletion runs on every pass whatever `EMMAUS_SCHEDULED_COMMUNITY_JOBS`,
+  `EMMAUS_V2_MODULES` and the churches' flags say (`core.scheduler.DELETING_JOBS`; tested through the
+  command). It still needs the `scheduler` service to be running; the screens do not depend on it.
 - **Error reports**: the two views that receive the words mark them with
   `sensitive_post_parameters`; I did not provoke a real 500 with error e-mails configured to read one.
 - **Screens seen in a browser** (Playwright, bypassCSP, 390 and 1440, synthetic seed with `--oracion`,
