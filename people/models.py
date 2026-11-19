@@ -39,6 +39,17 @@ class Person(models.Model):
         CHURCH_RECORD = "registro", "Registro de la iglesia"
         GUARDIAN = "tutor", "Lo confirmó su madre, padre o tutor en persona"
 
+    class Stage(models.TextChoices):
+        """Where the church's administration says a person stands with the church: a short closed list
+        the church does not edit. A label a person of the administration sets by hand, never a score:
+        nothing moves it by itself and nothing infers it from attendance (decision 0009). Empty: nobody
+        has said. Written only by ``people.services.set_stage`` (and at creation)."""
+
+        VISITOR = "visita", "Visita"
+        ATTENDER = "asistente", "Asistente"
+        MEMBER = "miembro", "Miembro"
+        GONE = "ya_no_asiste", "Ya no asiste"
+
     ContactMethod = ParticipantProfile.ContactMethod
 
     church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.PROTECT, related_name="people")
@@ -63,6 +74,9 @@ class Person(models.Model):
         "Medio de contacto preferido", max_length=20, choices=ContactMethod.choices, default=ContactMethod.EMAIL
     )
     created_from = models.CharField("Origen", max_length=20, choices=CreatedFrom.choices, default=CreatedFrom.MANUAL)
+    stage = models.CharField("Etapa", max_length=12, choices=Stage.choices, blank=True, default="", db_default="")
+    # The day somebody of the administration last set ``stage``. Never the day a person "became" anything.
+    stage_changed_on = models.DateField("Etapa anotada el", null=True, blank=True, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="Cuenta",

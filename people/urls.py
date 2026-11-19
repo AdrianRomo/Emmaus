@@ -18,6 +18,7 @@ urlpatterns = [
     path("uniones/<int:merge_id>/deshacer/", merge_views.merge_undo, name="merge_undo"),
     path("<int:person_id>/", views.person_detail, name="detail"),
     path("<int:person_id>/editar/", views.person_edit, name="edit"),
+    path("<int:person_id>/etapa/", views.person_stage, name="stage"),
     path("<int:person_id>/acceso/", views.person_grant_access, name="grant_access"),
     path("<int:person_id>/acceso/enlace/", views.person_access_link, name="access_link"),
     path("<int:person_id>/vinculos/<int:link_id>/quitar/", views.person_unlink, name="unlink"),

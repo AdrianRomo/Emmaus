@@ -99,6 +99,7 @@ ACTION_LABELS = {
     "contenido_aprobado": "Aprobó un contenido para publicarse",
     "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
     "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
+    "persona_etapa": "Cambió la etapa de una persona",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

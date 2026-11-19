@@ -21,6 +21,24 @@
     </dl>
   </section>
 
+  <section class="block" aria-labelledby="etapa">
+    <h2 id="etapa" class="heading">Etapa</h2>
+    <p>{% if person.stage %}{{ person.get_stage_display }}{% if person.stage_changed_on %}, anotada el {{ person.stage_changed_on|long_date }}{% endif %}.{% else %}Nadie ha anotado su etapa.{% endif %}</p>
+    <form class="filter-form" method="post" action="{% url 'people:stage' person.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="antes" value="{{ person.stage }}">
+      <div class="field">
+        <label class="label" for="etapa-select">Cambiar la etapa</label>
+        <select id="etapa-select" name="etapa" aria-describedby="etapa-ayuda">
+          <option value=""{% if not person.stage %} selected{% endif %}>Sin anotar</option>
+          {% for value, label in stages %}<option value="{{ value }}"{% if person.stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="filter-form__actions"><button class="btn btn--secondary" type="submit">Guardar etapa</button></div>
+    </form>
+    <p class="aside-note" id="etapa-ayuda">La etapa la anota la administración y solo la ve la administración. Emmaus nunca la cambia por su cuenta, y queda registrado quién la cambió.</p>
+  </section>
+
   <section class="block" aria-labelledby="acceso">
     <h2 id="acceso" class="heading">Acceso a Emmaus</h2>
     {% if person.user_id %}

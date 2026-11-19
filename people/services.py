@@ -78,6 +78,8 @@ def save_person(person: Person, actor, *, created: bool) -> Person:
     with transaction.atomic():
         person._age_facts_actor = actor
         if created:
+            if person.stage:
+                person.stage_changed_on = timezone.localdate()
             person.save()
         else:
             # The caller's copy was read before this transaction. A record that was merged away meanwhile is
@@ -90,6 +92,32 @@ def save_person(person: Person, actor, *, created: bool) -> Person:
         action = "persona_creada" if created else "persona_modificada"
         verb = "Registró a" if created else "Modificó los datos de"
         record_church(person.church, actor, action, f"{verb} {person.full_name}", person, person_id=person.pk)
+    return person
+
+
+class StaleStage(Exception):
+    """Somebody else set the stage while the screen was open: nothing was written, show it again."""
+
+
+def set_stage(church, person_id: int, stage: str, actor, *, seen: str) -> Person:
+    """The administration says where a person stands with the church (``Person.Stage``, or "" for
+    "nobody has said"). The caller has already asked for church administration. ``seen`` is the stage
+    the screen showed: if the row says something else now, ``StaleStage`` and nothing is written.
+    The audit row holds ids and the two stage words, never a name. Nothing else ever moves a stage."""
+    if stage not in ("", *Person.Stage.values):
+        raise PeopleError("Elige una etapa de la lista.", code="stage")
+    with transaction.atomic():
+        person = Person.objects.select_for_update().filter(pk=person_id, church=church).first()
+        if person is None or person.merged_into_id is not None:
+            raise PeopleError("Esta persona ya no está en la lista de la iglesia.", code="merged")
+        if person.stage != seen:
+            raise StaleStage
+        if person.stage == stage:
+            return person
+        previous, person.stage, person.stage_changed_on = person.stage, stage, timezone.localdate()
+        person.save(update_fields=["stage", "stage_changed_on", "updated_at"])
+        record_church(church, actor, "persona_etapa", "Cambió la etapa de una persona", person,
+                      person_id=person.pk, previous=previous or "sin_etapa", value=stage or "sin_etapa")
     return person
 
 

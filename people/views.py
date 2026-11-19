@@ -106,8 +106,27 @@ def person_detail(request, person_id: int):
             "memberships": memberships,
             "needs_guardian": person.user_id is None and services.was_minor_at_an_event(person),
             "can_get_link": _can_issue_activation_link(person),
+            "stages": Person.Stage.choices,
         },
     )
+
+
+@church_admin_required
+@require_POST
+def person_stage(request, person_id: int):
+    """"Etapa": the administration's own label for where a person stands. One select, its own POST."""
+    person = _person(request, person_id)
+    try:
+        services.set_stage(request.church, person.pk, request.POST.get("etapa", ""), request.user, seen=request.POST.get("antes", ""))
+    except services.StaleStage:
+        messages.error(request, "Alguien más cambió la etapa mientras la veías. No cambiamos nada: revisa cómo quedó.")
+    except services.PeopleError as error:
+        messages.error(request, error.message)
+        if error.code == "merged":
+            return redirect("people:list")
+    else:
+        messages.success(request, "Guardamos la etapa.")
+    return redirect("people:detail", person.pk)
 
 
 def _can_issue_activation_link(person: Person) -> bool:

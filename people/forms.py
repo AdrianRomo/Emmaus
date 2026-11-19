@@ -10,9 +10,10 @@ class PersonForm(TuErrorMessagesMixin, forms.ModelForm):
 
     class Meta:
         model = Person
-        fields = ["first_name", "last_name", "email", "phone", "preferred_contact_method", "birth_date"]
+        fields = ["first_name", "last_name", "email", "phone", "preferred_contact_method", "birth_date", "stage"]
         labels = {"preferred_contact_method": "¿Cómo prefiere que la contacten?"}
         help_texts = {
+            "stage": "La anota la administración y solo la ve la administración. Emmaus nunca la cambia por su cuenta.",
             "email": "Con este correo entrará a Emmaus cuando le des acceso.",
             "birth_date": (
                 "Por ejemplo: 14/03/2009. Sirve para saber si es menor de edad. Escribirla o cambiarla aquí no la confirma: "
@@ -24,6 +25,12 @@ class PersonForm(TuErrorMessagesMixin, forms.ModelForm):
     def __init__(self, *args, church, **kwargs):
         super().__init__(*args, **kwargs)
         self.church = church
+        if self.instance.pk:
+            # The stage of a person who already exists has its own form on their page (``services.set_stage``):
+            # a copy of the person read when this form was opened must never write an old stage back.
+            del self.fields["stage"]
+        else:
+            self.fields["stage"].choices = [("", "Sin anotar")] + list(Person.Stage.choices)
         self.fields["first_name"].error_messages["required"] = "Escribe el nombre."
         self.fields["birth_date"].input_formats = ["%d/%m/%Y", "%Y-%m-%d"]
         self.fields["birth_date"].error_messages["invalid"] = "Escribe la fecha así: día/mes/año, por ejemplo 14/03/2009."

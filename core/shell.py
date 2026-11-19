@@ -66,6 +66,7 @@ PEOPLE_VIEWS = {
     "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
     "people:grant_access", "people:access_link",
     "people:duplicates", "people:merge_preview", "people:merge_detail",
+    "people:stage",
 }
 # Icons for the discipleship module's links, by url name (core.context_processors builds those links).
 MODULE_ICONS = {
