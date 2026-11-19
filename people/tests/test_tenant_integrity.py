@@ -134,7 +134,8 @@ class TenantIntegrityTests(CampFixture):
 
     def test_runs_in_one_query_per_table(self):
         tables = {check.model for check in checks()}
-        self.assertEqual(len(tables), 27)  # 24 until wave 8 added the reading plans (2) and sitio.PublicMedia (1)
+        # 24 until wave 8 added the reading plans (2) and sitio.PublicMedia (1); wave 9: merges and dismissed pairs (2)
+        self.assertEqual(len(tables), 29)
         with self.assertNumQueries(len(tables)):
             run_integrity("--json")
 
