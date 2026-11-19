@@ -743,6 +743,20 @@ class NowhereElseTests(PrayerFixture):
         services.notify_readers(PrayerRequest.objects.filter(person=self.admin_person).get(), "https://emmaus.invalid/x/")
         self.assertEqual(mail.outbox, [])
 
+    @override_settings(EMAIL_BACKEND=LOCMEM)
+    def test_writing_and_deleting_again_and_again_is_not_a_stream_of_e_mails(self):
+        from events.models import AuthThrottle
+
+        self.turn_on()
+        services.set_wants_email(self.church, self.pastor, True)
+        for _ in range(services.MAIL_PER_HOUR + 3):
+            prayer = self.write()
+            services.notify_readers(prayer, "https://emmaus.invalid/mi-iglesia/oracion/recibidas/")
+            services.delete_own(self.church, self.asked, prayer.pk)
+        self.assertEqual(len(mail.outbox), services.MAIL_PER_HOUR)
+        # The counter is the reader's: nothing in it says who wrote.
+        self.assertEqual(list(AuthThrottle.objects.values_list("key", flat=True)), [f"oracion-aviso:{self.church.pk}:{self.pastor.pk}"])
+
     def test_a_mail_that_fails_changes_nothing_for_the_writer(self):
         self.turn_on()
         services.set_wants_email(self.church, self.pastor, True)

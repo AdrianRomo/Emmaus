@@ -25,6 +25,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from core import notify
+from events.services import throttle
 from people import policy
 from people.audit import record_church
 from people.models import Person
@@ -35,6 +36,8 @@ from .models import BODY_MAX, EMERGENCY_LINE_MAX, REPLY_MAX, PrayerPolicy, Praye
 # The version of the promises a pastor accepts on the policy screen. Change it when the promises
 # change in substance: every church then has to accept again before it can be switched on again.
 PROMISES_VERSION = "2026-11"
+# E-mails "hay una petición nueva" one reader gets in an hour, at most.
+MAIL_PER_HOUR = 6
 # How many requests one person may have stored at a time: a guard against a flood, not a count shown to anybody.
 MAX_KEPT = 5
 
@@ -217,8 +220,14 @@ def notify_readers(prayer: PrayerRequest, link: str) -> None:
         ReaderPreference.objects.filter(church_id=prayer.church_id, email_new=True).values_list("user_id", flat=True)
     )
     for user in access.reader_of(prayer):
-        if user.pk in wanting and user.email:
-            notify.notify("peticion_oracion_nueva", user.email, {"church_name": prayer.church.name, "link": link})
+        if user.pk not in wanting or not user.email:
+            continue
+        # Somebody who writes and deletes over and over must not become a stream of e-mails. The counter is
+        # the reader's, by church: it holds nothing about who wrote.
+        key = f"oracion-aviso:{prayer.church_id}:{user.pk}"
+        if throttle.consume(key, limit=MAIL_PER_HOUR, window_seconds=3600, block_seconds=3600, max_block_seconds=3600):
+            continue
+        notify.notify("peticion_oracion_nueva", user.email, {"church_name": prayer.church.name, "link": link})
 
 
 # ---- a reader -----------------------------------------------------------------------------------

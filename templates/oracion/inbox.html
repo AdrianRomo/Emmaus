@@ -47,7 +47,7 @@
       <div class="field">
         <label class="check" for="avisar">
           <input type="checkbox" id="avisar" name="avisar" value="si" aria-describedby="avisar-ayuda"{% if wants_email %} checked{% endif %}>
-          <span class="check__text">Avísame por correo cuando haya una petición nueva<small id="avisar-ayuda">El correo solo dice que hay una petición nueva y trae el enlace: nunca dice quién la escribió ni qué dice. {% if address %}Llega a {{ address }}.{% else %}Tu cuenta no tiene correo, así que no te llegaría.{% endif %}</small></span>
+          <span class="check__text">Avísame por correo cuando haya una petición nueva<small id="avisar-ayuda">El correo solo dice que hay una petición nueva y trae el enlace: nunca dice quién la escribió ni qué dice. Si llegan muchas seguidas, no son más de 6 correos por hora. {% if address %}Llega a {{ address }}.{% else %}Tu cuenta no tiene correo, así que no te llegaría.{% endif %}</small></span>
         </label>
       </div>
       <div class="step__actions"><button class="btn btn--secondary" type="submit">Guardar mi elección</button></div>
