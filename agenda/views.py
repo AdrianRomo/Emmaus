@@ -683,11 +683,14 @@ def consent_revoke(request, slug: str, registration_id: int):
 
 @church_admin_view
 def guest_promote(request, slug: str, registration_id: int):
-    """"Agregar a personas de la iglesia": first whoever may already be this visitor, then the new person."""
+    """"Agregar a personas de la iglesia": first whoever may already be this visitor, then the new person. A visitor
+    who signed up alone only when they said the church may keep their name (``may_join_people``); else 404."""
     event = _event(request, slug)
     if not flags.enabled(request.church, "people"):
         raise Http404
     registration = _registration(event, registration_id, status__in=HOLDING, person__isnull=True)
+    if not registration.may_join_people:
+        raise Http404  # a visitor who signed up alone and did not say the church may keep their name: nothing to offer
     if request.method == "POST":
         existing = None
         chosen = request.POST.get("persona", "")

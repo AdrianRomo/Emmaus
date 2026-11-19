@@ -3,7 +3,8 @@
 * ``/evento/<slug>/inscribirme/``: the form. It answers only while ``visitors.offered_page`` does; otherwise the
   same 404 as the public page. CSRF: the ordinary check, with the ordinary cookie, set by THIS page; that is why
   the form is not on the event's public page, which stays free of cookies. After a valid POST the answer is one
-  redirect to one text, whatever happened to the address, and nothing typed is in it.
+  redirect to one text, whatever happened to the address, and nothing typed is in it; or, while the event takes no
+  more requests (``visitors.taking_requests``), one page that says so, also the same for every address.
 * ``/evento/inscripcion/confirmar/<token>/``: a button; only pressing it signs the visitor up (a mail scanner
   that follows links signs up nobody). The page that answers says honestly where the visitor stands and gives
   their private link.
@@ -11,9 +12,12 @@
   question first), accepting an offered place or leaving the waiting list. Ordinary CSRF check on every POST.
 
 A link that is tampered with, expired, of another kind or of a row that is gone gets one answer (404 with a
-plain text). Who is signed in is never looked at, no page here reads a table of people, shows another person or
-a count, and none is cached. A throttle per browser session slows down a script at the form; the limits that
-protect an inbox are per address and live in ``agenda.visitors``.
+plain text), and so does a confirmation link while ``visitors.closed`` says the church or the event no longer
+offers this (module off, church inactive, event not active/public/published, option off). The private link
+then shows nothing of the event and only lets the visitor cancel or leave the list. Who is signed in is never
+looked at, no page here reads a table of people, shows another person or a count, and none is cached. A throttle
+per browser session slows down a script at the form; the bounds per event (any session, any address) and per
+address live in ``agenda.visitors``.
 """
 
 from django import forms
@@ -30,6 +34,8 @@ from . import public, questions, services, visitors
 
 PAGE = "agenda/visitor.html"
 ADULT = "Soy mayor de edad"
+KEEP = "La iglesia puede guardar mi nombre y mi teléfono para invitarme a otras actividades."
+KEEP_NAME = "La iglesia puede guardar mi nombre para invitarme a otras actividades."
 
 
 class VisitorForm(TuErrorMessagesMixin, forms.Form):
@@ -44,11 +50,13 @@ class VisitorForm(TuErrorMessagesMixin, forms.Form):
     )
     phone = forms.CharField(label="Tu teléfono", max_length=40, widget=forms.TextInput(attrs={"autocomplete": "tel", "inputmode": "tel"}))
     adult = forms.BooleanField(label=ADULT)
+    keep = forms.BooleanField(label=KEEP, required=False)  # optional, unticked: «Agregar a personas» needs it
 
     def __init__(self, *args, asks_phone: bool, **kwargs):
         super().__init__(*args, **kwargs)
         if not asks_phone:
             del self.fields["phone"]
+            self.fields["keep"].label = KEEP_NAME  # no phone was asked: the box promises only what is kept
         else:
             self.fields["phone"].error_messages["required"] = "Escribe tu teléfono."
         self.fields["first_name"].error_messages["required"] = "Escribe tu nombre."
@@ -98,6 +106,8 @@ def sign_up(request, slug: str):
     back = public.public_path(event)
     if request.method != "POST" and request.GET.get("listo") == "1":
         return _page(request, "asked", event=event, back=back)
+    if not visitors.taking_requests(event):  # about the event, the same for everybody: nobody types for nothing
+        return _page(request, "full", event=event, back=back, sent=request.method == "POST")
     asked = questions.asked(event, page)
     form = VisitorForm(request.POST or None, asks_phone=page.visitor_phone)
     answers = questions.AnswersForm(request.POST or None, questions=asked)
@@ -112,8 +122,11 @@ def sign_up(request, slug: str):
                 form.add_error(None, throttle.wait_message(wait))
             else:
                 data = form.cleaned_data
-                visitors.request(event, first_name=data["first_name"], last_name=data["last_name"], phone=data.get("phone", ""),
-                                 email=data["email"], answers=answers.answers())
+                answer = visitors.request(event, first_name=data["first_name"], last_name=data["last_name"],
+                                          phone=data.get("phone", ""), email=data["email"], answers=answers.answers(),
+                                          contact_consent=data["keep"])
+                if answer == visitors.NOT_NOW:  # nothing was stored; the same page for every address
+                    return _page(request, "full", event=event, back=back, sent=True)
                 return redirect(f"{request.path}?listo=1")
     return _page(request, "form", event=event, back=back, form=form, answers=answers, has_list=page.waiting_list,
                  retention_days=event.retention_days)
@@ -152,17 +165,44 @@ def _standing(registration) -> dict:
 @require_http_methods(["GET", "HEAD", "POST"])
 def confirm(request, token: str):
     row = visitors.for_confirmation(token)
-    if row is None:
+    if row is None or visitors.closed(row.event):  # the church or the event no longer offers this: the dead link
         return _page(request, "invalid", status=404)
     event = row.event
     if request.method != "POST" and row.confirmed_at is None:
         return _page(request, "confirm", event=event)
     state, registration = visitors.confirm(row, base_url=_base_url(request))
-    if state == "invalid":
+    if state == "invalid" or (registration is None and visitors.closed(event)):  # closed meanwhile
         return _page(request, "invalid", status=404)
     if registration is None:
         return _page(request, "refused", event=event, reason=state)
     return _page(request, "result", event=event, fresh=request.method == "POST", **_standing(registration))
+
+
+def _closed(request, token: str, registration):
+    """The private link while ``visitors.closed`` says the church or the event no longer offers this. Nothing of the
+    event is shown (not its name, not the church's); the visitor can still cancel (asked first) or leave the waiting
+    list: both only take away their own place. No e-mail leaves from here; accepting an offered place is not
+    possible from here."""
+    message = error = ""
+    if request.method == "POST":
+        action = request.POST.get("accion", "")
+        try:
+            if action == "cancelar" and registration.status in services.HOLDING:
+                services.cancel(registration, None)
+                message = "Cancelaste tu inscripción."
+            elif action == "salir" and registration.status in services.LISTED:
+                services.leave_waiting(registration, None)
+                message = "Saliste de la lista de espera."
+        except services.AgendaError as refused:
+            error = refused.message
+        registration = visitors.for_manage(token)
+        if registration is None:
+            return _page(request, "invalid", status=404)
+    holding = registration.status in services.HOLDING
+    can_cancel = holding and not services.has_started(registration.event)
+    return _page(request, "closed", message=message, error=error, holding=holding, can_cancel=can_cancel,
+                 listed=registration.status in services.LISTED, manage_path=visitors.manage_path(registration),
+                 asking=request.method != "POST" and request.GET.get("cancelar") == "1" and can_cancel)
 
 
 @never_cache
@@ -172,6 +212,8 @@ def manage(request, token: str):
     if registration is None:
         return _page(request, "invalid", status=404)
     event = registration.event
+    if visitors.closed(event):
+        return _closed(request, token, registration)
     message = error = ""
     if request.method == "POST":
         action = request.POST.get("accion", "")

@@ -10,8 +10,13 @@ authorization itself reads (issue #98, part B). Read-only: nothing is changed fr
 | Event teams | ``events.EventMembership`` (active) | ``events.access.resolve_access`` |
 | Superusers | the account's flag: a count, never names | ``resolve_access`` |
 
-``cuenta_datos/tests/test_powers.py`` asks ``has_scope`` about every account and every scope of a
-synthetic church and fails when one that may manage something is missing here.
+``cuenta_datos/tests/test_powers.py`` (``DriftTests``), on a synthetic church that holds every kind:
+each section, account by account and both ways (nobody missing, nobody extra), against its own source of
+truth: church roles against the role table behind ``has_scope`` (church); guides and coordinators against
+``has_scope`` (group / ministry, manage); form readers against ``formularios.access.can_read``; event teams
+against ``resolve_access`` and the membership it answers from. And every account ``has_scope`` lets manage
+something is on some section. It proves the screen and those rules agree on that fixture, not on every
+church; a NEW kind of power (another table authorization reads) still needs its own section and test.
 """
 
 from __future__ import annotations

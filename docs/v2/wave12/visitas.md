@@ -80,16 +80,67 @@ Events are always fetched inside `request.church`. The three public pages never 
 - **Panorama**: one section, one extra query (the cost tests now expect 12), no new audience.
 - **Duplicating an event** copies none of the three new relations (questions included: they are read by the
   public, and nobody read them for the new event). Both duplicate maps say so.
-- A throttle per browser session (6 valid submissions per hour) slows a script at the form; it creates a session
-  cookie on that POST only.
+- A throttle per browser session (6 valid submissions per hour) slows a person at the form; it creates a session
+  cookie on that POST only. It is not what stops a script (a script drops the cookie): the bounds per event below do.
 
 ## Mail-bombing bounds, as numbers
 
 Per address (as the limits read it), shared with subscriptions: 1 request per inbox and event; 2 unanswered
-confirmation e-mails per event; 4 per church in 30 days; 3 events per day anywhere. Per event: 500 unconfirmed
-requests stored. Sending: 50 confirmations per pass, 60 per mail domain and event per hour, 300 per church per
-day. Each request is mailed once (a failed hand-over is retried with the subscriptions' back-off, at most 5
-attempts). An offer e-mail goes once per offer.
+confirmation e-mails per event; 4 per church in 30 days; 3 events per day anywhere (silent: the page is the same).
+Per event, whatever the session, address or network: 200 unconfirmed requests (`PENDING_PER_EVENT`) and 60 new
+requests per hour (`NEW_PER_EVENT_PER_HOUR`); over either, nothing is stored and the form (GET and POST) says
+«Por ahora no podemos recibir más inscripciones para este evento. Intenta más tarde o pregunta en la iglesia.»
+for every address. Sending: 50 confirmations per pass, 60 per mail domain and event per hour, 300 per church per
+day, taken in turns (one per church per round, one per event inside a church, oldest first; a church at its cap
+takes no turn). Each request is mailed once (a failed hand-over is retried with the subscriptions' back-off, at
+most 5 attempts). An offer e-mail goes once per offer.
+
+## Review of wave 12 (branch `v2/wave-12-fix`, migration `agenda/0011_visitas_permiso_de_contacto`)
+
+An independent review reproduced five defects here; each is now a test in `agenda/tests/test_visitors_review.py`
+(and `espacios`, `cuenta_datos` for the other slices). Decisions taken (the owner delegated them; conservative):
+
+- **A script cannot hold an event's form, nor another church's e-mails.** The bounds per event above; the at-cap
+  page is about the event, so it reveals nothing about any address, and every other answer is still the same for
+  every address. Requests that lapsed no longer count against the cap. The sending pass takes turns per church and
+  per event (`visitors.send_due`), so junk in church A never delays church B. Two requests at the same instant may
+  each read the count before the other's row: the bounds are bounds, not exact numbers (no lock was added).
+- **«La iglesia puede guardar mi nombre y mi teléfono para invitarme a otras actividades.»** One optional box on
+  the form, unticked. When the event does not ask a phone it reads «…guardar mi nombre…» (it never promises to keep
+  what was not asked). The answer and its time (when the form was sent) are stored on the request and then on the
+  registration (`visitor_contact_consent`, `visitor_contact_consent_at`; a NULL time: never asked).
+  «Agregar a personas de la iglesia» is offered for a visitor who signed up alone only with a yes; the view answers
+  404 and `services.promote_guest` refuses (`no_contact_consent`), also for recognizing an existing person. Guests
+  the team wrote at the door keep today's way in. «Inscritos» says, on each such row, «Dio permiso de guardar su
+  nombre y su teléfono…» or «No dio permiso de guardar sus datos: se borran N días después del evento.». The form's
+  list says what is true in both cases. At retention nothing of a visitor stays unless they said yes AND the
+  administration added them (then the person, with name and phone, and their registration stay; e-mail, key and
+  answers go). Rows promoted before this change (only on a sandbox) are not touched: nothing deletes a `Person`.
+- **Links follow the church and the event** (`visitors.closed`). With the church inactive, the `community` module
+  off, the event not active, public and published, or the option off, the confirmation link is the dead link (GET
+  and POST), and `register_visitor` refuses too (`sin_modulo`). The private link then shows «Tu inscripción» and
+  nothing of the event or the church, and only lets the visitor cancel (asked first) or leave the waiting list; it
+  never accepts an offered place and sends no e-mail. Turning the minors' rule on switches the option off, so it is
+  one of these states: the visitor's private page no longer says «tiene que confirmar tu edad», it says to ask at the
+  church (the team still sees the row under «Edad por confirmar»). A sign-up closed by its date and an event that
+  ended keep their own honest page.
+- **The log never holds what a visitor typed**: the authorization, its withdrawal and «Agregar a personas» (both
+  its row and the `persona_creada` row of `people.services.save_person`, which gained `audit_name=`) say «una visita
+  sin cuenta». After the administration added them, with their yes, they are a person of the church and later rows
+  name them as any person.
+- **Free text in a waiting request**: turning the minors' rule on also clears free-text answers inside unconfirmed
+  `VisitorRequest.answers`.
+- `visitors.request`'s docstring is now true: the answer is the same for every address; the database work is not
+  (a new address is written), and nothing waits to hide it.
+- Copy on the visitor's pages is now neutral for gender («Listo, ya tienes tu lugar», «No se hizo tu inscripción»,
+  «Todavía no tienes un lugar en …»). `e2e/community-flow.mjs` step 20 reads none of the changed words: unchanged.
+- The seed's first visitor («Visita Inscrita Demo») ticked the box, the others did not.
+- Looked at in a browser (repo Playwright, `bypassCSP`, a scratch SQLite with `seed_community_demo --visitas`) at
+  390 and 1440 px, axe at zero, no overflow, one `h1`, at most one filled button: the form with the box, its errors,
+  «Revisa tu correo», «Listo, ya tienes tu lugar», the at-cap form, «Inscritos» with a visitor who said yes and two
+  who did not, and the closed private link (its question, and after cancelling). Images opened and judged: the form
+  (both widths), its errors, «Revisa tu correo», the result, «Inscritos» (both), the at-cap page (both), the closed
+  private link, its question (1440) and after cancelling. Not looked at: 768 px, offline, keyboard by hand.
 
 ## Not built, on purpose
 

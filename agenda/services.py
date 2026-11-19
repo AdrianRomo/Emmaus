@@ -531,6 +531,10 @@ def cancel(registration: EventRegistration, actor, *, base_url: str | None = Non
 
 
 VISITORS_OFF = "La inscripción sin cuenta ya no está disponible para este evento. Pregunta en la iglesia."
+NO_CONTACT_CONSENT = (
+    "Esta visita se inscribió sin cuenta y no marcó que la iglesia puede guardar su nombre y su teléfono: no se puede "
+    "agregar a las personas de la iglesia. Sus datos se borran con su inscripción."
+)
 
 
 def visitor_block(event: Event, page: EventPage | None, today=None) -> str:
@@ -552,13 +556,16 @@ def visitor_block(event: Event, page: EventPage | None, today=None) -> str:
 
 
 def register_visitor(event: Event, *, key: str, first_name: str, last_name: str = "", phone: str = "", email: str,
-                     base_url: str | None = None) -> EventRegistration:
+                     contact_consent: bool = False, consent_at=None, base_url: str | None = None) -> EventRegistration:
     """Somebody without an account, who proved an e-mail address, signs up (``agenda.visitors.confirm`` is the
     only caller). It is a GUEST registration, as the ones the team writes at the door, created by the visitor:
     no ``Person``, no account. The same rules as ``register``, under the same page lock: the list moves first,
     the last place is given once, a full event with a waiting list puts the visitor at its end, and ``standing``
     decides the rest. The age is what the visitor said and nothing more: ``guest_age_checked`` stays False, so
-    the day the event starts protecting minors the row waits for the team (``resettle_event``).
+    the day the event starts protecting minors the row waits for the team (``resettle_event``). Nobody is signed
+    up for a church that is not active or does not use the ``community`` module (``sin_modulo``).
+
+    ``contact_consent`` / ``consent_at``: the visitor's answer to the form's optional box and when they gave it.
 
     Idempotent by ``key`` and by the address: the same request, or the same inbox, never holds two places."""
     first_name, last_name, phone = " ".join(first_name.split())[:120], " ".join(last_name.split())[:120], phone.strip()[:40]
@@ -566,6 +573,8 @@ def register_visitor(event: Event, *, key: str, first_name: str, last_name: str 
         raise AgendaError("Escribe tu nombre.", code="no_name")
     today = timezone.localdate()
     with transaction.atomic():
+        if not event.church.active or not flags.enabled(event.church, "community"):
+            raise AgendaError(VISITORS_OFF, code="sin_modulo")
         page = _locked_page(event.pk)
         block = visitor_block(event, page, today)
         if block == "terminado":
@@ -594,7 +603,8 @@ def register_visitor(event: Event, *, key: str, first_name: str, last_name: str 
         registration = EventRegistration.objects.create(
             event=event, guest_first_name=first_name, guest_last_name=last_name, guest_phone=phone,
             guest_email=email.strip(), visitor_key=key, visitor_confirmed_at=now, status=where.status,
-            pending_reason=where.reason, waiting_since=since,
+            pending_reason=where.reason, waiting_since=since, visitor_contact_consent=bool(contact_consent),
+            visitor_contact_consent_at=consent_at or now,
         )
         registration.event = event
         if full:
@@ -1055,7 +1065,7 @@ def _write_consent(registration: EventRegistration, actor, clean: dict) -> Guard
     )
     registration.consent = consent
     verb = "Registró la autorización" if consent.confirms else "Anotó un contacto, que no confirma, sobre la autorización"
-    record_church(event.church, actor, "evento_autorizacion", f"{verb} de {registration.display_name} para {event.name}",
+    record_church(event.church, actor, "evento_autorizacion", f"{verb} de {_audit_name(registration)} para {event.name}",
                   registration, event_id=event.pk, method=consent.method, **_who(registration))
     return consent
 
@@ -1298,7 +1308,7 @@ def revoke_consent(registration: EventRegistration, actor) -> EventRegistration:
         _settle(registration, EventPage.objects.filter(event=event).first(), actor, assume_rule=True)
         registration.save(update_fields=SETTLED_FIELDS)
         record_church(event.church, actor, "evento_autorizacion_retirada",
-                      f"Retiró la autorización de {registration.display_name} para {event.name}",
+                      f"Retiró la autorización de {_audit_name(registration)} para {event.name}",
                       registration, event_id=event.pk, method=consent.method, **_who(registration))
     return registration
 
@@ -1341,7 +1351,11 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
     has a record of, so ``standing`` settles it with what that record says: an unknown or unverified
     date of birth waits for the team to confirm the age. What the team said at the door ("es menor
     de edad") stays with the row while the date is unknown, and it is never contradicted silently:
-    a visitor marked as a minor cannot be recognized as an adult."""
+    a visitor marked as a minor cannot be recognized as an adult.
+
+    A visitor who signed up alone is added (or recognized) only when they ticked the form's box «La iglesia puede
+    guardar mi nombre y mi teléfono…» (``visitor_contact_consent``); otherwise the form promised that everything
+    they typed ends with the event. Their audit rows name nobody (``_audit_name``): ids only."""
     with transaction.atomic():
         if existing is not None:
             existing = _fresh(existing)  # the person first, then the row: the module's lock order
@@ -1351,6 +1365,9 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
             raise AgendaError("Tu iglesia no usa Personas en Emmaus.", code="no_people")
         if registration.person_id is not None:
             raise AgendaError("Esta inscripción ya es de una persona de la iglesia.", code="not_guest")
+        if not registration.may_join_people:
+            raise AgendaError(NO_CONTACT_CONSENT, code="no_contact_consent")
+        alone = registration.visitor_key is not None  # signed up alone: what they typed never reaches the log
         if existing is not None:
             if existing.church_id != event.church_id or existing.merged_into_id is not None:
                 raise AgendaError("Esta persona no es de la iglesia del evento.", code="other_church")
@@ -1371,7 +1388,7 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
                     phone=registration.guest_phone, created_from=Person.CreatedFrom.EVENT,
                     preferred_contact_method=Person.ContactMethod.PHONE if registration.guest_phone else Person.ContactMethod.EMAIL,
                 ),
-                actor, created=True,
+                actor, created=True, audit_name=f"una visita sin cuenta de {event.name}" if alone else "",
             )
         registration.person = person
         registration.guest_first_name = registration.guest_last_name = registration.guest_phone = ""
@@ -1379,8 +1396,8 @@ def promote_guest(registration: EventRegistration, actor, *, existing=None) -> P
         _settle(registration, EventPage.objects.filter(event=event).first(), actor)
         registration.save(update_fields=["person", "guest_first_name", "guest_last_name", "guest_phone", "guest_is_minor",
                                          *SETTLED_FIELDS])
-        record_church(event.church, actor, "evento_visita_persona",
-                      f"Agregó a {person.full_name}, visita de {event.name}, a las personas de la iglesia",
+        who = f"una visita sin cuenta de {event.name}" if alone else f"{person.full_name}, visita de {event.name},"
+        record_church(event.church, actor, "evento_visita_persona", f"Agregó a {who} a las personas de la iglesia",
                       registration, event_id=event.pk, **_who(registration))
     return person
 
