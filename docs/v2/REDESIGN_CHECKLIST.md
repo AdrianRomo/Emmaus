@@ -83,16 +83,17 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 ## Open decisions for the owner (found during the rollout; nothing below was changed)
 
 1. Notices linked to the gathering they change (a notice «17:00 → 18:00» does not change the event): a new
-   capability (review #24).
+   capability (review #24). Decided below (1), implemented `d59e1ee`.
 2. Decision 0010 (#75): an adult's typed birth date still waits for the team's confirmation; a pending
    sign-up offers «Cancelar mi inscripción» (existing behaviour, kept) — confirm both.
 3. Decided 2026-11-18: one sign-in error across Emmaus, «No pudimos iniciar sesión. Revisa tu correo y tu
    contraseña e inténtalo de nuevo.», for an unknown e-mail, a wrong password and an inactive account; the
    event's help on a line of its own only after a failed attempt that came from a camp's link (`0f8117d`).
 4. The landing's promise («Platicar con cada joven, sin perder a nadie») speaks of camp to every visitor.
+   Decided below (4), implemented `970d340`.
 5. Decided with 9 below.
 6. «Nadie sirve el …» shows on the team page; counting it in the rail or on a coordinator's home needs a
-   decision on who must see it first.
+   decision on who must see it first. Decided below (6), implemented `24d4970`.
 7. New words to confirm: «Hoy en la iglesia», «Ver cómo inscribirme», «Más de la iglesia», «Mis datos» in Mi
    cuenta, «Lo que preguntaste» / «Lo que escribiste», «También esperan tu respuesta» / «Con el pastor».
 8. Event photos (#60): the arch shows the sky of the hour until the church decides.
@@ -112,7 +113,8 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
     `events/0019`).
 11. Decided 2026-11-18: an ordinary sign-in with exactly one camp underway that the person administers opens
     its administration home; several, a chooser; none, the usual home; «Todos los eventos» inside the event
-    (`388765c`). Still open: the running camp shows in «Eventos de la iglesia» as «Sin publicar… sin inscritos».
+    (`388765c`). The running camp in «Eventos de la iglesia» («Sin publicar… sin inscritos») was answered in the
+    second round: «En curso» and its camperos (`9dfc09a`).
 12. Decided (see «Decided by me» below).
 13. Found while testing, not caused by the redesign: four tests in `core/test_scheduler.py` fail for a few minutes
     after each even hour (they assume no report cutoff is due); reproduced on `origin/v2/foundation` too.
@@ -128,10 +130,16 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 - Needed again after «Atendido»: the same task reopens to the owner's queue, its completion kept (`e92f8f4`).
 - «Eventos de la iglesia»: «En curso» apart from publication and sign-ups; an interview-only camp shows its
   camperos, never «Sin inscritos» (`9dfc09a`).
-- Left for the owner: a reopened task starts at «Pendiente» even if it had been «En proceso»; an owner who thinks
-  the campero still needs care has no «keep open» button (they ask for the decision to be changed back); the
-  paper sheet keeps «Prefiero no responder» (the campero chooses from it); a resumed interview keeps naming who
-  confirmed the identity at the start.
+- Left for the owner after that round, and what became of each: a reopened task starts at «Pendiente» even if it
+  had been «En proceso» (answered: it says «Reabierto el …» until its owner moves it on, `d05c45b`); an owner who
+  thinks the campero still needs care has no «keep open» button (answered: «Continuar seguimiento», `d05c45b`); the
+  paper sheet keeps «Prefiero no responder» (the campero chooses from it; still the owner's); a resumed interview
+  keeps naming who confirmed the identity at the start (answered: both people, and a re-check by anyone else who
+  continues it, `eff0e46`).
+- Identity on a resumed interview (answered after this round): the review and the record say «Identidad
+  confirmada por …», each «Identidad verificada de nuevo por …» and «Entrevista a cargo de …»; a staff member who
+  did not start the interview ticks «Sí, es {nombre}» once before going on, on its own audit row
+  `identidad_verificada`; the person who started it is never asked again (`03255ff`, merged `eff0e46`).
 
 ### Decided by me (the owner delegated product decisions on 2026-11-18)
 
@@ -141,18 +149,23 @@ overturn any of them.
 
 - 1 (notices about a gathering): a change to an event is published as that event's notice (#101, now merged);
   its row on «Mi iglesia» and in Eventos says there is a recent notice, linked to it. A church notice is not
-  silently tied to an event.
+  silently tied to an event. **Implemented** `d59e1ee`: a public notice of the last 7 days is one line under the
+  event, linked to the event's notices (`agenda/tests/test_recent_notice.py`).
 - 2 (decision 0010, #75): not mine to decide — minors' consent and age verification are reserved for church
   leadership with safeguarding advice (`CAPABILITY_REVIEW_2026-11-18.md`). Current behaviour stays.
 - 4 (the landing): a church that uses Emmaus for its life (community module) reads «Tu iglesia, entre domingo y
-  domingo.» with only promises true for any member; the camp's door (module off) keeps its own.
+  domingo.» with only promises true for any member; the camp's door (module off) keeps its own. Implemented
+  `970d340`.
 - 6 («Nadie sirve el …»): raised on the team coordinator's «Mi iglesia» as well as the team page, because it
-  blocks a date someone must fill.
+  blocks a date someone must fill. **Implemented** `24d4970`: up to three coming dates where everyone asked said
+  no, with «Pedir a alguien»; who only serves never sees it (`serving/tests/test_home_nadie_sirve.py`).
 - 7 (new words): confirmed as shipped.
 - 8 (event photos, #60): reserved for leadership (images of minors); the arch shows the sky of the hour.
 - 12 (the lost-interview message): «… Lo que se respondió sigue guardado.» — the page it lands on says how to go on.
+  Implemented `970d340`.
 - 13 (the scheduler tests' flake): fixed on `v2/foundation` (the fixture turns automatic cutoffs off), merged.
 - «Entrevista a cargo de …» shows only when it is not the person who confirmed the identity (no name said twice).
+  Implemented `e738324`.
 - Reserved, not decided here (church leadership, safeguarding, privacy or legal): #75, #76, #85, #86, #97, #58, #60
   and the anonymous-subscription part of #59/#96. Operational, needs the owner on the host: #45, #39, #52, #13.
 
