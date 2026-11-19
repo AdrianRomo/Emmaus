@@ -43,7 +43,7 @@ from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from oracion.models import PrayerRequest
 from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge, PersonTag
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
-from serving.models import Assignment, Team, TeamMembership
+from serving.models import Assignment, PlanItem, RoleNeed, RotationEntry, SwapRequest, Team, TeamMembership
 from sitio.models import PublicMedia
 
 ERROR = "error"
@@ -156,6 +156,20 @@ def community_checks() -> tuple[Check, ...]:
               ~Q(person__church=F("team__church"))),
         Check("assignment_person_church", "Fechas de servicio en un equipo de otra iglesia", Assignment, None,
               ~Q(person__church=F("service_date__team__church"))),
+        # serving, wave 10: a role is of one team, and so is the date it is named on; who rotates, who is asked to
+        # take a date and who is in charge of a moment are people of the team's church
+        Check("assignment_role_team", "Fechas de servicio con el rol de otro equipo", Assignment, Q(role__isnull=False),
+              ~Q(role__team=F("service_date__team"))),
+        Check("role_need_role_team", "Fechas que piden personas de un rol de otro equipo", RoleNeed, None,
+              ~Q(role__team=F("service_date__team"))),
+        Check("rotation_entry_person_church", "Lugares en una rotación de una persona de otra iglesia", RotationEntry, None,
+              ~Q(person__church=F("role__team__church"))),
+        Check("swap_request_from_person_church", "Cambios de fecha que pidió una persona de otra iglesia", SwapRequest, None,
+              ~Q(from_person__church=F("assignment__service_date__team__church"))),
+        Check("swap_request_to_person_church", "Cambios de fecha pedidos a una persona de otra iglesia", SwapRequest, None,
+              ~Q(to_person__church=F("assignment__service_date__team__church"))),
+        Check("plan_item_responsible_church", "Momentos del orden de una fecha a cargo de una persona de otra iglesia", PlanItem,
+              Q(responsible__isnull=False), ~Q(responsible__church=F("service_date__team__church"))),
         # care
         Check("care_follow_up_person_church", "Acompañamientos de una persona de otra iglesia", CareFollowUp, None,
               ~Q(person__church=F("church"))),

@@ -79,7 +79,10 @@ The person: `mis-fechas/<assignment>/cambio/` (own assignment), `cambios/<id>/re
 - Revision history of an order; tying an order to an event's programme; dates created from a series or an event.
 - E-mail or notice when a swap is asked, answered or approved (the screens say nothing is sent).
 - Clash checks by hour; "undo" of a confirmed proposal (dates are edited one by one); pagination of long lists.
-- `tenant_integrity` checks for the new tables (shared file; the services only ever write people of the team).
+- (Added at integration: `tenant_integrity` reads the new tables that hold two links which could disagree —
+  `assignment_role_team`, `role_need_role_team`, `rotation_entry_person_church`, `swap_request_from_person_church`,
+  `swap_request_to_person_church`, `plan_item_responsible_church`. `TeamRole`, `ServingPreference` and
+  `ServiceReminder` hold one link each: nothing to compare.)
 
 ## Not verified
 
