@@ -11,6 +11,10 @@ ACTION_LABELS = {
     "persona_desvinculada": "Quitó el vínculo de una persona con un campero",
     "cuenta_creada": "Dio acceso a una persona",
     "cuenta_vinculada": "Vinculó a una persona con una cuenta que ya existía",
+    "persona_duplicado_descartado": "Dijo que dos registros no son la misma persona",
+    "persona_duplicado_reabierto": "Volvió a poner en revisión dos registros que había descartado",
+    "persona_union": "Unió dos registros de la misma persona",
+    "persona_union_deshecha": "Deshizo la unión de dos registros de persona",
     "grupo_creado": "Creó un grupo",
     "grupo_modificado": "Modificó un grupo",
     "grupo_archivado": "Archivó un grupo",
@@ -87,6 +91,8 @@ ALLOWED_METADATA = frozenset({
     "override", "reason", "minor", "standing", "age_checked",
     # A church policy (policies.services.save): which one, by its column, and the number or yes/no before ("value" is after).
     "policy", "previous",
+    # Duplicate review and merges (people.merge): the other record of the pair and the merge, by id.
+    "other_person_id", "merge_id",
 })
 
 

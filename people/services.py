@@ -67,12 +67,26 @@ def ensure_own_person(user, church) -> Person | None:
         return Person.objects.get(church=church, user=user)
 
 
+# What a screen may change on a person that already exists. Never ``user`` or ``merged_into``.
+SCREEN_FIELDS = ("first_name", "last_name", "birth_date", "email", "phone", "preferred_contact_method", "updated_at")
+
+
 def save_person(person: Person, actor, *, created: bool) -> Person:
     """The one way the screens write a person. A date of birth changed here is a claim: the model
-    clears its verification (only ``verify_birth_date`` leaves a date verified)."""
+    clears its verification (only ``verify_birth_date`` leaves a date verified). Refuses
+    (``PeopleError``, code ``merged``) a record that was merged into another one."""
     with transaction.atomic():
         person._age_facts_actor = actor
-        person.save()
+        if created:
+            person.save()
+        else:
+            # The caller's copy was read before this transaction. A record that was merged away meanwhile is
+            # not written, and the copy never writes back who the record was merged into or its account
+            # (``people.merge`` and ``grant_access`` own those two columns).
+            state = list(Person.objects.select_for_update().filter(pk=person.pk).values_list("merged_into_id", flat=True))
+            if state != [None]:
+                raise PeopleError("Esta persona ya no está en la lista de la iglesia.", code="merged")
+            person.save(update_fields=SCREEN_FIELDS)
         action = "persona_creada" if created else "persona_modificada"
         verb = "Registró a" if created else "Modificó los datos de"
         record_church(person.church, actor, action, f"{verb} {person.full_name}", person, person_id=person.pk)
