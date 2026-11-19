@@ -47,8 +47,13 @@
   {% if sign_up == "open" %}
   <section class="sign" aria-labelledby="inscripcion">
     <h2 id="inscripcion" class="sign__title">Inscripción</h2>
-    <p class="sign__text">La inscripción se hace en Emmaus, con la cuenta de quien va a ir.</p>
+    {% if visitor == "si" %}
+    <p class="sign__text">Si eres mayor de edad y no tienes cuenta en Emmaus, inscríbete con tu nombre y tu correo. Si tienes cuenta, entra con ella.</p>
+    <div class="sign__actions"><a class="btn btn--primary btn--large" href="{{ visitor_path }}">Inscribirme</a><a class="btn btn--link" href="{% url 'login' %}?next={{ member_path|urlencode:'' }}">Entrar con mi cuenta</a></div>
+    {% else %}
+    <p class="sign__text">La inscripción se hace en Emmaus, con la cuenta de quien va a ir.{% if visitor == "menores" %} Este evento cuida a los menores de edad: quien no tiene cuenta se inscribe en {{ church.name }}.{% endif %}</p>
     <div class="sign__actions"><a class="btn btn--primary btn--large" href="{% url 'login' %}?next={{ member_path|urlencode:'' }}">Entrar para inscribirme</a></div>
+    {% endif %}
   </section>
   {% else %}
   <section class="notice" aria-labelledby="inscripcion">

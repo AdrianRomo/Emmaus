@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}¿Cuántos vinimos? {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  The headcount of one gathering (agenda.extras_views.headcount; issue #93): three numbers at most, typed by the
+  administration from what somebody counted. No names. It is not the attendance of who signed up, and the page
+  says so. The numbers are shown back exactly here, to who types them, so that they can be corrected.
+{% endcomment %}
+<div class="narrow conteo">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="¿Cuántos vinimos?" lede=event.name back_url=back back_label=back_label %}
+  {% if started %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="notice notice--danger" role="alert">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+      <section class="form-section" aria-labelledby="conteo-total">
+        <h2 id="conteo-total" class="form-section__title">El conteo del {{ event.starts_on|long_date }}</h2>
+        {% include "partials/ui/field.html" with field=form.total %}
+      </section>
+      <section class="form-section" aria-labelledby="conteo-partes">
+        <h2 id="conteo-partes" class="form-section__title">Si los contaron aparte</h2>
+        {% include "partials/ui/field.html" with field=form.adults %}
+        {% include "partials/ui/field.html" with field=form.children %}
+      </section>
+      <div class="form-actions">
+        <button class="btn btn--primary" type="submit">{% if row %}Guardar la corrección{% else %}Guardar el conteo{% endif %}</button>
+        <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      </div>
+    </form>
+    <p class="aside-note">Es un número de personas, sin nombres. No cambia la asistencia de quienes se inscribieron ni sale de ella. Fuera de esta página, un número de niñas y niños menor a {{ minimum }} se lee como «Menos de {{ minimum }}».</p>
+  {% else %}
+    <p class="empty-line">El conteo se registra desde el primer día del evento{% if event.starts_on %}, el {{ event.starts_on|long_date }}{% endif %}. Vuelve aquí ese día.</p>
+  {% endif %}
+</div>
+{% endblock %}

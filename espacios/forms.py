@@ -5,10 +5,12 @@ from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db.models import Q
 from django.utils import timezone
 
+from agenda.models import EventSeries
+from agenda.series import rule_words
 from core.forms import TuErrorMessagesMixin
 from events.models import Event
 
-from . import services
+from . import repeticion, services
 from .models import Space
 
 BUFFERS = [(0, "Nada"), (15, "15 minutos"), (30, "30 minutos"), (60, "1 hora"), (90, "1 hora y media"), (120, "2 horas")]
@@ -16,6 +18,7 @@ BUFFERS = [(0, "Nada"), (15, "15 minutos"), (30, "30 minutos"), (60, "1 hora"), 
 TIME_HELP = "Las horas, en formato de 24 horas: por ejemplo 18:30."
 BUFFER_HELP = "El espacio queda apartado también ese rato, para acomodar sillas o conectar el equipo."
 MAX_REPORT_DAYS = 366
+REPEATS = [(0, "No se repite"), (1, "Cada semana"), (2, "Cada 2 semanas"), (3, "Cada 3 semanas"), (4, "Cada 4 semanas")]
 
 
 def _time_field(label: str, required_message: str) -> forms.TimeField:
@@ -76,15 +79,36 @@ class BookingForm(TuErrorMessagesMixin, forms.Form):
         help_text="Si la reserva es para un evento de la iglesia, elígelo. Solo lo ve la administración.",
     )
 
+    # A booking that repeats (espacios.repeticion): the same weekday and hours, until a day at most six months away.
+    repeat = forms.TypedChoiceField(label="¿Se repite?", choices=REPEATS, coerce=int, empty_value=0, initial=0, required=False)
+    until = forms.DateField(
+        label="Hasta qué día", required=False, widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+        error_messages={"invalid": "Elige un día del calendario."},
+    )
+    event_series = forms.ModelChoiceField(
+        label="Serie de eventos", queryset=EventSeries.objects.none(), required=False, empty_label="Ninguna",
+        help_text=(
+            "Si la eliges, el espacio se aparta en cada fecha de esa serie, a la hora en que empieza cada una, hasta el día que "
+            "digas aquí arriba. De las horas de la reserva solo se toma cuánto dura. Solo lo ve la administración."
+        ),
+    )
+
     time_help, buffer_help = TIME_HELP, BUFFER_HELP
 
     def __init__(self, *args, church, tz, with_event: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self.tz = tz
         today = timezone.now().astimezone(tz).date()
+        self.today = today
         self.fields["day"].widget.attrs["min"] = today.isoformat()
-        for name in ("setup_minutes", "teardown_minutes", "event"):
+        self.fields["until"].widget.attrs.update(min=today.isoformat(), max=(today + timedelta(days=repeticion.MAX_AHEAD_DAYS)).isoformat())
+        for name in ("setup_minutes", "teardown_minutes", "event", "repeat", "event_series"):
             self.fields[name].error_messages["invalid_choice"] = "Elige una opción de la lista."
+        if with_event:
+            self.fields["event_series"].queryset = EventSeries.objects.filter(church=church, active=True).order_by("name", "id")
+            self.fields["event_series"].label_from_instance = lambda row: f"{row.name} ({rule_words(row)})"
+        else:
+            del self.fields["event_series"]
         if with_event:
             self.fields["event"].queryset = (
                 Event.objects.filter(church=church, status__in=(Event.Status.DRAFT, Event.Status.ACTIVE))
@@ -110,6 +134,18 @@ class BookingForm(TuErrorMessagesMixin, forms.Form):
             elif data["starts_at"] <= timezone.now():
                 self.add_error("starts" if day == timezone.now().astimezone(self.tz).date() else "day",
                                "Esa hora ya pasó. Elige un día y una hora que todavía no lleguen.")
+        # Repeating: every week or every N, or on the dates of a series of events; always with a last day.
+        data["repeats"] = bool(data.get("repeat") or data.get("event_series"))
+        until = data.get("until")
+        if data["repeats"] and "until" not in self.errors:
+            if until is None:
+                self.add_error("until", "Escribe hasta qué día se repite.")
+            elif day and until < day:
+                self.add_error("until", "Elige un día igual o posterior al primero.")
+            elif until > self.today + timedelta(days=repeticion.MAX_AHEAD_DAYS):
+                self.add_error("until", "Una reserva se repite a lo más seis meses. Elige un día más cercano.")
+        elif until is not None and not data["repeats"] and "repeat" not in self.errors:
+            self.add_error("repeat", "Elegiste un último día: di cada cuánto se repite, o borra ese día.")
         return data
 
 

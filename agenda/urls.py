@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import duplicate, series_views, simple, views
+from . import duplicate, extras_views, series_views, simple, views
 
 app_name = "agenda"
 
@@ -35,6 +35,10 @@ urlpatterns = [
     path("<slug:slug>/inscritos/<int:registration_id>/retirar-autorizacion/", views.consent_revoke, name="consent_revoke"),
     path("<slug:slug>/inscritos/<int:registration_id>/agregar-a-personas/", views.guest_promote, name="guest_promote"),
     path("<slug:slug>/inscritos/<int:registration_id>/acompanar/", views.visit_follow_up, name="visit_follow_up"),
+    path("<slug:slug>/preguntas-de-inscripcion/", extras_views.questions_list, name="questions"),
+    path("<slug:slug>/preguntas-de-inscripcion/<int:question_id>/", extras_views.question_edit, name="question_edit"),
+    path("<slug:slug>/preguntas-de-inscripcion/<int:question_id>/quitar/", extras_views.question_delete, name="question_delete"),
+    path("<slug:slug>/conteo/", extras_views.headcount, name="headcount"),
     path("<slug:slug>/preguntas/", views.faq, name="faq"),
     path("<slug:slug>/preguntas/<int:faq_id>/", views.faq_edit, name="faq_edit"),
     path("<slug:slug>/preguntas/<int:faq_id>/borrar/", views.faq_delete, name="faq_delete"),

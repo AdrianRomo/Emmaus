@@ -7,6 +7,8 @@
   to set up and to clear. Under the button, what pressing it really does. When the hours are taken the page lists
   what is in the way; changing the hours stays the filled action, and only the administration gets, set apart under
   it and after that list, the button that keeps the booking anyway.
+  The same form asks for a booking that repeats (espacios.repeticion): «¿Se repite?» and its last day, after the
+  hours. Then the day is the first one, the series is decided once, and the page that follows is the series'.
 {% endcomment %}
 <div class="narrow spaces">
   {% if clashes %}
@@ -43,6 +45,15 @@
         {% include "partials/ui/field.html" with field=form.ends %}
       </div>
     </fieldset>
+    <fieldset class="form-section" aria-describedby="ayuda-repetir">
+      <legend class="form-section__title">Si se repite</legend>
+      <p class="hint" id="ayuda-repetir">El mismo día de la semana y las mismas horas, desde el día de arriba y hasta el día que digas: a lo más seis meses desde hoy. {% if request.is_church_admin or not space.needs_approval %}Cada fecha se aparta solo si el horario está libre.{% else %}La administración la aprueba una sola vez, completa.{% endif %}</p>
+      <div class="spaces__pair">
+        {% include "partials/ui/field.html" with field=form.repeat %}
+        {% include "partials/ui/field.html" with field=form.until %}
+      </div>
+      {% if form.event_series %}{% include "partials/ui/field.html" with field=form.event_series %}{% endif %}
+    </fieldset>
     <fieldset class="form-section" aria-describedby="ayuda-preparar">
       <legend class="form-section__title">Preparar y recoger</legend>
       <p class="hint" id="ayuda-preparar">{{ form.buffer_help }}</p>
@@ -64,6 +75,6 @@
     {% endif %}
   </form>
   <p class="aside-note">{% if request.is_church_admin %}Como administración, tu reserva queda aprobada en el momento.{% elif space.needs_approval %}El horario queda apartado mientras la administración de tu iglesia decide.{% else %}Este espacio no pide aprobación: si el horario está libre, queda reservado.{% endif %}</p>
-  <p class="aside-note">Las horas son las de tu iglesia. Una reserva es de un solo día; todavía no hay reservas que se repitan cada semana.</p>
+  <p class="aside-note">Las horas son las de tu iglesia. Una reserva que se repite aparta sus fechas con 8 semanas de anticipación{% if space.needs_approval and not request.is_church_admin %}, a partir de que la administración la aprueba: mientras espera no aparta nada{% endif %}. Si un día ya está ocupado, ese día no se aparta y la serie te lo dice.</p>
 </div>
 {% endblock %}

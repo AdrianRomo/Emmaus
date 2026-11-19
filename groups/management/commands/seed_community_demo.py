@@ -89,6 +89,15 @@ SECOND_CHURCH_GROUP = {
     "meeting_time": time(19, 0), "meeting_place": "Salón principal",
     "description": "Nos vemos cada semana para platicar de la vida y de la fe.",
 }
+# --directorio: adults with an account (no date of birth and no camp: nothing marks them as minors), the stage the
+# administration wrote, a group (an index of GROUPS, or none) and what each chose to show; None: did not choose to appear.
+DIRECTORY_PEOPLE = [
+    ("fernanda.directorio@demo.invalid", "Fernanda", "Lozano Prieto", "miembro", 0, ("phone", "email", "groups")),
+    ("gerardo.directorio@demo.invalid", "Gerardo", "Mendiola Tapia", "miembro", 2, ("phone",)),
+    ("hilda.directorio@demo.invalid", "Hilda", "Navarrete Osorio", "asistente", None, ()),
+    ("ivan.directorio@demo.invalid", "Iván", "Peralta Zúñiga", "asistente", 2, ("groups", "teams")),
+    ("julia.directorio@demo.invalid", "Julia", "Quintero Esparza", "miembro", None, None),
+]
 CAMPEROS = [
     ("Valeria Soto Marín", 17), ("Emilio Vargas Peña", 18), ("Renata Aguilar Cruz", 15), ("Santiago Mora Díaz", 16),
     ("Ximena Robles Vega", 14), ("Leonardo Pineda Sol", 19), ("Camila Fuentes Ríos", 16), ("Matías Ochoa Lara", 15),
@@ -119,6 +128,9 @@ class Command(BaseCommand):
         parser.add_argument("--formularios", action="store_true", help="Agrega un formulario de la iglesia y uno público, publicados, con respuestas sintéticas y sus pendientes, para ver Formularios y Pendientes.")
 
         parser.add_argument("--rotas", action="store_true", help="Agrega al equipo Bienvenida roles, fechas con lo que necesitan, una rotación, el orden de una fecha y un cambio pedido, para ver la rotación de Servir.")
+        parser.add_argument("--directorio", action="store_true", help="Agrega un pastor, enciende el directorio entre miembros (aceptado por ese pastor) y cinco personas adultas inventadas: cuatro eligieron aparecer, cada una mostrando algo distinto, y una no.")
+        parser.add_argument("--repeticion", action="store_true", help="Agrega la serie semanal Reunión general, dos reservas del Salón 2 que se repiten (una por decidir, una aprobada con un día que no se pudo apartar) y hace que el equipo Bienvenida sirva en cada fecha de la serie, con una plantilla del orden y un día que no hay.")
+        parser.add_argument("--visitas", action="store_true", help="Agrega un evento público con inscripción para quien no tiene cuenta (preguntas, una visita inscrita, una en lista de espera y una solicitud sin confirmar) y una serie con el conteo de sus últimas fechas, para ver la inscripción sin cuenta y «¿Cuántos vinimos?».")
         parser.add_argument("--oracion", action="store_true", help="Agrega un pastor, enciende las peticiones de oración (aceptadas por ese pastor) y dos peticiones inventadas, marcadas como de demostración.")
 
     def handle(self, *args, **opts):
@@ -164,12 +176,22 @@ class Command(BaseCommand):
                 self._rotas(church, admin, leader, member, asked, password)
             if opts["oracion"]:
                 self._prayer_requests(church, admin, leader, password)
+            if opts["directorio"]:
+                self._directory(church, admin, groups, password)
+            if opts.get("repeticion"):
+                self._what_repeats(church, admin, leader, member)
+            if opts["visitas"]:
+                self._visitors(church, admin, member)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
             accounts.append(("Pastor (Panorama)", PASTOR))
         elif opts["oracion"]:
             accounts.append(("Pastor (peticiones)", PASTOR))
+        if opts["directorio"]:
+            if not (opts["panorama"] or opts["oracion"]):
+                accounts.append(("Pastor (directorio)", PASTOR))
+            accounts += [("En el directorio", DIRECTORY_PEOPLE[0][:3]), ("Miembro que no aparece", DIRECTORY_PEOPLE[-1][:3])]
         if opts.get("dos_iglesias"):
             accounts += [("Dos iglesias", TWO_CHURCHES), ("Administración (2.ª iglesia)", SECOND_ADMIN)]
         for label, (email, *_rest) in accounts:
@@ -180,7 +202,7 @@ class Command(BaseCommand):
         a public one (a visitor leaves their contact), both published, with a few synthetic answers. Each form is
         looked up by its title, so running the seed again adds nothing. Every contact is ``@demo.invalid``.
         Only adults answer the form of the church: a person on record as a minor (``member`` is 17) neither sees
-        nor answers one (``formularios.services.is_known_minor``), and the seed must not do what the screens refuse."""
+        nor answers one (``people.minors.known_minor``, asked by ``formularios.services.is_known_minor``), and the seed must not do what the screens refuse."""
         from formularios import services as forms
         from formularios.fields import AnswerForm
         from formularios.models import Form
@@ -573,6 +595,82 @@ class Command(BaseCommand):
                 readers = prayer_access.readers(church, apart_from=person.user)
                 prayers.create(church, person, body=body, token=prayers.readers_token(readers, prayers.terms(church)))
 
+    def _directory(self, church, admin, groups, password) -> None:
+        """--directorio: a pastor who accepted what the church offers, and adults who chose for themselves, each
+        through the same two steps as the screen (the preview's token, then the choice). Never in the plain seed:
+        a database seeded without the flag has the directory off and nobody in it."""
+        from people import directory
+
+        pastor = self._account(*PASTOR, password)
+        assign_role(pastor, church, Role.PASTOR)
+        people_services.ensure_own_person(pastor, church)
+        if not directory.is_on(church):
+            directory.switch_on(church, pastor, accepted=True, wording=directory.WORDING_VERSION)
+        for email, first, last, stage, group_index, fields in DIRECTORY_PEOPLE:
+            person = self._person(church, email, first, last, password)
+            if person.stage != stage:
+                people_services.set_stage(church, person.pk, stage, admin, seen=person.stage)
+                person.refresh_from_db()
+            if group_index is not None and not GroupMembership.objects.filter(group=groups[group_index], person=person).exists():
+                group_services.set_membership(groups[group_index], person, admin, role=GroupMembership.Role.MEMBER)
+            if fields is not None and not directory.is_listed(person):
+                token = directory.preview_token(person, fields, directory.preview(church, person, fields))
+                directory.opt_in(church, person, person.user, fields=fields, token=token)
+
+    def _visitors(self, church, admin, member) -> None:
+        """Wave 12 (issue #93): an event anybody can sign up for without an account, with two questions, three
+        places and a waiting list (a member and a visitor in, a visitor waiting, a request nobody confirmed), and a
+        weekly series whose last dates have a headcount, one of them with few children. Every name and address is
+        invented (``@demo.invalid``). Run again, it adds nothing."""
+        from agenda import headcounts, questions, visitors
+        from agenda import services as agenda
+        from agenda.models import EventPage, EventSeries, SeriesOccurrence
+        from agenda.simple import create_simple_event
+
+        today = timezone.localdate()
+        if not Event.objects.filter(church=church, slug="desayuno-de-bienvenida-demo").exists():
+            day = today + timedelta(days=9)
+            event = create_simple_event(church, admin, name="Desayuno de bienvenida", slug="desayuno-de-bienvenida-demo",
+                                        kind=Event.Kind.OTHER, location="Salón principal", starts_on=day, ends_on=day)
+            agenda.save_page(event, admin, published=True, public=True, registration="abierta", capacity=3, waiting_list=True,
+                             starts_at=time(9, 30), visitor_signup=True, visitor_phone=True,
+                             description="Un desayuno para conocer a quienes nos visitan por primera vez.")
+            food = questions.save_question(event, admin, text="¿Te quedas a la plática después del desayuno?", kind="si_no", required=True)
+            heard = questions.save_question(event, admin, text="¿Cómo te enteraste?", kind="opcion",
+                                            options="Por alguien de la iglesia\nPor redes sociales\nPasé por aquí")
+            mine = agenda.register(event, member, member.user)
+            questions.save_answers(mine, {str(food.pk): "Sí", str(heard.pk): "Por alguien de la iglesia"})
+            people = (
+                ("Visita", "Inscrita Demo", "visita.inscrita@demo.invalid", {str(food.pk): "No", str(heard.pk): "Pasé por aquí"}),
+                ("Visita", "Con Nombre Muy Largo de la Demostración Hernández", "visita.larga@demo.invalid", {str(food.pk): "Sí"}),
+                ("Visita", "En Espera Demo", "visita.espera@demo.invalid", {str(food.pk): "Sí"}),
+            )
+            for first, last, address, answers in people:
+                # The first one ticked «La iglesia puede guardar mi nombre y mi teléfono…»; the others did not.
+                visitors.request(event, first_name=first, last_name=last, phone="55 5550 0102", email=address, answers=answers,
+                                 contact_consent=address == "visita.inscrita@demo.invalid")
+                visitors.confirm(visitors.VisitorRequest.objects.get(event=event, email=address))
+            visitors.request(event, first_name="Visita", last_name="Sin Confirmar", phone="55 5550 0103",
+                             email="visita.pendiente@demo.invalid", answers={str(food.pk): "Sí"})
+        if not EventSeries.objects.filter(church=church, name="Servicio dominical").exists():
+            sunday = today - timedelta(days=(today.weekday() + 1) % 7 or 7)
+            from agenda import series
+
+            weekly = series.create_series(
+                church, admin, name="Servicio dominical", weekdays="6", interval_weeks=1, starts_at=time(11, 0),
+                duration_minutes=90, location="Templo principal", time_zone="America/Mexico_City", starts_on=today,
+                description="Cada domingo nos reunimos para cantar, orar y escuchar la Biblia.", published=True,
+            )
+            counts = ((96, 80, 16), (88, None, None), (104, 84, 20), (71, 68, 3), (112, 90, 22), (99, None, 4))
+            for weeks, (total, adults, children) in zip(range(len(counts), 0, -1), counts):
+                day = sunday - timedelta(weeks=weeks - 1)
+                past = Event.objects.create(church=church, name="Servicio dominical", slug=f"servicio-dominical-demo-{day:%Y%m%d}",
+                                            kind=Event.Kind.OTHER, location="Templo principal", starts_on=day, ends_on=day,
+                                            camp_tools=False, join_by_name=False)
+                EventPage.objects.create(event=past, published=True, starts_at=time(11, 0), created_by=admin)
+                SeriesOccurrence.objects.create(series=weekly, day=day, event=past)
+                headcounts.record(past, admin, total=total, adults=adults, children=children)
+
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
         user.first_name, user.last_name, user.email, user.is_active = first, last, email, True
@@ -620,6 +718,54 @@ class Command(BaseCommand):
         mine = dates[0].assignments.filter(person=member).first()
         if mine is not None and asked.pk in {person.pk for person in rotas.swap_candidates(mine)}:
             rotas.request_swap(mine, asked, member.user)
+
+    def _what_repeats(self, church, admin, leader, member) -> None:
+        """--repeticion (wave 12): what a church repeats every week. The weekly series «Reunión general»; two bookings of
+        «Salón 2» that repeat (the guide's, which waits for the administration and holds nothing; the administration's,
+        approved, whose first day falls on the guide's one-day request and so could not be booked); and the team
+        «Bienvenida» serving on every date of the series, with what each role asks per date, a template of the order
+        and one day the series called off with somebody asked. Run again, it adds nothing. Synthetic people only."""
+        from agenda import series as event_series
+        from agenda.models import EventSeries, SeriesOccurrence
+        from espacios import repeticion
+        from espacios.models import BookingSeries, Space
+        from serving import follow, rotas, services as serving
+        from serving.models import PlanItem, PlanTemplate, ServiceDate, Team, TeamRole
+
+        self._weekly_series(church, admin)
+        weekly = EventSeries.objects.get(church=church, name="Reunión general")
+        today = timezone.localdate()
+        room = Space.objects.filter(church=church, name="Salón 2").first()
+        # By their own titles: a series somebody else asked for (the browser journey leaves one, ended) is not these two.
+        seeded = ("Ensayo del grupo de alabanza", "Clase de nuevos miembros")
+        if room is not None and not BookingSeries.objects.filter(space__church=church, title__in=seeded).exists():
+            admin_person = Person.objects.get(church=church, user=admin)
+            repeticion.request_series(
+                room, leader, leader.user, title="Ensayo del grupo de alabanza", starts_on=today + timedelta(days=4),
+                ends_on=today + timedelta(weeks=12), starts_at=time(17, 0), ends_at=time(18, 30), setup_minutes=15,
+            )
+            repeticion.request_series(
+                room, admin_person, admin, title="Clase de nuevos miembros", starts_on=today + timedelta(days=3),
+                ends_on=today + timedelta(weeks=20), starts_at=time(19, 30), ends_at=time(20, 30), approve=True,
+            )
+        team = Team.objects.filter(church=church, name="Bienvenida").first()
+        if team is None or team.follows_series_id is not None:
+            return
+        if not TeamRole.objects.filter(team=team).exists():
+            rotas.save_role(team, leader.user, name="Puerta", default_count=2)
+        template = PlanTemplate.objects.filter(team=team).first()
+        if template is None:
+            first = ServiceDate.objects.filter(team=team, date__gte=today).order_by("date").first()
+            if first is not None:
+                if not PlanItem.objects.filter(service_date=first).exists():
+                    for title, minutes in (("Abrir puertas y saludar", 20), ("Anuncios", 5), ("Despedida en la salida", 15)):
+                        rotas.save_plan_item(first, leader.user, title=title, minutes=minutes)
+                template = follow.save_template(first, leader.user, "Servicio dominical")
+        follow.follow(team, admin, weekly, is_church_admin=True, default_template=template)
+        written = list(ServiceDate.objects.filter(team=team, occurrence__isnull=False).order_by("date")[:3])
+        if len(written) == 3:
+            serving.assign(written[2], member, leader.user)
+            event_series.call_off(SeriesOccurrence.objects.get(pk=written[2].occurrence_id), admin)
 
     def _duplicates(self, church) -> None:
         """--duplicados: one synthetic pair for "Posibles duplicados". Same e-mail, another phone, no account, no rows."""

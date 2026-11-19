@@ -9,6 +9,9 @@
   each a page load because each has fields. A role is a line: its name, whether it is for adults, «Guardar», and the
   quiet «Ya no se usa». The rotation is a list per role: a name and its turn. Nothing here assigns a date: the
   rotation only proposes, on its own page.
+  Wave 12: a role also says how many people a new date asks for («Personas por fecha»); a fourth form says which
+  series of events the team serves on (its dates are then written by serving.follow) and the template its new
+  dates start with; and the team's templates of the order are listed, each with its quiet «Quitar» (its page asks).
 {% endcomment %}
 <div class="narrow serving">
   {% url 'serving:team' team.pk as back %}
@@ -16,7 +19,7 @@
 
   <section class="form-section" aria-labelledby="roles">
     <h2 id="roles" class="heading form-section__title">Roles</h2>
-    <p class="hint">Lo que alguien hace ese día: Bienvenida, Sonido, Proyección. En cada fecha dices cuántas personas necesita cada rol.</p>
+    <p class="hint">Lo que alguien hace ese día: Bienvenida, Sonido, Proyección. «Personas por fecha» es lo que pide cada fecha nueva; en cada fecha lo puedes cambiar.</p>
     {% if roles %}
       <ul class="role-list">
         {% for role in roles %}
@@ -26,6 +29,10 @@
               <input type="hidden" name="rol" value="{{ role.pk }}">
               <label class="visually-hidden" for="rol-nombre-{{ role.pk }}">Nombre del rol</label>
               <input class="input" id="rol-nombre-{{ role.pk }}" type="text" name="nombre" value="{{ role.name }}" maxlength="60" required>
+              <span class="role-edit__n">
+                <label class="label" for="rol-por-fecha-{{ role.pk }}">Personas por fecha<span class="visually-hidden">: {{ role.name }}</span></label>
+                <input class="input input--small" id="rol-por-fecha-{{ role.pk }}" type="number" name="por_fecha" value="{{ role.default_count }}" min="0" max="{{ max_need }}" inputmode="numeric">
+              </span>
               <label class="check" for="rol-adultos-{{ role.pk }}"><input id="rol-adultos-{{ role.pk }}" type="checkbox" name="solo_adultos" value="si"{% if role.adults_only %} checked{% endif %}><span class="check__text">Solo personas adultas</span></label>
               <span class="role-edit__end">
                 <button class="btn btn--link" type="submit">Guardar<span class="visually-hidden"> el rol {{ role.name }}</span></button>
@@ -44,6 +51,11 @@
         <label class="label" for="rol-nuevo">Agregar un rol</label>
         <span class="hint" id="rol-nuevo-ayuda">Una o dos palabras, por ejemplo: Sonido.</span>
         <input id="rol-nuevo" type="text" name="nombre" maxlength="60" required aria-describedby="rol-nuevo-ayuda">
+      </div>
+      <div class="field">
+        <label class="label" for="rol-nuevo-por-fecha">Personas por fecha <span class="optional">(opcional)</span></label>
+        <span class="hint" id="rol-nuevo-por-fecha-ayuda">Cuántas personas de este rol pide cada fecha nueva. Con 0, ninguna.</span>
+        <input class="input--small" id="rol-nuevo-por-fecha" type="number" name="por_fecha" value="0" min="0" max="{{ max_need }}" inputmode="numeric" aria-describedby="rol-nuevo-por-fecha-ayuda">
       </div>
       <div class="field">
         <label class="check" for="rol-nuevo-adultos"><input id="rol-nuevo-adultos" type="checkbox" name="solo_adultos" value="si"><span class="check__text">Solo personas adultas<small>Emmaus solo deja este rol a quien la iglesia ya le confirmó la edad. Si no se sabe la edad de alguien, no se le propone ni se le asigna.</small></span></label>
@@ -86,6 +98,59 @@
     {% else %}
       <p class="empty-line">Todavía no hay nadie en el equipo. La administración de la iglesia es quien agrega a las personas.</p>
     {% endif %}
+  </section>
+
+  <section class="form-section" aria-labelledby="serie">
+    <h2 id="serie" class="heading form-section__title">Fechas que siguen una serie</h2>
+    {% if series %}
+      <p class="hint">Si el equipo sirve en cada fecha de una serie de eventos de la iglesia, elígela: Emmaus escribe las fechas del equipo conforme la serie escribe las suyas, con lo que cada rol pide por fecha. No le pide a nadie servir: eso lo haces tú, o la rotación que confirmas.</p>
+      <form method="post" action="{% url 'serving:follow_save' team.pk %}">
+        {% csrf_token %}
+        <div class="field">
+          <label class="label" for="serie-elegida">Servimos en cada fecha de</label>
+          <select id="serie-elegida" name="serie">
+            <option value="">Ninguna serie: las fechas se escriben a mano</option>
+            {% for row in series %}<option value="{{ row.pk }}"{% if row.pk == team.follows_series_id %} selected{% endif %}>{{ row.name }} ({{ row.rule }})</option>{% endfor %}
+          </select>
+        </div>
+        {% if templates %}
+        <div class="field">
+          <label class="label" for="plantilla-elegida">Las fechas nuevas empiezan con el orden</label>
+          <select id="plantilla-elegida" name="plantilla">
+            <option value="">Sin orden</option>
+            {% for template in templates %}<option value="{{ template.pk }}"{% if template.pk == team.default_template_id %} selected{% endif %}>{{ template.name }}</option>{% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="form-actions">
+          <button class="btn btn--secondary" type="submit">Guardar la serie</button>
+        </div>
+      </form>
+      <p class="aside-note">Las fechas que ya escribiste a mano no cambian, y un día que ya tiene una no recibe otra. Si la serie dice que un día no hay, la fecha del equipo se cancela ese día. Emmaus no avisa: avísales tú.</p>
+    {% else %}
+      <p class="empty-line">{% if request.is_church_admin %}La iglesia todavía no tiene series de eventos. Se crean en Eventos.{% else %}La iglesia no tiene series de eventos publicadas. Las crea la administración, en Eventos.{% endif %}</p>
+    {% endif %}
+  </section>
+
+  <section class="form-section" aria-labelledby="plantillas">
+    <h2 id="plantillas" class="heading form-section__title">Plantillas del orden{% if templates %} <span class="count">{{ templates|length }}</span>{% endif %}</h2>
+    {% if templates %}
+      <ul class="rows">
+        {% for template in templates %}
+          <li class="row row--lead row--stack">
+            <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
+            <div class="row__main">
+              <p class="row__title">{{ template.name }}</p>
+              <p class="row__meta">{{ template.moments }} momento{{ template.moments|pluralize }}, {{ template.minutes|default:0 }} minuto{{ template.minutes|default:0|pluralize }}{% if template.pk == team.default_template_id %}. Con ella empiezan las fechas nuevas{% endif %}.</p>
+            </div>
+            <div class="row__end"><a class="btn btn--link btn--quieto" href="{% url 'serving:template_delete' team.pk template.pk %}">Quitar<span class="visually-hidden"> la plantilla {{ template.name }}</span></a></div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Sin plantillas todavía.</p>
+    {% endif %}
+    <p class="aside-note">Una plantilla se guarda desde el «Orden del día» de una fecha: lleva los momentos y sus minutos, sin responsables. Un equipo guarda {{ max_templates }} como máximo. No lleva canciones, letras, acordes, archivos ni enlaces.</p>
   </section>
 
   <section class="form-section" aria-labelledby="ajustes">

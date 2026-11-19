@@ -1,0 +1,19 @@
+{% load community %}{% comment %}
+  The headcounts of the last dates of a series (agenda.headcounts.series_trend / church_trends; issue #93): a plain
+  table, the total with its bar against the largest of the dates shown. Numbers of people counted, never names. The
+  parts come already told by ``headcounts.told``: a small number of children is words, and then the adults are not
+  shown either. Needs: dates, caption.
+{% endcomment %}<div class="table-wrap"><table class="table conteo-tabla">
+  <caption class="visually-hidden">{{ caption }}</caption>
+  <thead><tr><th scope="col">Fecha</th><th scope="col">Personas</th><th scope="col">Adultas</th><th scope="col">Niñas y niños</th></tr></thead>
+  <tbody>
+    {% for item in dates %}
+    <tr>
+      <th scope="row">{{ item.day|day_month }}</th>
+      <td><span class="meter"><span class="conteo-tabla__n">{{ item.total }}</span><span class="meter__track" aria-hidden="true"><span class="meter__fill" style="width:{{ item.share }}%"></span></span></span></td>
+      <td>{% if item.adults is not None %}{{ item.adults }}{% else %}<span class="visually-hidden">Sin dato</span><span aria-hidden="true">—</span>{% endif %}</td>
+      <td>{% if item.children is not None %}{{ item.children }}{% elif item.children_words %}{{ item.children_words }}{% else %}<span class="visually-hidden">Sin dato</span><span aria-hidden="true">—</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table></div>

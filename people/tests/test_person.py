@@ -156,7 +156,9 @@ class MigrationScopeTests(TestCase):
              "0004_person_birth_date_verified.py", "0005_person_merge_and_duplicate_dismissal.py",  # 0005: wave 9, two new tables
              # wave 10, all additive: the stage (2 columns), the key dates (3 columns), tags (2 tables)
              # and the imports (1 table, 1 column, one more choice of ``created_from``)
-             "0006_person_stage.py", "0007_person_key_dates.py", "0008_tags.py", "0009_people_import.py"],
+             "0006_person_stage.py", "0007_person_key_dates.py", "0008_tags.py", "0009_people_import.py",
+             # wave 12, additive: the directory between members (2 tables: the church's switch, each person's choice)
+             "0010_directory.py"],
         )
         with self.assertRaises(SystemExit) as caught:  # pragma: no cover - only when something is missing
             call_command("makemigrations", "--check", "--dry-run", verbosity=0)

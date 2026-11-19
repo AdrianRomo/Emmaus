@@ -49,6 +49,7 @@
     </div>
   </form>
   {% if prayer_requests_on is not None %}<p class="aside-note">Peticiones de oración: {% if prayer_requests_on %}encendidas{% else %}apagadas{% endif %}. No se cambian aquí: solo quien tiene el rol de pastor en tu iglesia puede encenderlas o apagarlas, desde «Peticiones de oración», después de leer lo que la iglesia promete.</p>{% endif %}
+  {% if member_directory_on is not None %}<p class="aside-note">Directorio entre miembros: {% if member_directory_on %}encendido{% else %}apagado{% endif %}. No se cambia aquí: solo quien tiene el rol de pastor en tu iglesia puede encenderlo o apagarlo, después de leer lo que la iglesia ofrece. Aunque esté encendido, cada persona elige por su cuenta si aparece: la administración no puede elegir por nadie.</p>{% endif %}
   <p class="aside-note">Antes de guardar verás qué cambia. Cada cambio queda anotado en los movimientos de la iglesia, con quién lo hizo.</p>
 </div>
 {% endblock %}

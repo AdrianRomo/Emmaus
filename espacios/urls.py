@@ -16,4 +16,10 @@ urlpatterns = [
     path("administrar/nuevo/", views.space_create, name="space_create"),
     path("administrar/<int:space_id>/editar/", views.space_edit, name="space_edit"),
     path("uso/", views.usage, name="usage"),
+    # Bookings that repeat (espacios.repeticion)
+    path("series/<int:series_id>/", views.series_detail, name="series"),
+    path("series/<int:series_id>/terminar/", views.series_end, name="series_end"),
+    path("series/<int:series_id>/aprobar/", views.series_approve, name="series_approve"),
+    path("series/<int:series_id>/rechazar/", views.series_reject, name="series_reject"),
+    path("series/<int:series_id>/dias/<int:day_id>/apartar/", views.series_day_book, name="series_day_book"),
 ]

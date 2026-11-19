@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load shell %}
+{% block page_title %}Mis datos en {{ content.iglesia }}{% endblock %}
+{% block content %}
+{% comment %}
+  The download as a page to print (cuenta_datos.views.download, «Ver para imprimir»): the same content as the file,
+  drawn from the same dictionary. It is the answer to a POST and is not stored: leaving it loses it.
+{% endcomment %}
+<div class="narrow mis-datos mis-datos--impresion">
+  {% url 'cuenta_datos:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Mis datos en Emmaus" meta=content.iglesia back_url=back back_label="Volver a Mis datos en Emmaus" %}
+  <p class="aside-note">Generado el {{ generated }}. Esta página no se guarda: imprímela o guárdala como PDF desde tu navegador antes de salir. Textos incluidos: {{ included|join:"; " }}.</p>
+  {% for section in sections %}
+    <section class="block">
+      <h2 class="heading">{{ section.title }}</h2>
+      <p class="aside-note">{{ section.why }}</p>
+      {% for group in section.groups %}
+        <h3 class="mis-datos__grupo">{{ group.label }}</h3>
+        {% for row in group.rows %}
+          <dl class="summary-list">
+            {% for word, value in row.facts %}<div class="summary-list__row"><dt>{{ word|capfirst }}</dt><dd class="break-anywhere">{{ value|linebreaksbr }}</dd></div>{% endfor %}
+            {% for word, items in row.nested %}
+              <div class="summary-list__row"><dt>{{ word|capfirst }}</dt><dd>
+                <ul class="mis-datos__lista">{% for item in items %}<li>{% for k, v in item %}{{ k|capfirst }}: {{ v }}{% if not forloop.last %}. {% endif %}{% endfor %}</li>{% endfor %}</ul>
+              </dd></div>
+            {% endfor %}
+          </dl>
+        {% endfor %}
+      {% empty %}
+        <p class="empty-line">Nada guardado.</p>
+      {% endfor %}
+    </section>
+  {% endfor %}
+  <section class="block">
+    <h2 class="heading">Lo que esta página no trae</h2>
+    <ul class="prose mis-datos__lista">{% for line in not_included %}<li>{{ line }}</li>{% endfor %}</ul>
+  </section>
+</div>
+{% endblock %}

@@ -40,6 +40,10 @@ class EventPage(models.Model):
     # Issue #96, second part: whoever reads the public page may leave an e-mail address to be told that there
     # is a new public notice of THIS event (``agenda.subscriptions``). Off unless the administration turns it on.
     notice_mail = models.BooleanField("Avisos por correo para quien no tiene cuenta", default=False, db_default=False)
+    # Issue #93 (wave 12): an adult without an account signs up from the public page (``agenda.visitors``). Off
+    # unless the administration turns it on, and never on while the event protects minors (``services.save_page``).
+    visitor_signup = models.BooleanField("Inscripción para quien no tiene cuenta", default=False, db_default=False)
+    visitor_phone = models.BooleanField("Pedir también un teléfono a quien se inscribe sin cuenta", default=False, db_default=False)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -112,6 +116,17 @@ class EventRegistration(models.Model):
     guest_first_name = models.CharField("Nombre", max_length=120, blank=True, default="", db_default="")
     guest_last_name = models.CharField("Apellidos", max_length=120, blank=True, default="", db_default="")
     guest_phone = models.CharField("Teléfono", max_length=40, blank=True, default="", db_default="")
+    # A visitor who signed up by themselves from the public page (``agenda.visitors``, issue #93): the address they
+    # confirmed, the random key their private link is signed over, and when they confirmed. ``visitor_key`` is
+    # empty (NULL) on every other row. The age of such a row is self-declared: ``guest_age_checked`` stays False.
+    guest_email = models.EmailField("Correo", max_length=254, blank=True, default="", db_default="")
+    visitor_key = models.CharField(max_length=64, null=True, blank=True, unique=True, editable=False)
+    visitor_confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Such a visitor's answer to the optional box «La iglesia puede guardar mi nombre y mi teléfono para invitarme a
+    # otras actividades» (unticked by default) and when they gave it (when they sent the form; NULL: never asked).
+    # Only with a yes may the administration add them to the church's people (``services.promote_guest``).
+    visitor_contact_consent = models.BooleanField(default=False, db_default=False)
+    visitor_contact_consent_at = models.DateTimeField(null=True, blank=True)
     # What the team said at the door: "es menor de edad". For a visitor it is all the church knows;
     # for a person of the church it counts only while the date of birth is unknown.
     guest_is_minor = models.BooleanField("Es menor de edad", default=False, db_default=False)
@@ -157,10 +172,14 @@ class EventRegistration(models.Model):
                 ),
                 name="agenda_reg_offer_has_deadline",
             ),
-            # The waiting list is for people of the church: a visitor is written down at the door.
+            # The waiting list is for who can answer an offer: a person of the church, or a visitor who signed up
+            # with a confirmed address (their private link). A visitor the team wrote at the door never waits.
             models.CheckConstraint(
-                condition=~models.Q(status__in=["en_espera", "ofrecida"]) | models.Q(person__isnull=False),
-                name="agenda_reg_list_is_person",
+                condition=(
+                    ~models.Q(status__in=["en_espera", "ofrecida"]) | models.Q(person__isnull=False)
+                    | models.Q(visitor_key__isnull=False)
+                ),
+                name="agenda_reg_list_person_or_visitor",
             ),
         ]
         indexes = [models.Index(fields=["event", "status"], name="agenda_reg_event_status_idx")]
@@ -201,7 +220,18 @@ class EventRegistration(models.Model):
 
     @property
     def contact_email(self) -> str:
-        return "" if self.person_id is None else self.person.email
+        return self.guest_email if self.person_id is None else (self.person.email or self.guest_email)
+
+    @property
+    def is_visitor_signup(self) -> bool:
+        """Somebody without an account signed up from the public page and confirmed their address."""
+        return self.visitor_key is not None
+
+    @property
+    def may_join_people(self) -> bool:
+        """«Agregar a personas de la iglesia» applies to this row: a visitor the team wrote at the door, or one who
+        signed up alone and said yes to the church keeping their name and phone."""
+        return self.person_id is None and (self.visitor_key is None or self.visitor_contact_consent)
 
     @property
     def waits_for(self) -> str:
@@ -546,3 +576,119 @@ class SeriesOccurrence(models.Model):
     @property
     def cancelled(self) -> bool:
         return self.status == self.Status.CANCELLED
+
+
+class VisitorRequest(models.Model):
+    """Somebody without an account filled the sign-up form of ONE event's public page and has not proved the
+    address yet (issue #93; ``agenda.visitors``). It holds no place. Only pressing the button behind the signed
+    link of its one e-mail turns it into an ``EventRegistration``; then ``registration`` says which, so the same
+    link shows the same result. Never a ``Person``, never an account, shown to nobody: the administration reads
+    how many wait, as a number. Deleted 48 hours after its e-mail was sent, confirmed or not."""
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="visitor_requests")
+    first_name = models.CharField(max_length=120)
+    last_name = models.CharField(max_length=120, blank=True, default="")
+    phone = models.CharField(max_length=40, blank=True, default="")
+    email = models.EmailField(max_length=254)
+    email_hash = models.CharField(max_length=64)
+    limit_hash = models.CharField(max_length=64)
+    key = models.CharField(max_length=64, unique=True)
+    # {question id: the answer as text}, as the form validated it; written as rows when the request is confirmed.
+    answers = models.JSONField(default=dict, blank=True)
+    # The optional box of the form, carried to the registration when the request is confirmed (its time: ``created_at``).
+    contact_consent = models.BooleanField(default=False, db_default=False)
+    created_at = models.DateTimeField(default=timezone.now)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    registration = models.ForeignKey(EventRegistration, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    confirm_outcome = models.CharField(max_length=10, choices=MailOutcome.choices, default=MailOutcome.PENDING, db_default=MailOutcome.PENDING)
+    confirm_attempts = models.PositiveSmallIntegerField(default=0, db_default=0)
+    confirm_last_attempt_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "solicitud de inscripción sin cuenta"
+        verbose_name_plural = "solicitudes de inscripción sin cuenta"
+        constraints = [models.UniqueConstraint(fields=["event", "limit_hash"], name="agenda_visitor_request_once_per_inbox")]
+        indexes = [models.Index(fields=["event", "confirmed_at"], name="agenda_visitor_req_event_idx")]
+
+    def __str__(self) -> str:  # never the name or the address
+        return f"Solicitud de inscripción {self.pk} a {self.event_id}"
+
+
+class EventQuestion(models.Model):
+    """One question the administration asks at sign-up (issue #93): up to five per event, one line of text, of
+    three kinds. Not a camp questionnaire and not a ``formularios`` form: the answers are logistics for the
+    event's administration ("¿Qué talla de playera?"), never about health, family or minors. A free-text question
+    is not asked while the event protects minors (``agenda.questions.asked``)."""
+
+    class Kind(models.TextChoices):
+        TEXT = "texto", "Texto corto"
+        CHOICE = "opcion", "Una opción de una lista"
+        YES_NO = "si_no", "Sí o no"
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="signup_questions")
+    text = models.CharField("Pregunta", max_length=120)
+    kind = models.CharField("Tipo de respuesta", max_length=8, choices=Kind.choices, default=Kind.YES_NO)
+    # One option per line, for ``opcion``.
+    options = models.TextField("Opciones", blank=True, default="")
+    required = models.BooleanField("Hay que responderla para inscribirse", default=False)
+    position = models.PositiveSmallIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "pregunta de la inscripción a un evento"
+        verbose_name_plural = "preguntas de la inscripción a eventos"
+        ordering = ["position", "id"]
+
+    def __str__(self) -> str:
+        return f"Pregunta {self.pk} de la inscripción a {self.event_id}"
+
+    @property
+    def option_list(self) -> list[str]:
+        return [line for line in self.options.splitlines() if line]
+
+
+class RegistrationAnswer(models.Model):
+    """What one registration answered to one question of its event's sign-up: the words, as they were then. Read
+    only by the event's administration on "Inscritos"; exported nowhere; deleted with the question, with the
+    registration, when the registration is cancelled, and some days after the event ends."""
+
+    registration = models.ForeignKey(EventRegistration, on_delete=models.CASCADE, related_name="answers")
+    question = models.ForeignKey(EventQuestion, on_delete=models.CASCADE, related_name="answers")
+    value = models.CharField(max_length=120)
+
+    class Meta:
+        verbose_name = "respuesta de una inscripción"
+        verbose_name_plural = "respuestas de inscripciones"
+        constraints = [models.UniqueConstraint(fields=["registration", "question"], name="agenda_one_answer_per_question")]
+
+    def __str__(self) -> str:
+        return f"Respuesta {self.pk}"
+
+
+class EventHeadcount(models.Model):
+    """"¿Cuántos vinimos?": how many people were at one gathering, as somebody counted them at the door or from the
+    back (issue #93). Numbers only: no name, no list, nothing per person. It is never worked out from the named
+    attendance of the registrations and never changes it. ``adults`` and ``children`` are optional."""
+
+    event = models.OneToOneField(Event, on_delete=models.CASCADE, related_name="headcount")
+    total = models.PositiveIntegerField("Total")
+    adults = models.PositiveIntegerField("Personas adultas", null=True, blank=True)
+    children = models.PositiveIntegerField("Niñas y niños", null=True, blank=True)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    recorded_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "conteo de asistencia de un evento"
+        verbose_name_plural = "conteos de asistencia de eventos"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    (models.Q(adults__isnull=True) | models.Q(adults__lte=models.F("total")))
+                    & (models.Q(children__isnull=True) | models.Q(children__lte=models.F("total")))
+                ),
+                name="agenda_headcount_parts_within_total",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Conteo de {self.event_id}"

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load community shell %}
+{% block page_title %}Mis datos en Emmaus{% endblock %}
+{% block content %}
+{% comment %}
+  «Mis datos en Emmaus» (cuenta_datos.views.home): what Emmaus holds about the signed-in person in the church of the
+  request, by category, from ONE registry (cuenta_datos.registry). A row is a category: what it is, why Emmaus has it,
+  how many rows there are, and one way to the screen where it is seen or changed. Never a text the person wrote, never
+  another person's name. The one filled action is the download; a known minor reads why there is none.
+{% endcomment %}
+<div class="narrow mis-datos">
+  {% url 'account' as back %}
+  {% url 'cuenta_datos:download' as download_url %}
+  {% if may_download %}
+    {% include "events/rotulo/_page_head.html" with title="Mis datos en Emmaus" meta=current_church.name back_url=back back_label="Volver a Mi cuenta" action_url=download_url action_label="Descargar mis datos" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Mis datos en Emmaus" meta=current_church.name back_url=back back_label="Volver a Mi cuenta" %}
+    <div class="notice"><p>Para descargar tus datos o pedir que los borren, tu mamá, tu papá o quien sea tu tutor lo pide directamente a la administración de tu iglesia. Aquí puedes ver qué guarda Emmaus sobre ti.</p></div>
+  {% endif %}
+
+  <section class="block" aria-labelledby="categorias">
+    <h2 id="categorias" class="heading">Lo que Emmaus guarda sobre ti</h2>
+    <ul class="rows">
+      {% for item in summaries %}
+        <li class="row row--lead row--stack">
+          <span class="hoy__icono" aria-hidden="true">{% icon item.category.icon %}</span>
+          <div class="row__main">
+            <p class="row__title">{{ item.category.title }}</p>
+            <p class="row__meta">{{ item.category.why }}</p>
+            {% if item.words %}
+              {% for line in item.words %}<p class="row__meta">{{ line }}</p>{% endfor %}
+            {% elif item.parts %}
+              <ul class="mis-datos__cuenta">
+                {% for label, count in item.parts %}<li>{{ label }}: <strong>{{ count }}</strong></li>{% endfor %}
+              </ul>
+            {% else %}
+              <p class="row__meta">Nada guardado.</p>
+            {% endif %}
+          </div>
+          {% if item.where %}<div class="row__end"><a class="btn btn--link" href="{{ item.where.1 }}">{{ item.where.0 }}</a></div>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if other_churches %}<p class="aside-note">Eres parte de más de una iglesia. Esto es solo lo de {{ current_church.name }}: para ver lo de otra, <a href="{{ back }}#otra-iglesia">cambia de iglesia en Mi cuenta</a>.</p>{% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="no-esta">
+    <h2 id="no-esta" class="heading">Lo que no está aquí</h2>
+    <ul class="prose mis-datos__lista">
+      {% for line in not_included %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  {% if may_download %}
+  <section class="block" id="borrado" aria-labelledby="borrado-titulo">
+    <h2 id="borrado-titulo" class="heading">Pedir que borren mis datos</h2>
+    {% if open_request %}
+      <ul class="rows">
+        <li class="row row--lead row--stack">
+          <span class="hoy__icono" aria-hidden="true">{% icon "reloj" %}</span>
+          <div class="row__main">
+            <p class="row__title">Pediste que borren: {{ open_request.get_ask_display|lower }}</p>
+            <p class="row__meta">El {{ open_request.created_at|long_date }}. La administración de tu iglesia te responderá; Emmaus no borra nada por sí solo.</p>
+          </div>
+          <form class="row__end" method="post" action="{% url 'cuenta_datos:withdraw' open_request.pk %}" data-inline="borrado">
+            {% csrf_token %}
+            <button class="btn btn--link btn--quieto" type="submit">Retirar solicitud</button>
+          </form>
+        </li>
+      </ul>
+    {% else %}
+      <p class="aside-note">Emmaus no borra nada automáticamente. Tu solicitud le llega a la administración de tu iglesia, que te responderá; algunos registros se conservan por regla de la iglesia.</p>
+      <p><a class="btn btn--link ir" href="{% url 'cuenta_datos:ask_removal' %}">Pedir que borren mis datos</a></p>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

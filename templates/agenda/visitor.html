@@ -1,0 +1,231 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus brand community shell %}
+{% block title %}{% if form.errors or answers.errors %}Error: {% endif %}{% if state == "mine" or state == "result" or state == "closed" %}Tu inscripción{% else %}Inscripción{% endif %}{% if event %} a {{ event.name }}{% endif %}{% endblock %}
+{% block body %}
+{% comment %}
+  The pages of signing up for an event without an account (agenda.visitor_views; issue #93): the form, what it
+  answers, the button that confirms, where the visitor stands, their private link, and the one text for a link
+  that does not work. Like the public page and the e-mail subscriptions it extends the skeleton and wears the
+  event's church: whoever reads it sees the same page. One thing to do per page and one filled button. It never
+  shows another person, a count or the places left; of the visitor it shows the name only on their own private
+  page. What happens to the data is a plain list (promises: none may be dropped), true whether or not the optional
+  box «La iglesia puede guardar mi nombre…» is ticked. The words about age are policy. "full": the event takes no
+  more requests now (the same for every address). "closed": the private link while the church or the event no
+  longer offers this; it shows nothing of the event and wears no church.
+{% endcomment %}
+<header class="bar bar--public">
+  <div class="bar__inner">
+    {% if church %}{% church_brand church size="bar" %}{% else %}<span class="wordmark">Emmaus</span>{% endif %}
+  </div>
+</header>
+<main id="contenido" class="page" tabindex="-1">
+<div class="narrow public-event public-event--correo visita">
+  {% if state == "form" %}
+    {% include "partials/ui/error_summary.html" with form=form %}
+    <a class="back-link" href="{{ back }}">Volver a la información del evento</a>
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Inscribirme a {{ event.name }}</h1>
+      <p class="page-head__meta">Sin cuenta, para una persona mayor de edad.</p>
+    </div></header>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="notice notice--danger" role="alert">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+      <section class="form-section" aria-labelledby="quien">
+        <h2 id="quien" class="form-section__title">Quién va</h2>
+        {% include "partials/ui/field.html" with field=form.first_name %}
+        {% include "partials/ui/field.html" with field=form.last_name %}
+        {% include "partials/ui/field.html" with field=form.email %}
+        {% if form.phone %}{% include "partials/ui/field.html" with field=form.phone %}{% endif %}
+      </section>
+      {% if answers.fields %}
+      <section class="form-section" aria-labelledby="preguntas">
+        <h2 id="preguntas" class="form-section__title">Lo que pregunta el evento</h2>
+        {% include "partials/ui/fields.html" with form=answers %}
+      </section>
+      {% endif %}
+      <section class="form-section" aria-labelledby="edad">
+        <h2 id="edad" class="form-section__title">Tu edad</h2>
+        {% include "partials/ui/field.html" with field=form.adult %}
+        <p class="aside-note">Si eres menor de edad, o quieres inscribir a alguien menor de edad, hazlo en {{ church.name }}: desde aquí no se puede.</p>
+      </section>
+      <section class="form-section" aria-labelledby="despues">
+        <h2 id="despues" class="form-section__title">Después del evento</h2>
+        {% include "partials/ui/field.html" with field=form.keep %}
+        <p class="aside-note">Es opcional. Si no la marcas, no se queda nada de ti cuando se borra tu inscripción.</p>
+      </section>
+      <div class="form-actions">
+        <button class="btn btn--primary btn--large" type="submit">Pedir mi inscripción</button>
+      </div>
+    </form>
+    <section class="block" aria-labelledby="como">
+      <h2 id="como" class="heading">Qué pasa después</h2>
+      <ul class="public-event__lista">
+        <li>Enviar esta página todavía no te da un lugar. Te enviamos un solo correo con un enlace para confirmar que la dirección es tuya; puede tardar un rato.</li>
+        <li>Solo cuando confirmas ocupas un lugar. Si para entonces ya no hay lugares, {% if has_list %}quedas en la lista de espera y la página te lo dice{% else %}la página te lo dice y no se hace tu inscripción{% endif %}.</li>
+        <li>Si no confirmas, lo que escribiste se borra cuando el enlace vence, a las {{ confirm_hours }} horas.</li>
+        <li>Tu nombre, tu correo{% if form.phone %}, tu teléfono{% endif %} y tus respuestas los ve solo la administración de {{ church.name }}, para organizar este evento. Tu correo no se usa para nada más.</li>
+        <li>Tu inscripción, tu correo y tus respuestas se borran {{ retention_days }} días después de que termine el evento.</li>
+        <li>Si marcas que la iglesia puede guardar tu nombre{% if form.phone %} y tu teléfono{% endif %}, la administración puede agregarte a las personas de {{ church.name }} para invitarte a otras actividades. Entonces se quedan tu nombre{% if form.phone %}, tu teléfono{% endif %} y tu inscripción a este evento; tu correo y tus respuestas se borran igual. Si no lo marcas, nadie puede agregarte y no se queda nada.</li>
+        <li>Inscribirte aquí no te da una cuenta en Emmaus.</li>
+      </ul>
+    </section>
+  {% elif state == "asked" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Revisa tu correo</h1>
+      <p class="page-head__meta">Todavía no tienes un lugar en {{ event.name }}.</p>
+    </div></header>
+    <ul class="public-event__lista">
+      <li>Si con esa dirección todavía no había una inscripción ni una solicitud para este evento, te enviaremos un correo con un enlace para confirmar. Puede tardar un rato; si no llega, revisa la carpeta de correo no deseado.</li>
+      <li>Solo cuando abres el enlace y confirmas ocupas un lugar. El enlace sirve {{ confirm_hours }} horas desde que se envía.</li>
+      <li>Si ya habías pedido o confirmado tu inscripción con esa dirección, no cambia nada y no recibes otro correo: usa el que ya tienes.</li>
+      <li>Para cuidar las bandejas de otras personas, Emmaus envía muy pocos correos de confirmación a una misma dirección.</li>
+    </ul>
+    <div class="form-actions"><a class="btn btn--secondary" href="{{ back }}">Volver a la información del evento</a></div>
+  {% elif state == "full" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Inscribirme a {{ event.name }}</h1>
+    </div></header>
+    <div class="notice notice--warning" role="status">
+      <p class="notice__title">Por ahora no podemos recibir más inscripciones para este evento.</p>
+      <p>Intenta más tarde o pregunta en la iglesia.{% if sent %} No guardamos nada de lo que escribiste.{% endif %}</p>
+    </div>
+    <div class="form-actions"><a class="btn btn--secondary" href="{{ back }}">Volver a la información del evento</a></div>
+  {% elif state == "closed" %}
+    <header class="page-head"><div class="page-head__text">
+      <h1 class="voice page-head__title">Tu inscripción</h1>
+      <p class="page-head__meta">Por ahora esta página no muestra nada del evento.</p>
+    </div></header>
+    {% if message %}<div class="notice notice--success" role="status"><p>{{ message }}</p></div>{% endif %}
+    {% if error %}<div class="notice notice--danger" role="alert"><p>{{ error }}</p></div>{% endif %}
+    {% if asking %}
+      <section class="sign" aria-labelledby="cancelar">
+        <h2 id="cancelar" class="sign__title">¿Quieres cancelar tu inscripción?</h2>
+        <p class="sign__text">Tu lugar quedará libre para alguien más.</p>
+        <form class="sign__actions" method="post" action="{{ manage_path }}">
+          {% csrf_token %}<input type="hidden" name="accion" value="cancelar">
+          <button class="btn btn--primary btn--large" type="submit">Sí, cancelar mi inscripción</button>
+          <a class="btn btn--link" href="{{ manage_path }}">No, volver</a>
+        </form>
+      </section>
+    {% elif can_cancel %}
+      <p>Si ya no vas a ir, puedes cancelar tu inscripción desde aquí. Para cualquier otra cosa, pregunta en la iglesia.</p>
+      <p><a class="btn btn--link btn--quieto" href="{{ manage_path }}?cancelar=1">Cancelar mi inscripción</a></p>
+    {% elif listed %}
+      <p>Si ya no quieres esperar un lugar, puedes salir de la lista de espera desde aquí. Para cualquier otra cosa, pregunta en la iglesia.</p>
+      <form method="post" action="{{ manage_path }}">{% csrf_token %}<button class="btn btn--link btn--quieto" type="submit" name="accion" value="salir">Salir de la lista de espera</button></form>
+    {% elif holding %}
+      <p>Si ya no vas a ir, avisa en la iglesia.</p>
+    {% else %}
+      <p>Esta inscripción ya no está vigente.</p>
+    {% endif %}
+  {% elif state == "confirm" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">Confirma tu inscripción</h1>
+      <p class="page-head__meta">A {{ event.name }}, {{ event.starts_on|date_range:event.ends_on }}.</p>
+    </div></header>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-actions">
+        <button class="btn btn--primary btn--large" type="submit">Sí, inscribirme</button>
+      </div>
+    </form>
+    <p class="aside-note">Al confirmar ocupas un lugar, si todavía hay. Si no fuiste tú quien lo pidió, cierra esta página: sin confirmar no se inscribe a nadie y la solicitud se borra sola.</p>
+  {% elif state == "refused" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">No se hizo tu inscripción</h1>
+      <p class="page-head__meta">{{ event.name }}</p>
+    </div></header>
+    <div class="notice notice--warning">
+      {% if reason == "full" %}<p class="notice__title">Ya no hay lugares.</p><p>Se ocuparon antes de que confirmaras. Si se libera uno, este mismo enlace sirve para intentarlo otra vez mientras no venza. También puedes preguntar en {{ church.name }}.</p>
+      {% elif reason == "registration_over" %}<p class="notice__title">La inscripción a este evento ya cerró.</p><p>Si quieres ir, pregunta en {{ church.name }}.</p>
+      {% elif reason == "ended" %}<p class="notice__title">Este evento ya terminó.</p>
+      {% else %}<p class="notice__title">La inscripción sin cuenta ya no está disponible para este evento.</p><p>Si quieres ir, inscríbete en {{ church.name }}.</p>{% endif %}
+    </div>
+  {% elif state == "result" or state == "mine" %}
+    <header class="page-head"><div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">{% if state == "mine" %}Tu inscripción a {{ event.name }}{% elif standing == "inscrita" %}Listo, ya tienes tu lugar{% elif standing == "en_espera" or standing == "ofrecido" or standing == "ofrecido_pausa" %}Quedaste en la lista de espera{% elif standing == "pendiente" %}Recibimos tu inscripción{% else %}Tu inscripción a {{ event.name }}{% endif %}</h1>
+      <p class="page-head__meta">{% if state == "result" %}{{ event.name }}, {% endif %}{{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, {{ event.location }}{% endif %}</p>
+    </div></header>
+    {% if message %}<div class="notice notice--success" role="status"><p>{{ message }}</p></div>{% endif %}
+    {% if error %}<div class="notice notice--danger" role="alert"><p>{{ error }}</p></div>{% endif %}
+
+    {% if asking %}
+      <section class="sign" aria-labelledby="cancelar">
+        <h2 id="cancelar" class="sign__title">¿Quieres cancelar tu inscripción?</h2>
+        <p class="sign__text">Tu lugar quedará libre para alguien más. Si cambias de opinión, tendrás que inscribirte otra vez desde la página del evento, mientras haya lugar.</p>
+        <form class="sign__actions" method="post" action="{{ manage_path }}">
+          {% csrf_token %}<input type="hidden" name="accion" value="cancelar">
+          <button class="btn btn--primary btn--large" type="submit">Sí, cancelar mi inscripción</button>
+          <a class="btn btn--link" href="{{ manage_path }}">No, volver</a>
+        </form>
+      </section>
+    {% elif standing == "inscrita" %}
+      <ul class="meta estado">
+        <li>{% status "completada" "Inscripción confirmada" %}</li>
+        <li>A nombre de {{ registration.display_name }}</li>
+      </ul>
+      {% if not can_cancel %}<p class="aside-note">El evento ya empezó: si no vas a poder ir, avisa en {{ church.name }}.</p>{% endif %}
+    {% elif standing == "pendiente" %}
+      <div class="notice notice--warning">
+        <p class="notice__title">Tu inscripción está pendiente.</p>
+        <p>Este evento ahora cuida a los menores de edad: el equipo de {{ church.name }} tiene que confirmar tu edad. Conservas tu lugar; acércate con el equipo de la iglesia, que te dirá qué necesita ver.</p>
+      </div>
+    {% elif standing == "ofrecido" %}
+      <section class="sign" aria-labelledby="lugar-ofrecido">
+        <h2 id="lugar-ofrecido" class="sign__title">Se liberó un lugar para ti</h2>
+        <p class="sign__text">Lo guardamos hasta el {{ registration.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }}. Después se lo ofrecemos a la siguiente persona de la lista.</p>
+        <form class="sign__actions" method="post" action="{{ manage_path }}">
+          {% csrf_token %}
+          <button class="btn btn--primary btn--large" type="submit" name="accion" value="aceptar">Aceptar mi lugar</button>
+          <button class="btn btn--link btn--quieto" type="submit" name="accion" value="salir">No voy a usar el lugar</button>
+        </form>
+      </section>
+    {% elif standing == "ofrecido_pausa" %}
+      <div class="notice notice--warning"><p class="notice__title">Te ofrecimos un lugar, pero por ahora no se puede aceptar.</p><p>{% if started %}El evento ya empezó.{% else %}La inscripción está cerrada.{% endif %} Si quieres ir, pregunta en {{ church.name }}.</p></div>
+    {% elif standing == "en_espera" %}
+      <div class="notice">
+        <p class="notice__title">Estás en la lista de espera: todavía no tienes lugar.</p>
+        <p>{{ position_text }} Cuando se libere un lugar y te toque, te lo ofrecemos y tendrás {{ offer_hours }} horas para aceptarlo desde esta página. Emmaus intenta avisarte por correo; el correo puede tardar o no llegar, así que conviene volver a esta página.</p>
+      </div>
+      <form method="post" action="{{ manage_path }}">{% csrf_token %}<button class="btn btn--link btn--quieto" type="submit" name="accion" value="salir">Salir de la lista de espera</button></form>
+    {% else %}
+      <ul class="meta estado"><li>{% status "descartada" "Sin inscripción" %}</li></ul>
+      <p>Esta inscripción ya no está vigente: se canceló o salió de la lista de espera.{% if public_path %} Si quieres ir, puedes inscribirte otra vez desde <a href="{{ public_path }}">la página del evento</a>, mientras haya lugar.{% endif %}</p>
+    {% endif %}
+
+    {% if not asking and standing != "cancelada" %}
+    <section class="block" aria-labelledby="enlace">
+      <h2 id="enlace" class="heading">Tu enlace privado</h2>
+      {% if state == "result" %}
+        <p>Guarda este enlace: con él ves tu inscripción{% if can_cancel %} y la cancelas si ya no vas a ir{% endif %}. No te lo enviamos por correo, y quien lo tenga puede hacer lo mismo que tú.</p>
+        <div class="field admin-link">
+          <label class="label" for="enlace-privado">Enlace de tu inscripción</label>
+          <input class="input" id="enlace-privado" value="{{ request.scheme }}://{{ request.get_host }}{{ manage_path }}" readonly>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn--secondary" type="button" data-copy="enlace-privado" data-copy-done="Enlace copiado">Copiar enlace</button>
+          <a class="btn btn--link" href="{{ manage_path }}">Abrir mi inscripción</a>
+        </div>
+      {% else %}
+        <p>Esta página es tu enlace privado: guárdala en tus marcadores. Quien tenga la dirección puede hacer lo mismo que tú.</p>
+        {% if can_cancel %}<p><a class="btn btn--link btn--quieto" href="{{ manage_path }}?cancelar=1">Cancelar mi inscripción</a></p>{% endif %}
+      {% endif %}
+    </section>
+    {% endif %}
+    {% if public_path and not asking %}<p class="public-event__mas"><a class="btn btn--link" href="{{ public_path }}">Ver la información del evento</a></p>{% endif %}
+  {% else %}
+    <header class="page-head"><div class="page-head__text">
+      <h1 class="voice page-head__title">Este enlace ya no sirve</h1>
+      <p class="page-head__meta">Puede que haya vencido, que esté incompleto o que la inscripción ya se haya borrado.</p>
+    </div></header>
+    <p>Si querías confirmar una inscripción, pídela otra vez desde la página del evento. Si ya tenías tu inscripción y necesitas cancelar, avisa en la iglesia.</p>
+  {% endif %}
+</div>
+</main>
+{% endblock %}

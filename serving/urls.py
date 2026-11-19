@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import rota_views, views
+from . import follow_views, rota_views, views
 
 app_name = "serving"
 
@@ -34,4 +34,9 @@ urlpatterns = [
     path("fechas/<int:date_id>/orden/", rota_views.plan, name="plan"),
     path("fechas/<int:date_id>/orden/copiar/", rota_views.plan_copy, name="plan_copy"),
     path("fechas/<int:date_id>/orden/<int:item_id>/", rota_views.plan_item, name="plan_item"),
+    # Wave 12: dates that follow a series of events, and templates of the order (serving.follow_views).
+    path("equipos/<int:team_id>/serie/", follow_views.follow_save, name="follow_save"),
+    path("equipos/<int:team_id>/plantillas/<int:template_id>/quitar/", follow_views.template_delete, name="template_delete"),
+    path("fechas/<int:date_id>/orden/plantilla/guardar/", follow_views.template_save, name="template_save"),
+    path("fechas/<int:date_id>/orden/plantilla/usar/", follow_views.template_use, name="template_use"),
 ]

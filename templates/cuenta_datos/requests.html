@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load community shell %}
+{% block page_title %}Solicitudes sobre datos personales{% endblock %}
+{% block content %}
+{% comment %}
+  The open requests of people who asked to have their data removed (cuenta_datos.views.request_list), for the
+  church's administration. A row: who asks, which of the three fixed things, and since when; its title opens the task.
+{% endcomment %}
+<div class="narrow mis-datos">
+  {% url 'formularios:queue' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Solicitudes sobre datos personales" back_url=back back_label="Volver a Pendientes" %}
+  {% if requests %}
+    <ul class="rows">
+      {% for row in requests %}
+        <li class="row row--lead">
+          {% monogram row.who %}
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'cuenta_datos:request' row.pk %}">{{ row.who }}</a></p>
+            <p class="row__meta">Pide que borren: {{ row.get_ask_display|lower }}. Desde el {{ row.created_at|long_date }}.</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Emmaus no borra nada por sí solo ni le avisa a la persona: respóndele tú. Lo que se conserva y por cuánto tiempo lo decide la iglesia.</p>
+  {% else %}
+    {% include "partials/ui/empty.html" with title="Nadie ha pedido que borren sus datos." text="Cuando alguien lo pida desde «Mis datos en Emmaus», aparece aquí y en Pendientes." %}
+  {% endif %}
+</div>
+{% endblock %}

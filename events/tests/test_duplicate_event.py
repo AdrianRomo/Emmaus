@@ -124,6 +124,13 @@ class NothingOfThePeopleTests(DuplicateFixture):
 
         EventSubscription.objects.create(event=event, email="suscrita@demo.invalid", email_hash="h" * 64, key="k" * 43)
         EventScheduleItem.objects.create(event=event, day=event.starts_on, starts_at=time(9, 0), title="Bienvenida")
+        # Wave 12 (issue #93): a question at sign-up, a request to sign up without an account, a headcount.
+        from agenda.models import EventHeadcount, EventQuestion, VisitorRequest
+
+        EventQuestion.objects.create(event=event, text="¿Te quedas a comer?")
+        VisitorRequest.objects.create(event=event, first_name="Visita", email="visita@demo.invalid", email_hash="v" * 64,
+                                      limit_hash="l" * 64, key="q" * 43)
+        EventHeadcount.objects.create(event=event, total=40)
         # A camp is never a date of a series (agenda.series); the row is here so that the copy is proven to have none.
         from agenda.models import EventSeries, SeriesOccurrence
 

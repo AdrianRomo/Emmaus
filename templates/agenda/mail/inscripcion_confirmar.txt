@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Alguien pidió inscribirse a «{{ event_name }}», de {{ church_name }}, con esta dirección. Si fuiste tú, abre este enlace y confirma:
+
+{{ link }}
+
+El enlace sirve 48 horas. Mientras no confirmes no tienes lugar en el evento. Si no fuiste tú, no hagas nada: sin tu confirmación no se inscribe a nadie y los datos de la solicitud se borran solos.
+{% endautoescape %}

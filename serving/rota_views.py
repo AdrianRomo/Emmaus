@@ -22,7 +22,7 @@ from groups.views import community_view
 from people.models import Person
 
 from . import reminders, rotas, services
-from .models import Assignment, PlanItem, ServiceDate, SwapRequest, Team, TeamRole
+from .models import Assignment, PlanItem, PlanTemplate, ServiceDate, SwapRequest, Team, TeamRole
 from .views import _coordinated_team, _may_manage, _weekday_date, try_again
 
 
@@ -63,8 +63,19 @@ def organize(request, team_id: int):
     for role in roles:
         places = {person_id: position for position, person_id in enumerate(orders.get(role.pk, []), start=1)}
         role.places = [(person, places.get(person.pk, "")) for person in members]
+    from . import follow
+
+    # What the team follows is always offered, also when this person could not choose it afresh (a series still in
+    # preparation that the administration set): its name is on the team's dates already.
+    series = list(follow.series_choices(team, is_church_admin=request.is_church_admin))
+    if team.follows_series_id is not None and team.follows_series_id not in {row.pk for row in series}:
+        series.insert(0, team.follows_series)
+    for row in series:
+        row.rule = follow.event_series_rules.rule_words(row)
     return render(request, "serving/organize.html", {"team": team, "roles": roles, "members": members,
-                                                       "weeks": range(1, rotas.MAX_EVERY_WEEKS + 1)})
+                                                       "weeks": range(1, rotas.MAX_EVERY_WEEKS + 1), "series": series,
+                                                       "templates": follow.templates_of(team), "max_need": rotas.MAX_NEED,
+                                                       "max_templates": follow.MAX_TEMPLATES})
 
 
 @community_view
@@ -76,6 +87,9 @@ def role_save(request, team_id: int):
     if request.POST.get("rol"):
         role = get_object_or_404(TeamRole, pk=_number(request.POST.get("rol"), 0), team=team, active=True)
     fields = {"name": request.POST.get("nombre", ""), "adults_only": request.POST.get("solo_adultos") == "si"}
+    # "Personas por fecha": absent from the form (an older page) leaves it as it is; anything that is not a number is refused.
+    if "por_fecha" in request.POST:
+        fields["default_count"] = _number(request.POST.get("por_fecha") or "0", -1)
     try:
         saved = rotas.save_role(team, request.user, role=role, release_token=request.POST.get("confirmar", ""), **fields)
     except rotas.RoleNeedsConfirmation as pending:
@@ -332,6 +346,8 @@ def plan(request, date_id: int):
         "day": service_date, "team": service_date.team, "items": items, "manages": manages,
         "total": sum(item.minutes for item in items), "people": rotas.plan_people(service_date) if manages else [],
         "previous": rotas.previous_with_plan(service_date) if manages and not items else None,
+        "templates": list(PlanTemplate.objects.filter(team=service_date.team)) if manages else [],
+        "called_off": service_date.called_off,
     })
 
 

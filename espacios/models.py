@@ -108,3 +108,99 @@ class Booking(models.Model):
     @property
     def holds(self) -> bool:
         return self.status in self.HOLDING
+
+
+MAX_INTERVAL_WEEKS = 4
+
+
+class BookingSeries(models.Model):
+    """A booking that repeats: "cada miércoles, de 19:00 a 21:00, hasta el 30 de mayo". A rule, as
+    ``agenda.EventSeries`` is: its dates are ORDINARY ``Booking`` rows, written ahead for a rolling
+    window by ``espacios.repeticion.generate``, one by one under the clash rule of every booking.
+
+    The weekday is the one ``starts_on`` falls on. ``ends_on`` is always set and never far (the
+    service refuses more than ``repeticion.MAX_AHEAD_DAYS``): a series cannot hold a room for ever.
+
+    With ``event_series`` (the administration only) the dates are the dates of that series of events
+    instead of the rule: each takes the hour its event starts and this series' own duration."""
+
+    class Status(models.TextChoices):
+        REQUESTED = "solicitada", "Por decidir"
+        APPROVED = "aprobada", "Aprobada"
+        REJECTED = "rechazada", "Rechazada"
+        ENDED = "terminada", "Terminada"
+
+    space = models.ForeignKey(Space, on_delete=models.PROTECT, related_name="booking_series")
+    title = models.CharField("Para qué es", max_length=120)
+    interval_weeks = models.PositiveSmallIntegerField("Cada cuántas semanas", default=1)
+    starts_on = models.DateField("Desde qué día")
+    ends_on = models.DateField("Hasta qué día")
+    # Hours on the wall clock of the church: 10:00 is 10:00 before and after a change of clock.
+    starts_at = models.TimeField("Empieza a las")
+    ends_at = models.TimeField("Termina a las")
+    setup_minutes = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(MAX_BUFFER_MINUTES)])
+    teardown_minutes = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(MAX_BUFFER_MINUTES)])
+    requested_by = models.ForeignKey(Person, on_delete=models.SET_NULL, null=True, blank=True, related_name="space_booking_series")
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.REQUESTED)
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    # Why the administration said no. Read only by the administration; never copied to the activity log.
+    decision_reason = models.CharField("Motivo", max_length=200, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    ended_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    event_series = models.ForeignKey("agenda.EventSeries", on_delete=models.SET_NULL, null=True, blank=True, related_name="space_booking_series")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "reserva que se repite"
+        verbose_name_plural = "reservas que se repiten"
+        ordering = ["starts_on", "id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(interval_weeks__gte=1) & Q(interval_weeks__lte=MAX_INTERVAL_WEEKS), name="espacios_series_interval_1_to_4",
+            ),
+            models.CheckConstraint(condition=Q(ends_on__gte=F("starts_on")), name="espacios_series_ends_after_start"),
+        ]
+        indexes = [models.Index(fields=["space", "status"], name="espacios_series_space_idx")]
+
+    def __str__(self) -> str:
+        return f"Reserva que se repite {self.pk}"
+
+    @property
+    def live(self) -> bool:
+        """Approved and not ended: the only state in which dates are written."""
+        return self.status == self.Status.APPROVED
+
+
+class BookingSeriesDay(models.Model):
+    """The series' memory of one of its days, so a day is decided once: two passes never write it
+    twice (the constraint), a day somebody cancelled ("Este día no") is not booked again, and a day
+    that could not be booked stays listed for the administration instead of being tried for ever.
+
+    * ``apartada``: ``booking`` is the ordinary booking of that day (it may since be cancelled).
+    * ``ocupado``: another booking held those hours when the day was written. Nothing was booked.
+    * ``sin_hora``: that local hour does not exist that day (the clock is set forward). Nothing was booked.
+
+    ``day`` is the day the rule gave; for a series that follows a series of events it is the day of
+    that series' rule (``agenda.SeriesOccurrence.day``), which never moves."""
+
+    class Outcome(models.TextChoices):
+        BOOKED = "apartada", "Apartada"
+        TAKEN = "ocupado", "No se pudo apartar: ya está ocupado"
+        NO_HOUR = "sin_hora", "No se pudo apartar: esa hora no existe ese día"
+
+    series = models.ForeignKey(BookingSeries, on_delete=models.CASCADE, related_name="days")
+    day = models.DateField()
+    outcome = models.CharField(max_length=10, choices=Outcome.choices)
+    booking = models.OneToOneField(Booking, on_delete=models.SET_NULL, null=True, blank=True, related_name="series_day")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "día de una reserva que se repite"
+        verbose_name_plural = "días de reservas que se repiten"
+        ordering = ["day", "id"]
+        constraints = [models.UniqueConstraint(fields=["series", "day"], name="espacios_one_day_per_series")]
+
+    def __str__(self) -> str:
+        return f"{self.day} de la reserva que se repite {self.series_id}"

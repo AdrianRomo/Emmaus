@@ -46,9 +46,21 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    (``oracion.services.prune``, what ``prune_prayer_requests --apply`` runs), in every church whatever its module
    flags and whatever its own switch: it only deletes. The count it logs is one number for the whole server.
 
+10. ``lo_que_se_repite``: what follows a rule is written ahead, after the series of events wrote their own dates
+   (job 4): the bookings of each room booking that repeats (``espacios.repeticion.generate_due``; a date whose
+   hours are taken is not booked, it is listed for the administration) and the dates of each team that serves on
+   every date of a series of events (``serving.follow.sync_due``). In the active churches that use the
+   ``community`` module. A date is written once however many passes run; a series or a team that could not be
+   written makes the pass a failed one, and one half failing never stops the other.
+
+11. ``inscripciones_visitas``: signing up for an event without an account (``agenda.visitors.run_pass``). Its
+    deletions run in every church whatever is switched off: the requests nobody confirmed 48 hours after their
+    e-mail, and what a sign-up answered once the event's own retention is over. Its e-mails (the one that asks to
+    confirm) only with the community jobs on, ``EMMAUS_PUBLIC_BASE_URL`` and a mail backend that delivers.
+
 Two classes of work (``core.scheduler.DELETING_JOBS``):
 
-* 2, 3, 4, 8 and the e-mails of 7 ACT for a church (send, generate, move a list). They are the community jobs:
+* 2, 3, 4, 8, 10 and the e-mails of 7 ACT for a church (send, generate, move a list). They are the community jobs:
   ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill switch, ``EMMAUS_V2_MODULES=false``) stops
   them, and each one works only in the churches that use its module.
 * 5, 6, 9 and the deletions of 7 only DELETE what the product promised to delete. They run on every pass
@@ -147,6 +159,20 @@ def event_subscriptions_verdict(done: dict) -> str:
     return subscriptions.verdict(done)
 
 
+def visitor_signups() -> dict:
+    """Signing up without an account (``agenda.visitors``): the deletions always; the e-mails that ask to confirm
+    only while the community jobs are on."""
+    from agenda import visitors
+
+    return visitors.run_pass(budget_seconds=SUBSCRIPTION_BUDGET_SECONDS, acting=scheduler.community_jobs_enabled())
+
+
+def visitor_signups_verdict(done: dict) -> str:
+    from agenda import visitors
+
+    return visitors.verdict(done)
+
+
 def send_serving_reminders() -> dict:
     from serving import reminders
 
@@ -163,6 +189,28 @@ def delete_expired_prayer_requests() -> dict:
     from oracion import services
 
     return {"deleted": services.prune(apply=True)}
+
+
+def write_what_repeats() -> dict:
+    """Both halves always run: one that raises is counted as failed and logged by its class name only."""
+    from espacios import repeticion
+    from serving import follow
+
+    done = {"bookings": 0, "dates": 0, "failed": 0}
+    for key, work in (("bookings", repeticion.generate_due), ("dates", follow.sync_due)):
+        try:
+            counts = work()
+        except Exception as error:  # noqa: BLE001 - the other half is still written
+            done["failed"] += 1
+            logger.error("A half of the job %s failed: %s\n%s", scheduler.REPETITION, type(error).__name__, scheduler.stack_of(error))
+        else:
+            done[key] += counts["created"]
+            done["failed"] += counts["failed"]
+    return done
+
+
+def repetition_verdict(done: dict) -> str:
+    return "RepetitionFailed" if done["failed"] else ""
 
 
 class Command(BaseCommand):
@@ -259,6 +307,27 @@ class Command(BaseCommand):
             return False, "peticiones de oración: error"
         return True, f"peticiones de oración: {run.counts['deleted']} vencidas borradas"
 
+    def repetition_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.REPETITION, write_what_repeats, verdict=repetition_verdict)
+        done = run.counts
+        if done is None:
+            return False, "lo que se repite: error"
+        line = f"lo que se repite: {done['bookings']} reservas apartadas, {done['dates']} fechas de equipos"
+        return run.ok, line if run.ok else f"{line}, {done['failed']} con error"
+
+    def visitor_signups_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.VISITOR_SIGNUPS, visitor_signups, verdict=visitor_signups_verdict)
+        done = run.counts
+        if done is None:
+            return False, "inscripciones sin cuenta: error"
+        line = f"inscripciones sin cuenta: {done['requests']} solicitudes vencidas borradas, {done['answers']} respuestas borradas"
+        if not scheduler.community_jobs_enabled():
+            return True, f"{line}, sin correos (los trabajos de comunidad están apagados)"
+        if done["not_configured"]:
+            return True, f"{line}, sin correos (falta la dirección pública o el correo)"
+        line += f", {done['confirmations']} correos enviados, {done['failed']} fallidos, {done['left']} pendientes"
+        return run.ok, line if run.ok else f"{line} (ningún correo está saliendo)"
+
     def run_once(self) -> bool:
         """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
@@ -272,6 +341,8 @@ class Command(BaseCommand):
             (self.notice_mail_summary, acting), (self.waiting_offers_summary, acting), (self.series_summary, acting),
             (self.person_merges_summary, True), (self.form_answers_summary, True), (self.event_subscriptions_summary, True),
             (self.serving_reminders_summary, acting), (self.prayer_retention_summary, True),
+            (self.repetition_summary, acting),
+            (self.visitor_signups_summary, True),
         ]
         for job, runs in jobs:
             if not runs:

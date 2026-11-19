@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block page_title %}{% if stale %}Error: {% endif %}Así te verán en el directorio{% endblock %}
+{% block content %}
+{% comment %}
+  The second step of «Aparecer en el directorio» (people.directory_views.mine, paso=ver): the person exactly as others
+  would see them (the list's own row), what they accept, and the one button that saves it. «visto» is a fingerprint
+  of everything shown here: if a value changed meanwhile, nothing is saved and this page is shown again.
+{% endcomment %}
+<div class="narrow directorio">
+  {% url 'directorio:mine' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Así te verán" meta="Todavía no se guarda nada." back_url=back back_label="Volver a Aparecer en el directorio" %}
+  {% if stale %}<div class="notice notice--warning" role="alert"><p>{{ stale }}</p></div>{% endif %}
+  <section class="block" aria-labelledby="vista">
+    <h2 id="vista" class="visually-hidden">Como aparecerías en la lista</h2>
+    <ul class="rows">{% include "people/_directory_row.html" %}</ul>
+    {% for line in empty %}<p class="aside-note">{{ line }}</p>{% endfor %}
+  </section>
+  <section class="block" aria-labelledby="aceptas">
+    <h2 id="aceptas" class="heading">Lo que aceptas al aparecer</h2>
+    {% include "people/_directory_wording.html" %}
+  </section>
+  <form class="block" method="post" action="{{ back }}">
+    {% csrf_token %}
+    {% for name in fields %}<input type="hidden" name="mostrar" value="{{ name }}">{% endfor %}
+    <input type="hidden" name="visto" value="{{ token }}">
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit" name="paso" value="confirmar">Aparecer así en el directorio</button>
+      <button class="btn btn--link" type="submit" name="paso" value="cambiar">Cambiar lo que elegí</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

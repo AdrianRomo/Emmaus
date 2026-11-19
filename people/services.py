@@ -75,10 +75,11 @@ SCREEN_FIELDS = (
 )
 
 
-def save_person(person: Person, actor, *, created: bool) -> Person:
+def save_person(person: Person, actor, *, created: bool, audit_name: str = "") -> Person:
     """The one way the screens write a person. A date of birth changed here is a claim: the model
     clears its verification (only ``verify_birth_date`` leaves a date verified). Refuses
-    (``PeopleError``, code ``merged``) a record that was merged into another one."""
+    (``PeopleError``, code ``merged``) a record that was merged into another one. ``audit_name``:
+    how the audit row names the person instead of their name (a visitor who typed it themselves)."""
     with transaction.atomic():
         person._age_facts_actor = actor
         if created:
@@ -95,7 +96,7 @@ def save_person(person: Person, actor, *, created: bool) -> Person:
             person.save(update_fields=SCREEN_FIELDS)
         action = "persona_creada" if created else "persona_modificada"
         verb = "Registró a" if created else "Modificó los datos de"
-        record_church(person.church, actor, action, f"{verb} {person.full_name}", person, person_id=person.pk)
+        record_church(person.church, actor, action, f"{verb} {audit_name or person.full_name}", person, person_id=person.pk)
     return person
 
 

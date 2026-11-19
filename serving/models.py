@@ -26,6 +26,11 @@ class Team(models.Model):
     swap_needs_approval = models.BooleanField("Los cambios necesitan mi visto bueno", default=False, db_default=False)
     reminder_days = models.PositiveSmallIntegerField("Recordatorio por correo", choices=REMINDER_CHOICES, default=0, db_default=0)
     rotation_every_weeks = models.PositiveSmallIntegerField("Cada cuántas semanas le toca a una persona", default=1, db_default=1)
+    # Wave 12 (docs/v2/wave12/repeticion.md): "servimos en cada fecha de «serie»". The team's dates are then
+    # written for the dates of that series of events of its church (serving.follow); empty: dates by hand only.
+    follows_series = models.ForeignKey("agenda.EventSeries", on_delete=models.SET_NULL, null=True, blank=True, related_name="serving_teams")
+    # The order a date written from the series starts with. Always a template of this same team.
+    default_template = models.ForeignKey("serving.PlanTemplate", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -84,6 +89,9 @@ class ServiceDate(models.Model):
     starts_at = models.TimeField("Hora", null=True, blank=True)
     what = models.CharField("Qué se necesita", max_length=120)
     place = models.CharField("Lugar", max_length=120, blank=True)
+    # The date of a series of events this date was written for (serving.follow); empty for a date made by hand.
+    # It is what says "ese día no hay": the date is called off while its occurrence is not on, read every time.
+    occurrence = models.ForeignKey("agenda.SeriesOccurrence", on_delete=models.SET_NULL, null=True, blank=True, related_name="serving_dates")
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -93,9 +101,16 @@ class ServiceDate(models.Model):
         verbose_name_plural = "fechas de servicio"
         ordering = ["date", "starts_at", "id"]
         indexes = [models.Index(fields=["team", "date"], name="serving_date_team_date_idx")]
+        constraints = [models.UniqueConstraint(fields=["team", "occurrence"], name="serving_one_date_per_occurrence")]
 
     def __str__(self) -> str:
         return f"{self.what} ({self.date})"
+
+    @property
+    def called_off(self) -> bool:
+        """The series said "este día no hay" (or no longer falls on this day): nobody serves. Read from the
+        occurrence every time, never stored: when the day is on again, so is the date, with its people."""
+        return self.occurrence_id is not None and self.occurrence.status != "activa"
 
 
 class Assignment(models.Model):
@@ -147,6 +162,9 @@ class TeamRole(models.Model):
     team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="roles")
     name = models.CharField("Nombre del rol", max_length=60)
     adults_only = models.BooleanField("Solo personas adultas", default=False)
+    # How many people of this role a new date asks for, unless the coordinator says otherwise: what a date
+    # written from a series takes, and what the form of a new date starts with. 0: none.
+    default_count = models.PositiveSmallIntegerField("Personas por fecha", default=0, db_default=0)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -246,6 +264,42 @@ class PlanItem(models.Model):
     class Meta:
         verbose_name = "momento del orden de una fecha"
         verbose_name_plural = "momentos del orden de las fechas"
+        ordering = ["position", "id"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class PlanTemplate(models.Model):
+    """A named order of a team to start a date from: "Servicio dominical". Titles and minutes only, never a
+    person (who is in charge is chosen on each date), and, as an order, no songs, files or links."""
+
+    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="plan_templates")
+    name = models.CharField("Nombre de la plantilla", max_length=60)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "plantilla del orden de un equipo"
+        verbose_name_plural = "plantillas del orden de los equipos"
+        ordering = ["name", "id"]
+        constraints = [models.UniqueConstraint(fields=["team", "name"], name="serving_one_template_per_name")]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class PlanTemplateItem(models.Model):
+    """One moment of a template: what and for how many minutes."""
+
+    template = models.ForeignKey(PlanTemplate, on_delete=models.CASCADE, related_name="items")
+    position = models.PositiveSmallIntegerField()
+    title = models.CharField("Qué", max_length=80)
+    minutes = models.PositiveSmallIntegerField("Minutos")
+
+    class Meta:
+        verbose_name = "momento de una plantilla"
+        verbose_name_plural = "momentos de las plantillas"
         ordering = ["position", "id"]
 
     def __str__(self) -> str:

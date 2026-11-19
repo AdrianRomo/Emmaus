@@ -126,6 +126,28 @@ ACTION_LABELS = {
     "oracion_politica": "Encendió, apagó o ajustó las peticiones de oración",
     "oracion_abierta": "Abrió una petición de oración",
     "oracion_atendida": "Marcó o respondió una petición de oración",
+    # A person's own data (cuenta_datos.services): the account and the person by id, the fixed choice, never a text.
+    "mis_datos_descargados": "Descargó sus propios datos",
+    "mis_datos_borrado_pedido": "Pidió que borren sus datos",
+    "mis_datos_borrado_retirado": "Retiró su solicitud de borrar sus datos",
+    "mis_datos_borrado_atendido": "Marcó como atendida una solicitud de borrar datos",
+    # The directory between members (people.directory): the pastor's switch, and each person's own choice.
+    "directorio_politica": "Encendió o apagó el directorio entre miembros",
+    "directorio_eleccion": "Eligió aparecer en el directorio entre miembros, o dejó de aparecer",
+    # What repeats (wave 12): bookings that repeat (espacios.repeticion), and the dates and order templates of a
+    # team that follows a series of events (serving.follow). Ids, counts and fixed words: never a title or a name.
+    "espacio_serie_solicitada": "Pidió una reserva que se repite",
+    "espacio_serie_aprobada": "Aprobó una reserva que se repite",
+    "espacio_serie_rechazada": "Rechazó una reserva que se repite",
+    "espacio_serie_terminada": "Terminó una reserva que se repite, o retiró su solicitud",
+    "espacio_serie_fechas": "Se apartaron fechas de una reserva que se repite",
+    "equipo_serie": "Dijo que un equipo sirve en cada fecha de una serie de eventos, o que ya no",
+    "equipo_serie_fechas": "Se escribieron fechas de un equipo que sigue una serie de eventos",
+    "equipo_plantilla": "Guardó, usó o quitó una plantilla del orden de un equipo",
+    # Wave 12, agenda (issue #93): sign-up without an account, questions at sign-up, the headcount of a gathering.
+    "evento_inscripcion_visita": "Alguien sin cuenta se inscribió a un evento",
+    "evento_preguntas_inscripcion": "Agregó, modificó o quitó una pregunta de la inscripción a un evento",
+    "evento_conteo": "Registró o corrigió cuántas personas vinieron a un evento",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -148,6 +170,9 @@ ALLOWED_METADATA = frozenset({
     "import_id", "kept",
     # A general form (formularios.services), by its id: never its title, a question, an answer or a contact.
     "form_id",
+    # The directory between members (people.directory): which of the four fixed fields a person chose to show
+    # (phone, email, groups, teams), by those words: never a number, an address or a name.
+    "fields",
 })
 
 

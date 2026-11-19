@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load community shell %}
+{% block page_title %}{% if form.errors or again_at %}Error: {% endif %}Descargar mis datos{% endblock %}
+{% block content %}
+{% comment %}
+  «Descargar mis datos» (cuenta_datos.views.download): what the file brings and what it never brings, said before; the
+  two kinds of text the person wrote, each behind its own box (off); the password again. The POST answers with the file
+  (JSON) or with the same content as a page to print; nothing is stored. Two a day; each one is in the activity log.
+{% endcomment %}
+<div class="narrow mis-datos">
+  {% url 'cuenta_datos:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Descargar mis datos" meta=current_church.name back_url=back back_label="Volver a Mis datos en Emmaus" %}
+  {% if not may_download %}
+    <div class="notice"><p>Para descargar tus datos, tu mamá, tu papá o quien sea tu tutor lo pide directamente a la administración de tu iglesia.</p></div>
+  {% else %}
+    {% if again_at %}<div class="notice notice--warning" role="alert"><p><strong>No se descargó nada.</strong> Ya descargaste tus datos {{ per_day }} veces en un día. Puedes volver a hacerlo el {{ again_at|day_and_hour }}.</p></div>{% endif %}
+    {% if form.errors %}{% include "partials/ui/error_summary.html" with form=form %}{% endif %}
+
+    <section class="block" aria-labelledby="contiene">
+      <h2 id="contiene" class="heading">Qué trae</h2>
+      <div class="prose">
+        <p>Lo que Emmaus guarda sobre ti en {{ current_church.name }}, por categoría, con fechas y en palabras. Puedes bajarlo como archivo (JSON, para guardarlo o abrirlo con otro programa) o verlo como página para imprimir.</p>
+        <p>No trae:</p>
+        <ul class="mis-datos__lista">{% for line in not_included %}<li>{{ line }}</li>{% endfor %}</ul>
+      </div>
+    </section>
+
+    {% if has_password %}
+    <form class="block" method="post" novalidate>
+      {% csrf_token %}
+      <section class="form-section" aria-labelledby="textos">
+        <h2 id="textos" class="heading form-section__title">Textos que escribiste</h2>
+        <p class="aside-note">Son tuyos, pero pueden ser delicados: solo se incluyen si marcas la casilla.</p>
+        {% include "partials/ui/field.html" with field=form.oracion %}
+        {% include "partials/ui/field.html" with field=form.formularios %}
+      </section>
+      <section class="form-section" aria-labelledby="confirmar">
+        <h2 id="confirmar" class="heading form-section__title">Confirma que eres tú</h2>
+        {% include "partials/ui/field.html" with field=form.password %}
+      </section>
+      <p class="aside-note">El archivo queda en tu dispositivo, fuera de Emmaus: desde ahí Emmaus ya no puede cuidarlo. Emmaus no guarda copia; sí queda registrado que lo descargaste. Puedes hacerlo {{ per_day }} veces al día{% if left < per_day %} (hoy te queda{{ left|pluralize:"n" }} {{ left }}){% endif %}.</p>
+      <div class="form-actions">
+        <button class="btn btn--primary" type="submit" name="formato" value="json">Descargar el archivo</button>
+        <button class="btn btn--secondary" type="submit" name="formato" value="pagina">Ver para imprimir</button>
+        <a class="btn btn--link" href="{{ back }}">Volver sin descargar</a>
+      </div>
+    </form>
+    {% else %}
+      <div class="notice"><p>Tu cuenta todavía no tiene contraseña, y para descargar tus datos hay que escribirla. Créala con <a href="{% url 'password_reset' %}">«¿Olvidaste tu contraseña?»</a> y vuelve aquí.</p></div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

@@ -14,6 +14,9 @@
   the count drops; the record of swaps and the head's buttons are read again from the same answer). The other swaps
   of the team (waiting for the teammate, or done in the last 30 days) are its record, lower. Then the way into
   roles, rotation, reminders and the order of a date.
+  Wave 12 (serving.follow): a team that follows a series of events says so over its dates. A date whose event moved
+  says «Revisa». A day the series called off is not a date that is coming: it is listed apart, «Este día no hay»,
+  with who had been asked, because Emmaus tells nobody and who coordinates has to.
 {% endcomment %}
 <div class="narrow serving">
   {% if request.is_church_admin %}<a class="back-link" href="{% url 'serving:team_admin' %}">Volver a los equipos</a>{% else %}<a class="back-link" href="{% url 'serving:home' %}">Volver a Servir</a>{% endif %}
@@ -69,6 +72,7 @@
 
   <section class="block" aria-labelledby="fechas">
     <h2 id="fechas" class="heading">Próximas fechas{% if dates %} <span class="count">{{ dates|length }}</span>{% endif %}</h2>
+    {% if follows %}<p class="aside-note">El equipo sirve en cada fecha de la serie {{ follows.name }}: sus fechas se escriben solas, conforme la serie escribe las suyas. A nadie se le pide servir hasta que tú lo eliges o confirmas la rotación.</p>{% endif %}
     {% if dates %}
       <ul class="dates rows team-dates">
         {% for day in dates %}
@@ -77,6 +81,7 @@
             <div class="row__main">
               <p class="row__title">{% if team.is_active %}<a href="{% url 'serving:date_detail' day.pk %}">{{ day.what }}</a>{% else %}{{ day.what }}{% endif %}</p>
               <p class="row__meta"><span class="visually-hidden">{{ day.date|weekday_date|capfirst }}. </span>{% if day.starts_at %}{{ day.starts_at|time:"H:i" }}{% if day.place %}, {% endif %}{% endif %}{{ day.place }}{% if day.starts_at or day.place %}. {% endif %}{% if day.nobody %}Nadie sirve{% elif day.people %}{{ day.confirmed }} de {{ day.people|length }} confirmaron{% else %}Falta elegir quién sirve{% endif %}</p>
+              {% if day.drifted %}<p class="row__meta row__meta--con-marca">{% status "pendiente" "Revisa" %}<span>El evento de la serie es el {{ day.event.starts_on|weekday_date }}{% if day.event.page.starts_at %}, a las {{ day.event.page.starts_at|time:"H:i" }}{% endif %}. Esta fecha no cambia sola.</span></p>{% endif %}
               {% if day.needs_missing %}<p class="row__meta row__meta--con-marca">{% status "por_evaluar" "Falta" %}<span>{% for need in day.needs_missing %}{{ need.role.name }}: {% if need.missing == 1 %}1 persona{% else %}{{ need.missing }} personas{% endif %} de {{ need.needed }}{% if not forloop.last %}; {% endif %}{% endfor %}</span></p>{% endif %}
               {% if day.needs_full %}<p class="row__meta row__meta--con-marca">{% status "completada" "Completo" %}<span>{% for need in day.needs_full %}{{ need.role.name }}: {{ need.filled }} de {{ need.needed }}{% if not forloop.last %}; {% endif %}{% endfor %}</span></p>{% endif %}
               {% if day.people %}
@@ -102,6 +107,30 @@
       </div>
     {% endif %}
   </section>
+
+  {% if called_off %}
+  <section class="block" aria-labelledby="no-hay">
+    <h2 id="no-hay" class="heading">Este día no hay <span class="count">{{ called_off|length }}</span></h2>
+    <ul class="dates rows team-dates">
+      {% for day in called_off %}
+        <li class="row row--lead">
+          {% date_block day.date %}
+          <div class="row__main">
+            <p class="row__title">{{ day.what }}</p>
+            <p class="row__meta row__meta--con-marca">{% status "descartada" "Cancelada" %}<span><span class="visually-hidden">{{ day.date|weekday_date|capfirst }}. </span>La serie no tiene esta fecha. {% if day.to_tell %}Emmaus no avisa: avísales tú.{% else %}No se le había pedido a nadie.{% endif %}</span></p>
+            {% if day.people %}
+            <ul class="answers">
+              {% for row in day.people %}<li><span class="answers__name">{{ row.person.full_name }}{% if row.role %} ({{ row.role.name }}){% endif %}</span>{% if row.status == "aceptada" %}{% status "descartada" "Había confirmado" %}{% elif row.status == "declinada" %}{% status "descartada" "Había dicho que no" %}{% else %}{% status "descartada" "No había respondido" %}{% endif %}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Si la serie vuelve a tener ese día, la fecha regresa aquí arriba con las mismas personas y lo que habían respondido.</p>
+  </section>
+  {% endif %}
 
   {# Always here while the team serves, even empty: a swap decided above appears in it without leaving the page #}
   {% if team.is_active %}{% if swaps %}

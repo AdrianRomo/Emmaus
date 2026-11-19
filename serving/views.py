@@ -91,7 +91,8 @@ def _coordinated_date(request, date_id: int) -> ServiceDate:
             raise Http404
         if not _may_manage(request, team):
             raise PermissionDenied
-    if not team.is_active or service_date.date < timezone.localdate():
+    # A date its series called off cannot change (services._open_date): it has no page to change it on.
+    if not team.is_active or service_date.date < timezone.localdate() or service_date.called_off:
         raise Http404
     return service_date
 
@@ -109,14 +110,17 @@ def home(request):
         .values_list("pk", flat=True)
     )
     for assignment in dates:
-        assignment.can_change = assignment.service_date.date > today
-        assignment.asks = assignment.status == Assignment.Status.PENDING or (
+        # "Ese día no hay": the series the team follows called the day off. Nothing to answer, swap or read.
+        assignment.called_off = assignment.service_date.called_off
+        assignment.can_change = assignment.service_date.date > today and not assignment.called_off
+        assignment.asks = not assignment.called_off and (assignment.status == Assignment.Status.PENDING or (
             assignment.can_change and changing == str(assignment.pk)
-        )
+        ))
         assignment.person = person
-        assignment.swap = waiting.get(assignment.pk)
+        assignment.swap = None if assignment.called_off else waiting.get(assignment.pk)
         assignment.can_swap = assignment.swap is None and rotas.may_ask_swap(assignment, now)
-        assignment.has_plan = assignment.status != Assignment.Status.DECLINED and assignment.service_date_id in with_plan
+        assignment.has_plan = (not assignment.called_off and assignment.status != Assignment.Status.DECLINED
+                               and assignment.service_date_id in with_plan)
     memberships = list(
         TeamMembership.objects.filter(person=person, status=ACTIVE, team__status=Team.Status.ACTIVE)
         .select_related("team").order_by("team__name", "id")
@@ -211,9 +215,23 @@ def unavailable_remove(request, day_id: int):
 def team(request, team_id: int):
     team = _coordinated_team(request, team_id)
     today = timezone.localdate()
-    dates = list(ServiceDate.objects.filter(team=team, date__gte=today).prefetch_related("assignments__person", "assignments__role"))
+    from . import follow
+
+    every = list(
+        ServiceDate.objects.filter(team=team, date__gte=today).select_related("occurrence__event__page")
+        .prefetch_related("assignments__person", "assignments__role")
+    )
+    # A date its series called off is not one of the dates that are coming: it is listed apart, with who was asked,
+    # so who coordinates knows whom to tell (Emmaus tells nobody).
+    dates = [service_date for service_date in every if not service_date.called_off]
+    called_off = [service_date for service_date in every if service_date.called_off]
+    for service_date in called_off:
+        service_date.people = sorted(service_date.assignments.all(), key=lambda row: (row.person.full_name, row.pk))
+        service_date.to_tell = [row for row in service_date.people if row.status != Assignment.Status.DECLINED]
     missing = rotas.missing_by_date(dates)
     for service_date in dates:
+        service_date.drifted = follow.drifted(service_date)
+        service_date.event = service_date.occurrence.event if service_date.drifted else None
         service_date.people = sorted(service_date.assignments.all(), key=lambda row: (row.person.full_name, row.pk))
         for row in service_date.people:
             row.service_date = service_date
@@ -244,7 +262,8 @@ def team(request, team_id: int):
         request,
         "serving/team.html",
         {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found,
-         "found_total": found_total, "today": today, "to_approve": to_approve,
+         "found_total": found_total, "today": today, "to_approve": to_approve, "called_off": called_off,
+         "follows": team.follows_series if team.is_active else None,
          "swaps": [swap for swap in swaps if swap.status != "por_aprobar"],
          "uncovered": [service_date for service_date in dates if service_date.nobody] if team.is_active else []},
     )
@@ -322,11 +341,14 @@ def _date_page(request, team: Team, service_date: ServiceDate | None):
     needs = {need.role.pk: need for need in rotas.missing_by_date([service_date])[service_date.pk]} if service_date else {}
     for role in roles:
         need = needs.get(role.pk)
-        role.needed = number(f"necesita_{role.pk}") if posted else (need.needed if need else 0)
+        # A new date starts with what each role asks "por omisión"; one that exists says what it has.
+        role.needed = number(f"necesita_{role.pk}") if posted else (need.needed if need else (role.default_count if service_date is None else 0))
         role.state = need
     return render(request, "serving/date_form.html", {
         "form": form, "team": team, "service_date": service_date, "members": members, "roles": roles,
         "warned": warned, "warned_ids": ",".join(str(person.pk) for person in sorted(warned, key=lambda person: person.pk)),
+        # A date written for the series the team follows is not deleted (it would be written again): the page says so.
+        "follows_series": bool(service_date and service_date.occurrence_id and team.follows_series_id == service_date.occurrence.series_id),
     })
 
 

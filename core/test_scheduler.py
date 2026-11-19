@@ -127,7 +127,9 @@ class SchedulerPassTests(CommunityFixture):
             r"formularios: 0 respuestas vencidas borradas · "
             r"suscripciones de eventos: 0 direcciones borradas, 0 correos enviados, 0 fallidos, 0 pendientes · "
             r"recordatorios de servir: 0 enviados, 0 fallidos · "
-            r"peticiones de oración: 0 vencidas borradas$",
+            r"peticiones de oración: 0 vencidas borradas · "
+            r"lo que se repite: 0 reservas apartadas, 0 fechas de equipos · "
+            r"inscripciones sin cuenta: 0 solicitudes vencidas borradas, 0 respuestas borradas, 0 correos enviados, 0 fallidos, 0 pendientes$",
         )
         lines = [json.loads(record.getMessage()) for record in logs.records]
         self.assertEqual([line["job"] for line in lines], list(scheduler.JOBS))
@@ -211,8 +213,8 @@ class SchedulerPassTests(CommunityFixture):
         self.assertIn(CUTOFFS_LINE, printed)
         self.assertIn("correos de avisos: 1 enviados, 0 fallidos, 0 pendientes · lista de espera: 0 lugares liberados", printed)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True] * 9)
-        self.assertEqual(len(plain.records), 18)  # each write, by its class name only
+        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True] * 11)
+        self.assertEqual(len(plain.records), 22)  # each write, by its class name only
         self.assertTrue(all("OperationalError" in line and "no such table" not in line for line in plain.output))
         self.assertFalse(SchedulerHeartbeat.objects.exists())
 
@@ -292,12 +294,14 @@ class SchedulerPassTests(CommunityFixture):
                 before = StringIO()
                 call_command("run_report_cutoffs", stdout=before)
                 acting = ("notices.email.send_due", "agenda.services.expire_offers", "agenda.series.generate_due",
-                          "agenda.subscriptions.send_due", "agenda.subscriptions.run_pass", "serving.reminders.send_due")
+                          "agenda.subscriptions.send_due", "agenda.subscriptions.run_pass", "serving.reminders.send_due",
+                          "espacios.repeticion.generate_due", "serving.follow.sync_due")
                 with mock.patch(acting[0]) as a, mock.patch(acting[1]) as b, mock.patch(acting[2]) as c, \
                         mock.patch(acting[3]) as d, mock.patch(acting[4]) as e, mock.patch(acting[5]) as f, \
+                        mock.patch(acting[6]) as g, mock.patch(acting[7]) as h, \
                         self.assertLogs("emmaus.scheduler", "INFO") as logs:
                     printed = self.run_pass()
-                for acted in (a, b, c, d, e, f):
+                for acted in (a, b, c, d, e, f, g, h):
                     acted.assert_not_called()
                 self.assertEqual(mail.outbox, [])
                 self.assertEqual(self.code, 0)
@@ -306,7 +310,9 @@ class SchedulerPassTests(CommunityFixture):
                     printed.splitlines()[0],
                     before.getvalue().splitlines()[0] + " · uniones de personas: 1 con datos anteriores borrados · "
                     "formularios: 1 respuestas vencidas borradas · suscripciones de eventos: 2 direcciones borradas, "
-                    "sin correos (los trabajos de comunidad están apagados) · peticiones de oración: 1 vencidas borradas",
+                    "sin correos (los trabajos de comunidad están apagados) · peticiones de oración: 1 vencidas borradas"
+                    " · inscripciones sin cuenta: 0 solicitudes vencidas borradas, 0 respuestas borradas, sin correos (los "
+                    "trabajos de comunidad están apagados)",
                 )
                 for row in rows["gone"]:
                     self.assertFalse(type(row).objects.filter(pk=row.pk).exists(), type(row).__name__)
@@ -320,7 +326,8 @@ class SchedulerPassTests(CommunityFixture):
                 out = StringIO()
                 call_command("scheduler_status", stdout=out)  # a job switched off is not a missed run; a deletion is never off
                 status = out.getvalue()
-                for job in (scheduler.NOTICE_MAIL, scheduler.WAITING_OFFERS, scheduler.SERIES, scheduler.SERVING_REMINDERS):
+                for job in (scheduler.NOTICE_MAIL, scheduler.WAITING_OFFERS, scheduler.SERIES, scheduler.SERVING_REMINDERS,
+                            scheduler.REPETITION):
                     self.assertIn(f"{job}: apagado", status)
                     self.assertEqual(scheduler.skipped(job), scheduler.OFF)
                 for job in deleting:
@@ -370,7 +377,7 @@ class SchedulerStatusTests(CommunityFixture):
         code, printed, error = self.status()
         self.assertEqual(code, 1)
         self.assertEqual(printed.splitlines(), [f"{job}: SIN CORRER · nunca ha terminado bien" for job in scheduler.JOBS])
-        self.assertIn("9 de 9 trabajos programados", error)
+        self.assertIn("11 de 11 trabajos programados", error)
 
     def test_it_is_fine_after_a_pass_and_late_after_the_threshold(self):
         call_command("run_scheduled_jobs", stdout=StringIO())
@@ -402,7 +409,7 @@ class SchedulerStatusTests(CommunityFixture):
         self.assertIn("series_eventos: bien", printed)
         self.assertIn("uniones_personas: bien", printed)
         self.assertIn("suscripciones_evento: bien", printed)
-        self.assertIn("1 de 9", error)
+        self.assertIn("1 de 11", error)
         self.assertNotIn("secreto", printed + error)
 
     def test_notice_mail_that_is_not_set_up_is_said_and_is_not_a_missed_run(self):

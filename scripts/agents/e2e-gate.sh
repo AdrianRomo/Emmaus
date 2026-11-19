@@ -81,6 +81,12 @@ if ! $skip_review && ! $skip_community; then
   # The same review again, now that the church of the camp uses the new modules: its church-role accounts get the
   # redesigned shell and stylesheet on every screen, the camp's included. COMMUNITY=1 adds the screens of the
   # community modules that need no object (the "@comunidad" group of e2e/all_urls.py): they exist only now.
+  # Wave 12's seeds come only now, AFTER the journey: each one changes something steps 1–16 count (--directorio puts a
+  # person in the group whose list the guide takes, --repeticion a second «Salón 2» row in what the guide asked for,
+  # --visitas a public event where step 7 expects none), so steps 17–20 build what they need in the browser. Here they
+  # give the review rows to look at: a directory with people, bookings that repeat, a team that follows a series, a
+  # sign-up without an account with its visitors and questions, and headcounts with their table.
+  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" --directorio --repeticion --visitas >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo (wave 12) FAILED (see $out/seed.log)"; }
   log "review-all.mjs again, modules on (the redesigned shell over every screen)"
   if COMMUNITY=1 AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" timeout 1800 node review-all.mjs "$out/urls.json" "$out/review-on" >"$out/review-all-on.log" 2>&1; then
     grep -E "page/width checks" "$out/review-all-on.log" || tail -n 2 "$out/review-all-on.log"

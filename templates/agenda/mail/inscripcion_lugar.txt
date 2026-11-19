@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Se liberó un lugar en «{{ event_name }}», de {{ church_name }}, y estabas en la lista de espera. Todavía no tienes el lugar: para aceptarlo o dejarlo pasar, abre tu enlace privado:
+
+{{ link }}
+
+El lugar se guarda por un tiempo limitado; el enlace dice hasta cuándo. Después se le ofrece a la siguiente persona de la lista.
+{% endautoescape %}

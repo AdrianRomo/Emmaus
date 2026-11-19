@@ -22,7 +22,7 @@ from events.forms import MEXICO_TIME_ZONES
 from groups.views import church_admin_view, community_view
 
 from . import calendar, series, services
-from .models import EventPage, EventRegistration, EventSeries, SeriesOccurrence
+from .models import EventHeadcount, EventPage, EventRegistration, EventSeries, SeriesOccurrence
 
 INTERVALS = [(1, "Cada semana"), (2, "Cada 2 semanas"), (3, "Cada 3 semanas"), (4, "Cada 4 semanas")]
 PAST_SHOWN = 8
@@ -181,7 +181,17 @@ def admin_detail(request, series_id: int):
     past = [*reversed(begun), *earlier[:PAST_SHOWN]][:PAST_SHOWN]
     # Dates the series left behind when its rule changed: unpublished, kept, and found here and nowhere else.
     retired = list(rows.filter(status=series.OFF_RULE, day__gte=today).order_by("day"))
+    from people import policy
+
+    from . import headcounts
+
+    # "¿Cuántos vinimos?" (issue #93): the count of each date that passed, and the last twelve as a table.
+    counted = dict(EventHeadcount.objects.filter(event__series_occurrence__series=item).values_list("event_id", "total"))
+    for row in past:
+        row.counted = counted.get(row.event_id)
     return render(request, "agenda/series_admin.html", {
+        "trend": headcounts.series_trend(item, policy.min_reporting_size(request.church)),
+        "minimum": policy.min_reporting_size(request.church),
         "series": item, "rule": series.rule_words(item), "coming": coming, "past": past,
         "review": series.to_review(item, today), "weeks": series.WINDOW_WEEKS, "retired": retired,
     })

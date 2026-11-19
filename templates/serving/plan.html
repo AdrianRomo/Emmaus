@@ -12,6 +12,9 @@
   Who is in charge is decided when the page is read (rotas.plan_items): somebody who left the team, whose record was
   joined to another or whose record says they are a minor is not named, here or in the coordinator's list.
   No songs, lyrics, chords, files or links (their rights need another approval), and the page says so.
+  Wave 12 (serving.follow): an empty order can also start from one of the team's templates, and an order that has
+  moments can be kept as a template («Guardar como plantilla», a fold with one field): titles and minutes, never
+  who is in charge. A date its series called off says so and offers nothing to change.
 {% endcomment %}
 <div class="narrow serving">
   {% with words=day.what|add:". "|add:meta %}
@@ -19,6 +22,7 @@
   {% else %}{% url 'serving:home' as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" meta=words back_url=back back_label="Volver a Servir" %}{% endif %}
   {% endwith %}
 
+  {% if called_off %}<div class="notice notice--warning"><p>Ese día no hay: la serie de eventos que sigue el equipo no tiene esta fecha. Mientras siga así, el orden no se puede cambiar.</p></div>{% endif %}
   <section class="block" aria-labelledby="orden">
     <h2 id="orden" class="heading">Momentos{% if items %} <span class="count">{{ items|length }}</span>{% endif %}</h2>
     {% if items %}
@@ -71,18 +75,44 @@
       </ol>
       <p class="list-count">{{ items|length }} momento{{ items|length|pluralize }}, {{ total }} minuto{{ total|pluralize }} en total.</p>
     {% else %}
-      <p class="empty-line">{% if manages %}Esta fecha todavía no tiene un orden. Agrega el primer momento{% if previous %} o copia el de la fecha anterior{% endif %}.{% else %}Esta fecha todavía no tiene un orden.{% endif %}</p>
-      {% if previous %}
+      <p class="empty-line">{% if manages %}Esta fecha todavía no tiene un orden. Agrega el primer momento{% if previous and templates %}, copia el de la fecha anterior o empieza con una plantilla{% elif previous %} o copia el de la fecha anterior{% elif templates %} o empieza con una plantilla{% endif %}.{% else %}Esta fecha todavía no tiene un orden.{% endif %}</p>
+      {% if previous and not called_off %}
         <form method="post" action="{% url 'serving:plan_copy' day.pk %}">
           {% csrf_token %}
           <button class="btn btn--secondary" type="submit">Copiar del anterior<span class="visually-hidden">: {{ previous.what }}, {{ previous.date|weekday_date }}</span></button>
         </form>
       {% endif %}
+      {% if templates and not called_off %}
+        <form class="plan__start" method="post" action="{% url 'serving:template_use' day.pk %}">
+          {% csrf_token %}
+          <div class="field">
+            <label class="label" for="plantilla">Empezar con una plantilla</label>
+            <select id="plantilla" name="plantilla">{% for template in templates %}<option value="{{ template.pk }}"{% if template.pk == team.default_template_id %} selected{% endif %}>{{ template.name }}</option>{% endfor %}</select>
+          </div>
+          <button class="btn btn--secondary" type="submit">Usar la plantilla</button>
+        </form>
+      {% endif %}
+    {% endif %}
+    {% if manages and items and not called_off %}
+      <details class="fold plan__keep">
+        <summary>Guardar como plantilla</summary>
+        <form class="plan__edit" method="post" action="{% url 'serving:template_save' day.pk %}">
+          {% csrf_token %}
+          <div class="field">
+            <label class="label" for="plantilla-nombre">Nombre de la plantilla</label>
+            <span class="hint" id="plantilla-nombre-ayuda">Por ejemplo: Servicio dominical. Guarda los momentos y sus minutos, sin responsables.</span>
+            <input id="plantilla-nombre" type="text" name="nombre" maxlength="60" required aria-describedby="plantilla-nombre-ayuda">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn--secondary" type="submit">Guardar la plantilla</button>
+          </div>
+        </form>
+      </details>
     {% endif %}
     <p class="aside-note">El orden lleva solo el nombre de cada momento, sus minutos y quién está a cargo. No lleva canciones, letras, acordes, archivos ni enlaces: para eso hace falta la aprobación de derechos de la iglesia, que todavía no existe en Emmaus.</p>
   </section>
 
-  {% if manages %}
+  {% if manages and not called_off %}
   <form method="post">
     {% csrf_token %}
     <section class="form-section" aria-labelledby="agregar">

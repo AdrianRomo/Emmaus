@@ -188,6 +188,8 @@ TABLES: tuple[Table, ...] = (
     # Who asked for a space. The words of the booking are not read; the survivor keeps the requests, and with them
     # what ``espacios.access`` gives to who asked. ``decided_by`` is an account, not a person: untouched.
     Table("espacios.Booking", "requested_by", "reserva de un espacio que pidió", "reservas de espacios que pidió"),
+    # Who asked for a booking that repeats (wave 12): it moves like a booking, and with it who may read and end the series.
+    Table("espacios.BookingSeries", "requested_by", "reserva que se repite que pidió", "reservas que se repiten que pidió"),
     # A column nobody reads since feedback/0002. Whether somebody gave an opinion is theirs alone: not counted.
     Table("feedback.FeedbackGiven", "person", "", "", private=True),
     # The administration's own labels: the survivor ends with the union of both (a tag both carry stays on the
@@ -211,6 +213,11 @@ HANDLED_ELSEWHERE = frozenset({
 # belongs to the ACCOUNT that wrote it (``oracion.PrayerRequest.author``); ``person`` only records which record
 # that account was that day and no screen decides by it. Accounts are never joined, so the writer keeps it.
 NOTHING_MOVES: tuple[tuple[str, str], ...] = (("oracion.PrayerRequest", "person"),)
+# A person's choice about the directory between members (``people.directory``) is that record's consent. The
+# survivor keeps its own; the absorbed record's stays on the absorbed record, which no directory query reads
+# (``merged_into``), so it is dropped for as long as the merge holds and is never unioned: consent given by one
+# record must not widen the other. The undo makes the absorbed record a person again, with the choice it had.
+NOTHING_MOVES += (("people.DirectoryEntry", "person"),)
 HANDLED_ELSEWHERE = HANDLED_ELSEWHERE | frozenset(NOTHING_MOVES)
 _BY_KEY = {table.key: table for table in TABLES}
 
