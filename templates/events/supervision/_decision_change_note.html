@@ -1,17 +1,25 @@
 {% load emmaus %}{% comment %}
   An open ordinary care task whose interview's decision changed (services.follow_up_decision.note_for): to «no necesita
-  seguimiento», for whoever attends it to review and close with the form below; or back to «necesita», which reopened it.
+  seguimiento», for whoever attends it to review, then close with the form below or continue («Continuar seguimiento»);
+  continued anyway (the reason only for whoever may manage it); or reopened, «Reabierto el …» until its owner moves it on.
   Same markup with and without the redesign.
-{% endcomment %}{% with who=decision_change.changed_by.get_full_name|default:"Alguien" when=decision_change.changed_at|fecha_corta %}
-{% if decision_change.care == "abierto" %}
+{% endcomment %}{% with change=decision_note.change %}{% with who=change.changed_by.get_full_name|default:"Alguien" when=change.changed_at|fecha_corta %}
+{% if decision_note.state == "revisar" %}
 <div class="notice notice--warning" id="decision-cambiada">
   <p class="notice__title">Su entrevista ya no necesita seguimiento</p>
-  <p>{{ who }} cambió la decisión el {{ when }}. Motivo: {{ decision_change.reason }}</p>
-  {% if can_manage %}<p>Revísalo y ciérralo: en «Estado» elige «Atendido» o «Cancelado» y guarda.</p>{% endif %}
+  <p>{{ who }} cambió la decisión el {{ when }}. Motivo: {{ change.reason }}</p>
+  {% if can_manage %}<p>Revísalo. Si ya no hace falta, ciérralo: en «Estado» elige «Atendido» o «Cancelado» y guarda. Si todavía hace falta, continúalo.</p>
+  <p><a class="btn btn--secondary btn--small" href="{% url 'events:follow_up_continue' event.slug follow_up.pk %}">Continuar seguimiento</a></p>{% endif %}
+</div>
+{% elif decision_note.state == "continuado" %}
+<div class="notice" id="decision-cambiada">
+  <p class="notice__title">Sigue abierto aunque su entrevista ya no lo pide</p>
+  <p>{{ who }} la cambió a «no necesita seguimiento» el {{ when }}. {{ change.continued_by.get_full_name|default:"Alguien" }} decidió continuarlo el {{ change.continued_at|fecha_corta }}.{% if can_manage %} Motivo: {{ change.continued_reason }}{% endif %}</p>
 </div>
 {% else %}
 <div class="notice" id="decision-cambiada">
-  <p class="notice__title">Se reabrió porque su entrevista volvió a necesitar seguimiento</p>
-  <p>{{ who }} cambió la decisión el {{ when }}. Motivo: {{ decision_change.reason }}</p>
+  <p class="notice__title">{{ decision_note.label }}: su entrevista volvió a necesitar seguimiento</p>
+  <p>{{ who }} cambió la decisión el {{ when }}. Motivo: {{ change.reason }}</p>
+  {% if can_manage %}<p>Cuando retomes el trabajo, en «Estado» elige «En proceso» y guarda.</p>{% endif %}
 </div>
-{% endif %}{% endwith %}
+{% endif %}{% endwith %}{% endwith %}

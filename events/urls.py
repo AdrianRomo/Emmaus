@@ -54,6 +54,7 @@ urlpatterns = [
     path(E + "seguimiento/asignar/", dashboards.follow_ups_bulk_assign, name="follow_ups_bulk_assign"),
     path(E + "seguimiento/<int:follow_up_id>/", dashboards.follow_up_detail, name="follow_up_detail"),
     path(E + "seguimiento/<int:follow_up_id>/asignar/", dashboards.follow_up_assign, name="follow_up_assign"),
+    path(E + "seguimiento/<int:follow_up_id>/continuar/", dashboards.follow_up_continue, name="follow_up_continue"),
     path(E + "equipo/", dashboards.team, name="team"),
     # Reportes
     path(E + "reportes/", reports.reports, name="reports"),
