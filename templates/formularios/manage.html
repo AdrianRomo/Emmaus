@@ -1,34 +1,38 @@
 {% extends "base.html" %}
-{% load emmaus community %}
-{% block page_title %}Formularios de la iglesia{% endblock %}
+{% load emmaus community shell %}
+{% block page_title %}{% if request.is_church_admin %}Formularios de la iglesia{% else %}Respuestas de formularios{% endif %}{% endblock %}
 {% block content %}
 {% comment %}
-  The forms this person works with (formularios.views.manage): all of them for the administration; for a guide or a
-  coordinator, only the ones whose answers they read. Counts of answers, never an answer.
+  The forms this person works with (formularios.views.manage): all of them for the administration (a row opens the
+  form's own page); for a guide or a coordinator, only the ones whose answers they read (a row opens the answers).
+  On the row specification: the title is the way in; its state as the word with its mark beside how many answers
+  and how many tasks still wait; then who answers and the days. Counts of answers, never an answer.
 {% endcomment %}
 <div class="narrow forms">
-  {% url 'formularios:list' as back %}{% url 'formularios:create' as create %}{% url 'formularios:queue' as queue %}
+  {% url 'formularios:create' as create %}
   {% if request.is_church_admin %}
-    {% include "events/rotulo/_page_head.html" with title="Formularios de la iglesia" lede="Lo que tu iglesia pregunta, a quién, para qué y por cuánto tiempo guarda las respuestas." back_url=back back_label="Volver a Formularios" action_url=create action_label="Crear un formulario" secondary_url=queue secondary_label="Ver Pendientes" %}
+    {% include "events/rotulo/_page_head.html" with title="Formularios de la iglesia" action_url=create action_label="Crear un formulario" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Respuestas de formularios" lede="Los formularios cuyas respuestas te toca leer." back_url=back back_label="Volver a Formularios" secondary_url=queue secondary_label="Ver Pendientes" %}
+    {% include "events/rotulo/_page_head.html" with title="Respuestas de formularios" %}
   {% endif %}
   {% if forms %}
     <ul class="rows">
       {% for form in forms %}
-        <li class="row row--stack">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
           <div class="row__main">
             <p class="row__title"><a href="{% if request.is_church_admin %}{% url 'formularios:detail' form.pk %}{% else %}{% url 'formularios:submissions' form.pk %}{% endif %}">{{ form.title }}</a></p>
+            <p class="row__meta row__meta--con-marca">{% status form.phase_mark form.phase_label %}<span>{% if form.answers %}{{ form.answers }} respuesta{{ form.answers|pluralize }}{% else %}Sin respuestas{% endif %}{% if form.open_tasks %}, {{ form.open_tasks }} pendiente{{ form.open_tasks|pluralize }} por atender{% endif %}.</span></p>
             <p class="row__meta">{{ form.get_audience_display }}. Del {{ form.opens_on|day_month }} al {{ form.last_day|long_date }}.</p>
-            <p class="row__meta">{% if form.answers %}<a href="{% url 'formularios:submissions' form.pk %}">{{ form.answers }} respuesta{{ form.answers|pluralize }}</a>{% else %}Sin respuestas{% endif %}{% if form.open_tasks %}, {{ form.open_tasks }} pendiente{{ form.open_tasks|pluralize }} por atender{% endif %}.</p>
           </div>
-          <div class="row__end">{% status form.phase_mark form.phase_label %}</div>
         </li>
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=forms label="Páginas de formularios" %}
+  {% elif request.is_church_admin %}
+    {% include "partials/ui/empty.html" with title="Sin formularios todavía" action_url=create action_label="Crear un formulario" %}
   {% else %}
-    <p class="empty-line">Tu iglesia todavía no tiene formularios. <a href="{{ create }}">Crea el primero</a>.</p>
+    <p class="empty-line">No hay formularios cuyas respuestas te toque leer.</p>
   {% endif %}
 </div>
 {% endblock %}

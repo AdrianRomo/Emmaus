@@ -1,25 +1,35 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if question %}Editar la pregunta{% else %}Agregar una pregunta{% endif %}{% endblock %}
 {% block content %}
-{% comment %}One question of the draft (formularios.views.question). The kind is chosen before and does not change.{% endcomment %}
+{% comment %}
+  One question of the draft (formularios.views.question). The kind is chosen before and does not change: it is said
+  under the title. Editing one, «Quitar esta pregunta» is a quiet removal apart from the form's actions (it asks
+  first where the browser can: the draft loses it at once, and nobody who answers ever saw a draft).
+{% endcomment %}
 <div class="narrow forms">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'formularios:detail' form_row.pk as back %}
   {% if question %}
-    {% include "events/rotulo/_page_head.html" with title="Editar la pregunta" lede=kind_label|add:". "|add:kind_help back_url=back back_label="Volver al formulario" %}
+    {% include "events/rotulo/_page_head.html" with title="Editar la pregunta" meta=kind_label|add:". "|add:kind_help back_url=back back_label="Volver al formulario" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Agregar una pregunta" lede=kind_label|add:". "|add:kind_help back_url=back back_label="Volver al formulario" %}
+    {% include "events/rotulo/_page_head.html" with title="Agregar una pregunta" meta=kind_label|add:". "|add:kind_help back_url=back back_label="Volver al formulario" %}
   {% endif %}
   <div class="notice notice--warning"><p><strong>Qué no preguntar.</strong> {{ warning }}</p></div>
   <form method="post" novalidate>
     {% csrf_token %}
     <input type="hidden" name="tipo" value="{{ kind }}">
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if question %}Guardar la pregunta{% else %}Agregar al borrador{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
   <p class="aside-note">La pregunta se guarda en el borrador. Quien responde la ve cuando publiques.</p>
+  {% if question %}
+  <form class="quitar" method="post" action="{% url 'formularios:question_delete' form_row.pk question.pk %}">
+    {% csrf_token %}
+    <button class="btn btn--link btn--quieto" type="submit" data-confirm="¿Quitar esta pregunta del borrador? Lo que ya se publicó no cambia hasta que publiques otra vez.">Quitar esta pregunta</button>
+  </form>
+  {% endif %}
 </div>
 {% endblock %}

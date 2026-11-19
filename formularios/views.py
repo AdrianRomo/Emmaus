@@ -329,7 +329,8 @@ def question_move(request, form_id: int, question_id: int):
         _dropped(request, services.move_question(row, request.user, question_id, up=direction == "arriba"))
     except services.FormError as error:
         messages.error(request, error.message)
-    return redirect(reverse("formularios:detail", args=[row.pk]) + "#preguntas")
+    # ``movida`` only tells the page which question to put the focus on after an action in place (templates/formularios/detail.html)
+    return redirect(reverse("formularios:detail", args=[row.pk]) + f"?movida={question_id}#preguntas")
 
 
 # ---- the staff: publishing and closing ----------------------------------------------------------
