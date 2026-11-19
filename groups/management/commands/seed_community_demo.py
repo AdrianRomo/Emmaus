@@ -646,7 +646,9 @@ class Command(BaseCommand):
                 ("Visita", "En Espera Demo", "visita.espera@demo.invalid", {str(food.pk): "Sí"}),
             )
             for first, last, address, answers in people:
-                visitors.request(event, first_name=first, last_name=last, phone="55 5550 0102", email=address, answers=answers)
+                # The first one ticked «La iglesia puede guardar mi nombre y mi teléfono…»; the others did not.
+                visitors.request(event, first_name=first, last_name=last, phone="55 5550 0102", email=address, answers=answers,
+                                 contact_consent=address == "visita.inscrita@demo.invalid")
                 visitors.confirm(visitors.VisitorRequest.objects.get(event=event, email=address))
             visitors.request(event, first_name="Visita", last_name="Sin Confirmar", phone="55 5550 0103",
                              email="visita.pendiente@demo.invalid", answers={str(food.pk): "Sí"})

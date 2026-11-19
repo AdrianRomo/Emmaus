@@ -59,7 +59,8 @@ functions and models). Everything stays behind the `community` module and inside
 | Generated bookings are approved by who approved the series (`decided_by`), asked by who asked | The audit and the rows say whose decision each date is |
 | A series keeps writing dates when who asked loses their role | It is the church's activity; it ends at its last day (≤ 6 months) or when the administration ends it |
 | The rule cannot be edited: end it and ask again | As a single booking's hours (wave 9) |
-| At most 183 days ahead (`MAX_AHEAD_DAYS`), every 1–4 weeks (also a database check), 40 open series per space | Bounded input |
+| At most 183 days ahead (`MAX_AHEAD_DAYS`), every 1–4 weeks (also a database check), 40 open series per space, and 3 series waiting for a decision per person per space (`MAX_WAITING_PER_REQUESTER`, review of wave 12; the administration's and a space without approval are not waiting) | Bounded input: one person cannot use up a space's 40 |
+| «Suele ocuparse» skips a day the followed series of events called off (review of wave 12) | The generator skips it too; the line must not say the room is usually taken that day |
 | A series' end hour is on the wall clock too; a day whose start or end hour does not exist is skipped and listed | 10:00–11:30 stays 10:00–11:30 across a change of clock |
 | Linked series: the name of the event series is shown to the administration only; who asked reads "en cada fecha de una serie de eventos" | A series still in preparation is not theirs to read |
 | An event date called off **after** its booking exists does not cancel the booking; the series page flags it («Revisa») | The brief asks to skip; freeing a room silently could lose it. One press («Este día no») frees it |

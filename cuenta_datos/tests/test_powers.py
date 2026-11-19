@@ -12,8 +12,12 @@ from core.authz import Action, has_scope
 from core.models import Invitation, Role, UserChurchRole
 from core.services import assign_role
 from cuenta_datos import powers
+from events.access import ROLE_LABELS, resolve_access
 from events.models import Event, EventMembership, MembershipRole
 from events.tests.base import make_user
+from formularios import services as formularios
+from formularios.access import can_read
+from formularios.models import Form
 from groups import services as groups
 from groups.models import Group, GroupMembership
 from people.models import Person
@@ -212,8 +216,82 @@ class FlagTests(PowersFixture):
 
 
 class DriftTests(PowersFixture):
-    """The screen is built from the tables ``has_scope`` reads. This asks ``has_scope`` itself, for every
-    account and every scope of the church, and fails when somebody who may manage something is not listed."""
+    """The screen is built from the tables authorization reads. Each kind it lists is checked against its own
+    source of truth, account by account, both ways (nobody missing, nobody extra): church roles against the legacy
+    role table behind ``has_scope`` (church); guides and coordinators against ``has_scope`` (group / ministry,
+    manage), which reads ``access.RoleAssignment``; form readers against ``formularios.access.can_read``; event
+    teams against ``events.access.resolve_access`` and the membership it answers from. One more test asks
+    ``has_scope`` about every scope and fails when somebody who may manage something is on no section."""
+
+    def more_of_every_kind(self) -> dict:
+        """A second guide, a team that reads a form, an event administrator and the team of an archived event."""
+        groups.set_membership(self.other_group, self.asked, self.admin, role=GroupMembership.Role.LEADER)
+        formularios.add_reader(self.form, self.admin, f"ministry:{self.team.pk}")
+        event_admin = make_user("admin-evento@prueba.mx", "Eva", "Evento")
+        EventMembership.objects.create(event=self.event, user=event_admin, role=MembershipRole.ADMIN, created_by=self.admin)
+        old = Event.objects.create(church=self.church, name="Retiro viejo", slug="retiro-viejo", status=Event.Status.ARCHIVED)
+        old_admin = make_user("admin-viejo@prueba.mx", "Vera", "Vieja")
+        EventMembership.objects.create(event=old, user=old_admin, role=MembershipRole.ADMIN)
+        return {"event_admin": event_admin, "old_admin": old_admin}
+
+    def listed(self, key, by="what") -> set:
+        return {(holder.user_id, getattr(holder, by)) for holder in self.section(key).holders}
+
+    def test_church_roles_are_the_role_table_behind_has_scope(self):
+        self.more_of_every_kind()
+        expected = set()
+        for user in User.objects.all():
+            if not has_scope(user, self.church, "church", self.church.pk, Action.VIEW):  # holds a usable church role
+                continue
+            row = UserChurchRole.objects.get(church=self.church, user=user)
+            if row.role not in powers.NOT_A_POWER:
+                expected.add((user.pk, powers.CHURCH_ROLE_WORDS.get(row.role, row.get_role_display())))
+        self.assertEqual(self.listed("iglesia"), expected)
+        self.assertEqual({what for _, what in expected}, set(powers.CHURCH_ROLE_WORDS.values()))  # each role is in the fixture
+
+    def test_guides_are_who_has_scope_says_manages_a_group(self):
+        self.more_of_every_kind()
+        expected = {
+            (user.pk, reverse("community:group_people", args=[group.pk]))
+            for group in Group.objects.filter(church=self.church) for user in User.objects.all()
+            if has_scope(user, self.church, "group", group.pk, Action.MANAGE)
+        }
+        self.assertEqual(self.listed("grupos", by="url"), expected)
+        self.assertEqual(len(expected), 2)
+
+    def test_coordinators_are_who_has_scope_says_manages_a_team(self):
+        self.more_of_every_kind()
+        expected = {
+            (user.pk, reverse("serving:team", args=[team.pk]))
+            for team in Team.objects.filter(church=self.church) for user in User.objects.all()
+            if has_scope(user, self.church, "ministry", team.pk, Action.MANAGE)
+        }
+        self.assertEqual(self.listed("equipos", by="url"), expected)
+        self.assertTrue(expected)
+
+    def test_form_readers_are_who_can_read_says_reads_beyond_the_administration(self):
+        self.more_of_every_kind()
+        expected = {
+            (user.pk, reverse("formularios:readers", args=[form.pk]))
+            for form in Form.objects.filter(church=self.church) for user in User.objects.all()
+            if can_read(user, form, is_church_admin=False)  # through a group or a team, never the church role
+        }
+        self.assertEqual(self.listed("formularios", by="url"), expected)
+        self.assertEqual({user_id for user_id, _ in expected}, {self.leader_user.pk, self.coord1.pk})  # a guide and a coordinator
+
+    def test_event_teams_are_who_resolve_access_lets_in_by_a_membership(self):
+        self.more_of_every_kind()
+        expected = set()
+        for event in Event.objects.filter(church=self.church):
+            for user in User.objects.all():
+                access = resolve_access(user, event)
+                if access is None or access.membership is None:  # none, or only through a church role
+                    continue
+                role = access.membership.role
+                archived = " (archivado)" if event.status == Event.Status.ARCHIVED else ""
+                expected.add((user.pk, f"{ROLE_LABELS.get(role, role)} en {event.name}{archived}"))
+        self.assertEqual(self.listed("eventos"), expected)
+        self.assertGreaterEqual(len({what.split(" en ")[0] for _, what in expected}), 2)  # more than one kind of role
 
     def managers(self, church) -> set[int]:
         scopes = [("church", church.pk)]
@@ -227,13 +305,8 @@ class DriftTests(PowersFixture):
         return found
 
     def test_everybody_who_may_manage_something_is_on_the_screen(self):
-        # More of every kind: a second guide, an archived group's guide, an event administrator, an archived event.
-        groups.set_membership(self.other_group, self.asked, self.admin, role=GroupMembership.Role.LEADER)
-        event_admin = make_user("admin-evento@prueba.mx", "Eva", "Evento")
-        EventMembership.objects.create(event=self.event, user=event_admin, role=MembershipRole.ADMIN, created_by=self.admin)
-        old = Event.objects.create(church=self.church, name="Retiro viejo", slug="retiro-viejo", status=Event.Status.ARCHIVED)
-        old_admin = make_user("admin-viejo@prueba.mx", "Vera", "Vieja")
-        EventMembership.objects.create(event=old, user=old_admin, role=MembershipRole.ADMIN)
+        more = self.more_of_every_kind()
+        event_admin, old_admin = more["event_admin"], more["old_admin"]
         for church in (self.church, self.church_b):
             managers = self.managers(church)
             review = powers.build(church, can_change=True)

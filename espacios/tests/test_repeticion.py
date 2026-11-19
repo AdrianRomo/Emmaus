@@ -303,6 +303,18 @@ class BoundsTests(SeriesFixture):
             with self.assertRaisesMessage(services.SpaceError, "muchas reservas que se repiten"):
                 self.ask()
 
+    def test_one_person_has_a_bounded_number_of_series_waiting_in_a_space(self):
+        """Defect (review of wave 12): one requester alone could use up the space's open series."""
+        self.assertEqual(repeticion.MAX_WAITING_PER_REQUESTER, 3)
+        for _ in range(repeticion.MAX_WAITING_PER_REQUESTER):
+            self.assertEqual(self.ask().status, Status.REQUESTED)
+        with self.assertRaisesMessage(services.SpaceError, "Ya tienes 3 reservas que se repiten esperando respuesta en este espacio"):
+            self.ask()
+        self.assertEqual(self.ask(person=self.coordinator, actor=self.coordinator_user).status, Status.REQUESTED)  # somebody else
+        self.assertEqual(self.approved().status, Status.APPROVED)  # the administration's own series wait for nobody
+        repeticion.approve_series(BookingSeries.objects.filter(requested_by=self.leader).first(), self.admin)
+        self.assertEqual(self.ask().status, Status.REQUESTED)  # one was decided: room for another
+
     def test_nothing_of_another_church_and_nobody_merged_asks(self):
         with self.assertRaisesMessage(services.SpaceError, "no es de esta iglesia"):
             self.ask(person=self.leader_b, actor=self.leader_b_user)
@@ -383,6 +395,17 @@ class EventSeriesLinkTests(SeriesFixture):
         event_series.restore(second, self.admin)
         self.assertEqual(repeticion.generate(series), 1)
         self.assertTrue(BookingSeriesDay.objects.filter(series=series, day=second.day, outcome=Outcome.BOOKED).exists())
+
+    def test_a_date_the_event_series_called_off_is_not_read_as_usual(self):
+        """Defect (review of wave 12): «Suele ocuparse» on a day the series of events called off."""
+        followed = self.event_series()
+        second = SeriesOccurrence.objects.filter(series=followed).order_by("day")[1]
+        event_series.call_off(second, self.admin)
+        self.approved(event_series=followed)
+        monday = second.day - timedelta(days=second.day.weekday())
+        self.assertNotIn(second.day, repeticion.usual(self.room, monday, self.tz))
+        event_series.restore(second, self.admin)
+        self.assertIn(second.day, repeticion.usual(self.room, monday, self.tz))  # on again and not written yet: usual again
 
     def test_a_date_called_off_after_its_booking_keeps_the_room_and_the_page_says_to_look(self):
         followed = self.event_series()

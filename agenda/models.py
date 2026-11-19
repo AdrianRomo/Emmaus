@@ -122,6 +122,11 @@ class EventRegistration(models.Model):
     guest_email = models.EmailField("Correo", max_length=254, blank=True, default="", db_default="")
     visitor_key = models.CharField(max_length=64, null=True, blank=True, unique=True, editable=False)
     visitor_confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Such a visitor's answer to the optional box «La iglesia puede guardar mi nombre y mi teléfono para invitarme a
+    # otras actividades» (unticked by default) and when they gave it (when they sent the form; NULL: never asked).
+    # Only with a yes may the administration add them to the church's people (``services.promote_guest``).
+    visitor_contact_consent = models.BooleanField(default=False, db_default=False)
+    visitor_contact_consent_at = models.DateTimeField(null=True, blank=True)
     # What the team said at the door: "es menor de edad". For a visitor it is all the church knows;
     # for a person of the church it counts only while the date of birth is unknown.
     guest_is_minor = models.BooleanField("Es menor de edad", default=False, db_default=False)
@@ -221,6 +226,12 @@ class EventRegistration(models.Model):
     def is_visitor_signup(self) -> bool:
         """Somebody without an account signed up from the public page and confirmed their address."""
         return self.visitor_key is not None
+
+    @property
+    def may_join_people(self) -> bool:
+        """«Agregar a personas de la iglesia» applies to this row: a visitor the team wrote at the door, or one who
+        signed up alone and said yes to the church keeping their name and phone."""
+        return self.person_id is None and (self.visitor_key is None or self.visitor_contact_consent)
 
     @property
     def waits_for(self) -> str:
@@ -584,6 +595,8 @@ class VisitorRequest(models.Model):
     key = models.CharField(max_length=64, unique=True)
     # {question id: the answer as text}, as the form validated it; written as rows when the request is confirmed.
     answers = models.JSONField(default=dict, blank=True)
+    # The optional box of the form, carried to the registration when the request is confirmed (its time: ``created_at``).
+    contact_consent = models.BooleanField(default=False, db_default=False)
     created_at = models.DateTimeField(default=timezone.now)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     registration = models.ForeignKey(EventRegistration, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")

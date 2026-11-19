@@ -204,12 +204,14 @@ class MinorsTests(VisitorFixture):
         public_page = self.client.get(public_url(self.retiro))
         self.assertNotContains(public_page, form_url(self.retiro))
         self.assertContains(public_page, "Este evento cuida a los menores de edad: quien no tiene cuenta se inscribe en")
-        # A request made before the rule: its link signs nobody up.
+        # A request made before the rule: its link is the dead link and signs nobody up (the option is off now).
         answer = self.client.post(self.confirm_url(waiting))
-        self.assertContains(answer, "La inscripción sin cuenta ya no está disponible para este evento.")
+        self.assertContains(answer, "Este enlace ya no sirve", status_code=404)
         self.assertEqual(EventRegistration.objects.filter(event=self.retiro).count(), 1)
-        mine = self.client.get(visitors.manage_path(registration))
-        self.assertContains(mine, "tiene que confirmar tu edad")
+        mine = self.client.get(visitors.manage_path(registration))  # nothing of the event; cancelling still works
+        self.assertContains(mine, "Por ahora esta página no muestra nada del evento.")
+        self.assertContains(mine, "Cancelar mi inscripción")
+        self.assertNotContains(mine, self.retiro.name)
         # Only the team's word confirms: the existing step for a visitor.
         services.confirm_guest_age(registration, self.admin, is_minor=False)
         registration.refresh_from_db()
@@ -314,7 +316,7 @@ class ConfirmTests(VisitorFixture):
         self.assertContains(opened, "Sí, inscribirme")
         self.assertFalse(EventRegistration.objects.exists())
         done = self.client.post(path)
-        self.assertContains(done, "Listo, quedaste inscrito")
+        self.assertContains(done, "Listo, ya tienes tu lugar")
         row = EventRegistration.objects.get()
         self.assertEqual((row.event, row.person, row.status), (self.retiro, None, "inscrita"))
         self.assertEqual((row.guest_first_name, row.guest_last_name, row.guest_email), ("Valentina", "Visita Demo", ADDRESS))
@@ -387,13 +389,13 @@ class CapacityTests(VisitorFixture):
         row = self.requested()
         services.register(self.retiro, self.member, self.member_user)
         answer = self.client.post(self.confirm_url(row))
-        self.assertContains(answer, "No quedaste inscrito")
+        self.assertContains(answer, "No se hizo tu inscripción")
         self.assertContains(answer, "Ya no hay lugares.")
         self.assertEqual(EventRegistration.objects.filter(event=self.retiro).count(), 1)
         self.assertIsNone(self.request_row().confirmed_at)
         # The place is freed: the same link, still within its hours, works.
         services.cancel(EventRegistration.objects.get(person=self.member), self.member_user)
-        self.assertContains(self.client.post(self.confirm_url(row)), "Listo, quedaste inscrito")
+        self.assertContains(self.client.post(self.confirm_url(row)), "Listo, ya tienes tu lugar")
 
     def test_two_requests_for_the_last_place_give_it_once(self):
         """Defect: two confirmations read "one place left" and both take it."""
@@ -422,7 +424,7 @@ class CapacityTests(VisitorFixture):
         answer = self.client.post(self.confirm_url(row))
         self.assertContains(answer, "Quedaste en la lista de espera")
         self.assertContains(answer, "todavía no tienes lugar")
-        self.assertNotContains(answer, "quedaste inscrito")
+        self.assertNotContains(answer, "ya tienes tu lugar")
         waiting = EventRegistration.objects.get(person__isnull=True)
         self.assertEqual(waiting.status, "en_espera")
         self.assertEqual(services.taken(self.retiro), 1)
@@ -517,7 +519,7 @@ class PrivateLinkTests(VisitorFixture):
 class StaffTests(VisitorFixture):
     def test_the_list_marks_who_signed_up_without_an_account_and_counts_requests_as_a_number(self):
         self.set_page(visitor_phone=True)
-        self.signed_up(phone="55 5550 0142")
+        self.signed_up(phone="55 5550 0142", contact_consent=True)
         self.requested(OTHER, first_name="Zacarías", last_name="Sinconfirmar")
         self.client.force_login(self.admin)
         page = self.client.get(reverse("agenda:registrations", args=[self.retiro.slug]))
@@ -540,7 +542,7 @@ class StaffTests(VisitorFixture):
         self.assertNotIn("<b>Negritas</b>", mine)
 
     def test_adding_the_visitor_to_people_is_the_existing_manual_audited_step(self):
-        registration = self.signed_up()
+        registration = self.signed_up(contact_consent=True)
         self.client.force_login(self.admin)
         url = reverse("agenda:guest_promote", args=[self.retiro.slug, registration.pk])
         self.assertEqual(self.client.get(url).status_code, 200)
@@ -592,7 +594,7 @@ class EndingsTests(VisitorFixture):
     def test_the_events_own_retention_ends_the_visitors_registration_and_every_answer(self):
         question = EventQuestion.objects.create(event=self.retiro, text="¿Te quedas a comer?", kind="si_no")
         visitor = self.signed_up(answers={str(question.pk): "Sí"})
-        promoted = self.signed_up(OTHER)
+        promoted = self.signed_up(OTHER, contact_consent=True)
         services.promote_guest(promoted, self.admin)
         member = services.register(self.retiro, self.member, self.member_user)
         questions.save_answers(member, {str(question.pk): "No"})

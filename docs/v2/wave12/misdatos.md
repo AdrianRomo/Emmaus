@@ -25,6 +25,14 @@ it only gained one row that links here, inside its `ui_v2` branch).
 **Part B, «Quién puede qué»** (`cuenta_datos/powers.py`): read-only, by kind, from the tables
 authorization reads; flags; superusers as a count.
 
+Review of wave 12: the drift test compared only with `has_scope(…, MANAGE)`, so dropping pastors, mentors,
+coordinators, form readers or event roles from `powers.build` stayed green. `DriftTests` now checks each section
+against its own source of truth, account by account and both ways: church roles against the role table behind
+`has_scope` (church); guides and coordinators against `has_scope` (group / ministry, manage); form readers against
+`formularios.access.can_read`; event teams against `events.access.resolve_access`. Each of the reviewer's six
+mutations of `powers.py` fails at least one of them. What it proves is on a fixture that holds every kind; a new
+kind of power still needs its own section and test (the module docstring says so).
+
 ## Routes and who may use each
 
 All under `/mi-iglesia/cuenta/`, module `community` on (404 otherwise), through

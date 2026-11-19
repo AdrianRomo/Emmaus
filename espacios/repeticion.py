@@ -56,6 +56,8 @@ WINDOW_WEEKS = event_series_rules.WINDOW_WEEKS
 MAX_AHEAD_DAYS = 183
 # Series of one space that wait or are in force at once: nobody fills a table by asking again and again.
 MAX_OPEN_PER_SPACE = 40
+# Series of one space that ONE person has waiting for a decision at once: one person cannot use up the 40 above.
+MAX_WAITING_PER_REQUESTER = 3
 
 Status = BookingSeries.Status
 Outcome = BookingSeriesDay.Outcome
@@ -278,15 +280,20 @@ def request_series(space: Space, person: Person, actor, *, title: str, starts_on
             event_series = EventSeries.objects.filter(pk=event_series.pk, church_id=space.church_id, active=True).first()
             if event_series is None:
                 raise SpaceError("Esa serie de eventos no es de esta iglesia o ya terminó.", code="event_series")
-        open_now = BookingSeries.objects.filter(space=space, status__in=(Status.REQUESTED, Status.APPROVED), ends_on__gte=today).count()
-        if open_now >= MAX_OPEN_PER_SPACE:
+        open_now = BookingSeries.objects.filter(space=space, status__in=(Status.REQUESTED, Status.APPROVED), ends_on__gte=today)
+        if open_now.count() >= MAX_OPEN_PER_SPACE:
             raise SpaceError("Este espacio ya tiene muchas reservas que se repiten. Termina alguna antes de pedir otra.", code="too_many")
+        direct = not approve and not space.needs_approval
+        if not approve and not direct and open_now.filter(status=Status.REQUESTED, requested_by=person).count() >= MAX_WAITING_PER_REQUESTER:
+            raise SpaceError(
+                f"Ya tienes {MAX_WAITING_PER_REQUESTER} reservas que se repiten esperando respuesta en este espacio. Espera a que "
+                "la administración las decida, o retira alguna, antes de pedir otra.", code="too_many_waiting",
+            )
         series = BookingSeries(
             space=space, title=title, interval_weeks=interval_weeks, starts_on=starts_on, ends_on=ends_on, starts_at=starts_at,
             ends_at=ends_at, setup_minutes=setup_minutes, teardown_minutes=teardown_minutes, requested_by=person,
             event_series=event_series,
         )
-        direct = not approve and not space.needs_approval
         if approve or direct:
             series.status, series.decided_at, series.decided_by = Status.APPROVED, now, actor if approve else None
         series.save()
@@ -439,18 +446,24 @@ def days_of(series: BookingSeries, tz, now: datetime | None = None) -> dict:
 def usual(space: Space, monday: date, tz, now: datetime | None = None) -> dict[date, list[dict]]:
     """For the administration's week: the days of that week a series in force would take and has
     not reached yet (they are beyond the window, so nothing holds them). Each entry: the series,
-    its rule in words and the hours. Reads only; nothing here refuses a request."""
+    its rule in words and the hours. A day the followed series of events called off (or that no longer falls
+    on its rule) is not "usual": it is skipped, as the generator skips it. Reads only; nothing here refuses a request."""
     now = now or timezone.now()
     today = now.astimezone(tz).date()
     sunday = monday + timedelta(days=6)
     found: dict[date, list[dict]] = {}
     live = BookingSeries.objects.filter(space=space, status=Status.APPROVED, starts_on__lte=sunday, ends_on__gte=max(monday, today))
     for series in live.select_related("event_series").order_by("starts_at", "id"):
-        written = set(BookingSeriesDay.objects.filter(series=series, day__gte=monday, day__lte=sunday).values_list("day", flat=True))
+        skipped = set(BookingSeriesDay.objects.filter(series=series, day__gte=monday, day__lte=sunday).values_list("day", flat=True))
         followed = _followed(series, space.church_id)
+        if followed is not None:
+            skipped |= set(
+                SeriesOccurrence.objects.filter(series=followed, day__gte=monday, day__lte=sunday)
+                .exclude(status=SeriesOccurrence.Status.ACTIVE).values_list("day", flat=True)
+            )
         for offset in range(7):
             day = monday + timedelta(days=offset)
-            if day < today or day in written or not series.starts_on <= day <= series.ends_on:
+            if day < today or day in skipped or not series.starts_on <= day <= series.ends_on:
                 continue
             if series.event_series_id is None:
                 start, on = series.starts_at, falls_on(series, day)

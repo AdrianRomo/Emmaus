@@ -11,7 +11,8 @@ no audit row carries one. They are deleted with their question, when the registr
 list, annulled: ``services._drop_answers``) and when the event's retention ends (``visitors.delete_due``).
 
 An event that protects minors asks no free-text question: ``asked`` leaves them out, the builder refuses a new
-one, and turning the rule on deletes the free-text answers already given (``drop_free_text``). Ticket kinds are
+one, and turning the rule on deletes the free-text answers already given (``drop_free_text``), the ones that
+wait inside a visitor's unconfirmed request included. Ticket kinds are
 not built: without payments (#86) a "kind" is a question with options.
 """
 
@@ -158,8 +159,20 @@ def delete_question(question: EventQuestion, actor) -> int:
 
 
 def drop_free_text(event: Event) -> int:
-    """The event protects minors now: what was typed in answer to its free-text questions is deleted."""
-    return RegistrationAnswer.objects.filter(question__event=event, question__kind=Kind.TEXT).delete()[0]
+    """The event protects minors now: what was typed in answer to its free-text questions is deleted, from the
+    registrations and from the requests of visitors that wait for their confirmation. Returns how many answers went."""
+    from .models import VisitorRequest
+
+    dropped = RegistrationAnswer.objects.filter(question__event=event, question__kind=Kind.TEXT).delete()[0]
+    typed = {str(pk) for pk in EventQuestion.objects.filter(event=event, kind=Kind.TEXT).values_list("pk", flat=True)}
+    if typed:
+        for row in VisitorRequest.objects.filter(event=event).only("pk", "answers"):
+            answers = row.answers if isinstance(row.answers, dict) else {}
+            kept = {key: value for key, value in answers.items() if key not in typed}
+            if kept != answers:
+                VisitorRequest.objects.filter(pk=row.pk).update(answers=kept)
+                dropped += len(answers) - len(kept)
+    return dropped
 
 
 class AnswersForm(forms.Form):
