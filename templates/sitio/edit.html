@@ -29,7 +29,7 @@
       {% else %}
       <div class="notice notice--warning"><p>La página está marcada como publicada, pero hoy no se puede ver: la iglesia tiene que estar activa.</p></div>
       {% endif %}
-      <div class="step__actions">
+      <div class="form-actions sitio-admin__acciones">
         {% if live %}<button class="btn btn--secondary" type="button" data-copy="enlace-publico" data-copy-done="Enlace copiado">Copiar enlace</button>
         <a class="btn btn--link" href="{{ public_url }}" target="_blank" rel="noopener">Ver la página pública<span class="visually-hidden"> (se abre en otra pestaña)</span></a>{% endif %}
         <a class="btn btn--link btn--quieto" href="{% url 'sitio:unpublish' %}">Dejar de publicar la página</a>
@@ -37,7 +37,7 @@
     {% else %}
       <p class="meta">{% if approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}<span>Nadie la ve todavía. La publica un pastor de tu iglesia al aprobarla; antes verás, en una lista, todo lo que va a ser público.</span></p>
       {% include "resources/_approval_note.html" %}
-      <div class="step__actions">
+      <div class="form-actions sitio-admin__acciones">
         {% if not approval.is_pending %}<a class="btn btn--secondary" href="{% url 'sitio:publish' %}">Revisar y pedir la aprobación</a>{% endif %}
         <a class="btn btn--link" href="{% url 'sitio:preview' %}">Ver la vista previa</a>
       </div>

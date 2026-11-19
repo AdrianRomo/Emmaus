@@ -9,9 +9,10 @@
   administration); if it changed meanwhile, the list is shown again. The notes that say who can read or call
   (privacy) stay whole.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow sitio-admin">
   {% url 'sitio:edit' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Revisa antes de pedir la aprobación" lede="Todavía no se publica nada. Esto es todo lo que podrá leer cualquier persona con el enlace, sin cuenta, cuando un pastor de tu iglesia lo apruebe." back_url=back back_label="Volver a editar" %}
+  {% include "events/rotulo/_page_head.html" with title="Revisa antes de pedir la aprobación" back_url=back back_label="Volver a editar" %}
+  <p class="aside-note">Todavía no se publica nada. Esto es todo lo que podrá leer cualquier persona con el enlace, sin cuenta, cuando un pastor de tu iglesia lo apruebe.</p>
 
   {% include "sitio/_review_list.html" %}
 

@@ -24,14 +24,13 @@
               {% if devotional.passage %}<li>{% icon "lectura" "sm" %}{{ devotional.passage }}</li>{% endif %}
               {% if devotional.author_name %}<li>{% icon "personas" "sm" %}{{ devotional.author_name }}</li>{% endif %}
             </ul>
-            {% if devotional.approval.is_pending %}<p class="row__meta">Espera la aprobación pastoral: nadie lo ve todavía.</p>{% elif devotional.approval.is_returned %}<p class="row__meta">Un pastor lo devolvió sin aprobarlo: ábrelo para leer el motivo.</p>{% elif devotional.approval.is_changed %}<p class="row__meta">Cambió después de publicarse. Pide la aprobación otra vez.</p>{% endif %}
+            <p class="row__meta row__meta--con-marca">{% if devotional.approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}<span>espera la aprobación pastoral: nadie lo ve todavía</span>{% elif devotional.approval.is_returned %}{% status "revisar" "Devuelto" %}<span>un pastor lo devolvió sin aprobarlo: ábrelo para leer el motivo</span>{% elif devotional.approval.is_changed %}{% status "revisar" "Fuera de publicación" %}<span>cambió después de publicarse. Pide la aprobación otra vez</span>{% elif devotional.state == "borrador" %}{% status "borrador" "Borrador" %}<span>nadie lo ve todavía</span>{% elif devotional.state == "programado" %}{% status "por_evaluar" "Programado" %}<span>se lee desde su día</span>{% else %}{% status "publicada" "Publicado" %}{% endif %}</p>
           </div>
-          <div class="row__end">{% if devotional.approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% elif devotional.approval.is_returned %}{% status "revisar" "Devuelto" %}{% elif devotional.approval.is_changed %}{% status "revisar" "Fuera de publicación" %}{% elif devotional.state == "borrador" %}{% status "borrador" "Borrador" %}{% elif devotional.state == "programado" %}{% status "por_evaluar" "Programado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}</div>
         </li>
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=devotionals label="Páginas de devocionales" %}
-    <p class="more"><a href="{% url 'resources:approval_queue' %}">Ver lo que espera aprobación pastoral</a></p>
+    {% include "resources/_approval_way.html" %}
   {% else %}
     {% include "partials/ui/empty.html" with title="Sin devocionales todavía" text="Puedes guardar el primero como borrador y pedir su aprobación después." action_url=create action_label="Escribir un devocional" %}
   {% endif %}

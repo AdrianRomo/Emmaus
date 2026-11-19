@@ -1215,7 +1215,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* Configuración (core/church_settings.html): the other places of the configuration, one line each, centred on their mark */
 .ajustes > .row { align-items: center; }
 /* Página pública, the administration's screen: the actions of the publication under its state, a step away */
-.sitio-admin .step__actions { margin-top: var(--s-4); }
+.sitio-admin__acciones { margin-top: var(--s-4); }
 .sitio-admin .meta + .admin-link { margin-top: var(--s-4); }
 .sitio-admin > .aside-note + .block { margin-top: var(--s-8); }
 /* A quiet removal alone under a form (sitio/time_form.html): apart from the form's actions, its words on the text's edge */
@@ -2153,6 +2153,33 @@ p.sitio__leaves { margin-top: var(--s-2); }
   :root[data-ui="2"] .oracion__marcar .btn { width: 100%; }
 }
 /* === fin oracion === */
+
+/* === aprobaciones (wave 11) === */
+/* Pastoral approval (resources/approval_queue.html, approval_review.html and the kinds' previews). The list is the
+   row specification with nothing added. The review page reads as the published thing: the reader's own pieces
+   (.verso, .meta, .prose), a step apart; a plan's days one under another with a hairline between; and the decision
+   on the page's one raised surface, where «Ir a tu decisión» lands clear of the top. */
+.aprobaciones .heading + .aside-note { margin-bottom: var(--s-2); }
+.aprobacion__vista .reading > * + * { margin-top: var(--s-4); }
+.aprobacion__vista .reading > .verso { margin-top: 0; }
+.aprobacion__vista .reading > .verso + .meta, .aprobacion__vista .reading > .lede + .reading__by { margin-top: var(--s-2); }
+.aprobacion__vista .reading > .lede { margin-top: 0; font-size: var(--t-body); }
+.aprobacion__vista .prose { max-width: 62ch; }
+.aprobacion__vista .aprobacion__dia { margin-top: var(--s-6); padding-top: var(--s-6); border-top: 1px solid var(--line); }
+.aprobacion__vista .aprobacion__dia > .heading + .verso { margin-top: var(--s-1); }
+.aprobacion__vista .reading + .aside-note, .aprobacion__vista .rows + .aside-note { margin-top: var(--s-6); }
+:root[data-ui="2"] .aprobacion__decision { margin-top: var(--s-8); scroll-margin-top: var(--s-4); }
+.aprobacion__decision > .sign__text { max-width: 62ch; }
+.aprobacion__decision > form { margin-top: var(--s-5); }
+.aprobacion__decision > .sign__title + p { margin-top: var(--s-2); }
+.aprobacion__decision .form-actions { margin-top: var(--s-5); }
+.aprobacion__decision > .fold { margin-top: var(--s-4); padding-top: var(--s-2); border-top: 1px solid var(--line); }
+.aprobacion__decision > .aside-note { margin-top: var(--s-4); }
+/* The review before asking (sitio/review.html): what changes afterwards, a step under the last list */
+.sitio-admin > .block + .notice { margin-top: var(--s-6); }
+/* The way to the pastor's list under an administration's list (resources/_approval_way.html): a list of its own */
+.page--app .aprobacion__camino { margin-top: var(--s-6); }
+/* === fin aprobaciones === */
 
 /* ---------- 15. Motion ---------------------------------------------------- */
 /* Motion answers a person or shows what changed (docs/v2/CRAFT.md §4). Atrio's rules stay (rotulo.css §13). Added:

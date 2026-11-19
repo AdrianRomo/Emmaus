@@ -3,7 +3,7 @@
   approval (the row or nothing) and has_pastor. The reason a pastor gave is plain text, escaped.
 {% endcomment %}
 {% if approval.is_pending %}
-  <div class="notice notice--quiet"><p>Espera la aprobación pastoral{% if approval.requested_at %} desde el {{ approval.requested_at|date:"j \d\e F"|lower }}{% endif %}. Está en la lista «Aprobación pastoral» de los pastores de tu iglesia y Emmaus no le avisa a nadie: lo ven cuando entran. Se publica cuando uno de ellos lo apruebe; la administración no puede publicarlo por su cuenta.</p></div>
+  <div class="notice"><p>Espera la aprobación pastoral{% if approval.requested_at %} desde el {{ approval.requested_at|date:"j \d\e F"|lower }}{% endif %}. Está en la lista «Aprobación pastoral» de los pastores de tu iglesia y Emmaus no le avisa a nadie: lo ven cuando entran. Se publica cuando uno de ellos lo apruebe; la administración no puede publicarlo por su cuenta.</p></div>
 {% elif approval.is_returned %}
   <div class="notice notice--warning">
     <p>Un pastor lo devolvió sin aprobarlo{% if approval.returned_at %} el {{ approval.returned_at|date:"j \d\e F"|lower }}{% endif %}. Lo que hay que corregir:</p>

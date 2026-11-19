@@ -86,25 +86,28 @@
     {% else %}
       <p class="empty-line">Aún no formas parte de ningún evento ni de una iglesia. <a href="{% url 'join' %}">Únete con el código de un evento</a></p>
     {% endif %}
-    {% if church_choices %}
+  </section>
+
+  {% if church_choices %}
+  {# The church of the request (core.authz): a plain POST that changes the whole page and rotates the CSRF token, so never in place. #}
+  <section class="block" aria-labelledby="otra-iglesia">
+    <h2 id="otra-iglesia" class="heading">Cambiar de iglesia</h2>
     <p class="aside-note">Eres parte de más de una iglesia. Ahora estás en <strong>{{ current_church.name }}</strong>. Puedes cambiar a otra:</p>
     <ul class="rows">
       {% for other in church_choices %}
-        <li class="row row--lead row--stack">
+        <li class="row row--lead">
           {% monogram other.name "" "grupo" %}
           <div class="row__main"><p class="row__title">{{ other.name }}</p></div>
-          <div class="row__end">
-            <form class="row__form" method="post" action="{% url 'switch_church' %}">
-              {% csrf_token %}
-              <input type="hidden" name="church" value="{{ other.pk }}">
-              <button class="btn btn--link" type="submit">Cambiar<span class="visually-hidden"> a {{ other.name }}</span></button>
-            </form>
-          </div>
+          <form class="row__end" method="post" action="{% url 'switch_church' %}">
+            {% csrf_token %}
+            <input type="hidden" name="church" value="{{ other.pk }}">
+            <button class="btn btn--link" type="submit">Cambiar<span class="visually-hidden"> a {{ other.name }}</span></button>
+          </form>
         </li>
       {% endfor %}
     </ul>
-    {% endif %}
   </section>
+  {% endif %}
 
   {% if dismissed %}
   <section class="block" id="bienvenidas" aria-labelledby="bienvenidas-titulo">

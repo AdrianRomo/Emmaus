@@ -1,20 +1,23 @@
-{% comment %}A reading plan as the pastor reads it before approving: every day, whole (resources.approvals.PlanKind.preview). Plain text, escaped.{% endcomment %}
-<div class="block">
-<dl class="summary-list">
-  <div class="summary-list__row"><dt>Título</dt><dd>{{ plan.title }}</dd></div>
-  <div class="summary-list__row"><dt>De qué trata</dt><dd>{% if plan.description %}{{ plan.description|linebreaksbr }}{% else %}Sin descripción.{% endif %}</dd></div>
-  <div class="summary-list__row"><dt>Quién lo preparó</dt><dd>{{ plan.author_line|default:"No lo dice." }}</dd></div>
-</dl>
+{% comment %}
+  A reading plan as the pastor reads it before approving: every day, whole (resources.approvals.PlanKind.preview),
+  drawn as its reader will see it (resources/plan_detail.html, plan_day.html): what it is about and who prepared it,
+  then each day with its reference in the serif of a verse, the church's reflection and the question. Its title is
+  the page's title, above. What is missing is said, never left blank. Plain text, escaped.
+{% endcomment %}
+<div class="reading">
+  <p class="lede">{% if plan.description %}{{ plan.description|linebreaksbr }}{% else %}Sin descripción.{% endif %}</p>
+  <p class="reading__by">{% if plan.author_line %}{{ plan.author_line }}{% else %}No dice quién lo preparó.{% endif %}</p>
 </div>
 {% for day in days %}
-  <section class="block" aria-labelledby="dia-{{ day.position }}">
+  <section class="reading aprobacion__dia" aria-labelledby="dia-{{ day.position }}">
     <h3 id="dia-{{ day.position }}" class="heading">Día {{ day.position }}{% if day.title %}: {{ day.title }}{% endif %}</h3>
+    <p class="verso devocional__verso"><span class="visually-hidden">Lectura: </span>{{ day.reference }}</p>
     <div class="prose">
-      <p>Lectura: {{ day.reference }}. Solo la cita: cada quien la lee en su Biblia.</p>
       {% if day.reflection %}{{ day.reflection|linebreaks }}{% else %}<p>Sin reflexión.</p>{% endif %}
-      {% if day.question %}<p>Para pensar: {{ day.question }}</p>{% endif %}
     </div>
+    {% if day.question %}<p class="prose aprobacion__pregunta"><strong>Para pensar:</strong> {{ day.question }}</p>{% endif %}
   </section>
 {% empty %}
   <p class="empty-line">Este plan no tiene días.</p>
 {% endfor %}
+{% if days %}<p class="aside-note">De cada lectura se publica solo la cita: cada quien la lee en su Biblia.</p>{% endif %}
