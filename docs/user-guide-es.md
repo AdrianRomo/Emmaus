@@ -4,6 +4,8 @@ Esta guía es para el equipo del campamento: coordinadores, tutores, pastores y 
 
 En la barra de arriba de cada pantalla hay un enlace **"Ayuda"**. Dentro de un campamento te muestra las cinco tareas más comunes de tu rol, cada una con el enlace a la pantalla donde se hace. Fuera de un campamento explica cómo entrar, unirte con el código y elegir el campamento. Bajo el nombre del campamento, la barra dice tu rol; en el teléfono lo ves en Menú y en tu inicio («Tu rol: …»).
 
+Si tu iglesia usa Emmaus también para su vida de iglesia (eventos, grupos y avisos: el módulo de comunidad), las pantallas se ven distintas. En una pantalla ancha, los enlaces están en una columna a la izquierda, con tu nombre (lleva a "Mi cuenta"), **"Ayuda"** y **"Cerrar sesión"** abajo; dentro de un campamento, bajo su nombre están sus pantallas y tu rol ("Tu rol: coordinador."), y **"Todos los eventos"** lleva a los demás. En un celular, abajo están las pantallas que más usas y **"Más"**, con todo lo demás. Esta guía usa las palabras de las pantallas sin ese módulo; donde cambian, lo dice.
+
 ## Antes de empezar: la primera cuenta
 
 Esto se hace una sola vez, cuando Emmaus está recién instalado y todavía no tiene ninguna iglesia. Lo hace la persona que va a administrar la iglesia en Emmaus. No necesitas abrir una terminal ni escribir comandos: todo es en el navegador.
@@ -47,7 +49,7 @@ Emmaus entra con tu cuenta y te lleva a **"Eventos"**, donde lo único que hay q
 ## Entrar y salir
 
 1. Abre Emmaus en el navegador y escribe tu **Correo electrónico** y tu **Contraseña**.
-2. Toca **"Entrar"**.
+2. Toca **"Entrar"**. Si el correo o la contraseña no coinciden, Emmaus dice **"No pudimos iniciar sesión. Revisa tu correo y tu contraseña e inténtalo de nuevo."** Es el mismo mensaje si la cuenta no existe o está desactivada. Si llegaste desde la página, el código o el enlace de un campamento, debajo dice también "Si no puedes entrar al evento, pide ayuda a su administración."
 3. Si es tu primera vez, la administración te mandó un correo o te dio un enlace para crear tu contraseña.
 4. Si olvidaste tu contraseña, toca **"¿Olvidaste tu contraseña?"**, escribe tu correo y toca **"Enviar enlace"**. Te llegará un correo con un enlace para crear tu contraseña, también si nunca la creaste. Si no llega, revisa el correo no deseado o pide ayuda a la administración.
 5. Si te equivocas muchas veces, Emmaus te pide esperar unos minutos antes de intentar otra vez, y cada vez un poco más si sigues fallando. Es para proteger tu cuenta.
@@ -84,6 +86,8 @@ Si ya tienes cuenta, entra primero y vuelve a la página del evento: tu nombre y
 
 ### Tu pantalla de inicio
 
+Si administras un campamento (tipo **"Campamento"**) que está **"En curso"** y hoy está entre su primer y su último día, al entrar a Emmaus se abre directamente su **"Inicio"**. Si administras varios así, Emmaus te pregunta **"¿A qué campamento entras?"**, con **"Todos los eventos"** abajo. Si entraste con un enlace a otra página, Emmaus abre esa página. Esto pasa solo al entrar: después, tu inicio es el de siempre.
+
 En **"Inicio"**, si algo impide entrevistar, arriba aparece un panel con lo único que hay que hacer primero, en este orden: **"Confirma los procedimientos de la iglesia"**, **"Elige el cuestionario de las entrevistas"**, **"Registra o importa a los camperos"**, las solicitudes de acceso ("2 personas piden acceso al equipo") o **"Asigna coordinador a N camperos"**, con el botón para hacerlo. Si nada lo impide, no hay panel. Debajo dice cuántas entrevistas van ("Llevamos 247 de 400 entrevistas."), con una barra de avance y las cifras de camperos, entrevistas a solas, seguimientos y situaciones de riesgo.
 
 ![Inicio de la administración](img/admin-inicio.png)
@@ -110,6 +114,8 @@ Junto a "Preparación" (en un celular, debajo) están la actividad reciente y la
 Emmaus prepara solo 10 computadoras de entrevista ("Computadora 1" a "Computadora 10") y un primer cuestionario: el último que haya publicado tu iglesia o, si no hay ninguno, el cuestionario de conversación espiritual que trae Emmaus. Si quieres usar más de uno, agrégalos en "Cuestionarios" (ver [10. Cuestionarios](#10-cuestionarios)).
 
 **¿Ya hiciste un campamento?** No lo prepares de nuevo: en **"Configuración"** del campamento anterior toca **"Duplicar como plantilla"**, escribe el nombre del nuevo y, si ya las sabes, sus fechas. El evento nuevo nace **"En preparación"**, con su propia dirección y un código nuevo para unirse, y trae la configuración, los cuestionarios en uso y las computadoras. **Nunca** trae camperos, entrevistas, respuestas, seguimientos, autorizaciones, cortes ni reportes. Si marcas **"Copiar también al equipo"**, las mismas personas quedan con el mismo rol (sin acceso a información confidencial, que se otorga de nuevo) y a cada una se le avisa por correo. Solo la administración de la iglesia puede duplicar. Un evento sencillo de la iglesia (un culto, una convivencia) se duplica desde **"Eventos de la iglesia"**, con **"Duplicar"**: copia su página (sin publicar), sus preguntas frecuentes y su programa movido al día nuevo.
+
+En **"Eventos de la iglesia"**, un evento que está **"En curso"** y cuyas fechas incluyen hoy aparece arriba, en su propia sección, **"En curso"**, y lo dice en su renglón. "Publicada" o "Sin publicar" y las inscripciones solo aparecen si el evento tiene página para la iglesia. Un campamento sin esa página (solo entrevistas) dice cuántos camperos tiene ("400 camperos"), su nombre abre su **"Inicio"** y su botón es **"Camperos"**, en lugar de "Inscritos".
 
 ### 2. Confirmar los procedimientos de la iglesia
 
@@ -303,7 +309,7 @@ La primera vez que buscas a un campero o tocas "Iniciar entrevista", Emmaus te p
 1. En el panel de **"Mi inicio"** escribe el número del campero o las primeras letras de su nombre y de su apellido (por ejemplo, "mat jim" para Mateo Jiménez) y toca **"Buscar"**. Desde **"Entrevistas pendientes"**, toca **"Iniciar entrevista"**.
 2. Toca **"Entrevistar"** (o **"Retomar"** si ya la habías empezado). También puedes tocar "Entrevistar" junto a un nombre en "Por entrevistar".
 3. Se abre **"Antes de empezar"**:
-   * **¿Es la persona correcta?** Revisa nombre, edad, cuarto y grupo y marca **"Sí, es ..."** con su nombre: sin esa casilla la entrevista no empieza. Si algo está mal, toca "Corregir datos del campero". A quien la empezó no se le vuelve a preguntar: al retomarla, al seguirla en otra computadora o al recuperar la computadora después de una entrevista a solas. Si otra persona la sigue (toma el control, la retoma o recupera la computadora con "Soy otro coordinador"), Emmaus le muestra el nombre del campero y le pide marcar **"Sí, es ..."** antes de continuar, una sola vez. La revisión y la ficha dicen quién confirmó la identidad y cuándo ("Identidad confirmada por ..., 18 nov, 10:02."), quién la verificó de nuevo y quién tiene la entrevista ahora ("Entrevista a cargo de ...").
+   * **¿Es la persona correcta?** Revisa nombre, edad, cuarto y grupo y marca **"Sí, es ..."** con su nombre: sin esa casilla la entrevista no empieza. Si algo está mal, toca "Corregir datos del campero". A quien la empezó no se le vuelve a preguntar: al retomarla, al seguirla en otra computadora o al recuperar la computadora después de una entrevista a solas. Si otra persona la sigue (toma el control, la retoma o recupera la computadora con "Soy otro coordinador"), Emmaus le muestra el nombre del campero y le pide marcar **"Sí, es ..."** antes de continuar, una sola vez. La revisión y la ficha dicen quién confirmó la identidad y cuándo ("Identidad confirmada por ..., 18 nov, 10:02."), quién la verificó de nuevo ("Identidad verificada de nuevo por ..., ...") y, si es otra persona, quién tiene la entrevista ahora ("Entrevista a cargo de ..."). Si es la misma persona que la confirmó, su nombre no se repite.
    * **Autorización.** Toca "Leer el aviso de privacidad para explicárselo" y léeselo con calma. Después marca las casillas:
      * Si es **menor de edad** y no hay autorización registrada: "Tengo la autorización firmada de su padre, madre o tutor legal". **Márcala solo si viste el formato firmado.** Si no lo tienes, no inicies la entrevista.
      * Si es **menor**: "Le expliqué el aviso de privacidad a ... y está de acuerdo en conversar".
@@ -323,7 +329,7 @@ Si aparece "Todavía no se pueden iniciar entrevistas" (en "Mi inicio" o en la b
 * A veces, según la respuesta, aparece una pregunta más en la misma pantalla (por ejemplo, si dice que sí tiene dudas, se abre un espacio para contarlas).
 * Cada pregunta tiene **"Prefiero no responder"**: debajo de las opciones, después de "o bien"; en las de texto, debajo del espacio para escribir. Siempre se puede elegir. Ninguna pregunta es obligatoria: si el campero no quiere contestar, elige "Prefiero no responder" o deja la pregunta en blanco y sigue.
 * Las preguntas marcadas **"Confidencial"**, con la frase "Solo el equipo de cuidado autorizado podrá leer esta respuesta.", son privadas: después de terminar ya no podrás ver esa respuesta. Si el campamento abrió las respuestas confidenciales, la frase dice quién las lee (por ejemplo "Esta respuesta la leen quien te entrevistó, tu coordinador y el equipo de cuidado.") y tú sí podrás volver a verla.
-* **"Continuar"** guarda y pasa a la siguiente. En la última pregunta el botón dice **"Revisar respuestas"**.
+* **"Continuar"** guarda y pasa a la siguiente. En la última pregunta el botón dice **"Revisar respuestas"**. Con el módulo de comunidad, en una pregunta de opciones, mientras no hay nada elegido el botón dice **"Saltar pregunta"** (en la última, **"Saltar y revisar"**).
 * **"Atrás"** (arriba, a la izquierda) guarda y regresa a la anterior.
 * **"Guardar y salir"** (arriba) guarda y te regresa a tu inicio. Puedes retomarla después.
 
@@ -401,9 +407,11 @@ Emmaus recuerda en qué computadora estás, así que no tienes que elegirla otra
 No se pierde nada de lo que ya se guardó.
 
 * **Para retomarla:** en "Mi inicio" el panel dice **"Termina la entrevista de ..."**; toca **"Retomar entrevista"**. Si tienes otras a medias, están en **"También sin terminar"**, con **"Retomar"**. También están en **"Entrevistas pendientes"**.
-* **Si dice "Esta entrevista está abierta en otra computadora":** solo una computadora puede editarla a la vez. Si la otra ya no se usa, toca **"Tomar el control aquí"**. La otra computadora ya no podrá guardar cambios. Si tú no empezaste esa entrevista, antes marca **"Sí, es ..."** con el nombre del campero. Si no, toca **"Volver"**.
+* **Si tu iglesia usa Emmaus también para su vida de iglesia** (el módulo de comunidad), el panel se llama **"Sin terminar"**, dice el nombre del campero y dónde se quedó ("Pregunta 2 de 5, en Computadora 1, hace 6 horas."). Si está abierta en otra computadora, dice "Abierta en Computadora 1, no en esta" y el botón es **"Continuar aquí"**. Si el campero está respondiendo a solas, dice "... responde a solas en Computadora 3" y no hay botón para retomarla: retomarla cerraría su pantalla.
+* **Si dice "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Lo que se respondió sigue guardado.":** otra computadora la abrió, o pasó mucho tiempo sin cambios. No se perdió nada de lo guardado. La pantalla a la que llegas te dice cómo seguir.
+* **Si dice "Esta entrevista está abierta en otra computadora":** solo una computadora puede editarla a la vez. Si la otra ya no se usa, toca **"Tomar el control aquí"** (con el módulo de comunidad la pantalla dice "Abierta en Computadora 1" y el botón es **"Continuar aquí"**). La otra computadora ya no podrá guardar cambios. Si tú no empezaste esa entrevista, antes marca **"Sí, es ..."** con el nombre del campero. Si no, toca **"Volver"**.
 * **Si la computadora se trabó o se apagó:** abre Emmaus en otra computadora, busca al campero y toca "Retomar". Si te lo pide, toma el control.
-* **Si nada de esto funciona:** pide a la administración que la libere en **"Computadoras en uso"**. La computadora donde estaba abierta ya no podrá guardar: si alguien intenta seguir ahí, Emmaus le dice **"La administración liberó esta entrevista"**. Para seguir en esa misma computadora, toca **"Tomar el control aquí"**; para seguir en otra, ábrela desde "Mi inicio" con **"Retomar entrevista"**.
+* **Si nada de esto funciona:** pide a la administración que la libere en **"Computadoras en uso"**. La computadora donde estaba abierta ya no podrá guardar: si alguien intenta seguir ahí, Emmaus le dice **"La administración liberó esta entrevista"**. Para seguir en esa misma computadora, toca **"Tomar el control aquí"** (con el módulo de comunidad, **"Continuar aquí"**); para seguir en otra, ábrela desde "Mi inicio" con **"Retomar entrevista"**.
 
 Una entrevista que lleva 20 minutos o más sin cambios aparece como **interrumpida** para tu tutor.
 
