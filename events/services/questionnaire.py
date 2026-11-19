@@ -158,6 +158,16 @@ def first_unanswered_step(version: QuestionnaireVersion, answers: dict[int, Answ
     return None
 
 
+def resume_step(version: QuestionnaireVersion, answers: dict[int, AnswerValue]) -> Step | None:
+    """Where an interview in progress goes on: the first visible screen after the furthest one with an answer (a
+    «Prefiero no responder» is one), else None: the review. No question is required, so one left blank on purpose stays
+    skipped (the review lists it «Sin responder»); «Retomar» (views.interview._resume) and «Pregunta N de M» on the
+    coordinator's card read this one place."""
+    steps = visible_steps(version, answers)
+    furthest = max((index for index, step in enumerate(steps) if any(q.id in answers for q in step.questions)), default=-1)
+    return steps[furthest + 1] if furthest + 1 < len(steps) else None
+
+
 def neighbor_steps(version, answers, current_number: int) -> tuple[Step | None, Step | None]:
     steps = visible_steps(version, answers)
     previous = next((s for s in reversed(steps) if s.number < current_number), None)

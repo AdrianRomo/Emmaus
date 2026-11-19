@@ -29,7 +29,7 @@
 </dl>
 {% if has_hidden %}
   {% if interview.effective_confidential_level == "cuidado" %}
-  <p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>
+  {% if answered_alone %}<p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% else %}<p class="aside-note">Algunas preguntas son confidenciales y solo el equipo de cuidado autorizado puede leerlas. Si {{ participant.first_name }} pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% endif %}
   {% elif interview.effective_confidential_level == "coordinacion" %}
   <p class="aside-note">Algunas preguntas son confidenciales y llevan su etiqueta: las leen quien entrevistó a {{ participant.first_name }}, su coordinador y el equipo de cuidado.</p>
   {% else %}
@@ -90,7 +90,7 @@
 </dl>
 {% if has_hidden %}
   {% if interview.effective_confidential_level == "cuidado" %}
-  <p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>
+  {% if answered_alone %}<p class="aside-note">Algunas preguntas son confidenciales: {{ participant.first_name }} las respondió por su cuenta y solo el equipo de cuidado autorizado puede leerlas. Si pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% else %}<p class="aside-note">Algunas preguntas son confidenciales y solo el equipo de cuidado autorizado puede leerlas. Si {{ participant.first_name }} pidió apoyo en alguna, el equipo de cuidado autorizado lo sabrá sin que tengas que hacer nada.</p>{% endif %}
   {% elif interview.effective_confidential_level == "coordinacion" %}
   <p class="aside-note">Algunas preguntas son confidenciales y llevan su etiqueta: las leen quien entrevistó a {{ participant.first_name }}, su coordinador y el equipo de cuidado.</p>
   {% else %}

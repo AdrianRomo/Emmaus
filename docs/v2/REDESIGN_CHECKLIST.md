@@ -171,6 +171,18 @@ overturn any of them.
   rule the owner set for the reason to continue a task. From the security review (2026-11-18).
 - Someone who did not start an interview checks «Sí, es {nombre}» before taking it in hand, also when nobody else has
   it (a free or expired claim): «Entrevista a cargo de …» never names a person who did not check. From the same review.
+- From the final browser QA (2026-11-18):
+  - «Retomar» goes on after the furthest answer; a question skipped on purpose is not asked again (the review lists it
+    as «Sin responder»), and the coordinator's card says the same place (`c282c2d`).
+  - Whoever cannot go on with an interview (questions they cannot read: an administración without confidential access
+    who did not start it) cannot take it; the page says who can (`33a6a9a`). Left as is: «Recuperar la computadora» on
+    the kiosk and «Descartar» still pick up a free claim (what she sees there is now true).
+  - A computer that lost the interview because the campero went to another coordinador is told so on its home, not a
+    404, without a word about the campero; only a browser that held it (`33a6a9a`).
+  - A hidden question's toast says only «Esa pregunta es … y no puedes verla.»: saying whether the campero answered it
+    would reveal, question by question, what a hidden row is built not to.
+  - A follow-up is offered only to people who could open it (`31e07b0`); marked camperos ask before a search or leaving
+    (`ec58078`).
 - Reserved, not decided here (church leadership, safeguarding, privacy or legal): #75, #76, #85, #86, #97, #58, #60
   and the anonymous-subscription part of #59/#96. Operational, needs the owner on the host: #45, #39, #52, #13.
 

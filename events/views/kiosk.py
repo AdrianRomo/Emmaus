@@ -144,7 +144,8 @@ def kiosk_review(request):
 
 def _still_to_answer(interview: Interview) -> list[tuple]:
     """(step, questions missing on it) for every screen with something left: after "Parar por ahora",
-    "Seguir contestando" opens the first one (as "Retomar" does) and the review says how many are left.
+    "Seguir contestando" opens the first one and the review says how many are left (the campero's own screens; staff's
+    «Retomar» goes on after the furthest answer instead: questionnaire.resume_step).
 
     A screen counts when its question was left blank («Prefiero no responder» is an answer given, not one left).
     None is required: «Ya terminé» ends the capture whatever is left.

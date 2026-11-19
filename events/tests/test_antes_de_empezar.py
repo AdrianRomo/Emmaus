@@ -78,7 +78,9 @@ class IdentityConfirmationIsKeptTests(CampFixture):
         return client.post(self.url("interview_review", interview.public_id), {"revision": interview.revision, "follow_up_decision": "no_requerido"})
 
     def other_browser(self, user, number=2):
-        EventMembership.objects.get_or_create(event=self.event, user=user, defaults={"role": MembershipRole.ADMIN})
+        # With confidential access: an administrador without it cannot take a coordinator's interview in hand
+        # (EventAccess.can_continue_interview, test_quien_continua)
+        EventMembership.objects.get_or_create(event=self.event, user=user, defaults={"role": MembershipRole.ADMIN, "can_view_sensitive": True})
         client = self.login(user, Client())
         self.choose_station(client, number=number)
         return client
