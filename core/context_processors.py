@@ -1,29 +1,55 @@
 from django.urls import reverse
 from django.utils.functional import SimpleLazyObject
 
-from .access import get_role_context
-from .models import Church, Role
+from . import tenancy
+from .access import LEADER_ROLES, PASTORAL_ROLES, get_role_context
+from .models import Role, UserChurchRole
 from .services import progress_for_participant
 
 
-def first_active_church():
-    """The church the public pages speak for (the landing page names the same one)."""
-    return Church.objects.filter(active=True).order_by("created_at").first()
+def _role_context_in(user, church) -> dict:
+    """``core.access.get_role_context`` for the church of this request, when it is not the church of
+    the account's first role: the role the account holds *there* (none for a person without one)."""
+    record = UserChurchRole.objects.filter(user=user, church=church).select_related("church").first()
+    role = record.role if record else None
+    return {
+        "current_role_record": record,
+        "current_church": church,
+        "current_role": role,
+        "is_church_admin": role == Role.CHURCH_ADMIN,
+        "is_pastor": role == Role.PASTOR,
+        "is_mentor": role == Role.MENTOR,
+        "is_participant": role == Role.PARTICIPANT,
+        "is_leader": role in LEADER_ROLES if role else False,
+        "is_pastoral_leader": role in PASTORAL_ROLES if role else False,
+    }
 
 
 def current_role(request):
     # brand_church: whose logo the bar of base.html shows (core.templatetags.brand). Event shells use event.church.
     if not request.user.is_authenticated:
-        church = first_active_church()
+        church = tenancy.current_church(request)
         # The public pages wear the redesigned look when the church they speak for uses the community module.
         from people.flags import enabled
 
         return {"theme_church": church, "brand_church": church, "ui_v2": enabled(church, "community")}
     context = get_role_context(request.user)
+    # The church of this request (core.tenancy): the one the account chose among its own, else its first.
+    where = tenancy.resolve(request, role_church=context["current_church"])
+    if where.elsewhere:
+        # Working in another church than the first role's: the bar, the logo and the colours are that church's, with
+        # the role held there. The discipleship screens still follow the first role (core/access.py), so their
+        # links are not offered here and their views answer 404 until the person goes back (core.views.role_required).
+        context = _role_context_in(request.user, where.church)
+        context["church_elsewhere"] = True  # "Volver a Configuración" would lead to the other church's settings
+    if where.others:
+        context["church_choices"] = where.others  # the switcher: only for an account of more than one church
     role = context.get("current_role")
     nav_items = []
 
-    if role == Role.PARTICIPANT:
+    if where.elsewhere:
+        pass
+    elif role == Role.PARTICIPANT:
         nav_items = [
             {"label": "Mi camino", "url": reverse("participant_dashboard"), "names": ["participant_dashboard"]},
             {"label": "Preguntas", "url": reverse("participant_questions"), "names": ["participant_questions", "participant_question_detail", "ask_question"]},
@@ -79,7 +105,7 @@ def current_role(request):
 
     context["app_nav_label"] = "Discipulado" if nav_items else "Principal"
     module_items = nav_items
-    nav_items = _community_nav(request, context) + nav_items
+    nav_items = _community_nav(request, context, where.church) + nav_items
     context["show_events_link"] = role in (Role.CHURCH_ADMIN, Role.PASTOR) or accessible_events(request.user).exists()
     if context.get("community_on"):
         # The redesigned shell (core/shell.py) replaces the bar on every page of base.html; the event's own
@@ -87,24 +113,25 @@ def current_role(request):
         from .shell import build_shell
 
         context["ui_v2"] = True
-        context["shell"] = build_shell(request, context["shell_church"], module_items, context["show_events_link"])
+        context["shell"] = build_shell(
+            request, context["shell_church"], module_items, context["show_events_link"], settings_link=not where.elsewhere
+        )
     context["app_nav_items"] = nav_items
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
     context["theme_church"] = context.get("current_church")
     # No church role (someone who only works in an event): the public pages' church, looked up only if drawn.
-    context["brand_church"] = context["theme_church"] or SimpleLazyObject(first_active_church)
+    context["brand_church"] = context["theme_church"] or SimpleLazyObject(tenancy.first_active_church)
     return context
 
 
-def _community_nav(request, context) -> list[dict]:
+def _community_nav(request, context, church) -> list[dict]:
     """"Mi iglesia" and "Grupos" lead the bar while the account's church uses the community module
     (decision 0004); with the module off this returns nothing and the bar is what it always was. A
     person of the church with no church role gets the church's name in the bar from here."""
     from people.flags import enabled
 
-    from .authz import Action, current_church, has_scope
+    from .authz import Action, has_scope
 
-    church = current_church(request)
     if not enabled(church, "community"):
         return []
     if context.get("current_church") is None:

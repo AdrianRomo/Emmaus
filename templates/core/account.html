@@ -15,7 +15,20 @@
   <section class="block" aria-labelledby="donde">
     <h2 id="donde" class="heading">Dónde participas</h2>
     {% if role_record %}<p>En <strong>{{ role_record.church.name }}</strong>: {{ role_record.get_role_display|lower }}.</p>{% endif %}
-    {% if community_church %}<p>Eres parte de <strong>{{ community_church.name }}</strong>. Tus grupos y lo que viene están en <a href="{% url 'community:home' %}">Mi iglesia</a>.</p>{% endif %}
+    {% if community_church %}<p>Eres parte de <strong>{{ community_church.name }}</strong>. Tus grupos y lo que viene están en <a href="{% url 'community:home' %}">Mi iglesia</a>.</p>{% endif %}{% if church_choices %}
+    <p>Eres parte de más de una iglesia. Ahora estás en <strong>{{ current_church.name }}</strong>. Puedes cambiar a otra:</p>
+    <ul class="rows">
+      {% for other in church_choices %}
+        <li class="row">
+          <div class="row__main"><p class="row__title">{{ other.name }}</p></div>
+          <form method="post" action="{% url 'switch_church' %}">
+            {% csrf_token %}
+            <input type="hidden" name="church" value="{{ other.pk }}">
+            <button class="btn btn--secondary btn--small" type="submit">Cambiar<span class="visually-hidden"> a {{ other.name }}</span></button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>{% endif %}
     {% if rows %}
       <ul class="rows">
         {% for row in rows %}
