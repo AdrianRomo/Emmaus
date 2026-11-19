@@ -1,66 +1,75 @@
 {% extends "base.html" %}
-{% load emmaus community %}
+{% load emmaus community shell %}
 {% block page_title %}Serie {{ series.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  One series for the administration (agenda.series_views.admin_detail): what it says, its dates to come (each one an
-  ordinary event with its own page and sign-ups), the dates Emmaus did not change because somebody is signed up,
-  and the last ones that passed. A row is when, one quiet way in ("Abrir": the date's own page, where its data and
-  its sign-ups are) and the one action that belongs here: "Este día no hay", which touches nobody who signed up.
-  Ending the series is by itself, at the end.
+  One series for the administration (agenda.series_views.admin_detail), on the row specification: what it says as
+  facts, then its dates, each one an ordinary event with its own page and sign-ups. A date is its day drawn, the
+  date in words as the way into its page (its data and who signed up are there; a date that passed also offers
+  its opinions) and, on the dates to come, the one action that belongs here: «Este día no hay» / «Sí hay». That answer changes its own row in place
+  (CRAFT §3: it never leads to another step) and the row says what it did: the state word, that the day left
+  Eventos and the public calendar, and that who signed up must be told by the administration. The dates Emmaus did
+  not change and the ones the series left behind are regions of their own (#serie-revisar, #serie-fuera), because
+  «Sí hay» can move a date into them. The one filled action is «Cambiar la serie», in the head. Ending or resuming
+  the series is a step of its own, never in place.
 {% endcomment %}
-<div class="narrow">
+{% now "Y-m-d" as today_iso %}
+<div class="narrow serie-admin">
   {% url 'agenda:admin_list' as back %}
-  {% include "events/rotulo/_page_head.html" with title=series.name lede=series.description back_url=back back_label="Volver a los eventos" %}
+  {% if series.active %}
+    {% url 'agenda:series_edit' series.pk as change %}
+    {% include "events/rotulo/_page_head.html" with title=series.name back_url=back back_label="Volver a los eventos" action_url=change action_label="Cambiar la serie" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title=series.name back_url=back back_label="Volver a los eventos" %}
+    <div class="notice"><p><strong>Esta serie terminó.</strong> Ya no se agregan fechas; las que existen siguen como están.</p></div>
+  {% endif %}
   <dl class="summary-list">
     <div class="summary-list__row"><dt>Cuándo</dt><dd>{{ rule|capfirst }}, a las {{ series.starts_at|time:"H:i" }}, {{ series.duration_minutes }} minutos</dd></div>
     <div class="summary-list__row"><dt>Dónde</dt><dd>{{ series.location|default:"Todavía no se ha dicho" }}</dd></div>
     <div class="summary-list__row"><dt>Desde</dt><dd>{{ series.starts_on|long_date }}{% if series.ends_on %}, hasta el {{ series.ends_on|long_date }}{% endif %}</dd></div>
+    {% if series.description %}<div class="summary-list__row"><dt>De qué se trata</dt><dd>{{ series.description }}</dd></div>{% endif %}
     <div class="summary-list__row"><dt>Para la iglesia</dt><dd>{% if series.published %}Cada fecha se publica en Eventos{% else %}Sin publicar: solo la administración ve las fechas{% endif %}{% if series.public %}. También en el calendario público{% endif %}</dd></div>
     <div class="summary-list__row"><dt>Inscripción</dt><dd>{% if series.takes_registration %}Las personas se inscriben a cada fecha{% if series.capacity %}, {{ series.capacity }} lugar{{ series.capacity|pluralize:"es" }} por fecha{% endif %}{% else %}No hay inscripción desde Emmaus{% endif %}</dd></div>
   </dl>
-  {% if series.active %}
-    <div class="step__actions"><a class="btn btn--primary" href="{% url 'agenda:series_edit' series.pk %}">Cambiar la serie</a></div>
-  {% else %}
-    <div class="notice notice--quiet"><p><strong>Esta serie terminó.</strong> Ya no se agregan fechas; las que existen siguen como están.</p></div>
-    <form class="step__actions" method="post" action="{% url 'agenda:series_resume' series.pk %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Reanudar la serie</button></form>
+  {% if not series.active %}
+    <form class="form-actions" method="post" action="{% url 'agenda:series_resume' series.pk %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Reanudar la serie</button></form>
   {% endif %}
 
-  {% if review %}
-  <section class="block mt-6" aria-labelledby="revisar">
-    <h2 id="revisar" class="heading">Fechas que no cambiamos</h2>
-    <p>Estas fechas tienen personas inscritas o las cambiaste a mano, y no están como dice la serie. Emmaus no las mueve ni las publica: revisa cada una y, si la cambias, avisa a quien se inscribió.</p>
-    <ul class="rows">
+  <div class="serie-admin__zona" id="serie-revisar">{% if review %}
+  <section class="block" aria-labelledby="revisar">
+    <h2 id="revisar" class="heading">Fechas que no cambiamos <span class="count">{{ review|length }}</span></h2>
+    <p class="serie-admin__nota">Estas fechas tienen personas inscritas o las cambiaste a mano, y no están como dice la serie. Emmaus no las mueve ni las publica: revisa cada una y, si la cambias, avisa a quien se inscribió.</p>
+    <ul class="rows dates serie-fechas">
       {% for row in review %}
-        <li class="row row--below">
+        <li class="row row--lead row--attention{% if row.event.starts_on|date:'Y-m-d' == today_iso %} row--today{% endif %}">
+          {% date_block row.event.starts_on %}
           <div class="row__main">
-            <p class="row__title">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</p>
+            <p class="row__title"><a href="{% url 'agenda:page_edit' row.event.slug %}">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</a></p>
             <p class="row__meta">{% if row.why == "sin_publicar" %}No está publicada: revísala y, si va, publícala en su página.{% elif row.why == "fuera_de_regla" %}La serie ya no cae en este día.{% else %}Tiene otros datos que la serie.{% endif %}</p>
           </div>
-          <div class="row__end"><a class="btn btn--link btn--small" href="{% url 'agenda:page_edit' row.event.slug %}">Abrir<span class="visually-hidden"> la fecha del {{ row.event.starts_on|long_date }}</span></a></div>
         </li>
       {% endfor %}
     </ul>
   </section>
-  {% endif %}
+  {% endif %}</div>
 
-  <section class="block mt-6" aria-labelledby="fechas">
-    <h2 id="fechas" class="heading">Fechas que vienen</h2>
+  <section class="block" aria-labelledby="fechas">
+    <h2 id="fechas" class="heading">Fechas que vienen{% if coming %} <span class="count">{{ coming|length }}</span>{% endif %}</h2>
     {% if coming %}
-      <ul class="rows">
+      <ul class="rows dates serie-fechas">
         {% for row in coming %}
-          <li class="row row--below">
+          <li class="row row--lead row--stack{% if row.event.starts_on|date:'Y-m-d' == today_iso %} row--today{% endif %}" id="fecha-{{ row.pk }}">
+            {% date_block row.event.starts_on %}
             <div class="row__main">
-              <p class="row__title">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</p>
-              <p class="row__meta">{% if row.event.location %}En {{ row.event.location }}. {% endif %}{% if row.signed == 1 %}1 persona inscrita. {% elif row.signed %}{{ row.signed }} personas inscritas. {% endif %}{% if row.edited_at and not row.cancelled %}La cambiaste a mano: ya no sigue los cambios de la serie.{% endif %}</p>
+              <p class="row__title"><a href="{% url 'agenda:page_edit' row.event.slug %}">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</a></p>
+              <p class="row__meta row__meta--con-marca">{% if row.cancelled %}{% status "descartada" "Este día no hay" %}{% elif row.is_published %}{% status "publicada" "Publicada" %}{% else %}{% status "pendiente" "Sin publicar" %}{% endif %}<span>{% if row.cancelled %}Ya no aparece en Eventos ni en el calendario público.{% else %}{% if row.event.location and row.event.location != series.location %}En {{ row.event.location }}. {% endif %}{% if row.signed == 1 %}1 persona inscrita. {% elif row.signed %}{{ row.signed }} personas inscritas. {% endif %}{% if row.edited_at %}La cambiaste a mano: ya no sigue los cambios de la serie.{% endif %}{% endif %}</span></p>
+              {% if row.cancelled and row.has_people %}<p class="row__meta"><strong>Hay personas inscritas: avísales tú, Emmaus no les envía nada.</strong></p>{% endif %}
             </div>
             <div class="row__end">
-              {% if row.cancelled %}{% status "descartada" "Este día no hay" %}{% elif row.is_published %}{% status "publicada" "Publicada" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}
-              <a class="btn btn--link btn--small" href="{% url 'agenda:page_edit' row.event.slug %}">Abrir<span class="visually-hidden"> la fecha del {{ row.event.starts_on|long_date }}</span></a>
               {% if row.cancelled %}
-                <form method="post" action="{% url 'agenda:series_restore' series.pk row.pk %}">{% csrf_token %}<button class="btn btn--secondary btn--small" type="submit">Sí hay<span class="visually-hidden"> el {{ row.event.starts_on|long_date }}</span></button></form>
+                <form method="post" action="{% url 'agenda:series_restore' series.pk row.pk %}" data-inline="fecha-{{ row.pk }}" data-inline-also="serie-revisar serie-fuera">{% csrf_token %}<button class="btn btn--link" type="submit" data-inline-focus>Sí hay<span class="visually-hidden"> el {{ row.event.starts_on|long_date }}</span></button></form>
               {% else %}
-                <form method="post" action="{% url 'agenda:series_call_off' series.pk row.pk %}">{% csrf_token %}<button class="btn btn--secondary btn--small" type="submit">Este día no hay<span class="visually-hidden">: {{ row.event.starts_on|long_date }}</span></button></form>
+                <form method="post" action="{% url 'agenda:series_call_off' series.pk row.pk %}" data-inline="fecha-{{ row.pk }}" data-inline-also="serie-revisar serie-fuera">{% csrf_token %}<button class="btn btn--link" type="submit" data-inline-focus>Este día no hay<span class="visually-hidden">: {{ row.event.starts_on|long_date }}</span></button></form>
               {% endif %}
             </div>
           </li>
@@ -73,32 +82,33 @@
     {% endif %}
   </section>
 
-  {% if retired %}
-  <section class="block mt-6" aria-labelledby="fuera">
-    <h2 id="fuera" class="heading">Fechas que la serie ya no incluye</h2>
-    <p>La serie cambió de día y estas fechas quedaron fuera. No están publicadas y nadie se inscribió. Si la serie vuelve a caer en ese día, regresan solas.</p>
-    <ul class="rows">
+  <div class="serie-admin__zona" id="serie-fuera">{% if retired %}
+  <section class="block" aria-labelledby="fuera">
+    <h2 id="fuera" class="heading">Fechas que la serie ya no incluye <span class="count">{{ retired|length }}</span></h2>
+    <p class="serie-admin__nota">La serie cambió de día y estas fechas quedaron fuera. No están publicadas y nadie se inscribió. Si la serie vuelve a caer en ese día, regresan solas.</p>
+    <ul class="rows dates serie-fechas">
       {% for row in retired %}
-        <li class="row row--below">
-          <div class="row__main"><p class="row__title">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</p></div>
-          <div class="row__end"><a class="btn btn--link btn--small" href="{% url 'agenda:page_edit' row.event.slug %}">Abrir<span class="visually-hidden"> la fecha del {{ row.event.starts_on|long_date }}</span></a></div>
+        <li class="row row--lead">
+          {% date_block row.event.starts_on %}
+          <div class="row__main"><p class="row__title"><a href="{% url 'agenda:page_edit' row.event.slug %}">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</a></p></div>
         </li>
       {% endfor %}
     </ul>
   </section>
-  {% endif %}
+  {% endif %}</div>
 
   {% if past %}
   <section class="block" aria-labelledby="pasadas">
     <h2 id="pasadas" class="heading">Las últimas que pasaron</h2>
-    <ul class="rows">
+    <ul class="rows dates serie-fechas">
       {% for row in past %}
-        <li class="row row--below">
-          <div class="row__main"><p class="row__title">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</p>{% if row.cancelled %}<p class="row__meta">Ese día no hubo.</p>{% endif %}</div>
-          <div class="row__end">
-            <a class="btn btn--link btn--small" href="{% url 'agenda:registrations' row.event.slug %}">Inscritos<span class="visually-hidden"> del {{ row.event.starts_on|long_date }}</span></a>
-            <a class="btn btn--link btn--small" href="{% url 'feedback:results' row.event.slug %}">Opiniones<span class="visually-hidden"> del {{ row.event.starts_on|long_date }}</span></a>
+        <li class="row row--lead row--stack">
+          {% date_block row.event.starts_on %}
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'agenda:page_edit' row.event.slug %}">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</a></p>
+            <p class="row__meta">{% if row.cancelled %}Ese día no hubo.{% elif row.signed == 1 %}1 persona inscrita{% elif row.signed %}{{ row.signed }} personas inscritas{% else %}Sin inscritos{% endif %}</p>
           </div>
+          <div class="row__end"><a class="btn btn--link" href="{% url 'feedback:results' row.event.slug %}">Opiniones<span class="visually-hidden"> del {{ row.event.starts_on|long_date }}</span></a></div>
         </li>
       {% endfor %}
     </ul>
@@ -106,10 +116,10 @@
   {% endif %}
 
   {% if series.active %}
-  <section class="block mt-8" aria-labelledby="terminar">
+  <section class="block" aria-labelledby="terminar">
     <h2 id="terminar" class="heading">Terminar la serie</h2>
     <p>Terminar la serie deja de agregar fechas. Las que ya existen siguen como están, y la puedes reanudar después.</p>
-    <form class="step__actions" method="post" action="{% url 'agenda:series_end' series.pk %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Terminar la serie</button></form>
+    <form class="form-actions serie-admin__terminar" method="post" action="{% url 'agenda:series_end' series.pk %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Terminar la serie</button></form>
   </section>
   {% endif %}
 </div>

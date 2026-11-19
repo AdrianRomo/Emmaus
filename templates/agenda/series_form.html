@@ -4,42 +4,66 @@
 {% block content %}
 {% comment %}
   A series (agenda.series_views.create / edit): what the church does every week. The form is the template of its
-  dates; each date is an ordinary event the administration can open by itself. The days of the week are drawn here
-  because the shared field partial knows one checkbox, not a list of them.
+  dates, in four sections (what it is, when, who sees it, sign-up) with one filled button; each date is an ordinary
+  event the administration can open by itself. The days of the week are drawn here because the shared field partial
+  knows one checkbox, not a list of them. Changing a series says first which dates change (protected words).
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serie-form">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if series %}
     {% url 'agenda:series_admin' series.pk as back %}
     {% include "events/rotulo/_page_head.html" with title="Cambiar la serie" lede=series.name back_url=back back_label="Volver a la serie" %}
-    <div class="notice notice--quiet">
+    <div class="notice">
       <p class="notice__title">Qué fechas cambian</p>
       <p>Cambian las fechas que vienen, si nadie las cambió a mano y nadie se ha inscrito. Las que ya tienen personas inscritas quedan como están y te las mostramos para que las revises. Las fechas que ya pasaron no cambian.</p>
     </div>
   {% else %}
     {% url 'agenda:admin_list' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Crear una serie" lede="Lo que tu iglesia hace cada semana: el servicio del domingo, la reunión de jóvenes. Emmaus escribe cada fecha como un evento, con unas semanas de anticipación." back_url=back back_label="Volver a los eventos" %}
+    {% include "events/rotulo/_page_head.html" with title="Crear una serie" back_url=back back_label="Volver a los eventos" %}
+    <p class="aside-note">Lo que tu iglesia hace cada semana. Emmaus escribe cada fecha como un evento, con {{ weeks }} semanas de anticipación.</p>
   {% endif %}
-  <form method="post" novalidate class="mt-6">
+  <form class="block" method="post" novalidate>
     {% csrf_token %}
-    {% for field in form.visible_fields %}
-      {% if field.name == "weekdays" %}
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <section class="form-section" aria-labelledby="seccion-que">
+      <h2 id="seccion-que" class="form-section__title">Qué es</h2>
+      {% include "partials/ui/field.html" with field=form.name %}
+      {% include "partials/ui/field.html" with field=form.description %}
+      {% include "partials/ui/field.html" with field=form.location %}
+    </section>
+    <section class="form-section" aria-labelledby="seccion-cuando">
+      <h2 id="seccion-cuando" class="form-section__title">Cuándo</h2>
+      {% with field=form.weekdays %}
         <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
           <fieldset {% if field.errors %}aria-describedby="{{ field.auto_id }}-error"{% endif %}>
             <legend class="legend">{{ field.label }}</legend>
             {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
-            <div class="radio-list">
+            <div class="radio-list serie-dias">
               {% for box in field %}
                 <label class="check" for="{{ box.id_for_label }}">{{ box.tag }}<span class="check__text">{{ box.choice_label|capfirst }}</span></label>
               {% endfor %}
             </div>
           </fieldset>
         </div>
-      {% else %}
-        {% include "partials/ui/field.html" with field=field %}
-      {% endif %}
-    {% endfor %}
-    <div class="step__actions">
+      {% endwith %}
+      {% include "partials/ui/field.html" with field=form.interval_weeks %}
+      {% include "partials/ui/field.html" with field=form.starts_at %}
+      {% include "partials/ui/field.html" with field=form.duration_minutes %}
+      {% include "partials/ui/field.html" with field=form.time_zone %}
+      {% include "partials/ui/field.html" with field=form.starts_on %}
+      {% include "partials/ui/field.html" with field=form.ends_on %}
+    </section>
+    <section class="form-section" aria-labelledby="seccion-quien">
+      <h2 id="seccion-quien" class="form-section__title">Quién lo ve</h2>
+      {% include "partials/ui/field.html" with field=form.published %}
+      {% include "partials/ui/field.html" with field=form.public %}
+    </section>
+    <section class="form-section" aria-labelledby="seccion-inscripcion">
+      <h2 id="seccion-inscripcion" class="form-section__title">Cómo se inscriben</h2>
+      {% include "partials/ui/field.html" with field=form.registration %}
+      {% include "partials/ui/field.html" with field=form.capacity %}
+    </section>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if series %}Guardar la serie{% else %}Crear la serie{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>

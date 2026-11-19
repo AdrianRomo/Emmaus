@@ -196,7 +196,7 @@ class FeedTests(PublicFixture):
         self.assertEqual(lines.count("BEGIN:VEVENT"), 1)
         self.assertIn("SUMMARY:Retiro de jóvenes", lines)
         page = self.client.get(public_url(self.retiro))
-        self.assertContains(page, f'<a href="{file_url(self.retiro)}">Agregar a mi calendario</a>')
+        self.assertContains(page, f'<a class="btn btn--link" href="{file_url(self.retiro)}">Agregar a mi calendario</a>', count=1)
 
     def test_the_administration_reads_the_address_only_while_it_answers(self):
         self.client.force_login(self.admin)

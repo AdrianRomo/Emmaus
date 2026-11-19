@@ -170,9 +170,13 @@ def admin_detail(request, series_id: int):
     now = timezone.now()
     coming = [row for row in not_over if not series.has_started(row.event, now)]
     begun = [row for row in not_over if series.has_started(row.event, now)]
+    # Who holds a place or waits in line, as ``call_off`` counts them: a day called off says so on its own row.
+    taken = set(EventRegistration.objects.filter(event__series_occurrence__series=item, status__in=series.SIGNED_UP)
+                .values_list("event_id", flat=True))
     for row in coming:
         page = getattr(row.event, "page", None)
         row.is_published = page is not None and page.published
+        row.has_people = row.event_id in taken
     earlier = rows.filter(event__ends_on__lt=today).exclude(status=series.OFF_RULE).order_by("-event__starts_on")
     past = [*reversed(begun), *earlier[:PAST_SHOWN]][:PAST_SHOWN]
     # Dates the series left behind when its rule changed: unpublished, kept, and found here and nowhere else.
