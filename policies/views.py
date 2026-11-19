@@ -117,4 +117,8 @@ def church_policies(request):
         form = ChurchPolicyForm(initial=initial)
     from oracion.services import is_on as prayer_requests_on  # read-only here: only a pastor switches it (oracion.views.terms)
 
-    return render(request, "policies/form.html", {"form": form, "prayer_requests_on": prayer_requests_on(church)})
+    from people.directory import is_on as member_directory_on  # read-only here too: only a pastor switches it (people.directory_views.policy)
+
+    return render(request, "policies/form.html", {
+        "form": form, "prayer_requests_on": prayer_requests_on(church), "member_directory_on": member_directory_on(church),
+    })

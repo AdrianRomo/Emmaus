@@ -68,6 +68,8 @@ urlpatterns = [
     path("mi-iglesia/formularios/", include("formularios.urls")),
     # Private prayer requests (issue #97): off until a pastor of the church switches them on; only its pastors read.
     path("mi-iglesia/oracion/", include("oracion.urls")),
+    # The directory between members (issue #91): off until a pastor switches it on and each person chooses to appear.
+    path("mi-iglesia/directorio/", include("people.directory_urls")),
     path("mi-iglesia/", include("groups.urls")),
     # The public page of one event of the church (decision 0010, phase A): no account, nothing about people.
     path("evento/", include("agenda.public_urls")),
