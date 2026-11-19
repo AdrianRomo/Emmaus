@@ -311,7 +311,9 @@
     cancel.addEventListener("click", function () { dialog.close(); });
     ok.addEventListener("click", function () {
       dialog.close();
-      if (form) form.requestSubmit(el); else window.location.href = el.href;
+      if (!form) { window.location.href = el.href; return; }
+      form.setAttribute("data-confirmado", "");  // asked already: its submit goes through (the marked rows' guard)
+      if (el.type === "submit") form.requestSubmit(el); else form.requestSubmit();
     });
     dialog.addEventListener("close", function () { dialog.remove(); el.focus(); });
     dialog.showModal();
@@ -1060,6 +1062,7 @@
       var count = $("[data-seleccion-cuenta]", list);
       var all = $("[data-seleccion-todas]", list);
       var allBox = $("[data-seleccion-todas-caja]", list);
+      var markedNow = 0;
       function rows() { return $all("[data-seleccion-fila]", list); }
       function refresh() {
         var total = rows().length;
@@ -1070,18 +1073,48 @@
           all.checked = total > 0 && marked === total;
           all.indeterminate = marked > 0 && marked < total;
         }
-        // While rows are marked, a link that changes the list (a filter, a sede, an order, a page) asks first: the marks
-        // belong to this page and would be lost without a word
-        $all('main a[href^="?"]').forEach(function (link) {
+        markedNow = marked;
+        // While rows are marked, a link that changes the list (a filter, a sede, an order, a page) or leaves the page (a
+        // campero, the menu) asks first: the marks belong to this page and would be lost without a word. A link with a
+        // question of its own keeps it; one opening elsewhere (a new tab, a download, an anchor) loses nothing.
+        var said = marked === 1 ? "Tienes 1 campero marcado" : "Tienes " + marked + " camperos marcados";
+        $all("a[href]").forEach(function (link) {
+          var href = link.getAttribute("href");
+          if (href.charAt(0) === "#" || link.target === "_blank" || link.hasAttribute("download")) return;
+          if (link.hasAttribute("data-confirm") && !link.hasAttribute("data-confirm-seleccion")) return;
           if (marked) {
-            link.setAttribute("data-confirm", (marked === 1 ? "Tienes 1 campero marcado" : "Tienes " + marked + " camperos marcados") + ". Si cambias la lista, se desmarcan.");
-            link.setAttribute("data-confirm-label", "Cambiar la lista");
-          } else {
+            var changes = href.charAt(0) === "?";
+            link.setAttribute("data-confirm", said + (changes ? ". Si cambias la lista, se desmarcan." : ". Si sales de esta página, se desmarcan."));
+            link.setAttribute("data-confirm-seleccion", "");
+            link.setAttribute("data-confirm-label", changes ? "Cambiar la lista" : "Salir de esta página");
+          } else if (link.hasAttribute("data-confirm-seleccion")) {
             link.removeAttribute("data-confirm");
             link.removeAttribute("data-confirm-label");
+            link.removeAttribute("data-confirm-seleccion");
           }
         });
       }
+      // A search (Enter in its box, a GET form outside the list) asks too, in the same words
+      $all('main form[method="get"]').forEach(function (search) {
+        if (list.contains(search)) return;
+        search.addEventListener("submit", function (e) {
+          if (search.hasAttribute("data-confirmado")) { search.removeAttribute("data-confirmado"); return; }
+          if (!markedNow) return;
+          var field = e.submitter || $("input[type=search], input[name=q]", search) || search.elements[0];
+          if (!field) return;
+          field.setAttribute("data-confirm", (markedNow === 1 ? "Tienes 1 campero marcado" : "Tienes " + markedNow + " camperos marcados") + ". Si cambias la lista, se desmarcan.");
+          field.setAttribute("data-confirm-label", "Buscar");
+          var asked = askInDialog(field, e);
+          field.removeAttribute("data-confirm");
+          field.removeAttribute("data-confirm-label");
+          if (!asked && !window.confirm((markedNow === 1 ? "Tienes 1 campero marcado" : "Tienes " + markedNow + " camperos marcados") + ". Si cambias la lista, se desmarcan.")) e.preventDefault();
+          // Held back to ask: not being sent (the busy guard above marked it, and would refuse the confirmed one)
+          if (e.defaultPrevented) {
+            search.classList.remove("is-submitting");
+            $all("[aria-busy='true']", search).forEach(function (b) { b.removeAttribute("aria-busy"); });
+          }
+        });
+      });
       if (allBox && rows().length) allBox.hidden = false;
       if (all) {
         all.addEventListener("change", function () {
