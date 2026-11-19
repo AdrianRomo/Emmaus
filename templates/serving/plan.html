@@ -3,44 +3,65 @@
 {% block page_title %}Orden del día, {{ day.date|weekday_date }}{% endblock %}
 {% block content %}
 {% comment %}
-  The order of one date (serving.rota_views.plan): moments in order, each with its minutes and, if somebody is in
-  charge, their name. Read by who serves that date; changed by who coordinates the team. Names only: no contact data.
+  The order of one date (serving.rota_views.plan): moments in order, each with its number in the row's leading slot,
+  its minutes in a column at the end and, if somebody is in charge, their name. Read by who serves that date; changed
+  by who coordinates the team, who sees the same list as it will be read: each moment opens «Cambiar» (a fold with
+  its three fields and «Guardar») and has its order and «Quitar» beside it. Every change here is sent as a page (the
+  editor has fields). Names only: no contact data.
   Who is in charge is decided when the page is read (rotas.plan_items): somebody who left the team, whose record was
   joined to another or whose record says they are a minor is not named, here or in the coordinator's list.
   No songs, lyrics, chords, files or links (their rights need another approval), and the page says so.
 {% endcomment %}
 <div class="narrow serving">
-  {% if manages %}{% url 'serving:team' team.pk as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what meta=meta back_url=back back_label="Volver al equipo" %}
-  {% else %}{% url 'serving:home' as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what meta=meta back_url=back back_label="Volver a Servir" %}{% endif %}
+  {% with words=day.what|add:". "|add:meta %}
+  {% if manages %}{% url 'serving:team' team.pk as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" meta=words back_url=back back_label="Volver al equipo "|add:team.name %}
+  {% else %}{% url 'serving:home' as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" meta=words back_url=back back_label="Volver a Servir" %}{% endif %}
+  {% endwith %}
 
   <section class="block" aria-labelledby="orden">
-    <h2 id="orden" class="heading">Momentos</h2>
+    <h2 id="orden" class="heading">Momentos{% if items %} <span class="count">{{ items|length }}</span>{% endif %}</h2>
     {% if items %}
       <ol class="rows plan">
         {% for item in items %}
-          <li class="row row--stack">
+          <li class="row row--lead{% if manages %} row--stack{% endif %}">
+            <span class="plan__n" aria-hidden="true">{{ forloop.counter }}</span>
+            <div class="row__main">
+              <p class="row__title"><span class="visually-hidden">{{ forloop.counter }}. </span>{{ item.title }}</p>
+              <p class="row__meta">{% if manages %}{{ item.minutes }} minuto{{ item.minutes|pluralize }}. {% endif %}{% if item.responsible %}A cargo: {{ item.responsible.full_name }}{% else %}Sin responsable{% endif %}{% if manages %}.{% endif %}</p>
+              {% if manages %}
+              <details class="fold">
+                <summary>Cambiar<span class="visually-hidden"> {{ item.title }}</span></summary>
+                <form class="plan__edit" method="post" action="{% url 'serving:plan_item' day.pk item.pk %}">
+                  {% csrf_token %}
+                  <div class="field">
+                    <label class="label" for="titulo-{{ item.pk }}">Qué<span class="visually-hidden"> (momento {{ forloop.counter }})</span></label>
+                    <input id="titulo-{{ item.pk }}" type="text" name="titulo" value="{{ item.title }}" maxlength="80" required>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="minutos-{{ item.pk }}">Minutos<span class="visually-hidden"> de {{ item.title }}</span></label>
+                    <input class="input--small" id="minutos-{{ item.pk }}" type="number" name="minutos" value="{{ item.minutes }}" min="1" max="300" inputmode="numeric" required>
+                  </div>
+                  <div class="field">
+                    <label class="label" for="responsable-{{ item.pk }}">Responsable<span class="visually-hidden"> de {{ item.title }}</span></label>
+                    <select id="responsable-{{ item.pk }}" name="responsable">
+                      <option value="">Nadie</option>
+                      {% for person in people %}<option value="{{ person.pk }}"{% if person.pk == item.responsible_id %} selected{% endif %}>{{ person.full_name }}</option>{% endfor %}
+                    </select>
+                  </div>
+                  <button class="btn btn--secondary btn--small" type="submit" name="accion" value="guardar">Guardar<span class="visually-hidden"> {{ item.title }}</span></button>
+                </form>
+              </details>
+              {% endif %}
+            </div>
             {% if manages %}
-              <form class="row__main role-edit" method="post" action="{% url 'serving:plan_item' day.pk item.pk %}">
+              <form class="row__end" method="post" action="{% url 'serving:plan_item' day.pk item.pk %}">
                 {% csrf_token %}
-                <label class="visually-hidden" for="titulo-{{ item.pk }}">Qué (momento {{ forloop.counter }})</label>
-                <input class="input" id="titulo-{{ item.pk }}" type="text" name="titulo" value="{{ item.title }}" maxlength="80" required>
-                <label class="visually-hidden" for="minutos-{{ item.pk }}">Minutos de {{ item.title }}</label>
-                <input class="input input--small" id="minutos-{{ item.pk }}" type="number" name="minutos" value="{{ item.minutes }}" min="1" max="300" inputmode="numeric" required>
-                <label class="visually-hidden" for="responsable-{{ item.pk }}">Responsable de {{ item.title }}</label>
-                <select class="input input--small" id="responsable-{{ item.pk }}" name="responsable">
-                  <option value="">Sin responsable</option>
-                  {% for person in people %}<option value="{{ person.pk }}"{% if person.pk == item.responsible_id %} selected{% endif %}>{{ person.full_name }}</option>{% endfor %}
-                </select>
-                <button class="btn btn--secondary btn--small" type="submit" name="accion" value="guardar">Guardar<span class="visually-hidden"> {{ item.title }}</span></button>
-                {% if not forloop.first %}<button class="btn btn--link btn--small" type="submit" name="accion" value="subir" formnovalidate>Subir<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
-                {% if not forloop.last %}<button class="btn btn--link btn--small" type="submit" name="accion" value="bajar" formnovalidate>Bajar<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
-                <button class="btn btn--link btn--small" type="submit" name="accion" value="quitar" formnovalidate>Quitar<span class="visually-hidden"> {{ item.title }}</span></button>
+                {% if not forloop.first %}<button class="btn btn--link" type="submit" name="accion" value="subir">Subir<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
+                {% if not forloop.last %}<button class="btn btn--link" type="submit" name="accion" value="bajar">Bajar<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
+                <button class="btn btn--link btn--quieto" type="submit" name="accion" value="quitar">Quitar<span class="visually-hidden"> {{ item.title }}</span></button>
               </form>
             {% else %}
-              <div class="row__main">
-                <p class="row__title">{{ item.title }}</p>
-                <p class="row__meta">{{ item.minutes }} minuto{{ item.minutes|pluralize }}. {% if item.responsible %}A cargo: {{ item.responsible.full_name }}{% else %}Sin responsable{% endif %}.</p>
-              </div>
+              <p class="row__end plan__min">{{ item.minutes }} min<span class="visually-hidden">utos</span></p>
             {% endif %}
           </li>
         {% endfor %}
@@ -59,10 +80,10 @@
   </section>
 
   {% if manages %}
-  <section class="block" aria-labelledby="agregar">
-    <h2 id="agregar" class="heading">Agregar un momento</h2>
-    <form method="post">
-      {% csrf_token %}
+  <form method="post">
+    {% csrf_token %}
+    <section class="form-section" aria-labelledby="agregar">
+      <h2 id="agregar" class="heading form-section__title">Agregar un momento</h2>
       <div class="field">
         <label class="label" for="titulo">Qué</label>
         <span class="hint" id="titulo-ayuda">Por ejemplo: Bienvenida, Anuncios, Mensaje. Lo lee quien sirve ese día.</span>
@@ -70,7 +91,7 @@
       </div>
       <div class="field">
         <label class="label" for="minutos">Minutos</label>
-        <input id="minutos" type="number" name="minutos" min="1" max="300" inputmode="numeric" required>
+        <input class="input--small" id="minutos" type="number" name="minutos" min="1" max="300" inputmode="numeric" required>
       </div>
       <div class="field">
         <label class="label" for="responsable">Responsable <span class="optional">(opcional)</span></label>
@@ -79,9 +100,11 @@
           {% for person in people %}<option value="{{ person.pk }}">{{ person.full_name }}</option>{% endfor %}
         </select>
       </div>
+    </section>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Agregar al orden</button>
-    </form>
-  </section>
+    </div>
+  </form>
   {% endif %}
 </div>
 {% endblock %}

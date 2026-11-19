@@ -3,23 +3,35 @@
 {% block page_title %}Propuesta de la rotación, equipo {{ team.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  What the rotation proposes (serving.rota_views.rotation): for each date of the next weeks and each place still
-  missing, a name the coordinator can change or leave empty, and one button. Nothing is assigned before "Confirmar".
+  What the rotation proposes (serving.rota_views.rotation): for each date of the next weeks (its day drawn, as on the
+  team's page) and each place still missing, a name the coordinator can change or leave empty, and one filled
+  button. Nothing is assigned before "Confirmar"; it is a page of fields, so it is sent as a page, never in place.
   The token covers everything this page states; if anything changed, the page comes back instead of assigning.
 {% endcomment %}
 <div class="narrow serving">
   {% url 'serving:team' team.pk as back %}
-  {% include "events/rotulo/_page_head.html" with title="Propuesta de la rotación" lede="Equipo "|add:team.name back_url=back back_label="Volver al equipo" %}
+  <a class="back-link" href="{{ back }}">Volver al equipo {{ team.name }}</a>
+  <header class="page-head">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">Propuesta de la rotación</h1>
+      {% if proposal.dates %}<p class="page-head__meta">Los lugares que faltan en las próximas {{ weeks }} semanas. Todavía no se le pide nada a nadie: cambia lo que quieras y confirma.</p>{% endif %}
+    </div>
+  </header>
   {% if proposal.dates %}
-    <p class="lede">Estos son los lugares que faltan en las fechas de las próximas {{ weeks }} semanas. Todavía no se le pide nada a nadie: cambia lo que quieras y confirma.</p>
-    {% if not has_rotation %}<div class="notice notice--quiet"><p>Este equipo todavía no tiene una rotación, así que no proponemos nombres. Puedes elegirlos aquí a mano o <a href="{% url 'serving:organize' team.pk %}#rotacion">definir la rotación</a>.</p></div>{% endif %}
+    {% if not has_rotation %}<div class="notice"><p>Este equipo todavía no tiene una rotación, así que no proponemos nombres. Puedes elegirlos aquí a mano o <a href="{% url 'serving:organize' team.pk %}#rotacion">definir la rotación</a>.</p></div>{% endif %}
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="token" value="{{ proposal.token }}">
       {% for entry in proposal.dates %}{% with day=entry.service_date %}
-        <section class="proposal__date" aria-labelledby="fecha-{{ day.pk }}">
-          <h2 class="heading" id="fecha-{{ day.pk }}">{{ day.date|weekday_date|capfirst }}{% if day.starts_at %}, {{ day.starts_at|time:"G:i" }}{% endif %}</h2>
-          <p class="row__meta">{{ day.what }}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+        <section class="form-section proposal__date" aria-labelledby="fecha-{{ day.pk }}">
+          <div class="proposal__head">
+            {% date_block day.date %}
+            <div>
+              <h2 class="heading" id="fecha-{{ day.pk }}">{{ day.date|weekday_date|capfirst }}{% if day.starts_at %}, {{ day.starts_at|time:"H:i" }}{% endif %}</h2>
+              <p class="row__meta">{{ day.what }}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+            </div>
+          </div>
+          <div class="needs">
           {% for slot in entry.slots %}
             <div class="need">
               <label class="label" for="lugar-{{ slot.key }}">{{ slot.label }}{% if slot.role.adults_only %} <span class="optional">(solo personas adultas)</span>{% endif %}<span class="visually-hidden">, {{ day.date|weekday_date }}</span></label>
@@ -30,19 +42,21 @@
               {% if slot.why %}<span class="need__state" id="porque-{{ slot.key }}">{{ slot.why }}</span>{% endif %}
             </div>
           {% endfor %}
+          </div>
         </section>
       {% endwith %}{% endfor %}
       <p class="aside-note">En cada lista solo aparece quien puede ese día: no marcó «no puedo», no sirve ya ese día, no tiene ya esa fecha y, si el rol es solo para personas adultas, la iglesia confirmó su edad. A quien elijas le aparecerá la fecha en «Tus fechas» para que diga si puede.</p>
-      <div class="step__actions">
-        <button class="btn btn--primary btn--large" type="submit">Confirmar</button>
+      <div class="form-actions">
+        <button class="btn btn--primary" type="submit">Confirmar</button>
         <a class="btn btn--link" href="{{ back }}">Cancelar</a>
       </div>
     </form>
   {% else %}
-    <div class="notice notice--quiet">
-      <p><strong>No falta nadie en las próximas {{ weeks }} semanas.</strong> La rotación propone personas para los lugares que una fecha necesita y nadie tiene. Agrega fechas y di en cada una cuántas personas necesita cada rol.</p>
+    <div class="empty">
+      <p class="empty__title">No falta nadie en las próximas {{ weeks }} semanas</p>
+      <p class="empty__text">La rotación propone personas para los lugares que una fecha necesita y nadie tiene. Agrega fechas y di en cada una cuántas personas necesita cada rol.</p>
+      <a class="btn btn--secondary" href="{% url 'serving:organize' team.pk %}">Roles, rotación y recordatorios</a>
     </div>
-    <p class="more"><a href="{% url 'serving:organize' team.pk %}">Roles, rotación y recordatorios</a></p>
   {% endif %}
 </div>
 {% endblock %}
