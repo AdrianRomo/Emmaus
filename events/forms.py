@@ -371,6 +371,21 @@ class FollowUpDecisionChangeForm(forms.Form):
     )
 
 
+class FollowUpContinueForm(forms.Form):
+    """«Continuar seguimiento»: why the task stays open although its interview no longer asks for it."""
+
+    reason = forms.CharField(
+        label="¿Por qué continúas el seguimiento?",
+        help_text="Lo leen quienes pueden atender este seguimiento, con tu nombre.",
+        max_length=200,
+        widget=forms.TextInput(attrs={"autocomplete": "off"}),
+        error_messages={
+            "required": "Escribe brevemente por qué continúas el seguimiento.",
+            "max_length": "Escribe el motivo en 200 caracteres o menos.",
+        },
+    )
+
+
 def _follow_up_leader_ids(event: Event):
     return EventMembership.objects.filter(event=event, is_active=True).exclude(
         role=MembershipRole.COORDINATOR

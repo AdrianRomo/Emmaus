@@ -106,7 +106,10 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
     (2026-11-18): the mark «Decisión cambiada» on every list of follow-ups, with «Revisar» for the task's owner; a
     changed decision never closes a task (no «care started» test, so a confidential note changes nothing others
     see); needed again after «Atendido» or a cancel, the same task is reopened, its closing kept in its history
-    (migration `events/0018`, choices only).
+    (migration `events/0018`, choices only). Second round: a reopened task says «Reabierto el …» on its page and every
+    list until its owner moves it on («En proceso») or closes it; «Continuar seguimiento» keeps a task marked «Decisión
+    cambiada» open with a reason, for whoever may manage it, the interview's decision unchanged (migration
+    `events/0019`).
 11. Decided 2026-11-18: an ordinary sign-in with exactly one camp underway that the person administers opens
     its administration home; several, a chooser; none, the usual home; «Todos los eventos» inside the event
     (`388765c`). Still open: the running camp shows in «Eventos de la iglesia» as «Sin publicar… sin inscritos».

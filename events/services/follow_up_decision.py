@@ -13,9 +13,12 @@ or edits one. The owner's decisions of 2026-11-18:
   reopened, «Pendiente» with the same owner, back in their queue, and its earlier closing stays in its history (its
   audit rows); with none, one is created as the first decision creates it. Never two.
 * To «no necesita seguimiento»: an open task is never closed here, whatever was done on it. It stays open and is marked
-  for its owner to review, on its page and in every list of follow-ups, until they close it with its own audited form
-  or the decision changes back. Nothing here reads a closing note or anything else only the care team sees, so what
-  other roles see never depends on one.
+  «Decisión cambiada» for its owner to review, on its page and in every list of follow-ups, until they close it with its
+  own audited form, keep it open with «Continuar seguimiento» (``continue_follow_up``: a brief reason, read on the task
+  by whoever may manage it; the interview's decision stays), or the decision changes back. Nothing here reads a closing
+  note or anything else only the care team sees, so what other roles see never depends on one.
+* A reopened task says «Reabierto el …» on its page and on every list row until its owner moves it on (another status
+  saved on it) or closes it.
 
 Every change leaves a ``FollowUpDecisionChange`` (who, when, both decisions, the reason, what happened to the task),
 shown on the interview's record, and a ``seguimiento_corregido`` audit row without the reason.
@@ -26,9 +29,11 @@ from __future__ import annotations
 from datetime import datetime
 
 from django.db import transaction
+from django.utils import timezone
 
 from ..models import AuditEvent, FollowUp, FollowUpDecisionChange, Interview
 from . import audit, follow_ups
+from ..templatetags.emmaus import fecha_corta
 from .interviews import InterviewError, NotAllowed, follow_up_suggestions
 
 AUDIT_ACTION = "seguimiento_corregido"
@@ -167,59 +172,129 @@ def message(record: FollowUpDecisionChange) -> str:
     return f"{text} {extra}" if extra else text
 
 
+# ---- «Continuar seguimiento» ---------------------------------------------------------------------
+
+CONTINUE_ACTION = "seguimiento_continuado"
+
+
+def continue_follow_up(access, follow_up: FollowUp, *, reason: str) -> FollowUpDecisionChange:
+    """Owner decision of 2026-11-18: whoever may manage a task its interview's decision left open for review
+    («no necesita seguimiento») keeps it open anyway, with a brief reason. The review mark goes, the task stays open in
+    its owner's queue as it was, and the interview's decision and record do not change. The reason is kept on the
+    change it answers, shown on the task to the people who may manage it; the audit row says who and when only.
+    Nothing here reads a note."""
+    reason = clean_reason(reason)
+    if not reason:
+        raise InterviewError("Escribe brevemente por qué continúas el seguimiento.")
+    if len(reason) > REASON_MAX:
+        raise InterviewError(REASON_TOO_LONG)
+    with transaction.atomic():
+        locked = FollowUp.objects.select_for_update().select_related("participant").get(pk=follow_up.pk)
+        if not access.can_manage_follow_up(locked):
+            raise NotAllowed("No tienes permiso para atender este seguimiento.")
+        pending = waiting_on_owner([locked]).get(locked.pk)
+        if pending is None:
+            raise InterviewError(f"El seguimiento de {locked.participant.full_name} ya no espera una revisión.")
+        record = FollowUpDecisionChange.objects.select_for_update().get(pk=pending.pk)
+        record.continued_by = access.user
+        record.continued_at = timezone.now()
+        record.continued_reason = reason
+        record.save(update_fields=["continued_by", "continued_at", "continued_reason"])
+        audit.record(
+            access.user, locked.event, CONTINUE_ACTION,
+            f"Continuó un seguimiento del campero #{locked.participant.code} que su entrevista ya no pide", locked,
+            status=locked.status,
+        )
+    return record
+
+
 # ---- what the task's own screens and the lists show ---------------------------------------------
 
 
 def _newest_changes(interview_ids) -> dict[int, FollowUpDecisionChange]:
     newest: dict[int, FollowUpDecisionChange] = {}
-    for record in FollowUpDecisionChange.objects.filter(interview_id__in=interview_ids).select_related("changed_by"):
+    for record in FollowUpDecisionChange.objects.filter(interview_id__in=interview_ids).select_related("changed_by", "continued_by"):
         newest.setdefault(record.interview_id, record)  # ordered newest first
     return newest
 
 
-def waiting_on_owner(rows) -> dict[int, FollowUpDecisionChange]:
-    """{follow-up id: change} for the open ordinary tasks whose interview's newest change said «no necesita seguimiento»
-    and left them open: what their owner has to review and close."""
-    candidates = {
+def _ordinary_open(rows) -> dict[int, FollowUp]:
+    return {
         f.interview_id: f
         for f in rows
         if f.is_open and f.kind == FollowUp.Kind.CARE and not f.confidential and f.interview_id is not None
     }
+
+
+def _states(rows) -> tuple[dict[int, FollowUpDecisionChange], dict[int, FollowUpDecisionChange], dict[int, FollowUpDecisionChange]]:
+    """({id: change to review}, {id: change continued}, {id: change that reopened it}) for the open ordinary tasks of
+    ``rows``, from their interview's newest change. A reopened task counts as reopened while it is «Pendiente» and
+    nobody has saved another status on it since. Statuses only: never a note."""
+    candidates = _ordinary_open(rows)
     if not candidates:
-        return {}
+        return {}, {}, {}
     newest = _newest_changes(candidates)
-    return {
-        f.id: record
-        for interview_id, f in candidates.items()
-        if (record := newest.get(interview_id)) and record.care == Care.LEFT_OPEN and record.follow_up_id == f.id
-    }
+    waiting, continued, reopened = {}, {}, {}
+    for interview_id, f in candidates.items():
+        record = newest.get(interview_id)
+        if record is None or record.follow_up_id != f.id:
+            continue
+        if record.care == Care.LEFT_OPEN:
+            (continued if record.continued_at else waiting)[f.id] = record
+        elif record.care == Care.REOPENED and f.status == FollowUp.Status.PENDING:
+            reopened[f.id] = record
+    if reopened:
+        moved = AuditEvent.objects.filter(
+            action="seguimiento", object_type="FollowUp", object_id__in=[str(pk) for pk in reopened]
+        ).exclude(metadata__status=FollowUp.Status.PENDING).values_list("object_id", "created_at")
+        for object_id, at in moved:
+            record = reopened.get(int(object_id))
+            if record is not None and at > record.changed_at:
+                del reopened[int(object_id)]  # its owner moved it on since («En proceso», closed and reopened by hand)
+    return waiting, continued, reopened
+
+
+def waiting_on_owner(rows) -> dict[int, FollowUpDecisionChange]:
+    """{follow-up id: change} for the open ordinary tasks whose interview's newest change said «no necesita seguimiento»
+    and left them open, not continued since: what their owner has to review, then close or continue."""
+    return _states(rows)[0]
+
+
+def reopened_label(record: FollowUpDecisionChange) -> str:
+    return f"Reabierto el {fecha_corta(record.changed_at).split(',')[0]}"
 
 
 def mark_for_review(rows, user) -> list:
-    """The rows of a list of follow-ups, each with ``decision_change`` (the change to review, or None) and
-    ``review_is_mine`` (the viewer attends it: their row offers «Revisar»)."""
+    """The rows of a list of follow-ups, each with ``decision_change`` (the change to review: «Decisión cambiada»),
+    ``reopened`` («Reabierto el …», or ""), ``review_is_mine`` (the viewer attends it: their row offers «Revisar») and
+    ``reopened_is_mine``."""
     rows = list(rows)
-    waiting = waiting_on_owner(rows)
+    waiting, _, reopened = _states(rows)
+    me = getattr(user, "id", None)
     for f in rows:
         f.decision_change = waiting.get(f.id)
-        f.review_is_mine = bool(f.decision_change and f.assigned_to_id == getattr(user, "id", None))
+        f.reopened = reopened_label(reopened[f.id]) if f.id in reopened else ""
+        f.review_is_mine = bool(f.decision_change and f.assigned_to_id == me)
+        f.reopened_is_mine = bool(f.reopened and f.assigned_to_id == me)
     return rows
 
 
 def mine_first(rows) -> list:
-    """A short list (a home shows five) with the viewer's own reviews first, so their next action is never cut off;
-    otherwise in its order, kind by kind (a list ordered by kind keeps it). Marked rows only: with none, unchanged."""
-    return sorted(rows, key=lambda f: (f.kind, not f.review_is_mine))
+    """A short list (a home shows five) with what waits on the viewer first (their reviews, then the tasks reopened for
+    them), so it is never cut off; otherwise in its order, kind by kind (a list ordered by kind keeps it)."""
+    return sorted(rows, key=lambda f: (f.kind, not f.review_is_mine, not f.reopened_is_mine))
 
 
-def note_for(follow_up: FollowUp) -> FollowUpDecisionChange | None:
-    """The change the task's page tells about while it is open: the one its owner has to review (``care == abierto``),
-    or the one that reopened it (``care == reabierto``)."""
-    if not follow_up.is_open or follow_up.kind != FollowUp.Kind.CARE or follow_up.confidential or not follow_up.interview_id:
-        return None
-    newest = _newest_changes([follow_up.interview_id]).get(follow_up.interview_id)
-    if newest is not None and newest.follow_up_id == follow_up.id and newest.care in (Care.LEFT_OPEN, Care.REOPENED):
-        return newest
+def note_for(follow_up: FollowUp) -> dict | None:
+    """What the task's page tells about its interview's decision while it is open: ``{"state": ..., "change": ...}``
+    with state «revisar» (to review), «continuado» (kept open anyway: who, when, why) or «reabierto» (with its date)."""
+    waiting, continued, reopened = _states([follow_up])
+    if follow_up.pk in waiting:
+        return {"state": "revisar", "change": waiting[follow_up.pk]}
+    if follow_up.pk in continued:
+        return {"state": "continuado", "change": continued[follow_up.pk]}
+    if follow_up.pk in reopened:
+        return {"state": "reabierto", "change": reopened[follow_up.pk], "label": reopened_label(reopened[follow_up.pk])}
     return None
 
 

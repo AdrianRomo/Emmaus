@@ -1,0 +1,35 @@
+{% extends rotulo_shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Continuar seguimiento{% endblock %}
+{% block content %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): «Continuar seguimiento» (services.follow_up_decision.continue_follow_up). What the interview
+  says now, the one field, why; what continuing does, said beside the one action. Nothing changes without the reason.
+{% endcomment %}
+<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% include "events/rotulo/_page_head.html" with title="Continuar seguimiento" back_url=back back_label=follow_up.participant.full_name lede=said %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/field.html" with field=form.reason %}
+  <p class="aside-note">El seguimiento sigue abierto con quien lo atiende y la entrevista no cambia.</p>
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit">Continuar seguimiento</button>
+    <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% else %}<div class="narrow">
+{% include "partials/ui/error_summary.html" with form=form %}
+{% with lede=said|add:" El seguimiento sigue abierto con quien lo atiende y la entrevista no cambia." %}
+  {% include "events/rotulo/_page_head.html" with title="Continuar seguimiento" back_url=back back_label=follow_up.participant.full_name lede=lede %}
+{% endwith %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "partials/ui/field.html" with field=form.reason %}
+  <div class="step__actions">
+    <button class="btn btn--primary" type="submit">Continuar seguimiento</button>
+    <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% endif %}{% endblock %}

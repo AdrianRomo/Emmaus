@@ -11,9 +11,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
-from ..forms import FollowUpAssignForm, FollowUpForm, follow_up_leaders
+from ..forms import FollowUpAssignForm, FollowUpContinueForm, FollowUpForm, follow_up_leaders
 from ..models import (
     AccessRequest,
     AuditEvent,
@@ -436,11 +436,41 @@ def follow_up_detail(request, event, access, follow_up_id):
         "events/supervision/follow_up_detail.html",
         {
             "follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back,
-            # Its interview's decision changed: open for its owner to review and close, or reopened; a reopened task's states.
-            "decision_change": decision_svc.note_for(follow_up),
+            # Its interview's decision changed: to review (close or continue), continued anyway, or reopened; a reopened
+            # task's states.
+            "decision_note": decision_svc.note_for(follow_up),
             "task_history": decision_svc.task_history(follow_up),
         },
     )
+
+
+@require_http_methods(["GET", "POST"])
+@event_view(*LEADERS, MembershipRole.COORDINATOR)
+def follow_up_continue(request, event, access, follow_up_id):
+    """«Continuar seguimiento» (owner decision of 2026-11-18): a task its interview's decision left open for review is
+    kept open anyway, with a brief reason. Whoever may manage it (``can_manage_follow_up``) may; its page, never in place.
+    A task with nothing to review goes back to its page."""
+    follow_up = get_object_or_404(access.follow_ups(), pk=follow_up_id)
+    if not access.can_manage_follow_up(follow_up):
+        raise PermissionDenied
+    detail = reverse("events:follow_up_detail", args=[event.slug, follow_up.pk])
+    pending = decision_svc.waiting_on_owner([follow_up]).get(follow_up.pk)
+    if pending is None:
+        return redirect(detail)
+    form = FollowUpContinueForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            decision_svc.continue_follow_up(access, follow_up, reason=form.cleaned_data["reason"])
+        except decision_svc.NotAllowed:
+            raise PermissionDenied from None
+        except decision_svc.InterviewError as exc:
+            messages.error(request, exc.message)
+            return redirect(detail)
+        messages.success(request, f"El seguimiento de {follow_up.participant.full_name} sigue abierto.")
+        return redirect(detail)
+    who = pending.changed_by.get_full_name() if pending.changed_by else "Alguien"
+    said = f"Su entrevista ya no necesita seguimiento: {who} cambió la decisión el {fecha_corta(pending.changed_at)}."
+    return render(request, "events/supervision/follow_up_continue.html", {"follow_up": follow_up, "form": form, "said": said, "back": detail})
 
 
 @require_POST

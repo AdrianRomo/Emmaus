@@ -58,7 +58,7 @@
         {% monogram f.participant.full_name %}
         <div class="row__main">
           <p class="row__title"><a href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={{ home_url|urlencode }}">{{ f.participant.full_name }}</a></p>
-          <p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}<span>{{ f.get_reason_display }}, {{ f.created_at|since }}</span></p>{% if f.review_is_mine %}<p class="row__meta">{% include "events/supervision/_decision_review.html" with back=home_url %}</p>{% endif %}
+          <p class="row__meta row__meta--con-marca">{% follow_up_status f.status %}{% if f.decision_change %}{% include "events/supervision/_decision_mark.html" %}{% endif %}{% if f.reopened %}{% include "events/supervision/_decision_reopened.html" %}{% endif %}<span>{{ f.get_reason_display }}, {{ f.created_at|since }}</span></p>{% if f.review_is_mine %}<p class="row__meta">{% include "events/supervision/_decision_review.html" with back=home_url %}</p>{% endif %}
         </div>
       </li>
       {% endfor %}
@@ -212,7 +212,7 @@
             <li class="row">
               <div class="row__main">
                 <p class="row__title"><a class="row__link" href="{% url 'events:follow_up_detail' event.slug f.id %}?siguiente={% url 'events:tutor_home' event.slug %}">{{ f.participant.full_name }}</a></p>
-                <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>{% if f.decision_change %}{% url 'events:tutor_home' event.slug as tutor_url %}<p class="row__meta">{% include "events/supervision/_decision_mark.html" %}{% if f.review_is_mine %} {% include "events/supervision/_decision_review.html" with back=tutor_url %}{% endif %}</p>{% endif %}
+                <p class="row__meta">{{ f.get_reason_display }}, {{ f.created_at|since }}</p>{% if f.decision_change %}{% url 'events:tutor_home' event.slug as tutor_url %}<p class="row__meta">{% include "events/supervision/_decision_mark.html" %}{% if f.review_is_mine %} {% include "events/supervision/_decision_review.html" with back=tutor_url %}{% endif %}</p>{% endif %}{% if f.reopened %}<p class="row__meta">{% include "events/supervision/_decision_reopened.html" %}</p>{% endif %}
               </div>
               {% follow_up_status f.status %}
             </li>

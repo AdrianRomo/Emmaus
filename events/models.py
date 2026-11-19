@@ -1218,7 +1218,7 @@ class FollowUpDecisionChange(models.Model):
 
     The reason is somebody's words about a campero, so it lives here and goes with the interview (the retention purge,
     a campero's deletion), never in the activity log, which outlives both: its ``seguimiento_corregido`` row keeps who,
-    when and the two decisions only.
+    when and the two decisions only. The same holds for the reason a task it left open is continued (``continued_*``).
     """
 
     class Care(models.TextChoices):
@@ -1237,6 +1237,11 @@ class FollowUpDecisionChange(models.Model):
     changed_at = models.DateTimeField(default=timezone.now)
     follow_up = models.ForeignKey(FollowUp, on_delete=models.SET_NULL, null=True, blank=True, related_name="decision_changes")
     care = models.CharField(max_length=16, choices=Care.choices, blank=True)
+    # «Continuar seguimiento»: whoever attends the task it left open keeps it open anyway, with a reason that only the
+    # people who may manage the task read on its page (never in the activity log). The interview's decision stays.
+    continued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    continued_at = models.DateTimeField(null=True, blank=True)
+    continued_reason = models.CharField("Por qué continúa", max_length=200, blank=True, default="", db_default="")  # db_default: rolling deploys
 
     class Meta:
         ordering = ["-changed_at", "-id"]
