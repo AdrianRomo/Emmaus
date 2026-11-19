@@ -88,6 +88,8 @@ class QuestionForm(TuErrorMessagesMixin, forms.ModelForm):
         self.fields["text"].error_messages["required"] = "Escribe la pregunta."
         if self.instance.pk:
             del self.fields["kind"]
+            if self.instance.kind != Kind.CHOICE:
+                del self.fields["options"]
 
     def clean_text(self):
         text = one_line(self.cleaned_data["text"])

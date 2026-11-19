@@ -2232,7 +2232,6 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .respuestas-inscripcion { margin: var(--s-2) 0 0; font-size: var(--t-small); line-height: 1.35; }
 .page--app .respuestas-inscripcion > div { display: flex; flex-wrap: wrap; gap: 0 var(--s-2); padding-block: 0.125rem; }
 .page--app .respuestas-inscripcion dt { color: var(--ink-2); }
-.page--app .respuestas-inscripcion dt::after { content: ":"; }
 .page--app .respuestas-inscripcion dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
 /* The headcounts of a series: a read table (it keeps its words on the column's edges, CONSISTENCY rule 8), the
    total as a tabular figure beside its bar */
@@ -2240,6 +2239,13 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .conteo-tabla th[scope="row"] { font-weight: 430; color: var(--ink); white-space: nowrap; text-align: left; height: auto; border-bottom: 1px solid var(--line); font-size: var(--t-small); vertical-align: middle; padding-bottom: var(--s-2); padding-top: var(--s-2); }
 .page--app .conteo-tabla .meter { min-width: 7rem; }
 .page--app .conteo-tabla__n { min-width: 3ch; font-weight: 700; text-align: right; }
+.page--app .conteo-tabla thead th { white-space: normal; }
+/* On a phone the four columns fit without a sideways scroll: the bar (decoration for the eye; the number is the fact) leaves */
+@media (max-width: 34rem) {
+  .page--app .conteo-tabla .meter__track { display: none; }
+  .page--app .conteo-tabla .meter { min-width: 0; }
+  .page--app .conteo-tabla :is(th, td) { padding-inline: var(--s-2); }
+}
 .page--app .panorama__serie { margin: var(--s-5) 0 var(--s-2); font-size: var(--t-body); font-weight: 600; }
 /* === fin visitas === */
 
