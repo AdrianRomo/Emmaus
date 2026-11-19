@@ -298,6 +298,9 @@ def admin_list(request):
         )
         event.sign_ups = getattr(event, "page", None) is not None
         event.interview_only = event.camp_tools and not event.sign_ups
+        # One day: its date is in the row's date block, said to a screen reader only; the line then starts with what
+        # follows, without a comma before it
+        event.date_shown = not event.starts_on or bool(event.ends_on and event.ends_on != event.starts_on)
         event.camperos = camperos.get(event.pk, 0)
     # Three lists on the screen: what is underway, what is coming, the nearest first (an event without a day at the
     # end), and what already happened, the most recent first.

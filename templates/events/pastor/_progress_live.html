@@ -56,7 +56,7 @@
 </section>
 <section class="block" aria-labelledby="coordinadores">
   <h2 id="coordinadores" class="heading">Coordinadores <span class="count">{{ coordinators|length }}</span></h2>
-  <div class="table-wrap" tabindex="0" role="region" aria-labelledby="coordinadores"><table class="table table--nowrap">
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla de coordinadores"><table class="table table--nowrap">
     <thead><tr><th scope="col">Coordinador</th><th scope="col" class="num">Avance</th><th scope="col" class="num">Completadas</th><th scope="col" class="num">Camperos</th><th scope="col" class="num">En curso</th><th scope="col">Equipo</th></tr></thead>
     <tbody>{% for c in coordinators %}<tr><td class="cell-name"><a href="{% url 'events:coordinator_detail' event.slug c.id %}">{{ c.name }}</a>{% if c.stale %}<span class="cell-note">{{ c.stale }} entrevista{{ c.stale|pluralize }} interrumpida{{ c.stale|pluralize }}</span>{% endif %}{% if c.questionnaires %}<p class="table__sub">{% for q in c.questionnaires %}«{{ q.title }}»: {{ q.completed }} de {{ c.eligible }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}</td><td class="num">{{ c.percent|pct }}</td><td class="num">{{ c.completed }}</td><td class="num">{{ c.eligible }}</td><td class="num">{{ c.in_progress }}</td><td>{{ c.team }}</td></tr>{% empty %}<tr><td colspan="6">Todavía no hay coordinadores.</td></tr>{% endfor %}</tbody>
   </table></div>

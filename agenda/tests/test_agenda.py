@@ -310,6 +310,14 @@ class AdministrationTests(AgendaFixture):
         for name in ("Retiro de jóvenes", "Conferencia sin publicar", "Evento sin página", self.event.name):
             self.assertContains(page, name)
         self.assertNotContains(page, "Vigilia de la iglesia B")
+        # No line starts with a comma: a one-day event's date is said to a screen reader, then what follows
+        import re as _re
+
+        lines = _re.findall(r'<p class="row__meta row__meta--con-marca">.*?</p>', page.content.decode(), _re.S)
+        self.assertTrue(lines)
+        for line in lines:
+            visible = _re.sub(r'<span class="visually-hidden">.*?</span>', "", line)
+            self.assertNotRegex(_re.sub(r"<[^>]+>", "", visible).strip(), r"^,|\s,")
         self.assertContains(page, "Publicada", count=1)
         self.assertContains(page, "Sin publicar", count=1)  # the hidden conference; a camp without a page has no publication
         self.assertContains(page, "1 persona inscrita")

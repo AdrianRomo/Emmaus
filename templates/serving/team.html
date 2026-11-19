@@ -38,7 +38,7 @@
           {% date_block day.date %}
           <div class="row__main">
             <p class="row__title">Nadie sirve el {% if day.date.month == today.month %}{{ day.date|date:"l j"|lower }}{% else %}{{ day.date|weekday_date }}{% endif %}</p>
-            <p class="row__meta">{{ day.what }}{% if day.starts_at %}, {{ day.starts_at|time:"H:i" }}{% endif %}. {% if day.people|length == 1 %}{{ day.people.0.person.first_name }} dijo que no puede.{% else %}Las {{ day.people|length }} dijeron que no pueden.{% endif %}</p>
+            <p class="row__meta">{{ day.what }}{% if day.starts_at %}, {{ day.starts_at|time:"H:i" }}{% endif %}. {% if day.people|length == 1 %}{{ day.people.0.person.first_name }} dijo que no puede.{% else %}Las {{ day.people|length }} personas a quienes se pidió dijeron que no pueden.{% endif %}</p>
           </div>
           <div class="row__end"><a class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" href="{% url 'serving:date_detail' day.pk %}#quien-sirve">Pedir a alguien<span class="visually-hidden"> para el {{ day.date|weekday_date }}</span></a></div>
         </li>

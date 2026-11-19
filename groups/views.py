@@ -173,6 +173,11 @@ def home(request):
             "text": "",
             "url": reverse("community:group_people", args=[first["group_id"]]),
             "action": "Ver solicitud" if one else "Ver solicitudes",
+            # More than three, in several groups: one way to each group's requests (one link to the first hid the rest)
+            "groups": [
+                {"name": row["group__name"], "total": row["total"], "url": reverse("community:group_people", args=[row["group_id"]])}
+                for row in to_decide
+            ] if total > 3 and len(to_decide) > 1 else [],
             # Each request decided right here, in place (the view returns to this page: siguiente)
             "decide": reverse("community:request_decide", args=[one.group_id, one.pk]) if one else "",
             "requests": [

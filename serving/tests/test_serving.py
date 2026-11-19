@@ -678,7 +678,7 @@ class NobodyServesTests(ServingFixture):
         html = page.content.decode()
         self.assertContains(page, "Esperan tu decisión")
         self.assertContains(page, "Nadie sirve el ")
-        self.assertContains(page, "Las 2 dijeron que no pueden.")
+        self.assertContains(page, "Las 2 personas a quienes se pidió dijeron que no pueden.")
         ask = f'{self.url("date_detail", self.day.pk)}#quien-sirve'
         self.assertContains(page, ask)
         self.assertLess(html.index("Esperan tu decisión"), html.index("Próximas fechas"))

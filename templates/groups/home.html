@@ -59,7 +59,7 @@
         <div>
           <p class="sign__kind">Equipo {{ d.team.name }}</p>
           <h3 class="sign__title">Nadie sirve el {% if d.date.month == today.month %}{{ d.date|date:"l j"|lower }}{% else %}{{ d.date|weekday_date }}{% endif %}</h3>
-          <p class="sign__text">{% if d.asked == 1 %}Quien pediste dijo que no puede{% else %}Los {{ d.asked }} que pediste dijeron que no pueden{% endif %}.</p>
+          <p class="sign__text">{% if d.asked == 1 %}La persona a quien se pidió dijo que no puede{% else %}Las {{ d.asked }} personas a quienes se pidió dijeron que no pueden{% endif %}.</p>
         </div>
       </div>
       <div class="sign__actions"><a class="btn {% if forloop.first and not asks_pending %}btn--primary{% else %}btn--secondary{% endif %} btn--large" href="{% url 'serving:date_detail' d.pk %}#quien-sirve">Pedir a alguien<span class="visually-hidden"> para el {{ d.date|weekday_date }}</span></a></div>
@@ -88,7 +88,7 @@
           {% if sign.text %}<p class="sign__text">{{ sign.text }}</p>{% endif %}
         </div>
       </div>
-      <div class="sign__actions"><a class="btn {% if asks_pending %}btn--secondary{% else %}btn--primary{% endif %} btn--large" href="{{ sign.url }}">{{ sign.action }}</a></div>
+      <div class="sign__actions">{% if sign.groups %}{% for g in sign.groups %}<a class="btn {% if forloop.first and not asks_pending %}btn--primary{% else %}btn--secondary{% endif %} btn--large" href="{{ g.url }}">Ver {{ g.total }} en {{ g.name }}</a>{% endfor %}{% else %}<a class="btn {% if asks_pending %}btn--secondary{% else %}btn--primary{% endif %} btn--large" href="{{ sign.url }}">{{ sign.action }}</a>{% endif %}</div>
     </div>
     {% endif %}
   </div>

@@ -22,6 +22,7 @@ class NobodyServesOnTheCoordinatorsHomeTests(ServingFixture):
         page = self.home(self.leader_user)
         self.assertIn("Nadie sirve el", page)
         self.assertIn("Equipo Bienvenida", page)
+        self.assertIn("La persona a quien se pidió dijo que no puede.", page)  # the team page's words
         self.assertIn(f'href="{reverse("serving:date_detail", args=[self.day.pk])}#quien-sirve">Pedir a alguien', page)
 
     def test_a_pending_answer_or_a_yes_does_not(self):

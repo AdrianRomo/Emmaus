@@ -42,3 +42,23 @@ class GuideDecidesOnTheHomeTests(CommunityFixture):
         self.assertEqual(page.count("btn--primary btn--large"), 1)  # one filled «Aceptar»: the first
         self.assertNotIn("personas quieren unirse", page)
         self.assertEqual(GroupJoinRequest.objects.filter(group=self.group, status="pendiente").count(), 2)
+
+
+class ManyRequestsInSeveralGroupsTests(CommunityFixture):
+    """More than three requests in more than one group: the card leads to each group's requests, not only the first
+    group's (browser QA, 2026-11-18: the other group's were reachable only through «A tu cargo»)."""
+
+    def test_each_group_has_its_own_way_to_its_requests(self):
+        from events.tests.base import make_user
+
+        second = self._group(self.church, "Estudio de Romanos")
+        services.set_membership(second, self.leader, self.admin, role=GroupMembership.Role.LEADER)
+        for n in range(4):
+            user = make_user(f"pide{n}@prueba.mx", f"Pide{n}", "Prueba")
+            person = self._person(self.church, user)
+            services.request_to_join(second if n % 2 else self.group, person, user)
+        self.client.force_login(self.leader_user)
+        page = self.client.get(reverse("community:home")).content.decode()
+        self.assertIn("5 personas quieren unirse a tus grupos", page)
+        self.assertIn(f'href="{reverse("community:group_people", args=[second.pk])}">Ver 2 en Estudio de Romanos</a>', page)
+        self.assertIn(f'href="{reverse("community:group_people", args=[self.group.pk])}">Ver 3 en Jóvenes Roca</a>', page)

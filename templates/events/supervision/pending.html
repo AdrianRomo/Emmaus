@@ -75,7 +75,7 @@
     <section class="block" aria-labelledby="t-sin">
       <h2 id="t-sin" class="heading">{% if several_questionnaires %}Sin terminar, por coordinador{% else %}Sin iniciar, por coordinador{% endif %}</h2>
       {% if not_started_by_coordinator %}
-        <div class="table-wrap" tabindex="0" role="region" aria-labelledby="t-sin"><table class="table"><thead><tr><th scope="col">Coordinador</th><th scope="col" class="num">{% if several_questionnaires %}Sin terminar{% else %}Sin iniciar{% endif %}</th></tr></thead>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Tabla por coordinador"><table class="table"><thead><tr><th scope="col">Coordinador</th><th scope="col" class="num">{% if several_questionnaires %}Sin terminar{% else %}Sin iniciar{% endif %}</th></tr></thead>
           <tbody>{% for row in not_started_by_coordinator %}<tr><td>{% if row.coordinator__id %}<a href="{% url 'events:coordinator_detail' event.slug row.coordinator__id %}">{{ row.coordinator__user__first_name }} {{ row.coordinator__user__last_name }}</a>{% else %}Sin coordinador{% endif %}</td><td class="num">{% if several_questionnaires %}{{ row.n }} sin iniciar y {{ row.partial }} a medias{% else %}{{ row.n }}{% endif %}</td></tr>{% endfor %}</tbody></table></div>
       {% elif access.participants.exists %}<p class="empty-line">{% if several_questionnaires %}Ningún campero está sin iniciar ni a medias.{% else %}Todas las entrevistas ya se iniciaron.{% endif %}</p>
       {% elif access.is_tutor %}<p class="empty-line">Tu equipo todavía no tiene camperos.</p>
