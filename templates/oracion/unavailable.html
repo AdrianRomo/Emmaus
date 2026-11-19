@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block page_title %}Pedir oración{% endblock %}
+{% block content %}
+{% comment %}The church has it switched on, but today nobody could read a request (oracion.views.new): no form, nothing is collected.{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Pedir oración" lede="Por ahora no está disponible." back_url=back back_label="Volver a Mi iglesia" %}
+  <div class="notice notice--warning">
+    <p>Hoy no hay nadie en tu iglesia que pueda leer una petición, así que Emmaus no la recibe: no queremos que escribas algo que nadie va a leer. Búscalos en persona.</p>
+  </div>
+  {% include "oracion/_emergency.html" %}
+</div>
+{% endblock %}

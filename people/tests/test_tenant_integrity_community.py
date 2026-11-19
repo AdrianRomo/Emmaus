@@ -240,6 +240,11 @@ class CommunityIntegrityTests(CommunityFixture):
             role="lider", source_table="prueba.Cruzada", source_id=1,
         )
 
+    def break_prayer_request_person_church(self):
+        from oracion.models import PrayerRequest
+
+        return PrayerRequest.objects.create(church=self.church, person=self.member_b, body="x", expires_at=timezone.now())
+
     def expected(self, key) -> dict:
         also = {"consent_registration_church": {"registration_person_church"}}.get(key, set())
         return {k: int(k == key or k in also) for k in ALL_KEYS}
@@ -407,6 +412,9 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_role_assignment_scope_church(self):
         self.assert_counted_alone_and_fails("role_assignment_scope_church")
+
+    def test_prayer_request_person_church(self):
+        self.assert_counted_alone_and_fails("prayer_request_person_church")
 
     def test_a_role_of_every_scope_type_that_points_outside_its_church(self):
         def role(scope_type, scope_id, source_id):

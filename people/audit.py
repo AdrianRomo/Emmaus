@@ -121,6 +121,10 @@ ACTION_LABELS = {
     "formulario_persona_agregada": "Agregó a personas de la iglesia a quien respondió un formulario",
     "formulario_exportado": "Descargó las respuestas de un formulario",
     "formulario_respuestas_borradas": "Se borraron las respuestas de un formulario al terminar el tiempo que se guardan",
+    # Prayer requests (oracion.services). Only the pastors' own actions: writing or deleting one leaves no row.
+    "oracion_politica": "Encendió, apagó o ajustó las peticiones de oración",
+    "oracion_abierta": "Abrió una petición de oración",
+    "oracion_atendida": "Marcó o respondió una petición de oración",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

@@ -50,6 +50,8 @@ SUBJECTS: dict[str, str] = {
     # To a person asked to serve on a date that is near, if their team sends reminders and they did not turn
     # them off (serving.reminders). Never the team, the day, the role or who else serves.
     "recordatorio_servir": "Emmaus: tienes un servicio próximo",
+    # To a pastor who asked for it (oracion.services.notify_readers). Never who wrote, never a word of it.
+    "peticion_oracion_nueva": "Emmaus: hay una petición de oración nueva",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.

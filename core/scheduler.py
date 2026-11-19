@@ -46,8 +46,9 @@ PERSON_MERGES = "uniones_personas"
 FORM_ANSWERS = "respuestas_formularios"
 SUBSCRIPTIONS = "suscripciones_evento"
 SERVING_REMINDERS = "recordatorios_servir"
+PRAYER_RETENTION = "oracion_retencion"
 JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS,
-        SERVING_REMINDERS)
+        SERVING_REMINDERS, PRAYER_RETENTION)
 # A job that has not ended well for this long is not running: three passes of 300 seconds.
 STALE_MINUTES = 15
 

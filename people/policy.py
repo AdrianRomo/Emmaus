@@ -159,3 +159,22 @@ def forget(church=None) -> None:
     forget_everywhere()
     if church is not None and hasattr(church, _CACHE):
         delattr(church, _CACHE)
+
+
+# Prayer requests (``oracion``): days a request and its reply are kept. The platform's number is the most a
+# church may keep them; its pastors may only shorten it, never under the floor (a week to read and answer).
+PRAYER_RETENTION_DAYS = 90
+PRAYER_RETENTION_DAYS_FLOOR = 7
+
+
+def prayer_retention_days(church=None) -> int:
+    """Days a new prayer request of ``church`` is kept. The church's own number when it is inside the
+    platform's bounds (stored in ``oracion.PrayerPolicy``, written only by a pastor), else 90."""
+    stored = None
+    if church is not None and isinstance(getattr(church, "pk", None), int):
+        from oracion.models import PrayerPolicy
+
+        stored = PrayerPolicy.objects.filter(church_id=church.pk).values_list("retention_days", flat=True).first()
+    if stored is None or isinstance(stored, bool) or not isinstance(stored, int):
+        return PRAYER_RETENTION_DAYS
+    return max(PRAYER_RETENTION_DAYS_FLOOR, min(PRAYER_RETENTION_DAYS, stored))

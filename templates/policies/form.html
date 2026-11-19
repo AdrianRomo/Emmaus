@@ -46,6 +46,7 @@
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  {% if prayer_requests_on is not None %}<p class="aside-note">Peticiones de oración: {% if prayer_requests_on %}encendidas{% else %}apagadas{% endif %}. No se cambian aquí: solo quien tiene el rol de pastor en tu iglesia puede encenderlas o apagarlas, desde «Peticiones de oración», después de leer lo que la iglesia promete.</p>{% endif %}
   <p class="aside-note">Antes de guardar verás qué cambia. Cada cambio queda anotado en los movimientos de la iglesia, con quién lo hizo.</p>
 </div>
 {% endblock %}

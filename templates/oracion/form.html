@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Pedir oración{% endblock %}
+{% block content %}
+{% comment %}
+  The form of a prayer request (oracion.views.new): who reads it, by name, before anything is written; what it is
+  not; the emergency sentences; one text. The hidden "lectores" is a fingerprint of the names shown: if who reads
+  changed meanwhile, nothing is saved and the page is shown again.
+{% endcomment %}
+<div class="narrow">
+  {% url 'oracion:mine' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Pedir oración" lede="Cuéntale a quien pastorea tu iglesia por qué quieres que ore por ti." back_url=back back_label="Volver a Tus peticiones de oración" %}
+  {% include "partials/ui/error_summary.html" %}
+  <section class="block" aria-labelledby="antes">
+    <h2 id="antes" class="heading">Antes de escribir</h2>
+    {% include "oracion/_promises.html" %}
+    {% include "oracion/_emergency.html" %}
+  </section>
+  <form class="block" method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="lectores" value="{{ token }}">
+    {% include "partials/ui/fields.html" %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Enviar mi petición</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Si la envías hoy y no la borras antes, Emmaus la borra el {{ expires_on|long_date }}.</p>
+</div>
+{% endblock %}

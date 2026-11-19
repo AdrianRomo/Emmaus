@@ -28,6 +28,7 @@ CONSOLE = "django.core.mail.backends.console.EmailBackend"
 KINDS = {
     "solicitud_grupo_recibida", "solicitud_grupo_decidida", "solicitud_contacto_recibida", "seguimientos_pendientes",
     "aviso_publicado", "aviso_urgente", "lugar_ofrecido", "recordatorio_servir",
+    "peticion_oracion_nueva",
 }
 LINK = "https://emmaus.example.org/grupos/solicitudes/"
 CONTEXT = {"church_name": "Iglesia Fe & Esperanza", "link": LINK}
@@ -93,6 +94,14 @@ EXPECTED_BODIES = {
         f"{LINK}\n\n"
         "Por privacidad, este correo no incluye más detalles. "
         "Si ya no quieres estos recordatorios, puedes apagarlos en «Servir»."
+    ),
+    "peticion_oracion_nueva": (
+        "Hola:\n\n"
+        "Hay una petición de oración nueva en Emmaus, en Iglesia Fe & Esperanza. "
+        "Entra a Emmaus con tu cuenta para leerla:\n\n"
+        f"{LINK}\n\n"
+        "Por privacidad, este correo no dice quién la escribió ni qué dice: solo se lee en Emmaus. "
+        "En «Peticiones de oración» eliges si te llega este correo."
     ),
 }
 

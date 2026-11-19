@@ -42,7 +42,11 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    module. Only with ``EMMAUS_PUBLIC_BASE_URL`` and a mail backend that delivers. One e-mail per assignment
    however many passes run; a pass in which no reminder got through is a failed pass.
 
-2 to 8 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
+9. ``oracion_retencion``: the prayer requests whose date passed are deleted with their replies
+   (``oracion.services.prune``, what ``prune_prayer_requests --apply`` runs), in every church whatever its module
+   flags and whatever its own switch: it only deletes. The count it logs is one number for the whole server.
+
+2 to 9 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
 switch) leaves only the first, and the line it prints is then the one ``run_report_cutoffs`` prints.
 Not here, on purpose: ``remind_follow_up_owners`` (it mails again on every run) and
 ``prune_attendance`` (it deletes). Both stay manual.
@@ -143,6 +147,12 @@ def serving_reminders_verdict(done: dict) -> str:
     return reminders.verdict(done)
 
 
+def delete_expired_prayer_requests() -> dict:
+    from oracion import services
+
+    return {"deleted": services.prune(apply=True)}
+
+
 class Command(BaseCommand):
     help = (
         "Una pasada del programador: los cortes y la limpieza de siempre (run_report_cutoffs) y, después, los correos de "
@@ -229,6 +239,12 @@ class Command(BaseCommand):
         line = f"recordatorios de servir: {done['sent']} enviados, {done['failed']} fallidos"
         return run.ok, line if run.ok else f"{line} (ningún correo está saliendo)"
 
+    def prayer_retention_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.PRAYER_RETENTION, delete_expired_prayer_requests)
+        if run.counts is None:
+            return False, "peticiones de oración: error"
+        return True, f"peticiones de oración: {run.counts['deleted']} vencidas borradas"
+
     def run_once(self) -> bool:
         """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
@@ -239,7 +255,8 @@ class Command(BaseCommand):
         if scheduler.community_jobs_enabled():
             for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary(), self.series_summary(),
                                     self.person_merges_summary(), self.form_answers_summary(),
-                                    self.event_subscriptions_summary(), self.serving_reminders_summary()):
+                                    self.event_subscriptions_summary(), self.serving_reminders_summary(),
+                                    self.prayer_retention_summary()):
                 ok = ok and job_ok
                 head += f" · {summary}"
         self.stdout.write(head)

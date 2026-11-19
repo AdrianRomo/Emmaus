@@ -106,6 +106,7 @@ INSTALLED_APPS = [
     "sitio",
     "espacios",
     "formularios",
+    "oracion",
 ]
 
 MIDDLEWARE = [

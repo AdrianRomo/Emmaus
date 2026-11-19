@@ -1,0 +1,17 @@
+{% comment %}
+  What the member reads before writing, and what a pastor accepts before switching it on: the same sentences in both
+  places (oracion.views.new, oracion.views.terms). ``readers``: the accounts that read today, by name. ``terms``:
+  the church's numbers. Every sentence here is something the code does; change the code first.
+{% endcomment %}
+<div class="prose">
+  {% if readers|length == 1 %}
+  <p><strong>Lo lee:</strong> {{ readers.0.reader_name }}, que tiene hoy el rol de pastor en tu iglesia. Si después alguien más recibe ese rol, también podrá leer lo que no se haya borrado.</p>
+  {% else %}
+  <p><strong>Lo leen:</strong> {% for user in readers %}{{ user.reader_name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Son quienes tienen hoy el rol de pastor en tu iglesia. Si después alguien más recibe ese rol, también podrá leer lo que no se haya borrado{% if several %}, salvo que elijas a una sola persona{% endif %}.</p>
+  {% endif %}
+  <p>En Emmaus nadie más lo puede abrir: ni la administración de la iglesia, ni quien guía un grupo. No se manda por correo y no aparece en ningún reporte ni total.</p>
+  <p>Queda guardado en la base de datos de Emmaus, como todo lo demás: ninguna pantalla se lo muestra a quien opera el sistema, pero técnicamente está ahí hasta que se borra.</p>
+  <p>No es un servicio de emergencia ni de respuesta inmediata. Nadie promete responder ni en cuánto tiempo.</p>
+  <p>Quien lo lee puede marcarlo como leído, escribir una sola respuesta breve o marcar que hablaron en persona. La respuesta se lee aquí, en Emmaus; no llega por correo.</p>
+  <p>Quien lo escribió lo puede borrar cuando quiera, con su respuesta. Si no, Emmaus lo borra a los {{ terms.retention_days }} días. Lo borrado puede seguir en las copias de respaldo del servidor hasta que se renueven.</p>
+</div>
