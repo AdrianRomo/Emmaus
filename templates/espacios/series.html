@@ -54,7 +54,7 @@
             <p class="row__meta">{% if row.outcome == "ocupado" %}No se pudo apartar: ya está ocupado.{% else %}No se pudo apartar: esa hora no existe ese día, porque se adelanta el reloj.{% endif %}</p>
           </div>
           {% if request.is_church_admin and row.outcome == "ocupado" and series.status == "aprobada" %}
-          <div class="row__end"><a class="btn {% if forloop.first %}btn--primary btn--small{% else %}btn--link{% endif %}" href="{% url 'espacios:series_day_book' series.pk row.pk %}">Decidir<span class="visually-hidden"> el {{ row.day|weekday_date }}</span></a></div>
+          <div class="row__end"><a class="btn btn--link" href="{% url 'espacios:series_day_book' series.pk row.pk %}">Decidir<span class="visually-hidden"> el {{ row.day|weekday_date }}</span></a></div>
           {% endif %}
         </li>
       {% endfor %}

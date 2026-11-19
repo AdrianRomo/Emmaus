@@ -3,8 +3,7 @@
   event for a reader who is not the administration or who asked: for them the row says "Ocupado" and the hours nobody
   else can have. Needs: booking; optional: with_day (the day leads the row, drawn, and is said in words; the week
   leaves it out because the day leads its whole group), with_space (the space's name before the title), hide_cancel,
-  own (under «Lo que pediste»: who asked is the reader, and is not said), hide_series (on the series' own page),
-  cancel_label (a date of a series is cancelled as «Este día no»). That a booking repeats is said only when
+  own (under «Lo que pediste»: who asked is the reader, and is not said), hide_series. That a booking repeats is said only when
   booking.series is set, which _shown does only for who reads the title.
 {% endcomment %}
 <li class="row{% if with_day %} row--lead{% endif %} row--stack">
@@ -26,7 +25,7 @@
   </div>
   {% if booking.show_details and booking.can_cancel and not hide_cancel %}
   <div class="row__end">
-    <a class="btn btn--link btn--quieto" href="{% url 'espacios:cancel' booking.pk %}">{{ cancel_label|default:"Cancelar" }}<span class="visually-hidden"> {% if cancel_label %}se usa{% else %}la reserva{% endif %}: {{ booking.title }}, {{ booking.day|weekday_date }}</span></a>
+    <a class="btn btn--link btn--quieto" href="{% url 'espacios:cancel' booking.pk %}">Cancelar<span class="visually-hidden"> la reserva: {{ booking.title }}, {{ booking.day|weekday_date }}</span></a>
   </div>
   {% endif %}
 </li>
