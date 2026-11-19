@@ -77,6 +77,11 @@ ACTION_LABELS = {
     "sitio_despublicado": "Dejó de publicar la página pública de la iglesia",
     "recurso_publico": "Mostró un recurso en la página pública",
     "recurso_privado": "Quitó un recurso de la página pública",
+    "contenido_aprobacion_pedida": "Pidió la aprobación pastoral de un contenido",
+    "contenido_aprobacion_retirada": "Retiró la solicitud de aprobación pastoral de un contenido",
+    "contenido_aprobado": "Aprobó un contenido para publicarse",
+    "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
+    "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -87,6 +92,8 @@ ALLOWED_METADATA = frozenset({
     "override", "reason", "minor", "standing", "age_checked",
     # A church policy (policies.services.save): which one, by its column, and the number or yes/no before ("value" is after).
     "policy", "previous",
+    # A pastoral approval of content (resources.approvals): which of the three fixed permitted uses.
+    "permitted_use",
 })
 
 

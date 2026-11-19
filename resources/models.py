@@ -136,8 +136,9 @@ class MediaItem(models.Model):
 class ReadingPlan(models.Model):
     """Several days of reading that the church itself prepared. A plan holds only Scripture
     *references* ("Juan 15:1-8") and what the church wrote: Emmaus never stores or fetches Bible
-    text. It is published only after the administration confirms that the church wrote it or has
-    permission to publish it (``rights_confirmed_by`` and ``rights_confirmed_at``: who and when)."""
+    text. The administration prepares it; it is published only when a pastor approves it
+    (``resources.approvals``). ``rights_confirmed_by`` and ``rights_confirmed_at`` keep who published
+    it last and when: the administration before approvals existed, the pastor who approved since."""
 
     DESCRIPTION_MAX = 400
 
@@ -177,6 +178,11 @@ class ReadingPlan(models.Model):
     @property
     def is_retired(self) -> bool:
         return self.status == self.Status.RETIRED
+
+    @property
+    def was_published(self) -> bool:
+        """It was published at least once: somebody may have started it, so its days are kept."""
+        return not self.is_draft or self.rights_confirmed_at is not None
 
 
 class ReadingPlanDay(models.Model):
@@ -229,3 +235,81 @@ class ReadingPlanDayRead(models.Model):
         verbose_name = "día leído de un plan"
         verbose_name_plural = "días leídos de un plan"
         constraints = [models.UniqueConstraint(fields=["progress", "day"], name="reading_plan_day_read_once")]
+
+
+class ContentApproval(models.Model):
+    """The pastoral approval of one piece of the church's own content (issue #99, decision 0014):
+    preparing content is the administration's work, approving it for publication is a pastor's.
+
+    One row per object. ``kind`` and ``object_id`` name it (a devotional, a reading plan, the public
+    home); ``church`` is the tenant and every query filters by it. ``approved_digest`` is the
+    fingerprint of the words that were approved, so a later edit is noticed instead of inheriting
+    the approval. ``source_note`` and ``return_reason`` are short plain text for the staff only:
+    escaped when shown, never e-mailed, never copied to an audit row.
+
+    Nothing here is about readers: no reference to a person who reads, no count, no date of reading."""
+
+    NOTE_MAX = 200
+    REASON_MAX = 300
+
+    class Kind(models.TextChoices):
+        DEVOTIONAL = "devocional", "Devocional"
+        PLAN = "plan", "Plan de lectura"
+        HOME = "sitio", "Página pública de la iglesia"
+
+    class State(models.TextChoices):
+        PENDING = "pendiente", "Espera aprobación pastoral"
+        APPROVED = "aprobado", "Aprobado"
+        RETURNED = "devuelto", "Devuelto"
+        LEGACY = "anterior", "Publicado antes de que existieran las aprobaciones"
+        CHANGED = "cambio", "Cambió: necesita aprobación otra vez"
+
+    class Use(models.TextChoices):
+        OWN = "propia", "Obra propia de la iglesia"
+        PERMISSION = "permiso", "Con permiso del autor"
+        OPEN = "abierta", "Dominio público o licencia abierta"
+
+    church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="+")
+    kind = models.CharField("Tipo de contenido", max_length=12, choices=Kind.choices)
+    object_id = models.PositiveBigIntegerField()
+    state = models.CharField("Estado", max_length=12, choices=State.choices)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    requested_at = models.DateTimeField(null=True, blank=True)
+    approved_digest = models.CharField(max_length=64, blank=True, default="", db_default="")
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    permitted_use = models.CharField("Uso permitido", max_length=12, choices=Use.choices, blank=True, default="", db_default="")
+    source_note = models.CharField("Nota sobre la fuente", max_length=NOTE_MAX, blank=True, default="", db_default="")
+    returned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    returned_at = models.DateTimeField(null=True, blank=True)
+    return_reason = models.CharField("Motivo", max_length=REASON_MAX, blank=True, default="", db_default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "aprobación pastoral de contenido"
+        verbose_name_plural = "aprobaciones pastorales de contenido"
+        constraints = [models.UniqueConstraint(fields=["kind", "object_id"], name="content_approval_one_per_object")]
+        indexes = [models.Index(fields=["church", "state"], name="content_approval_state_idx")]
+
+    def __str__(self) -> str:
+        return f"{self.get_kind_display()} {self.object_id}: {self.get_state_display()}"
+
+    @property
+    def is_pending(self) -> bool:
+        return self.state == self.State.PENDING
+
+    @property
+    def is_approved(self) -> bool:
+        return self.state == self.State.APPROVED
+
+    @property
+    def is_returned(self) -> bool:
+        return self.state == self.State.RETURNED
+
+    @property
+    def is_legacy(self) -> bool:
+        return self.state == self.State.LEGACY
+
+    @property
+    def is_changed(self) -> bool:
+        return self.state == self.State.CHANGED
