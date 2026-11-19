@@ -403,6 +403,91 @@ class QueueTests(FormFixture):
         self.client.force_login(self.admin_b)
         self.assertContains(self.client.get(url("queue")), "No hay nada esperando por ti.")
 
+    # ---- Servir: swaps of dates (wave 10) ----------------------------------------------------------
+    def swap(self, needs_approval=False):
+        """``member`` asks ``asked`` to take a date of a team ``leader`` coordinates."""
+        from serving import rotas
+        from serving import services as serving
+
+        team = serving.save_team(self.church, self.admin, name="Equipo de Sonido")
+        serving.set_member(team, self.leader, self.admin, role="coordina")
+        serving.set_member(team, self.member, self.admin)
+        serving.set_member(team, self.asked, self.admin)
+        if needs_approval:
+            rotas.save_settings(team, self.leader_user, swap_needs_approval=True, reminder_days=0)
+        day = serving.save_date(team, self.admin, date=self.today + timedelta(days=7), what="Domingo de prueba")
+        assignment = serving.assign(day, self.member, self.leader_user)
+        return team, day, rotas.request_swap(assignment, self.asked, self.member_user)
+
+    def test_a_swap_somebody_asked_is_a_row_of_who_was_asked_and_of_nobody_else(self):
+        from serving import rotas
+
+        team, day, swap = self.swap()
+        self.assert_only("Servir", "asked")
+        row = self.rows(self.asked_user, self.asked)[0]
+        self.assertEqual((row.title, row.url, row.due_on, row.count), ("Te pidieron un cambio de fecha", "/mi-iglesia/servir/#cambios", day.date, 1))
+        self.client.force_login(self.asked_user)
+        page = self.client.get(url("queue"))
+        self.assertContains(page, "Te pidieron un cambio de fecha")
+        for private in (self.member.first_name, self.member.last_name, team.name, "Domingo de prueba"):
+            self.assertNotContains(page, private)  # who asked, in which team and what the date is stay in «Servir»
+        self.assertContains(self.client.get(row.url), "Domingo de prueba")  # the screen the row leads to has it
+        rotas.answer_swap(swap, False, self.asked_user)
+        self.assert_only("Servir")
+
+    def test_a_swap_that_waits_for_the_approval_is_of_who_coordinates_the_team_and_of_the_administration(self):
+        from serving import rotas
+        from serving.models import SwapRequest
+
+        team, _day, swap = self.swap(needs_approval=True)
+        self.assert_only("Servir", "asked")  # until the teammate answers there is nothing to approve
+        swap = rotas.answer_swap(swap, True, self.asked_user)
+        self.assertEqual(swap.status, SwapRequest.Status.TO_APPROVE)
+        self.assert_only("Servir", "leader", "admin")
+        row = self.rows(self.leader_user, self.leader)[0]
+        self.assertEqual((row.title, row.url, row.count),
+                         ("1 cambio de fecha espera tu visto bueno en Equipo de Sonido", f"/mi-iglesia/servir/equipos/{team.pk}/", 1))
+        self.client.force_login(self.leader_user)
+        page = self.client.get(url("queue"))
+        self.assertContains(page, "1 cambio de fecha espera tu visto bueno en Equipo de Sonido")
+        for private in (self.member.last_name, self.asked.last_name, "Domingo de prueba"):
+            self.assertNotContains(page, private)
+        self.assertEqual(self.client.get(row.url).status_code, 200)  # the same permission as the screen it leads to
+        # the administration of church B sees nothing of it
+        self.assertEqual(queue.rows(self.admin_b, self.church_b, self.admin_b_person, is_church_admin=True), [])
+        self.assertEqual(queue.count(self.admin_b, self.church_b, self.admin_b_person, is_church_admin=True), 0)
+        rotas.decide_swap(swap, True, self.leader_user)
+        self.assert_only("Servir")
+
+    # ---- Oración: never here ----------------------------------------------------------------------
+    def test_a_prayer_request_never_produces_a_row_or_a_count(self):
+        """Its builder's decision (docs/v2/wave10/oracion.md): nothing of a request, not even that one exists, is
+        shown outside its readers' own screens. The reader has their own door in the menu; «Pendientes» has none."""
+        from oracion import access as prayer_access
+        from oracion import services as prayers
+        from oracion.models import PrayerRequest
+
+        body = "Texto inventado de una petición que nadie más debe leer"
+        prayers.switch_on(self.church, self.pastor_user, accepted=True, token=prayers.readers_token(prayer_access.readers(self.church)),
+                          emergency_line="", retention_days=prayers.policy.PRAYER_RETENTION_DAYS)
+        readers = prayer_access.readers(self.church, apart_from=self.member_user)
+        prayers.create(self.church, self.member, body=body, token=prayers.readers_token(readers))
+        self.assertEqual(PrayerRequest.objects.filter(church=self.church, read_at__isnull=True).count(), 1)
+        self.assertEqual(prayers.unread_count(self.pastor_user, self.church), 1)  # it does wait for the pastor, on their screen
+        for name, (user, person) in self.everybody().items():
+            self.assertEqual(self.rows(user, person), [], name)  # no row, and (self.rows) a count of zero
+            self.assertEqual(queue.count(user, self.church, person, is_church_admin=name == "admin"), 0, name)
+        self.client.force_login(self.pastor_user)
+        page = self.client.get(url("queue"))
+        self.assertContains(page, "No hay nada esperando por ti.")
+        self.assertNotContains(page, ">Pendientes</span>")  # nothing sends the pastor to this list for it
+        self.assertNotContains(page, body)
+        self.client.force_login(self.admin)
+        page = self.client.get(url("queue"))
+        self.assertContains(page, "No hay nada esperando por ti.")
+        for private in (body, "Peticiones de oración", "sin leer"):
+            self.assertNotContains(page, private)  # the administration is not a reader: neither the text nor a number
+
     def test_the_shell_shows_the_same_number_and_only_to_who_has_something(self):
         form = self.member_form(reader=True, creates_task=True)
         submission, _ = self.answer(form)

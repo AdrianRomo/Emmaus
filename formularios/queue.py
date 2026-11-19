@@ -12,11 +12,15 @@ again on every request, so a row never outlives the permission behind it:
 | Content to approve | a pastor of the church | ``resources.approvals.can_approve`` |
 | A task of a form | its owner, while they read that form | ``formularios.access.can_read`` |
 | Tasks of forms without an owner | the administration | church ``manage`` |
+| A swap of a date somebody asked this person | who was asked | ``serving.rotas.swaps_to_answer`` (what «Servir» lists) |
+| Swaps that wait for the coordinator's approval | who coordinates that active team, or the administration | ``has_scope`` (ministry, manage), as ``serving.views._may_manage`` |
 
 A row carries a kind, neutral words, a day and the address of the screen where the work is done.
 Never the reason of a follow-up, the name of who it is about, the title of a booking, an answer or a
-contact. The camp's follow-ups and the discipleship ones are not here: they stay behind their own
-confidential screens (``events.access``, ``core.access``).
+contact, and for a swap never who asked, the role or the day's name. The camp's follow-ups and the
+discipleship ones are not here: they stay behind their own confidential screens (``events.access``,
+``core.access``). Neither are the prayer requests (``oracion``): nothing of them, not even how many, is shown
+outside their readers' own screens, so this module never reads that app.
 """
 
 from dataclasses import dataclass
@@ -25,10 +29,13 @@ from datetime import date
 from django.urls import reverse
 
 from care import services as care_services
+from core.authz import Action, has_scope
 from espacios import services as spaces_services
 from groups.access import managed_group_ids
 from groups.models import Group, GroupJoinRequest
 from resources import approvals
+from serving import rotas
+from serving.models import SwapRequest, Team
 
 from . import access, services
 from .models import FormTask
@@ -79,6 +86,8 @@ def rows(user, church, person, *, is_church_admin: bool) -> list[Row]:
                          reverse("formularios:submission", args=[task.form_id, task.submission_id]),
                          task.due_on, bool(task.due_on and task.due_on < today)))
 
+    found.extend(swap_rows(user, church, person, is_church_admin=is_church_admin))
+
     if is_church_admin:
         loose = care_services.unassigned_count(church, person)
         if loose:
@@ -94,6 +103,32 @@ def rows(user, church, person, *, is_church_admin: bool) -> list[Row]:
                              reverse("formularios:loose_tasks"), count=unowned))
 
     found.sort(key=lambda row: (row.due_on is None, not row.overdue, row.due_on or date.max))
+    return found
+
+
+def swap_rows(user, church, person, *, is_church_admin: bool) -> list[Row]:
+    """The swaps of dates to serve that wait for this account, with the rules of «Servir» (``serving.rota_views``):
+    one row for each swap a teammate asked this person and that still waits for their answer, and one row per
+    active team this account coordinates (every active team, for the administration) with swaps that wait for
+    its approval. A swap that expired, or whose date passed, waits for nobody. Never who asked or which role."""
+    found: list[Row] = []
+    if person is not None:
+        for swap in rotas.swaps_to_answer(person):
+            found.append(Row("Servir", "Te pidieron un cambio de fecha", reverse("serving:home") + "#cambios",
+                             swap.assignment.service_date.date))
+    waiting: dict[int, int] = {}
+    to_approve = SwapRequest.objects.filter(
+        assignment__service_date__team__church=church, assignment__service_date__team__status=Team.Status.ACTIVE,
+        status=SwapRequest.Status.TO_APPROVE,
+    ).select_related("assignment__service_date__team")
+    for swap in to_approve:
+        if rotas.is_live(swap):
+            team_id = swap.assignment.service_date.team_id
+            waiting[team_id] = waiting.get(team_id, 0) + 1
+    for team in Team.objects.filter(pk__in=waiting, church=church).order_by("name", "id"):
+        if is_church_admin or has_scope(user, church, "ministry", team.pk, Action.MANAGE):
+            found.append(Row("Servir", f"{_plural(waiting[team.pk], 'cambio de fecha espera', 'cambios de fecha esperan')} tu visto bueno en {team.name}",
+                             reverse("serving:team", args=[team.pk]), count=waiting[team.pk]))
     return found
 
 
@@ -136,6 +171,7 @@ def count(user, church, person, *, is_church_admin: bool, care_mine: int | None 
         managed = Group.objects.filter(pk__in=managed_group_ids(user, church), church=church, status=Group.Status.ACTIVE)
         group_requests = GroupJoinRequest.objects.filter(group__in=managed, status=GroupJoinRequest.Status.PENDING).count()
     total = care_mine + group_requests + len(my_form_tasks(user, church, is_church_admin=is_church_admin))
+    total += sum(row.count for row in swap_rows(user, church, person, is_church_admin=is_church_admin))
     if approvals.can_approve(user, church):
         total += approvals.pending_count(church)
     if is_church_admin:
