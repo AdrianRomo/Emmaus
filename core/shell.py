@@ -80,6 +80,9 @@ PEOPLE_VIEWS = {
 }
 # Prayer requests: the writer's pages, and the pastors' (the church's switch included).
 PRAYER_VIEWS = {"oracion:mine", "oracion:new", "oracion:delete"}
+# «Quién puede qué» and the administration's task for a request to remove data (cuenta_datos, issue #98)
+POWER_VIEWS = {"cuenta_datos:powers"}
+DATA_REQUEST_VIEWS = {"cuenta_datos:requests", "cuenta_datos:request"}
 PRAYER_READER_VIEWS = {
     "oracion:inbox", "oracion:read", "oracion:mark_read", "oracion:reply", "oracion:mark_talked", "oracion:reader_email",
     "oracion:terms",
@@ -176,6 +179,8 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
             to_approve = approvals.pending_count(church)
             charge.insert(1, _item("Aprobación pastoral", reverse("resources:approval_queue"), "devocional", view in APPROVAL_VIEWS,
                                    to_approve, "contenido por aprobar" if to_approve == 1 else "contenidos por aprobar"))
+        # The same two roles read who holds a power in the church (cuenta_datos.views.powers asks again).
+        charge.insert(1 if is_admin else 2, _item("Quién puede qué", reverse("cuenta_datos:powers"), "candado", view in POWER_VIEWS))
     # Only a pastor of this church (asked again here, not inferred): the requests not yet marked as read.
     unread_prayers = prayer_shell.reader_badge(request.user, church)
     if unread_prayers is not None:
@@ -208,7 +213,7 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     waiting_all = pending_queue.count(request.user, church, person, is_church_admin=is_admin, care_mine=accompanying,
                                       group_requests=sum(pending.values()))
     if waiting_all or is_admin:
-        charge.insert(0, _item("Pendientes", reverse("formularios:queue"), "plan", view == "formularios:queue", waiting_all,
+        charge.insert(0, _item("Pendientes", reverse("formularios:queue"), "plan", view == "formularios:queue" or view in DATA_REQUEST_VIEWS, waiting_all,
                                "pendiente" if waiting_all == 1 else "pendientes"))
     # A person whose date of birth says they are under 18 gets a 404 from the forms (formularios.views): no link to it.
     if forms_views.open_member_form_count(church) and not _minor_by_birth_date(person):

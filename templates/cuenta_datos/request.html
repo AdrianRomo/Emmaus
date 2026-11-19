@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load community shell %}
+{% block page_title %}Solicitud de {{ row.who }}{% endblock %}
+{% block content %}
+{% comment %}
+  One request to remove data (cuenta_datos.views.request_detail), for the administration: what the person asks (a
+  fixed choice), what exists about them by category (a number only where the administration may already see those
+  rows; what is private to the person is named, never counted), and the tools that exist. Nothing is deleted from
+  here: the one action records that the administration answered.
+{% endcomment %}
+<div class="narrow mis-datos">
+  {% url 'cuenta_datos:requests' as back %}
+  {% include "events/rotulo/_page_head.html" with title=row.who meta="Solicitud sobre datos personales" back_url=back back_label="Volver a las solicitudes" %}
+
+  <dl class="summary-list block">
+    <div class="summary-list__row"><dt>Pide que borren</dt><dd>{{ row.get_ask_display }}</dd></div>
+    <div class="summary-list__row"><dt>Lo pidió el</dt><dd>{{ row.created_at|long_date }}</dd></div>
+    <div class="summary-list__row"><dt>Estado</dt><dd>{{ row.get_status_display }}{% if row.closed_at %}, el {{ row.closed_at|long_date }}{% endif %}</dd></div>
+    <div class="summary-list__row"><dt>Entra con</dt><dd class="break-anywhere">{{ row.user.email }}</dd></div>
+  </dl>
+
+  <section class="block" aria-labelledby="existe">
+    <h2 id="existe" class="heading">Lo que Emmaus guarda sobre esta persona</h2>
+    <ul class="rows">
+      {% for category, count in counts %}
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon category.icon %}</span>
+          <div class="row__main">
+            <p class="row__title">{{ category.staff_title }}</p>
+            <p class="row__meta">{% if count is None %}Es privado de la persona: no se muestra cuánto hay.{% elif count == 0 %}Nada guardado.{% elif count == 1 %}1 registro.{% else %}{{ count }} registros.{% endif %}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Además existe lo que la iglesia lleva sobre la persona (seguimientos, etiquetas, etapa), el registro de actividad y, si fue a un campamento, su expediente confidencial. Eso no se borra desde aquí.</p>
+  </section>
+
+  <section class="block" aria-labelledby="herramientas">
+    <h2 id="herramientas" class="heading">Lo que puedes hacer hoy</h2>
+    <ul class="rows">
+      {% if person_url %}
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "personas" %}</span>
+          <div class="row__main"><p class="row__title"><a href="{{ person_url }}">Abrir su registro en Personas</a></p><p class="row__meta">Para corregir o vaciar su teléfono, su correo y sus fechas, y ver sus grupos, equipos y eventos.</p></div>
+        </li>
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "buscar" %}</span>
+          <div class="row__main"><p class="row__title"><a href="{% url 'people:duplicates' %}">Revisar registros repetidos</a></p><p class="row__meta">Si la persona tiene dos registros, únelos antes de responder.</p></div>
+        </li>
+      {% elif not row.person %}
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "info" %}</span>
+          <div class="row__main"><p class="row__title">Esta cuenta ya no tiene un registro de persona en esta iglesia</p><p class="row__meta">Su registro se unió a otro o se quitó.</p></div>
+        </li>
+      {% endif %}
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "info" %}</span>
+        <div class="row__main"><p class="row__title">Emmaus todavía no borra cuentas ni registros de persona</p><p class="row__meta">Sacarla de un grupo o de un equipo y cancelar sus inscripciones se hace en cada pantalla. Borrar su cuenta o su registro lo hace quien opera el servidor: pídeselo y dile qué debe conservarse.</p></div>
+      </li>
+    </ul>
+  </section>
+
+  {% if row.is_open %}
+  <form class="block" method="post" action="{% url 'cuenta_datos:request_done' row.pk %}">
+    {% csrf_token %}
+    <p class="aside-note">Márcala cuando ya le respondiste a la persona qué se borró y qué se conserva. Emmaus no le avisa.</p>
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">Marcar como atendida</button>
+      <a class="btn btn--link" href="{{ back }}">Volver sin marcarla</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

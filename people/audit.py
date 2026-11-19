@@ -126,6 +126,11 @@ ACTION_LABELS = {
     "oracion_politica": "Encendió, apagó o ajustó las peticiones de oración",
     "oracion_abierta": "Abrió una petición de oración",
     "oracion_atendida": "Marcó o respondió una petición de oración",
+    # A person's own data (cuenta_datos.services): the account and the person by id, the fixed choice, never a text.
+    "mis_datos_descargados": "Descargó sus propios datos",
+    "mis_datos_borrado_pedido": "Pidió que borren sus datos",
+    "mis_datos_borrado_retirado": "Retiró su solicitud de borrar sus datos",
+    "mis_datos_borrado_atendido": "Marcó como atendida una solicitud de borrar datos",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

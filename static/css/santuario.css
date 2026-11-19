@@ -2219,6 +2219,22 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .aprobacion__camino { margin-top: var(--s-6); }
 /* === fin aprobaciones === */
 
+/* === misdatos (wave 12) === */
+/* «Mis datos en Emmaus» and «Quién puede qué» (cuenta_datos): rows of the one list specification; only what they add. */
+/* How many rows of each kind a category holds: one line per kind, under the row's reason, in the metadata's own size */
+.mis-datos__cuenta { list-style: none; margin: var(--s-1) 0 0; padding: 0; font-size: var(--t-small); color: var(--ink-2); }
+.mis-datos__cuenta strong { color: var(--ink); font-weight: 600; }
+/* A plain list of sentences (what is not here): the text's own measure, marks inside the column */
+.mis-datos__lista { margin: 0; padding-left: 1.25rem; max-width: 62ch; }
+.mis-datos__lista li + li { margin-top: var(--s-2); }
+/* The printed download: the name of a kind of row over its facts */
+.mis-datos__grupo { margin: var(--s-5) 0 var(--s-2); font-size: var(--t-body); font-weight: 600; }
+.mis-datos--impresion .summary-list + .summary-list { margin-top: var(--s-4); }
+/* Why a row of «Quién puede qué» deserves a look: said in words, in ink, beside the row's vela dot */
+.quien-puede__aviso { color: var(--ink); font-weight: 600; }
+.quien-puede .heading + .aside-note { margin-bottom: var(--s-3); }
+/* === fin misdatos === */
+
 /* ---------- 15. Motion ---------------------------------------------------- */
 /* Motion answers a person or shows what changed (docs/v2/CRAFT.md §4). Atrio's rules stay (rotulo.css §13). Added:
    a toast arrives and leaves, a sheet rises, a bar fills once, a busy button turns, a slow page draws its line, a
