@@ -23,6 +23,7 @@ address live in ``agenda.visitors``.
 from django import forms
 from django.http import Http404
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
@@ -127,7 +128,7 @@ def sign_up(request, slug: str):
                                           contact_consent=data["keep"])
                 if answer == visitors.NOT_NOW:  # nothing was stored; the same page for every address
                     return _page(request, "full", event=event, back=back, sent=True)
-                return redirect(f"{request.path}?listo=1")
+                return redirect(reverse("evento:visitor_signup", args=[event.slug]) + "?listo=1")
     return _page(request, "form", event=event, back=back, form=form, answers=answers, has_list=page.waiting_list,
                  retention_days=event.retention_days)
 
