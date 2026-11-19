@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Preguntas de la inscripción a {{ event.name }}{% endblock %}
+{% load shell %}{% block content %}
+{% comment %}
+  What one event asks whoever signs up (agenda.extras_views.questions_list; issue #93), for the administration: the
+  questions there are, in the order they are asked (each row opens the question to change or remove it), and one form
+  to add another, up to five. The warning about what not to ask is policy: it is not shortened.
+{% endcomment %}
+<div class="narrow preguntas-inscripcion">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Preguntas de la inscripción" lede=event.name back_url=back back_label="Volver a la página del evento" %}
+  <div class="notice notice--warning"><p>{{ warning }}</p></div>
+
+  <section class="block" aria-labelledby="preguntas">
+    <h2 id="preguntas" class="heading">Lo que se pregunta al inscribirse{% if questions %} <span class="count">{{ questions|length }}</span>{% endif %}</h2>
+    {% if questions %}
+      <ol class="rows">
+        {% for item in questions %}
+          <li class="row row--lead">
+            <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'agenda:question_edit' event.slug item.pk %}">{{ item.text }}</a></p>
+              <p class="row__meta">{{ item.get_kind_display }}{% if item.option_list %}: {{ item.option_list|join:", " }}{% endif %}. {% if item.required %}Obligatoria{% else %}Opcional{% endif %}.</p>
+              {% if item.not_asked %}<p class="row__meta"><strong>No se pregunta.</strong> Este evento cuida a los menores de edad y no guarda respuestas de texto.</p>{% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="empty-line">Todavía no se pregunta nada. Inscribirse es un solo paso.</p>
+    {% endif %}
+    <p class="aside-note">Las respuestas las ve solo la administración de la iglesia, en Inscritos. No se descargan ni se envían por correo, y se borran si la persona cancela.</p>
+  </section>
+
+  <section class="block" aria-labelledby="agregar">
+    <h2 id="agregar" class="heading">Agregar una pregunta</h2>
+    {% if full %}
+      <p class="empty-line">Este evento ya tiene {{ maximum }} preguntas, que es el máximo. Quita una para agregar otra.</p>
+    {% else %}
+      {% if minors %}<p class="aside-note">Este evento cuida a los menores de edad: sus preguntas solo pueden ser de opciones o de sí o no.</p>{% endif %}
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="notice notice--danger" role="alert">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+        {% include "partials/ui/fields.html" with form=form %}
+        <div class="form-actions">
+          <button class="btn btn--primary" type="submit">Agregar la pregunta</button>
+        </div>
+      </form>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

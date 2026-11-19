@@ -152,6 +152,17 @@
   </section>
   {% endif %}
 
+  {% if headcount_series %}
+  <section class="block" aria-labelledby="p-vinimos">
+    <h2 id="p-vinimos" class="heading">¿Cuántos vinimos?</h2>
+    {% for one in headcount_series %}
+      <h3 class="panorama__serie">{{ one.name }}</h3>
+      {% include "agenda/_headcount_trend.html" with dates=one.dates caption="Personas contadas en las últimas fechas, de la más antigua a la más reciente" %}
+    {% endfor %}
+    <p class="aside-note">Son personas contadas en cada reunión, sin nombres: no sale de ninguna lista. Un número de niñas y niños menor a {{ minimum }} se lee como «Menos de {{ minimum }}», y entonces tampoco se muestra el de personas adultas.</p>
+  </section>
+  {% endif %}
+
   <section class="block" aria-labelledby="p-servir">
     <h2 id="p-servir" class="heading">Servir</h2>
     {% if serving_dates %}

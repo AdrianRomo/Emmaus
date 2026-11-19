@@ -37,7 +37,7 @@
       <section class="sign" aria-labelledby="inscribirme">
         <h2 id="inscribirme" class="sign__title">¿Quieres ir a este evento?</h2>
         <p class="sign__text">{% if page.requires_guardian_consent %}Inscribirte le avisa a tu iglesia que quieres ir. Este evento cuida a los menores de edad: el equipo de la iglesia confirma tu edad y, si eres menor de edad, tu inscripción queda pendiente hasta que tu mamá, papá o tutor la autorice con el equipo de la iglesia.{% else %}Inscribirte le avisa a tu iglesia que quieres ir. Si eres menor de edad, tu mamá, papá o tutor también tiene que estar de acuerdo: la iglesia te dirá cómo.{% endif %}</p>
-        <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}"{% if not page.requires_guardian_consent %} data-inline="inscripcion"{% endif %}>
+        <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}"{% if not page.requires_guardian_consent and not asks_questions %} data-inline="inscripcion"{% endif %}>
           {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
           <button class="btn btn--primary btn--large" type="submit">Inscribirme</button>
         </form>
@@ -88,7 +88,7 @@
       <section class="sign" aria-labelledby="lista-espera">
         <h2 id="lista-espera" class="sign__title">Ya no hay lugares, pero hay lista de espera</h2>
         <p class="sign__text">Quedas en la lista en el orden en que llegaste. Anotarte no te inscribe: cuando se libere un lugar y te toque, te lo ofrecemos y tendrás {{ offer_hours }} horas para aceptarlo.</p>
-        <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}"{% if not page.requires_guardian_consent %} data-inline="inscripcion"{% endif %}>
+        <form class="sign__actions" method="post" action="{% url 'agenda:register' event.slug %}"{% if not page.requires_guardian_consent and not asks_questions %} data-inline="inscripcion"{% endif %}>
           {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
           <button class="btn btn--primary btn--large" type="submit">Anotarme en la lista de espera</button>
         </form>

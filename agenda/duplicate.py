@@ -35,6 +35,11 @@ RELATIONS = {
     "public_notices": NEVER,  # dated news of the original ("el camión sale a las 7"): the copy starts without any
     "notice_subscriptions": NEVER,  # e-mail addresses left for the original's notices (issue #96): one event each, never reused
     "schedule_items": WITH_DAY,
+    # Wave 12 (issue #93). The copy asks nothing at sign-up until somebody writes its questions again: a question
+    # is read by the public, and nobody read these for the new event. Requests and counts are the original's.
+    "signup_questions": NEVER,
+    "visitor_requests": NEVER,
+    "headcount": NEVER,
     "series_occurrence": NEVER,  # a copy of one date of a series is an event on its own, not another date of it
     "registrations": NEVER,  # who signed up, who came, and with them the guardians' authorizations
     "feedback": NEVER,

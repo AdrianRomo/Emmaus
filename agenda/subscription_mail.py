@@ -33,15 +33,23 @@ CONFIRM = "confirmar"
 # The same request, when it is the last one this address will get for the event: the text says so.
 CONFIRM_LAST = "confirmar_ultimo"
 NOTICE = "aviso_nuevo"
+# Signing up without an account (``agenda.visitors``, issue #93): "confirma tu inscripción" and "se liberó un lugar".
+# The same rule: the church's name, the event's name and one link. Never the visitor's name or what they answered.
+VISITOR_CONFIRM = "inscripcion_confirmar"
+VISITOR_OFFER = "inscripcion_lugar"
 SUBJECTS = {
     CONFIRM: "Emmaus: confirma tu correo para los avisos de un evento",
     CONFIRM_LAST: "Emmaus: confirma tu correo para los avisos de un evento",
     NOTICE: "Emmaus: hay un aviso nuevo de un evento",
+    VISITOR_CONFIRM: "Emmaus: confirma tu inscripción a un evento",
+    VISITOR_OFFER: "Emmaus: se liberó un lugar en un evento",
 }
 ALLOWED = {
     CONFIRM: frozenset({"church_name", "event_name", "link"}),
     CONFIRM_LAST: frozenset({"church_name", "event_name", "link"}),
     NOTICE: frozenset({"church_name", "event_name", "link", "unsubscribe_link"}),
+    VISITOR_CONFIRM: frozenset({"church_name", "event_name", "link"}),
+    VISITOR_OFFER: frozenset({"church_name", "event_name", "link"}),
 }
 LINKS = ("link", "unsubscribe_link")
 NAME_MAX = 200

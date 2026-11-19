@@ -144,6 +144,10 @@ ACTION_LABELS = {
     "equipo_serie": "Dijo que un equipo sirve en cada fecha de una serie de eventos, o que ya no",
     "equipo_serie_fechas": "Se escribieron fechas de un equipo que sigue una serie de eventos",
     "equipo_plantilla": "Guardó, usó o quitó una plantilla del orden de un equipo",
+    # Wave 12, agenda (issue #93): sign-up without an account, questions at sign-up, the headcount of a gathering.
+    "evento_inscripcion_visita": "Alguien sin cuenta se inscribió a un evento",
+    "evento_preguntas_inscripcion": "Agregó, modificó o quitó una pregunta de la inscripción a un evento",
+    "evento_conteo": "Registró o corrigió cuántas personas vinieron a un evento",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

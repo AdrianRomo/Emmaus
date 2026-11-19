@@ -7,6 +7,7 @@ writes anything of the camp: no participant, no membership, no interview.
 """
 
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count, F, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -22,7 +23,8 @@ from groups.views import church_admin_view, community_view
 from people import flags, policy
 from people.models import Person
 
-from . import public, series, series_views, services, subscriptions
+from . import public, questions, series, series_views, services, subscriptions
+from . import visitors as visitors_module
 from .forms import (
     AnnulForm,
     BirthDateForm,
@@ -35,7 +37,7 @@ from .forms import (
     GuestAgeForm,
     WalkUpForm,
 )
-from .models import EventFaq, EventNotice, EventPage, EventRegistration, EventScheduleItem
+from .models import EventFaq, EventHeadcount, EventNotice, EventPage, EventQuestion, EventRegistration, EventScheduleItem
 
 ACTIVE = EventRegistration.Status.ACTIVE
 PENDING = EventRegistration.Status.PENDING
@@ -141,6 +143,8 @@ def detail(request, slug: str):
             # The event's public notices (issue #96): who is going reads them here too.
             "notices": services.public_notices(event),
             "notice_zone": public.notice_zone(event),
+            # Signing up asks something (issue #93): the button leads to that step instead of acting in place.
+            "asks_questions": bool(page) and bool(questions.asked(event, page)),
             **_series_context(event),
         },
     )
@@ -216,13 +220,14 @@ def register(request, slug: str):
         return redirect("agenda:detail", event.slug)
     # The date of birth is asked only when the event needs it, the church does not know it and the
     # person can sign up. It may be left empty; typed, it is a claim the team still has to verify.
-    asks = (
-        page is not None and page.requires_guardian_consent and request.person.birth_date is None and held is None
-        and services.state_of(event, page, None, services.taken(event)) == "abierta"
-    )
-    if asks:
-        form = BirthDateForm(request.POST) if "birth_date" in request.POST else BirthDateForm()
-        typed = form.cleaned_data.get("birth_date") if form.is_bound and form.is_valid() else None
+    state = services.state_of(event, page, None, services.taken(event)) if page is not None and held is None else ""
+    asks = state == "abierta" and page.requires_guardian_consent and request.person.birth_date is None
+    # What the event asks whoever signs up or joins its waiting list (issue #93), answered on the same page.
+    asked = questions.asked(event, page) if state in ("abierta", "lista") else []
+    answers = questions.AnswersForm(request.POST if "preguntas" in request.POST else None, questions=asked) if asked else None
+    if asks or asked:
+        form = BirthDateForm(request.POST) if asks and "birth_date" in request.POST else BirthDateForm()
+        typed = form.cleaned_data.get("birth_date") if asks and form.is_bound and form.is_valid() else None
         if typed:
             try:
                 services.set_birth_date(request.person, typed, request.user)
@@ -233,10 +238,19 @@ def register(request, slug: str):
                 else:
                     message = error.message
                 form.add_error("birth_date", message)
-        if not form.is_bound or form.errors:
+        birth_missing = asks and (not form.is_bound or bool(form.errors))
+        if answers is None and birth_missing:
             return render(request, "agenda/birth_date.html", {"form": form, "event": event})
+        if answers is not None and (birth_missing or not answers.is_bound or not answers.is_valid()):
+            return render(request, "agenda/signup_step.html", {
+                "event": event, "answers": answers, "birth": form if asks else None, "waits": state == "lista",
+                "siguiente": request.POST.get("siguiente", ""),
+            })
     try:
-        registration = services.register(event, request.person, request.user, base_url=_base_url(request))
+        with transaction.atomic():
+            registration = services.register(event, request.person, request.user, base_url=_base_url(request))
+            if answers is not None and registration.status in (*HOLDING, *LISTED):
+                questions.save_answers(registration, answers.answers())
     except services.AgendaError as error:
         messages.error(request, error.message)
         return redirect("agenda:detail", event.slug)
@@ -358,6 +372,8 @@ def page_edit(request, slug: str):
             "faq_count": EventFaq.objects.filter(event=event).count(),
             "notice_count": EventNotice.objects.filter(event=event, retired_at__isnull=True).count(),
             "schedule_count": EventScheduleItem.objects.filter(event=event).count(),
+            "question_count": EventQuestion.objects.filter(event=event).count(),
+            "headcount": EventHeadcount.objects.filter(event=event).first(),
             "series_row": series.occurrence_of(event),
         },
     )
@@ -410,6 +426,11 @@ def registrations(request, slug: str):
     for row in visitors:
         row.from_visit = True
         row.open_follow_up_id = open_by_person.get(row.person_id)
+    listed = services.waiting_rows(event)
+    # What each one answered at sign-up (issue #93): read here, by the event's administration, and nowhere else.
+    answered = questions.answers_by_registration(event)
+    for row in (*held, *listed):
+        row.sign_up_answers = answered.get(row.pk, [])
     return render(
         request,
         "agenda/registrations.html",
@@ -420,7 +441,9 @@ def registrations(request, slug: str):
             "waiting_age": [row for row in held if row.waits_for == AGE],
             "waiting": [row for row in held if row.is_pending and row.waits_for != AGE],
             # The waiting list, in its order: who has an offer to answer, then who waits.
-            "listed": services.waiting_rows(event),
+            "listed": listed,
+            # Sign-ups without an account that still wait for their e-mail to be confirmed: a number, nothing else.
+            "visitor_requests": visitors_module.pending_count(event),
             # Why the list does not move right now, for the line at the top and the note of the list.
             "list_block": services.list_block(event, EventPage.objects.filter(event=event).first()),
             # The places in use, for the bar: who is in, who waits for a confirmation and an offered place.

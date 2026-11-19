@@ -48,6 +48,10 @@ RELATIONS = {
     "feedback": NEVER,
     "feedback_given": NEVER,
     "space_bookings": NEVER,  # a room booked for the original, on its dates: the copy books its own
+    # Wave 12, agenda (issue #93): questions at sign-up, requests to sign up without an account, the headcount.
+    "signup_questions": NEVER,
+    "visitor_requests": NEVER,
+    "headcount": NEVER,
 }
 
 # Event's columns. Copied: what the administration set up. Fresh: what belongs to one event only.

@@ -2268,6 +2268,36 @@ p.sitio__leaves { margin-top: var(--s-2); }
 .page--app .serving .heading + .aside-note { margin-bottom: var(--s-3); }
 /* === fin repeticion === */
 
+/* === visitas (wave 12) === */
+/* Signing up without an account, the questions at sign-up and the headcount of a gathering (issue #93;
+   docs/v2/wave12/visitas.md). Existing tokens and components only. */
+/* The visitor's pages wear the public event's column; a section of the form keeps the door's larger type */
+:root[data-ui="2"] .visita .form-section + .form-section { margin-top: var(--s-8); }
+:root[data-ui="2"] .visita .form-section + .form-actions { margin-top: var(--s-6); }
+:root[data-ui="2"] .visita .estado { margin-block: var(--s-4); }
+:root[data-ui="2"] .visita .sign__actions { flex-wrap: wrap; }
+:root[data-ui="2"] .visita .admin-link .input { font-size: var(--t-small); }
+/* What a registration answered at sign-up, under its contact line on "Inscritos": the question quiet, the answer ink */
+.page--app .respuestas-inscripcion { margin: var(--s-2) 0 0; font-size: var(--t-small); line-height: 1.35; }
+.page--app .respuestas-inscripcion > div { display: flex; flex-wrap: wrap; gap: 0 var(--s-2); padding-block: 0.125rem; }
+.page--app .respuestas-inscripcion dt { color: var(--ink-2); }
+.page--app .respuestas-inscripcion dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+/* The headcounts of a series: a read table (it keeps its words on the column's edges, CONSISTENCY rule 8), the
+   total as a tabular figure beside its bar */
+.page--app .conteo-tabla { width: 100%; }
+.page--app .conteo-tabla th[scope="row"] { font-weight: 430; color: var(--ink); white-space: nowrap; text-align: left; height: auto; border-bottom: 1px solid var(--line); font-size: var(--t-small); vertical-align: middle; padding-bottom: var(--s-2); padding-top: var(--s-2); }
+.page--app .conteo-tabla .meter { min-width: 7rem; }
+.page--app .conteo-tabla__n { min-width: 3ch; font-weight: 700; text-align: right; }
+.page--app .conteo-tabla thead th { white-space: normal; }
+/* On a phone the four columns fit without a sideways scroll: the bar (decoration for the eye; the number is the fact) leaves */
+@media (max-width: 34rem) {
+  .page--app .conteo-tabla .meter__track { display: none; }
+  .page--app .conteo-tabla .meter { min-width: 0; }
+  .page--app .conteo-tabla :is(th, td) { padding-inline: var(--s-2); }
+}
+.page--app .panorama__serie { margin: var(--s-5) 0 var(--s-2); font-size: var(--t-body); font-weight: 600; }
+/* === fin visitas === */
+
 /* ---------- 15. Motion ---------------------------------------------------- */
 /* Motion answers a person or shows what changed (docs/v2/CRAFT.md §4). Atrio's rules stay (rotulo.css §13). Added:
    a toast arrives and leaves, a sheet rises, a bar fills once, a busy button turns, a slow page draws its line, a

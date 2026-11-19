@@ -128,7 +128,8 @@ class SchedulerPassTests(CommunityFixture):
             r"suscripciones de eventos: 0 direcciones borradas, 0 correos enviados, 0 fallidos, 0 pendientes · "
             r"recordatorios de servir: 0 enviados, 0 fallidos · "
             r"peticiones de oración: 0 vencidas borradas · "
-            r"lo que se repite: 0 reservas apartadas, 0 fechas de equipos$",
+            r"lo que se repite: 0 reservas apartadas, 0 fechas de equipos · "
+            r"inscripciones sin cuenta: 0 solicitudes vencidas borradas, 0 respuestas borradas, 0 correos enviados, 0 fallidos, 0 pendientes$",
         )
         lines = [json.loads(record.getMessage()) for record in logs.records]
         self.assertEqual([line["job"] for line in lines], list(scheduler.JOBS))
@@ -309,7 +310,9 @@ class SchedulerPassTests(CommunityFixture):
                     printed.splitlines()[0],
                     before.getvalue().splitlines()[0] + " · uniones de personas: 1 con datos anteriores borrados · "
                     "formularios: 1 respuestas vencidas borradas · suscripciones de eventos: 2 direcciones borradas, "
-                    "sin correos (los trabajos de comunidad están apagados) · peticiones de oración: 1 vencidas borradas",
+                    "sin correos (los trabajos de comunidad están apagados) · peticiones de oración: 1 vencidas borradas"
+                    " · inscripciones sin cuenta: 0 solicitudes vencidas borradas, 0 respuestas borradas, sin correos (los "
+                    "trabajos de comunidad están apagados)",
                 )
                 for row in rows["gone"]:
                     self.assertFalse(type(row).objects.filter(pk=row.pk).exists(), type(row).__name__)

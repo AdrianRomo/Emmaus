@@ -130,6 +130,7 @@ class Command(BaseCommand):
         parser.add_argument("--rotas", action="store_true", help="Agrega al equipo Bienvenida roles, fechas con lo que necesitan, una rotación, el orden de una fecha y un cambio pedido, para ver la rotación de Servir.")
         parser.add_argument("--directorio", action="store_true", help="Agrega un pastor, enciende el directorio entre miembros (aceptado por ese pastor) y cinco personas adultas inventadas: cuatro eligieron aparecer, cada una mostrando algo distinto, y una no.")
         parser.add_argument("--repeticion", action="store_true", help="Agrega la serie semanal Reunión general, dos reservas del Salón 2 que se repiten (una por decidir, una aprobada con un día que no se pudo apartar) y hace que el equipo Bienvenida sirva en cada fecha de la serie, con una plantilla del orden y un día que no hay.")
+        parser.add_argument("--visitas", action="store_true", help="Agrega un evento público con inscripción para quien no tiene cuenta (preguntas, una visita inscrita, una en lista de espera y una solicitud sin confirmar) y una serie con el conteo de sus últimas fechas, para ver la inscripción sin cuenta y «¿Cuántos vinimos?».")
         parser.add_argument("--oracion", action="store_true", help="Agrega un pastor, enciende las peticiones de oración (aceptadas por ese pastor) y dos peticiones inventadas, marcadas como de demostración.")
 
     def handle(self, *args, **opts):
@@ -179,6 +180,8 @@ class Command(BaseCommand):
                 self._directory(church, admin, groups, password)
             if opts.get("repeticion"):
                 self._what_repeats(church, admin, leader, member)
+            if opts["visitas"]:
+                self._visitors(church, admin, member)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
@@ -613,6 +616,58 @@ class Command(BaseCommand):
             if fields is not None and not directory.is_listed(person):
                 token = directory.preview_token(person, fields, directory.preview(church, person, fields))
                 directory.opt_in(church, person, person.user, fields=fields, token=token)
+
+    def _visitors(self, church, admin, member) -> None:
+        """Wave 12 (issue #93): an event anybody can sign up for without an account, with two questions, three
+        places and a waiting list (a member and a visitor in, a visitor waiting, a request nobody confirmed), and a
+        weekly series whose last dates have a headcount, one of them with few children. Every name and address is
+        invented (``@demo.invalid``). Run again, it adds nothing."""
+        from agenda import headcounts, questions, visitors
+        from agenda import services as agenda
+        from agenda.models import EventPage, EventSeries, SeriesOccurrence
+        from agenda.simple import create_simple_event
+
+        today = timezone.localdate()
+        if not Event.objects.filter(church=church, slug="desayuno-de-bienvenida-demo").exists():
+            day = today + timedelta(days=9)
+            event = create_simple_event(church, admin, name="Desayuno de bienvenida", slug="desayuno-de-bienvenida-demo",
+                                        kind=Event.Kind.OTHER, location="Salón principal", starts_on=day, ends_on=day)
+            agenda.save_page(event, admin, published=True, public=True, registration="abierta", capacity=3, waiting_list=True,
+                             starts_at=time(9, 30), visitor_signup=True, visitor_phone=True,
+                             description="Un desayuno para conocer a quienes nos visitan por primera vez.")
+            food = questions.save_question(event, admin, text="¿Te quedas a la plática después del desayuno?", kind="si_no", required=True)
+            heard = questions.save_question(event, admin, text="¿Cómo te enteraste?", kind="opcion",
+                                            options="Por alguien de la iglesia\nPor redes sociales\nPasé por aquí")
+            mine = agenda.register(event, member, member.user)
+            questions.save_answers(mine, {str(food.pk): "Sí", str(heard.pk): "Por alguien de la iglesia"})
+            people = (
+                ("Visita", "Inscrita Demo", "visita.inscrita@demo.invalid", {str(food.pk): "No", str(heard.pk): "Pasé por aquí"}),
+                ("Visita", "Con Nombre Muy Largo de la Demostración Hernández", "visita.larga@demo.invalid", {str(food.pk): "Sí"}),
+                ("Visita", "En Espera Demo", "visita.espera@demo.invalid", {str(food.pk): "Sí"}),
+            )
+            for first, last, address, answers in people:
+                visitors.request(event, first_name=first, last_name=last, phone="55 5550 0102", email=address, answers=answers)
+                visitors.confirm(visitors.VisitorRequest.objects.get(event=event, email=address))
+            visitors.request(event, first_name="Visita", last_name="Sin Confirmar", phone="55 5550 0103",
+                             email="visita.pendiente@demo.invalid", answers={str(food.pk): "Sí"})
+        if not EventSeries.objects.filter(church=church, name="Servicio dominical").exists():
+            sunday = today - timedelta(days=(today.weekday() + 1) % 7 or 7)
+            from agenda import series
+
+            weekly = series.create_series(
+                church, admin, name="Servicio dominical", weekdays="6", interval_weeks=1, starts_at=time(11, 0),
+                duration_minutes=90, location="Templo principal", time_zone="America/Mexico_City", starts_on=today,
+                description="Cada domingo nos reunimos para cantar, orar y escuchar la Biblia.", published=True,
+            )
+            counts = ((96, 80, 16), (88, None, None), (104, 84, 20), (71, 68, 3), (112, 90, 22), (99, None, 4))
+            for weeks, (total, adults, children) in zip(range(len(counts), 0, -1), counts):
+                day = sunday - timedelta(weeks=weeks - 1)
+                past = Event.objects.create(church=church, name="Servicio dominical", slug=f"servicio-dominical-demo-{day:%Y%m%d}",
+                                            kind=Event.Kind.OTHER, location="Templo principal", starts_on=day, ends_on=day,
+                                            camp_tools=False, join_by_name=False)
+                EventPage.objects.create(event=past, published=True, starts_at=time(11, 0), created_by=admin)
+                SeriesOccurrence.objects.create(series=weekly, day=day, event=past)
+                headcounts.record(past, admin, total=total, adults=adults, children=children)
 
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})

@@ -21,7 +21,7 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
         model = EventPage
         fields = [
             "published", "public", "notice_mail", "description", "starts_at", "registration", "capacity", "waiting_list", "registration_closes_on",
-            "requires_guardian_consent",
+            "requires_guardian_consent", "visitor_signup", "visitor_phone",
         ]
         labels = {"description": "Descripción", "registration": "¿Se inscriben desde Emmaus?"}
         help_texts = {
@@ -51,6 +51,15 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
                 "de quien no tiene la edad confirmada por el equipo, hasta que la confirmes. Al encenderlo se revisan "
                 "todas las inscripciones que ya hay."
             ),
+            # Protected words (issue #93): what a visitor's sign-up is and what it never is.
+            "visitor_signup": (
+                "En la página pública, una persona mayor de edad se inscribe con su nombre y su correo, sin crear cuenta. "
+                "Emmaus le envía un correo y solo cuando lo confirma ocupa un lugar (o entra a la lista de espera). Una "
+                "persona por formulario. Su edad es lo que ella dice: nadie la verificó. Solo funciona con la página "
+                "pública disponible y la inscripción desde Emmaus abierta, y nunca en un evento que cuida a los menores "
+                "de edad."
+            ),
+            "visitor_phone": "Si lo enciendes, el teléfono es obligatorio para quien se inscribe sin cuenta. Lo ve solo la administración.",
             "published": "Aparece en Eventos. Apagado, solo lo ve la administración.",
             "starts_at": "24 horas, por ejemplo 19:30.",
             "capacity": "Vacío: sin límite.",
@@ -84,6 +93,18 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
                 "Este evento no tiene fecha de inicio. Ponla en la configuración del evento y después publícalo."
             )
         return published
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("visitor_signup"):
+            # In this order: the minors' rule first, because nothing else on the page can lift it.
+            if cleaned.get("requires_guardian_consent"):
+                self.add_error("visitor_signup", services.MINORS_NO_VISITORS)
+            elif not cleaned.get("public") or not cleaned.get("published"):
+                self.add_error("visitor_signup", "Para encenderlo, el evento tiene que estar publicado y tener su página pública.")
+            elif cleaned.get("registration") != EventPage.Registration.OPEN:
+                self.add_error("visitor_signup", "Para encenderlo, abre primero la inscripción desde Emmaus.")
+        return cleaned
 
     def clean_registration_closes_on(self):
         day = self.cleaned_data["registration_closes_on"]
