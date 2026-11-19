@@ -164,7 +164,8 @@ def request(event: Event, address: str) -> None:
         return
     try:
         with transaction.atomic():
-            EventSubscription.objects.create(event=event, email=address.strip(), email_hash=digest, key=secrets.token_urlsafe(32))
+            EventSubscription.objects.create(event=event, email=address.strip(), email_hash=digest,
+                                             key=secrets.token_urlsafe(32), created_at=now)
     except IntegrityError:  # the same address, twice at once: one row
         return
 

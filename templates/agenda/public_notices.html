@@ -48,7 +48,7 @@
 
   <section class="block" aria-labelledby="agregar">
     <h2 id="agregar" class="heading">Publicar un aviso</h2>
-    <p>Sirve para avisar a mamás, papás y tutores que no tienen cuenta: la hora de salida, qué llevar, un cambio de último momento. {% if mail.will %}Se publica en cuanto lo guardas y Emmaus envía un correo a quien confirmó su correo para este evento ({{ mail.audience }}). A nadie más le llega un mensaje: después comparte el enlace.{% else %}Se publica en cuanto lo guardas, y nadie recibe un mensaje: después comparte el enlace.{% endif %}</p>
+    <p>Sirve para avisar a mamás, papás y tutores que no tienen cuenta: la hora de salida, qué llevar, un cambio de último momento. {% if mail.will %}Se publica en cuanto lo guardas y Emmaus envía un correo a quien confirmó su correo para este evento: {{ mail.audience }}. A nadie más le llega un mensaje: después comparte el enlace.{% else %}Se publica en cuanto lo guardas, y nadie recibe un mensaje: después comparte el enlace.{% endif %}</p>
     <form class="mt-4" method="post" novalidate>
       {% csrf_token %}
       {% include "partials/ui/fields.html" with form=form %}
