@@ -47,6 +47,8 @@ SUBJECTS: dict[str, str] = {
     # To somebody on an event's waiting list: a place was freed and is held for them (agenda.services). Never
     # which event beyond the link to its page, never until when, never who left the place.
     "lugar_ofrecido": "Emmaus: se liberó un lugar en un evento",
+    # To a pastor who asked for it (oracion.services.notify_readers). Never who wrote, never a word of it.
+    "peticion_oracion_nueva": "Emmaus: hay una petición de oración nueva",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.

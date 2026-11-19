@@ -99,6 +99,10 @@ ACTION_LABELS = {
     "contenido_aprobado": "Aprobó un contenido para publicarse",
     "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
     "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
+    # Prayer requests (oracion.services). Only the pastors' own actions: writing or deleting one leaves no row.
+    "oracion_politica": "Encendió, apagó o ajustó las peticiones de oración",
+    "oracion_abierta": "Abrió una petición de oración",
+    "oracion_atendida": "Marcó o respondió una petición de oración",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
