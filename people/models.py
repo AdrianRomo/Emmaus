@@ -153,7 +153,9 @@ class Person(models.Model):
         # Names are stored single-spaced and trimmed; the normalized form is only for duplicate hints.
         self.first_name = " ".join(self.first_name.split())
         self.last_name = " ".join(self.last_name.split())
-        self.normalized_name = normalize_name(self.full_name)
+        # Only for duplicate hints, and compatibility letters grow when normalised ("ﬃ" is three): what does not fit
+        # the column is cut here, for every writer, instead of failing in the database.
+        self.normalized_name = normalize_name(self.full_name)[: self._meta.get_field("normalized_name").max_length]
         update_fields = kwargs.get("update_fields")
         if update_fields is not None and {"first_name", "last_name"} & set(update_fields):
             update_fields = kwargs["update_fields"] = {*update_fields, "normalized_name"}

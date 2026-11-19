@@ -4,7 +4,8 @@
 {% block content %}
 {% with people=participants|length waiting=awaiting.count %}
 {% include "events/rotulo/_page_head.html" with title="¿Quién necesita atención hoy?" lede="Primero las preguntas que esperan tu respuesta, luego tus seguimientos y las personas que acompañas." %}
-{% include "partials/ui/welcome.html" with welcome=welcome %}
+{% comment %}The welcome leads only while nothing waits for the mentor; with a question or a follow-up waiting it goes after the lists, so the work is the first thing on a phone. "Entendido" puts it away either way (core.onboarding).{% endcomment %}
+{% if not waiting and not follow_ups %}{% include "partials/ui/welcome.html" with welcome=welcome %}{% endif %}
 
 {% comment %}
   The sign: who has waited longest for the mentor's reply (awaiting: open questions, oldest first; escalated ones
@@ -104,5 +105,6 @@
     </section>
   </div>
 </div>
+{% if waiting or follow_ups %}{% include "partials/ui/welcome.html" with welcome=welcome %}{% endif %}
 {% endwith %}
 {% endblock %}

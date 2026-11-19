@@ -2,7 +2,7 @@ from django.urls import reverse
 from django.utils.functional import SimpleLazyObject
 
 from . import tenancy
-from .access import get_role_context
+from .access import get_role_context, role_words
 from .models import Role
 from .services import progress_for_participant
 
@@ -96,6 +96,7 @@ def current_role(request):
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
     context["theme_church"] = context.get("current_church")
     _event_page(request, context, where)
+    context["current_role_words"] = role_words(context.get("current_role_record"))  # after _event_page: it may blank the role
     # No church role (someone who only works in an event): the public pages' church, looked up only if drawn.
     context["brand_church"] = context["theme_church"] or SimpleLazyObject(tenancy.first_active_church)
     return context

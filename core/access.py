@@ -41,6 +41,17 @@ def _acting(user, role_record) -> UserChurchRole | None:
     return get_user_role(user) if role_record is FIRST_ROLE else role_record
 
 
+# How a church role is named to the person who holds it (the rail, "Mi cuenta"): the work, not a gendered noun.
+# "Pastor" stays: it is the title churches themselves use, and the model's own word everywhere else.
+ROLE_WORDS = {Role.MENTOR: "Mentoría"}
+
+
+def role_words(role_record: UserChurchRole | None) -> str:
+    if role_record is None:
+        return ""
+    return ROLE_WORDS.get(role_record.role, role_record.get_role_display())
+
+
 def get_user_church(user: User | AnonymousUser) -> Church | None:
     role = get_user_role(user)
     return role.church if role else None

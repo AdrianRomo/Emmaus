@@ -42,7 +42,7 @@ class PersonForm(KeyDatesMixin, TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = Person
         fields = ["first_name", "last_name", "email", "phone", "preferred_contact_method", "birth_date", "stage", *KEY_DATES]
-        labels = {"preferred_contact_method": "¿Cómo prefiere que la contacten?"}
+        labels = {"preferred_contact_method": "¿Cómo prefiere que se le contacte?"}
         help_texts = {
             "baptized_on": "Por ejemplo: 14/03/2009. Si solo sabes el año, déjala vacía.",
             "member_since": "Solo la administración la escribe: la persona no la ve ni la cambia.",

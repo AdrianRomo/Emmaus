@@ -21,7 +21,7 @@
   {% endif %}
   {% for prayer in prayers %}
     <section class="block stack" aria-labelledby="peticion-{{ prayer.pk }}">
-      <h2 id="peticion-{{ prayer.pk }}" class="heading">Escrita el {{ prayer.created_at|long_date }}</h2>
+      <h2 id="peticion-{{ prayer.pk }}" class="heading">Escrita el {{ prayer.created_at|day_and_hour }}</h2>
       <p class="prose-block">{{ prayer.body|linebreaksbr }}</p>
       {% if prayer.nobody_reads %}
         <p><strong>Hoy nadie la puede leer.</strong> {% if prayer.restricted %}La persona que elegiste ya no puede leer peticiones, y nadie más la ve.{% else %}En tu iglesia no hay ahora quien pueda leer peticiones.{% endif %} Puedes borrarla.</p>
@@ -33,8 +33,12 @@
         <p>Todavía no la han leído.{% if prayer.reader_name %} Solo la puede leer {{ prayer.reader_name }}.{% endif %}</p>
       {% endif %}
       {% if prayer.replied_at %}
-        <h3 class="heading">Lo que te respondieron</h3>
-        <p class="prose-block">{{ prayer.reply|linebreaksbr }}</p>
+      <div>{# a second fact, apart from the first: .stack would pull it close #}
+        <div class="stack mt-8">
+          <h3 class="heading">Lo que te respondieron</h3>
+          <p class="prose-block">{{ prayer.reply|linebreaksbr }}</p>
+        </div>
+      </div>
       {% endif %}
       <p class="aside-note">Emmaus la borra el {{ prayer.expires_at|long_date }}{% if prayer.replied_at %}, con su respuesta{% endif %}. <a href="{% url 'oracion:delete' prayer.pk %}">Borrarla ahora<span class="visually-hidden">: la petición escrita el {{ prayer.created_at|long_date }}</span></a></p>
     </section>

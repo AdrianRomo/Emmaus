@@ -7,7 +7,7 @@
   missing, a name the coordinator can change or leave empty, and one button. Nothing is assigned before "Confirmar".
   The token covers everything this page states; if anything changed, the page comes back instead of assigning.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% url 'serving:team' team.pk as back %}
   {% include "events/rotulo/_page_head.html" with title="Propuesta de la rotación" lede="Equipo "|add:team.name back_url=back back_label="Volver al equipo" %}
   {% if proposal.dates %}
@@ -17,18 +17,20 @@
       {% csrf_token %}
       <input type="hidden" name="token" value="{{ proposal.token }}">
       {% for entry in proposal.dates %}{% with day=entry.service_date %}
-        <fieldset class="needs">
-          <legend class="legend">{{ day.date|weekday_date|capfirst }}{% if day.starts_at %}, {{ day.starts_at|time:"G:i" }}{% endif %}: {{ day.what }}</legend>
+        <section class="proposal__date" aria-labelledby="fecha-{{ day.pk }}">
+          <h2 class="heading" id="fecha-{{ day.pk }}">{{ day.date|weekday_date|capfirst }}{% if day.starts_at %}, {{ day.starts_at|time:"G:i" }}{% endif %}</h2>
+          <p class="row__meta">{{ day.what }}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
           {% for slot in entry.slots %}
             <div class="need">
-              <label class="label" for="lugar-{{ slot.key }}">{{ slot.role.name }}{% if slot.role.adults_only %} <span class="optional">(solo personas adultas)</span>{% endif %}</label>
-              <select class="input input--small" id="lugar-{{ slot.key }}" name="lugar_{{ slot.key }}">
+              <label class="label" for="lugar-{{ slot.key }}">{{ slot.label }}{% if slot.role.adults_only %} <span class="optional">(solo personas adultas)</span>{% endif %}<span class="visually-hidden">, {{ day.date|weekday_date }}</span></label>
+              <select class="input input--small" id="lugar-{{ slot.key }}" name="lugar_{{ slot.key }}"{% if slot.why %} aria-describedby="porque-{{ slot.key }}"{% endif %}>
                 <option value="">Nadie por ahora</option>
                 {% for person in slot.options %}<option value="{{ person.pk }}"{% if person.pk == slot.selected %} selected{% endif %}>{{ person.full_name }}</option>{% endfor %}
               </select>
+              {% if slot.why %}<span class="need__state" id="porque-{{ slot.key }}">{{ slot.why }}</span>{% endif %}
             </div>
           {% endfor %}
-        </fieldset>
+        </section>
       {% endwith %}{% endfor %}
       <p class="aside-note">En cada lista solo aparece quien puede ese día: no marcó «no puedo», no sirve ya ese día, no tiene ya esa fecha y, si el rol es solo para personas adultas, la iglesia confirmó su edad. A quien elijas le aparecerá la fecha en «Tus fechas» para que diga si puede.</p>
       <div class="step__actions">

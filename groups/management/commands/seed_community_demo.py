@@ -178,7 +178,9 @@ class Command(BaseCommand):
     def _forms(self, church, admin, leader, member, group) -> None:
         """A form of the church (who brings what to a meal; the guide of the first group reads it and follows up) and
         a public one (a visitor leaves their contact), both published, with a few synthetic answers. Each form is
-        looked up by its title, so running the seed again adds nothing. Every contact is ``@demo.invalid``."""
+        looked up by its title, so running the seed again adds nothing. Every contact is ``@demo.invalid``.
+        Only adults answer the form of the church: a person on record as a minor (``member`` is 17) neither sees
+        nor answers one (``formularios.services.is_known_minor``), and the seed must not do what the screens refuse."""
         from formularios import services as forms
         from formularios.fields import AnswerForm
         from formularios.models import Form
@@ -211,7 +213,7 @@ class Command(BaseCommand):
             forms.save_question(meal, admin, kind="corto", label="¿Cuántas personas vienen contigo?")
             meal, _ = forms.publish(meal, admin, forms.preview_token(meal))
             keys = [item["key"] for item in meal.current_version.schema]
-            answer(meal, {keys[0]: "Sí", keys[1]: "Postre", keys[2]: ["Servir"], keys[3]: "2"}, person=member, actor=member.user)
+            answer(meal, {keys[0]: "Sí", keys[1]: "Postre", keys[2]: ["Servir"], keys[3]: "2"}, person=leader, actor=leader.user)
             answer(meal, {keys[0]: "No"}, person=Person.objects.get(church=church, user=admin), actor=admin)
 
         visit, new = form("Quiero conocer la iglesia", purpose="Para que alguien del equipo de bienvenida te escriba y te cuente de nuestras reuniones.",

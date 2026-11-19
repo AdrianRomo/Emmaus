@@ -9,7 +9,7 @@
   joined to another or whose record says they are a minor is not named, here or in the coordinator's list.
   No songs, lyrics, chords, files or links (their rights need another approval), and the page says so.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% if manages %}{% url 'serving:team' team.pk as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what meta=meta back_url=back back_label="Volver al equipo" %}
   {% else %}{% url 'serving:home' as back %}{% include "events/rotulo/_page_head.html" with title="Orden del día" lede=day.what meta=meta back_url=back back_label="Volver a Servir" %}{% endif %}
 

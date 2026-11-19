@@ -748,7 +748,7 @@ def public_notices(request, slug: str):
             messages.success(request, "Publicaste el aviso. El correo a las direcciones suscritas sale cuando el envío "
                                       "programado del servidor vuelva a correr.")
         else:
-            messages.success(request, "Publicaste el aviso. El correo a las direcciones suscritas sale en los próximos minutos.")
+            messages.success(request, "Publicaste el aviso. Emmaus enviará el correo a las direcciones suscritas; puede tardar un rato.")
         return redirect("agenda:public_notices", event.slug)
     notices = list(EventNotice.objects.filter(event=event))
     page = EventPage.objects.filter(event=event).first()

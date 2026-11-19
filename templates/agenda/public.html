@@ -39,12 +39,17 @@
 
   {% include "agenda/_public_notices.html" %}
 
-  {% if subscribe_path %}
+  {% if subscribe_path %}{# The offer goes with the notices, as a quiet link: the page's one button stays the sign-up. #}
+  {% if notices %}
+  <p class="aside-note" id="avisos-correo">Te avisamos por correo cuando haya un aviso nuevo de este evento. Nada más.</p>
+  <p class="more"><a href="{{ subscribe_path }}">Recibir los avisos por correo</a></p>
+  {% else %}
   <section class="block" aria-labelledby="avisos-correo">
     <h2 id="avisos-correo" class="heading">Avisos por correo</h2>
-    <p>Te avisamos por correo cuando haya un aviso nuevo de este evento. Nada más. Solo pedimos tu correo, lo confirmas desde tu bandeja y no necesitas cuenta.</p>
-    <div class="step__actions"><a class="btn btn--secondary" href="{{ subscribe_path }}">Recibir los avisos por correo</a></div>
+    <p>Todavía no hay avisos. Te avisamos por correo cuando haya un aviso nuevo de este evento. Nada más.</p>
+    <p class="more"><a href="{{ subscribe_path }}">Recibir los avisos por correo</a></p>
   </section>
+  {% endif %}
   {% endif %}
 
   {% if schedule %}

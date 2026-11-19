@@ -357,6 +357,13 @@ class Slot:
     role: TeamRole
     proposed: int | None
     options: list[Person]
+    number: int = 1  # which of the places of this role still missing on the date, and of how many
+    of: int = 1
+    why: str = ""  # when nobody can be chosen: one sentence that says why, never about whom
+
+    @property
+    def label(self) -> str:
+        return f"{self.role.name}, lugar {self.number} de {self.of}" if self.of > 1 else self.role.name
 
 
 @dataclass
@@ -377,6 +384,19 @@ class Proposal:
     @property
     def proposed_count(self) -> int:
         return sum(1 for entry in self.dates for slot in entry.slots if slot.proposed)
+
+
+def _why_nobody(role: TeamRole, people: dict, out_of: dict[int, str]) -> str:
+    """Why no name can be chosen for a place, in one sentence that names nobody and no person's reason."""
+    if not people:
+        return "Todavía no hay nadie en el equipo."
+    reasons = set(out_of.values())
+    if role.adults_only and "adults_only" in reasons:
+        if reasons == {"adults_only"}:
+            return "Este rol es solo para personas adultas y la iglesia no ha confirmado la edad de nadie del equipo. La administración confirma las edades desde Personas."
+        return ("Este rol es solo para personas adultas: de quienes podrían ese día, la iglesia no ha confirmado la edad de nadie. "
+                "La administración confirma las edades desde Personas.")
+    return "Nadie del equipo puede ese día: cada quien ya tiene esta fecha, sirve ese día en otra o marcó que no puede."
 
 
 def build_proposal(team: Team, now=None, weeks: int = HORIZON_WEEKS) -> Proposal:
@@ -446,7 +466,7 @@ def build_proposal(team: Team, now=None, weeks: int = HORIZON_WEEKS) -> Proposal
                     taken_here.add(chosen)
                     proposed_days.setdefault(chosen, set()).add(service_date.date)
                 key = f"{service_date.pk}-{need.role.pk}-{number}"
-                entry.slots.append(Slot(key, need.role, chosen, options))
+                entry.slots.append(Slot(key, need.role, chosen, options, number + 1, need.missing, _why_nobody(need.role, people, out_of) if not options else ""))
                 state["slots"].append([key, chosen, [person.pk for person in options]])
         stated.append(state)
         if entry.slots:

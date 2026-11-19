@@ -31,12 +31,13 @@
     </form>
     <section class="block" aria-labelledby="como">
       <h2 id="como" class="heading">Qué pasa con tu correo</h2>
-      <ul class="prose">
-        <li>Te enviamos un solo correo con un enlace para confirmar que la dirección es tuya. Puede tardar un rato. Sin confirmar no recibes nada más y tu dirección se borra cuando el enlace vence, a las {{ confirm_hours }} horas.</li>
-        <li>Después, un correo cada vez que se publique un aviso nuevo de este evento. El correo solo dice que hay un aviso y lleva el enlace para leerlo aquí.</li>
-        <li>Tu dirección no se usa para nada más, no se comparte y nadie de la iglesia ve la lista de direcciones.</li>
-        <li>Cada correo trae un enlace para darte de baja: al usarlo, tu dirección se borra en ese momento. Si no, se borra sola {{ retention_days }} días después de que termine el evento.</li>
-        <li>Dejar tu correo no te inscribe al evento ni te da una cuenta.</li>
+      <ul class="rows">
+        <li class="row"><div class="row__main prose"><p>Te enviamos un solo correo con un enlace para confirmar que la dirección es tuya. Puede tardar un rato.</p></div></li>
+        <li class="row"><div class="row__main prose"><p>Mientras no confirmes no recibes nada más, y tu dirección se borra cuando el enlace vence, a las {{ confirm_hours }} horas.</p></div></li>
+        <li class="row"><div class="row__main prose"><p>Después, un correo cada vez que se publique un aviso nuevo de este evento. El correo solo dice que hay un aviso y lleva el enlace para leerlo aquí.</p></div></li>
+        <li class="row"><div class="row__main prose"><p>Tu dirección no se usa para nada más, no se comparte y nadie de la iglesia ve la lista de direcciones.</p></div></li>
+        <li class="row"><div class="row__main prose"><p>Cada correo trae un enlace para darte de baja: al usarlo, tu dirección se borra. Si no, se borra sola {{ retention_days }} días después de que termine el evento.</p></div></li>
+        <li class="row"><div class="row__main prose"><p>Dejar tu correo no te inscribe al evento ni te da una cuenta.</p></div></li>
       </ul>
     </section>
     <p class="more"><a href="{{ back }}">Volver a la información del evento</a></p>
@@ -44,10 +45,14 @@
     <header class="page-head"><div class="page-head__text">
       <p class="public-event__church">{{ church.name }}</p>
       <h1 class="voice page-head__title">Revisa tu correo</h1>
-      <p class="lede">Si esa dirección todavía no estaba en la lista de este evento, te enviaremos un correo para confirmar. Puede tardar un rato. Sin confirmar no te avisamos de nada.</p>
+      <p class="lede">Si esa dirección todavía no estaba en la lista de este evento, te enviaremos un correo para confirmar.</p>
     </div></header>
-    <p>El enlace del correo sirve {{ confirm_hours }} horas desde que se envía. Si no llega, revisa la carpeta de correo no deseado. Para cuidar las bandejas de otras personas, Emmaus envía muy pocos correos de confirmación a una misma dirección.</p>
-    <p>Si ya habías confirmado esa dirección para este evento, no cambia nada y no recibes otro correo de confirmación.</p>
+    <div class="block prose">
+      <p>El correo puede tardar un rato. Si no llega, revisa la carpeta de correo no deseado.</p>
+      <p>Mientras no confirmes, no te avisamos de nada. El enlace del correo sirve {{ confirm_hours }} horas desde que se envía.</p>
+      <p>Si ya habías confirmado esa dirección para este evento, no cambia nada y no recibes otro correo de confirmación.</p>
+      <p>Para cuidar las bandejas de otras personas, Emmaus envía muy pocos correos de confirmación a una misma dirección.</p>
+    </div>
     <p class="more"><a href="{{ back }}">Volver a la información del evento</a></p>
   {% elif state == "confirm" %}
     <header class="page-head"><div class="page-head__text">

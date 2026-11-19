@@ -42,9 +42,12 @@
   {% endif %}
 
   <section class="block" aria-labelledby="preguntas">
-    <h2 id="preguntas" class="heading">Preguntas{% if form_row.current_version %} (borrador){% endif %}</h2>
+    <h2 id="preguntas" class="heading">Preguntas</h2>
+    {% if form_row.status == "cerrado" %}<p>Las preguntas con las que cerró el formulario.</p>
+    {% elif not form_row.current_version %}<p>Es un borrador: nadie las ve hasta que publiques.</p>
+    {% elif not unpublished %}<p>Son las de la versión {{ form_row.current_version.number }}, la que está publicada: quien responde ve exactamente estas.</p>{% endif %}
     {% if form_row.status != "cerrado" %}
-      {% if unpublished and form_row.current_version %}<div class="notice notice--info"><p>Hay cambios sin publicar. Quien responde sigue viendo la versión {{ form_row.current_version.number }} hasta que publiques.</p></div>{% endif %}
+      {% if unpublished and form_row.current_version %}<div class="notice notice--info"><p>Hay cambios sin publicar. Lo que ves aquí es el borrador; quien responde sigue viendo la versión {{ form_row.current_version.number }} hasta que publiques.</p></div>{% endif %}
     {% endif %}
     {% if questions %}
       <ol class="rows forms__questions">
@@ -103,9 +106,6 @@
     {% else %}
       <p>Lo publicado es lo que ves aquí: no hay cambios pendientes.</p>
     {% endif %}
-    {% if form_row.status == "publicado" %}
-      <div class="step__actions"><a class="btn btn--link" href="{% url 'formularios:close' form_row.pk %}">Cerrar el formulario hoy</a></div>
-    {% endif %}
   </section>
   {% endif %}
 
@@ -119,5 +119,13 @@
     {% endif %}
     <div class="step__actions"><a class="btn btn--secondary" href="{% url 'formularios:readers' form_row.pk %}">Cambiar los lectores</a></div>
   </section>
+
+  {% if form_row.status == "publicado" %}
+  <section class="block" aria-labelledby="cerrar">
+    <h2 id="cerrar" class="heading">Cerrar el formulario</h2>
+    <p>Deja de recibir respuestas hoy y no se puede volver a abrir. Las respuestas que ya llegaron se quedan hasta el día que se le dijo a cada persona, o antes.</p>
+    <div class="step__actions"><a class="btn btn--secondary" href="{% url 'formularios:close' form_row.pk %}">Cerrar el formulario hoy</a></div>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

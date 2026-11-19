@@ -8,7 +8,7 @@
     {% include "events/rotulo/_page_head.html" with title="Editar los datos" back_url=back back_label="Volver a la persona" %}
   {% else %}
     {% url 'people:list' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Registrar a una persona" lede="Solo el nombre es obligatorio. Registrarla no le da acceso a Emmaus: eso se decide después." back_url=back back_label="Volver a Personas" %}
+    {% include "events/rotulo/_page_head.html" with title="Registrar a una persona" lede="Solo el nombre es obligatorio. Registrar a alguien no le da acceso a Emmaus: eso se decide después." back_url=back back_label="Volver a Personas" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}

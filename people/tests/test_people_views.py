@@ -320,3 +320,71 @@ class NotFoundBeforeForbiddenTests(CommunityFixture):
         Person.objects.filter(pk=self.twin.pk).update(merged_into=self.no_account)
         self.client.force_login(self.member_user)
         self.assertEqual(self.client.get(reverse("people:detail", args=[self.twin.pk])).status_code, 404)
+
+
+class PolishTests(CommunityFixture):
+    """The designer's read of the journey (wave 10): neutral copy, what a refusal page shows, names that grow."""
+
+    def test_the_copy_about_one_person_fits_whoever_the_person_is(self):
+        self.client.force_login(self.admin)
+        for person in (self.member, self.no_account):  # Diego and Nora read the same sentences
+            page = self.client.get(reverse("people:detail", args=[person.pk])).content.decode()
+            for words in ("vinculada", "vinculado", "la acompañe", "lo acompañe", "búscala", "búscalo"):
+                self.assertNotIn(words, page, person.first_name)
+            self.assertIn("Pedir que alguien acompañe a esta persona", page)
+        self.assertContains(self.client.get(reverse("people:detail", args=[self.no_account.pk])), "Sin vínculo con ningún evento. Si esta persona fue a uno")
+        self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "El vínculo se hizo el")
+        form = self.client.get(reverse("people:create"))
+        self.assertContains(form, "¿Cómo prefiere que se le contacte?")
+        self.assertContains(form, "Registrar a alguien no le da acceso a Emmaus")
+
+    def test_the_stage_and_the_filters_are_one_bar_each(self):
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse("people:detail", args=[self.member.pk]))
+        self.assertContains(page, 'class="filter-bar person-stage"')
+        self.assertNotContains(page, "filter-form__actions")
+        self.assertContains(self.client.get(reverse("people:list")), 'class="filter-bar people-filters"')
+
+    def test_the_refusal_page_of_a_staff_screen_says_nothing_about_the_church(self):
+        from people import tags
+        from people.models import PeopleImport
+
+        tags.create_tag(self.church, "Llaves del templo", self.admin)
+        PeopleImport.objects.create(church=self.church, created_count=37)
+        pages = set()
+        for user in (self.member_user, self.leader_user):
+            self.client.force_login(user)
+            for name in ("people:list", "people:create", "people:duplicates", "people:tags", "people:export", "people:import", "people:from_event_list"):
+                response = self.client.get(reverse(name))
+                self.assertEqual(response.status_code, 403, name)
+                self.assertTemplateUsed(response, "errors/403.html")
+                html = response.content.decode()
+                main = html[html.index("<main"):html.index("</main>")]
+                for words in ("Nora", "Sin Cuenta", "Pía", "persona", "Llaves del templo", "37", "etiqueta", "resultado", "duplicad", "Importaciones", "@prueba.mx"):
+                    self.assertNotIn(words, main, (name, words))
+                pages.add((user.pk, main))
+        self.assertEqual(len(pages), 2)  # one page per person, whatever the screen
+
+    def test_a_name_that_grows_when_normalised_never_reaches_the_database_too_long(self):
+        from events.tests.base import make_user
+
+        grows = "ﬃ" * 100  # 100 characters, 300 once normalised
+        person = Person.objects.create(church=self.church, first_name=grows, last_name=grows)
+        self.assertEqual(len(Person.objects.get(pk=person.pk).normalized_name), 250)
+        # An account with such a name still gets its person on its first visit.
+        user = make_user("crece@prueba.mx", grows, grows)
+        from core.models import Role
+        from core.services import assign_role
+
+        assign_role(user, self.church, Role.CHURCH_ADMIN)
+        own = services.ensure_own_person(user, self.church)
+        self.assertLessEqual(len(own.normalized_name), 250)
+        # A campero with such a name is not brought: the administrator is told what to do instead.
+        campero = EventParticipant.objects.create(event=self.event, number=99, full_name=f"{grows} {grows}", age=20, room="1", church_group="A")
+        self.client.force_login(self.admin)
+        url = reverse("people:from_event_link", args=[self.event.slug, campero.public_id])
+        response = self.client.post(url, {"persona": "nueva"}, follow=True)
+        self.assertContains(response, "no se pueden guardar")
+        self.assertFalse(EventParticipantLink.objects.filter(participant=campero).exists())
+        with self.assertRaises(services.PeopleError):
+            services.create_person_from_participant(campero, self.admin)

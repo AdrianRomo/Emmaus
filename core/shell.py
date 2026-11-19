@@ -88,6 +88,7 @@ PRAYER_READER_VIEWS = {
 MODULE_ICONS = {
     "church_settings": "ajustes", "participants_list": "personas", "participant_dashboard": "camino",
     "mentor_dashboard": "camino", "church_dashboard": "camino", "path_list": "camino",
+    "follow_up_list": "acompanar", "church_follow_up_list": "acompanar",
 }
 
 

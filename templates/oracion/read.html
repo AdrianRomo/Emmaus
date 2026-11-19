@@ -11,7 +11,7 @@
   {% include "events/rotulo/_page_head.html" with title=prayer.writer_name lede="Petición de oración." back_url=back back_label="Volver a Peticiones de oración" %}
   {% include "partials/ui/error_summary.html" %}
   <section class="block stack" aria-labelledby="peticion">
-    <h2 id="peticion" class="heading">Lo que escribió el {{ prayer.created_at|long_date }}</h2>
+    <h2 id="peticion" class="heading">Lo que escribió el {{ prayer.created_at|day_and_hour }}</h2>
     <p class="prose-block">{{ prayer.body|linebreaksbr }}</p>
     <p class="aside-note">{% if prayer.restricted %}Te eligió solo a ti: nadie más la puede leer. {% endif %}Emmaus la borra el {{ prayer.expires_at|long_date }}, o antes si quien la escribió la borra.</p>
   </section>
@@ -21,8 +21,12 @@
     {% if prayer.read_at %}<p>Leída el {{ prayer.read_at|long_date }}.</p>{% else %}<p>Nadie la ha marcado como leída.</p>{% endif %}
     {% if prayer.talked_at %}<p>Hablaron en persona: se marcó el {{ prayer.talked_at|long_date }}.</p>{% endif %}
     {% if prayer.replied_at %}
-      <h3 class="heading">La respuesta, del {{ prayer.replied_at|long_date }}</h3>
-      <p class="prose-block">{{ prayer.reply|linebreaksbr }}</p>
+    <div>{# a second fact, apart from the first: .stack would pull it close #}
+      <div class="stack mt-8">
+        <h3 class="heading">La respuesta, del {{ prayer.replied_at|long_date }}</h3>
+        <p class="prose-block">{{ prayer.reply|linebreaksbr }}</p>
+      </div>
+    </div>
     {% endif %}
     {% if on %}
     <div class="step__actions">

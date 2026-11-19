@@ -124,6 +124,16 @@ class OfferTests(SubscriptionFixture):
         self.assertContains(page, f'href="{subscribe_url(self.retiro)}"', count=1)
         self.assertNotContains(page, "<form")
         self.assertNotContains(page, "csrfmiddlewaretoken")
+        # With notices, the offer is a quiet link under them, and the page's one button is still the sign-up.
+        self.publish()
+        with_notices = self.client.get(public_url(self.retiro))
+        self.assertNotContains(with_notices, "Avisos por correo</h2>")
+        self.assertContains(with_notices, f'href="{subscribe_url(self.retiro)}"', count=1)
+        text = with_notices.content.decode()
+        self.assertLess(text.index('id="avisos"'), text.index('id="avisos-correo"'))
+        self.assertLess(text.index('id="avisos-correo"'), text.index('id="inscripcion"'))
+        self.assertContains(with_notices, "btn--primary", count=1)
+        self.assertNotContains(with_notices, "btn--secondary\" href=\"" + subscribe_url(self.retiro))
         self.assertEqual(dict(page.cookies), {})
         self.assertEqual(dict(self.client.head(public_url(self.retiro)).cookies), {})
 
@@ -873,7 +883,7 @@ class StaffTests(SubscriptionFixture):
         with self.assertLogs("emmaus.scheduler"):
             call_command("run_scheduled_jobs", stdout=StringIO())
         done = self.client.post(self.url("public_notices"), {"title": TITLE, "body": BODY}, follow=True)
-        self.assertContains(done, "El correo a las direcciones suscritas sale en los próximos minutos.")
+        self.assertContains(done, "Emmaus enviará el correo a las direcciones suscritas; puede tardar un rato.")
         self.assertContains(done, "Por este aviso salieron menos de 5 correos (puede que ninguno).")
         with self.later(minutes=30):  # nothing has run the pass for a while
             late = self.client.post(self.url("public_notices"), {"title": "Otro", "body": "Texto."}, follow=True)
@@ -882,13 +892,19 @@ class StaffTests(SubscriptionFixture):
 
     def test_it_says_plainly_when_nothing_will_be_sent(self):
         self.confirmed()
-        for setting, words in (({"EMMAUS_PUBLIC_BASE_URL": ""}, "falta configurar la dirección pública de Emmaus en el servidor"),
-                               ({"EMAIL_BACKEND": CONSOLE}, "no hay correo configurado"),
-                               ({"EMMAUS_SCHEDULED_COMMUNITY_JOBS": False}, "los envíos programados están apagados en este servidor")):
+        ask = "Pide a quien administra el servidor que lo revise"
+        for setting, words in (({"EMMAUS_PUBLIC_BASE_URL": ""}, f"falta configurar la dirección pública de Emmaus. {ask}"),
+                               ({"EMAIL_BACKEND": CONSOLE}, f"falta configurar el correo del sistema. {ask}"),
+                               # The browser gate's server: both are missing, and both are named.
+                               ({"EMAIL_BACKEND": CONSOLE, "EMMAUS_PUBLIC_BASE_URL": ""},
+                                f"falta configurar el correo del sistema y la dirección pública de Emmaus. {ask}"),
+                               ({"EMMAUS_SCHEDULED_COMMUNITY_JOBS": False}, f"los envíos programados de Emmaus están apagados. {ask}")):
             with self.subTest(words), self.settings(**setting):
                 page = self.notices_page()
                 self.assertContains(page, f"no se envía ningún correo: {words}.")
                 self.assertContains(page, "nadie recibe un mensaje")
+                self.assertNotContains(page, "EMMAUS_")  # no setting's name for an administrator of the church
+                self.assertNotContains(page, "EMAIL_BACKEND")
                 self.assertNotContains(page, "Al publicar un aviso, Emmaus envía")
                 done = self.client.post(self.url("public_notices"), {"title": TITLE, "body": BODY}, follow=True)
                 self.assertContains(done, "Publicaste el aviso.")

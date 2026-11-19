@@ -7,7 +7,7 @@
   roles of the team, the order each role rotates in, and two settings (swaps and reminders). Every form saves by
   itself. Nothing here assigns a date: the rotation only proposes, on its own page.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% url 'serving:team' team.pk as back %}
   {% include "events/rotulo/_page_head.html" with title="Organizar el equipo" lede="Equipo "|add:team.name back_url=back back_label="Volver al equipo" %}
 

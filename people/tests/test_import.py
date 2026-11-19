@@ -93,6 +93,16 @@ class PreviewAndConfirmTests(ImportFixture):
         self.assertNotIn("Rosa", row.summary)
         self.assertFalse(ChurchAuditEvent.objects.filter(action="persona_creada").exists())
 
+    def test_the_preview_reads_top_to_bottom_counts_then_rows_then_the_confirmation(self):
+        tags.create_tag(self.church, "Coro", self.admin)
+        text = HEAD + "Rosa,Peña,rosa@prueba.mx,,,,\nRosita,Peña,rosa@prueba.mx,,,,\nDiego,X,diego@prueba.mx,,,,\n,Sin Nombre,,,,,\n"
+        html = self.review(text).content.decode()
+        order = ["Tu archivo tiene 4 filas con datos", 'id="se-registran"', 'id="ya-existen"', 'id="repetidas"', 'id="con-errores"',
+                 'id="confirmar"', "Al confirmar se registra", "Importar 1 persona</button>", "Volver sin importar"]
+        places = [html.index(words) for words in order]
+        self.assertEqual(places, sorted(places))
+        self.assertEqual(html.count("<button class=\"btn btn--primary\""), 1)
+
     def test_it_never_creates_an_account_sends_mail_or_verifies_an_age(self):
         users = User.objects.count()
         self.do_import(HEAD + "Rosa,Peña,rosa@prueba.mx,,14/03/2012,,\n")

@@ -67,7 +67,12 @@ fi
 if ! $skip_community; then
   log "community-flow.mjs (modules on: camp-to-group journey, axe, overflow, targets)"
   # --panorama gives the pastor who approves content and --duplicados the pair of records to join (wave 9's steps).
-  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" --panorama --duplicados >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo FAILED (see $out/seed.log)"; }
+  # Wave 10's steps: --dos-iglesias (the account of two churches), --rotas (the team's roles, dates and two more people)
+  # and --oracion (prayer requests switched on by the pastor). --formularios is NOT here on purpose: today the seed
+  # answers the church's form as the 17-year-old demo campera and formularios.services.submit refuses a known minor
+  # (FormChanged), so the flag aborts the whole seed. Step 13 creates its own form and does not need it; add the flag
+  # back when the seed is fixed.
+  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" --panorama --duplicados --dos-iglesias --rotas --oracion >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo FAILED (see $out/seed.log)"; }
   if AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" EMMAUS_PASSWORD="$pw" timeout 600 node community-flow.mjs "$out/community" >"$out/community-flow.log" 2>&1; then
     tail -n 1 "$out/community-flow.log"
   else

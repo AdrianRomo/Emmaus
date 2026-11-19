@@ -845,12 +845,12 @@ class ReadTimeTests(RotasFixture):
         self.asked.refresh_from_db()
         row = services.assign(self.day, self.asked, self.leader_user, role=self.kids)
         self.client.force_login(self.leader_user)
-        self.assertNotContains(self.client.get(self.url("team", self.team.pk)), "ya no puede cubrir este rol")
+        self.assertNotContains(self.client.get(self.url("team", self.team.pk)), "Ya no puede cubrir este rol")
         self.assertEqual(rotas.missing_by_date([self.day])[self.day.pk][0].missing, 0)
         self.minor(self.asked)  # people.services, which knows nothing about Servir
         row.refresh_from_db()
         self.assertEqual(row.role, self.kids)  # nothing ran
-        self.assertContains(self.client.get(self.url("team", self.team.pk)), "ya no puede cubrir este rol")
+        self.assertContains(self.client.get(self.url("team", self.team.pk)), "Ya no puede cubrir este rol")
         self.assertContains(self.client.get(self.url("date_detail", self.day.pk)), "Ya no puede cubrir este rol")
         self.assertEqual(rotas.missing_by_date([self.day])[self.day.pk][0].missing, 1)  # the place is missing again
         self.adult(self.leader)
@@ -859,7 +859,7 @@ class ReadTimeTests(RotasFixture):
         # A record joined to another is flagged too; a date typed by the person (agenda) for an unknown age as well.
         services.assign(self.day, self.member, self.leader_user, role=self.door)
         Person.objects.filter(pk=self.member.pk).update(merged_into=self.plain)
-        self.assertContains(self.client.get(self.url("team", self.team.pk)), "ya no puede cubrir este rol", count=2)
+        self.assertContains(self.client.get(self.url("team", self.team.pk)), "Ya no puede cubrir este rol", count=2)
         Person.objects.filter(pk=self.member.pk).update(merged_into=None)
 
     def test_the_order_never_names_somebody_who_can_no_longer_be_named(self):
@@ -983,3 +983,25 @@ class ReadTimeTests(RotasFixture):
             )
         team = Team.objects.get(name="Antes")
         self.assertEqual((team.swap_needs_approval, team.reminder_days, team.rotation_every_weeks), (False, 0, 1))
+
+
+class ProposalWordsTests(RotasFixture):
+    def test_two_places_of_one_role_are_told_apart_and_an_empty_list_says_why_without_naming_anybody(self):
+        self.need(door=2, kids=1)
+        other = self.new_day(14)
+        self.need(other, door=1)
+        for person in (self.leader, self.member, self.asked, self.carlos, self.no_account):
+            services.set_unavailable(person, other.date, self.admin)
+        self.client.force_login(self.leader_user)
+        page = self.client.get(self.url("rotation", self.team.pk))
+        self.assertContains(page, "Puerta, lugar 1 de 2")
+        self.assertContains(page, "Puerta, lugar 2 de 2")
+        self.assertContains(page, "la iglesia no ha confirmado la edad de nadie del equipo")
+        self.assertContains(page, "Nadie del equipo puede ese día")
+        slots = {slot.label: slot for entry in page.context["proposal"].dates for slot in entry.slots}
+        self.assertEqual(slots["Puerta, lugar 1 de 2"].why, "")
+        for slot in (slots["Niños"], slots["Puerta"]):
+            self.assertEqual(slot.options, [])
+            for person in (self.leader, self.member, self.asked, self.carlos, self.no_account):
+                self.assertNotIn(person.first_name, slot.why)
+        self.assertContains(page, '<h2 class="heading" id="fecha-', count=2)

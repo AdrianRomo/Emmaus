@@ -8,8 +8,8 @@
   {% if item.kind == "contacto" %}
     <fieldset class="form-block" aria-describedby="{{ item.key }}-nota">
       <legend class="heading">{{ item.label }}{% if not item.required %} <span class="optional">(opcional)</span>{% endif %}</legend>
-      <p class="hint" id="{{ item.key }}-nota">{% if item.required %}Hacen falta tu nombre y una forma de contactarte.{% else %}Déjalos solo si quieres que te contacten. Si los dejas, hacen falta tu nombre y una forma de contactarte.{% endif %}</p>
-      {% for field in item.fields %}{% include "partials/ui/field.html" with field=field %}{% endfor %}
+      <p class="hint" id="{{ item.key }}-nota">{% if item.required %}Hace falta tu nombre.{% else %}Déjalos solo si quieres que te contacten. Si los dejas, hace falta tu nombre.{% endif %}{% if item.either %} Correo electrónico o teléfono: escribe al menos uno.{% else %} También la forma de contactarte que se pide aquí.{% endif %}</p>
+      {% for entry in item.fields %}{% include "formularios/_contact_field.html" with field=entry.field optional=entry.optional %}{% endfor %}
     </fieldset>
   {% elif item.kind == "varias" %}
     {% with field=item.field %}

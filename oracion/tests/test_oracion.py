@@ -554,7 +554,7 @@ class DenialTests(PrayerFixture):
     def test_a_pastor_does_not_read_their_own_request_as_a_reader(self):
         own = self.write(self.pastor_person, body="Del-pastor-3301")
         self.client.force_login(self.pastor)
-        self.assertContains(self.client.get(NEW), "<strong>Lo lee:</strong> Paula Pastora,")  # the other pastor only
+        self.assertContains(self.client.get(NEW), "<strong>Lo lee:</strong> Paula Pastora.")  # the other pastor only
         self.assertEqual(self.client.get(url("read", own.pk)).status_code, 404)
         self.client.force_login(self.pastor2)
         self.assertContains(self.client.get(url("read", own.pk)), "Del-pastor-3301")

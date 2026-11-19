@@ -86,13 +86,17 @@ class AnswerForm(forms.Form):
             names.append(f"{key}_telefono")
         self.fields[f"{key}_acepto"] = forms.BooleanField(label=item.get("consent", ""), required=False)
         names.append(f"{key}_acepto")
-        self.items.append({"kind": Kind.CONTACT, "key": key, "names": names, "label": item["label"], "required": required})
+        both = bool(item.get("ask_email") and item.get("ask_phone"))
+        # Only the family name is optional by itself. The e-mail and the phone are never called optional: one of
+        # them is needed whenever the block is filled, and the block's own hint says which rule holds.
+        self.items.append({"kind": Kind.CONTACT, "key": key, "names": names, "label": item["label"], "required": required,
+                           "either": both, "optional": {f"{key}_apellidos"}})
 
     def bound_items(self):
         """For the template: each question with its ``BoundField`` (or its list, for the contact block)."""
         for item in self.items:
             if item["kind"] == Kind.CONTACT:
-                yield {**item, "fields": [self[name] for name in item["names"]]}
+                yield {**item, "fields": [{"field": self[name], "optional": name in item["optional"]} for name in item["names"]]}
             else:
                 yield {**item, "field": self[item["key"]]}
 

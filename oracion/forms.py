@@ -68,5 +68,5 @@ class TermsForm(forms.Form):
         error_messages={"max_length": "Escribe 160 caracteres o menos."},
     )
     accepted = forms.BooleanField(
-        required=False, label="Leí lo que mi iglesia promete y lo acepto como pastor de esta iglesia",
+        required=False, label="Leí lo que mi iglesia promete y lo acepto con mi rol de pastor en esta iglesia",
     )

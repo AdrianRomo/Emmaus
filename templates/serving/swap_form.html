@@ -6,7 +6,7 @@
   Asking a teammate to take one's date (serving.rota_views.swap_create). The list holds only who could take it that
   day, by name: no contact data, no reasons, nobody else's dates. Nothing moves until the teammate accepts.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% url 'serving:home' as back %}
   {% include "events/rotulo/_page_head.html" with title="Pedir un cambio" lede=day.what meta=meta back_url=back back_label="Volver a Servir" %}
   {% if waiting %}

@@ -9,7 +9,7 @@
   Wave 10: when the team has roles, how many people of each the date needs (and what is still missing), and the role
   of each person chosen. A team without roles sees the page as before.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'serving:team' team.pk as back %}
   {% if service_date %}

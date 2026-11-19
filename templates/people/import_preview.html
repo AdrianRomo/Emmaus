@@ -3,7 +3,8 @@
 {% block page_title %}Revisa antes de importar{% endblock %}
 {% block content %}
 {% comment %}
-  The preview of an import (people.import_views._preview): what would happen with every row of the file. Nothing
+  The preview of an import (people.import_views._preview): what would happen with every row of the file: the counts, the
+  lists (created, already here, repeated, with errors) and only then the confirmation. Nothing
   has been written. The file's cells travel back in a signed field (`datos`); `revision` covers what this page says.
 {% endcomment %}
 <div class="narrow">
@@ -22,41 +23,20 @@
     </dl>
   </section>
 
-  {% if new_count %}
-  <form class="block" method="post" action="{{ back }}">
-    {% csrf_token %}
-    <input type="hidden" name="accion" value="confirmar">
-    <input type="hidden" name="revision" value="{{ plan.token }}">
-    <input type="hidden" name="datos" value="{{ packed }}">
-    <div class="prose">
-      <p>Al confirmar se registra{{ new_count|pluralize:"n" }} {{ new_count }} persona{{ new_count|pluralize }}, sin acceso a Emmaus y sin enviarle{{ new_count|pluralize }} ningún correo. Las demás filas no cambian nada. Puedes deshacer la importación durante {{ undo_hours }} horas.</p>
-    </div>
-    <div class="step__actions">
-      <button class="btn btn--primary" type="submit">Importar {{ new_count }} persona{{ new_count|pluralize }}</button>
-      <a class="btn btn--link" href="{{ back }}">No importar nada</a>
-    </div>
-  </form>
-  {% else %}
-  <section class="block">
-    <div class="notice notice--quiet"><p>Este archivo no registra a nadie: todas sus filas son de personas que ya tienes, están repetidas o tienen errores.</p></div>
-    <p class="more"><a href="{{ back }}">Subir otro archivo</a></p>
-  </section>
-  {% endif %}
-
-  {% if errors %}
-  <section class="block" aria-labelledby="con-errores">
-    <h2 id="con-errores" class="heading">Filas con errores</h2>
+  {% if new %}
+  <section class="block" aria-labelledby="se-registran">
+    <h2 id="se-registran" class="heading">Se registran</h2>
     <ul class="rows">
-      {% for row in errors %}
+      {% for row in new %}
         <li class="row">
           <div class="row__main">
-            <p class="row__title">Fila {{ row.line }}{% if row.full_name %}: {{ row.full_name }}{% endif %}</p>
-            <p class="row__meta">{{ row.errors|join:" " }}</p>
+            <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
+            <p class="row__meta">{% if row.email %}{{ row.email }}. {% endif %}{% if row.phone %}{{ row.phone }}. {% endif %}{% if row.birth_date %}Nació el {{ row.birth_date|long_date }}{% if row.is_minor %}: es menor de edad{% endif %}. {% endif %}{% if row.stage %}{{ row.stage_label }}. {% endif %}{% if row.tag_names %}Etiquetas: {{ row.tag_names|join:", " }}.{% endif %}</p>
           </div>
         </li>
       {% endfor %}
     </ul>
-    <p class="aside-note">Corrígelas en tu hoja de cálculo y sube el archivo otra vez, o regístralas a mano en Personas.</p>
+    {% if new_more %}<p class="aside-note">Estas son las primeras {{ new|length }}. {% if new_more == 1 %}Hay 1 fila más que también se registra{% else %}Hay {{ new_more }} filas más que también se registran{% endif %}.</p>{% endif %}
   </section>
   {% endif %}
 
@@ -93,20 +73,42 @@
   </section>
   {% endif %}
 
-  {% if new %}
-  <section class="block" aria-labelledby="se-registran">
-    <h2 id="se-registran" class="heading">Se registran</h2>
+  {% if errors %}
+  <section class="block" aria-labelledby="con-errores">
+    <h2 id="con-errores" class="heading">Filas con errores</h2>
     <ul class="rows">
-      {% for row in new %}
+      {% for row in errors %}
         <li class="row">
           <div class="row__main">
-            <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
-            <p class="row__meta">{% if row.email %}{{ row.email }}. {% endif %}{% if row.phone %}{{ row.phone }}. {% endif %}{% if row.birth_date %}Nació el {{ row.birth_date|long_date }}{% if row.is_minor %}: es menor de edad{% endif %}. {% endif %}{% if row.stage %}{{ row.stage_label }}. {% endif %}{% if row.tag_names %}Etiquetas: {{ row.tag_names|join:", " }}.{% endif %}</p>
+            <p class="row__title">Fila {{ row.line }}{% if row.full_name %}: {{ row.full_name }}{% endif %}</p>
+            <p class="row__meta">{{ row.errors|join:" " }}</p>
           </div>
         </li>
       {% endfor %}
     </ul>
-    {% if new_more %}<p class="aside-note">Estas son las primeras {{ new|length }}. {% if new_more == 1 %}Hay 1 fila más que también se registra{% else %}Hay {{ new_more }} filas más que también se registran{% endif %}.</p>{% endif %}
+    <p class="aside-note">Corrígelas en tu hoja de cálculo y sube el archivo otra vez, o regístralas a mano en Personas.</p>
+  </section>
+  {% endif %}
+
+  {% if new_count %}
+  <form class="block" method="post" aria-labelledby="confirmar" action="{{ back }}">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="confirmar">
+    <input type="hidden" name="revision" value="{{ plan.token }}">
+    <input type="hidden" name="datos" value="{{ packed }}">
+    <h2 id="confirmar" class="heading">Confirmar la importación</h2>
+    <div class="prose">
+      <p>Al confirmar se registra{{ new_count|pluralize:"n" }} {{ new_count }} persona{{ new_count|pluralize }}, sin acceso a Emmaus y sin enviarle{{ new_count|pluralize }} ningún correo. Las demás filas no cambian nada. Puedes deshacer la importación durante {{ undo_hours }} horas.</p>
+    </div>
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Importar {{ new_count }} persona{{ new_count|pluralize }}</button>
+      <a class="btn btn--link" href="{{ back }}">Volver sin importar</a>
+    </div>
+  </form>
+  {% else %}
+  <section class="block">
+    <div class="notice notice--quiet"><p>Este archivo no registra a nadie: todas sus filas son de personas que ya tienes, están repetidas o tienen errores.</p></div>
+    <p class="more"><a href="{{ back }}">Subir otro archivo</a></p>
   </section>
   {% endif %}
 </div>

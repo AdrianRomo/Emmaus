@@ -122,11 +122,22 @@ CONFIRM_SALT = "agenda.subscriptions.confirm"
 UNSUBSCRIBE_SALT = "agenda.subscriptions.unsubscribe"
 FIRST_ATTEMPT, RETRY = 1, 2
 # Why this server sends nothing, as the staff screen says it.
-REASON_WORDS = {
-    scheduler.OFF: "los envíos programados están apagados en este servidor",
-    scheduler.NO_BASE_URL: "falta configurar la dirección pública de Emmaus en el servidor",
-    scheduler.NO_EMAIL: "no hay correo configurado",
-}
+ASK_WHO_RUNS_IT = "Pide a quien administra el servidor que lo revise"
+
+
+def reason_words() -> str:
+    """Why this server sends nothing, for an administrator of the church: every missing thing by its plain
+    name, never a setting's name, and whom to ask. Empty when it sends."""
+    if not scheduler.community_jobs_enabled():
+        return f"los envíos programados de Emmaus están apagados. {ASK_WHO_RUNS_IT}"
+    missing = []
+    if not email_is_configured():
+        missing.append("el correo del sistema")
+    if not settings.EMMAUS_PUBLIC_BASE_URL:
+        missing.append("la dirección pública de Emmaus")
+    if not missing:
+        return ""
+    return f"falta configurar {' y '.join(missing)}. {ASK_WHO_RUNS_IT}"
 
 
 # ---- the address ----------------------------------------------------------------------------------
@@ -331,7 +342,7 @@ def state_for_staff(event: Event, page: EventPage | None) -> dict:
     if not wanted:
         return state
     state["reason"] = not_sending()
-    state["reason_words"] = REASON_WORDS.get(state["reason"], "")
+    state["reason_words"] = reason_words()
     state["public"] = public.is_public(event, page)
     state["will"] = state["public"] and not state["reason"]
     if state["will"]:

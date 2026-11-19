@@ -31,6 +31,7 @@ from .access import (
     can_answer_question,
     has_leader_access,
     has_pastoral_access,
+    role_words,
     visible_ai_drafts,
     visible_notes,
     visible_participant_profiles,
@@ -1184,7 +1185,8 @@ def account(request):
         {
             "form": form,
             "contact_form": contact_form,
-            "role_record": tenancy.resolve(request).role,
+            "role_record": (role_record := tenancy.resolve(request).role),
+            "role_words": role_words(role_record),
             "community_church": _community_church(request),
             "rows": rows,
             "dismissed": dismissed,

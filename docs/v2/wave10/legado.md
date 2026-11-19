@@ -249,3 +249,21 @@ Seed with `--dos-iglesias`, sign in as `dos.iglesias@demo.invalid`:
    form: "Esta pantalla ya no está al día", and neither church's name changed.
 6. Switch back: "Configuración" is there again and `/mentor/` is 403. axe and 390px overflow on steps
    1, 2 and 4.
+
+## Polish after the reviews (2026-11-19)
+
+- **Role words shown to the person who holds the role** (`core.access.role_words`; the rail's foot and
+  the line of "Mi cuenta"): "Administración de la iglesia", "Pastor", "Mentoría", "Participante". Only the
+  mentor's changed ("Mentor" → "Mentoría"), and its welcome says "En «iglesia» acompañas a quienes te
+  asignan." instead of "eres mentor". **"Pastor" is kept**: it is the title churches themselves use, and
+  the welcome's "eres pastor" with it. Not changed: the model's own labels (`Role` choices, which name a
+  role in lists for the administration: "Usuarios", invitations, the form's select), the old bar of a
+  church with the community module off, and the event roles ("tutor", "coordinador", "administrador"),
+  which belong to the camp.
+- **Icons:** "Seguimientos" (both addresses) wears `acompanar`; "Inicio" keeps `camino`.
+- **The mentor's home:** the welcome was already put away with "Entendido", as for every role; nothing
+  collapses by itself anywhere. What changed: while a question or a follow-up waits, the welcome is drawn
+  after the lists, so the work is first on a phone; with nothing waiting it stays on top.
+- **`groups.views.church_admin_view` was not changed.** Answering 404 for every address with an argument
+  breaks a step of `e2e/community-flow.mjs` (line 148–151: a member opening
+  `/mi-iglesia/eventos/noche-de-alabanza-demo/inscritos/` must get 403), so it was reverted and reported.

@@ -19,10 +19,10 @@
   {% if prayers %}
     <ul class="rows">
       {% for prayer in prayers %}
-        <li class="row row--lead row--stack{% if not prayer.read_at %} row--attention{% endif %}">
+        <li class="row row--lead row--stack">
           <div class="row__main">
             <p class="row__title"><a href="{% url 'oracion:read' prayer.pk %}">{{ prayer.writer_name }}</a></p>
-            <p class="row__meta">La escribió el {{ prayer.created_at|long_date }}.{% if prayer.restricted %} Solo para ti.{% endif %} Emmaus la borra el {{ prayer.expires_at|long_date }}.</p>
+            <p class="row__meta">La escribió el {{ prayer.created_at|day_and_hour }}.{% if prayer.restricted %} Solo para ti.{% endif %} Emmaus la borra el {{ prayer.expires_at|long_date }}.</p>
           </div>
           <div class="row__end">
             {% if prayer.state == "sin_leer" %}{% status "revisar" "Sin leer" %}{% elif prayer.state == "leida" %}{% status "completada" "Leída" %}{% elif prayer.state == "respondida" %}{% status "completada" "Respondida" %}{% else %}{% status "completada" "Hablaron en persona" %}{% endif %}

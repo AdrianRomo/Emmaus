@@ -535,7 +535,7 @@ class EventListTests(LegacyFixture):
         self.assertContains(self.client.get(reverse("events:list") + "?todos=1"), "En Iglesia de prueba administras Emmaus.")
         self.choose(self.church_b)
         page = self.client.get(reverse("events:list") + "?todos=1")
-        self.assertContains(page, "En Iglesia B eres mentor.")
+        self.assertContains(page, "En Iglesia B acompañas a quienes te asignan.")
         self.assertNotContains(page, "administras Emmaus")
 
 
@@ -685,3 +685,35 @@ class OneChurchTests(LegacyFixture):
         self.assertNotIn("Ruta secreta B", page)
         self.assertEqual(self.client.get(reverse("path_detail", args=[self.b.path.pk])).status_code, 404)
         self.assertEqual(User.objects.get(pk=self.admin.pk).church_roles.count(), 1)
+
+
+class RoleWordsTests(LegacyFixture):
+    """The role is named to its holder by the work, not by a gendered noun; "Pastor" is the churches' own title."""
+
+    def test_the_rail_and_my_account_say_mentoria(self):
+        self.client.force_login(self.mixed)
+        self.choose(self.church_b)
+        home = self.client.get(reverse("community:home")).content.decode()
+        foot = home.split('class="rail__foot"', 1)[1].split("</a>", 1)[0]
+        self.assertIn("Mentoría", foot)
+        self.assertNotIn("Mentor<", foot)
+        self.assertIn("En <strong>Iglesia B</strong>: mentoría.", main(self.client.get(reverse("account"))))
+        self.assertNotIn("eres mentor", main(self.client.get(reverse("mentor_dashboard"))))
+        self.choose(self.church)
+        self.assertIn("Administración de la iglesia", self.client.get(reverse("community:home")).content.decode().split('class="rail__foot"', 1)[1].split("</a>", 1)[0])
+
+    def test_the_two_links_of_the_mentor_have_their_own_icons(self):
+        from core.shell import MODULE_ICONS
+
+        self.assertNotEqual(MODULE_ICONS["mentor_dashboard"], MODULE_ICONS["follow_up_list"])
+
+    def test_the_welcome_goes_after_the_work_when_something_waits(self):
+        self.client.force_login(self.mixed)
+        self.choose(self.church_b)
+        page = main(self.client.get(reverse("mentor_dashboard")))  # a question and a follow-up wait
+        self.assertEqual(page.count('id="bienvenida"'), 1)
+        self.assertLess(page.index("espera tu respuesta"), page.index('id="bienvenida"'))
+        ParticipantQuestion.objects.filter(church=self.church_b).delete()
+        FollowUpRequest.objects.filter(church=self.church_b).delete()
+        page = main(self.client.get(reverse("mentor_dashboard")))
+        self.assertLess(page.index('id="bienvenida"'), page.index('id="acompanas"'))

@@ -215,3 +215,19 @@ whatever its church: the same page, byte for byte. People, tags and imports are 
 
 Left alone: other writers of a person's name (`ensure_own_person`, a campero brought from an
 event) do not measure the normalised length.
+
+## 7. Polish after the designer's read
+
+* A person's stage and its button are one bar (`.filter-bar.person-stage`); on a phone each control
+  of that bar and of the list's filters takes the whole line, and the tag filter takes the room a
+  40-character name needs.
+* Copy about one person fits whoever the person is ("Sin vínculo con ningún evento. Si esta persona
+  fue a uno…", "Pedir que alguien acompañe a esta persona", "¿Cómo prefiere que se le contacte?").
+  Left as it was: "dos hermanos" in the merge preview (wave 9), the usual generic.
+* The import preview reads top to bottom: counts, the rows that are created, the ones that already
+  exist, the repeated ones, the ones with errors, and only then "Confirmar la importación" with its
+  sentence, its one filled button and "Volver sin importar".
+* `Person.save` cuts `normalized_name` to its column for every writer (it is only a duplicate
+  hint), so no name fails in the database; bringing a campero whose name cannot be kept is refused
+  with a sentence.
+* The 403 of a staff screen is the generic page: a test reads that it names no person, tag or count.

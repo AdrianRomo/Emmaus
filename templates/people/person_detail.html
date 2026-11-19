@@ -27,7 +27,7 @@
   <section class="block" aria-labelledby="etapa">
     <h2 id="etapa" class="heading">Etapa</h2>
     <p>{% if person.stage %}{{ person.get_stage_display }}{% if person.stage_changed_on %}, anotada el {{ person.stage_changed_on|long_date }}{% endif %}.{% else %}Nadie ha anotado su etapa.{% endif %}</p>
-    <form class="filter-form" method="post" action="{% url 'people:stage' person.pk %}">
+    <form class="filter-bar person-stage" method="post" action="{% url 'people:stage' person.pk %}">
       {% csrf_token %}
       <input type="hidden" name="antes" value="{{ person.stage }}">
       <div class="field">
@@ -37,7 +37,7 @@
           {% for value, label in stages %}<option value="{{ value }}"{% if person.stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>
       </div>
-      <div class="filter-form__actions"><button class="btn btn--secondary" type="submit">Guardar etapa</button></div>
+      <button class="btn btn--secondary" type="submit">Guardar etapa</button>
     </form>
     <p class="aside-note" id="etapa-ayuda">La etapa la anota la administración y solo la ve la administración. Emmaus nunca la cambia por su cuenta, y queda registrado quién la cambió.</p>
   </section>
@@ -101,7 +101,7 @@
           <li class="row">
             <div class="row__main">
               <p class="row__title">{{ link.event.name }}</p>
-              <p class="row__meta">{{ link.event.get_kind_display }}{% if link.event.starts_on %}, {{ link.event.starts_on|date_range:link.event.ends_on }}{% endif %}. Vinculado el {{ link.linked_at|long_date }}.</p>
+              <p class="row__meta">{{ link.event.get_kind_display }}{% if link.event.starts_on %}, {{ link.event.starts_on|date_range:link.event.ends_on }}{% endif %}. El vínculo se hizo el {{ link.linked_at|long_date }}.</p>
             </div>
             <form method="post" action="{% url 'people:unlink' person.pk link.pk %}">
               {% csrf_token %}
@@ -112,7 +112,7 @@
       </ul>
       <p class="aside-note">Quitar un vínculo no borra nada del evento ni a la persona. Sirve si se vinculó a quien no era.</p>
     {% else %}
-      <p class="empty-line">No está vinculada con ningún evento. Si fue a uno, <a href="{% url 'people:from_event_list' %}">búscala en ese evento</a>.</p>
+      <p class="empty-line">Sin vínculo con ningún evento. Si esta persona fue a uno, <a href="{% url 'people:from_event_list' %}">busca su registro en ese evento</a>.</p>
     {% endif %}
   </section>
 
@@ -133,6 +133,6 @@
       <p class="empty-line">No es parte de ningún grupo.</p>
     {% endif %}
   </section>
-  {% if community_on and person.user_id != user.pk %}<p class="more"><a href="{% url 'care:create' %}?persona={{ person.pk }}">Pedir que alguien la acompañe</a></p>{% endif %}
+  {% if community_on and person.user_id != user.pk %}<p class="more"><a href="{% url 'care:create' %}?persona={{ person.pk }}">Pedir que alguien acompañe a esta persona</a></p>{% endif %}
 </div>
 {% endblock %}

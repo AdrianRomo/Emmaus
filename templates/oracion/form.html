@@ -3,28 +3,35 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}Pedir oración{% endblock %}
 {% block content %}
 {% comment %}
-  The form of a prayer request (oracion.views.new): who reads it, by name, before anything is written; what it is
-  not; the emergency sentences; one text. The hidden "lectores" is a fingerprint of the names shown: if who reads
-  changed meanwhile, nothing is saved and the page is shown again.
+  The form of a prayer request (oracion.views.new). The order is for somebody who may arrive in a crisis: the
+  emergency sentences first, then who reads it, by name, then the text. What the church promises (the same promises
+  as templates/oracion/_promises.html, in fewer words) sits under the text and before the button. The hidden
+  "lectores" is a fingerprint of what this page states (names, days, the line): if it changed, nothing is saved.
 {% endcomment %}
 <div class="narrow">
   {% url 'oracion:mine' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Pedir oración" lede="Cuéntale a quien pastorea tu iglesia por qué quieres que ore por ti." back_url=back back_label="Volver a Tus peticiones de oración" %}
+  {% include "events/rotulo/_page_head.html" with title="Pedir oración" back_url=back back_label="Volver a Tus peticiones de oración" %}
   {% include "partials/ui/error_summary.html" %}
-  <section class="block" aria-labelledby="antes">
-    <h2 id="antes" class="heading">Antes de escribir</h2>
-    {% include "oracion/_promises.html" %}
-    {% include "oracion/_emergency.html" %}
-  </section>
-  <form class="block" method="post" novalidate>
+  {% include "oracion/_emergency.html" %}
+  <p class="mt-6"><strong>{% if readers|length == 1 %}Lo lee:{% else %}Lo leen:{% endif %}</strong> {% for user in readers %}{{ user.reader_name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Nadie más en Emmaus.</p>
+  <form class="block mt-6" method="post" novalidate>
     {% csrf_token %}
     <input type="hidden" name="lectores" value="{{ token }}">
     {% include "partials/ui/fields.html" %}
+    <div class="notice notice--quiet mt-6">
+      <p class="notice__title">Antes de enviar</p>
+      <ul>
+        <li>No es un servicio de emergencia ni de respuesta inmediata. Nadie promete responder ni cuándo.</li>
+        <li>No lo abre la administración ni quien guía un grupo. Si después alguien más recibe el rol de pastor, también podrá leerlo{% if several %}, salvo que elijas a una sola persona{% endif %}.</li>
+        <li>Quien lo lee puede marcarlo como leído, responderte una sola vez o marcar que hablaron en persona. Lo ves aquí: no llega correo.</li>
+        <li>No se manda por correo ni sale en reportes o totales. Queda en la base de datos de Emmaus hasta que se borra; ninguna pantalla se lo muestra a quien opera el sistema.</li>
+        <li>Puedes borrarlo cuando quieras, con su respuesta. Si no, Emmaus lo borra a los {{ terms.retention_days }} días: el {{ expires_on|long_date }}. Puede seguir en las copias de respaldo hasta que se renueven.</li>
+      </ul>
+    </div>
     <div class="step__actions">
       <button class="btn btn--primary" type="submit">Enviar mi petición</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  <p class="aside-note">Si la envías hoy y no la borras antes, Emmaus la borra el {{ expires_on|long_date }}.</p>
 </div>
 {% endblock %}

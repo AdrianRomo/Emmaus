@@ -284,9 +284,9 @@ def reminders_choice(request):
         raise Http404
     reminders.set_reminders(request.person, wanted == "si")
     if wanted == "si":
-        messages.success(request, "Listo: los equipos que envían recordatorios te escribirán antes de tus fechas.")
+        messages.success(request, "Guardamos tu elección: los equipos que envían recordatorios te escribirán antes de tus fechas.")
     else:
-        messages.success(request, "Listo: ya no te enviaremos recordatorios de tus fechas por correo.")
+        messages.success(request, "Guardamos tu elección: ya no te enviaremos recordatorios de tus fechas por correo.")
     return redirect(reverse("serving:home") + "#recordatorios")
 
 

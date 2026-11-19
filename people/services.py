@@ -195,6 +195,13 @@ def create_person_from_participant(participant: EventParticipant, actor) -> Pers
         if EventParticipantLink.objects.filter(participant=participant).exists():
             raise PeopleError("Este campero ya está vinculado con una persona.", code="participant_linked")
         first, last = full_name_to_parts(participant.full_name)
+        from .text import has_control, normalized_fits
+
+        if has_control(first + last) or not normalized_fits(f"{first[:120]} {last[:120]}", Person._meta.get_field("normalized_name").max_length):
+            raise PeopleError(
+                "El nombre de este campero tiene letras o caracteres especiales que no se pueden guardar. "
+                "Registra a la persona a mano en Personas y vincúlala después.", code="name",
+            )
         person = Person(church_id=event.church_id, first_name=first[:120], last_name=last[:120], created_from=Person.CreatedFrom.EVENT)
         person.save()
         record_church(person.church, actor, "persona_creada", f"Registró a {person.full_name}", person,

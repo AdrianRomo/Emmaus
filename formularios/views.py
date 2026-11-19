@@ -376,7 +376,7 @@ def close(request, form_id: int):
         return redirect("formularios:detail", row.pk)
     return render(request, "groups/confirm.html", {
         "title": f"¿Cerrar «{row.title}»?",
-        "text": f"Dejará de recibir respuestas hoy y no se puede volver a abrir. Sus respuestas se borran {row.retention_days} días después.",
+        "text": "Dejará de recibir respuestas hoy y no se puede volver a abrir. Las respuestas que ya llegaron se borran a más tardar el día que se le dijo a cada persona.",
         "action": "Sí, cerrar el formulario", "back_url": reverse("formularios:detail", args=[row.pk]),
     })
 

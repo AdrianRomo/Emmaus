@@ -7,7 +7,7 @@
   and is not an adult the church verified. Saving keeps each of them on their date without the role. The token covers
   exactly this list; if it changed, the page comes back. Only who coordinates the team or the administration is here.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% url 'serving:organize' team.pk as back %}
   {% include "events/rotulo/_page_head.html" with title="¿Dejar este rol solo para personas adultas?" lede="Rol "|add:name back_url=back back_label="Volver a organizar el equipo" %}
   <p>{{ affected|length|pluralize:"Esta persona tiene,Estas personas tienen" }} una fecha por venir con este rol y la iglesia no ha confirmado que {{ affected|length|pluralize:"sea persona adulta,sean personas adultas" }}:</p>
