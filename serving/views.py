@@ -221,6 +221,9 @@ def team(request, team_id: int):
             row.unfit = row.status != Assignment.Status.DECLINED and rotas.unfit(row)
         service_date.confirmed = sum(1 for row in service_date.people if row.status == Assignment.Status.ACCEPTED)
         service_date.role_needs = missing.get(service_date.pk, [])
+        # The same facts, grouped for the row: what is still missing first, on one line; then what is complete.
+        service_date.needs_missing = [need for need in service_date.role_needs if need.missing]
+        service_date.needs_full = [need for need in service_date.role_needs if not need.missing]
         waiting = sum(1 for row in service_date.people if row.status == Assignment.Status.PENDING)
         # Nobody serves that day: somebody was asked and every one asked said no (none confirmed, none still to
         # answer: a pending answer may still be a yes). A date nobody was asked for says so on its own row.
@@ -234,11 +237,15 @@ def team(request, team_id: int):
             found = found.filter(normalized_name__contains=token)
         # A short list under a search box, which says when it stops (core/paging.py::first_rows)
         found, found_total = first_rows(found.exclude(pk__in=[membership.person_id for membership in members]), 10)
+    # A swap that waits for this page's yes sits with what waits for a decision; the rest is the team's record.
+    swaps = rotas.team_swaps(team) if team.is_active else []
+    to_approve = [swap for swap in swaps if swap.status == "por_aprobar"]
     return render(
         request,
         "serving/team.html",
         {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found,
-         "found_total": found_total, "today": today, "swaps": rotas.team_swaps(team) if team.is_active else [],
+         "found_total": found_total, "today": today, "to_approve": to_approve,
+         "swaps": [swap for swap in swaps if swap.status != "por_aprobar"],
          "uncovered": [service_date for service_date in dates if service_date.nobody] if team.is_active else []},
     )
 

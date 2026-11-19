@@ -2023,33 +2023,70 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* Under the text on a phone, a row's text action starts on the text's column (its words, not its padding) */
 @container (max-width: 38rem) { :root[data-ui="2"] .forms .row--stack .row__end > .btn--link:first-of-type { margin-left: -0.75rem; } }
 /* === fin formularios === */
-/* Servir, wave 10 (roles, rotation, order of a date): a name with one short control beside it, in a list with
-   hairlines; the small edit form of a role or of a moment sits on one line and wraps on a phone; the links under a
-   date keep apart */
-:root[data-ui="2"] .serving .needs { border: 0; padding: 0; margin: 0 0 var(--s-8); min-width: 0; }
+
+/* === servir (wave 11) === */
+/* Servir: roles, rotation, swaps and the order of a date, on the system's rows, form sections and raised surface.
+   Only what no component gives is here. A name with one short control beside it (how many a role needs, a turn in
+   the rotation, a place of the proposal) is a line between hairlines; the sentence that says a state or why nobody
+   can be chosen sits under it. */
+:root[data-ui="2"] .serving .needs { border: 0; padding: 0; margin: 0 0 var(--s-6); min-width: 0; }
 :root[data-ui="2"] .serving .needs .legend { margin-bottom: var(--s-2); }
 :root[data-ui="2"] .serving .need { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
 :root[data-ui="2"] .serving .need:last-child { border-bottom: 1px solid var(--line); }
-:root[data-ui="2"] .serving .need > .label { flex: 1 1 12rem; margin: 0; font-weight: 600; }
-:root[data-ui="2"] .serving .need > .input { flex: none; width: 6rem; min-height: var(--control); }
-:root[data-ui="2"] .serving .need > select.input { width: 16rem; max-width: 100%; }
-:root[data-ui="2"] .serving .need__state { flex: 1 1 100%; font-size: var(--t-small); color: var(--ink-2); }
-:root[data-ui="2"] .serving .role-edit { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-4); }
-:root[data-ui="2"] .serving .role-edit > .input { flex: 1 1 12rem; min-width: 0; width: auto; min-height: var(--control); }
-:root[data-ui="2"] .serving .role-edit > .input--small { flex: 0 1 6rem; }
-:root[data-ui="2"] .serving .role-edit > select.input--small { flex: 0 1 14rem; }
-:root[data-ui="2"] .serving .choice__extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding: 0 0 var(--s-3) var(--s-10); }
+:root[data-ui="2"] .serving .need > .label { flex: 1 1 12rem; margin: 0; overflow-wrap: anywhere; }
+:root[data-ui="2"] .serving .need > .input { flex: none; width: 6rem; }
+:root[data-ui="2"] .serving .need > select.input { width: 17rem; max-width: 100%; }
+:root[data-ui="2"] .serving .need__state { flex: 1 1 100%; font-size: var(--t-small); color: var(--ink-2); max-width: 62ch; }
+:root[data-ui="2"] .serving .need__state > .status { margin-right: var(--s-1); }
+/* A role of the team: its name, whether it is for adults, and its two buttons at the end of the line */
+:root[data-ui="2"] .serving .role-list { list-style: none; margin: var(--s-3) 0 var(--s-6); padding: 0; }
+:root[data-ui="2"] .serving .role-list > li { padding: var(--s-2) 0; border-top: 1px solid var(--line); }
+:root[data-ui="2"] .serving .role-list > li:last-child { border-bottom: 1px solid var(--line); }
+:root[data-ui="2"] .serving .role-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--s-4); }
+:root[data-ui="2"] .serving .role-edit > .input { flex: 1 1 12rem; min-width: 0; width: auto; margin-block: var(--s-1); }
+:root[data-ui="2"] .serving .role-edit__end { display: flex; align-items: center; gap: var(--s-2); margin-left: auto; }
+:root[data-ui="2"] .serving .role-edit__end > .btn--link { margin-right: -0.75rem; }
+:root[data-ui="2"] .serving .form-section > .hint { max-width: 62ch; margin: 0 0 var(--s-4); }
+:root[data-ui="2"] .serving .form-section > form > .form-actions { margin-top: var(--s-5); }
+:root[data-ui="2"] .serving .form-section + .form-section { margin-top: var(--s-12); }
+/* The role of a person chosen for a date, under their option, at the option's text */
+:root[data-ui="2"] .serving .choice__extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding: var(--s-2) 0 var(--s-3) var(--s-10); }
 :root[data-ui="2"] .serving .choice__extra .hint { margin: 0; }
 :root[data-ui="2"] .serving .choice__extra .input { width: 14rem; max-width: 100%; min-height: var(--control); }
-:root[data-ui="2"] .serving .row__links { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
-:root[data-ui="2"] .serving ol.plan { counter-reset: none; padding-left: 0; }
-/* Servir: a row without a monogram or a date block keeps its own height when it stacks (the 12rem basis of a
-   stacked row acts as a height there); each date of the rotation's proposal is a heading with air above it, and
-   the sentence that says why nobody can be chosen sits under its control */
-:root[data-ui="2"] .serving .row--stack:not(.row--lead) .row__main { flex-basis: auto; }
-:root[data-ui="2"] .serving .proposal__date { margin-top: var(--s-10); }
-:root[data-ui="2"] .serving .proposal__date .heading + .row__meta { margin-top: var(--s-1); margin-bottom: var(--s-4); }
-:root[data-ui="2"] .serving .need__state strong { color: var(--ink); }
+/* The rotation's proposal: each date is its day and its words, as a row's; its places start where the words start */
+:root[data-ui="2"] .serving .proposal__date + .proposal__date { margin-top: var(--s-10); }
+:root[data-ui="2"] .serving .proposal__head { display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-3); }
+:root[data-ui="2"] .serving .proposal__head .heading { margin: 0; }
+:root[data-ui="2"] .serving .proposal__date > .needs { margin: 0 0 0 calc(var(--lead) + var(--s-4)); }
+:root[data-ui="2"] .serving .page-head + .notice { margin-bottom: var(--s-8); }
+/* The order of a date: the moment's number in the leading slot, its minutes in a column at the end; the fields of
+   a moment open under it */
+:root[data-ui="2"] .serving .plan { padding-left: 0; }
+:root[data-ui="2"] .serving .plan__n { font-weight: 600; line-height: 1.3; color: var(--ink-2); }
+:root[data-ui="2"] .serving .plan__min { align-self: flex-start; font-size: var(--t-small); line-height: 1.5; color: var(--ink-2); white-space: nowrap; }
+:root[data-ui="2"] .serving .plan__edit { max-width: 28rem; padding-bottom: var(--s-3); }
+:root[data-ui="2"] .serving .plan__edit .field { margin-bottom: var(--s-4); }
+:root[data-ui="2"] .serving .field > input.input--small { width: 7rem; }
+:root[data-ui="2"] .serving .plan .fold > summary { display: inline-flex; gap: var(--s-1); color: var(--petroleo); }
+:root[data-ui="2"] .serving .plan .fold > summary::after { margin-left: 0; }
+:root[data-ui="2"] .serving .plan > .row > .row__end { align-self: flex-start; }
+:root[data-ui="2"] .serving .block + form { margin-top: var(--s-8); }
+:root[data-ui="2"] .serving .rows + .list-count + .aside-note, :root[data-ui="2"] .serving .empty-line + form { margin-top: var(--s-3); }
+/* A team's date: who can no longer cover their role, on its own line under the name */
+:root[data-ui="2"] .serving .answers > li { flex-wrap: wrap; }
+:root[data-ui="2"] .serving .answers__name { flex: 1 1 0; }
+:root[data-ui="2"] .serving .answers__flag { flex: 1 0 100%; }
+/* Servir, mine: the state of the reminders and the other choice on one line; a request answered leaves the raised
+   surface and its trace is the last thing in it */
+:root[data-ui="2"] .serving .choice-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); margin-bottom: var(--s-3); }
+:root[data-ui="2"] .serving .sign > .hecho:last-child { margin-bottom: 0; }
+/* «Tomar la fecha» is longer than «Sí, puedo»: on a phone the pair still shares the row 50/50 */
+:root[data-ui="2"] .serving .sign__actions--pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:root[data-ui="2"] .serving .sign__actions--pair .btn { padding-inline: var(--s-3); }
+:root[data-ui="2"] .serving .sign + .aside-note { margin-top: var(--s-4); }
+/* A text action that wraps under its row starts where the row's words start */
+@container (max-width: 38rem) { :root[data-ui="2"] .serving .row--stack > .row__end > .btn--link:first-child { margin-left: -0.75rem; } }
+/* === fin servir === */
 
 /* === agenda (wave 11) === */
 /* Series and e-mail subscriptions (agenda/series_admin.html, series_form.html, subscription.html, public.html,
