@@ -88,7 +88,7 @@ class IdentityConfirmationIsKeptTests(CampFixture):
 
     def test_the_person_who_started_it_is_never_asked_again_in_both_modes(self):
         interview, said = self.started(self.p2)
-        mine = f"{said} Entrevista a cargo de {self.coord1.get_full_name()}."
+        mine = said  # who has it is not said again when it is who confirmed it (decision under the owner's delegation)
         for module in (False, True):
             flags.set_enabled(self.church, "community", module)
             with self.subTest(module=module):
@@ -162,7 +162,9 @@ class IdentityConfirmationIsKeptTests(CampFixture):
         self.assertRedirects(recovered, self.url("interview_review", interview.public_id), fetch_redirect_response=False)
         self.assertContains(self.client.get(self.url("interview_review", interview.public_id)), said)
         self.assertRedirects(self.finalize(self.client, interview), self.url("interview_done", interview.public_id), fetch_redirect_response=False)
-        self.assertContains(self.client.get(self.url("interview_detail", interview.public_id)), f"{said} Entrevista a cargo de {self.coord1.get_full_name()}.")
+        record = self.client.get(self.url("interview_detail", interview.public_id))
+        self.assertContains(record, said)
+        self.assertNotContains(record, "Entrevista a cargo de")  # the same person: no name said twice
         self.assertFalse(self.checks(interview).exists())
 
     def test_another_coordinator_recovering_the_computer_checks_it_before_the_review(self):
