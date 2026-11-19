@@ -17,6 +17,7 @@ from django.utils import timezone
 from people import policy
 
 from core.models import Role, UserChurchRole
+from people.minors import known_minor  # noqa: F401  (the shared rule; it began here and callers still import it from here)
 from people.models import Person
 from resources.approvals import can_approve
 
@@ -70,26 +71,6 @@ def readers(church, *, apart_from=None) -> list:
         # A name, never an address: the form shows this to every adult of the church.
         user.reader_name = full.get(user.pk) or user.get_full_name().strip() or NAMELESS
     return sorted(users, key=lambda user: (user.reader_name.casefold(), user.pk))
-
-
-def known_minor(person: Person) -> bool:
-    """Whether anything the church holds says ``person`` is under 18.
-
-    The date of birth decides when there is one, typed or verified (the age on that date, as
-    ``agenda.services.age_on`` counts it). Without one, the person is treated as an adult only when
-    no record marks them as a minor: a camp they went to under the event's adult age, a door of an
-    event where the team said "es menor de edad", or a guardian's authorization on record."""
-    from agenda.models import EventRegistration, GuardianConsent
-    from agenda.services import age_on
-    from people.services import was_minor_at_an_event
-
-    if person.birth_date is not None:
-        return age_on(person.birth_date, timezone.localdate()) < 18
-    return (
-        was_minor_at_an_event(person)
-        or EventRegistration.objects.filter(person=person, guest_is_minor=True).exists()
-        or GuardianConsent.objects.filter(registration__person=person).exists()
-    )
 
 
 def may_write(person: Person | None) -> bool:
