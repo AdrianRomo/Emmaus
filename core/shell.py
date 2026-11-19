@@ -78,7 +78,7 @@ def _item(label, url, icon, active=False, badge=0, badge_label=""):
     return {"label": label, "url": url, "icon": icon, "active": active, "badge": badge, "badge_label": badge_label}
 
 
-def build_shell(request, church, module_items, show_events: bool, settings_link: bool = True) -> dict:
+def build_shell(request, church, module_items, show_events: bool) -> dict:
     """The rail's sections and the phone's tabs for ``request``. ``module_items`` are the
     discipleship links the bar would have shown (label, url, names)."""
     from groups.access import managed_group_ids
@@ -187,14 +187,8 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
         admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional",
                            view in RESOURCE_ADMIN_VIEWS or view in APPROVAL_VIEWS))
-        if settings_link:
-            # "Configuración" is a discipleship-era screen: it acts in the church of the account's first role
-            # (core/access.py). While the request acts in another church, the two pages under it that do follow the
-            # request are offered by themselves instead.
-            admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"} or view.startswith("sitio:")))
-        else:
-            admin.append(_item("Políticas de la iglesia", reverse("church_policies"), "ajustes", url_name == "church_policies"))
-            admin.append(_item("Página pública", reverse("sitio:edit"), "inicio", view.startswith("sitio:")))
+        # "Configuración" acts in the church of the request, like every link here (core.views.role_required).
+        admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"} or view.startswith("sitio:")))
         admin_urls = {item["url"] for item in admin}
 
     module = [
@@ -222,3 +216,13 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
 
     name = request.user.get_full_name() or request.user.email
     return {"sections": sections, "tabs": tabs, "name": name, "church": church}
+
+
+def event_shell(request, church) -> dict:
+    """The rail of a camp screen whose event is of another church than the one the request acts in
+    (``core.context_processors._event_page``): that church's name under its logo, the event's own links (the
+    template adds them after the first section) and the way back to the reader's events. None of the general links:
+    they are the links of the reader's own church, and under this church's name they would lead somewhere else."""
+    serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "equipo")
+    name = request.user.get_full_name() or request.user.email
+    return {"sections": [{"label": "", "items": [serving]}], "tabs": [serving], "name": name, "church": church}

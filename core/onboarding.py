@@ -265,7 +265,7 @@ def for_church_role(user: User, role_record: UserChurchRole | None, *, can_creat
         from .access import visible_participant_profiles
         from .models import QuestionResponse
 
-        has_people = visible_participant_profiles(user).exists()
+        has_people = visible_participant_profiles(user, role_record).exists()
         answered = QuestionResponse.objects.filter(responder=user).exists()
         steps = [
             Step("Ten participantes asignados", has_people, reverse("mentor_dashboard"), "Ver mis participantes",

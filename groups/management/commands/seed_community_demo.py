@@ -73,6 +73,22 @@ PANORAMA_GROUPS = [
                "meeting_place": "Donde acuerden", "accepts_requests": False,
                "description": "Dos personas leen un libro de la Biblia y se llaman cuando pueden."}},
 ]
+# --dos-iglesias: the second church, its look (colours that pass the contrast the settings form asks for), its
+# administrator, and the account that is part of both.
+SECOND_CHURCH_SLUG = "iglesia-demo-norte"
+SECOND_CHURCH_LOOK = {
+    "discipleship_enabled": True, "custom_theme_enabled": True,
+    "theme_primary_color": "#7a3b12", "theme_accent_color": "#b45309", "theme_background_color": "#fbf7f1",
+    "theme_surface_color": "#ffffff", "theme_text_color": "#2a1d14", "theme_muted_text_color": "#5f5046",
+    "theme_border_color": "#d9cdbf",
+}
+SECOND_ADMIN = ("admin.norte@demo.invalid", "Noemí", "Ferrer Aldana")
+TWO_CHURCHES = ("dos.iglesias@demo.invalid", "Daniela", "Ponce Rivas")
+SECOND_CHURCH_GROUP = {
+    "name": "Jóvenes del Norte", "kind": Group.Kind.SMALL, "audience": "Jóvenes de 15 a 19 años", "meeting_day": 4,
+    "meeting_time": time(19, 0), "meeting_place": "Salón principal",
+    "description": "Nos vemos cada semana para platicar de la vida y de la fe.",
+}
 CAMPEROS = [
     ("Valeria Soto Marín", 17), ("Emilio Vargas Peña", 18), ("Renata Aguilar Cruz", 15), ("Santiago Mora Díaz", 16),
     ("Ximena Robles Vega", 14), ("Leonardo Pineda Sol", 19), ("Camila Fuentes Ríos", 16), ("Matías Ochoa Lara", 15),
@@ -98,6 +114,7 @@ class Command(BaseCommand):
         parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones, una serie semanal (Reunión general, cada domingo) y la página pública de la iglesia, publicada.")
         parser.add_argument("--duplicados", action="store_true", help="Agrega dos registros de una misma persona (mismo correo, sin cuenta), para ver Posibles duplicados.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
+        parser.add_argument("--dos-iglesias", action="store_true", dest="dos_iglesias", help="Agrega una segunda iglesia sintética, con sus propios colores, y una cuenta que administra la primera y en la segunda es mentora y guía un grupo, para ver el cambio de iglesia.")
 
     def handle(self, *args, **opts):
         if not settings.DEBUG:
@@ -134,10 +151,14 @@ class Command(BaseCommand):
                 self._panorama(church, admin, password)
             if opts["eventos"]:
                 self._events_extras(church, admin, member)
+            if opts.get("dos_iglesias"):
+                self._second_church(church, password)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
             accounts.append(("Pastor (Panorama)", PASTOR))
+        if opts.get("dos_iglesias"):
+            accounts += [("Dos iglesias", TWO_CHURCHES), ("Administración (2.ª iglesia)", SECOND_ADMIN)]
         for label, (email, *_rest) in accounts:
             self.stdout.write(f"  {label:<26} {email}")
 
@@ -431,6 +452,29 @@ class Command(BaseCommand):
         booking(room, admin_person, admin, "Ensayo para la noche de alabanza", 12, time(16, 0), time(18, 0),
                 teardown_minutes=30, event=event, approve=True)
         booking(projector, leader, leader.user, "Película con el grupo", 5, time(18, 0), time(20, 30))
+
+    def _second_church(self, first_church, password) -> None:
+        """--dos-iglesias: a second synthetic church with its own colours, both modules and the discipleship module
+        on, its own administrator, and one account of both: administrator of the first (its first role, so it starts
+        there) and, in the second, a mentor who guides a group. Nothing of one church points at the other."""
+        second, _ = Church.objects.get_or_create(slug=SECOND_CHURCH_SLUG, defaults={"name": "Iglesia del Norte (demostración)"})
+        for field, value in SECOND_CHURCH_LOOK.items():
+            setattr(second, field, value)
+        second.save(update_fields=list(SECOND_CHURCH_LOOK))
+        flags.set_enabled(second, "people", True)
+        flags.set_enabled(second, "community", True)
+        admin = self._account(*SECOND_ADMIN, password)
+        assign_role(admin, second, Role.CHURCH_ADMIN)
+        people_services.ensure_own_person(admin, second)
+        both = self._account(*TWO_CHURCHES, password)
+        assign_role(both, first_church, Role.CHURCH_ADMIN)  # created first: the church the account starts in
+        assign_role(both, second, Role.MENTOR)
+        assign_role(both, first_church, Role.CHURCH_ADMIN)  # same row; leaves the account's Django group as it was
+        people_services.ensure_own_person(both, first_church)
+        guide = people_services.ensure_own_person(both, second)
+        group = self._group(second, admin, SECOND_CHURCH_GROUP)
+        if not GroupMembership.objects.filter(group=group, person=guide, status="activa").exists():
+            group_services.set_membership(group, guide, admin, role=GroupMembership.Role.LEADER)
 
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
