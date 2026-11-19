@@ -559,7 +559,16 @@
   /* ---- Kiosk: idle lock and server heartbeat ----------------------------- */
   var idleSeconds = parseInt(body.getAttribute("data-kiosk-idle") || "0", 10);
   if (idleSeconds > 0) {
-    var timeoutUrl = body.getAttribute("data-kiosk-timeout-url");
+    // The page the idle computer goes to comes from the server, in an attribute. Only a path of this same site is
+    // followed: anything else (another site, a scheme) is treated as absent.
+    var timeoutUrl = samePath(body.getAttribute("data-kiosk-timeout-url"));
+    function samePath(value) {
+      if (!value) return "";
+      try {
+        var target = new URL(value, window.location.origin);
+        return target.origin === window.location.origin ? target.pathname + target.search : "";
+      } catch (e) { return ""; }
+    }
     var heartbeatUrl = body.getAttribute("data-kiosk-heartbeat-url");
     var warning = doc.getElementById("idle-warning");
     var warningReturn = null;
@@ -586,7 +595,7 @@
         var answer = $("[data-idle-continue]", warning);
         if (answer) answer.focus();
       }
-      if (idle > idleSeconds) { dirtyForms = []; window.location.replace(timeoutUrl); }
+      if (idle > idleSeconds && timeoutUrl) { dirtyForms = []; window.location.replace(timeoutUrl); }
     }, 5000);
     if (warning) {
       warning.setAttribute("role", "alertdialog");  // it interrupts: read at once, answered before anything else
