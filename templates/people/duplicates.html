@@ -16,12 +16,12 @@
     {% if page.object_list %}
       <ul class="rows">
         {% for pair in page %}
-          <li class="row row--stack">
+          <li class="row row--below">
             <div class="row__main">
               <p class="row__title"><a class="row__link" href="{% url 'people:detail' pair.a.pk %}">{{ pair.a.full_name }}</a> y <a class="row__link" href="{% url 'people:detail' pair.b.pk %}">{{ pair.b.full_name }}</a></p>
               <p class="row__meta">{{ pair.reasons|join:". " }}.</p>
             </div>
-            <div class="row__end row-assign">
+            <div class="row__end">
               <a class="btn btn--secondary btn--small" href="{% url 'people:merge_preview' pair.a.pk pair.b.pk %}">Revisar<span class="visually-hidden"> a {{ pair.a.full_name }} y {{ pair.b.full_name }}</span></a>
               <form method="post" action="{% url 'people:duplicate_dismiss' %}">
                 {% csrf_token %}

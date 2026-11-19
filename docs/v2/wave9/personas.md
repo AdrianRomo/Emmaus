@@ -132,3 +132,125 @@ Not foreign keys, checked on purpose:
    same day, a campero of the same event.
 9. The record that would be absorbed received a merge that can still be undone.
 10. A table with a foreign key to `Person` that this slice does not know holds rows of either person.
+
+## 2. What was built
+
+* `people.duplicates`: the suggestions. Three exact signals after a plain normalisation (e-mail
+  lower-cased; phone as its last ten digits, at least seven; normalised full name **and** date of
+  birth). Three queries whatever the church's size. Nothing is stored and nothing runs by itself.
+* `people.merge`: `build_preview`, `merge`, `undo`, `dismiss`, `reopen`, `clear_expired`, and
+  `TABLES`, the decision of 1.5 as data.
+* Models (migration `people/0005`, two `CreateModel` and nothing else): `PersonMerge` (church,
+  survivor, absorbed, who, when, manifest, undo state and report) and `DuplicateDismissal`.
+* Screens (`people/merge_views.py`, templates `people/duplicates.html`, `merge_preview.html`,
+  `merge_detail.html`), a link from Personas, and the three view names in `core/shell.py` so the
+  rail marks "Personas".
+* `manage.py prune_person_merges [--apply]`: empties the previous contact values of merges older
+  than 30 days. Nothing schedules it.
+* `tenant_integrity`: two checks (`person_merge_church`, `duplicate_dismissal_church`).
+* `people.services.save_person` (the one write path of the screens) now locks the row, refuses a
+  record that was merged away and writes only the fields a screen may change, never `user` or
+  `merged_into`: a form opened before a merge cannot bring the absorbed record back.
+
+### Routes (all under `/mi-iglesia/personas/`)
+
+| Route | Name | Method |
+|---|---|---|
+| `duplicados/` | `people:duplicates` | GET: pairs to review, merges of the last 30 days, dismissed pairs |
+| `duplicados/descartar/` | `people:duplicate_dismiss` | POST `a`, `b` |
+| `duplicados/descartados/<id>/revisar/` | `people:duplicate_reopen` | POST |
+| `duplicados/<survivor>/<absorbed>/` | `people:merge_preview` | GET preview; POST merges (`revision`, `elige_<field>`) |
+| `uniones/<id>/` | `people:merge_detail` | GET |
+| `uniones/<id>/deshacer/` | `people:merge_undo` | POST |
+
+### Permissions
+
+Every route: `people.views.church_admin_required` (the decorator the people screens already use):
+signed in, the `people` module on for the current church (404 otherwise, before anything else),
+then `core.authz.has_scope(user, church, "church", church.pk, manage)`, which is the church role
+`church_admin` (403 otherwise). A church pastor, a group's guide, a team's coordinator and an event
+role get 403. People, merges and dismissals are fetched inside `request.church`; the services
+check the church again by themselves.
+
+### The manifest
+
+```
+version, moved {"<app.Model.field>": [row ids]}, camp_participants [campero ids],
+demoted_affiliations [ids], moved_user_id, fields_changed [names],
+survivor_before {name: previous value}   <- the only contact data; emptied by the undo or after 30 days
+```
+
+The absorbed record keeps its own row and values; nothing about it needs copying into the manifest
+except the account id.
+
+## 3. Decisions taken in this slice (and why)
+
+1. **A merged-away id is a 404, never a redirect**, for everybody. It is what every screen already
+   did (`merged_into__isnull=True`), so no other app changed, and an old id tells nobody who a
+   person was merged into. The administration finds the merge under "Uniones de los últimos 30 días".
+2. **Only suggested pairs can be merged.** There is no "merge with…" picker: with no shared signal
+   the merge is refused and says to correct the data first. Narrower than the brief asks, on purpose.
+3. **A dismissed pair cannot be merged** until somebody puts it back in the review ("Volver a
+   revisar", audited). Without that, a mistaken dismissal would have no way out.
+4. **The list shows names and which signal matched, not the shared value.** The administration
+   reads the values on each person's page and in the preview.
+5. **A value shared by more than eight records is not a signal** (the church's own phone on forty
+   people would suggest 780 pairs).
+6. **Minors: stricter than the brief** (1.6, rules 5 to 7). A merge never writes a date of birth or
+   its verification; the administrator corrects the date through "Editar los datos" (which clears
+   the verification and re-settles registrations, as always) and then merges.
+7. **Registrations to the same event always refuse**, even cancelled ones.
+8. **Live duplicates of a membership refuse; past ones stay behind.** The administrator takes the
+   duplicate out of the group or team with the existing, audited action and merges after.
+9. **Private reading marks and the legacy opinion column move without being counted**, in the
+   preview, the merge page and the undo report. If one cannot be put back the report says "algunas
+   de sus marcas privadas de lectura", with no number.
+10. **Counts in the preview are about one person and shown only to the administration**, which can
+    already open each of those rows; `people/policy.py`'s minimum reporting size is for aggregates
+    shown to pastors and leaders and does not apply.
+11. **Audit rows carry ids only**: `persona_union`, `persona_union_deshecha`,
+    `persona_duplicado_descartado`, `persona_duplicado_reabierto`, with `person_id`,
+    `other_person_id`, `merge_id`. The summaries name nobody. Moving a camp link also writes the
+    two rows its services always write (those name the person and the event, as before).
+12. **Both people of a merge are protected from deletion** while its record exists.
+13. **The record of a merge is kept** after 30 days (ids only). How long, and whether the hidden
+    record's own contact data should be emptied at some point, is a retention question for #76; a
+    default was not invented.
+14. **Stale preview**: the confirmation carries a digest of both records; if either changed, nothing
+    is merged and the preview is shown again.
+
+## 4. Not built, and the order I would build it
+
+1. **A manual "es la misma que…" picker** from a person's page, for duplicates with no shared
+   value: the merge engine is ready; it needs its own confirmation of why.
+2. **CSV import with preview** before any import exists in production: it should run the same
+   signals against the people already there, so an import cannot mass-produce duplicates.
+3. **CSV export of people**, with the same field allow-list as the team export of the camp.
+4. **Membership lifecycle** (visitor, attender, member, inactive): several of the next items filter on it.
+5. **Key dates** (baptism, membership): few fields, no new audience.
+6. **Tags**, then **custom fields**: each needs a rule about what may be stored (no health data, no free notes about people).
+7. **Households and addresses** (#59), separate from guardian authority and only after #75; a
+   merge must then learn those tables (the inventory test will say so).
+8. **Member-to-member directory** last: opt-in per person and field, and church approval (Q-C4).
+
+Never in this line of work: matching across churches.
+
+## 5. What could not be verified here
+
+* PostgreSQL: the suite ran on SQLite only (the integrator runs `--postgres --e2e`). The merge uses
+  `select_for_update()` on `Person` and `Team` without joins and `of=("self",)` on `PersonMerge`;
+  the lock order (people by id, then teams by id, then memberships) follows `serving.services`.
+  True concurrency (two transactions at once) is tested only as stale copies and repeated calls.
+* The browser look was on the synthetic seed with pairs added by hand (see the final report); no
+  screen-reader pass, only axe and the keyboard-reachable controls.
+* A church with thousands of people: the suggestions are computed in memory on each visit.
+
+## 6. Left alone, worth a look
+
+* `groups.views.profile` ("Mis datos") and `agenda.services.set_birth_date` call `save_person`
+  without catching `PeopleError`: if a member saves in the instant the administration merges their
+  record away, they now get an error page instead of silently undoing the merge. Rare; a friendly
+  message there belongs to those apps.
+* `Person.merged_into` is `SET_NULL` (1.2).
+* The demo seed's people share one phone, so the review shows them as pairs on a demo database.
+* Somebody may give an event opinion twice across a merge (1.5, the token).

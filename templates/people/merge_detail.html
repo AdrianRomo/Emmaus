@@ -25,9 +25,9 @@
     <section class="block" aria-labelledby="resultado">
       <h2 id="resultado" class="heading">Qué regresó</h2>
       {% if not_restored %}
-        <div class="notice notice--warning">
+        <div class="notice notice--warning prose">
           <p><strong>No todo regresó.</strong> Volvieron a ser dos registros, pero esto se quedó con {{ record.survivor.full_name }} porque ya no estaba como la unión lo dejó:</p>
-          <ul>{% for line in not_restored %}<li>{{ line }}</li>{% endfor %}</ul>
+          <p>{{ not_restored|join:"; " }}.</p>
         </div>
       {% else %}
         <p>Regresó todo lo que la unión había pasado. Lo que {{ record.survivor.full_name }} hizo después de la unión se quedó con ella.</p>

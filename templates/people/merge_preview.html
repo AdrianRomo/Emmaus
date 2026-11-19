@@ -26,13 +26,13 @@
   {% if not preview.allowed %}
   <section class="block" aria-labelledby="no-se-puede">
     <h2 id="no-se-puede" class="heading">Esta unión no se puede hacer</h2>
-    <div class="notice notice--warning">
+    <div class="notice notice--warning prose">
       {% for reason in preview.refusals %}<p>{{ reason }}</p>{% endfor %}
     </div>
     <p class="aside-note">No se cambió nada. Los dos registros siguen como estaban.</p>
   </section>
   {% else %}
-  <form method="post" action="{% url 'people:merge_preview' survivor.pk absorbed.pk %}">
+  <form class="block" method="post" action="{% url 'people:merge_preview' survivor.pk absorbed.pk %}">
     {% csrf_token %}
     <input type="hidden" name="revision" value="{{ preview.token }}">
     <section class="block" aria-labelledby="conserva">
@@ -63,16 +63,17 @@
 
     <section class="block" aria-labelledby="pasa">
       <h2 id="pasa" class="heading">Qué pasa a {{ survivor.full_name }}</h2>
+      <div class="prose">
       {% if preview.move_lines %}
-        <ul>{% for line in preview.move_lines %}<li>{{ line }}</li>{% endfor %}</ul>
+        <p>Del registro que se une: {{ preview.move_lines|join:"; " }}.</p>
       {% else %}
-        <p class="empty-line">El registro que se une no tiene grupos, equipos, inscripciones ni seguimientos que pasar.</p>
+        <p>El registro que se une no tiene grupos, equipos, inscripciones ni seguimientos que pasar.</p>
       {% endif %}
       <p>Si tiene marcas privadas de lectura (devocionales o planes), pasan con ella. Nadie las ve ni las cuenta, tampoco aquí.</p>
       {% if preview.stay_lines %}
-        <p>Se quedan en el registro que se une, porque {{ survivor.full_name }} ya tiene lo mismo:</p>
-        <ul>{% for line in preview.stay_lines %}<li>{{ line }}</li>{% endfor %}</ul>
+        <p>Se quedan en el registro que se une, porque {{ survivor.full_name }} ya tiene lo mismo: {{ preview.stay_lines|join:"; " }}.</p>
       {% endif %}
+      </div>
       {% if preview.groups_gained or preview.teams_gained %}
         <div class="notice notice--warning"><p><strong>La cuenta gana permisos.</strong> Al unirlas, la cuenta con la que se entra podrá administrar {% if preview.groups_gained %}{{ preview.groups_gained }} grupo{{ preview.groups_gained|pluralize }} que hoy guía un registro sin acceso{% endif %}{% if preview.groups_gained and preview.teams_gained %} y {% endif %}{% if preview.teams_gained %}{{ preview.teams_gained }} equipo{{ preview.teams_gained|pluralize }} que hoy coordina un registro sin acceso{% endif %}. Los roles no se copian: salen de sus grupos y equipos, como siempre.</p></div>
       {% endif %}
@@ -80,8 +81,10 @@
 
     <section class="block" aria-labelledby="no-cambia">
       <h2 id="no-cambia" class="heading">Lo que no se toca</h2>
+      <div class="prose">
       <p>Las respuestas de los cuestionarios, las entrevistas y las notas de un evento no se leen, no se copian y no se mueven: siguen en el evento, con los permisos del evento. Lo que cada quien opinó de un evento tampoco.</p>
       <p>{{ absorbed.full_name }} deja de aparecer en Personas y en las búsquedas, pero su registro no se borra. Puedes deshacer la unión durante {{ undo_days }} días; lo que {{ survivor.full_name }} cambie después de hoy se queda con ella.</p>
+      </div>
     </section>
 
     <div class="step__actions">
