@@ -10,8 +10,9 @@ One answer for everything that is not such a page (no event with that address, a
 page, not published, not public, over, the church not using the module): the same 404, so the
 address is no oracle. Who is signed in is never looked at: the page is the same for everybody.
 
-The page has no form: "Avisos por correo" (``agenda.subscriptions``, when the administration turned it on) is a
-link to its own page, so that reading this one still sets no cookie.
+The page has no form: "Avisos por correo" (``agenda.subscriptions``, when the administration turned it on) and
+"Inscribirme" for somebody without an account (``agenda.visitors``, likewise) are links to their own pages, so
+that reading this one still sets no cookie.
 
 No throttle: ``events.services.throttle`` counts attempts per browser session or account to slow
 down guessing and repeated writes (a sign-in, a printed code, a sign-up). Here there is nothing to
@@ -116,10 +117,17 @@ def event(request, slug: str):
         sign_up = "closed"
     else:
         sign_up = "open"
+    from . import visitors
+
+    # Signing up without an account (issue #93): a link to its form, or the plain sentence of an event that
+    # protects minors. Read from the page row and the settings: no query, no cookie.
+    visitor = visitors.state_for_public(event, page) if sign_up == "open" else ""
     return render(
         request,
         "agenda/public.html",
         {
+            "visitor": visitor,
+            "visitor_path": reverse("evento:visitor_signup", args=[event.slug]) if visitor == "si" else "",
             "event": event,
             "page": page,
             "church": event.church,

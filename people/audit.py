@@ -126,6 +126,10 @@ ACTION_LABELS = {
     "oracion_politica": "Encendió, apagó o ajustó las peticiones de oración",
     "oracion_abierta": "Abrió una petición de oración",
     "oracion_atendida": "Marcó o respondió una petición de oración",
+    # Wave 12, agenda (issue #93): sign-up without an account, questions at sign-up, the headcount of a gathering.
+    "evento_inscripcion_visita": "Alguien sin cuenta se inscribió a un evento",
+    "evento_preguntas_inscripcion": "Agregó, modificó o quitó una pregunta de la inscripción a un evento",
+    "evento_conteo": "Registró o corrigió cuántas personas vinieron a un evento",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.

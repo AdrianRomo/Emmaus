@@ -20,6 +20,7 @@
     {% if waiting_age %}<li><span class="chip chip--wait">{{ waiting_age|length }} con edad por confirmar</span></li>{% endif %}
     {% if waiting|length == 1 %}<li><span class="chip chip--wait">1 pendiente de autorización</span></li>{% elif waiting %}<li><span class="chip chip--wait">{{ waiting|length }} pendientes de autorización</span></li>{% endif %}
     {% if listed %}<li>{% icon "lista" "sm" %}{{ listed|length }} en lista de espera{% if list_block %} ({% if list_block == "empezo" or list_block == "terminado" %}ya no avanza{% else %}detenida{% endif %}){% endif %}</li>{% endif %}
+    {% if visitor_requests == 1 %}<li>1 inscripción sin cuenta espera que confirmen el correo</li>{% elif visitor_requests %}<li>{{ visitor_requests }} inscripciones sin cuenta esperan que confirmen el correo</li>{% endif %}
     {% if cancelled == 1 %}<li>1 canceló</li>{% elif cancelled %}<li>{{ cancelled }} cancelaron</li>{% endif %}
     {% if recorded %}<li>{% icon "check" "sm" %}{% if present == 1 %}Vino 1{% else %}Vinieron {{ present }}{% endif %} de {{ rows|length }}</li>{% endif %}
   </ul>
@@ -34,8 +35,8 @@
           {% monogram row.display_name %}
           <div class="row__main">
             <p class="row__title">{{ row.display_name }}</p>
-            <p class="row__meta">{% if row.is_guest %}Visita. Llegó el {{ row.created_at|long_date }}. Nadie dijo si es mayor o menor de edad.{% else %}{% if row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}. {% if row.person.birth_date %}Tenemos una fecha de nacimiento que el equipo no ha confirmado.{% else %}No tenemos su fecha de nacimiento.{% endif %}{% endif %}</p>
-            {% include "agenda/_registration_who.html" %}
+            <p class="row__meta">{% if row.is_guest and row.is_visitor_signup %}Se inscribió sin cuenta, correo confirmado, el {{ row.created_at|long_date }}. Dijo que es mayor de edad; nadie del equipo lo ha visto.{% elif row.is_guest %}Visita. Llegó el {{ row.created_at|long_date }}. Nadie dijo si es mayor o menor de edad.{% else %}{% if row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}. {% if row.person.birth_date %}Tenemos una fecha de nacimiento que el equipo no ha confirmado.{% else %}No tenemos su fecha de nacimiento.{% endif %}{% endif %}</p>
+            {% include "agenda/_registration_who.html" %}{% include "agenda/_registration_answers.html" %}
           </div>
           <div class="row__end">
             {% if row.is_walkup %}<a class="btn btn--link btn--quieto" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
@@ -57,10 +58,10 @@
           {% monogram row.display_name %}
           <div class="row__main">
             <p class="row__title">{{ row.display_name }}</p>
-            <p class="row__meta">{% if row.is_guest %}Visita. Llegó{% elif row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}.</p>
+            <p class="row__meta">{% if row.is_guest and row.is_visitor_signup %}Se inscribió sin cuenta, correo confirmado,{% elif row.is_guest %}Visita. Llegó{% elif row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}.</p>
             {% if row.consent_withdrawn %}<p class="row__meta"><strong>Sin autorización.</strong> Se retiró el {{ row.consent.revoked_at|long_date }}.</p>
             {% elif row.recorded_consent %}<p class="row__meta">Nota de contacto del {{ row.recorded_consent.recorded_at|long_date }}: {{ row.recorded_consent.get_method_display|lower }}. No confirma: falta el formato firmado o la verificación en persona.</p>{% endif %}
-            {% include "agenda/_registration_who.html" %}
+            {% include "agenda/_registration_who.html" %}{% include "agenda/_registration_answers.html" %}
           </div>
           <div class="row__end">
             {% if row.is_walkup %}<a class="btn btn--link btn--quieto" href="{% url 'agenda:annul' event.slug row.pk %}">Anular registro<span class="visually-hidden"> de {{ row.display_name }}</span></a>{% endif %}
@@ -86,7 +87,8 @@
             <p class="row__title">{{ row.display_name }}</p>
             {% if row.is_offered %}<p class="row__meta"><strong>Le ofrecimos un lugar.</strong> Tiene hasta el {{ row.offer_expires_at|date:"l j \\d\\e F \\a \\l\\a\\s H:i"|lower }} para aceptarlo. Mientras tanto, ese lugar está apartado.</p>
             {% else %}<p class="row__meta">En espera, lugar {{ row.position }} de la lista. Se anotó el {{ row.waiting_since|date:"j \\d\\e F \\d\\e Y"|lower }}.</p>{% endif %}
-            {% include "agenda/_registration_who.html" %}
+            {% if row.is_visitor_signup and row.is_guest %}<p class="row__meta">Se anotó sin cuenta, correo confirmado.</p>{% endif %}
+            {% include "agenda/_registration_who.html" %}{% include "agenda/_registration_answers.html" %}
           </div>
           <div class="row__end">
             <a class="btn btn--link btn--quieto" href="{% url 'agenda:waiting_remove' event.slug row.pk %}">Quitar de la lista<span class="visually-hidden"> de espera a {{ row.display_name }}</span></a>
@@ -107,10 +109,10 @@
             {% monogram row.display_name %}
             <div class="row__main">
               <p class="row__title">{{ row.display_name }}</p>
-              <p class="row__meta">{% if row.is_guest %}Visita. Llegó{% elif row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}.{% if row.attended %} Vino.{% elif row.attended is not None %} No vino.{% endif %}</p>
+              <p class="row__meta">{% if row.is_guest and row.is_visitor_signup %}Se inscribió sin cuenta, correo confirmado,{% elif row.is_guest %}Visita. Llegó{% elif row.is_walkup %}Llegó{% else %}Se inscribió{% endif %} el {{ row.created_at|long_date }}.{% if row.attended %} Vino.{% elif row.attended is not None %} No vino.{% endif %}</p>
               {% with consent=row.valid_consent %}{% if consent %}<p class="row__meta">Autorizada por {{ consent.guardian_name }} ({{ consent.get_relationship_display|lower }}) el {{ consent.recorded_at|long_date }}. {{ consent.get_method_display }}.{% if consent.guardian_phone %} Tel. {{ consent.guardian_phone }}.{% endif %}</p>
               <p class="row__meta">Autorizó participar en el evento. Transporte organizado por la iglesia: {{ consent.allows_transport|yesno:"sí,no" }}. Fotografías: {{ consent.allows_photos|yesno:"sí,no" }}.</p>{% endif %}{% endwith %}
-              {% include "agenda/_registration_who.html" %}
+              {% include "agenda/_registration_who.html" %}{% include "agenda/_registration_answers.html" %}
             </div>
             {% if row.valid_consent or row.is_walkup %}
             <div class="row__end">

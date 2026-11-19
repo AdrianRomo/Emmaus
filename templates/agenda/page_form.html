@@ -60,6 +60,11 @@
       {% include "partials/ui/field.html" with field=form.public %}
       {% include "partials/ui/field.html" with field=form.notice_mail %}
     </section>
+    <section class="form-section" aria-labelledby="seccion-visitas">
+      <h2 id="seccion-visitas" class="form-section__title">Quien no tiene cuenta</h2>
+      {% include "partials/ui/field.html" with field=form.visitor_signup %}
+      {% include "partials/ui/field.html" with field=form.visitor_phone %}
+    </section>
     <div class="form-actions">
       <button class="btn btn--primary" type="submit">Guardar la página del evento</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
@@ -73,6 +78,20 @@
       <li class="row row--lead">
         <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
         <div class="row__main"><p class="row__title"><a href="{% url 'agenda:registrations' event.slug %}">Inscritos</a></p></div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "editar" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'agenda:questions' event.slug %}">Preguntas de la inscripción</a></p>
+          <p class="row__meta">{% if question_count == 0 %}No se pregunta nada al inscribirse{% elif question_count == 1 %}1 pregunta{% else %}{{ question_count }} preguntas{% endif %}</p>
+        </div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "personas" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'agenda:headcount' event.slug %}">¿Cuántos vinimos?</a></p>
+          <p class="row__meta">{% if headcount %}Se contaron {{ headcount.total }} persona{{ headcount.total|pluralize }}{% else %}Un número de personas, sin nombres{% endif %}</p>
+        </div>
       </li>
       <li class="row row--lead">
         <span class="hoy__icono" aria-hidden="true">{% icon "avisos" %}</span>
