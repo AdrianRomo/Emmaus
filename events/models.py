@@ -679,7 +679,9 @@ class EventParticipant(models.Model):
         self.full_name = " ".join((self.full_name or "").split())
         self.room = (self.room or "").strip()
         self.church_group = " ".join((self.church_group or "").split())
-        self.normalized_name = normalize_name(self.full_name)
+        # A name can grow when normalised (a ligature becomes its letters): the column only serves to find
+        # duplicates, so it is cut to its length instead of failing the save on PostgreSQL.
+        self.normalized_name = normalize_name(self.full_name)[: self._meta.get_field("normalized_name").max_length]
         update_fields = kwargs.get("update_fields")
         if update_fields is not None and "full_name" in update_fields:
             kwargs["update_fields"] = list(set(update_fields) | {"normalized_name"})
