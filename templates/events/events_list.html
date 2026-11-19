@@ -15,7 +15,7 @@
           <div class="row__main">
             <p class="row__title">{{ row.event.name }}</p>
             <p class="row__meta">{{ row.event.get_kind_display }}{% if row.event.starts_on %} {% include "events/rotulo/_event_dates.html" with event=row.event %}{% endif %}{% if row.event.location %}, en {{ row.event.location }}{% endif %}.</p>
-            <p class="row__meta">Tu rol: {{ row.access.role_label|lower }}.</p>
+            <p class="row__meta">Tu rol: {{ row.access.role_label|lower }}.{% if row.other_church %} Es un evento de {{ row.other_church.name }}.{% endif %}</p>
           </div>
           <div class="row__end">
             {% if row.event.status == "activo" %}{% status "en_curso" row.event.get_status_display %}{% elif row.event.status == "cerrado" %}{% status "completada" row.event.get_status_display %}{% elif row.event.status == "archivado" %}{% status "archivado" row.event.get_status_display %}{% else %}{% status "pendiente" row.event.get_status_display %}{% endif %}

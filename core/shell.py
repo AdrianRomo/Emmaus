@@ -13,6 +13,7 @@ decide what is *allowed* (decision 0004, rule 4).
 """
 
 from django.urls import reverse
+from django.utils import timezone
 
 from .authz import Action, has_scope
 
@@ -49,15 +50,23 @@ RESOURCE_ADMIN_VIEWS = {
 }
 # The pastoral approval of content: the pastor's own place; for the administration it belongs to "Devocionales y recursos".
 APPROVAL_VIEWS = {"resources:approval_queue", "resources:approval_review", "resources:approval_approve", "resources:approval_return"}
-SERVING_VIEWS = {"serving:home"}
+SERVING_VIEWS = {"serving:home", "serving:swap_create", "serving:plan"}
 SERVING_ADMIN_VIEWS = {
     "serving:team_admin", "serving:team_create", "serving:team", "serving:team_edit", "serving:team_archive",
     "serving:member_remove", "serving:date_create", "serving:date_detail", "serving:date_delete",
+    "serving:organize", "serving:rotation",
 }
 OVERVIEW_VIEWS = {"overview:panorama"}
 CARE_VIEWS = {"care:mine", "care:detail"}
 CARE_ADMIN_VIEWS = {"care:admin_list", "care:create", "care:edit", "care:cancel"}
 # Rooms and equipment: one destination, "Espacios". The administration's pages mark the same link.
+# General forms (issue #92): answering one, the staff's screens, and «Pendientes».
+FORM_VIEWS = {"formularios:list", "formularios:fill", "formularios:thanks"}
+FORM_ADMIN_VIEWS = {
+    "formularios:manage", "formularios:create", "formularios:detail", "formularios:edit", "formularios:question_create",
+    "formularios:question_edit", "formularios:publish", "formularios:close", "formularios:readers", "formularios:submissions",
+    "formularios:submission", "formularios:task_assign", "formularios:add_person", "formularios:loose_tasks",
+}
 SPACE_VIEWS = {
     "espacios:list", "espacios:week", "espacios:request", "espacios:cancel", "espacios:queue", "espacios:approve",
     "espacios:reject", "espacios:manage", "espacios:space_create", "espacios:space_edit", "espacios:usage",
@@ -66,11 +75,20 @@ PEOPLE_VIEWS = {
     "people:list", "people:create", "people:detail", "people:edit", "people:from_event_list", "people:from_event",
     "people:grant_access", "people:access_link",
     "people:duplicates", "people:merge_preview", "people:merge_detail",
+    "people:stage", "people:tags", "people:tag_delete", "people:person_tags",
+    "people:export", "people:import", "people:import_detail", "people:import_undo",
+}
+# Prayer requests: the writer's pages, and the pastors' (the church's switch included).
+PRAYER_VIEWS = {"oracion:mine", "oracion:new", "oracion:delete"}
+PRAYER_READER_VIEWS = {
+    "oracion:inbox", "oracion:read", "oracion:mark_read", "oracion:reply", "oracion:mark_talked", "oracion:reader_email",
+    "oracion:terms",
 }
 # Icons for the discipleship module's links, by url name (core.context_processors builds those links).
 MODULE_ICONS = {
     "church_settings": "ajustes", "participants_list": "personas", "participant_dashboard": "camino",
     "mentor_dashboard": "camino", "church_dashboard": "camino", "path_list": "camino",
+    "follow_up_list": "acompanar", "church_follow_up_list": "acompanar",
 }
 
 
@@ -78,7 +96,7 @@ def _item(label, url, icon, active=False, badge=0, badge_label=""):
     return {"label": label, "url": url, "icon": icon, "active": active, "badge": badge, "badge_label": badge_label}
 
 
-def build_shell(request, church, module_items, show_events: bool, settings_link: bool = True) -> dict:
+def build_shell(request, church, module_items, show_events: bool) -> dict:
     """The rail's sections and the phone's tabs for ``request``. ``module_items`` are the
     discipleship links the bar would have shown (label, url, names)."""
     from groups.access import managed_group_ids
@@ -126,6 +144,11 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         _item("Planes de lectura", reverse("resources:plan_list"), "plan", view in PLAN_VIEWS),
         _item("Recursos", reverse("resources:media_list"), "recursos", view == "resources:media_list"),
     ]
+    # A quiet door, never a number: only for who may write one today, or still has one to read or delete.
+    from oracion import shell as prayer_shell
+
+    if person and prayer_shell.shows_writer_link(church, person):
+        reading.append(_item("Pedir oración", reverse("oracion:mine"), "servir", view in PRAYER_VIEWS))
     sections = [{"label": "", "items": main}, {"label": "Para crecer", "items": reading}]
 
     # What the person is responsible for: the groups they guide, and the events they work in (the camp's team).
@@ -148,6 +171,11 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
             to_approve = approvals.pending_count(church)
             charge.insert(1, _item("Aprobación pastoral", reverse("resources:approval_queue"), "devocional", view in APPROVAL_VIEWS,
                                    to_approve, "contenido por aprobar" if to_approve == 1 else "contenidos por aprobar"))
+    # Only a pastor of this church (asked again here, not inferred): the requests not yet marked as read.
+    unread_prayers = prayer_shell.reader_badge(request.user, church)
+    if unread_prayers is not None:
+        charge.append(_item("Peticiones de oración", reverse("oracion:inbox"), "servir", view in PRAYER_READER_VIEWS,
+                            unread_prayers, "petición sin leer" if unread_prayers == 1 else "peticiones sin leer"))
     if show_events:
         charge.append(serving)
     if person and serving_services.has_teams(person):
@@ -164,6 +192,22 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         request.user, church, guides_group=bool(managed)
     ):
         charge.append(_item("Espacios", reverse("espacios:list"), "equipo", view in SPACE_VIEWS))
+    # General forms: who reads the answers of one through a group or a team gets the door to them; and «Pendientes»,
+    # everything that waits for this person in one list, when something does (always for the administration).
+    from formularios import access as forms_access
+    from formularios import queue as pending_queue
+    from formularios import views as forms_views
+
+    if not is_admin and forms_access.readable_form_ids(request.user, church):
+        charge.append(_item("Respuestas de formularios", reverse("formularios:manage"), "recursos", view in FORM_ADMIN_VIEWS))
+    waiting_all = pending_queue.count(request.user, church, person, is_church_admin=is_admin, care_mine=accompanying,
+                                      group_requests=sum(pending.values()))
+    if waiting_all or is_admin:
+        charge.insert(0, _item("Pendientes", reverse("formularios:queue"), "plan", view == "formularios:queue", waiting_all,
+                               "pendiente" if waiting_all == 1 else "pendientes"))
+    # A person whose date of birth says they are under 18 gets a 404 from the forms (formularios.views): no link to it.
+    if forms_views.open_member_form_count(church) and not _minor_by_birth_date(person):
+        main.append(_item("Formularios", reverse("formularios:list"), "recursos", view in FORM_VIEWS))
     if charge:
         sections.append({"label": "A tu cargo", "items": charge})
 
@@ -185,16 +229,11 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         admin.append(_item("Seguimiento de personas", reverse("care:admin_list"), "acompanar",
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
+        admin.append(_item("Formularios de la iglesia", reverse("formularios:manage"), "recursos", view in FORM_ADMIN_VIEWS))
         admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional",
                            view in RESOURCE_ADMIN_VIEWS or view in APPROVAL_VIEWS))
-        if settings_link:
-            # "Configuración" is a discipleship-era screen: it acts in the church of the account's first role
-            # (core/access.py). While the request acts in another church, the two pages under it that do follow the
-            # request are offered by themselves instead.
-            admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"} or view.startswith("sitio:")))
-        else:
-            admin.append(_item("Políticas de la iglesia", reverse("church_policies"), "ajustes", url_name == "church_policies"))
-            admin.append(_item("Página pública", reverse("sitio:edit"), "inicio", view.startswith("sitio:")))
+        # "Configuración" acts in the church of the request, like every link here (core.views.role_required).
+        admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"} or view.startswith("sitio:")))
         admin_urls = {item["url"] for item in admin}
 
     module = [
@@ -207,7 +246,7 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         sections.append({"label": "Administración", "items": admin})
 
     # Phones: Mi iglesia, then the two places this person uses most, and "Más" (the panel).
-    home, _notices, events, groups = main
+    home, _notices, events, groups = main[:4]
     if managed:
         first = managed[0]
         total = sum(pending.values())
@@ -222,3 +261,23 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
 
     name = request.user.get_full_name() or request.user.email
     return {"sections": sections, "tabs": tabs, "name": name, "church": church}
+
+
+def event_shell(request, church) -> dict:
+    """The rail of a camp screen whose event is of another church than the one the request acts in
+    (``core.context_processors._event_page``): that church's name under its logo, the event's own links (the
+    template adds them after the first section) and the way back to the reader's events. None of the general links:
+    they are the links of the reader's own church, and under this church's name they would lead somewhere else."""
+    serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "equipo")
+    name = request.user.get_full_name() or request.user.email
+    return {"sections": [{"label": "", "items": [serving]}], "tabs": [serving], "name": name, "church": church}
+
+
+def _minor_by_birth_date(person) -> bool:
+    """Whether the person's own date of birth says they are under 18 today. No query: the fuller rule
+    (oracion.access.known_minor) decides at the door of the form; this only keeps a dead link out of the menu."""
+    born = getattr(person, "birth_date", None)
+    if not born:
+        return False
+    today = timezone.localdate()
+    return (today.year - born.year - ((today.month, today.day) < (born.month, born.day))) < 18

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Peticiones de oración: lo que promete tu iglesia{% endblock %}
+{% block content %}
+{% comment %}
+  The church's switch (oracion.views.terms), for a pastor of the church only. It states, in the member's own
+  sentences, what the church promises; switching it on needs the acceptance, which is recorded with the account and
+  the moment. "promesas" is a fingerprint of the readers named here: if they changed, nothing is switched on.
+{% endcomment %}
+<div class="narrow">
+  {% url 'oracion:inbox' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Peticiones de oración" lede="Lo que tu iglesia le promete a quien escribe una. Solo quien tiene el rol de pastor puede encenderlo o apagarlo; la administración no." back_url=back back_label="Volver a Peticiones de oración" %}
+  {% include "partials/ui/error_summary.html" %}
+  {% if terms.enabled %}
+    <div class="notice notice--info"><p>Está encendido: las personas adultas de tu iglesia pueden escribir una petición.</p></div>
+  {% elif terms.outdated %}
+    <div class="notice notice--warning"><p>Cambió lo que Emmaus promete en nombre de tu iglesia desde que se aceptó. Mientras nadie con el rol de pastor acepte el texto de abajo, nadie puede escribir una petición nueva; las que ya hay se pueden leer.</p></div>
+  {% else %}
+    <div class="notice notice--quiet"><p>Está apagado: nadie puede escribir una petición y Emmaus no guarda ninguna nueva.</p></div>
+  {% endif %}
+
+  <section class="block" aria-labelledby="promesas">
+    <h2 id="promesas" class="heading">Lo que lee cada persona antes de escribir</h2>
+    {% include "oracion/_promises.html" with several=False %}
+    <div class="prose mt-4">
+      <p>Solo escribe una persona adulta de tu iglesia, con su cuenta, y sobre sí misma. No hay formulario público ni peticiones anónimas. Una persona menor de edad no ve esta función.</p>
+      <p>Si en tu iglesia hay más de una persona con el rol de pastor, quien escribe puede elegir que la lea una sola.</p>
+      <p>Nada de lo escrito se manda a un servicio externo ni a una inteligencia artificial, y Emmaus no lo clasifica ni lo califica.</p>
+      <p>Emmaus muestra siempre la frase del 911. La segunda frase es la de la Línea de la Vida, salvo que tu iglesia escriba abajo su propia línea de ayuda: entonces aparece la de tu iglesia en su lugar.{% if terms.own_line %} Hoy aparece la de tu iglesia.{% endif %}</p>
+    </div>
+    <div class="notice notice--quiet">
+      <p>{{ emergency }}</p>
+      <p>{{ terms.crisis_line }}</p>
+    </div>
+    {% if terms.own_line %}<p class="aside-note">Si borras la línea de tu iglesia, vuelve a aparecer esta: {{ crisis_line }}</p>{% endif %}
+  </section>
+
+  <form class="block" method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="promesas" value="{{ token }}">
+    <h2 class="heading">Lo que tu iglesia puede ajustar</h2>
+    {% include "partials/ui/field.html" with field=form.retention_days %}
+    {% include "partials/ui/field.html" with field=form.emergency_line %}
+    {% if terms.enabled %}
+      <input type="hidden" name="paso" value="guardar">
+      <div class="step__actions"><button class="btn btn--primary" type="submit">Guardar los cambios</button></div>
+    {% else %}
+      <input type="hidden" name="paso" value="encender">
+      {% include "partials/ui/field.html" with field=form.accepted %}
+      <div class="step__actions"><button class="btn btn--primary" type="submit">Encender las peticiones de oración</button></div>
+      <p class="aside-note">Al encenderlo queda anotado, en los movimientos de la iglesia, que tú lo aceptaste y cuándo.</p>
+    {% endif %}
+  </form>
+
+  {% if terms.enabled %}
+  <section class="block" aria-labelledby="apagar">
+    <h2 id="apagar" class="heading">Apagarlo</h2>
+    <p>Desde ese momento nadie puede escribir una petición nueva. Las que ya hay se pueden leer hasta su fecha, sin marcarlas ni responderlas, y quien las escribió las sigue viendo y puede borrarlas.</p>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="paso" value="apagar">
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Apagar las peticiones de oración</button></div>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Revisa antes de importar{% endblock %}
+{% block content %}
+{% comment %}
+  The preview of an import (people.import_views._preview): what would happen with every row of the file: the counts, the
+  lists (created, already here, repeated, with errors) and only then the confirmation. Nothing
+  has been written. The file's cells travel back in a signed field (`datos`); `revision` covers what this page says.
+{% endcomment %}
+<div class="narrow">
+  {% url 'people:import' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Revisa antes de importar" lede="Esto es lo que pasaría con cada fila de tu archivo. Todavía no se guarda nada." back_url=back back_label="Volver a Importar personas" %}
+
+  {% if stale %}<div class="notice notice--warning" role="alert"><p><strong>No registramos a nadie.</strong> Lo que ibas a confirmar ya no es lo que hay: cambió la lista de personas de tu iglesia, o esta importación ya se había hecho. Esto es lo que pasaría ahora: revísalo otra vez.</p></div>{% endif %}
+
+  <section class="block" aria-labelledby="resumen">
+    <h2 id="resumen" class="heading">Tu archivo tiene {{ total }} fila{{ total|pluralize }} con datos</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Se registran</dt><dd>{{ new_count }}{% if minors %}. {% if minors == 1 %}Una es menor de edad{% else %}{{ minors }} son menores de edad{% endif %}: su fecha de nacimiento queda sin confirmar, como si la escribieras a mano.{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Ya existen: no se crean</dt><dd>{{ exists|length }}</dd></div>
+      <div class="summary-list__row"><dt>Repetidas en el archivo: no se crean</dt><dd>{{ repeated|length }}</dd></div>
+      <div class="summary-list__row"><dt>Con errores: no se crean</dt><dd>{{ errors|length }}</dd></div>
+    </dl>
+  </section>
+
+  {% if new %}
+  <section class="block" aria-labelledby="se-registran">
+    <h2 id="se-registran" class="heading">Se registran</h2>
+    <ul class="rows">
+      {% for row in new %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
+            <p class="row__meta">{% if row.email %}{{ row.email }}. {% endif %}{% if row.phone %}{{ row.phone }}. {% endif %}{% if row.birth_date %}Nació el {{ row.birth_date|long_date }}{% if row.is_minor %}: es menor de edad{% endif %}. {% endif %}{% if row.stage %}{{ row.stage_label }}. {% endif %}{% if row.tag_names %}Etiquetas: {{ row.tag_names|join:", " }}.{% endif %}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if new_more %}<p class="aside-note">Estas son las primeras {{ new|length }}. {% if new_more == 1 %}Hay 1 fila más que también se registra{% else %}Hay {{ new_more }} filas más que también se registran{% endif %}.</p>{% endif %}
+  </section>
+  {% endif %}
+
+  {% if exists %}
+  <section class="block" aria-labelledby="ya-existen">
+    <h2 id="ya-existen" class="heading">Ya existen: no se crean</h2>
+    <ul class="rows">
+      {% for row in exists %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
+            <p class="row__meta">Tiene {{ row.reason }} que {% if row.match %}<a href="{% url 'people:detail' row.match.pk %}">{{ row.match.full_name }}</a>{% else %}una persona de tu lista{% endif %}. No se crea y esa persona no cambia.</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Si alguna es otra persona (por ejemplo, alguien de la misma familia que comparte el teléfono), regístrala a mano en Personas.</p>
+  </section>
+  {% endif %}
+
+  {% if repeated %}
+  <section class="block" aria-labelledby="repetidas">
+    <h2 id="repetidas" class="heading">Repetidas en el archivo: no se crean</h2>
+    <ul class="rows">
+      {% for row in repeated %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">Fila {{ row.line }}: {{ row.full_name }}</p>
+            <p class="row__meta">Tiene {{ row.reason }} que la fila {{ row.same_as_line }}. Solo se registra la primera.</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if errors %}
+  <section class="block" aria-labelledby="con-errores">
+    <h2 id="con-errores" class="heading">Filas con errores</h2>
+    <ul class="rows">
+      {% for row in errors %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">Fila {{ row.line }}{% if row.full_name %}: {{ row.full_name }}{% endif %}</p>
+            <p class="row__meta">{{ row.errors|join:" " }}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Corrígelas en tu hoja de cálculo y sube el archivo otra vez, o regístralas a mano en Personas.</p>
+  </section>
+  {% endif %}
+
+  {% if new_count %}
+  <form class="block" method="post" aria-labelledby="confirmar" action="{{ back }}">
+    {% csrf_token %}
+    <input type="hidden" name="accion" value="confirmar">
+    <input type="hidden" name="revision" value="{{ plan.token }}">
+    <input type="hidden" name="datos" value="{{ packed }}">
+    <h2 id="confirmar" class="heading">Confirmar la importación</h2>
+    <div class="prose">
+      <p>Al confirmar se registra{{ new_count|pluralize:"n" }} {{ new_count }} persona{{ new_count|pluralize }}, sin acceso a Emmaus y sin enviarle{{ new_count|pluralize }} ningún correo. Las demás filas no cambian nada. Puedes deshacer la importación durante {{ undo_hours }} horas.</p>
+    </div>
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Importar {{ new_count }} persona{{ new_count|pluralize }}</button>
+      <a class="btn btn--link" href="{{ back }}">Volver sin importar</a>
+    </div>
+  </form>
+  {% else %}
+  <section class="block">
+    <div class="notice notice--quiet"><p>Este archivo no registra a nadie: todas sus filas son de personas que ya tienes, están repetidas o tienen errores.</p></div>
+    <p class="more"><a href="{{ back }}">Subir otro archivo</a></p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

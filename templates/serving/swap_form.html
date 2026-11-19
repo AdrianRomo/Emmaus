@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Pedir un cambio, {{ day.date|weekday_date }}{% endblock %}
+{% block content %}
+{% comment %}
+  Asking a teammate to take one's date (serving.rota_views.swap_create). The list holds only who could take it that
+  day, by name: no contact data, no reasons, nobody else's dates. Nothing moves until the teammate accepts.
+{% endcomment %}
+<div class="narrow serving">
+  {% url 'serving:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Pedir un cambio" lede=day.what meta=meta back_url=back back_label="Volver a Servir" %}
+  {% if waiting %}
+    <div class="notice notice--quiet"><p>Ya le pediste este cambio a {{ waiting.to_person.full_name }}. Para pedírselo a alguien más, retira primero esa solicitud en «Servir».</p></div>
+  {% elif candidates %}
+    <form method="post">
+      {% csrf_token %}
+      <fieldset>
+        <legend class="legend">¿A quién se lo pides?</legend>
+        <span class="hint">Aparece quien es de tu equipo y puede ese día.</span>
+        <div class="radio-list">
+          {% for person in candidates %}
+            <label class="check" for="persona-{{ person.pk }}"><input id="persona-{{ person.pk }}" type="radio" name="persona" value="{{ person.pk }}" required><span class="check__text">{{ person.full_name }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <p class="aside-note">La persona lo verá en «Servir» la próxima vez que entre a Emmaus; no le llega ningún aviso, así que vale la pena decírselo. La fecha sigue siendo tuya hasta que acepte{% if day.team.swap_needs_approval %} y quien coordina el equipo dé su visto bueno{% endif %}. Si nadie responde, la solicitud vence a los 7 días o cuando empieza la fecha.</p>
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Pedir el cambio</button>
+        <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+      </div>
+    </form>
+  {% else %}
+    <div class="notice notice--quiet"><p><strong>Nadie de tu equipo puede tomar esta fecha.</strong> Si no vas a poder servir, dilo en la fecha con «No puedo» y avisa a quien coordina el equipo.</p></div>
+  {% endif %}
+</div>
+{% endblock %}

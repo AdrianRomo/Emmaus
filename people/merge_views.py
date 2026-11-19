@@ -92,7 +92,7 @@ def merge_preview(request, survivor_id: int, absorbed_id: int):
     survivor, absorbed = _pair(request, survivor_id, absorbed_id)
     stale = False
     if request.method == "POST":
-        choices = {name: _int(request.POST.get(f"elige_{name}")) for name in merge.CONTACT_FIELDS}
+        choices = {name: _int(request.POST.get(f"elige_{name}")) for name in merge.CHOICE_FIELDS}
         try:
             record = merge.merge(
                 request.church, survivor.pk, absorbed.pk, request.user, choices=choices, token=request.POST.get("revision", ""),

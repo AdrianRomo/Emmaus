@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Pendientes de formularios sin responsable{% endblock %}
+{% block content %}
+{% comment %}Open tasks of forms nobody is doing (formularios.views.loose_tasks), for the administration to hand out. No answer and no contact here.{% endcomment %}
+<div class="narrow forms">
+  {% url 'formularios:queue' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Pendientes de formularios sin responsable" lede="Respuestas que esperan a que alguien les dé seguimiento." back_url=back back_label="Volver a Pendientes" %}
+  {% if tasks %}
+    <ul class="rows">
+      {% for task in tasks %}
+        <li class="row row--stack{% if task.is_overdue %} row--attention{% endif %}">
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'formularios:submission' task.form_id task.submission_id %}">Una respuesta de «{{ task.form.title }}»</a></p>
+            <p class="row__meta">{% if task.due_on %}Para el {{ task.due_on|weekday_date }}.{% if task.is_overdue %} Ya pasó la fecha.{% endif %}{% else %}Sin fecha.{% endif %}{% if task.owner_id %} Quien lo tenía ya no lee este formulario.{% endif %}</p>
+          </div>
+          <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'formularios:task_assign' task.form_id task.submission_id %}">Asignar<span class="visually-hidden">: una respuesta de «{{ task.form.title }}»</span></a></div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/ui/pager.html" with page=tasks label="Páginas de pendientes" %}
+  {% else %}
+    <p class="empty-line">Todos los pendientes de formularios tienen responsable.</p>
+  {% endif %}
+</div>
+{% endblock %}

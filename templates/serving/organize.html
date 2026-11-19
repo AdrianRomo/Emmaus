@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Organizar el equipo {{ team.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  How a team is organized (serving.rota_views.organize), for who coordinates it and for the administration: the
+  roles of the team, the order each role rotates in, and two settings (swaps and reminders). Every form saves by
+  itself. Nothing here assigns a date: the rotation only proposes, on its own page.
+{% endcomment %}
+<div class="narrow serving">
+  {% url 'serving:team' team.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="Organizar el equipo" lede="Equipo "|add:team.name back_url=back back_label="Volver al equipo" %}
+
+  <section class="block" aria-labelledby="roles">
+    <h2 id="roles" class="heading">Roles</h2>
+    <p class="aside-note">Un rol es lo que alguien hace ese día: Bienvenida, Sonido, Proyección. En cada fecha dices cuántas personas necesita cada rol.</p>
+    {% if roles %}
+      <ul class="rows">
+        {% for role in roles %}
+          <li class="row row--stack">
+            <form class="row__main role-edit" method="post" action="{% url 'serving:role_save' team.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="rol" value="{{ role.pk }}">
+              <label class="visually-hidden" for="rol-nombre-{{ role.pk }}">Nombre del rol</label>
+              <input class="input" id="rol-nombre-{{ role.pk }}" type="text" name="nombre" value="{{ role.name }}" maxlength="60" required>
+              <label class="check" for="rol-adultos-{{ role.pk }}"><input id="rol-adultos-{{ role.pk }}" type="checkbox" name="solo_adultos" value="si"{% if role.adults_only %} checked{% endif %}><span class="check__text">Solo personas adultas</span></label>
+              <button class="btn btn--secondary btn--small" type="submit">Guardar<span class="visually-hidden"> el rol {{ role.name }}</span></button>
+              <button class="btn btn--link btn--small" type="submit" formaction="{% url 'serving:role_retire' team.pk role.pk %}" formnovalidate>Ya no se usa<span class="visually-hidden">: {{ role.name }}</span></button>
+            </form>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Este equipo todavía no tiene roles. Sin roles todo sigue como antes: eliges quién sirve en cada fecha.</p>
+    {% endif %}
+    <form method="post" action="{% url 'serving:role_save' team.pk %}">
+      {% csrf_token %}
+      <div class="field">
+        <label class="label" for="rol-nuevo">Agregar un rol</label>
+        <span class="hint" id="rol-nuevo-ayuda">Una o dos palabras, por ejemplo: Sonido.</span>
+        <input id="rol-nuevo" type="text" name="nombre" maxlength="60" required aria-describedby="rol-nuevo-ayuda">
+      </div>
+      <div class="field">
+        <label class="check" for="rol-nuevo-adultos"><input id="rol-nuevo-adultos" type="checkbox" name="solo_adultos" value="si"><span class="check__text">Solo personas adultas<small>Emmaus solo deja este rol a quien la iglesia ya le confirmó la edad. Si no se sabe la edad de alguien, no se le propone ni se le asigna.</small></span></label>
+      </div>
+      <button class="btn btn--secondary" type="submit">Agregar el rol</button>
+    </form>
+  </section>
+
+  <section class="block" aria-labelledby="rotacion">
+    <h2 id="rotacion" class="heading">Rotación</h2>
+    {% if roles and members %}
+      <p class="aside-note">Para cada rol, numera a las personas en el orden en que les toca (1, 2, 3…) y deja en blanco a quien no entra. Emmaus solo propone siguiendo ese orden; tú revisas y confirmas. No se califica a nadie.</p>
+      <form method="post" action="{% url 'serving:rotation_save' team.pk %}">
+        {% csrf_token %}
+        <div class="field">
+          <label class="label" for="cada">¿Cada cuántas semanas le puede tocar a la misma persona?</label>
+          <span class="hint" id="cada-ayuda">Con 1, puede servir cada semana. Con 2, descansa al menos una semana entre fechas del equipo.</span>
+          <select id="cada" name="cada" aria-describedby="cada-ayuda">{% for number in weeks %}<option value="{{ number }}"{% if number == team.rotation_every_weeks %} selected{% endif %}>Cada {{ number }} semana{{ number|pluralize }}</option>{% endfor %}</select>
+        </div>
+        {% for role in roles %}
+          <fieldset class="needs">
+            <legend class="legend">{{ role.name }}{% if role.adults_only %} <span class="optional">(solo personas adultas)</span>{% endif %}</legend>
+            {% for person, place in role.places %}
+              <div class="need">
+                <label class="label" for="orden-{{ role.pk }}-{{ person.pk }}">{{ person.full_name }}</label>
+                <input class="input input--small" id="orden-{{ role.pk }}-{{ person.pk }}" type="number" name="orden_{{ role.pk }}_{{ person.pk }}" min="1" max="99" inputmode="numeric" value="{{ place }}">
+              </div>
+            {% endfor %}
+          </fieldset>
+        {% endfor %}
+        <div class="step__actions">
+          <button class="btn btn--secondary" type="submit">Guardar la rotación</button>
+          <a class="btn btn--link" href="{% url 'serving:rotation' team.pk %}">Ver lo que propone</a>
+        </div>
+      </form>
+    {% elif not roles %}
+      <p class="empty-line">Para usar la rotación, agrega primero al menos un rol.</p>
+    {% else %}
+      <p class="empty-line">Todavía no hay nadie en el equipo. La administración de la iglesia es quien agrega a las personas.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="ajustes">
+    <h2 id="ajustes" class="heading">Cambios y recordatorios</h2>
+    <form method="post" action="{% url 'serving:settings_save' team.pk %}">
+      {% csrf_token %}
+      <div class="field">
+        <label class="check" for="visto-bueno"><input id="visto-bueno" type="checkbox" name="visto_bueno" value="si"{% if team.swap_needs_approval %} checked{% endif %}><span class="check__text">Los cambios necesitan mi visto bueno<small>Alguien del equipo puede pedirle a otra persona que tome su fecha. Sin esta casilla, la fecha cambia de manos cuando la otra persona acepta y tú lo ves en la página del equipo. Con la casilla, además esperas a decir que sí.</small></span></label>
+      </div>
+      <div class="field">
+        <label class="label" for="recordatorio">Recordatorio por correo</label>
+        <span class="hint" id="recordatorio-ayuda">Un solo correo por fecha, a quien tiene cuenta y correo en «Mis datos» y no lo apagó. Solo dice que tiene un servicio próximo, con el enlace a Emmaus: nunca el equipo, el día ni quién más sirve. Sale únicamente si la iglesia tiene el correo configurado.</span>
+        <select id="recordatorio" name="recordatorio" aria-describedby="recordatorio-ayuda">
+          <option value="0"{% if team.reminder_days == 0 %} selected{% endif %}>No enviar</option>
+          <option value="2"{% if team.reminder_days == 2 %} selected{% endif %}>2 días antes</option>
+          <option value="5"{% if team.reminder_days == 5 %} selected{% endif %}>5 días antes</option>
+        </select>
+      </div>
+      <button class="btn btn--secondary" type="submit">Guardar los ajustes</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

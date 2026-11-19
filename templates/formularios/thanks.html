@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block page_title %}Gracias{% endblock %}
+{% block content %}
+{% comment %}After a person of the church sent a form (formularios.views.thanks). It promises nothing the code does not do.{% endcomment %}
+<div class="narrow forms">
+  {% url 'formularios:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Gracias" lede="Recibimos tus respuestas a «"|add:title|add:"»." back_url=back back_label="Volver a Formularios" %}
+  <p>El equipo que atiende este formulario ya puede leerlas. Emmaus no te envía un correo de confirmación.</p>
+  <p><a class="btn btn--secondary" href="{% url 'community:home' %}">Ir a Mi iglesia</a></p>
+</div>
+{% endblock %}

@@ -6,8 +6,10 @@
   One date of a team (serving.views.date_create and date_detail): when, what is needed, and who serves, as large
   options, saved together with one filled button. Who marked that day as one they cannot serve cannot be chosen;
   who was asked before marking it stays chosen, with the note, until the coordinator takes them out.
+  Wave 10: when the team has roles, how many people of each the date needs (and what is still missing), and the role
+  of each person chosen. A team without roles sees the page as before.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'serving:team' team.pk as back %}
   {% if service_date %}
@@ -17,7 +19,26 @@
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
+    {% if warned %}
+      <div class="notice" role="alert">
+        <p><strong>Todavía no guardamos la fecha.</strong> {% for person in warned %}{{ person.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %} ya sirve{{ warned|length|pluralize:"n" }} ese día en otra fecha. Si aun así quieres pedírselo, guarda otra vez; si no, desmarca su nombre.</p>
+      </div>
+      <input type="hidden" name="ocupados" value="{{ warned_ids }}">
+    {% endif %}
     {% include "partials/ui/fields.html" with form=form %}
+    {% if roles %}
+    <fieldset class="needs">
+      <legend class="legend">¿Cuántas personas necesita cada rol?</legend>
+      <p class="hint">Deja en 0 los roles que ese día no hacen falta.</p>
+      {% for role in roles %}
+        <div class="need">
+          <label class="label" for="necesita-{{ role.pk }}">{{ role.name }}{% if role.adults_only %} <span class="optional">(solo personas adultas)</span>{% endif %}</label>
+          <input class="input input--small" id="necesita-{{ role.pk }}" type="number" name="necesita_{{ role.pk }}" min="0" max="20" inputmode="numeric" value="{{ role.needed }}"{% if role.state %} aria-describedby="falta-{{ role.pk }}"{% endif %}>
+          {% if role.state %}<span class="need__state" id="falta-{{ role.pk }}">{% if role.state.missing %}{% status "por_evaluar" "Falta" %}{% if role.state.missing == 1 %} 1 persona{% else %} {{ role.state.missing }} personas{% endif %}: van {{ role.state.filled }} de {{ role.state.needed }}.{% else %}{% status "completada" "Completo" %}: {{ role.state.filled }} de {{ role.state.needed }}.{% endif %}</span>{% endif %}
+        </div>
+      {% endfor %}
+    </fieldset>
+    {% endif %}
     {% if members %}
     <fieldset>
       <legend class="legend">¿Quién sirve ese día?</legend>
@@ -25,7 +46,17 @@
         {% for membership in members %}
         <div class="choice choice--multi">
           <input class="choice__input" type="checkbox" id="sirve-{{ membership.person_id }}" name="sirve" value="{{ membership.person_id }}"{% if membership.checked and not membership.blocked %} checked{% endif %}{% if membership.blocked %} disabled{% endif %}>
-          <label class="choice__label" for="sirve-{{ membership.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ membership.person.full_name }}{% if membership.blocked %} <span class="muted">(ese día no puede)</span>{% endif %}{% if membership.assignment %}<span class="choice__sub">{% if membership.assignment.status == "aceptada" %}Confirmó.{% elif membership.assignment.status == "declinada" %}No puede.{% else %}Por confirmar.{% endif %}{% if membership.busy %} Después marcó que ese día no puede.{% endif %}</span>{% endif %}</span></label>
+          <label class="choice__label" for="sirve-{{ membership.person_id }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ membership.person.full_name }}{% if membership.blocked %} <span class="muted">(ese día no puede)</span>{% endif %}{% if membership.assignment %}<span class="choice__sub">{% if membership.assignment.status == "aceptada" %}Confirmó.{% elif membership.assignment.status == "declinada" %}No puede.{% else %}Por confirmar.{% endif %}{% if membership.busy %} Después marcó que ese día no puede.{% endif %}{% if membership.unfit %} <strong>Ya no puede cubrir este rol</strong>: es solo para personas adultas y la iglesia no ha confirmado su edad. Cámbiale el rol o quítale la fecha.{% endif %}</span>{% endif %}</span></label>
+          {% if roles and not membership.blocked %}
+          <div class="choice__extra">
+            <label class="hint" for="rol-{{ membership.person_id }}">Rol de {{ membership.person.first_name }}</label>
+            <select class="input input--small" id="rol-{{ membership.person_id }}" name="rol_{{ membership.person_id }}">
+              <option value="">Sin rol</option>
+              {% for role in roles %}<option value="{{ role.pk }}"{% if role.pk == membership.role_id %} selected{% endif %}>{{ role.name }}</option>{% endfor %}
+              {% if membership.old_role %}<option value="{{ membership.old_role.pk }}" selected>{{ membership.old_role.name }} (ya no se usa)</option>{% endif %}
+            </select>
+          </div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
@@ -36,7 +67,7 @@
     {% endif %}
     <div class="step__actions">
       <button class="btn btn--primary btn--large" type="submit">Guardar la fecha</button>
-      {% if service_date %}<a class="btn btn--link" href="{% url 'serving:date_delete' service_date.pk %}">Borrar la fecha</a>{% else %}<a class="btn btn--link" href="{{ back }}">Cancelar</a>{% endif %}
+      {% if service_date %}<a class="btn btn--link" href="{% url 'serving:plan' service_date.pk %}">Orden del día</a><a class="btn btn--link" href="{% url 'serving:date_delete' service_date.pk %}">Borrar la fecha</a>{% else %}<a class="btn btn--link" href="{{ back }}">Cancelar</a>{% endif %}
     </div>
   </form>
 </div>

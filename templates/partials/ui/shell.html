@@ -36,7 +36,7 @@
   <div class="rail__foot">
     <a class="rail__who" href="{% url 'account' %}"{% if request.resolver_match.url_name == "account" %} aria-current="page"{% endif %}>
       {% monogram shell.name "sm" %}
-      <span class="rail__who-text"><span class="rail__who-name">{{ shell.name }}</span><span class="rail__who-role">{% if current_role_record %}<span class="visually-hidden">Mi cuenta: </span>{{ current_role_record.get_role_display }}{% else %}Mi cuenta{% endif %}</span></span>
+      <span class="rail__who-text"><span class="rail__who-name">{{ shell.name }}</span><span class="rail__who-role">{% if current_role_record %}<span class="visually-hidden">Mi cuenta: </span>{{ current_role_words|default:current_role_record.get_role_display }}{% else %}Mi cuenta{% endif %}</span></span>
     </a>
     <ul class="rail__quiet">
       {% if not event_nav %}{% for other in church_choices %}<li><form method="post" action="{% url 'switch_church' %}">{% csrf_token %}<input type="hidden" name="church" value="{{ other.pk }}"><button class="rail__link rail__link--button" type="submit">{% icon "inicio" %}<span class="rail__text">Cambiar a {{ other.name }}</span></button></form></li>

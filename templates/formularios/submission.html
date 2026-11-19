@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}Una respuesta: {{ form_row.title }}{% endblock %}
+{% block content %}
+{% comment %}
+  One answer (formularios.views.submission), for the administration and the form's readers: who, the purpose they were
+  shown, what they answered, and the task. The note of the task is the staff's own line: nothing copies the answers there.
+{% endcomment %}
+<div class="narrow forms">
+  {% url 'formularios:submissions' form_row.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="Una respuesta" lede=form_row.title back_url=back back_label="Volver a las respuestas" %}
+
+  {% if submission.held %}
+  <div class="notice notice--warning">
+    <p><strong>Por revisar.</strong> Llegó cuando el formulario recibía muchas más respuestas de lo normal, o ya estaba lleno. No dejó pendiente ni aparece en la descarga.</p>
+    <form method="post" action="{% url 'formularios:submission_accept' form_row.pk submission.pk %}">
+      {% csrf_token %}
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Es de una persona real: aceptarla</button></div>
+    </form>
+  </div>
+  {% endif %}
+  {% if submission.same_contact or others %}
+  <div class="notice notice--quiet">
+    <p><strong>Mismo contacto que otra respuesta.</strong> {% if submission.same_contact %}Alguien ya había respondido este formulario con el mismo correo o teléfono en las 24 horas anteriores. {% endif %}Cualquiera puede escribir el correo de otra persona, así que se guardan todas; el mismo contacto deja un solo pendiente por día.</p>
+    {% if others %}<ul class="forms__problems">{% for other in others %}<li><a href="{% url 'formularios:submission' form_row.pk other.pk %}">Respuesta del {{ other.created_at|day_and_hour }}</a>{% if other.held %} (por revisar){% endif %}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endif %}
+
+  <section class="block" aria-labelledby="quien">
+    <h2 id="quien" class="heading">Quién respondió</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Persona</dt><dd>{% if submission.person %}{{ submission.person.full_name }}{% if form_row.is_public %} <span class="muted">(en las personas de la iglesia)</span>{% endif %}{% elif submission.contact_name %}{{ submission.contact_name }}{% else %}No dejó sus datos{% endif %}</dd></div>
+      {% if submission.contact_email %}<div class="summary-list__row"><dt>Correo</dt><dd><a class="break-anywhere" href="mailto:{{ submission.contact_email }}">{{ submission.contact_email }}</a></dd></div>{% endif %}
+      {% if submission.contact_phone %}<div class="summary-list__row"><dt>Teléfono</dt><dd><a href="tel:{{ submission.contact_phone|tel }}">{{ submission.contact_phone }}</a></dd></div>{% endif %}
+      {% if submission.consent_shown %}<div class="summary-list__row"><dt>Aceptó</dt><dd>«{{ submission.consent_shown }}»</dd></div>{% endif %}
+      <div class="summary-list__row"><dt>Cuándo</dt><dd>{{ submission.created_at|day_and_hour|capfirst }}. Versión {{ submission.version.number }}.</dd></div>
+      <div class="summary-list__row"><dt>Se le dijo</dt><dd>«{{ submission.purpose_shown }}»</dd></div>
+    </dl>
+    {% if can_add %}<div class="step__actions"><a class="btn btn--secondary" href="{% url 'formularios:add_person' form_row.pk submission.pk %}">Agregar a personas de la iglesia</a></div>{% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="respuestas">
+    <h2 id="respuestas" class="heading">Lo que respondió</h2>
+    {% if answers %}
+      <dl class="summary-list forms__answers">
+        {% for label, value in answers %}<div class="summary-list__row"><dt>{{ label }}</dt><dd class="break-anywhere">{{ value|linebreaksbr }}</dd></div>{% endfor %}
+      </dl>
+    {% else %}
+      <p class="empty-line">No respondió ninguna pregunta.</p>
+    {% endif %}
+    <p class="aside-note">Esta respuesta se borra a más tardar el {{ delete_after|long_date }}: es lo que se le dijo a quien respondió. No la copies a otro lado sin necesidad.</p>
+  </section>
+
+  {% if task %}
+  <section class="block" aria-labelledby="pendiente">
+    <h2 id="pendiente" class="heading">Dar seguimiento</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Estado</dt><dd>{% status task.status_mark task.get_status_display %}</dd></div>
+      <div class="summary-list__row"><dt>Responsable</dt><dd>{{ task.owner_name|default:"Sin responsable" }}</dd></div>
+      <div class="summary-list__row"><dt>Para cuándo</dt><dd>{% if task.due_on %}{{ task.due_on|weekday_date|capfirst }}{% if task.is_overdue %}. Ya pasó la fecha{% endif %}{% else %}Sin fecha{% endif %}</dd></div>
+    </dl>
+    <form method="post" action="{% url 'formularios:task' form_row.pk submission.pk %}" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="accion" value="nota">
+      {% include "partials/ui/field.html" with field=note_form.note %}
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Guardar la nota</button></div>
+    </form>
+    <form method="post" action="{% url 'formularios:task' form_row.pk submission.pk %}">
+      {% csrf_token %}
+      <div class="step__actions">
+        {% if task.is_open %}
+          <button class="btn btn--primary" type="submit" name="accion" value="hecho">Marcar como hecho</button>
+        {% else %}
+          <button class="btn btn--secondary" type="submit" name="accion" value="abrir">Abrir otra vez</button>
+        {% endif %}
+        {% if request.is_church_admin and task.is_open %}<a class="btn btn--link" href="{% url 'formularios:task_assign' form_row.pk submission.pk %}">Cambiar responsable o fecha</a>{% endif %}
+      </div>
+    </form>
+    <p class="aside-note">Emmaus no le escribe a la persona ni le avisa a nadie: el seguimiento lo haces tú.</p>
+  </section>
+  {% endif %}
+  {% if request.is_church_admin %}
+  <section class="block" aria-labelledby="borrar">
+    <h2 id="borrar" class="heading">Para la administración</h2>
+    <div class="step__actions"><a class="btn btn--link" href="{% url 'formularios:submission_delete' form_row.pk submission.pk %}">Borrar esta respuesta</a></div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

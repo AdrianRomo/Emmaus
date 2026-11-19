@@ -508,3 +508,56 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] .spaces .override { margin-top: var(--s-8); padding-top: var(--s-5); border-top: 1px solid var(--line); max-width: 46rem; }
 :root[data-ui="2"] .spaces .override .btn { margin-top: var(--s-4); }
 :root[data-ui="2"] .spaces .rows + form { margin-top: var(--s-8); }
+
+/* Personas: the list's search and its two filters (stage, tag) are one GET form, Atrio's .filter-bar, set apart
+   from the page's actions above it; "Quitar filtros" lines up with the button */
+:root[data-ui="2"] .people-filters { margin-top: var(--s-6); }
+:root[data-ui="2"] .people-filters__clear { align-self: center; }
+/* A tag's name is up to 40 characters: its select takes the room it needs instead of cutting the name */
+:root[data-ui="2"] .people-filters .people-filters__tag { flex: 1 1 22rem; max-width: none; }
+/* On a phone each control of the bar takes the whole line, so a long tag's name shows whole in its select */
+@media (max-width: 600px) {
+  :root[data-ui="2"] .people-filters .field, :root[data-ui="2"] .person-stage .field { flex-basis: 100%; max-width: none; }
+}
+/* A person's stage: the select and its button on one baseline (the bar's own rule), close to the sentence above */
+:root[data-ui="2"] .person-stage { margin: var(--s-4) 0 var(--s-4); }
+/* Formularios (general forms, issue #92). The honeypot of a public form is out of the page for everybody (it is
+   also aria-hidden and out of the tab order); a row has no monogram, so on a phone its text keeps its own height;
+   the contact block and the preview are fieldsets without a frame; the list of what stops a publish has marks */
+:root[data-ui="2"] .form-trap { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+:root[data-ui="2"] .forms .row--stack .row__main { flex-basis: auto; }
+:root[data-ui="2"] .forms fieldset.form-block, :root[data-ui="2"] .forms__preview fieldset { border: 0; padding: 0; margin: var(--s-6) 0 0; min-width: 0; }
+:root[data-ui="2"] .forms .form-purpose { margin-bottom: var(--s-6); }
+:root[data-ui="2"] .forms .form-purpose p + p { margin-top: var(--s-2); }
+:root[data-ui="2"] .forms__problems { list-style: disc; padding-left: 1.25rem; margin: var(--s-2) 0; }
+:root[data-ui="2"] .forms__questions { list-style: none; padding-left: 0; }
+:root[data-ui="2"] .forms .notice + .block, :root[data-ui="2"] .forms .summary-list + .block { margin-top: var(--s-8); }
+:root[data-ui="2"] .forms .rows + form.block { margin-top: var(--s-8); }
+:root[data-ui="2"] .public-form { padding-bottom: var(--s-16); }
+/* Servir, wave 10 (roles, rotation, order of a date): a name with one short control beside it, in a list with
+   hairlines; the small edit form of a role or of a moment sits on one line and wraps on a phone; the links under a
+   date keep apart */
+:root[data-ui="2"] .serving .needs { border: 0; padding: 0; margin: 0 0 var(--s-8); min-width: 0; }
+:root[data-ui="2"] .serving .needs .legend { margin-bottom: var(--s-2); }
+:root[data-ui="2"] .serving .need { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
+:root[data-ui="2"] .serving .need:last-child { border-bottom: 1px solid var(--line); }
+:root[data-ui="2"] .serving .need > .label { flex: 1 1 12rem; margin: 0; font-weight: 500; }
+:root[data-ui="2"] .serving .need > .input { flex: none; width: 6rem; min-height: var(--control); }
+:root[data-ui="2"] .serving .need > select.input { width: 16rem; max-width: 100%; }
+:root[data-ui="2"] .serving .need__state { flex: 1 1 100%; font-size: var(--t-small); color: var(--ink-2); }
+:root[data-ui="2"] .serving .role-edit { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-4); }
+:root[data-ui="2"] .serving .role-edit > .input { flex: 1 1 12rem; min-width: 0; width: auto; min-height: var(--control); }
+:root[data-ui="2"] .serving .role-edit > .input--small { flex: 0 1 6rem; }
+:root[data-ui="2"] .serving .role-edit > select.input--small { flex: 0 1 14rem; }
+:root[data-ui="2"] .serving .choice__extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding: 0 0 var(--s-3) var(--s-10); }
+:root[data-ui="2"] .serving .choice__extra .hint { margin: 0; }
+:root[data-ui="2"] .serving .choice__extra .input { width: 14rem; max-width: 100%; min-height: var(--control); }
+:root[data-ui="2"] .serving .row__links { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
+:root[data-ui="2"] .serving ol.plan { counter-reset: none; padding-left: 0; }
+/* Servir: a row without a monogram or a date block keeps its own height when it stacks (the 12rem basis of a
+   stacked row acts as a height there); each date of the rotation's proposal is a heading with air above it, and
+   the sentence that says why nobody can be chosen sits under its control */
+:root[data-ui="2"] .serving .row--stack:not(.row--lead) .row__main { flex-basis: auto; }
+:root[data-ui="2"] .serving .proposal__date { margin-top: var(--s-10); }
+:root[data-ui="2"] .serving .proposal__date .heading + .row__meta { margin-top: var(--s-1); margin-bottom: var(--s-4); }
+:root[data-ui="2"] .serving .need__state strong { color: var(--ink); }

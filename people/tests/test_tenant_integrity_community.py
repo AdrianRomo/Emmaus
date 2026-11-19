@@ -22,13 +22,15 @@ from groups.models import GroupAttendance, GroupJoinRequest, GroupMeeting, Group
 from groups.tests.base import CommunityFixture
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.management.commands.tenant_integrity import ID_LIMIT, camp_checks, checks, community_checks
-from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
+from people.models import (
+    CampusAffiliation, DuplicateDismissal, EventParticipantLink, PeopleImport, Person, PersonMerge, PersonTag, Tag,
+)
 from people.management.commands.tenant_integrity import PRIVATE_SIZES
 from resources.models import (
     Devotional, DevotionalRead, MediaItem, ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress,
 )
 from serving import services as serving
-from serving.models import Assignment, ServiceDate, TeamMembership
+from serving.models import Assignment, PlanItem, RoleNeed, RotationEntry, ServiceDate, SwapRequest, TeamMembership, TeamRole
 from sitio.models import PublicMedia
 
 from .test_tenant_integrity import json_counts, mismatches, run_integrity
@@ -52,6 +54,11 @@ class CommunityIntegrityTests(CommunityFixture):
         PersonMerge.objects.create(church=cls.church, survivor=cls.member, absorbed=cls.old)
         low, high = sorted([cls.leader, cls.asked], key=lambda person: person.pk)
         DuplicateDismissal.objects.create(church=cls.church, person_a=low, person_b=high)
+        cls.tag_b = Tag.objects.create(church=cls.church_b, name="Coro B", normalized_name="coro b")
+        PersonTag.objects.create(person=cls.leader, tag=Tag.objects.create(church=cls.church, name="Coro", normalized_name="coro"))
+        cls.import_b = PeopleImport.objects.create(church=cls.church_b, created_count=1)
+        Person.objects.create(church=cls.church, first_name="Iris", last_name="Importada",
+                              imported_in=PeopleImport.objects.create(church=cls.church, created_count=1))
         type(cls.group).objects.filter(pk=cls.group.pk).update(sede=cls.sede_a)
         cls.meeting = GroupMeeting.objects.create(group=cls.group, date=today)
         cls.meeting_b = GroupMeeting.objects.create(group=cls.group_b, date=today)
@@ -92,9 +99,30 @@ class CommunityIntegrityTests(CommunityFixture):
             space=cls.space_b, title="Ensayo B", starts_at=start, ends_at=start + timedelta(hours=1), requested_by=cls.member_b, event=cls.event_b,
         )
         serving.assign(cls.day, cls.leader, cls.admin)
+        # Wave 10 of Servir: a role of each team, and one valid row of each new table in church A.
+        cls.team_role = TeamRole.objects.create(team=cls.team, name="Puerta")
+        cls.team_role_b = TeamRole.objects.create(team=cls.team_b, name="Puerta B")
+        serving.set_member(cls.team, cls.member, cls.admin)
+        cls.assignment = Assignment.objects.get(service_date=cls.day, person=cls.leader)
+        Assignment.objects.filter(pk=cls.assignment.pk).update(role=cls.team_role)
+        cls.need = RoleNeed.objects.create(service_date=cls.day, role=cls.team_role, count=1)
+        cls.rotation_entry = RotationEntry.objects.create(role=cls.team_role, person=cls.leader, position=1)
+        cls.swap = SwapRequest.objects.create(assignment=cls.assignment, from_person=cls.leader, to_person=cls.member)
+        cls.plan_item = PlanItem.objects.create(service_date=cls.day, position=1, title="Bienvenida", minutes=5, responsible=cls.leader)
         cls.care = FollowUp.objects.create(church=cls.church, person=cls.member, owner=cls.leader, reason="visita")
         cls.care_b = FollowUp.objects.create(church=cls.church_b, person=cls.member_b, reason="visita")
         FollowUpStep.objects.create(follow_up=cls.care, kind="nota", by=cls.leader)
+        cls.form, cls.form_version, cls.form_answer = cls._form_answer(cls.church, cls.member)
+        cls.form_b, cls.form_version_b, cls.form_answer_b = cls._form_answer(cls.church_b, cls.member_b)
+
+    @staticmethod
+    def _form_answer(church, person):
+        from formularios.models import Form, FormVersion, Submission
+
+        form = Form.objects.create(church=church, title="Convivio", purpose="Para organizar", opens_on=timezone.localdate(),
+                                   closes_on=timezone.localdate())
+        version = FormVersion.objects.create(form=form, number=1, title=form.title, purpose=form.purpose, schema=[])
+        return form, version, Submission.objects.create(form=form, version=version, person=person, purpose_shown=form.purpose)
 
     # One builder per check: each returns the row that disagrees.
     def break_person_merged_into_church(self):
@@ -113,6 +141,12 @@ class CommunityIntegrityTests(CommunityFixture):
     def break_person_merge_church(self):
         absorbed = Person.objects.create(church=self.church, first_name="Unida", last_name="Cruzada")
         return PersonMerge.objects.create(church=self.church, survivor=self.member_b, absorbed=absorbed)
+
+    def break_person_tag_church(self):
+        return PersonTag.objects.create(person=self.leader, tag=self.tag_b)
+
+    def break_person_import_church(self):
+        return Person.objects.create(church=self.church, first_name="Otra", last_name="Importada", imported_in=self.import_b)
 
     def break_duplicate_dismissal_church(self):
         low, high = sorted([self.member, self.member_b], key=lambda person: person.pk)
@@ -184,6 +218,27 @@ class CommunityIntegrityTests(CommunityFixture):
     def break_assignment_person_church(self):
         return Assignment.objects.create(service_date=self.day_b, person=self.member)
 
+    def break_assignment_role_team(self):
+        Assignment.objects.filter(pk=self.assignment.pk).update(role=self.team_role_b)
+        return self.assignment
+
+    def break_role_need_role_team(self):
+        RoleNeed.objects.filter(pk=self.need.pk).update(role=self.team_role_b)
+        return self.need
+
+    def break_rotation_entry_person_church(self):
+        return RotationEntry.objects.create(role=self.team_role, person=self.member_b, position=2)
+
+    def break_swap_request_from_person_church(self):
+        SwapRequest.objects.filter(pk=self.swap.pk).update(from_person=self.member_b)
+        return self.swap
+
+    def break_swap_request_to_person_church(self):
+        return SwapRequest.objects.create(assignment=self.assignment, from_person=self.leader, to_person=self.member_b, status="declinada")
+
+    def break_plan_item_responsible_church(self):
+        return PlanItem.objects.create(service_date=self.day, position=2, title="Cierre", minutes=5, responsible=self.member_b)
+
     def break_care_follow_up_person_church(self):
         return FollowUp.objects.create(church=self.church, person=self.member_b, reason="visita")
 
@@ -202,11 +257,24 @@ class CommunityIntegrityTests(CommunityFixture):
         Booking.objects.filter(pk=self.booking.pk).update(event=self.event_b)
         return self.booking
 
+    def break_form_submission_person_church(self):
+        type(self.form_answer_b).objects.filter(pk=self.form_answer_b.pk).update(person=self.leader)
+        return self.form_answer_b
+
+    def break_form_submission_version_form(self):
+        type(self.form_answer).objects.filter(pk=self.form_answer.pk).update(version=self.form_version_b)
+        return self.form_answer
+
     def break_role_assignment_scope_church(self):
         return RoleAssignment.objects.create(
             subject_user=self.member_user, church=self.church, scope_type="group", scope_id=self.group_b.pk,
             role="lider", source_table="prueba.Cruzada", source_id=1,
         )
+
+    def break_prayer_request_person_church(self):
+        from oracion.models import PrayerRequest
+
+        return PrayerRequest.objects.create(church=self.church, person=self.member_b, body="x", expires_at=timezone.now())
 
     def expected(self, key) -> dict:
         also = {"consent_registration_church": {"registration_person_church"}}.get(key, set())
@@ -274,6 +342,12 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_person_merge_church(self):
         self.assert_counted_alone_and_fails("person_merge_church")
+
+    def test_person_tag_church(self):
+        self.assert_counted_alone_and_fails("person_tag_church")
+
+    def test_person_import_church(self):
+        self.assert_counted_alone_and_fails("person_import_church")
 
     def test_duplicate_dismissal_church(self):
         self.assert_counted_alone_and_fails("duplicate_dismissal_church")
@@ -346,6 +420,24 @@ class CommunityIntegrityTests(CommunityFixture):
     def test_assignment_person_church(self):
         self.assert_counted_alone_and_fails("assignment_person_church")
 
+    def test_assignment_role_team(self):
+        self.assert_counted_alone_and_fails("assignment_role_team")
+
+    def test_role_need_role_team(self):
+        self.assert_counted_alone_and_fails("role_need_role_team")
+
+    def test_rotation_entry_person_church(self):
+        self.assert_counted_alone_and_fails("rotation_entry_person_church")
+
+    def test_swap_request_from_person_church(self):
+        self.assert_counted_alone_and_fails("swap_request_from_person_church")
+
+    def test_swap_request_to_person_church(self):
+        self.assert_counted_alone_and_fails("swap_request_to_person_church")
+
+    def test_plan_item_responsible_church(self):
+        self.assert_counted_alone_and_fails("plan_item_responsible_church")
+
     def test_care_follow_up_person_church(self):
         self.assert_counted_alone_and_fails("care_follow_up_person_church")
 
@@ -361,8 +453,17 @@ class CommunityIntegrityTests(CommunityFixture):
     def test_booking_event_church(self):
         self.assert_counted_alone_and_fails("booking_event_church")
 
+    def test_form_submission_person_church(self):
+        self.assert_counted_alone_and_fails("form_submission_person_church")
+
+    def test_form_submission_version_form(self):
+        self.assert_counted_alone_and_fails("form_submission_version_form")
+
     def test_role_assignment_scope_church(self):
         self.assert_counted_alone_and_fails("role_assignment_scope_church")
+
+    def test_prayer_request_person_church(self):
+        self.assert_counted_alone_and_fails("prayer_request_person_church")
 
     def test_a_role_of_every_scope_type_that_points_outside_its_church(self):
         def role(scope_type, scope_id, source_id):

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import timedelta
+from functools import wraps
+
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
@@ -26,9 +29,9 @@ from django.views.decorators.http import require_POST, require_safe
 from . import onboarding, tenancy
 from .access import (
     can_answer_question,
-    get_user_role,
     has_leader_access,
     has_pastoral_access,
+    role_words,
     visible_ai_drafts,
     visible_notes,
     visible_participant_profiles,
@@ -143,25 +146,45 @@ def by_state(follow_ups):
 
 
 def role_required(*roles: str):
+    """The discipleship-era screens: signed in, with one of ``roles`` **in the church of the request**.
+
+    The role is the one the account holds in the church this request acts in (``core.tenancy.resolve``), never the
+    first one it holds anywhere: somebody who administers one church and is a mentor in another is an administrator
+    only while working in the first. The view then finds ``request.church`` and ``request.church_role`` and scopes
+    every query to them. No role in this church, for an account that has one elsewhere: 404, the page does not exist
+    here. A form opened in one church and sent after the session moved to another is refused before this runs
+    (``core.authz.StaleChurch``).
+    """
+
     def decorator(view_func):
         @login_required
+        @wraps(view_func)
         def wrapped(request, *args, **kwargs):
-            role_record = get_user_role(request.user)
+            where = tenancy.resolve(request)
+            role_record = where.role
             if not role_record:
+                if where.church is not None and request.user.church_roles.exists():
+                    raise Http404  # a person of this church whose role is in another one
                 messages.error(request, "Tu cuenta todavía no está vinculada a ninguna iglesia. Pide a quien te invitó que revise tu invitación.")
                 return redirect("landing")
-            # These screens act in the church of the account's first role (core/access.py). An account of several
-            # churches that is working in another one gets no page of this church under that church's name and logo:
-            # 404, until it goes back with the switcher. An account of one church never reaches this.
-            if tenancy.resolve(request, role_church=role_record.church).elsewhere:
-                raise Http404
             if role_record.role not in roles:
                 raise PermissionDenied
+            request.church = role_record.church
+            request.church_role = role_record
             return view_func(request, *args, **kwargs)
 
         return wrapped
 
     return decorator
+
+
+def _own_profile(request) -> ParticipantProfile:
+    """The participant's profile in the church of the request. An account has one profile: in any other church its
+    participant screens do not exist (404), so nothing written in one church is read or continued under another."""
+    profile = getattr(request.user, "participant_profile", None)
+    if profile is None or profile.church_id != request.church.pk:
+        raise Http404
+    return profile
 
 
 def health(request):
@@ -233,18 +256,23 @@ def dashboard(request):
 
     Event roles (campamentos) come first; the discipleship module keeps its own homes.
     """
-    from events.access import accessible_events
-
-    role_record = get_user_role(request.user)
-    has_events = accessible_events(request.user).exists()
+    where = tenancy.resolve(request)
+    role_record = where.role  # the role held in the church of this request, never another church's
+    has_events = tenancy.listed_events(request, where).exists()
     if has_events or request.user.is_superuser or (role_record and role_record.role == Role.CHURCH_ADMIN):
         return redirect("events:list")
-    where = tenancy.resolve(request, role_church=role_record.church if role_record else None)
-    if not role_record or where.elsewhere:
+    if role_record and role_record.role == Role.PARTICIPANT:
+        profile = getattr(request.user, "participant_profile", None)
+        if profile is None:
+            # The role with no path behind it: "Mi camino" does not exist for this account (_own_profile answers 404).
+            messages.info(request, "Tu cuenta todavía no tiene un camino de discipulado. Pide a la administración de tu iglesia que te lo asigne.")
+            return redirect("account")
+        if profile is not None and profile.church_id != role_record.church_id:
+            role_record = None  # an account has one path, and theirs is in another church (_own_profile): no home of it here
+    if not role_record:
         if not Church.objects.exists():
             return redirect("initial_setup")
-        # A person of a church that uses the community module, with no role anywhere (or working in another church
-        # than their first role's, whose discipleship homes are not this church's): their home is "Mi iglesia".
+        # A person of a church that uses the community module, with no role in it: their home is "Mi iglesia".
         from people.flags import enabled
 
         if enabled(where.church, "community"):
@@ -332,7 +360,7 @@ def accept_invitation(request, token: str):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR)
 def create_invitation(request):
-    role_record = get_user_role(request.user)
+    role_record = request.church_role
     church = role_record.church
     if role_record.role != Role.CHURCH_ADMIN and not church.leaders_can_invite_participants:
         raise PermissionDenied
@@ -362,7 +390,7 @@ INVITATIONS_SHOWN = 100
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR)
 def invitations_list(request):
-    role_record = get_user_role(request.user)
+    role_record = request.church_role
     invitations = role_record.church.invitations.select_related("invited_by", "assigned_mentor", "path")
     if role_record.role != Role.CHURCH_ADMIN:
         invitations = invitations.filter(role=Role.PARTICIPANT)
@@ -381,7 +409,7 @@ def invitations_list(request):
 
 @role_required(Role.CHURCH_ADMIN)
 def church_settings(request):
-    church = get_user_role(request.user).church
+    church = request.church
     form = ChurchSettingsForm(request.POST or None, request.FILES or None, instance=church)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -417,15 +445,17 @@ def ensure_participant_enrolled(user: User):
 
 @role_required(Role.PARTICIPANT)
 def participant_dashboard(request):
-    profile = request.user.participant_profile
+    profile = _own_profile(request)
     summary = ensure_participant_enrolled(request.user)
-    questions = request.user.participant_questions.prefetch_related("responses").order_by("-created_at")[:5]
+    questions = request.user.participant_questions.filter(church=request.church).prefetch_related("responses").order_by("-created_at")[:5]
     answers = (
-        ReflectionAnswer.objects.filter(enrollment__participant=request.user)
+        ReflectionAnswer.objects.filter(enrollment__participant=request.user, enrollment__path__church=request.church)
         .select_related("lesson", "question")
         .order_by("-updated_at")[:3]
     )
-    follow_ups = request.user.follow_ups.filter(status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS])
+    follow_ups = request.user.follow_ups.filter(
+        church=request.church, status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS]
+    )
     return render(
         request,
         "core/participant_dashboard.html",
@@ -435,15 +465,16 @@ def participant_dashboard(request):
             "questions": questions,
             "answers": answers,
             "follow_ups": follow_ups,
-            "welcome": onboarding.for_church_role(request.user, get_user_role(request.user), can_create_event=False),
+            "welcome": onboarding.for_church_role(request.user, request.church_role, can_create_event=False),
         },
     )
 
 
 @role_required(Role.PARTICIPANT)
 def participant_lesson(request, lesson_id: int):
+    _own_profile(request)
     summary = ensure_participant_enrolled(request.user)
-    if not summary.enrollment:
+    if not summary.enrollment or summary.enrollment.path.church_id != request.church.pk:
         raise Http404
     lesson = get_object_or_404(
         Lesson.objects.prefetch_related("reflection_questions"),
@@ -498,13 +529,14 @@ def participant_lesson(request, lesson_id: int):
 
 @role_required(Role.PARTICIPANT)
 def participant_questions(request):
-    questions = request.user.participant_questions.prefetch_related("responses").order_by("-created_at")
+    _own_profile(request)
+    questions = request.user.participant_questions.filter(church=request.church).prefetch_related("responses").order_by("-created_at")
     return render(request, "core/participant_questions.html", {"questions": questions})
 
 
 @role_required(Role.PARTICIPANT)
 def ask_question(request):
-    profile = request.user.participant_profile
+    profile = _own_profile(request)
     form = ParticipantQuestionForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         question = form.save(commit=False)
@@ -524,7 +556,7 @@ def ask_question(request):
 
 @role_required(Role.PARTICIPANT)
 def request_follow_up(request):
-    profile = request.user.participant_profile
+    profile = _own_profile(request)
     form = ParticipantFollowUpForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         follow_up = FollowUpRequest.objects.create(
@@ -544,18 +576,18 @@ def request_follow_up(request):
 @role_required(Role.MENTOR)
 def mentor_dashboard(request):
     """Three lists, in the order a mentor acts: the questions that wait for them, the follow-ups in their name, their people."""
-    participants = list(visible_participant_profiles(request.user))
+    participants = list(visible_participant_profiles(request.user, request.church_role))
     for profile in participants:
         profile.progress_summary = progress_for_participant(profile.user)
         profile.activity_ago = ago(last_activity_at(profile.user))
-    questions = visible_questions(request.user)
+    questions = visible_questions(request.user, request.church_role)
     # In the mentor's name, or of one of their people with nobody in charge (made before a mentor was assigned, or
     # left without one), so no unfinished follow-up of theirs is on nobody's home.
     follow_ups = list(
         FollowUpRequest.objects.filter(
             Q(assigned_to=request.user)
             | Q(assigned_to__isnull=True, participant__participant_profile__assigned_mentor=request.user),
-            church=get_user_role(request.user).church,
+            church=request.church,
             status__in=[FollowUpRequest.Status.OPEN, FollowUpRequest.Status.IN_PROGRESS],
         )
         .select_related("participant")
@@ -573,15 +605,15 @@ def mentor_dashboard(request):
             # Listed after them, so the mentor sees where those went.
             "with_pastor": questions.filter(status=ParticipantQuestion.Status.ESCALATED).order_by("created_at"),
             "follow_ups": follow_ups,
-            "welcome": onboarding.for_church_role(request.user, get_user_role(request.user), can_create_event=False),
+            "welcome": onboarding.for_church_role(request.user, request.church_role, can_create_event=False),
         },
     )
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR)
 def participant_detail(request, profile_id: int):
-    profile = get_object_or_404(visible_participant_profiles(request.user), pk=profile_id)
-    role_record = get_user_role(request.user)
+    profile = get_object_or_404(visible_participant_profiles(request.user, request.church_role), pk=profile_id)
+    role_record = request.church_role
     note_form = PastoralNoteForm(prefix="note")
     follow_up_form = FollowUpRequestForm(
         prefix="follow",
@@ -613,9 +645,9 @@ def participant_detail(request, profile_id: int):
                 messages.success(request, "Se creó el seguimiento.")
                 return redirect("participant_detail", profile_id=profile.id)
     summary = progress_for_participant(profile.user)
-    questions = profile.user.participant_questions.prefetch_related("responses").all()
-    notes = visible_notes(request.user).filter(participant=profile.user)
-    follow_ups = by_state(profile.user.follow_ups.select_related("assigned_to", "created_by"))
+    questions = profile.user.participant_questions.filter(church=profile.church).prefetch_related("responses")
+    notes = visible_notes(request.user, request.church_role).filter(participant=profile.user)
+    follow_ups = by_state(profile.user.follow_ups.filter(church=profile.church).select_related("assigned_to", "created_by"))
     return render(
         request,
         "core/participant_detail.html",
@@ -643,13 +675,13 @@ def _draft_prefix(draft) -> str:
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR, Role.PARTICIPANT)
 def question_detail(request, question_id: int):
-    question = get_object_or_404(visible_questions(request.user).prefetch_related("responses"), pk=question_id)
+    question = get_object_or_404(visible_questions(request.user, request.church_role).prefetch_related("responses"), pk=question_id)
     response_form = QuestionResponseForm(prefix="response")
     draft_form = None
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "respond":
-            if not can_answer_question(request.user, question):
+            if not can_answer_question(request.user, question, request.church_role):
                 raise PermissionDenied
             response_form = QuestionResponseForm(request.POST, prefix="response")
             if response_form.is_valid():
@@ -661,9 +693,9 @@ def question_detail(request, question_id: int):
                 question.save(update_fields=["status", "updated_at"])
                 notify_question_response(response)
                 messages.success(request, "Tu respuesta se envió.")
-                return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
+                return redirect("church_question_detail" if has_pastoral_access(request.user, request.church_role) else "question_detail", question_id=question.id)
         elif action == "escalate":
-            if not can_answer_question(request.user, question):
+            if not can_answer_question(request.user, question, request.church_role):
                 raise PermissionDenied
             question.status = ParticipantQuestion.Status.ESCALATED
             question.save(update_fields=["status", "updated_at"])
@@ -678,21 +710,21 @@ def question_detail(request, question_id: int):
             notify_question_escalated(question)
             notify_follow_up_created(follow_up)
             messages.success(request, "La pregunta se pasó al pastor. Los pastores de tu iglesia ya pueden verla.")
-            return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
+            return redirect("church_question_detail" if has_pastoral_access(request.user, request.church_role) else "question_detail", question_id=question.id)
         elif action == "generate_ai":
-            if not can_answer_question(request.user, question) or not has_leader_access(request.user):
+            if not can_answer_question(request.user, question, request.church_role) or not has_leader_access(request.user, request.church_role):
                 raise PermissionDenied
             draft, error = generate_ai_draft(question, request.user)
             if error:
                 messages.warning(request, error)
             else:
                 messages.success(request, "Se generó un borrador con IA. Revísalo antes de enviarlo.")
-            return redirect("church_question_detail" if has_pastoral_access(request.user) else "question_detail", question_id=question.id)
+            return redirect("church_question_detail" if has_pastoral_access(request.user, request.church_role) else "question_detail", question_id=question.id)
         elif action == "review_ai":
-            if not can_answer_question(request.user, question) or not has_leader_access(request.user):
+            if not can_answer_question(request.user, question, request.church_role) or not has_leader_access(request.user, request.church_role):
                 raise PermissionDenied
-            draft = get_object_or_404(visible_ai_drafts(request.user), pk=request.POST.get("draft_id"), related_question=question)
-            question_url = "church_question_detail" if has_pastoral_access(request.user) else "question_detail"
+            draft = get_object_or_404(visible_ai_drafts(request.user, request.church_role), pk=request.POST.get("draft_id"), related_question=question)
+            question_url = "church_question_detail" if has_pastoral_access(request.user, request.church_role) else "question_detail"
             if draft.status != AIDraft.Status.DRAFT:
                 # A draft is reviewed once: a second click, or a second leader, must not send it again.
                 messages.warning(request, "Este borrador ya se revisó.")
@@ -729,7 +761,7 @@ def question_detail(request, question_id: int):
                 notify_question_response(response)
                 messages.success(request, "El borrador revisado se envió como tu respuesta.")
                 return redirect(question_url, question_id=question.id)
-    drafts = visible_ai_drafts(request.user).filter(related_question=question) if has_leader_access(request.user) else AIDraft.objects.none()
+    drafts = visible_ai_drafts(request.user, request.church_role).filter(related_question=question) if has_leader_access(request.user, request.church_role) else AIDraft.objects.none()
     # A review that did not validate keeps its bound form, so the person sees what to fix.
     draft_forms = [
         (draft, draft_form)
@@ -745,7 +777,7 @@ def question_detail(request, question_id: int):
             "response_form": response_form,
             "draft_forms": draft_forms,
             "draft_form": draft_form,
-            "can_answer": can_answer_question(request.user, question),
+            "can_answer": can_answer_question(request.user, question, request.church_role),
             # The notice of the church the question was asked in, wherever a leader opens it from.
             "question_disclaimer": participant_notice(question.church.basic_disclaimer_text),
         },
@@ -754,7 +786,7 @@ def question_detail(request, question_id: int):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def church_dashboard(request):
-    role_record = get_user_role(request.user)
+    role_record = request.church_role
     church = role_record.church
     participants = ParticipantProfile.objects.filter(church=church).select_related("user", "assigned_mentor")
     week_ago = timezone.now() - timezone.timedelta(days=7)
@@ -799,7 +831,7 @@ def church_dashboard(request):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def participants_list(request):
-    profiles = list(visible_participant_profiles(request.user))
+    profiles = list(visible_participant_profiles(request.user, request.church_role))
     for profile in profiles:
         profile.progress_summary = progress_for_participant(profile.user)
         profile.last_activity = last_activity_at(profile.user)
@@ -817,7 +849,7 @@ def participants_list(request):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def user_list(request):
-    church = get_user_role(request.user).church
+    church = request.church
     # This church's role of each person (someone can belong to several churches), in one query.
     roles = UserChurchRole.objects.filter(church=church).select_related("user").order_by("role", "user__email")
     return render(request, "core/user_list.html", {"roles": roles})
@@ -825,7 +857,7 @@ def user_list(request):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def assign_mentor(request, profile_id: int):
-    profile = get_object_or_404(ParticipantProfile, pk=profile_id, church=get_user_role(request.user).church)
+    profile = get_object_or_404(ParticipantProfile, pk=profile_id, church=request.church)
     form = AssignMentorForm(request.POST or None, church=profile.church, initial={"mentor": profile.assigned_mentor})
     if request.method == "POST" and form.is_valid():
         profile.assigned_mentor = form.cleaned_data["mentor"]
@@ -837,19 +869,19 @@ def assign_mentor(request, profile_id: int):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def questions_inbox(request):
-    questions = visible_questions(request.user).select_related("participant").prefetch_related("responses")
+    questions = visible_questions(request.user, request.church_role).select_related("participant").prefetch_related("responses")
     return render(request, "core/questions_inbox.html", {"questions": questions})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def escalations(request):
-    questions = visible_questions(request.user).filter(status=ParticipantQuestion.Status.ESCALATED).select_related("participant")
+    questions = visible_questions(request.user, request.church_role).filter(status=ParticipantQuestion.Status.ESCALATED).select_related("participant")
     return render(request, "core/escalations.html", {"questions": questions})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR)
 def follow_up_list(request):
-    role_record = get_user_role(request.user)
+    role_record = request.church_role
     follow_ups = by_state(
         FollowUpRequest.objects.filter(church=role_record.church).select_related("participant", "assigned_to", "created_by")
     )
@@ -863,7 +895,7 @@ def follow_up_list(request):
         follow_up.church = role_record.church
         follow_up.created_by = request.user
         follow_up.source = FollowUpRequest.Source.MANUAL
-        if role_record.role == Role.MENTOR and not visible_participant_profiles(request.user).filter(user=follow_up.participant).exists():
+        if role_record.role == Role.MENTOR and not visible_participant_profiles(request.user, request.church_role).filter(user=follow_up.participant).exists():
             raise PermissionDenied
         follow_up.save()
         notify_follow_up_created(follow_up)
@@ -874,7 +906,7 @@ def follow_up_list(request):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR, Role.MENTOR)
 def complete_follow_up(request, follow_up_id: int):
-    role_record = get_user_role(request.user)
+    role_record = request.church_role
     follow_up = get_object_or_404(FollowUpRequest, pk=follow_up_id, church=role_record.church)
     if role_record.role == Role.MENTOR and follow_up.assigned_to_id != request.user.id:
         if follow_up.participant.participant_profile.assigned_mentor_id != request.user.id:
@@ -889,19 +921,19 @@ def complete_follow_up(request, follow_up_id: int):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def notes_list(request):
-    notes = visible_notes(request.user).select_related("participant", "author")
+    notes = visible_notes(request.user, request.church_role).select_related("participant", "author")
     return render(request, "core/notes_list.html", {"notes": notes})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def path_list(request):
-    paths = get_user_role(request.user).church.paths.annotate(lesson_count=Count("lessons")).order_by("-is_default", "title")
+    paths = request.church.paths.annotate(lesson_count=Count("lessons")).order_by("-is_default", "title")
     return render(request, "core/path_list.html", {"paths": paths})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def path_create(request):
-    church = get_user_role(request.user).church
+    church = request.church
     form = PathForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         path = form.save(commit=False)
@@ -915,7 +947,7 @@ def path_create(request):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def path_edit(request, path_id: int):
-    path = get_object_or_404(DiscipleshipPath, pk=path_id, church=get_user_role(request.user).church)
+    path = get_object_or_404(DiscipleshipPath, pk=path_id, church=request.church)
     form = PathForm(request.POST or None, instance=path)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -929,14 +961,14 @@ def path_detail(request, path_id: int):
     path = get_object_or_404(
         DiscipleshipPath.objects.prefetch_related("lessons__reflection_questions"),
         pk=path_id,
-        church=get_user_role(request.user).church,
+        church=request.church,
     )
     return render(request, "core/path_detail.html", {"path": path})
 
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def lesson_create(request, path_id: int):
-    path = get_object_or_404(DiscipleshipPath, pk=path_id, church=get_user_role(request.user).church)
+    path = get_object_or_404(DiscipleshipPath, pk=path_id, church=request.church)
     next_order = (path.lessons.aggregate(max_order=Max("order"))["max_order"] or 0) + 1
     form = LessonForm(request.POST or None, initial={"order": next_order})
     if request.method == "POST" and form.is_valid():
@@ -950,7 +982,7 @@ def lesson_create(request, path_id: int):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def lesson_edit(request, lesson_id: int):
-    lesson = get_object_or_404(Lesson, pk=lesson_id, path__church=get_user_role(request.user).church)
+    lesson = get_object_or_404(Lesson, pk=lesson_id, path__church=request.church)
     form = LessonForm(request.POST or None, instance=lesson)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -961,7 +993,7 @@ def lesson_edit(request, lesson_id: int):
 
 @role_required(Role.CHURCH_ADMIN, Role.PASTOR)
 def reflection_question_create(request, lesson_id: int):
-    lesson = get_object_or_404(Lesson, pk=lesson_id, path__church=get_user_role(request.user).church)
+    lesson = get_object_or_404(Lesson, pk=lesson_id, path__church=request.church)
     next_order = lesson.reflection_questions.count() + 1
     form = ReflectionQuestionForm(request.POST or None, initial={"order": next_order})
     if request.method == "POST" and form.is_valid():
@@ -1069,6 +1101,9 @@ def _community_church(request):
     return church if enabled(church, "community") else None
 
 
+SWITCH_AUDIT_EVERY = timedelta(hours=1)
+
+
 @login_required
 @require_POST
 def switch_church(request):
@@ -1080,9 +1115,11 @@ def switch_church(request):
     (``core.authz.church_choices``); choosing gives no permission. Changing church rotates the CSRF
     secret, so a form opened before (in this tab or another) is refused instead of writing into the
     new church. One audit row in the chosen
-    church, with the account and nothing else. ``next`` is followed only when it is a path of this
+    church, with the account and nothing else, at most once an hour per account and church (``SWITCH_AUDIT_EVERY``):
+    going back and forth is never blocked, it is only not written down again. ``next`` is followed only when it is a path of this
     site; without one, the chosen church's "Mi iglesia"."""
     from people.audit import record_church
+    from people.models import ChurchAuditEvent
 
     from . import authz
 
@@ -1091,7 +1128,13 @@ def switch_church(request):
     if church is None:
         raise Http404
     if before is None or before.pk != church.pk:
-        record_church(church, request.user, "iglesia_elegida", "Eligió trabajar en esta iglesia.")
+        # The row says "this account works here too"; a second one within the hour says nothing new. Two requests at
+        # the same instant may both write: one row too many, never a refused switch.
+        recent = ChurchAuditEvent.objects.filter(
+            church=church, actor=request.user, action="iglesia_elegida", created_at__gte=timezone.now() - SWITCH_AUDIT_EVERY
+        )
+        if not recent.exists():
+            record_church(church, request.user, "iglesia_elegida", "Eligió trabajar en esta iglesia.")
         messages.success(request, f"Ahora estás en {church.name}.")
     # "Mi iglesia" of the chosen church when it has one; the usual home otherwise.
     from people.flags import enabled
@@ -1117,7 +1160,7 @@ def _local_path(candidate: str, fallback: str) -> str:
 def account(request):
     """Where am I, as a page: your name (the greetings use it), the e-mail you sign in with, every event and church
     role you hold (each with its screen), your password, and the welcomes you put away, to see them again."""
-    from events.access import accessible_events, resolve_access
+    from events.access import resolve_access
 
     profile = getattr(request.user, "participant_profile", None)
     form = AccountForm(request.POST or None, instance=request.user, prefix="cuenta")
@@ -1130,7 +1173,8 @@ def account(request):
         messages.success(request, "Guardamos tus datos.")
         return redirect("account")
     rows = []
-    for event in accessible_events(request.user).order_by("-starts_on", "name"):
+    # The events of the church this request acts in, and those where the account holds an event role of its own.
+    for event in tenancy.listed_events(request).order_by("-starts_on", "name"):
         access = resolve_access(request.user, event)
         if access:
             rows.append({"event": event, "access": access})
@@ -1141,7 +1185,8 @@ def account(request):
         {
             "form": form,
             "contact_form": contact_form,
-            "role_record": get_user_role(request.user),
+            "role_record": (role_record := tenancy.resolve(request).role),
+            "role_words": role_words(role_record),
             "community_church": _community_church(request),
             "rows": rows,
             "dismissed": dismissed,

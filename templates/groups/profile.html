@@ -2,12 +2,12 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}Mis datos{% endblock %}
 {% block content %}
 {% comment %}
-  "Mis datos" (groups.views.profile): a person of the church corrects how the church reaches them. One form, one
-  filled button. The name and the date of birth are the administration's; the page says who to ask.
+  "Mis datos" (groups.views.profile): a person of the church corrects how the church reaches them and may say
+  two dates of their own (baptism, arrival), which only the administration reads. One form, one filled button. The name and the date of birth are the administration's; the page says who to ask.
 {% endcomment %}
 <div class="narrow">
   {% url 'community:home' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Mis datos" lede="Así te encuentra tu iglesia. Solo los ven quien guía tu grupo y la administración." back_url=back back_label="Volver a Mi iglesia" %}
+  {% include "events/rotulo/_page_head.html" with title="Mis datos" lede="Así te encuentra tu iglesia. Tu teléfono y tu correo solo los ven quien guía tu grupo y la administración; las fechas, solo la administración." back_url=back back_label="Volver a Mi iglesia" %}
   {% include "partials/ui/error_summary.html" %}
   <form method="post" novalidate>
     {% csrf_token %}

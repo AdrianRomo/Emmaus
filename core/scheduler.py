@@ -11,7 +11,8 @@ Counts and a class name only: never an address, a name, a title or an error mess
 for what a failing community job writes to the ordinary log: its class and its stack, not its message.
 A job is not "ok" when it raised, and also when its own counts say it did nothing useful
 (``AllSendsFailed``: every e-mail was refused; ``EventsFailed``: a waiting list could not be moved;
-``SeriesFailed``: the dates of a series could not be written).
+``SeriesFailed``: the dates of a series could not be written; ``AllSendsFailed`` also for the e-mails of
+an event's subscribers, ``agenda.subscriptions``).
 
 Who reads the heartbeat: ``manage.py scheduler_status`` (for cron or a monitor on the host) and the
 notice screens (``notice_mail_problem``), which must not promise an e-mail on a later day while
@@ -42,7 +43,18 @@ NOTICE_MAIL = "avisos_correo"
 WAITING_OFFERS = "lista_espera"
 SERIES = "series_eventos"
 PERSON_MERGES = "uniones_personas"
-JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES)
+FORM_ANSWERS = "respuestas_formularios"
+SUBSCRIPTIONS = "suscripciones_evento"
+SERVING_REMINDERS = "recordatorios_servir"
+PRAYER_RETENTION = "oracion_retencion"
+JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS,
+        SERVING_REMINDERS, PRAYER_RETENTION)
+# The jobs that only DELETE what the product promised to delete (a prayer request past its date, an address
+# nobody confirmed, the answers of a form past its time, the contact values of a merge that can no longer be
+# undone). They run on every pass whatever ``EMMAUS_SCHEDULED_COMMUNITY_JOBS``, ``EMMAUS_V2_MODULES`` and each
+# church's module flags say: a switch stops Emmaus from acting for a church, never from keeping its word.
+# ``SUBSCRIPTIONS`` is both: with the switches off only its deletions run.
+DELETING_JOBS = (PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS, PRAYER_RETENTION)
 # A job that has not ended well for this long is not running: three passes of 300 seconds.
 STALE_MINUTES = 15
 
@@ -56,17 +68,18 @@ STALE = "atrasado"
 
 
 def community_jobs_enabled() -> bool:
-    """The switch of the community jobs and the kill switch of the modules they belong to."""
+    """The switch of the community jobs that ACT (send, generate, move a list) and the kill switch of the
+    modules they belong to. The deletions (``DELETING_JOBS``) do not ask."""
     return bool(settings.EMMAUS_SCHEDULED_COMMUNITY_JOBS and settings.EMMAUS_V2_MODULES)
 
 
 def skipped(job: str) -> str:
     """Why the scheduler does not run ``job`` with the settings of this process, or empty when it does."""
-    if job == CUTOFFS:
+    if job == CUTOFFS or job in DELETING_JOBS:
         return ""
     if not community_jobs_enabled():
         return OFF
-    if job == NOTICE_MAIL:
+    if job in (NOTICE_MAIL, SERVING_REMINDERS):
         from events.services.team import email_is_configured
 
         if not settings.EMMAUS_PUBLIC_BASE_URL:

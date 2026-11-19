@@ -104,10 +104,10 @@ class ReaderTests(TwoBrandsFixture):
         request.user = self.dual
         self.assertEqual(tenancy.current_church(request), self.church_b)
         self.assertEqual(tenancy.resolve(request).others, [self.church])
-        self.assertTrue(tenancy.resolve(request).elsewhere)
+        self.assertEqual(tenancy.resolve(request).role.church, self.church_b)  # the role held there, not the first one
         request.session = {}
         self.assertEqual(tenancy.current_church(request), self.church)
-        self.assertFalse(tenancy.resolve(request).elsewhere)
+        self.assertEqual(tenancy.resolve(request).role.church, self.church)
         request.user = self.member_b_user
         self.assertEqual(tenancy.current_church(request), self.church_b)
         self.assertEqual(tenancy.resolve(request).others, [])
@@ -120,6 +120,7 @@ class ReaderTests(TwoBrandsFixture):
         assign_role(only_closed, closed, Role.PASTOR)
         request.user = only_closed
         self.assertEqual(tenancy.current_church(request), closed)
+        self.assertEqual(tenancy.resolve(request).role.church, closed)
 
 
 class ClosedChurchTests(TwoBrandsFixture):

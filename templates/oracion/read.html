@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Petición de oración{% endblock %}
+{% block content %}
+{% comment %}
+  One request, for a pastor it is addressed to (oracion.views.read): the words, and the three things a reader can do:
+  mark it as read, answer once, or mark that they talked in person. No thread. With the church's switch off: read only.
+{% endcomment %}
+<div class="narrow">
+  {% url 'oracion:inbox' as back %}
+  {% include "events/rotulo/_page_head.html" with title=prayer.writer_name lede="Petición de oración." back_url=back back_label="Volver a Peticiones de oración" %}
+  {% include "partials/ui/error_summary.html" %}
+  <section class="block stack" aria-labelledby="peticion">
+    <h2 id="peticion" class="heading">Lo que escribió el {{ prayer.created_at|day_and_hour }}</h2>
+    <p class="prose-block">{{ prayer.body|linebreaksbr }}</p>
+    <p class="aside-note">{% if prayer.restricted %}Te eligió solo a ti: nadie más la puede leer. {% endif %}Emmaus la borra el {{ prayer.expires_at|long_date }}, o antes si quien la escribió la borra.</p>
+  </section>
+
+  <section class="block stack" aria-labelledby="estado">
+    <h2 id="estado" class="heading">Lo que se ha hecho</h2>
+    {% if prayer.read_at %}<p>Leída el {{ prayer.read_at|long_date }}.</p>{% else %}<p>Nadie la ha marcado como leída.</p>{% endif %}
+    {% if prayer.talked_at %}<p>Hablaron en persona: se marcó el {{ prayer.talked_at|long_date }}.</p>{% endif %}
+    {% if prayer.replied_at %}
+    <div>{# a second fact, apart from the first: .stack would pull it close #}
+      <div class="stack mt-8">
+        <h3 class="heading">La respuesta, del {{ prayer.replied_at|long_date }}</h3>
+        <p class="prose-block">{{ prayer.reply|linebreaksbr }}</p>
+      </div>
+    </div>
+    {% endif %}
+    {% if on %}
+    <div class="step__actions">
+      {% if not prayer.read_at %}
+      <form method="post" action="{% url 'oracion:mark_read' prayer.pk %}">{% csrf_token %}<button class="btn btn--primary" type="submit">Lo leí</button></form>
+      {% endif %}
+      {% if not prayer.talked_at %}
+      <form method="post" action="{% url 'oracion:mark_talked' prayer.pk %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Hablamos en persona</button></form>
+      {% endif %}
+    </div>
+    <p class="aside-note">Quien la escribió ve «Leída» o «Hablaron en persona» con la fecha{% if not prayer.restricted %}, no quién lo marcó{% endif %}. Emmaus no le manda correo.</p>
+    {% else %}
+    <p class="aside-note">Tu iglesia apagó las peticiones de oración: esta se puede leer hasta su fecha, pero ya no se marca ni se responde.</p>
+    {% endif %}
+  </section>
+
+  {% if on and not prayer.replied_at %}
+  <section class="block" aria-labelledby="responder">
+    <h2 id="responder" class="heading">Responder</h2>
+    <form method="post" action="{% url 'oracion:reply' prayer.pk %}" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/fields.html" %}
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Enviar mi respuesta</button></div>
+    </form>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

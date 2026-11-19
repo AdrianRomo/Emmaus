@@ -1,0 +1,43 @@
+{% extends "layout/skeleton.html" %}
+{% load emmaus community brand %}
+{% block title %}{% if form.errors %}Error: {% endif %}{{ version.title }} · {{ church.name }}{% endblock %}
+{% block body %}
+{% comment %}
+  A public form (formularios.public.fill): anybody with the address answers, without an account. It extends the
+  skeleton and not base.html on purpose: no rail and no session, whoever reads it. It shows the published version and
+  nothing about who else answered. The box in .form-trap is the honeypot: people never see or reach it.
+{% endcomment %}
+<header class="bar bar--public">
+  <div class="bar__inner">{% church_brand church size="bar" %}</div>
+</header>
+<main id="contenido" class="page" tabindex="-1">
+<div class="narrow forms public-form">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  <header class="page-head">
+    <div class="page-head__text">
+      <p class="public-event__church">{{ church.name }}</p>
+      <h1 class="voice page-head__title">{{ version.title }}</h1>
+    </div>
+  </header>
+  {% include "formularios/_purpose.html" with purpose=version.purpose church_name=church.name %}
+  {% if changed %}<div class="notice notice--warning" role="status"><p>Este formulario cambió mientras lo llenabas. Revisa las preguntas y respóndelo otra vez.</p></div>{% endif %}
+  {% if full %}<div class="notice notice--warning" role="alert"><p>No pudimos guardar tu respuesta: este formulario ya no puede recibir más. Lo que escribiste sigue aquí abajo; si necesitas algo, busca directamente a la iglesia.</p></div>{% endif %}
+  {% if problem %}<div class="notice notice--warning" role="alert"><p>{{ problem }}</p></div>{% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="version" value="{{ version.pk }}">
+    <input type="hidden" name="sello" value="{{ seal }}">
+    <input type="hidden" name="hasta" value="{{ delete_after|date:"Y-m-d" }}">
+    <div class="form-trap" aria-hidden="true">
+      <label for="id_{{ honeypot }}">Deja este cuadro vacío</label>
+      <input type="text" id="id_{{ honeypot }}" name="{{ honeypot }}" value="" tabindex="-1" autocomplete="off">
+    </div>
+    {% include "formularios/_questions.html" %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Enviar mis respuestas</button>
+    </div>
+  </form>
+  <p class="aside-note">No necesitas cuenta. Esta página no te pide más datos que los que ves y Emmaus no envía tus respuestas por correo. Por favor no escribas aquí datos de salud ni de otras personas.</p>
+</div>
+</main>
+{% endblock %}

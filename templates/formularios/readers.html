@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block page_title %}Quién lee las respuestas{% endblock %}
+{% block content %}
+{% comment %}
+  The readers of one form (formularios.views.readers): a scope that already exists (who guides one group, who
+  coordinates one team), never a list of names. When the person stops guiding or coordinating, the reading ends.
+{% endcomment %}
+<div class="narrow forms">
+  {% url 'formularios:detail' form_row.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="Quién lee las respuestas" lede=form_row.title back_url=back back_label="Volver al formulario" %}
+  <p>La administración de la iglesia siempre las lee. Aquí puedes sumar a quien guía un grupo o coordina un equipo: verá las respuestas de este formulario y nada más, mientras tenga ese cargo. Los pastores no las leen por ser pastores.</p>
+  {% if readers %}
+    <ul class="rows">
+      {% for reader in readers %}
+        <li class="row row--stack">
+          <div class="row__main"><p class="row__title">{% if reader.active %}{{ reader.label }}{% else %}Un grupo o equipo que ya no está activo{% endif %}</p>{% if not reader.active %}<p class="row__meta">No le da acceso a nadie.</p>{% endif %}</div>
+          <form class="row__end" method="post">
+            {% csrf_token %}
+            <button class="btn btn--secondary btn--small" type="submit" name="quitar" value="{{ reader.row.pk }}">Quitar<span class="visually-hidden">: {{ reader.label }}</span></button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Solo la administración lee las respuestas de este formulario.</p>
+  {% endif %}
+  {% if choices %}
+  <form method="post" class="block">
+    {% csrf_token %}
+    <div class="field">
+      <label class="label" for="lector">Agregar un lector</label>
+      <select class="input" id="lector" name="lector" required>
+        <option value="">Elige un grupo o un equipo</option>
+        {% for value, label in choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="step__actions"><button class="btn btn--primary" type="submit">Agregar lector</button></div>
+  </form>
+  {% endif %}
+  <p class="aside-note">Emmaus no le avisa a nadie que ahora lee estas respuestas: avísale tú.</p>
+</div>
+{% endblock %}

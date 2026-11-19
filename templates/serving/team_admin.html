@@ -6,7 +6,7 @@
   Every team of the church (serving.views.team_admin), for the administration: how many people, how many dates
   are coming and who coordinates. From here a team is created, opened or edited.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% url 'serving:home' as back %}{% url 'serving:team_create' as create %}
   {% include "events/rotulo/_page_head.html" with title="Equipos de la iglesia" lede="Los equipos donde sirven las personas de la iglesia, con quién los coordina y cuántas fechas vienen." back_url=back back_label="Volver a Servir" action_url=create action_label="Crear un equipo" %}
   {% if teams %}

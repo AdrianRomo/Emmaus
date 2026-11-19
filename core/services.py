@@ -109,13 +109,18 @@ def invite_url(request, invitation: Invitation) -> str:
     return request.build_absolute_uri(reverse("accept_invitation", kwargs={"token": invitation.token}))
 
 
-def send_email_safely(subject: str, message: str, recipients: list[str], connection=None) -> bool:
-    """``connection``: an open mail connection to reuse (who sends many at once); None opens one for this message."""
+def send_email_safely(subject: str, message: str, recipients: list[str], connection=None, *, kind: str = "") -> bool:
+    """``connection``: an open mail connection to reuse (who sends many at once); None opens one for this message.
+    ``kind``: the closed word that names what was being sent (a key of ``core.notify.SUBJECTS``), for the log.
+
+    A failure is logged by the class of the error and that word, and by nothing else: what a mail server answers
+    when it refuses a message quotes the recipient's address, and a subject may carry a name. So no traceback,
+    no text of the error, no subject and no address ever reach the log from here."""
     try:
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, recipients, fail_silently=False, connection=connection)
         return True
-    except Exception:
-        logger.exception("Email failed: %s", subject)
+    except Exception as error:  # noqa: BLE001 - whatever the mail server says
+        logger.error("Email failed (%s): %s", kind or "correo", type(error).__name__)
         return False
 
 

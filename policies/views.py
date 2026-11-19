@@ -115,4 +115,6 @@ def church_policies(request):
         if kept:
             initial.update({field: new for field, (_old, new) in kept["fields"].items()})
         form = ChurchPolicyForm(initial=initial)
-    return render(request, "policies/form.html", {"form": form})
+    from oracion.services import is_on as prayer_requests_on  # read-only here: only a pastor switches it (oracion.views.terms)
+
+    return render(request, "policies/form.html", {"form": form, "prayer_requests_on": prayer_requests_on(church)})

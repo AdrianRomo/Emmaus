@@ -1,0 +1,19 @@
+{% load emmaus %}
+{% comment %}
+  One field of the contact block of a public form. Like partials/ui/field.html, except that "(opcional)" is said only
+  where it is true by itself (the family name): the e-mail and the phone follow the block's rule, said in its hint,
+  so a field is never called optional right above an error that says it is missing.
+{% endcomment %}
+<div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+  {% if field.field.widget.input_type == "checkbox" %}
+    {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+    <label class="check" for="{{ field.id_for_label }}">
+      {{ field|described }}
+      <span class="check__text">{{ field.label }}</span>
+    </label>
+  {% else %}
+    <label class="label" for="{{ field.id_for_label }}">{{ field.label }}{% if optional %} <span class="optional">(opcional)</span>{% endif %}</label>
+    {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+    {{ field|described }}
+  {% endif %}
+</div>

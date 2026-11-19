@@ -8,7 +8,7 @@
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% if not church_elsewhere %}{% url 'church_settings' as back %}{% endif %}
+  {% url 'church_settings' as back %}
   {% include "events/rotulo/_page_head.html" with title="Políticas de la iglesia" lede="Lo que tu iglesia decide sobre la privacidad, las opiniones, los avisos urgentes, los menores de edad y la asistencia. Algunas tienen un mínimo que Emmaus no deja bajar, porque cuida a las personas." back_url=back back_label="Volver a Configuración" %}
   <form method="post" novalidate>
     {% csrf_token %}
@@ -46,6 +46,7 @@
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  {% if prayer_requests_on is not None %}<p class="aside-note">Peticiones de oración: {% if prayer_requests_on %}encendidas{% else %}apagadas{% endif %}. No se cambian aquí: solo quien tiene el rol de pastor en tu iglesia puede encenderlas o apagarlas, desde «Peticiones de oración», después de leer lo que la iglesia promete.</p>{% endif %}
   <p class="aside-note">Antes de guardar verás qué cambia. Cada cambio queda anotado en los movimientos de la iglesia, con quién lo hizo.</p>
 </div>
 {% endblock %}

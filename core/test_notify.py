@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from smtplib import SMTPException
+from smtplib import SMTPException, SMTPRecipientsRefused
 from unittest import mock
 
 from django.conf import settings
@@ -27,7 +27,8 @@ CONSOLE = "django.core.mail.backends.console.EmailBackend"
 
 KINDS = {
     "solicitud_grupo_recibida", "solicitud_grupo_decidida", "solicitud_contacto_recibida", "seguimientos_pendientes",
-    "aviso_publicado", "aviso_urgente", "lugar_ofrecido",
+    "aviso_publicado", "aviso_urgente", "lugar_ofrecido", "recordatorio_servir",
+    "peticion_oracion_nueva",
 }
 LINK = "https://emmaus.example.org/grupos/solicitudes/"
 CONTEXT = {"church_name": "Iglesia Fe & Esperanza", "link": LINK}
@@ -86,6 +87,22 @@ EXPECTED_BODIES = {
         "El lugar se guarda para ti por tiempo limitado: en Emmaus ves hasta cuándo. "
         "Por privacidad, este correo no incluye más detalles."
     ),
+    "recordatorio_servir": (
+        "Hola:\n\n"
+        "Tienes un servicio próximo en Iglesia Fe & Esperanza. "
+        "Entra a Emmaus con tu cuenta para ver el día y la hora, y para decir si puedes:\n\n"
+        f"{LINK}\n\n"
+        "Por privacidad, este correo no incluye más detalles. "
+        "Si ya no quieres estos recordatorios, puedes apagarlos en «Servir»."
+    ),
+    "peticion_oracion_nueva": (
+        "Hola:\n\n"
+        "Hay una petición de oración nueva en Emmaus, en Iglesia Fe & Esperanza. "
+        "Entra a Emmaus con tu cuenta para leerla:\n\n"
+        f"{LINK}\n\n"
+        "Por privacidad, este correo no dice quién la escribió ni qué dice: solo se lee en Emmaus. "
+        "En «Peticiones de oración» eliges si te llega este correo."
+    ),
 }
 
 # What a careless caller could hand over: a person's name, a question, an answer, free text, the decision.
@@ -107,6 +124,14 @@ class FailingBackend(BaseEmailBackend):
 
     def send_messages(self, email_messages):
         raise SMTPException("550 refused")
+
+
+class QuotingBackend(BaseEmailBackend):
+    """A configured backend whose server refuses the message the way a real one does: its answer quotes the address."""
+
+    def send_messages(self, email_messages):
+        refused = {address: (550, b"5.1.1 mailbox unavailable") for message in email_messages for address in message.to}
+        raise SMTPRecipientsRefused(refused)
 
 
 class RenderTests(SimpleTestCase):
@@ -275,5 +300,22 @@ class DeliveryTests(SimpleTestCase):
     def test_a_backend_that_refuses_the_message_is_failed_not_sent(self):
         with self.assertLogs("core.services", "ERROR") as logs:
             self.assertEqual(notify("solicitud_grupo_recibida", ["lider@demo.invalid"], CONTEXT), FAILED)
-        self.assertIn(SUBJECTS["solicitud_grupo_recibida"], logs.output[0])
+        self.assertEqual(logs.output, ["ERROR:core.services:Email failed (solicitud_grupo_recibida): SMTPException"])
+
+    @override_settings(EMAIL_BACKEND="core.test_notify.QuotingBackend")
+    def test_a_refusal_that_quotes_the_address_leaves_only_its_class_and_the_kind_in_the_log(self):
+        from core.services import send_email_safely
+
+        address = "persona.privada@demo.invalid"
+        self.assertIn(address, str(SMTPRecipientsRefused({address: (550, b"x")})))  # the text the log must never carry
+        for kind in sorted(KINDS):
+            with self.subTest(kind), self.assertLogs("core.services", "ERROR") as logs:
+                self.assertEqual(notify(kind, address, CONTEXT), FAILED)
+            self.assertEqual(logs.output, [f"ERROR:core.services:Email failed ({kind}): SMTPRecipientsRefused"])
+            self.assertIsNone(logs.records[0].exc_info)  # no traceback: it would print the error's text
+        # A caller that names no kind (an invitation, a question of the old module): neither its subject nor the address.
+        with self.assertLogs("core.services", "ERROR") as logs:
+            self.assertFalse(send_email_safely("Tu invitación a Emmaus de Iglesia Fe & Esperanza", "Hola", [address]))
+        self.assertEqual(logs.output, ["ERROR:core.services:Email failed (correo): SMTPRecipientsRefused"])
+        self.assertIsNone(logs.records[0].exc_info)
         self.assertEqual(FAILED, "failed")

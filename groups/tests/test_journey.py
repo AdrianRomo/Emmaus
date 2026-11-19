@@ -75,10 +75,11 @@ class CampToGroupJourneyTests(CommunityFixture):
         for name, args in (
             ("community:group_people", [self.group.pk]), ("community:group_edit", [self.group.pk]),
             ("community:group_admin_list", []), ("community:group_create", []), ("people:list", []),
-            ("people:detail", [self.member.pk]),
         ):
             with self.subTest(name=name):
                 self.assertEqual(self.client.get(reverse(name, args=args)).status_code, 403)
+        # An address that names a person answers 404 to whoever may not manage people, whether the row exists or not.
+        self.assertEqual(self.client.get(reverse("people:detail", args=[self.member.pk])).status_code, 404)
         response = self.client.post(
             reverse("community:request_decide", args=[self.group.pk, self.pending.pk]), {"decision": "aceptar"}
         )

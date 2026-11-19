@@ -21,7 +21,7 @@ from groups.views import church_admin_view, community_view
 from people import flags, policy
 from people.models import Person
 
-from . import public, series, series_views, services
+from . import public, series, series_views, services, subscriptions
 from .forms import (
     AnnulForm,
     BirthDateForm,
@@ -740,12 +740,24 @@ def public_notices(request, slug: str):
     event = _event(request, slug)
     form = EventNoticeForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        services.save_public_notice(event, request.user, **form.cleaned_data)
-        messages.success(request, "Publicaste el aviso.")
+        published = services.save_public_notice(event, request.user, **form.cleaned_data)
+        if not published.mail_subscribers:
+            messages.success(request, "Publicaste el aviso.")
+        elif subscriptions.job_problem():
+            # Nothing has sent these e-mails lately: say what is true, not that they are on their way.
+            messages.success(request, "Publicaste el aviso. El correo a las direcciones suscritas sale cuando el envío "
+                                      "programado del servidor vuelva a correr.")
+        else:
+            messages.success(request, "Publicaste el aviso. Emmaus enviará el correo a las direcciones suscritas; puede tardar un rato.")
         return redirect("agenda:public_notices", event.slug)
     notices = list(EventNotice.objects.filter(event=event))
     page = EventPage.objects.filter(event=event).first()
+    mail_lines = subscriptions.mail_lines(notices, request.church)
+    for notice in notices:
+        notice.mail_line = mail_lines.get(notice.pk, "")
     context = {
+        # E-mail to who subscribed without an account (issue #96, second part): whether publishing sends any, said plainly.
+        "mail": subscriptions.state_for_staff(event, page),
         "event": event, "form": form, "back": _page_url(event), "notice_zone": public.notice_zone(event), "notices": notices,
         "in_force": sum(1 for notice in notices if not notice.retired), "shown": services.PUBLIC_NOTICES_SHOWN,
         "is_public": public.is_public(event, page),

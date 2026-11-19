@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}Peticiones de oración{% endblock %}
+{% block content %}
+{% comment %}
+  The requests a pastor may read (oracion.views.inbox): who wrote and when, with its state. The words are one page
+  each. No totals, no trends, no export. Below: the pastor's own e-mail choice and the door to the church's switch.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Peticiones de oración" lede="Lo que personas de tu iglesia te confiaron para que ores por ellas. Solo las lee quien tiene el rol de pastor en esta iglesia." back_url=back back_label="Volver a Mi iglesia" %}
+  {% if not terms.enabled %}
+    <div class="notice notice--quiet">
+      <p>Tu iglesia no está recibiendo peticiones de oración: nadie puede escribir una. {% if prayers %}Las de abajo se quedan para leerse hasta su fecha; ya no se marcan ni se responden.{% endif %}</p>
+      <p><a href="{% url 'oracion:terms' %}">Lee lo que tu iglesia promete y decide si lo enciendes</a></p>
+    </div>
+  {% endif %}
+  <section class="block" aria-label="Peticiones">
+  {% if prayers %}
+    <ul class="rows">
+      {% for prayer in prayers %}
+        <li class="row row--lead row--stack">
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'oracion:read' prayer.pk %}">{{ prayer.writer_name }}</a></p>
+            <p class="row__meta">La escribió el {{ prayer.created_at|day_and_hour }}.{% if prayer.restricted %} Solo para ti.{% endif %} Emmaus la borra el {{ prayer.expires_at|long_date }}.</p>
+          </div>
+          <div class="row__end">
+            {% if prayer.state == "sin_leer" %}{% status "revisar" "Sin leer" %}{% elif prayer.state == "leida" %}{% status "completada" "Leída" %}{% elif prayer.state == "respondida" %}{% status "completada" "Respondida" %}{% else %}{% status "completada" "Hablaron en persona" %}{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/ui/pager.html" with page=prayers label="Páginas de peticiones de oración" %}
+  {% elif terms.enabled %}
+    <p class="empty-line">No hay ninguna petición. Cuando alguien de tu iglesia escriba una, la vas a encontrar aquí.</p>
+  {% endif %}
+  <p class="aside-note">Esta lista no la ve la administración ni nadie más, y Emmaus no hace totales ni reportes con ella. Cada vez que abres una petición queda anotado que la abriste, sin lo que dice.</p>
+  </section>
+
+  <section class="block" aria-labelledby="avisos">
+    <h2 id="avisos" class="heading">Avisos por correo</h2>
+    {% if not email_configured %}
+      <div class="notice notice--quiet"><p>Por ahora no hay correo configurado en Emmaus: no sale ningún correo. Guardamos lo que elijas para cuando lo haya.</p></div>
+    {% endif %}
+    <form method="post" action="{% url 'oracion:reader_email' %}">
+      {% csrf_token %}
+      <div class="field">
+        <label class="check" for="avisar">
+          <input type="checkbox" id="avisar" name="avisar" value="si" aria-describedby="avisar-ayuda"{% if wants_email %} checked{% endif %}>
+          <span class="check__text">Avísame por correo cuando haya una petición nueva<small id="avisar-ayuda">El correo solo dice que hay una petición nueva y trae el enlace: nunca dice quién la escribió ni qué dice. Si llegan muchas seguidas, no son más de 6 correos por hora. {% if address %}Llega a {{ address }}.{% else %}Tu cuenta no tiene correo, así que no te llegaría.{% endif %}</small></span>
+        </label>
+      </div>
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Guardar mi elección</button></div>
+    </form>
+  </section>
+  {% if terms.enabled %}<p class="aside-note"><a href="{% url 'oracion:terms' %}">Lo que tu iglesia promete, y cómo apagarlo</a></p>{% endif %}
+</div>
+{% endblock %}

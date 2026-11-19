@@ -76,6 +76,11 @@ ACTION_LABELS = {
     "equipo_fecha": "Agregó, modificó o borró una fecha de un equipo",
     "equipo_asignacion": "Pidió a una persona servir en una fecha, o la quitó de ella",
     "equipo_respuesta": "Respondió a una fecha para servir o marcó un día que no puede",
+    "equipo_rol": "Agregó, modificó o retiró un rol de un equipo",
+    "equipo_ajustes": "Cambió los ajustes de cambios y recordatorios de un equipo",
+    "equipo_rotacion": "Guardó la rotación de un equipo o confirmó lo que propuso",
+    "equipo_cambio": "Pidió, respondió o retiró un cambio de fecha entre dos personas de un equipo",
+    "equipo_orden": "Modificó el orden de una fecha de un equipo",
     "acompanar_creado": "Creó un seguimiento de persona",
     "acompanar_asignado": "Asignó un seguimiento de persona o cambió su fecha",
     "acompanar_paso": "Registró un paso de un seguimiento de persona",
@@ -99,6 +104,28 @@ ACTION_LABELS = {
     "contenido_aprobado": "Aprobó un contenido para publicarse",
     "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
     "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
+    "persona_etapa": "Cambió la etapa de una persona",
+    "etiqueta_creada": "Creó una etiqueta para las personas",
+    "etiqueta_borrada": "Borró una etiqueta de las personas",
+    "persona_etiquetas": "Cambió las etiquetas de una persona",
+    "personas_exportadas": "Descargó la lista de personas de la iglesia",
+    "personas_importadas": "Importó personas desde un archivo",
+    "personas_importacion_deshecha": "Deshizo una importación de personas",
+    "formulario_creado": "Creó un formulario",
+    "formulario_modificado": "Modificó un formulario o sus preguntas",
+    "formulario_publicado": "Publicó un formulario o una versión nueva de sus preguntas",
+    "formulario_cerrado": "Cerró un formulario",
+    "formulario_lectores": "Agregó o quitó un lector de un formulario",
+    "formulario_respuesta": "Llegó una respuesta a un formulario",
+    "formulario_tarea": "Se creó o cambió un pendiente de un formulario",
+    "formulario_persona_agregada": "Agregó a personas de la iglesia a quien respondió un formulario",
+    "formulario_exportado": "Descargó las respuestas de un formulario",
+    "formulario_respuestas_borradas": "Se borraron las respuestas de un formulario al terminar el tiempo que se guardan",
+    "formulario_respuestas_borradas_a_mano": "Borró respuestas de un formulario",
+    # Prayer requests (oracion.services). Only the pastors' own actions: writing or deleting one leaves no row.
+    "oracion_politica": "Encendió, apagó o ajustó las peticiones de oración",
+    "oracion_abierta": "Abrió una petición de oración",
+    "oracion_atendida": "Marcó o respondió una petición de oración",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -115,6 +142,12 @@ ALLOWED_METADATA = frozenset({
     "other_person_id", "merge_id",
     # A pastoral approval of content (resources.approvals): which of the three fixed permitted uses.
     "permitted_use",
+    # People data quality (people.tags, people.exchange): a tag by its id, never its name; how many rows.
+    "tag_id", "count",
+    # An import of people (people.imports), by its id; and how many of its people an undo left in place.
+    "import_id", "kept",
+    # A general form (formularios.services), by its id: never its title, a question, an answer or a contact.
+    "form_id",
 })
 
 

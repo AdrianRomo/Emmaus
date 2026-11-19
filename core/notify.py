@@ -11,7 +11,7 @@ The result says what happened, so a screen never claims an e-mail that did not g
 * ``"sent"``: the backend accepted the message.
 * ``"not_configured"``: the backend delivers nothing (console, file or dummy; ``email_is_configured``) and nothing was
   handed to it. The caller says "No hay correo configurado" instead of "Te enviamos un correo".
-* ``"failed"``: the backend raised; ``send_email_safely`` logged the subject and the error.
+* ``"failed"``: the backend raised; ``send_email_safely`` logged the kind and the class of the error, never its text.
 """
 
 from __future__ import annotations
@@ -47,6 +47,11 @@ SUBJECTS: dict[str, str] = {
     # To somebody on an event's waiting list: a place was freed and is held for them (agenda.services). Never
     # which event beyond the link to its page, never until when, never who left the place.
     "lugar_ofrecido": "Emmaus: se liberó un lugar en un evento",
+    # To a person asked to serve on a date that is near, if their team sends reminders and they did not turn
+    # them off (serving.reminders). Never the team, the day, the role or who else serves.
+    "recordatorio_servir": "Emmaus: tienes un servicio próximo",
+    # To a pastor who asked for it (oracion.services.notify_readers). Never who wrote, never a word of it.
+    "peticion_oracion_nueva": "Emmaus: hay una petición de oración nueva",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.
@@ -89,7 +94,7 @@ def notify(kind: str, to: str | Iterable[str], context: Mapping[str, str], conne
 
     if not email_is_configured():
         return NOT_CONFIGURED
-    return SENT if send_email_safely(subject, body, recipients, connection) else FAILED
+    return SENT if send_email_safely(subject, body, recipients, connection, kind=kind) else FAILED
 
 
 def _recipients(to: str | Iterable[str]) -> list[str]:

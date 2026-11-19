@@ -6,6 +6,10 @@ words only. Callers have already answered who may ask (``serving.views``, throug
 ``core.authz.has_scope``); these functions enforce the rules that hold whoever asks, and raise
 ``ServingError`` with a sentence ready for the screen.
 
+LOCK ORDER, for every writer of Servir (``serving.rotas`` included): the team, then the date, then
+the assignment, then the swap request. A writer may skip levels, never go back up; whatever a
+cascade would delete below is locked first, in that order. ``people.merge`` takes teams first too.
+
 Who coordinates a team is answered by the projection: scope ``ministry``, the team's id, the role
 "coordina", in force while the membership is active and the team is not archived. Nothing here
 creates a ``UserChurchRole``, a group membership or an event membership: being in a team gives
@@ -23,7 +27,9 @@ from access.models import RoleAssignment, ScopeType
 from access.sources import account_changed
 from people.audit import record_church
 
-from .models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
+from .models import (
+    Assignment, PlanItem, RotationEntry, ServiceDate, ServiceReminder, SwapRequest, Team, TeamMembership, TeamRole, Unavailable,
+)
 
 SOURCE = "serving.TeamMembership"
 
@@ -36,6 +42,8 @@ DECLINED = Assignment.Status.DECLINED
 
 ARCHIVED = "Este equipo está archivado."
 PAST = "Esa fecha ya pasó: ya no se puede cambiar."
+# ``assign(role=KEEP)``: leave the role of an assignment as it is (and give none to a new one).
+KEEP = object()
 TOO_LATE = "Tu respuesta se puede cambiar hasta un día antes. Si ya no puedes servir, avisa a quien coordina el equipo."
 
 
@@ -117,7 +125,7 @@ def _upcoming(person, today=None):
     today = today or timezone.localdate()
     return (
         Assignment.objects.filter(person=person, service_date__date__gte=today, service_date__team__status=Team.Status.ACTIVE)
-        .select_related("service_date", "service_date__team")
+        .select_related("service_date", "service_date__team", "role")
         .order_by("service_date__date", "service_date__starts_at", "id")
     )
 
@@ -234,17 +242,39 @@ def remove_member(team: Team, person, actor, today=None) -> None:
         membership.status = TeamMembership.Status.INACTIVE
         membership.save(update_fields=["status", "updated_at"])
         sync_assignment(membership)
-        Assignment.objects.filter(person=person, service_date__team=team, service_date__date__gte=today).delete()
+        going = Assignment.objects.filter(person=person, service_date__team=team, service_date__date__gte=today)
+        _delete_assignments(going)
+        # Their place in the rotations goes with them, nobody can hand them a date any more, and
+        # no order of a date keeps naming them as in charge.
+        RotationEntry.objects.filter(person=person, role__team=team).delete()
+        PlanItem.objects.filter(responsible=person, service_date__team=team, service_date__date__gte=today).update(responsible=None)
+        SwapRequest.objects.filter(to_person=person, assignment__service_date__team=team, status__in=SwapRequest.OPEN).update(
+            status=SwapRequest.Status.CANCELLED, decided_at=timezone.now()
+        )
         record_church(team.church, actor, "equipo_integrante", f"Quitó a {person.full_name} del equipo {team.name}",
                       team, person_id=person.pk, role="ninguno")
 
 
 # ---- dates (who coordinates) --------------------------------------------------------------------
+def _lock_assignments(assignments) -> list[int]:
+    """Lock these assignments, by id, before anything that deletes them: a delete takes their swap
+    requests first (the cascade), which is the lock order backwards unless the assignment is held."""
+    return list(assignments.select_for_update().order_by("pk").values_list("pk", flat=True))
+
+
+def _delete_assignments(assignments) -> int:
+    ids = _lock_assignments(assignments)
+    if ids:
+        Assignment.objects.filter(pk__in=ids).delete()
+    return len(ids)
+
+
 def _open_date(service_date: ServiceDate, today=None) -> ServiceDate:
     """The date, locked, when it can still change: its team is active and the day has not passed."""
     today = today or timezone.localdate()
-    locked = ServiceDate.objects.select_for_update().get(pk=service_date.pk)
-    team = Team.objects.get(pk=locked.team_id)
+    # The team first, then the date (the module's lock order). A date never changes team.
+    team = Team.objects.select_for_update().get(pk=service_date.team_id)
+    locked = ServiceDate.objects.select_for_update().get(pk=service_date.pk, team_id=team.pk)
     if not team.is_active:
         raise ServingError(ARCHIVED, code="archived")
     if locked.date < today:
@@ -284,6 +314,11 @@ def save_date(team: Team, actor, *, service_date: ServiceDate | None = None, dat
             # Everybody is asked again for the new day, except who said no and cannot that day either.
             cannot = Unavailable.objects.filter(date=date).values_list("person_id", flat=True)
             asked.exclude(person_id__in=cannot).update(status=PENDING, responded_at=None)
+            # A reminder and a swap were about the day the date had: the new day gets its own.
+            ServiceReminder.objects.filter(assignment__service_date=service_date).delete()
+            SwapRequest.objects.filter(assignment__service_date=service_date, status__in=SwapRequest.OPEN).update(
+                status=SwapRequest.Status.CANCELLED, decided_at=timezone.now()
+            )
         service_date.date, service_date.starts_at, service_date.what, service_date.place = date, starts_at, what, place
         service_date.save(update_fields=["date", "starts_at", "what", "place", "updated_at"])
         record_church(service_date.team.church, actor, "equipo_fecha", f"Modificó una fecha del equipo {service_date.team.name}", service_date)
@@ -296,24 +331,62 @@ def delete_date(service_date: ServiceDate, actor, today=None) -> None:
         service_date = _open_date(service_date, today)
         team = service_date.team
         record_church(team.church, actor, "equipo_fecha", f"Borró una fecha del equipo {team.name}", service_date)
+        _lock_assignments(Assignment.objects.filter(service_date=service_date))
         service_date.delete()
 
 
-def assign(service_date: ServiceDate, person, actor, today=None) -> Assignment:
-    """Ask ``person`` to serve on ``service_date``. Only active members of the team; never
-    somebody who marked that day as one they cannot serve."""
+def is_adult_on(person, day) -> bool:
+    """An adult by a date of birth the team verified (the rule of ``agenda.services.standing``). A
+    date somebody typed and an unknown one do not count."""
+    from agenda.services import age_on
+
+    return person.birth_date is not None and person.birth_date_verified and age_on(person.birth_date, day) >= 18
+
+
+def known_minor_on(person, day) -> bool:
+    """The record says a date of birth, verified or not, that makes the person a minor that day."""
+    from agenda.services import age_on
+
+    return person.birth_date is not None and age_on(person.birth_date, day) < 18
+
+
+def _checked_role(team: Team, role, person, day):
+    """``role`` when ``person`` may take it in ``team`` on ``day``; a refusal otherwise."""
+    if role is None:
+        return None
+    role = TeamRole.objects.filter(pk=role.pk, team=team).first()
+    if role is None or not role.active:
+        raise ServingError("Ese rol ya no se usa en el equipo.", code="no_role")
+    if role.adults_only and not is_adult_on(person, day):
+        raise ServingError(
+            f"El rol {role.name} es solo para personas adultas y la iglesia no ha confirmado la edad de {person.first_name}. "
+            "La administración confirma las edades desde Personas.",
+            code="adults_only",
+        )
+    return role
+
+
+def assign(service_date: ServiceDate, person, actor, today=None, role=KEEP) -> Assignment:
+    """Ask ``person`` to serve on ``service_date``, with ``role`` when one is given. Only active
+    members of the team; never somebody who marked that day as one they cannot serve; never
+    somebody whose age the church has not verified as adult in a role that is for adults only."""
     with transaction.atomic():
         service_date = _open_date(service_date, today)
-        team = service_date.team
-        Team.objects.select_for_update().get(pk=team.pk)  # with remove_member()
-        if not TeamMembership.objects.filter(team=team, person=person, status=ACTIVE).exists():
+        team = service_date.team  # locked by _open_date, with remove_member(): no date is given to who is leaving
+        if not TeamMembership.objects.filter(team=team, person=person, status=ACTIVE, person__merged_into__isnull=True).exists():
             raise ServingError(f"{person.first_name} no es parte del equipo {team.name}.", code="not_member")
         existing = Assignment.objects.select_for_update().filter(service_date=service_date, person=person).first()
         if existing is not None:
+            if role is not KEEP and (role.pk if role else None) != existing.role_id:
+                existing.role = _checked_role(team, role, person, service_date.date)
+                existing.save(update_fields=["role"])
+                record_church(team.church, actor, "equipo_asignacion", f"Cambió el rol de {person.full_name} en una fecha del equipo {team.name}",
+                              service_date, person_id=person.pk)
             return existing
         if Unavailable.objects.filter(person=person, date=service_date.date).exists():
             raise ServingError(f"{person.first_name} marcó que ese día no puede.", code="unavailable")
-        assignment = Assignment.objects.create(service_date=service_date, person=person)
+        role = None if role is KEEP else _checked_role(team, role, person, service_date.date)
+        assignment = Assignment.objects.create(service_date=service_date, person=person, role=role)
         record_church(team.church, actor, "equipo_asignacion", f"Pidió a {person.full_name} servir en una fecha del equipo {team.name}",
                       service_date, person_id=person.pk)
     return assignment
@@ -323,7 +396,7 @@ def unassign(service_date: ServiceDate, person, actor, today=None) -> None:
     """The date no longer counts on ``person``; their answer goes with it."""
     with transaction.atomic():
         service_date = _open_date(service_date, today)
-        deleted, _ = Assignment.objects.filter(service_date=service_date, person=person).delete()
+        deleted = _delete_assignments(Assignment.objects.filter(service_date=service_date, person=person))
         if deleted:
             team = service_date.team
             record_church(team.church, actor, "equipo_asignacion", f"Quitó a {person.full_name} de una fecha del equipo {team.name}",
@@ -350,6 +423,10 @@ def respond(assignment: Assignment, accepted: bool, actor, today=None) -> Assign
             raise ServingError(TOO_LATE, code="too_late")
         assignment.status, assignment.responded_at = wanted, timezone.now()
         assignment.save(update_fields=["status", "responded_at"])
+        if not accepted:  # who said no has no date to hand over: a request they made ends here
+            SwapRequest.objects.filter(assignment=assignment, status__in=SwapRequest.OPEN).update(
+                status=SwapRequest.Status.CANCELLED, decided_at=assignment.responded_at
+            )
         person = assignment.person
         words = "confirmó" if accepted else "dijo que no puede en"
         record_church(team.church, actor, "equipo_respuesta", f"{person.full_name} {words} una fecha del equipo {team.name}",

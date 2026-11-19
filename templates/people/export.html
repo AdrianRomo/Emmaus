@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block page_title %}{% if wait %}Error: {% endif %}Descargar la lista de personas{% endblock %}
+{% block content %}
+{% comment %}
+  "Descargar la lista" (people.data_views.people_export): what the file holds and what it never holds, said before
+  the download. The POST answers with the CSV; the page stays as it is.
+{% endcomment %}
+<div class="narrow">
+  {% url 'people:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Descargar la lista de personas" lede="Un archivo CSV para abrir en tu hoja de cálculo, con las personas de tu iglesia." back_url=back back_label="Volver a Personas" %}
+  {% if wait %}<div class="notice notice--warning" role="alert"><p><strong>No se descargó nada.</strong> {{ wait }}</p></div>{% endif %}
+
+  <section class="block" aria-labelledby="contiene">
+    <h2 id="contiene" class="heading">Qué trae el archivo</h2>
+    <div class="prose">
+      <p>{% if total == 1 %}Una fila: la de la única persona registrada{% else %}Una fila por cada una de las {{ total }} personas{% endif %}, con estas columnas: {{ columns|join:", " }}.</p>
+      <p>No trae respuestas de cuestionarios ni notas de eventos, seguimientos, asistencia, lecturas ni autorizaciones de tutores. Las personas menores de edad salen con las mismas columnas que las demás.</p>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="cuidado">
+    <h2 id="cuidado" class="heading">Antes de descargar</h2>
+    <div class="prose">
+      <p>El archivo queda en tu dispositivo, fuera de Emmaus: desde ahí Emmaus ya no puede cuidarlo. Guárdalo donde solo lo vea la administración y bórralo cuando ya no lo necesites.</p>
+      <p>Queda registrado que lo descargaste y cuántas filas tenía.</p>
+    </div>
+    <form method="post">
+      {% csrf_token %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit"{% if not total %} disabled{% endif %}>Descargar el archivo</button>
+        <a class="btn btn--link" href="{{ back }}">Volver sin descargar</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

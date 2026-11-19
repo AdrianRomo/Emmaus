@@ -2,7 +2,7 @@
 {% block page_title %}No tienes acceso{% endblock %}
 {% block content %}
 <div class="narrow">
-  {% include "events/rotulo/_page_head.html" with title="No tienes acceso a esta página" lede="Tu cuenta no tiene permiso para ver esta información. Si crees que es un error, pide a la administración del evento que te dé acceso." %}
+  {% comment %}A church that uses the community module has pages of the church and pages of its events: the sentence names both. With the module off the page is what it always was (the camp's).{% endcomment %}{% if community_on %}{% include "events/rotulo/_page_head.html" with title="No tienes acceso a esta página" lede="Tu cuenta no tiene permiso para ver esta información. Si crees que es un error, pide a la administración de tu iglesia o del evento que te dé acceso." %}{% else %}{% include "events/rotulo/_page_head.html" with title="No tienes acceso a esta página" lede="Tu cuenta no tiene permiso para ver esta información. Si crees que es un error, pide a la administración del evento que te dé acceso." %}{% endif %}
   <p><a class="btn btn--primary" href="{% url 'dashboard' %}">Volver a mi inicio</a></p>
 </div>
 {% endblock %}

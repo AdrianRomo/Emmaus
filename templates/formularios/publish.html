@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Revisar y publicar{% endblock %}
+{% block content %}
+{% comment %}
+  The preview before publishing (formularios.views.publish): the form as people will read it, then one button whose
+  token covers everything stated here. The fields of the preview are inside a fieldset that is disabled: nothing is sent.
+{% endcomment %}
+<div class="narrow forms">
+  {% url 'formularios:detail' form_row.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="Revisar y publicar" lede="Así lo verá quien responda." back_url=back back_label="Volver al formulario" %}
+  {% if stale %}<div class="notice notice--warning" role="alert"><p>El formulario cambió después de que abriste esta página, así que no se publicó. Revísalo otra vez como quedó.</p></div>{% endif %}
+  <dl class="summary-list">
+    <div class="summary-list__row"><dt>Quién responde</dt><dd>{{ form_row.get_audience_display }}</dd></div>
+    <div class="summary-list__row"><dt>Cuándo</dt><dd>Del {{ form_row.opens_on|long_date }} al {{ form_row.closes_on|long_date }}</dd></div>
+    <div class="summary-list__row"><dt>Respuestas</dt><dd>Se guardan {{ form_row.get_retention_days_display|lower }} después del cierre{% if form_row.creates_task %}; cada una deja un pendiente «Dar seguimiento»{% endif %}.</dd></div>
+  </dl>
+
+  <section class="block forms__preview" aria-labelledby="vista">
+    <h2 id="vista" class="heading">{{ form_row.title }}</h2>
+    {% include "formularios/_purpose.html" with purpose=form_row.purpose church_name=form_row.church.name %}
+    <fieldset disabled>
+      <legend class="visually-hidden">Vista previa de las preguntas: aquí no se envía nada</legend>
+      {% include "formularios/_questions.html" %}
+    </fieldset>
+  </section>
+
+  {% if problems %}
+    <div class="notice notice--warning"><p>Todavía no se puede publicar:</p><ul class="forms__problems">{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul></div>
+    <div class="step__actions"><a class="btn btn--secondary" href="{{ back }}">Volver al formulario</a></div>
+  {% else %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="visto" value="{{ token }}">
+      {% if republish %}<p>Al publicar, quien responda verá estas preguntas. Las respuestas que ya llegaron se quedan con la versión que respondieron.</p>{% endif %}
+      <div class="step__actions">
+        <button class="btn btn--primary" type="submit">Publicar así</button>
+        <a class="btn btn--link" href="{{ back }}">Todavía no</a>
+      </div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

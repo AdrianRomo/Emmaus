@@ -2,7 +2,7 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if team %}Editar el equipo {{ team.name }}{% else %}Crear un equipo{% endif %}{% endblock %}
 {% block content %}
 {% comment %}The name of a team and what it does (serving.views.team_create and team_edit). People are added afterwards, on the team's page.{% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if team %}
     {% url 'serving:team' team.pk as back %}

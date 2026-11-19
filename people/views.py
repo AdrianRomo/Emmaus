@@ -1,9 +1,13 @@
 """The church's people, for its administration: who they are, which campero they were, and their account.
 
 Every view: the ``people`` module on for the current church (404 otherwise), then church ``manage``
-(``core.authz.has_scope``; 403 otherwise). Every person is fetched inside ``request.church``: an id
-of another church is a 404. Camperos are read only through ``events.access.resolve_access``, the
-camp's own chokepoint, and only their name, age and sede are shown here: never an answer.
+(``core.authz.has_scope``). Somebody who may not manage gets 403 on the screens whose address names
+no row (the list, "Registrar", the duplicate review, tags, export, import), and 404 on EVERY address
+that names one (a person, a merge, a dismissed pair, a tag, an import, an event, a link), whether
+the row exists or not: nothing about the church's rows can be told apart. For the administration
+every row is fetched inside ``request.church``: an id of another church is a 404. Camperos are read
+only through ``events.access.resolve_access``, the camp's own chokepoint, and only their name, age
+and sede are shown here: never an answer.
 """
 
 from functools import wraps
@@ -35,7 +39,12 @@ def church_admin_required(view_func):
     @wraps(view_func)
     def wrapped(request, *args, **kwargs):
         if not has_scope(request.user, request.church, "church", request.church.pk, Action.MANAGE):
-            raise PermissionDenied
+            if kwargs:
+                # The address names a row (a person, a merge, a dismissed pair, a tag, an import, an event, a link).
+                # Somebody who may not manage gets ONE answer whether it exists or not, in this church or another:
+                # a 403 for the rows that exist would let any member count the church's people and merges.
+                raise Http404
+            raise PermissionDenied  # a screen with no row in its address: that the directory exists is no secret
         return view_func(request, *args, **kwargs)
 
     return wrapped
@@ -55,13 +64,36 @@ def _name_filter(queryset, query: str, field: str = "normalized_name"):
     return queryset
 
 
+NO_STAGE = "sin-anotar"  # the list's filter for "nobody has said"
+
+
 @church_admin_required
 def person_list(request):
+    """The people of the church, searched by name and filtered by stage and by tag. Stage and tags are the
+    administration's own labels: this screen and the person's page (both behind church administration) and the
+    export are the only places that read them."""
+    from .tags import church_tags
+
     query = request.GET.get("q", "").strip()
     people = _name_filter(_people(request.church), query) if query else _people(request.church)
-    # The search runs over the whole church before the list is cut in pages, and "?q=" travels in each page's link.
+    stage = request.GET.get("etapa", "")
+    if stage in Person.Stage.values:
+        people = people.filter(stage=stage)
+    elif stage == NO_STAGE:
+        people = people.filter(stage="")
+    else:
+        stage = ""
+    tags = list(church_tags(request.church))
+    chosen = request.GET.get("etiqueta", "")
+    tag = next((tag for tag in tags if str(tag.pk) == chosen), None)  # a tag of another church is no filter at all
+    if tag is not None:
+        people = people.filter(tag_links__tag=tag)
+    # The search runs over the whole church before the list is cut in pages, and the filters travel in each page's link.
     page = paginate(request, people.select_related("user").order_by("first_name", "last_name", "id"))
-    return render(request, "people/person_list.html", {"page": page, "query": query, "total": _people(request.church).count()})
+    return render(request, "people/person_list.html", {
+        "page": page, "query": query, "total": _people(request.church).count(), "filtered": bool(query or stage or tag),
+        "stages": Person.Stage.choices, "stage": stage, "no_stage": NO_STAGE, "tags": tags, "tag": tag,
+    })
 
 
 @church_admin_required
@@ -106,8 +138,37 @@ def person_detail(request, person_id: int):
             "memberships": memberships,
             "needs_guardian": person.user_id is None and services.was_minor_at_an_event(person),
             "can_get_link": _can_issue_activation_link(person),
+            "stages": Person.Stage.choices,
+            "tags": _tag_rows(person),
         },
     )
+
+
+@church_admin_required
+@require_POST
+def person_stage(request, person_id: int):
+    """"Etapa": the administration's own label for where a person stands. One select, its own POST."""
+    person = _person(request, person_id)
+    try:
+        services.set_stage(request.church, person.pk, request.POST.get("etapa", ""), request.user, seen=request.POST.get("antes", ""))
+    except services.StaleStage:
+        messages.error(request, "Alguien más cambió la etapa mientras la veías. No cambiamos nada: revisa cómo quedó.")
+    except services.PeopleError as error:
+        messages.error(request, error.message)
+        if error.code == "merged":
+            return redirect("people:list")
+    else:
+        messages.success(request, "Guardamos la etapa.")
+    return redirect("people:detail", person.pk)
+
+
+def _tag_rows(person: Person) -> dict:
+    """The church's tags with the ones this person carries marked, and those ids as the page's "seen" value."""
+    from .tags import church_tags
+
+    mine = set(person.tag_links.values_list("tag_id", flat=True))
+    rows = [{"tag": tag, "set": tag.pk in mine} for tag in church_tags(person.church)]
+    return {"rows": rows, "seen": ",".join(str(pk) for pk in sorted(mine))}
 
 
 def _can_issue_activation_link(person: Person) -> bool:

@@ -12,7 +12,7 @@ mixes tenants. This command finds them so drift is visible (roadmap P1-12, audit
   ``--ids`` adds one query for each check that found something.
 * The camp's tables come first (``camp_checks``), then the church modules added after the camp
   (``community_checks``): people, groups, notices, events of the church, resources, serving, care,
-  opinions, the public home, the bookings of a room and the roles by scope. ``policies.ChurchPolicy``,
+  opinions, the public home, the bookings of a room, the roles by scope and the answers to the general forms. ``policies.ChurchPolicy``,
   ``sitio.PublicHome``, ``sitio.ServiceTime`` and ``espacios.Space`` hold one church and nothing
   else: there is nothing in them that could cross.
 * Each check also reports how many rows it read: a zero next to zero rows read is not an all-clear.
@@ -37,11 +37,13 @@ from core.models import UserChurchRole
 from espacios.models import Booking
 from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp, Interview, ReportSnapshot
 from feedback.models import FeedbackGiven
+from formularios.models import Submission as FormSubmission
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
-from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
+from oracion.models import PrayerRequest
+from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge, PersonTag
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
-from serving.models import Assignment, Team, TeamMembership
+from serving.models import Assignment, PlanItem, RoleNeed, RotationEntry, SwapRequest, Team, TeamMembership
 from sitio.models import PublicMedia
 
 ERROR = "error"
@@ -101,6 +103,10 @@ def community_checks() -> tuple[Check, ...]:
               ~Q(survivor__church=F("church")) | ~Q(absorbed__church=F("church"))),
         Check("duplicate_dismissal_church", "Pares descartados como duplicado con una persona de otra iglesia",
               DuplicateDismissal, None, ~Q(person_a__church=F("church")) | ~Q(person_b__church=F("church"))),
+        Check("person_tag_church", "Personas con una etiqueta de otra iglesia", PersonTag, None,
+              ~Q(tag__church=F("person__church"))),
+        Check("person_import_church", "Personas creadas por una importación de otra iglesia", Person,
+              Q(imported_in__isnull=False), ~Q(imported_in__church=F("church"))),
         # A record that was merged away is hidden: nothing live may point at it. A writer that read the person
         # before the merge and wrote after it is the only way to get one; the merge itself leaves none.
         Check("merged_person_group_membership", "Integrantes activos de un grupo que son un registro ya unido a otro",
@@ -150,6 +156,20 @@ def community_checks() -> tuple[Check, ...]:
               ~Q(person__church=F("team__church"))),
         Check("assignment_person_church", "Fechas de servicio en un equipo de otra iglesia", Assignment, None,
               ~Q(person__church=F("service_date__team__church"))),
+        # serving, wave 10: a role is of one team, and so is the date it is named on; who rotates, who is asked to
+        # take a date and who is in charge of a moment are people of the team's church
+        Check("assignment_role_team", "Fechas de servicio con el rol de otro equipo", Assignment, Q(role__isnull=False),
+              ~Q(role__team=F("service_date__team"))),
+        Check("role_need_role_team", "Fechas que piden personas de un rol de otro equipo", RoleNeed, None,
+              ~Q(role__team=F("service_date__team"))),
+        Check("rotation_entry_person_church", "Lugares en una rotación de una persona de otra iglesia", RotationEntry, None,
+              ~Q(person__church=F("role__team__church"))),
+        Check("swap_request_from_person_church", "Cambios de fecha que pidió una persona de otra iglesia", SwapRequest, None,
+              ~Q(from_person__church=F("assignment__service_date__team__church"))),
+        Check("swap_request_to_person_church", "Cambios de fecha pedidos a una persona de otra iglesia", SwapRequest, None,
+              ~Q(to_person__church=F("assignment__service_date__team__church"))),
+        Check("plan_item_responsible_church", "Momentos del orden de una fecha a cargo de una persona de otra iglesia", PlanItem,
+              Q(responsible__isnull=False), ~Q(responsible__church=F("service_date__team__church"))),
         # care
         Check("care_follow_up_person_church", "Acompañamientos de una persona de otra iglesia", CareFollowUp, None,
               ~Q(person__church=F("church"))),
@@ -165,6 +185,14 @@ def community_checks() -> tuple[Check, ...]:
         # roles by scope
         Check("role_assignment_scope_church", "Roles por ámbito que apuntan fuera de su iglesia", RoleAssignment, None,
               scope_elsewhere),
+        # general forms: the church is the form's; who answered and the version answered must be of the same form
+        Check("form_submission_person_church", "Respuestas a un formulario de una persona de otra iglesia", FormSubmission,
+              Q(person__isnull=False), ~Q(person__church=F("form__church"))),
+        Check("form_submission_version_form", "Respuestas a un formulario con la versión de otro formulario", FormSubmission, None,
+              ~Q(version__form=F("form"))),
+        # prayer requests: the writer must be of the church whose pastors read it (the size of the table is never printed)
+        Check("prayer_request_person_church", "Peticiones de oración de una persona de otra iglesia", PrayerRequest, None,
+              ~Q(person__church=F("church"))),
     )
 
 
@@ -222,6 +250,7 @@ def collect(with_ids: bool = False) -> list[Result]:
 
 
 PRIVATE_SIZES = frozenset({"devotional_read_person_church", "reading_plan_progress_person_church", "reading_plan_day_read_plan"})
+PRIVATE_SIZES = PRIVATE_SIZES | {"prayer_request_person_church"}
 
 
 class Command(BaseCommand):

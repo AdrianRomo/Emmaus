@@ -291,8 +291,8 @@ class HomeModulesTests(CommunityFixture):
         self.assertRegex(nav, r'Seguimiento de personas</span><span class="badge">1<span')
         self.assertEqual(care.unassigned_count(self.church), 2)
         own_page = self.client.get(reverse("people:detail", args=[self.admin_person.pk]))
-        self.assertNotContains(own_page, "Pedir que alguien la acompañe")
-        self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "Pedir que alguien la acompañe")
+        self.assertNotContains(own_page, "Pedir que alguien acompañe a esta persona")
+        self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "Pedir que alguien acompañe a esta persona")
 
 
 class IconTests(TestCase):

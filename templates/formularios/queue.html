@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Pendientes{% endblock %}
+{% block content %}
+{% comment %}
+  «Pendientes» (formularios.views.pending, formularios.queue): what waits for this person, from the places they
+  already work in. Read-only: each row says what kind of thing it is, when, and leads to the screen where it is done.
+  It never shows who a follow-up is about, why, what a booking is for or what somebody answered.
+{% endcomment %}
+<div class="narrow forms">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Pendientes" lede="Lo que espera por ti en tu iglesia, en una sola lista." back_url=back back_label="Volver a Mi iglesia" %}
+  {% if rows %}
+    <ul class="rows">
+      {% for row in rows %}
+        <li class="row row--stack{% if row.overdue %} row--attention{% endif %}">
+          <div class="row__main">
+            <p class="row__title"><a href="{{ row.url }}">{{ row.title }}</a></p>
+            <p class="row__meta">{{ row.kind }}.{% if row.due_on %} Para el {{ row.due_on|weekday_date }}.{% if row.overdue %} Ya pasó la fecha.{% endif %}{% endif %}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Esta lista solo reúne lo que ya puedes ver en cada parte de Emmaus. Aquí no se cambia nada: cada pendiente se atiende en su propia pantalla.</p>
+  {% else %}
+    <p class="empty-line">No hay nada esperando por ti. Cuando te asignen un seguimiento, una solicitud o una respuesta de un formulario, aparece aquí.</p>
+  {% endif %}
+</div>
+{% endblock %}

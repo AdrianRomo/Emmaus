@@ -7,8 +7,10 @@
   people and names who coordinates. First the dates that are coming, each with who was asked and what they
   answered; then who is in the team. Contact data is shown, and can be tapped, because each person is in the team.
   A person who only serves never reaches this page.
+  Wave 10: what each date still needs of each role, the swaps between two people of the team (to approve when the
+  team asks for it, and the ones that happened), and the way into roles, rotation, reminders and the order of a date.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow serving">
   <a class="back-link" href="{% url 'serving:home' %}">Volver a Servir</a>
   <div class="group-head">
     {% monogram team.name "lg" %}
@@ -30,12 +32,14 @@
             <div class="row__main">
               <p class="row__title">{% if team.is_active %}<a href="{% url 'serving:date_detail' day.pk %}">{{ day.what }}</a>{% else %}{{ day.what }}{% endif %}</p>
               <p class="row__meta">{{ day.date|weekday_date|capfirst }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+              {% for need in day.role_needs %}<p class="row__meta">{{ need.role.name }}: {% if need.missing %}{% status "por_evaluar" "falta" %}{% if need.missing == 1 %} 1 persona{% else %} {{ need.missing }} personas{% endif %} de {{ need.needed }}{% else %}{% status "completada" "completo" %} ({{ need.filled }} de {{ need.needed }}){% endif %}.</p>{% endfor %}
               {% if day.people %}
                 <p class="row__meta">{{ day.confirmed }} de {{ day.people|length }} confirmaron.</p>
-                {% for row in day.people %}<p class="row__meta">{{ row.person.full_name }}: {% if row.status == "aceptada" %}{% status "completada" "Confirmó" %}{% elif row.status == "declinada" %}{% status "descartada" "No puede" %}{% else %}{% status "por_evaluar" "Por confirmar" %}{% endif %}</p>{% endfor %}
+                {% for row in day.people %}<p class="row__meta">{{ row.person.full_name }}{% if row.role %} ({{ row.role.name }}){% endif %}: {% if row.status == "aceptada" %}{% status "completada" "Confirmó" %}{% elif row.status == "declinada" %}{% status "descartada" "No puede" %}{% else %}{% status "por_evaluar" "Por confirmar" %}{% endif %}{% if row.unfit %} <strong>Ya no puede cubrir este rol.</strong>{% endif %}</p>{% endfor %}
               {% else %}
                 <p class="row__meta">Todavía no le pides a nadie servir ese día.</p>
               {% endif %}
+              {% if team.is_active %}<p class="row__meta row__links"><a href="{% url 'serving:plan' day.pk %}">Orden del día<span class="visually-hidden"> del {{ day.date|weekday_date }}</span></a></p>{% endif %}
             </div>
           </li>
         {% endfor %}
@@ -44,9 +48,37 @@
       <p class="empty-line">Todavía no hay fechas. Agrega la primera y elige quién sirve ese día: cada persona la verá en «Tus fechas» y te dirá si puede.</p>
     {% endif %}
     {% if team.is_active %}
-      <div class="step__actions"><a class="btn btn--primary" href="{% url 'serving:date_create' team.pk %}">Agregar una fecha</a></div>
+      <div class="step__actions">
+        <a class="btn btn--primary" href="{% url 'serving:date_create' team.pk %}">Agregar una fecha</a>
+        <a class="btn btn--secondary" href="{% url 'serving:rotation' team.pk %}">Proponer con la rotación</a>
+        <a class="btn btn--link" href="{% url 'serving:organize' team.pk %}">Roles, rotación y recordatorios</a>
+      </div>
     {% endif %}
   </section>
+
+  {% if swaps %}
+  <section class="block" aria-labelledby="cambios">
+    <h2 id="cambios" class="heading">Cambios de fecha</h2>
+    <ul class="rows">
+      {% for swap in swaps %}{% with day=swap.assignment.service_date %}
+        <li class="row row--stack{% if swap.status == "por_aprobar" %} row--attention{% endif %}">
+          <div class="row__main">
+            <p class="row__title">{{ swap.from_person.full_name }} → {{ swap.to_person.full_name }}</p>
+            <p class="row__meta">{{ day.what }}, {{ day.date|weekday_date }}{% if swap.assignment.role %} ({{ swap.assignment.role.name }}){% endif %}. {% if swap.status == "hecha" %}{% status "completada" "Hecho" %}: la fecha ya es de {{ swap.to_person.first_name }}.{% elif swap.status == "por_aprobar" %}{% status "por_evaluar" "Espera tu visto bueno" %}: {{ swap.to_person.first_name }} ya aceptó.{% else %}{% status "por_evaluar" "Espera respuesta" %} de {{ swap.to_person.first_name }}.{% endif %}</p>
+          </div>
+          {% if swap.status == "por_aprobar" %}
+            <form class="row__end" method="post" action="{% url 'serving:swap_decide' swap.pk %}">
+              {% csrf_token %}
+              <button class="btn btn--secondary btn--small" type="submit" name="decision" value="rechazar">No<span class="visually-hidden">: que la fecha siga con {{ swap.from_person.full_name }}</span></button>
+              <button class="btn btn--primary btn--small" type="submit" name="decision" value="aprobar">Dar el visto bueno<span class="visually-hidden"> al cambio de {{ swap.from_person.full_name }} a {{ swap.to_person.full_name }}</span></button>
+            </form>
+          {% endif %}
+        </li>
+      {% endwith %}{% endfor %}
+    </ul>
+    <p class="aside-note">Aquí ves los cambios que esperan y los de los últimos 30 días. Solo los ven las dos personas y quien coordina.</p>
+  </section>
+  {% endif %}
 
   <section class="block" aria-labelledby="integrantes">
     <h2 id="integrantes" class="heading">En el equipo</h2>

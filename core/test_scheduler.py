@@ -123,7 +123,11 @@ class SchedulerPassTests(CommunityFixture):
             r"^\d{4}-\d\d-\d\d \d\d:\d\d · cortes: 0 nuevos, 0 ya existían, 0 con error · entrevistas liberadas: 0 · "
             r"capturas vencidas: 0 · contadores borrados: 0 · solicitudes antiguas borradas: 0 · "
             r"correos de avisos: 0 enviados, 0 fallidos, 0 pendientes · lista de espera: 0 lugares liberados, 0 ofrecidos · "
-            r"series: 0 fechas nuevas · uniones de personas: 0 con datos anteriores borrados$",
+            r"series: 0 fechas nuevas · uniones de personas: 0 con datos anteriores borrados · "
+            r"formularios: 0 respuestas vencidas borradas · "
+            r"suscripciones de eventos: 0 direcciones borradas, 0 correos enviados, 0 fallidos, 0 pendientes · "
+            r"recordatorios de servir: 0 enviados, 0 fallidos · "
+            r"peticiones de oración: 0 vencidas borradas$",
         )
         lines = [json.loads(record.getMessage()) for record in logs.records]
         self.assertEqual([line["job"] for line in lines], list(scheduler.JOBS))
@@ -207,8 +211,8 @@ class SchedulerPassTests(CommunityFixture):
         self.assertIn(CUTOFFS_LINE, printed)
         self.assertIn("correos de avisos: 1 enviados, 0 fallidos, 0 pendientes · lista de espera: 0 lugares liberados", printed)
         self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True, True, True, True, True])
-        self.assertEqual(len(plain.records), 10)  # each write, by its class name only
+        self.assertEqual([json.loads(record.getMessage())["ok"] for record in lines.records], [True] * 9)
+        self.assertEqual(len(plain.records), 18)  # each write, by its class name only
         self.assertTrue(all("OperationalError" in line and "no such table" not in line for line in plain.output))
         self.assertFalse(SchedulerHeartbeat.objects.exists())
 
@@ -237,23 +241,104 @@ class SchedulerPassTests(CommunityFixture):
         self.assertIn("lista de espera: error", printed)
         self.assertEqual(self.heartbeat(scheduler.CUTOFFS).last_error, "")
 
-    def test_the_switch_leaves_the_cutoffs_pass_as_it_was(self):
+    def expired_rows(self) -> dict:
+        """One row of each kind the product promised to delete, past its time; and one of each that is not."""
+        from agenda.models import EventSubscription
+        from formularios.models import Form, FormVersion, Submission
+        from oracion.models import PrayerRequest
+        from people.models import PersonMerge
+
+        now, today = timezone.now(), timezone.localdate()
+        prayer = PrayerRequest.objects.create(
+            church=self.church, person=self.asked, author=self.asked_user, body="x", expires_at=now - timedelta(minutes=1)
+        )
+        kept_prayer = PrayerRequest.objects.create(
+            church=self.church, person=self.leader, author=self.leader_user, body="x", expires_at=now + timedelta(days=5)
+        )
+        Event.objects.filter(pk=self.event.pk).update(starts_on=today + timedelta(days=5), ends_on=today + timedelta(days=6))
+        Event.objects.filter(pk=self.event_b.pk).update(starts_on=today - timedelta(days=21), ends_on=today - timedelta(days=20))
+        unconfirmed = EventSubscription.objects.create(
+            event=self.event, email="uno@demo.invalid", email_hash="a", key="a", created_at=now - timedelta(hours=49),
+            confirm_attempts=1, confirm_last_attempt_at=now - timedelta(hours=49),  # the 48 hours count from the sending
+        )
+        ended = EventSubscription.objects.create(event=self.event_b, email="dos@demo.invalid", email_hash="b", key="b", confirmed_at=now)
+        kept_address = EventSubscription.objects.create(event=self.event, email="tres@demo.invalid", email_hash="c", key="c", confirmed_at=now)
+        form = Form.objects.create(
+            church=self.church, title="Encuesta", purpose="Saber", status=Form.Status.PUBLISHED, retention_days=30,
+            opens_on=today - timedelta(days=60), closes_on=today - timedelta(days=40),
+        )
+        version = FormVersion.objects.create(form=form, number=1, title="Encuesta", purpose="Saber")
+        answer = Submission.objects.create(form=form, version=version, person=self.asked, purpose_shown="Saber")
+        merged = PersonMerge.objects.create(
+            church=self.church, survivor=self.leader, absorbed=self.no_account, manifest={"survivor_before": {"phone": "55 0000 0000"}},
+            merged_at=now - timedelta(days=31),
+        )
+        return {"gone": [prayer, unconfirmed, ended, answer], "kept": [kept_prayer, kept_address], "merge": merged}
+
+    def test_the_switches_stop_what_acts_for_a_church_and_never_what_only_deletes(self):
+        """``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` and ``EMMAUS_V2_MODULES=false``: nothing is sent, generated
+        or moved, and every kind of row past its promised time is still deleted, through the command."""
+        from people.models import PersonMerge
+
+        email.set_preference(self.member, EmailPreference.Choice.ALL)
+        services.publish(self.church, self.admin, title="Retiro", body="Texto")
+        mail.outbox.clear()
+        deleting = list(scheduler.DELETING_JOBS)
         for off in ({"EMMAUS_SCHEDULED_COMMUNITY_JOBS": False}, {"EMMAUS_V2_MODULES": False}):
             SchedulerHeartbeat.objects.all().delete()
             frozen = mock.patch("django.utils.timezone.now", return_value=timezone.now())  # both lines carry the minute
             with self.subTest(off=off), self.settings(**off), frozen:
+                rows = self.expired_rows()
                 before = StringIO()
                 call_command("run_report_cutoffs", stdout=before)
-                with mock.patch("notices.email.send_due") as send, mock.patch("agenda.services.expire_offers") as expire:
+                acting = ("notices.email.send_due", "agenda.services.expire_offers", "agenda.series.generate_due",
+                          "agenda.subscriptions.send_due", "agenda.subscriptions.run_pass", "serving.reminders.send_due")
+                with mock.patch(acting[0]) as a, mock.patch(acting[1]) as b, mock.patch(acting[2]) as c, \
+                        mock.patch(acting[3]) as d, mock.patch(acting[4]) as e, mock.patch(acting[5]) as f, \
+                        self.assertLogs("emmaus.scheduler", "INFO") as logs:
                     printed = self.run_pass()
-                self.assertEqual(printed, before.getvalue())
-                send.assert_not_called()
-                expire.assert_not_called()
-                self.assertEqual(list(SchedulerHeartbeat.objects.values_list("job", flat=True)), [scheduler.CUTOFFS])
+                for acted in (a, b, c, d, e, f):
+                    acted.assert_not_called()
+                self.assertEqual(mail.outbox, [])
+                self.assertEqual(self.code, 0)
+                # The cutoffs' own line, then the four counts of what was deleted. Numbers only.
+                self.assertEqual(
+                    printed.splitlines()[0],
+                    before.getvalue().splitlines()[0] + " · uniones de personas: 1 con datos anteriores borrados · "
+                    "formularios: 1 respuestas vencidas borradas · suscripciones de eventos: 2 direcciones borradas, "
+                    "sin correos (los trabajos de comunidad están apagados) · peticiones de oración: 1 vencidas borradas",
+                )
+                for row in rows["gone"]:
+                    self.assertFalse(type(row).objects.filter(pk=row.pk).exists(), type(row).__name__)
+                for row in rows["kept"]:
+                    self.assertTrue(type(row).objects.filter(pk=row.pk).exists(), type(row).__name__)
+                self.assertEqual(PersonMerge.objects.get(pk=rows["merge"].pk).manifest["survivor_before"], {})
+                self.assertEqual([json.loads(record.getMessage())["job"] for record in logs.records], [scheduler.CUTOFFS, *deleting])
+                self.assertEqual(
+                    sorted(SchedulerHeartbeat.objects.values_list("job", flat=True)), sorted([scheduler.CUTOFFS, *deleting])
+                )
                 out = StringIO()
-                call_command("scheduler_status", stdout=out)  # a job switched off is not a missed run
-                self.assertIn("avisos_correo: apagado", out.getvalue())
-                self.assertIn("lista_espera: apagado", out.getvalue())
+                call_command("scheduler_status", stdout=out)  # a job switched off is not a missed run; a deletion is never off
+                status = out.getvalue()
+                for job in (scheduler.NOTICE_MAIL, scheduler.WAITING_OFFERS, scheduler.SERIES, scheduler.SERVING_REMINDERS):
+                    self.assertIn(f"{job}: apagado", status)
+                    self.assertEqual(scheduler.skipped(job), scheduler.OFF)
+                for job in deleting:
+                    self.assertIn(f"{job}: bien", status)
+                    self.assertEqual(scheduler.skipped(job), "")
+                for row in rows["kept"]:
+                    row.delete()
+                rows["merge"].delete()
+
+    def test_a_deletion_that_breaks_with_the_switch_off_fails_the_pass_and_stops_no_other(self):
+        with self.settings(EMMAUS_SCHEDULED_COMMUNITY_JOBS=False), mock.patch("oracion.services.prune", side_effect=ValueError("secreto")), \
+                self.assertLogs("core.scheduler", "ERROR") as plain, self.assertLogs("emmaus.scheduler"):
+            printed = self.run_pass()
+        self.assertEqual(self.code, 1)
+        self.assertIn("formularios: 0 respuestas vencidas borradas", printed)
+        self.assertIn("peticiones de oración: error", printed)
+        self.assertNotIn("secreto", printed + "".join(plain.output))
+        self.assertEqual(self.heartbeat(scheduler.PRAYER_RETENTION).last_error, "ValueError")
 
     def test_the_manual_command_uses_the_setting_when_no_address_is_typed(self):
         email.set_preference(self.member, EmailPreference.Choice.ALL)
@@ -285,7 +370,7 @@ class SchedulerStatusTests(CommunityFixture):
         code, printed, error = self.status()
         self.assertEqual(code, 1)
         self.assertEqual(printed.splitlines(), [f"{job}: SIN CORRER · nunca ha terminado bien" for job in scheduler.JOBS])
-        self.assertIn("5 de 5 trabajos programados", error)
+        self.assertIn("9 de 9 trabajos programados", error)
 
     def test_it_is_fine_after_a_pass_and_late_after_the_threshold(self):
         call_command("run_scheduled_jobs", stdout=StringIO())
@@ -316,7 +401,8 @@ class SchedulerStatusTests(CommunityFixture):
         self.assertIn("lista_espera: bien", printed)
         self.assertIn("series_eventos: bien", printed)
         self.assertIn("uniones_personas: bien", printed)
-        self.assertIn("1 de 5", error)
+        self.assertIn("suscripciones_evento: bien", printed)
+        self.assertIn("1 de 9", error)
         self.assertNotIn("secreto", printed + error)
 
     def test_notice_mail_that_is_not_set_up_is_said_and_is_not_a_missed_run(self):

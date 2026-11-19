@@ -1,0 +1,12 @@
+{% autoescape off %}Hola:
+
+Hay un aviso nuevo de «{{ event_name }}», de {{ church_name }}. Léelo aquí, sin cuenta:
+
+{{ link }}
+
+Este correo no incluye el texto del aviso. Lo recibes porque confirmaste esta dirección para los avisos de este evento.
+
+Para dejar de recibirlos y que se borre tu dirección:
+
+{{ unsubscribe_link }}
+{% endautoescape %}

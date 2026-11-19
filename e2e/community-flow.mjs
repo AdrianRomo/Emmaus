@@ -621,9 +621,15 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   expect(await found() === "Renata Ibarra|Renata Ibarra Solís", `after the undo both are back: ${await found()}`);
   await admin.ctx.close();
   const member = await session("valeria.soto@demo.invalid", PHONE);
-  for (const path of ["/mi-iglesia/personas/duplicados/", "/mi-iglesia/personas/duplicados/5/6/", "/mi-iglesia/recursos/aprobaciones/"]) {
+  for (const path of ["/mi-iglesia/personas/duplicados/", "/mi-iglesia/recursos/aprobaciones/"]) {
     const response = await member.page.goto(BASE + path);
     expect(response.status() === 403, `member got ${response.status()} on ${path}`);
+  }
+  // Since wave 10 an address of Personas that names a row answers one 404 to who may not manage, whether the row
+  // exists or not (people.views.church_admin_required): a 403 for real rows would let a member count people and pairs.
+  for (const path of ["/mi-iglesia/personas/duplicados/5/6/", "/mi-iglesia/personas/duplicados/999998/999999/"]) {
+    const response = await member.page.goto(BASE + path);
+    expect(response.status() === 404, `member got ${response.status()} on ${path}`);
   }
   // 10. The church of the request (issue #32): an account of one church is never offered another one. The seed has no
   // account in two churches, so the switcher itself is not walked here.
@@ -633,6 +639,576 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   }
   expect((await member.page.goto(BASE + "/cuenta/iglesia/")).status() === 405, "the address that changes church takes no GET");
   await member.ctx.close();
+}
+
+// Wave 10 (docs/v2/wave10/). As above, each step takes back what it did where a screen allows it. What stays: a closed
+// form with its two answers, an import that was undone (ids and counts), a swap that was accepted, a role that is no
+// longer used, the audit rows. They need the seed's second church, rotation and prayer requests:
+// --dos-iglesias --rotas --oracion (step 13 writes its own form, so --formularios is not needed).
+const go = (target, selector) => Promise.all([target.waitForNavigation(), target.click(selector)]);
+const mainText = async (target) => (await target.locator("main").innerText()).replace(/\s+/g, " ");
+
+// 11. The church of the request, complete (issue #32): the account of two churches changes church from the rail; the
+// second church has its own colours and rail; the discipleship-era screens follow the role held in each church; and a
+// form opened before the change saves nothing after it.
+{
+  const FIRST = "Iglesia de demostración";
+  const SECOND = "Iglesia del Norte (demostración)";
+  const both = await session("dos.iglesias@demo.invalid", DESKTOP);
+  const p = both.page;
+  const rail = () => p.locator(".rail").innerText();
+  const change = (name) => go(p, `.rail form[action='/cuenta/iglesia/'] button:has-text('Cambiar a ${name}')`);
+  const primary = () => p.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--petroleo").trim().toLowerCase());
+  await p.goto(BASE + "/mi-iglesia/");
+  expect((await mainText(p)).includes(`Esto es lo tuyo en ${FIRST}.`), "the account of two churches starts in its first church");
+  expect(await p.locator(".rail a[href='/church/settings/']").count() === 1 && await p.locator(".rail button:has-text('Cambiar a')").count() === 1, "its rail has «Configuración» and one church to change to");
+  await audit(p, "dos-iglesias-primera");
+  await p.setViewportSize(DESKTOP);
+  const firstColour = await primary();
+  expect((await p.goto(BASE + "/church/settings/")).status() === 200 && await p.inputValue("input[name=name]") === FIRST, "the settings open in the first church, with its name");
+  await audit(p, "dos-iglesias-configuracion");
+  await p.setViewportSize(DESKTOP);
+  // A second tab keeps the first church's settings form open while the first tab changes church.
+  const stale = await both.ctx.newPage();
+  await stale.goto(BASE + "/church/settings/");
+  await stale.fill("input[name=name]", "Nombre de prueba que no se guarda");
+  await p.goto(BASE + "/mi-iglesia/");
+  await change(SECOND);
+  expect(new URL(p.url()).pathname === "/mi-iglesia/" && (await mainText(p)).includes(`Esto es lo tuyo en ${SECOND}.`), `changing church lands on the second church's «Mi iglesia», not on ${p.url()}`);
+  expect(await primary() === "#7a3b12" && firstColour !== "#7a3b12", `the second church has its own colour: ${await primary()} after ${firstColour}`);
+  const second = await rail();
+  expect(second.includes("Jóvenes del Norte") && second.includes("Discipulado") && second.includes("Seguimientos"), "its rail has her group and the discipleship section");
+  expect(await p.locator(".rail a[href='/church/settings/']").count() === 0 && !second.includes("Personas") && !second.includes("Jóvenes Roca"), "and nothing of the first church's administration");
+  expect(await p.locator(`.rail button:has-text('Cambiar a ${FIRST}')`).count() === 1, "the way back is offered");
+  await audit(p, "dos-iglesias-segunda");
+  await p.setViewportSize(DESKTOP);
+  const refused = await Promise.all([stale.waitForNavigation(), stale.click("main button:has-text('Guardar cambios')")]).then(([response]) => response);
+  expect(refused.status() === 403 && await stale.getByText("Esta pantalla ya no está al día").count() > 0, `a settings form opened before the change answered ${refused.status()}, not «Esta pantalla ya no está al día»`);
+  await audit(stale, "dos-iglesias-formulario-viejo");
+  await stale.close();
+  await p.goto(BASE + "/mi-iglesia/");
+  expect((await mainText(p)).includes(`Esto es lo tuyo en ${SECOND}.`), "and the second church kept its name");
+  const denied = await p.goto(BASE + "/church/settings/");
+  expect(denied.status() === 403 && (await mainText(p)).includes("pide a la administración de tu iglesia o del evento que te dé acceso"), `the settings of the second church answered ${denied.status()}, not the 403 with the new sentence`);
+  await audit(p, "dos-iglesias-configuracion-403");
+  expect((await p.goto(BASE + "/mentor/")).status() === 200, "the mentor's screen opens in the church where she is a mentor");
+  await audit(p, "dos-iglesias-mentora");
+  await p.goto(BASE + "/eventos/?todos=1");
+  expect(await p.getByText("Campamento de Jóvenes 2025").count() === 0 && await p.locator("main a:has-text('Crear evento')").count() === 0, "the event list of the second church has no event of the first and no «Crear evento»");
+  await audit(p, "dos-iglesias-eventos");
+  // On a phone the change of church is in the «Más» panel.
+  await p.setViewportSize(PHONE);
+  await p.goto(BASE + "/mi-iglesia/");
+  await p.locator(".tabs button[data-menu-open]").click();
+  expect(await p.locator(`#menu-panel button:has-text('Cambiar a ${FIRST}')`).isVisible(), "on a phone the «Más» panel offers the other church");
+  await p.screenshot({ path: `${out}/dos-iglesias-segunda-mas-movil.png`, fullPage: true });
+  await p.keyboard.press("Escape");
+  await p.setViewportSize(DESKTOP);
+  await change(FIRST);
+  expect((await mainText(p)).includes(`Esto es lo tuyo en ${FIRST}.`) && await p.locator(".rail a[href='/church/settings/']").count() === 1, "back in the first church «Configuración» is there again");
+  expect((await p.goto(BASE + "/church/settings/")).status() === 200 && await p.inputValue("input[name=name]") === FIRST, "and its name is the one the seed gave it");
+  expect((await p.goto(BASE + "/mentor/")).status() === 403, "the mentor's screen is closed where she is not a mentor");
+  await both.ctx.close();
+}
+
+// 12. People, second slice (issue #91): a tag and a stage, the filtered list, the CSV of the whole church, an import
+// of three rows through its preview and its undo, and the two dates a member may say in «Mis datos».
+{
+  const TAG = "Etiqueta de prueba";
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  const p = admin.page;
+  await p.goto(BASE + "/mi-iglesia/personas/etiquetas/");
+  await audit(p, "admin-etiquetas");
+  await p.fill("input[name=nombre]", TAG);
+  await go(p, "main button:has-text('Crear etiqueta')");
+  expect(await p.getByText(`Creaste la etiqueta «${TAG}».`).count() > 0, "creating a tag is said back");
+  await audit(p, "admin-etiquetas-con-una");
+  await p.goto(BASE + "/mi-iglesia/personas/?q=hugo");
+  await go(p, "a.row__link:has-text('Hugo Paredes Lima')");
+  const hugo = p.url();
+  await p.selectOption("main select[name=etapa]", "visita");
+  await go(p, "main button:has-text('Guardar etapa')");
+  expect(await p.getByText("Guardamos la etapa.").count() > 0, "the stage is saved");
+  await p.check(`main label:has-text('${TAG}') input[name=etiqueta]`);
+  await go(p, "main button:has-text('Guardar etiquetas')");
+  expect(await p.getByText("Guardamos sus etiquetas.").count() > 0, "the tag is saved on the person");
+  await audit(p, "admin-persona-etapa-etiqueta");
+  await p.goto(BASE + "/mi-iglesia/personas/");
+  await p.selectOption("main select[name=etapa]", "visita");
+  await p.selectOption("main select[name=etiqueta]", { label: TAG });
+  await go(p, "main button:has-text('Buscar')");
+  const filtered = (await p.locator("main a.row__link").allInnerTexts()).map((text) => text.trim()).join("|");
+  expect(filtered === "Hugo Paredes Lima" && await p.locator("main").getByText("1 resultado").count() === 1, `the list filtered by stage and tag shows one person: ${filtered}`);
+  await audit(p, "admin-personas-filtradas");
+  // The file: a page first, then a POST that answers the CSV.
+  await p.goto(BASE + "/mi-iglesia/personas/exportar/");
+  await audit(p, "admin-personas-exportar");
+  const file = await p.evaluate(async () => {
+    const token = document.querySelector("main input[name=csrfmiddlewaretoken]").value;
+    const response = await fetch(location.pathname, { method: "POST", body: new URLSearchParams({ csrfmiddlewaretoken: token }) });
+    return { status: response.status, type: response.headers.get("content-type") || "", text: await response.text() };
+  });
+  expect(file.status === 200 && file.type.startsWith("text/csv"), `the export answered ${file.status} ${file.type}`);
+  const exported = file.text.split(/\r?\n/).find((line) => line.includes("Paredes Lima")) || "";
+  expect(file.text.includes("Etapa") && file.text.includes("Etiquetas") && exported.includes("Visita") && exported.includes(TAG), `the file carries the stage and the tag of the person: ${exported}`);
+  // The import: one new person, one e-mail that already exists and one row with an error (a tag nobody created).
+  const csv = [
+    "Nombre,Apellidos,Correo,Teléfono,Fecha de nacimiento,Etapa,Etiquetas",
+    `Persona,Importada de Prueba,importada.prueba@demo.invalid,,,visita,${TAG}`,
+    "Valeria,Soto Marín,valeria.soto@demo.invalid,,,,",
+    "Otra,Fila con Error,otra.fila@demo.invalid,,,,Etiqueta que no existe",
+  ].join("\n") + "\n";
+  await p.goto(BASE + "/mi-iglesia/personas/importar/");
+  await audit(p, "admin-personas-importar");
+  await p.setInputFiles("input[name=file]", { name: "personas-de-prueba.csv", mimeType: "text/csv", buffer: Buffer.from(csv, "utf8") });
+  await go(p, "main button:has-text('Revisar el archivo')");
+  expect(await p.locator("main").getByText("Tu archivo tiene 3 filas con datos").count() === 1, "the preview counts the three rows");
+  expect(await p.locator("section[aria-labelledby=se-registran]").getByText("Persona Importada de Prueba").count() > 0, "the new person is under «Se registran»");
+  expect(await p.locator("section[aria-labelledby=ya-existen]").getByText("Valeria").count() > 0, "the e-mail that exists is under «Ya existen»");
+  expect(await p.locator("section[aria-labelledby=con-errores]").getByText("Otra Fila con Error").count() > 0, "the row with a tag nobody created is under «Filas con errores»");
+  await audit(p, "admin-personas-importar-vista-previa");
+  // The preview is the answer to a POST and is not kept by the browser: the list is read in a second tab.
+  const list = await admin.ctx.newPage();
+  const imported = async () => {
+    await list.goto(BASE + "/mi-iglesia/personas/?q=importada");
+    return list.locator("main a.row__link:has-text('Persona Importada de Prueba')").count();
+  };
+  expect(await imported() === 0, "the preview saved nobody");
+  await go(p, "main button:has-text('Importar 1 persona')");
+  expect(await p.getByText("Registraste a 1 persona desde el archivo.").count() > 0, "the import is said back");
+  const importUrl = p.url();
+  expect(/\/personas\/importaciones\/\d+\/$/.test(importUrl), `the import lands on its own page, not on ${importUrl}`);
+  await audit(p, "admin-importacion");
+  expect(await imported() === 1, "the imported person is in Personas");
+  await p.goto(importUrl);
+  await go(p, "main button:has-text('Deshacer: borrar 1 persona')");
+  expect(await p.getByText("Deshiciste la importación: se borró 1 persona.").count() > 0, "the undo is said back");
+  await audit(p, "admin-importacion-deshecha");
+  expect(await imported() === 0, "after the undo the imported person is gone");
+  // Back to the seed: the tag is deleted while one person carries it (the question says how many), the stage is empty again.
+  await p.goto(BASE + "/mi-iglesia/personas/etiquetas/");
+  await go(p, `main li:has-text('${TAG}') a:has-text('Borrar')`);
+  expect((await mainText(p)).includes("1 persona"), "deleting a tag says how many people carry it");
+  await audit(p, "admin-etiqueta-borrar");
+  await go(p, "main button:has-text('Sí, borrar la etiqueta')");
+  expect(await p.getByText(`Borraste la etiqueta «${TAG}».`).count() > 0, "the tag is deleted");
+  await p.goto(hugo);
+  await p.selectOption("main select[name=etapa]", "");
+  await go(p, "main button:has-text('Guardar etapa')");
+  await p.goto(BASE + "/mi-iglesia/personas/?etapa=visita&q=hugo");
+  expect(await p.locator("main a.row__link").count() === 0, "the person has no stage again");
+  await admin.ctx.close();
+  const member = await session("valeria.soto@demo.invalid", PHONE);
+  await member.page.goto(BASE + "/mi-iglesia/mis-datos/");
+  expect(await member.page.locator("main input[name=baptized_on]").count() === 1 && await member.page.locator("main input[name=arrived_on]").count() === 1, "«Mis datos» asks a member for her two dates");
+  expect(await member.page.locator("main [name=member_since], main [name=stage], main [name=etapa]").count() === 0, "and neither for the membership date nor the stage");
+  await audit(member.page, "miembro-mis-datos-fechas");
+  for (const path of ["/mi-iglesia/personas/importar/", "/mi-iglesia/personas/exportar/", "/mi-iglesia/personas/etiquetas/"]) {
+    const response = await member.page.goto(BASE + path);
+    expect(response.status() === 403, `member got ${response.status()} on ${path}`);
+  }
+  await member.ctx.close();
+}
+
+// 13. General forms and «Pendientes» (issue #92): the administration writes and publishes a public form; somebody
+// without an account answers it; the same contact again leaves no second answer; the task goes to the guide who reads
+// the form, who notes and closes it; a member reads no answer; a closed form's link is a 404.
+{
+  const TITLE = "Formulario de prueba";
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  const p = admin.page;
+  await p.goto(BASE + "/mi-iglesia/formularios/administrar/");
+  await audit(p, "admin-formularios");
+  await go(p, "main a:has-text('Crear un formulario')");
+  await audit(p, "admin-formulario-nuevo");
+  await p.fill("input[name=title]", TITLE);
+  await p.fill("input[name=purpose]", "Para probar los formularios públicos.");
+  await p.check("input[name=audience][value=publico]");
+  await p.fill("input[name=closes_on]", localDay(20));
+  await p.check("input[name=retention_days][value='30']");
+  await p.check("input[name=creates_task]");
+  await go(p, "main button:has-text('Crear el borrador')");
+  const formUrl = p.url();
+  expect(/\/formularios\/administrar\/\d+\/$/.test(formUrl) && await p.getByText("Creaste el formulario como borrador.").count() > 0, `a new form lands on its page as a draft, not on ${formUrl}`);
+  await go(p, "main a:has-text('Datos de contacto')");
+  await audit(p, "admin-formulario-pregunta-contacto");
+  await p.check("input[name=required]");
+  await p.check("input[name=ask_email]");
+  await go(p, "main button:has-text('Agregar al borrador')");
+  await go(p, "main a:has-text('Una opción')");
+  await p.fill("input[name=label]", "¿Qué día prefieres?");
+  await p.check("input[name=required]");
+  await p.fill("textarea[name=options]", "Sábado\nDomingo");
+  await audit(p, "admin-formulario-pregunta-opcion");
+  await go(p, "main button:has-text('Agregar al borrador')");
+  expect(await p.getByText("Guardamos la pregunta en el borrador.").count() > 0, "the question is saved in the draft");
+  await audit(p, "admin-formulario-borrador");
+  await p.goto(formUrl + "publicar/");
+  expect(await p.locator("main").getByText("¿Qué día prefieres?").count() > 0, "the review before publishing shows the form as it will be answered");
+  await audit(p, "admin-formulario-publicar");
+  await go(p, "main button:has-text('Publicar así')");
+  expect(await p.getByText("Publicaste el formulario.").count() > 0, "publishing is said back");
+  const publicUrl = await p.locator("#enlace-publico").inputValue().catch(() => "");
+  expect(/\/formulario\/[^/]+\/$/.test(publicUrl), `the published public form shows its link: ${publicUrl}`);
+  const publicPath = new URL(publicUrl || "/missing/", BASE).pathname;
+  await audit(p, "admin-formulario");
+  await p.goto(formUrl + "lectores/");
+  await p.selectOption("select[name=lector]", { label: "Quien guía el grupo Jóvenes Roca" });
+  await go(p, "main button:has-text('Agregar lector')");
+  expect(await p.getByText("Agregamos el lector.").count() > 0, "the guide of a group is added as a reader");
+  await audit(p, "admin-formulario-lectores");
+
+  const answers = async () => {
+    await p.goto(formUrl + "respuestas/");
+    return p.locator("main a[href*='/respuestas/']:not([href$='/descargar/'])").count();
+  };
+  // A public send needs a page that was open for at least three seconds (formularios.public.MIN_SECONDS).
+  const send = async (reader, name, wait = 3500) => {
+    await reader.waitForTimeout(wait);
+    await reader.getByLabel("Nombre", { exact: false }).first().fill(name);
+    await reader.locator("main input[type=email]").fill("visita.prueba@demo.invalid");
+    await reader.locator("main input[type=checkbox]").check();
+    await reader.locator("main label:has-text('Domingo')").click();
+    await go(reader, "main button:has-text('Enviar mis respuestas')");
+  };
+  const onlyCsrf = async (context) => (await context.cookies()).map((cookie) => cookie.name).join(",") === "csrftoken";
+  const anon = await anonymous();
+  const reader = await anon.newPage();
+  reader.on("pageerror", (e) => { if (!BENIGN_JS_ERROR.test(String(e))) problems.push(`sin cuenta: JS error ${e}`); });
+  expect((await reader.goto(BASE + publicPath)).status() === 200 && await reader.locator("h1").innerText() === TITLE, "somebody without an account opens the public form");
+  expect(await reader.locator("main").getByText("Para probar los formularios públicos.").count() > 0, "and reads what it is asked for");
+  await audit(reader, "publico-formulario");
+  await reader.setViewportSize(PHONE);
+  await go(reader, "main button:has-text('Enviar mis respuestas')");
+  expect(await reader.locator("h1").innerText() === TITLE && await reader.locator("main .error-message").count() >= 3, "an empty form is shown again with its errors");
+  await audit(reader, "publico-formulario-errores");
+  await reader.setViewportSize(PHONE);
+  expect(await answers() === 0, "an empty send leaves no answer");
+  await send(reader, "Visita de Prueba");
+  expect(await reader.locator("h1").innerText() === "Gracias", "a valid send is thanked");
+  expect(await onlyCsrf(anon), `the public form leaves only the CSRF cookie: ${(await anon.cookies()).map((cookie) => cookie.name).join(",")}`);
+  await audit(reader, "publico-formulario-gracias");
+  await anon.close();
+  expect(await answers() === 1, "the administration reads one answer");
+  const again = await anonymous();
+  const second = await again.newPage();
+  await second.goto(BASE + publicPath);
+  await send(second, "Visita de Prueba");
+  expect(await second.locator("h1").innerText() === "Gracias", "the same contact again gets the same thanks");
+  // Sent at once, before the page is three seconds old: nothing is saved and what was written stays on the page.
+  await second.goto(BASE + publicPath);
+  await send(second, "Visita con Prisa", 0);
+  expect(await second.getByText("Eso fue muy rápido y todavía no guardamos nada.").count() === 1 && await second.getByLabel("Nombre", { exact: false }).first().inputValue() === "Visita con Prisa", "a send faster than a person is told so and loses nothing typed");
+  await again.close();
+  // Anybody can type somebody else's e-mail, so the second answer is kept and marked; the contact leaves one task.
+  expect(await answers() === 2, `the same contact twice leaves two answers, not ${await answers()}`);
+  const listed = await mainText(p);
+  expect((listed.match(/Mismo contacto que otra respuesta\./g) || []).length === 1 && (listed.match(/Pendiente para/g) || []).length === 1, `the second is marked «Mismo contacto» and there is one task: ${listed}`);
+  await audit(p, "admin-formulario-respuestas");
+
+  // The task of that answer: the administration gives it to the guide; he notes and closes it from «Pendientes».
+  await go(p, "main li:not(:has-text('Mismo contacto')) a:has-text('Visita de Prueba')");
+  const answerPath = new URL(p.url()).pathname;
+  expect(await p.locator("main").getByText("visita.prueba@demo.invalid").count() > 0 && await p.locator("main").getByText("Domingo").count() > 0, "the answer shows the contact and what was chosen");
+  await audit(p, "admin-formulario-respuesta");
+  await go(p, "main a:has-text('responsable')");
+  await audit(p, "admin-formulario-asignar");
+  await p.selectOption("select[name=owner]", { label: "Gabriel Ortega Luna" });
+  await go(p, "main button:has-text('Guardar cambios')");
+  expect(await p.getByText("Guardamos quién da seguimiento y para cuándo.").count() > 0, "the task is assigned");
+  const guide = await session("guia.grupo@demo.invalid", PHONE);
+  const mine = guide.page.locator(`main li.row:has(a[href='${answerPath}'])`);
+  await guide.page.goto(BASE + "/mi-iglesia/formularios/pendientes/");
+  expect(await mine.count() === 1, "the guide finds the task in «Pendientes»");
+  expect(!(await mainText(guide.page)).includes("Visita de Prueba") && !(await mainText(guide.page)).includes("visita.prueba"), "«Pendientes» names neither who answered nor the contact");
+  await audit(guide.page, "guia-pendientes");
+  await guide.page.setViewportSize(PHONE);
+  await go(guide.page, `main a[href='${answerPath}']`);
+  await audit(guide.page, "guia-formulario-respuesta");
+  await guide.page.setViewportSize(PHONE);
+  expect(await guide.page.locator("main a:has-text('responsable')").count() === 0 && await guide.page.locator("main a:has-text('Agregar a personas')").count() === 0, "a reader neither assigns nor adds people");
+  await guide.page.fill("input[name=note]", "Nota de prueba.");
+  await go(guide.page, "main button:has-text('Guardar la nota')");
+  expect(await guide.page.getByText("Guardamos la nota.").count() > 0, "the note is saved");
+  await go(guide.page, "main button:has-text('Marcar como hecho')");
+  expect(await guide.page.getByText("Marcaste el pendiente como hecho.").count() > 0, "closing the task is said back");
+  const download = await handPost(guide.page, new URL(formUrl).pathname + "respuestas/descargar/");
+  expect(download.status === 403, `a reader's own POST to download the answers answered ${download.status}`);
+  await guide.page.goto(BASE + "/mi-iglesia/formularios/pendientes/");
+  expect(await mine.count() === 0, "a closed task leaves «Pendientes»");
+  await guide.ctx.close();
+  // A member who is an adult (the seed's Rosa; the church's forms do not exist for who its records say is a minor).
+  const member = await session("rosa.rotas@demo.invalid", PHONE);
+  await member.page.goto(BASE + "/mi-iglesia/formularios/");
+  expect(await member.page.getByText(TITLE).count() === 0, "a public form is not on the member's list of forms");
+  await audit(member.page, "miembro-formularios");
+  // Who does not read a form gets the 404 of a form that does not exist (its number says nothing); the list of forms
+  // of the administration is the ordinary 403.
+  for (const path of [new URL(formUrl).pathname + "respuestas/", answerPath, new URL(formUrl).pathname]) {
+    const response = await member.page.goto(BASE + path);
+    expect(response.status() === 404, `member got ${response.status()} on ${path}`);
+  }
+  expect((await member.page.goto(BASE + "/mi-iglesia/formularios/administrar/")).status() === 403, "a member cannot open the forms of the administration");
+  expect((await member.page.goto(BASE + "/mi-iglesia/formularios/pendientes/")).status() === 200 && await member.page.locator("main li.row").count() === 0, "a member's «Pendientes» is empty");
+  await audit(member.page, "miembro-pendientes");
+  await member.ctx.close();
+  // Closed for good: the link answers the same 404 as one that never existed.
+  await p.goto(formUrl + "cerrar/");
+  await audit(p, "admin-formulario-cerrar");
+  await go(p, "main button:has-text('Sí, cerrar el formulario')");
+  expect(await p.getByText("Cerraste el formulario.").count() > 0, "closing the form is said back");
+  const gone = await anonymous();
+  expect((await gone.request.get(BASE + publicPath)).status() === 404, "the closed form's public link is a 404");
+  expect((await gone.request.get(BASE + "/formulario/no-existe-este-enlace/")).status() === 404, "as is a link nobody made");
+  await gone.close();
+  await admin.ctx.close();
+}
+
+// 14. Updates of one event by e-mail, without an account (issue #96, second part). The offer exists only where the
+// server can send (EMMAUS_PUBLIC_BASE_URL and a mail backend that delivers). The gate's server cannot, so there this
+// step proves the honest side: the option is on, the staff screen says why nothing is sent, and the public page offers
+// nothing. On a server that sends, it walks the section, the form and «Revisa tu correo».
+{
+  const SLUG = "noche-de-alabanza-demo";
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  const p = admin.page;
+  const savePage = () => go(p, "main button:has-text('Guardar la página del evento')");
+  await p.goto(BASE + `/mi-iglesia/eventos/${SLUG}/pagina/`);
+  expect(await p.locator("main label:has-text('Avisos por correo para quien no tiene cuenta')").count() === 1 && !(await p.isChecked("input[name=notice_mail]")), "the event's page offers the e-mail option, off");
+  await p.check("input[name=public]");
+  await p.check("input[name=notice_mail]");
+  await savePage();
+  await audit(p, "admin-evento-pagina-avisos-por-correo");
+  await p.goto(BASE + `/mi-iglesia/eventos/${SLUG}/avisos-publicos/`);
+  const staff = await mainText(p);
+  const sends = staff.includes("direcciones suscritas");
+  await audit(p, "admin-evento-avisos-publicos-correo");
+  const anon = await anonymous();
+  const reader = await anon.newPage();
+  reader.on("pageerror", (e) => { if (!BENIGN_JS_ERROR.test(String(e))) problems.push(`sin cuenta: JS error ${e}`); });
+  expect((await reader.goto(BASE + `/evento/${SLUG}/`)).status() === 200, "the public page of the event answers");
+  const offer = reader.locator("section[aria-labelledby=avisos-correo] a:has-text('Recibir los avisos por correo')");
+  if (sends) {
+    expect(staff.includes("menos de 5 direcciones suscritas"), "the staff screen says «menos de 5 direcciones suscritas», never a small number");
+    expect(await offer.count() === 1, "the public page offers the updates by e-mail");
+    expect((await anon.cookies()).length === 0, "and reading it leaves no cookie");
+    await audit(reader, "publico-evento-avisos-por-correo");
+    await reader.setViewportSize(PHONE);
+    await go(reader, "section[aria-labelledby=avisos-correo] a:has-text('Recibir los avisos por correo')");
+    await audit(reader, "publico-suscripcion");
+    await reader.setViewportSize(PHONE);
+    await reader.fill("main input[type=email]", "avisos.prueba@demo.invalid");
+    await go(reader, "main button:has-text('Pedir los avisos por correo')");
+    expect(await reader.locator("h1").innerText() === "Revisa tu correo", `the form lands on «Revisa tu correo», not on ${reader.url()}`);
+    expect(!(await mainText(reader)).includes("avisos.prueba@demo.invalid"), "the answer does not repeat the address");
+    await audit(reader, "publico-suscripcion-revisa-tu-correo");
+    await p.goto(BASE + `/mi-iglesia/eventos/${SLUG}/avisos-publicos/`);
+    expect((await mainText(p)).includes("menos de 5 direcciones suscritas"), "an address that was not confirmed changes nothing on the staff screen");
+  } else {
+    expect(staff.includes("no se envía ningún correo") && staff.includes("en la página pública no se ofrece dejar el correo"), "where the server cannot send, the staff screen says so and why");
+    expect(await offer.count() === 0 && await reader.getByText("Avisos por correo").count() === 0, "and the public page does not offer what would not arrive");
+    expect((await anon.cookies()).length === 0, "reading it leaves no cookie");
+    expect((await reader.goto(BASE + `/evento/${SLUG}/avisos-por-correo/`)).status() === 404, "nor does the form's address answer");
+  }
+  const dead = await reader.goto(BASE + "/evento/avisos-por-correo/baja/un-enlace-inventado/");
+  expect(dead.status() === 404 && await reader.locator("h1").innerText() === "Este enlace ya no sirve", `an invented unsubscribe link answered ${dead.status()}, not the page of a link that no longer works`);
+  await audit(reader, "publico-suscripcion-enlace-muerto");
+  const deadConfirm = await reader.goto(BASE + "/evento/avisos-por-correo/confirmar/un-enlace-inventado/");
+  expect(deadConfirm.status() === 404 && await reader.locator("h1").innerText() === "Este enlace ya no sirve", "and so does an invented confirmation link");
+  await anon.close();
+  // Back to the seed: the option off and the page not public.
+  await p.goto(BASE + `/mi-iglesia/eventos/${SLUG}/pagina/`);
+  await p.uncheck("input[name=notice_mail]");
+  await p.uncheck("input[name=public]");
+  await savePage();
+  expect((await p.goto(BASE + `/evento/${SLUG}/`)).status() === 404, "the event's page is not public again");
+  await admin.ctx.close();
+}
+
+// 15. Serving: roles, rotation, swaps and the order of a date (issue #95). The coordinator adds a role and says a date
+// needs it, proposes with the rotation and confirms one place; who got it asks a teammate to take it and he accepts;
+// the coordinator writes two moments and who serves reads them without a form.
+{
+  const ROLE = "Sonido de prueba";
+  const TEAM = "/mi-iglesia/servir/equipos/1/";
+  const guide = await session("guia.grupo@demo.invalid", DESKTOP);
+  const p = guide.page;
+  await p.goto(BASE + TEAM);
+  await audit(p, "guia-equipo-con-roles");
+  const dateLinks = await p.locator("main a[href^='/mi-iglesia/servir/fechas/']").evaluateAll((links) => links.map((a) => a.getAttribute("href")).filter((href) => /fechas\/\d+\/$/.test(href)));
+  const datePath = dateLinks[dateLinks.length - 1];
+  const dateId = datePath.match(/(\d+)\/$/)[1];
+  const dateRow = () => p.locator(`main li:has(a[href='${datePath}'])`);
+  await go(p, "main a:has-text('Roles, rotación y recordatorios')");
+  await audit(p, "guia-equipo-organizar");
+  await p.fill("main form:has(button:has-text('Agregar el rol')) input[name=nombre]", ROLE);
+  await go(p, "main button:has-text('Agregar el rol')");
+  expect(await p.getByText(`Guardamos el rol ${ROLE}.`).count() > 0, "adding a role is said back");
+  const roleId = await p.locator(`main form:has(input[name=nombre][value='${ROLE}']) input[name=rol]`).inputValue();
+  await p.goto(BASE + datePath);
+  await p.fill(`input[name=necesita_${roleId}]`, "1");
+  await audit(p, "guia-fecha-con-roles");
+  await go(p, "main button:has-text('Guardar la fecha')");
+  await p.goto(BASE + TEAM);
+  expect((await dateRow().innerText()).replace(/\s+/g, " ").includes(`${ROLE}: falta 1 persona de 1.`), "the team page says what the date still needs of the new role");
+  await go(p, "main a:has-text('Proponer con la rotación')");
+  const places = p.locator("main select[name^='lugar_']");
+  const proposed = await places.evaluateAll((selects) => selects.filter((select) => select.value).length);
+  expect(proposed > 0, "the rotation proposes somebody for the places that are missing");
+  await audit(p, "guia-rotacion");
+  // One place only, so the rest of the seed's dates stay as they were: Rosa at the door of the last date.
+  for (const name of await places.evaluateAll((selects) => selects.map((select) => select.name))) await p.selectOption(`select[name='${name}']`, "");
+  await p.selectOption(`select[name='lugar_${dateId}-1-0']`, { label: "Rosa Rentería Demo" });
+  await go(p, "main button:has-text('Confirmar')");
+  expect(await p.getByText("Le pediste servir a 1 persona.").count() > 0, "confirming the proposal says how many were asked");
+  expect((await dateRow().innerText()).includes("Rosa Rentería Demo"), "and the date shows who was asked");
+
+  const rosa = await session("rosa.rotas@demo.invalid", PHONE);
+  await rosa.page.goto(BASE + "/mi-iglesia/servir/");
+  await audit(rosa.page, "miembro-servir-con-rol");
+  await rosa.page.setViewportSize(PHONE);
+  await go(rosa.page, "main a:has-text('Pedir un cambio')");
+  await audit(rosa.page, "miembro-cambio-pedir");
+  await rosa.page.setViewportSize(PHONE);
+  await rosa.page.locator("main label:has-text('Tomás Treviño Demo')").click();
+  await go(rosa.page, "main button:has-text('Pedir el cambio')");
+  expect(await rosa.page.getByText("Le pediste el cambio a Tomás.").count() > 0, "asking for the swap is said back, and that the date is still hers");
+  await audit(rosa.page, "miembro-cambio-pedido");
+  const tomas = await session("tomas.rotas@demo.invalid", PHONE);
+  await tomas.page.goto(BASE + "/mi-iglesia/servir/");
+  expect(await tomas.page.locator("main").getByText("Rosa Rentería Demo te pide tomar su fecha").count() === 1, "the teammate reads who asks him");
+  await audit(tomas.page, "companero-cambio-por-responder");
+  await tomas.page.setViewportSize(PHONE);
+  await go(tomas.page, "main button[name=respuesta][value=aceptar]");
+  expect(await tomas.page.getByText("Ya está en «Tus fechas», confirmada.").count() > 0, "accepting moves the date to him, confirmed");
+  await audit(tomas.page, "companero-cambio-aceptado");
+  await p.goto(BASE + TEAM);
+  const after = (await dateRow().innerText()).replace(/\s+/g, " ");
+  expect(after.includes("Tomás Treviño Demo") && !after.includes("Rosa Rentería Demo"), `the coordinator reads the date under its new name: ${after}`);
+  await audit(p, "guia-equipo-con-cambio");
+
+  // The order of that date: two moments, read by who serves it, with nothing to send.
+  await p.goto(BASE + datePath + "orden/");
+  const addMoment = async (title, minutes) => {
+    const form = p.locator("main form:has(button:has-text('Agregar al orden'))");
+    await form.locator("input[name=titulo]").fill(title);
+    await form.locator("input[name=minutos]").fill(minutes);
+    await go(p, "main button:has-text('Agregar al orden')");
+  };
+  await addMoment("Momento de prueba uno", "10");
+  await addMoment("Momento de prueba dos", "5");
+  expect(await p.getByText("Agregamos el momento al orden.").count() > 0 && await p.locator("main input[name=titulo][value^='Momento de prueba']").count() === 2, "the coordinator's order has the two moments");
+  await audit(p, "guia-orden");
+  expect((await tomas.page.goto(BASE + datePath + "orden/")).status() === 200, "who serves the date opens its order");
+  const order = await mainText(tomas.page);
+  expect(order.includes("Momento de prueba uno") && order.includes("Momento de prueba dos") && order.indexOf("uno") < order.indexOf("dos"), "and reads the two moments in their order");
+  expect(await tomas.page.locator("main form, main input, main button").count() === 0, "without a form");
+  await audit(tomas.page, "miembro-orden");
+  expect((await rosa.page.goto(BASE + datePath + "orden/")).status() !== 200, "who no longer serves that date does not read its order");
+  await rosa.ctx.close();
+  await tomas.ctx.close();
+  // Back to the seed: no moments, nobody asked, the need at 0 and the role out of use.
+  for (let left = 2; left > 0; left -= 1) await go(p, "main button:has-text('Quitar Momento de prueba') >> nth=0");
+  expect(await p.locator("main input[name=titulo][value^='Momento de prueba']").count() === 0, "the moments are taken out");
+  await p.goto(BASE + datePath);
+  for (const box of await p.locator("main input[name=sirve]:checked").all()) await box.uncheck();
+  await p.fill(`input[name=necesita_${roleId}]`, "0");
+  await go(p, "main button:has-text('Guardar la fecha')");
+  await p.goto(BASE + TEAM + "organizar/");
+  await go(p, `main button:has-text('Ya no se usa: ${ROLE}')`);
+  expect(await p.getByText(`El rol ${ROLE} ya no se usa.`).count() > 0, "the role is retired");
+  await p.goto(BASE + TEAM);
+  const restored = (await dateRow().innerText()).replace(/\s+/g, " ");
+  expect(restored.includes("Todavía no le pides a nadie servir ese día.") && !restored.includes(ROLE), `the date is as the seed left it: ${restored}`);
+  await guide.ctx.close();
+}
+
+// 16. Private prayer requests (issue #97). Only obviously synthetic words are typed here. The guide writes one to the
+// pastor the form names; the administration can neither open nor find the readers' side; the pastor reads, marks and
+// answers once; the guide reads the answer and deletes the request; a minor is offered nothing.
+{
+  const WORDS = "Texto de prueba de una petición.";
+  const REPLY = "Respuesta de prueba.";
+  const guide = await session("guia.grupo@demo.invalid", PHONE);
+  const g = guide.page;
+  await g.locator(".tabs button[data-menu-open]").click();
+  expect(await g.locator("#menu-panel a[href='/mi-iglesia/oracion/']:has-text('Pedir oración')").count() === 1, "the guide's menu offers «Pedir oración»");
+  await g.keyboard.press("Escape");
+  await g.goto(BASE + "/mi-iglesia/oracion/");
+  await audit(g, "guia-oracion");
+  await g.setViewportSize(PHONE);
+  await go(g, "main a:has-text('Pedir oración')");
+  const form = await mainText(g);
+  expect(form.includes("Lo lee: Ernesto Salas Mejía"), "the form names the pastor who reads");
+  expect(form.includes("Si tú o alguien más está en peligro en este momento, llama al 911."), "and shows the 911 sentence");
+  await audit(g, "guia-oracion-nueva");
+  await g.setViewportSize(PHONE);
+  await g.fill("textarea[name=body]", WORDS);
+  await go(g, "main button:has-text('Enviar mi petición')");
+  expect(await g.getByText("Guardamos tu petición.").count() > 0, "sending it is said back");
+  // Her new request is the one whose text is the test's (the seed left her another one); its block holds its own delete link.
+  const mineBlock = g.locator("main section.block").filter({ hasText: WORDS });
+  expect(await mineBlock.count() === 1 && (await mineBlock.innerText()).includes("Todavía no la han leído"), "her page shows it with «Todavía no la han leído»");
+  const deletePath = await mineBlock.locator("a[href$='/borrar/']").getAttribute("href").catch(() => "/mi-iglesia/oracion/0/borrar/");
+  const id = deletePath.match(/(\d+)\/borrar\/$/)[1];
+  await audit(g, "guia-oracion-enviada");
+
+  const admin = await session("admin.comunidad@demo.invalid", DESKTOP);
+  for (const path of ["/mi-iglesia/oracion/recibidas/", `/mi-iglesia/oracion/recibidas/${id}/`, "/mi-iglesia/oracion/politica/"]) {
+    const response = await admin.page.goto(BASE + path);
+    expect(response.status() === 404, `the administration got ${response.status()} on ${path}`);
+  }
+  await admin.page.goto(BASE + "/mi-iglesia/");
+  expect(await admin.page.locator("a[href^='/mi-iglesia/oracion/recibidas']").count() === 0 && await admin.page.getByText("Peticiones de oración").count() === 0, "and nothing on her screen leads to the readers' side");
+  await admin.ctx.close();
+
+  const pastor = await session("pastor.iglesia@demo.invalid", DESKTOP);
+  const r = pastor.page;
+  const inboxLink = r.locator(".rail a[href='/mi-iglesia/oracion/recibidas/']");
+  const unread = async () => Number(((await inboxLink.locator(".badge").textContent().catch(() => "")) || "").trim().match(/^\d+/)?.[0] || 0);
+  const before = await unread();
+  expect(await inboxLink.count() === 1 && before >= 1, `the pastor's rail counts what he has not read: ${before}`);
+  await go(r, ".rail a[href='/mi-iglesia/oracion/recibidas/']");
+  await audit(r, "pastor-oracion-recibidas");
+  await r.setViewportSize(DESKTOP);
+  await go(r, `main a[href='/mi-iglesia/oracion/recibidas/${id}/']`);
+  expect((await mainText(r)).includes(WORDS), "the pastor reads the words");
+  await audit(r, "pastor-oracion-leer");
+  await go(r, "main button:has-text('Lo leí')");
+  expect(await r.getByText("La marcaste como leída.").count() > 0 && await unread() === before - 1, "marking it read is said back and the rail counts one less");
+  await r.fill("textarea[name=reply]", REPLY);
+  await go(r, "main button:has-text('Enviar mi respuesta')");
+  expect(await r.getByText("Guardamos tu respuesta.").count() > 0, "the reply is saved");
+  expect(await r.locator("main textarea[name=reply]").count() === 0 && (await mainText(r)).includes(REPLY), "there is one reply: the form is gone and the reply is shown");
+  await audit(r, "pastor-oracion-respondida");
+  const twice = await handPost(r, `/mi-iglesia/oracion/recibidas/${id}/responder/`, { reply: "Otra respuesta de prueba." });
+  await r.goto(BASE + `/mi-iglesia/oracion/recibidas/${id}/`);
+  expect(!(await mainText(r)).includes("Otra respuesta de prueba.") && (await mainText(r)).includes(REPLY), `a second reply written by hand (it answered ${twice.status}) changes nothing`);
+
+  await g.goto(BASE + "/mi-iglesia/oracion/");
+  const answered = (await mineBlock.innerText().catch(() => "")).replace(/\s+/g, " ");
+  expect(answered.includes("Leída") && answered.includes(REPLY) && !answered.includes("Todavía no la han leído"), `the guide reads «Leída» and the reply: ${answered}`);
+  await audit(g, "guia-oracion-respondida");
+  await g.setViewportSize(PHONE);
+  await go(g, `main a[href='${deletePath}']`);
+  await audit(g, "guia-oracion-borrar");
+  await go(g, "main form button[type=submit]");
+  expect(await g.getByText("Borramos tu petición y su respuesta.").count() > 0 && !(await mainText(g)).includes(WORDS), "the guide deletes it, with its reply");
+  expect((await r.goto(BASE + `/mi-iglesia/oracion/recibidas/${id}/`)).status() === 404, "and the pastor can no longer open it");
+  await r.goto(BASE + "/mi-iglesia/oracion/recibidas/");
+  expect(await unread() === before - 1 && !(await mainText(r)).includes(WORDS), "the pastor's list is as the seed left it");
+  await pastor.ctx.close();
+  await guide.ctx.close();
+  // The demo campera is 17: the feature does not exist for her.
+  const minor = await session("valeria.soto@demo.invalid", PHONE);
+  for (const path of ["/mi-iglesia/oracion/", "/mi-iglesia/oracion/nueva/"]) {
+    const response = await minor.page.goto(BASE + path);
+    expect(response.status() === 404, `a minor got ${response.status()} on ${path}`);
+  }
+  await minor.page.goto(BASE + "/mi-iglesia/");
+  await minor.page.locator(".tabs button[data-menu-open]").click();
+  expect(await minor.page.locator("#menu-panel a[href^='/mi-iglesia/oracion/']").count() === 0, "and her menu does not offer it");
+  await minor.ctx.close();
 }
 await browser.close();
 

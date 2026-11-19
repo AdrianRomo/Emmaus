@@ -265,7 +265,7 @@ def for_church_role(user: User, role_record: UserChurchRole | None, *, can_creat
         from .access import visible_participant_profiles
         from .models import QuestionResponse
 
-        has_people = visible_participant_profiles(user).exists()
+        has_people = visible_participant_profiles(user, role_record).exists()
         answered = QuestionResponse.objects.filter(responder=user).exists()
         steps = [
             Step("Ten participantes asignados", has_people, reverse("mentor_dashboard"), "Ver mis participantes",
@@ -275,7 +275,7 @@ def for_church_role(user: User, role_record: UserChurchRole | None, *, can_creat
         ]
         return Welcome(
             key=key, title=welcome_title(user),
-            role_line=f"En {church.name} eres mentor.",
+            role_line=f"En {church.name} acompañas a quienes te asignan.",
             intro="Acompañas a las personas que te asignan: lees sus preguntas, les respondes y anotas los seguimientos. "
             "Nunca ves a quien no acompañas.",
             can=[

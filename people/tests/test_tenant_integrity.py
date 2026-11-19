@@ -135,7 +135,9 @@ class TenantIntegrityTests(CampFixture):
     def test_runs_in_one_query_per_table(self):
         tables = {check.model for check in checks()}
         # 24 until wave 8 added the reading plans (2) and sitio.PublicMedia (1); wave 9: espacios.Booking (1), merges and dismissed pairs (2)
-        self.assertEqual(len(tables), 30)
+        # wave 10: people.PersonTag (1), formularios.Submission (1), oracion.PrayerRequest (1); serving's RoleNeed,
+        # RotationEntry, SwapRequest and PlanItem (4; the role of an Assignment is read with the table's other check)
+        self.assertEqual(len(tables), 37)
         with self.assertNumQueries(len(tables)):
             run_integrity("--json")
 

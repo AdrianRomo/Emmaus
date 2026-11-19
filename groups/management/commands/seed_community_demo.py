@@ -73,6 +73,22 @@ PANORAMA_GROUPS = [
                "meeting_place": "Donde acuerden", "accepts_requests": False,
                "description": "Dos personas leen un libro de la Biblia y se llaman cuando pueden."}},
 ]
+# --dos-iglesias: the second church, its look (colours that pass the contrast the settings form asks for), its
+# administrator, and the account that is part of both.
+SECOND_CHURCH_SLUG = "iglesia-demo-norte"
+SECOND_CHURCH_LOOK = {
+    "discipleship_enabled": True, "custom_theme_enabled": True,
+    "theme_primary_color": "#7a3b12", "theme_accent_color": "#b45309", "theme_background_color": "#fbf7f1",
+    "theme_surface_color": "#ffffff", "theme_text_color": "#2a1d14", "theme_muted_text_color": "#5f5046",
+    "theme_border_color": "#d9cdbf",
+}
+SECOND_ADMIN = ("admin.norte@demo.invalid", "Noemí", "Ferrer Aldana")
+TWO_CHURCHES = ("dos.iglesias@demo.invalid", "Daniela", "Ponce Rivas")
+SECOND_CHURCH_GROUP = {
+    "name": "Jóvenes del Norte", "kind": Group.Kind.SMALL, "audience": "Jóvenes de 15 a 19 años", "meeting_day": 4,
+    "meeting_time": time(19, 0), "meeting_place": "Salón principal",
+    "description": "Nos vemos cada semana para platicar de la vida y de la fe.",
+}
 CAMPEROS = [
     ("Valeria Soto Marín", 17), ("Emilio Vargas Peña", 18), ("Renata Aguilar Cruz", 15), ("Santiago Mora Díaz", 16),
     ("Ximena Robles Vega", 14), ("Leonardo Pineda Sol", 19), ("Camila Fuentes Ríos", 16), ("Matías Ochoa Lara", 15),
@@ -98,6 +114,12 @@ class Command(BaseCommand):
         parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones, una serie semanal (Reunión general, cada domingo) y la página pública de la iglesia, publicada.")
         parser.add_argument("--duplicados", action="store_true", help="Agrega dos registros de una misma persona (mismo correo, sin cuenta), para ver Posibles duplicados.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
+        parser.add_argument("--dos-iglesias", action="store_true", dest="dos_iglesias", help="Agrega una segunda iglesia sintética, con sus propios colores, y una cuenta que administra la primera y en la segunda es mentora y guía un grupo, para ver el cambio de iglesia.")
+
+        parser.add_argument("--formularios", action="store_true", help="Agrega un formulario de la iglesia y uno público, publicados, con respuestas sintéticas y sus pendientes, para ver Formularios y Pendientes.")
+
+        parser.add_argument("--rotas", action="store_true", help="Agrega al equipo Bienvenida roles, fechas con lo que necesitan, una rotación, el orden de una fecha y un cambio pedido, para ver la rotación de Servir.")
+        parser.add_argument("--oracion", action="store_true", help="Agrega un pastor, enciende las peticiones de oración (aceptadas por ese pastor) y dos peticiones inventadas, marcadas como de demostración.")
 
     def handle(self, *args, **opts):
         if not settings.DEBUG:
@@ -134,12 +156,84 @@ class Command(BaseCommand):
                 self._panorama(church, admin, password)
             if opts["eventos"]:
                 self._events_extras(church, admin, member)
+            if opts.get("dos_iglesias"):
+                self._second_church(church, password)
+            if opts["formularios"]:
+                self._forms(church, admin, leader, member, groups[0])
+            if opts["rotas"]:
+                self._rotas(church, admin, leader, member, asked, password)
+            if opts["oracion"]:
+                self._prayer_requests(church, admin, leader, password)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
             accounts.append(("Pastor (Panorama)", PASTOR))
+        elif opts["oracion"]:
+            accounts.append(("Pastor (peticiones)", PASTOR))
+        if opts.get("dos_iglesias"):
+            accounts += [("Dos iglesias", TWO_CHURCHES), ("Administración (2.ª iglesia)", SECOND_ADMIN)]
         for label, (email, *_rest) in accounts:
             self.stdout.write(f"  {label:<26} {email}")
+
+    def _forms(self, church, admin, leader, member, group) -> None:
+        """A form of the church (who brings what to a meal; the guide of the first group reads it and follows up) and
+        a public one (a visitor leaves their contact), both published, with a few synthetic answers. Each form is
+        looked up by its title, so running the seed again adds nothing. Every contact is ``@demo.invalid``.
+        Only adults answer the form of the church: a person on record as a minor (``member`` is 17) neither sees
+        nor answers one (``formularios.services.is_known_minor``), and the seed must not do what the screens refuse."""
+        from formularios import services as forms
+        from formularios.fields import AnswerForm
+        from formularios.models import Form
+
+        today = forms.church_today(church)
+
+        def form(title, **fields):
+            row = Form.objects.filter(church=church, title=title).first()
+            if row is not None:
+                return row, False
+            return forms.create_form(church, admin, title=title, opens_on=today, closes_on=today + timedelta(days=30),
+                                     retention_days=90, **fields), True
+
+        def answer(row, data, person=None, actor=None):
+            checked = AnswerForm(data, schema=row.current_version.schema)
+            if not checked.is_valid():
+                raise CommandError(f"La respuesta de demostración no es válida: {checked.errors.as_json()}")
+            forms.submit(row, row.current_version.pk, answers=checked.answers, contact=checked.contact, person=person, actor=actor)
+
+        meal, new = form("Convivio de aniversario", purpose="Para organizar la comida del convivio y saber cuántos lugares preparar.",
+                         audience=Form.Audience.MEMBERS, creates_task=True, task_due_days=5)
+        if new:
+            forms.add_reader(meal, admin, f"group:{group.pk}")
+            forms.update_form(meal, admin, title=meal.title, purpose=meal.purpose, audience=meal.audience, retention_days=90,
+                              opens_on=meal.opens_on, closes_on=meal.closes_on, creates_task=True, task_owner=leader.user, task_due_days=5)
+            goes, _ = forms.save_question(meal, admin, kind="si_no", label="¿Vas a venir al convivio?", required=True)
+            forms.save_question(meal, admin, kind="opcion", label="¿Qué puedes traer?", options=["Guisado", "Postre", "Bebidas", "Nada esta vez"],
+                                show_if_question_id=goes.pk, show_if_value="Sí")
+            forms.save_question(meal, admin, kind="varias", label="¿En qué puedes ayudar?", options=["Acomodar sillas", "Servir", "Recoger al final"])
+            forms.save_question(meal, admin, kind="corto", label="¿Cuántas personas vienen contigo?")
+            meal, _ = forms.publish(meal, admin, forms.preview_token(meal))
+            keys = [item["key"] for item in meal.current_version.schema]
+            answer(meal, {keys[0]: "Sí", keys[1]: "Postre", keys[2]: ["Servir"], keys[3]: "2"}, person=leader, actor=leader.user)
+            answer(meal, {keys[0]: "No"}, person=Person.objects.get(church=church, user=admin), actor=admin)
+
+        visit, new = form("Quiero conocer la iglesia", purpose="Para que alguien del equipo de bienvenida te escriba y te cuente de nuestras reuniones.",
+                          audience=Form.Audience.PUBLIC, creates_task=True, task_due_days=3)
+        if new:
+            forms.save_question(visit, admin, kind="contacto", label="Tus datos para contactarte", required=True, ask_email=True, ask_phone=True,
+                                consent=forms.default_consent(church))
+            forms.save_question(visit, admin, kind="opcion", label="¿Cómo prefieres que te contactemos?", options=["Por mensaje", "Por llamada", "Por correo"], required=True)
+            forms.save_question(visit, admin, kind="fecha", label="¿Qué domingo te gustaría visitarnos?")
+            visit, _ = forms.publish(visit, admin, forms.preview_token(visit))
+            contact = next(item["key"] for item in visit.current_version.schema if item["kind"] == "contacto")
+            how, when = [item["key"] for item in visit.current_version.schema if item["kind"] != "contacto"]
+            for first, last, email, phone, way in (
+                ("Renata", "Ibarra Demo", "renata.visita@demo.invalid", "", "Por correo"),
+                ("Tomás", "Quiroz Demo", "", "55 5550 0101", "Por mensaje"),
+                ("Lucía", "Paredes Demo", "lucia.visita@demo.invalid", "55 5550 0102", "Por llamada"),
+            ):
+                answer(visit, {f"{contact}_nombre": first, f"{contact}_apellidos": last, f"{contact}_correo": email,
+                               f"{contact}_telefono": phone, f"{contact}_acepto": "on", how: way,
+                               when: (today + timedelta(days=7)).isoformat()})
 
     def _events_extras(self, church, admin, member) -> None:
         """A simple event that starts today (programme, questions, a visitor, two minors), an important notice and
@@ -432,6 +526,53 @@ class Command(BaseCommand):
                 teardown_minutes=30, event=event, approve=True)
         booking(projector, leader, leader.user, "Película con el grupo", 5, time(18, 0), time(20, 30))
 
+    def _second_church(self, first_church, password) -> None:
+        """--dos-iglesias: a second synthetic church with its own colours, both modules and the discipleship module
+        on, its own administrator, and one account of both: administrator of the first (its first role, so it starts
+        there) and, in the second, a mentor who guides a group. Nothing of one church points at the other."""
+        second, _ = Church.objects.get_or_create(slug=SECOND_CHURCH_SLUG, defaults={"name": "Iglesia del Norte (demostración)"})
+        for field, value in SECOND_CHURCH_LOOK.items():
+            setattr(second, field, value)
+        second.save(update_fields=list(SECOND_CHURCH_LOOK))
+        flags.set_enabled(second, "people", True)
+        flags.set_enabled(second, "community", True)
+        admin = self._account(*SECOND_ADMIN, password)
+        assign_role(admin, second, Role.CHURCH_ADMIN)
+        people_services.ensure_own_person(admin, second)
+        both = self._account(*TWO_CHURCHES, password)
+        assign_role(both, first_church, Role.CHURCH_ADMIN)  # created first: the church the account starts in
+        assign_role(both, second, Role.MENTOR)
+        assign_role(both, first_church, Role.CHURCH_ADMIN)  # same row; leaves the account's Django group as it was
+        people_services.ensure_own_person(both, first_church)
+        guide = people_services.ensure_own_person(both, second)
+        group = self._group(second, admin, SECOND_CHURCH_GROUP)
+        if not GroupMembership.objects.filter(group=group, person=guide, status="activa").exists():
+            group_services.set_membership(group, guide, admin, role=GroupMembership.Role.LEADER)
+
+    def _prayer_requests(self, church, admin, leader, password) -> None:
+        """--oracion: a pastor who accepted the promises, and two requests that say they are invented. Never in the
+        plain seed: a database seeded without the flag holds no prayer text at all."""
+        from oracion import access as prayer_access
+        from oracion import services as prayers
+        from oracion.models import PrayerRequest
+
+        pastor = self._account(*PASTOR, password)
+        assign_role(pastor, church, Role.PASTOR)
+        people_services.ensure_own_person(pastor, church)
+        if not prayers.is_on(church):
+            prayers.switch_on(
+                church, pastor, accepted=True, token=prayers.readers_token(prayer_access.readers(church)),
+                emergency_line="", retention_days=prayers.policy.PRAYER_RETENTION_DAYS,
+            )
+        texts = (
+            (leader, "Texto de demostración, inventado: pido oración por una decisión de trabajo que tengo que tomar este mes."),
+            (Person.objects.get(church=church, user=admin), "Texto de demostración, inventado: pido oración para tener paciencia y descansar mejor."),
+        )
+        for person, body in texts:
+            if not PrayerRequest.objects.filter(church=church, person=person).exists():
+                readers = prayer_access.readers(church, apart_from=person.user)
+                prayers.create(church, person, body=body, token=prayers.readers_token(readers, prayers.terms(church)))
+
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
         user.first_name, user.last_name, user.email, user.is_active = first, last, email, True
@@ -447,6 +588,38 @@ class Command(BaseCommand):
             church=church, user=user, defaults={"first_name": first, "last_name": last, "email": email, "phone": phone}
         )
         return person
+
+    def _rotas(self, church, admin, leader, member, asked, password) -> None:
+        """--rotas: the team "Bienvenida" with roles, four Sundays that need people, a rotation that has not been
+        confirmed, the order of the first date and one swap that waits for an answer. Synthetic people only."""
+        from serving import rotas, services as serving
+        from serving.models import ServiceDate, Team, TeamRole
+
+        team = Team.objects.filter(church=church, name="Bienvenida").first()
+        if team is None or TeamRole.objects.filter(team=team).exists():
+            return
+        rosa = self._person(church, "rosa.rotas@demo.invalid", "Rosa", "Rentería Demo", password)
+        tomas = self._person(church, "tomas.rotas@demo.invalid", "Tomás", "Treviño Demo", password)
+        for person in (asked, rosa, tomas):
+            serving.set_member(team, person, admin)
+        door = rotas.save_role(team, leader.user, name="Puerta")
+        children = rotas.save_role(team, leader.user, name="Salón de niños", adults_only=True)
+        first = ServiceDate.objects.filter(team=team, date__gte=timezone.localdate()).order_by("date").first()
+        start = first.date if first else timezone.localdate() + timedelta(days=5)
+        dates = [first] if first else []
+        for week in range(0 if first is None else 1, 4):
+            dates.append(serving.save_date(team, leader.user, date=start + timedelta(weeks=week), what="Bienvenida en la reunión",
+                                           starts_at=time(10, 30), place="Entrada principal"))
+        for service_date in dates:
+            rotas.set_needs(service_date, leader.user, {door.pk: 2, children.pk: 1})
+        serving.assign(dates[0], member, leader.user, role=door)
+        rotas.save_rotation(team, leader.user, every_weeks=2, orders={door.pk: [member.pk, asked.pk, rosa.pk, tomas.pk], children.pk: [rosa.pk, tomas.pk]})
+        rotas.save_settings(team, leader.user, swap_needs_approval=False, reminder_days=2)
+        for title, minutes, person in (("Abrir puertas y saludar", 20, member), ("Anuncios", 5, None), ("Despedida en la salida", 15, leader)):
+            rotas.save_plan_item(dates[0], leader.user, title=title, minutes=minutes, responsible=person)
+        mine = dates[0].assignments.filter(person=member).first()
+        if mine is not None and asked.pk in {person.pk for person in rotas.swap_candidates(mine)}:
+            rotas.request_swap(mine, asked, member.user)
 
     def _duplicates(self, church) -> None:
         """--duplicados: one synthetic pair for "Posibles duplicados". Same e-mail, another phone, no account, no rows."""

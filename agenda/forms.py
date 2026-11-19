@@ -18,7 +18,7 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
     class Meta:
         model = EventPage
         fields = [
-            "published", "public", "description", "starts_at", "registration", "capacity", "waiting_list", "registration_closes_on",
+            "published", "public", "notice_mail", "description", "starts_at", "registration", "capacity", "waiting_list", "registration_closes_on",
             "requires_guardian_consent",
         ]
         help_texts = {
@@ -26,6 +26,15 @@ class EventPageForm(TuErrorMessagesMixin, forms.ModelForm):
                 "Para compartir el evento con mamás, papás y tutores que no tienen cuenta. La página pública dice de qué "
                 "se trata, cuándo, dónde, el programa y las preguntas frecuentes. Nunca muestra quién se inscribió ni "
                 "cuántos lugares quedan, y solo funciona mientras el evento esté publicado."
+            ),
+            "notice_mail": (
+                "En la página pública, quien quiera deja su correo para que Emmaus le avise cuando publiques un aviso "
+                "público de este evento. Solo se pide el correo; la persona lo confirma desde su bandeja y se da de baja "
+                "cuando quiera. El correo dice que hay un aviso y lleva el enlace: nunca su título ni su texto. Nadie ve "
+                "la lista de direcciones, tampoco la administración, y no se usan para nada más. Solo funciona mientras "
+                "la página pública esté disponible. Si lo apagas, o la página deja de ser pública, no se envía nada y las "
+                "direcciones que ya había se conservan sin recibir correos hasta que se borran solas, 14 días después "
+                "de que termine el evento."
             ),
             "waiting_list": (
                 "Quien se inscriba cuando ya no haya lugares queda en lista de espera, en orden. Cuando se libera un "

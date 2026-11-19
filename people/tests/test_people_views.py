@@ -1,3 +1,4 @@
+import re
 from django.contrib.auth.models import User
 from django.urls import reverse
 
@@ -21,8 +22,9 @@ class PeoplePermissionTests(CommunityFixture):
         for name, args in ADMIN_PAGES:
             url = reverse(name, args=args(self))
             self.assertEqual(self.client.get(url).status_code, 302)  # anonymous: sign in
-            for user, expected in ((self.admin, 200), (self.member_user, 403), (self.leader_user, 403),
-                                   (self.coord1, 403), (self.tutor1, 404), (self.admin_b, 200 if not args(self) else 404)):
+            named = 404 if args(self) else 403  # an address that names a row: one answer for whoever may not manage
+            for user, expected in ((self.admin, 200), (self.member_user, named), (self.leader_user, named),
+                                   (self.coord1, named), (self.tutor1, 404), (self.admin_b, 200 if not args(self) else 404)):
                 self.client.force_login(user)
                 with self.subTest(page=name, user=user.email):
                     self.assertEqual(self.client.get(url).status_code, expected)
@@ -232,3 +234,158 @@ class ChurchAuditTests(CommunityFixture):
             self.assertNotIn("@", text)
             self.assertNotIn("9999", text)
         self.assertFalse(ChurchAuditEvent.objects.filter(church=self.church_b).exists())
+
+
+class NotFoundBeforeForbiddenTests(CommunityFixture):
+    """Somebody who may not manage the church's people gets 404 for an id that is not of this church (the answer the
+    administration gets) and 403 only for a row that is. The id of another church never answers differently from
+    an id that does not exist."""
+
+    def setUp(self):
+        from people import merge
+        from people.models import EventParticipantLink, PersonMerge
+
+        self.twin = Person.objects.create(church=self.church, first_name="Nora", last_name="Sin Cuenta Dos")
+        self.twin_b = Person.objects.create(church=self.church_b, first_name="Bruno", last_name="Miembro Dos")
+        self.dismissal = merge.dismiss(self.church, self.no_account.pk, self.twin.pk, self.admin)
+        self.dismissal_b = merge.dismiss(self.church_b, self.member_b.pk, self.twin_b.pk, self.admin_b)
+        self.link = EventParticipantLink.objects.get(person=self.member)
+        self.merge_b = PersonMerge.objects.create(church=self.church_b, survivor=self.member_b, absorbed=self.twin_b, merged_by=self.admin_b)
+        self.church_pastor = User.objects.create_user(username="pastora-404@prueba.mx", email="pastora-404@prueba.mx")
+        UserChurchRole.objects.create(church=self.church, user=self.church_pastor, role="pastor")
+
+    def routes(self, person, other, slug, dismissal, link_person, link, merge_id):
+        return [
+            ("get", reverse("people:detail", args=[person])),
+            ("get", reverse("people:edit", args=[person])),
+            ("post", reverse("people:edit", args=[person])),
+            ("post", reverse("people:grant_access", args=[person])),
+            ("post", reverse("people:access_link", args=[person])),
+            ("get", reverse("people:merge_preview", args=[person, other])),
+            ("post", reverse("people:merge_preview", args=[person, other])),
+            ("get", reverse("people:from_event", args=[slug])),
+            ("post", reverse("people:duplicate_reopen", args=[dismissal])),
+            ("post", reverse("people:unlink", args=[link_person, link])),
+            ("get", reverse("people:merge_detail", args=[merge_id])),
+            ("post", reverse("people:merge_undo", args=[merge_id])),
+        ]
+
+    def wave10(self, person, real: bool):
+        """The routes of wave 10 that name a row: a person's stage and tags, a tag, an import."""
+        from people import tags
+        from people.models import PeopleImport
+
+        tag = tags.church_tags(self.church).first() or tags.create_tag(self.church, "Coro", self.admin)
+        record = PeopleImport.objects.filter(church=self.church).first() or PeopleImport.objects.create(church=self.church, created_count=1)
+        tag_id, import_id = (tag.pk, record.pk) if real else (987654, 987654)
+        return [
+            ("post", reverse("people:stage", args=[person])), ("post", reverse("people:person_tags", args=[person])),
+            ("get", reverse("people:tag_delete", args=[tag_id])), ("post", reverse("people:tag_delete", args=[tag_id])),
+            ("get", reverse("people:import_detail", args=[import_id])), ("post", reverse("people:import_undo", args=[import_id])),
+        ]
+
+    def test_who_may_not_manage_cannot_tell_a_row_that_exists_from_one_that_does_not(self):
+        own = self.routes(self.no_account.pk, self.twin.pk, self.event.slug, self.dismissal.pk, self.member.pk, self.link.pk, 0)[:10]
+        foreign = self.routes(self.member_b.pk, self.twin_b.pk, self.event_b.slug, self.dismissal_b.pk, self.member_b.pk, self.link.pk, self.merge_b.pk)
+        invented = self.routes(987654, 987655, "no-existe", 987654, 987654, 987654, 987654)
+        mixed = [
+            ("get", reverse("people:merge_preview", args=[self.no_account.pk, self.member_b.pk])),  # one of each church
+            ("post", reverse("people:unlink", args=[self.no_account.pk, self.link.pk])),  # a link of another person
+        ]
+        for user in (self.member_user, self.leader_user, self.church_pastor):
+            self.client.force_login(user)
+            pages = set()
+            for method, url in own + foreign + invented + mixed + self.wave10(self.no_account.pk, True) + self.wave10(987654, False):
+                with self.subTest(user=user.email, url=url):
+                    response = getattr(self.client, method)(url)
+                    self.assertEqual(response.status_code, 404)
+                    pages.add(re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"|data-idle-remaining="\d+"', "", response.content.decode()))
+            # The screens whose address names no row are the only ones that say "no puedes": they tell nothing about a row.
+            for name in ("people:list", "people:create", "people:duplicates", "people:tags", "people:export", "people:import"):
+                self.assertEqual(self.client.get(reverse(name)).status_code, 403, name)
+            self.assertEqual(self.client.post(reverse("people:duplicate_dismiss"), {"a": self.no_account.pk, "b": self.twin.pk}).status_code, 403)
+            self.assertEqual(self.client.post(reverse("people:duplicate_dismiss"), {"a": 987654, "b": 987655}).status_code, 403)
+            self.assertEqual(len(pages), 1, user.email)  # and every 404 is the same page, byte for byte
+        # and nothing was written by any of it
+        self.assertTrue(type(self.dismissal).objects.filter(pk=self.dismissal_b.pk).exists())
+        self.merge_b.refresh_from_db()
+        self.assertIsNone(self.merge_b.undone_at)
+
+    def test_the_administration_of_another_church_still_gets_404(self):
+        self.client.force_login(self.admin_b)
+        for name in ("people:detail", "people:edit"):
+            self.assertEqual(self.client.get(reverse(name, args=[self.no_account.pk])).status_code, 404)
+
+    def test_a_merged_record_is_not_found_for_anybody(self):
+        Person.objects.filter(pk=self.twin.pk).update(merged_into=self.no_account)
+        self.client.force_login(self.member_user)
+        self.assertEqual(self.client.get(reverse("people:detail", args=[self.twin.pk])).status_code, 404)
+
+
+class PolishTests(CommunityFixture):
+    """The designer's read of the journey (wave 10): neutral copy, what a refusal page shows, names that grow."""
+
+    def test_the_copy_about_one_person_fits_whoever_the_person_is(self):
+        self.client.force_login(self.admin)
+        for person in (self.member, self.no_account):  # Diego and Nora read the same sentences
+            page = self.client.get(reverse("people:detail", args=[person.pk])).content.decode()
+            for words in ("vinculada", "vinculado", "la acompañe", "lo acompañe", "búscala", "búscalo"):
+                self.assertNotIn(words, page, person.first_name)
+            self.assertIn("Pedir que alguien acompañe a esta persona", page)
+        self.assertContains(self.client.get(reverse("people:detail", args=[self.no_account.pk])), "Sin vínculo con ningún evento. Si esta persona fue a uno")
+        self.assertContains(self.client.get(reverse("people:detail", args=[self.member.pk])), "El vínculo se hizo el")
+        form = self.client.get(reverse("people:create"))
+        self.assertContains(form, "¿Cómo prefiere que se le contacte?")
+        self.assertContains(form, "Registrar a alguien no le da acceso a Emmaus")
+
+    def test_the_stage_and_the_filters_are_one_bar_each(self):
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse("people:detail", args=[self.member.pk]))
+        self.assertContains(page, 'class="filter-bar person-stage"')
+        self.assertNotContains(page, "filter-form__actions")
+        self.assertContains(self.client.get(reverse("people:list")), 'class="filter-bar people-filters"')
+
+    def test_the_refusal_page_of_a_staff_screen_says_nothing_about_the_church(self):
+        from people import tags
+        from people.models import PeopleImport
+
+        tags.create_tag(self.church, "Llaves del templo", self.admin)
+        PeopleImport.objects.create(church=self.church, created_count=37)
+        pages = set()
+        for user in (self.member_user, self.leader_user):
+            self.client.force_login(user)
+            for name in ("people:list", "people:create", "people:duplicates", "people:tags", "people:export", "people:import", "people:from_event_list"):
+                response = self.client.get(reverse(name))
+                self.assertEqual(response.status_code, 403, name)
+                self.assertTemplateUsed(response, "errors/403.html")
+                html = response.content.decode()
+                main = html[html.index("<main"):html.index("</main>")]
+                for words in ("Nora", "Sin Cuenta", "Pía", "persona", "Llaves del templo", "37", "etiqueta", "resultado", "duplicad", "Importaciones", "@prueba.mx"):
+                    self.assertNotIn(words, main, (name, words))
+                pages.add((user.pk, main))
+        self.assertEqual(len(pages), 2)  # one page per person, whatever the screen
+
+    def test_a_name_that_grows_when_normalised_never_reaches_the_database_too_long(self):
+        from events.tests.base import make_user
+
+        grows = "ﬃ" * 100  # 100 characters, 300 once normalised
+        person = Person.objects.create(church=self.church, first_name=grows, last_name=grows)
+        self.assertEqual(len(Person.objects.get(pk=person.pk).normalized_name), 250)
+        # An account with such a name still gets its person on its first visit.
+        user = make_user("crece@prueba.mx", grows, grows)
+        from core.models import Role
+        from core.services import assign_role
+
+        assign_role(user, self.church, Role.CHURCH_ADMIN)
+        own = services.ensure_own_person(user, self.church)
+        self.assertLessEqual(len(own.normalized_name), 250)
+        # A campero with such a name is not brought: the administrator is told what to do instead.
+        half = "ﬃ" * 79  # 159 characters with the space: it fits the campero's own column (160), and is 475 once normalised
+        campero = EventParticipant.objects.create(event=self.event, number=99, full_name=f"{half} {half}", age=20, room="1", church_group="A")
+        self.client.force_login(self.admin)
+        url = reverse("people:from_event_link", args=[self.event.slug, campero.public_id])
+        response = self.client.post(url, {"persona": "nueva"}, follow=True)
+        self.assertContains(response, "no se pueden guardar")
+        self.assertFalse(EventParticipantLink.objects.filter(participant=campero).exists())
+        with self.assertRaises(services.PeopleError):
+            services.create_person_from_participant(campero, self.admin)

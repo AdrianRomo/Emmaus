@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Formularios{% endblock %}
+{% block content %}
+{% comment %}The forms of the church a person can answer today (formularios.views.member_list). Nothing about who answered.{% endcomment %}
+<div class="narrow forms">
+  {% url 'community:home' as back %}{% url 'formularios:manage' as manage %}
+  {% if can_manage %}
+    {% include "events/rotulo/_page_head.html" with title="Formularios" lede="Lo que tu iglesia te pide responder en estos días." back_url=back back_label="Volver a Mi iglesia" secondary_url=manage secondary_label="Ver respuestas y formularios" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Formularios" lede="Lo que tu iglesia te pide responder en estos días." back_url=back back_label="Volver a Mi iglesia" %}
+  {% endif %}
+  {% if forms %}
+    <ul class="rows">
+      {% for form in forms %}
+        <li class="row row--stack">
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'formularios:fill' form.pk %}">{{ form.current_version.title }}</a></p>
+            <p class="row__meta">{{ form.current_version.purpose }}</p>
+            <p class="row__meta">Puedes responder hasta el {{ form.closes_on|weekday_date }}.{% if form.answered %} Ya respondiste hoy.{% endif %}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Tu iglesia no tiene formularios abiertos por ahora.</p>
+  {% endif %}
+</div>
+{% endblock %}
