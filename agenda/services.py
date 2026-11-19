@@ -363,7 +363,7 @@ def upcoming_for(person, church, today=None) -> list[Event]:
         Event.objects.filter(church=church, page__isnull=False)
         .filter(_not_ended(today))
         .filter(Q(page__published=True, status=Event.Status.ACTIVE) | Q(pk__in=[*mine, *listed]))
-        .select_related("page")
+        .select_related("page", "series_occurrence__series")
         .annotate(taken=Count("registrations", filter=Q(registrations__status__in=TAKING)))
     )
     events = sorted(events, key=lambda event: (event.starts_on or event.ends_on, event.name, event.pk))
@@ -829,6 +829,9 @@ def save_page(event: Event, actor, *, base_url: str | None = None, **fields) -> 
         else:
             action, summary = "evento_pagina", f"Modificó la página del evento {event.name}"
         record_church(event.church, actor, action, summary, page, event_id=event.pk)
+        from . import series  # a date of a series changed by hand stops following the series
+
+        series.touched(event)
     return page
 
 

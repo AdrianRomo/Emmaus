@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import duplicate, simple, views
+from . import duplicate, series_views, simple, views
 
 app_name = "agenda"
 
@@ -8,6 +8,15 @@ urlpatterns = [
     path("", views.event_list, name="list"),
     path("administrar/", views.admin_list, name="admin_list"),
     path("nuevo/", simple.create, name="create"),
+    # Series (issue #93). "administrar" is a reserved address; "serie/<n>/" matches no route of an event.
+    path("administrar/series/nueva/", series_views.create, name="series_create"),
+    path("administrar/series/<int:series_id>/", series_views.admin_detail, name="series_admin"),
+    path("administrar/series/<int:series_id>/editar/", series_views.edit, name="series_edit"),
+    path("administrar/series/<int:series_id>/terminar/", series_views.end, name="series_end"),
+    path("administrar/series/<int:series_id>/reanudar/", series_views.resume, name="series_resume"),
+    path("administrar/series/<int:series_id>/fechas/<int:occurrence_id>/no-hay/", series_views.call_off, name="series_call_off"),
+    path("administrar/series/<int:series_id>/fechas/<int:occurrence_id>/si-hay/", series_views.restore, name="series_restore"),
+    path("serie/<int:series_id>/", series_views.member_detail, name="series"),
     path("<slug:slug>/datos/", simple.edit, name="event_edit"),
     path("<slug:slug>/duplicar/", duplicate.duplicate, name="duplicate"),
     path("<slug:slug>/", views.detail, name="detail"),

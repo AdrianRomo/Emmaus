@@ -7,6 +7,8 @@
   <div class="row__main">
     <p class="row__title"><a href="{% url 'agenda:detail' event.slug %}">{{ event.name }}</a></p>
     <p class="row__meta">{% if event.kind != "otro" %}{{ event.get_kind_display }}, {% endif %}{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on }}{% else %}{{ event.ends_on|date_range }}{% endif %}{% if event.page.starts_at %}, a las {{ event.page.starts_at|time:"H:i" }}{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}.</p>
+    {% if event.called_off %}<p class="row__meta"><strong>Este día no hay.</strong></p>
+    {% elif event.series and not hide_series %}<p class="row__meta">Se repite {{ event.series_rule }}. <a href="{% url 'agenda:series' event.series.pk %}">Ver las otras fechas<span class="visually-hidden"> de {{ event.series.name }}</span></a></p>{% endif %}
   </div>
   {% if event.state == "inscrita" %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>
   {% elif event.state == "pendiente" %}<div class="row__end">{% if event.my_place.waits_for == "age" %}{% status "revisar" "Falta confirmar tu edad" %}{% else %}{% status "revisar" "Pendiente de autorización" %}{% endif %}</div>

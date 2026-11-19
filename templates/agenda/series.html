@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}{{ series.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  The dates of one series a person of the church may see (agenda.series_views.member_detail): each one is an
+  event of its own, with its own page and, if the church asks for it, its own sign-up.
+{% endcomment %}
+<div class="narrow">
+  {% url 'agenda:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title=series.name lede=series.description back_url=back back_label="Volver a Eventos" %}
+  <section class="block" aria-labelledby="fechas">
+    <h2 id="fechas" class="heading">Se repite {{ rule }}</h2>
+    <ul class="dates rows">
+      {% for event in events %}{% include "agenda/_event_row.html" with hide_series=True %}{% endfor %}
+    </ul>
+  </section>
+</div>
+{% endblock %}

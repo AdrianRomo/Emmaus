@@ -24,7 +24,7 @@ class SimpleEventForm(EventForm):
 
     required_messages = {**EventForm.required_messages, "starts_on": "Escribe qué día es."}
     # agenda/urls.py routes these before an event's address.
-    RESERVED_SLUGS = EventForm.RESERVED_SLUGS | {"administrar"}
+    RESERVED_SLUGS = EventForm.RESERVED_SLUGS | {"administrar", "serie"}
 
     class Meta(EventForm.Meta):
         fields = ["name", "kind", "location", "starts_on", "ends_on", "slug"]
@@ -67,6 +67,9 @@ def update_simple_event(event: Event, actor, **fields) -> Event:
             setattr(locked, name, value)
         locked.save()
         record_church(locked.church, actor, "evento_sencillo_datos", f"Modificó los datos del evento {locked.name}", locked)
+        from . import series  # a date of a series changed by hand stops following the series
+
+        series.touched(locked)
     return locked
 
 
@@ -88,4 +91,6 @@ def edit(request, slug: str):
         update_simple_event(event, request.user, **form.cleaned_data)
         messages.success(request, "Guardamos los datos del evento.")
         return redirect("agenda:admin_list")
-    return render(request, "agenda/simple_form.html", {"form": form, "event": event})
+    from . import series
+
+    return render(request, "agenda/simple_form.html", {"form": form, "event": event, "series_row": series.occurrence_of(event)})
