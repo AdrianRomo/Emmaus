@@ -1,82 +1,32 @@
 {% extends "base.html" %}
 {% load community shell %}
-{% block page_title %}Revisa antes de publicar: Página pública de la iglesia{% endblock %}
+{% block page_title %}Revisa antes de pedir la aprobación: Página pública de la iglesia{% endblock %}
 {% block content %}
 {% comment %}
   The review before the church's home goes public (sitio.views.publish): exactly what anybody will read, by
-  name. "Publicar la página" publishes what this list shows; if it changed meanwhile, the list is shown again.
+  name. The button asks a pastor to approve what this list shows (the approval publishes it, not the administration);
+  if it changed meanwhile, the list is shown again.
 {% endcomment %}
 <div class="narrow">
   {% url 'sitio:edit' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Revisa antes de publicar" lede="Todavía no se publica nada. Esto es todo lo que podrá leer cualquier persona con el enlace, sin cuenta." back_url=back back_label="Volver a editar" %}
+  {% include "events/rotulo/_page_head.html" with title="Revisa antes de pedir la aprobación" lede="Todavía no se publica nada. Esto es todo lo que podrá leer cualquier persona con el enlace, sin cuenta, cuando un pastor de tu iglesia lo apruebe." back_url=back back_label="Volver a editar" %}
 
-  <section class="block" aria-labelledby="rev-iglesia">
-    <h2 id="rev-iglesia" class="heading">Tu iglesia</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Nombre y logotipo</dt><dd>{{ church.name }}{% if church.logo %}, con su logotipo{% else %}, con sus iniciales (no hay logotipo){% endif %}.</dd></div>
-      <div class="summary-list__row"><dt>Bienvenida</dt><dd>{{ home.welcome|default:"No se muestra: está vacía." }}</dd></div>
-      <div class="summary-list__row"><dt>Dirección</dt><dd>{% if home.address %}{{ home.address|linebreaksbr }}{% else %}No se muestra: está vacía.{% endif %}</dd></div>
-      <div class="summary-list__row"><dt>Enlace al mapa</dt><dd>{% if home.map_url %}<span class="break-anywhere">{{ home.map_url }}</span>{% else %}No se muestra: está vacío.{% endif %}</dd></div>
-    </dl>
-  </section>
-
-  <section class="block" aria-labelledby="rev-contacto">
-    <h2 id="rev-contacto" class="heading">Datos de contacto</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Teléfono</dt><dd>{{ home.contact_phone|default:"No se muestra: está vacío." }}</dd></div>
-      <div class="summary-list__row"><dt>Correo</dt><dd>{{ church.contact_email|default:"No se muestra: está vacío en Configuración." }}</dd></div>
-    </dl>
-    {% if content.has_contact %}<p class="aside-note">Cualquiera podrá llamar o escribir a estos datos. Usa los de la iglesia, no los personales de alguien.</p>{% endif %}
-  </section>
-
-  <section class="block" aria-labelledby="rev-horarios">
-    <h2 id="rev-horarios" class="heading">Horarios de reunión</h2>
-    {% if content.days %}
-    <ul class="rows">
-      {% for day in content.days %}{% for item in day.times %}
-      <li class="row"><div class="row__main"><p>{{ day.day }}, {{ item.time|time:"H:i" }}: {{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}.</p></div></li>
-      {% endfor %}{% endfor %}
-    </ul>
-    {% else %}<p class="empty-line">No se muestra ninguno: no has agregado horarios.</p>{% endif %}
-  </section>
-
-  <section class="block" aria-labelledby="rev-eventos">
-    <h2 id="rev-eventos" class="heading">Eventos</h2>
-    {% if content.events %}
-    <ul class="rows">
-      {% for event in content.events %}
-      <li class="row"><div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.</p></div></li>
-      {% endfor %}
-    </ul>
-    <p class="aside-note">Cada uno lleva a su página pública, que ya existe. No se muestra quién se inscribió ni cuántos lugares quedan.</p>
-    {% else %}<p class="empty-line">No se muestra ninguno: hoy ningún evento tiene página pública.</p>{% endif %}
-  </section>
-
-  <section class="block" aria-labelledby="rev-recursos">
-    <h2 id="rev-recursos" class="heading">Recursos</h2>
-    {% if content.media %}
-    <ul class="rows">
-      {% for item in content.media %}
-      <li class="row"><div class="row__main"><p>{{ item.title }}</p><p class="row__meta">{% include "resources/_media_sentence.html" with item=item %} Enlace: <span class="break-anywhere">{{ item.url }}</span></p></div></li>
-      {% endfor %}
-    </ul>
-    <p class="aside-note">De cada recurso se muestran el título, de quién es, la serie, la fecha y el enlace. El nombre de quien predicó o enseñó será público.</p>
-    {% else %}<p class="empty-line">No se muestra ninguno: no has marcado recursos para la página pública.</p>{% endif %}
-  </section>
+  {% include "sitio/_review_list.html" %}
 
   <div class="notice notice--quiet">
-    <p>Después de publicar, la página cambia sola cuando tú cambias algo: un evento al que le des página pública, un recurso que marques o estos datos aparecen sin otra revisión. Lo que retires deja de verse.</p>
+    <p>Después de publicarse, un evento al que le des página pública o un recurso que marques aparecen sin otra revisión, y lo que retires deja de verse. La dirección, el mapa, el teléfono y los horarios también se pueden corregir después y se ven de inmediato. En cambio, si cambias la bienvenida, la página deja de ser pública hasta que un pastor la apruebe otra vez.</p>
   </div>
 
+  {% include "resources/_approval_note.html" %}
   <form method="post">
     {% csrf_token %}
     <input type="hidden" name="revision" value="{{ revision }}">
     <div class="step__actions">
-      <button class="btn btn--primary" type="submit">Publicar la página</button>
+      {% if not approval.is_pending %}<button class="btn btn--primary" type="submit">Pedir la aprobación pastoral</button>{% endif %}
       <a class="btn btn--link" href="{% url 'sitio:preview' %}">Ver la vista previa</a>
       <a class="btn btn--link" href="{{ back }}">Volver a editar</a>
     </div>
   </form>
-  <p class="aside-note">La dirección será {{ public_url }}. Al publicar queda anotado en los movimientos de la iglesia, con tu nombre.</p>
+  <p class="aside-note">La dirección será {{ public_url }}. Pedir la aprobación queda anotado en los movimientos de la iglesia, con tu nombre. La solicitud queda en la lista «Aprobación pastoral» de los pastores de tu iglesia; Emmaus no le avisa a nadie: lo ven cuando entran.</p>
 </div>
 {% endblock %}

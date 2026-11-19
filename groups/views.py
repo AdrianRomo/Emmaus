@@ -29,8 +29,9 @@ from events.services import throttle
 from people import flags
 from people.decorators import module_required
 from people.models import Person
-from people.services import ensure_own_person, save_person
+from people.services import PeopleError, ensure_own_person, save_person
 
+from agenda import series as agenda_series
 from agenda import services as agenda_services
 from care import services as care_services
 from notices import services as notices_services
@@ -116,7 +117,8 @@ def home(request):
     # The home is a glance, so its lists are short on purpose and each one leads to the whole list: five events and
     # six dates in all under "Lo que viene" ("Ver todos los eventos"), three notices ("Ver todos los avisos"), three
     # dates to serve ("Ver todo en Servir"), three resources ("Ver todos los recursos").
-    upcoming = agenda_services.upcoming_for(person, church, today)[:5]
+    # Of a series (agenda.series), the next date only: a weekly service must not fill the five rows by itself.
+    upcoming = agenda_series.collapse(agenda_services.upcoming_for(person, church, today))[:5]
     urgent_notices = notices_services.urgent_pending(person, is_admin=request.is_church_admin)
     notices = notices_services.for_home(person, is_admin=request.is_church_admin, skip=urgent_notices)
     devotional = resources_services.today_devotional(church, person, today)
@@ -233,7 +235,11 @@ def profile(request):
     the contact fields: the name on record and the date of birth are the administration's."""
     form = MyDataForm(request.POST or None, instance=request.person)
     if request.method == "POST" and form.is_valid():
-        save_person(form.save(commit=False), request.user, created=False)
+        try:
+            save_person(form.save(commit=False), request.user, created=False)
+        except PeopleError:  # the administration merged this record into another one while the form was open
+            messages.error(request, "No pudimos guardar tus datos porque tu registro cambió. Revísalos e inténtalo otra vez.")
+            return redirect("community:profile")
         messages.success(request, "Guardamos tus datos.")
         return redirect("community:home")
     return render(request, "groups/profile.html", {"form": form, "person": request.person})

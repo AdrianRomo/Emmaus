@@ -1,27 +1,32 @@
 {% extends "base.html" %}
-{% block page_title %}{% if form.errors %}Error: {% endif %}Publicar el plan{% endblock %}
+{% block page_title %}{% if error %}Error: {% endif %}Pedir la aprobación pastoral del plan{% endblock %}
 {% block content %}
 {% comment %}
-  The step that publishes a plan (resources.plan_views.plan_publish): one checkbox, the administration's confirmation
-  that the church wrote the plan or has permission to publish it. Who confirmed and when are stored with the plan.
+  The step where the administration asks a pastor to approve a plan (resources.plan_views.plan_publish). Nothing is
+  published here: a pastor reads the whole plan, says with which permission the church publishes it, and that
+  approval publishes it (resources.approval_views).
 {% endcomment %}
 <div class="narrow">
-  {% include "partials/ui/error_summary.html" with form=form %}
+  {% if error %}<div class="error-summary" role="alert" aria-labelledby="error-summary-title"><h2 id="error-summary-title">Hay un problema</h2><ul><li>{{ error }}</li></ul></div>{% endif %}
   {% url 'resources:plan_days' plan.pk as back %}
-  {% include "events/rotulo/_page_head.html" with title="Publicar el plan" lede=plan.title back_url=back back_label="Volver al plan" %}
-  {% if total %}
-    <p>Al publicarlo, las personas de tu iglesia lo encuentran en Planes de lectura y lo pueden empezar. Tiene {{ day_words }}.</p>
-    <p class="aside-note">Un plan lleva solo citas y lo que escribió tu iglesia. Si algún día tiene pegado el texto de una traducción de la Biblia con derechos reservados, o un texto de otro autor sin permiso, quítalo antes de publicar.</p>
-    <form method="post" novalidate>
+  {% include "events/rotulo/_page_head.html" with title="Pedir la aprobación pastoral" lede=plan.title back_url=back back_label="Volver al plan" %}
+  {% if approval.is_pending %}
+    {% include "resources/_approval_note.html" %}
+    <p class="more"><a href="{% url 'resources:approval_queue' %}">Ver lo que espera aprobación pastoral</a></p>
+  {% elif total %}
+    <p>Un pastor de tu iglesia leerá el plan completo ({{ day_words }}) y dirá con qué permiso lo publica la iglesia. Si lo aprueba, las personas lo encuentran en Planes de lectura y lo pueden empezar. Si lo devuelve, aquí verás qué hay que corregir.</p>
+    <p class="aside-note">Un plan lleva solo citas y lo que escribió tu iglesia. Si algún día tiene pegado el texto de una traducción de la Biblia con derechos reservados, o un texto de otro autor sin permiso, quítalo antes de pedir la aprobación.</p>
+    {% include "resources/_approval_note.html" %}
+    <form method="post">
       {% csrf_token %}
-      {% include "partials/ui/fields.html" with form=form %}
       <div class="step__actions">
-        <button class="btn btn--primary" type="submit">Publicar el plan</button>
+        <button class="btn btn--primary" type="submit">Pedir la aprobación pastoral</button>
         <a class="btn btn--link" href="{{ back }}">Cancelar</a>
       </div>
     </form>
+    <p class="aside-note">La solicitud queda en la lista «Aprobación pastoral» de los pastores de tu iglesia. Emmaus no le avisa a nadie: lo ven cuando entran.</p>
   {% else %}
-    <p class="empty-line">Este plan todavía no tiene días. <a href="{% url 'resources:plan_day_create' plan.pk %}">Agrega por lo menos uno</a> antes de publicarlo.</p>
+    <p class="empty-line">Este plan todavía no tiene días. <a href="{% url 'resources:plan_day_create' plan.pk %}">Agrega por lo menos uno</a> antes de pedir su aprobación.</p>
   {% endif %}
 </div>
 {% endblock %}

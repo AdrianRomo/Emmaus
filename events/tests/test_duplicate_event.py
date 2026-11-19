@@ -6,7 +6,7 @@ Each test names the defect it would catch.
 from __future__ import annotations
 
 import re
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
@@ -121,8 +121,18 @@ class NothingOfThePeopleTests(DuplicateFixture):
         EventFaq.objects.create(event=event, question="¿Qué llevo?", answer="Ropa abrigadora.")
         EventNotice.objects.create(event=event, title="El camión sale a las 7:00", body="Lleguen media hora antes.")
         EventScheduleItem.objects.create(event=event, day=event.starts_on, starts_at=time(9, 0), title="Bienvenida")
+        # A camp is never a date of a series (agenda.series); the row is here so that the copy is proven to have none.
+        from agenda.models import EventSeries, SeriesOccurrence
+
+        weekly = EventSeries.objects.create(church=event.church, name="Serie", weekdays="6", starts_at=time(10, 0), starts_on=event.starts_on)
+        SeriesOccurrence.objects.create(series=weekly, day=event.starts_on, event=event)
         EventFeedback.objects.create(event=event, rating="bien", recommend="si")
         FeedbackGiven.objects.create(event=event, token="a" * 64)
+        from espacios.models import Booking, Space
+
+        soon = timezone.now() + timedelta(days=2)
+        Booking.objects.create(space=Space.objects.create(church=self.church, name="Salón"), title="Ensayo", event=event,
+                               starts_at=soon, ends_at=soon + timedelta(hours=1))
         if not AuditEvent.objects.filter(event=event).exists():
             raise AssertionError("the interview should have left audit rows")
 

@@ -7,7 +7,15 @@ church, its home, its times, its events and its resources, and no table of peopl
 Writing: each function is one transaction that saves and leaves one church audit row. An audit row
 never carries a title, an address, a phone or the words of the welcome.
 
-Callers have already answered who may write (``sitio.views``: the church's administration).
+Callers have already answered who may write (``sitio.views``: the church's administration). The
+administration prepares the page and asks for its approval; only a pastor's approval makes it public
+(``resources.approvals``, with the kind in ``sitio.approval``). What the church says about itself
+The first publication is a pastor's approval of the whole page as it stands. After that, only the
+welcome is authored content: when it changes on a public page, the page stops being public until a
+pastor approves it again. The times, the address, the map link and the phone are facts the
+administration keeps current (and are kept short and plain so they cannot carry a text: one line of
+address, a link that only goes to a map site, twelve times at most with short names), and the events and the resources have their own publication steps:
+none of those needs a new approval.
 """
 
 from __future__ import annotations
@@ -23,20 +31,43 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from agenda import series as agenda_series
 from core.models import Church
 from events.models import Event
 from people import flags
 from people.audit import record_church
+from resources import approvals
 from resources.models import MediaItem
 
 from .models import PublicHome, PublicMedia, ServiceTime
 
+HOME_KIND = "sitio"  # resources.models.ContentApproval.Kind.HOME
 EVENT_LIMIT = 4
 MEDIA_LIMIT = 4
 # How a day reads on the page: every week, so in plural where Spanish has one.
 DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábados", "Domingos"]
 HTTPS_ONLY = "El enlace debe empezar con https://. Copia la dirección completa desde tu aplicación de mapas, en «Compartir»."
 BAD_URL = "Ese enlace no se entiende. Copia la dirección completa, por ejemplo https://maps.app.goo.gl/…"
+NOT_A_MAP = (
+    "Ese enlace no es de un mapa. Pega el enlace que da «Compartir» en Google Maps, Apple Maps, Waze u OpenStreetMap. "
+    "Para enlazar otra cosa usa un recurso o la página de un evento."
+)
+# Where a link to the map may go. Whole hosts, and hosts where only the map's own path counts. google.com.mx is
+# here because that is the address Google gives in Mexico.
+MAP_HOSTS = frozenset({
+    "maps.app.goo.gl", "maps.google.com", "maps.google.com.mx", "maps.apple.com", "waze.com", "www.waze.com", "ul.waze.com",
+    "www.openstreetmap.org", "openstreetmap.org", "osm.org",
+})
+MAP_PATHS = (("www.google.com", "/maps"), ("google.com", "/maps"), ("www.google.com.mx", "/maps"), ("goo.gl", "/maps"))
+NAME_TOO_LONG = (
+    "El nombre de la reunión puede tener hasta 40 caracteres y este tiene {length}. El límite es nuevo y vale desde "
+    "este guardado: di solo qué reunión es, por ejemplo «Reunión general»."
+)
+PLACE_TOO_LONG = (
+    "El lugar puede tener hasta 80 caracteres y este tiene {length}. El límite es nuevo y vale desde este guardado: "
+    "di solo el salón o el lugar."
+)
+TOO_MANY_TIMES = "Ya hay 12 horarios, que es el máximo. Quita uno que tu iglesia ya no use para agregar otro."
 BAD_PHONE = "Escribe el teléfono solo con números, espacios o guiones, con al menos 8 dígitos. Por ejemplo: 55 1234 5678."
 
 
@@ -115,14 +146,17 @@ def service_days(church) -> list[dict]:
 
 def public_events(church, today=None) -> list[Event]:
     """The church's events that have their own public page (``agenda.public.public_page``): active,
-    page published and public, not over. Each one carries ``page``."""
+    page published and public, not over. Each one carries ``page``. Of a series (what the church does
+    every week) only the next date is listed, with ``series_rule`` ("cada domingo"): a weekly meeting
+    is one row, not eight. A date that was called off is not listed."""
     today = today or timezone.localdate()
     events = (
         Event.objects.filter(church=church, status=Event.Status.ACTIVE, page__published=True, page__public=True)
         .filter(Q(ends_on__gte=today) | Q(ends_on__isnull=True, starts_on__gte=today))
-        .select_related("page").order_by("starts_on", "name", "pk")
+        .select_related("page", "series_occurrence__series").order_by("starts_on", "name", "pk")
     )
-    return list(events[:EVENT_LIMIT])
+    dates = [event for event in events if not getattr(agenda_series.occurrence_of(event), "cancelled", False)]
+    return agenda_series.collapse(dates)[:EVENT_LIMIT]
 
 
 def public_media_items(church):
@@ -145,6 +179,13 @@ def public_ids(items) -> set[int]:
     return set(PublicMedia.objects.filter(item__in=[item.pk for item in items]).values_list("item_id", flat=True))
 
 
+def authored_digest(church, home: PublicHome) -> str:
+    """The fingerprint of the one thing on the page that is authored: the welcome. The times, the address,
+    the map link and the phone are facts the administration keeps current (a changed hour on a Saturday
+    night cannot wait for a pastor): they are not part of what an approval covers."""
+    return approvals.fingerprint(home.welcome)
+
+
 # ---- writing ------------------------------------------------------------------------------------
 def _line(text: str) -> str:
     return " ".join((text or "").split())
@@ -154,8 +195,18 @@ def _text(text: str) -> str:
     return (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
 
 
+def is_map_address(url: str) -> bool:
+    """Whether ``url`` goes to one of the map sites (``MAP_HOSTS``, ``MAP_PATHS``)."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    if host in MAP_HOSTS:
+        return True
+    return any(host == site and (parts.path == path or parts.path.startswith(path + "/")) for site, path in MAP_PATHS)
+
+
 def clean_map_url(url: str) -> str:
-    """Empty, or an ``https://`` address with a host."""
+    """Empty, or an ``https://`` address of a map site. The link to the map is a fact about where the
+    church meets: it changes without a pastor's approval, so it cannot be a link to anything else."""
     url = (url or "").strip()
     if not url:
         return ""
@@ -167,7 +218,21 @@ def clean_map_url(url: str) -> str:
         raise SiteError(BAD_URL, code="map_url") from None
     if len(url) > 500:
         raise SiteError("Ese enlace es demasiado largo. Usa el enlace corto que da el mapa en «Compartir».", code="map_url")
+    if not is_map_address(url):
+        raise SiteError(NOT_A_MAP, code="map_url")
     return url
+
+
+def clean_address(address: str) -> str:
+    """One line, up to ``PublicHome.ADDRESS_MAX``: line breaks and runs of spaces become one space. An
+    address written before the limit keeps showing; the limit holds from the next save."""
+    address = _line(address)
+    if len(address) > PublicHome.ADDRESS_MAX:
+        raise SiteError(
+            f"La dirección puede tener hasta {PublicHome.ADDRESS_MAX} caracteres y esta tiene {len(address)}. "
+            "El límite es nuevo y vale desde este guardado: deja solo calle, número, colonia y ciudad.", code="address",
+        )
+    return address
 
 
 def clean_phone(phone: str) -> str:
@@ -184,23 +249,37 @@ def _locked_home(church) -> PublicHome:
     return home
 
 
+def _words_changed(church, home: PublicHome, actor, before: str) -> None:
+    """After a write, inside its transaction: when the welcome is no longer ``before``, the approval
+    does not cover it and a public page stops being public."""
+    if before == authored_digest(church, home):
+        return
+    was_public = home.published
+    if was_public:
+        home.published = False
+        home.save(update_fields=["published", "updated_at"])
+    approvals.content_changed(church, approvals.kind_of(HOME_KIND), home, actor, taken_down=was_public)
+
+
 def save_home(church, actor, *, welcome: str = "", address: str = "", map_url: str = "", contact_phone: str = "") -> PublicHome:
-    """Save what the church says about itself. It does not publish: that is ``publish``."""
-    welcome, address = _line(welcome), _text(address)
+    """Save what the church says about itself. It does not publish: a pastor's approval does. On a
+    public page, another welcome takes it out of publication until a pastor approves it again; the
+    address, the map link and the phone change at once, with no approval."""
+    welcome, address = _line(welcome), clean_address(address)
     if len(welcome) > PublicHome.WELCOME_MAX:
         raise SiteError(f"La bienvenida puede tener hasta {PublicHome.WELCOME_MAX} caracteres y esta tiene {len(welcome)}. Acórtala.", code="welcome")
-    if len(address) > PublicHome.ADDRESS_MAX:
-        raise SiteError(f"La dirección puede tener hasta {PublicHome.ADDRESS_MAX} caracteres. Acórtala.", code="address")
     map_url, contact_phone = clean_map_url(map_url), clean_phone(contact_phone)
     with transaction.atomic():
         home = _locked_home(church)
         wanted = {"welcome": welcome, "address": address, "map_url": map_url, "contact_phone": contact_phone}
         if all(getattr(home, name) == value for name, value in wanted.items()):
             return home
+        before = authored_digest(church, home)
         for name, value in wanted.items():
             setattr(home, name, value)
         home.save(update_fields=[*wanted, "updated_at"])
         record_church(church, actor, "sitio_modificado", "Modificó los datos de la página pública de la iglesia", home)
+        _words_changed(church, home, actor, before)
     return home
 
 
@@ -213,10 +292,15 @@ def save_time(church, actor, *, weekday: int, time, name: str, place: str = "", 
         raise SiteError("Escribe la hora de la reunión.", code="time")
     if not name:
         raise SiteError("Escribe qué reunión es, por ejemplo «Reunión general».", code="name")
-    if len(name) > 80 or len(place) > 120:
-        raise SiteError("Ese texto es demasiado largo. Acórtalo.", code="name")
+    if len(name) > ServiceTime.NAME_MAX:
+        raise SiteError(NAME_TOO_LONG.format(length=len(name)), code="name")
+    if len(place) > ServiceTime.PLACE_MAX:
+        raise SiteError(PLACE_TOO_LONG.format(length=len(place)), code="place")
     with transaction.atomic():
         if row is None:
+            _locked_home(church)  # one at a time per church: two tabs cannot both add the last one
+            if ServiceTime.objects.filter(church=church).count() >= ServiceTime.PER_CHURCH:
+                raise SiteError(TOO_MANY_TIMES, code="limit")
             row, words = ServiceTime(church=church), "Agregó un horario de reunión a la página pública"
         else:
             row = ServiceTime.objects.select_for_update().filter(pk=row.pk, church=church).first()
@@ -236,19 +320,24 @@ def delete_time(row: ServiceTime, actor) -> None:
         row.delete()
 
 
-def publish(church, actor, reviewed: str) -> PublicHome:
-    """Make the page public. ``reviewed`` is the fingerprint of what the review page listed: when what
-    would be public is no longer that, ``StaleReview`` is raised and nothing changes."""
+def request_publication(church, actor, reviewed: str) -> PublicHome:
+    """The administration asks a pastor to approve the page: the approval is what makes it public.
+    ``reviewed`` is the fingerprint of what the review page listed: when what would be public is no
+    longer that, ``StaleReview`` is raised and nothing changes. Asking twice changes nothing."""
     with transaction.atomic():
         home = _locked_home(church)
         if page_content(church, home).digest() != reviewed:
             raise StaleReview
-        if home.published:
-            return home
-        home.published, home.published_at, home.published_by = True, timezone.now(), actor
-        home.save(update_fields=["published", "published_at", "published_by", "updated_at"])
-        record_church(church, actor, "sitio_publicado", "Publicó la página pública de la iglesia", home)
+        if not home.published:
+            approvals.request(church, approvals.kind_of(HOME_KIND), home, actor)
     return home
+
+
+def go_public(home: PublicHome, actor) -> None:
+    """Make the page public. Its one caller is the pastoral approval (``sitio.approval.HomeKind.publish``),
+    inside the transaction that holds the row."""
+    home.published, home.published_at, home.published_by = True, timezone.now(), actor
+    home.save(update_fields=["published", "published_at", "published_by", "updated_at"])
 
 
 def unpublish(church, actor) -> PublicHome:

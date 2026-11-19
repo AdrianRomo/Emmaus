@@ -15,13 +15,14 @@ from django.utils import timezone
 from access.models import RoleAssignment
 from agenda.models import EventRegistration, GuardianConsent
 from care.models import FollowUp, FollowUpStep
+from espacios.models import Booking, Space
 from events.models import Sede
 from feedback.models import FeedbackGiven
 from groups.models import GroupAttendance, GroupJoinRequest, GroupMeeting, GroupMembership
 from groups.tests.base import CommunityFixture
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.management.commands.tenant_integrity import ID_LIMIT, camp_checks, checks, community_checks
-from people.models import CampusAffiliation, EventParticipantLink, Person
+from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
 from people.management.commands.tenant_integrity import PRIVATE_SIZES
 from resources.models import (
     Devotional, DevotionalRead, MediaItem, ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress,
@@ -48,6 +49,9 @@ class CommunityIntegrityTests(CommunityFixture):
         cls.sede_b = Sede.objects.create(church=cls.church_b, name="Mérida", slug="merida")
         cls.old = Person.objects.create(church=cls.church, first_name="Dora", last_name="Duplicada", merged_into=cls.member)
         CampusAffiliation.objects.create(person=cls.member, sede=cls.sede_a)
+        PersonMerge.objects.create(church=cls.church, survivor=cls.member, absorbed=cls.old)
+        low, high = sorted([cls.leader, cls.asked], key=lambda person: person.pk)
+        DuplicateDismissal.objects.create(church=cls.church, person_a=low, person_b=high)
         type(cls.group).objects.filter(pk=cls.group.pk).update(sede=cls.sede_a)
         cls.meeting = GroupMeeting.objects.create(group=cls.group, date=today)
         cls.meeting_b = GroupMeeting.objects.create(group=cls.group_b, date=today)
@@ -78,6 +82,15 @@ class CommunityIntegrityTests(CommunityFixture):
         serving.set_member(cls.team_b, cls.member_b, cls.admin_b, role="coordina")
         cls.day = serving.save_date(cls.team, cls.admin, date=today + timedelta(days=7), what="Domingo")
         cls.day_b = serving.save_date(cls.team_b, cls.admin_b, date=today + timedelta(days=7), what="Domingo B")
+        cls.space = Space.objects.create(church=cls.church, name="Salón de prueba")
+        cls.space_b = Space.objects.create(church=cls.church_b, name="Salón B")
+        start = timezone.now() + timedelta(days=3)
+        cls.booking = Booking.objects.create(
+            space=cls.space, title="Ensayo", starts_at=start, ends_at=start + timedelta(hours=1), requested_by=cls.leader, event=cls.event,
+        )
+        cls.booking_b = Booking.objects.create(
+            space=cls.space_b, title="Ensayo B", starts_at=start, ends_at=start + timedelta(hours=1), requested_by=cls.member_b, event=cls.event_b,
+        )
         serving.assign(cls.day, cls.leader, cls.admin)
         cls.care = FollowUp.objects.create(church=cls.church, person=cls.member, owner=cls.leader, reason="visita")
         cls.care_b = FollowUp.objects.create(church=cls.church_b, person=cls.member_b, reason="visita")
@@ -96,6 +109,26 @@ class CommunityIntegrityTests(CommunityFixture):
     def break_participant_link_participant_event(self):
         # Same church, a campero of the church's other event: only the event pair disagrees.
         return EventParticipantLink.objects.create(participant=self.p3, person=self.leader, event=self.other_event)
+
+    def break_person_merge_church(self):
+        absorbed = Person.objects.create(church=self.church, first_name="Unida", last_name="Cruzada")
+        return PersonMerge.objects.create(church=self.church, survivor=self.member_b, absorbed=absorbed)
+
+    def break_duplicate_dismissal_church(self):
+        low, high = sorted([self.member, self.member_b], key=lambda person: person.pk)
+        return DuplicateDismissal.objects.create(church=self.church, person_a=low, person_b=high)
+
+    def break_merged_person_group_membership(self):
+        return GroupMembership.objects.create(group=self.other_group, person=self.old)
+
+    def break_merged_person_join_request(self):
+        return GroupJoinRequest.objects.create(group=self.other_group, person=self.old)
+
+    def break_merged_person_registration(self):
+        return EventRegistration.objects.create(event=self.other_event, person=self.old, status="pendiente", pending_reason="age")
+
+    def break_merged_person_team_membership(self):
+        return TeamMembership.objects.create(team=self.team, person=self.old)  # no service: no role row either
 
     def break_group_sede_church(self):
         type(self.other_group).objects.filter(pk=self.other_group.pk).update(sede=self.sede_b)
@@ -160,6 +193,14 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def break_care_step_by_church(self):
         return FollowUpStep.objects.create(follow_up=self.care_b, kind="nota", by=self.leader)
+
+    def break_booking_requester_church(self):
+        Booking.objects.filter(pk=self.booking_b.pk).update(requested_by=self.leader)
+        return self.booking_b
+
+    def break_booking_event_church(self):
+        Booking.objects.filter(pk=self.booking.pk).update(event=self.event_b)
+        return self.booking
 
     def break_role_assignment_scope_church(self):
         return RoleAssignment.objects.create(
@@ -231,6 +272,32 @@ class CommunityIntegrityTests(CommunityFixture):
     def test_participant_link_participant_event(self):
         self.assert_counted_alone_and_fails("participant_link_participant_event")
 
+    def test_person_merge_church(self):
+        self.assert_counted_alone_and_fails("person_merge_church")
+
+    def test_duplicate_dismissal_church(self):
+        self.assert_counted_alone_and_fails("duplicate_dismissal_church")
+
+    def test_merged_person_group_membership(self):
+        row = self.assert_counted_alone_and_fails("merged_person_group_membership")
+        GroupMembership.objects.filter(pk=row.pk).update(status="inactiva")  # history may stay on a merged record
+        self.assertEqual(json_counts()[1], 0)
+
+    def test_merged_person_join_request(self):
+        row = self.assert_counted_alone_and_fails("merged_person_join_request")
+        GroupJoinRequest.objects.filter(pk=row.pk).update(status="retirada")
+        self.assertEqual(json_counts()[1], 0)
+
+    def test_merged_person_registration(self):
+        row = self.assert_counted_alone_and_fails("merged_person_registration")
+        EventRegistration.objects.filter(pk=row.pk).update(status="cancelada", pending_reason="")
+        self.assertEqual(json_counts()[1], 0)
+
+    def test_merged_person_team_membership(self):
+        row = self.assert_counted_alone_and_fails("merged_person_team_membership")
+        TeamMembership.objects.filter(pk=row.pk).update(status="inactiva")
+        self.assertEqual(json_counts()[1], 0)
+
     def test_group_sede_church(self):
         self.assert_counted_alone_and_fails("group_sede_church")
 
@@ -287,6 +354,12 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_care_step_by_church(self):
         self.assert_counted_alone_and_fails("care_step_by_church")
+
+    def test_booking_requester_church(self):
+        self.assert_counted_alone_and_fails("booking_requester_church")
+
+    def test_booking_event_church(self):
+        self.assert_counted_alone_and_fails("booking_event_church")
 
     def test_role_assignment_scope_church(self):
         self.assert_counted_alone_and_fails("role_assignment_scope_church")

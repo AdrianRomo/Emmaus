@@ -492,3 +492,19 @@ p.sitio__leaves { margin-top: var(--s-2); }
    line with the row's other buttons */
 :root[data-ui="2"] .break-anywhere { overflow-wrap: anywhere; }
 :root[data-ui="2"] .row__form { display: contents; }
+
+/* Espacios (rooms and equipment): a booking row has no monogram to lead it, so on a phone its text keeps its own
+   height instead of the 12rem basis of a stacked row; and the week's "anterior / siguiente" sits above the days */
+:root[data-ui="2"] .spaces .row--stack .row__main { flex-basis: auto; }
+:root[data-ui="2"] .spaces .pager { margin-top: var(--s-6); margin-bottom: var(--s-8); }
+:root[data-ui="2"] .spaces form + .block { margin-top: var(--s-10); }
+@container (max-width: 44rem) {
+  :root[data-ui="2"] .spaces .table--stack tbody th, :root[data-ui="2"] .spaces .table--stack td { border: 0; padding: var(--s-1) 0; text-align: left; }
+}
+/* Espacios: the state of a booking is a word beside its title; the clashes inside the error summary are a list
+   with marks; the administration's "anyway" sits apart from the main action, with its consequence above it */
+:root[data-ui="2"] .spaces .row__state { display: inline-block; margin-left: var(--s-2); font-weight: 400; font-size: var(--t-small); white-space: nowrap; }
+:root[data-ui="2"] .spaces .error-summary .clash-list { list-style: disc; padding-left: 1.25rem; margin: var(--s-2) 0; }
+:root[data-ui="2"] .spaces .override { margin-top: var(--s-8); padding-top: var(--s-5); border-top: 1px solid var(--line); max-width: 46rem; }
+:root[data-ui="2"] .spaces .override .btn { margin-top: var(--s-4); }
+:root[data-ui="2"] .spaces .rows + form { margin-top: var(--s-8); }

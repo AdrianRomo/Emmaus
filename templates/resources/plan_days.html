@@ -9,13 +9,14 @@
 <div class="narrow">
   {% url 'resources:plan_admin' as back %}{% url 'resources:plan_day_create' plan.pk as add %}
   {% include "events/rotulo/_page_head.html" with title=plan.title lede=plan.description meta=plan.author_line back_url=back back_label="Volver a los planes de lectura" action_url=add action_label="Agregar un día" %}
-  {% if plan.is_draft %}
-    <div class="notice notice--quiet"><p>Borrador: nadie lo ve todavía. {% if days %}Cuando esté listo, <a href="{% url 'resources:plan_publish' plan.pk %}">publica el plan</a>.{% else %}Agrega por lo menos un día para poder publicarlo.{% endif %}</p></div>
+  {% if plan.is_draft and not approval.is_pending %}
+    <div class="notice notice--quiet"><p>{% if plan.was_published %}Fuera de publicación: nadie lo ve, tampoco quien ya lo había empezado (sus marcas se conservan).{% else %}Borrador: nadie lo ve todavía.{% endif %} {% if days %}Cuando esté listo, <a href="{% url 'resources:plan_publish' plan.pk %}">pide la aprobación pastoral</a>: un pastor de tu iglesia lo aprueba y entonces se publica.{% else %}Agrega por lo menos un día para poder pedir su aprobación.{% endif %}</p></div>
   {% elif plan.is_published %}
-    <div class="notice notice--quiet"><p>Publicado{% if plan.rights_confirmed_at %}. La confirmación de que la iglesia lo escribió o tiene permiso para publicarlo se dio el {{ plan.rights_confirmed_at|date:"j \d\e F \d\e Y"|lower }}{% endif %}. Lo que cambies se ve de inmediato y queda bajo esa misma confirmación.</p></div>
-  {% else %}
-    <div class="notice notice--quiet"><p>Retirado: nadie lo puede empezar; quien ya lo había empezado lo puede terminar. Si quieres ofrecerlo otra vez, <a href="{% url 'resources:plan_publish' plan.pk %}">publica el plan</a> con una confirmación nueva.</p></div>
+    <div class="notice notice--warning"><p>Publicado{% if approval.is_approved %} con la aprobación de un pastor del {{ approval.approved_at|date:"j \d\e F \d\e Y"|lower }}{% else %} sin aprobación pastoral registrada: está en la lista de un pastor para aprobarse{% endif %}. Si cambias el título, la descripción o un día, o agregas uno, el plan deja de verse en cuanto guardes y hasta que un pastor lo apruebe otra vez: nadie lo encontrará en Planes de lectura ni podrá abrir sus días, tampoco quien ya lo empezó. Sus marcas se conservan.</p></div>
+  {% elif plan.is_retired %}
+    <div class="notice notice--quiet"><p>Retirado: nadie lo puede empezar; quien ya lo había empezado lo puede terminar. {% if not approval.is_pending %}Si quieres ofrecerlo otra vez, <a href="{% url 'resources:plan_publish' plan.pk %}">pide la aprobación pastoral</a>. {% endif %}Si cambias su texto, deja de verlo también quien ya lo había empezado, hasta que un pastor lo apruebe.</p></div>
   {% endif %}
+  {% include "resources/_approval_note.html" %}
   <section class="block" aria-labelledby="dias">
     <h2 id="dias" class="heading">Los días del plan</h2>
     {% if days %}
@@ -28,7 +29,7 @@
             </div>
             <div class="row__end">
               <a class="btn btn--secondary btn--small" href="{% url 'resources:plan_day_edit' plan.pk day.pk %}">Editar<span class="visually-hidden"> el día {{ day.position }}</span></a>
-              {% if plan.is_draft %}<a class="btn btn--secondary btn--small" href="{% url 'resources:plan_day_delete' plan.pk day.pk %}">Quitar<span class="visually-hidden"> el día {{ day.position }}</span></a>{% endif %}
+              {% if not plan.was_published %}<a class="btn btn--secondary btn--small" href="{% url 'resources:plan_day_delete' plan.pk day.pk %}">Quitar<span class="visually-hidden"> el día {{ day.position }}</span></a>{% endif %}
             </div>
           </li>
         {% endfor %}
@@ -39,6 +40,6 @@
   </section>
   <p class="more"><a href="{% url 'resources:plan_edit' plan.pk %}">Editar el título y la descripción</a></p>
   <p class="more"><a href="{% url 'resources:plan_detail' plan.pk %}">Ver el plan como lo lee una persona</a></p>
-  {% if not plan.is_retired %}<p class="more"><a href="{% url 'resources:plan_retire' plan.pk %}">Retirar el plan</a></p>{% endif %}
+  {% if plan.is_published or not plan.was_published %}<p class="more"><a href="{% url 'resources:plan_retire' plan.pk %}">Retirar el plan</a></p>{% endif %}
 </div>
 {% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}{% if approve_form.errors or return_form.errors %}Error: {% endif %}{{ title }}: aprobación pastoral{% endblock %}
+{% block content %}
+{% comment %}
+  One piece of content as a pastor reads it before deciding (resources.approval_views.review, approve, send_back):
+  the whole text, then "approve" (with the permitted use) or "return" (with a reason). The administration opens the
+  same page and only reads. The approve form carries the fingerprint of this preview: if the content changes
+  meanwhile, nothing is approved. Everything a person typed is plain text, escaped.
+{% endcomment %}
+<div class="narrow">
+  {% if approve_form.errors %}{% include "partials/ui/error_summary.html" with form=approve_form %}{% endif %}
+  {% if return_form.errors %}{% include "partials/ui/error_summary.html" with form=return_form %}{% endif %}
+  {% url 'resources:approval_queue' as back %}
+  {% include "events/rotulo/_page_head.html" with title=title lede=kind.label meta=line back_url=back back_label="Volver a Aprobación pastoral" %}
+
+  {% if row.is_approved %}
+    <div class="notice notice--success"><p>{% if published %}Aprobado y publicado.{% else %}Aprobado. Hoy no está publicado: la administración lo retiró.{% endif %}</p></div>
+  {% elif row.is_returned %}
+    <div class="notice notice--warning">
+      <p>Un pastor lo devolvió sin aprobarlo{% if row.returned_at %} el {{ row.returned_at|date:"j \d\e F"|lower }}{% endif %}. No está publicado. Lo que hay que corregir:</p>
+      <p>{{ row.return_reason }}</p>
+    </div>
+  {% elif row.is_changed %}
+    <div class="notice notice--warning"><p>Está fuera de publicación: cambió después de publicarse. La administración todavía no pide su aprobación.</p></div>
+  {% elif row.is_pending %}
+    <div class="notice notice--quiet"><p>{% if published %}Sigue publicado mientras se decide.{% else %}Todavía no se ve: se publica si un pastor lo aprueba.{% endif %}</p></div>
+  {% elif waiting %}
+    <div class="notice notice--quiet"><p>Ya está publicado y se sigue viendo. {% if row.is_legacy %}Se publicó antes de que existieran las aprobaciones.{% else %}No hay una aprobación registrada.{% endif %}</p></div>
+  {% endif %}
+
+  <section class="block" aria-labelledby="contenido">
+    <h2 id="contenido" class="heading">{% if published %}Lo que está publicado{% else %}Lo que se publicaría{% endif %}</h2>
+    {% include kind.preview_template %}
+  </section>
+
+  {% if row.is_approved %}
+  <section class="block" aria-labelledby="registro">
+    <h2 id="registro" class="heading">La aprobación</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Quién aprobó</dt><dd>{% if row.approved_by %}{{ row.approved_by.get_full_name|default:row.approved_by.email }}{% else %}Una cuenta que ya no existe.{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Cuándo</dt><dd>{{ row.approved_at|date:"j \d\e F \d\e Y, H:i"|lower }}</dd></div>
+      <div class="summary-list__row"><dt>Con qué permiso</dt><dd>{{ row.get_permitted_use_display }}</dd></div>
+      <div class="summary-list__row"><dt>Nota sobre la fuente</dt><dd>{{ row.source_note|default:"Sin nota." }}</dd></div>
+    </dl>
+    <p class="aside-note">Si el texto cambia, esta aprobación deja de valer y el contenido sale de publicación hasta que un pastor lo apruebe otra vez.</p>
+  </section>
+  {% elif waiting and can_approve %}
+    {% if not_ready %}
+      <div class="notice notice--warning"><p>{{ not_ready }}</p></div>
+    {% else %}
+    <section class="block" aria-labelledby="aprobar">
+      <h2 id="aprobar" class="heading">Aprobar</h2>
+      <p>Al aprobar dices que leíste todo lo de arriba y que la iglesia puede publicarlo. {% if published %}Sigue publicado.{% else %}Se publica en ese momento.{% endif %}</p>
+      <p class="aside-note">Queda guardado tu nombre, la fecha y el permiso que elijas.</p>
+      <form class="block" method="post" action="{% url 'resources:approval_approve' kind.key obj.pk %}" novalidate>
+        {% csrf_token %}
+        {% include "partials/ui/fields.html" with form=approve_form %}
+        <div class="step__actions">
+          <button class="btn btn--primary" type="submit">{% if published %}Aprobar{% else %}Aprobar y publicar{% endif %}</button>
+        </div>
+      </form>
+    </section>
+    {% endif %}
+    {% if can_return %}
+    {# The other decision, folded so approving is the one that leads. Plain HTML: it opens without scripts, and it is open when its form came back with an error. #}
+    <details class="details"{% if return_form.errors %} open{% endif %}>
+      <summary>No lo apruebo: devolverlo a la administración</summary>
+      <div class="details__body">
+        <p>No se publica. La administración lee tu motivo en Emmaus, lo corrige y lo pide otra vez.</p>
+        <p class="aside-note">Queda guardado tu nombre y la fecha.</p>
+        <form class="block" method="post" action="{% url 'resources:approval_return' kind.key obj.pk %}" novalidate>
+          {% csrf_token %}
+          {% include "partials/ui/fields.html" with form=return_form %}
+          <div class="step__actions">
+            <button class="btn btn--secondary" type="submit">Devolver sin aprobar</button>
+          </div>
+        </form>
+      </div>
+    </details>
+    {% else %}
+      <p class="aside-note">Si no debe seguir publicado, pide a la administración que lo retire: aquí solo se aprueba.</p>
+    {% endif %}
+  {% elif waiting %}
+    <div class="notice notice--quiet"><p>Solo un pastor de tu iglesia puede aprobarlo. La administración prepara y pide; no aprueba.</p></div>
+    {% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}
+  {% endif %}
+  {% if edit_url %}<p class="more"><a href="{{ edit_url }}">Ir a editarlo</a></p>{% endif %}
+</div>
+{% endblock %}

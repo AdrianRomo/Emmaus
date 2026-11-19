@@ -23,7 +23,7 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST, require_safe
 
-from . import onboarding
+from . import onboarding, tenancy
 from .access import (
     can_answer_question,
     get_user_role,
@@ -150,6 +150,11 @@ def role_required(*roles: str):
             if not role_record:
                 messages.error(request, "Tu cuenta todavía no está vinculada a ninguna iglesia. Pide a quien te invitó que revise tu invitación.")
                 return redirect("landing")
+            # These screens act in the church of the account's first role (core/access.py). An account of several
+            # churches that is working in another one gets no page of this church under that church's name and logo:
+            # 404, until it goes back with the switcher. An account of one church never reaches this.
+            if tenancy.resolve(request, role_church=role_record.church).elsewhere:
+                raise Http404
             if role_record.role not in roles:
                 raise PermissionDenied
             return view_func(request, *args, **kwargs)
@@ -198,8 +203,7 @@ def landing(request):
         return redirect("initial_setup")
     if request.user.is_authenticated:
         return redirect("dashboard")
-    church = Church.objects.filter(active=True).order_by("created_at").first()
-    return render(request, "core/landing.html", {"church": church})
+    return render(request, "core/landing.html", {"church": tenancy.current_church(request)})
 
 
 def initial_setup(request):
@@ -235,15 +239,15 @@ def dashboard(request):
     has_events = accessible_events(request.user).exists()
     if has_events or request.user.is_superuser or (role_record and role_record.role == Role.CHURCH_ADMIN):
         return redirect("events:list")
-    if not role_record:
+    where = tenancy.resolve(request, role_church=role_record.church if role_record else None)
+    if not role_record or where.elsewhere:
         if not Church.objects.exists():
             return redirect("initial_setup")
-        # A person of a church that uses the community module, with no role anywhere: their home is "Mi iglesia".
+        # A person of a church that uses the community module, with no role anywhere (or working in another church
+        # than their first role's, whose discipleship homes are not this church's): their home is "Mi iglesia".
         from people.flags import enabled
 
-        from .authz import current_church
-
-        if enabled(current_church(request), "community"):
+        if enabled(where.church, "community"):
             return redirect("community:home")
         # No role yet: the event list says so and who can add them (it only lists events they can open).
         return redirect("events:list")
@@ -258,6 +262,11 @@ def dashboard(request):
 
 
 def permission_denied(request, exception=None):
+    from .authz import StaleChurch
+
+    if isinstance(exception, StaleChurch):
+        # A form sent after the church of the session changed: the same page as an expired form.
+        return csrf_failure(request)
     return render(request, "errors/403.html", status=403)
 
 
@@ -1058,6 +1067,50 @@ def _community_church(request):
 
     church = current_church(request)
     return church if enabled(church, "community") else None
+
+
+@login_required
+@require_POST
+def switch_church(request):
+    """An account that belongs to more than one church chooses the one it works in (issue #32).
+
+    POST only, with the CSRF token. The id must be one of the account's own churches
+    (``core.authz.switch_church``): any other id, real or invented, answers 404 and changes nothing.
+    Only the id is kept, in the session, and every later request checks it again
+    (``core.authz.church_choices``); choosing gives no permission. Changing church rotates the CSRF
+    secret, so a form opened before (in this tab or another) is refused instead of writing into the
+    new church. One audit row in the chosen
+    church, with the account and nothing else. ``next`` is followed only when it is a path of this
+    site; without one, the chosen church's "Mi iglesia"."""
+    from people.audit import record_church
+
+    from . import authz
+
+    before = authz.church_choices(request, refuse_stale=False)[0]
+    church = authz.switch_church(request, request.POST.get("church", ""))
+    if church is None:
+        raise Http404
+    if before is None or before.pk != church.pk:
+        record_church(church, request.user, "iglesia_elegida", "Eligió trabajar en esta iglesia.")
+        messages.success(request, f"Ahora estás en {church.name}.")
+    # "Mi iglesia" of the chosen church when it has one; the usual home otherwise.
+    from people.flags import enabled
+
+    home = reverse("community:home") if enabled(church, "community") else reverse("dashboard")
+    return redirect(_local_path(request.POST.get("next", ""), home))
+
+
+def _local_path(candidate: str, fallback: str) -> str:
+    """``candidate`` when it is a path of this site ("/mi-iglesia/"), else ``fallback``: no scheme, no host,
+    nothing a browser reads as another site ("//otro.sitio", "/\\otro.sitio")."""
+    if (
+        candidate.startswith("/")
+        and not candidate.startswith("//")
+        and "\\" not in candidate
+        and url_has_allowed_host_and_scheme(candidate, allowed_hosts=None)
+    ):
+        return candidate
+    return fallback
 
 
 @login_required

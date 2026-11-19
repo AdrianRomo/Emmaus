@@ -1,0 +1,58 @@
+{% load community shell %}
+{% comment %}
+  Exactly what anybody will read on the church's public home, by name (sitio.services.page_content): for the
+  administration's review (sitio/review.html) and for the pastor's preview before approving (sitio/_approval_home.html).
+{% endcomment %}
+  <section class="block" aria-labelledby="rev-iglesia">
+    <{% if level == 3 %}h3{% else %}h2{% endif %} id="rev-iglesia" class="heading">Tu iglesia</{% if level == 3 %}h3{% else %}h2{% endif %}>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Nombre y logotipo</dt><dd>{{ church.name }}{% if church.logo %}, con su logotipo{% else %}, con sus iniciales (no hay logotipo){% endif %}.</dd></div>
+      <div class="summary-list__row"><dt>Bienvenida</dt><dd>{{ home.welcome|default:"No se muestra: está vacía." }}</dd></div>
+      <div class="summary-list__row"><dt>Dirección</dt><dd>{% if home.address %}{{ home.address|linebreaksbr }}{% else %}No se muestra: está vacía.{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Enlace al mapa</dt><dd>{% if home.map_url %}<span class="break-anywhere">{{ home.map_url }}</span>{% else %}No se muestra: está vacío.{% endif %}</dd></div>
+    </dl>
+  </section>
+
+  <section class="block" aria-labelledby="rev-contacto">
+    <{% if level == 3 %}h3{% else %}h2{% endif %} id="rev-contacto" class="heading">Datos de contacto</{% if level == 3 %}h3{% else %}h2{% endif %}>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Teléfono</dt><dd>{{ home.contact_phone|default:"No se muestra: está vacío." }}</dd></div>
+      <div class="summary-list__row"><dt>Correo</dt><dd>{{ church.contact_email|default:"No se muestra: está vacío en Configuración." }}</dd></div>
+    </dl>
+    {% if content.has_contact %}<p class="aside-note">Cualquiera podrá llamar o escribir a estos datos. Usa los de la iglesia, no los personales de alguien.</p>{% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="rev-horarios">
+    <{% if level == 3 %}h3{% else %}h2{% endif %} id="rev-horarios" class="heading">Horarios de reunión</{% if level == 3 %}h3{% else %}h2{% endif %}>
+    {% if content.days %}
+    <ul class="rows">
+      {% for day in content.days %}{% for item in day.times %}
+      <li class="row"><div class="row__main"><p>{{ day.day }}, {{ item.time|time:"H:i" }}: {{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}.</p></div></li>
+      {% endfor %}{% endfor %}
+    </ul>
+    {% else %}<p class="empty-line">No se muestra ninguno: no has agregado horarios.</p>{% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="rev-eventos">
+    <{% if level == 3 %}h3{% else %}h2{% endif %} id="rev-eventos" class="heading">Eventos</{% if level == 3 %}h3{% else %}h2{% endif %}>
+    {% if content.events %}
+    <ul class="rows">
+      {% for event in content.events %}
+      <li class="row"><div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if event.series_rule %} Se repite {{ event.series_rule }}: se muestra solo la fecha que sigue.{% endif %}</p></div></li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Cada uno lleva a su página pública, que ya existe. No se muestra quién se inscribió ni cuántos lugares quedan.</p>
+    {% else %}<p class="empty-line">No se muestra ninguno: hoy ningún evento tiene página pública.</p>{% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="rev-recursos">
+    <{% if level == 3 %}h3{% else %}h2{% endif %} id="rev-recursos" class="heading">Recursos</{% if level == 3 %}h3{% else %}h2{% endif %}>
+    {% if content.media %}
+    <ul class="rows">
+      {% for item in content.media %}
+      <li class="row"><div class="row__main"><p>{{ item.title }}</p><p class="row__meta">{% include "resources/_media_sentence.html" with item=item %} Enlace: <span class="break-anywhere">{{ item.url }}</span></p></div></li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">De cada recurso se muestran el título, de quién es, la serie, la fecha y el enlace. El nombre de quien predicó o enseñó será público.</p>
+    {% else %}<p class="empty-line">No se muestra ninguno: no has marcado recursos para la página pública.</p>{% endif %}
+  </section>

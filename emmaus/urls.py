@@ -5,7 +5,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 from core.forms import EmailAuthenticationForm, TuSetPasswordForm
-from core.views import AccountPasswordChangeView, ThrottledLoginView, ThrottledPasswordResetView, account, welcome_dismiss, welcome_restore
+from core.views import AccountPasswordChangeView, ThrottledLoginView, ThrottledPasswordResetView, account, switch_church, welcome_dismiss, welcome_restore
 from events.views import join as join_views
 
 
@@ -26,6 +26,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     # "Mi cuenta": the name, the e-mail, where the person takes part, the password, and the welcomes they put away
     path("cuenta/", account, name="account"),
+    path("cuenta/iglesia/", switch_church, name="switch_church"),
     path("cuenta/contrasena/cambiar/", AccountPasswordChangeView.as_view(), name="password_change"),
     path("cuenta/bienvenida/ocultar/", welcome_dismiss, name="welcome_dismiss"),
     path("cuenta/bienvenida/mostrar/", welcome_restore, name="welcome_restore"),
@@ -61,11 +62,15 @@ urlpatterns = [
     path("mi-iglesia/panorama/", include("overview.urls")),
     path("mi-iglesia/politicas/", include("policies.urls")),
     path("mi-iglesia/pagina-publica/", include("sitio.urls")),
+    # Rooms and equipment (issue #94): signed-in people of the church only, never a public page.
+    path("mi-iglesia/espacios/", include("espacios.urls")),
     path("mi-iglesia/", include("groups.urls")),
     # The public page of one event of the church (decision 0010, phase A): no account, nothing about people.
     path("evento/", include("agenda.public_urls")),
     # The church's public home (issue #87, a prototype): only what the administration published on purpose.
     # core.urls keeps /iglesia/<slug>/logotipo/<variant>/, which this include does not match.
+    # The church's public calendar file (issue #93): /iglesia/<slug>/calendario.ics, only the public events.
+    path("iglesia/", include("agenda.calendar_urls")),
     path("iglesia/", include("sitio.public_urls")),
     path("eventos/", include("events.urls")),
     path("estacion/", include("events.kiosk_urls")),

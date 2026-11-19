@@ -66,7 +66,8 @@ if ! $skip_review; then
 fi
 if ! $skip_community; then
   log "community-flow.mjs (modules on: camp-to-group journey, axe, overflow, targets)"
-  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo FAILED (see $out/seed.log)"; }
+  # --panorama gives the pastor who approves content and --duplicados the pair of records to join (wave 9's steps).
+  (cd .. && "$PYTHON" manage.py seed_community_demo --password "$pw" --panorama --duplicados >>"$out/seed.log" 2>&1) || { status=1; log "seed_community_demo FAILED (see $out/seed.log)"; }
   if AXE=node_modules/axe-core/axe.min.js EMMAUS_URL="http://127.0.0.1:$port" EMMAUS_PASSWORD="$pw" timeout 600 node community-flow.mjs "$out/community" >"$out/community-flow.log" 2>&1; then
     tail -n 1 "$out/community-flow.log"
   else

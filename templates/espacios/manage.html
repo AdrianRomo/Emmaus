@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Administrar espacios y equipo{% endblock %}
+{% block content %}
+{% comment %}Every space of the church, the ones switched off included (espacios.views.manage), for the administration.{% endcomment %}
+<div class="narrow spaces">
+  {% url 'espacios:list' as back %}{% url 'espacios:space_create' as create %}
+  {% include "events/rotulo/_page_head.html" with title="Administrar espacios y equipo" lede="Lo que la iglesia presta para sus actividades: salones, la cocina, un proyector." back_url=back back_label="Volver a Espacios" action_url=create action_label="Agregar un espacio" %}
+  {% if spaces %}
+    <ul class="rows">
+      {% for space in spaces %}
+        <li class="row row--stack">
+          <div class="row__main">
+            <p class="row__title">{{ space.name }}</p>
+            <p class="row__meta">{{ space.get_kind_display }}{% if space.capacity %}, para {{ space.capacity }} persona{{ space.capacity|pluralize }}{% endif %}. {% if space.needs_approval %}Cada reserva pide aprobación.{% else %}Se reserva sin aprobación.{% endif %} {% if space.coming == 0 %}Sin reservas por venir.{% elif space.coming == 1 %}1 reserva por venir.{% else %}{{ space.coming }} reservas por venir.{% endif %}</p>
+          </div>
+          <div class="row__end">
+            {% if not space.active %}{% status "descartada" "Apagado" %}{% endif %}
+            <a class="btn btn--secondary btn--small" href="{% url 'espacios:week' space.pk %}">Ver la semana<span class="visually-hidden"> de {{ space.name }}</span></a>
+            <a class="btn btn--secondary btn--small" href="{% url 'espacios:space_edit' space.pk %}">Editar<span class="visually-hidden"> {{ space.name }}</span></a>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="empty-line">Todavía no hay espacios. Agrega el primero: un salón, la cocina o un proyector.</p>
+  {% endif %}
+</div>
+{% endblock %}

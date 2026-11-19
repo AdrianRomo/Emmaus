@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if series %}Cambiar la serie {{ series.name }}{% else %}Crear una serie{% endif %}{% endblock %}
+{% block content %}
+{% comment %}
+  A series (agenda.series_views.create / edit): what the church does every week. The form is the template of its
+  dates; each date is an ordinary event the administration can open by itself. The days of the week are drawn here
+  because the shared field partial knows one checkbox, not a list of them.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% if series %}
+    {% url 'agenda:series_admin' series.pk as back %}
+    {% include "events/rotulo/_page_head.html" with title="Cambiar la serie" lede=series.name back_url=back back_label="Volver a la serie" %}
+    <div class="notice notice--quiet">
+      <p class="notice__title">Qué fechas cambian</p>
+      <p>Cambian las fechas que vienen, si nadie las cambió a mano y nadie se ha inscrito. Las que ya tienen personas inscritas quedan como están y te las mostramos para que las revises. Las fechas que ya pasaron no cambian.</p>
+    </div>
+  {% else %}
+    {% url 'agenda:admin_list' as back %}
+    {% include "events/rotulo/_page_head.html" with title="Crear una serie" lede="Lo que tu iglesia hace cada semana: el servicio del domingo, la reunión de jóvenes. Emmaus escribe cada fecha como un evento, con unas semanas de anticipación." back_url=back back_label="Volver a los eventos" %}
+  {% endif %}
+  <form method="post" novalidate class="mt-6">
+    {% csrf_token %}
+    {% for field in form.visible_fields %}
+      {% if field.name == "weekdays" %}
+        <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+          <fieldset {% if field.errors %}aria-describedby="{{ field.auto_id }}-error"{% endif %}>
+            <legend class="legend">{{ field.label }}</legend>
+            {% if field.errors %}<span class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</span>{% endif %}
+            <div class="radio-list">
+              {% for box in field %}
+                <label class="check" for="{{ box.id_for_label }}">{{ box.tag }}<span class="check__text">{{ box.choice_label|capfirst }}</span></label>
+              {% endfor %}
+            </div>
+          </fieldset>
+        </div>
+      {% else %}
+        {% include "partials/ui/field.html" with field=field %}
+      {% endif %}
+    {% endfor %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">{% if series %}Guardar la serie{% else %}Crear la serie{% endif %}</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

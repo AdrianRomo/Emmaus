@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}La reserva se empalma con otra{% endblock %}
+{% block content %}
+{% comment %}
+  What is in the way of a request the administration wanted to approve (espacios.views.approve). The only page
+  that offers approving over a clash, and its form names the bookings listed here: if another one appears before
+  the button is pressed, the page comes back with the new list.
+{% endcomment %}
+<div class="narrow spaces">
+  {% url 'espacios:queue' as back %}
+  {% include "events/rotulo/_page_head.html" with title="La reserva se empalma con otra" lede="No la aprobamos todavía. Mira con qué se empalma y decide." back_url=back back_label="Volver a las solicitudes" %}
+  {% if again %}<div class="notice notice--warning"><p>Lo que se empalma cambió mientras decidías. Esta es la lista de ahora.</p></div>{% endif %}
+  <section class="block" aria-labelledby="solicitud">
+    <h2 id="solicitud" class="heading">La solicitud</h2>
+    <ul class="rows">{% include "espacios/_booking.html" with booking=booking with_space=True with_day=True hide_cancel=True %}</ul>
+  </section>
+  <section class="block" aria-labelledby="empalmes">
+    <h2 id="empalmes" class="heading">Se empalma con</h2>
+    <ul class="rows">{% for clash in clashes %}{% include "espacios/_booking.html" with booking=clash with_day=True hide_cancel=True %}{% endfor %}</ul>
+  </section>
+  <form method="post" action="{% url 'espacios:approve' booking.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="sobre" value="1">
+    {% for clash in clashes %}<input type="hidden" name="visto" value="{{ clash.pk }}">{% endfor %}
+    <p class="aside-note">Si la apruebas, las reservas quedan en pie al mismo tiempo y queda registrado que tú lo decidiste después de ver esta lista. Lo normal es rechazar una o cancelar la otra.</p>
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Aprobar aunque se empalme</button>
+      <a class="btn btn--link" href="{% url 'espacios:reject' booking.pk %}">Rechazar la solicitud</a>
+      <a class="btn btn--link" href="{{ back }}">No decidir todavía</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

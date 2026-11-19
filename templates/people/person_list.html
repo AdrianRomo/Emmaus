@@ -37,5 +37,6 @@
       <p class="empty-line">Todavía no hay personas registradas. Registra a la primera o trae a quienes fueron a un evento.</p>
     {% endif %}
   </section>
+  {% if total > 1 %}<p class="more"><a href="{% url 'people:duplicates' %}">Revisar posibles duplicados</a></p>{% endif %}
 </div>
 {% endblock %}

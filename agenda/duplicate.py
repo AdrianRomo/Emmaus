@@ -34,9 +34,11 @@ RELATIONS = {
     "faqs": COPIED,
     "public_notices": NEVER,  # dated news of the original ("el camión sale a las 7"): the copy starts without any
     "schedule_items": WITH_DAY,
+    "series_occurrence": NEVER,  # a copy of one date of a series is an event on its own, not another date of it
     "registrations": NEVER,  # who signed up, who came, and with them the guardians' authorizations
     "feedback": NEVER,
     "feedback_given": NEVER,
+    "space_bookings": NEVER,  # the rooms booked for the original stay with its dates
     # A simple event has none of the camp's rows; the copy cannot have them either.
     "memberships": NEVER,
     "tutor_assignments": NEVER,

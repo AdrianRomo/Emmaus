@@ -9,7 +9,43 @@
 <div class="narrow">
   {% url 'agenda:list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Administrar los eventos" lede="Publica un evento para que las personas de la iglesia lo vean y se inscriban. Mientras no lo publiques, solo lo ve la administración." back_url=back back_label="Volver a Eventos" %}
-  <p class="more"><a class="btn btn--primary" href="{% url 'agenda:create' %}">Crear un evento</a></p>
+  <div class="step__actions">
+    <a class="btn btn--primary" href="{% url 'agenda:create' %}">Crear un evento</a>
+    <a class="btn btn--secondary" href="{% url 'agenda:series_create' %}">Crear una serie</a>
+  </div>
+  {% if series_list %}
+  <section class="block mt-6" aria-labelledby="series">
+    <h2 id="series" class="heading">Series</h2>
+    <p class="hint">Lo que se repite cada semana. Sus fechas están dentro de cada serie.</p>
+    <ul class="rows">
+      {% for item in series_list %}
+        <li class="row row--below">
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'agenda:series_admin' item.pk %}">{{ item.name }}</a></p>
+            <p class="row__meta">{{ item.rule|capfirst }}, a las {{ item.starts_at|time:"H:i" }}{% if item.location %}, en {{ item.location }}{% endif %}. {% if not item.active %}Ya no se agregan fechas.{% elif item.next %}La que sigue: {{ item.next.event.starts_on|long_date }}.{% else %}Sin fechas por venir.{% endif %}</p>
+          </div>
+          <div class="row__end">
+            {% if not item.active %}{% status "descartada" "Terminada" %}{% elif item.published %}{% status "publicada" "Publicada" %}{% else %}{% status "borrador" "Sin publicar" %}{% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+  {% if calendar_link %}
+  <section class="block public-link" aria-labelledby="calendario">
+    <h2 id="calendario" class="heading">Calendario público de la iglesia</h2>
+    <p>Quien se suscribe a esta dirección desde su calendario ve los eventos que marcaste como públicos: nombre, día, hora y lugar. Nunca quién va.</p>
+    <div class="field admin-link">
+      <label class="label" for="enlace-calendario">Dirección del calendario</label>
+      <input class="input" id="enlace-calendario" value="{{ calendar_link }}" readonly>
+    </div>
+    <div class="step__actions">
+      <button class="btn btn--secondary" type="button" data-copy="enlace-calendario" data-copy-done="Dirección copiada">Copiar dirección</button>
+    </div>
+  </section>
+  {% endif %}
+  {% if series_list %}<h2 class="heading mt-6">Eventos</h2>{% endif %}
   {% if events %}
     <ul class="rows">
       {% for event in events %}

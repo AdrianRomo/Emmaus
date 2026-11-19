@@ -4,6 +4,8 @@ Every view is behind the ``community`` module (``groups.views.community_view``: 
 module off or without a person in the church) and fetches inside ``request.church``, so an id of
 another church is a 404. Every person of the church reads what is published; only the church's
 administration writes (``church_admin_view``). Hiding a link is not the rule: each view asks again.
+The administration prepares a devotional and asks for its approval; a pastor's approval publishes it
+(``resources.approval_views``). A resource is a link to another site and is published here, as before.
 
 "Ya lo leí" is the person's own: no view here shows who read a devotional or how many did.
 Resources open on the site that hosts them, as plain links: nothing is embedded.
@@ -20,7 +22,7 @@ from django.views.decorators.http import require_POST
 from core.paging import paginate
 from groups.views import church_admin_view, community_view
 
-from . import services
+from . import approvals, services
 from .forms import DevotionalForm, MediaItemForm
 from .models import Devotional, MediaItem
 
@@ -89,12 +91,18 @@ def devotional_read(request, devotional_id: int):
 # ---- the devotional: writing --------------------------------------------------------------------
 @church_admin_view
 def devotional_admin(request):
-    devotionals = Devotional.objects.filter(church=request.church).order_by("-date", "-id")
-    return render(request, "resources/devotional_admin.html", {"devotionals": paginate(request, devotionals)})
+    devotionals = paginate(request, Devotional.objects.filter(church=request.church).order_by("-date", "-id"))
+    approvals.attach(request.church, approvals.DEVOTIONAL, devotionals.object_list)
+    return render(
+        request, "resources/devotional_admin.html",
+        {"devotionals": devotionals, "has_pastor": approvals.has_active_pastor(request.church)},
+    )
 
 
 def _devotional_form(request, devotional):
     initial = None if devotional else {"date": services.first_free_day(request.church)}
+    if devotional is not None:
+        devotional.approval = approvals.row_of(request.church, approvals.DEVOTIONAL, devotional)
     form = DevotionalForm(request.POST or None, instance=devotional, church=request.church, initial=initial)
     if request.method == "POST" and form.is_valid():
         data = form.cleaned_data
@@ -106,16 +114,24 @@ def _devotional_form(request, devotional):
         except services.ResourceError as error:
             form.add_error(None, error.message)
         else:
-            if saved.state == "borrador":
-                messages.success(
-                    request, f"Guardamos el borrador del {_day(saved.date)}. Nadie lo ve todavía: para publicarlo, edítalo y marca «Publicarlo»."
+            if saved.approval is not None and saved.approval.is_pending:
+                approvals.tell_asked(request, f"Guardamos el devocional del {_day(saved.date)} y tu solicitud para publicarlo.")
+            elif saved.state == "borrador":
+                messages.warning(
+                    request,
+                    f"Guardamos el devocional del {_day(saved.date)} como borrador. No lo enviamos a la aprobación pastoral y "
+                    "nadie lo ve: para pedirla, edítalo y marca «Pedir la aprobación pastoral para publicarlo».",
                 )
             elif saved.state == "programado":
-                messages.success(request, f"Guardamos el devocional. Se publicará el {_day(saved.date)}.")
+                messages.success(request, f"Guardamos los cambios. El devocional sigue aprobado y se publicará el {_day(saved.date)}.")
             else:
-                messages.success(request, f"Publicaste el devocional del {_day(saved.date)}.")
+                messages.success(request, f"Guardamos los cambios. El devocional del {_day(saved.date)} sigue publicado.")
             return redirect("resources:devotional_admin")
-    return render(request, "resources/devotional_form.html", {"form": form, "devotional": devotional})
+    return render(
+        request, "resources/devotional_form.html",
+        {"form": form, "devotional": devotional, "approval": getattr(devotional, "approval", None),
+         "has_pastor": approvals.has_active_pastor(request.church)},
+    )
 
 
 @church_admin_view

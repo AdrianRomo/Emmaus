@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Rechazar la solicitud{% endblock %}
+{% block content %}
+{% comment %}The reason of a rejection (espacios.views.reject): read by the administration only, never sent to anybody.{% endcomment %}
+<div class="narrow spaces">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'espacios:queue' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Rechazar la solicitud" lede="El horario queda libre para alguien más." back_url=back back_label="Volver a las solicitudes" %}
+  <ul class="rows">{% include "espacios/_booking.html" with booking=booking with_space=True with_day=True hide_cancel=True %}</ul>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Rechazar la solicitud</button>
+      <a class="btn btn--link" href="{{ back }}">No, volver</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

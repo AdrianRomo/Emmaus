@@ -11,7 +11,9 @@ class PublicHome(models.Model):
     the church's own ``Church.contact_email``: it is not copied here."""
 
     WELCOME_MAX = 280
-    ADDRESS_MAX = 300
+    # A limit of what is saved from now on, not of the column: a longer address written before keeps
+    # showing and is shortened the next time somebody saves it (sitio.services.clean_address).
+    ADDRESS_MAX = 160
 
     church = models.OneToOneField(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="public_home")
     published = models.BooleanField("Publicada", default=False, db_default=False)
@@ -42,6 +44,12 @@ class ServiceTime(models.Model):
         FRIDAY = 4, "Viernes"
         SATURDAY = 5, "Sábado"
         SUNDAY = 6, "Domingo"
+
+    # Limits of what is saved from now on (sitio.services.save_time), tighter than the columns: a time is a
+    # fact (when, what, where), not a place for a text. Rows written before keep showing as they are.
+    NAME_MAX = 40
+    PLACE_MAX = 80
+    PER_CHURCH = 12
 
     church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="service_times")
     weekday = models.PositiveSmallIntegerField("Día", choices=Weekday.choices)

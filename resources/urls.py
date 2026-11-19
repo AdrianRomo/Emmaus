@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import plan_views, views
+from . import approval_views, plan_views, views
 
 app_name = "resources"
 
@@ -28,6 +28,10 @@ urlpatterns = [
     path("planes/<int:plan_id>/dias/<int:day_id>/quitar/", plan_views.plan_day_delete, name="plan_day_delete"),
     path("planes/<int:plan_id>/publicar/", plan_views.plan_publish, name="plan_publish"),
     path("planes/<int:plan_id>/retirar/", plan_views.plan_retire, name="plan_retire"),
+    path("aprobaciones/", approval_views.queue, name="approval_queue"),
+    path("aprobaciones/<slug:kind>/<int:object_id>/", approval_views.review, name="approval_review"),
+    path("aprobaciones/<slug:kind>/<int:object_id>/aprobar/", approval_views.approve, name="approval_approve"),
+    path("aprobaciones/<slug:kind>/<int:object_id>/devolver/", approval_views.send_back, name="approval_return"),
     path("", views.media_list, name="media_list"),
     path("administrar/", views.media_admin, name="media_admin"),
     path("nuevo/", views.media_create, name="media_create"),

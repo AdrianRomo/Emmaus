@@ -2,7 +2,8 @@
 
 Like the rest of ``resources``: every view is behind the ``community`` module (``community_view``:
 404 with the module off or without a person in the church) and fetches inside ``request.church``,
-so a plan or a day of another church is a 404. Only the administration writes (``church_admin_view``).
+so a plan or a day of another church is a 404. Only the administration writes (``church_admin_view``):
+it prepares a plan and asks for its approval; a pastor's approval publishes it (``resources.approval_views``).
 
 Who opens a plan is answered once, in ``_open``: a published plan, everybody; a retired one, who had
 started it; a draft or a retired one that the person never started, only the administration (to
@@ -22,8 +23,8 @@ from django.views.decorators.http import require_POST
 from core.paging import paginate
 from groups.views import church_admin_view, community_view
 
-from . import plans
-from .forms import PublishPlanForm, ReadingPlanDayForm, ReadingPlanForm
+from . import approvals, plans
+from .forms import ReadingPlanDayForm, ReadingPlanForm
 from .models import ReadingPlan, ReadingPlanDay
 
 
@@ -144,8 +145,9 @@ def plan_leave(request, plan_id: int):
 # ---- writing ------------------------------------------------------------------------------------
 @church_admin_view
 def plan_admin(request):
-    found = ReadingPlan.objects.filter(church=request.church).order_by("status", "title", "id")
-    return render(request, "resources/plan_admin.html", {"plans": paginate(request, found)})
+    found = paginate(request, ReadingPlan.objects.filter(church=request.church).order_by("status", "title", "id"))
+    approvals.attach(request.church, approvals.PLAN, found.object_list)
+    return render(request, "resources/plan_admin.html", {"plans": found, "has_pastor": approvals.has_active_pastor(request.church)})
 
 
 def _plan_form(request, plan):
@@ -162,7 +164,7 @@ def _plan_form(request, plan):
         else:
             messages.success(request, "Guardamos los cambios." if plan else "Guardamos el borrador del plan. Ahora agrega sus días.")
             return redirect("resources:plan_days", saved.pk)
-    return render(request, "resources/plan_form.html", {"form": form, "plan": plan})
+    return render(request, "resources/plan_form.html", {"form": form, "plan": plan, "readable": plan is not None and plan.status in plans.OPEN})
 
 
 @church_admin_view
@@ -179,7 +181,14 @@ def plan_edit(request, plan_id: int):
 def plan_days(request, plan_id: int):
     plan = _plan(request, plan_id)
     days = list(plan.days.order_by("position"))
-    return render(request, "resources/plan_days.html", {"plan": plan, "days": days, "day_words": _day_words(len(days))})
+    return render(
+        request, "resources/plan_days.html",
+        {
+            "plan": plan, "days": days, "day_words": _day_words(len(days)),
+            "approval": approvals.row_of(request.church, approvals.PLAN, plan),
+            "has_pastor": approvals.has_active_pastor(request.church),
+        },
+    )
 
 
 def _day_form(request, plan, day):
@@ -197,7 +206,10 @@ def _day_form(request, plan, day):
             messages.success(request, f"Guardamos el día {saved.position}.")
             return redirect("resources:plan_days", plan.pk)
     heading = f"Editar el día {day.position}" if day else f"Agregar el día {plan.days.count() + 1}"
-    return render(request, "resources/plan_day_form.html", {"form": form, "plan": plan, "day": day, "heading": heading})
+    return render(
+        request, "resources/plan_day_form.html",
+        {"form": form, "plan": plan, "day": day, "heading": heading, "readable": plan.status in plans.OPEN},
+    )
 
 
 @church_admin_view
@@ -215,7 +227,7 @@ def plan_day_edit(request, plan_id: int, day_id: int):
 def plan_day_delete(request, plan_id: int, day_id: int):
     plan = _plan(request, plan_id)
     day = get_object_or_404(ReadingPlanDay, plan=plan, pk=day_id)
-    if not plan.is_draft:
+    if plan.was_published:
         raise Http404
     back = reverse("resources:plan_days", args=[plan.pk])
     if request.method == "POST":
@@ -239,20 +251,29 @@ def plan_day_delete(request, plan_id: int, day_id: int):
 
 @church_admin_view
 def plan_publish(request, plan_id: int):
+    """The administration asks for the pastoral approval of a plan. The address keeps its name; nothing is
+    published here: ``approvals.approve`` does that, and only for a pastor."""
     plan = _plan(request, plan_id)
     if plan.is_published:
         return redirect("resources:plan_days", plan.pk)
     total = plan.days.count()
-    form = PublishPlanForm(request.POST if request.method == "POST" else None)  # an empty POST is still an answer: no
-    if request.method == "POST" and form.is_valid():
+    error = ""
+    if request.method == "POST":
         try:
-            plans.publish_plan(plan, request.user, confirmed=form.cleaned_data["confirm"])
-        except plans.ResourceError as error:
-            form.add_error(None, error.message)
+            plans.request_publication(plan, request.user)
+        except plans.ResourceError as refused:
+            error = refused.message
         else:
-            messages.success(request, "Publicaste el plan. Las personas de tu iglesia ya lo encuentran en Planes de lectura.")
+            approvals.tell_asked(request, "Guardamos tu solicitud para publicar el plan.")
             return redirect("resources:plan_days", plan.pk)
-    return render(request, "resources/plan_publish.html", {"form": form, "plan": plan, "total": total, "day_words": _day_words(total)})
+    return render(
+        request, "resources/plan_publish.html",
+        {
+            "plan": plan, "total": total, "day_words": _day_words(total), "error": error,
+            "approval": approvals.row_of(request.church, approvals.PLAN, plan),
+            "has_pastor": approvals.has_active_pastor(request.church),
+        },
+    )
 
 
 @church_admin_view
@@ -260,8 +281,12 @@ def plan_retire(request, plan_id: int):
     plan = _plan(request, plan_id)
     back = reverse("resources:plan_days", args=[plan.pk])
     if request.method == "POST":
-        plans.retire_plan(plan, request.user)
-        messages.success(request, "Retiraste el plan. Ya nadie lo puede empezar.")
+        try:
+            plans.retire_plan(plan, request.user)
+        except plans.ResourceError as error:
+            messages.error(request, error.message)
+        else:
+            messages.success(request, "Retiraste el plan. Ya nadie lo puede empezar.")
         return redirect(back)
     if plan.is_retired:
         return redirect(back)

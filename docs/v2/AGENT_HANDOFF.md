@@ -2,6 +2,13 @@
 
 Read this first, then `PROGRESS.md` (newest entry), then `SCREEN_MATRIX.md`. Rules: `AGENTS.md`.
 
+## Read this first (2026-11-18, night)
+
+The owner delegated product decisions to the building session: [decision 0017](../decisions/0017-product-decisions-delegated-and-wave-9.md)
+says what that covers and what it does not (the church leadership's release gates #75 and #76, giving,
+hosts and `main`). Wave 9 is in [`wave9/`](wave9/), one file per slice, each ending with what is not built
+and the order its builder would continue in. The issue-by-issue record is `CAPABILITY_REVIEW_2026-11-18.md`.
+
 ## Where the work is
 
 | Branch | Base | Holds | State |

@@ -12,9 +12,9 @@ mixes tenants. This command finds them so drift is visible (roadmap P1-12, audit
   ``--ids`` adds one query for each check that found something.
 * The camp's tables come first (``camp_checks``), then the church modules added after the camp
   (``community_checks``): people, groups, notices, events of the church, resources, serving, care,
-  opinions, the public home and the roles by scope. ``policies.ChurchPolicy``,
-  ``sitio.PublicHome`` and ``sitio.ServiceTime`` hold one church and nothing else: there is
-  nothing in them that could cross.
+  opinions, the public home, the bookings of a room and the roles by scope. ``policies.ChurchPolicy``,
+  ``sitio.PublicHome``, ``sitio.ServiceTime`` and ``espacios.Space`` hold one church and nothing
+  else: there is nothing in them that could cross.
 * Each check also reports how many rows it read: a zero next to zero rows read is not an all-clear.
 * Exit status 1 (``CommandError``) when any error-level check finds a row. The ``Person`` check is a
   warning: it is reported and never fails the run.
@@ -34,11 +34,12 @@ from agenda.models import EventRegistration, GuardianConsent
 from care.models import FollowUp as CareFollowUp
 from care.models import FollowUpStep
 from core.models import UserChurchRole
+from espacios.models import Booking
 from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp, Interview, ReportSnapshot
 from feedback.models import FeedbackGiven
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
-from people.models import CampusAffiliation, EventParticipantLink, Person
+from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
 from serving.models import Assignment, Team, TeamMembership
 from sitio.models import PublicMedia
@@ -96,6 +97,21 @@ def community_checks() -> tuple[Check, ...]:
               EventParticipantLink, None, ~Q(person__church=F("event__church"))),
         Check("participant_link_participant_event", "Vínculos de un campero de otro evento", EventParticipantLink, None,
               ~Q(participant__event=F("event"))),
+        Check("person_merge_church", "Uniones de registros de persona con una persona de otra iglesia", PersonMerge, None,
+              ~Q(survivor__church=F("church")) | ~Q(absorbed__church=F("church"))),
+        Check("duplicate_dismissal_church", "Pares descartados como duplicado con una persona de otra iglesia",
+              DuplicateDismissal, None, ~Q(person_a__church=F("church")) | ~Q(person_b__church=F("church"))),
+        # A record that was merged away is hidden: nothing live may point at it. A writer that read the person
+        # before the merge and wrote after it is the only way to get one; the merge itself leaves none.
+        Check("merged_person_group_membership", "Integrantes activos de un grupo que son un registro ya unido a otro",
+              GroupMembership, None, Q(status="activa", person__merged_into__isnull=False)),
+        Check("merged_person_join_request", "Solicitudes pendientes a un grupo de un registro ya unido a otro",
+              GroupJoinRequest, None, Q(status="pendiente", person__merged_into__isnull=False)),
+        Check("merged_person_registration", "Inscripciones vigentes a un evento de un registro ya unido a otro",
+              EventRegistration, None,
+              Q(status__in=["inscrita", "pendiente", "en_espera", "ofrecida"], person__merged_into__isnull=False)),
+        Check("merged_person_team_membership", "Integrantes activos de un equipo que son un registro ya unido a otro",
+              TeamMembership, None, Q(status="activa", person__merged_into__isnull=False)),
         # groups
         Check("group_sede_church", "Grupos con una sede de otra iglesia", Group, Q(sede__isnull=False),
               ~Q(sede__church=F("church"))),
@@ -141,6 +157,11 @@ def community_checks() -> tuple[Check, ...]:
               Q(owner__isnull=False), ~Q(owner__church=F("church"))),
         Check("care_step_by_church", "Pasos de un acompañamiento dados por una persona de otra iglesia", FollowUpStep,
               Q(by__isnull=False), ~Q(by__church=F("follow_up__church"))),
+        # rooms and equipment: the church is the space's; who asked and the event it is for must be of the same one
+        Check("booking_requester_church", "Reservas de un espacio pedidas por una persona de otra iglesia", Booking,
+              Q(requested_by__isnull=False), ~Q(requested_by__church=F("space__church"))),
+        Check("booking_event_church", "Reservas de un espacio para un evento de otra iglesia", Booking,
+              Q(event__isnull=False), ~Q(event__church=F("space__church"))),
         # roles by scope
         Check("role_assignment_scope_church", "Roles por ámbito que apuntan fuera de su iglesia", RoleAssignment, None,
               scope_elsewhere),

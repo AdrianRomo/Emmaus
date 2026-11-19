@@ -17,6 +17,7 @@ plain seed.
 Idempotent: every object is looked up by a fixed key. The password comes from --password or EMMAUS_DEMO_PASSWORD.
 """
 
+import hashlib
 import os
 from datetime import date, time, timedelta
 
@@ -94,7 +95,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--password", default="", help="Contraseña de las cuentas (o EMMAUS_DEMO_PASSWORD). Nunca se muestra.")
-        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones y la página pública de la iglesia, publicada.")
+        parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones, una serie semanal (Reunión general, cada domingo) y la página pública de la iglesia, publicada.")
+        parser.add_argument("--duplicados", action="store_true", help="Agrega dos registros de una misma persona (mismo correo, sin cuenta), para ver Posibles duplicados.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
 
     def handle(self, *args, **opts):
@@ -125,6 +127,9 @@ class Command(BaseCommand):
             if not GroupJoinRequest.objects.filter(group=groups[0], person=asked).exists():
                 group_services.request_to_join(groups[0], asked, asked.user)
             self._agenda_and_notices(church, admin, leader, groups[0])
+            self._spaces(church, admin, leader)
+            if opts["duplicados"]:
+                self._duplicates(church)
             if opts["panorama"]:
                 self._panorama(church, admin, password)
             if opts["eventos"]:
@@ -181,7 +186,25 @@ class Command(BaseCommand):
                        ("bien", "si", ""), ("muy_bien", "si", "Que se repita."))
             for rating, recommend, comment in answers:
                 EventFeedback.objects.create(event=ended, rating=rating, recommend=recommend, comment=comment)
+        self._weekly_series(church, admin)
         self._public_home(church, admin, event)
+
+    def _weekly_series(self, church, admin) -> None:
+        """What the church does every Sunday (issue #93): a series, with its dates of the coming weeks written as
+        events, published for the church and without sign-up. Run again, it only writes the dates that are missing.
+        Not public on purpose: the demonstration's public home lists the two events above, not eight Sundays."""
+        from agenda import series
+        from agenda.models import EventSeries
+
+        existing = EventSeries.objects.filter(church=church, name="Reunión general").first()
+        if existing is not None:
+            series.generate(existing, admin)
+            return
+        series.create_series(
+            church, admin, name="Reunión general", weekdays="6", interval_weeks=1, starts_at=time(11, 0), duration_minutes=90,
+            location="Templo principal", time_zone="America/Mexico_City", starts_on=timezone.localdate(),
+            description="Cada domingo nos reunimos para cantar, orar y escuchar la Biblia.", published=True,
+        )
 
     def _public_home(self, church, admin, simple_event) -> None:
         """The church's public home (issue #87), published: a welcome, two times, where and how to ask, one
@@ -197,7 +220,7 @@ class Command(BaseCommand):
             church.save(update_fields=["contact_email"])
         sitio.save_home(
             church, admin, welcome="Somos una iglesia de barrio. Si es tu primera vez, llega como eres: te esperamos en la entrada.",
-            address="Av. de los Olivos 120, Col. Jardines\nCiudad de México", map_url="https://maps.example.invalid/iglesia-demo",
+            address="Av. de los Olivos 120, Col. Jardines\nCiudad de México", map_url="https://www.openstreetmap.org/#map=17/19.4326/-99.1332",
             contact_phone="55 5550 0100",
         )
         if not ServiceTime.objects.filter(church=church).exists():
@@ -212,9 +235,23 @@ class Command(BaseCommand):
                 agenda.save_page(event, admin, public=True)
         content = sitio.page_content(church)
         if not content.home.published:
-            sitio.publish(church, admin, content.digest())
+            from sitio.models import PublicHome
+
+            PublicHome.objects.filter(pk=content.home.pk).update(published=True, published_at=timezone.now(), published_by=admin)
+            self._published_before(church, "sitio", content.home)
 
         self._reading_plan(church, admin)
+
+    @staticmethod
+    def _published_before(church, kind, obj) -> None:
+        """The demo's content stands for what a church had published before pastoral approvals existed
+        (issue #99): it is published with the same mark the migration leaves, and a pastor finds it in
+        "Aprobación pastoral" to approve item by item. Nothing new is published this way by the screens."""
+        from resources.models import ContentApproval
+
+        ContentApproval.objects.get_or_create(
+            kind=kind, object_id=obj.pk, defaults={"church": church, "state": ContentApproval.State.LEGACY}
+        )
 
     def _reading_plan(self, church, admin) -> None:
         """One published three-day plan, written for this demo: references and our own words, no Bible text."""
@@ -244,7 +281,10 @@ class Command(BaseCommand):
         )
         for title, reference, reflection, question in days:
             plans.save_day(plan, admin, title=title, reference=reference, reflection=reflection, question=question)
-        plans.publish_plan(plan, admin, confirmed=True)
+        ReadingPlan.objects.filter(pk=plan.pk).update(
+            status=ReadingPlan.Status.PUBLISHED, rights_confirmed_by=admin, rights_confirmed_at=timezone.now()
+        )
+        self._published_before(church, "plan", plan)
 
     def _panorama(self, church, admin, password) -> None:
         """What "Panorama" counts: a pastor, the groups of PANORAMA_GROUPS with their lists, a finished event with
@@ -255,6 +295,17 @@ class Command(BaseCommand):
         pastor = self._account(*PASTOR, password)
         assign_role(pastor, church, Role.PASTOR)
         people_services.ensure_own_person(pastor, church)
+        # Something for the pastor to approve: tomorrow's devotional, prepared by the administration.
+        from resources import services as resources
+        from resources.models import Devotional
+
+        tomorrow = timezone.localdate() + timedelta(days=1)
+        if not Devotional.objects.filter(church=church, date=tomorrow).exists():
+            resources.save_devotional(
+                church, admin, date=tomorrow, title="Dar fruto", passage="Juan 15:9-17", author_name="Alma Cisneros",
+                body="El fruto no se fabrica: llega cuando la rama sigue unida.\n\nHoy piensa en una persona a la que puedas servir sin que nadie lo sepa.",
+                publish=True,
+            )
         today = timezone.localdate()
         everybody = [
             Person.objects.get_or_create(church=church, first_name=first, last_name=last, user=None)[0] for first, last in PANORAMA_PEOPLE
@@ -315,11 +366,12 @@ class Command(BaseCommand):
         from resources.models import Devotional, MediaItem
 
         if not Devotional.objects.filter(church=church, date=timezone.localdate()).exists():
-            resources.save_devotional(
+            devotional = resources.save_devotional(
                 church, admin, date=timezone.localdate(), title="Permanecer", passage="Juan 15:1-8", author_name="Alma Cisneros",
                 body="Jesús no pide que demos fruto a la fuerza. Pide que permanezcamos en él.\n\nHoy, antes de empezar, quédate un minuto en silencio.",
-                publish=True,
             )
+            Devotional.objects.filter(pk=devotional.pk).update(status=Devotional.Status.PUBLISHED)
+            self._published_before(church, "devocional", devotional)
         if not MediaItem.objects.filter(church=church).exists():
             resources.save_media(
                 church, admin, kind="predicacion", title="La vid y las ramas", speaker="Ernesto Salas", series="Juan",
@@ -347,6 +399,39 @@ class Command(BaseCommand):
             notices.publish(church, leader.user, group=group, title="Esta semana nos vemos en el Salón 3",
                             body="El Salón 2 estará ocupado. Nos vemos a la misma hora en el Salón 3.")
 
+    def _spaces(self, church, admin, leader) -> None:
+        """Two things the church lends (a room that asks for approval, a projector that does not) and three
+        bookings: one the guide asked for and still waits, one the administration made for the published
+        event, one of the projector. Each booking is looked up by its space and its title."""
+        from datetime import datetime
+
+        from espacios import services as spaces
+        from espacios.models import Booking, Space
+
+        tz, today = spaces.church_tz(church), timezone.localdate()
+        admin_person = Person.objects.get(church=church, user=admin)
+
+        def space(name, **fields):
+            found = Space.objects.filter(church=church, name=name).first()
+            return found or spaces.save_space(church, admin, name=name, **fields)
+
+        def booking(place, person, actor, title, days, start, end, **extra):
+            if Booking.objects.filter(space=place, title=title).exists():
+                return
+            day = today + timedelta(days=days)
+            spaces.request_booking(
+                place, person, actor, title=title, starts_at=datetime.combine(day, start, tzinfo=tz),
+                ends_at=datetime.combine(day, end, tzinfo=tz), **extra,
+            )
+
+        room = space("Salón 2", kind=Space.Kind.ROOM, capacity=40, notes="La llave está en la oficina.")
+        projector = space("Proyector portátil", kind=Space.Kind.EQUIPMENT, needs_approval=False)
+        event = Event.objects.filter(church=church, slug="noche-de-alabanza-demo").first()
+        booking(room, leader, leader.user, "Reunión de Jóvenes Roca", 3, time(19, 0), time(21, 0), setup_minutes=30)
+        booking(room, admin_person, admin, "Ensayo para la noche de alabanza", 12, time(16, 0), time(18, 0),
+                teardown_minutes=30, event=event, approve=True)
+        booking(projector, leader, leader.user, "Película con el grupo", 5, time(18, 0), time(20, 30))
+
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
         user.first_name, user.last_name, user.email, user.is_active = first, last, email, True
@@ -356,10 +441,20 @@ class Command(BaseCommand):
 
     def _person(self, church, email, first, last, password) -> Person:
         user = self._account(email, first, last, password)
+        # Each demo person has their own (invented) phone: a shared one would make every pair a "posible duplicado".
+        phone = f"55 5551 {int(hashlib.sha256(email.encode()).hexdigest(), 16) % 10000:04d}"
         person, _ = Person.objects.get_or_create(
-            church=church, user=user, defaults={"first_name": first, "last_name": last, "email": email, "phone": "55 5550 0100"}
+            church=church, user=user, defaults={"first_name": first, "last_name": last, "email": email, "phone": phone}
         )
         return person
+
+    def _duplicates(self, church) -> None:
+        """--duplicados: one synthetic pair for "Posibles duplicados". Same e-mail, another phone, no account, no rows."""
+        for last, phone in (("Ibarra Solís", "55 5552 0101"), ("Ibarra", "55 5552 0199")):
+            Person.objects.get_or_create(
+                church=church, first_name="Renata", last_name=last, user=None,
+                defaults={"email": "renata.ibarra@demo.invalid", "phone": phone},
+            )
 
     def _event(self, church) -> Event:
         event, created = Event.objects.get_or_create(

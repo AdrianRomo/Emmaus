@@ -265,7 +265,10 @@ class HomeModulesTests(CommunityFixture):
     def test_the_devotional_of_the_day_is_on_the_home_and_nobody_else_learns_who_read_it(self):
         from resources import services as resources
 
-        resources.save_devotional(self.church, self.admin, date=timezone.localdate(), title="Permanecer", body="Quédate.", publish=True)
+        from resources.tests.approving import approve
+
+        asked = resources.save_devotional(self.church, self.admin, date=timezone.localdate(), title="Permanecer", body="Quédate.", publish=True)
+        approve(self.church, "devocional", asked)  # a pastor of the church approves: that is what publishes it
         self.client.force_login(self.member_user)
         home = self.client.get(reverse("community:home"))
         self.assertContains(home, "Devocional de hoy")

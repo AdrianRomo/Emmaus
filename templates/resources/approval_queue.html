@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load emmaus %}
+{% block page_title %}Aprobación pastoral{% endblock %}
+{% block content %}
+{% comment %}
+  What waits for a pastor's approval before it is published (resources.approval_views.queue): what the administration
+  asked, what a pastor returned, and what is published with no approval on record. A pastor decides; the
+  administration only reads. Nothing here says who reads or how many people do.
+{% endcomment %}
+<div class="narrow">
+  {% url 'community:home' as back %}
+  {% if can_approve %}
+    {% include "events/rotulo/_page_head.html" with title="Aprobación pastoral" lede="Lo que la administración preparó y espera tu aprobación para publicarse. Tú dices con qué permiso lo publica la iglesia." back_url=back back_label="Volver a Mi iglesia" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Aprobación pastoral" lede="Lo que preparaste y espera a un pastor de tu iglesia. La administración prepara y pide; solo un pastor aprueba y publica." back_url=back back_label="Volver a Mi iglesia" %}
+  {% endif %}
+  {% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}
+
+  <section class="block" aria-labelledby="esperan">
+    <h2 id="esperan" class="heading">Solicitudes que esperan aprobación</h2>
+    {% if pending %}
+      <ul class="rows">
+        {% for entry in pending %}
+          <li class="row row--lead row--stack">
+            <div class="row__main">
+              <p class="row__title"><a href="{{ entry.url }}">{{ entry.title }}</a></p>
+              <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }}{% if entry.row.requested_at %} Se pidió el {{ entry.row.requested_at|date:"j \d\e F"|lower }}.{% endif %} Todavía no se ve.</p>
+            </div>
+            <div class="row__end">
+              {% status "por_evaluar" "Por aprobar" %}
+              <a class="btn btn--secondary btn--small" href="{{ entry.url }}">{% if can_approve %}Revisar{% else %}Ver{% endif %}<span class="visually-hidden">: {{ entry.title }}</span></a>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">{% if can_approve %}No hay nada esperando tu aprobación.{% else %}No hay nada esperando la aprobación de un pastor.{% endif %}</p>
+    {% endif %}
+  </section>
+
+  {% if returned %}
+  <section class="block" aria-labelledby="devueltos">
+    <h2 id="devueltos" class="heading">Devueltos sin aprobar</h2>
+    <ul class="rows">
+      {% for entry in returned %}
+        <li class="row row--lead row--stack">
+          <div class="row__main">
+            <p class="row__title"><a href="{{ entry.url }}">{{ entry.title }}</a></p>
+            <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }} No se publicó. Lo que hay que corregir: {{ entry.row.return_reason }}</p>
+          </div>
+          <div class="row__end">{% status "revisar" "Devuelto" %}</div>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Sale de esta lista cuando la administración lo corrige y pide la aprobación otra vez.</p>
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="sin-aprobacion">
+    <h2 id="sin-aprobacion" class="heading">Publicado antes de que existiera la aprobación</h2>
+    {% if unrecorded %}
+      <p>Esto no es una solicitud: ya está publicado y se sigue viendo, nadie lo retiró. Se publicó sin la aprobación de un pastor, casi siempre porque es anterior a este paso. {% if can_approve %}Apruébalo uno por uno cuando lo hayas leído.{% else %}Un pastor lo aprueba uno por uno.{% endif %}</p>
+      <ul class="rows">
+        {% for entry in unrecorded %}
+          <li class="row row--lead row--stack">
+            <div class="row__main">
+              <p class="row__title"><a href="{{ entry.url }}">{{ entry.title }}</a></p>
+              <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }} {% if entry.row.is_legacy %}Se publicó antes de que existieran las aprobaciones.{% else %}Está publicado y no hay una aprobación registrada.{% endif %}</p>
+            </div>
+            <div class="row__end">
+              <a class="btn btn--secondary btn--small" href="{{ entry.url }}">{% if can_approve %}Revisar{% else %}Ver{% endif %}<span class="visually-hidden">: {{ entry.title }}</span></a>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+      {% include "partials/ui/pager.html" with page=unrecorded label="Páginas de contenido publicado sin aprobación" %}
+    {% else %}
+      <p class="empty-line">Todo lo que está publicado tiene la aprobación de un pastor.</p>
+    {% endif %}
+  </section>
+  <p class="aside-note">Los recursos son enlaces a sitios que la iglesia no hospeda: no pasan por aquí. Esta página no muestra quién lee ni cuántas personas: eso es de cada quien.</p>
+</div>
+{% endblock %}

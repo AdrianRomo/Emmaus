@@ -19,7 +19,8 @@ from notices import services as notices
 from people import flags
 from people.models import ChurchAuditEvent, Person
 from resources import services as resources
-from resources.models import MediaItem
+from resources.models import ContentApproval, MediaItem
+from resources.tests.approving import approve, church_pastor
 from sitio import services
 from sitio.models import PublicHome, PublicMedia, ServiceTime
 
@@ -43,7 +44,7 @@ class HomeFixture(PublicFixture):
         cls.church.refresh_from_db()
         cls.church_b.refresh_from_db()
         services.save_home(cls.church, cls.admin, welcome="Llega como eres: te esperamos en la entrada.",
-                           address="Calle de la Paz 12\nColonia Centro", map_url="https://mapas.invalid/iglesia-a",
+                           address="Calle de la Paz 12\nColonia Centro", map_url="https://maps.app.goo.gl/iglesia-a",
                            contact_phone=PHONE_A)
         sunday, wednesday = ServiceTime.Weekday.SUNDAY, ServiceTime.Weekday.WEDNESDAY
         services.save_time(cls.church, cls.admin, weekday=wednesday, time=time(19, 30), name="Oración entre semana")
@@ -57,7 +58,7 @@ class HomeFixture(PublicFixture):
         cls.publish(cls.church, cls.admin)
 
         services.save_home(cls.church_b, cls.admin_b, welcome="Bienvenida de la iglesia B.", address="Avenida B 99",
-                           map_url="https://mapas.invalid/iglesia-b", contact_phone=PHONE_B)
+                           map_url="https://maps.app.goo.gl/iglesia-b", contact_phone=PHONE_B)
         services.save_time(cls.church_b, cls.admin_b, weekday=ServiceTime.Weekday.SATURDAY, time=time(18, 15), name="Culto sabatino B")
         cls.sermon_b = cls._media(cls.church_b, cls.admin_b, "Mensaje de la iglesia B", "https://videos.invalid/b", speaker="Predicador Be")
         services.show_media(cls.sermon_b, cls.admin_b)
@@ -72,7 +73,9 @@ class HomeFixture(PublicFixture):
 
     @staticmethod
     def publish(church, actor) -> PublicHome:
-        return services.publish(church, actor, services.page_content(church).digest())
+        """The administration asks with the review; a pastor of the church approves, and that makes it public."""
+        home = services.request_publication(church, actor, services.page_content(church).digest())
+        return approve(church, "sitio", home)
 
     def get(self, church=None):
         return self.client.get(home_url(church or self.church))
@@ -90,7 +93,7 @@ class PublicHomeTests(HomeFixture):
         response = self.get()
         self.assertEqual(response.status_code, 200)
         for text in (self.church.name, "Llega como eres: te esperamos en la entrada.", "Cuándo nos reunimos", "Domingos", "Miércoles",
-                     "Primera reunión", ", en Templo principal", "Reunión general", "Oración entre semana", "Calle de la Paz 12<br>Colonia Centro",
+                     "Primera reunión", ", en Templo principal", "Reunión general", "Oración entre semana", "Calle de la Paz 12 Colonia Centro",
                      "Retiro de jóvenes", "Rancho El Olivo", "La vid y las ramas", "Predicación, de Pastor Ejemplo Público, serie «Juan», 15 de noviembre de 2026.",
                      "¿Ya eres parte de esta iglesia?", "Entra a Emmaus"):
             self.assertContains(response, text)
@@ -109,7 +112,7 @@ class PublicHomeTests(HomeFixture):
         # Contact as links with their text in sight; the map and the sermon leave Emmaus and say so.
         self.assertContains(response, f'<a href="tel:5512345678">{PHONE_A}</a>')
         self.assertContains(response, '<a href="mailto:hola@iglesia-a.invalid">hola@iglesia-a.invalid</a>')
-        self.assertContains(response, '<a href="https://mapas.invalid/iglesia-a" rel="noopener noreferrer">')
+        self.assertContains(response, '<a href="https://maps.app.goo.gl/iglesia-a" rel="noopener noreferrer">')
         self.assertContains(response, '<a href="https://videos.invalid/vid" rel="noopener noreferrer" aria-describedby="recursos-nota">')
         self.assertContains(response, "fuera de Emmaus", count=2)
         # The event leads to its own public page; the way in leads to the sign-in.
@@ -180,10 +183,10 @@ class PublicHomeTests(HomeFixture):
 class OnlyWhatWasPublishedTests(HomeFixture):
     def test_each_church_shows_only_its_own(self):
         page_a, page_b = self.get().content, self.get(self.church_b).content
-        of_a = [self.church.name, "Llega como eres", "Calle de la Paz", "mapas.invalid/iglesia-a", PHONE_A, "5512345678",
+        of_a = [self.church.name, "Llega como eres", "Calle de la Paz", "maps.app.goo.gl/iglesia-a", PHONE_A, "5512345678",
                 "hola@iglesia-a.invalid", "Primera reunión", "Oración entre semana", "09:00", "19:30", "Retiro de jóvenes",
                 "retiro-jovenes", "La vid y las ramas", "Pastor Ejemplo Público", "videos.invalid/vid"]
-        of_b = [self.church_b.name, "Bienvenida de la iglesia B.", "Avenida B 99", "mapas.invalid/iglesia-b", PHONE_B, "9998765432",
+        of_b = [self.church_b.name, "Bienvenida de la iglesia B.", "Avenida B 99", "maps.app.goo.gl/iglesia-b", PHONE_B, "9998765432",
                 "hola@iglesia-b.invalid", "Culto sabatino B", "18:15", "Vigilia de la iglesia B", "vigilia-b",
                 "Mensaje de la iglesia B", "Predicador Be", "videos.invalid/b"]
         for word in of_a:
@@ -338,13 +341,13 @@ class AdministrationTests(HomeFixture):
     def test_saving_the_data_never_publishes_and_leaves_one_audit_row(self):
         services.unpublish(self.church, self.admin)
         before = self.audits("sitio_modificado").count()
-        data = {"welcome": "  Te esperamos   el domingo. ", "address": "Calle Nueva 5", "map_url": "https://mapas.invalid/nuevo",
+        data = {"welcome": "  Te esperamos   el domingo. ", "address": "Calle Nueva 5", "map_url": "https://maps.app.goo.gl/nuevo",
                 "contact_phone": "55 0000 1111"}
         response = self.client.post(reverse("sitio:edit"), data, follow=True)
         self.assertContains(response, "Nadie los ve todavía")
         home = PublicHome.objects.get(church=self.church)
         self.assertEqual((home.welcome, home.address, home.map_url, home.contact_phone, home.published),
-                         ("Te esperamos el domingo.", "Calle Nueva 5", "https://mapas.invalid/nuevo", "55 0000 1111", False))
+                         ("Te esperamos el domingo.", "Calle Nueva 5", "https://maps.app.goo.gl/nuevo", "55 0000 1111", False))
         self.assertEqual(self.audits("sitio_modificado").count(), before + 1)
         audit = self.audits("sitio_modificado").latest("id")
         self.assertEqual(audit.metadata, {})
@@ -357,7 +360,7 @@ class AdministrationTests(HomeFixture):
 
     def test_what_the_form_refuses(self):
         cases = [
-            ({"map_url": "http://mapas.invalid/x"}, "El enlace debe empezar con https://"),
+            ({"map_url": "http://maps.app.goo.gl/x"}, "El enlace debe empezar con https://"),
             ({"map_url": "javascript:alert(1)"}, "El enlace debe empezar con https://"),
             ({"map_url": "https://"}, "Ese enlace no se entiende"),
             ({"contact_phone": "llámame"}, "Escribe el teléfono solo con números"),
@@ -376,12 +379,13 @@ class AdministrationTests(HomeFixture):
                 services.save_home(self.church, self.admin, map_url=bad)
 
     def test_times_are_added_changed_and_taken_away_inside_the_church(self):
+        services.unpublish(self.church, self.admin)
         before = self.audits("sitio_modificado").count()
         response = self.client.post(reverse("sitio:time_create"), {"weekday": "4", "time": "20:00", "name": "Jóvenes", "place": "", "position": ""},
                                     follow=True)
         self.assertContains(response, "Agregaste el horario.")
         row = ServiceTime.objects.get(church=self.church, name="Jóvenes")
-        self.assertContains(self.get(), "Viernes")
+        self.assertContains(self.client.get(reverse("sitio:preview")), "Viernes")
         self.client.post(reverse("sitio:time_edit", args=[row.pk]), {"weekday": "5", "time": "17:00", "name": "Jóvenes", "place": "Patio", "position": "1"})
         row.refresh_from_db()
         self.assertEqual((row.weekday, row.time, row.place, row.position), (5, time(17, 0), "Patio", 1))
@@ -404,39 +408,55 @@ class AdministrationTests(HomeFixture):
         response = self.client.get(reverse("sitio:publish"))
         self.assertContains(response, "<h1", count=1)
         for text in ("Todavía no se publica nada.", self.church.name, "Llega como eres: te esperamos en la entrada.", "Calle de la Paz 12",
-                     "https://mapas.invalid/iglesia-a", PHONE_A, "hola@iglesia-a.invalid", "Domingos, 09:00: Primera reunión, en Templo principal.",
+                     "https://maps.app.goo.gl/iglesia-a", PHONE_A, "hola@iglesia-a.invalid", "Domingos, 09:00: Primera reunión, en Templo principal.",
                      "Miércoles, 19:30: Oración entre semana.", "Retiro de jóvenes", "La vid y las ramas", "https://videos.invalid/vid",
-                     "El nombre de quien predicó o enseñó será público.", "Publicar la página", f"http://testserver{home_url(self.church)}"):
+                     "El nombre de quien predicó o enseñó será público.", "Pedir la aprobación pastoral</button>",
+                     "cuando un pastor de tu iglesia lo apruebe", f"http://testserver{home_url(self.church)}"):
             self.assertContains(response, text)
         for text in ("Sermón solo para la iglesia", "Predicadora Reservada", self.hidden.name, self.no_page.name, "Culto sabatino B",
                      "Vigilia de la iglesia B", "Mensaje de la iglesia B", PHONE_B, "Aviso interno reservado"):
             self.assertNotContains(response, text)
-        self.assertEqual(self.get().status_code, 404)  # looking at the review publishes nothing
-        self.assertFalse(self.audits("sitio_publicado").filter(pk__gt=self.audits("sitio_despublicado").latest("id").pk).exists())
+        self.assertNotContains(response, "Publicar la página")
+        self.assertEqual(self.get().status_code, 404)  # looking at the review publishes nothing and asks nothing
+        self.assertFalse(ContentApproval.objects.filter(church=self.church, kind="sitio", state="pendiente").exists())
 
-    def test_publishing_takes_the_review_and_is_audited_and_so_is_unpublishing(self):
+    def test_the_administration_asks_with_the_review_and_only_a_pastors_approval_publishes(self):
         services.unpublish(self.church, self.admin)
-        published, withdrawn = self.audits("sitio_publicado").count(), self.audits("sitio_despublicado").count()
-        # Without the review, or with another one, nothing is published.
+        withdrawn = self.audits("sitio_despublicado").count()
+        asked = self.audits("contenido_aprobacion_pedida").count()
+        home = PublicHome.objects.get(church=self.church)
+        # Without the review, or with another one, nothing is asked.
         for revision in ("", "0" * 64):
             response = self.client.post(reverse("sitio:publish"), {"revision": revision}, follow=True)
-            self.assertContains(response, "No se publicó nada")
-            self.assertFalse(PublicHome.objects.get(church=self.church).published)
+            self.assertContains(response, "No se pidió nada")
         # Something that would be public changed after the review was shown: the list is shown again.
         review = self.client.get(reverse("sitio:publish"))
         services.show_media(self.private_sermon, self.admin)
         response = self.client.post(reverse("sitio:publish"), {"revision": review.context["revision"]}, follow=True)
-        self.assertContains(response, "No se publicó nada")
+        self.assertContains(response, "No se pidió nada")
         self.assertContains(response, "Sermón solo para la iglesia")
+        self.assertEqual(self.audits("contenido_aprobacion_pedida").count(), asked)
+        # With the review: asked, and still not public, whatever else the form carries.
+        response = self.client.post(reverse("sitio:publish"), {"revision": response.context["revision"], "published": "on"}, follow=True)
+        self.assertContains(response, "Guardamos tu solicitud para publicar la página. Queda en la lista «Aprobación pastoral» de los pastores de tu iglesia. Emmaus no le avisa a nadie")
+        self.assertContains(response, "Por aprobar")
+        self.assertNotContains(response, "Revisar y pedir la aprobación")
+        home.refresh_from_db()
+        self.assertFalse(home.published)
         self.assertEqual(self.get().status_code, 404)
-        response = self.client.post(reverse("sitio:publish"), {"revision": response.context["revision"]}, follow=True)
-        self.assertContains(response, "Publicaste la página.")
-        home = PublicHome.objects.get(church=self.church)
-        self.assertEqual((home.published, home.published_by), (True, self.admin))
+        self.assertEqual(self.audits("contenido_aprobacion_pedida").count(), asked + 1)
+        self.assertEqual(ContentApproval.objects.get(kind="sitio", object_id=home.pk).state, "pendiente")
+        # A pastor of the church approves what the review lists: that makes it public, under the pastor's name.
+        pastor = church_pastor(self.church)
+        approve(self.church, "sitio", home)
+        self.assertEqual((home.published, home.published_by), (True, pastor))
         self.assertEqual(self.get().status_code, 200)
-        self.assertEqual(self.audits("sitio_publicado").count(), published + 1)
-        audit = self.audits("sitio_publicado").latest("id")
-        self.assertEqual((audit.actor, audit.object_type, audit.object_id, audit.metadata), (self.admin, "PublicHome", str(home.pk), {}))
+        audit = self.audits("contenido_aprobado").latest("id")
+        self.assertEqual(
+            (audit.actor, audit.object_type, audit.object_id, audit.metadata, audit.summary),
+            (pastor, "PublicHome", str(home.pk), {"permitted_use": "propia"},
+             "Aprobó y publicó la página pública de la iglesia (obra propia de la iglesia)"),
+        )
         # Already published: the review has nothing to do.
         self.assertRedirects(self.client.get(reverse("sitio:publish")), reverse("sitio:edit"))
         # Unpublishing asks first.
@@ -508,6 +528,177 @@ class AdministrationTests(HomeFixture):
         for action in ("sitio_modificado", "sitio_publicado", "sitio_despublicado", "recurso_publico", "recurso_privado"):
             self.assertIn(action, ACTION_LABELS)
 
+    def test_only_another_welcome_takes_a_public_page_out_and_the_facts_change_at_once(self):
+        home = PublicHome.objects.get(church=self.church)
+        data = {"welcome": home.welcome, "address": home.address, "map_url": home.map_url, "contact_phone": home.contact_phone}
+        # The screen says, before saving, what leaves publication and what does not.
+        page = self.client.get(reverse("sitio:edit"))
+        self.assertContains(page, "Si cambias la bienvenida, la página completa deja de ser pública en cuanto guardes")
+        self.assertContains(page, "quien abra el enlace no la encontrará")
+        self.assertContains(page, "La dirección, el enlace al mapa, el teléfono y los horarios sí se pueden cambiar: se ven de inmediato.")
+        row = ServiceTime.objects.filter(church=self.church).first()
+        for address in (reverse("sitio:time_create"), reverse("sitio:time_edit", args=[row.pk]), reverse("sitio:time_delete", args=[row.pk])):
+            self.assertNotContains(self.client.get(address), "deja de ser pública")
+        # The facts the administration keeps current: the address, the map, the phone, a time added, changed, taken away.
+        facts = {**data, "address": "Calle Nueva 5", "map_url": "https://maps.app.goo.gl/nuevo", "contact_phone": "55 0000 1111"}
+        self.assertContains(self.client.post(reverse("sitio:edit"), facts, follow=True), "Ya se ven en la página pública.")
+        self.client.post(reverse("sitio:time_create"), {"weekday": "5", "time": "20:00", "name": "Vigilia del sábado", "place": "", "position": ""})
+        added = ServiceTime.objects.get(church=self.church, name="Vigilia del sábado")
+        self.client.post(reverse("sitio:time_edit", args=[added.pk]), {"weekday": "5", "time": "21:30", "name": "Vigilia del sábado", "place": "", "position": ""})
+        self.client.post(reverse("sitio:time_delete", args=[row.pk]))
+        services.show_media(self.private_sermon, self.admin)
+        response = self.get()
+        self.assertEqual(response.status_code, 200)
+        for text in ("Calle Nueva 5", "https://maps.app.goo.gl/nuevo", "55 0000 1111", "21:30", "Vigilia del sábado"):
+            self.assertContains(response, text)
+        self.assertNotContains(response, row.name)
+        mark = ContentApproval.objects.get(kind="sitio", object_id=home.pk)
+        home.refresh_from_db()
+        self.assertEqual((mark.state, mark.approved_digest), ("aprobado", services.authored_digest(self.church, home)))
+        self.assertFalse(self.audits("contenido_fuera_de_publicacion").exists())
+        # Another welcome: out of publication at once, and the administration cannot put it back.
+        response = self.client.post(reverse("sitio:edit"), {**facts, "welcome": "Otra bienvenida que nadie aprobó."}, follow=True)
+        self.assertContains(response, "La página dejó de ser pública: cambió la bienvenida que un pastor había aprobado.")
+        self.assertContains(response, "cambió después de publicarse y esos cambios no los ha aprobado un pastor")
+        self.assertEqual(self.get().status_code, 404)
+        mark.refresh_from_db()
+        self.assertEqual(mark.state, "cambio")
+        out = self.audits("contenido_fuera_de_publicacion").get()
+        self.assertEqual((out.actor, out.object_type, out.object_id, out.metadata), (self.admin, "PublicHome", str(home.pk), {}))
+        self.assertNotIn("bienvenida", out.summary.lower())
+        # While it is out, the facts still change; a pastor approves the page as it stands and it is public again.
+        self.client.post(reverse("sitio:edit"), {**facts, "welcome": "Otra bienvenida que nadie aprobó.", "contact_phone": "55 2222 3333"})
+        self.assertEqual(self.get().status_code, 404)
+        self.publish(self.church, self.admin)
+        response = self.get()
+        self.assertContains(response, "Otra bienvenida que nadie aprobó.")
+        self.assertContains(response, "55 2222 3333")
+        self.assertEqual(self.client.get(home_url(self.church_b)).status_code, 200)  # the other church's page is untouched
+
+    def test_a_public_weekly_series_is_one_row_with_its_next_date(self):
+        from agenda import series as agenda_series
+        from agenda.models import SeriesOccurrence
+
+        today = date.today()
+        weekly = agenda_series.create_series(
+            self.church, self.admin, name="Servicio de cada semana", weekdays=str(today.weekday()), starts_at=time(10, 0),
+            starts_on=today, published=True, public=True,
+        )
+        rows = list(SeriesOccurrence.objects.filter(series=weekly).select_related("event").order_by("day"))
+        self.assertGreater(len(rows), 4)  # more dates than the page lists: without the rule they would fill it
+        listed = services.public_events(self.church)
+        ours = [event for event in listed if event.name == "Servicio de cada semana"]
+        self.assertEqual([event.pk for event in ours], [rows[0].event.pk])
+        self.assertTrue(any(event.name == "Retiro de jóvenes" for event in listed))  # the other events are still there
+        response = self.get()
+        self.assertContains(response, "Servicio de cada semana", count=1)
+        self.assertContains(response, f"Se repite {agenda_series.rule_words(weekly)}.")
+        self.assertContains(response, reverse("evento:detail", args=[rows[0].event.slug]))
+        self.assertNotContains(response, reverse("evento:detail", args=[rows[1].event.slug]))
+        review = self.client.get(reverse("sitio:preview"))
+        self.assertContains(review, "Servicio de cada semana", count=1)
+        # What the administration reviews and a pastor approves is that same list: one row in its fingerprint.
+        self.assertEqual(sum(event.name == "Servicio de cada semana" for event in services.page_content(self.church).events), 1)
+        # A date that was called off is not announced: the next one is.
+        agenda_series.call_off(rows[0], self.admin)
+        ours = [event for event in services.public_events(self.church) if event.name == "Servicio de cada semana"]
+        self.assertEqual([event.pk for event in ours], [rows[1].event.pk])
+        self.assertFalse(any(event.name == "Servicio de cada semana" for event in services.public_events(self.church_b)))
+
+
+    def test_the_facts_cannot_carry_a_text_of_their_own(self):
+        """What changes with no pastor is kept plain: one line of address, a link that only goes to a map, a few
+        times with short names. On an approved public page, none of these can be used to publish a text."""
+        home = PublicHome.objects.get(church=self.church)
+        data = {"welcome": home.welcome, "address": home.address, "map_url": home.map_url, "contact_phone": home.contact_phone}
+        edit = reverse("sitio:edit")
+        # The address: one line (line breaks become spaces), 160 characters.
+        self.client.post(edit, {**data, "address": "Calle Uno 1\r\n\r\nUn párrafo   más\nColonia Centro"})
+        home.refresh_from_db()
+        self.assertEqual(home.address, "Calle Uno 1 Un párrafo más Colonia Centro")
+        response = self.client.post(edit, {**data, "address": "a" * 161})
+        self.assertContains(response, "La dirección puede tener hasta 160 caracteres y esta tiene 161.")
+        self.assertContains(response, "El límite es nuevo y vale desde este guardado")
+        with self.assertRaises(services.SiteError):
+            services.save_home(self.church, self.admin, **{**data, "address": "a" * 161})
+        self.assertEqual(services.save_home(self.church, self.admin, **{**data, "address": "a" * 160}).address, "a" * 160)
+        # The link: only to a map site.
+        allowed = (
+            "https://maps.app.goo.gl/AbC123", "https://www.google.com/maps/place/Iglesia", "https://goo.gl/maps/AbC",
+            "https://maps.google.com/?q=19.4,-99.1", "https://www.google.com.mx/maps/@19.4,-99.1,15z",
+            "https://www.openstreetmap.org/#map=17/19.4/-99.1", "https://maps.apple.com/?ll=19.4,-99.1", "https://waze.com/ul?ll=19.4,-99.1",
+        )
+        for good in allowed:
+            self.assertEqual(services.clean_map_url(good), good)
+        refused = (
+            "https://blog.invalid/lo-que-pienso", "https://www.google.com/search?q=x", "https://www.google.com/mapsfalso",
+            "https://goo.gl/abc", "https://maps.app.goo.gl.malo.invalid/x", "https://malo.invalid/maps.app.goo.gl/",
+            "https://docs.google.com/document/d/1", "https://user@maps.google.com.malo.invalid/",
+        )
+        for bad in refused:
+            with self.assertRaises(services.SiteError, msg=bad):
+                services.save_home(self.church, self.admin, **{**data, "map_url": bad})
+            self.assertContains(self.client.post(edit, {**data, "map_url": bad}), "Ese enlace no es de un mapa.", msg_prefix=bad)
+        home.refresh_from_db()
+        self.assertEqual(home.map_url, data["map_url"])
+        # A time: a short name, a short place, one line each.
+        create = reverse("sitio:time_create")
+        time_data = {"weekday": "4", "time": "20:00", "name": "Jóvenes", "place": "", "position": ""}
+        response = self.client.post(create, {**time_data, "name": "n" * 41})
+        self.assertContains(response, "El nombre de la reunión puede tener hasta 40 caracteres y este tiene 41.")
+        self.assertContains(response, "Error: ")
+        self.assertContains(self.client.post(create, {**time_data, "place": "p" * 81}), "El lugar puede tener hasta 80 caracteres y este tiene 81.")
+        for bad in ({"name": "n" * 41}, {"place": "p" * 81}):
+            with self.assertRaises(services.SiteError):
+                services.save_time(self.church, self.admin, weekday=4, time=time(20, 0), **{"name": "Jóvenes", **bad})
+        row = services.save_time(self.church, self.admin, weekday=4, time=time(20, 0), name="Reunión\nde   jóvenes", place="Salón\n2")
+        self.assertEqual((row.name, row.place), ("Reunión de jóvenes", "Salón 2"))
+        # Twelve at most, counted in the church (the other church's do not count), by the screen and by the service.
+        while ServiceTime.objects.filter(church=self.church).count() < 12:
+            services.save_time(self.church, self.admin, weekday=1, time=time(7, 0), name="Otra reunión")
+        self.assertContains(self.client.post(create, time_data), "Ya hay 12 horarios, que es el máximo.")
+        with self.assertRaises(services.SiteError):
+            services.save_time(self.church, self.admin, weekday=4, time=time(20, 0), name="La número trece")
+        self.assertEqual(ServiceTime.objects.filter(church=self.church).count(), 12)
+        services.save_time(self.church, self.admin, weekday=5, time=time(8, 0), name="Con otro nombre", row=row)  # editing one of the twelve
+        services.save_time(self.church_b, self.admin_b, weekday=4, time=time(20, 0), name="Jóvenes de B")
+        # None of it took the page out or asked for an approval: they are facts.
+        self.assertEqual(self.get().status_code, 200)
+        self.assertEqual(ContentApproval.objects.get(kind="sitio", object_id=home.pk).state, "aprobado")
+
+    def test_what_was_written_before_the_limits_keeps_showing_and_is_shortened_on_the_next_save(self):
+        long_address, long_name, long_place = "Calle Larga 1\n" + "b" * 250, "m" * 70, "l" * 110
+        PublicHome.objects.filter(church=self.church).update(address=long_address, map_url="https://un-sitio-de-antes.invalid/mapa")
+        row = ServiceTime.objects.filter(church=self.church).first()
+        ServiceTime.objects.filter(pk=row.pk).update(name=long_name, place=long_place)
+        for _ in range(14):
+            ServiceTime.objects.create(church=self.church, weekday=2, time=time(6, 0), name="De antes")
+        response = self.get()
+        self.assertEqual(response.status_code, 200)
+        for text in ("Calle Larga 1<br>" + "b" * 250, long_name, long_place, "https://un-sitio-de-antes.invalid/mapa"):
+            self.assertContains(response, text)
+        self.assertContains(response, "De antes", count=14)
+        # The forms open with what is there; saving asks for the new limits and says they are new.
+        page = self.client.get(reverse("sitio:edit"))
+        self.assertContains(page, "b" * 250)
+        home = PublicHome.objects.get(church=self.church)
+        data = {"welcome": home.welcome, "address": home.address, "map_url": home.map_url, "contact_phone": home.contact_phone}
+        response = self.client.post(reverse("sitio:edit"), data)
+        self.assertContains(response, "El límite es nuevo y vale desde este guardado")
+        self.assertContains(response, "Ese enlace no es de un mapa.")
+        response = self.client.post(reverse("sitio:edit"), {**data, "address": "Calle Larga 1, Centro", "map_url": "https://maps.app.goo.gl/x"}, follow=True)
+        self.assertContains(response, "Ya se ven en la página pública.")
+        edit = reverse("sitio:time_edit", args=[row.pk])
+        self.assertContains(self.client.get(edit), long_name)
+        time_data = {"weekday": str(row.weekday), "time": row.time.strftime("%H:%M"), "name": long_name, "place": "", "position": ""}
+        self.assertContains(self.client.post(edit, time_data), "El límite es nuevo y vale desde este guardado")
+        self.assertRedirects(self.client.post(edit, {**time_data, "name": "Reunión general"}), reverse("sitio:edit"))
+        # Over the twelve from before: each one can still be changed or taken away; no new one until there is room.
+        self.assertContains(self.client.post(reverse("sitio:time_create"), {**time_data, "name": "Una más"}), "Ya hay 12 horarios")
+        old = ServiceTime.objects.filter(church=self.church, name="De antes").first()
+        self.assertRedirects(self.client.post(reverse("sitio:time_delete", args=[old.pk])), reverse("sitio:edit"))
+        self.assertEqual(self.get().status_code, 200)
+
 
 @override_settings(DEBUG=True)
 class SeedTests(TestCase):
@@ -526,7 +717,9 @@ class SeedTests(TestCase):
         self.assertEqual(ServiceTime.objects.filter(church=church).count(), 2)
         self.assertEqual(PublicMedia.objects.filter(church=church).count(), 1)
         self.assertTrue(EventPage.objects.get(event__slug="convivencia-de-jovenes-demo").public)
-        self.assertEqual(ChurchAuditEvent.objects.filter(church=church, action="sitio_publicado").count(), 1)
+        # The demo stands for a church that had its page before approvals existed: published, marked, nobody guessed as approver.
+        mark = ContentApproval.objects.get(church=church, kind="sitio")
+        self.assertEqual((mark.state, mark.approved_by, mark.approved_at), ("anterior", None, None))
         response = self.client.get("/iglesia/iglesia-demo/")
         for text in ("Iglesia de demostración", "Reunión general", "Oración y estudio", "Convivencia de jóvenes", "La vid y las ramas",
                      "contacto@demo.invalid"):

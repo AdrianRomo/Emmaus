@@ -357,3 +357,107 @@ class EventNotice(models.Model):
     @property
     def retired(self) -> bool:
         return self.retired_at is not None
+
+
+class EventSeries(models.Model):
+    """Something of the church that repeats by the week ("Servicio dominical", "Reunión de jóvenes"): a template.
+
+    Each date is an ordinary simple ``events.Event`` with its own page, capacity and list, written ahead for a
+    rolling window by ``agenda.series.generate`` and tied to the series by a ``SeriesOccurrence``. Nothing here
+    is a recurrence worked out on the fly, and nothing here is about a person."""
+
+    WEEKDAYS = [(0, "lunes"), (1, "martes"), (2, "miércoles"), (3, "jueves"), (4, "viernes"), (5, "sábado"), (6, "domingo")]
+
+    church = models.ForeignKey("core.Church", on_delete=models.CASCADE, related_name="event_series")
+    name = models.CharField("Nombre", max_length=160)
+    location = models.CharField("Lugar", max_length=160, blank=True)
+    time_zone = models.CharField("Zona horaria", max_length=64, default="America/Mexico_City")
+    # The days of the week it happens on, Monday 0 to Sunday 6, as "6" or "2,6".
+    weekdays = models.CharField("Días de la semana", max_length=13)
+    # 1: every week. N: every N weeks, counted from the week of ``starts_on``.
+    interval_weeks = models.PositiveSmallIntegerField("Cada cuántas semanas", default=1)
+    starts_at = models.TimeField("Hora")
+    duration_minutes = models.PositiveSmallIntegerField("Cuánto dura, en minutos", default=90)
+    starts_on = models.DateField("Desde qué día")
+    ends_on = models.DateField("Hasta qué día", null=True, blank=True)
+    description = models.TextField("De qué se trata", blank=True)
+    registration = models.CharField(
+        "Inscripción", max_length=12, choices=EventPage.Registration.choices, default=EventPage.Registration.CLOSED
+    )
+    capacity = models.PositiveIntegerField("Lugares de cada fecha", null=True, blank=True)
+    published = models.BooleanField("Publicar cada fecha para la iglesia", default=False)
+    public = models.BooleanField(
+        "Cualquiera con el enlace puede ver cada fecha, sin entrar a Emmaus", default=False
+    )
+    # False: the series ended. No new dates are written; the ones that exist stay as they are.
+    active = models.BooleanField(default=True)
+    # The last day ``generate`` looked at: a pass of the scheduler skips a series that is written this far.
+    generated_through = models.DateField(null=True, blank=True, editable=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "serie de eventos"
+        verbose_name_plural = "series de eventos"
+        ordering = ["name", "id"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(interval_weeks__gte=1), name="agenda_series_interval_positive"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Serie {self.pk}"
+
+    @property
+    def weekday_numbers(self) -> list[int]:
+        return sorted({int(part) for part in self.weekdays.split(",") if part.strip().isdigit() and int(part) < 7})
+
+    @property
+    def takes_registration(self) -> bool:
+        return self.registration == EventPage.Registration.OPEN
+
+
+class SeriesOccurrence(models.Model):
+    """One date of a series: the day the rule gave and the ordinary event written for it.
+
+    The row is the series' memory of that day, so two passes never write it twice (the constraint) and a day
+    the administration called off ("Este día no hay") is not written again. ``day`` never moves, even when
+    somebody moves the event itself to another date.
+
+    * ``activa``: the event follows the series, unless ``edited_at`` says somebody changed it by hand.
+    * ``cancelada``: "Este día no hay". The event stays, with everything it has; its page is not published.
+    * ``fuera``: the series changed and no longer falls on this day; nobody had touched or signed up for it,
+      so its page was unpublished. If the series falls on the day again, it comes back."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "activa", "Sigue la serie"
+        CANCELLED = "cancelada", "Este día no hay"
+        OFF_RULE = "fuera", "La serie ya no cae en este día"
+
+    series = models.ForeignKey(EventSeries, on_delete=models.CASCADE, related_name="occurrences")
+    day = models.DateField()
+    event = models.OneToOneField(Event, on_delete=models.CASCADE, related_name="series_occurrence")
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACTIVE)
+    # When somebody changed this date's event or page by hand: from then on, changes to the series skip it.
+    edited_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # Whether the page was published when the day was called off: a fact kept for the record. "Sí hay" does not
+    # put the page back as it was; it follows the series as it is then (``agenda.series.restore``).
+    published_before = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "fecha de una serie"
+        verbose_name_plural = "fechas de series"
+        ordering = ["day", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["series", "day"], name="agenda_one_occurrence_per_series_day"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Fecha {self.day} de la serie {self.series_id}"
+
+    @property
+    def cancelled(self) -> bool:
+        return self.status == self.Status.CANCELLED

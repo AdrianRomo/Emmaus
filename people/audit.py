@@ -11,6 +11,10 @@ ACTION_LABELS = {
     "persona_desvinculada": "Quitó el vínculo de una persona con un campero",
     "cuenta_creada": "Dio acceso a una persona",
     "cuenta_vinculada": "Vinculó a una persona con una cuenta que ya existía",
+    "persona_duplicado_descartado": "Dijo que dos registros no son la misma persona",
+    "persona_duplicado_reabierto": "Volvió a poner en revisión dos registros que había descartado",
+    "persona_union": "Unió dos registros de la misma persona",
+    "persona_union_deshecha": "Deshizo la unión de dos registros de persona",
     "grupo_creado": "Creó un grupo",
     "grupo_modificado": "Modificó un grupo",
     "grupo_archivado": "Archivó un grupo",
@@ -19,6 +23,7 @@ ACTION_LABELS = {
     "grupo_solicitud_retirada": "Retiró su solicitud a un grupo",
     "grupo_solicitud_aceptada": "Aceptó una solicitud a un grupo",
     "grupo_solicitud_declinada": "Declinó una solicitud a un grupo",
+    "grupo_solicitud_cerrada_union": "Se cerró una solicitud a un grupo al unir dos registros de la misma persona",
     "grupo_integrante_agregado": "Agregó a una persona a un grupo",
     "grupo_integrante_salio": "Sacó a una persona de un grupo o la persona salió",
     "grupo_reunion": "Pasó lista de una reunión de un grupo",
@@ -36,6 +41,10 @@ ACTION_LABELS = {
     "plan_retirado": "Retiró un plan de lectura",
     "evento_sencillo_creado": "Creó un evento de la iglesia",
     "evento_sencillo_datos": "Modificó los datos de un evento",
+    "serie_creada": "Creó una serie de eventos",
+    "serie_modificada": "Modificó, terminó o reanudó una serie de eventos",
+    "serie_fechas": "Se escribieron las fechas que siguen de una serie de eventos",
+    "serie_fecha": "Dijo que un día de una serie no hay, o que sí hay",
     "evento_publicado": "Publicó un evento para la iglesia",
     "evento_pagina": "Modificó la página de un evento",
     "evento_inscripcion": "Se inscribió a un evento",
@@ -77,6 +86,19 @@ ACTION_LABELS = {
     "sitio_despublicado": "Dejó de publicar la página pública de la iglesia",
     "recurso_publico": "Mostró un recurso en la página pública",
     "recurso_privado": "Quitó un recurso de la página pública",
+    "iglesia_elegida": "Eligió trabajar en esta iglesia (una cuenta que es parte de más de una)",
+    "espacio_creado": "Agregó un espacio o un equipo",
+    "espacio_modificado": "Modificó un espacio o un equipo",
+    "espacio_reserva_solicitada": "Pidió la reserva de un espacio",
+    "espacio_reserva_aprobada": "Aprobó la reserva de un espacio",
+    "espacio_reserva_sobre_choque": "Aprobó la reserva de un espacio aunque se empalma con otra",
+    "espacio_reserva_rechazada": "Rechazó la reserva de un espacio",
+    "espacio_reserva_cancelada": "Canceló la reserva de un espacio",
+    "contenido_aprobacion_pedida": "Pidió la aprobación pastoral de un contenido",
+    "contenido_aprobacion_retirada": "Retiró la solicitud de aprobación pastoral de un contenido",
+    "contenido_aprobado": "Aprobó un contenido para publicarse",
+    "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
+    "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -87,6 +109,12 @@ ALLOWED_METADATA = frozenset({
     "override", "reason", "minor", "standing", "age_checked",
     # A church policy (policies.services.save): which one, by its column, and the number or yes/no before ("value" is after).
     "policy", "previous",
+    # A room or a piece of equipment (espacios.services), by its id: never its name or what a booking is for.
+    "space_id",
+    # Duplicate review and merges (people.merge): the other record of the pair and the merge, by id.
+    "other_person_id", "merge_id",
+    # A pastoral approval of content (resources.approvals): which of the three fixed permitted uses.
+    "permitted_use",
 })
 
 
