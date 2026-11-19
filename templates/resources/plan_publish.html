@@ -12,7 +12,7 @@
   {% include "events/rotulo/_page_head.html" with title="Pedir la aprobación pastoral" lede=plan.title back_url=back back_label="Volver al plan" %}
   {% if approval.is_pending %}
     {% include "resources/_approval_note.html" %}
-    <p class="more"><a href="{% url 'resources:approval_queue' %}">Ver lo que espera aprobación pastoral</a></p>
+    {% include "resources/_approval_way.html" %}
   {% elif total %}
     <p>Un pastor de tu iglesia leerá el plan completo ({{ day_words }}) y dirá con qué permiso lo publica la iglesia. Si lo aprueba, las personas lo encuentran en Planes de lectura y lo pueden empezar. Si lo devuelve, aquí verás qué hay que corregir.</p>
     <p class="aside-note">Un plan lleva solo citas y lo que escribió tu iglesia. Si algún día tiene pegado el texto de una traducción de la Biblia con derechos reservados, o un texto de otro autor sin permiso, quítalo antes de pedir la aprobación.</p>

@@ -1,14 +1,17 @@
-{% load community %}
-{% comment %}A devotional as the pastor reads it before approving (resources.approvals.DevotionalKind.preview). Plain text, escaped.{% endcomment %}
-<div class="block">
-<dl class="summary-list">
-  <div class="summary-list__row"><dt>Título</dt><dd>{{ devotional.title }}</dd></div>
-  <div class="summary-list__row"><dt>Día</dt><dd>{{ devotional.date|weekday_date }}</dd></div>
-  <div class="summary-list__row"><dt>Lectura</dt><dd>{% if devotional.passage %}{{ devotional.passage }}. Solo la cita: cada quien la lee en su Biblia.{% else %}Sin cita.{% endif %}</dd></div>
-  <div class="summary-list__row"><dt>Quién lo firma</dt><dd>{{ devotional.author_name|default:"Nadie: se publica sin firma." }}</dd></div>
-</dl>
-</div>
-<section class="block" aria-labelledby="texto-devocional">
-  <h3 id="texto-devocional" class="heading">El texto</h3>
+{% load community shell %}
+{% comment %}
+  A devotional as the pastor reads it before approving (resources.approvals.DevotionalKind.preview), drawn as its
+  reader will see it (resources/devotional.html): the passage in the serif of a verse, its day and who signs it as
+  facts, then its words. Its title is the page's title, above. What is missing is said, never left blank. Plain
+  text, escaped.
+{% endcomment %}
+<div class="reading">
+  {% if devotional.passage %}<p class="verso devocional__verso"><span class="visually-hidden">Lectura: </span>{{ devotional.passage }}</p>{% endif %}
+  <ul class="meta">
+    <li>{% icon "calendario" "sm" %}<span class="visually-hidden">Día: </span>{{ devotional.date|weekday_date }}</li>
+    <li>{% icon "personas" "sm" %}{% if devotional.author_name %}<span class="visually-hidden">Quién lo firma: </span>{{ devotional.author_name }}{% else %}Nadie lo firma: se publica sin firma.{% endif %}</li>
+    {% if not devotional.passage %}<li>{% icon "lectura" "sm" %}Sin cita.</li>{% endif %}
+  </ul>
   <div class="prose">{{ devotional.body|linebreaks }}</div>
-</section>
+</div>
+{% if devotional.passage %}<p class="aside-note">De la lectura se publica solo la cita: cada quien la lee en su Biblia.</p>{% endif %}

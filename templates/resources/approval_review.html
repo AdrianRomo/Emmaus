@@ -3,16 +3,27 @@
 {% block page_title %}{% if approve_form.errors or return_form.errors %}Error: {% endif %}{{ title }}: aprobación pastoral{% endblock %}
 {% block content %}
 {% comment %}
-  One piece of content as a pastor reads it before deciding (resources.approval_views.review, approve, send_back):
-  the whole text, then "approve" (with the permitted use) or "return" (with a reason). The administration opens the
-  same page and only reads. The approve form carries the fingerprint of this preview: if the content changes
-  meanwhile, nothing is approved. Everything a person typed is plain text, escaped.
+  One piece of content as a pastor reads it before deciding (resources.approval_views.review, approve, send_back).
+  The page reads as the published thing does: its title is the page's title, then its words in the reader's own
+  typography (the kind's preview: the verse in the serif of a verse, the text at reading size). The decision is the
+  page's one raised surface, at the end of the reading and one press away from the top («Ir a tu decisión»):
+  "Aprobar y publicar" is the one filled action, with the permitted use; the other decision is folded under it
+  (plain HTML: it opens without scripts, and it is open when its form came back with an error). Neither acts in
+  place: approving publishes and returning has a field (CRAFT §3). The administration opens the same page and only
+  reads. The approve form carries the fingerprint of this preview: if the content changes meanwhile, nothing is
+  approved. Everything a person typed is plain text, escaped.
 {% endcomment %}
-<div class="narrow">
+<div class="narrow aprobacion">
   {% if approve_form.errors %}{% include "partials/ui/error_summary.html" with form=approve_form %}{% endif %}
   {% if return_form.errors %}{% include "partials/ui/error_summary.html" with form=return_form %}{% endif %}
-  {% url 'resources:approval_queue' as back %}
-  {% include "events/rotulo/_page_head.html" with title=title lede=kind.label meta=line back_url=back back_label="Volver a Aprobación pastoral" %}
+  <a class="back-link" href="{% url 'resources:approval_queue' %}">Volver a Aprobación pastoral</a>
+  <header class="page-head{% if edit_url %} page-head--actions{% endif %}">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">{{ title }}</h1>
+      <p class="page-head__meta">{{ kind.label }}. {{ line }}</p>
+    </div>
+    {% if edit_url %}<div class="page-head__actions"><a class="btn btn--secondary" href="{{ edit_url }}">Editar<span class="visually-hidden">: {{ title }}</span></a></div>{% endif %}
+  </header>
 
   {% if row.is_approved %}
     <div class="notice notice--success"><p>{% if published %}Aprobado y publicado.{% else %}Aprobado. Hoy no está publicado: la administración lo retiró.{% endif %}</p></div>
@@ -24,12 +35,12 @@
   {% elif row.is_changed %}
     <div class="notice notice--warning"><p>Está fuera de publicación: cambió después de publicarse. La administración todavía no pide su aprobación.</p></div>
   {% elif row.is_pending %}
-    <div class="notice notice--quiet"><p>{% if published %}Sigue publicado mientras se decide.{% else %}Todavía no se ve: se publica si un pastor lo aprueba.{% endif %}</p></div>
+    <div class="notice"><p>{% if published %}Sigue publicado mientras se decide.{% else %}Todavía no se ve: se publica si un pastor lo aprueba.{% endif %}{% if can_approve and not not_ready %} <a href="#decision">Ir a tu decisión</a>{% endif %}</p></div>
   {% elif waiting %}
-    <div class="notice notice--quiet"><p>Ya está publicado y se sigue viendo. {% if row.is_legacy %}Se publicó antes de que existieran las aprobaciones.{% else %}No hay una aprobación registrada.{% endif %}</p></div>
+    <div class="notice"><p>Ya está publicado y se sigue viendo. {% if row.is_legacy %}Se publicó antes de que existieran las aprobaciones.{% else %}No hay una aprobación registrada.{% endif %}{% if can_approve and not not_ready %} <a href="#decision">Ir a tu decisión</a>{% endif %}</p></div>
   {% endif %}
 
-  <section class="block" aria-labelledby="contenido">
+  <section class="block aprobacion__vista" aria-labelledby="contenido">
     <h2 id="contenido" class="heading">{% if published %}Lo que está publicado{% else %}Lo que se publicaría{% endif %}</h2>
     {% include kind.preview_template %}
   </section>
@@ -48,43 +59,45 @@
   {% elif waiting and can_approve %}
     {% if not_ready %}
       <div class="notice notice--warning"><p>{{ not_ready }}</p></div>
-    {% else %}
-    <section class="block" aria-labelledby="aprobar">
-      <h2 id="aprobar" class="heading">Aprobar</h2>
-      <p>Al aprobar dices que leíste todo lo de arriba y que la iglesia puede publicarlo. {% if published %}Sigue publicado.{% else %}Se publica en ese momento.{% endif %}</p>
-      <p class="aside-note">Queda guardado tu nombre, la fecha y el permiso que elijas.</p>
-      <form class="block" method="post" action="{% url 'resources:approval_approve' kind.key obj.pk %}" novalidate>
+    {% endif %}
+    {% if not not_ready or can_return %}
+    <section class="sign aprobacion__decision" id="decision" aria-labelledby="aprobar">
+      {% if not not_ready %}
+      <h2 id="aprobar" class="sign__title">Aprobar</h2>
+      <p class="sign__text">Al aprobar dices que leíste todo lo de arriba y que la iglesia puede publicarlo. {% if published %}Sigue publicado.{% else %}Se publica en ese momento.{% endif %}</p>
+      <form method="post" action="{% url 'resources:approval_approve' kind.key obj.pk %}" novalidate>
         {% csrf_token %}
         {% include "partials/ui/fields.html" with form=approve_form %}
-        <div class="step__actions">
+        <p class="aside-note">Queda guardado tu nombre, la fecha y el permiso que elijas.</p>
+        <div class="form-actions">
           <button class="btn btn--primary" type="submit">{% if published %}Aprobar{% else %}Aprobar y publicar{% endif %}</button>
         </div>
       </form>
-    </section>
-    {% endif %}
-    {% if can_return %}
-    {# The other decision, folded so approving is the one that leads. Plain HTML: it opens without scripts, and it is open when its form came back with an error. #}
-    <details class="details"{% if return_form.errors %} open{% endif %}>
-      <summary>No lo apruebo: devolverlo a la administración</summary>
-      <div class="details__body">
+      {% endif %}
+      {% if can_return %}
+      {# The other decision, folded so approving is the one that leads (open when its form came back with an error). When approving is not possible it is the only one, and stands open as the surface's title. #}
+      {% if not_ready %}<h2 id="aprobar" class="sign__title">No lo apruebo: devolverlo a la administración</h2>{% else %}<details class="fold aprobacion__devolver"{% if return_form.errors %} open{% endif %}>
+        <summary>No lo apruebo: devolverlo a la administración</summary>{% endif %}
         <p>No se publica. La administración lee tu motivo en Emmaus, lo corrige y lo pide otra vez.</p>
-        <p class="aside-note">Queda guardado tu nombre y la fecha.</p>
-        <form class="block" method="post" action="{% url 'resources:approval_return' kind.key obj.pk %}" novalidate>
+        <form method="post" action="{% url 'resources:approval_return' kind.key obj.pk %}" novalidate>
           {% csrf_token %}
           {% include "partials/ui/fields.html" with form=return_form %}
-          <div class="step__actions">
+          <p class="aside-note">Queda guardado tu nombre y la fecha.</p>
+          <div class="form-actions">
             <button class="btn btn--secondary" type="submit">Devolver sin aprobar</button>
           </div>
         </form>
-      </div>
-    </details>
+      {% if not not_ready %}</details>{% endif %}
+      {% else %}
+        <p class="aside-note">Si no debe seguir publicado, pide a la administración que lo retire: aquí solo se aprueba.</p>
+      {% endif %}
+    </section>
     {% else %}
       <p class="aside-note">Si no debe seguir publicado, pide a la administración que lo retire: aquí solo se aprueba.</p>
     {% endif %}
   {% elif waiting %}
-    <div class="notice notice--quiet"><p>Solo un pastor de tu iglesia puede aprobarlo. La administración prepara y pide; no aprueba.</p></div>
+    <div class="notice"><p>Solo un pastor de tu iglesia puede aprobarlo. La administración prepara y pide; no aprueba.</p></div>
     {% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}
   {% endif %}
-  {% if edit_url %}<p class="more"><a href="{{ edit_url }}">Ir a editarlo</a></p>{% endif %}
 </div>
 {% endblock %}

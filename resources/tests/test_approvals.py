@@ -95,10 +95,11 @@ class PastorApprovesTests(ApprovalFixture):
         self.assertContains(page, '<span class="badge">1<span class="visually-hidden"> contenido por aprobar</span></span>')
         page = self.client.get(QUEUE)
         self.assertContains(page, "<h1", count=1)
-        self.assertContains(page, "espera tu aprobación")
+        self.assertContains(page, "tú apruebas y dices con qué permiso lo publica la iglesia")
         self.assertContains(page, "Fruto &lt;b&gt;que&lt;/b&gt; permanece")
         self.assertNotContains(page, "<b>que</b>")
-        self.assertContains(page, "Por aprobar")
+        self.assertContains(page, 'Solicitudes que esperan aprobación <span class="count">1</span></h2>')
+        self.assertContains(page, "Todavía no se ve.")
         self.assertContains(page, "Todo lo que está publicado tiene la aprobación de un pastor.")
 
         page = self.client.get(url("review", "devocional", devotional))
@@ -106,7 +107,8 @@ class PastorApprovesTests(ApprovalFixture):
         self.assertContains(page, "<p>Primera línea</p>")
         self.assertContains(page, "&lt;script&gt;")
         self.assertNotContains(page, "<script>alert")
-        self.assertContains(page, "Juan 15:16. Solo la cita")
+        self.assertContains(page, '<span class="visually-hidden">Lectura: </span>Juan 15:16</p>')
+        self.assertContains(page, "De la lectura se publica solo la cita: cada quien la lee en su Biblia.")
         self.assertContains(page, f'name="revision" value="{approvals.DEVOTIONAL.revision(devotional)}"')
         for label in ("Obra propia de la iglesia", "Con permiso del autor", "Dominio público o licencia abierta"):
             self.assertContains(page, label)
@@ -167,7 +169,7 @@ class PastorApprovesTests(ApprovalFixture):
         self.assertEqual(self.client.get(reverse("resources:plan_detail", args=[plan.pk])).status_code, 404)
         self.client.force_login(self.church_pastor)
         page = self.client.get(url("review", "plan", plan))
-        for text in ("Dos días en Juan", "Día 1: Día número 1", "Día 2: Día número 2", "Lectura: Juan 15:2.", "Una rama unida a la vid."):
+        for text in ("Dos días en Juan", "Día 1: Día número 1", "Día 2: Día número 2", '<span class="visually-hidden">Lectura: </span>Juan 15:2</p>', "Una rama unida a la vid."):
             self.assertContains(page, text)
         self.assertRedirects(self.decide("plan", plan, permitted_use="abierta"), QUEUE)
         plan.refresh_from_db()
@@ -217,7 +219,7 @@ class PastorApprovesTests(ApprovalFixture):
             page = self.client.get(address)
             self.assertContains(page, "Falta decir &lt;b&gt;de quién&lt;/b&gt; es la cita.")
             self.assertNotContains(page, "<b>de quién</b>")
-        self.assertContains(self.client.get(reverse("resources:devotional_admin")), "Un pastor lo devolvió sin aprobarlo")
+        self.assertContains(self.client.get(reverse("resources:devotional_admin")), "un pastor lo devolvió sin aprobarlo")
         self.client.force_login(self.member_user)
         self.assertNotContains(self.client.get(HOME), "Falta decir")
         self.assertEqual(self.client.get(reverse("resources:devotional_detail", args=[devotional.pk])).status_code, 404)
@@ -310,7 +312,7 @@ class WhoDecidesTests(ApprovalFixture):
         self.assertContains(page, "La vid verdadera")
         page = self.client.get(url("review", "devocional", devotional))
         self.assertContains(page, "Solo un pastor de tu iglesia puede aprobarlo.")
-        self.assertContains(page, "Ir a editarlo")
+        self.assertContains(page, f'<a class="btn btn--secondary" href="{reverse("resources:devotional_edit", args=[devotional.pk])}">Editar<span')
         self.assertNotIn("</form>", main(page))
         posts(403, "administration")
         # Nobody else opens anything: a member, a guide, a mentor, and the "Pastor" of an event (an event role is not a church role).
@@ -640,7 +642,8 @@ class PublishedBeforeTests(ApprovalFixture):
         self.client.force_login(self.member_user)
         self.assertContains(self.client.get(reverse("resources:devotional_today")), "Publicado desde antes")
 
-        for user, verb in ((self.admin, "Ver"), (self.church_pastor, "Revisar")):
+        # Each row opens the page where it is read (and, for a pastor, decided): its title is the link, no button.
+        for user in (self.admin, self.church_pastor):
             self.client.force_login(user)
             page = self.client.get(QUEUE)
             self.assertContains(page, "Publicado antes de que existiera la aprobación</h2>")
@@ -649,7 +652,7 @@ class PublishedBeforeTests(ApprovalFixture):
             self.assertContains(page, "Esto no es una solicitud: ya está publicado y se sigue viendo, nadie lo retiró.")
             self.assertContains(page, "Se publicó antes de que existieran las aprobaciones.")
             self.assertContains(page, "Está publicado y no hay una aprobación registrada.")
-            self.assertContains(page, f"{verb}<span")
+            self.assertContains(page, f'<p class="row__title"><a href="{url("review", "devocional", old)}">')
             self.assertNotContains(page, "De la iglesia B")
         page = self.client.get(url("review", "devocional", old))
         self.assertContains(page, "Ya está publicado y se sigue viendo. Se publicó antes de que existieran las aprobaciones.")

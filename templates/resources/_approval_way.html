@@ -1,0 +1,10 @@
+{% load shell %}{% comment %}The way from the administration's lists to «Aprobación pastoral» (resources.approval_views.queue): one row, as every way out of a list.{% endcomment %}
+<ul class="rows aprobacion__camino">
+  <li class="row row--lead">
+    <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
+    <div class="row__main">
+      <p class="row__title"><a href="{% url 'resources:approval_queue' %}">Aprobación pastoral</a></p>
+      <p class="row__meta">Lo que espera a un pastor y lo que devolvió</p>
+    </div>
+  </li>
+</ul>

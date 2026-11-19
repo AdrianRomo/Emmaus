@@ -24,7 +24,7 @@
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=plans label="Páginas de planes de lectura" %}
-    <p class="more"><a href="{% url 'resources:approval_queue' %}">Ver lo que espera aprobación pastoral</a></p>
+    {% include "resources/_approval_way.html" %}
   {% else %}
     {% include "partials/ui/empty.html" with title="Todavía no hay planes de lectura" text="Se guardan como borrador hasta que pidas su aprobación y un pastor los apruebe." action_url=create action_label="Escribir un plan" %}
   {% endif %}
