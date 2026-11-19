@@ -3,28 +3,38 @@
 {% block page_title %}{{ title }}{% endblock %}
 {% block content %}
 {% comment %}
-  The dates of one series a person of the church may see (agenda.series_views.member_detail). The name and the
-  place are said once, above; then a plain list of when, each line the way in to that date, which is an event of
-  its own. Everything here comes from those dates; nothing is read from the series' template, which the
-  administration may have unpublished.
+  The dates of one series a person of the church may see (agenda.series_views.member_detail), drawn as Eventos
+  draws a later day: the name once, as the title; the place and how often it repeats as facts under it; then each
+  date with its day drawn and the date in words as the way in to that date, which is an event of its own. A date
+  says its name or its place only when it is another, and where this person stands (a word, never an action: the
+  date's page is where she signs up). Everything here comes from those dates; nothing is read from the series'
+  template, which the administration may have unpublished.
 {% endcomment %}
+{% now "Y-m-d" as today_iso %}
 <div class="narrow">
   {% url 'agenda:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title=title lede=place back_url=back back_label="Volver a Eventos" %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back back_label="Volver a Eventos" %}
+  {% if place or rule %}
+  <ul class="meta pagina-evento__datos" aria-label="Sobre estas fechas">
+    {% if place %}<li>{% icon "lugar" "sm" %}{{ place }}</li>{% endif %}
+    {% if rule %}<li>{% icon "calendario" "sm" %}Se repite {{ rule }}</li>{% endif %}
+  </ul>
+  {% endif %}
   <section class="block" aria-labelledby="fechas">
-    <h2 id="fechas" class="heading">{% if rule %}Se repite {{ rule }}{% else %}Fechas{% endif %}</h2>
-    <ul class="rows">
+    <h2 id="fechas" class="heading">Fechas</h2>
+    <ul class="rows dates serie-fechas">
       {% for event in events %}
-        <li class="row">
+        <li class="row row--lead{% if event.starts_on|date:'Y-m-d' == today_iso %} row--today{% endif %}">
+          {% date_block event.starts_on %}
           <div class="row__main">
             <p class="row__title"><a href="{% url 'agenda:detail' event.slug %}">{{ event.starts_on|date:"l j \\d\\e F"|lower|capfirst }}{% if event.page.starts_at %}, {{ event.page.starts_at|time:"H:i" }}{% endif %}</a></p>
             {% if event.other_name or event.other_place %}<p class="row__meta">{{ event.other_name }}{% if event.other_name and event.other_place %}, {% endif %}{% if event.other_place %}{% if event.other_name %}en{% else %}En{% endif %} {{ event.other_place }}{% endif %}.</p>{% endif %}
+            {% if event.called_off %}<p class="row__meta row__meta--con-marca">{% status "descartada" "Este día no hay" %}</p>
+            {% elif event.state == "inscrita" %}<p class="row__meta row__meta--con-marca">{% status "completada" "Te inscribiste" %}</p>
+            {% elif event.state == "pendiente" %}<p class="row__meta row__meta--con-marca">{% status "revisar" "Pendiente" %}</p>
+            {% elif event.state == "ofrecido" %}<p class="row__meta row__meta--con-marca">{% status "revisar" "Te ofrecimos un lugar" %}</p>
+            {% elif event.state == "en_espera" %}<p class="row__meta row__meta--con-marca">{% status "pendiente" "En lista de espera" %}</p>{% endif %}
           </div>
-          {% if event.called_off %}<div class="row__end">{% status "descartada" "Este día no hay" %}</div>
-          {% elif event.state == "inscrita" %}<div class="row__end">{% status "completada" "Te inscribiste" %}</div>
-          {% elif event.state == "pendiente" %}<div class="row__end">{% status "revisar" "Pendiente" %}</div>
-          {% elif event.state == "ofrecido" %}<div class="row__end">{% status "revisar" "Te ofrecimos un lugar" %}</div>
-          {% elif event.state == "en_espera" %}<div class="row__end">{% status "pendiente" "En lista de espera" %}</div>{% endif %}
         </li>
       {% endfor %}
     </ul>
