@@ -208,13 +208,34 @@ class ReviewFlowTests(Screens):
         self.assertContains(self.client.get(reverse("people:duplicates")), "1 par por revisar")
         self.assertEqual(ChurchAuditEvent.objects.count(), audited + 2)
 
+    def test_a_dismissal_returns_to_the_page_of_the_review_it_was_pressed_on_and_nowhere_else(self):
+        """«No son la misma persona» and «Volver a revisar» act in place (data-inline): the POST comes back to the
+        page of the review named in ``siguiente``; another screen or another site is ignored."""
+        review = reverse("people:duplicates")
+        page = self.client.get(review)
+        self.assertContains(page, 'data-inline="duplicados"')
+        self.assertContains(page, '<div id="duplicados">')
+        pair = {"a": self.keep.pk, "b": self.dup.pk}
+        response = self.client.post(reverse("people:duplicate_dismiss"), {**pair, "siguiente": review + "?descartados=2"})
+        self.assertRedirects(response, review + "?descartados=2", fetch_redirect_response=False)
+        row = DuplicateDismissal.objects.get(person_a__in=[self.keep, self.dup], person_b__in=[self.keep, self.dup])
+        for elsewhere in ("https://otro.example/", "//otro.example/", reverse("people:list"), ""):
+            response = self.client.post(reverse("people:duplicate_reopen", args=[row.pk]), {"siguiente": elsewhere})
+            self.assertRedirects(response, review, fetch_redirect_response=False)
+            response = self.client.post(reverse("people:duplicate_dismiss"), {**pair, "siguiente": elsewhere})
+            self.assertRedirects(response, review, fetch_redirect_response=False)
+            row = DuplicateDismissal.objects.get(person_a__in=[self.keep, self.dup], person_b__in=[self.keep, self.dup])
+
     def test_preview_then_merge_then_undo(self):
         Person.objects.filter(pk=self.dup.pk).update(phone="55 9999 0000")
         groups.set_membership(self.other_group, self.dup, self.admin)
         self.row_for("resources.DevotionalRead.person", self.dup)
         response = self.client.get(self.preview_url())
         self.assertContains(response, "1 grupo en el que está o estuvo")
-        self.assertContains(response, "Teléfono: ¿cuál se queda?")
+        # The two phones differ: the choice is made in the row of the comparison, one radio under each record
+        self.assertContains(response, 'name="elige_phone"', count=2)
+        self.assertContains(response, "teléfono del registro que se queda")
+        self.assertContains(response, "Tú eliges cuál se queda")
         self.assertContains(response, "Nadie las ve ni las cuenta")
         self.assertNotContains(response, "devocional leído")
         self.assertNotContains(response, self.other_group.name)  # how many, never which
@@ -222,7 +243,7 @@ class ReviewFlowTests(Screens):
 
         # Without the choice, or with a value that is not one of the two records: nothing.
         for data in ({}, {"elige_phone": "55 0000 0000"}, {"elige_phone": self.leader.pk}):
-            self.assertContains(self.confirm(**data), "¿cuál se queda?")
+            self.assertContains(self.confirm(**data), "Tú eliges cuál se queda")  # the preview again, with the choice
             self.assertEqual(PersonMerge.objects.filter(absorbed=self.dup).count(), 0)
         response = self.confirm(elige_phone=self.dup.pk)
         record = PersonMerge.objects.get(absorbed=self.dup)

@@ -1864,18 +1864,72 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] .spaces .override .btn { margin-top: var(--s-4); }
 :root[data-ui="2"] .spaces .rows + form { margin-top: var(--s-8); }
 
-/* Personas: the list's search and its two filters (stage, tag) are one GET form, Atrio's .filter-bar, set apart
-   from the page's actions above it; "Quitar filtros" lines up with the button */
-:root[data-ui="2"] .people-filters { margin-top: var(--s-6); }
-:root[data-ui="2"] .people-filters__clear { align-self: center; }
-/* A tag's name is up to 40 characters: its select takes the room it needs instead of cutting the name */
-:root[data-ui="2"] .people-filters .people-filters__tag { flex: 1 1 22rem; max-width: none; }
-/* On a phone each control of the bar takes the whole line, so a long tag's name shows whole in its select */
-@media (max-width: 600px) {
-  :root[data-ui="2"] .people-filters .field, :root[data-ui="2"] .person-stage .field { flex-basis: 100%; max-width: none; }
+/* === personas (wave 11) === */
+/* Personas, the list (person_list.html): its tools are the camper list's (search capsule, views with their count,
+   the secondary filter under one line: .camperos__filtrar, .camperos__vistas, .camperos__sede). A tag's name is up
+   to 40 characters: on a phone the open line of tags scrolls sideways inside the column, never the page. */
+.personas-filtros > * { min-width: 0; }
+/* Two records side by side (merge_preview.html): a table of four columns that align, the field, the record that
+   stays, the one that joins it, and what the union leaves. Values at reading size; a value that stays in ink with
+   its weight, one that is not kept or is missing in the quiet ink (the last column says it in words). */
+.page--app .comparar { table-layout: fixed; }
+.page--app .comparar :is(th, td) { height: auto; padding-block: var(--s-3); vertical-align: top; white-space: normal; overflow-wrap: anywhere; }
+.page--app .comparar thead th { width: 31%; vertical-align: bottom; white-space: normal; }
+.page--app .comparar thead th:first-child { width: 16%; }
+.page--app .comparar thead th:last-child { width: 22%; }
+.page--app .comparar tbody th[scope="row"] { height: auto; color: var(--ink-2); vertical-align: top; }
+.page--app .comparar tbody tr:hover { background: none; }
+.comparar__queda, .comparar__quien { font-weight: 600; }
+.comparar__sale, .comparar__sin { color: var(--ink-2); }
+.comparar__sale { text-decoration: line-through; text-decoration-color: var(--line-strong); }
+.comparar__nota { display: block; color: var(--ink-2); }
+.page--app .comparar a.comparar__quien { display: inline-block; padding-block: 0.75rem; margin-block: -0.75rem; color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 0.18em; }
+.page--app .comparar a.comparar__quien:hover { text-decoration-color: currentColor; }
+/* The choice of a row: the drawn radio and its value, as tall as a target, on the row's own line */
+.page--app .comparar .check { margin-block: -0.6875rem; }
+.page--app .comparar .check__text { font-size: inherit; font-weight: 600; }
+.page--app .comparar .status { min-height: 0; }
+@container (max-width: 44rem) {
+  :root[data-ui="2"] .comparar tbody th[scope="row"] { color: var(--ink); font-weight: 700; }
+  :root[data-ui="2"] .comparar td { display: flex; gap: var(--s-2); padding-block: var(--s-1); }
+  :root[data-ui="2"] .comparar td[data-label]::before { flex: none; min-width: 5.5rem; margin-right: 0; }
+  :root[data-ui="2"] .comparar td:has(.check) { align-items: center; }
+  .page--app .comparar .check { margin-block: 0; }
+  .page--app .comparar tr:first-child td { align-items: center; min-height: 2.75rem; }
 }
-/* A person's stage: the select and its button on one baseline (the bar's own rule), close to the sentence above */
+.page--app .table-wrap + .aside-note { margin-top: var(--s-4); }
+.comparar__cambiar { margin-top: var(--s-4); font-size: var(--t-small); }
+.page--app .comparar__cambiar a { display: inline-block; padding-block: 0.75rem; margin-block: -0.75rem; font-weight: 600; color: var(--petroleo); }
+.page--app .heading + .hint { margin-top: var(--s-1); }
+.page--app .hint + .table-wrap, .page--app .hint + .summary-list { margin-top: var(--s-3); }
+/* How many rows of each kind move: one per line, the number first, so they are read down a column */
+.comparar__cuentas { list-style: none; margin: var(--s-2) 0 var(--s-4); }
+.comparar__cuentas > li { padding: var(--s-2) 0; border-bottom: 1px solid var(--line); font-weight: 600; }
+.comparar__cuentas + .aside-note, .comparar__cuentas ~ .aside-note + .aside-note, .page--app .block > p + .aside-note { margin-top: var(--s-3); }
+.page--app .comparar__antes { margin-top: var(--s-8); }
+.page--app .comparar__antes + .form-actions { margin-top: var(--s-3); }
+/* What is known about one thing (a merge, an import, a file's counts): the label keeps a label's width beside its
+   value while there is room for both */
+@container (min-width: 34rem) {
+  .page--app .ficha .summary-list__row { display: grid; grid-template-columns: 14rem minmax(0, 1fr); gap: var(--s-4); align-items: baseline; }
+}
+@container (min-width: 34rem) { .page--app .ficha--cuentas .summary-list__row { grid-template-columns: 18rem minmax(0, 1fr); } }
+.ficha--cuentas .num { font-size: var(--t-body); font-weight: 700; }
+.ficha__nota { display: block; font-size: var(--t-small); color: var(--ink-2); }
+/* A row of a file (import_preview.html) is led by its line number, and a tag (tags.html) by how many people carry
+   it: the system's numeral at the row's size, in the 48px slot */
+.filas-archivo__n { font-size: var(--t-body); font-weight: 700; font-stretch: 110%; line-height: 1.3; color: var(--ink-2); }
+.row--lead > .filas-archivo__n:first-child { place-items: start center; }
+/* Possible duplicates (duplicates.html): under the text on a phone, a pair's one action starts on the text's edge */
+@container (max-width: 38rem) { .pares .row__end > .btn--link { margin-left: -0.75rem; } }
+.page--app .etiquetas-persona + .form-actions, .page--app fieldset:has(.etiquetas-persona) + .form-actions { margin-top: var(--s-4); }
+/* A person's stage (person_detail.html): the select and its button on one baseline, close to the sentence above;
+   on a phone each takes the line. A person's tags: as many to a line as fit, each a 44px target. */
 :root[data-ui="2"] .person-stage { margin: var(--s-4) 0 var(--s-4); }
+@media (max-width: 600px) { :root[data-ui="2"] .person-stage .field { flex-basis: 100%; max-width: none; } }
+.etiquetas-persona { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 0 var(--s-6); }
+/* === fin personas === */
+
 /* Formularios (general forms, issue #92). The honeypot of a public form is out of the page for everybody (it is
    also aria-hidden and out of the tab order); a row has no monogram, so on a phone its text keeps its own height;
    the contact block and the preview are fieldsets without a frame; the list of what stops a publish has marks */

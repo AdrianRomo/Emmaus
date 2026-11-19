@@ -338,12 +338,16 @@ class PolishTests(CommunityFixture):
         self.assertContains(form, "¿Cómo prefiere que se le contacte?")
         self.assertContains(form, "Registrar a alguien no le da acceso a Emmaus")
 
-    def test_the_stage_and_the_filters_are_one_bar_each(self):
+    def test_the_stage_is_one_bar_and_the_list_filters_are_views_with_their_count(self):
         self.client.force_login(self.admin)
         page = self.client.get(reverse("people:detail", args=[self.member.pk]))
         self.assertContains(page, 'class="filter-bar person-stage"')
         self.assertNotContains(page, "filter-form__actions")
-        self.assertContains(self.client.get(reverse("people:list")), 'class="filter-bar people-filters"')
+        # The list's filters follow the design system (§8): the stage as capsules that are links, each with its count
+        listing = self.client.get(reverse("people:list"))
+        self.assertContains(listing, '<ul class="filters camperos__vistas" aria-label="Etapa" data-desliza>')
+        self.assertContains(listing, 'href="/mi-iglesia/personas/?etapa=visita"')
+        self.assertNotContains(listing, "people-filters")
 
     def test_the_refusal_page_of_a_staff_screen_says_nothing_about_the_church(self):
         from people import tags

@@ -13,8 +13,8 @@
   <form method="post">
     {% csrf_token %}
     <input type="hidden" name="personas" value="{{ carriers }}">
-    <div class="step__actions">
-      <button class="btn btn--primary" type="submit">Sí, borrar la etiqueta</button>
+    <div class="form-actions">
+      <button class="btn btn--danger" type="submit">Sí, borrar la etiqueta</button>
       <a class="btn btn--link" href="{{ back }}">No, volver</a>
     </div>
   </form>

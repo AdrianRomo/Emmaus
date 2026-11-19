@@ -13,9 +13,11 @@ from django.contrib import messages
 from django.db import OperationalError
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.paging import paginate
 
 from . import duplicates, merge
@@ -60,6 +62,14 @@ def duplicate_list(request):
     })
 
 
+def _back_to_the_review(request) -> str:
+    """Where a dismissal or its reopening returns: the page of the review it was pressed on (``siguiente``, so the list
+    changes in place and keeps its page), and only that screen; anything else is the review's first page."""
+    review = reverse("people:duplicates")
+    back = safe_next(request, request.POST.get("siguiente"), review)
+    return back if back.split("?")[0] == review else review
+
+
 @church_admin_required
 @require_POST
 def duplicate_dismiss(request):
@@ -70,7 +80,7 @@ def duplicate_dismiss(request):
         messages.error(request, error.message)
     else:
         messages.success(request, "Listo: ya no te mostraremos este par como posible duplicado.")
-    return redirect("people:duplicates")
+    return redirect(_back_to_the_review(request))
 
 
 @church_admin_required
@@ -83,7 +93,7 @@ def duplicate_reopen(request, dismissal_id: int):
         messages.error(request, error.message)
     else:
         messages.success(request, "Volvieron a la revisión. Si todavía comparten un dato, aparecen otra vez en la lista.")
-    return redirect("people:duplicates")
+    return redirect(_back_to_the_review(request))
 
 
 @church_admin_required

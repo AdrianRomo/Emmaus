@@ -1,81 +1,88 @@
 {% extends "base.html" %}
-{% load emmaus community %}
+{% load emmaus community shell %}
 {% block page_title %}Posibles duplicados{% endblock %}
 {% block content %}
 {% comment %}
   Pairs of people of this church that share an e-mail, a phone, or a name with a date of birth
   (people.merge_views.duplicate_list). Emmaus only shows them: a person of the administration decides, one pair at
   a time. The value they share is not printed here; the administration reads it on each person's page.
+  A pair is a row that opens its review (the row specification: its title is the way in). Its one trailing action,
+  «No son la misma persona», and a dismissed pair's «Volver a revisar» act in place (data-inline="duplicados": the
+  row leaves, the count and the other list follow; without JavaScript the same POST comes back to this page).
+  Joining and undoing are pages of their own, never in place.
 {% endcomment %}
 <div class="narrow">
   {% url 'people:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Posibles duplicados" lede="Registros que podrían ser de la misma persona. Emmaus solo te los muestra: tú decides, de dos en dos." back_url=back back_label="Volver a Personas" %}
-
+  {% include "events/rotulo/_page_head.html" with title="Posibles duplicados" back_url=back back_label="Volver a Personas" %}
+  <div id="duplicados">
   <section class="block" aria-labelledby="pares">
-    <h2 id="pares" class="heading">{% if page.paginator.count %}{{ page.paginator.count }} par{{ page.paginator.count|pluralize:"es" }} por revisar{% else %}Por revisar{% endif %}</h2>
+    <h2 id="pares" class="heading" data-inline-focus>{% if page.paginator.count %}{{ page.paginator.count }} par{{ page.paginator.count|pluralize:"es" }} por revisar{% else %}Por revisar{% endif %}</h2>
     {% if page.object_list %}
-      <ul class="rows">
+      <ul class="rows admin-lista pares">
         {% for pair in page %}
-          <li class="row row--below">
+          <li class="row row--lead row--stack">
+            <span class="hoy__icono" aria-hidden="true">{% icon "copiar" %}</span>
             <div class="row__main">
-              <p class="row__title"><a class="row__link" href="{% url 'people:detail' pair.a.pk %}">{{ pair.a.full_name }}</a> y <a class="row__link" href="{% url 'people:detail' pair.b.pk %}">{{ pair.b.full_name }}</a></p>
+              <p class="row__title"><a href="{% url 'people:merge_preview' pair.a.pk pair.b.pk %}">{{ pair.a.full_name }} y {{ pair.b.full_name }}<span class="visually-hidden">: revisar si son la misma persona</span></a></p>
               <p class="row__meta">{{ pair.reasons|join:". " }}.</p>
             </div>
-            <div class="row__end">
-              <a class="btn btn--secondary btn--small" href="{% url 'people:merge_preview' pair.a.pk pair.b.pk %}">Revisar<span class="visually-hidden"> a {{ pair.a.full_name }} y {{ pair.b.full_name }}</span></a>
-              <form method="post" action="{% url 'people:duplicate_dismiss' %}">
-                {% csrf_token %}
-                <input type="hidden" name="a" value="{{ pair.a.pk }}">
-                <input type="hidden" name="b" value="{{ pair.b.pk }}">
-                <button class="btn btn--link btn--small" type="submit">No son la misma persona<span class="visually-hidden">: {{ pair.a.full_name }} y {{ pair.b.full_name }}</span></button>
-              </form>
-            </div>
+            <form class="row__end" method="post" action="{% url 'people:duplicate_dismiss' %}" data-inline="duplicados">
+              {% csrf_token %}
+              <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+              <input type="hidden" name="a" value="{{ pair.a.pk }}">
+              <input type="hidden" name="b" value="{{ pair.b.pk }}">
+              <button class="btn btn--link btn--quieto" type="submit">No son la misma persona<span class="visually-hidden">: {{ pair.a.full_name }} y {{ pair.b.full_name }}</span></button>
+            </form>
           </li>
         {% endfor %}
       </ul>
       {% include "partials/ui/pager.html" with page=page label="Páginas de posibles duplicados" %}
+      <p class="aside-note">Emmaus solo te los muestra: tú decides, de dos en dos. Nunca une registros por su cuenta ni compara personas de iglesias distintas.</p>
     {% else %}
       <p class="empty-line">No hay posibles duplicados por revisar. Aparecen aquí cuando dos personas tienen el mismo correo, el mismo teléfono, o el mismo nombre con la misma fecha de nacimiento.</p>
+      <p class="aside-note">Emmaus nunca une registros por su cuenta ni compara personas de iglesias distintas.</p>
     {% endif %}
   </section>
 
-  {% if recent %}
-  <section class="block" aria-labelledby="uniones">
-    <h2 id="uniones" class="heading">Uniones de los últimos {{ undo_days }} días</h2>
-    <ul class="rows">
-      {% for record in recent %}
-        <li class="row">
-          <div class="row__main">
-            <p class="row__title">{{ record.absorbed.full_name }} se unió a {{ record.survivor.full_name }}</p>
-            <p class="row__meta">El {{ record.merged_at|long_date }}. {% if record.is_undone %}Se deshizo el {{ record.undone_at|long_date }}.{% elif record.can_undo %}Todavía se puede deshacer.{% else %}Ya no se puede deshacer.{% endif %}</p>
-          </div>
-          <a class="btn btn--secondary btn--small" href="{% url 'people:merge_detail' record.pk %}">Abrir<span class="visually-hidden"> la unión de {{ record.absorbed.full_name }} con {{ record.survivor.full_name }}</span></a>
-        </li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endif %}
-
   {% if dismissed.paginator.count %}
   <section class="block" aria-labelledby="descartados">
-    <h2 id="descartados" class="heading">Pares que alguien descartó</h2>
-    <ul class="rows">
+    <h2 id="descartados" class="heading">Pares que alguien descartó <span class="count">{{ dismissed.paginator.count }}</span></h2>
+    <ul class="rows pares">
       {% for row in dismissed %}
-        <li class="row">
+        <li class="row row--lead row--stack">
+          <span class="hoy__icono" aria-hidden="true">{% icon "cerrar" %}</span>
           <div class="row__main">
             <p class="row__title">{{ row.person_a.full_name }} y {{ row.person_b.full_name }}</p>
             <p class="row__meta">Alguien dijo el {{ row.dismissed_at|long_date }} que no son la misma persona.</p>
           </div>
-          <form method="post" action="{% url 'people:duplicate_reopen' row.pk %}">
+          <form class="row__end" method="post" action="{% url 'people:duplicate_reopen' row.pk %}" data-inline="duplicados">
             {% csrf_token %}
-            <button class="btn btn--secondary btn--small" type="submit">Volver a revisar<span class="visually-hidden"> a {{ row.person_a.full_name }} y {{ row.person_b.full_name }}</span></button>
+            <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+            <button class="btn btn--link" type="submit">Volver a revisar<span class="visually-hidden"> a {{ row.person_a.full_name }} y {{ row.person_b.full_name }}</span></button>
           </form>
         </li>
       {% endfor %}
     </ul>
-    {% include "partials/ui/pager.html" with page=dismissed label="Páginas de pares descartados" %}
+    {% include "partials/ui/pager.html" with page=dismissed label="Páginas de pares descartados" param="descartados" %}
   </section>
   {% endif %}
-  <p class="aside-note">Emmaus nunca une registros por su cuenta ni compara personas de iglesias distintas.</p>
+  </div>
+
+  {% if recent %}
+  <section class="block" aria-labelledby="uniones">
+    <h2 id="uniones" class="heading">Uniones de los últimos {{ undo_days }} días <span class="count">{{ recent|length }}</span></h2>
+    <ul class="rows">
+      {% for record in recent %}
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "enlace" %}</span>
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'people:merge_detail' record.pk %}">{{ record.absorbed.full_name }} se unió a {{ record.survivor.full_name }}</a></p>
+            <p class="row__meta">El {{ record.merged_at|long_date }}. {% if record.is_undone %}Se deshizo el {{ record.undone_at|long_date }}.{% elif record.can_undo %}Todavía se puede deshacer.{% else %}Ya no se puede deshacer.{% endif %}</p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
 </div>
 {% endblock %}

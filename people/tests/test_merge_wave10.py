@@ -104,7 +104,7 @@ class StageAndDatesMergeTests(MergeFixture):
         self.client.force_login(self.admin)
         url = reverse("people:merge_preview", args=[self.keep.pk, self.dup.pk])
         page = self.client.get(url)
-        for words in ("Etapa: ¿cuál se queda?", "Se bautizó el: ¿cuál se queda?", 'name="elige_stage"', 'name="elige_baptized_on"',
+        for words in ("etapa del registro que se queda", "se bautizó el del registro que se une", 'name="elige_stage"', 'name="elige_baptized_on"',
                       "05/05/2010", "06/06/2011"):
             self.assertContains(page, words)
         # Somebody changes the stage of one record while the preview is open: the confirmation is of something else.

@@ -4,7 +4,8 @@
 {% block content %}
 {% comment %}
   "Mis datos" (groups.views.profile): a person of the church corrects how the church reaches them and may say
-  two dates of their own (baptism, arrival), which only the administration reads. Who they are on
+  two dates of their own (baptism, arrival), which only the administration reads: a section of their own under the
+  contact fields, each date saying who reads it. Who they are on
   record (their circle and their name, which the administration changes), one form with one filled button and,
   said once, who sees it; then the two other places a person looks for here: which notices also arrive by e-mail,
   and the account they sign in with.
@@ -26,9 +27,17 @@
     {% csrf_token %}
     <section class="form-section" aria-labelledby="como-contactarte">
       <h2 id="como-contactarte" class="form-section__title">Cómo contactarte</h2>
-      {% include "partials/ui/fields.html" %}
-      <p class="aside-note">Tu teléfono y tu correo solo los ven quien guía tu grupo y la administración de tu iglesia; las fechas, solo la administración.</p>
+      {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+      {% for field in form.visible_fields %}{% if field.name != "baptized_on" and field.name != "arrived_on" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+      <p class="aside-note">Tu teléfono y tu correo solo los ven quien guía tu grupo y la administración de tu iglesia.</p>
     </section>
+    {% if form.baptized_on or form.arrived_on %}
+    <section class="form-section" aria-labelledby="tus-fechas">
+      <h2 id="tus-fechas" class="form-section__title">Tus fechas en la iglesia</h2>
+      {% if form.baptized_on %}{% include "partials/ui/field.html" with field=form.baptized_on %}{% endif %}
+      {% if form.arrived_on %}{% include "partials/ui/field.html" with field=form.arrived_on %}{% endif %}
+    </section>
+    {% endif %}
     <div class="form-actions">
       <button class="btn btn--primary" type="submit">Guardar mis datos</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>

@@ -12,7 +12,7 @@
 
   <section class="block" aria-labelledby="datos">
     <h2 id="datos" class="heading">Qué se hizo</h2>
-    <dl class="summary-list">
+    <dl class="summary-list ficha">
       <div class="summary-list__row"><dt>Cuándo</dt><dd>El {{ record.imported_at|day_and_hour }}</dd></div>
       <div class="summary-list__row"><dt>Quién</dt><dd>{% if record.imported_by %}{{ record.imported_by.get_full_name|default:record.imported_by.email }}{% else %}Una cuenta que ya no existe{% endif %}</dd></div>
       <div class="summary-list__row"><dt>Personas registradas</dt><dd>{{ record.created_count }}</dd></div>
@@ -39,7 +39,7 @@
     <form method="post" action="{% url 'people:import_undo' record.pk %}">
       {% csrf_token %}
       <input type="hidden" name="revision" value="{{ undo.token }}">
-      <div class="step__actions"><button class="btn btn--secondary" type="submit">Deshacer: borrar {{ undo.delete|length }} persona{{ undo.delete|length|pluralize }}</button></div>
+      <div class="form-actions"><button class="btn btn--danger-outline" type="submit">Deshacer: borrar {{ undo.delete|length }} persona{{ undo.delete|length|pluralize }}</button></div>
     </form>
     {% endif %}
   </section>
