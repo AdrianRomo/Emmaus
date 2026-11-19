@@ -47,6 +47,9 @@ SUBJECTS: dict[str, str] = {
     # To somebody on an event's waiting list: a place was freed and is held for them (agenda.services). Never
     # which event beyond the link to its page, never until when, never who left the place.
     "lugar_ofrecido": "Emmaus: se liberó un lugar en un evento",
+    # To a person asked to serve on a date that is near, if their team sends reminders and they did not turn
+    # them off (serving.reminders). Never the team, the day, the role or who else serves.
+    "recordatorio_servir": "Emmaus: tienes un servicio próximo",
 }
 
 # Everything a notice carries besides its fixed text. Both are required.
