@@ -4,6 +4,8 @@ This replaces the 2026-11-17 snapshot. **Implemented means source exists**, not 
 tested here. Stable `main` at `75d42ddc9b9e5698cbd46b02dd54e7baf7fd9246` contains camp operations and
 optional discipleship. The table describes **v2/foundation at
 `519e7389ab7d3b58b20447e80d1a22679a6d100b`**. Production, SMTP and host state were not inspected.
+What changed after that commit is in the last section, "State on v2/redesign-claridad (d59e1ee), 2026-11-18";
+the tables are left as reviewed.
 
 Priorities are sequencing, not authorization: P0 release prerequisite; P1 next scoped work;
 P2 later depth; P3 optional/platform work. Existing accepted ADRs and safety approvals still govern.
@@ -67,6 +69,25 @@ Sources: [ChurchSuite tour](https://churchsuite.com/tour/),
 [Subsplash catalog](https://www.subsplash.com/products) and
 [workflows](https://www.subsplash.com/product/workflows).
 UK Gift Aid/DBS features do not establish Mexican tax/safeguarding requirements; [#86](https://github.com/AdrianRomo/Emmaus/issues/86)/[#75](https://github.com/AdrianRomo/Emmaus/issues/75) require local review.
+
+## State on v2/redesign-claridad (d59e1ee), 2026-11-18
+
+Same rule: **implemented means source exists** on that branch, not merged, deployed or released. Since
+`519e738`, `v2/foundation` merged public notices of an event (#101, `6169e42`); `v2/redesign-claridad`
+merged that in (`1b3caa3`), rebuilt every screen of a church with the `community` module on «Ventanas»
+(`<html data-ui="2">`; with the module off the screens are byte for byte what they were; see
+[SCREEN_MATRIX.md](SCREEN_MATRIX.md) and [RUNBOOK_REDESIGN.md](RUNBOOK_REDESIGN.md)), and built the owner's
+decisions of 2026-11-18 and those taken under his delegation ([REDESIGN_CHECKLIST.md](REDESIGN_CHECKLIST.md)).
+No new module; no priority above changes. The rows above that this moves:
+
+| Row above | Now, on `v2/redesign-claridad` at `d59e1ee` | Source |
+|---|---|---|
+| Anonymous parents' event updates | **Partial** (was Missing): an event's public notices, read without an account by anybody with the event's public address; written, edited, retired and deleted by the church's administration; no subscription and no e-mail (#101). Verified opt-in, unsubscribe and expiry stay in [#96](https://github.com/AdrianRomo/Emmaus/issues/96)/[#59](https://github.com/AdrianRomo/Emmaus/issues/59) | [`agenda/models.py`](../../agenda/models.py) (`EventNotice`), `agenda/tests/test_public_notices.py` |
+| Announcements | Besides church and group notices, an event carries public notices (#101); one published in the last 7 days is a linked line under the event on «Mi iglesia» and in Eventos (`d59e1ee`). A church notice is never tied to an event | [`agenda/services.py`](../../agenda/services.py) (`recent_notices`), `agenda/tests/test_recent_notice.py` |
+| Calendar | «Eventos de la iglesia» lists an event underway under «En curso»; a camp without a page for the church shows its camperos instead of sign-ups (`9dfc09a`) | [`agenda/views.py`](../../agenda/views.py) (`admin_list`) |
+| Rotas | A coming date where everyone asked said no («Nadie sirve el …») is raised on the team coordinator's «Mi iglesia», not only on the team page (`24d4970`) | [`serving/services.py`](../../serving/services.py) (`uncovered_dates`) |
+| Camp operations | No interview question is required; «Prefiero no responder» on every question, stored apart from a blank (`events/0017`); the identity confirmed on «Antes de empezar» and checked again by anyone else who continues the interview; a follow-up decision can be changed with a reason, its task marked «Decisión cambiada» with «Revisar», reopened («Reabierto el …») or kept with «Continuar seguimiento» (`events/0016`, `0018`, `0019`); a camp administrator's sign-in opens the camp underway; one sign-in error; bulk coordinator assignment and the minors-without-authorization filter on Camperos | [`events/services/interviews.py`](../../events/services/interviews.py), [`events/services/follow_up_decision.py`](../../events/services/follow_up_decision.py), [`events/services/landing.py`](../../events/services/landing.py) |
+| Public church home/mobile web | The landing of a church on the community module promises «Tu iglesia, entre domingo y domingo.»; the camp's door keeps its own (`970d340`) | [`templates/core/landing.html`](../../templates/core/landing.html) |
 
 [people]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/people/models.py
 [agenda]: https://github.com/AdrianRomo/Emmaus/blob/519e7389ab7d3b58b20447e80d1a22679a6d100b/agenda/models.py

@@ -5,7 +5,9 @@ What changed, where it lives, how to see it, how to revert it. Nothing here was 
 decisions of 2026-11-18: `events/0016_follow_up_decision_change` (a new table), `events/0017_answer_declined`
 (two boolean columns with a database default), `events/0018_follow_up_decision_change_reopened` (choices only,
 no SQL) and `events/0019_follow_up_decision_change_continued` (three nullable or defaulted columns). The redesign
-itself changes no data.
+itself changes no data. The merge of `origin/v2/foundation` into this branch (`1b3caa3`) also brought
+`agenda/0006_avisos_publicos_del_evento` (#101, public notices of an event: one new table), which is
+foundation's, not the redesign's.
 
 ## What changed
 
@@ -21,7 +23,8 @@ itself changes no data.
 - Server-side changes, all tested: actions in place return to a safe `siguiente` (`core.nav.safe_next`);
   bulk assignment of coordinators (`events:participants_assign`, administration only, this event only,
   audited); `?autorizacion=falta` and `?estado=iniciada` on the camper list; «Por decidir» answered in place;
-  «Nadie sirve el …» on a team page; messages that name who and what. Two messages also show with the
+  «Nadie sirve el …» on a team page and on the team coordinator's «Mi iglesia»; an event's recent public notice
+  under its line on «Mi iglesia» and in Eventos; messages that name who and what. Two messages also show with the
   module off (more specific, nothing new revealed): the interview record's follow-up decision and the
   group decisions.
 - Module off (churches without the community module, i.e. the camp as it runs today): every shared template
@@ -70,10 +73,32 @@ PYTHON=$P bash scripts/agents/e2e-gate.sh                       # browser gate: 
 - One sign-in error across Emmaus (`0f8117d`).
 - The identity confirmation kept and shown («Identidad confirmada por …»); a decline reads «Prefiero no responder»
   to the campero and «Prefirió no responder» to staff and exports (`7c0f57f`).
+- A resumed interview shows both people: «Identidad confirmada por …», each «Identidad verificada de nuevo por …»
+  and «Entrevista a cargo de …»; a staff member who did not start it ticks «Sí, es {nombre}» once before going on,
+  audited `identidad_verificada` (`03255ff`, merged `eff0e46`; no migration).
 - «Eventos de la iglesia»: a running event says «En curso»; an interview-only camp shows its camperos (`9dfc09a`).
 Reverting any of them: `git revert -m 1 <merge>` or `git revert <commit>`; for the two merges with migrations,
 first `manage.py migrate events 0015` (or 0016, 0018 or 0019, if keeping the follow-up correction) on a copy, and check
 nothing depends on the dropped columns (declines on text questions read as «Sin responder» afterwards).
+
+## Decisions taken under the owner's delegation (2026-11-18)
+
+Recorded with their reasons in `REDESIGN_CHECKLIST.md` («Decided by me»). None has a migration; each reverts
+with `git revert <commit>` (`970d340` also records the decisions in the checklist: keep that part if the record
+should stay).
+
+- A church that uses the community module reads «Tu iglesia, entre domingo y domingo.» on its landing, with
+  «Cada persona ve solo lo que le toca.» and «Tú decides cómo te contactan.»; the camp's door (module off) keeps
+  «Platicar con cada joven, sin perder a nadie.» (`970d340`, `core/test_puertas_ventanas.py`).
+- A computer that lost an interview reads «Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin
+  cambios. Lo que se respondió sigue guardado.»; the page it lands on says how to go on (`970d340`,
+  `CLAIM_LOST_MESSAGE` in `events/services/interviews.py`).
+- «Nadie sirve el …» also on the team coordinator's «Mi iglesia», up to three dates, with «Pedir a alguien»; who only
+  serves never sees it (`24d4970`, `serving/tests/test_home_nadie_sirve.py`).
+- An event's public notice of the last 7 days is one line under the event on «Mi iglesia» and in Eventos, linked to
+  the event's notices; a church notice is never tied to an event (`d59e1ee`, `agenda/tests/test_recent_notice.py`).
+- «Entrevista a cargo de …» only when it is not the person who confirmed the identity at the start (`e738324`,
+  `events/tests/test_antes_de_empezar.py`).
 
 ## How to revert
 
