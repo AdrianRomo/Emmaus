@@ -9,8 +9,8 @@
 {% endcomment %}
 <div class="narrow spaces">
   {% url 'espacios:queue' as back %}
-  {% include "events/rotulo/_page_head.html" with title="La reserva se empalma con otra" lede="No la aprobamos todavía. Mira con qué se empalma y decide." back_url=back back_label="Volver a las solicitudes" %}
-  {% if again %}<div class="notice notice--warning"><p>Lo que se empalma cambió mientras decidías. Esta es la lista de ahora.</p></div>{% endif %}
+  {% include "events/rotulo/_page_head.html" with title="La reserva se empalma con otra" back_url=back back_label="Volver a las solicitudes" %}
+  <div class="notice notice--warning"><p>{% if again %}Lo que se empalma cambió mientras decidías. Esta es la lista de ahora. No la aprobamos todavía.{% else %}No la aprobamos todavía. Mira con qué se empalma y decide.{% endif %}</p></div>
   <section class="block" aria-labelledby="solicitud">
     <h2 id="solicitud" class="heading">La solicitud</h2>
     <ul class="rows">{% include "espacios/_booking.html" with booking=booking with_space=True with_day=True hide_cancel=True %}</ul>
@@ -23,12 +23,12 @@
     {% csrf_token %}
     <input type="hidden" name="sobre" value="1">
     {% for clash in clashes %}<input type="hidden" name="visto" value="{{ clash.pk }}">{% endfor %}
-    <p class="aside-note">Si la apruebas, las reservas quedan en pie al mismo tiempo y queda registrado que tú lo decidiste después de ver esta lista. Lo normal es rechazar una o cancelar la otra.</p>
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Aprobar aunque se empalme</button>
-      <a class="btn btn--link" href="{% url 'espacios:reject' booking.pk %}">Rechazar la solicitud</a>
+      <a class="btn btn--secondary" href="{% url 'espacios:reject' booking.pk %}">Rechazar la solicitud</a>
       <a class="btn btn--link" href="{{ back }}">No decidir todavía</a>
     </div>
+    <p class="aside-note">Si la apruebas, las reservas quedan en pie al mismo tiempo y queda registrado que tú lo decidiste después de ver esta lista. Lo normal es rechazar una o cancelar la otra.</p>
   </form>
 </div>
 {% endblock %}
