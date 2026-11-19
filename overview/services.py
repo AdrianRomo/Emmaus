@@ -270,6 +270,16 @@ def _care(church, viewer, today) -> dict:
     )
 
 
+def _headcounts(church, minimum) -> dict:
+    """"¿Cuántos vinimos?" (``agenda.headcounts``, issue #93): the counts somebody typed for the dates of each
+    series. They are numbers of people counted at a gathering open to the church, with no person behind any of
+    them, so the total is told as it is; the children's number goes through ``headcounts.told``, which applies
+    the minimum reporting size to it ("Menos de 5") and then hides the adults too. One query."""
+    from agenda import headcounts
+
+    return {"headcount_series": headcounts.church_trends(church, minimum)}
+
+
 def build(church, viewer, today=None) -> dict:
     """Everything the page shows. ``viewer`` is the reader's own person in the church, or None."""
     today = today or timezone.localdate()
@@ -277,5 +287,5 @@ def build(church, viewer, today=None) -> dict:
     return {
         "today": today, "minimum": minimum,
         **_groups(church, today, minimum), **_events(church, today, minimum), **_serving(church, today, minimum),
-        **_care(church, viewer, today),
+        **_care(church, viewer, today), **_headcounts(church, minimum),
     }

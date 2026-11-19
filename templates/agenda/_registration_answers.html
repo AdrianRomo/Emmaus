@@ -1,0 +1,4 @@
+{% comment %}
+  What one registration answered at sign-up (agenda.questions; issue #93), on "Inscritos" only: the administration
+  reads it here and nowhere else. Needs: row.sign_up_answers (set by the view).
+{% endcomment %}{% if row.sign_up_answers %}<dl class="respuestas-inscripcion">{% for answer in row.sign_up_answers %}<div><dt>{{ answer.question.text }}</dt><dd>{{ answer.value }}</dd></div>{% endfor %}</dl>{% endif %}

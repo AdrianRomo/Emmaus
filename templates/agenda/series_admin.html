@@ -106,12 +106,20 @@
           {% date_block row.event.starts_on %}
           <div class="row__main">
             <p class="row__title"><a href="{% url 'agenda:page_edit' row.event.slug %}">{{ row.event.starts_on|date:"l j \\d\\e F \\d\\e Y"|lower|capfirst }}{% if row.event.page.starts_at %}, {{ row.event.page.starts_at|time:"H:i" }}{% endif %}</a></p>
-            <p class="row__meta">{% if row.cancelled %}Ese día no hubo.{% elif row.signed == 1 %}1 persona inscrita{% elif row.signed %}{{ row.signed }} personas inscritas{% else %}Sin inscritos{% endif %}</p>
+            <p class="row__meta">{% if row.cancelled %}Ese día no hubo.{% elif row.signed == 1 %}1 persona inscrita{% elif row.signed %}{{ row.signed }} personas inscritas{% else %}Sin inscritos{% endif %}{% if not row.cancelled %}. {% if row.counted is not None %}Se contaron {{ row.counted }}{% else %}Sin conteo{% endif %}. <a href="{% url 'feedback:results' row.event.slug %}">Opiniones<span class="visually-hidden"> del {{ row.event.starts_on|long_date }}</span></a>{% endif %}</p>
           </div>
-          <div class="row__end"><a class="btn btn--link" href="{% url 'feedback:results' row.event.slug %}">Opiniones<span class="visually-hidden"> del {{ row.event.starts_on|long_date }}</span></a></div>
+          {% if not row.cancelled %}<div class="row__end"><a class="btn btn--link" href="{% url 'agenda:headcount' row.event.slug %}">{% if row.counted is not None %}Corregir el conteo{% else %}Anotar cuántos vinimos{% endif %}<span class="visually-hidden"> el {{ row.event.starts_on|long_date }}</span></a></div>{% endif %}
         </li>
       {% endfor %}
     </ul>
+  </section>
+  {% endif %}
+
+  {% if trend %}
+  <section class="block" aria-labelledby="vinimos">
+    <h2 id="vinimos" class="heading">¿Cuántos vinimos?</h2>
+    {% include "agenda/_headcount_trend.html" with dates=trend caption="Las últimas fechas con conteo, de la más antigua a la más reciente" %}
+    <p class="aside-note">Son personas contadas, sin nombres. Un número de niñas y niños menor a {{ minimum }} se lee como «Menos de {{ minimum }}».</p>
   </section>
   {% endif %}
 

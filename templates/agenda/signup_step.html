@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block page_title %}{% if answers.errors or birth.errors %}Error: {% endif %}Inscribirme a {{ event.name }}{% endblock %}
+{% block content %}
+{% comment %}
+  What an event asks whoever signs up (agenda.views.register, agenda.questions; issue #93): its questions and, when
+  the event protects minors and the church does not know it, the date of birth (the same field and the same note
+  as agenda/birth_date.html: policy, not shortened). Sending it signs the person up or puts them on the waiting
+  list. The answers are read by the event's administration only, and the page says so.
+{% endcomment %}
+<div class="narrow">
+  {% include "partials/ui/error_summary.html" with form=answers %}
+  {% url 'agenda:detail' event.slug as back %}
+  {% include "events/rotulo/_page_head.html" with title="Antes de inscribirte" lede=event.name back_url=back back_label="Volver al evento" %}
+  <form method="post" action="{% url 'agenda:register' event.slug %}" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="preguntas" value="1">{% if siguiente %}<input type="hidden" name="siguiente" value="{{ siguiente }}">{% endif %}
+    <section class="form-section" aria-labelledby="preguntas-evento">
+      <h2 id="preguntas-evento" class="form-section__title">Lo que pregunta el evento</h2>
+      {% include "partials/ui/fields.html" with form=answers %}
+    </section>
+    {% if birth %}
+    <section class="form-section" aria-labelledby="nacimiento">
+      <h2 id="nacimiento" class="form-section__title">Tu edad</h2>
+      {% include "partials/ui/fields.html" with form=birth %}
+      <p class="aside-note">Tu inscripción queda pendiente hasta que el equipo de la iglesia confirme tu edad. Si eres menor de edad, también hace falta que tu mamá, papá o tutor la autorice con el equipo. Tu fecha de nacimiento la ve solo la administración de tu iglesia.</p>
+    </section>
+    {% endif %}
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">{% if waits %}Anotarme en la lista de espera{% else %}Inscribirme{% endif %}</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+  <p class="aside-note">Tus respuestas las ve solo la administración de tu iglesia, para organizar este evento. Si cancelas tu inscripción, se borran.</p>
+</div>
+{% endblock %}
