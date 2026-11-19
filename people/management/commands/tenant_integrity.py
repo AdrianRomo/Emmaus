@@ -34,7 +34,7 @@ from agenda.models import EventRegistration, GuardianConsent
 from care.models import FollowUp as CareFollowUp
 from care.models import FollowUpStep
 from core.models import UserChurchRole
-from espacios.models import Booking
+from espacios.models import Booking, BookingSeries
 from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp, Interview, ReportSnapshot
 from feedback.models import FeedbackGiven
 from formularios.models import Submission as FormSubmission
@@ -43,7 +43,7 @@ from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from oracion.models import PrayerRequest
 from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge, PersonTag
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
-from serving.models import Assignment, PlanItem, RoleNeed, RotationEntry, SwapRequest, Team, TeamMembership
+from serving.models import Assignment, PlanItem, RoleNeed, RotationEntry, ServiceDate, SwapRequest, Team, TeamMembership
 from sitio.models import PublicMedia
 
 ERROR = "error"
@@ -182,6 +182,15 @@ def community_checks() -> tuple[Check, ...]:
               Q(requested_by__isnull=False), ~Q(requested_by__church=F("space__church"))),
         Check("booking_event_church", "Reservas de un espacio para un evento de otra iglesia", Booking,
               Q(event__isnull=False), ~Q(event__church=F("space__church"))),
+        # what repeats (wave 12): a booking that repeats, and a team and its dates that follow a series of events
+        Check("booking_series_requester_church", "Reservas que se repiten pedidas por una persona de otra iglesia", BookingSeries,
+              Q(requested_by__isnull=False), ~Q(requested_by__church=F("space__church"))),
+        Check("booking_series_event_series_church", "Reservas que se repiten ligadas a una serie de eventos de otra iglesia", BookingSeries,
+              Q(event_series__isnull=False), ~Q(event_series__church=F("space__church"))),
+        Check("team_follows_series_church", "Equipos que siguen una serie de eventos de otra iglesia", Team,
+              Q(follows_series__isnull=False), ~Q(follows_series__church=F("church"))),
+        Check("service_date_occurrence_church", "Fechas de un equipo escritas para una serie de eventos de otra iglesia", ServiceDate,
+              Q(occurrence__isnull=False), ~Q(occurrence__series__church=F("team__church"))),
         # roles by scope
         Check("role_assignment_scope_church", "Roles por ámbito que apuntan fuera de su iglesia", RoleAssignment, None,
               scope_elsewhere),

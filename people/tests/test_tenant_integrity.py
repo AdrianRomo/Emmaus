@@ -137,7 +137,8 @@ class TenantIntegrityTests(CampFixture):
         # 24 until wave 8 added the reading plans (2) and sitio.PublicMedia (1); wave 9: espacios.Booking (1), merges and dismissed pairs (2)
         # wave 10: people.PersonTag (1), formularios.Submission (1), oracion.PrayerRequest (1); serving's RoleNeed,
         # RotationEntry, SwapRequest and PlanItem (4; the role of an Assignment is read with the table's other check)
-        self.assertEqual(len(tables), 37)
+        # wave 12 (what repeats): espacios.BookingSeries (1), serving.Team and serving.ServiceDate (2)
+        self.assertEqual(len(tables), 40)
         with self.assertNumQueries(len(tables)):
             run_integrity("--json")
 

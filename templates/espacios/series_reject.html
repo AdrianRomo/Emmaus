@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}Rechazar la serie{% endblock %}
+{% block content %}
+{% comment %}The reason of rejecting a booking that repeats (espacios.views.series_reject): read by the administration only, never sent to anybody. The series held nothing while it waited.{% endcomment %}
+<div class="narrow spaces">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'espacios:series' series.pk as back %}
+  {% include "events/rotulo/_page_head.html" with title="Rechazar la serie" back_url=back back_label="Volver a la serie" %}
+  <ul class="rows">
+    <li class="row row--lead">
+      {% date_block series.starts_on %}
+      <div class="row__main">
+        <p class="row__title">{{ series.space.name }}: {{ series.title }}</p>
+        <p class="row__meta">Se repite {{ series.rule }}, de {{ series.start_time|time:"H:i" }} a {{ series.end_time|time:"H:i" }}, del {{ series.starts_on|day_month }} al {{ series.ends_on|day_month }}.</p>
+      </div>
+    </li>
+  </ul>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">Rechazar la serie</button>
+      <a class="btn btn--link" href="{{ back }}">No, volver</a>
+    </div>
+    <p class="aside-note">La serie no apartó ninguna fecha mientras esperaba: no se libera nada.</p>
+  </form>
+</div>
+{% endblock %}

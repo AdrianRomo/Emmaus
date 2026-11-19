@@ -129,6 +129,7 @@ class Command(BaseCommand):
 
         parser.add_argument("--rotas", action="store_true", help="Agrega al equipo Bienvenida roles, fechas con lo que necesitan, una rotación, el orden de una fecha y un cambio pedido, para ver la rotación de Servir.")
         parser.add_argument("--directorio", action="store_true", help="Agrega un pastor, enciende el directorio entre miembros (aceptado por ese pastor) y cinco personas adultas inventadas: cuatro eligieron aparecer, cada una mostrando algo distinto, y una no.")
+        parser.add_argument("--repeticion", action="store_true", help="Agrega la serie semanal Reunión general, dos reservas del Salón 2 que se repiten (una por decidir, una aprobada con un día que no se pudo apartar) y hace que el equipo Bienvenida sirva en cada fecha de la serie, con una plantilla del orden y un día que no hay.")
         parser.add_argument("--oracion", action="store_true", help="Agrega un pastor, enciende las peticiones de oración (aceptadas por ese pastor) y dos peticiones inventadas, marcadas como de demostración.")
 
     def handle(self, *args, **opts):
@@ -176,6 +177,8 @@ class Command(BaseCommand):
                 self._prayer_requests(church, admin, leader, password)
             if opts["directorio"]:
                 self._directory(church, admin, groups, password)
+            if opts.get("repeticion"):
+                self._what_repeats(church, admin, leader, member)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
@@ -658,6 +661,52 @@ class Command(BaseCommand):
         mine = dates[0].assignments.filter(person=member).first()
         if mine is not None and asked.pk in {person.pk for person in rotas.swap_candidates(mine)}:
             rotas.request_swap(mine, asked, member.user)
+
+    def _what_repeats(self, church, admin, leader, member) -> None:
+        """--repeticion (wave 12): what a church repeats every week. The weekly series «Reunión general»; two bookings of
+        «Salón 2» that repeat (the guide's, which waits for the administration and holds nothing; the administration's,
+        approved, whose first day falls on the guide's one-day request and so could not be booked); and the team
+        «Bienvenida» serving on every date of the series, with what each role asks per date, a template of the order
+        and one day the series called off with somebody asked. Run again, it adds nothing. Synthetic people only."""
+        from agenda import series as event_series
+        from agenda.models import EventSeries, SeriesOccurrence
+        from espacios import repeticion
+        from espacios.models import BookingSeries, Space
+        from serving import follow, rotas, services as serving
+        from serving.models import PlanItem, PlanTemplate, ServiceDate, Team, TeamRole
+
+        self._weekly_series(church, admin)
+        weekly = EventSeries.objects.get(church=church, name="Reunión general")
+        today = timezone.localdate()
+        room = Space.objects.filter(church=church, name="Salón 2").first()
+        if room is not None and not BookingSeries.objects.filter(space__church=church).exists():
+            admin_person = Person.objects.get(church=church, user=admin)
+            repeticion.request_series(
+                room, leader, leader.user, title="Ensayo del grupo de alabanza", starts_on=today + timedelta(days=4),
+                ends_on=today + timedelta(weeks=12), starts_at=time(17, 0), ends_at=time(18, 30), setup_minutes=15,
+            )
+            repeticion.request_series(
+                room, admin_person, admin, title="Clase de nuevos miembros", starts_on=today + timedelta(days=3),
+                ends_on=today + timedelta(weeks=20), starts_at=time(19, 30), ends_at=time(20, 30), approve=True,
+            )
+        team = Team.objects.filter(church=church, name="Bienvenida").first()
+        if team is None or team.follows_series_id is not None:
+            return
+        if not TeamRole.objects.filter(team=team).exists():
+            rotas.save_role(team, leader.user, name="Puerta", default_count=2)
+        template = PlanTemplate.objects.filter(team=team).first()
+        if template is None:
+            first = ServiceDate.objects.filter(team=team, date__gte=today).order_by("date").first()
+            if first is not None:
+                if not PlanItem.objects.filter(service_date=first).exists():
+                    for title, minutes in (("Abrir puertas y saludar", 20), ("Anuncios", 5), ("Despedida en la salida", 15)):
+                        rotas.save_plan_item(first, leader.user, title=title, minutes=minutes)
+                template = follow.save_template(first, leader.user, "Servicio dominical")
+        follow.follow(team, admin, weekly, is_church_admin=True, default_template=template)
+        written = list(ServiceDate.objects.filter(team=team, occurrence__isnull=False).order_by("date")[:3])
+        if len(written) == 3:
+            serving.assign(written[2], member, leader.user)
+            event_series.call_off(SeriesOccurrence.objects.get(pk=written[2].occurrence_id), admin)
 
     def _duplicates(self, church) -> None:
         """--duplicados: one synthetic pair for "Posibles duplicados". Same e-mail, another phone, no account, no rows."""

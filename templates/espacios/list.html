@@ -18,10 +18,19 @@
     </a>
   {% endif %}
 
-  {% if may_request and mine %}
+  {% if may_request and mine or may_request and my_series %}
   <section class="block" aria-labelledby="pediste">
     <h2 id="pediste" class="heading">Lo que pediste</h2>
     <ul class="rows">
+      {% for series in my_series %}
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "calendario" %}</span>
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'espacios:series' series.pk %}">{{ series.space.name }}: {{ series.title }}</a></p>
+            <p class="row__meta row__meta--con-marca">{% include "espacios/_series_state.html" %}<span>Se repite {{ series.rule }}, de {{ series.start_time|time:"H:i" }} a {{ series.end_time|time:"H:i" }}, hasta el {{ series.ends_on|day_month }}.</span></p>
+          </div>
+        </li>
+      {% endfor %}
       {% for booking in mine %}{% include "espacios/_booking.html" with booking=booking with_space=True with_day=True own=True %}{% endfor %}
     </ul>
     <p class="aside-note">Emmaus no te avisa cuando la administración decide: aquí lo ves. Una solicitud rechazada o cancelada se muestra dos semanas.</p>
@@ -29,7 +38,7 @@
   {% endif %}
 
   <section class="block" aria-labelledby="lista">
-    <h2 id="lista" class="{% if request.is_church_admin or may_request and mine %}heading{% else %}visually-hidden{% endif %}">Salones y equipo</h2>
+    <h2 id="lista" class="{% if request.is_church_admin or may_request and mine or may_request and my_series %}heading{% else %}visually-hidden{% endif %}">Salones y equipo</h2>
     {% if spaces %}
       <ul class="rows">
         {% for space in spaces %}

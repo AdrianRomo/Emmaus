@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load emmaus community shell %}
+{% block page_title %}{{ series.title }}: se repite {{ series.rule }}{% endblock %}
+{% block content %}
+{% comment %}
+  One booking that repeats (espacios.views.series_detail), for who asked for it and for the administration; anybody
+  else gets a 404. The rule in one sentence; then, first, the days that could not be booked (another booking held
+  the hours, or that local hour does not exist that day): only the administration decides them, on a page that
+  lists what is in the way. Then the dates that are booked, each with «Este día no» (its page asks first; the row
+  stays, so the series does not book that day again), and the days already taken off. The page says how far ahead
+  dates are written and that nothing further is held. Ending is quiet text after a sentence that says what stays.
+  While the series waits for the administration it holds nothing, and the page says so.
+{% endcomment %}
+<div class="narrow spaces">
+  {% if request.is_church_admin and series.status == "solicitada" %}<a class="back-link" href="{% url 'espacios:queue' %}">Volver a las solicitudes</a>
+  {% else %}<a class="back-link" href="{% url 'espacios:week' space.pk %}">Volver a {{ space.name }}</a>{% endif %}
+  <header class="page-head">
+    <div class="page-head__text">
+      <h1 class="voice page-head__title">{{ series.title }}</h1>
+      <p class="page-head__meta row__meta--con-marca">{% include "espacios/_series_state.html" %}<span>{{ space.name }}, {{ series.rule }}{% if not series.event_series_id %}, de {{ series.start_time|time:"H:i" }} a {{ series.end_time|time:"H:i" }}{% endif %}, del {{ series.starts_on|day_month }} al {{ series.ends_on|long_date }}.</span></p>
+    </div>
+  </header>
+  {% if followed %}<p class="aside-note">Sigue las fechas de la serie de eventos {{ followed.name }}: cada fecha empieza a la hora de su evento y dura lo mismo que esta reserva. Un día que esa serie no tiene, no se aparta.</p>{% endif %}
+  {% if series.has_buffer %}<p class="aside-note">Cada fecha aparta también {% if series.setup_minutes %}{{ series.setup_minutes }} minutos antes para preparar{% endif %}{% if series.setup_minutes and series.teardown_minutes %} y {% endif %}{% if series.teardown_minutes %}{{ series.teardown_minutes }} minutos después para recoger{% endif %}.</p>{% endif %}
+  {% if request.is_church_admin %}<p class="aside-note">{% if is_mine %}La pediste tú.{% elif series.requested_by %}La pidió {{ series.requested_by.full_name }}.{% else %}Quien la pidió ya no está en las personas de la iglesia.{% endif %}{% if series.decision_reason %} Motivo del rechazo: {{ series.decision_reason }}{% endif %}</p>{% endif %}
+
+  {% if series.status == "solicitada" %}
+    <div class="notice"><p>{% if request.is_church_admin %}Espera tu decisión. Mientras tanto no aparta ninguna fecha.{% else %}La administración todavía no decide. Mientras tanto no hay ninguna fecha apartada. Emmaus no te avisa cuando decida: revísalo aquí.{% endif %}</p></div>
+    {% if request.is_church_admin %}
+    <form method="post" action="{% url 'espacios:series_approve' series.pk %}">
+      {% csrf_token %}
+      <div class="form-actions">
+        <button class="btn btn--primary" type="submit">Aprobar la serie</button>
+        <a class="btn btn--secondary" href="{% url 'espacios:series_reject' series.pk %}">Rechazar la serie</a>
+      </div>
+      <p class="aside-note">Al aprobarla se apartan las fechas de las próximas {{ window_weeks }} semanas que estén libres. Una fecha que ya esté ocupada no se aparta: te la mostramos aquí para que decidas.</p>
+    </form>
+    {% endif %}
+  {% elif series.status == "rechazada" %}
+    <div class="notice"><p>La administración no aprobó esta serie. No se apartó ninguna fecha.</p></div>
+  {% elif series.status == "terminada" %}
+    <div class="notice"><p>Esta serie terminó el {{ series.ended_at|day_month }}. Ya no se apartan fechas nuevas; las de abajo siguen apartadas.</p></div>
+  {% endif %}
+
+  {% if days.unbooked %}
+  <section class="block" aria-labelledby="sin-apartar">
+    <h2 id="sin-apartar" class="heading">No se pudieron apartar <span class="count">{{ days.unbooked|length }}</span></h2>
+    <ul class="rows">
+      {% for row in days.unbooked %}
+        <li class="row row--lead row--stack{% if row.outcome == 'ocupado' %} row--attention{% endif %}">
+          {% date_block row.day %}
+          <div class="row__main">
+            <p class="row__title">{{ row.day|weekday_date|capfirst }}</p>
+            <p class="row__meta">{% if row.outcome == "ocupado" %}No se pudo apartar: ya está ocupado.{% else %}No se pudo apartar: esa hora no existe ese día, porque se adelanta el reloj.{% endif %}</p>
+          </div>
+          {% if request.is_church_admin and row.outcome == "ocupado" and series.status == "aprobada" %}
+          <div class="row__end"><a class="btn btn--link" href="{% url 'espacios:series_day_book' series.pk row.pk %}">Decidir<span class="visually-hidden"> el {{ row.day|weekday_date }}</span></a></div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">{% if request.is_church_admin %}La serie no pasa por encima de otra reserva. En cada día puedes ver con qué se empalma y apartarlo de todos modos, o dejarlo así.{% else %}La serie no pasa por encima de otra reserva. La administración de tu iglesia decide si esos días se apartan de todos modos: pregúntale.{% endif %}</p>
+  </section>
+  {% endif %}
+
+  {% if series.status == "aprobada" or days.coming %}
+  <section class="block" aria-labelledby="apartadas">
+    <h2 id="apartadas" class="heading">Fechas apartadas{% if days.coming %} <span class="count">{{ days.coming|length }}</span>{% endif %}</h2>
+    {% if days.coming %}
+      <ul class="rows">
+        {% for row in days.coming %}{% with booking=row.booking %}
+          <li class="row row--lead row--stack">
+            {% date_block booking.day %}
+            <div class="row__main">
+              <p class="row__title">{{ booking.day|weekday_date|capfirst }}</p>
+              <p class="row__meta">De {{ booking.start_time|time:"H:i" }} a {{ booking.end_time|time:"H:i" }}{% if not booking.same_day %} del {{ booking.end_day|weekday_date }}{% endif %}.{% if booking.overrode_clash and request.is_church_admin %} Se apartó aunque se empalma con otra reserva.{% endif %}</p>
+              {% if row.event_off %}<p class="row__meta row__meta--con-marca">{% status "pendiente" "Revisa" %}<span>Ese día no hay la serie de eventos, pero el espacio sigue apartado. Si no se va a usar, quítalo con «Este día no».</span></p>{% endif %}
+            </div>
+            {% if booking.can_cancel %}
+            <div class="row__end"><a class="btn btn--link btn--quieto" href="{% url 'espacios:cancel' booking.pk %}">Este día no<span class="visually-hidden"> se usa: {{ booking.day|weekday_date }}</span></a></div>
+            {% endif %}
+          </li>
+        {% endwith %}{% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Ninguna fecha apartada por ahora.</p>
+    {% endif %}
+    <p class="aside-note">Las fechas se apartan con {{ window_weeks }} semanas de anticipación. Más adelante todavía no hay nada apartado: si alguien reserva antes uno de esos días, aquí aparecerá como «No se pudo apartar».{% if days.past %} {{ days.past }} fecha{{ days.past|pluralize }} de esta serie ya {{ days.past|pluralize:"pasó,pasaron" }}.{% endif %}</p>
+  </section>
+  {% endif %}
+
+  {% if days.off %}
+  <section class="block" aria-labelledby="dias-no">
+    <h2 id="dias-no" class="heading">Días que no</h2>
+    <ul class="rows">
+      {% for row in days.off %}{% with booking=row.booking %}
+        <li class="row row--lead">
+          {% date_block booking.day %}
+          <div class="row__main">
+            <p class="row__title">{{ booking.day|weekday_date|capfirst }}</p>
+            <p class="row__meta row__meta--con-marca">{% status "descartada" "Cancelada" %}<span>De {{ booking.start_time|time:"H:i" }} a {{ booking.end_time|time:"H:i" }}. La serie no vuelve a apartar este día.</span></p>
+          </div>
+        </li>
+      {% endwith %}{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if series.open %}
+  <div class="override">
+    {% if series.status == "solicitada" %}
+      <p>Si ya no hace falta, retira la solicitud: la administración ya no tendrá que decidirla.</p>
+      <a class="btn btn--link btn--quieto" href="{% url 'espacios:series_end' series.pk %}">Retirar la solicitud</a>
+    {% else %}
+      <p>Terminar la serie deja de apartar fechas nuevas. Las que ya están apartadas siguen.</p>
+      <a class="btn btn--link btn--quieto" href="{% url 'espacios:series_end' series.pk %}">Terminar la serie</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

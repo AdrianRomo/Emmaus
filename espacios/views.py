@@ -25,9 +25,9 @@ from core.nav import safe_next
 from core.paging import paginate
 from groups.views import church_admin_view, community_view
 
-from . import access, services
+from . import access, repeticion, services
 from .forms import BookingForm, RejectForm, SpaceForm, UsageForm
-from .models import Booking, Space
+from .models import Booking, BookingSeries, BookingSeriesDay, Space
 
 Status = Booking.Status
 
@@ -62,6 +62,10 @@ def _shown(request, bookings, tz):
         booking.is_mine = booking.requested_by_id == request.person.pk
         booking.show_details = access.can_read_details(booking, request.person, request.is_church_admin)
         booking.can_cancel = booking.show_details and booking.holds and booking.ends_at > now
+        # That it repeats, and how, is said only to who reads the rest (the administration and who asked).
+        booking.series = repeticion.series_of(booking) if booking.show_details else None
+        if booking.series is not None:
+            repeticion.describe(booking.series)
         if not booking.show_details:
             booking.title, booking.requested_by, booking.event, booking.decision_reason = "Ocupado", None, None, ""
     return bookings
@@ -90,6 +94,7 @@ def space_list(request):
         "espacios/list.html",
         {
             "spaces": spaces, "may_request": may_request, "mine": mine,
+            "my_series": repeticion.mine(request.person) if may_request else [],
             "pending": services.pending_count(request.church) if request.is_church_admin else 0,
         },
     )
@@ -103,6 +108,7 @@ def week(request, space_id: int):
     days = services.week(space, monday, tz)
     for day in days:
         _shown(request, day["bookings"], tz)
+    _usual(request, space, monday, tz, days)
     today = timezone.now().astimezone(tz).date()
     return render(
         request,
@@ -115,6 +121,13 @@ def week(request, space_id: int):
             "tz_name": str(tz),
         },
     )
+
+
+def _usual(request, space, monday, tz, days) -> None:
+    """Only for the administration: on each day, what a series in force would take and has not reached."""
+    usual = repeticion.usual(space, monday, tz) if request.is_church_admin and space.active else {}
+    for day in days:
+        day["usual"] = usual.get(day["date"], [])
 
 
 @community_view
@@ -138,6 +151,8 @@ def request_booking(request, space_id: int):
         seen = None
         if request.is_church_admin and request.POST.get("sobre") == "1":
             seen = [int(value) for value in request.POST.getlist("visto") if value.isdigit()]
+        if data["repeats"]:
+            return _request_series(request, space, form, tz)
         try:
             booking = services.request_booking(
                 space, request.person, request.user, title=data["title"], starts_at=data["starts_at"], ends_at=data["ends_at"],
@@ -163,6 +178,35 @@ def request_booking(request, space_id: int):
     return render(request, "espacios/request_form.html", {"form": form, "space": space, "clashes": clashes, "tz_name": str(tz)})
 
 
+def _request_series(request, space, form, tz):
+    """The same form, asked to repeat: one series, decided once (espacios.repeticion)."""
+    data = form.cleaned_data
+    try:
+        series = repeticion.request_series(
+            space, request.person, request.user, title=data["title"], starts_on=data["day"], ends_on=data["until"],
+            starts_at=data["starts"], ends_at=data["ends"], interval_weeks=data.get("repeat") or 1,
+            setup_minutes=data["setup_minutes"], teardown_minutes=data["teardown_minutes"],
+            event_series=data.get("event_series"), approve=request.is_church_admin,
+        )
+    except services.SpaceError as error:
+        form.add_error(None, error.message)
+        return render(request, "espacios/request_form.html", {"form": form, "space": space, "clashes": [], "tz_name": str(tz)})
+    if series.live:
+        days = repeticion.days_of(series, tz)
+        booked, missed = len(days["coming"]), len(days["unbooked"])
+        text = f"Reservaste {space.name} {repeticion.rule_words(series)}: {booked} fecha{'s' if booked != 1 else ''} apartada{'s' if booked != 1 else ''} por ahora."
+        if missed:
+            text += f" {missed} no se pudo apartar: mira abajo cuál{'es' if missed != 1 else ''}."
+        (messages.warning if missed else messages.success)(request, text)
+    else:
+        messages.success(
+            request,
+            f"Pediste {space.name} {repeticion.rule_words(series)}. Las fechas se apartan cuando la administración apruebe la serie: "
+            "mientras tanto no están apartadas. Emmaus no te avisa cuando decida: revísalo aquí.",
+        )
+    return redirect("espacios:series", series.pk)
+
+
 @community_view
 def cancel(request, booking_id: int):
     """Who asked for a booking, or the administration, frees its hours. Anybody else: it does not exist."""
@@ -174,27 +218,190 @@ def cancel(request, booking_id: int):
     back = reverse("espacios:week", args=[booking.space_id]) + f"?semana={booking.day.isoformat()}"
     if not booking.space.active and not request.is_church_admin:
         back = reverse("espacios:list")
+    # A date of a series: cancelling it is "Este día no". Its row stays, so the series does not book the day again.
+    series = repeticion.series_of(booking)
+    if series is not None:
+        back = reverse("espacios:series", args=[series.pk])
     if request.method == "POST":
         try:
             services.cancel(booking, request.user, by_admin=request.is_church_admin and booking.requested_by_id != request.person.pk)
         except services.SpaceError as error:
             messages.error(request, error.message)
         else:
-            messages.success(request, f"Cancelaste la reserva de {booking.space.name} del {_when(booking)}. El horario quedó libre.")
+            messages.success(request, f"Cancelaste la reserva de {booking.space.name} del {_when(booking)}. El horario quedó libre."
+                             + (" Las demás fechas de la serie siguen." if series is not None else ""))
         return redirect(back)
     if not booking.holds or booking.ends_at <= timezone.now():
         raise Http404
+    tell = "" if booking.requested_by_id == request.person.pk else " Emmaus no le avisa a quien la pidió: avísale tú."
+    if series is not None:
+        return render(
+            request,
+            "groups/confirm.html",
+            {
+                "title": f"¿Este día no se usa {booking.space.name}?",
+                "text": f"{booking.title}: {_when(booking)}. El horario de ese día queda libre para alguien más y la serie no vuelve a "
+                        f"apartarlo. Las demás fechas siguen.{tell}",
+                "action": "Sí, este día no",
+                "back_url": back,
+            },
+        )
     return render(
         request,
         "groups/confirm.html",
         {
             "title": f"¿Cancelar la reserva de {booking.space.name}?",
-            "text": f"{booking.title}: {_when(booking)}. El horario queda libre para alguien más."
-                    + ("" if booking.requested_by_id == request.person.pk else " Emmaus no le avisa a quien la pidió: avísale tú."),
+            "text": f"{booking.title}: {_when(booking)}. El horario queda libre para alguien más.{tell}",
             "action": "Sí, cancelar la reserva",
             "back_url": back,
         },
     )
+
+
+# ---- a booking that repeats: who asked for it and the administration ----------------------------
+def _series(request, series_id: int) -> BookingSeries:
+    """A series of this church, for the administration and for who asked. Anybody else: it does not exist."""
+    series = get_object_or_404(BookingSeries.objects.select_related("space", "requested_by", "event_series", "decided_by"),
+                               pk=series_id, space__church=request.church)
+    if not request.is_church_admin and (series.requested_by_id is None or series.requested_by_id != request.person.pk):
+        raise Http404
+    return series
+
+
+@community_view
+def series_detail(request, series_id: int):
+    series = repeticion.describe(_series(request, series_id))
+    tz = services.church_tz(request.church)
+    days = repeticion.days_of(series, tz)
+    for row in days["coming"] + days["off"]:
+        _shown(request, [row.booking], tz)
+    called_off = set()
+    if series.event_series_id is not None and days["coming"]:
+        from agenda.models import SeriesOccurrence
+
+        called_off = set(
+            SeriesOccurrence.objects.filter(series_id=series.event_series_id, day__in=[row.day for row in days["coming"]])
+            .exclude(status=SeriesOccurrence.Status.ACTIVE).values_list("day", flat=True)
+        )
+    for row in days["coming"]:
+        row.event_off = row.day in called_off
+    return render(
+        request,
+        "espacios/series.html",
+        {
+            "series": series, "space": series.space, "days": days, "window_weeks": repeticion.WINDOW_WEEKS,
+            "is_mine": series.requested_by_id == request.person.pk,
+            "followed": series.event_series if request.is_church_admin else None,
+        },
+    )
+
+
+@community_view
+def series_end(request, series_id: int):
+    """Who asked, or the administration, ends the series: no more dates; the ones that exist stay."""
+    series = repeticion.describe(_series(request, series_id))
+    back = reverse("espacios:series", args=[series.pk])
+    mine = series.requested_by_id == request.person.pk
+    if request.method == "POST":
+        try:
+            repeticion.end_series(series, request.user, by_admin=request.is_church_admin and not mine)
+        except services.SpaceError as error:
+            messages.error(request, error.message)
+        else:
+            messages.success(request, "Terminaste la serie. No se apartan más fechas; las que ya estaban apartadas siguen.")
+        return redirect(back)
+    if not series.open:
+        raise Http404
+    waits = series.status == BookingSeries.Status.REQUESTED
+    return render(
+        request,
+        "groups/confirm.html",
+        {
+            "title": "¿Retirar esta solicitud?" if waits else "¿Terminar esta serie?",
+            "text": f"{series.title}: {series.space.name}, {series.rule}. "
+                    + ("La administración ya no tendrá que decidirla." if waits else
+                       "No se apartan más fechas. Las que ya están apartadas siguen: cada una se cancela por separado, con «Este día no».")
+                    + ("" if mine else " Emmaus no le avisa a quien la pidió: avísale tú."),
+            "action": "Sí, retirar la solicitud" if waits else "Sí, terminar la serie",
+            "back_url": back,
+        },
+    )
+
+
+@church_admin_view
+@require_POST
+def series_approve(request, series_id: int):
+    series = _series(request, series_id)
+    try:
+        series = repeticion.approve_series(series, request.user)
+    except services.SpaceError as error:
+        messages.error(request, error.message)
+        return redirect("espacios:queue")
+    days = repeticion.days_of(series, services.church_tz(request.church))
+    booked, missed = len(days["coming"]), len(days["unbooked"])
+    text = f"Aprobaste la serie: {booked} fecha{'s' if booked != 1 else ''} apartada{'s' if booked != 1 else ''} por ahora."
+    if missed:
+        text += f" {missed} no se pudo apartar porque ya estaba ocupado: decide abajo."
+    (messages.warning if missed else messages.success)(request, text + " Emmaus no le avisa a quien la pidió: avísale tú.")
+    return redirect("espacios:series", series.pk)
+
+
+@church_admin_view
+def series_reject(request, series_id: int):
+    series = repeticion.describe(_series(request, series_id))
+    if series.status != BookingSeries.Status.REQUESTED:
+        if request.method == "POST":
+            messages.error(request, repeticion.SERIES_DECIDED)
+            return redirect("espacios:queue")
+        raise Http404
+    form = RejectForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            repeticion.reject_series(series, request.user, form.cleaned_data["reason"])
+        except services.SpaceError as error:
+            messages.error(request, error.message)
+        else:
+            messages.success(request, "Rechazaste la serie. No se apartó ninguna fecha. Emmaus no le avisa a quien la pidió: avísale tú.")
+        return redirect("espacios:queue")
+    return render(request, "espacios/series_reject.html", {"form": form, "series": series})
+
+
+@church_admin_view
+def series_day_book(request, series_id: int, day_id: int):
+    """A day the series could not book because the hours were taken: the administration sees what is
+    in the way now and decides. The only page from which that day is booked over another booking."""
+    series = repeticion.describe(_series(request, series_id))
+    row = get_object_or_404(BookingSeriesDay.objects.select_related("series", "series__space", "series__space__church", "series__event_series"),
+                            pk=day_id, series=series)
+    back = reverse("espacios:series", args=[series.pk])
+    tz = services.church_tz(request.church)
+    again = False
+    if request.method == "POST":
+        seen = [int(value) for value in request.POST.getlist("visto") if value.isdigit()] if request.POST.get("sobre") == "1" else None
+        try:
+            booking = repeticion.book_day(row, request.user, seen=seen)
+        except services.Clash:
+            again = True  # what overlaps is not what was listed: show the list of now
+        except services.SpaceError as error:
+            messages.error(request, error.message)
+            return redirect(back)
+        else:
+            services.localize(booking, tz)
+            messages.success(request, f"Apartaste {series.space.name} el {_when(booking)}"
+                             + (", aunque se empalma con otra reserva: quedó registrado que tú lo decidiste." if booking.overrode_clash else "."))
+            return redirect(back)
+    if row.outcome != BookingSeriesDay.Outcome.TAKEN or row.booking_id is not None or not series.live:
+        raise Http404
+    try:
+        wanted, clashes = repeticion.in_the_way(row, tz)
+    except services.SpaceError:
+        wanted, clashes = None, []
+    if wanted is None or wanted.starts_at <= timezone.now():
+        raise Http404
+    services.localize(wanted, tz)
+    return render(request, "espacios/series_day.html", {
+        "series": series, "row": row, "wanted": wanted, "clashes": _shown(request, clashes, tz), "again": again, "back": back,
+    })
 
 
 # ---- the administration -------------------------------------------------------------------------
@@ -217,7 +424,10 @@ def queue(request):
             booking.clashes = _shown(
                 request, list(services.overlapping(booking.space_id, booking.blocked_from, booking.blocked_until, exclude=booking.pk)
                               .select_related("requested_by", "event")), tz)
-    return render(request, "espacios/queue.html", {"bookings": page, "chosen": chosen, "pending": rows.filter(waiting).count()})
+    # Bookings that repeat are decided once, as a series: they lead the list of what waits.
+    series = [] if chosen else [repeticion.describe(row) for row in repeticion.waiting(request.church).select_related("space", "requested_by").order_by("starts_on", "id")[:50]]
+    return render(request, "espacios/queue.html", {"bookings": page, "chosen": chosen, "series": series,
+                                                    "pending": rows.filter(waiting).count() + len(series)})
 
 
 @church_admin_view
