@@ -19,6 +19,7 @@ from django.urls import reverse
 from django.utils import formats, timezone
 from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.paging import paginate
 from groups.views import church_admin_view, community_view
 
@@ -82,10 +83,15 @@ def devotional_read(request, devotional_id: int):
     if not devotional.is_readable:
         raise Http404
     services.mark_read(devotional, request.person)
+    # Said back to whoever cannot see the page change; the page itself shows the word "Leído"
+    messages.success(request, "Lo marcaste como leído.")
     shown_today = services.today_devotional(request.church, None)
     if shown_today is not None and shown_today.pk == devotional.pk:
-        return redirect("resources:devotional_today")
-    return redirect("resources:devotional_detail", devotional.pk)
+        default = reverse("resources:devotional_today")
+    else:
+        default = reverse("resources:devotional_detail", args=[devotional.pk])
+    # Back to the page the mark was made on (it acts in place there); another site is ignored
+    return redirect(safe_next(request, request.POST.get("siguiente"), default))
 
 
 # ---- the devotional: writing --------------------------------------------------------------------

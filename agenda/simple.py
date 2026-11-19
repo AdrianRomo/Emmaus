@@ -28,7 +28,7 @@ class SimpleEventForm(EventForm):
 
     class Meta(EventForm.Meta):
         fields = ["name", "kind", "location", "starts_on", "ends_on", "slug"]
-        help_texts = {"ends_on": "Déjalo vacío si dura un solo día."}
+        help_texts = {"ends_on": "Vacío: dura un solo día."}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -78,7 +78,7 @@ def create(request):
     form = SimpleEventForm(request.POST or None, initial={"kind": Event.Kind.OTHER})
     if request.method == "POST" and form.is_valid():
         event = create_simple_event(request.church, request.user, **form.cleaned_data)
-        messages.success(request, f"Listo. {event.name} ya está creado. Ahora escribe su página y publícalo.")
+        messages.success(request, f"{event.name} ya está creado. Ahora escribe su página y publícalo.")
         return redirect("agenda:page_edit", slug=event.slug)
     return render(request, "agenda/simple_form.html", {"form": form, "event": None})
 
@@ -89,7 +89,7 @@ def edit(request, slug: str):
     form = SimpleEventForm(request.POST or None, instance=event)
     if request.method == "POST" and form.is_valid():
         update_simple_event(event, request.user, **form.cleaned_data)
-        messages.success(request, "Guardamos los datos del evento.")
+        messages.success(request, "Guardado.")
         return redirect("agenda:admin_list")
     from . import series
 

@@ -1,68 +1,121 @@
 {% extends "base.html" %}
-{% load community %}
+{% load community shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Página de {{ event.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  The page of one event (agenda.views.page_edit): what the people of the church read and whether they sign up
-  from Emmaus. The name, the dates and the place belong to the event and are changed in its configuration.
+  The page of one event (agenda.views.page_edit), the administration's place for that event: its day and place as
+  facts, the address anybody can read when it is public, the page itself as one form in three sections (what the
+  people of the church read, how they sign up, who sees it) with one filled button, and then the event's other
+  places as rows: who signed up, the programme, the questions, its data, «Duplicar» and, once it ended, the opinions.
+  The help of «Pública», of the waiting list and of the minors' rule are protected words (decision 0010, issue #75).
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'agenda:admin_list' as back %}
   {% include "events/rotulo/_page_head.html" with title="Página del evento" lede=event.name back_url=back back_label="Volver a los eventos" %}
-  <p class="aside-note">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}{% if event.location %}, en {{ event.location }}{% endif %}. {% if event.camp_tools %}El nombre, las fechas y el lugar se cambian en la configuración del evento.{% else %}<a href="{% url 'agenda:event_edit' event.slug %}">Cambiar el nombre, las fechas o el lugar</a>.{% endif %}</p>
-  {% if series_row %}<div class="notice notice--quiet"><p>Esta fecha es parte de la serie <a href="{% url 'agenda:series_admin' series_row.series_id %}">{{ series_row.series.name }}</a>. Si la cambias aquí, deja de seguir los cambios que le hagas a la serie.</p><p><a href="{% url 'agenda:registrations' event.slug %}">Ver quién se inscribió a esta fecha</a></p></div>{% endif %}
+  <ul class="meta pagina-evento__datos" aria-label="Sobre el evento">
+    <li>{% icon "calendario" "sm" %}{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% else %}Sin fecha todavía{% endif %}</li>
+    {% if event.location %}<li>{% icon "lugar" "sm" %}{{ event.location }}</li>{% endif %}
+  </ul>
+  {% if event.camp_tools %}<p class="aside-note">El nombre, las fechas y el lugar se cambian en la configuración del evento.</p>{% endif %}
+  {% if series_row %}<div class="notice"><p>Esta fecha es parte de la serie <a href="{% url 'agenda:series_admin' series_row.series_id %}">{{ series_row.series.name }}</a>. Si la cambias aquí, deja de seguir los cambios que le hagas a la serie.</p><p><a href="{% url 'agenda:registrations' event.slug %}">Ver quién se inscribió a esta fecha</a></p></div>{% endif %}
+
   {% if public_link %}
   <section class="block public-link" aria-labelledby="publica">
     <h2 id="publica" class="heading">Página pública del evento</h2>
-    <p>Cualquiera con este enlace lee la información del evento sin entrar a Emmaus. No muestra quién se inscribió ni cuántos lugares quedan.</p>
     <div class="field admin-link">
       <label class="label" for="enlace-publico">Enlace de la página pública</label>
       <input class="input" id="enlace-publico" value="{{ public_link }}" readonly>
     </div>
-    <div class="step__actions">
+    <div class="form-actions pagina-evento__compartir">
       <button class="btn btn--secondary" type="button" data-copy="enlace-publico" data-copy-done="Enlace copiado">Copiar enlace</button>
+      <a class="btn btn--link" href="{{ public_share_url }}" target="_blank" rel="noopener">Compartir por WhatsApp<span class="visually-hidden"> (se abre en otra pestaña)</span></a>
       <a class="btn btn--link" href="{{ public_link }}" target="_blank" rel="noopener">Ver la página pública<span class="visually-hidden"> (se abre en otra pestaña)</span></a>
     </div>
-    <p class="aside-note"><a href="{{ public_share_url }}" target="_blank" rel="noopener">Compartir por WhatsApp</a> (se abre en otra pestaña). El mensaje solo lleva el nombre de la iglesia y el enlace.</p>
+    <p class="aside-note">Cualquiera con este enlace lee la información del evento sin entrar a Emmaus. No muestra quién se inscribió ni cuántos lugares quedan. El mensaje de WhatsApp solo lleva el nombre de la iglesia y el enlace.</p>
   </section>
   {% elif public_wanted %}
-  <div class="notice notice--quiet"><p>Marcaste que cualquiera con el enlace puede ver este evento, pero la página pública todavía no funciona: el evento tiene que estar publicado, activo y no haber terminado.</p></div>
+  <div class="notice notice--warning"><p>Marcaste que cualquiera con el enlace puede ver este evento, pero la página pública todavía no funciona: el evento tiene que estar publicado, activo y no haber terminado.</p></div>
   {% endif %}
-  <div class="block">
-  <form method="post" novalidate>
+
+  <form class="block" method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <section class="form-section" aria-labelledby="seccion-leen">
+      <h2 id="seccion-leen" class="form-section__title">Lo que leen</h2>
+      {% include "partials/ui/field.html" with field=form.description %}
+      {% include "partials/ui/field.html" with field=form.starts_at %}
+    </section>
+    <section class="form-section" aria-labelledby="seccion-inscripcion">
+      <h2 id="seccion-inscripcion" class="form-section__title">Inscripción</h2>
+      {% include "partials/ui/field.html" with field=form.registration %}
+      {% include "partials/ui/field.html" with field=form.capacity %}
+      {% include "partials/ui/field.html" with field=form.waiting_list %}
+      {% include "partials/ui/field.html" with field=form.registration_closes_on %}
+      {% include "partials/ui/field.html" with field=form.requires_guardian_consent %}
+    </section>
+    <section class="form-section" aria-labelledby="seccion-quien">
+      <h2 id="seccion-quien" class="form-section__title">Quién lo ve</h2>
+      {% include "partials/ui/field.html" with field=form.published %}
+      {% include "partials/ui/field.html" with field=form.public %}
+    </section>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">Guardar la página del evento</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  </div>
+
+  {% now "Y-m-d" as today_iso %}
   <section class="block" aria-labelledby="mas">
-    <h2 id="mas" class="heading">Lo demás que se lee en el evento</h2>
+    <h2 id="mas" class="heading">Lo demás del evento</h2>
     <ul class="rows">
-      <li class="row row--lead row--stack">
-        <div class="row__main">
-          <p class="row__title">Avisos públicos</p>
-          <p class="row__meta">{% if notice_count == 0 %}Todavía no tiene avisos.{% elif notice_count == 1 %}1 aviso.{% else %}{{ notice_count }} avisos.{% endif %} Los lee cualquiera con el enlace del evento, sin cuenta.</p>
-        </div>
-        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:public_notices' event.slug %}">Editar los avisos</a></div>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
+        <div class="row__main"><p class="row__title"><a href="{% url 'agenda:registrations' event.slug %}">Inscritos</a></p></div>
       </li>
-      <li class="row row--lead row--stack">
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "avisos" %}</span>
         <div class="row__main">
-          <p class="row__title">Programa</p>
-          <p class="row__meta">{% if schedule_count == 0 %}Todavía no tiene programa.{% elif schedule_count == 1 %}1 momento.{% else %}{{ schedule_count }} momentos.{% endif %}</p>
+          <p class="row__title"><a href="{% url 'agenda:public_notices' event.slug %}">Avisos públicos</a></p>
+          <p class="row__meta">{% if notice_count == 0 %}Todavía no tiene avisos{% elif notice_count == 1 %}1 aviso{% else %}{{ notice_count }} avisos{% endif %}. Los lee cualquiera con el enlace del evento, sin cuenta.</p>
         </div>
-        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:schedule' event.slug %}">Editar el programa</a></div>
       </li>
-      <li class="row row--lead row--stack">
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "reloj" %}</span>
         <div class="row__main">
-          <p class="row__title">Preguntas frecuentes</p>
-          <p class="row__meta">{% if faq_count == 0 %}Todavía no tiene preguntas.{% elif faq_count == 1 %}1 pregunta.{% else %}{{ faq_count }} preguntas.{% endif %}</p>
+          <p class="row__title"><a href="{% url 'agenda:schedule' event.slug %}">Programa</a></p>
+          <p class="row__meta">{% if schedule_count == 0 %}Todavía no tiene programa{% elif schedule_count == 1 %}1 momento{% else %}{{ schedule_count }} momentos{% endif %}</p>
         </div>
-        <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:faq' event.slug %}">Editar las preguntas</a></div>
       </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'agenda:faq' event.slug %}">Preguntas frecuentes</a></p>
+          <p class="row__meta">{% if faq_count == 0 %}Todavía no tiene preguntas{% elif faq_count == 1 %}1 pregunta{% else %}{{ faq_count }} preguntas{% endif %}</p>
+        </div>
+      </li>
+      {% if not event.camp_tools %}
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "editar" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'agenda:event_edit' event.slug %}">Datos del evento</a></p>
+          <p class="row__meta">El nombre, el lugar y los días</p>
+        </div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "copiar" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'agenda:duplicate' event.slug %}">Duplicar<span class="visually-hidden"> {{ event.name }}</span></a></p>
+          <p class="row__meta">Un evento nuevo con esta página, sin inscripciones</p>
+        </div>
+      </li>
+      {% endif %}
+      {% if event.starts_on and event.ends_on|default:event.starts_on|date:"Y-m-d" < today_iso %}
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "reporte" %}</span>
+        <div class="row__main"><p class="row__title"><a href="{% url 'feedback:results' event.slug %}">Opiniones<span class="visually-hidden"> de {{ event.name }}</span></a></p></div>
+      </li>
+      {% endif %}
     </ul>
   </section>
   <p class="aside-note">Inscribirse no da ningún acceso ni convierte a nadie en campero: solo le dice a la iglesia quién quiere ir.</p>

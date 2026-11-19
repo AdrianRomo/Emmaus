@@ -27,6 +27,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST, require_safe
 
 from . import onboarding, tenancy
+from .nav import safe_next
 from .access import (
     can_answer_question,
     has_leader_access,
@@ -245,7 +246,7 @@ def initial_setup(request):
         messages.success(request, f"{church.name} ya está lista en Emmaus.")
         # The event list, where the only thing to do is "Crear evento" (not the discipleship overview).
         return redirect("events:list")
-    # What participants of a new church will read (its notice starts as the default); "Qué sigue" asks to read it.
+    # What participants of a new church will read (its notice starts as the default), beside the form.
     notice = participant_notice(Church._meta.get_field("basic_disclaimer_text").default)
     return render(request, "core/initial_setup.html", {"form": form, "participant_notice": notice})
 
@@ -413,7 +414,7 @@ def church_settings(request):
     form = ChurchSettingsForm(request.POST or None, request.FILES or None, instance=church)
     if request.method == "POST" and form.is_valid():
         form.save()
-        messages.success(request, "Se guardó la configuración de la iglesia.")
+        messages.success(request, "Guardado.")
         return redirect("church_settings")
     # The previews show what is saved: a rejected upload already sits on the form's instance.
     logo_church = Church.objects.get(pk=church.pk) if form.is_bound else church
@@ -1005,10 +1006,29 @@ def reflection_question_create(request, lesson_id: int):
     return render(request, "core/reflection_question_form.html", {"form": form, "lesson": lesson})
 
 
+# Paths a camp's link leads to (an event's pages, its printed code, the join form): who arrives from one is told, apart
+# from the shared error, that the event's administration can help
+EVENT_PATHS = ("/eventos/", "/e/", "/unirme/")
+
+
 class ThrottledLoginView(LoginView):
     """Login with a per-account attempt limit shared by all workers (8 tries per 15 minutes)."""
 
     template_name = "registration/login.html"
+
+    def get_default_redirect_url(self):
+        """An ordinary sign-in (no link to honour, Django keeps ``next`` first): a camp administrator whose one camp is
+        underway opens its administration home, several open a chooser (events.services.landing); else the usual
+        home."""
+        from events.services.landing import sign_in_destination
+
+        return sign_in_destination(self.request.user) or super().get_default_redirect_url()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        target = self.request.POST.get("next") or self.request.GET.get("next") or ""
+        context["from_event"] = target.startswith(EVENT_PATHS)
+        return context
 
     def post(self, request, *args, **kwargs):
         from events.services import throttle
@@ -1085,10 +1105,7 @@ class ThrottledPasswordResetView(PasswordResetView):
 # ---- "Mi cuenta" and the welcomes ---------------------------------------------------------------------------------
 
 
-def _safe_next(request, candidate, fallback):
-    if candidate and url_has_allowed_host_and_scheme(candidate, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
-        return candidate
-    return fallback
+_safe_next = safe_next  # the welcome's «Entendido» returns where it was pressed (core.nav)
 
 
 def _community_church(request):
@@ -1170,7 +1187,7 @@ def account(request):
             form.save()
             if contact_form is not None:
                 contact_form.save()
-        messages.success(request, "Guardamos tus datos.")
+        messages.success(request, "Guardado.")
         return redirect("account")
     rows = []
     # The events of the church this request acts in, and those where the account holds an event role of its own.
@@ -1202,7 +1219,7 @@ class AccountPasswordChangeView(PasswordChangeView):
     success_url = reverse_lazy("account")
 
     def form_valid(self, form):
-        messages.success(self.request, "Tu contraseña cambió. Sigues dentro de Emmaus.")
+        messages.success(self.request, "Contraseña guardada.")
         return super().form_valid(form)
 
 
@@ -1227,7 +1244,7 @@ def welcome_restore(request):
     if key not in onboarding.KEYS:
         return HttpResponseBadRequest("clave desconocida")
     onboarding.restore(request.user, key)
-    messages.success(request, "Listo. La verás la próxima vez que abras ese inicio.")
+    messages.success(request, "La verás al abrir ese inicio.")
     return redirect("account")
 
 

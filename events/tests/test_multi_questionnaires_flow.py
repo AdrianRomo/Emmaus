@@ -24,7 +24,7 @@ from .base import CampFixture
 from .test_camp_visual import css_rules, media_applies, stylesheet
 from .test_multi_questionnaires import IsolatedCacheMixin, ServiceHelpers, TwoQuestionnairesFixture
 
-START_ADULT = {"mode": "asistida", "consent_consent": "on"}
+START_ADULT = {"identity": "on", "mode": "asistida", "consent_consent": "on"}
 PILL = '<span class="status status--{}"><span class="status__mark" aria-hidden="true"></span>{}</span>'
 
 # templates/events/participant_detail.html, the "Entrevista" block before several questionnaires (b14e9ca).

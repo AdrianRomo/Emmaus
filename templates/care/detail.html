@@ -3,48 +3,59 @@
 {% block page_title %}Seguimiento de persona{% endblock %}
 {% block content %}
 {% comment %}
-  One follow-up, for its owner or the church's administration (care.views.detail): who to reach and how, why, who
-  will do it and by when; what has been done, as sentences; one form to add a step; apart, "Marcar como atendido".
-  The contact data is here because the owner has to reach the person. Nothing said in a conversation is written.
+  One follow-up, for its owner or the church's administration (care.views.detail): who to reach and how (the
+  person's circle, the name, the ways to reach them as links), its state, why, by when and who will do it as facts;
+  what has been done, as a line of steps; one form to add a step; then "Marcar como atendido" and, for the
+  administration, its two actions. The contact data is here because the owner has to reach the person. Nothing
+  said in a conversation is written, and the page says so where a step is saved.
 {% endcomment %}
 <div class="narrow">
-  {% include "events/rotulo/_page_head.html" with title=about.full_name lede="Seguimiento de persona." back_url=back_url back_label=back_label %}
-  {% if about.phone or about.email %}
-    <p class="row__contact">{% if about.phone %}<a href="tel:{{ about.phone|tel }}"><span class="visually-hidden">Llamar a {{ about.full_name }}: </span>{{ about.phone }}</a>{% endif %}{% if about.email %}<a href="mailto:{{ about.email }}"><span class="visually-hidden">Escribir a {{ about.full_name }}: </span>{{ about.email }}</a>{% endif %}</p>
-  {% else %}
-    <p class="empty-line">No tenemos su teléfono ni su correo. Pregunta en tu iglesia cómo encontrarla.</p>
-  {% endif %}
-
-  <section class="block" aria-labelledby="datos">
-    <h2 id="datos" class="heading">El seguimiento</h2>
-    <dl class="summary-list">
-      <div class="summary-list__row"><dt>Motivo</dt><dd>{{ follow_up.get_reason_display }}</dd></div>
-      <div class="summary-list__row"><dt>Responsable</dt><dd>{% if follow_up.owner_id %}{{ follow_up.owner.full_name }}{% else %}Sin responsable{% endif %}</dd></div>
-      <div class="summary-list__row"><dt>Para cuándo</dt><dd>{% if follow_up.due_on %}{{ follow_up.due_on|weekday_date|capfirst }}{% if follow_up.is_overdue %}. Ya pasó la fecha{% endif %}{% else %}Sin fecha{% endif %}</dd></div>
-      <div class="summary-list__row"><dt>Estado</dt><dd>{% status follow_up.status_mark follow_up.get_status_display %}{% if follow_up.closed_at %} <span class="muted">Desde el {{ follow_up.closed_at|long_date }}.</span>{% endif %}</dd></div>
-    </dl>
-  </section>
+  <a class="back-link" href="{{ back_url }}">{{ back_label }}</a>
+  <header class="page-head">
+    <div class="group-head">
+      {% monogram about.full_name "lg" %}
+      <div class="page-head__text">
+        <h1 class="voice page-head__title">{{ about.full_name }}</h1>
+        <ul class="meta page-head__meta">
+          <li>{% status follow_up.status_mark follow_up.get_status_display %}</li>
+          {% if follow_up.closed_at %}<li>Desde el {{ follow_up.closed_at|long_date }}</li>{% endif %}
+          <li>{{ follow_up.get_reason_display }}</li>
+          {% if follow_up.due_on %}<li>{% icon "calendario" "sm" %}Para el {{ follow_up.due_on|weekday_date }}{% if follow_up.is_overdue %}. Ya pasó{% endif %}</li>{% endif %}
+          {% if not follow_up.is_mine %}{% if follow_up.owner_id %}<li>{% icon "personas" "sm" %}Responsable: {{ follow_up.owner.full_name }}</li>{% elif follow_up.is_open %}<li><span class="chip chip--wait">Sin responsable</span></li>{% else %}<li>Sin responsable</li>{% endif %}{% endif %}
+        </ul>
+        {% if about.phone or about.email %}
+          <p class="row__contact">{% if about.phone %}<a href="tel:{{ about.phone|tel }}">{% icon "telefono" "sm" %}<span class="visually-hidden">Llamar a {{ about.full_name }}: </span>{{ about.phone }}</a>{% endif %}{% if about.email %}<a href="mailto:{{ about.email }}">{% icon "correo" "sm" %}<span class="visually-hidden">Escribir a {{ about.full_name }}: </span>{{ about.email }}</a>{% endif %}</p>
+        {% else %}
+          <p class="page-head__meta">Sin teléfono ni correo. Pregunta en tu iglesia cómo encontrarla.</p>
+        {% endif %}
+      </div>
+    </div>
+  </header>
 
   <section class="block" aria-labelledby="hecho">
     <h2 id="hecho" class="heading">{% if follow_up.is_mine %}Lo que has hecho{% else %}Lo que se ha hecho{% endif %}</h2>
     {% if steps %}
-      <ul class="rows">
+      <ol class="camino">
         {% for step in steps %}
-          <li class="row"><div class="row__main"><p>{{ step.get_kind_display }}, {{ step.on|day_month }}.{% if step.by and step.by_id != me.pk %} <span class="muted">Lo guardó {{ step.by.full_name }}.</span>{% endif %}</p></div></li>
+          <li class="camino__step{% if forloop.last %} camino__step--now{% endif %}">
+            <p class="camino__when">{{ step.on|weekday_date|capfirst }}</p>
+            <p class="camino__what">{{ step.get_kind_display }}</p>
+            {% if step.by and step.by_id != me.pk %}<p class="camino__note">Lo guardó {{ step.by.full_name }}</p>{% endif %}
+          </li>
         {% endfor %}
-      </ul>
+      </ol>
     {% elif follow_up.is_open %}
-      <p class="empty-line">Todavía no hay nada. Cuando la busques, guárdalo aquí abajo.</p>
+      <p class="empty-line">Nada todavía.</p>
     {% else %}
-      <p class="empty-line">No se guardó ningún paso.</p>
+      <p class="empty-line">Sin pasos guardados.</p>
     {% endif %}
 
     {% if follow_up.is_open %}
-    <form method="post" action="{% url 'care:step' follow_up.pk %}">
+    <form class="step-form" method="post" action="{% url 'care:step' follow_up.pk %}">
       {% csrf_token %}
       <fieldset>
         <legend class="legend">¿Qué hiciste hoy?</legend>
-        <div class="choices">
+        <div class="choices choices--pair">
           {% for value, label in kinds %}
           <div class="choice">
             <input class="choice__input" type="radio" id="paso-{{ value }}" name="paso" value="{{ value }}" required>
@@ -53,7 +64,7 @@
           {% endfor %}
         </div>
       </fieldset>
-      <div class="step__actions">
+      <div class="form-actions">
         <button class="btn btn--primary" type="submit">Guardar lo que hice</button>
       </div>
     </form>
@@ -62,24 +73,19 @@
   </section>
 
   {% if follow_up.is_open %}
-  <section class="block" aria-labelledby="cerrar">
-    <h2 id="cerrar" class="heading">Cuando ya no haga falta buscarla</h2>
-    <form method="post" action="{% url 'care:status' follow_up.pk %}">
-      {% csrf_token %}
-      <input type="hidden" name="estado" value="atendido">
-      <div class="step__actions">
-        <button class="btn btn--secondary" type="submit">Marcar como atendido</button>
-      </div>
-    </form>
-  </section>
+  <form class="block" method="post" action="{% url 'care:status' follow_up.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="estado" value="atendido">
+    <button class="btn btn--secondary" type="submit">{% icon "check" "sm" %}Marcar como atendido</button>
+  </form>
   {% endif %}
 
   {% if request.is_church_admin and follow_up.is_open %}
   <section class="block" aria-labelledby="administrar">
     <h2 id="administrar" class="heading">Para la administración</h2>
-    <div class="step__actions">
+    <div class="form-actions">
       <a class="btn btn--secondary" href="{% url 'care:edit' follow_up.pk %}">Cambiar responsable o fecha</a>
-      <a class="btn btn--link" href="{% url 'care:cancel' follow_up.pk %}">Cancelar el seguimiento</a>
+      <a class="btn btn--danger-outline" href="{% url 'care:cancel' follow_up.pk %}">Cancelar el seguimiento</a>
     </div>
   </section>
   {% endif %}

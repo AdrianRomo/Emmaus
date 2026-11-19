@@ -1,11 +1,14 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Reportes{% endblock %}
 {% block content %}
 <header class="report-head">
   <div class="report-head__text">
     <h1 class="voice report-head__title">Reportes {{ event.of_kind }}</h1>
-    <p class="report-head__meta">Cortes {{ event.get_report_interval_minutes_display|lower }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}. {% if next_cutoff %}Próximo corte a las {{ next_cutoff|date:"H:i" }} del {{ next_cutoff|fecha_larga|lower }}.{% else %}No hay cortes programados.{% endif %}</p>
+    {% if ui_v2 %}<ul class="meta report-head__meta">
+      <li>{% icon "reloj" "sm" %}Cortes {{ event.get_report_interval_minutes_display|lower }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}</li>
+      <li>{% icon "calendario" "sm" %}{% if next_cutoff %}Próximo corte: {{ next_cutoff|date:"H:i" }}, {{ next_cutoff|fecha_larga|lower }}{% else %}No hay cortes programados{% endif %}</li>
+    </ul>{% else %}<p class="report-head__meta">Cortes {{ event.get_report_interval_minutes_display|lower }}, de {{ event.report_window_start|time:"H:i" }} a {{ event.report_window_end|time:"H:i" }}. {% if next_cutoff %}Próximo corte a las {{ next_cutoff|date:"H:i" }} del {{ next_cutoff|fecha_larga|lower }}.{% else %}No hay cortes programados.{% endif %}</p>{% endif %}
   </div>
   <div class="report-head__actions">
     <form method="post" action="{% url 'events:report_generate' event.slug %}">{% csrf_token %}<input type="hidden" name="scope" value="{{ scope_key }}"><button class="btn btn--primary" type="submit">Generar corte ahora</button></form>
@@ -31,21 +34,26 @@
   </div>
   <div class="report-section__body">
     {% if p.eligible %}
-      {% comment %}With several questionnaires (p.questionnaires; a cutoff saved before has no such key, which reads as one): "con los N cuestionarios", the camperos "a medias" (p.partial) in the key, "Por cuestionario" after it.{% endcomment %}<p class="voice headline">Llevábamos {{ p.completed }} de {{ p.eligible }}{% if p.questionnaires %} con los {{ p.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>
+      {% if ui_v2 %}<p class="avance__cifra"><span class="avance__n">{{ p.completed }} <span>de {{ p.eligible }}</span></span></p>{% else %}{% comment %}With several questionnaires (p.questionnaires; a cutoff saved before has no such key, which reads as one): "con los N cuestionarios", the camperos "a medias" (p.partial) in the key, "Por cuestionario" after it.{% endcomment %}<p class="voice headline">Llevábamos {{ p.completed }} de {{ p.eligible }}{% if p.questionnaires %} con los {{ p.questionnaires|length }} cuestionarios{% else %} entrevistas{% endif %}.</p>{% endif %}
     {% else %}
       <p class="voice headline">Todavía no había camperos registrados.</p>
     {% endif %}
     {% if delta %}<p class="headline__sub">{% delta_sentence delta previous.cutoff_at %}</p>{% endif %}
     {% if p.eligible %}
-      <div class="headline__ruler">{% ruler p.completed p.in_progress p.eligible partial=p.partial %}</div>
+{% if ui_v2 %}<div class="tablero__avance admin-avance">{% tally p.completed p.in_progress p.eligible partial=p.partial %}
+      <ul class="key" aria-hidden="true">
+        <li><span class="key__mark key__mark--done"></span>{{ p.completed }} hecha{{ p.completed|pluralize }}</li>
+        {% if p.in_progress %}<li><span class="key__mark key__mark--progress"></span>{{ p.in_progress }} en curso</li>{% endif %}
+        <li><span class="key__mark"></span>{{ p.not_started }} sin iniciar{% if p.partial %}, {{ p.partial }} a medias{% endif %}</li>
+      </ul></div>{% else %}      <div class="headline__ruler">{% ruler p.completed p.in_progress p.eligible partial=p.partial %}</div>
       <ul class="key">
         <li><span class="key__mark key__mark--done" aria-hidden="true"></span>{{ p.completed }} completadas ({{ p.percent|pct }})</li>
         <li><span class="key__mark key__mark--progress" aria-hidden="true"></span>{{ p.in_progress }} en curso</li>
         <li><span class="key__mark" aria-hidden="true"></span>{{ p.not_started }} sin iniciar{% if p.partial %} y {{ p.partial }} a medias{% endif %}</li>
-      </ul>{% if p.questionnaires %}
+      </ul>{% endif %}{% if p.questionnaires %}
       {% include "events/rotulo/_questionnaire_progress.html" with progress=p %}{% endif %}
     {% endif %}
-    <dl class="figures">
+    <dl class="figures{% if ui_v2 %} admin-cifras{% endif %}">
       <div><dt>Avance</dt><dd class="figures__value">{{ p.percent|pct }}</dd>{% if delta and delta.percent is not None %}<dd class="figures__note">{% if delta.percent %}De {{ delta.percent_before|pct }} a {{ p.percent|pct }} desde el corte anterior{% else %}Igual que en el corte anterior{% endif %}</dd>{% endif %}</div>
       <div><dt>Pendientes</dt><dd class="figures__value">{{ p.pending }}</dd><dd class="figures__note">incluye {{ p.in_progress }} en curso{% if p.partial %}, {{ p.partial }} a medias{% endif %}</dd></div>
       <div><dt>Seguimientos abiertos</dt><dd class="figures__value">{{ latest.data.follow_ups.open_total }}</dd></div>
@@ -58,7 +66,7 @@
 <section class="report-section" aria-labelledby="historial">
   <div class="report-section__q">
     <h2 id="historial" class="voice report-section__title">Historial</h2>
-    <p class="report-section__answer">{% if history_total %}{{ history_total }} corte{{ history_total|pluralize }}, del más reciente al más antiguo.{% if history_page.paginator.num_pages > 1 %} {{ history_page.paginator.per_page }} por página.{% endif %}{% else %}Todavía no hay cortes.{% endif %}</p>
+    <p class="report-section__answer">{% if history_total %}{{ history_total }} corte{{ history_total|pluralize }}.{% else %}Todavía no hay cortes.{% endif %}</p>
   </div>
   <div class="report-section__body">
     {% if history_total %}
@@ -76,7 +84,7 @@
       </table></div>
       {% include "events/rotulo/_pagination.html" with page=history_page %}
     {% else %}
-      <p class="empty-line">Los cortes se generan solos durante el horario configurado. También puedes generar uno ahora.</p>
+      <p class="empty-line">Se generan solos en el horario configurado.</p>
     {% endif %}
   </div>
 </section>

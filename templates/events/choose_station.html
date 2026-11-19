@@ -1,6 +1,30 @@
 {% extends rotulo_shell %}
+{% load emmaus %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}¿En qué computadora estás?{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}
+  The redesign ("Ventanas"): one question and the computers as capsules, the one this browser uses already chosen;
+  a computer where someone else has an interview moving now says "En uso" (choose_station: who it is is not said).
+{% endcomment %}
+<div class="narrow estaciones">
+{% include "partials/ui/error_summary.html" with form=form %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="siguiente" value="{{ next_url }}">
+  <fieldset class="question{% if form.station.errors %} question--error{% endif %}"{% if form.station.errors %} aria-describedby="estacion-error"{% endif %}>
+    <legend class="question__legend"><h1 class="voice page-head__title">¿En qué computadora estás?</h1></legend>
+    <p class="hint">Su número está pegado en ella.</p>
+    {% if form.station.errors %}<p class="error-message" id="estacion-error">{{ form.station.errors.0 }}</p>{% endif %}
+    <div class="choices" id="{{ form.station.auto_id }}">
+      {% for radio in form.station %}{% with v=radio.data.value.value %}
+      <div class="choice"><input type="radio" name="{{ form.station.html_name }}" value="{{ v }}" id="{{ radio.id_for_label }}"{% if form.is_bound %}{% if form.station.value|stringformat:"s" == v|stringformat:"s" %} checked{% endif %}{% elif station.pk == v %} checked{% endif %}><label class="choice__label" for="{{ radio.id_for_label }}"><span class="choice__mark" aria-hidden="true"></span><span>{{ radio.choice_label }}</span>{% if v in in_use %}{% status "en_curso" "En uso" %}{% endif %}</label></div>
+      {% endwith %}{% endfor %}
+    </div>
+  </fieldset>
+  <div class="form-actions"><button class="btn btn--primary" type="submit">Usar esta computadora</button></div>
+</form>
+</div>
+{% else %}
 <div>
 {% include "partials/ui/error_summary.html" with form=form %}
 <form method="post" novalidate>
@@ -8,7 +32,7 @@
   <input type="hidden" name="siguiente" value="{{ next_url }}">
   <fieldset class="question{% if form.station.errors %} question--error{% endif %}"{% if form.station.errors %} aria-describedby="estacion-error"{% endif %}>
     <legend class="question__legend"><h1 class="question__text">¿En qué computadora estás?</h1></legend>
-    <p class="question__help">Busca el número pegado en la computadora. Así sabemos dónde se abrió cada entrevista.</p>
+    <p class="question__help">Busca el número pegado en la computadora.</p>
     {% if form.station.errors %}<p class="error-message" id="estacion-error">{{ form.station.errors.0 }}</p>{% endif %}
     {% comment %}The group takes the field id (the error summary links here), never the first radio's "id_station_0".{% endcomment %}
     <div class="choices choices--grid" id="{{ form.station.auto_id }}">
@@ -20,4 +44,4 @@
   <div class="step__actions"><button class="btn btn--primary btn--large" type="submit">Usar esta computadora</button></div>
 </form>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

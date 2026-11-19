@@ -275,7 +275,7 @@ class FrozenListTests(WaitingFixture):
         self.assertEqual(self.state(self.first), OFFERED)
         self.client.force_login(self.leader_user)
         page = self.client.get(self.url())
-        self.assertContains(page, "<strong>El evento ya empezó.</strong> El lugar que te ofrecimos ya no se puede aceptar desde aquí.")
+        self.assertContains(page, '<p class="notice__title">El evento ya empezó.</p><p>El lugar que te ofrecimos ya no se puede aceptar desde aquí.')
         self.assertNotContains(page, "Aceptar mi lugar")
         self.client.force_login(self.asked_user)
         self.assertContains(self.client.get(self.url()), "El evento ya empezó y ya no se ofrecen lugares desde la lista.")
@@ -302,21 +302,22 @@ class FrozenListTests(WaitingFixture):
         self.free()
         self.client.force_login(self.admin)
         moving = self.client.get(self.url("registrations"))
-        self.assertContains(moving, ", 2 en lista de espera, 1 canceló.")
+        self.assertContains(moving, "2 en lista de espera</li>")
+        self.assertContains(moving, "<li>1 canceló</li>")
         self.assertNotContains(moving, "detenida")
         self.assertNotContains(moving, "ya no avanza")
         self.set_page(registration="cerrada")
         frozen = self.client.get(self.url("registrations"))
-        self.assertContains(frozen, ", 2 en lista de espera (detenida)")
+        self.assertContains(frozen, "2 en lista de espera (detenida)</li>")
         self.assertContains(frozen, "<strong>La lista está detenida.</strong> La página dice «No hay inscripción desde Emmaus»")
         self.set_page(registration="abierta", published=False)
         hidden = self.client.get(self.url("registrations"))
-        self.assertContains(hidden, ", 2 en lista de espera (detenida)")
+        self.assertContains(hidden, "2 en lista de espera (detenida)</li>")
         self.assertContains(hidden, "<strong>La lista está detenida.</strong> El evento no está publicado")
         self.set_page(published=True)
         self.start()
         started = self.client.get(self.url("registrations"))
-        self.assertContains(started, ", 2 en lista de espera (ya no avanza)")
+        self.assertContains(started, "2 en lista de espera (ya no avanza)</li>")
         self.assertContains(started, "<strong>La lista ya no avanza.</strong> El evento ya empezó")
 
 
@@ -807,7 +808,14 @@ class OfferMailTests(WaitingFixture):
         self.assertIsNone(events[self.retiro.pk].my_registration)
         self.client.force_login(self.leader_user)
         self.assertContains(self.client.get(self.url()), "Aceptar mi lugar")
-        self.assertContains(self.client.get(reverse("agenda:list")), "Te ofrecimos un lugar")
+        # The list says it with the one thing to do, as Mi iglesia does (the one suggested next row, filled):
+        # accept the place, on the event's page.
+        self.assertContains(
+            self.client.get(reverse("agenda:list")),
+            f'<a class="btn btn--primary btn--small" href="{self.url()}">Aceptar mi lugar'
+            '<span class="visually-hidden"> en Retiro de jóvenes</span></a>',
+            html=True,
+        )
 
     @override_settings(EMAIL_BACKEND="core.test_notify.FailingBackend")
     def test_a_mail_that_fails_never_reaches_who_freed_the_place(self):
@@ -824,10 +832,10 @@ class MemberScreenTests(WaitingFixture):
         self.assertContains(page, "Anotarme en la lista de espera")
         self.assertContains(page, "tendrás 48 horas para aceptarlo")
         self.assertNotContains(page, ">Inscribirme<")
-        self.assertContains(self.client.get(reverse("agenda:list")), "Lista de espera")
+        self.assertContains(self.client.get(reverse("agenda:list")), "Hay lista de espera</span>")
         joined = self.client.post(self.url("register"), follow=True)
         self.assertContains(joined, "Te anotamos en la lista de espera de Retiro de jóvenes. Eres la primera persona en la lista de espera.")
-        self.assertContains(joined, "<strong>Estás en la lista de espera.</strong>")
+        self.assertContains(joined, '<p class="notice__title">Estás en la lista de espera.</p>')
         self.assertContains(joined, "Salir de la lista de espera")
         self.assertNotContains(joined, "Cancelar mi inscripción")
         listing = self.client.get(reverse("agenda:list"))
@@ -845,8 +853,8 @@ class MemberScreenTests(WaitingFixture):
         self.assertContains(offered, "No voy a usar el lugar")
         self.assertEqual(self.client.get(self.url("accept_offer")).status_code, 405)
         done = self.client.post(self.url("accept_offer"), follow=True)
-        self.assertContains(done, "Listo. Aceptaste tu lugar: te inscribiste a Retiro de jóvenes.")
-        self.assertContains(done, "<strong>Te inscribiste.</strong>")
+        self.assertContains(done, "Aceptaste tu lugar en Retiro de jóvenes.")
+        self.assertContains(done, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>')
         self.assertEqual(self.state(row), ACTIVE)
 
     def test_a_minor_who_accepts_reads_that_the_registration_waits(self):
@@ -858,7 +866,8 @@ class MemberScreenTests(WaitingFixture):
         self.assertContains(self.client.get(self.url()), "Este evento cuida a los menores de edad: al aceptar")
         done = self.client.post(self.url("accept_offer"), follow=True)
         self.assertContains(done, "Aceptaste tu lugar en Retiro de jóvenes.")
-        self.assertContains(done, "<strong>Pendiente de autorización.</strong>")
+        self.assertContains(done, '<p class="notice__title">Pendiente de autorización.</p>')
+        self.assertNotContains(done, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>')
         row = EventRegistration.objects.get(event=self.retiro, person=self.member)
         self.assertEqual((row.status, row.pending_reason), (PENDING, "consent"))
 
@@ -913,7 +922,7 @@ class StaffListTests(WaitingFixture):
     def test_inscritos_shows_the_list_in_order_with_each_state_and_the_deadline(self):
         html = self.client.get(self.url("registrations")).content.decode()
         self.assertIn("Lista de espera", html)
-        self.assertIn(", 3 en lista de espera", html)
+        self.assertIn("3 en lista de espera</li>", html)
         section = html[html.index('id="lista-espera"'):html.index('id="inscritos"')]
         order = [section.index(name) for name in ("Gala Guía", "Pía Pidió", "Diego Hernández Cruz")]
         self.assertEqual(order, sorted(order))
@@ -944,7 +953,7 @@ class StaffListTests(WaitingFixture):
                                           "person_id": self.leader.pk})
         self.assertEqual(self.client.get(self.url("waiting_remove", offered.pk)).status_code, 404)
         # Leaving the list is not a cancellation: the count is still the one registration cancelled in setUp.
-        self.assertContains(self.client.get(self.url("registrations")), ", 1 canceló.")
+        self.assertContains(self.client.get(self.url("registrations")), "<li>1 canceló</li>")
         # The person reads why, and may join again.
         self.client.force_login(self.leader_user)
         self.assertContains(self.client.get(self.url()), "La administración de tu iglesia te quitó de la lista.")

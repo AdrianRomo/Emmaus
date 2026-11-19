@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core import notify, onboarding
+from core.nav import safe_next
 from core.paging import first_rows, paginate
 from core.authz import Action, has_scope
 from events.models import normalize_name
@@ -160,16 +161,44 @@ def home(request):
     if to_decide:
         total = sum(row["total"] for row in to_decide)
         first = to_decide[0]
+        # Up to three requests: each one raised with who asks and for which group, answered right here (in place);
+        # more than three: one line that leads to them.
+        few = list(
+            GroupJoinRequest.objects.filter(group_id__in=managed, status=PENDING, group__status=Group.Status.ACTIVE)
+            .select_related("person", "group").order_by("created_at", "pk")[:3]
+        ) if total <= 3 else []
+        one = few[0] if total == 1 else None
         sign = {
-            "title": "¿Recibes a 1 persona en tu grupo?" if total == 1 else f"¿Recibes a {total} personas en tu grupo?",
-            "text": "Pidieron unirse y esperan tu respuesta.",
+            "kind": "",
+            "who": one.person.full_name if one else "",
+            "title": f"{one.person.full_name} quiere unirse a {one.group.name}" if one else f"{total} personas quieren unirse a tus grupos",
+            "text": "",
             "url": reverse("community:group_people", args=[first["group_id"]]),
-            "action": "Ver solicitudes",
+            "action": "Ver solicitud" if one else "Ver solicitudes",
+            # More than three, in several groups: one way to each group's requests (one link to the first hid the rest)
+            "groups": [
+                {"name": row["group__name"], "total": row["total"], "url": reverse("community:group_people", args=[row["group_id"]])}
+                for row in to_decide
+            ] if total > 3 and len(to_decide) > 1 else [],
+            # Each request decided right here, in place (the view returns to this page: siguiente)
+            "decide": reverse("community:request_decide", args=[one.group_id, one.pk]) if one else "",
+            "requests": [
+                {
+                    "who": r.person.full_name,
+                    "title": f"{r.person.full_name} quiere unirse a {r.group.name}",
+                    "group": r.group.name,
+                    "asked_on": r.created_at,
+                    "decide": reverse("community:request_decide", args=[r.group_id, r.pk]),
+                    "url": reverse("community:group_people", args=[r.group_id]),
+                }
+                for r in few
+            ],
         }
     elif request.is_church_admin and not any_group:
         sign = {
-            "title": "¿Creamos el primer grupo?",
-            "text": "Con un grupo creado, las personas de la iglesia ya pueden pedir unirse.",
+            "kind": "Para empezar",
+            "title": "Crea el primer grupo de la iglesia",
+            "text": "",
             "url": reverse("community:group_create"),
             "action": "Crear un grupo",
         }
@@ -179,15 +208,17 @@ def home(request):
     ):
         group, day = due
         sign = {
+            "kind": "Falta la lista",
             "title": f"¿Quién vino a {group.name}?",
-            "text": f"Se reunieron el {_weekday_date(day)} y todavía no pasas lista.",
+            "text": f"Reunión del {_weekday_date(day)}",
             "url": reverse("community:meeting_record", args=[group.pk, day.isoformat()]),
             "action": "Pasar lista",
         }
     elif not memberships and not my_requests and open_groups:
         sign = {
-            "title": "¿Buscas un grupo?",
-            "text": "Hay grupos de la iglesia que reciben a personas nuevas.",
+            "kind": "",
+            "title": "Encuentra tu grupo",
+            "text": "Hay grupos que reciben a personas nuevas",
             "url": reverse("community:groups"),
             "action": "Ver los grupos",
         }
@@ -198,10 +229,47 @@ def home(request):
         request.user, church, person.first_name, has_group=bool(memberships), open_groups=open_groups,
         guided=(guided.name, reverse("community:group_people", args=[guided.pk])) if guided else None,
     )
+    # What waits for this person's answer: the dates their teams asked them to serve and they have not answered.
+    # An answered date moves to the list of what comes, with its answer and the way to change it.
+    upcoming_dates = serving_services.all_my_dates(person, today)
+    asks_pending = [a for a in upcoming_dates if a.status == serving_services.PENDING][:3]
+    answered_now = request.GET.get("respondida", "")
+    for a in upcoming_dates:
+        a.can_change = a.status != serving_services.PENDING and a.service_date.date > today  # until the day before
+        a.just_answered = str(a.pk) == answered_now
+    asked = {a.pk for a in asks_pending}
+    # A date of a team this person coordinates where nobody serves: it blocks the date, so it waits here too
+    uncovered = serving_services.uncovered_dates(person, today)
+    # A suggestion (find a group) is not something that waits for an answer: it goes with the groups, unraised.
+    suggestion = sign if sign and sign["action"] == "Ver los grupos" else None
+    if suggestion:
+        sign = None
+    # Today and what comes after, apart: today is presented; the rest is a list.
+    for item in agenda:
+        item["time"] = item.get("time") or (item["event"].page.starts_at if item["kind"] == "event" else None)
+    serving_rows = [
+        {"date": a.service_date.date, "today": a.service_date.date == today, "kind": "serving", "assignment": a,
+         "time": a.service_date.starts_at, "title": a.service_date.what}
+        for a in upcoming_dates if a.pk not in asked
+    ][:4]
+    coming = sorted(agenda[:6] + serving_rows, key=lambda row: (row["date"], str(row.get("time") or ""), row["title"]))
+    today_rows = [row for row in coming if row["date"] == today]
+    later_rows = [row for row in coming if row["date"] != today][:5]
+    # The devotional's first words, the church's own writing (never Bible text: decision 0014), set as its voice
+    opening = ""
+    if devotional:
+        text = " ".join(devotional.body.split())
+        opening = text if len(text) <= 120 else text[:120].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
     return render(
         request,
         "groups/home.html",
         {
+            "asks_pending": asks_pending,
+            "uncovered": uncovered,
+            "suggestion": suggestion,
+            "today_rows": today_rows,
+            "later_rows": later_rows,
+            "opening": opening,
             "church": church,
             "person": person,
             "welcome": welcome,
@@ -316,15 +384,17 @@ def _absolute(request, name: str, *args) -> str:
 @require_POST
 def group_request(request, group_id: int):
     group = _group(request, group_id)
+    # Back to where it was asked (the group's page, or a suggestion on "Mi iglesia"): emmaus.js reads the region there
+    back = safe_next(request, request.POST.get("siguiente"), reverse("community:group_detail", args=[group.pk]))
     wait = throttle.consume(f"group-join:{request.user.pk}", limit=10, window_seconds=3600, block_seconds=600)
     if wait:
         messages.error(request, throttle.wait_message(wait))
-        return redirect("community:group_detail", group.pk)
+        return redirect(back)
     try:
         join_request, created = services.request_to_join(group, request.person, request.user)
     except services.GroupError as error:
         messages.error(request, error.message)
-        return redirect("community:group_detail", group.pk)
+        return redirect(back)
     if created:
         emails = list(
             GroupMembership.objects.filter(group=group, status=ACTIVE, role=GroupMembership.Role.LEADER, person__user__isnull=False)
@@ -338,10 +408,10 @@ def group_request(request, group_id: int):
             )
         # The message never claims an e-mail that did not go out (core.notify).
         if outcome == notify.SENT:
-            messages.success(request, f"Listo. Pediste unirte a {group.name} y le avisamos por correo a quien lo guía.")
+            messages.success(request, f"Pediste unirte a {group.name}. Le avisamos por correo a quien lo guía.")
         else:
-            messages.success(request, f"Listo. Pediste unirte a {group.name}. Quien lo guía verá tu solicitud cuando entre a Emmaus.")
-    return redirect("community:group_detail", group.pk)
+            messages.success(request, f"Pediste unirte a {group.name}. Quien lo guía verá tu solicitud cuando entre a Emmaus.")
+    return redirect(back)
 
 
 @community_view
@@ -352,7 +422,8 @@ def group_withdraw(request, group_id: int):
     if pending:
         services.withdraw_request(pending, request.user)
         messages.success(request, f"Retiraste tu solicitud a {group.name}.")
-    return redirect("community:group_detail", group.pk) if group.is_active else redirect("community:home")
+    default = reverse("community:group_detail", args=[group.pk]) if group.is_active else reverse("community:home")
+    return redirect(safe_next(request, request.POST.get("siguiente"), default))
 
 
 @community_view
@@ -410,11 +481,13 @@ def request_decide(request, group_id: int, request_id: int):
     group = _managed_group(request, group_id)
     join_request = get_object_or_404(GroupJoinRequest.objects.select_related("person", "person__user"), pk=request_id, group=group)
     accept = request.POST.get("decision") == "aceptar"
+    # Back to where it was decided (the group's people, or the request raised on "Mi iglesia")
+    back = safe_next(request, request.POST.get("siguiente"), reverse("community:group_people", args=[group.pk]))
     try:
         services.decide_request(join_request, request.user, accept=accept)
     except services.GroupError as error:
         messages.error(request, error.message)
-        return redirect("community:group_people", group.pk)
+        return redirect(back)
     person = join_request.person
     outcome = notify.NOT_CONFIGURED
     if person.user_id and person.user.email:
@@ -426,8 +499,8 @@ def request_decide(request, group_id: int, request_id: int):
     if accept:
         messages.success(request, f"{person.full_name} ya es parte de {group.name}.{told}")
     else:
-        messages.success(request, f"No aceptaste la solicitud de {person.full_name}.{told}")
-    return redirect("community:group_people", group.pk)
+        messages.success(request, f"No aceptaste a {person.full_name} en {group.name}.{told}")
+    return redirect(back)
 
 
 @community_view
@@ -477,7 +550,8 @@ def group_meetings(request, group_id: int):
             messages.error(request, "Escribe la fecha con el calendario o así: 2026-11-12.")
             return redirect("community:group_meetings", group.pk)
         return redirect("community:meeting_record", group.pk, day.isoformat())
-    meetings = paginate(request, services.with_present(group.meetings.all()))
+    # Newest first, said here: an annotated (grouped) queryset does not take the model's own ordering.
+    meetings = paginate(request, services.with_present(group.meetings.all()).order_by("-date", "-id"))
     return render(
         request,
         "groups/group_meetings.html",
@@ -511,7 +585,7 @@ def meeting_record(request, group_id: int, day: str):
             messages.error(request, error.message)
             return redirect("community:group_meetings", group.pk)
         came = "vino 1 persona" if saved.present == 1 else f"vinieron {saved.present} personas"
-        messages.success(request, f"Guardamos la lista del {_weekday_date(day)}: {came} de {saved.expected}.")
+        messages.success(request, f"Lista guardada: {came} de {saved.expected}.")
         return redirect("community:group_meetings", group.pk)
     present = set(meeting.attendances.values_list("person_id", flat=True)) if meeting else set()
     for membership in members:
@@ -540,7 +614,7 @@ def group_create(request):
         group = form.save(commit=False)
         group.church = request.church
         services.save_group(group, request.user, created=True)
-        messages.success(request, f"Creaste el grupo {group.name}. Ahora elige quién lo guía.")
+        messages.success(request, "Grupo creado. Ahora elige quién lo guía.")
         return redirect("community:group_people", group.pk)
     return render(request, "groups/group_form.html", {"form": form, "group": None})
 
@@ -551,7 +625,7 @@ def group_edit(request, group_id: int):
     form = GroupForm(request.POST or None, instance=group, church=request.church)
     if request.method == "POST" and form.is_valid():
         services.save_group(form.save(commit=False), request.user, created=False)
-        messages.success(request, "Guardamos los cambios.")
+        messages.success(request, "Guardado.")
         return redirect("community:group_detail", group.pk)
     return render(request, "groups/group_form.html", {"form": form, "group": group})
 
@@ -582,14 +656,16 @@ def member_add(request, group_id: int):
     group = _group(request, group_id)
     person = get_object_or_404(Person, pk=request.POST.get("persona") or 0, church=request.church, merged_into__isnull=True)
     role = GroupMembership.Role.LEADER if request.POST.get("rol") == "lider" else GroupMembership.Role.MEMBER
+    # Back to the search it was added from (the same page, its results), so it acts in place
+    back = safe_next(request, request.POST.get("siguiente"), reverse("community:group_people", args=[group.pk]))
     try:
         services.set_membership(group, person, request.user, role=role)
     except services.GroupError as error:
         messages.error(request, error.message)
-        return redirect("community:group_people", group.pk)
+        return redirect(back)
     if role == GroupMembership.Role.LEADER:
         note = "" if person.user_id else " Todavía no tiene acceso a Emmaus: dáselo desde Personas para que pueda responder solicitudes."
         messages.success(request, f"{person.full_name} ahora guía {group.name}.{note}")
     else:
         messages.success(request, f"{person.full_name} ya es parte de {group.name}.")
-    return redirect("community:group_people", group.pk)
+    return redirect(back)

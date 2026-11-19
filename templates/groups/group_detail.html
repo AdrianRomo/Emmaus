@@ -3,97 +3,118 @@
 {% block page_title %}{{ group.name }}{% endblock %}
 {% block content %}
 {% comment %}
-  One group (groups.views.group_detail). The panel is the one thing the reader can do: ask to join. A member reads
-  when and where the next meeting is instead; somebody who already asked reads that the answer is pending. Who
-  guides it (or the administration) gets the door to its work at the end.
+  One group (groups.views.group_detail). The head is the group: its arch, its name, what it says about itself and
+  its facts. Under it, by who reads: somebody who can ask reads the one action, "Pedir unirme", with who will see
+  their contact; somebody who asked reads that the answer is pending (and can take the request back); a member
+  reads the next meeting as a day with its hour and place, and their own attendance. Where it meets and who came
+  are never shown to anybody else. Who guides it (or the administration) gets the two doors to its work.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:groups' as back %}
-  <a class="back-link" href="{{ back }}">Volver a los grupos</a>
-  <div class="group-head">
-    {% monogram group.name "lg" %}
-    <header class="page-head">
-      <h1 class="voice page-head__title">{{ group.name }}</h1>
-      {% if group.description %}<p class="lede">{{ group.description }}</p>{% endif %}
-      <p class="page-head__meta">{{ group.get_kind_display }}{% if group.schedule %}, {{ group.schedule|lower }}{% endif %}{% if group.sede %}, sede {{ group.sede.name }}{% endif %}.</p>
-    </header>
+  <a class="back-link" href="{% url 'community:groups' %}">Volver a los grupos</a>
+  <header class="page-head{% if request.is_church_admin and group.is_active %} page-head--actions{% endif %}">
+    <div class="group-head">
+      {% monogram group.name "lg" "grupo" %}
+      <div class="page-head__text">
+        <h1 class="voice page-head__title">{{ group.name }}</h1>
+        {% if group.kind != "otro" or membership or not group.is_active or not group.is_open %}
+        <ul class="meta page-head__meta">
+          {% if group.kind != "otro" %}<li>{{ group.get_kind_display }}</li>{% endif %}
+          {% if not group.is_active %}<li>{% status "archivado" %}</li>{% elif membership.is_leader %}<li>{% icon "guia" "sm" %}Lo guías</li>{% elif membership %}<li>{% status "completada" "Eres parte" %}</li>{% elif not group.is_open and not pending %}<li>{% status "descartada" "Cerrado" %}</li>{% endif %}
+        </ul>
+        {% endif %}
+      </div>
+    </div>
+    {% if request.is_church_admin and group.is_active %}<div class="page-head__actions"><a class="btn btn--secondary" href="{% url 'community:group_edit' group.pk %}">Editar el grupo</a></div>{% endif %}
+  </header>
+
+  <div class="group-about">
+    {% if group.description %}<p class="lede">{{ group.description }}</p>{% endif %}
+    <ul class="meta">{% if can_manage and not membership %}{% include "groups/_facts.html" with full=True place=True %}{% else %}{% include "groups/_facts.html" with full=True %}{% endif %}</ul>
+    {% if not membership and not can_manage %}<p class="aside-note">El lugar lo ven solo quienes ya son parte del grupo.</p>{% endif %}
   </div>
 
+  {# Asking to join and withdrawing act in place (data-inline): the page returns to itself #}
+  <div class="block" id="pertenencia">
   {% if not group.is_active %}
-    <div class="notice notice--quiet"><p>Este grupo está archivado. Ya no aparece en la lista de grupos.</p></div>
   {% elif membership %}
-    <section class="block" aria-labelledby="reunion">
-      <h2 id="reunion" class="visually-hidden">Tu próxima reunión</h2>
-      <div class="meeting">
-        {% if next_meeting %}{% date_block next_meeting %}{% endif %}
-        <div>
-          <p class="meeting__title">Eres parte de este grupo.</p>
-          <p class="meeting__meta">{% if next_meeting %}La próxima reunión es el {{ next_meeting|weekday_date }}{% if group.meeting_time %}, a las {{ group.meeting_time|time:"H:i" }}{% endif %}{% if group.meeting_place %}, en {{ group.meeting_place }}{% endif %}.{% elif group.meeting_frequency == 'variable' %}Este grupo no tiene día fijo. Quien guía el grupo te avisará cuándo se reúnen.{% else %}Todavía no tiene día de reunión. Quien guía el grupo te avisará.{% endif %}</p>
-        </div>
-      </div>
+    <section aria-labelledby="reunion">
+      <h2 id="reunion" class="heading">{% if next_meeting %}Próxima reunión{% elif group.meeting_frequency == 'variable' %}Sin día fijo{% else %}Sin día de reunión{% endif %}</h2>
+      <ul class="rows dates">
+        <li class="row row--lead">
+          {% if next_meeting %}{% date_block next_meeting %}{% else %}<span class="hoy__icono" aria-hidden="true">{% icon "calendario" %}</span>{% endif %}
+          <div class="row__main">
+            <p class="row__title">{% if next_meeting %}{{ next_meeting|weekday_date|capfirst }}{% else %}Quien guía el grupo te avisará{% endif %}</p>
+            {% if next_meeting and group.meeting_time or group.meeting_place %}<p class="row__meta">{% if next_meeting and group.meeting_time %}{{ group.meeting_time|time:"H:i" }}{% if group.meeting_place %}, {% endif %}{% endif %}{{ group.meeting_place }}</p>{% endif %}
+          </div>
+        </li>
+      </ul>
     </section>
   {% elif pending %}
-    <div class="notice notice--info">
-      <p><strong>Ya pediste unirte.</strong> Quien guía el grupo te responderá. Lo verás en Mi iglesia.</p>
-    </div>
-  {% elif group.is_open %}
-    <section class="sign sign--lead" aria-labelledby="unirme">
-      <div>
-        <h2 id="unirme" class="sign__title">¿Quieres unirte a este grupo?</h2>
-        <p class="sign__text">Quien guía el grupo verá tu nombre y cómo contactarte, y te responderá.</p>
-      </div>
-      <form class="sign__actions" method="post" action="{% url 'community:group_request' group.pk %}">
+    <section class="sign" aria-labelledby="pedido">
+      <h2 id="pedido" class="sign__title">Ya pediste unirte.</h2>
+      <ul class="meta">
+        <li>{% status "por_evaluar" "Por decidir" %}</li>
+        <li>{% icon "calendario" "sm" %}<span class="visually-hidden">Lo pediste el </span>{{ pending.created_at|day_month }}</li>
+      </ul>
+      <form class="sign__actions" method="post" action="{% url 'community:group_withdraw' group.pk %}" data-inline="pertenencia">
         {% csrf_token %}
-        <button class="btn btn--on-dark btn--large" type="submit">Pedir unirme</button>
+        <button class="btn btn--secondary" type="submit">Retirar mi solicitud</button>
+      </form>
+    </section>
+  {% elif group.is_open %}
+    <section class="sign" aria-labelledby="unirme">
+      <h2 id="unirme" class="sign__title">¿Quieres unirte a este grupo?</h2>
+      <p class="sign__text">Quien guía el grupo verá tu nombre y cómo contactarte, y te responderá.</p>
+      <form class="sign__actions" method="post" action="{% url 'community:group_request' group.pk %}" data-inline="pertenencia">
+        {% csrf_token %}
+        <button class="btn btn--primary btn--large" type="submit">Pedir unirme</button>
       </form>
     </section>
   {% else %}
-    <div class="notice notice--quiet"><p>Este grupo no está recibiendo solicitudes por ahora.</p></div>
+    <p class="empty-line">Por ahora este grupo no recibe solicitudes.</p>
   {% endif %}
+  </div>
 
-  <section class="block" aria-labelledby="datos">
-    <h2 id="datos" class="heading">Sobre el grupo</h2>
-    <dl class="summary-list">
-      {% if group.audience %}<div class="summary-list__row"><dt>Para quién es</dt><dd>{{ group.audience }}</dd></div>{% endif %}
-      <div class="summary-list__row"><dt>Cuándo se reúnen</dt><dd>{{ group.schedule|default:"Todavía no tiene día de reunión" }}</dd></div>
-      <div class="summary-list__row"><dt>Quién lo guía</dt><dd>{{ group.leader_names|join:", "|default:"Todavía no tiene guía" }}</dd></div>
-      {% if membership or can_manage %}<div class="summary-list__row"><dt>Dónde se reúnen</dt><dd>{{ group.meeting_place|default:"Todavía no se ha dicho" }}</dd></div>{% endif %}
-    </dl>
-    {% if not membership and not can_manage %}<p class="aside-note">El lugar de reunión lo ven solo quienes ya son parte del grupo.</p>{% endif %}
+  {% if can_manage %}
+  <section class="block" aria-labelledby="guiar">
+    <h2 id="guiar" class="heading">Para quien lo guía</h2>
+    <ul class="rows">
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "personas" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'community:group_people' group.pk %}">Personas</a></p>
+          <p class="row__meta">{{ members }} en el grupo</p>
+        </div>
+      </li>
+      <li class="row row--lead">
+        <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
+        <div class="row__main">
+          <p class="row__title"><a href="{% url 'community:group_meetings' group.pk %}">Reuniones</a></p>
+          <p class="row__meta">Pasar lista</p>
+        </div>
+      </li>
+    </ul>
   </section>
+  {% endif %}
 
   {% if attendance %}
   <section class="block" aria-labelledby="asistencia">
     <h2 id="asistencia" class="heading">Tu asistencia</h2>
-    {% if attendance_total > attendance|length %}<p class="list-count">Las últimas {{ attendance|length }} de {{ attendance_total }} reuniones con lista desde que eres parte del grupo.</p>{% endif %}
-    <ul class="rows own-attendance">
+    {% if attendance_total > attendance|length %}<p class="list-count">Las últimas {{ attendance|length }} de {{ attendance_total }} reuniones.</p>{% endif %}
+    <ul class="rows dates own-attendance">
       {% for meeting in attendance %}
-        <li class="row"><span class="row__main">{{ meeting.date|weekday_date|capfirst }}</span><span class="row__end">{% if meeting.came %}<strong>Fuiste</strong>{% else %}No fuiste{% endif %}</span></li>
+        <li class="row row--lead">
+          {% date_block meeting.date %}
+          <div class="row__main"><p class="row__title"><span class="visually-hidden">{{ meeting.date|weekday_date|capfirst }}: </span>{% if meeting.came %}{% status "completada" "Fuiste" %}{% else %}{% status "descartada" "No fuiste" %}{% endif %}</p></div>
+        </li>
       {% endfor %}
     </ul>
     <p class="aside-note">Esto lo ves solo tú. Quien guía el grupo pasa la lista; si algo no coincide, díselo.</p>
   </section>
   {% endif %}
 
-  {% if can_manage %}
-  <section class="block" aria-labelledby="guiar">
-    <h2 id="guiar" class="heading">Para quien guía el grupo</h2>
-    <p>{{ members }} persona{{ members|pluralize }} en el grupo.</p>
-    <div class="step__actions">
-      <a class="btn btn--secondary" href="{% url 'community:group_people' group.pk %}">Personas y solicitudes</a>
-      <a class="btn btn--secondary" href="{% url 'community:group_meetings' group.pk %}">Reuniones y asistencia</a>
-      {% if request.is_church_admin and group.is_active %}<a class="btn btn--link" href="{% url 'community:group_edit' group.pk %}">Editar el grupo</a>{% endif %}
-    </div>
-  </section>
-  {% endif %}
-
-  {% if pending %}
-    <form method="post" action="{% url 'community:group_withdraw' group.pk %}">
-      {% csrf_token %}
-      <p class="more"><button class="btn btn--link" type="submit">Retirar mi solicitud</button></p>
-    </form>
-  {% elif membership and not membership.is_leader %}
-    <p class="more"><a href="{% url 'community:group_leave' group.pk %}">Salir del grupo</a></p>
+  {% if membership and not membership.is_leader %}
+    <p class="block salir"><a class="btn btn--link btn--quieto" href="{% url 'community:group_leave' group.pk %}">Salir del grupo</a></p>
   {% endif %}
 </div>
 {% endblock %}

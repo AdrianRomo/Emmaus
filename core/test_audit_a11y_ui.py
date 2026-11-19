@@ -134,8 +134,9 @@ class ChurchColourFormTests(TestCase):
 
     def test_the_form_says_the_rule_before_it_fails(self):
         html = self.client.get(reverse("church_settings")).content.decode()
-        self.assertIn("Necesita un contraste de al menos 4.5 a 1 sobre blanco.", html)
-        self.assertIn("Necesita un contraste de al menos 3 a 1 sobre blanco.", html)
+        # Once for the group, under the two colours it is about
+        self.assertIn("Sobre blanco, el color principal necesita un contraste de al menos 4.5 a 1 y el de “estás aquí”, de al menos 3 a 1.", html)
+        self.assertIn("necesitan un contraste de al menos 4.5 a 1 sobre el fondo y sobre los campos y paneles.", html)
 
     def test_the_page_theme_has_a_darker_hover(self):
         self.assertRedirects(self.post(theme_primary_color="#B45309"), reverse("church_settings"))
@@ -174,6 +175,14 @@ class DiscipleshipStatusMarkTests(EmmausFixture):
             church=self.church, participant=self.participant, question_text="¿Cómo oro?", status=ParticipantQuestion.Status.ESCALATED
         )
         self.client.force_login(self.pastor)
+        # On the home it waits in the list whose title says the state ("Para el pastor"), without a pill of its own.
         html = self.client.get(reverse("church_dashboard")).content.decode()
-        self.assertIn('<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>Pasada al pastor</span>', html)
+        section = html.split('id="preguntas" class="heading">Para el pastor', 1)[1].split("</section>", 1)[0]
+        self.assertIn("Pat Participant", section)
         self.assertNotIn('status--pending"><span class="status__mark" aria-hidden="true"></span>Pasada al pastor', html)
+        # Where a list mixes states, its pill has the half mark of what waits for somebody.
+        for url in (reverse("questions_inbox"), reverse("escalations")):
+            with self.subTest(url=url):
+                html = self.client.get(url).content.decode()
+                self.assertIn('<span class="status status--review"><span class="status__mark" aria-hidden="true"></span>Pasada al pastor</span>', html)
+                self.assertNotIn('status--pending"><span class="status__mark" aria-hidden="true"></span>Pasada al pastor', html)

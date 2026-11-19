@@ -41,7 +41,7 @@ from .test_ui import ENGLISH, analyse
 
 SIGN = re.compile(r'class="sign[ "]')
 NOT_FOUND = "No encontramos ese evento. Revisa lo que escribiste o pregunta a quien organiza."
-ANSWER = ("Listo. La administración de Campamento A revisará tu solicitud. Cuando te den acceso podrás entrar con tu correo; "
+ANSWER = ("La administración de Campamento A revisará tu solicitud. Cuando te den acceso podrás entrar con tu correo; "
           "si es tu primera vez, te darán un enlace para crear tu contraseña.")
 CONSOLE = "django.core.mail.backends.console.EmailBackend"
 LOCMEM = "django.core.mail.backends.locmem.EmailBackend"
@@ -167,7 +167,7 @@ class JoinPageTests(JoinFixture):
         response = self.client.get(reverse("join"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "¿Vas a ayudar en un evento?")
-        self.assertContains(response, "Escribe el código o el nombre del evento que te dieron.")
+        self.assertNotContains(response, 'class="lede"')  # the label says what goes in the field
         self.assertContains(response, '<label class="label" for="id_clave">Código o nombre del evento</label>', html=False)
         self.assertContains(response, "Buscar el evento")
         self.assertContains(response, 'class="input search__input"')
@@ -679,7 +679,7 @@ class EntryRedirectTests(JoinFixture):
 
     def test_sign_in_and_the_empty_list_point_to_the_join_page(self):
         response = self.client.get(reverse("login"))
-        self.assertContains(response, f'¿Vas a ayudar en un evento? <a href="{reverse("join")}">Únete con el código del evento</a>. Si ya formas parte del equipo, entra con tu correo.', html=False)
+        self.assertContains(response, f'¿Vas a ayudar en un evento? <a href="{reverse("join")}">Únete con el código</a>', html=False)
         self.login(make_user("sin-evento@prueba.mx", "Sara", "Sola"))
         response = self.client.get(reverse("events:list") + "?todos=1")
         self.assertContains(response, "Aún no formas parte de ningún evento")

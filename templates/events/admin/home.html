@@ -1,18 +1,30 @@
 {% extends rotulo_shell %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Inicio{% endblock %}
 {% block content %}
 <header class="report-head">
   <div class="report-head__text">
     <h1 class="voice report-head__title">{{ event.name }}</h1>
+    {% if ui_v2 %}
+    {% comment %}The rail already says the event and the role: here only what changes (the state, where, the next cutoff), as facts.{% endcomment %}
+    <ul class="meta report-head__meta">
+      {% now "Y-m-d" as today %}<li>{% if event.status == "archivado" %}{% status "archivado" event.get_status_display %}{% elif event.status == "cerrado" %}{% status "completada" "Terminó" %}{% elif event.ends_on|default:event.starts_on and event.ends_on|default:event.starts_on|date:"Y-m-d" < today %}{% status "completada" "Terminó" %}{% elif event.status == "activo" %}{% status "en_curso" event.get_status_display %}{% else %}{% status "pendiente" event.get_status_display %}{% endif %}</li>
+      {% if event.location %}<li>{% icon "lugar" "sm" %}{{ event.location }}</li>{% endif %}
+      {% if next_cutoff %}<li>{% icon "reloj" "sm" %}Próximo corte: {{ next_cutoff|date:"H:i" }}</li>{% endif %}
+    </ul>
+    {% else %}
     <p class="report-head__meta">{{ event.get_kind_display }} {{ event.get_status_display|lower }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if next_cutoff %} Próximo corte a las {{ next_cutoff|date:"H:i" }}.{% endif %} Tu rol: {{ access.role_label|lower }}.</p>
+    {% endif %}
     {# The time changes every 30 s and is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
     <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
     <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>
   </div>
+  {% comment %}With the shell, "Camperos" is one press away in the rail and in the tabs: the button would say it twice.{% endcomment %}
+  {% if not ui_v2 %}
   <div class="report-head__actions">
     <a class="btn btn--secondary" href="{% url 'events:participants' event.slug %}">Ver camperos</a>
   </div>
+  {% endif %}
 </header>
 {% include "partials/ui/welcome.html" with welcome=welcome %}
 {% include "events/admin/_newer_versions.html" %}

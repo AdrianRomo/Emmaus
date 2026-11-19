@@ -1,14 +1,16 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Personas{% endblock %}
 {% block content %}
 {% comment %}
   The church's people, for its administration (people.views.person_list). A person is here whether or not they
-  have an account, and whether or not they went to an event.
+  have an account, and whether or not they went to an event. Each row is the person's circle and name, the way into
+  their page, their stage when somebody wrote it down, and whether they can sign in. The search and the two filters
+  (stage, tag) are one GET form.
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as back %}{% url 'people:create' as create %}{% url 'people:from_event_list' as from_event %}
-  {% include "events/rotulo/_page_head.html" with title="Personas" lede="Quienes forman parte de la iglesia, tengan o no acceso a Emmaus." back_url=back back_label="Volver a Mi iglesia" action_url=create action_label="Registrar a una persona" secondary_url=from_event secondary_label="Traer de un evento" %}
+  {% url 'people:create' as create %}{% url 'people:from_event_list' as from_event %}
+  {% include "events/rotulo/_page_head.html" with title="Personas" action_url=create action_label="Registrar a una persona" secondary_url=from_event secondary_label="Traer de un evento" %}
   {% if total %}
   <form class="filter-bar people-filters" method="get" role="search" aria-label="Buscar y filtrar personas">
     <div class="field filter-bar__search">
@@ -37,24 +39,31 @@
   </form>
   {% endif %}
   <section class="block" aria-labelledby="lista">
-    <h2 id="lista" class="heading">{% if filtered %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% else %}{{ total }} persona{{ total|pluralize }}{% endif %}</h2>
     {% if page.object_list %}
-      <ul class="rows">
+      <div class="heading-row">
+        <h2 id="lista" class="heading">{% if filtered %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% else %}{{ total }} persona{{ total|pluralize }}{% endif %}</h2>
+        {% if filtered %}<a href="{% url 'people:list' %}">Ver a todas<span class="visually-hidden"> las personas</span></a>{% endif %}
+      </div>
+      <ul class="rows personas-lista">
         {% for person in page %}
-          <li class="row">
+          <li class="row row--lead">
+            {% monogram person.full_name %}
             <div class="row__main">
-              <p class="row__title"><a class="row__link" href="{% url 'people:detail' person.pk %}">{{ person.full_name }}</a></p>
-              <p class="row__meta">{% if person.stage %}{{ person.get_stage_display }}. {% endif %}{% if person.user_id %}Con acceso a Emmaus.{% else %}Sin acceso a Emmaus.{% endif %}</p>
+              <p class="row__title"><a href="{% url 'people:detail' person.pk %}">{{ person.full_name }}</a></p>
+              {% if person.stage %}<p class="row__meta">{{ person.get_stage_display }}</p>{% endif %}
             </div>
-            <a class="btn btn--secondary btn--small" href="{% url 'people:detail' person.pk %}">Abrir<span class="visually-hidden"> a {{ person.full_name }}</span></a>
+            <div class="row__end">{% if person.user_id %}{% status "completada" "Con acceso" %}{% else %}{% status "pendiente" "Sin acceso" %}{% endif %}</div>
           </li>
         {% endfor %}
       </ul>
       {% include "partials/ui/pager.html" with page=page label="Páginas de personas" %}
     {% elif filtered %}
-      <p class="empty-line">{% if query and not stage and not tag %}Nadie se llama así.{% else %}Nadie coincide con lo que buscas.{% endif %} <a href="{% url 'people:list' %}">Ver a todas las personas</a>.</p>
+      <h2 id="lista" class="visually-hidden">Resultados</h2>
+      {% url 'people:list' as everybody %}
+      {% if query and not stage and not tag %}{% include "partials/ui/empty.html" with title="Nadie se llama así" action_url=everybody action_label="Ver a todas las personas" %}{% else %}{% include "partials/ui/empty.html" with title="Nadie coincide con lo que buscas" action_url=everybody action_label="Ver a todas las personas" %}{% endif %}
     {% else %}
-      <p class="empty-line">Todavía no hay personas registradas. Registra a la primera o trae a quienes fueron a un evento.</p>
+      <h2 id="lista" class="visually-hidden">Personas</h2>
+      {% include "partials/ui/empty.html" with title="Sin personas todavía" action_url=create action_label="Registrar a una persona" %}
     {% endif %}
   </section>
   {% if total > 1 %}<p class="more"><a href="{% url 'people:duplicates' %}">Revisar posibles duplicados</a></p>{% endif %}

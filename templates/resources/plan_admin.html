@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}Administrar los planes de lectura{% endblock %}
 {% block content %}
 {% comment %}
@@ -7,19 +7,18 @@
   about who started or read one, and no number of readers: that belongs to each person.
 {% endcomment %}
 <div class="narrow">
-  {% url 'resources:plan_list' as back %}{% url 'resources:plan_create' as create %}
-  {% include "events/rotulo/_page_head.html" with title="Administrar los planes de lectura" lede="Un plan son varios días de lectura que escribe tu iglesia. Tú lo preparas y pides su aprobación; un pastor lo aprueba y entonces se publica." back_url=back back_label="Volver a los planes de lectura" action_url=create action_label="Escribir un plan" %}
+  {% url 'resources:plan_create' as create %}
+  {% include "events/rotulo/_page_head.html" with title="Administrar los planes de lectura" action_url=create action_label="Escribir un plan" %}
+  {% include "resources/_admin_nav.html" with current="planes" %}
   {% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}
   {% if plans %}
     <ul class="rows">
       {% for plan in plans %}
-        <li class="row row--lead row--stack">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "plan" %}</span>
           <div class="row__main">
             <p class="row__title"><a href="{% url 'resources:plan_days' plan.pk %}">{{ plan.title }}</a></p>
-            <p class="row__meta">{% if plan.approval.is_pending %}Espera la aprobación pastoral{% if plan.is_retired %}: sigue retirado mientras tanto{% else %}: nadie lo ve todavía{% endif %}.{% elif plan.approval.is_returned %}Un pastor lo devolvió sin aprobarlo: ábrelo para leer el motivo.{% elif plan.approval.is_changed %}Fuera de publicación: cambió después de publicarse. Pide la aprobación otra vez.{% elif plan.is_draft %}Borrador: nadie lo ve todavía.{% elif plan.is_published %}Publicado: las personas de la iglesia lo pueden empezar.{% else %}Retirado: nadie lo puede empezar.{% endif %}</p>
-          </div>
-          <div class="row__end">
-            {% if plan.approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% elif plan.approval.is_returned %}{% status "revisar" "Devuelto" %}{% elif plan.approval.is_changed %}{% status "revisar" "Fuera de publicación" %}{% elif plan.is_draft %}{% status "borrador" "Borrador" %}{% elif plan.is_published %}{% status "publicada" "Publicado" %}{% else %}{% status "retirada" "Retirado" %}{% endif %}
+            <p class="row__meta row__meta--con-marca">{% if plan.approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}<span>espera la aprobación pastoral{% if plan.is_retired %}: sigue retirado mientras tanto{% else %}: nadie lo ve todavía{% endif %}</span>{% elif plan.approval.is_returned %}{% status "revisar" "Devuelto" %}<span>un pastor lo devolvió sin aprobarlo: ábrelo para leer el motivo</span>{% elif plan.approval.is_changed %}{% status "revisar" "Fuera de publicación" %}<span>cambió después de publicarse. Pide la aprobación otra vez</span>{% elif plan.is_draft %}{% status "borrador" "Borrador" %}<span>nadie lo ve todavía</span>{% elif plan.is_published %}{% status "publicada" "Publicado" %}<span>las personas de la iglesia lo pueden empezar</span>{% else %}{% status "retirada" "Retirado" %}<span>nadie lo puede empezar</span>{% endif %}</p>
           </div>
         </li>
       {% endfor %}
@@ -27,8 +26,9 @@
     {% include "partials/ui/pager.html" with page=plans label="Páginas de planes de lectura" %}
     <p class="more"><a href="{% url 'resources:approval_queue' %}">Ver lo que espera aprobación pastoral</a></p>
   {% else %}
-    <p class="empty-line">Todavía no hay planes de lectura. Escribe el primero: se guarda como borrador hasta que pidas su aprobación y un pastor lo apruebe.</p>
+    {% include "partials/ui/empty.html" with title="Todavía no hay planes de lectura" text="Se guardan como borrador hasta que pidas su aprobación y un pastor los apruebe." action_url=create action_label="Escribir un plan" %}
   {% endif %}
+  <p class="aside-note">Tú preparas cada plan y pides su aprobación; un pastor lo aprueba y entonces se publica.</p>
   <p class="aside-note">Emmaus no muestra quién empezó un plan ni cuántas personas lo leen: eso es de cada quien.</p>
 </div>
 {% endblock %}

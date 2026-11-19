@@ -525,7 +525,10 @@ def build_snapshot_pdf(snapshot, payload: dict, *, delta: dict | None = None, pr
                 block += [Paragraph(f"<b>{escape(outcome.get('questionnaire') or '')}</b>", styles["lede"]), Spacer(1, 4)]
             title = escape(outcome["title"])
             sep = " " if title.rstrip()[-1:] in "?!." else ". "
-            block.append(Paragraph(f"<b>{title}</b>{sep}Respondieron {escape(_about(outcome['respondents'], 'personas'))}.", styles["body"]))
+            # «Prefiero no responder» is not an answer: said apart, after the respondents (metrics.present_outcomes).
+            declined = outcome.get("declined")
+            said_apart = f" {escape(_about(declined).capitalize())} prefirieron no responder." if declined else ""
+            block.append(Paragraph(f"<b>{title}</b>{sep}Respondieron {escape(_about(outcome['respondents'], 'personas'))}.{said_apart}", styles["body"]))
             if outcome["withheld"]:
                 block.append(Paragraph("Aún no hay suficientes respuestas para mostrar este resumen.", styles["small"]))
             else:

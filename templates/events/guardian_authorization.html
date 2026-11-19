@@ -1,7 +1,31 @@
 {% extends rotulo_shell %}
 {% block page_title %}Registrar la autorización{% endblock %}
 {% block content %}
-{% comment %}
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): the question as the title; who it is about and in whose name it is recorded as facts;
+  what is attested, word for word, as the one note beside the button that attests it (the button is described by it).
+  "Marcar como recibida" is a legal attestation: only this button records it. Undo: "Quitar la autorización".
+{% endcomment %}
+<div class="narrow">
+{% with title="¿La iglesia tiene la autorización firmada de "|add:participant.first_name|add:"?" %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name %}
+{% endwith %}
+<dl class="summary-list">
+  <div class="summary-list__row"><dt>Campero</dt><dd>{{ participant.full_name }}, #{{ participant.code }}, {{ participant.age }} años</dd></div>
+  <div class="summary-list__row"><dt>Queda registrado a nombre de</dt><dd>{{ request.user.get_full_name|default:request.user.email }}, con la fecha y la hora de hoy</dd></div>
+</dl>
+<form method="post" class="block">
+  {% csrf_token %}
+  <input type="hidden" name="confirmar" value="si">
+  <input type="hidden" name="siguiente" value="{{ after }}">
+  <p class="aside-note" id="se-confirma">Confirmas que la autorización firmada del padre, la madre o el tutor legal de {{ participant.full_name }} está en manos de la iglesia. Confírmalo solo si viste el formato firmado. Con esto, quien lo entreviste ya no tendrá que confirmarlo antes de empezar. Si te equivocas, puedes quitarla desde su ficha.</p>
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit" aria-describedby="se-confirma">Sí, la iglesia la tiene</button>
+    <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+  </div>
+</form>
+</div>
+{% else %}{% comment %}
   "Marcar como recibida" is a legal attestation: this page says what is attested and in whose name, and only
   its button records it (a stale one-click form lands here instead). Undo: "Quitar la autorización".
 {% endcomment %}
@@ -25,4 +49,4 @@
   </div>
 </form>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

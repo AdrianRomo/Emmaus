@@ -1,20 +1,42 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if person %}Editar a {{ person.full_name }}{% else %}Registrar a una persona{% endif %}{% endblock %}
 {% block content %}
+{% comment %}A person of the church, as the administration registers or corrects them (people.views.person_create, person_edit): who they are, then how to reach them.{% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if person %}
     {% url 'people:detail' person.pk as back %}
-    {% include "events/rotulo/_page_head.html" with title="Editar los datos" back_url=back back_label="Volver a la persona" %}
+    {% include "events/rotulo/_page_head.html" with title="Editar los datos" meta=person.full_name back_url=back back_label="Volver a la persona" %}
   {% else %}
     {% url 'people:list' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Registrar a una persona" lede="Solo el nombre es obligatorio. Registrar a alguien no le da acceso a Emmaus: eso se decide después." back_url=back back_label="Volver a Personas" %}
+    {% include "events/rotulo/_page_head.html" with title="Registrar a una persona" back_url=back back_label="Volver a Personas" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <section class="form-section" aria-labelledby="quien">
+      <h2 id="quien" class="form-section__title">Quién es</h2>
+      {% include "partials/ui/field.html" with field=form.first_name %}
+      {% include "partials/ui/field.html" with field=form.last_name %}
+      {% include "partials/ui/field.html" with field=form.birth_date %}
+    </section>
+    <section class="form-section" aria-labelledby="contacto">
+      <h2 id="contacto" class="form-section__title">Contacto</h2>
+      {% include "partials/ui/field.html" with field=form.email %}
+      {% include "partials/ui/field.html" with field=form.phone %}
+      {% include "partials/ui/field.html" with field=form.preferred_contact_method %}
+    </section>
+    <section class="form-section" aria-labelledby="en-la-iglesia">
+      <h2 id="en-la-iglesia" class="form-section__title">En la iglesia</h2>
+      {% include "partials/ui/field.html" with field=form.stage %}
+      {% include "partials/ui/field.html" with field=form.baptized_on %}
+      {% include "partials/ui/field.html" with field=form.arrived_on %}
+      {% include "partials/ui/field.html" with field=form.member_since %}
+    </section>
+    {% if not person %}<p class="aside-note">Solo el nombre es obligatorio. Registrar a alguien no le da acceso a Emmaus: eso se decide después.</p>{% endif %}
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if person %}Guardar cambios{% else %}Registrar{% endif %}</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
 </div>

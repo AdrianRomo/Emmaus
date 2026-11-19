@@ -1,0 +1,24 @@
+{% comment %}
+  A participant's question in a leader's list (the inbox, "para el pastor", the two homes): who asked, the first
+  words, when, how carefully to treat it and its state. question; url: the page that opens it; hide_state: for a
+  list whose title already says the state. The row is the link. With the redesign the state, the care it asks for
+  and the day share one line of facts, so a phone keeps the text whole.
+{% endcomment %}{% load emmaus shell community %}{% with name=question.participant.get_full_name|default:question.participant.email %}{% if ui_v2 %}
+<li class="row row--lead">
+  {% monogram name %}
+  <div class="row__main">
+    <p class="row__title"><a href="{{ url }}">{{ name }}</a></p>
+    <p class="row__meta">{{ question.question_text|truncatewords:24 }}</p>
+    <p class="row__meta row__meta--con-marca">{% if not hide_state %}{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}{% endif %}{% include "core/rotulo/_cuidado.html" %}<span>Enviada el {{ question.created_at|day_month }}</span></p>
+  </div>
+</li>
+{% else %}
+<li class="row disc-item">
+  <div class="row__main">
+    <p class="row__title"><a class="row__link" href="{{ url }}">{{ name }}</a></p>
+    <p class="disc-item__text">{{ question.question_text|truncatewords:24 }}</p>
+    <p class="row__meta">{% if question.sensitivity_level != "normal" %}<span class="privacy__tag">{{ question.get_sensitivity_level_display }}</span>{% endif %}Enviada el {{ question.created_at|fecha_corta }}.</p>
+  </div>
+  {% if not hide_state %}{% include "core/rotulo/_acompanamiento_estado.html" with value=question.status label=question.get_status_display %}{% endif %}
+</li>
+{% endif %}{% endwith %}

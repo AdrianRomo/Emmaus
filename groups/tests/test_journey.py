@@ -22,10 +22,10 @@ class CampToGroupJourneyTests(CommunityFixture):
 
         home = self.client.get(reverse("dashboard"), follow=True)
         self.assertEqual(home.redirect_chain[-1][0], reverse("community:home"))
-        self.assertContains(home, "Hola, Diego.")
+        self.assertContains(home, '<h1 class="voice hoy__titulo">Hoy</h1>')
         self.assertContains(home, "Donde has estado")
         self.assertContains(home, "Campamento A")
-        self.assertContains(home, "¿Buscas un grupo?")
+        self.assertContains(home, "Encuentra tu grupo")
 
         listing = self.client.get(reverse("community:groups"))
         self.assertContains(listing, "Jóvenes Roca")
@@ -43,7 +43,7 @@ class CampToGroupJourneyTests(CommunityFixture):
 
         self.client.force_login(self.leader_user)
         leader_home = self.client.get(reverse("community:home"))
-        self.assertContains(leader_home, "¿Recibes a 2 personas en tu grupo?")
+        self.assertContains(leader_home, "Diego Hernández Cruz quiere unirse a Jóvenes Roca")  # each request raised on its own
         people = self.client.get(reverse("community:group_people", args=[self.group.pk]))
         self.assertContains(people, "Diego Hernández Cruz")
         self.assertContains(people, "55 1111 2222")
@@ -55,7 +55,7 @@ class CampToGroupJourneyTests(CommunityFixture):
         self.client.force_login(self.member_user)
         home = self.client.get(reverse("community:home"))
         self.assertContains(home, "Jóvenes Roca")
-        self.assertContains(home, "Próxima reunión: jueves")
+        self.assertContains(home, "Se reúne el jueves")
         self.assertContains(self.client.get(reverse("community:group_detail", args=[self.group.pk])), "Salón 2")
 
         # One person, one account, the same camp record; and the camp record did not change.
@@ -119,7 +119,7 @@ class CampToGroupJourneyTests(CommunityFixture):
         """Scenario 8, and invariant 7: the notice names nobody and says nothing of the decision."""
         self.client.force_login(self.member_user)
         response = self.client.post(reverse("community:group_request", args=[self.group.pk]), follow=True)
-        self.assertContains(response, "le avisamos por correo a quien lo guía")
+        self.assertContains(response, "Le avisamos por correo a quien lo guía.")
         self.assertEqual(mail.outbox[0].to, [self.leader_user.email])
         self.assertNotIn("Diego", mail.outbox[0].body + mail.outbox[0].subject)
         request = GroupJoinRequest.objects.get(group=self.group, person=self.member)
@@ -131,5 +131,5 @@ class CampToGroupJourneyTests(CommunityFixture):
         self.assertEqual(mail.outbox[1].to, [self.member_user.email])
         self.assertNotIn("Jóvenes Roca", mail.outbox[1].body)
         self.client.force_login(self.member_user)
-        self.assertContains(self.client.get(reverse("community:home")), "Esta vez no fue posible unirte.")
+        self.assertContains(self.client.get(reverse("community:home")), "Habla con quien lo guía o busca otro grupo.")
         self.assertFalse(GroupMembership.objects.filter(person=self.member).exists())

@@ -1,1 +1,3 @@
-{% if item.ends_at %}De {{ item.starts_at|time:"H:i" }} a {{ item.ends_at|time:"H:i" }}{% else %}A las {{ item.starts_at|time:"H:i" }}{% endif %}{% if item.place %}, en {{ item.place }}{% endif %}.
+{% load shell %}{% comment %}
+  One moment of the programme, after its hour (the row draws it): until when, and where. Needs: item.
+{% endcomment %}{% if item.ends_at or item.place %}<ul class="meta">{% if item.ends_at %}<li>{% icon "reloj" "sm" %}Hasta las {{ item.ends_at|time:"H:i" }}</li>{% endif %}{% if item.place %}<li>{% icon "lugar" "sm" %}{{ item.place }}</li>{% endif %}</ul>{% endif %}

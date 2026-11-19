@@ -16,6 +16,10 @@ from people.models import ChurchAuditEvent
 LIST = reverse("notices:list")
 CREATE = reverse("notices:create")
 SECRET = "La llave está bajo la maceta azul"
+# A notice this person has not opened, drawn as Mi iglesia draws it: an ink dot in the leading slot, and the words
+# for a screen reader.
+UNREAD_ROW = '<span class="hoy__punto"></span>'
+UNREAD_WORDS = '<span class="visually-hidden">Sin leer</span>'
 
 
 def detail(notice):
@@ -58,10 +62,12 @@ class NoticeTests(CommunityFixture):
         self.client.force_login(self.member_user)
         page = self.client.get(LIST)
         self.assertContains(page, "Retiro de noviembre")
-        self.assertContains(page, "Para toda la iglesia")
-        self.assertContains(page, "Nuevo")
+        self.assertContains(self.client.get(detail(notice)), "Para toda la iglesia")
+        self.assertContains(page, UNREAD_ROW, count=1)
+        self.assertContains(page, UNREAD_WORDS, count=1)
         self.assertNotContains(page, "Publicar un aviso")
-        self.assertNotContains(page, "Avisos que publicaste")
+        self.assertNotContains(page, "Los que publicaste")
+        self.assertNotContains(page, 'id="publicaste"')
         page = self.client.get(detail(notice))
         self.assertContains(page, SECRET)
         self.assertNotContains(page, "Retirar el aviso")
@@ -78,13 +84,14 @@ class NoticeTests(CommunityFixture):
         notice = Announcement.objects.get()
         self.assertEqual((notice.group, notice.created_by), (self.group, self.leader_user))
         page = self.client.get(LIST)
-        self.assertContains(page, "Avisos que publicaste")
-        self.assertNotContains(page, "Nuevo")  # who publishes has read it
+        self.assertContains(page, '<h2 id="publicaste" class="heading">Los que publicaste</h2>', html=True)
+        self.assertNotContains(page, UNREAD_ROW)  # who publishes has read it
+        self.assertNotContains(page, UNREAD_WORDS)
         # The member of the group reads it; the administration too.
         for user in (self.member_user, self.admin):
             self.client.force_login(user)
-            self.assertContains(self.client.get(LIST), "Para Jóvenes Roca")
-            self.assertEqual(self.client.get(detail(notice)).status_code, 200)
+            self.assertContains(self.client.get(LIST), "Jóvenes Roca</span>")  # its group, under its title
+            self.assertContains(self.client.get(detail(notice)), "Para Jóvenes Roca")
 
     def test_a_guide_cannot_publish_for_the_church_or_for_a_group_they_do_not_guide(self):
         self.client.force_login(self.leader_user)
@@ -121,7 +128,11 @@ class NoticeTests(CommunityFixture):
 
         self.client.force_login(self.leader_user)
         self.assertContains(self.client.get(detail(notice)), "Retirar el aviso")
-        self.assertNotContains(self.client.get(edit), "Para quién")
+        # Who it is for is not asked again: the field is not on the form, and the page says why.
+        edit_page = self.client.get(edit)
+        self.assertNotContains(edit_page, 'name="para"')
+        self.assertNotContains(edit_page, "Para quién</label>")
+        self.assertContains(edit_page, "Para quién es no se puede cambiar: si era para alguien más, retira este aviso y publica otro.")
         self.assertContains(self.client.post(edit, new, follow=True), "Nos vemos a las siete.")
         self.client.force_login(self.admin)
         confirm = self.client.get(retire)
@@ -203,20 +214,26 @@ class NoticeTests(CommunityFixture):
         self.assertEqual(self.client.get(detail(notice)).status_code, 404)
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(LIST), "Retirado")
-        self.assertContains(self.client.get(detail(notice)), "ya nadie lo ve")
+        retired = self.client.get(detail(notice))
+        self.assertContains(retired, "Retirado</span></li>")
+        self.assertContains(retired, '<p class="aside-note">Ya nadie lo ve en Mi iglesia.</p>', html=True)
 
     def test_opening_marks_it_read_and_the_list_writes_nothing(self):
         notice, other = self.church_notice(), self.group_notice()
         self.assertEqual(services.unread_count(self.member, is_admin=False), 2)
         self.client.force_login(self.member_user)
-        self.assertContains(self.client.get(LIST), "Nuevo", count=2)
+        listing = self.client.get(LIST)
+        self.assertContains(listing, UNREAD_ROW, count=2)
+        self.assertContains(listing, UNREAD_WORDS, count=2)
         self.assertFalse(AnnouncementRead.objects.filter(person=self.member).exists())
         self.client.get(detail(notice))
         self.client.get(detail(notice))  # idempotent
         self.assertEqual(AnnouncementRead.objects.filter(person=self.member).count(), 1)
         self.assertEqual(services.unread_count(self.member, is_admin=False), 1)
         self.assertEqual([n.is_unread for n in services.for_home(self.member, is_admin=False)], [True, False])
-        self.assertContains(self.client.get(LIST), "Nuevo", count=1)
+        listing = self.client.get(LIST)
+        self.assertContains(listing, UNREAD_ROW, count=1)
+        self.assertContains(listing, UNREAD_WORDS, count=1)
         self.assertEqual(services.unread_count(self.leader, is_admin=False), 2)  # one person's reading is theirs
         self.assertFalse(services.mark_read(other, self.member) and services.mark_read(other, self.member))
 
@@ -322,4 +339,5 @@ class NoticeTests(CommunityFixture):
             self.assertEqual(html.count("<h1"), 1, url)
             self.assertLessEqual(main.count("btn--primary"), 1, url)
             self.assertNotIn("·", main, url)
-            self.assertNotIn("<svg", main, url)
+            # An icon is a mark beside its word, never a control by itself: every one is hidden from a screen reader
+            self.assertEqual(main.count("<svg"), main.count('aria-hidden="true" focusable="false">'), url)

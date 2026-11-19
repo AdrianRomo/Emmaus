@@ -72,8 +72,8 @@ class Duplicated:
 class DuplicateSimpleForm(DuplicateEventForm):
     class Meta(DuplicateEventForm.Meta):
         help_texts = {
-            "starts_on": "Si lo dejas vacío, el programa no se copia: cada momento del programa necesita un día.",
-            "ends_on": "Déjalo vacío para que dure lo mismo que el original.",
+            "starts_on": "Sin día, el programa no se copia: cada momento necesita un día.",
+            "ends_on": "Vacío: dura lo mismo que el original.",
         }
 
     def __init__(self, *args, **kwargs):
@@ -146,7 +146,7 @@ def duplicate(request, slug: str):
             source, request.user, name=data["name"], slug=data["slug"], starts_on=data["starts_on"], ends_on=data["ends_on"]
         )
         copy = result.event
-        text = f"Listo. {copy.name} ya está creado, sin publicar. Revisa su página antes de publicarlo."
+        text = f"{copy.name} ya está creado, sin publicar. Revisa su página antes de publicarlo."
         if result.schedule_skipped:
             text += " El programa no se copió porque el evento todavía no tiene día."
         messages.success(request, text)

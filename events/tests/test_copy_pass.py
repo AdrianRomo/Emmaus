@@ -115,8 +115,8 @@ class BlockersSayWhatToDoTests(CampFixture):
             self.assertNotIn("todavía no", blocker, status)
 
 
-class MissingRequiredAnswerTests(CampFixture):
-    def test_the_error_names_the_question_that_is_missing(self):
+class NoAnswerIsRequiredToFinalizeTests(CampFixture):
+    def test_an_assisted_interview_with_every_question_blank_finalizes_whatever_an_old_flag_says(self):
         question = self.question("dudas")
         Question.objects.filter(pk=question.pk).update(required=True)  # a published version: only for this test
         # Published structures are cached in-process: rebuild it for this test, and put the cache back after.
@@ -126,10 +126,10 @@ class MissingRequiredAnswerTests(CampFixture):
             self.start(self.p2)
             interview = Interview.objects.get(participant=self.p2)
             response = self.client.post(self.url("interview_review", interview.public_id), {"revision": interview.revision, "follow_up_decision": "no_requerido"})
-        self.assertEqual(response.status_code, 200, response.get("Location"))
-        self.assertContains(response, f"Falta responder “{question.text}”. Toca “Cambiar” junto a ella.")
+        self.assertRedirects(response, self.url("interview_done", interview.public_id), fetch_redirect_response=False)
         interview.refresh_from_db()
-        self.assertEqual(interview.status, Interview.Status.IN_PROGRESS)
+        self.assertEqual(interview.status, Interview.Status.COMPLETED)
+        self.assertFalse(interview.answers.exists())
 
 
 class AiDraftMessagesTests(SimpleTestCase):

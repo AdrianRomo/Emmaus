@@ -1,6 +1,10 @@
 {% extends rotulo_shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if question.pk %}Editar pregunta{% else %}Nueva pregunta{% endif %}{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}
+{% comment %}
+  The redesign ("Ventanas"): the question, who may read its answer, and when it shows, as sections; the order and the
+  condition's codes folded. The levels of privacy stay beside the form, whole.
+{% endcomment %}
 {% include "partials/ui/error_summary.html" with form=form %}
 {% url 'events:version_detail' event.slug version.id as back_url %}
 {% with n=version.number|stringformat:"s" %}{% with back_label=version.title|add:", versión "|add:n %}
@@ -11,7 +15,67 @@
   {% endif %}
 {% endwith %}{% endwith %}
 <div class="split admin-split">
-  <form method="post" novalidate>{% csrf_token %}{% include "partials/ui/fields.html" with form=form %}
+  <form method="post" novalidate>{% csrf_token %}{% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <section class="form-section" aria-labelledby="f-pregunta">
+      <h2 id="f-pregunta" class="form-section__title">La pregunta</h2>
+      {% include "partials/ui/field.html" with field=form.text %}
+      {% include "partials/ui/field.html" with field=form.help_text %}
+      {% include "partials/ui/field.html" with field=form.kind %}
+    </section>
+    <section class="form-section" aria-labelledby="f-privacidad">
+      <h2 id="f-privacidad" class="form-section__title">Privacidad</h2>
+      {% include "partials/ui/field.html" with field=form.sensitivity %}
+    </section>
+    <details class="fold"{% if form.order.errors or form.condition_question.errors or form.condition_codes.errors or form.condition_question.value %} open{% endif %}>
+      <summary>Orden y cuándo se muestra</summary>
+      {% include "partials/ui/field.html" with field=form.order %}
+      {% include "partials/ui/field.html" with field=form.condition_question %}
+      {% include "partials/ui/field.html" with field=form.condition_codes %}
+    </details>
+    <div class="form-actions">
+      <button class="btn btn--primary" type="submit">Guardar pregunta</button>
+      <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
+    </div>
+  </form>
+  <aside aria-labelledby="niveles">
+    <h2 id="niveles" class="heading">Niveles de privacidad</h2>
+    <dl class="summary-list admin-levels">
+      <div class="summary-list__row"><dt>General</dt><dd>La ve quien puede ver al campero.</dd></div>
+      <div class="summary-list__row"><dt>Sensible</dt><dd>La ve su coordinador y el equipo de cuidado autorizado. En los resúmenes solo aparece en totales.</dd></div>
+      {% comment %}A questionnaire is the church's and several events may use it, each with its own level (admin.confidential_level): no single reader is promised here.{% endcomment %}<div class="summary-list__row"><dt>Confidencial</dt><dd>La leen las personas que permita cada evento que use este cuestionario (en Configuración, <a href="{% url 'events:confidential_level' event.slug %}">Respuestas confidenciales</a>). Úsala para temas íntimos y textos libres.</dd></div>
+    </dl>
+    <p class="aside-note">Ninguna pregunta es obligatoria: todas ofrecen “Prefiero no responder” y se pueden dejar sin responder.</p>
+    {% with choices=form.fields.condition_question.queryset %}{% if choices %}
+      <details class="fold">
+        <summary>Identificadores de las respuestas</summary>
+        <p class="aside-note">En «Respuestas que la muestran» escribe el identificador de cada respuesta, separado por comas.</p>
+        <dl class="summary-list">{% for cq in choices %}
+          <div class="summary-list__row"><dt>{{ cq.text }}</dt><dd>{% for o in cq.options.all %}{{ o.label }}, <code>{{ o.code }}</code>{% if not forloop.last %}; {% endif %}{% empty %}Sin respuestas todavía.{% endfor %}</dd></div>
+        {% endfor %}</dl>
+      </details>
+    {% endif %}{% endwith %}
+  </aside>
+</div>
+{% else %}{# v1 #}
+{% include "partials/ui/error_summary.html" with form=form %}
+{% url 'events:version_detail' event.slug version.id as back_url %}
+{% with n=version.number|stringformat:"s" %}{% with back_label=version.title|add:", versión "|add:n %}
+  {% if question.pk %}
+    {% include "events/rotulo/_page_head.html" with title="Editar pregunta" back_url=back_url back_label=back_label %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Nueva pregunta" back_url=back_url back_label=back_label %}
+  {% endif %}
+{% endwith %}{% endwith %}
+<div class="split admin-split">
+  {% comment %}Field by field: "Respuestas que la muestran" goes right under the question it depends on (the form declares it last).{% endcomment %}
+  <form method="post" novalidate>{% csrf_token %}{% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% include "partials/ui/field.html" with field=form.text %}
+    {% include "partials/ui/field.html" with field=form.help_text %}
+    {% include "partials/ui/field.html" with field=form.kind %}
+    {% include "partials/ui/field.html" with field=form.sensitivity %}
+    {% include "partials/ui/field.html" with field=form.order %}
+    {% include "partials/ui/field.html" with field=form.condition_question %}
+    {% include "partials/ui/field.html" with field=form.condition_codes %}
     <div class="step__actions">
       <button class="btn btn--primary" type="submit">Guardar pregunta</button>
       <a class="btn btn--link" href="{{ back_url }}">Cancelar</a>
@@ -24,7 +88,7 @@
       <div class="summary-list__row"><dt>Sensible</dt><dd>La ve su coordinador y el equipo de cuidado autorizado. En los resúmenes solo aparece en totales.</dd></div>
       {% comment %}A questionnaire is the church's and several events may use it, each with its own level (admin.confidential_level): no single reader is promised here.{% endcomment %}<div class="summary-list__row"><dt>Confidencial</dt><dd>La leen las personas que permita cada evento que use este cuestionario (en Configuración, <a href="{% url 'events:confidential_level' event.slug %}">Respuestas confidenciales</a>). Úsala para temas íntimos y textos libres.</dd></div>
     </dl>
-    <p class="aside-note">Las preguntas espirituales y de apoyo deben ser opcionales e incluir “Prefiero no responder”.</p>
+    <p class="aside-note">Ninguna pregunta es obligatoria: todas ofrecen “Prefiero no responder” y se pueden dejar sin responder.</p>
     {% with choices=form.fields.condition_question.queryset %}{% if choices %}
       {% comment %}"Respuestas que la muestran" takes internal identifiers; the questionnaire page folds them away, so they are listed here, folded too (LANG-05, UI-19).{% endcomment %}
       <details class="fold fold--inline">
@@ -39,4 +103,4 @@
     {% endif %}{% endwith %}
   </aside>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

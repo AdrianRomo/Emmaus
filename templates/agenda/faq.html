@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Preguntas frecuentes de {{ event.name }}{% endblock %}
-{% block content %}
+{% load shell %}{% block content %}
 {% comment %}
   The frequent questions of one event (agenda.views.faq), for the administration: the ones there are, in the order
-  the people of the church read them, and one form to add another.
+  the people of the church read them (each row opens the question to change it), and one form to add another.
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
@@ -14,17 +14,17 @@
     {% if faqs %}
       <ul class="rows">
         {% for item in faqs %}
-          <li class="row row--lead row--stack">
+          <li class="row row--lead">
+            <span class="hoy__icono" aria-hidden="true">{% icon "ayuda" %}</span>
             <div class="row__main">
-              <p class="row__title">{{ item.question }}</p>
+              <p class="row__title"><a href="{% url 'agenda:faq_edit' event.slug item.pk %}">{{ item.question }}</a></p>
               <p class="row__meta">{{ item.answer|linebreaksbr }}</p>
             </div>
-            <div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'agenda:faq_edit' event.slug item.pk %}">Editar<span class="visually-hidden">: {{ item.question }}</span></a></div>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="empty-line">Este evento todavía no tiene preguntas frecuentes. Mientras no agregues una, la sección no aparece en el evento.</p>
+      <p class="empty-line">Todavía no tiene preguntas. Mientras no agregues una, la sección no aparece en el evento.</p>
     {% endif %}
   </section>
 
@@ -33,7 +33,7 @@
     <form method="post" novalidate>
       {% csrf_token %}
       {% include "partials/ui/fields.html" with form=form %}
-      <div class="step__actions">
+      <div class="form-actions">
         <button class="btn btn--primary" type="submit">Agregar la pregunta</button>
       </div>
     </form>

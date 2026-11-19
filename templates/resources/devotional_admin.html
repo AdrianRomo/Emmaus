@@ -4,32 +4,37 @@
 {% block content %}
 {% comment %}
   Every devotional of the church (resources.views.devotional_admin), newest day first: drafts, scheduled and
-  published. It says nothing about who read them: that belongs to each person.
+  published, each with its state as a word. A row opens the devotional to correct it. It says nothing about who read
+  them: that belongs to each person.
 {% endcomment %}
 <div class="narrow">
-  {% url 'resources:devotional_today' as back %}{% url 'resources:devotional_create' as create %}
-  {% include "events/rotulo/_page_head.html" with title="Administrar los devocionales" lede="Un devocional por día. Tú lo preparas y pides su aprobación; un pastor de tu iglesia lo aprueba y entonces se lee desde su día." back_url=back back_label="Volver al devocional de hoy" action_url=create action_label="Escribir un devocional" %}
+  {% url 'resources:devotional_create' as create %}
+  {% include "events/rotulo/_page_head.html" with title="Administrar los devocionales" action_url=create action_label="Escribir un devocional" %}
+  {% include "resources/_admin_nav.html" with current="devocionales" %}
   {% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}
   {% if devotionals %}
     <ul class="dates rows">
       {% for devotional in devotionals %}
-        <li class="row row--lead row--stack">
+        <li class="row row--lead">
           {% date_block devotional.date %}
           <div class="row__main">
-            <p class="row__title"><a href="{% url 'resources:devotional_detail' devotional.pk %}">{{ devotional.title }}</a></p>
-            <p class="row__meta">{% if devotional.approval.is_pending %}Para el {{ devotional.date|weekday_date }}. Espera la aprobación pastoral: nadie lo ve todavía.{% elif devotional.approval.is_returned %}Para el {{ devotional.date|weekday_date }}. Un pastor lo devolvió sin aprobarlo: ábrelo para leer el motivo.{% elif devotional.approval.is_changed %}Para el {{ devotional.date|weekday_date }}. Fuera de publicación: cambió después de publicarse. Pide la aprobación otra vez.{% elif devotional.state == "borrador" %}Borrador para el {{ devotional.date|weekday_date }}: nadie lo ve todavía.{% elif devotional.state == "programado" %}Se publica el {{ devotional.date|weekday_date }}.{% else %}Publicado el {{ devotional.date|long_date }}.{% endif %}</p>
+            <p class="row__title"><a href="{% url 'resources:devotional_edit' devotional.pk %}">{{ devotional.title }}</a></p>
+            <ul class="meta">
+              <li class="visually-hidden">{{ devotional.date|weekday_date }}</li>
+              {% if devotional.passage %}<li>{% icon "lectura" "sm" %}{{ devotional.passage }}</li>{% endif %}
+              {% if devotional.author_name %}<li>{% icon "personas" "sm" %}{{ devotional.author_name }}</li>{% endif %}
+            </ul>
+            {% if devotional.approval.is_pending %}<p class="row__meta">Espera la aprobación pastoral: nadie lo ve todavía.</p>{% elif devotional.approval.is_returned %}<p class="row__meta">Un pastor lo devolvió sin aprobarlo: ábrelo para leer el motivo.</p>{% elif devotional.approval.is_changed %}<p class="row__meta">Cambió después de publicarse. Pide la aprobación otra vez.</p>{% endif %}
           </div>
-          <div class="row__end">
-            {% if devotional.approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% elif devotional.approval.is_returned %}{% status "revisar" "Devuelto" %}{% elif devotional.approval.is_changed %}{% status "revisar" "Fuera de publicación" %}{% elif devotional.state == "borrador" %}{% status "borrador" "Borrador" %}{% elif devotional.state == "programado" %}{% status "por_evaluar" "Programado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}
-            <a class="btn btn--secondary btn--small" href="{% url 'resources:devotional_edit' devotional.pk %}">Editar<span class="visually-hidden"> el devocional del {{ devotional.date|weekday_date }}</span></a>
-          </div>
+          <div class="row__end">{% if devotional.approval.is_pending %}{% status "por_evaluar" "Por aprobar" %}{% elif devotional.approval.is_returned %}{% status "revisar" "Devuelto" %}{% elif devotional.approval.is_changed %}{% status "revisar" "Fuera de publicación" %}{% elif devotional.state == "borrador" %}{% status "borrador" "Borrador" %}{% elif devotional.state == "programado" %}{% status "por_evaluar" "Programado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}</div>
         </li>
       {% endfor %}
     </ul>
     {% include "partials/ui/pager.html" with page=devotionals label="Páginas de devocionales" %}
     <p class="more"><a href="{% url 'resources:approval_queue' %}">Ver lo que espera aprobación pastoral</a></p>
   {% else %}
-    <p class="empty-line">Todavía no hay devocionales. Escribe el primero: puedes guardarlo como borrador y pedir su aprobación después.</p>
+    {% include "partials/ui/empty.html" with title="Sin devocionales todavía" text="Puedes guardar el primero como borrador y pedir su aprobación después." action_url=create action_label="Escribir un devocional" %}
   {% endif %}
+  <p class="aside-note">Tú preparas cada devocional y pides su aprobación; un pastor de tu iglesia lo aprueba y entonces se lee desde su día.</p>
 </div>
 {% endblock %}

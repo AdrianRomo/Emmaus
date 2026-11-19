@@ -66,7 +66,7 @@ class AssistedInterviewTests(CampFixture):
         self.station = self.choose_station(number=3)
 
     def test_start_requires_consent_and_records_it(self):
-        response = self.client.post(self.url("interview_start", self.p2.public_id), {"mode": "asistida"})
+        response = self.client.post(self.url("interview_start", self.p2.public_id), {"identity": "on", "mode": "asistida"})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Para comenzar, confirma esta autorización.")
         self.assertFalse(Interview.objects.filter(participant=self.p2).exists())
@@ -78,7 +78,7 @@ class AssistedInterviewTests(CampFixture):
 
     def test_minor_without_guardian_authorization_is_blocked_until_confirmed(self):
         response = self.client.post(
-            self.url("interview_start", self.p_minor_no_auth.public_id), {"mode": "asistida", "consent_assent": "on"}
+            self.url("interview_start", self.p_minor_no_auth.public_id), {"identity": "on", "mode": "asistida", "consent_assent": "on"}
         )
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Interview.objects.filter(participant=self.p_minor_no_auth).exists())

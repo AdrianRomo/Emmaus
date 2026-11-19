@@ -5,31 +5,44 @@
   Publishing or correcting a notice (notices.views.notice_create, notice_edit). "Para quién" offers only what this
   person may write to and is asked once: an existing notice says who it is for and does not change it. Correcting an
   urgent notice that people may have read also asks "¿Cambió la información?" (two radios, NoticeForm.material).
-  While nothing is sending the e-mails of the notices kept for a later day, the form says so (views._scheduled_mail_warning).
+  The days it is seen are folded under "Cuándo se ve" (open when they have a value to show or an error). Under the
+  button, what goes out by e-mail and what never does. While nothing is sending the e-mails of the notices kept for
+  a later day, the form says so (views._scheduled_mail_warning).
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if notice %}
     {% url 'notices:detail' notice.pk as back %}
-    {% include "events/rotulo/_page_head.html" with title="Editar el aviso" lede=notice.audience|add:". Eso no se puede cambiar: si era para alguien más, retira este aviso y publica otro." back_url=back back_label="Volver al aviso" %}
+    {% include "events/rotulo/_page_head.html" with title="Editar el aviso" meta=notice.audience back_url=back back_label="Volver al aviso" %}
   {% else %}
     {% url 'notices:list' as back %}
-    {% if email_configured %}
-      {% include "events/rotulo/_page_head.html" with title="Publicar un aviso" lede="Lo van a leer en Mi iglesia las personas a quienes va dirigido. A quien lo eligió le llega además un correo que solo dice que hay un aviso: nunca lo que escribas aquí." back_url=back back_label="Volver a los avisos" %}
-    {% else %}
-      {% include "events/rotulo/_page_head.html" with title="Publicar un aviso" lede="Lo van a leer en Mi iglesia las personas a quienes va dirigido. No hay correo configurado: el aviso solo se ve en Emmaus." back_url=back back_label="Volver a los avisos" %}
-    {% endif %}
+    {% include "events/rotulo/_page_head.html" with title="Publicar un aviso" back_url=back back_label="Volver a los avisos" %}
   {% endif %}
   {% if scheduled_mail_warning %}
-    <div class="notice notice--quiet" id="correos-programados"><p>{{ scheduled_mail_warning }}</p></div>
+    <div class="notice notice--warning" id="correos-programados"><p>{{ scheduled_mail_warning }}</p></div>
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    {% for field in form.visible_fields %}{% if field.name != "publish_on" and field.name != "expires_on" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    <details class="fold"{% if notice or form.publish_on.errors or form.expires_on.errors or form.expires_on.value %} open{% endif %}>
+      <summary>Cuándo se ve</summary>
+      {% include "partials/ui/field.html" with field=form.publish_on %}
+      {% include "partials/ui/field.html" with field=form.expires_on %}
+    </details>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if notice %}Guardar cambios{% else %}Publicar el aviso{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  {% if notice %}
+    <p class="aside-note">Para quién es no se puede cambiar: si era para alguien más, retira este aviso y publica otro.</p>
+  {% else %}
+    {% if email_configured %}
+      <p class="aside-note">A quien lo eligió le llega además un correo que solo dice que hay un aviso: nunca lo que escribas aquí.</p>
+    {% else %}
+      <p class="aside-note">No hay correo configurado: el aviso solo se ve en Emmaus.</p>
+    {% endif %}
+  {% endif %}
 </div>
 {% endblock %}

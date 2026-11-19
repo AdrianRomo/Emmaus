@@ -84,12 +84,17 @@ PRAYER_READER_VIEWS = {
     "oracion:inbox", "oracion:read", "oracion:mark_read", "oracion:reply", "oracion:mark_talked", "oracion:reader_email",
     "oracion:terms",
 }
-# Icons for the discipleship module's links, by url name (core.context_processors builds those links).
+# Icons for the discipleship module's links, by url name (core.context_processors builds those links): one each, so
+# two links of the same rail never share a drawing.
 MODULE_ICONS = {
     "church_settings": "ajustes", "participants_list": "personas", "participant_dashboard": "camino",
-    "mentor_dashboard": "camino", "church_dashboard": "camino", "path_list": "camino",
+    "mentor_dashboard": "guia", "church_dashboard": "reporte", "path_list": "lectura",
     "follow_up_list": "acompanar", "church_follow_up_list": "acompanar",
 }
+
+
+# The drawing of a folded section's line (a long rail folds the sections that do not hold the current page)
+SECTION_ICONS = {"Para crecer": "devocional", "A tu cargo": "guia", "Discipulado": "camino", "Administración": "ajustes"}
 
 
 def _item(label, url, icon, active=False, badge=0, badge_label=""):
@@ -245,10 +250,20 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     if admin:
         sections.append({"label": "Administración", "items": admin})
 
+    # A long rail (more than 8 places: a guide's 9, an administration's 16) does not fit a laptop's height (768px): each labelled section that does not
+    # hold the current page folds into one line (its label, with a dot when something inside waits); the section of
+    # the current page stays open. The event's own rail folds the church apart (shell.html, event_nav).
+    if sum(len(section["items"]) for section in sections) > 8:
+        for section in sections:
+            if section["label"] and not any(item["active"] for item in section["items"]):
+                section["fold"] = True
+                section["icon"] = SECTION_ICONS.get(section["label"], "mas")
+
     # Phones: Mi iglesia, then the two places this person uses most, and "Más" (the panel).
     home, _notices, events, groups = main[:4]
     if managed:
-        first = managed[0]
+        # The tab opens where its count is: the first group with requests waiting, else the first group
+        first = next((group for group in managed if pending.get(group.pk)), managed[0])
         total = sum(pending.values())
         tabs = [home, groups, _item(
             "A tu cargo", reverse("community:group_people", args=[first.pk]), "guia", in_managed, total,
@@ -263,14 +278,14 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     return {"sections": sections, "tabs": tabs, "name": name, "church": church}
 
 
-def event_shell(request, church) -> dict:
-    """The rail of a camp screen whose event is of another church than the one the request acts in
-    (``core.context_processors._event_page``): that church's name under its logo, the event's own links (the
-    template adds them after the first section) and the way back to the reader's events. None of the general links:
-    they are the links of the reader's own church, and under this church's name they would lead somewhere else."""
-    serving = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "equipo")
+def build_event_shell(request, church) -> dict:
+    """The rail and the tabs of an account that only works in events (no church role and no person of
+    ``church``): the list of its events, and, inside one, the event's own pages (``shell.html`` draws
+    them from ``event_nav``). Nothing of "Mi iglesia" is listed: those views would not answer."""
+    view = getattr(getattr(request, "resolver_match", None), "view_name", "") or ""
+    events = _item("Eventos donde sirves", reverse("events:list") + "?todos=1", "equipo", view in {"events:list", "events:create"})
     name = request.user.get_full_name() or request.user.email
-    return {"sections": [{"label": "", "items": [serving]}], "tabs": [serving], "name": name, "church": church}
+    return {"sections": [{"label": "", "items": [events]}], "tabs": [{**events, "label": "Eventos"}], "name": name, "church": church}
 
 
 def _minor_by_birth_date(person) -> bool:

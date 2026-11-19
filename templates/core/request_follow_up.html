@@ -1,7 +1,48 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Pedir una conversación{% endblock %}
 {% block content %}
-<div class="disc-focus disc-ask">
+{% if ui_v2 %}{% load shell %}{% comment %}
+  The redesign ("Ventanas"): one question, asked like the interview's: the question is the title and labels the field.
+  What happens with it is said once; who walks with the person, under the button.
+{% endcomment %}
+<a class="back-link" href="{% url 'participant_dashboard' %}">Mi camino</a>
+{% include "partials/ui/error_summary.html" with form=form %}
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% with field=form.reason %}
+    <div class="field{% if field.errors %} field--error{% endif %}" id="campo-{{ field.html_name }}">
+      <header class="page-head">
+        <div class="page-head__text">
+          <h1 class="voice page-head__title"><label for="{{ field.id_for_label }}">{{ field.label }}</label></h1>
+        </div>
+      </header>
+      <p class="aside-note" id="{{ field.auto_id }}-intro">Avísale a tu iglesia que te gustaría que alguien te busque para platicar en persona.</p>
+      {% if field.help_text %}<p class="hint" id="{{ field.auto_id }}-hint">{{ field.help_text }}</p>{% endif %}
+      {% if field.errors %}<p class="error-message" id="{{ field.auto_id }}-error">{{ field.errors.0 }}</p>{% endif %}
+      <textarea class="textarea disc-pregunta__campo" name="{{ field.html_name }}" id="{{ field.auto_id }}" rows="{{ field.field.widget.attrs.rows }}" maxlength="{{ field.field.max_length }}" placeholder="{{ field.field.widget.attrs.placeholder }}" spellcheck="true"{% if field.field.required %} required{% endif %} aria-describedby="{{ field.auto_id }}-intro{% if field.help_text %} {{ field.auto_id }}-hint{% endif %}{% if field.errors %} {{ field.auto_id }}-error{% endif %}">{{ field.value|default_if_none:"" }}</textarea>
+    </div>
+  {% endwith %}
+  <div class="form-actions">
+    <button class="btn btn--primary" type="submit">Enviar solicitud</button>
+    <a class="btn btn--link" href="{% url 'participant_dashboard' %}">Cancelar</a>
+  </div>
+</form>
+<section class="block" aria-labelledby="compania">
+  <h2 id="compania" class="heading">Quién te acompaña</h2>
+  {% with mentor=user.participant_profile.assigned_mentor %}
+    {% if mentor %}
+      <ul class="rows">
+        <li class="row row--lead">
+          {% monogram mentor.get_full_name|default:mentor.email %}
+          <div class="row__main"><p class="row__title">{{ mentor.get_full_name|default:mentor.email }}</p><p class="row__meta">Tu mentor</p></div>
+        </li>
+      </ul>
+    {% else %}
+      <p class="empty-line">Tu iglesia todavía no te asigna un mentor. Aun así, puedes hacer preguntas o pedir una conversación.</p>
+    {% endif %}
+  {% endwith %}
+</section>
+{% else %}<div class="disc-focus disc-ask">
 <div>
 {% include "partials/ui/error_summary.html" with form=form %}
 <form method="post" novalidate>
@@ -33,4 +74,4 @@
   {% endwith %}
 </aside>
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

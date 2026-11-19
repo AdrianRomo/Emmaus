@@ -11,9 +11,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
-from ..forms import FollowUpAssignForm, FollowUpForm, follow_up_leaders
+from ..forms import FollowUpAssignForm, FollowUpContinueForm, FollowUpForm, assignable, follow_up_leaders, follow_up_staff
 from ..models import (
     AccessRequest,
     AuditEvent,
@@ -29,7 +29,9 @@ from ..models import (
 )
 from ..services import audit
 from ..services import event_questionnaires as eq
+from ..services import follow_up_decision as decision_svc
 from ..services import follow_ups as follow_up_svc
+from ..services import participants as participant_svc
 from ..services import practice as practice_svc
 from ..services import readiness as readiness_svc
 from ..services import welcome as welcome_svc
@@ -37,6 +39,9 @@ from ..services.metrics import build_payload, coordinator_scope, local_tz, mark_
 from ..services.reports import next_slot
 from ..templatetags.emmaus import fecha_corta
 from .common import ADMIN, LEADERS, PASTOR, TUTOR, event_view, is_fragment, programme_now, safe_next
+
+
+UNASSIGNED_SHOWN = 10  # the camperos without a coordinator on the administration home, assigned in place
 
 
 def _last_snapshot(access):
@@ -105,7 +110,8 @@ def tutor_home(request, event, access):
         "stalled": [row for row in payload["coordinators"] if row["stale"]],
         "places": _last_station(access),
         "stalled_places": _stalled_stations(access),
-        "follow_ups": open_care.order_by("created_at")[:5],
+        # Five, the oldest; a task this tutor has to review since its decision changed goes first («Revisar»)
+        "follow_ups": decision_svc.mine_first(decision_svc.mark_for_review(open_care.order_by("created_at"), request.user))[:5],
         "follow_ups_open": open_care.count(),
         # Every open follow-up the tutor may see that nobody attends, the same ones "Sin asignar" lists (issue #46)
         "follow_ups_unassigned": follow_up_svc.unassigned_open(access).count(),
@@ -208,7 +214,9 @@ def pending(request, event, access):
     to_evaluate = access.interviews().filter(
         status=Interview.Status.COMPLETED, follow_up_decision=Interview.FollowUpDecision.TO_EVALUATE
     ).select_related("participant__coordinator__user", "version")
-    follow_ups = access.follow_ups().filter(status__in=FollowUp.OPEN_STATUSES).order_by("kind", "created_at")
+    follow_ups = decision_svc.mine_first(decision_svc.mark_for_review(
+        access.follow_ups().filter(status__in=FollowUp.OPEN_STATUSES).order_by("kind", "created_at"), request.user
+    ))
     waiting = participants.filter(interview_status=InterviewStatus.PENDING)
     coordinator_fields = ("coordinator__id", "coordinator__user__first_name", "coordinator__user__last_name")
     links = eq.links_for(event)
@@ -369,18 +377,20 @@ def follow_ups(request, event, access):
         status_rank=_follow_up_status_rank(),
         sin_responsable=Case(When(assigned_to__isnull=True, then=Value(1)), default=Value(0), output_field=IntegerField()),
     ).order_by("-kind", "status_rank", "-sin_responsable", "-created_at")
-    rows = list(qs[:FOLLOW_UPS_SHOWN])
-    leaders = list(follow_up_leaders(event))
-    leader_ids = {user.id for user in leaders}
+    # «Decisión cambiada»: its interview no longer needs follow-up; its owner reviews and closes it («Revisar»)
+    rows = decision_svc.mark_for_review(qs[:FOLLOW_UPS_SHOWN], request.user)
+    leaders = list(follow_up_leaders(event))  # the bar that gives several at once: each row is checked on its own
+    in_team = {membership.user_id for membership in follow_up_staff(event)}
     for f in rows:
         f.can_assign = _can_assign(access, f)
-        # The form also accepts the campero's own coordinador; offer them on that row only.
-        coordinator = f.participant.coordinator
-        f.coordinator_option = coordinator.user if coordinator and coordinator.user_id not in leader_ids else None
-        # Someone who left the team stays shown and selected, so sending the row unchanged cannot
-        # unassign them by accident; the form still refuses them ("Elige a una persona del equipo.").
-        eligible = leader_ids | ({coordinator.user_id} if coordinator else set())
+        # Each row offers who could open that follow-up (forms.assignable: a tutor, their own coordinadores' camperos;
+        # a confidential or safety one, fewer people), and the campero's own coordinador on that row only.
+        f.options, f.coordinator_option = assignable(f, event)
+        eligible = {user.pk for user in f.options} | ({f.coordinator_option.pk} if f.coordinator_option else set())
+        # Someone who has it and no longer qualifies stays shown and selected, so sending the row unchanged cannot
+        # unassign them by accident; the form still refuses them ("Elige a una persona del equipo."). Said why.
         f.former_assignee = f.assigned_to if f.assigned_to_id and f.assigned_to_id not in eligible else None
+        f.former_why = "ya no está en el equipo" if f.former_assignee and f.assigned_to_id not in in_team else "no puede ver este seguimiento"
     counts = dict(access.follow_ups().values_list("status").annotate(n=Count("id")))
     return render(
         request,
@@ -425,8 +435,43 @@ def follow_up_detail(request, event, access, follow_up_id):
     return render(
         request,
         "events/supervision/follow_up_detail.html",
-        {"follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back},
+        {
+            "follow_up": follow_up, "form": form, "can_read": can_read, "can_manage": can_manage, "back": back,
+            # Its interview's decision changed: to review (close or continue), continued anyway, or reopened; a reopened
+            # task's states.
+            "decision_note": decision_svc.note_for(follow_up),
+            "task_history": decision_svc.task_history(follow_up),
+        },
     )
+
+
+@require_http_methods(["GET", "POST"])
+@event_view(*LEADERS, MembershipRole.COORDINATOR)
+def follow_up_continue(request, event, access, follow_up_id):
+    """«Continuar seguimiento» (owner decision of 2026-11-18): a task its interview's decision left open for review is
+    kept open anyway, with a brief reason. Whoever may manage it (``can_manage_follow_up``) may; its page, never in place.
+    A task with nothing to review goes back to its page."""
+    follow_up = get_object_or_404(access.follow_ups(), pk=follow_up_id)
+    if not access.can_manage_follow_up(follow_up):
+        raise PermissionDenied
+    detail = reverse("events:follow_up_detail", args=[event.slug, follow_up.pk])
+    pending = decision_svc.waiting_on_owner([follow_up]).get(follow_up.pk)
+    if pending is None:
+        return redirect(detail)
+    form = FollowUpContinueForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            decision_svc.continue_follow_up(access, follow_up, reason=form.cleaned_data["reason"])
+        except decision_svc.NotAllowed:
+            raise PermissionDenied from None
+        except decision_svc.InterviewError as exc:
+            messages.error(request, exc.message)
+            return redirect(detail)
+        messages.success(request, f"El seguimiento de {follow_up.participant.full_name} sigue abierto.")
+        return redirect(detail)
+    who = pending.changed_by.get_full_name() if pending.changed_by else "Alguien"
+    said = f"Su entrevista ya no necesita seguimiento: {who} cambió la decisión el {fecha_corta(pending.changed_at)}."
+    return render(request, "events/supervision/follow_up_continue.html", {"follow_up": follow_up, "form": form, "said": said, "back": detail})
 
 
 @require_POST
@@ -869,6 +914,21 @@ def admin_home(request, event, access):
     context["stalled_total"] = stalled.count()
     context["stalled_interviews"] = mark_stalled(stalled.order_by("last_activity_at")[:STALLED_SHOWN]) if context["stalled_total"] else []
     context["newer_versions"] = eq.newer_unused_versions(event)  # issue #48; drawn by events/admin/_newer_versions.html
+    # With the redesign (ui_v2): the minors without a registered guardian authorization who are not interviewed yet
+    # wait for it — the administration's decision (Camperos ?autorizacion=falta&estado=pendiente; the count is the
+    # length of that list). Interviewed or in progress without a current one is allowed by the policy (an authorization
+    # withdrawn after: the interview «se podrá terminar», completed ones do not change), so it is not a decision: the
+    # list's authorization column and the record say it (minors_interviewed stays for the list's link). Then the first camperos without a coordinator, each one assigned on the
+    # raised surface (admin.participants_assign) with every coordinator's load beside them.
+    if event.requires_guardian_authorization:
+        minors = participant_svc.minors_without_authorization(access.participants(), event).order_by()
+        by_status = dict(minors.values_list("interview_status").annotate(n=Count("id")))
+        context["minors_waiting"] = by_status.get(InterviewStatus.PENDING, 0)
+        context["minors_interviewed"] = by_status.get(InterviewStatus.IN_PROGRESS, 0) + by_status.get(InterviewStatus.COMPLETED, 0)
+    else:
+        context["minors_waiting"] = context["minors_interviewed"] = 0
+    context["unassigned_rows"] = list(access.participants().filter(coordinator__isnull=True).order_by("room", "full_name")[:UNASSIGNED_SHOWN]) if unassigned else []
+    context["assignable"] = list(participant_svc.assignable_coordinators(access)) if unassigned else []
     # "Preparación": "N de M pasos listos", the pending steps first, the ready ones folded (audit UI-06, LANG-24)
     steps = _preparation_steps(
         event, progress=context["progress"], unassigned=unassigned, without_tutor=without_tutor, team_state=team_state,

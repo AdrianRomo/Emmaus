@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from functools import wraps
+from types import SimpleNamespace
+
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Case, IntegerField, Q, Value, When
@@ -7,19 +10,26 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
+from django.views.decorators.http import require_http_methods
 
-from ..forms import DiscardForm, InterviewStartForm, SafetyReportForm
-from ..models import FollowUp, Interview, InterviewStatus, Question
+from ..forms import DiscardForm, FollowUpDecisionChangeForm, IdentityCheckForm, InterviewStartForm, SafetyReportForm
+from ..models import FollowUp, FollowUpDecisionChange, Interview, InterviewStatus, Question
 from ..services import audit
 from ..services import event_questionnaires as eq
+from ..services import follow_up_decision as decision_svc
 from ..services import interviews as svc
 from ..services.questionnaire import (
+    DECLINE_LABEL,
+    DECLINED_VALUE,
     build_steps,
+    decline_field,
+    decline_option,
     load_answers,
     neighbor_steps,
+    resume_step,
     visible_steps,
 )
-from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view, safe_next
+from .common import ADMIN, COORDINATOR, allowlisted_next, current_station, event_view, role_home_url, safe_next
 
 
 # ---- view models ----------------------------------------------------------------------------
@@ -30,9 +40,11 @@ def question_context(question: Question, value, error: str | None, posted=None, 
         field = f"q_{question.id}"
         codes = posted.getlist(field) if question.kind == Question.Kind.MULTIPLE else ([posted.get(field)] if posted.get(field) else [])
         text = posted.get(field, "") if question.is_text else ""
+        declined = DECLINED_VALUE in codes if question.is_choice else bool(posted.get(decline_field(question)))
     else:
         codes = value.codes if value else []
         text = value.text if value else ""
+        declined = bool(value and value.declined)
     main, quiet = [], []
     for option in question.options.all():
         entry = {
@@ -41,6 +53,11 @@ def question_context(question: Question, value, error: str | None, posted=None, 
             "checked": option.code in codes,
         }
         (quiet if (option.is_decline or option.is_exclusive) else main).append(entry)
+    if question.is_choice and decline_option(question) is None:
+        # Every question offers «Prefiero no responder»: one without its own (made in the editor, or a version published
+        # before) gets it here, last among the quiet options, stored as Answer.declined (questionnaire.parse_question).
+        own = SimpleNamespace(code=DECLINED_VALUE, label=DECLINE_LABEL, is_exclusive=True, is_decline=True)
+        quiet.append({"option": own, "id": f"q{question.id}--prefiero-no", "checked": declined})
     return {
         "question": question,
         "name": f"q_{question.id}",
@@ -49,6 +66,10 @@ def question_context(question: Question, value, error: str | None, posted=None, 
         "options": main,
         "quiet_options": quiet,
         "text": text,
+        # A text question's «Prefiero no responder»: its box, and whether it is marked.
+        "decline_name": decline_field(question),
+        "decline_label": DECLINE_LABEL,
+        "declined": declined,
         "error": error,
         "readonly": readonly,
         "reveal_for": f"q_{question.condition_question_id}" if question.condition_question_id else "",
@@ -82,15 +103,43 @@ def step_context(interview: Interview, step, *, errors=None, posted=None, answer
     }
 
 
-def _scoped_interview(access, public_id) -> Interview:
+class _NoLongerInHand(Http404):
+    """This browser had the interview (its session holds or held the claim's token), but its person may no longer see
+    the campero (given to another coordinador). ``_capture_screen`` says so instead of the 404; a screen without it
+    still answers 404."""
+
+
+def _scoped_interview(access, public_id, session=None) -> Interview:
+    """The interview, when this person may see its campero; else the 404. ``session``: the capture screens'
+    (``_capture_screen``), so the browser that had it is told it is no longer in its hands (browser QA, owner
+    decision). Told by the server from the claim's token in the session, never from anything the browser sends."""
     interview = get_object_or_404(
         Interview.objects.select_related("participant__coordinator__user", "version", "station", "conducted_by"),
         public_id=public_id,
         event=access.event,
     )
     if not access.can_view_participant(interview.participant):
+        if session is not None and svc.session_claim_token(session, interview):
+            raise _NoLongerInHand
         raise Http404
     return interview
+
+
+def _capture_screen(view):
+    """The screens that capture an interview (resume, take-over, steps, review, hand-over, discard, done). A browser
+    that had it and whose person may no longer see the campero goes to its home, told the interview is no longer in its
+    hands and that the answers are kept, without a word about the campero; nothing it posted is written (the view stops
+    at ``_scoped_interview``, its first line)."""
+
+    @wraps(view)
+    def wrapped(request, event, access, *args, **kwargs):
+        try:
+            return view(request, event, access, *args, **kwargs)
+        except _NoLongerInHand:
+            messages.error(request, svc.NO_LONGER_IN_HAND_MESSAGE)
+            return redirect(role_home_url(event, access))
+
+    return wrapped
 
 
 def _step_or_404(interview: Interview, number: int):
@@ -100,14 +149,17 @@ def _step_or_404(interview: Interview, number: int):
     raise Http404
 
 
-def _claim_or_conflict(request, access, interview: Interview, *, reopen: bool = False):
+def _claim_or_conflict(request, access, interview: Interview, *, reopen: bool = False, to_continue: bool = True):
     """Ensure this browser is the editor; returns a response when it is not.
 
     ``reopen`` only for opening the interview on purpose (``interview_resume``): see ``svc.claim``.
     A released claim (``svc.ClaimReleased``) lands on the same conflict URL, which then says so.
+    ``to_continue``: False for «Descartar» only (``svc.claim``).
     """
     try:
-        svc.claim(access, interview, request.session, station=current_station(request, access.event), reopen=reopen)
+        svc.claim(
+            access, interview, request.session, station=current_station(request, access.event), reopen=reopen, to_continue=to_continue
+        )
     except svc.ClaimConflict:
         return redirect("events:interview_conflict", slug=access.event.slug, public_id=interview.public_id)
     except svc.AlreadyCompleted:
@@ -184,7 +236,9 @@ def interview_start(request, event, access, public_id):
     choices = [(str(link.questionnaire_id), link.version.title) for link in pending]
     asked = request.GET.get("cuestionario", "")
     initial = {"questionnaire": asked} if asked in {value for value, _ in choices} else {}
-    form = InterviewStartForm(request.POST or None, requirements=requirements, questionnaire_choices=choices, initial=initial)
+    form = InterviewStartForm(
+        request.POST or None, requirements=requirements, participant_name=participant.full_name, questionnaire_choices=choices, initial=initial
+    )
     blockers = svc.event_blockers(event, practice=participant.is_practice)
     station = current_station(request, event)
     if request.method == "POST" and form.is_valid() and not blockers:
@@ -201,6 +255,7 @@ def interview_start(request, event, access, public_id):
                 confirmed_consents=form.confirmed(),
                 session=request.session,
                 questionnaire=chosen,
+                identity_confirmed=form.cleaned_data["identity"],
             )
         except (svc.AlreadyInProgress, svc.AlreadyCompleted) as exc:
             messages.warning(request, exc.message)
@@ -248,48 +303,84 @@ def _resume(request, event, access, interview: Interview, *, reopen: bool):
     """Send this browser to where the interview continues, claiming it first."""
     if interview.status != Interview.Status.IN_PROGRESS:
         return redirect("events:interview_detail", slug=event.slug, public_id=interview.public_id)
+    response = _identity_check(request, access, interview)  # before taking it in hand (the check's page claims it)
+    if response:
+        return response
     response = _claim_or_conflict(request, access, interview, reopen=reopen)
     if response:
         return response
     interview.refresh_from_db()
     if interview.mode == Interview.Mode.SUPERVISED and not interview.participant_sessions.exists():
         return redirect("events:interview_handoff", slug=event.slug, public_id=interview.public_id)
-    answers = load_answers(interview)
-    for step in visible_steps(interview.version, answers):
-        if step.question.id not in answers:
-            return redirect("events:interview_step", slug=event.slug, public_id=interview.public_id, number=step.number)
+    # After the furthest answer, never back to a question skipped on purpose; nothing after it: the review
+    step = resume_step(interview.version, load_answers(interview))
+    if step is not None:
+        return redirect("events:interview_step", slug=event.slug, public_id=interview.public_id, number=step.number)
     return redirect("events:interview_review", slug=event.slug, public_id=interview.public_id)
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_resume(request, event, access, public_id):
     # The links of "Mi inicio", the lists and the camper page land here: opening on purpose.
-    return _resume(request, event, access, _scoped_interview(access, public_id), reopen=True)
+    return _resume(request, event, access, _scoped_interview(access, public_id, request.session), reopen=True)
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_conflict(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if not access.can_interview(interview.participant):
         raise PermissionDenied
-    if request.method == "POST":
-        try:
-            svc.claim(access, interview, request.session, take_over=True, station=current_station(request, event))
-        except svc.InterviewError as exc:
-            messages.error(request, exc.message)
-            return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
-        messages.success(request, "Ahora esta computadora tiene el control de la entrevista.")
+    participant = interview.participant
+    holds_it = interview.lock_matches(svc.session_claim_token(request.session, interview))
+    # Whoever could not go on with it (questions they do not read: EventAccess.can_continue_interview) is offered
+    # nothing to take, and told who can (decided under the owner's delegation); svc.claim refuses them too, so the lock never moves.
+    cannot_continue = not holds_it and not access.can_continue_interview(interview)
+    # Someone who did not start it, about to continue it with the campero, ticks «Sí, es {nombre}» first (owner
+    # decision), here: before taking it from another computer, or, already holding it (a free or expired claim picked
+    # up, the computer recovered after an «Entrevista a solas»), before going on (``_identity_check``).
+    check = not cannot_continue and svc.needs_identity_check(interview, request.user)
+    posted = request.POST if request.method == "POST" else None  # bound even when nothing was ticked
+    form = IdentityCheckForm(posted, participant_name=participant.full_name) if check else None
+    # Another computer has it now (an active claim not this browser's): continuing here takes it from there. A free or
+    # expired claim is only picked up, after the check: the page is the check alone.
+    elsewhere = not holds_it and interview.lock_is_active()
+    if request.method == "POST" and not cannot_continue and (form is None or form.is_valid()):
+        if not holds_it:
+            try:
+                svc.claim(access, interview, request.session, take_over=True, station=current_station(request, event))
+            except svc.InterviewError as exc:
+                messages.error(request, exc.message)
+                return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
+        if check:
+            svc.record_identity_check(access, interview)
+        if elsewhere:
+            messages.success(request, "Ahora esta computadora tiene el control de la entrevista.")
         return redirect("events:interview_resume", slug=event.slug, public_id=interview.public_id)
     return render(
         request,
         "events/interview/conflict.html",
         {
             "interview": interview,
-            "participant": interview.participant,
+            "participant": participant,
             # Nobody else has it: "Liberar" stopped this browser. The page must not say "otra computadora".
             "released": svc.claim_released_here(interview, request.session),
+            "identity_form": form,
+            # Nobody else has it (this browser, or a free or expired claim): nothing to take over, only the identity.
+            "verify_only": check and not elsewhere,
+            "cannot_continue": cannot_continue,
+            "who_can_continue": svc.WHO_CAN_CONTINUE_MESSAGE,
         },
     )
+
+
+def _identity_check(request, access, interview: Interview):
+    """Someone other than the person who started it, continuing it with the campero: «Sí, es {nombre}» first (on the
+    page of ``interview_conflict``). The person who started it, or who already checked it, goes on."""
+    if svc.needs_identity_check(interview, request.user):
+        return redirect("events:interview_conflict", slug=access.event.slug, public_id=interview.public_id)
+    return None
 
 
 # ---- steps --------------------------------------------------------------------------------------
@@ -299,12 +390,17 @@ RETURN_TO_REVIEW = "revision"
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_step(request, event, access, public_id, number):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.IN_PROGRESS:
         return redirect("events:interview_detail", slug=event.slug, public_id=interview.public_id)
     if not access.can_interview(interview.participant):
         raise PermissionDenied
+    # Who did not start it checks the campero first, before taking it in hand: never «a cargo de» unchecked
+    response = _identity_check(request, access, interview)
+    if response:
+        return response
     token = svc.session_claim_token(request.session, interview)
     if not interview.lock_matches(token):
         response = _claim_or_conflict(request, access, interview)
@@ -321,8 +417,9 @@ def interview_step(request, event, access, public_id, number):
         return redirect("events:interview_review", slug=event.slug, public_id=public_id)
     for question in step.questions:
         if not access.can_view_answer(interview, question, during_capture=True):
-            # Supervised capture already happened for this question; coordinators may not see it.
-            messages.info(request, "Esa pregunta es confidencial y la respondió el campero.")
+            # A question this person does not read here (a confidential one in an «Entrevista a solas», or the holder's
+            # confidential access withdrawn): said truly, answered or not (svc.hidden_question_message).
+            messages.info(request, svc.hidden_question_message(question))
             return redirect("events:interview_review", slug=event.slug, public_id=public_id)
     return_to_review = request.GET.get("volver") == RETURN_TO_REVIEW
     marker = f"?volver={RETURN_TO_REVIEW}" if return_to_review else ""
@@ -367,14 +464,19 @@ def interview_step(request, event, access, public_id, number):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_review(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status == Interview.Status.COMPLETED:
         return redirect("events:interview_done", slug=event.slug, public_id=public_id)
     if interview.status != Interview.Status.IN_PROGRESS:
         raise Http404
     if not access.can_interview(interview.participant):
         raise PermissionDenied
+    # Who did not start it checks the campero first, before taking it in hand: never «a cargo de» unchecked
+    response = _identity_check(request, access, interview)
+    if response:
+        return response
     token = svc.session_claim_token(request.session, interview)
     if not interview.lock_matches(token):
         response = _claim_or_conflict(request, access, interview)
@@ -415,13 +517,19 @@ def interview_review(request, event, access, public_id):
             "selected_decision": request.POST.get("follow_up_decision") or (Interview.FollowUpDecision.REQUIRED if suggestions else ""),
             "error": error,
             "has_hidden": any(not r["visible"] for r in rows),
+            # «… las respondió por su cuenta» only when the campero did answer on their own (browser QA)
+            "answered_alone": svc.answered_alone(interview),
+            # «Identidad confirmada por …» (at the start), «verificada de nuevo por …» (whoever continued it in someone
+            # else's place) and «Entrevista a cargo de …» (who has it now): svc.interview_people.
+            "people": svc.interview_people(interview),
         },
     )
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_done(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.COMPLETED:
         # Not a deliberate "Retomar": a stale "done" tab must not re-open a released claim.
         return _resume(request, event, access, interview, reopen=False)
@@ -450,10 +558,14 @@ def interview_done(request, event, access, public_id):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_handoff(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.IN_PROGRESS or not access.can_interview(interview.participant):
         raise Http404
+    response = _identity_check(request, access, interview)  # before taking it in hand and giving the computer
+    if response:
+        return response
     if request.method == "GET" or not interview.lock_matches(svc.session_claim_token(request.session, interview)):
         # Like a step: an expired claim is picked up again, a released or taken one is refused.
         response = _claim_or_conflict(request, access, interview)
@@ -482,13 +594,15 @@ def interview_handoff(request, event, access, public_id):
 
 
 @event_view(COORDINATOR, ADMIN)
+@_capture_screen
 def interview_discard(request, event, access, public_id):
-    interview = _scoped_interview(access, public_id)
+    interview = _scoped_interview(access, public_id, request.session)
     if interview.status != Interview.Status.IN_PROGRESS or not access.can_interview(interview.participant):
         raise Http404
     if not interview.lock_matches(svc.session_claim_token(request.session, interview)):
         # Same claim check as a step save: an expired claim is picked up again, a released or taken one is refused.
-        response = _claim_or_conflict(request, access, interview)
+        # Not to continue it: an administrador ends an abandoned interview she could not continue (svc.claim).
+        response = _claim_or_conflict(request, access, interview, to_continue=False)
         if response:
             return response
         interview.refresh_from_db()
@@ -514,13 +628,19 @@ def interview_detail(request, event, access, public_id):
         here = reverse("events:interview_detail", args=[event.slug, public_id])
         # Where the decision was opened ("Entrevistas pendientes", UX-21); same site only, "" when absent or foreign.
         back = safe_next(request, request.POST.get("siguiente") or request.GET.get("siguiente"), fallback="")
+        decision = request.POST.get("decision", "")
         try:
-            svc.update_follow_up_decision(access, interview, request.POST.get("decision", ""))
+            svc.update_follow_up_decision(access, interview, decision)
         except svc.InterviewError as exc:
             messages.error(request, exc.message)
             # The error is about this record: it stays on screen, and keeps the way back for the next try.
             return redirect(f"{here}?{urlencode({'siguiente': back})}" if back else here)
-        messages.success(request, "Decisión de seguimiento guardada.")
+        # Who and what, as «Por decidir» on «Entrevistas pendientes» says it (coordinator._decide_in_place).
+        name = interview.participant.full_name
+        if decision == Interview.FollowUpDecision.REQUIRED:
+            messages.success(request, f"{name} necesita seguimiento.")
+        else:
+            messages.success(request, f"{name} no necesita seguimiento.")
         return redirect(back or here)
     rows = svc.review_rows(access, interview)
     confidential_shown = [r for r in rows if r["visible"] and r["question"].sensitivity == Question.Sensitivity.CONFIDENTIAL and r["answered"]]
@@ -540,6 +660,51 @@ def interview_detail(request, event, access, public_id):
             "can_continue": interview.status == Interview.Status.IN_PROGRESS and access.can_interview(interview.participant),
             "revisions": interview.answer_revisions.select_related("question", "changed_by")[:20] if access.can_view_sensitive else [],
             "has_hidden": any(not r["visible"] for r in rows),
+            # «Identidad confirmada por …» (at the start), «verificada de nuevo por …» (whoever continued it in someone
+            # else's place) and «Entrevista a cargo de …» (who has it now): svc.interview_people.
+            "people": svc.interview_people(interview),
+            # «Cambiar decisión de seguimiento» and its history (services.follow_up_decision), for whoever sees the record.
+            "can_change_decision": access.can_correct(interview) and interview.follow_up_decision in decision_svc.DECIDED,
+            "decision_changes": interview.follow_up_decision_changes.select_related("changed_by"),
+        },
+    )
+
+
+@require_http_methods(["GET", "POST"])
+@event_view(COORDINATOR, ADMIN)
+def interview_follow_up_change(request, event, access, public_id):
+    """«Cambiar decisión de seguimiento»: a page that says what will happen to the care follow-up and asks why, never a
+    change in place. The first decision of an interview left «Por decidir» stays on its record."""
+    interview = _scoped_interview(access, public_id)
+    if interview.status != Interview.Status.COMPLETED:
+        raise Http404
+    if not access.can_correct(interview):
+        raise PermissionDenied
+    record_url = reverse("events:interview_detail", args=[event.slug, public_id])
+    if interview.follow_up_decision not in decision_svc.DECIDED:
+        return redirect(record_url)
+    target = decision_svc.other(interview.follow_up_decision)
+    form = FollowUpDecisionChangeForm(request.POST or None, initial={"decision": target})
+    if request.method == "POST" and form.is_valid():
+        try:
+            change = decision_svc.change(access, interview, form.cleaned_data["decision"], reason=form.cleaned_data["reason"])
+        except svc.NotAllowed:
+            raise PermissionDenied from None
+        except svc.InterviewError as exc:
+            messages.error(request, exc.message)
+            return redirect(record_url)
+        messages.success(request, decision_svc.message(change))
+        return redirect(record_url)
+    return render(
+        request,
+        "events/interview/follow_up_change.html",
+        {
+            "interview": interview,
+            "participant": interview.participant,
+            "form": form,
+            "now_words": FollowUpDecisionChange.WORDS[interview.follow_up_decision],
+            "target_words": FollowUpDecisionChange.WORDS[target],
+            "care_sentence": decision_svc.preview_sentence(interview),
         },
     )
 

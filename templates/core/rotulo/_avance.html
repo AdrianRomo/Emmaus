@@ -1,0 +1,4 @@
+{% comment %}
+  How far a participant is in their path. summary: core.services.ProgressSummary, with an enrollment.
+  With the redesign a bar that fills and "2 de 7" beside it; in Atrio the ruler (its label says the same).
+{% endcomment %}{% load emmaus %}{% if ui_v2 %}<div class="meter disc-meter"><span class="meter__track"><span class="meter__fill{% if summary.completed_lessons == summary.total_lessons %} meter__fill--done{% endif %}" style="width:{{ summary.percent }}%"></span></span><span>{{ summary.completed_lessons }} de {{ summary.total_lessons }}<span class="visually-hidden"> lecci{{ summary.total_lessons|pluralize:"ón,ones" }}</span></span></div>{% else %}{% ruler summary.completed_lessons 0 summary.total_lessons %}{% endif %}

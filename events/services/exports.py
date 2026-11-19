@@ -12,7 +12,7 @@ from django.utils import timezone
 from ..models import Answer, ConsentRecord, EventParticipant, Interview
 from . import event_questionnaires as eq
 from .metrics import local_tz
-from .questionnaire import all_questions
+from .questionnaire import DECLINED_LABEL, all_questions
 
 DATE_FORMAT = "%d/%m/%Y %H:%M"
 REGISTRY_HEADER = [
@@ -44,8 +44,8 @@ def answers_rows(event, links=None) -> tuple[list[str], list[list[str]]]:
     practice campero or its answers (``real()``, issue #49). After the
     registry columns, for each questionnaire the event uses, in the event's order and named by the title of the version
     it uses: the state of the campero's interview, when it was completed, and one column per question of that version
-    in questionnaire order. A cell holds what ``describe_answer`` writes (option labels joined with ", ", or the text),
-    or nothing when the question was not answered.
+    in questionnaire order. A cell holds what ``describe_answer`` writes for staff (option labels joined with ", ", the
+    text, or «Prefirió no responder» for a decline), or nothing when the question was left blank or not shown.
 
     An interview answered on another version of the same questionnaire fills the columns of the questions with the
     same code; its answers to questions the version in use no longer has are left out. Discarded interviews hold no
@@ -130,11 +130,17 @@ def answers_rows(event, links=None) -> tuple[list[str], list[list[str]]]:
 
 
 def _answer_text(answer: Answer) -> str:
-    """As ``describe_answer``: the chosen options' labels in their order, joined with ", ", or the text; "" when empty.
+    """As ``describe_answer`` for staff: the chosen options' labels in their order, joined with ", ", or the text;
+    "" when empty.
 
     The labels are the answer's own options (its version's), so an answer given on an older version keeps the words
-    the campero chose, and "Prefiero no responder" is written as its label, never as its code.
+    the campero chose. A decline, whatever stored it (``Answer.declined``, or an older choice of the decline option
+    alone), is written «Prefirió no responder», as staff read it on the record; a blank stays an empty cell, so the
+    two never look alike.
     """
-    if answer.question.is_choice:
-        return ", ".join(option.label for option in answer.options.all())
-    return answer.text_value if answer.text_value.strip() else ""
+    options = list(answer.options.all())
+    if answer.declined or (options and all(option.is_decline for option in options)):
+        return DECLINED_LABEL
+    if answer.question.is_choice and options:
+        return ", ".join(option.label for option in options)
+    return answer.text_value if answer.question.is_text and answer.text_value.strip() else ""

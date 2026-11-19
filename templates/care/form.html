@@ -9,20 +9,21 @@
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if follow_up %}
     {% url 'care:detail' follow_up.pk as back %}
-    {% include "events/rotulo/_page_head.html" with title="Cambiar responsable o fecha" lede="Seguimiento de persona: "|add:about.full_name|add:"." back_url=back back_label="Volver al seguimiento" %}
+    {% include "events/rotulo/_page_head.html" with title="Cambiar responsable o fecha" meta=about.full_name back_url=back back_label="Volver al seguimiento" %}
   {% else %}
     {% url 'care:create' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Seguimiento de persona: "|add:about.full_name lede="Elige por qué hay que buscarla y quién lo hará. Ella no lo verá, y Emmaus no le envía nada a nadie." back_url=back back_label="Elegir a otra persona" %}
+    {% include "events/rotulo/_page_head.html" with title="Seguimiento de "|add:about.full_name back_url=back back_label="Elegir a otra persona" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
     {% if not follow_up %}
       <input type="hidden" name="persona" value="{{ about.pk }}">
+      <section class="form-section">
       <div class="field{% if form.reason.errors %} field--error{% endif %}" id="campo-reason">
         <fieldset id="id_reason" tabindex="-1"{% if form.reason.errors %} aria-describedby="id_reason-error"{% endif %}>
-          <legend class="legend">{{ form.reason.label }}</legend>
+          <legend class="legend form-section__title">{{ form.reason.label }}</legend>
           {% if form.reason.errors %}<span class="error-message" id="id_reason-error">{{ form.reason.errors.0 }}</span>{% endif %}
-          <div class="choices">
+          <div class="choices choices--grid">
             {% for value, label in reasons %}
             <div class="choice">
               <input class="choice__input" type="radio" id="motivo-{{ value }}" name="reason" value="{{ value }}"{% if form.reason.value == value %} checked{% endif %}>
@@ -32,14 +33,18 @@
           </div>
         </fieldset>
       </div>
+      </section>
     {% endif %}
-    {% include "partials/ui/field.html" with field=form.owner %}
-    {% include "partials/ui/field.html" with field=form.due_on %}
-    <div class="step__actions">
+    <section class="form-section" aria-labelledby="quien">
+      <h2 id="quien" class="form-section__title">Quién la busca y para cuándo</h2>
+      {% include "partials/ui/field.html" with field=form.owner %}
+      {% include "partials/ui/field.html" with field=form.due_on %}
+    </section>
+    <p class="aside-note">{% if not follow_up %}La persona no lo verá, y Emmaus no le envía nada a nadie. {% endif %}Aquí no se escribe nada de lo que la persona platique: solo a quién hay que buscar, quién lo hará y para cuándo.</p>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if follow_up %}Guardar cambios{% else %}Crear el seguimiento{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  <p class="aside-note">Aquí no se escribe nada de lo que la persona platique: solo a quién hay que buscar, quién lo hará y para cuándo.</p>
 </div>
 {% endblock %}

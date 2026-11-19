@@ -1,6 +1,7 @@
 """An urgent notice has versions: a change of what it says asks for "Enterado" again, a corrected
 detail does not (decision 0015). And who may publish an urgent notice is the church's policy."""
 
+import re
 from datetime import timedelta
 from unittest import mock
 
@@ -34,6 +35,16 @@ ASK_AGAIN = "Sí, cambió algo importante: pedir «Enterado» otra vez"
 A_DETAIL = "No, solo corregí un detalle: se conservan los «Enterado»"
 CHANGED = "Léelo otra vez y toca «Enterado»."
 WITH_PASTORS = frozenset({Role.CHURCH_ADMIN.value, Role.PASTOR.value})
+
+
+def answered_on(html: str) -> list[str]:
+    """The days this person said «Enterado», as the page draws them: the word on a pill, then its day."""
+    return re.findall(
+        r'<ul class="meta reading__done"[^>]*>\s*<li><span class="status status--done"><span class="status__mark" aria-hidden="true">'
+        r'</span>Enterado</span></li>\s*<li><svg [^>]*>.*?</svg>([^<]+)</li>',
+        html,
+        re.S,
+    )
 
 
 def detail(notice):
@@ -113,7 +124,8 @@ class VersionTests(Fixture):
         self.assertContains(page, f"de {day.year}. {CHANGED}")
         self.assertContains(page, "7:00 p. m.")
         self.assertContains(page, ">Enterado</button>")
-        self.assertNotContains(page, "Dijiste «Enterado»")
+        self.assertEqual(answered_on(page.content.decode()), [])
+        self.assertNotContains(page, "reading__done")
         self.assertNotContains(page, "la cuenta empezó")  # that line is for who may change the notice
         # Answering again keeps one date: the latest.
         response = self.client.post(enterado(notice), {"version": "2"}, follow=True)
@@ -123,8 +135,8 @@ class VersionTests(Fixture):
         self.assertGreater(again.acknowledged_at, notice.changed_at)
         self.assertEqual(AnnouncementRead.objects.filter(announcement=notice, person=self.member).count(), 1)
         page = self.client.get(detail(notice)).content.decode()
-        self.assertEqual(page.count("Dijiste «Enterado» el "), 1)
-        self.assertIn(f"Dijiste «Enterado» el {long_date(self.today)}.", page)
+        self.assertEqual(answered_on(page), [long_date(self.today)])
+        self.assertEqual(page.count("reading__done"), 1)
         self.assertNotIn(long_date(timezone.localdate(days_ago)), page)
         self.assertNotIn(CHANGED, page)
         self.assertNotIn(">Enterado</button>", page)
@@ -136,7 +148,9 @@ class VersionTests(Fixture):
         notice = self.change(self.urgent(), body=AT_SEVEN, material=True)
         self.client.force_login(self.asked_user)
         page = self.client.get(detail(notice))
-        self.assertContains(page, "Este aviso es urgente. Cuando lo hayas leído, dilo aquí.")
+        # Asked as for anybody: the level's word under the title and the one button, without "read it again".
+        self.assertContains(page, "</span>Urgente</span></li>")
+        self.assertContains(page, '<button class="btn btn--primary btn--large" type="submit">Enterado</button>', html=True)
         self.assertNotContains(page, CHANGED)
         # Who had opened it without answering is told.
         other = self.urgent(title="Otro aviso")
@@ -158,7 +172,8 @@ class VersionTests(Fixture):
         self.assertEqual(self.waiting(self.member), [])
         self.client.force_login(self.member_user)
         page = self.client.get(detail(notice))
-        self.assertContains(page, "Dijiste «Enterado» el ")
+        self.assertEqual(len(answered_on(page.content.decode())), 1)
+        self.assertNotContains(page, ">Enterado</button>")
         self.assertNotContains(page, CHANGED)
         self.assertFalse(ChurchAuditEvent.objects.filter(action="aviso_enterado_pedido").exists())
 

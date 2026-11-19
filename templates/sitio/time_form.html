@@ -1,22 +1,34 @@
 {% extends "base.html" %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if row %}Editar el horario{% else %}Agregar un horario{% endif %}{% endblock %}
 {% block content %}
-{% comment %}One time the church meets every week, for its public home (sitio.views.time_create, time_edit).{% endcomment %}
+{% comment %}
+  One time the church meets every week, for its public home (sitio.views.time_create, time_edit): the day, the
+  hour, what it is and where; the order of the list, which few churches touch, is folded (open when it has a value
+  or an error). A time that exists can be taken out from here, quietly: its own page asks first.
+{% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'sitio:edit' as back %}
   {% if row %}
-    {% include "events/rotulo/_page_head.html" with title="Editar el horario" lede=row.name back_url=back back_label="Volver a la página pública" %}
+    {% include "events/rotulo/_page_head.html" with title="Editar el horario" meta=row.name back_url=back back_label="Volver a la página pública" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Agregar un horario" lede="Una reunión que se repite cada semana, a la que puede llegar cualquier persona." back_url=back back_label="Volver a la página pública" %}
+    {% include "events/rotulo/_page_head.html" with title="Agregar un horario" back_url=back back_label="Volver a la página pública" %}
   {% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    {% include "partials/ui/field.html" with field=form.weekday %}
+    {% include "partials/ui/field.html" with field=form.time %}
+    {% include "partials/ui/field.html" with field=form.name %}
+    {% include "partials/ui/field.html" with field=form.place %}
+    <details class="fold"{% if form.position.errors or form.position.value %} open{% endif %}>
+      <summary>Cambiar el orden</summary>
+      {% include "partials/ui/field.html" with field=form.position %}
+    </details>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if row %}Guardar cambios{% else %}Agregar el horario{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
+  {% if row %}<p class="quitar"><a class="btn btn--link btn--quieto" href="{% url 'sitio:time_delete' row.pk %}">Quitar el horario</a></p>{% endif %}
 </div>
 {% endblock %}

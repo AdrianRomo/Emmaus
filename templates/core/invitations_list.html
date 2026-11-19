@@ -1,27 +1,36 @@
 {% extends "base.html" %}
-{% load core_extras %}
+{% load core_extras shell %}
 {% block page_title %}Invitaciones{% endblock %}
 {% block content %}
 {% if is_church_admin or current_church.leaders_can_invite_participants %}{% url 'create_invitation' as create_url %}{% endif %}
-{% include "events/rotulo/_page_head.html" with title="Invitaciones" lede="Revisa las invitaciones pendientes, aceptadas y vencidas de tu iglesia." action_url=create_url action_label="Nueva invitación" %}
+{% include "events/rotulo/_page_head.html" with title="Invitaciones" action_url=create_url action_label="Invitar a una persona" %}
 {% comment %}
   One row per invitation: the e-mail, its role (and mentor, for a participant), when it was sent and its state. A
   pending one's personal link stays folded under "Ver enlace": a readonly field to read or select it, and "Copiar
   enlace" (emmaus.js copies the value of the element whose id is in data-copy; without a clipboard it selects it).
-  Used or expired links are not in the page at all.
+  Used or expired links are not in the page at all. With the redesign each row is led by the circle of the person
+  invited (the row specification).
 {% endcomment %}
 <section class="disc-list disc-invites" aria-labelledby="lista">
-  <h2 id="lista" class="heading">{{ total }} invitaci{{ total|pluralize:"ón,ones" }}</h2>
-  {% if total > rows|length %}<p class="list-count">Mostrando {{ rows|length }} de {{ total }}. Primero las más recientes.</p>{% endif %}
   {% if rows %}
+    <h2 id="lista" class="heading">{{ total }} invitaci{{ total|pluralize:"ón,ones" }}</h2>
+    {% if total > rows|length %}<p class="list-count">Mostrando {{ rows|length }} de {{ total }}. Primero las más recientes.</p>{% endif %}
     <ul class="rows">
       {% for row in rows %}
         {% with invitation=row.invitation %}
-        <li class="row">
+        <li class="row{% if ui_v2 %} row--lead{% endif %} row--stack">{% if ui_v2 %}{% monogram invitation.email %}{% endif %}
           <div class="row__main">
             <p class="row__title">{{ invitation.email }}</p>
-            <p class="row__meta">{{ invitation.get_role_display }}, enviada {{ row.sent_ago }}.</p>
-            {% if invitation.role == "participant" %}<p class="row__meta">Mentor: {{ invitation.assigned_mentor|display_name:"Sin asignar" }}</p>{% endif %}
+            {% if ui_v2 %}
+              <ul class="meta">
+                <li>{% icon "personas" "sm" %}{{ invitation.get_role_display }}</li>
+                <li>{% icon "calendario" "sm" %}<span class="visually-hidden">Enviada </span>{{ row.sent_ago }}</li>
+                {% if invitation.role == "participant" %}<li>{% icon "guia" "sm" %}{% if invitation.assigned_mentor %}<span class="visually-hidden">Mentor: </span>{{ invitation.assigned_mentor|display_name }}{% else %}Sin mentor{% endif %}</li>{% endif %}
+              </ul>
+            {% else %}
+              <p class="row__meta">{{ invitation.get_role_display }}, enviada {{ row.sent_ago }}.</p>
+              {% if invitation.role == "participant" %}<p class="row__meta">Mentor: {{ invitation.assigned_mentor|display_name:"Sin asignar" }}</p>{% endif %}
+            {% endif %}
             {% if row.link %}
               <details class="fold fold--inline">
                 <summary>Ver enlace</summary>
@@ -47,7 +56,12 @@
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">Todavía no hay invitaciones. Invita a pastores, mentores o participantes cuando quieras empezar a usar Emmaus con tu iglesia.</p>
+    <h2 id="lista" class="visually-hidden">Invitaciones</h2>
+    {% if ui_v2 %}
+      {% include "partials/ui/empty.html" with title="Sin invitaciones todavía" action_url=create_url action_label="Invitar a una persona" %}
+    {% else %}
+      <p class="empty-line">Sin invitaciones todavía.</p>
+    {% endif %}
   {% endif %}
 </section>
 {% endblock %}

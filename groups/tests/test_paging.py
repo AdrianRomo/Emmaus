@@ -177,15 +177,14 @@ class PagedListsTests(CommunityFixture):
 
     def test_names_under_a_search_box_say_how_many_matched(self):
         self.client.force_login(self.admin)
-        said = "Estas son las primeras {} de 60 personas con ese nombre."
-        for url, shown in (
-            (reverse("community:group_people", args=[self.group.pk]) + "?q=zoe", 10),
-            (reverse("care:create") + "?q=zoe", 10),
+        for url, shown, said in (
+            (reverse("community:group_people", args=[self.group.pk]) + "?q=zoe", 10, "Primeras {} de 60. Escribe más del nombre."),
+            (reverse("care:create") + "?q=zoe", 10, "Primeras {} de 60. Escribe más del nombre."),
         ):
             page = self.client.get(url)
             self.assertEqual(len(page.context["found"]), shown, url)
             self.assertContains(page, said.format(shown))
-            self.assertNotContains(self.client.get(url.replace("zoe", "zulema")), "Estas son las primeras")
+            self.assertNotContains(self.client.get(url.replace("zoe", "zulema")), 'class="list-count"')
 
     def test_a_persons_own_attendance_says_it_is_the_last_eight(self):
         from groups import services
@@ -196,7 +195,7 @@ class PagedListsTests(CommunityFixture):
         )
         self.client.force_login(self.member_user)
         page = self.client.get(reverse("community:group_detail", args=[self.group.pk]))
-        self.assertContains(page, "Las últimas 8 de 10 reuniones con lista desde que eres parte del grupo.")
+        self.assertContains(page, "Las últimas 8 de 10 reuniones.")
         GroupMeeting.objects.filter(group=self.group, date__gt=self.today + timedelta(days=7)).delete()
         page = self.client.get(reverse("community:group_detail", args=[self.group.pk]))
         self.assertNotContains(page, "Las últimas 8 de")

@@ -42,8 +42,8 @@ class FirstAccountTests(TestCase):
     def test_the_setup_page_is_role_neutral_and_keeps_the_notice_and_911(self):
         html = self.client.get(reverse("initial_setup")).content.decode()
         self.assertNotRegex(html.lower(), r"mentor")
-        self.assertIn("la persona que la administra", html)
-        self.assertIn("Lee el aviso para participantes, aquí abajo.", html)
+        self.assertIn("Quien la administra", html)
+        self.assertIn("La indicación de llamar al 911 siempre aparece.", html)
         self.assertIn(Church._meta.get_field("basic_disclaimer_text").default, html)
         self.assertIn(EMERGENCY_NOTICE, html)
 

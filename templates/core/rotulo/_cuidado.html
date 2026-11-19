@@ -1,0 +1,5 @@
+{% comment %}
+  With the redesign, how carefully a participant asked a question to be treated, beside its state: «Requiere cuidado
+  pastoral» is pastoral risk, drawn in chile and never softened; «Delicada» is said in words with its lock; a normal
+  question says nothing. question.
+{% endcomment %}{% load shell %}{% if question.sensitivity_level == "pastoral_care_required" %}<span class="status status--risk"><span class="status__mark" aria-hidden="true"></span>{{ question.get_sensitivity_level_display }}</span>{% elif question.sensitivity_level == "sensitive" %}<span class="disc-delicada">{% icon "candado" "sm" %}{{ question.get_sensitivity_level_display }}</span>{% endif %}

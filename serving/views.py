@@ -21,6 +21,7 @@ from django.urls import reverse
 from django.utils import formats, timezone
 from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.paging import first_rows
 from core.authz import Action, has_scope
 from events.models import normalize_name
@@ -153,17 +154,21 @@ def respond(request, assignment_id: int):
     answer = request.POST.get("respuesta")
     if answer not in ("aceptar", "declinar"):
         raise Http404
+    # Back to where the answer was given ("Mi iglesia" or Servir), so the page shows the answer in place
+    back = safe_next(request, request.POST.get("siguiente"), reverse("serving:home"))
     try:
         services.respond(assignment, answer == "aceptar", request.user)
     except services.ServingError as error:
         messages.error(request, error.message)
-        return redirect("serving:home")
+        return redirect(back)
     day = _weekday_date(assignment.service_date.date)
+    # Says exactly what was saved; the team's page shows the answer to who coordinates (nothing is sent)
+    at = assignment.service_date.starts_at
     if answer == "aceptar":
-        messages.success(request, f"Confirmaste el {day}. Quien coordina el equipo ya lo sabe.")
+        messages.success(request, f"Confirmaste el {day}{at and ', a las ' + at.strftime('%H:%M') or ''}.")
     else:
-        messages.success(request, f"Dijiste que no puedes el {day}. Quien coordina el equipo ya lo sabe.")
-    return redirect("serving:home")
+        messages.success(request, f"Dijiste que no puedes el {day}.")
+    return redirect(back)
 
 
 @community_view
@@ -216,6 +221,10 @@ def team(request, team_id: int):
             row.unfit = row.status != Assignment.Status.DECLINED and rotas.unfit(row)
         service_date.confirmed = sum(1 for row in service_date.people if row.status == Assignment.Status.ACCEPTED)
         service_date.role_needs = missing.get(service_date.pk, [])
+        waiting = sum(1 for row in service_date.people if row.status == Assignment.Status.PENDING)
+        # Nobody serves that day: somebody was asked and every one asked said no (none confirmed, none still to
+        # answer: a pending answer may still be a yes). A date nobody was asked for says so on its own row.
+        service_date.nobody = bool(service_date.people) and not service_date.confirmed and not waiting
     members = list(TeamMembership.objects.filter(team=team, status=ACTIVE).select_related("person").order_by("role", *MEMBER_ORDER))
     query, found, found_total = request.GET.get("q", "").strip(), [], 0
     if request.is_church_admin and query:
@@ -229,7 +238,8 @@ def team(request, team_id: int):
         request,
         "serving/team.html",
         {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found,
-         "found_total": found_total, "swaps": rotas.team_swaps(team) if team.is_active else []},
+         "found_total": found_total, "today": today, "swaps": rotas.team_swaps(team) if team.is_active else [],
+         "uncovered": [service_date for service_date in dates if service_date.nobody] if team.is_active else []},
     )
 
 
@@ -376,7 +386,7 @@ def team_create(request):
     form = TeamForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         team = services.save_team(request.church, request.user, **form.cleaned_data)
-        messages.success(request, f"Creaste el equipo {team.name}. Ahora agrega a las personas y elige quién lo coordina.")
+        messages.success(request, f"Creaste el equipo {team.name}.")
         return redirect("serving:team", team.pk)
     return render(request, "serving/team_form.html", {"form": form, "team": None})
 
@@ -388,7 +398,7 @@ def team_edit(request, team_id: int):
     form = TeamForm(request.POST or None, instance=team)
     if request.method == "POST" and form.is_valid():
         services.save_team(request.church, request.user, team=team, **form.cleaned_data)
-        messages.success(request, "Guardamos los cambios.")
+        messages.success(request, "Guardado.")
         return redirect("serving:team", team.pk)
     return render(request, "serving/team_form.html", {"form": form, "team": team})
 

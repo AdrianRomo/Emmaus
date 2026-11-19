@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from access.models import RoleAssignment
+from core.templatetags.shell import icon
 from agenda import services
 from agenda.models import EventPage, EventRegistration
 from events.models import Event, EventMembership, EventParticipant
@@ -16,6 +17,8 @@ from people import flags
 from people.models import ChurchAuditEvent
 
 URLS = ["detail", "register", "cancel", "page_edit", "registrations"]
+# The panel of an action the person can take on the event's page (sign up, join the waiting list, accept a place).
+ACTION_PANEL = '<section class="sign"'
 
 
 class AgendaFixture(CommunityFixture):
@@ -70,15 +73,26 @@ class VisibilityTests(AgendaFixture):
     def test_a_published_event_shows_in_the_list_and_on_its_page(self):
         page = self.client.get(reverse("agenda:list"))
         self.assertContains(page, "<h1", count=1)
-        self.assertContains(page, "Lo que viene en la iglesia")
+        # Drawn as Mi iglesia draws it: "Más adelante", each event with its day, its hour and its place as one line
+        self.assertContains(page, '<h2 id="lo-que-viene" class="heading">Más adelante</h2>', html=True)
         self.assertNotContains(page, "Tus inscripciones")
         self.assertContains(page, "Retiro de jóvenes")
-        self.assertContains(page, "a las 19:30, en Rancho El Olivo.")
-        self.assertContains(page, "Inscripción abierta")
+        self.assertContains(page, "19:30, Rancho El Olivo")
+        # No minors' step can follow on this event: «Inscribirme» acts in place on its row (groups/_event_state.html)
+        self.assertContains(page, f'<form method="post" action="{self.url("register")}" data-inline="ev-{self.retiro.slug}">')
+        self.assertContains(
+            page,
+            '<button class="btn btn--secondary btn--small" type="submit">Inscribirme'
+            '<span class="visually-hidden"> a Retiro de jóvenes</span></button>',
+            html=True,
+        )
         self.assertNotContains(page, "Vigilia de la iglesia B")
         self.assertNotContains(page, "Administrar los eventos")
         detail = self.client.get(self.url())
         self.assertContains(detail, "<h1", count=1)
+        # On its page, the hour and the place are facts with their mark
+        self.assertContains(detail, f'<li>{icon("reloj", "sm")}19:30</li>')
+        self.assertContains(detail, f'<li>{icon("lugar", "sm")}Rancho El Olivo</li>')
         self.assertContains(detail, "Tres días para descansar.")
         self.assertContains(detail, "Inscribirme")
         self.assertContains(
@@ -118,10 +132,10 @@ class RegistrationTests(AgendaFixture):
     def test_signing_up_and_what_the_person_reads(self):
         self.assertEqual(self.client.get(self.url("register")).status_code, 405)
         response = self.client.post(self.url("register"), follow=True)
-        self.assertContains(response, "Listo. Te inscribiste a Retiro de jóvenes.")
-        self.assertContains(response, "<strong>Te inscribiste.</strong>")
+        self.assertContains(response, "Te inscribiste a Retiro de jóvenes.")
+        self.assertContains(response, '<span class="status status--done"><span class="status__mark" aria-hidden="true"></span>Te inscribiste</span>')
         self.assertContains(response, "Cancelar mi inscripción")
-        self.assertNotContains(response, 'btn--on-dark')
+        self.assertNotContains(response, ACTION_PANEL)
         row = EventRegistration.objects.get()
         self.assertEqual((row.event, row.person, row.status, row.attended), (self.retiro, self.member, "inscrita", None))
         page = self.client.get(reverse("agenda:list"))
@@ -145,7 +159,7 @@ class RegistrationTests(AgendaFixture):
     def refused(self, message, code):
         response = self.client.post(self.url("register"), follow=True)
         self.assertContains(response, message)
-        self.assertNotContains(response, 'btn--on-dark')
+        self.assertNotContains(response, ACTION_PANEL)
         self.assertFalse(EventRegistration.objects.filter(person=self.member, status="inscrita").exists())
         with self.assertRaises(services.AgendaError) as caught:
             services.register(self.retiro, self.member, self.member_user)
@@ -296,13 +310,42 @@ class AdministrationTests(AgendaFixture):
         for name in ("Retiro de jóvenes", "Conferencia sin publicar", "Evento sin página", self.event.name):
             self.assertContains(page, name)
         self.assertNotContains(page, "Vigilia de la iglesia B")
+        # No line starts with a comma: a one-day event's date is said to a screen reader, then what follows
+        import re as _re
+
+        lines = _re.findall(r'<p class="row__meta row__meta--con-marca">.*?</p>', page.content.decode(), _re.S)
+        self.assertTrue(lines)
+        for line in lines:
+            visible = _re.sub(r'<span class="visually-hidden">.*?</span>', "", line)
+            self.assertNotRegex(_re.sub(r"<[^>]+>", "", visible).strip(), r"^,|\s,")
         self.assertContains(page, "Publicada", count=1)
-        self.assertContains(page, "Sin publicar", count=4)  # the fixture's second camp too
+        self.assertContains(page, "Sin publicar", count=1)  # the hidden conference; a camp without a page has no publication
         self.assertContains(page, "1 persona inscrita")
         self.assertContains(page, self.url("page_edit"))
         self.assertContains(page, self.url("registrations"))
         self.assertContains(self.client.get(reverse("agenda:list")), "Administrar los eventos")
         self.assertContains(self.client.get(self.url(event=self.hidden)), "solo la administración de la iglesia la ve")
+
+    def test_a_running_camp_says_en_curso_and_its_camperos_never_sin_inscritos(self):
+        """Owner decision: the operational state apart from publication and sign-ups; an interview-only camp (camp tools,
+        no page for the church) shows its camperos, leads to its administration and offers «Camperos»."""
+        from events.models import EventParticipant
+
+        Event.objects.filter(pk=self.event.pk).update(status=Event.Status.ACTIVE, starts_on=self.today, ends_on=self.today + timedelta(days=2))
+        EventParticipant.objects.create(event=self.event, number=901, full_name="Campero Uno", age=15, room="1", church_group="X")
+        EventParticipant.objects.create(event=self.event, number=902, full_name="Campero Dos", age=16, room="2", church_group="X")
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse("agenda:admin_list")).content.decode()
+        running = page.split('id="en-curso"', 1)[1].split("</section>", 1)[0]
+        self.assertIn(self.event.name, running)
+        self.assertIn("En curso", running)
+        self.assertNotIn("sin inscritos", running)
+        self.assertNotIn("Sin publicar", running)
+        n = EventParticipant.objects.filter(event=self.event, is_active=True, is_practice=False).count()
+        self.assertIn(f"{n} camperos", running)
+        self.assertIn(f'href="{reverse("events:admin_home", args=[self.event.slug])}">{self.event.name}</a>', running)
+        self.assertIn(f'href="{reverse("events:participants", args=[self.event.slug])}">Camperos', running)
+        self.assertNotIn(self.event.name, page.split('id="proximos"', 1)[1].split("</section>", 1)[0])
 
     def test_publishing_an_event(self):
         self.client.force_login(self.admin)

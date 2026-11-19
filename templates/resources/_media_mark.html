@@ -1,0 +1,4 @@
+{% load shell %}{% comment %}
+  The leading mark of a resource in a list (the row's 48px slot), by its kind: what is played (a preaching, music),
+  what is read (a study) or a link. Decorative: the kind is written beside it. Needs: item.
+{% endcomment %}<span class="hoy__icono" aria-hidden="true">{% if item.kind == "estudio" %}{% icon "lectura" %}{% elif item.kind == "otro" %}{% icon "enlace" %}{% else %}{% icon "recursos" %}{% endif %}</span>

@@ -2,13 +2,89 @@
 {% load emmaus %}
 {% block page_title %}Entrevista de {{ participant.full_name }}{% endblock %}
 {% block content %}
+{% if ui_v2 %}{% load shell %}{% comment %}
+  The redesign ("Ventanas"): the interview's record. A decision that waits ("Por decidir") is the one raised surface,
+  a question with its two answers, answered in place (data-inline="seguimiento": the same POST, which comes back to
+  this record or, opened from «Por decidir», goes on to the next one); once decided, the section says the answer.
+  Then the answers, with who reads the confidential ones, and the corrections, each by the person who made it.
+{% endcomment %}
 {% url 'events:participant_detail' event.slug participant.public_id as back_url %}
 {% if can_continue %}{% url 'events:interview_resume' event.slug interview.public_id as continue_url %}{% endif %}
 {% with title="Entrevista de "|add:participant.first_name %}
   {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Retomar entrevista" %}
 {% endwith %}
 {% if participant.is_practice %}{% include "events/_practice_notice.html" %}{% endif %}
-<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario, por {{ interview.conducted_by.get_full_name|default:"—" }}{% if interview.station %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.</span></p>
+<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario{% if not people.confirmed %}, por {{ interview.conducted_by.get_full_name|default:"—" }}{% endif %}{% if interview.station and not people.holder_shown %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.{% include "events/interview/_people.html" %}</span></p>
+
+<div class="narrow">
+{% if interview.status == "completada" %}
+<section class="block" id="seguimiento" aria-labelledby="seg-titulo">
+  {% if can_correct and interview.follow_up_decision == "por_evaluar" %}
+  <div class="sign">
+    <div class="sign__who">
+      {% monogram participant.full_name %}
+      <div>
+        <p class="sign__kind">Por decidir</p>
+        <h2 id="seg-titulo" class="sign__title">¿{{ participant.first_name }} necesita seguimiento?</h2>
+      </div>
+    </div>
+    <form class="sign__actions sign__actions--pair" method="post" data-inline="seguimiento">
+      {% csrf_token %}<input type="hidden" name="action" value="decision"><input type="hidden" name="siguiente" value="{{ request.GET.siguiente }}">
+      <button class="btn btn--secondary btn--large" type="submit" name="decision" value="requerido">Sí<span class="visually-hidden">, {{ participant.full_name }} necesita seguimiento</span></button>
+      <button class="btn btn--secondary btn--large" type="submit" name="decision" value="no_requerido">No<span class="visually-hidden">, {{ participant.full_name }} no necesita seguimiento</span></button>
+    </form>
+  </div>
+  {% else %}
+  <h2 id="seg-titulo" class="heading" data-inline-focus>Seguimiento</h2>
+  <p>{% if interview.follow_up_decision == "requerido" %}Necesita seguimiento.{% elif interview.follow_up_decision == "no_requerido" %}No necesita seguimiento.{% elif interview.follow_up_decision == "por_evaluar" %}{% status "por_evaluar" %}{% else %}Sin decisión.{% endif %}</p>
+  {% endif %}{% comment %}
+    A decision already taken changes on its own page, with a reason (services.follow_up_decision); every change is
+    listed under this section, who and when, from what to what, why and what it did to the care follow-up.
+  {% endcomment %}{% if can_change_decision %}
+  <p class="more"><a href="{% url 'events:interview_follow_up_change' event.slug interview.public_id %}">Cambiar decisión de seguimiento</a></p>{% endif %}
+</section>{% if decision_changes %}
+<section class="block" aria-labelledby="cambios-seguimiento">
+  <h2 id="cambios-seguimiento" class="heading">Cambios de la decisión de seguimiento</h2>
+  <ul class="rows">{% for c in decision_changes %}
+    <li class="row row--lead">{% monogram c.changed_by.get_full_name %}<div class="row__main"><p class="row__title">De «{{ c.previous_words }}» a «{{ c.decision_words }}»</p><p class="row__meta">{{ c.changed_at|fecha_corta }}, {{ c.changed_by.get_full_name|default:"—" }}. Motivo: {{ c.reason }}</p>{% if c.care %}<p class="row__meta">{{ c.get_care_display }}</p>{% endif %}</div></li>
+  {% endfor %}</ul>
+</section>{% endif %}
+{% endif %}
+
+<section class="block" aria-labelledby="respuestas">
+  <h2 id="respuestas" class="heading">Respuestas</h2>
+  {% if rows %}
+    <dl class="summary-list summary-list--answers entrevista-respuestas">
+      {% for row in rows %}
+        <div class="summary-list__row">
+          <dt>{{ row.question.text }}</dt>
+          <dd>{% if not row.visible %}<span class="privacy__tag">{{ row.question.get_sensitivity_display }}</span>{% else %}{% if row.question.sensitivity == "confidencial" %}<span class="privacy__tag">Confidencial</span> {% endif %}{% if row.answered %}{{ row.display }}{% else %}<span class="muted">Sin responder</span>{% endif %}{% endif %}</dd>
+          <dd class="summary-list__action">{% if can_correct and row.visible %}<a href="{% url 'events:interview_correct' event.slug interview.public_id row.step.number %}">Corregir<span class="visually-hidden"> “{{ row.question.text }}”</span></a>{% endif %}</dd>
+        </div>
+      {% endfor %}
+    </dl>
+  {% else %}
+    <p class="empty-line">Todavía no hay respuestas.</p>
+  {% endif %}
+  {% if has_hidden %}{% if interview.effective_confidential_level == "cuidado" %}<p class="aside-note">Algunas respuestas solo las puede leer el equipo de cuidado autorizado.</p>{% elif interview.effective_confidential_level == "coordinacion" %}<p class="aside-note">Algunas respuestas son confidenciales y llevan su etiqueta: las leen quien entrevistó a {{ participant.first_name }}, su coordinador y el equipo de cuidado.</p>{% else %}<p class="aside-note">Algunas respuestas son confidenciales y llevan su etiqueta: las leen su coordinador y el equipo del campamento.</p>{% endif %}{% endif %}
+</section>
+
+{% if revisions %}
+<section class="block" aria-labelledby="historial">
+  <h2 id="historial" class="heading">Historial de correcciones</h2>
+  <ul class="rows">{% for r in revisions %}
+    <li class="row row--lead">{% monogram r.changed_by.get_full_name %}<div class="row__main"><p class="row__title">{{ r.question.text }}</p><p class="row__meta">{{ r.changed_at|fecha_corta }}, {{ r.changed_by.get_full_name }}. Motivo: {{ r.reason }}</p></div></li>
+  {% endfor %}</ul>
+</section>
+{% endif %}
+</div>
+{% else %}{% url 'events:participant_detail' event.slug participant.public_id as back_url %}
+{% if can_continue %}{% url 'events:interview_resume' event.slug interview.public_id as continue_url %}{% endif %}
+{% with title="Entrevista de "|add:participant.first_name %}
+  {% include "events/rotulo/_page_head.html" with title=title back_url=back_url back_label=participant.full_name action_url=continue_url action_label="Retomar entrevista" %}
+{% endwith %}
+{% if participant.is_practice %}{% include "events/_practice_notice.html" %}{% endif %}
+<p class="interview-meta">{% status interview.status %} <span>{% if event.questionnaire_count > 1 %}«{{ interview.version.title }}», {% endif %}{{ interview.get_mode_display }}, versión {{ interview.version.number }} del cuestionario{% if not people.confirmed %}, por {{ interview.conducted_by.get_full_name|default:"—" }}{% endif %}{% if interview.station and not people.holder_shown %}, en {{ interview.station.name }}{% endif %}{% if interview.correction_count %}. Corregida {{ interview.correction_count }} {{ interview.correction_count|pluralize:"vez,veces" }}{% endif %}.{% include "events/interview/_people.html" %}</span></p>
 
 <div class="narrow">
 {% if interview.status == "completada" %}
@@ -23,8 +99,15 @@
       <button class="btn btn--primary" name="decision" value="requerido">Sí requiere seguimiento</button>
       <button class="btn btn--secondary" name="decision" value="no_requerido">No requiere seguimiento</button>
     </form>
-  {% endif %}
-</section>
+  {% endif %}{% if can_change_decision %}
+  <p class="more"><a href="{% url 'events:interview_follow_up_change' event.slug interview.public_id %}">Cambiar decisión de seguimiento</a></p>{% endif %}
+</section>{% if decision_changes %}
+<section class="block" aria-labelledby="cambios-seguimiento">
+  <h2 id="cambios-seguimiento" class="heading">Cambios de la decisión de seguimiento</h2>
+  <ul class="rows">{% for c in decision_changes %}
+    <li class="row"><div class="row__main"><p class="row__title">De «{{ c.previous_words }}» a «{{ c.decision_words }}»</p><p class="row__meta">{{ c.changed_at|fecha_corta }}, {{ c.changed_by.get_full_name|default:"—" }}. Motivo: {{ c.reason }}</p>{% if c.care %}<p class="row__meta">{{ c.get_care_display }}</p>{% endif %}</div></li>
+  {% endfor %}</ul>
+</section>{% endif %}
 {% endif %}
 
 <section class="block" aria-labelledby="respuestas">
@@ -54,4 +137,4 @@
 </section>
 {% endif %}
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

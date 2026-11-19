@@ -3,62 +3,56 @@
 {% block page_title %}Avisos{% endblock %}
 {% block content %}
 {% comment %}
-  Avisos (notices.views.notice_list): what the church and the person's groups want them to know, urgent and important ones first (each
-  with its word), then newest first; the ones not opened yet say "Nuevo". Who may write gets "Publicar un aviso" and, below, everything they published with
-  its state (scheduled, expired and retired ones too). Opening this list marks nothing as read. Each list is paged
-  by fifty, with its own page in the address (?pagina=, ?publicados=).
+  Avisos (notices.views.notice_list): what the church and the person's groups want them to know, urgent and important
+  ones first, then newest first. Each notice is drawn as "Avisos" on Mi iglesia draws it: an ink dot in the leading
+  slot while it is not opened, the title (lighter once read), and under it its level (notices/_level.html: «Importante»
+  is the vela capsule), its day and its group. Who may write gets "Publicar un aviso" and, once they have published
+  something, everything they published with its state (scheduled, expired and retired ones too). Opening this list
+  marks nothing as read. Each list is paged by fifty, with its own page in the address (?pagina=, ?publicados=).
 {% endcomment %}
 <div class="narrow">
-  {% url 'community:home' as back %}{% url 'notices:create' as create %}
+  {% url 'notices:create' as create %}
   {% if can_write %}
-    {% include "events/rotulo/_page_head.html" with title="Avisos" lede="Lo que tu iglesia y tus grupos quieren que sepas." back_url=back back_label="Volver a Mi iglesia" action_url=create action_label="Publicar un aviso" %}
+    {% include "events/rotulo/_page_head.html" with title="Avisos" action_url=create action_label="Publicar un aviso" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Avisos" lede="Lo que tu iglesia y tus grupos quieren que sepas." back_url=back back_label="Volver a Mi iglesia" %}
+    {% include "events/rotulo/_page_head.html" with title="Avisos" %}
   {% endif %}
 
   <section class="block" aria-labelledby="para-ti">
-    <h2 id="para-ti" class="heading">Avisos para ti</h2>
+    <h2 id="para-ti" class="{% if published %}heading{% else %}visually-hidden{% endif %}">Para ti</h2>
     {% if notices %}
-      <ul class="dates rows">
+      <ul class="rows">
         {% for notice in notices %}
-          <li class="row row--lead row--stack">
-            {% date_block notice.publish_on %}
+          <li class="row row--lead">
+            <span class="hoy__marca">{% if notice.is_unread %}<span class="hoy__punto"></span><span class="visually-hidden">Sin leer</span>{% endif %}</span>
             <div class="row__main">
-              <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
-              <p class="row__meta">{{ notice.audience }}. Publicado el {{ notice.publish_on|weekday_date }}.</p>
+              <p class="row__title{% if not notice.is_unread %} row__title--leido{% endif %}"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
+              <p class="row__meta row__meta--con-marca">{% include "notices/_level.html" %}<span>{{ notice.publish_on|day_month|capfirst }}{% if notice.group %}, {{ notice.group.name }}{% endif %}</span></p>
             </div>
-            {% if notice.level or notice.is_unread %}<div class="row__end">{% include "notices/_level.html" %}{% if notice.is_unread %}{% status "pendiente" "Nuevo" %}{% endif %}</div>{% endif %}
           </li>
         {% endfor %}
       </ul>
       {% include "partials/ui/pager.html" with page=notices label="Páginas de avisos para ti" %}
-    {% elif can_write %}
-      <p class="empty-line">No hay avisos por ahora. Si tienes algo que decir, publica un aviso.</p>
     {% else %}
-      <p class="empty-line">No hay avisos por ahora. Cuando tu iglesia o tu grupo publiquen uno, lo vas a encontrar aquí.</p>
+      <p class="empty-line">Sin avisos por ahora.</p>
     {% endif %}
   </section>
 
-  {% if can_write %}
+  {% if published %}
   <section class="block" aria-labelledby="publicaste">
-    <h2 id="publicaste" class="heading">Avisos que publicaste</h2>
-    {% if published %}
-      <ul class="dates rows">
-        {% for notice in published %}
-          <li class="row row--lead row--stack">
-            {% date_block notice.publish_on %}
-            <div class="row__main">
-              <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
-              <p class="row__meta">{{ notice.audience }}. {% if notice.state == "programado" %}Se publica el {{ notice.publish_on|weekday_date }}.{% elif notice.state == "vencido" %}Se dejó de ver después del {{ notice.expires_on|weekday_date }}.{% elif notice.state == "retirado" %}Ya nadie lo ve.{% else %}Publicado el {{ notice.publish_on|weekday_date }}{% if notice.expires_on %}, se ve hasta el {{ notice.expires_on|weekday_date }}{% endif %}.{% endif %}</p>
-            </div>
-            <div class="row__end">{% include "notices/_level.html" %}{% if notice.state == "programado" %}{% status "borrador" "Programado" %}{% elif notice.state == "vencido" %}{% status "descartada" "Vencido" %}{% elif notice.state == "retirado" %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}</div>
-          </li>
-        {% endfor %}
-      </ul>
-      {% include "partials/ui/pager.html" with page=published param="publicados" label="Páginas de avisos que publicaste" %}
-    {% else %}
-      <p class="empty-line">Todavía no publicas ningún aviso. <a href="{{ create }}">Publicar un aviso</a></p>
-    {% endif %}
+    <h2 id="publicaste" class="heading">Los que publicaste</h2>
+    <ul class="rows">
+      {% for notice in published %}
+        <li class="row row--lead">
+          <span class="hoy__marca" aria-hidden="true"></span>
+          <div class="row__main">
+            <p class="row__title"><a href="{% url 'notices:detail' notice.pk %}">{{ notice.title }}</a></p>
+            <p class="row__meta row__meta--con-marca">{% if notice.state == "programado" %}{% status "por_evaluar" "Programado" %}{% elif notice.state == "vencido" %}{% status "descartada" "Vencido" %}{% elif notice.state == "retirado" %}{% status "retirada" "Retirado" %}{% else %}{% status "publicada" "Publicado" %}{% endif %}{% include "notices/_level.html" %}<span>{% if notice.state == "programado" %}Se publica el {{ notice.publish_on|day_month }}{% else %}{{ notice.publish_on|day_month|capfirst }}{% endif %}, {% if notice.group_id %}para {{ notice.group.name }}{% else %}para toda la iglesia{% endif %}{% if notice.expires_on and notice.state != "retirado" %}, hasta el {{ notice.expires_on|day_month }}{% endif %}</span></p>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+    {% include "partials/ui/pager.html" with page=published param="publicados" label="Páginas de avisos que publicaste" %}
   </section>
   {% endif %}
 </div>

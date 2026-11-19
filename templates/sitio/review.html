@@ -4,8 +4,10 @@
 {% block content %}
 {% comment %}
   The review before the church's home goes public (sitio.views.publish): exactly what anybody will read, by
-  name. The button asks a pastor to approve what this list shows (the approval publishes it, not the administration);
-  if it changed meanwhile, the list is shown again.
+  name, each list on the row specification (sitio/_review_list.html: a time is its clock, an event its day, a
+  resource its mark). The button asks a pastor to approve what this list shows (the approval publishes it, not the
+  administration); if it changed meanwhile, the list is shown again. The notes that say who can read or call
+  (privacy) stay whole.
 {% endcomment %}
 <div class="narrow">
   {% url 'sitio:edit' as back %}
@@ -13,7 +15,7 @@
 
   {% include "sitio/_review_list.html" %}
 
-  <div class="notice notice--quiet">
+  <div class="notice">
     <p>Después de publicarse, un evento al que le des página pública o un recurso que marques aparecen sin otra revisión, y lo que retires deja de verse. La dirección, el mapa, el teléfono y los horarios también se pueden corregir después y se ven de inmediato. En cambio, si cambias la bienvenida, la página deja de ser pública hasta que un pastor la apruebe otra vez.</p>
   </div>
 
@@ -21,7 +23,7 @@
   <form method="post">
     {% csrf_token %}
     <input type="hidden" name="revision" value="{{ revision }}">
-    <div class="step__actions">
+    <div class="form-actions">
       {% if not approval.is_pending %}<button class="btn btn--primary" type="submit">Pedir la aprobación pastoral</button>{% endif %}
       <a class="btn btn--link" href="{% url 'sitio:preview' %}">Ver la vista previa</a>
       <a class="btn btn--link" href="{{ back }}">Volver a editar</a>

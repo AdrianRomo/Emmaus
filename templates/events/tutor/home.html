@@ -1,7 +1,29 @@
 {% extends rotulo_shell %}
 {% load emmaus %}
 {% block page_title %}Mi equipo{% endblock %}
-{% block content %}
+{% block content %}{% if ui_v2 %}{% load community %}
+{% comment %}
+  The redesign ("Ventanas"): the tutor's workspace, built as the coordinator's "Mi inicio". The event and its dates;
+  inside the live region what stalled (the one raised surface), what waits for a decision as rows with their count,
+  the team's coordinators and the team's progress. The role is said on the page only where the rail is hidden.
+{% endcomment %}
+<header class="page-head tablero__cabeza">
+  <div class="page-head__text">
+    <h1 class="voice page-head__title">{{ event.name }}</h1>
+    <p class="page-head__meta">{% if event.starts_on %}{{ event.starts_on|date_range:event.ends_on|capfirst }}{% endif %}{% if event.location %}{% if event.starts_on %}, {% endif %}{{ event.location }}{% endif %}</p>
+    <p class="page-head__meta solo-sin-riel">Tu rol: {{ access.role_label|lower }}.</p>
+  </div>
+</header>
+{% include "partials/ui/welcome.html" with welcome=welcome %}
+<div class="tablero__estado">
+  {# The time is not announced; only a lost connection or session is (audit A11Y-07, emmaus.js) #}
+  <p class="live-status" id="estado-actualizacion" data-state="ok" aria-live="off">Se actualiza automáticamente</p>
+  <p class="visually-hidden" role="status" aria-live="polite" data-live-announce="estado-actualizacion"></p>
+</div>
+<div id="equipo-vivo" data-live-url="{% url 'events:tutor_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
+  {% include "events/tutor/_home_live.html" %}
+</div>
+{% else %}
 <header class="crew-head">
   <div class="crew-head__text">
     <h1 class="voice crew-head__title">{% if access.membership.team_name %}{{ access.membership.team_name }}{% if user|nombre %}, con {{ user|nombre }}{% endif %}.{% else %}Hola{% if user|nombre %}, {{ user|nombre }}{% endif %}.{% endif %}</h1>
@@ -15,4 +37,4 @@
 <div id="equipo-vivo" data-live-url="{% url 'events:tutor_home' event.slug %}" data-live-interval="20" data-live-status="estado-actualizacion">
   {% include "events/tutor/_home_live.html" %}
 </div>
-{% endblock %}
+{% endif %}{% endblock %}

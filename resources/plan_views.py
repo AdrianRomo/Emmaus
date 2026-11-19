@@ -113,6 +113,8 @@ def plan_day_read(request, plan_id: int, position: int):
     day = get_object_or_404(ReadingPlanDay, plan=plan, position=position)
     day.plan = plan
     plans.mark_day_read(day, request.person)
+    # Said back to whoever cannot see the page change; the page itself shows the word "Leído"
+    messages.success(request, f"Marcaste el día {position} como leído.")
     if plans.first_unread(plans.days_for(plan, progress)) is None:
         return redirect("resources:plan_detail", plan.pk)  # every day is read: the plan's page says so, quietly
     return redirect("resources:plan_day", plan.pk, position)

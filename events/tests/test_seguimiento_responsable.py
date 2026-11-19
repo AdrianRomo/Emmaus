@@ -205,8 +205,11 @@ class BulkAssignTests(FollowUpBase):
     def test_several_rows_are_assigned_and_each_one_is_audited(self):
         response = self.bulk(self.client, [self.a, self.b, self.c], self.tutor1.id)
         self.assertRedirects(response, self.url("follow_ups"), fetch_redirect_response=False)
-        self.assertEqual(self.flashed(response), ["Se asignaron 3 seguimientos."])
-        for item in (self.a, self.b, self.c):
+        # Teresa supervises the coordinadores of p1 and p3, not p4's: that one is not hers to open, so it stays as it was
+        self.assertEqual(self.flashed(response), ["Se asignaron 2 seguimientos. 1 se quedó como estaba."])
+        self.assertIsNone(self.owner(self.c))
+        self.assertFalse(self.audit_rows(self.c).exists())
+        for item in (self.a, self.b):
             self.assertEqual(self.owner(item), self.tutor1)
             row = self.audit_rows(item).get()  # one row per follow-up
             self.assertEqual((row.actor, row.object_type, row.object_id), (self.admin, "FollowUp", str(item.id)))

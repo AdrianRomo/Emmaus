@@ -22,6 +22,9 @@ def record(actor, event, action: str, summary: str, obj=None, **metadata) -> Aud
     )
 
 
+# Another staff member picking up an interview in progress ticked «Sí, es {nombre}» (services.interviews): its own row,
+# so the confirmation at the start («Identidad confirmada por …») stays as it was.
+IDENTITY_VERIFIED = "identidad_verificada"
 PRACTICE_COMPLETED = "practica_completada"  # issue #49: "ya practicó" reads these rows (services.practice)
 
 ACTION_LABELS = {
@@ -52,6 +55,7 @@ ACTION_LABELS = {
     "entrevista_iniciada": "Inició una entrevista",
     "entrevista_retomada": "Retomó una entrevista",
     "entrevista_control": "Tomó el control de una entrevista",
+    IDENTITY_VERIFIED: "Verificó la identidad de un campero para continuar su entrevista",
     "entrevista_completada": "Completó una entrevista",
     "entrevista_corregida": "Corrigió una entrevista",
     "entrevista_descartada": "Descartó una entrevista",
@@ -64,6 +68,8 @@ ACTION_LABELS = {
     "sesion_revocada": "Cerró la pantalla de un campero o liberó una entrevista",
     "consulta_confidencial": "Consultó información confidencial",
     "seguimiento": "Actualizó un seguimiento",
+    "seguimiento_corregido": "Cambió una decisión de seguimiento",  # services.follow_up_decision: never the reason
+    "seguimiento_continuado": "Continuó un seguimiento que su entrevista ya no pide",  # never the reason either
     "recordatorio_seguimiento": "Envió recordatorios de seguimientos abiertos",
     "reporte_riesgo": "Reportó una situación de riesgo",
     "corte_generado": "Generó un corte",

@@ -62,9 +62,9 @@ class InitialSetupTests(TestCase):
         self.assertEqual(church.theme_accent_color, "#B85C38")
         self.assertEqual(UserChurchRole.objects.get(user=admin, church=church).role, Role.CHURCH_ADMIN)
 
-    def test_setup_shows_the_notice_it_asks_to_read(self):
+    def test_setup_shows_the_notice_participants_will_read(self):
         response = self.client.get(reverse("initial_setup"))
-        self.assertContains(response, "Lee el aviso para participantes, aquí abajo.")
+        self.assertContains(response, '<h2 id="aviso" class="heading">Aviso para participantes</h2>', html=False)
         self.assertContains(response, Church._meta.get_field("basic_disclaimer_text").default)
 
     def test_someone_without_a_role_lands_on_the_event_list_not_a_403(self):
@@ -619,10 +619,7 @@ class EmailAuthenticationFormTests(TestCase):
         self.assertEqual(form.fields["username"].label, "Correo electrónico")
         self.assertEqual(form.fields["password"].label, "Contraseña")
         self.assertFalse(form.is_valid())
-        self.assertIn(
-            "Revisa tu correo y contraseña. Si no puedes entrar, pide ayuda a la administración del evento.",
-            form.non_field_errors(),
-        )
+        self.assertIn("No pudimos iniciar sesión. Revisa tu correo y tu contraseña e inténtalo de nuevo.", form.non_field_errors())
 
 
 class HealthTests(TestCase):

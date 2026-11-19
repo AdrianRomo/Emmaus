@@ -1,11 +1,13 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus shell %}
 {% block page_title %}{{ plan.title }}{% endblock %}
 {% block content %}
 {% comment %}
   One plan (resources.plan_views.plan_detail): what it is, its days, and where this person is. Starting, the marks
   and the quiet "Terminaste este plan" belong to the reader alone: no count, no percentage, no streak, nobody else's
-  progress. The administration may open a draft or a retired plan to look at it: it says so and offers nothing to mark.
+  progress. Each day has its mark in the leading slot and, once this person marked it, the word "Leído": the truthful
+  picture of where they are. The administration may open a draft or a retired plan to look at it: it says so and
+  offers nothing to mark.
 {% endcomment %}
 <div class="narrow">
   {% url 'resources:plan_list' as back %}
@@ -15,20 +17,18 @@
     {% include "events/rotulo/_page_head.html" with title=plan.title lede=plan.description back_url=back back_label="Volver a los planes de lectura" %}
   {% endif %}
   {% if preview %}
-    <div class="notice notice--quiet"><p>{% if plan.is_draft %}Este plan es un borrador: solo lo ve la administración de la iglesia.{% else %}Este plan está retirado: solo lo abre quien ya lo había empezado, y la administración.{% endif %}</p></div>
+    <p class="aside-note">{% if plan.is_draft %}Este plan es un borrador: solo lo ve la administración de la iglesia.{% else %}Este plan está retirado: solo lo abre quien ya lo había empezado, y la administración.{% endif %}</p>
   {% elif plan.is_retired %}
-    <div class="notice notice--quiet"><p>Tu iglesia retiró este plan. Tú lo puedes seguir leyendo hasta terminarlo.</p></div>
+    <p class="aside-note">Tu iglesia retiró este plan. Tú lo puedes seguir leyendo hasta terminarlo.</p>
   {% endif %}
   {% if finished %}
-    <div class="notice notice--success"><p>Terminaste este plan. Puedes volver a leer cualquier día cuando quieras.</p></div>
+    <div class="notice notice--success plan__seguir"><p>Terminaste este plan. Puedes volver a leer cualquier día cuando quieras.</p></div>
   {% elif started and next_day %}
-    <div class="step__actions"><a class="btn btn--primary" href="{% url 'resources:plan_day' plan.pk next_day.position %}">{% if any_read %}Continuar en el día {{ next_day.position }}{% else %}Leer el día {{ next_day.position }}{% endif %}</a></div>
+    <div class="form-actions plan__seguir"><a class="btn btn--primary btn--large" href="{% url 'resources:plan_day' plan.pk next_day.position %}">{% if any_read %}Continuar en el día {{ next_day.position }}{% else %}Leer el día {{ next_day.position }}{% endif %}</a></div>
   {% elif not preview %}
-    <form method="post" action="{% url 'resources:plan_start' plan.pk %}">
+    <form class="form-actions plan__seguir" method="post" action="{% url 'resources:plan_start' plan.pk %}">
       {% csrf_token %}
-      <div class="step__actions">
-        <button class="btn btn--primary" type="submit">Empezar este plan</button>
-      </div>
+      <button class="btn btn--primary btn--large" type="submit">Empezar este plan</button>
     </form>
     <p class="aside-note">Son {{ day_words }}. Lees a tu ritmo: ningún día tiene fecha. Si lo empiezas, solo tú lo sabes.</p>
   {% endif %}
@@ -38,11 +38,11 @@
       <ol class="rows">
         {% for day in days %}
           <li class="row row--lead row--stack">
+            <span class="hoy__icono" aria-hidden="true">{% icon "lectura" %}</span>
             <div class="row__main">
               <p class="row__title"><a href="{% url 'resources:plan_day' plan.pk day.position %}">Día {{ day.position }}{% if day.title %}: {{ day.title }}{% endif %}</a></p>
-              <p class="row__meta">Lectura: {{ day.reference }}.</p>
+              <p class="row__meta{% if day.is_read %} row__meta--con-marca{% endif %}">{% if day.is_read %}{% status "completada" "Leído" %}{% endif %}<span>Lectura: {{ day.reference }}.</span></p>
             </div>
-            {% if day.is_read %}<div class="row__end">{% status "completada" "Leído" %}</div>{% endif %}
           </li>
         {% endfor %}
       </ol>
@@ -52,7 +52,7 @@
   </section>
   {% if started %}
     <p class="aside-note">Tus marcas son solo para ti: nadie más ve si empezaste este plan ni en qué día vas.</p>
-    <p class="more"><a href="{% url 'resources:plan_leave' plan.pk %}">Dejar este plan</a></p>
+    <p><a class="btn btn--link btn--quieto plan__dejar" href="{% url 'resources:plan_leave' plan.pk %}">Dejar este plan</a></p>
   {% endif %}
   {% if request.is_church_admin %}<p class="more"><a href="{% url 'resources:plan_days' plan.pk %}">Administrar este plan</a></p>{% endif %}
 </div>

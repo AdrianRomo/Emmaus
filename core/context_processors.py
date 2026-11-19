@@ -3,7 +3,7 @@ from django.utils.functional import SimpleLazyObject
 
 from . import tenancy
 from .access import get_role_context, role_words
-from .models import Role
+from .models import Church, Role
 from .services import progress_for_participant
 
 
@@ -92,6 +92,15 @@ def current_role(request):
 
         context["ui_v2"] = True
         context["shell"] = build_shell(request, context["shell_church"], module_items, context["show_events_link"])
+    elif context["show_events_link"] and (event_church := _event_church(request)) is not None:
+        # An account that only works in events has no church of its own. Its pages wear the look of the church
+        # that holds the event, with a rail that lists its events and, inside one, the event's pages: the same
+        # product for the whole team, whoever is a person of the church and whoever is not.
+        from .shell import build_event_shell
+
+        context["ui_v2"] = True
+        context["shell"] = build_event_shell(request, event_church)
+        context["current_church"] = context.get("current_church") or event_church
     context["app_nav_items"] = nav_items
     context["active_url_name"] = getattr(getattr(request, "resolver_match", None), "url_name", "")
     context["theme_church"] = context.get("current_church")
@@ -110,7 +119,7 @@ def _event_page(request, context, where) -> None:
     - the colours are the event's church's when the reader is part of it too (a church role or a person there);
       somebody who only holds a role in the event keeps the colours they had, as the camp screens always were;
     - the rail does not list the general links of the reader's church under another church's logo: only the event's
-      own section and the way back to the reader's events (``core.shell.event_shell``).
+      own section and the way back to the reader's events (``core.shell.build_event_shell``).
     """
     event = getattr(request, "event", None)
     church = getattr(event, "church", None)
@@ -120,10 +129,26 @@ def _event_page(request, context, where) -> None:
     if any(one.pk == church.pk for one in where.choices):
         context["theme_church"] = church
     if context.get("shell"):
-        from .shell import event_shell
+        from .shell import build_event_shell
 
-        context["shell"] = event_shell(request, church)
+        context["shell"] = build_event_shell(request, church)
         context["current_role_record"] = None  # the rail's foot named the role held in the reader's church, under this one's name
+
+
+def _event_church(request) -> Church | None:
+    """The church whose look an events-only account wears: the one that holds the event on screen, else
+    the first of its events' churches that uses the community module. None when that church does not use it."""
+    from events.access import accessible_events
+    from people.flags import enabled
+
+    access = getattr(request, "access", None)
+    if access is not None:
+        church = access.event.church
+        return church if enabled(church, "community") else None
+    for event in accessible_events(request.user).select_related("church").order_by("-starts_on", "id")[:10]:
+        if enabled(event.church, "community"):
+            return event.church
+    return None
 
 
 def _community_nav(request, context, church) -> list[dict]:

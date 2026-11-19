@@ -98,7 +98,7 @@ try {
   await everyWidth(page, "entrevista-antes");
   await go(page, page.click("button:has-text('Comenzar entrevista')"));
   await everyWidth(page, "entrevista-antes-error", { full: false });
-  for (const box of await page.$$("input[type=checkbox][name^=consent_]")) await box.check();
+  for (const box of await page.$$("input[type=checkbox][name^=consent_], input[type=checkbox][name=identity]")) await box.check();
   await page.click("label[for$='mode_0']");
   await go(page, page.click("button:has-text('Comenzar entrevista')"));
   await everyWidth(page, "entrevista-paso1", { full: false });
@@ -121,7 +121,7 @@ try {
 
   // Supervised capture: the campero answers alone on the shared computer
   await startFromHome(page);
-  for (const box of await page.$$("input[type=checkbox][name^=consent_]")) await box.check();
+  for (const box of await page.$$("input[type=checkbox][name^=consent_], input[type=checkbox][name=identity]")) await box.check();
   await page.click("label[for$='mode_1']");
   await go(page, page.click("button:has-text('Comenzar entrevista')"));
   await everyWidth(page, "entrega", { full: false });

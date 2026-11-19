@@ -307,8 +307,12 @@ class PeopleByNameTests(UxFixture):
                 self.assertTrue(labels)
                 self.assertEqual([label for label in labels if "@" in label], [])
         html = self.page(self.admin, reverse("participant_detail", args=[self.profile.id])).content.decode()
-        self.assertIn(">Pat Participant</option>", html)
         self.assertIn(">Mentor User</option>", html)
+        # The follow-up of a participant's page is always about them: the form no longer asks who.
+        self.assertIn(f'<input type="hidden" name="follow-participant" value="{self.participant.pk}">', html)
+        self.assertNotIn('name="follow-participant"', html.split('type="hidden" name="follow-participant"', 1)[1])
+        html = self.page(self.admin, reverse("church_follow_up_list")).content.decode()
+        self.assertIn(">Pat Participant</option>", html)
 
 
 @override_settings(EMAIL_BACKEND=LOCMEM)
@@ -370,15 +374,18 @@ class ChurchDashboardFigureTests(UxFixture):
         ParticipantProfile.objects.all().delete()
         main = main_of(self.page(self.pastor, reverse("church_dashboard")))
         self.assertNotIn("Nadie: todos tienen mentor", main)
-        self.assertIn("Todavía no hay participantes.", main)
-        self.assertIn(figure("Participantes", 0), main)
+        self.assertNotIn('id="mentores"', main)
+        self.assertIn("Sin participantes todavía.", main)
+        self.assertIn('id="como-va" class="heading">Participantes</h2>', main)
+        self.assertIn(figure("En total", 0), main)
         self.assertIn(figure("En una ruta", 0), main)
 
     def test_on_a_path_counts_only_people_with_an_active_enrollment(self):
         waiting = User.objects.create_user(username="w@example.org", email="w@example.org", first_name="Wendy", last_name="Waiting")
         ParticipantProfile.objects.create(user=waiting, church=self.church)
         main = main_of(self.page(self.pastor, reverse("church_dashboard")))
-        self.assertIn(figure("Participantes", 3), main)
+        self.assertIn('id="como-va" class="heading">Participantes</h2>', main)
+        self.assertIn(figure("En total", 3), main)
         self.assertIn(figure("En una ruta", 2), main)
         self.assertIn(figure("Sin mentor", 1), main)
         self.assertNotIn("Participantes activos", main)
@@ -393,19 +400,34 @@ class ChurchDashboardFigureTests(UxFixture):
     def test_who_went_quiet_is_listed_with_a_way_to_open_them(self):
         self.make_quiet(self.participant, self.enrollment, days=9)
         main = main_of(self.page(self.pastor, reverse("church_dashboard")))
-        section = main.split("¿Quién se quedó callado?", 1)[1].split("</section>", 1)[0]
-        self.assertIn("Pat Participant", section)
+        section = main.split('id="callado" class="heading">Sin actividad en 7 días', 1)[1].split("</section>", 1)[0]
         self.assertIn("Última actividad hace 9 días.", section)
-        self.assertIn(f'href="{reverse("participant_detail", args=[self.profile.id])}">Ver', section)
+        self.assertIn(f'<a class="row__link" href="{reverse("participant_detail", args=[self.profile.id])}">Pat Participant</a>', section)
         self.assertNotIn("Other Participant", section)
 
     def test_nobody_quiet_says_so(self):
         main = main_of(self.page(self.pastor, reverse("church_dashboard")))
-        self.assertIn("Nadie lleva más de 7 días sin actividad.", main)
+        # A list with nothing in it is not drawn; with nothing waiting, the page says so in one line.
+        self.assertNotIn("Sin actividad en 7 días", main)
+        self.assertIn('<p class="empty-line">Nada pendiente por ahora.</p>', main)
 
     def test_the_sections_come_in_the_order_of_what_to_do(self):
+        ParticipantQuestion.objects.create(
+            church=self.church, participant=self.other_participant, question_text="¿Me ayudas?", status=ParticipantQuestion.Status.ESCALATED
+        )
+        FollowUpRequest.objects.create(church=self.church, participant=self.other_participant, reason="Platicar")
+        self.make_quiet(self.participant, self.enrollment, days=9)
+        waiting = User.objects.create_user(username="w@example.org", email="w@example.org", first_name="Wendy", last_name="Waiting")
+        ParticipantProfile.objects.create(user=waiting, church=self.church)
         main = main_of(self.page(self.pastor, reverse("church_dashboard")))
-        order = ["¿Qué preguntas esperan respuesta?", "¿Qué seguimientos siguen pendientes?", "¿Quién se quedó callado?", "¿Cómo va el discipulado?"]
+        self.assertNotIn("Nada pendiente por ahora.", main)
+        order = [
+            'id="preguntas" class="heading">Para el pastor',
+            'id="seguimientos" class="heading">Seguimientos pendientes',
+            'id="callado" class="heading">Sin actividad en 7 días',
+            'id="mentores" class="heading">Sin mentor',
+            'id="como-va" class="heading">Participantes',
+        ]
         self.assertEqual(sorted(order, key=main.index), order)
 
 
@@ -428,7 +450,7 @@ class ParticipantsListOrderTests(UxFixture):
     def test_invite_is_the_one_filled_button(self):
         main = main_of(self.page(self.admin, reverse("participants_list")))
         self.assertEqual(re.findall(r'class="btn btn--primary"[^>]*>([^<]+)<', main), ["Invitar participante"])
-        self.assertIn("Las personas de tu iglesia en el discipulado.", main)
+        self.assertIn('<h1 class="voice page-head__title">Participantes</h1>', main)
 
     def test_a_pastor_who_cannot_invite_is_not_offered_to(self):
         Church.objects.filter(pk=self.church.pk).update(leaders_can_invite_participants=False)
@@ -518,7 +540,7 @@ class ParticipantHomeTests(UxFixture):
         Enrollment.objects.all().delete()
         DiscipleshipPath.objects.all().update(is_active=False)
         main = main_of(self.page(self.participant, reverse("participant_dashboard")))
-        self.assertIn("Tu iglesia todavía no tiene una ruta activa. Cuando la tenga, aparecerá aquí.", main)
+        self.assertIn("Tu iglesia todavía no tiene una ruta activa.", main)
         self.assertNotIn("puede inscribirte", main)
 
     def test_recent_reflections_are_the_three_newest(self):

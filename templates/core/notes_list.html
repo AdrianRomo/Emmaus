@@ -1,23 +1,67 @@
 {% extends "base.html" %}
+{% load shell %}
 {% block page_title %}Notas pastorales{% endblock %}
 {% block content %}
-{% include "events/rotulo/_page_head.html" with title="Notas pastorales" lede="Los participantes nunca ven estas notas. Escribe solo lo necesario, con cuidado y por motivos pastorales." %}
-<section class="disc-list" aria-labelledby="notas">
-  <h2 id="notas" class="heading">{{ notes|length }} nota{{ notes|length|pluralize }} privada{{ notes|length|pluralize }} de líderes</h2>
+{% if ui_v2 %}{% comment %}
+  The redesign ("Ventanas"): every pastoral note this reader may see (core.access.visible_notes), newest first, each
+  about one person and saying who wrote it and who may read it. The rule of the notes stays said under the title.
+{% endcomment %}
+{% include "events/rotulo/_page_head.html" with title="Notas pastorales" %}
+<p class="aside-note">Confidencial. Los participantes nunca ven estas notas.</p>
+<section class="block" aria-labelledby="notas">
   {% if notes %}
+    <h2 id="notas" class="heading">{{ notes|length }} nota{{ notes|length|pluralize }}</h2>
     <ul class="rows">
-      {% for note in notes %}
-        <li class="row">
+      {% for note in notes %}{% with name=note.participant.get_full_name|default:note.participant.email %}
+        <li class="row row--lead">
+          {% monogram name %}
           <div class="row__main">
-            <p class="row__title">{{ note.participant.get_full_name|default:note.participant.email }}</p>
-            <p class="prose-block">{{ note.body|linebreaksbr }}</p>
-            <p class="row__meta">{{ note.author.get_full_name|default:note.author.email }}, {{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}.</p>
+            <p class="row__title">{{ name }}</p>
+            <p class="row__meta">{{ note.author.get_full_name|default:note.author.email }}, {{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}</p>
+            <p class="disc-nota">{{ note.body|linebreaksbr }}</p>
           </div>
         </li>
+      {% endwith %}{% endfor %}
+    </ul>
+  {% else %}
+    <h2 id="notas" class="visually-hidden">Notas</h2>
+    <p class="empty-line">Sin notas todavía.</p>
+  {% endif %}
+</section>
+{% else %}{% comment %}
+  Every pastoral note this reader may see (core.access.visible_notes), newest first. The line under the title is
+  the rule of the notes, so it stays: the participant never sees them. Each note says who may read it.
+{% endcomment %}
+{% include "events/rotulo/_page_head.html" with title="Notas pastorales" %}
+<section class="disc-list" aria-labelledby="notas">
+  <p class="aside-note">Confidencial. Los participantes nunca ven estas notas.</p>
+  {% if notes %}
+    <h2 id="notas" class="heading">{{ notes|length }} nota{{ notes|length|pluralize }}</h2>
+    <ul class="rows disc-notes">
+      {% for note in notes %}
+        {% with name=note.participant.get_full_name|default:note.participant.email %}
+        <li class="row row--lead">
+          {% if ui_v2 %}{% monogram name "sm" %}{% endif %}
+          <div class="row__main">
+            <p class="row__title">{{ name }}</p>
+            <p class="prose-block">{{ note.body|linebreaksbr }}</p>
+            {% if ui_v2 %}
+              <ul class="meta">
+                <li>{% icon "personas" "sm" %}{{ note.author.get_full_name|default:note.author.email }}</li>
+                <li>{% icon "calendario" "sm" %}{{ note.created_at|date:"j b Y" }}</li>
+                <li>{% icon "candado" "sm" %}Visible para: {{ note.get_visibility_display|lower }}</li>
+              </ul>
+            {% else %}
+              <p class="row__meta">{{ note.author.get_full_name|default:note.author.email }}, {{ note.created_at|date:"j b Y" }}. Visible para: {{ note.get_visibility_display|lower }}.</p>
+            {% endif %}
+          </div>
+        </li>
+        {% endwith %}
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">Todavía no hay notas pastorales. Aquí aparecerán las notas privadas para el cuidado de los participantes cuando los líderes las escriban.</p>
+    <h2 id="notas" class="visually-hidden">Notas</h2>
+    <p class="empty-line">Sin notas todavía.</p>
   {% endif %}
 </section>
-{% endblock %}
+{% endif %}{% endblock %}

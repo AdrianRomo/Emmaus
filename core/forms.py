@@ -62,6 +62,10 @@ class TuErrorMessagesMixin:
             use_tu_error_messages(field)
 
 
+# What a new password must meet, said before it fails, wherever one is chosen (the rules are AUTH_PASSWORD_VALIDATORS)
+PASSWORD_RULES = "Usa al menos 8 caracteres. Que no sea solo números, ni una contraseña muy común, ni parecida a tu nombre o tu correo."
+
+
 class TuPasswordResetForm(TuErrorMessagesMixin, PasswordResetForm):
     """Django's reset form, labelled and worded in tú-voice Spanish (its own translation uses "usted")."""
 
@@ -79,9 +83,7 @@ class TuSetPasswordForm(TuErrorMessagesMixin, SetPasswordForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["new_password1"].label = "Contraseña nueva"
-        self.fields["new_password1"].help_text = (
-            "Usa al menos 8 caracteres. Que no sea solo números, ni una contraseña muy común, ni parecida a tu nombre o tu correo."
-        )
+        self.fields["new_password1"].help_text = PASSWORD_RULES
         self.fields["new_password1"].error_messages["required"] = "Escribe tu contraseña nueva."
         self.fields["new_password2"].label = "Escríbela otra vez"
         self.fields["new_password2"].help_text = ""
@@ -149,15 +151,16 @@ class ParticipantContactForm(TuErrorMessagesMixin, forms.ModelForm):
         self.fields["phone_number"].widget.attrs.update({"autocomplete": "tel", "inputmode": "tel"})
 
 
+# The one sign-in error of Emmaus (church and camp alike): the same words for an unknown e-mail, a wrong password and an
+# inactive account, so the door never says whether an account exists (OWASP, authentication error messages). Who to
+# ask is said apart, only to someone who arrived from a camp's link (ThrottledLoginView).
+SIGN_IN_ERROR = "No pudimos iniciar sesión. Revisa tu correo y tu contraseña e inténtalo de nuevo."
+
+
 class EmailAuthenticationForm(TuErrorMessagesMixin, AuthenticationForm):
     """Login form labelled for people who sign in with their email address."""
 
-    error_messages = {
-        "invalid_login": (
-            "Revisa tu correo y contraseña. Si no puedes entrar, pide ayuda a la administración del evento."
-        ),
-        "inactive": "Esta cuenta está desactivada. Pide ayuda a la administración del evento.",
-    }
+    error_messages = {"invalid_login": SIGN_IN_ERROR, "inactive": SIGN_IN_ERROR}
 
     def __init__(self, request=None, *args, **kwargs):
         super().__init__(request, *args, **kwargs)
@@ -192,13 +195,10 @@ class InitialSetupForm(TuErrorMessagesMixin, forms.Form):
         label="Nombre corto de la iglesia para la dirección",
         help_text="Se forma con el nombre; puedes cambiarlo.",
     )
-    admin_name = forms.CharField(max_length=150, label="Nombre de la primera persona administradora")
-    admin_email = forms.EmailField(label="Correo de la primera persona administradora")
-    admin_password = forms.CharField(
-        label="Crea la contraseña de administración",
-        widget=forms.PasswordInput,
-        help_text="Usa una contraseña segura. Emmaus revisa que no sea demasiado corta ni común.",
-    )
+    # The page groups these three under "Quien la administra": the labels do not repeat it
+    admin_name = forms.CharField(max_length=150, label="Nombre completo")
+    admin_email = forms.EmailField(label="Correo")
+    admin_password = forms.CharField(label="Contraseña", widget=forms.PasswordInput, help_text=PASSWORD_RULES)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -301,20 +301,20 @@ class ChurchSettingsForm(TuErrorMessagesMixin, forms.ModelForm):
             "theme_muted_text_color": "Color del texto tenue",
             "theme_border_color": "Color de los bordes",
         }
+        # A hint only where the label cannot say it: what a colour paints, the file a logo must be. The contrast the
+        # colours need is said once for the group, in the page (templates/core/church_settings.html). The model's
+        # own hints of the other colours repeat their labels: none here.
         help_texts = {
-            "theme_primary_color": "Botones, enlaces y cifras. Necesita un contraste de al menos 4.5 a 1 sobre blanco.",
-            "theme_accent_color": (
-                "El punto de la computadora y el subrayado de la página actual. "
-                "Necesita un contraste de al menos 3 a 1 sobre blanco."
-            ),
+            "theme_primary_color": "Botones, enlaces y cifras.",
+            "theme_accent_color": "El punto de la computadora y la página actual.",
             "theme_secondary_color": "Por ahora no se usa en pantalla.",
-            "theme_text_color": "Necesita un contraste de al menos 4.5 a 1 sobre el fondo y sobre las superficies.",
-            "theme_muted_text_color": "Necesita un contraste de al menos 4.5 a 1 sobre el fondo y sobre las superficies.",
+            "theme_background_color": "",
+            "theme_surface_color": "",
+            "theme_text_color": "",
+            "theme_muted_text_color": "",
+            "theme_border_color": "",
             "logo": f"{UPLOAD_HELP} Negro sobre transparente se ve bien en todas las pantallas.",
-            "logo_dark": (
-                f"{UPLOAD_HELP} La versión en blanco, para la presentación en modo noche. Sin ella, "
-                "Emmaus pone tu logotipo sobre una placa blanca."
-            ),
+            "logo_dark": "En blanco, con el mismo formato. Sin ella, la presentación en modo noche pone tu logotipo sobre una placa blanca.",
         }
         widgets = {
             "logo": forms.FileInput(attrs=LOGO_ACCEPT),
@@ -450,9 +450,9 @@ class InvitationForm(TuErrorMessagesMixin, forms.ModelForm):
 
 
 class AcceptInvitationForm(TuErrorMessagesMixin, forms.Form):
-    full_name = forms.CharField(max_length=150, label="Tu nombre completo")
-    password1 = forms.CharField(label="Contraseña", widget=forms.PasswordInput)
-    password2 = forms.CharField(label="Confirma tu contraseña", widget=forms.PasswordInput)
+    full_name = forms.CharField(max_length=150, label="Nombre completo")
+    password1 = forms.CharField(label="Contraseña", widget=forms.PasswordInput, help_text=PASSWORD_RULES)
+    password2 = forms.CharField(label="Escríbela otra vez", widget=forms.PasswordInput)
     preferred_contact_method = forms.ChoiceField(
         choices=ParticipantProfile.ContactMethod.choices,
         required=False,

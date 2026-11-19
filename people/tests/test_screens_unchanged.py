@@ -30,6 +30,8 @@ class ScreensUnchangedTests(CampFixture):
         return [
             (self.admin, reverse("events:list") + "?todos=1"), (self.admin, reverse("account")), (self.admin, reverse("ayuda")),
             (self.admin, reverse("events:admin_home", args=[self.event.slug])), (self.admin, reverse("church_settings")),
+            (self.admin, reverse("events:participants", args=[self.event.slug])),
+            (self.admin, reverse("events:participant_detail", args=[self.event.slug, self.p_minor_no_auth.public_id])),
             (self.coord1, reverse("events:coord_home", args=[self.event.slug])), (self.coord1, reverse("account")),
             (self.tutor1, reverse("events:tutor_home", args=[self.event.slug])), (self.outsider, reverse("events:list") + "?todos=1"),
         ]

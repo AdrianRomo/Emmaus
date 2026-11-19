@@ -70,8 +70,9 @@ def role_home_url(event: Event, access) -> str:
 
 
 def nav_items(event: Event, access) -> list[dict]:
-    def item(label, name, also=()):
-        return {"label": label, "url": reverse(f"events:{name}", args=[event.slug]), "names": {name, *also}}
+    def item(label, name, also=(), short=""):
+        # ``short``: the word on a phone's tab, where a long label would wrap (the rail and the bar keep ``label``)
+        return {"label": label, "short": short or label, "url": reverse(f"events:{name}", args=[event.slug]), "names": {name, *also}}
 
     # "Eventos" (the event list) is not an item: every bar links it beside the event's name (partials/ui/bar.html).
     if access.is_admin:
@@ -87,25 +88,25 @@ def nav_items(event: Event, access) -> list[dict]:
         ]
     if access.is_pastor:
         return [
-            item("Resumen general", "pastor_home", ("confidential_level",)),
-            item(f"Avance {event.of_kind}", "progress", ("coordinator_detail", "interviews")),
+            item("Resumen general", "pastor_home", ("confidential_level",), short="Resumen"),
+            item(f"Avance {event.of_kind}", "progress", ("coordinator_detail", "interviews"), short="Avance"),
             item("Seguimiento", "follow_ups", ("follow_up_detail",)),
             item("Reportes", "reports", ("report_detail", "presentation_live")),
             item("Equipo", "team", ()),
         ]
     if access.is_tutor:
         return [
-            item("Mi equipo", "tutor_home"),
+            item("Mi equipo", "tutor_home", short="Equipo"),
             item("Coordinadores", "coordinators", ("coordinator_detail",)),
             item("Entrevistas", "interviews", ("participant_detail", "interview_detail")),
             item("Pendientes", "pending", ("follow_up_detail",)),
             item("Reportes", "reports", ("report_detail", "presentation_live")),
         ]
     return [
-        item("Mi inicio", "coord_home"),
-        item("Mis camperos", "my_participants", ("participant_detail", "participant_create", "participant_edit")),
-        item("Entrevistas pendientes", "coord_pending", ()),
-        item("Mi avance", "coord_progress"),
+        item("Mi inicio", "coord_home", short="Inicio"),
+        item("Mis camperos", "my_participants", ("participant_detail", "participant_create", "participant_edit"), short="Camperos"),
+        item("Entrevistas pendientes", "coord_pending", (), short="Pendientes"),
+        item("Mi avance", "coord_progress", short="Avance"),
     ]
 
 

@@ -119,7 +119,7 @@ def person_edit(request, person_id: int):
         except services.PeopleError as error:  # somebody merged this record while the form was open
             messages.error(request, error.message)
             return redirect("people:list")
-        messages.success(request, "Guardamos los cambios.")
+        messages.success(request, "Guardado.")
         return redirect("people:detail", person.pk)
     return render(request, "people/person_form.html", {"form": form, "person": person})
 

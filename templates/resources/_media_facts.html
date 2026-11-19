@@ -1,0 +1,10 @@
+{% load community shell %}{% comment %}
+  What a resource is, as facts with their mark: its kind, whose it is, its series and its day. Needs: item. With
+  series_link the series is a link that narrows the list to it. (The public page says the same as one sentence:
+  resources/_media_sentence.html.)
+{% endcomment %}<ul class="meta">
+  <li>{{ item.get_kind_display }}</li>
+  {% if item.speaker %}<li>{% icon "personas" "sm" %}{{ item.speaker }}</li>{% endif %}
+  {% if item.series %}<li>{% icon "lista" "sm" %}{% if series_link %}<a href="?serie={{ item.series|urlencode:'' }}">Serie «{{ item.series }}»</a>{% else %}Serie «{{ item.series }}»{% endif %}</li>{% endif %}
+  <li>{% icon "calendario" "sm" %}{{ item.date|long_date }}</li>
+</ul>

@@ -2,6 +2,7 @@
 {% comment %}
   Exactly what anybody will read on the church's public home, by name (sitio.services.page_content): for the
   administration's review (sitio/review.html) and for the pastor's preview before approving (sitio/_approval_home.html).
+  Each list is on the row specification (a time is its clock, an event its day, a resource its mark).
 {% endcomment %}
   <section class="block" aria-labelledby="rev-iglesia">
     <{% if level == 3 %}h3{% else %}h2{% endif %} id="rev-iglesia" class="heading">Tu iglesia</{% if level == 3 %}h3{% else %}h2{% endif %}>
@@ -27,7 +28,7 @@
     {% if content.days %}
     <ul class="rows">
       {% for day in content.days %}{% for item in day.times %}
-      <li class="row"><div class="row__main"><p>{{ day.day }}, {{ item.time|time:"H:i" }}: {{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}.</p></div></li>
+      <li class="row row--lead"><span class="hoy__icono" aria-hidden="true">{% icon "reloj" %}</span><div class="row__main"><p>{{ day.day }}, {{ item.time|time:"H:i" }}: {{ item.name }}{% if item.place %}, en {{ item.place }}{% endif %}.</p></div></li>
       {% endfor %}{% endfor %}
     </ul>
     {% else %}<p class="empty-line">No se muestra ninguno: no has agregado horarios.</p>{% endif %}
@@ -38,7 +39,7 @@
     {% if content.events %}
     <ul class="rows">
       {% for event in content.events %}
-      <li class="row"><div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if event.series_rule %} Se repite {{ event.series_rule }}: se muestra solo la fecha que sigue.{% endif %}</p></div></li>
+      <li class="row row--lead">{% if event.starts_on %}{% date_block event.starts_on %}{% else %}<span class="hoy__icono" aria-hidden="true">{% icon "eventos" %}</span>{% endif %}<div class="row__main"><p>{{ event.name }}: {{ event.starts_on|date_range:event.ends_on }}{% if event.location %}, en {{ event.location }}{% endif %}.{% if event.series_rule %} Se repite {{ event.series_rule }}: se muestra solo la fecha que sigue.{% endif %}</p></div></li>
       {% endfor %}
     </ul>
     <p class="aside-note">Cada uno lleva a su página pública, que ya existe. No se muestra quién se inscribió ni cuántos lugares quedan.</p>
@@ -50,7 +51,7 @@
     {% if content.media %}
     <ul class="rows">
       {% for item in content.media %}
-      <li class="row"><div class="row__main"><p>{{ item.title }}</p><p class="row__meta">{% include "resources/_media_sentence.html" with item=item %} Enlace: <span class="break-anywhere">{{ item.url }}</span></p></div></li>
+      <li class="row row--lead"><span class="hoy__icono" aria-hidden="true">{% icon "recursos" %}</span><div class="row__main"><p>{{ item.title }}</p><p class="row__meta">{% include "resources/_media_sentence.html" with item=item %} Enlace: <span class="break-anywhere">{{ item.url }}</span></p></div></li>
       {% endfor %}
     </ul>
     <p class="aside-note">De cada recurso se muestran el título, de quién es, la serie, la fecha y el enlace. El nombre de quien predicó o enseñó será público.</p>

@@ -4,21 +4,21 @@
 {% block content %}
 {% comment %}
   "Pasar lista" (groups.views.meeting_record): one day, the people of the group as large options, one filled button.
-  Nobody is marked at first; a day that already has a list opens with it. Who is not marked did not come: there is
-  no "faltó" to choose and no reason to write.
+  The title is the question, so the options need no other label on screen. Nobody is marked at first; a day that
+  already has a list opens with it. Who is not marked did not come: there is no "faltó" to choose and no reason to
+  write. A meeting whose names were deleted for its age shows its totals and says what is kept.
 {% endcomment %}
 <div class="narrow">
   {% url 'community:group_meetings' group.pk as back %}
-  {% include "events/rotulo/_page_head.html" with title="¿Quién vino el "|add:day_words|add:"?" lede=group.name back_url=back back_label="Volver a las reuniones" %}
+  {% include "events/rotulo/_page_head.html" with title="¿Quién vino el "|add:day_words|add:"?" meta=group.name back_url=back back_label="Volver a las reuniones" %}
   {% if meeting.names_deleted %}
     <div class="notice notice--quiet"><p>{% if meeting.present_kept == 1 %}Vino 1 persona{% else %}Vinieron {{ meeting.present_kept }} personas{% endif %} de {{ meeting.expected }}. La lista de quién vino se borró por antigüedad: de las reuniones de hace más de un año solo se conservan los totales.</p></div>
-  {% elif meeting %}<div class="notice notice--quiet"><p>Este día ya tiene lista. Puedes corregirla y guardarla otra vez.</p></div>{% endif %}
-  {% if meeting.names_deleted %}
   {% elif members %}
+  {% if meeting %}<div class="notice notice--quiet"><p>Este día ya tiene lista.</p></div>{% endif %}
   <form method="post">
     {% csrf_token %}
     <fieldset>
-      <legend class="legend">Marca a quienes vinieron</legend>
+      <legend class="visually-hidden">Marca a quienes vinieron</legend>
       <div class="choices">
         {% for membership in members %}
         <div class="choice choice--multi">
@@ -28,14 +28,14 @@
         {% endfor %}
       </div>
     </fieldset>
-    <div class="step__actions">
+    <div class="form-actions">
       <button class="btn btn--primary btn--large" type="submit">Guardar la lista</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  <p class="aside-note">Si no vino nadie, guarda la lista sin marcar a nadie.</p>
+  <p class="aside-note">¿No vino nadie? Guarda la lista sin marcar a nadie.</p>
   {% else %}
-    <p class="empty-line">Todavía no hay nadie en el grupo, así que no hay lista que pasar.</p>
+    <p class="empty-line">Sin personas en el grupo todavía.</p>
   {% endif %}
 </div>
 {% endblock %}

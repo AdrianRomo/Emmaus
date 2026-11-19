@@ -265,7 +265,7 @@ class CoordinatorHomeWaitsForYouTests(CoordinatorUxFixture):
             self.client.get(self.url("coord_home"), HTTP_X_REQUESTED_WITH="fetch"),
         ):
             self.assertContains(response, '<h2 id="seguimientos" class="heading">Esperan algo de ti</h2>', count=1, html=False)
-            self.assertContains(response, '<p class="empty-line">Nada espera tu decisión por ahora.</p>', count=1, html=False)
+            self.assertContains(response, '<p class="empty-line">Nada por ahora.</p>', count=1, html=False)
 
     def test_a_minor_without_authorization_waits_for_you_and_the_list_filters_them(self):
         """Lucía, 13, has no guardian record: the row says so, in the page and in the fragment, and links the filter."""
@@ -274,7 +274,7 @@ class CoordinatorHomeWaitsForYouTests(CoordinatorUxFixture):
         for response in (self.client.get(self.url("coord_home")), self.client.get(self.url("coord_home"), HTTP_X_REQUESTED_WITH="fetch")):
             self.assertContains(response, "1 campero menor de edad sin autorización registrada", count=1)
             self.assertContains(response, f'href="{href}"')  # the row; the page's welcome links it too
-            self.assertNotContains(response, "Nada espera tu decisión por ahora.")
+            self.assertNotContains(response, "Nada por ahora.")
         response = self.client.get(href)
         self.assertContains(response, "Solo los camperos menores de edad sin autorización registrada.")
         self.assertContains(response, self.p_minor_no_auth.full_name)
@@ -300,7 +300,7 @@ class CoordinatorHomeWaitsForYouTests(CoordinatorUxFixture):
             self.assertContains(response, f'href="{self.url("coord_pending")}#por-evaluar">Decidir</a>')
             href = f'{self.url("follow_up_detail", follow_up.id)}?siguiente={self.url("coord_home")}'
             self.assertContains(response, f'<a class="row__link" href="{href}">{self.p2.full_name}</a>', count=1, html=False)
-            self.assertNotContains(response, "Nada espera tu decisión")
+            self.assertNotContains(response, "Nada por ahora.")
 
 
 # ---- 6. Deciding a follow-up returns to where it was opened (UX-21) ---------------------------------------------
@@ -321,7 +321,7 @@ class DecisionReturnsToOriginTests(CoordinatorUxFixture):
 
     def test_decidir_on_pendientes_carries_the_way_back(self):
         response = self.client.get(self.pending)
-        self.assertContains(response, f'href="{self.detail}?siguiente={self.pending}#seguimiento">Decidir', count=1)
+        self.assertContains(response, f'href="{self.detail}?siguiente={self.pending}%23por-evaluar#seguimiento">Decidir', count=1)
 
     def test_the_record_keeps_the_way_back_in_the_decision_form(self):
         response = self.client.get(self.detail, {"siguiente": self.pending})

@@ -19,7 +19,7 @@
     {% include "resources/_approval_note.html" %}
     <form method="post">
       {% csrf_token %}
-      <div class="step__actions">
+      <div class="form-actions">
         <button class="btn btn--primary" type="submit">Pedir la aprobación pastoral</button>
         <a class="btn btn--link" href="{{ back }}">Cancelar</a>
       </div>

@@ -1,24 +1,30 @@
 {% extends "base.html" %}
-{% load community %}
-{% block page_title %}Traer personas de un evento{% endblock %}
+{% load emmaus community shell %}
+{% block page_title %}Traer de un evento{% endblock %}
 {% block content %}
+{% comment %}
+  The finished events whose camperos can become people of the church (people.views.from_event_list): each led by
+  its first day, its state (how many are left, or complete) and how many are already in Personas. The row is the
+  way in while somebody is left. The note says what passes and what stays in the event.
+{% endcomment %}
 <div class="narrow">
   {% url 'people:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Traer personas de un evento" lede="Quienes participaron en un evento pueden seguir en la iglesia como personas. Se hace cuando el evento ya terminó, una persona a la vez." back_url=back back_label="Volver a Personas" %}
+  {% include "events/rotulo/_page_head.html" with title="Traer de un evento" back_url=back back_label="Volver a Personas" %}
   {% if rows %}
     <ul class="rows">
       {% for row in rows %}
-        <li class="row">
+        <li class="row row--lead">
+          {% if row.event.starts_on %}{% date_block row.event.starts_on %}{% else %}<span class="hoy__icono" aria-hidden="true">{% icon "eventos" %}</span>{% endif %}
           <div class="row__main">
-            <p class="row__title">{{ row.event.name }}</p>
-            <p class="row__meta">{% if row.event.starts_on %}{{ row.event.starts_on|date_range:row.event.ends_on|capfirst }}. {% endif %}{{ row.linked }} de {{ row.total }} ya {{ row.linked|pluralize:"está,están" }} en Personas.</p>
+            <p class="row__title">{% if row.missing %}<a href="{% url 'people:from_event' row.event.slug %}">{{ row.event.name }}</a>{% else %}{{ row.event.name }}{% endif %}</p>
+            {% if row.event.starts_on %}<p class="row__meta">{{ row.event.starts_on|date_range:row.event.ends_on|capfirst }}</p>{% endif %}
+            <p class="row__meta row__meta--con-marca">{% if row.missing %}{% status "pendiente" row.missing|stringformat:"d"|add:" por traer" %}{% elif row.total %}{% status "completada" "Completo" %}{% endif %}<span>{% if row.total %}{{ row.linked }} de {{ row.total }} en Personas{% else %}Sin camperos{% endif %}</span></p>
           </div>
-          {% if row.missing %}<a class="btn btn--secondary btn--small" href="{% url 'people:from_event' row.event.slug %}">Ver a quienes faltan<span class="visually-hidden"> de {{ row.event.name }}</span></a>{% endif %}
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">Todavía no hay eventos terminados. Cuando un evento termine, aparecerá aquí.</p>
+    <p class="empty-line">Sin eventos terminados todavía.</p>
   {% endif %}
   <p class="aside-note">Solo pasan el nombre y la sede. La edad, el cuarto y lo que cada quien respondió se quedan en el evento.</p>
 </div>
