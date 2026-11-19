@@ -71,9 +71,10 @@ UNLOCK_COOLDOWN_SECONDS = 60
 HIDDEN_BY_CORRECTION = "ocultada por corrección"  # AnswerRevision.reason of an answer a correction hid
 SESSION_LOCKS_KEY = "interview_claims"
 KIOSK_KEY = "kiosk"
-# What happened and what to do, the same on every screen that loses the interview.
+# What happened, the same on every screen that loses the interview; the page it lands on says how to go on («Continuar
+# aquí»), so the message no longer sent people back to their home.
 CLAIM_LOST_MESSAGE = (
-    "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Vuelve a abrirla desde tu inicio."
+    "Esta entrevista se abrió en otra computadora o pasó mucho tiempo sin cambios. Lo que se respondió sigue guardado."
 )
 NOT_IN_PROGRESS_MESSAGE = "Esta entrevista ya no está en curso. En la ficha del campero ves cómo quedó."
 NO_QUESTIONNAIRE_MESSAGE = "Todavía no hay un cuestionario publicado para este evento. Avisa a la administración."

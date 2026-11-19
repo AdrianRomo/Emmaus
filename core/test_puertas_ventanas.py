@@ -45,10 +45,12 @@ class DoorTests(CommunityFixture):
     def test_the_landing_says_its_promise_and_the_promises_without_a_paragraph(self):
         main = main_of(Client().get(reverse("landing")))
         self.assertNotIn('class="lede"', main)
-        self.assertIn("Platicar con cada joven, sin perder a nadie.", main)
-        for promise in ("Cada pregunta se puede dejar sin contestar.", "Cada persona ve solo lo que le toca.",
-                        "Si alguien necesita seguimiento, queda anotado."):
+        # A church that uses Emmaus for its life: the promise is that life, and only promises true for any member
+        self.assertIn("Tu iglesia, entre domingo y domingo.", main)
+        for promise in ("Cada persona ve solo lo que le toca.", "Tú decides cómo te contactan."):
             self.assertIn(promise, main)
+        self.assertNotIn("Platicar con cada joven", main)
+        self.assertNotIn("Cada pregunta se puede dejar sin contestar.", main)
         self.assertIn(f'href="{reverse("login")}"', main)
         self.assertIn(f'href="{reverse("join")}"', main)
 

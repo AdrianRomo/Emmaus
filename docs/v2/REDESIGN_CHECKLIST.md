@@ -110,8 +110,7 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
 11. Decided 2026-11-18: an ordinary sign-in with exactly one camp underway that the person administers opens
     its administration home; several, a chooser; none, the usual home; «Todos los eventos» inside the event
     (`388765c`). Still open: the running camp shows in «Eventos de la iglesia» as «Sin publicar… sin inscritos».
-12. The take-over message for the computer that lost control says «Vuelve a abrirla desde tu inicio»
-    while the page offers «Continuar aquí» (a service message shared with the camp).
+12. Decided (see «Decided by me» below).
 13. Found while testing, not caused by the redesign: four tests in `core/test_scheduler.py` fail for a few minutes
     after each even hour (they assume no report cutoff is due); reproduced on `origin/v2/foundation` too.
 
@@ -130,3 +129,27 @@ Status: `todo`, `wip`, `done` (implemented on «Ventanas», tests green, looked 
   the campero still needs care has no «keep open» button (they ask for the decision to be changed back); the
   paper sheet keeps «Prefiero no responder» (the campero chooses from it); a resumed interview keeps naming who
   confirmed the identity at the start.
+
+### Decided by me (the owner delegated product decisions on 2026-11-18)
+
+Within the direction he set (truthful states, no inference from confidential data, audited corrections, one
+deliberate check where a mistake would attach data to the wrong person, little friction elsewhere). He can
+overturn any of them.
+
+- 1 (notices about a gathering): a change to an event is published as that event's notice (#101, now merged);
+  its row on «Mi iglesia» and in Eventos says there is a recent notice, linked to it. A church notice is not
+  silently tied to an event.
+- 2 (decision 0010, #75): not mine to decide — minors' consent and age verification are reserved for church
+  leadership with safeguarding advice (`CAPABILITY_REVIEW_2026-11-18.md`). Current behaviour stays.
+- 4 (the landing): a church that uses Emmaus for its life (community module) reads «Tu iglesia, entre domingo y
+  domingo.» with only promises true for any member; the camp's door (module off) keeps its own.
+- 6 («Nadie sirve el …»): raised on the team coordinator's «Mi iglesia» as well as the team page, because it
+  blocks a date someone must fill.
+- 7 (new words): confirmed as shipped.
+- 8 (event photos, #60): reserved for leadership (images of minors); the arch shows the sky of the hour.
+- 12 (the lost-interview message): «… Lo que se respondió sigue guardado.» — the page it lands on says how to go on.
+- 13 (the scheduler tests' flake): fixed on `v2/foundation` (the fixture turns automatic cutoffs off), merged.
+- «Entrevista a cargo de …» shows only when it is not the person who confirmed the identity (no name said twice).
+- Reserved, not decided here (church leadership, safeguarding, privacy or legal): #75, #76, #85, #86, #97, #58, #60
+  and the anonymous-subscription part of #59/#96. Operational, needs the owner on the host: #45, #39, #52, #13.
+

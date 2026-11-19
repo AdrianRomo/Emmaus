@@ -1,18 +1,19 @@
 {% extends "base.html" %}
 {% load brand %}
-{% block page_title %}Platicar con cada joven, sin perder a nadie{% endblock %}
+{% block page_title %}{% if ui_v2 %}Tu iglesia, entre domingo y domingo{% else %}Platicar con cada joven, sin perder a nadie{% endif %}{% endblock %}
 {% block content %}
 {% if ui_v2 %}{% comment %}
-  The redesign ("Ventanas"), the front door: the church's logo, or its name above the promise; one way in, filled;
-  the way in for a volunteer with an event's code; under the sheet, the three promises (who sees what: they stay,
-  in these words) and who uses it. No paragraph explains the product: the promise is the title.
+  The redesign ("Ventanas"), the front door of a church that uses Emmaus for its life (the community module): the
+  church's logo, or its name above the promise of church life between Sundays; one way in, filled; the way in for a
+  volunteer with an event's code; under the sheet, two promises true for any member (who sees what; how they are
+  contacted) and what the church uses it for. The camp's door (module off) keeps its own promise below.
 {% endcomment %}
 <div class="auth-card">
   {% if church|has_logo %}<div class="auth-card__brand">{% church_brand church size="auth" %}</div>
   {% endif %}<header class="page-head">
     <div class="page-head__text">
       {% include "core/_door_church.html" with church=church %}
-      <h1 class="voice page-head__title">Platicar con cada joven, sin perder a nadie.</h1>
+      <h1 class="voice page-head__title">Tu iglesia, entre domingo y domingo.</h1>
     </div>
   </header>
   <div class="step__actions">
@@ -22,11 +23,10 @@
 </div>
 <div class="auth-card door-foot">
   <ul class="rows">
-    <li class="row">Cada pregunta se puede dejar sin contestar.</li>
     <li class="row">Cada persona ve solo lo que le toca.</li>
-    <li class="row">Si alguien necesita seguimiento, queda anotado.</li>
+    <li class="row">Tú decides cómo te contactan.</li>
   </ul>
-  <p class="aside-note">{% if church %}{{ church.name }} usa Emmaus en sus campamentos{% if church.discipleship_enabled %} y en su discipulado{% endif %}.{% else %}Emmaus es la herramienta de la iglesia para entrevistar y acompañar.{% endif %}</p>
+  <p class="aside-note">{% if church %}{{ church.name }} usa Emmaus para sus eventos, sus grupos y sus campamentos.{% else %}Emmaus reúne en un lugar los eventos, los grupos y los campamentos de una iglesia.{% endif %}</p>
 </div>
 {% else %}{% comment %}
   The public front door (Atrio, docs/design-direction.md): one column like the sign-in page, no photos, no icons.
