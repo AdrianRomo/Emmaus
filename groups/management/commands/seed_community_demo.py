@@ -89,6 +89,15 @@ SECOND_CHURCH_GROUP = {
     "meeting_time": time(19, 0), "meeting_place": "Salón principal",
     "description": "Nos vemos cada semana para platicar de la vida y de la fe.",
 }
+# --directorio: adults with an account (no date of birth and no camp: nothing marks them as minors), the stage the
+# administration wrote, a group (an index of GROUPS, or none) and what each chose to show; None: did not choose to appear.
+DIRECTORY_PEOPLE = [
+    ("fernanda.directorio@demo.invalid", "Fernanda", "Lozano Prieto", "miembro", 0, ("phone", "email", "groups")),
+    ("gerardo.directorio@demo.invalid", "Gerardo", "Mendiola Tapia", "miembro", 2, ("phone",)),
+    ("hilda.directorio@demo.invalid", "Hilda", "Navarrete Osorio", "asistente", None, ()),
+    ("ivan.directorio@demo.invalid", "Iván", "Peralta Zúñiga", "asistente", 2, ("groups", "teams")),
+    ("julia.directorio@demo.invalid", "Julia", "Quintero Esparza", "miembro", None, None),
+]
 CAMPEROS = [
     ("Valeria Soto Marín", 17), ("Emilio Vargas Peña", 18), ("Renata Aguilar Cruz", 15), ("Santiago Mora Díaz", 16),
     ("Ximena Robles Vega", 14), ("Leonardo Pineda Sol", 19), ("Camila Fuentes Ríos", 16), ("Matías Ochoa Lara", 15),
@@ -119,6 +128,7 @@ class Command(BaseCommand):
         parser.add_argument("--formularios", action="store_true", help="Agrega un formulario de la iglesia y uno público, publicados, con respuestas sintéticas y sus pendientes, para ver Formularios y Pendientes.")
 
         parser.add_argument("--rotas", action="store_true", help="Agrega al equipo Bienvenida roles, fechas con lo que necesitan, una rotación, el orden de una fecha y un cambio pedido, para ver la rotación de Servir.")
+        parser.add_argument("--directorio", action="store_true", help="Agrega un pastor, enciende el directorio entre miembros (aceptado por ese pastor) y cinco personas adultas inventadas: cuatro eligieron aparecer, cada una mostrando algo distinto, y una no.")
         parser.add_argument("--oracion", action="store_true", help="Agrega un pastor, enciende las peticiones de oración (aceptadas por ese pastor) y dos peticiones inventadas, marcadas como de demostración.")
 
     def handle(self, *args, **opts):
@@ -164,12 +174,18 @@ class Command(BaseCommand):
                 self._rotas(church, admin, leader, member, asked, password)
             if opts["oracion"]:
                 self._prayer_requests(church, admin, leader, password)
+            if opts["directorio"]:
+                self._directory(church, admin, groups, password)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
             accounts.append(("Pastor (Panorama)", PASTOR))
         elif opts["oracion"]:
             accounts.append(("Pastor (peticiones)", PASTOR))
+        if opts["directorio"]:
+            if not (opts["panorama"] or opts["oracion"]):
+                accounts.append(("Pastor (directorio)", PASTOR))
+            accounts += [("En el directorio", DIRECTORY_PEOPLE[0][:3]), ("Miembro que no aparece", DIRECTORY_PEOPLE[-1][:3])]
         if opts.get("dos_iglesias"):
             accounts += [("Dos iglesias", TWO_CHURCHES), ("Administración (2.ª iglesia)", SECOND_ADMIN)]
         for label, (email, *_rest) in accounts:
@@ -572,6 +588,28 @@ class Command(BaseCommand):
             if not PrayerRequest.objects.filter(church=church, person=person).exists():
                 readers = prayer_access.readers(church, apart_from=person.user)
                 prayers.create(church, person, body=body, token=prayers.readers_token(readers, prayers.terms(church)))
+
+    def _directory(self, church, admin, groups, password) -> None:
+        """--directorio: a pastor who accepted what the church offers, and adults who chose for themselves, each
+        through the same two steps as the screen (the preview's token, then the choice). Never in the plain seed:
+        a database seeded without the flag has the directory off and nobody in it."""
+        from people import directory
+
+        pastor = self._account(*PASTOR, password)
+        assign_role(pastor, church, Role.PASTOR)
+        people_services.ensure_own_person(pastor, church)
+        if not directory.is_on(church):
+            directory.switch_on(church, pastor, accepted=True, wording=directory.WORDING_VERSION)
+        for email, first, last, stage, group_index, fields in DIRECTORY_PEOPLE:
+            person = self._person(church, email, first, last, password)
+            if person.stage != stage:
+                people_services.set_stage(church, person.pk, stage, admin, seen=person.stage)
+                person.refresh_from_db()
+            if group_index is not None and not GroupMembership.objects.filter(group=groups[group_index], person=person).exists():
+                group_services.set_membership(groups[group_index], person, admin, role=GroupMembership.Role.MEMBER)
+            if fields is not None and not directory.is_listed(person):
+                token = directory.preview_token(person, fields, directory.preview(church, person, fields))
+                directory.opt_in(church, person, person.user, fields=fields, token=token)
 
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})
