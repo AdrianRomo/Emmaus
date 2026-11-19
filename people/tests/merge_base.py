@@ -18,7 +18,7 @@ from people import merge
 from people.models import CampusAffiliation, Person
 from resources.models import Devotional, DevotionalRead, ReadingPlan, ReadingPlanProgress
 from serving import services as serving
-from serving.models import Assignment, TeamMembership, Unavailable
+from serving.models import Assignment, PlanItem, RotationEntry, ServingPreference, SwapRequest, TeamMembership, TeamRole, Unavailable
 
 from .test_tenant_integrity import json_counts
 
@@ -56,6 +56,21 @@ class MergeFixture(CommunityFixture):
             "serving.TeamMembership.person": lambda: serving.set_member(self.team, person, self.admin),
             "serving.Assignment.person": lambda: Assignment.objects.create(service_date=self.day, person=person),
             "serving.Unavailable.person": lambda: Unavailable.objects.create(person=person, date=self.day.date),
+            "serving.RotationEntry.person": lambda: RotationEntry.objects.create(
+                role=TeamRole.objects.get_or_create(team=self.team, name="Sonido")[0], person=person, position=1
+            ),
+            # A swap that already happened: the date is now the teammate's, and the row remembers who asked.
+            "serving.SwapRequest.from_person": lambda: SwapRequest.objects.create(
+                assignment=Assignment.objects.get_or_create(service_date=self.day, person=self.member)[0], from_person=person,
+                to_person=self.member, status="hecha",
+            ),
+            "serving.SwapRequest.to_person": lambda: SwapRequest.objects.create(
+                assignment=Assignment.objects.get_or_create(service_date=self.day, person=self.leader)[0], from_person=self.leader, to_person=person
+            ),
+            "serving.PlanItem.responsible": lambda: PlanItem.objects.create(
+                service_date=self.day, position=1, title="Bienvenida", minutes=5, responsible=person
+            ),
+            "serving.ServingPreference.person": lambda: ServingPreference.objects.create(person=person, reminders=False),
             "care.FollowUp.person": lambda: FollowUp.objects.create(church=self.church, person=person, reason="visita"),
             "care.FollowUp.owner": lambda: FollowUp.objects.create(church=self.church, person=self.member, owner=person, reason="visita"),
             "care.FollowUpStep.by": lambda: FollowUpStep.objects.create(
