@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import merge_views, views
+from . import data_views, merge_views, views
 
 app_name = "people"
 
@@ -16,7 +16,10 @@ urlpatterns = [
     path("duplicados/<int:survivor_id>/<int:absorbed_id>/", merge_views.merge_preview, name="merge_preview"),
     path("uniones/<int:merge_id>/", merge_views.merge_detail, name="merge_detail"),
     path("uniones/<int:merge_id>/deshacer/", merge_views.merge_undo, name="merge_undo"),
+    path("etiquetas/", data_views.tag_list, name="tags"),
+    path("etiquetas/<int:tag_id>/borrar/", data_views.tag_delete, name="tag_delete"),
     path("<int:person_id>/", views.person_detail, name="detail"),
+    path("<int:person_id>/etiquetas/", data_views.person_tags, name="person_tags"),
     path("<int:person_id>/editar/", views.person_edit, name="edit"),
     path("<int:person_id>/etapa/", views.person_stage, name="stage"),
     path("<int:person_id>/acceso/", views.person_grant_access, name="grant_access"),

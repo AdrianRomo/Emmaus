@@ -42,6 +42,28 @@
     <p class="aside-note" id="etapa-ayuda">La etapa la anota la administración y solo la ve la administración. Emmaus nunca la cambia por su cuenta, y queda registrado quién la cambió.</p>
   </section>
 
+  <section class="block" aria-labelledby="etiquetas">
+    <h2 id="etiquetas" class="heading">Etiquetas</h2>
+    {% if tags.rows %}
+    <form method="post" action="{% url 'people:person_tags' person.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="antes" value="{{ tags.seen }}">
+      <fieldset class="field" aria-describedby="etiquetas-ayuda">
+        <legend class="visually-hidden">Etiquetas de {{ person.full_name }}</legend>
+        <div class="radio-list">
+          {% for row in tags.rows %}
+            <label class="check" for="etiqueta-{{ row.tag.pk }}"><input type="checkbox" id="etiqueta-{{ row.tag.pk }}" name="etiqueta" value="{{ row.tag.pk }}"{% if row.set %} checked{% endif %}><span class="check__text">{{ row.tag.name }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Guardar etiquetas</button></div>
+    </form>
+    <p class="aside-note" id="etiquetas-ayuda">Las etiquetas son para que la administración filtre la lista. Ni esta persona ni nadie más de la iglesia las ve, y no dan ningún permiso. <a href="{% url 'people:tags' %}">Ver las etiquetas de la iglesia</a>.</p>
+    {% else %}
+    <p class="empty-line">Tu iglesia todavía no tiene etiquetas. <a href="{% url 'people:tags' %}">Crea la primera</a>.</p>
+    {% endif %}
+  </section>
+
   <section class="block" aria-labelledby="acceso">
     <h2 id="acceso" class="heading">Acceso a Emmaus</h2>
     {% if person.user_id %}

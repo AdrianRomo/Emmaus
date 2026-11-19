@@ -392,3 +392,46 @@ class DuplicateDismissal(models.Model):
 
     def __str__(self) -> str:
         return f"Descartado {self.person_a_id}/{self.person_b_id}"
+
+
+class Tag(models.Model):
+    """A label the church's administration defines for its own filtering ("Coro", "Llaves del templo").
+
+    Staff-only: the person and other members never see a tag. A tag is not a permission and nothing
+    in ``core.authz`` or ``access`` reads it. Short and single-line on purpose, and the screen that
+    creates one says not to use tags for sensitive matters. Written only through ``people.tags``;
+    at most ``people.tags.MAX_TAGS`` per church.
+    """
+
+    church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="person_tags")
+    name = models.CharField("Nombre", max_length=40)
+    normalized_name = models.CharField(max_length=40, editable=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "etiqueta"
+        verbose_name_plural = "etiquetas"
+        ordering = ["normalized_name", "id"]
+        constraints = [models.UniqueConstraint(fields=["church", "normalized_name"], name="person_tag_one_name_per_church")]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class PersonTag(models.Model):
+    """This person carries this tag. Both of the same church (``people.tags.set_tags``, the one write path)."""
+
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="tag_links")
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="person_links")
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "etiqueta de una persona"
+        verbose_name_plural = "etiquetas de personas"
+        ordering = ["tag__normalized_name", "id"]
+        constraints = [models.UniqueConstraint(fields=["person", "tag"], name="person_tag_once")]
+
+    def __str__(self) -> str:
+        return f"{self.person_id}/{self.tag_id}"

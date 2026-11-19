@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_title %}Borrar la etiqueta {{ tag.name }}{% endblock %}
+{% block content %}
+{% comment %}One question before a tag is deleted (people.data_views.tag_delete): how many people carry it, yes or back.{% endcomment %}
+<div class="narrow">
+  {% url 'people:tags' as back %}
+  {% include "events/rotulo/_page_head.html" with title="¿Borrar esta etiqueta?" back_url=back back_label="Volver a Etiquetas" %}
+  {% if stale %}<div class="notice notice--warning" role="alert"><p><strong>No borramos nada.</strong> Cambió cuántas personas tienen esta etiqueta mientras la veías. Esto es lo que hay ahora.</p></div>{% endif %}
+  <div class="prose">
+    <p>La etiqueta <strong>«{{ tag.name }}»</strong> {% if carriers == 1 %}la tiene 1 persona{% elif carriers %}la tienen {{ carriers }} personas{% else %}no la tiene nadie{% endif %}.</p>
+    <p>Al borrarla{% if carriers %} se le quita a {% if carriers == 1 %}esa persona{% else %}esas personas{% endif %} y{% endif %} deja de aparecer en los filtros. A las personas no les pasa nada más. No se puede deshacer: tendrías que crearla y marcarla otra vez.</p>
+  </div>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="personas" value="{{ carriers }}">
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Sí, borrar la etiqueta</button>
+      <a class="btn btn--link" href="{{ back }}">No, volver</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

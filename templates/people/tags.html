@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block page_title %}{% if error %}Error: {% endif %}Etiquetas{% endblock %}
+{% block content %}
+{% comment %}
+  The church's tags for its people (people.data_views.tag_list): labels the administration defines to filter its own
+  list. Staff-only; the one sentence about sensitive matters sits next to the field where a tag is typed.
+{% endcomment %}
+<div class="narrow">
+  {% url 'people:list' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Etiquetas" lede="Palabras cortas para filtrar la lista de personas, como «Coro» o «Llaves del templo». Solo las ve la administración: ni la persona ni el resto de la iglesia." back_url=back back_label="Volver a Personas" %}
+
+  <section class="block" aria-labelledby="lista">
+    <h2 id="lista" class="heading">{% if tags %}{{ tags|length }} de {{ max_tags }} etiquetas{% else %}Etiquetas de la iglesia{% endif %}</h2>
+    {% if tags %}
+      <ul class="rows">
+        {% for tag in tags %}
+          <li class="row">
+            <div class="row__main">
+              <p class="row__title">{% if tag.carriers %}<a class="row__link" href="{{ back }}?etiqueta={{ tag.pk }}">{{ tag.name }}</a>{% else %}{{ tag.name }}{% endif %}</p>
+              <p class="row__meta">{% if tag.carriers == 1 %}La tiene 1 persona.{% elif tag.carriers %}La tienen {{ tag.carriers }} personas.{% else %}Nadie la tiene todavía.{% endif %}</p>
+            </div>
+            <a class="btn btn--secondary btn--small" href="{% url 'people:tag_delete' tag.pk %}">Borrar<span class="visually-hidden"> la etiqueta {{ tag.name }}</span></a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">Todavía no hay etiquetas. Crea la primera aquí abajo y márcala en la página de cada persona.</p>
+    {% endif %}
+  </section>
+
+  <section class="block" aria-labelledby="nueva">
+    <h2 id="nueva" class="heading">Crear una etiqueta</h2>
+    {% if full %}
+      <p class="empty-line">Tu iglesia ya tiene {{ max_tags }} etiquetas, que es el máximo. Para crear otra, borra una que ya no uses.</p>
+    {% else %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="field{% if error %} field--error{% endif %}">
+        <label class="label" for="nombre">Nombre de la etiqueta</label>
+        <span class="hint" id="nombre-ayuda">Hasta {{ max_name }} caracteres. No uses etiquetas para asuntos delicados: salud, disciplina o situaciones familiares.</span>
+        {% if error %}<span class="error-message" id="nombre-error">{{ error }}</span>{% endif %}
+        <input class="input" type="text" id="nombre" name="nombre" value="{{ name }}" maxlength="{{ max_name }}" autocomplete="off" required aria-describedby="nombre-ayuda{% if error %} nombre-error{% endif %}"{% if error %} aria-invalid="true"{% endif %}>
+      </div>
+      <div class="step__actions"><button class="btn btn--primary" type="submit">Crear etiqueta</button></div>
+    </form>
+    {% endif %}
+    <p class="aside-note">Una etiqueta no da ningún permiso en Emmaus: solo sirve para filtrar la lista. Para ponérsela a alguien, abre su página en Personas.</p>
+  </section>
+</div>
+{% endblock %}

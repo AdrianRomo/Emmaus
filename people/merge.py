@@ -158,6 +158,9 @@ TABLES: tuple[Table, ...] = (
     Table("espacios.Booking", "requested_by", "reserva de un espacio que pidió", "reservas de espacios que pidió"),
     # A column nobody reads since feedback/0002. Whether somebody gave an opinion is theirs alone: not counted.
     Table("feedback.FeedbackGiven", "person", "", "", private=True),
+    # The administration's own labels: the survivor ends with the union of both (a tag both carry stays on the
+    # absorbed record, as every "one per person and …" row), and the undo takes back exactly the ones that moved.
+    Table("people.PersonTag", "person", "etiqueta", "etiquetas", unique_with=("tag_id",)),
 )
 CAMP_KEY = "people.EventParticipantLink.person"
 CAMP_LABELS = ("vínculo con un evento en el que participó", "vínculos con eventos en los que participó")

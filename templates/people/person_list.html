@@ -10,33 +10,56 @@
   {% url 'community:home' as back %}{% url 'people:create' as create %}{% url 'people:from_event_list' as from_event %}
   {% include "events/rotulo/_page_head.html" with title="Personas" lede="Quienes forman parte de la iglesia, tengan o no acceso a Emmaus." back_url=back back_label="Volver a Mi iglesia" action_url=create action_label="Registrar a una persona" secondary_url=from_event secondary_label="Traer de un evento" %}
   {% if total %}
-  <form class="search" method="get" role="search">
-    <label class="visually-hidden" for="buscar">Buscar por nombre</label>
-    <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Nombre o apellido">
-    <button class="btn btn--secondary" type="submit">Buscar</button>
+  <form method="get" role="search">
+    <div class="search">
+      <label class="visually-hidden" for="buscar">Buscar por nombre</label>
+      <input class="input search__input" id="buscar" type="search" name="q" value="{{ query }}" autocomplete="off" spellcheck="false" placeholder="Nombre o apellido">
+      <button class="btn btn--secondary" type="submit">Buscar</button>
+    </div>
+    <div class="filter-form people-filters">
+      <div class="field">
+        <label class="label" for="f-etapa">Etapa</label>
+        <select id="f-etapa" name="etapa">
+          <option value="">Todas</option>
+          {% for value, label in stages %}<option value="{{ value }}"{% if stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          <option value="{{ no_stage }}"{% if stage == no_stage %} selected{% endif %}>Sin anotar</option>
+        </select>
+      </div>
+      {% if tags %}
+      <div class="field">
+        <label class="label" for="f-etiqueta">Etiqueta</label>
+        <select id="f-etiqueta" name="etiqueta">
+          <option value="">Todas</option>
+          {% for one in tags %}<option value="{{ one.pk }}"{% if tag.pk == one.pk %} selected{% endif %}>{{ one.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="filter-form__actions"><button class="btn btn--secondary" type="submit">Filtrar</button>{% if filtered %} <a href="{% url 'people:list' %}">Quitar filtros</a>{% endif %}</div>
+    </div>
   </form>
   {% endif %}
   <section class="block" aria-labelledby="lista">
-    <h2 id="lista" class="heading">{% if query %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% else %}{{ total }} persona{{ total|pluralize }}{% endif %}</h2>
+    <h2 id="lista" class="heading">{% if filtered %}{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% else %}{{ total }} persona{{ total|pluralize }}{% endif %}</h2>
     {% if page.object_list %}
       <ul class="rows">
         {% for person in page %}
           <li class="row">
             <div class="row__main">
               <p class="row__title"><a class="row__link" href="{% url 'people:detail' person.pk %}">{{ person.full_name }}</a></p>
-              <p class="row__meta">{% if person.user_id %}Con acceso a Emmaus.{% else %}Sin acceso a Emmaus.{% endif %}</p>
+              <p class="row__meta">{% if person.stage %}{{ person.get_stage_display }}. {% endif %}{% if person.user_id %}Con acceso a Emmaus.{% else %}Sin acceso a Emmaus.{% endif %}</p>
             </div>
             <a class="btn btn--secondary btn--small" href="{% url 'people:detail' person.pk %}">Abrir<span class="visually-hidden"> a {{ person.full_name }}</span></a>
           </li>
         {% endfor %}
       </ul>
       {% include "partials/ui/pager.html" with page=page label="Páginas de personas" %}
-    {% elif query %}
-      <p class="empty-line">Nadie se llama así. <a href="{% url 'people:list' %}">Ver a todas las personas</a>.</p>
+    {% elif filtered %}
+      <p class="empty-line">{% if query and not stage and not tag %}Nadie se llama así.{% else %}Nadie coincide con lo que buscas.{% endif %} <a href="{% url 'people:list' %}">Ver a todas las personas</a>.</p>
     {% else %}
       <p class="empty-line">Todavía no hay personas registradas. Registra a la primera o trae a quienes fueron a un evento.</p>
     {% endif %}
   </section>
   {% if total > 1 %}<p class="more"><a href="{% url 'people:duplicates' %}">Revisar posibles duplicados</a></p>{% endif %}
+  <p class="more"><a href="{% url 'people:tags' %}">Etiquetas de la iglesia</a></p>
 </div>
 {% endblock %}
