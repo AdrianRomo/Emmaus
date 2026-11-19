@@ -1,0 +1,8 @@
+{% autoescape off %}Hola:
+
+Tienes un servicio próximo en {{ church_name }}. Entra a Emmaus con tu cuenta para ver el día y la hora, y para decir si puedes:
+
+{{ link }}
+
+Por privacidad, este correo no incluye más detalles. Si ya no quieres estos recordatorios, puedes apagarlos en «Servir».
+{% endautoescape %}

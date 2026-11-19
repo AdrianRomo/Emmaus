@@ -526,3 +526,23 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] .forms .notice + .block, :root[data-ui="2"] .forms .summary-list + .block { margin-top: var(--s-8); }
 :root[data-ui="2"] .forms .rows + form.block { margin-top: var(--s-8); }
 :root[data-ui="2"] .public-form { padding-bottom: var(--s-16); }
+/* Servir, wave 10 (roles, rotation, order of a date): a name with one short control beside it, in a list with
+   hairlines; the small edit form of a role or of a moment sits on one line and wraps on a phone; the links under a
+   date keep apart */
+:root[data-ui="2"] .needs { border: 0; padding: 0; margin: 0 0 var(--s-8); min-width: 0; }
+:root[data-ui="2"] .needs .legend { margin-bottom: var(--s-2); }
+:root[data-ui="2"] .need { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-4); padding: var(--s-3) 0; border-top: 1px solid var(--line); }
+:root[data-ui="2"] .need:last-child { border-bottom: 1px solid var(--line); }
+:root[data-ui="2"] .need > .label { flex: 1 1 12rem; margin: 0; font-weight: 500; }
+:root[data-ui="2"] .need > .input { flex: none; width: 6rem; min-height: var(--control); }
+:root[data-ui="2"] .need > select.input { width: 16rem; max-width: 100%; }
+:root[data-ui="2"] .need__state { flex: 1 1 100%; font-size: var(--t-small); color: var(--ink-2); }
+:root[data-ui="2"] .role-edit { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-4); }
+:root[data-ui="2"] .role-edit > .input { flex: 1 1 12rem; min-width: 0; width: auto; min-height: var(--control); }
+:root[data-ui="2"] .role-edit > .input--small { flex: 0 1 6rem; }
+:root[data-ui="2"] .role-edit > select.input--small { flex: 0 1 14rem; }
+:root[data-ui="2"] .choice__extra { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2) var(--s-3); padding: 0 0 var(--s-3) var(--s-10); }
+:root[data-ui="2"] .choice__extra .hint { margin: 0; }
+:root[data-ui="2"] .choice__extra .input { width: 14rem; max-width: 100%; min-height: var(--control); }
+:root[data-ui="2"] .row__links { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); }
+:root[data-ui="2"] ol.plan { counter-reset: none; padding-left: 0; }

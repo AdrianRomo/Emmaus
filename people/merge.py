@@ -169,6 +169,19 @@ TABLES: tuple[Table, ...] = (
         refusal="A los dos registros se les pidió servir en una misma fecha que todavía no pasa. Quita de esa fecha al registro que se va a unir.",
     ),
     Table("serving.Unavailable", "person", "día marcado como «no puedo»", "días marcados como «no puedo»", unique_with=("date",)),
+    # Wave 10 (docs/v2/wave10/rotas.md). A place in a rotation moves; when the survivor is already in that
+    # role's rotation the other place stays on the hidden record, which no proposal ever reads.
+    Table("serving.RotationEntry", "person", "lugar en la rotación de un equipo", "lugares en rotaciones de equipos",
+          unique_with=("role_id",)),
+    # A swap between two people of a team, by who asked and by who was asked. Both move with the assignment
+    # they are about; ``serving.rotas`` checks again who can take the date before anything changes hands.
+    Table("serving.SwapRequest", "from_person", "cambio de fecha que pidió", "cambios de fecha que pidió"),
+    Table("serving.SwapRequest", "to_person", "cambio de fecha que le pidieron", "cambios de fecha que le pidieron"),
+    # Who is in charge of a moment of a date's order: the survivor stays in charge.
+    Table("serving.PlanItem", "responsible", "momento a su cargo en el orden de una fecha", "momentos a su cargo en el orden de fechas"),
+    # The person's own choice about reminders: the survivor's wins, as with the notices' preference.
+    Table("serving.ServingPreference", "person", "preferencia de recordatorios para servir", "preferencias de recordatorios para servir",
+          unique_with=()),
     Table("care.FollowUp", "person", "seguimiento sobre esta persona", "seguimientos sobre esta persona"),
     Table("care.FollowUp", "owner", "seguimiento a su cargo", "seguimientos a su cargo"),
     Table("care.FollowUpStep", "by", "paso de seguimiento que registró", "pasos de seguimiento que registró"),

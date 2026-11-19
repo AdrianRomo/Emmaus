@@ -6,6 +6,8 @@
   Servir (serving.views.home): what one person is asked to do. First the dates that wait for their answer or that
   they already answered, then the teams they are in (with who coordinates, by name only), then the days they said
   they cannot serve. Nobody else's answer, contact data or unavailable days are here.
+  Wave 10: the role of each date, its order when it has one, a swap asked to or by a teammate (the two people and
+  who coordinates are the only ones who see it), and the choice about reminders when a team of theirs sends them.
 {% endcomment %}
 <div class="narrow">
   {% url 'community:home' as back %}
@@ -25,7 +27,9 @@
             {% date_block day.date %}
             <div class="row__main">
               <p class="row__title">{{ day.what }}</p>
-              <p class="row__meta">Equipo {{ day.team.name }}, {{ day.date|weekday_date }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.</p>
+              <p class="row__meta">Equipo {{ day.team.name }}, {{ day.date|weekday_date }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.{% if assignment.role %} Tu rol: {{ assignment.role.name }}.{% endif %}</p>
+              {% if assignment.swap %}<p class="row__meta">Le pediste el cambio a {{ assignment.swap.to_person.first_name }}. Mientras no acepte, la fecha sigue siendo tuya.</p>{% endif %}
+              {% if assignment.has_plan or assignment.can_swap %}<p class="row__meta row__links">{% if assignment.has_plan %}<a href="{% url 'serving:plan' day.pk %}">Ver el orden<span class="visually-hidden"> del {{ day.date|weekday_date }}</span></a>{% endif %}{% if assignment.can_swap %}<a href="{% url 'serving:swap_create' assignment.pk %}">Pedir un cambio<span class="visually-hidden"> para el {{ day.date|weekday_date }}</span></a>{% endif %}</p>{% endif %}
             </div>
             {% if assignment.asks %}
               <form class="row__end" method="post" action="{% url 'serving:respond' assignment.pk %}">
@@ -47,6 +51,50 @@
       <p class="empty-line">No tienes fechas por ahora. Cuando quien coordina tu equipo te pida servir un día, aparecerá aquí para que confirmes.</p>
     {% endif %}
   </section>
+
+  {% if swaps_to_answer or my_swaps %}
+  <section class="block" aria-labelledby="cambios">
+    <h2 id="cambios" class="heading">Cambios de fecha</h2>
+    {% if swaps_to_answer %}
+      <ul class="dates rows">
+        {% for swap in swaps_to_answer %}{% with day=swap.assignment.service_date %}
+          <li class="row row--lead row--stack row--attention">
+            {% date_block day.date %}
+            <div class="row__main">
+              <p class="row__title">{{ swap.from_person.full_name }} te pide tomar su fecha</p>
+              <p class="row__meta">{{ day.what }}. Equipo {{ day.team.name }}, {{ day.date|weekday_date }}{% if day.starts_at %}, a las {{ day.starts_at|time:"G:i" }}{% endif %}{% if day.place %}, en {{ day.place }}{% endif %}.{% if swap.assignment.role %} Rol: {{ swap.assignment.role.name }}.{% endif %}</p>
+              {% if day.team.swap_needs_approval %}<p class="row__meta">Si aceptas, falta el visto bueno de quien coordina el equipo.</p>{% endif %}
+            </div>
+            <form class="row__end" method="post" action="{% url 'serving:swap_answer' swap.pk %}">
+              {% csrf_token %}
+              <button class="btn btn--secondary btn--small" type="submit" name="respuesta" value="declinar">No puedo<span class="visually-hidden"> tomar la fecha del {{ day.date|weekday_date }}</span></button>
+              <button class="btn btn--primary btn--small" type="submit" name="respuesta" value="aceptar">Tomar la fecha<span class="visually-hidden"> del {{ day.date|weekday_date }}</span></button>
+            </form>
+          </li>
+        {% endwith %}{% endfor %}
+      </ul>
+      <p class="aside-note">Puedes decir que no sin dar explicaciones. Una solicitud que nadie responde vence a los 7 días, o cuando empieza la fecha.</p>
+    {% endif %}
+    {% if my_swaps %}
+      <ul class="rows">
+        {% for swap in my_swaps %}{% with day=swap.assignment.service_date %}
+          <li class="row row--stack">
+            <div class="row__main">
+              <p class="row__title">Le pediste a {{ swap.to_person.full_name }} tu fecha del {{ day.date|weekday_date }}</p>
+              <p class="row__meta">{% if swap.expired %}Venció sin respuesta.{% elif swap.status == "pendiente" %}Todavía no responde. La fecha sigue siendo tuya.{% elif swap.status == "por_aprobar" %}Aceptó. Falta el visto bueno de quien coordina el equipo; hasta entonces la fecha sigue siendo tuya.{% elif swap.status == "hecha" %}Aceptó: la fecha ya no es tuya.{% elif swap.status == "declinada" %}No puede. La fecha sigue siendo tuya.{% elif swap.status == "rechazada" %}Quien coordina el equipo no dio el visto bueno. La fecha sigue siendo tuya.{% else %}Venció sin respuesta.{% endif %}</p>
+            </div>
+            {% if swap.live %}
+              <form class="row__end" method="post" action="{% url 'serving:swap_cancel' swap.pk %}">
+                {% csrf_token %}
+                <button class="btn btn--secondary btn--small" type="submit">Retirar<span class="visually-hidden"> la solicitud a {{ swap.to_person.full_name }}</span></button>
+              </form>
+            {% endif %}
+          </li>
+        {% endwith %}{% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+  {% endif %}
 
   <section class="block" aria-labelledby="tus-equipos">
     <h2 id="tus-equipos" class="heading">Tus equipos</h2>
@@ -95,6 +143,20 @@
       <p class="empty-line">No has marcado ningún día.</p>
     {% endif %}
   </section>
+  {% if reminders_offered %}
+  <section class="block" aria-labelledby="recordatorios">
+    <h2 id="recordatorios" class="heading">Recordatorios por correo</h2>
+    <p class="aside-note">{% if reminders_on %}Algún equipo tuyo envía un correo unos días antes de cada fecha. El correo solo dice que tienes un servicio próximo y trae el enlace a esta página; llega al correo de «Mis datos», si la iglesia tiene el correo configurado.{% else %}Apagaste los recordatorios: no te enviaremos correos sobre tus fechas.{% endif %}</p>
+    <form method="post" action="{% url 'serving:reminders_choice' %}">
+      {% csrf_token %}
+      {% if reminders_on %}
+        <button class="btn btn--secondary" type="submit" name="recordatorios" value="no">No quiero recordatorios</button>
+      {% else %}
+        <button class="btn btn--secondary" type="submit" name="recordatorios" value="si">Quiero recordatorios</button>
+      {% endif %}
+    </form>
+  </section>
+  {% endif %}
   {% endif %}
   {% if request.is_church_admin %}<p class="more"><a href="{% url 'serving:team_admin' %}">Equipos de la iglesia</a></p>{% endif %}
 </div>

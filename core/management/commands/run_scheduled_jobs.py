@@ -37,7 +37,12 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    the ``community`` module whose public page takes subscriptions: the e-mails that ask to confirm an address
    and one e-mail per new public notice to each confirmed address, for at most ``SUBSCRIPTION_BUDGET_SECONDS``.
 
-2 to 7 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
+8. ``recordatorios_servir``: the reminders of the dates to serve that are near, in the teams whose
+   coordinator turned them on (``serving.reminders.send_due``), in the active churches that use the ``community``
+   module. Only with ``EMMAUS_PUBLIC_BASE_URL`` and a mail backend that delivers. One e-mail per assignment
+   however many passes run; a pass in which no reminder got through is a failed pass.
+
+2 to 8 are the community jobs: ``EMMAUS_SCHEDULED_COMMUNITY_JOBS=false`` (or the modules' kill
 switch) leaves only the first, and the line it prints is then the one ``run_report_cutoffs`` prints.
 Not here, on purpose: ``remind_follow_up_owners`` (it mails again on every run) and
 ``prune_attendance`` (it deletes). Both stay manual.
@@ -126,6 +131,18 @@ def event_subscriptions_verdict(done: dict) -> str:
     return subscriptions.verdict(done)
 
 
+def send_serving_reminders() -> dict:
+    from serving import reminders
+
+    return reminders.send_due(settings.EMMAUS_PUBLIC_BASE_URL, budget_seconds=NOTICE_MAIL_BUDGET_SECONDS)
+
+
+def serving_reminders_verdict(done: dict) -> str:
+    from serving import reminders
+
+    return reminders.verdict(done)
+
+
 class Command(BaseCommand):
     help = (
         "Una pasada del programador: los cortes y la limpieza de siempre (run_report_cutoffs) y, después, los correos de "
@@ -199,6 +216,19 @@ class Command(BaseCommand):
         line += f", {done['confirmations'] + done['sent']} correos enviados, {done['failed']} fallidos, {done['left']} pendientes"
         return run.ok, line if run.ok else f"{line} (ningún correo está saliendo)"
 
+    def serving_reminders_summary(self) -> tuple[bool, str]:
+        reason = scheduler.skipped(scheduler.SERVING_REMINDERS)
+        if reason:
+            return True, f"recordatorios de servir: {SKIPPED_WORDS[reason]}"
+        run = scheduler.run_job(scheduler.SERVING_REMINDERS, send_serving_reminders, verdict=serving_reminders_verdict)
+        done = run.counts
+        if done is None:
+            return False, "recordatorios de servir: error"
+        if done["not_configured"]:
+            return True, f"recordatorios de servir: {SKIPPED_WORDS[scheduler.NO_EMAIL]}"
+        line = f"recordatorios de servir: {done['sent']} enviados, {done['failed']} fallidos"
+        return run.ok, line if run.ok else f"{line} (ningún correo está saliendo)"
+
     def run_once(self) -> bool:
         """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
@@ -209,7 +239,7 @@ class Command(BaseCommand):
         if scheduler.community_jobs_enabled():
             for job_ok, summary in (self.notice_mail_summary(), self.waiting_offers_summary(), self.series_summary(),
                                     self.person_merges_summary(), self.form_answers_summary(),
-                                    self.event_subscriptions_summary()):
+                                    self.event_subscriptions_summary(), self.serving_reminders_summary()):
                 ok = ok and job_ok
                 head += f" · {summary}"
         self.stdout.write(head)

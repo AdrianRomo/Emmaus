@@ -27,7 +27,7 @@ CONSOLE = "django.core.mail.backends.console.EmailBackend"
 
 KINDS = {
     "solicitud_grupo_recibida", "solicitud_grupo_decidida", "solicitud_contacto_recibida", "seguimientos_pendientes",
-    "aviso_publicado", "aviso_urgente", "lugar_ofrecido",
+    "aviso_publicado", "aviso_urgente", "lugar_ofrecido", "recordatorio_servir",
 }
 LINK = "https://emmaus.example.org/grupos/solicitudes/"
 CONTEXT = {"church_name": "Iglesia Fe & Esperanza", "link": LINK}
@@ -85,6 +85,14 @@ EXPECTED_BODIES = {
         f"{LINK}\n\n"
         "El lugar se guarda para ti por tiempo limitado: en Emmaus ves hasta cuándo. "
         "Por privacidad, este correo no incluye más detalles."
+    ),
+    "recordatorio_servir": (
+        "Hola:\n\n"
+        "Tienes un servicio próximo en Iglesia Fe & Esperanza. "
+        "Entra a Emmaus con tu cuenta para ver el día y la hora, y para decir si puedes:\n\n"
+        f"{LINK}\n\n"
+        "Por privacidad, este correo no incluye más detalles. "
+        "Si ya no quieres estos recordatorios, puedes apagarlos en «Servir»."
     ),
 }
 

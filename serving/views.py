@@ -27,7 +27,7 @@ from events.models import normalize_name
 from groups.views import church_admin_view, community_view
 from people.models import Person
 
-from . import services
+from . import reminders, rotas, services
 from .access import managed_team_ids
 from .forms import ServiceDateForm, TeamForm, UnavailableForm
 from .models import Assignment, ServiceDate, Team, TeamMembership, Unavailable
@@ -80,11 +80,21 @@ def home(request):
     person, today = request.person, timezone.localdate()
     changing = request.GET.get("cambiar", "")
     dates = services.all_my_dates(person, today)
+    now = timezone.now()
+    waiting = rotas.open_swap_ids([assignment.pk for assignment in dates], now)
+    with_plan = set(
+        ServiceDate.objects.filter(pk__in=[assignment.service_date_id for assignment in dates], plan_items__isnull=False)
+        .values_list("pk", flat=True)
+    )
     for assignment in dates:
         assignment.can_change = assignment.service_date.date > today
         assignment.asks = assignment.status == Assignment.Status.PENDING or (
             assignment.can_change and changing == str(assignment.pk)
         )
+        assignment.person = person
+        assignment.swap = waiting.get(assignment.pk)
+        assignment.can_swap = assignment.swap is None and rotas.may_ask_swap(assignment, now)
+        assignment.has_plan = assignment.status != Assignment.Status.DECLINED and assignment.service_date_id in with_plan
     memberships = list(
         TeamMembership.objects.filter(person=person, status=ACTIVE, team__status=Team.Status.ACTIVE)
         .select_related("team").order_by("team__name", "id")
@@ -102,6 +112,10 @@ def home(request):
             "memberships": memberships,
             "days": Unavailable.objects.filter(person=person, date__gte=today),
             "today": today,
+            "swaps_to_answer": rotas.swaps_to_answer(person, now),
+            "my_swaps": rotas.my_swaps(person, now),
+            "reminders_offered": reminders.team_sends(person),
+            "reminders_on": reminders.wants_reminders(person),
         },
     )
 
@@ -168,10 +182,12 @@ def unavailable_remove(request, day_id: int):
 def team(request, team_id: int):
     team = _coordinated_team(request, team_id)
     today = timezone.localdate()
-    dates = list(ServiceDate.objects.filter(team=team, date__gte=today).prefetch_related("assignments__person"))
+    dates = list(ServiceDate.objects.filter(team=team, date__gte=today).prefetch_related("assignments__person", "assignments__role"))
+    missing = rotas.missing_by_date(dates)
     for service_date in dates:
         service_date.people = sorted(service_date.assignments.all(), key=lambda row: (row.person.full_name, row.pk))
         service_date.confirmed = sum(1 for row in service_date.people if row.status == Assignment.Status.ACCEPTED)
+        service_date.role_needs = missing.get(service_date.pk, [])
     members = list(TeamMembership.objects.filter(team=team, status=ACTIVE).select_related("person").order_by("role", *MEMBER_ORDER))
     query, found, found_total = request.GET.get("q", "").strip(), [], 0
     if request.is_church_admin and query:
@@ -185,23 +201,46 @@ def team(request, team_id: int):
         request,
         "serving/team.html",
         {"team": team, "dates": dates, "members": members, "member_count": len(members), "query": query, "found": found,
-         "found_total": found_total},
+         "found_total": found_total, "swaps": rotas.team_swaps(team) if team.is_active else []},
     )
 
 
 def _date_page(request, team: Team, service_date: ServiceDate | None):
-    """Create or edit one date and choose who serves, saved together or not at all."""
+    """Create or edit one date, say how many people of each role it needs and choose who serves,
+    saved together or not at all."""
     form = ServiceDateForm(request.POST or None, instance=service_date)
-    members = list(TeamMembership.objects.filter(team=team, status=ACTIVE).select_related("person").order_by(*MEMBER_ORDER))
-    assigned = {row.person_id: row for row in service_date.assignments.all()} if service_date else {}
+    members = list(
+        TeamMembership.objects.filter(team=team, status=ACTIVE, person__merged_into__isnull=True)
+        .select_related("person").order_by(*MEMBER_ORDER)
+    )
+    assigned = {row.person_id: row for row in service_date.assignments.select_related("role")} if service_date else {}
     chosen = {int(value) for value in request.POST.getlist("sirve") if value.isdigit()}
-    if request.method == "POST" and form.is_valid():
+    roles = rotas.active_roles(team)
+    by_id = {role.pk: role for role in roles}
+    posted = request.method == "POST"
+
+    def number(name: str) -> int:
+        value = request.POST.get(name, "").strip()
+        return int(value) if value.isdigit() and len(value) <= 4 else 0
+
+    if posted and form.is_valid():
         try:
             with transaction.atomic():
                 saved = services.save_date(team, request.user, service_date=service_date, **form.cleaned_data)
+                if roles:
+                    rotas.set_needs(saved, request.user, {role.pk: number(f"necesita_{role.pk}") for role in roles})
                 for membership in members:
                     if membership.person_id in chosen:
-                        services.assign(saved, membership.person, request.user)
+                        # A team without roles keeps assigning as before; with roles, the one chosen (or none).
+                        wanted = number(f"rol_{membership.person_id}")
+                        current = assigned.get(membership.person_id)
+                        if not roles or (current is not None and current.role_id == wanted):
+                            role = services.KEEP
+                        elif wanted and wanted not in by_id:
+                            raise services.ServingError("Elige un rol de este equipo.", code="no_role")
+                        else:
+                            role = by_id.get(wanted)
+                        services.assign(saved, membership.person, request.user, role=role)
                     elif membership.person_id in assigned:
                         services.unassign(saved, membership.person, request.user)
         except services.ServingError as error:
@@ -215,8 +254,18 @@ def _date_page(request, team: Team, service_date: ServiceDate | None):
         membership.busy = membership.person_id in busy
         # Who said "ese día no puedo" cannot be chosen; who was asked before saying it stays until taken out.
         membership.blocked = membership.busy and membership.assignment is None
-        membership.checked = membership.person_id in chosen if request.method == "POST" else membership.assignment is not None
-    return render(request, "serving/date_form.html", {"form": form, "team": team, "service_date": service_date, "members": members})
+        membership.checked = membership.person_id in chosen if posted else membership.assignment is not None
+        current = membership.assignment.role if membership.assignment else None
+        membership.role_id = number(f"rol_{membership.person_id}") if posted else (current.pk if current else 0)
+        # A role that was retired stays on who has it, and is offered only to them.
+        membership.old_role = current if current is not None and not current.active else None
+    needs = {need.role.pk: need for need in rotas.missing_by_date([service_date])[service_date.pk]} if service_date else {}
+    for role in roles:
+        need = needs.get(role.pk)
+        role.needed = number(f"necesita_{role.pk}") if posted else (need.needed if need else 0)
+        role.state = need
+    return render(request, "serving/date_form.html", {"form": form, "team": team, "service_date": service_date, "members": members,
+                                                       "roles": roles})
 
 
 @community_view

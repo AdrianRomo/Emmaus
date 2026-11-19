@@ -118,6 +118,8 @@ class Command(BaseCommand):
 
         parser.add_argument("--formularios", action="store_true", help="Agrega un formulario de la iglesia y uno público, publicados, con respuestas sintéticas y sus pendientes, para ver Formularios y Pendientes.")
 
+        parser.add_argument("--rotas", action="store_true", help="Agrega al equipo Bienvenida roles, fechas con lo que necesitan, una rotación, el orden de una fecha y un cambio pedido, para ver la rotación de Servir.")
+
     def handle(self, *args, **opts):
         if not settings.DEBUG:
             raise CommandError("Este comando solo funciona con DEBUG=true. Nunca uses datos de demostración en producción.")
@@ -157,6 +159,8 @@ class Command(BaseCommand):
                 self._second_church(church, password)
             if opts["formularios"]:
                 self._forms(church, admin, leader, member, groups[0])
+            if opts["rotas"]:
+                self._rotas(church, admin, leader, member, asked, password)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
@@ -553,6 +557,38 @@ class Command(BaseCommand):
             church=church, user=user, defaults={"first_name": first, "last_name": last, "email": email, "phone": phone}
         )
         return person
+
+    def _rotas(self, church, admin, leader, member, asked, password) -> None:
+        """--rotas: the team "Bienvenida" with roles, four Sundays that need people, a rotation that has not been
+        confirmed, the order of the first date and one swap that waits for an answer. Synthetic people only."""
+        from serving import rotas, services as serving
+        from serving.models import ServiceDate, Team, TeamRole
+
+        team = Team.objects.filter(church=church, name="Bienvenida").first()
+        if team is None or TeamRole.objects.filter(team=team).exists():
+            return
+        rosa = self._person(church, "rosa.rotas@demo.invalid", "Rosa", "Rentería Demo", password)
+        tomas = self._person(church, "tomas.rotas@demo.invalid", "Tomás", "Treviño Demo", password)
+        for person in (asked, rosa, tomas):
+            serving.set_member(team, person, admin)
+        door = rotas.save_role(team, leader.user, name="Puerta")
+        children = rotas.save_role(team, leader.user, name="Salón de niños", adults_only=True)
+        first = ServiceDate.objects.filter(team=team, date__gte=timezone.localdate()).order_by("date").first()
+        start = first.date if first else timezone.localdate() + timedelta(days=5)
+        dates = [first] if first else []
+        for week in range(0 if first is None else 1, 4):
+            dates.append(serving.save_date(team, leader.user, date=start + timedelta(weeks=week), what="Bienvenida en la reunión",
+                                           starts_at=time(10, 30), place="Entrada principal"))
+        for service_date in dates:
+            rotas.set_needs(service_date, leader.user, {door.pk: 2, children.pk: 1})
+        serving.assign(dates[0], member, leader.user, role=door)
+        rotas.save_rotation(team, leader.user, every_weeks=2, orders={door.pk: [member.pk, asked.pk, rosa.pk, tomas.pk], children.pk: [rosa.pk, tomas.pk]})
+        rotas.save_settings(team, leader.user, swap_needs_approval=False, reminder_days=2)
+        for title, minutes, person in (("Abrir puertas y saludar", 20, member), ("Anuncios", 5, None), ("Despedida en la salida", 15, leader)):
+            rotas.save_plan_item(dates[0], leader.user, title=title, minutes=minutes, responsible=person)
+        mine = dates[0].assignments.filter(person=member).first()
+        if mine is not None and asked.pk in {person.pk for person in rotas.swap_candidates(mine)}:
+            rotas.request_swap(mine, asked, member.user)
 
     def _duplicates(self, church) -> None:
         """--duplicados: one synthetic pair for "Posibles duplicados". Same e-mail, another phone, no account, no rows."""

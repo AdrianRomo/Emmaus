@@ -45,7 +45,9 @@ SERIES = "series_eventos"
 PERSON_MERGES = "uniones_personas"
 FORM_ANSWERS = "respuestas_formularios"
 SUBSCRIPTIONS = "suscripciones_evento"
-JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS)
+SERVING_REMINDERS = "recordatorios_servir"
+JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS,
+        SERVING_REMINDERS)
 # A job that has not ended well for this long is not running: three passes of 300 seconds.
 STALE_MINUTES = 15
 
@@ -69,7 +71,7 @@ def skipped(job: str) -> str:
         return ""
     if not community_jobs_enabled():
         return OFF
-    if job == NOTICE_MAIL:
+    if job in (NOTICE_MAIL, SERVING_REMINDERS):
         from events.services.team import email_is_configured
 
         if not settings.EMMAUS_PUBLIC_BASE_URL:
