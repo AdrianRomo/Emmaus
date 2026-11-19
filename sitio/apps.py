@@ -10,3 +10,11 @@ class SitioConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "sitio"
     verbose_name = "Página pública de la iglesia"
+
+    def ready(self):
+        # The public home is one of the kinds of content a pastor approves before it is published.
+        from resources import approvals
+
+        from .approval import HomeKind
+
+        approvals.register(HomeKind())

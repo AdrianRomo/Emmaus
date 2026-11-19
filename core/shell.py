@@ -46,6 +46,8 @@ RESOURCE_ADMIN_VIEWS = {
     "resources:plan_admin", "resources:plan_create", "resources:plan_edit", "resources:plan_days", "resources:plan_day_create",
     "resources:plan_day_edit", "resources:plan_day_delete", "resources:plan_publish", "resources:plan_retire",
 }
+# The pastoral approval of content: the pastor's own place; for the administration it belongs to "Devocionales y recursos".
+APPROVAL_VIEWS = {"resources:approval_queue", "resources:approval_review", "resources:approval_approve", "resources:approval_return"}
 SERVING_VIEWS = {"serving:home"}
 SERVING_ADMIN_VIEWS = {
     "serving:team_admin", "serving:team_create", "serving:team", "serving:team_edit", "serving:team_archive",
@@ -127,6 +129,15 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
     # The pastor (who may not be an administrator) and the administration look after the whole church: its totals.
     if can_see_overview(request.user, church):
         charge.insert(0, _item("Panorama", reverse("overview:panorama"), "camino", view in OVERVIEW_VIEWS))
+        if not is_admin:
+            # Of the two roles that see Panorama, the one that is not the administration is the pastor, who approves
+            # what the administration prepared before it is published (resources.approvals). A number of pieces of
+            # content, never of people.
+            from resources import approvals
+
+            to_approve = approvals.pending_count(church)
+            charge.insert(1, _item("Aprobación pastoral", reverse("resources:approval_queue"), "devocional", view in APPROVAL_VIEWS,
+                                   to_approve, "contenido por aprobar" if to_approve == 1 else "contenidos por aprobar"))
     if show_events:
         charge.append(serving)
     if person and serving_services.has_teams(person):
@@ -155,7 +166,8 @@ def build_shell(request, church, module_items, show_events: bool) -> dict:
         admin.append(_item("Seguimiento de personas", reverse("care:admin_list"), "acompanar",
                            view in CARE_ADMIN_VIEWS or (view in CARE_VIEWS and not accompanying), loose,
                            "seguimiento sin responsable" if loose == 1 else "seguimientos sin responsable"))
-        admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional", view in RESOURCE_ADMIN_VIEWS))
+        admin.append(_item("Devocionales y recursos", reverse("resources:devotional_admin"), "devocional",
+                           view in RESOURCE_ADMIN_VIEWS or view in APPROVAL_VIEWS))
         admin.append(_item("Configuración", reverse("church_settings"), "ajustes", url_name in {"church_settings", "user_list", "church_policies"} or view.startswith("sitio:")))
         admin_urls = {item["url"] for item in admin}
 

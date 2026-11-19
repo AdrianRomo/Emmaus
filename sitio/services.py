@@ -7,7 +7,12 @@ church, its home, its times, its events and its resources, and no table of peopl
 Writing: each function is one transaction that saves and leaves one church audit row. An audit row
 never carries a title, an address, a phone or the words of the welcome.
 
-Callers have already answered who may write (``sitio.views``: the church's administration).
+Callers have already answered who may write (``sitio.views``: the church's administration). The
+administration prepares the page and asks for its approval; only a pastor's approval makes it public
+(``resources.approvals``, with the kind in ``sitio.approval``). What the church says about itself
+(the welcome, the address, the map, the phone and the times) is what the approval covers: when one
+of those changes on a public page, the page stops being public until a pastor approves it again.
+The events and the resources the page lists have their own publication steps and are not part of it.
 """
 
 from __future__ import annotations
@@ -27,10 +32,12 @@ from core.models import Church
 from events.models import Event
 from people import flags
 from people.audit import record_church
+from resources import approvals
 from resources.models import MediaItem
 
 from .models import PublicHome, PublicMedia, ServiceTime
 
+HOME_KIND = "sitio"  # resources.models.ContentApproval.Kind.HOME
 EVENT_LIMIT = 4
 MEDIA_LIMIT = 4
 # How a day reads on the page: every week, so in plural where Spanish has one.
@@ -145,6 +152,15 @@ def public_ids(items) -> set[int]:
     return set(PublicMedia.objects.filter(item__in=[item.pk for item in items]).values_list("item_id", flat=True))
 
 
+def authored_digest(church, home: PublicHome) -> str:
+    """The fingerprint of what the church wrote for the page: the words a pastor approves. The order of
+    the times is not part of it."""
+    times = ServiceTime.objects.filter(church=church).order_by("pk").values_list("pk", "weekday", "time", "name", "place")
+    return approvals.fingerprint(
+        home.welcome, home.address, home.map_url, home.contact_phone, *("\x1e".join(str(part) for part in row) for row in times)
+    )
+
+
 # ---- writing ------------------------------------------------------------------------------------
 def _line(text: str) -> str:
     return " ".join((text or "").split())
@@ -184,8 +200,21 @@ def _locked_home(church) -> PublicHome:
     return home
 
 
+def _words_changed(church, home: PublicHome, actor, before: str) -> None:
+    """After a write, inside its transaction: when what the church wrote is no longer ``before``, the
+    approval does not cover it and a public page stops being public."""
+    if before == authored_digest(church, home):
+        return
+    was_public = home.published
+    if was_public:
+        home.published = False
+        home.save(update_fields=["published", "updated_at"])
+    approvals.content_changed(church, approvals.kind_of(HOME_KIND), home, actor, taken_down=was_public)
+
+
 def save_home(church, actor, *, welcome: str = "", address: str = "", map_url: str = "", contact_phone: str = "") -> PublicHome:
-    """Save what the church says about itself. It does not publish: that is ``publish``."""
+    """Save what the church says about itself. It does not publish: a pastor's approval does. On a
+    public page a change takes it out of publication until it is approved again."""
     welcome, address = _line(welcome), _text(address)
     if len(welcome) > PublicHome.WELCOME_MAX:
         raise SiteError(f"La bienvenida puede tener hasta {PublicHome.WELCOME_MAX} caracteres y esta tiene {len(welcome)}. Acórtala.", code="welcome")
@@ -197,10 +226,12 @@ def save_home(church, actor, *, welcome: str = "", address: str = "", map_url: s
         wanted = {"welcome": welcome, "address": address, "map_url": map_url, "contact_phone": contact_phone}
         if all(getattr(home, name) == value for name, value in wanted.items()):
             return home
+        before = authored_digest(church, home)
         for name, value in wanted.items():
             setattr(home, name, value)
         home.save(update_fields=[*wanted, "updated_at"])
         record_church(church, actor, "sitio_modificado", "Modificó los datos de la página pública de la iglesia", home)
+        _words_changed(church, home, actor, before)
     return home
 
 
@@ -216,6 +247,8 @@ def save_time(church, actor, *, weekday: int, time, name: str, place: str = "", 
     if len(name) > 80 or len(place) > 120:
         raise SiteError("Ese texto es demasiado largo. Acórtalo.", code="name")
     with transaction.atomic():
+        home = _locked_home(church)
+        before = authored_digest(church, home)
         if row is None:
             row, words = ServiceTime(church=church), "Agregó un horario de reunión a la página pública"
         else:
@@ -226,29 +259,38 @@ def save_time(church, actor, *, weekday: int, time, name: str, place: str = "", 
         row.weekday, row.time, row.name, row.place, row.position = weekday, time, name, place, position
         row.save()
         record_church(church, actor, "sitio_modificado", words, row)
+        _words_changed(church, home, actor, before)
     return row
 
 
 def delete_time(row: ServiceTime, actor) -> None:
     with transaction.atomic():
         church = row.church
+        home = _locked_home(church)
+        before = authored_digest(church, home)
         record_church(church, actor, "sitio_modificado", "Quitó un horario de reunión de la página pública", row)
         row.delete()
+        _words_changed(church, home, actor, before)
 
 
-def publish(church, actor, reviewed: str) -> PublicHome:
-    """Make the page public. ``reviewed`` is the fingerprint of what the review page listed: when what
-    would be public is no longer that, ``StaleReview`` is raised and nothing changes."""
+def request_publication(church, actor, reviewed: str) -> PublicHome:
+    """The administration asks a pastor to approve the page: the approval is what makes it public.
+    ``reviewed`` is the fingerprint of what the review page listed: when what would be public is no
+    longer that, ``StaleReview`` is raised and nothing changes. Asking twice changes nothing."""
     with transaction.atomic():
         home = _locked_home(church)
         if page_content(church, home).digest() != reviewed:
             raise StaleReview
-        if home.published:
-            return home
-        home.published, home.published_at, home.published_by = True, timezone.now(), actor
-        home.save(update_fields=["published", "published_at", "published_by", "updated_at"])
-        record_church(church, actor, "sitio_publicado", "Publicó la página pública de la iglesia", home)
+        if not home.published:
+            approvals.request(church, approvals.kind_of(HOME_KIND), home, actor)
     return home
+
+
+def go_public(home: PublicHome, actor) -> None:
+    """Make the page public. Its one caller is the pastoral approval (``sitio.approval.HomeKind.publish``),
+    inside the transaction that holds the row."""
+    home.published, home.published_at, home.published_by = True, timezone.now(), actor
+    home.save(update_fields=["published", "published_at", "published_by", "updated_at"])
 
 
 def unpublish(church, actor) -> PublicHome:

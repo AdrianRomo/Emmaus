@@ -1,0 +1,16 @@
+{% comment %}
+  What the administration reads about the pastoral approval of one piece of content (resources.approvals):
+  approval (the row or nothing) and has_pastor. The reason a pastor gave is plain text, escaped.
+{% endcomment %}
+{% if approval.is_pending %}
+  <div class="notice notice--quiet"><p>Espera la aprobación pastoral{% if approval.requested_at %} desde el {{ approval.requested_at|date:"j \d\e F"|lower }}{% endif %}. Se publica cuando un pastor de tu iglesia lo apruebe; la administración no puede publicarlo por su cuenta.</p></div>
+{% elif approval.is_returned %}
+  <div class="notice notice--warning">
+    <p>Un pastor lo devolvió sin aprobarlo{% if approval.returned_at %} el {{ approval.returned_at|date:"j \d\e F"|lower }}{% endif %}. Lo que hay que corregir:</p>
+    <p>{{ approval.return_reason }}</p>
+    <p>Corrígelo y pide la aprobación otra vez.</p>
+  </div>
+{% elif approval.is_changed %}
+  <div class="notice notice--warning"><p>Está fuera de publicación: cambió después de publicarse y esos cambios no los ha aprobado un pastor. Cuando esté listo, pide la aprobación pastoral otra vez.</p></div>
+{% endif %}
+{% if not has_pastor %}{% include "resources/_no_pastor.html" %}{% endif %}

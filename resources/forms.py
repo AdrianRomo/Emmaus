@@ -2,8 +2,8 @@ from django import forms
 
 from core.forms import TuErrorMessagesMixin
 
-from . import plans, services
-from .models import Devotional, MediaItem, ReadingPlan, ReadingPlanDay
+from . import approvals, services
+from .models import ContentApproval, Devotional, MediaItem, ReadingPlan, ReadingPlanDay
 
 DATE_INPUT = {"type": "date"}
 
@@ -12,9 +12,10 @@ class DevotionalForm(TuErrorMessagesMixin, forms.ModelForm):
     """The devotional of one day. ``church`` is needed to say that a day already has one."""
 
     publish = forms.BooleanField(
-        label="Publicarlo",
+        label="Pedir la aprobación pastoral para publicarlo",
         required=False,
-        help_text="Las personas de la iglesia lo leerán desde su día. Sin marcar se queda como borrador y solo lo ve la administración.",
+        help_text="Un pastor de tu iglesia lo revisa; si lo aprueba, las personas lo leen desde su día. "
+        "Sin marcar se queda como borrador y solo lo ve la administración.",
     )
 
     class Meta:
@@ -35,7 +36,11 @@ class DevotionalForm(TuErrorMessagesMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.church = church
         if self.instance.pk:
-            self.fields["publish"].initial = self.instance.is_published
+            approval = getattr(self.instance, "approval", None)
+            self.fields["publish"].initial = self.instance.is_published or bool(approval and approval.is_pending)
+            if self.instance.is_published:
+                self.fields["publish"].label = "Mantenerlo publicado"
+                self.fields["publish"].help_text = "Si lo desmarcas, vuelve a ser un borrador y deja de verse."
         self.fields["date"].error_messages["required"] = "Elige el día del devocional."
         self.fields["title"].error_messages["required"] = "Escribe un título para el devocional."
         self.fields["body"].error_messages["required"] = "Escribe el devocional."
@@ -158,12 +163,38 @@ class ReadingPlanDayForm(TuErrorMessagesMixin, forms.ModelForm):
         return text
 
 
-class PublishPlanForm(forms.Form):
-    """The administration's confirmation of authorship or permission: without it nothing is published."""
+class ApproveForm(forms.Form):
+    """What a pastor states when approving: with which permission the church publishes this. ``revision``
+    is the fingerprint of the preview the pastor read."""
 
-    confirm = forms.BooleanField(
-        label=plans.CONFIRMATION,
-        required=True,
-        help_text="Queda guardado quién lo confirmó y cuándo.",
-        error_messages={"required": plans.NOT_CONFIRMED},
+    revision = forms.CharField(widget=forms.HiddenInput, required=False, max_length=64)
+    permitted_use = forms.ChoiceField(
+        label="¿Con qué permiso lo publica la iglesia?",
+        choices=ContentApproval.Use.choices,
+        widget=forms.RadioSelect,
+        error_messages={"required": approvals.NO_USE, "invalid_choice": approvals.NO_USE},
+    )
+    source_note = forms.CharField(
+        label="Nota sobre la fuente",
+        required=False,
+        max_length=ContentApproval.NOTE_MAX,
+        help_text=f"Por ejemplo, quién dio el permiso o de dónde viene el texto. Solo la leen los pastores y la administración. "
+        f"Hasta {ContentApproval.NOTE_MAX} caracteres.",
+        error_messages={"max_length": f"La nota puede tener hasta {ContentApproval.NOTE_MAX} caracteres. Acórtala."},
+    )
+
+
+class ReturnForm(forms.Form):
+    """Why a pastor does not approve what the administration asked to publish."""
+
+    reason = forms.CharField(
+        label="¿Qué hay que corregir?",
+        max_length=ContentApproval.REASON_MAX,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=f"Lo leen los pastores y la administración de tu iglesia, aquí en Emmaus. No se envía por correo. "
+        f"Hasta {ContentApproval.REASON_MAX} caracteres.",
+        error_messages={
+            "required": approvals.NO_REASON,
+            "max_length": f"El motivo puede tener hasta {ContentApproval.REASON_MAX} caracteres. Acórtalo.",
+        },
     )
