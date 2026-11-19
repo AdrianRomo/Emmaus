@@ -8,7 +8,7 @@
 {% endcomment %}
 <div class="narrow">
   {% include "partials/ui/error_summary.html" with form=form %}
-  {% if not church_elsewhere %}{% url 'church_settings' as back %}{% endif %}
+  {% url 'church_settings' as back %}
   {% include "events/rotulo/_page_head.html" with title="Políticas de la iglesia" lede="Lo que tu iglesia decide sobre la privacidad, las opiniones, los avisos urgentes, los menores de edad y la asistencia. Algunas tienen un mínimo que Emmaus no deja bajar, porque cuida a las personas." back_url=back back_label="Volver a Configuración" %}
   <form method="post" novalidate>
     {% csrf_token %}

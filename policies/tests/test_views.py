@@ -376,3 +376,12 @@ class ChurchPoliciesTests(CommunityFixture):
         shell = build_shell(request, self.church, [], show_events=False)
         active = [item["label"] for section in shell["sections"] for item in section["items"] if item["active"]]
         self.assertEqual(active, ["Configuración"])
+
+    def test_the_way_back_to_configuracion_is_always_offered(self):
+        # "Configuración" acts in the church of the request (docs/v2/wave10/legado.md): the back link has no condition,
+        # here and on the public page's editor, the two pages that used to hide it while "elsewhere".
+        from django.urls import reverse
+
+        back = f'<a class="back-link" href="{reverse("church_settings")}">Volver a Configuración</a>'
+        self.assertContains(self.client.get(URL), back, html=True)
+        self.assertContains(self.client.get(reverse("sitio:edit")), back, html=True)

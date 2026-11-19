@@ -229,9 +229,8 @@ reader in the browser (by test only); the old bar (module off) for an account of
 - A second path for an account that is a participant in two churches.
 - Remembering the church across sign-ins; a picker at sign-in.
 - The same 404-before-403 order for `groups.views.church_admin_view`.
-- `templates/policies/form.html` and `templates/sitio/edit.html` still test `church_elsewhere`, which
-  nothing sets any more (always "Volver a Configuración", which now opens): a dead condition in files
-  of other slices.
+- (Closed at integration: `templates/policies/form.html` and `templates/sitio/edit.html` no longer test
+  `church_elsewhere`, which nothing sets; "Volver a Configuración" is always offered.)
 - `Resolution.role_church` is kept as a property for `tenancy.current_church`.
 
 ## Recommended browser journey (for the integrator; `e2e/` not edited)
