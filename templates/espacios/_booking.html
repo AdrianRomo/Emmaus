@@ -1,0 +1,24 @@
+{% load emmaus community %}{% comment %}
+  One booking as a row. espacios.views._shown already removed the title, the person and the event for a reader who
+  is not the administration or who asked: for them the row says "Ocupado" and the hours nobody else can have.
+  Needs: booking; optional: with_space (the space's name leads), with_day (the day is said in words).
+{% endcomment %}
+<li class="row row--stack{% if booking.status == "solicitada" and booking.show_details %} row--attention{% endif %}">
+  <div class="row__main">
+    {% if booking.show_details %}
+      <p class="row__title">{% if with_space %}{{ booking.space.name }}: {% endif %}{{ booking.title }}</p>
+      <p class="row__meta">{% if with_day %}{{ booking.day|weekday_date|capfirst }}, de{% else %}De{% endif %} {{ booking.start_time|time:"H:i" }} a {{ booking.end_time|time:"H:i" }}{% if not booking.same_day %} del {{ booking.end_day|weekday_date }}{% endif %}.{% if booking.has_buffer %} Apartado de {{ booking.block_start|time:"H:i" }} a {{ booking.block_end|time:"H:i" }}, con el tiempo para preparar y recoger.{% endif %}</p>
+      {% if request.is_church_admin %}<p class="row__meta">{% if booking.requested_by %}La pidió {{ booking.requested_by.full_name }}.{% else %}Quien la pidió ya no está en las personas de la iglesia.{% endif %}{% if booking.event %} Para el evento {{ booking.event.name }}.{% endif %}{% if booking.overrode_clash %} Se aprobó aunque se empalma con otra reserva.{% endif %}</p>{% endif %}
+      {% if request.is_church_admin and booking.decision_reason %}<p class="row__meta">Motivo: {{ booking.decision_reason }}</p>{% endif %}
+    {% else %}
+      <p class="row__title">Ocupado</p>
+      <p class="row__meta">{% if with_day %}{{ booking.day|weekday_date|capfirst }}, de{% else %}De{% endif %} {{ booking.block_start|time:"H:i" }} a {{ booking.block_end|time:"H:i" }}{% if not booking.same_day %} del {{ booking.end_day|weekday_date }}{% endif %}.</p>
+    {% endif %}
+  </div>
+  {% if booking.show_details %}
+  <div class="row__end">
+    {% if booking.status == "solicitada" %}{% if booking.expired %}{% status "descartada" "Pasó sin decidirse" %}{% else %}{% status "por_evaluar" "Por decidir" %}{% endif %}{% elif booking.status == "aprobada" %}{% status "completada" "Aprobada" %}{% elif booking.status == "rechazada" %}{% status "descartada" "Rechazada" %}{% else %}{% status "descartada" "Cancelada" %}{% endif %}
+    {% if booking.can_cancel and not hide_cancel %}<a class="btn btn--secondary btn--small" href="{% url 'espacios:cancel' booking.pk %}">Cancelar<span class="visually-hidden"> la reserva: {{ booking.title }}, {{ booking.day|weekday_date }}</span></a>{% endif %}
+  </div>
+  {% endif %}
+</li>

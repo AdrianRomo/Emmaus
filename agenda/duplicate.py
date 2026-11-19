@@ -37,6 +37,7 @@ RELATIONS = {
     "registrations": NEVER,  # who signed up, who came, and with them the guardians' authorizations
     "feedback": NEVER,
     "feedback_given": NEVER,
+    "space_bookings": NEVER,  # the rooms booked for the original stay with its dates
     # A simple event has none of the camp's rows; the copy cannot have them either.
     "memberships": NEVER,
     "tutor_assignments": NEVER,

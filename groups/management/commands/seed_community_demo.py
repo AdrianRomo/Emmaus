@@ -125,6 +125,7 @@ class Command(BaseCommand):
             if not GroupJoinRequest.objects.filter(group=groups[0], person=asked).exists():
                 group_services.request_to_join(groups[0], asked, asked.user)
             self._agenda_and_notices(church, admin, leader, groups[0])
+            self._spaces(church, admin, leader)
             if opts["panorama"]:
                 self._panorama(church, admin, password)
             if opts["eventos"]:
@@ -346,6 +347,39 @@ class Command(BaseCommand):
                             body="Por el cambio de horario, la reunión del domingo empieza a las 11 de la mañana.\n\nLlega unos minutos antes.")
             notices.publish(church, leader.user, group=group, title="Esta semana nos vemos en el Salón 3",
                             body="El Salón 2 estará ocupado. Nos vemos a la misma hora en el Salón 3.")
+
+    def _spaces(self, church, admin, leader) -> None:
+        """Two things the church lends (a room that asks for approval, a projector that does not) and three
+        bookings: one the guide asked for and still waits, one the administration made for the published
+        event, one of the projector. Each booking is looked up by its space and its title."""
+        from datetime import datetime
+
+        from espacios import services as spaces
+        from espacios.models import Booking, Space
+
+        tz, today = spaces.church_tz(church), timezone.localdate()
+        admin_person = Person.objects.get(church=church, user=admin)
+
+        def space(name, **fields):
+            found = Space.objects.filter(church=church, name=name).first()
+            return found or spaces.save_space(church, admin, name=name, **fields)
+
+        def booking(place, person, actor, title, days, start, end, **extra):
+            if Booking.objects.filter(space=place, title=title).exists():
+                return
+            day = today + timedelta(days=days)
+            spaces.request_booking(
+                place, person, actor, title=title, starts_at=datetime.combine(day, start, tzinfo=tz),
+                ends_at=datetime.combine(day, end, tzinfo=tz), **extra,
+            )
+
+        room = space("Salón 2", kind=Space.Kind.ROOM, capacity=40, notes="La llave está en la oficina.")
+        projector = space("Proyector portátil", kind=Space.Kind.EQUIPMENT, needs_approval=False)
+        event = Event.objects.filter(church=church, slug="noche-de-alabanza-demo").first()
+        booking(room, leader, leader.user, "Reunión de Jóvenes Roca", 3, time(19, 0), time(21, 0), setup_minutes=30)
+        booking(room, admin_person, admin, "Ensayo para la noche de alabanza", 12, time(16, 0), time(18, 0),
+                teardown_minutes=30, event=event, approve=True)
+        booking(projector, leader, leader.user, "Película con el grupo", 5, time(18, 0), time(20, 30))
 
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})

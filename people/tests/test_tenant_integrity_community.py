@@ -15,6 +15,7 @@ from django.utils import timezone
 from access.models import RoleAssignment
 from agenda.models import EventRegistration, GuardianConsent
 from care.models import FollowUp, FollowUpStep
+from espacios.models import Booking, Space
 from events.models import Sede
 from feedback.models import FeedbackGiven
 from groups.models import GroupAttendance, GroupJoinRequest, GroupMeeting, GroupMembership
@@ -78,6 +79,15 @@ class CommunityIntegrityTests(CommunityFixture):
         serving.set_member(cls.team_b, cls.member_b, cls.admin_b, role="coordina")
         cls.day = serving.save_date(cls.team, cls.admin, date=today + timedelta(days=7), what="Domingo")
         cls.day_b = serving.save_date(cls.team_b, cls.admin_b, date=today + timedelta(days=7), what="Domingo B")
+        cls.space = Space.objects.create(church=cls.church, name="Salón de prueba")
+        cls.space_b = Space.objects.create(church=cls.church_b, name="Salón B")
+        start = timezone.now() + timedelta(days=3)
+        cls.booking = Booking.objects.create(
+            space=cls.space, title="Ensayo", starts_at=start, ends_at=start + timedelta(hours=1), requested_by=cls.leader, event=cls.event,
+        )
+        cls.booking_b = Booking.objects.create(
+            space=cls.space_b, title="Ensayo B", starts_at=start, ends_at=start + timedelta(hours=1), requested_by=cls.member_b, event=cls.event_b,
+        )
         serving.assign(cls.day, cls.leader, cls.admin)
         cls.care = FollowUp.objects.create(church=cls.church, person=cls.member, owner=cls.leader, reason="visita")
         cls.care_b = FollowUp.objects.create(church=cls.church_b, person=cls.member_b, reason="visita")
@@ -160,6 +170,14 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def break_care_step_by_church(self):
         return FollowUpStep.objects.create(follow_up=self.care_b, kind="nota", by=self.leader)
+
+    def break_booking_requester_church(self):
+        Booking.objects.filter(pk=self.booking_b.pk).update(requested_by=self.leader)
+        return self.booking_b
+
+    def break_booking_event_church(self):
+        Booking.objects.filter(pk=self.booking.pk).update(event=self.event_b)
+        return self.booking
 
     def break_role_assignment_scope_church(self):
         return RoleAssignment.objects.create(
@@ -287,6 +305,12 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_care_step_by_church(self):
         self.assert_counted_alone_and_fails("care_step_by_church")
+
+    def test_booking_requester_church(self):
+        self.assert_counted_alone_and_fails("booking_requester_church")
+
+    def test_booking_event_church(self):
+        self.assert_counted_alone_and_fails("booking_event_church")
 
     def test_role_assignment_scope_church(self):
         self.assert_counted_alone_and_fails("role_assignment_scope_church")

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block page_title %}{% if form.errors %}Error: {% endif %}{% if space %}Editar {{ space.name }}{% else %}Agregar un espacio{% endif %}{% endblock %}
+{% block content %}
+{% comment %}A room or a piece of equipment (espacios.views.space_create and space_edit). Nothing is deleted: a space is switched off.{% endcomment %}
+<div class="narrow spaces">
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% url 'espacios:manage' as back %}
+  {% if space %}
+    {% include "events/rotulo/_page_head.html" with title="Editar el espacio" back_url=back back_label="Volver a los espacios" %}
+  {% else %}
+    {% include "events/rotulo/_page_head.html" with title="Agregar un espacio" lede="Un salón o un equipo que una sola actividad puede usar a la vez." back_url=back back_label="Volver a los espacios" %}
+  {% endif %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% include "partials/ui/fields.html" with form=form %}
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">{% if space %}Guardar cambios{% else %}Agregar el espacio{% endif %}</button>
+      <a class="btn btn--link" href="{{ back }}">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

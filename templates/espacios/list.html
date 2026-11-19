@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}Espacios{% endblock %}
+{% block content %}
+{% comment %}
+  The rooms and the equipment of the church that can be booked (espacios.views.space_list). Everybody of the church
+  reads the list and each week; who is responsible for something also reads what they asked for; the administration
+  gets the way to its three pages. A space that is switched off is not listed.
+{% endcomment %}
+<div class="narrow spaces">
+  {% url 'community:home' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Espacios" lede="Los salones y el equipo de la iglesia, y cuándo están ocupados." back_url=back back_label="Volver a Mi iglesia" %}
+  {% if request.is_church_admin and pending %}
+    <div class="notice notice--info"><p>{% if pending == 1 %}Hay 1 solicitud por decidir.{% else %}Hay {{ pending }} solicitudes por decidir.{% endif %} <a href="{% url 'espacios:queue' %}">Ver las solicitudes</a></p></div>
+  {% endif %}
+
+  {% if may_request and mine %}
+  <section class="block" aria-labelledby="pediste">
+    <h2 id="pediste" class="heading">Lo que pediste</h2>
+    <ul class="rows">
+      {% for booking in mine %}{% include "espacios/_booking.html" with booking=booking with_space=True with_day=True %}{% endfor %}
+    </ul>
+    <p class="aside-note">Emmaus no te avisa cuando la administración decide: aquí lo ves. Una solicitud rechazada o cancelada se muestra dos semanas.</p>
+  </section>
+  {% endif %}
+
+  <section class="block" aria-labelledby="lista">
+    <h2 id="lista" class="heading">Salones y equipo</h2>
+    {% if spaces %}
+      <ul class="rows">
+        {% for space in spaces %}
+          <li class="row row--stack">
+            <div class="row__main">
+              <p class="row__title"><a href="{% url 'espacios:week' space.pk %}">{{ space.name }}</a></p>
+              <p class="row__meta">{{ space.get_kind_display }}{% if space.capacity %}, para {{ space.capacity }} persona{{ space.capacity|pluralize }}{% endif %}. {% if space.needs_approval %}La administración aprueba cada reserva.{% else %}Se reserva sin esperar aprobación.{% endif %}</p>
+            </div>
+            {% if may_request %}<div class="row__end"><a class="btn btn--secondary btn--small" href="{% url 'espacios:request' space.pk %}">Pedir<span class="visually-hidden"> {{ space.name }}</span></a></div>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty-line">{% if request.is_church_admin %}Todavía no hay espacios. <a href="{% url 'espacios:space_create' %}">Agrega el primero</a>: un salón, la cocina o un proyector.{% else %}Tu iglesia todavía no registra sus salones ni su equipo aquí.{% endif %}</p>
+    {% endif %}
+    {% if not may_request and spaces %}<p class="aside-note">Para reservar un espacio, pídeselo a quien guía tu grupo, a quien coordina tu equipo o a la administración de tu iglesia.</p>{% endif %}
+  </section>
+
+  {% if request.is_church_admin %}
+  <section class="block" aria-labelledby="administracion">
+    <h2 id="administracion" class="heading">Administración</h2>
+    <p class="more"><a href="{% url 'espacios:queue' %}">Solicitudes de reserva</a></p>
+    <p class="more"><a href="{% url 'espacios:manage' %}">Administrar espacios y equipo</a></p>
+    <p class="more"><a href="{% url 'espacios:usage' %}">Uso de los espacios</a></p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
