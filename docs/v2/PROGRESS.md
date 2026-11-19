@@ -2,6 +2,51 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-19 — Wave 10: six more slices under the delegation (branch `v2/wave-10`)
+
+Built in parallel, joined by a dedicated integrator, reviewed by three independent read-only reviewers,
+fixed, polished from a designer's read of the journey screenshots. Detail per slice: [`wave10/`](wave10/).
+
+| Slice | Issue | What exists now |
+|---|---|---|
+| Forms of the church and one work queue | #92 | App `formularios`: forms for people of the church or public by link, versions with the purpose shown, answers with their own deletion day, a task per answer, «Pendientes» (one list of what waits for a staff person across the modules, by each module's own permission). |
+| Notices of an event by e-mail, without an account | #96, second part | Double opt-in, unsubscribe without signing in, addresses deleted 14 days after the event; e-mails carry a link, never the notice. Off per event until administration turns it on. |
+| Rotations, roles, swaps, reminders, order of service | #95, first part | Roles and needs per date, a proposed rotation the coordinator confirms, swaps between teammates, content-free reminders, a simple order of service. |
+| People data, second part | #91 | Stage, key dates, tags, export, import with a preview and undo. |
+| Private prayer requests | #97 | App `oracion`: off until a pastor accepts what the church promises; read only by the pastors named on the form; never e-mailed, logged or counted elsewhere; the writer deletes when they want; deleted after 90 days. |
+| The older screens follow the church of the request | follow-up of #32 | An account that is administrator in one church and mentor in another has the right role in each; a demo account in two churches (`--dos-iglesias`). |
+
+- **Migrations (all additive):** `agenda/0008`, `agenda/0009`, `formularios/0001`, `formularios/0002`,
+  `oracion/0001`, `oracion/0002` (RunPython with reverse), `people/0006`–`0009`, `serving/0002`.
+- **Scheduler:** nine jobs. Work that only deletes what the product promised to delete (prayer requests,
+  subscription addresses, form answers, contact values of old joins) now runs on every pass, whatever
+  `EMMAUS_SCHEDULED_COMMUNITY_JOBS`, `EMMAUS_V2_MODULES` and the churches' flags say.
+- **Found by the reviews and fixed before the pull request.** No reviewer found a way to read what one
+  should not; a crawl of every route as an administrator of one church working in another found no read or
+  write across churches. Reproduced and fixed: promised deletions did not run with either server switch
+  off, and an expired prayer request stayed readable; thirty variants of one address got thirty
+  confirmation e-mails, and an address that never confirmed could be written to for ever; a merge preview
+  told administration who had written a prayer request (the writer's access now follows the account, and a
+  merge never touches a request); the writer could not delete with the module off; extending a form's
+  closing day moved the deletion of answers already given; one sender could close a public form to
+  everybody; a junk answer with someone's e-mail made their real answer vanish; an adults-only role kept a
+  minor assigned before the rule; the order of service kept naming someone who left; an import cut long
+  cells into different valid values and stored control characters. Also: `send_email_safely` could write
+  a recipient's address into the log.
+- **Gate on `c9c4679`:** lint, check, migrations, deploy-check, migration-scope (11 added, all additive),
+  pip-audit PASS; SQLite 3329 passed, 6 skipped; browser gate OK, community flow 789 checks, 0 problems.
+  **PostgreSQL did not finish locally:** the step hit its 20-minute limit at 78 % with no failure so far,
+  while eight other agents were using the machine. The limit is now 45 minutes; the pull request's own
+  PostgreSQL check is the evidence for this wave.
+- **Not verified:** two real connections racing on PostgreSQL; real SMTP and a mail client's one-click
+  unsubscribe; the subscription offer inside the gate (the gate's server has no public address or mail:
+  that path was walked once by hand against a mail-enabled scratch server, 29 checks, 0 problems).
+- **For a person to check once:** the emergency numbers on the prayer form (911, Línea de la Vida
+  800 911 2000) were confirmed on government pages through a web tool; the addresses are in `wave10/oracion.md`.
+- **Decisions taken under 0017:** in each slice's file, under "Decisions".
+- **Deploy notes, when a host is updated:** `migrate`; recreate `web` and `scheduler`. Subscriptions and
+  reminders send only with `EMMAUS_PUBLIC_BASE_URL` set and a real mail backend.
+
 ## 2026-11-18, night — Wave 9: the owner delegates product decisions; five slices (branch `v2/wave-9`)
 
 The owner asked the building session to take the product decisions and keep building

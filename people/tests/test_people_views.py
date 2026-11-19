@@ -380,7 +380,8 @@ class PolishTests(CommunityFixture):
         own = services.ensure_own_person(user, self.church)
         self.assertLessEqual(len(own.normalized_name), 250)
         # A campero with such a name is not brought: the administrator is told what to do instead.
-        campero = EventParticipant.objects.create(event=self.event, number=99, full_name=f"{grows} {grows}", age=20, room="1", church_group="A")
+        half = "ﬃ" * 79  # 159 characters with the space: it fits the campero's own column (160), and is 475 once normalised
+        campero = EventParticipant.objects.create(event=self.event, number=99, full_name=f"{half} {half}", age=20, room="1", church_group="A")
         self.client.force_login(self.admin)
         url = reverse("people:from_event_link", args=[self.event.slug, campero.public_id])
         response = self.client.post(url, {"persona": "nueva"}, follow=True)

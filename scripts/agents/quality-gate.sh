@@ -50,7 +50,7 @@ else
   if ! $postgres; then
     skip_step tests-postgres "--postgres not given"
   elif [ -n "${DATABASE_URL:-}" ]; then
-    run_step tests-postgres 1200 "$agents_dir/run-tests.sh" postgres
+    run_step tests-postgres 2700 "$agents_dir/run-tests.sh" postgres
   else
     need docker
     pg_port="$("$PYTHON" -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')"
@@ -60,7 +60,7 @@ else
       -p "127.0.0.1:$pg_port:5432" postgres:16 >/dev/null
     trap 'docker stop "$pg_name" >/dev/null 2>&1 || true' EXIT
     for i in $(seq 1 60); do docker exec "$pg_name" pg_isready -U emmaus -d emmaus >/dev/null 2>&1 && break; sleep 1; done
-    run_step tests-postgres 1200 env DATABASE_URL="postgres://emmaus@127.0.0.1:$pg_port/emmaus" "$agents_dir/run-tests.sh" postgres
+    run_step tests-postgres 2700 env DATABASE_URL="postgres://emmaus@127.0.0.1:$pg_port/emmaus" "$agents_dir/run-tests.sh" postgres
     docker stop "$pg_name" >/dev/null 2>&1 || true; trap - EXIT
   fi
 fi
