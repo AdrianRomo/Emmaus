@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.dispatch import Signal
+from django.utils import timezone
 
 from core.models import Church, ParticipantProfile
 from events.models import Sede, normalize_name
@@ -304,3 +305,71 @@ class EventParticipantLink(models.Model):
             raise ValidationError(
                 {"person": ValidationError("Esta persona es de otra iglesia.", code="person_other_church")}
             )
+
+
+class PersonMerge(models.Model):
+    """Two records of one church were said to be the same person (``people.merge.merge``, the one
+    write path): ``absorbed`` was joined into ``survivor`` by an administrator, one pair at a time.
+
+    ``manifest`` is what the undo needs and nothing else: the ids of the rows that were re-pointed,
+    by table; the ids of the camperos whose link moved; the account that moved; and, for 30 days,
+    the contact values the survivor had before (``survivor_before``). It never holds an answer, a
+    note or any text somebody else wrote. ``people.merge.clear_expired`` empties the contact values
+    when the undo is no longer possible. Both people are protected: a record that took part in a
+    merge is not deleted while this row exists (``Person.merged_into`` is ``SET_NULL``, so deleting
+    a survivor would bring the absorbed record back as if nothing had happened).
+    """
+
+    church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="person_merges")
+    survivor = models.ForeignKey(Person, verbose_name="Se queda", on_delete=models.PROTECT, related_name="merges_received")
+    absorbed = models.ForeignKey(Person, verbose_name="Se une", on_delete=models.PROTECT, related_name="merges_given")
+    merged_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    merged_at = models.DateTimeField("Fecha de la unión", default=timezone.now)
+    manifest = models.JSONField(default=dict, blank=True)
+    contact_cleared_at = models.DateTimeField(null=True, blank=True)
+    undone_at = models.DateTimeField("Fecha en que se deshizo", null=True, blank=True)
+    undone_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # Counts by kind of what the undo could not put back; never an id of a private row, never a name.
+    undo_report = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "unión de dos registros de persona"
+        verbose_name_plural = "uniones de registros de persona"
+        ordering = ["-merged_at", "-id"]
+        constraints = [
+            # One record is joined into one other at a time: two administrators at once make one merge.
+            models.UniqueConstraint(fields=["absorbed"], condition=models.Q(undone_at__isnull=True), name="person_merge_one_in_force"),
+            models.CheckConstraint(condition=~models.Q(survivor=models.F("absorbed")), name="person_merge_two_people"),
+        ]
+        indexes = [models.Index(fields=["church", "-merged_at"], name="person_merge_recent_idx")]
+
+    def __str__(self) -> str:
+        return f"Unión {self.pk}"
+
+    @property
+    def is_undone(self) -> bool:
+        return self.undone_at is not None
+
+
+class DuplicateDismissal(models.Model):
+    """"No son la misma persona": an administrator looked at a suggested pair and said no. The pair
+    is not suggested again and cannot be merged while this row exists. ``person_a`` is always the
+    lower id, so a pair has one row whichever way it was shown."""
+
+    church = models.ForeignKey(Church, on_delete=models.CASCADE, related_name="duplicate_dismissals")
+    person_a = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
+    person_b = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="+")
+    dismissed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    dismissed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "par que no es la misma persona"
+        verbose_name_plural = "pares que no son la misma persona"
+        ordering = ["-dismissed_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["person_a", "person_b"], name="duplicate_dismissal_once"),
+            models.CheckConstraint(condition=models.Q(person_a__lt=models.F("person_b")), name="duplicate_dismissal_ordered"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Descartado {self.person_a_id}/{self.person_b_id}"

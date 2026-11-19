@@ -148,7 +148,7 @@ class MigrationScopeTests(TestCase):
         self.assertEqual(
             sorted(p.name for p in (REPO / "people" / "migrations").glob("0*.py")),
             ["0001_initial.py", "0002_campusaffiliation.py", "0003_modules_audit_participant_links.py",
-             "0004_person_birth_date_verified.py"],
+             "0004_person_birth_date_verified.py", "0005_person_merge_and_duplicate_dismissal.py"],  # 0005: wave 9, two new tables
         )
         with self.assertRaises(SystemExit) as caught:  # pragma: no cover - only when something is missing
             call_command("makemigrations", "--check", "--dry-run", verbosity=0)

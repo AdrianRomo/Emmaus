@@ -39,7 +39,7 @@ from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp,
 from feedback.models import FeedbackGiven
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
-from people.models import CampusAffiliation, EventParticipantLink, Person
+from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
 from serving.models import Assignment, Team, TeamMembership
 from sitio.models import PublicMedia
@@ -97,6 +97,10 @@ def community_checks() -> tuple[Check, ...]:
               EventParticipantLink, None, ~Q(person__church=F("event__church"))),
         Check("participant_link_participant_event", "Vínculos de un campero de otro evento", EventParticipantLink, None,
               ~Q(participant__event=F("event"))),
+        Check("person_merge_church", "Uniones de registros de persona con una persona de otra iglesia", PersonMerge, None,
+              ~Q(survivor__church=F("church")) | ~Q(absorbed__church=F("church"))),
+        Check("duplicate_dismissal_church", "Pares descartados como duplicado con una persona de otra iglesia",
+              DuplicateDismissal, None, ~Q(person_a__church=F("church")) | ~Q(person_b__church=F("church"))),
         # groups
         Check("group_sede_church", "Grupos con una sede de otra iglesia", Group, Q(sede__isnull=False),
               ~Q(sede__church=F("church"))),

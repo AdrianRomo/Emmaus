@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load emmaus community %}
+{% block page_title %}¿Son la misma persona?{% endblock %}
+{% block content %}
+{% comment %}
+  The preview of one merge (people.merge_views.merge_preview): which record stays, what it keeps field by field (the
+  administrator picks between the two values, never types one), and how many rows of each kind move. Counts only:
+  never what a row says. Private reading marks move without a number. Nothing is written until the POST.
+{% endcomment %}
+<div class="narrow">
+  {% url 'people:duplicates' as back %}
+  {% include "events/rotulo/_page_head.html" with title="¿Son la misma persona?" lede="Revisa qué pasaría al unir estos dos registros. Nada cambia hasta que confirmes." back_url=back back_label="Volver a Posibles duplicados" %}
+
+  {% if stale %}<div class="notice notice--warning" role="alert"><p><strong>No unimos nada.</strong> Los datos de alguna de las dos cambiaron mientras revisabas. Esto es lo que hay ahora: revísalo otra vez.</p></div>{% endif %}
+
+  <section class="block" aria-labelledby="quienes">
+    <h2 id="quienes" class="heading">Los dos registros</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Se queda</dt><dd><a href="{% url 'people:detail' survivor.pk %}">{{ survivor.full_name }}</a>. Se registró desde: {{ survivor.get_created_from_display|lower }}, el {{ survivor.created_at|long_date }}.</dd></div>
+      <div class="summary-list__row"><dt>Se une a ella</dt><dd><a href="{% url 'people:detail' absorbed.pk %}">{{ absorbed.full_name }}</a>. Se registró desde: {{ absorbed.get_created_from_display|lower }}, el {{ absorbed.created_at|long_date }}.</dd></div>
+      {% if reasons %}<div class="summary-list__row"><dt>Por qué te las mostramos</dt><dd>{{ reasons|join:". " }}.</dd></div>{% endif %}
+    </dl>
+    <p class="more"><a href="{% url 'people:merge_preview' absorbed.pk survivor.pk %}">Dejar mejor a {{ absorbed.full_name }} como el registro que se queda</a></p>
+  </section>
+
+  {% if not preview.allowed %}
+  <section class="block" aria-labelledby="no-se-puede">
+    <h2 id="no-se-puede" class="heading">Esta unión no se puede hacer</h2>
+    <div class="notice notice--warning prose">
+      {% for reason in preview.refusals %}<p>{{ reason }}</p>{% endfor %}
+    </div>
+    <p class="aside-note">No se cambió nada. Los dos registros siguen como estaban.</p>
+  </section>
+  {% else %}
+  <form class="block" method="post" action="{% url 'people:merge_preview' survivor.pk absorbed.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="revision" value="{{ preview.token }}">
+    <section class="block" aria-labelledby="conserva">
+      <h2 id="conserva" class="heading">Qué conserva {{ survivor.full_name }}</h2>
+      <dl class="summary-list">
+        {% for row in preview.fields %}{% if row.state != "choose" %}
+          <div class="summary-list__row"><dt>{{ row.label }}</dt><dd>{% if row.state == "fills" %}{{ row.absorbed }}. Lo toma del otro registro, porque no tenía.{% elif row.state == "keeps" and row.absorbed and row.name == "name" %}{{ row.survivor }}. El otro registro dice «{{ row.absorbed }}»: ese nombre no se conserva.{% elif row.survivor %}{{ row.survivor }}{% if row.state == "same" %}. Es igual en los dos.{% endif %}{% else %}Ninguno de los dos lo tiene.{% endif %}</dd></div>
+        {% endif %}{% endfor %}
+        <div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{% if survivor.birth_date %}{{ survivor.birth_date|long_date }}. {% if survivor.birth_date_verified %}Edad confirmada por el equipo.{% else %}Edad sin confirmar por el equipo.{% endif %}{% else %}Sin fecha de nacimiento.{% endif %} Una unión nunca escribe ni confirma una fecha de nacimiento.</dd></div>
+        <div class="summary-list__row"><dt>Acceso a Emmaus</dt><dd>{% if preview.account == "moves" %}La cuenta con la que hoy entra {{ absorbed.full_name }} pasa a {{ survivor.full_name }}: seguirá entrando con el mismo correo y la misma contraseña.{% elif preview.account == "survivor" %}{{ survivor.full_name }} sigue entrando con su cuenta de siempre.{% else %}Ninguno de los dos registros tiene acceso. La unión no crea una cuenta.{% endif %}</dd></div>
+      </dl>
+      {% for row in preview.choices %}
+        <fieldset class="field">
+          <legend class="legend">{{ row.label }}: ¿cuál se queda?</legend>
+          <div class="choices">
+            <div class="choice">
+              <input class="choice__input" type="radio" id="elige-{{ row.name }}-queda" name="elige_{{ row.name }}" value="{{ survivor.pk }}" checked>
+              <label class="choice__label" for="elige-{{ row.name }}-queda"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.survivor }}<span class="choice__sub">El de {{ survivor.full_name }}, que se queda.</span></span></label>
+            </div>
+            <div class="choice">
+              <input class="choice__input" type="radio" id="elige-{{ row.name }}-otro" name="elige_{{ row.name }}" value="{{ absorbed.pk }}">
+              <label class="choice__label" for="elige-{{ row.name }}-otro"><span class="choice__mark" aria-hidden="true"></span><span>{{ row.absorbed }}<span class="choice__sub">El del registro que se une.</span></span></label>
+            </div>
+          </div>
+        </fieldset>
+      {% endfor %}
+    </section>
+
+    <section class="block" aria-labelledby="pasa">
+      <h2 id="pasa" class="heading">Qué pasa a {{ survivor.full_name }}</h2>
+      <div class="prose">
+      {% if preview.move_lines %}
+        <p>Del registro que se une: {{ preview.move_lines|join:"; " }}.</p>
+      {% else %}
+        <p>El registro que se une no tiene grupos, equipos, inscripciones ni seguimientos que pasar.</p>
+      {% endif %}
+      <p>Si tiene marcas privadas de lectura (devocionales o planes), pasan con ella. Nadie las ve ni las cuenta, tampoco aquí.</p>
+      {% if preview.stay_lines %}
+        <p>Se quedan en el registro que se une, porque {{ survivor.full_name }} ya tiene lo mismo: {{ preview.stay_lines|join:"; " }}.</p>
+      {% endif %}
+      </div>
+      {% if preview.groups_gained or preview.teams_gained %}
+        <div class="notice notice--warning"><p><strong>La cuenta gana permisos.</strong> Al unirlas, la cuenta con la que se entra podrá administrar {% if preview.groups_gained %}{{ preview.groups_gained }} grupo{{ preview.groups_gained|pluralize }} que hoy guía un registro sin acceso{% endif %}{% if preview.groups_gained and preview.teams_gained %} y {% endif %}{% if preview.teams_gained %}{{ preview.teams_gained }} equipo{{ preview.teams_gained|pluralize }} que hoy coordina un registro sin acceso{% endif %}. Los roles no se copian: salen de sus grupos y equipos, como siempre.</p></div>
+      {% endif %}
+    </section>
+
+    <section class="block" aria-labelledby="no-cambia">
+      <h2 id="no-cambia" class="heading">Lo que no se toca</h2>
+      <div class="prose">
+      <p>Las respuestas de los cuestionarios, las entrevistas y las notas de un evento no se leen, no se copian y no se mueven: siguen en el evento, con los permisos del evento. Lo que cada quien opinó de un evento tampoco.</p>
+      <p>{{ absorbed.full_name }} deja de aparecer en Personas y en las búsquedas, pero su registro no se borra. Puedes deshacer la unión durante {{ undo_days }} días; lo que {{ survivor.full_name }} cambie después de hoy se queda con ella.</p>
+      </div>
+    </section>
+
+    <div class="step__actions">
+      <button class="btn btn--primary" type="submit">Sí, son la misma persona: unirlas</button>
+      <a class="btn btn--link" href="{{ back }}">Volver sin unir</a>
+    </div>
+  </form>
+  {% endif %}
+
+  <form method="post" action="{% url 'people:duplicate_dismiss' %}">
+    {% csrf_token %}
+    <input type="hidden" name="a" value="{{ survivor.pk }}">
+    <input type="hidden" name="b" value="{{ absorbed.pk }}">
+    <div class="step__actions"><button class="btn btn--secondary" type="submit">No son la misma persona</button></div>
+  </form>
+</div>
+{% endblock %}
