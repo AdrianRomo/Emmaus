@@ -474,3 +474,72 @@ class PeopleImport(models.Model):
     @property
     def is_undone(self) -> bool:
         return self.undone_at is not None
+
+
+class DirectoryPolicy(models.Model):
+    """Whether a church offers its people a directory between members, and who accepted what that
+    means. One row per church, created by the first pastor who switches it on; no row is "off".
+
+    Written only by ``people.directory`` and only for a person who holds the church role of pastor:
+    the administration's "Políticas de la iglesia" writes ``policies.ChurchPolicy``, another table, so
+    "the administration alone cannot switch it on" is a fact of the code. Switching it off changes
+    this row and nothing else: nobody's ``DirectoryEntry`` is touched."""
+
+    church = models.OneToOneField(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="directory_policy")
+    enabled = models.BooleanField("Ofrece el directorio entre miembros", default=False, db_default=False)
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name="Quién aceptó", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    accepted_at = models.DateTimeField("Cuándo aceptó", null=True, blank=True)
+    # The wording that was on the screen when it was accepted (``people.directory.WORDING_VERSION``).
+    wording_version = models.CharField(max_length=20, blank=True, default="", db_default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "directorio entre miembros de una iglesia"
+        verbose_name_plural = "directorios entre miembros"
+
+    def __str__(self) -> str:
+        return f"Directorio entre miembros de la iglesia {self.church_id}"
+
+
+class DirectoryEntry(models.Model):
+    """One person's own consent to appear in their church's directory, and what of theirs is shown.
+
+    Written only by ``people.directory.opt_in`` / ``opt_out``, and only by the account that IS the
+    person (``Person.user``): no screen, form, import, merge or admin page writes it for somebody
+    else, and nothing writes several at once. ``listed`` shows the name; each ``show_*`` is a separate
+    choice. Nothing else of a person is ever read for the directory.
+
+    A row never makes anybody visible by itself: every read goes through
+    ``people.directory.visible_entries``, which asks again, at that moment, for the church's switch,
+    the wording in force, the person's stage, their account, that the record was not joined into
+    another one and that nothing says they are a minor. One row per person, so one per church for an
+    account that is part of several; a merge leaves it on the record it was given on
+    (``people.merge.NOTHING_MOVES``): consent given by one record never widens another."""
+
+    person = models.OneToOneField(Person, verbose_name="Persona", on_delete=models.CASCADE, related_name="directory_entry")
+    listed = models.BooleanField("Aparece en el directorio", default=False, db_default=False)
+    show_phone = models.BooleanField("Muestra su teléfono", default=False, db_default=False)
+    show_email = models.BooleanField("Muestra su correo", default=False, db_default=False)
+    show_groups = models.BooleanField("Muestra sus grupos", default=False, db_default=False)
+    show_teams = models.BooleanField("Muestra los equipos donde sirve", default=False, db_default=False)
+    # When the person last said yes, and to which wording. A newer wording hides the row until they accept again.
+    accepted_at = models.DateTimeField("Cuándo aceptó", null=True, blank=True)
+    wording_version = models.CharField(max_length=20, blank=True, default="", db_default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "elección de una persona sobre el directorio"
+        verbose_name_plural = "elecciones de las personas sobre el directorio"
+        constraints = [
+            # A field is shown only by somebody who appears: leaving clears every choice in the same write.
+            models.CheckConstraint(
+                condition=models.Q(listed=True)
+                | models.Q(show_phone=False, show_email=False, show_groups=False, show_teams=False),
+                name="directory_entry_fields_only_if_listed",
+            ),
+        ]
+
+    def __str__(self) -> str:  # never a name or a contact
+        return f"Elección de directorio {self.pk}"
