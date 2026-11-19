@@ -12,13 +12,15 @@ from . import services
 from .models import Space
 
 BUFFERS = [(0, "Nada"), (15, "15 minutos"), (30, "30 minutos"), (60, "1 hora"), (90, "1 hora y media"), (120, "2 horas")]
-TIME_HELP = "En formato de 24 horas, por ejemplo 18:30."
+# Said once for each pair of fields that share a line (the form's template), not under each field
+TIME_HELP = "Las horas, en formato de 24 horas: por ejemplo 18:30."
+BUFFER_HELP = "El espacio queda apartado también ese rato, para acomodar sillas o conectar el equipo."
 MAX_REPORT_DAYS = 366
 
 
 def _time_field(label: str, required_message: str) -> forms.TimeField:
     return forms.TimeField(
-        label=label, input_formats=["%H:%M", "%H.%M", "%H"], help_text=TIME_HELP,
+        label=label, input_formats=["%H:%M", "%H.%M", "%H"],
         widget=forms.TimeInput(format="%H:%M", attrs={"inputmode": "numeric", "placeholder": "18:30", "autocomplete": "off"}),
         error_messages={"required": required_message, "invalid": "Escribe la hora así: 18:30."},
     )
@@ -65,7 +67,6 @@ class BookingForm(TuErrorMessagesMixin, forms.Form):
     ends = _time_field("Termina a las", "Escribe a qué hora termina.")
     setup_minutes = forms.TypedChoiceField(
         label="Tiempo para preparar antes", choices=BUFFERS, coerce=int, initial=0,
-        help_text="El espacio queda apartado también ese rato, para acomodar sillas o conectar el equipo.",
     )
     teardown_minutes = forms.TypedChoiceField(
         label="Tiempo para recoger después", choices=BUFFERS, coerce=int, initial=0,
@@ -74,6 +75,8 @@ class BookingForm(TuErrorMessagesMixin, forms.Form):
         label="Evento de la iglesia", queryset=Event.objects.none(), required=False, empty_label="Ninguno",
         help_text="Si la reserva es para un evento de la iglesia, elígelo. Solo lo ve la administración.",
     )
+
+    time_help, buffer_help = TIME_HELP, BUFFER_HELP
 
     def __init__(self, *args, church, tz, with_event: bool = False, **kwargs):
         super().__init__(*args, **kwargs)

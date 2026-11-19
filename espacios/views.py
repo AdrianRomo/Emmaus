@@ -22,6 +22,7 @@ from django.urls import reverse
 from django.utils import formats, timezone
 from django.views.decorators.http import require_POST
 
+from core.nav import safe_next
 from core.paging import paginate
 from groups.views import church_admin_view, community_view
 
@@ -242,7 +243,8 @@ def approve(request, booking_id: int):
     else:
         services.localize(booking, tz)
         messages.success(request, f"Aprobaste la reserva de {booking.space.name} del {_when(booking)}. Emmaus no le avisa a quien la pidió: avísale tú.")
-    return redirect("espacios:queue")
+    # Back to the list it was pressed on (its page and filter), where emmaus.js reads the new state (data-inline)
+    return redirect(safe_next(request, request.POST.get("siguiente"), reverse("espacios:queue")))
 
 
 @church_admin_view

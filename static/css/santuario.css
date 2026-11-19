@@ -1848,21 +1848,60 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* ---- Waves 9 and 10 (espacios, personas, formularios, servir): the rules of their screens, on this sheet's tokens.
    Their restyle to DESIGN_SYSTEM.md follows; these keep the screens laid out meanwhile. ---- */
 
-/* Espacios (rooms and equipment): a booking row has no monogram to lead it, so on a phone its text keeps its own
-   height instead of the 12rem basis of a stacked row; and the week's "anterior / siguiente" sits above the days */
-:root[data-ui="2"] .spaces .row--stack .row__main { flex-basis: auto; }
-:root[data-ui="2"] .spaces .pager { margin-top: var(--s-6); margin-bottom: var(--s-8); }
-:root[data-ui="2"] .spaces form + .block { margin-top: var(--s-10); }
-@container (max-width: 44rem) {
-  :root[data-ui="2"] .spaces .table--stack tbody th, :root[data-ui="2"] .spaces .table--stack td { border: 0; padding: var(--s-1) 0; text-align: left; }
+/* === espacios (wave 11) === */
+/* Rooms and equipment, on the system's rows. The week of a space is the screen opened on a phone at the church's
+   door: the day, drawn, leads its whole group (the 48px slot), and what holds the space that day sits beside it, so
+   a free week is seven short lines. */
+.week-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-3) var(--s-4); margin: var(--s-6) 0 var(--s-2); }
+.week-nav__range { font-size: var(--t-body); font-weight: 600; line-height: 1.3; }
+.week-nav__now { font-size: var(--t-small); color: var(--ink-2); }
+.week-nav__moves { display: flex; align-items: center; gap: var(--s-2); }
+@media (max-width: 600px) {
+  .week-nav__when, .week-nav__moves { flex: 1 0 100%; }
+  .week-nav__moves .btn--secondary { flex: 1 1 0; }
 }
-/* Espacios: the state of a booking is a word beside its title; the clashes inside the error summary are a list
-   with marks; the administration's "anyway" sits apart from the main action, with its consequence above it */
-:root[data-ui="2"] .spaces .row__state { display: inline-block; margin-left: var(--s-2); font-weight: 430; font-size: var(--t-small); white-space: nowrap; }
+.week-day { position: relative; display: grid; grid-template-columns: var(--lead) minmax(0, 1fr); column-gap: var(--s-4); align-items: start; padding: var(--s-4) 0; }
+.week-day + .week-day::before { content: ""; position: absolute; top: 0; right: 0; left: calc(var(--lead) + var(--s-4)); border-top: 1px solid var(--line); }
+.week-day--today > .date-block { background: var(--ink); color: #ffffff; }
+.week-day--today > .date-block .date-block__weekday { color: color-mix(in srgb, #ffffff 80%, transparent); }
+.week-day__main { display: grid; align-content: center; min-width: 0; min-height: var(--lead); }
+.week-day__head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.week-day__name { font-size: var(--t-small); font-weight: 600; line-height: 1.35; color: var(--ink); }
+/* «Pedir» keeps its 44px target without making a free day taller than its two lines; its words end on the margin */
+:root[data-ui="2"] .week-day__head .btn--link { flex: none; margin: -0.75rem -0.75rem -0.75rem 0; }
+.page--app .week-day .empty-line { padding: 0; }
+.page--app .week-day .rows { margin-top: var(--s-1); }
+.page--app .week-day .rows > .row { min-height: 0; }
+/* A booking of the week has no mark of its own (the day leads). On a phone such a row is a column (Atrio's stack):
+   its text keeps its own height, and «Cancelar» sits under it, its words starting where the text starts */
+:root[data-ui="2"] .spaces .row--stack:not(.row--lead) .row__main { flex-basis: auto; }
+@media (max-width: 600px) {
+  :root[data-ui="2"] .spaces .row--stack:not(.row--lead) { gap: 0; }
+  :root[data-ui="2"] .spaces .row--stack:not(.row--lead) .row__end { flex: none; align-self: flex-start; }
+}
+@container (max-width: 38rem) {
+  :root[data-ui="2"] .spaces .row--stack .row__end > .btn--link { margin-left: -0.75rem; margin-bottom: calc(-1 * var(--s-2)); }
+  :root[data-ui="2"] .spaces .row--lead.row--stack .row__end > .btn--link { margin-top: calc(-1 * var(--s-3)); }
+}
+/* What a request overlaps, in the queue: ink, so it is not read as one more line of metadata */
+.page--app .spaces__clash { color: var(--ink); }
+/* Two short fields that belong together (from, to; before, after) share the line, on a phone too */
+.spaces__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--s-4); align-items: end; max-width: 30rem; }
+:root[data-ui="2"] .spaces .form-section > .hint { margin: 0 0 var(--s-4); max-width: 56ch; }
+:root[data-ui="2"] .spaces fieldset.form-section { border: 0; padding: 0; min-width: 0; }
+:root[data-ui="2"] .spaces .form-section + .form-section { margin-top: var(--s-6); }
+/* The clashes inside the error summary are a list with marks; the administration's "anyway" sits apart from the
+   main action, under a hairline, with its consequence above it */
 :root[data-ui="2"] .spaces .error-summary .clash-list { list-style: disc; padding-left: 1.25rem; margin: var(--s-2) 0; }
-:root[data-ui="2"] .spaces .override { margin-top: var(--s-8); padding-top: var(--s-5); border-top: 1px solid var(--line); max-width: 46rem; }
+:root[data-ui="2"] .spaces .override { margin-top: var(--s-8); padding-top: var(--s-5); border-top: 1px solid var(--line); max-width: 46rem; font-size: var(--t-small); }
 :root[data-ui="2"] .spaces .override .btn { margin-top: var(--s-4); }
-:root[data-ui="2"] .spaces .rows + form { margin-top: var(--s-8); }
+.page--app .spaces .form-actions + .aside-note, .page--app .spaces form + .aside-note { margin-top: var(--s-8); }
+.page--app .spaces .aside-note + .aside-note { margin-top: var(--s-2); }
+.page--app .spaces .rows + form, .page--app .spaces .rows + .aside-note { margin-top: var(--s-6); }
+.page--app .spaces .decision + .block, .page--app .spaces form + .block { margin-top: var(--s-8); }
+/* A space's name is up to 120 characters: in the usage table it wraps, like every name */
+.page--app .spaces .table tbody th[scope="row"] { height: auto; padding-block: var(--s-2); white-space: normal; }
+/* === fin espacios === */
 
 /* Personas: the list's search and its two filters (stage, tag) are one GET form, Atrio's .filter-bar, set apart
    from the page's actions above it; "Quitar filtros" lines up with the button */

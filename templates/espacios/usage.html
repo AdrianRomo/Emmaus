@@ -4,15 +4,15 @@
 {% block content %}
 {% comment %}
   Hours booked per space between two days (espacios.views.usage), for the administration. Approved bookings only.
-  Bookings and hours: no person is named or counted here.
+  Bookings and hours: no person is named or counted here. The period is one line of two days and its button.
 {% endcomment %}
 <div class="narrow spaces">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% url 'espacios:list' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Uso de los espacios" lede="Cuánto tiempo estuvo en uso cada espacio, según sus reservas aprobadas." back_url=back back_label="Volver a Espacios" %}
-  <form method="get" novalidate>
+  {% include "events/rotulo/_page_head.html" with title="Uso de los espacios" back_url=back back_label="Volver a Espacios" %}
+  <form class="filter-bar" method="get" novalidate>
     {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions"><button class="btn btn--secondary" type="submit">Ver ese periodo</button></div>
+    <button class="btn btn--secondary" type="submit">Ver ese periodo</button>
   </form>
   {% if period %}
   <section class="block" aria-labelledby="resultado">
@@ -37,9 +37,9 @@
         {% endfor %}
       </tbody>
     </table>
-    <p class="aside-note">Cuenta el tiempo reservado, sin el tiempo para preparar ni para recoger. Si dos reservas aprobadas se empalman, ese rato cuenta una sola vez. De una reserva que empieza o termina fuera del periodo cuenta solo lo que cae dentro.</p>
+    <p class="aside-note">Solo cuentan las reservas aprobadas. Cuenta el tiempo reservado, sin el tiempo para preparar ni para recoger. Si dos reservas aprobadas se empalman, ese rato cuenta una sola vez. De una reserva que empieza o termina fuera del periodo cuenta solo lo que cae dentro.</p>
     {% else %}
-      <p class="empty-line">Todavía no hay espacios.</p>
+      <p class="empty-line">Sin espacios todavía.</p>
     {% endif %}
   </section>
   {% endif %}
