@@ -30,6 +30,7 @@ class Person(models.Model):
         BACKFILL = "backfill", "Cuentas existentes"
         MANUAL = "manual", "Registro manual"
         EVENT = "event", "Un evento"
+        IMPORT = "import", "Archivo importado"
 
     class BirthDateMethod(models.TextChoices):
         """How the team verified a date of birth (decision 0015). The method is all that is kept: no
@@ -38,6 +39,17 @@ class Person(models.Model):
         DOCUMENT = "documento", "Acta o documento oficial visto por el equipo"
         CHURCH_RECORD = "registro", "Registro de la iglesia"
         GUARDIAN = "tutor", "Lo confirmó su madre, padre o tutor en persona"
+
+    class Stage(models.TextChoices):
+        """Where the church's administration says a person stands with the church: a short closed list
+        the church does not edit. A label a person of the administration sets by hand, never a score:
+        nothing moves it by itself and nothing infers it from attendance (decision 0009). Empty: nobody
+        has said. Written only by ``people.services.set_stage`` (and at creation)."""
+
+        VISITOR = "visita", "Visita"
+        ATTENDER = "asistente", "Asistente"
+        MEMBER = "miembro", "Miembro"
+        GONE = "ya_no_asiste", "Ya no asiste"
 
     ContactMethod = ParticipantProfile.ContactMethod
 
@@ -63,6 +75,14 @@ class Person(models.Model):
         "Medio de contacto preferido", max_length=20, choices=ContactMethod.choices, default=ContactMethod.EMAIL
     )
     created_from = models.CharField("Origen", max_length=20, choices=CreatedFrom.choices, default=CreatedFrom.MANUAL)
+    stage = models.CharField("Etapa", max_length=12, choices=Stage.choices, blank=True, default="", db_default="")
+    # The day somebody of the administration last set ``stage``. Never the day a person "became" anything.
+    stage_changed_on = models.DateField("Etapa anotada el", null=True, blank=True, editable=False)
+    # Key dates, all optional. The administration writes the three; the person writes the first two in
+    # "Mis datos" (they are theirs to say), never the third. No other member ever reads them.
+    baptized_on = models.DateField("Se bautizó el", null=True, blank=True)
+    arrived_on = models.DateField("Llegó a la iglesia el", null=True, blank=True)
+    member_since = models.DateField("Es miembro desde", null=True, blank=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="Cuenta",
@@ -73,6 +93,11 @@ class Person(models.Model):
     )
     merged_into = models.ForeignKey(
         "self", verbose_name="Unida a", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    # The file that created this row, if one did (``people.imports``): what its undo may delete, and nothing else.
+    imported_in = models.ForeignKey(
+        "people.PeopleImport", verbose_name="Importación", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="people", editable=False,
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -373,3 +398,77 @@ class DuplicateDismissal(models.Model):
 
     def __str__(self) -> str:
         return f"Descartado {self.person_a_id}/{self.person_b_id}"
+
+
+class Tag(models.Model):
+    """A label the church's administration defines for its own filtering ("Coro", "Llaves del templo").
+
+    Staff-only: the person and other members never see a tag. A tag is not a permission and nothing
+    in ``core.authz`` or ``access`` reads it. Short and single-line on purpose, and the screen that
+    creates one says not to use tags for sensitive matters. Written only through ``people.tags``;
+    at most ``people.tags.MAX_TAGS`` per church.
+    """
+
+    church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="person_tags")
+    name = models.CharField("Nombre", max_length=40)
+    normalized_name = models.CharField(max_length=40, editable=False)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "etiqueta"
+        verbose_name_plural = "etiquetas"
+        ordering = ["normalized_name", "id"]
+        constraints = [models.UniqueConstraint(fields=["church", "normalized_name"], name="person_tag_one_name_per_church")]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class PersonTag(models.Model):
+    """This person carries this tag. Both of the same church (``people.tags.set_tags``, the one write path)."""
+
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="tag_links")
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, related_name="person_links")
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "etiqueta de una persona"
+        verbose_name_plural = "etiquetas de personas"
+        ordering = ["tag__normalized_name", "id"]
+        constraints = [models.UniqueConstraint(fields=["person", "tag"], name="person_tag_once")]
+
+    def __str__(self) -> str:
+        return f"{self.person_id}/{self.tag_id}"
+
+
+class PeopleImport(models.Model):
+    """One confirmed import of people from a file (``people.imports.apply``, the one write path).
+
+    The file is never stored, and neither is its name or any of its cells: this row says who
+    imported, when and how many people it created; ``Person.imported_in`` says which. For
+    ``people.imports.UNDO_HOURS`` the import can be undone: exactly the rows it created are deleted,
+    except the ones that gained something since (``undo_report`` counts both, never a name).
+    """
+
+    church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="people_imports")
+    imported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    imported_at = models.DateTimeField("Fecha de la importación", default=timezone.now)
+    created_count = models.PositiveIntegerField("Personas creadas", default=0)
+    undone_at = models.DateTimeField("Fecha en que se deshizo", null=True, blank=True)
+    undone_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    undo_report = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "importación de personas"
+        verbose_name_plural = "importaciones de personas"
+        ordering = ["-imported_at", "-id"]
+        indexes = [models.Index(fields=["church", "-imported_at"], name="people_import_recent_idx")]
+
+    def __str__(self) -> str:
+        return f"Importación {self.pk}"
+
+    @property
+    def is_undone(self) -> bool:
+        return self.undone_at is not None

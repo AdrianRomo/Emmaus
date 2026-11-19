@@ -3,6 +3,7 @@ from django import forms
 from core.forms import TuErrorMessagesMixin
 from events.models import Sede
 
+from people.forms import SELF_KEY_DATES, KeyDatesMixin, key_date_widgets
 from people.models import Person
 
 from .models import WEEKDAY, WEEKDAYS, Group
@@ -75,22 +76,31 @@ class GroupForm(TuErrorMessagesMixin, forms.ModelForm):
         return data
 
 
-class MyDataForm(TuErrorMessagesMixin, forms.ModelForm):
-    """"Mis datos": what a person may correct about themselves, how the church reaches them. The
-    name on record and the date of birth stay with the administration (the date decides whether a
-    guardian has to confirm, decision 0008)."""
+class MyDataForm(KeyDatesMixin, TuErrorMessagesMixin, forms.ModelForm):
+    """"Mis datos": what a person may correct about themselves, how the church reaches them, and the
+    two dates that are theirs to say (their baptism, when they came to the church). The name on
+    record and the date of birth stay with the administration (the date decides whether a guardian
+    has to confirm, decision 0008); so do "es miembro desde" and the stage, which the church says."""
 
     class Meta:
         model = Person
-        fields = ["phone", "email", "preferred_contact_method"]
-        labels = {"preferred_contact_method": "¿Cómo prefieres que te contacten?"}
+        fields = ["phone", "email", "preferred_contact_method", *SELF_KEY_DATES]
+        labels = {
+            "preferred_contact_method": "¿Cómo prefieres que te contacten?",
+            "baptized_on": "¿Cuándo te bautizaste?",
+            "arrived_on": "¿Cuándo llegaste a esta iglesia?",
+        }
+        widgets = key_date_widgets(SELF_KEY_DATES)
         help_texts = {
+            "baptized_on": "Por ejemplo: 14/03/2009. Si no te has bautizado o no recuerdas el día, déjala vacía. Solo la ve la administración de tu iglesia.",
+            "arrived_on": "Un día aproximado está bien. Solo la ve la administración de tu iglesia.",
             "phone": "Lo ve quien guía tu grupo y la administración de la iglesia.",
             "email": "Aquí te escribe la iglesia. No cambia el correo con el que entras a Emmaus.",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setup_key_dates()
         self.fields["phone"].widget.attrs.update({"inputmode": "tel", "autocomplete": "tel"})
         self.fields["email"].widget.attrs["autocomplete"] = "email"
 

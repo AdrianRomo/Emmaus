@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}Importación del {{ record.imported_at|day_and_hour }}{% endblock %}
+{% block content %}
+{% comment %}
+  One import (people.import_views.people_import_detail): who, when and how many people it created. While it can be
+  undone, this page is also the preview of the undo: exactly how many people would be deleted and how many stay.
+{% endcomment %}
+<div class="narrow">
+  {% url 'people:import' as back %}
+  {% include "events/rotulo/_page_head.html" with title="Importación de personas" back_url=back back_label="Volver a Importar personas" %}
+
+  <section class="block" aria-labelledby="datos">
+    <h2 id="datos" class="heading">Qué se hizo</h2>
+    <dl class="summary-list">
+      <div class="summary-list__row"><dt>Cuándo</dt><dd>El {{ record.imported_at|day_and_hour }}</dd></div>
+      <div class="summary-list__row"><dt>Quién</dt><dd>{% if record.imported_by %}{{ record.imported_by.get_full_name|default:record.imported_by.email }}{% else %}Una cuenta que ya no existe{% endif %}</dd></div>
+      <div class="summary-list__row"><dt>Personas registradas</dt><dd>{{ record.created_count }}</dd></div>
+      {% if record.is_undone %}<div class="summary-list__row"><dt>Se deshizo</dt><dd>El {{ record.undone_at|day_and_hour }}. {% if record.undo_report.deleted == 1 %}Se borró 1 persona{% else %}Se borraron {{ record.undo_report.deleted }} personas{% endif %}{% if record.undo_report.kept %}; {% if record.undo_report.kept == 1 %}1 se quedó{% else %}{{ record.undo_report.kept }} se quedaron{% endif %} en la lista porque ya tenía{{ record.undo_report.kept|pluralize:"n" }} acceso, grupos, inscripciones u otros datos{% endif %}.</dd></div>{% endif %}
+    </dl>
+    <p class="aside-note">Emmaus no guardó el archivo.</p>
+  </section>
+
+  {% if can_undo %}
+  <section class="block" aria-labelledby="deshacer">
+    <h2 id="deshacer" class="heading">Deshacer esta importación</h2>
+    <div class="prose">
+      <p>Puedes deshacerla hasta el {{ until|day_and_hour }}.</p>
+      {% if undo.delete %}
+        <p>Al deshacerla {% if undo.delete|length == 1 %}se borra 1 persona de las que registró{% else %}se borran {{ undo.delete|length }} personas de las que registró{% endif %}, con sus etiquetas. Las personas que ya tenías antes no cambian. Borrarlas no se puede deshacer: tendrías que importar el archivo otra vez.</p>
+      {% else %}
+        <p>Ya no hay nada que borrar: ninguna de las personas que registró se puede quitar.</p>
+      {% endif %}
+      {% if undo.keep %}
+        <p>{% if undo.keep|length == 1 %}1 persona se queda{% else %}{{ undo.keep|length }} personas se quedan{% endif %} en la lista, porque desde la importación ya tiene{{ undo.keep|length|pluralize:"n" }} acceso a Emmaus, un grupo, una inscripción, un seguimiento, una unión con otro registro u otro dato{% if kept %}: {% for person in kept %}<a href="{% url 'people:detail' person.pk %}">{{ person.full_name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}.</p>
+      {% endif %}
+    </div>
+    {% if undo.delete %}
+    <form method="post" action="{% url 'people:import_undo' record.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="revision" value="{{ undo.token }}">
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Deshacer: borrar {{ undo.delete|length }} persona{{ undo.delete|length|pluralize }}</button></div>
+    </form>
+    {% endif %}
+  </section>
+  {% elif not record.is_undone %}
+  <p class="aside-note">Pasaron más de {{ undo_hours }} horas: esta importación ya no se puede deshacer. Las personas se corrigen una por una en Personas.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -99,6 +99,13 @@ ACTION_LABELS = {
     "contenido_aprobado": "Aprobó un contenido para publicarse",
     "contenido_devuelto": "Devolvió un contenido sin aprobarlo",
     "contenido_fuera_de_publicacion": "Un contenido publicado cambió y salió de publicación",
+    "persona_etapa": "Cambió la etapa de una persona",
+    "etiqueta_creada": "Creó una etiqueta para las personas",
+    "etiqueta_borrada": "Borró una etiqueta de las personas",
+    "persona_etiquetas": "Cambió las etiquetas de una persona",
+    "personas_exportadas": "Descargó la lista de personas de la iglesia",
+    "personas_importadas": "Importó personas desde un archivo",
+    "personas_importacion_deshecha": "Deshizo una importación de personas",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -115,6 +122,10 @@ ALLOWED_METADATA = frozenset({
     "other_person_id", "merge_id",
     # A pastoral approval of content (resources.approvals): which of the three fixed permitted uses.
     "permitted_use",
+    # People data quality (people.tags, people.exchange): a tag by its id, never its name; how many rows.
+    "tag_id", "count",
+    # An import of people (people.imports), by its id; and how many of its people an undo left in place.
+    "import_id", "kept",
 })
 
 

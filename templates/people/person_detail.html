@@ -17,8 +17,51 @@
       <div class="summary-list__row"><dt>Correo</dt><dd>{{ person.email|default:"Sin correo" }}</dd></div>
       <div class="summary-list__row"><dt>Teléfono</dt><dd>{{ person.phone|default:"Sin teléfono" }}</dd></div>
       {% if person.birth_date %}<div class="summary-list__row"><dt>Fecha de nacimiento</dt><dd>{{ person.birth_date|long_date }}. {% if person.birth_date_verified %}Edad confirmada por el equipo el {{ person.birth_date_verified_at|long_date }}: {{ person.get_birth_date_verified_method_display|lower }}.{% else %}Edad sin confirmar por el equipo.{% endif %}</dd></div>{% endif %}
+      {% if person.baptized_on %}<div class="summary-list__row"><dt>Se bautizó el</dt><dd>{{ person.baptized_on|long_date }}</dd></div>{% endif %}
+      {% if person.arrived_on %}<div class="summary-list__row"><dt>Llegó a la iglesia el</dt><dd>{{ person.arrived_on|long_date }}</dd></div>{% endif %}
+      {% if person.member_since %}<div class="summary-list__row"><dt>Es miembro desde</dt><dd>{{ person.member_since|long_date }}</dd></div>{% endif %}
       <div class="summary-list__row"><dt>Se registró desde</dt><dd>{{ person.get_created_from_display }}</dd></div>
     </dl>
+  </section>
+
+  <section class="block" aria-labelledby="etapa">
+    <h2 id="etapa" class="heading">Etapa</h2>
+    <p>{% if person.stage %}{{ person.get_stage_display }}{% if person.stage_changed_on %}, anotada el {{ person.stage_changed_on|long_date }}{% endif %}.{% else %}Nadie ha anotado su etapa.{% endif %}</p>
+    <form class="filter-form" method="post" action="{% url 'people:stage' person.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="antes" value="{{ person.stage }}">
+      <div class="field">
+        <label class="label" for="etapa-select">Cambiar la etapa</label>
+        <select id="etapa-select" name="etapa" aria-describedby="etapa-ayuda">
+          <option value=""{% if not person.stage %} selected{% endif %}>Sin anotar</option>
+          {% for value, label in stages %}<option value="{{ value }}"{% if person.stage == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="filter-form__actions"><button class="btn btn--secondary" type="submit">Guardar etapa</button></div>
+    </form>
+    <p class="aside-note" id="etapa-ayuda">La etapa la anota la administración y solo la ve la administración. Emmaus nunca la cambia por su cuenta, y queda registrado quién la cambió.</p>
+  </section>
+
+  <section class="block" aria-labelledby="etiquetas">
+    <h2 id="etiquetas" class="heading">Etiquetas</h2>
+    {% if tags.rows %}
+    <form method="post" action="{% url 'people:person_tags' person.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="antes" value="{{ tags.seen }}">
+      <fieldset class="field" aria-describedby="etiquetas-ayuda">
+        <legend class="visually-hidden">Etiquetas de {{ person.full_name }}</legend>
+        <div class="radio-list">
+          {% for row in tags.rows %}
+            <label class="check" for="etiqueta-{{ row.tag.pk }}"><input type="checkbox" id="etiqueta-{{ row.tag.pk }}" name="etiqueta" value="{{ row.tag.pk }}"{% if row.set %} checked{% endif %}><span class="check__text">{{ row.tag.name }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="step__actions"><button class="btn btn--secondary" type="submit">Guardar etiquetas</button></div>
+    </form>
+    <p class="aside-note" id="etiquetas-ayuda">Las etiquetas son para que la administración filtre la lista. Ni esta persona ni nadie más de la iglesia las ve, y no dan ningún permiso. <a href="{% url 'people:tags' %}">Ver las etiquetas de la iglesia</a>.</p>
+    {% else %}
+    <p class="empty-line">Tu iglesia todavía no tiene etiquetas. <a href="{% url 'people:tags' %}">Crea la primera</a>.</p>
+    {% endif %}
   </section>
 
   <section class="block" aria-labelledby="acceso">

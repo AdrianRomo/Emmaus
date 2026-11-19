@@ -22,7 +22,9 @@ from groups.models import GroupAttendance, GroupJoinRequest, GroupMeeting, Group
 from groups.tests.base import CommunityFixture
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
 from people.management.commands.tenant_integrity import ID_LIMIT, camp_checks, checks, community_checks
-from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
+from people.models import (
+    CampusAffiliation, DuplicateDismissal, EventParticipantLink, PeopleImport, Person, PersonMerge, PersonTag, Tag,
+)
 from people.management.commands.tenant_integrity import PRIVATE_SIZES
 from resources.models import (
     Devotional, DevotionalRead, MediaItem, ReadingPlan, ReadingPlanDay, ReadingPlanDayRead, ReadingPlanProgress,
@@ -52,6 +54,11 @@ class CommunityIntegrityTests(CommunityFixture):
         PersonMerge.objects.create(church=cls.church, survivor=cls.member, absorbed=cls.old)
         low, high = sorted([cls.leader, cls.asked], key=lambda person: person.pk)
         DuplicateDismissal.objects.create(church=cls.church, person_a=low, person_b=high)
+        cls.tag_b = Tag.objects.create(church=cls.church_b, name="Coro B", normalized_name="coro b")
+        PersonTag.objects.create(person=cls.leader, tag=Tag.objects.create(church=cls.church, name="Coro", normalized_name="coro"))
+        cls.import_b = PeopleImport.objects.create(church=cls.church_b, created_count=1)
+        Person.objects.create(church=cls.church, first_name="Iris", last_name="Importada",
+                              imported_in=PeopleImport.objects.create(church=cls.church, created_count=1))
         type(cls.group).objects.filter(pk=cls.group.pk).update(sede=cls.sede_a)
         cls.meeting = GroupMeeting.objects.create(group=cls.group, date=today)
         cls.meeting_b = GroupMeeting.objects.create(group=cls.group_b, date=today)
@@ -113,6 +120,12 @@ class CommunityIntegrityTests(CommunityFixture):
     def break_person_merge_church(self):
         absorbed = Person.objects.create(church=self.church, first_name="Unida", last_name="Cruzada")
         return PersonMerge.objects.create(church=self.church, survivor=self.member_b, absorbed=absorbed)
+
+    def break_person_tag_church(self):
+        return PersonTag.objects.create(person=self.leader, tag=self.tag_b)
+
+    def break_person_import_church(self):
+        return Person.objects.create(church=self.church, first_name="Otra", last_name="Importada", imported_in=self.import_b)
 
     def break_duplicate_dismissal_church(self):
         low, high = sorted([self.member, self.member_b], key=lambda person: person.pk)
@@ -274,6 +287,12 @@ class CommunityIntegrityTests(CommunityFixture):
 
     def test_person_merge_church(self):
         self.assert_counted_alone_and_fails("person_merge_church")
+
+    def test_person_tag_church(self):
+        self.assert_counted_alone_and_fails("person_tag_church")
+
+    def test_person_import_church(self):
+        self.assert_counted_alone_and_fails("person_import_church")
 
     def test_duplicate_dismissal_church(self):
         self.assert_counted_alone_and_fails("duplicate_dismissal_church")

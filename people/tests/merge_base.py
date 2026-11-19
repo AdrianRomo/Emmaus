@@ -15,7 +15,7 @@ from groups.models import GroupAttendance, GroupJoinRequest, GroupMeeting, Group
 from groups.tests.base import CommunityFixture
 from notices.models import Announcement, AnnouncementRead, EmailPreference, NoticeEmail
 from people import merge
-from people.models import CampusAffiliation, Person
+from people.models import CampusAffiliation, Person, PersonTag, Tag
 from resources.models import Devotional, DevotionalRead, ReadingPlan, ReadingPlanProgress
 from serving import services as serving
 from serving.models import Assignment, TeamMembership, Unavailable
@@ -66,6 +66,9 @@ class MergeFixture(CommunityFixture):
                 starts_at=timezone.now() + timedelta(days=3), ends_at=timezone.now() + timedelta(days=3, hours=1),
             ),
             "feedback.FeedbackGiven.person": lambda: FeedbackGiven.objects.create(event=self.other_event, person=person),
+            "people.PersonTag.person": lambda: PersonTag.objects.create(
+                person=person, tag=Tag.objects.get_or_create(church=self.church, name="Coro", normalized_name="coro")[0]
+            ),
         }
         return builders[key]()
 
