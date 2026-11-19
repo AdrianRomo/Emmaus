@@ -31,6 +31,14 @@ class RecentNoticeOnTheEventsRowTests(AgendaFixture):
         for page in (home, listing):
             self.assertIn("Ahora empezamos a las 18:00</a>", page)
 
+    def test_a_retired_notice_is_off_the_rows_too(self):
+        from agenda import services
+
+        services.retire_public_notice(self.notice("Aviso que se retiró"), self.admin)
+        for page in self.pages():
+            self.assertNotIn("Aviso que se retiró", page)
+            self.assertNotIn("aviso-reciente", page)
+
     def test_an_old_notice_or_none_says_nothing(self):
         self.notice("Aviso de hace dos semanas", days_ago=14)
         home, listing = self.pages()

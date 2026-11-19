@@ -384,13 +384,15 @@ RECENT_NOTICE_DAYS = 7
 
 
 def recent_notices(event_ids, now=None) -> dict:
-    """{event id: its newest public notice published in the last RECENT_NOTICE_DAYS days}, already published."""
+    """{event id: its newest public notice published in the last RECENT_NOTICE_DAYS days}: already published and not
+    retired (a retired notice is off every page for good, retire_public_notice)."""
     if not event_ids:
         return {}
     now = now or timezone.now()
     latest = {}
     for notice in EventNotice.objects.filter(
-        event_id__in=event_ids, published_at__lte=now, published_at__gte=now - timedelta(days=RECENT_NOTICE_DAYS)
+        event_id__in=event_ids, retired_at__isnull=True, published_at__lte=now,
+        published_at__gte=now - timedelta(days=RECENT_NOTICE_DAYS),
     ).order_by("-published_at", "-id"):
         latest.setdefault(notice.event_id, notice)
     return latest

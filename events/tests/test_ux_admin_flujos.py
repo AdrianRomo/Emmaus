@@ -149,7 +149,7 @@ class EventSlugTests(CampFixture):
             form = EventForm(data=event_data(name=name))
             self.assertTrue(form.is_valid(), form.errors)
             self.assertEqual(form.cleaned_data["slug"], f"{name.lower()}-2")
-        for slug in ("nuevo", "cuenta"):
+        for slug in ("nuevo", "cuenta", "en-curso"):
             form = EventForm(data=event_data(slug=slug))
             self.assertEqual(form.errors["slug"], ["Ya existe un evento con ese nombre corto. Prueba con otro."])
 
