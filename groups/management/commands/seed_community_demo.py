@@ -98,6 +98,7 @@ class Command(BaseCommand):
         parser.add_argument("--eventos", action="store_true", help="Agrega un evento sencillo de hoy con programa, preguntas, visitas y menores, un aviso importante, un evento terminado con opiniones, una serie semanal (Reunión general, cada domingo) y la página pública de la iglesia, publicada.")
         parser.add_argument("--duplicados", action="store_true", help="Agrega dos registros de una misma persona (mismo correo, sin cuenta), para ver Posibles duplicados.")
         parser.add_argument("--panorama", action="store_true", help="Agrega un pastor, reuniones con lista y un evento terminado, para ver Panorama.")
+        parser.add_argument("--oracion", action="store_true", help="Agrega un pastor, enciende las peticiones de oración (aceptadas por ese pastor) y dos peticiones inventadas, marcadas como de demostración.")
 
     def handle(self, *args, **opts):
         if not settings.DEBUG:
@@ -134,10 +135,14 @@ class Command(BaseCommand):
                 self._panorama(church, admin, password)
             if opts["eventos"]:
                 self._events_extras(church, admin, member)
+            if opts["oracion"]:
+                self._prayer_requests(church, admin, leader, password)
         self.stdout.write(self.style.SUCCESS(f"Listo: comunidad de demostración en {church.name}."))
         accounts = [("Administración", ADMIN), ("Guía de un grupo", LEADER), ("Excampera sin grupo", MEMBER), ("Excampero con solicitud", ASKED)]
         if opts["panorama"]:
             accounts.append(("Pastor (Panorama)", PASTOR))
+        elif opts["oracion"]:
+            accounts.append(("Pastor (peticiones)", PASTOR))
         for label, (email, *_rest) in accounts:
             self.stdout.write(f"  {label:<26} {email}")
 
@@ -431,6 +436,30 @@ class Command(BaseCommand):
         booking(room, admin_person, admin, "Ensayo para la noche de alabanza", 12, time(16, 0), time(18, 0),
                 teardown_minutes=30, event=event, approve=True)
         booking(projector, leader, leader.user, "Película con el grupo", 5, time(18, 0), time(20, 30))
+
+    def _prayer_requests(self, church, admin, leader, password) -> None:
+        """--oracion: a pastor who accepted the promises, and two requests that say they are invented. Never in the
+        plain seed: a database seeded without the flag holds no prayer text at all."""
+        from oracion import access as prayer_access
+        from oracion import services as prayers
+        from oracion.models import PrayerRequest
+
+        pastor = self._account(*PASTOR, password)
+        assign_role(pastor, church, Role.PASTOR)
+        people_services.ensure_own_person(pastor, church)
+        if not prayers.is_on(church):
+            prayers.switch_on(
+                church, pastor, accepted=True, token=prayers.readers_token(prayer_access.readers(church)),
+                emergency_line="", retention_days=prayers.policy.PRAYER_RETENTION_DAYS,
+            )
+        texts = (
+            (leader, "Texto de demostración, inventado: pido oración por una decisión de trabajo que tengo que tomar este mes."),
+            (Person.objects.get(church=church, user=admin), "Texto de demostración, inventado: pido oración para tener paciencia y descansar mejor."),
+        )
+        for person, body in texts:
+            if not PrayerRequest.objects.filter(church=church, person=person).exists():
+                readers = prayer_access.readers(church, apart_from=person.user)
+                prayers.create(church, person, body=body, token=prayers.readers_token(readers))
 
     def _account(self, email, first, last, password) -> User:
         user, _ = User.objects.get_or_create(username=email, defaults={"email": email})

@@ -67,6 +67,12 @@ PEOPLE_VIEWS = {
     "people:grant_access", "people:access_link",
     "people:duplicates", "people:merge_preview", "people:merge_detail",
 }
+# Prayer requests: the writer's pages, and the pastors' (the church's switch included).
+PRAYER_VIEWS = {"oracion:mine", "oracion:new", "oracion:delete"}
+PRAYER_READER_VIEWS = {
+    "oracion:inbox", "oracion:read", "oracion:mark_read", "oracion:reply", "oracion:mark_talked", "oracion:reader_email",
+    "oracion:terms",
+}
 # Icons for the discipleship module's links, by url name (core.context_processors builds those links).
 MODULE_ICONS = {
     "church_settings": "ajustes", "participants_list": "personas", "participant_dashboard": "camino",
@@ -126,6 +132,11 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
         _item("Planes de lectura", reverse("resources:plan_list"), "plan", view in PLAN_VIEWS),
         _item("Recursos", reverse("resources:media_list"), "recursos", view == "resources:media_list"),
     ]
+    # A quiet door, never a number: only for who may write one today, or still has one to read or delete.
+    from oracion import shell as prayer_shell
+
+    if person and prayer_shell.shows_writer_link(church, person):
+        reading.append(_item("Pedir oración", reverse("oracion:mine"), "servir", view in PRAYER_VIEWS))
     sections = [{"label": "", "items": main}, {"label": "Para crecer", "items": reading}]
 
     # What the person is responsible for: the groups they guide, and the events they work in (the camp's team).
@@ -148,6 +159,11 @@ def build_shell(request, church, module_items, show_events: bool, settings_link:
             to_approve = approvals.pending_count(church)
             charge.insert(1, _item("Aprobación pastoral", reverse("resources:approval_queue"), "devocional", view in APPROVAL_VIEWS,
                                    to_approve, "contenido por aprobar" if to_approve == 1 else "contenidos por aprobar"))
+    # Only a pastor of this church (asked again here, not inferred): the requests not yet marked as read.
+    unread_prayers = prayer_shell.reader_badge(request.user, church)
+    if unread_prayers is not None:
+        charge.append(_item("Peticiones de oración", reverse("oracion:inbox"), "servir", view in PRAYER_READER_VIEWS,
+                            unread_prayers, "petición sin leer" if unread_prayers == 1 else "peticiones sin leer"))
     if show_events:
         charge.append(serving)
     if person and serving_services.has_teams(person):

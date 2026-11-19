@@ -39,6 +39,7 @@ from events.models import Event, EventParticipant, EventQuestionnaire, FollowUp,
 from feedback.models import FeedbackGiven
 from groups.models import Group, GroupAttendance, GroupJoinRequest, GroupMembership
 from notices.models import Announcement, AnnouncementRead, NoticeEmail
+from oracion.models import PrayerRequest
 from people.models import CampusAffiliation, DuplicateDismissal, EventParticipantLink, Person, PersonMerge
 from resources.models import DevotionalRead, ReadingPlanDayRead, ReadingPlanProgress
 from serving.models import Assignment, Team, TeamMembership
@@ -165,6 +166,9 @@ def community_checks() -> tuple[Check, ...]:
         # roles by scope
         Check("role_assignment_scope_church", "Roles por ámbito que apuntan fuera de su iglesia", RoleAssignment, None,
               scope_elsewhere),
+        # prayer requests: the writer must be of the church whose pastors read it (the size of the table is never printed)
+        Check("prayer_request_person_church", "Peticiones de oración de una persona de otra iglesia", PrayerRequest, None,
+              ~Q(person__church=F("church"))),
     )
 
 
@@ -222,6 +226,7 @@ def collect(with_ids: bool = False) -> list[Result]:
 
 
 PRIVATE_SIZES = frozenset({"devotional_read_person_church", "reading_plan_progress_person_church", "reading_plan_day_read_plan"})
+PRIVATE_SIZES = PRIVATE_SIZES | {"prayer_request_person_church"}
 
 
 class Command(BaseCommand):
