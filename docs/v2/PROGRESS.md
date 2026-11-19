@@ -2,6 +2,46 @@
 
 Newest first. "Verified" means a command was run and its result is quoted; anything else says so.
 
+## 2026-11-18, night — Wave 9: the owner delegates product decisions; five slices (branch `v2/wave-9`)
+
+The owner asked the building session to take the product decisions and keep building
+([decision 0017](../decisions/0017-product-decisions-delegated-and-wave-9.md)). Five slices were built in
+parallel, each in its own worktree, then joined, reviewed by two independent read-only reviewers, fixed
+and gated. Detail, routes, permissions and what is not built: [`wave9/`](wave9/).
+
+| Slice | Issue | What exists now |
+|---|---|---|
+| The church of the request | #32, #37 | An account in more than one church chooses where it works (`core/tenancy.py`, `POST /cuenta/iglesia/`); every request checks the choice again; brand and theme follow it. One-church accounts and camp screens do not change. |
+| Pastoral approval of content | #99 | Administration prepares, a pastor approves (`resources/approvals.py`, queue at `…/recursos/aprobaciones/`): devotionals, reading plans and the welcome of the public home. |
+| Rooms and equipment | #94 | App `espacios`: spaces, requests, approval, clash rule with setup and teardown, usage report. Never public. |
+| Series of events and calendar | #93, first part | `agenda.EventSeries` writes ordinary events eight weeks ahead (job `series_eventos`); a public `.ics` per church and per public event. |
+| Duplicate records of people | #91, first part | Suggested pairs, a preview, an audited join inside one church, undo for 30 days (`people/merge.py`); job `uniones_personas` clears old contact values. |
+
+- **Migrations (all additive):** `agenda/0007`, `espacios/0001`, `people/0005`, `resources/0003`, `resources/0004`
+  (RunPython with reverse), `sitio/0002` (same).
+- **Found by the reviews and fixed before the pull request:** undoing a join left another person confirmed
+  at an event that protects minors; a form opened in church A wrote into church B after a switch in another
+  tab (a switch now invalidates every open form); "Sí hay" brought a date back public with an old hour and
+  place; the public home's "facts" accepted long authored text and any link (now short, at most 12 service
+  times, map links of known map sites only); a booking in a clock-change gap answered 500; the week of a
+  space hid a setup that crossed midnight; a stale preview could join records after one gained a role;
+  a possible deadlock between a join and a team change. Also: dates of moments were shown in UTC after
+  18:00 (`groups/templatetags/community.py`), and a series listed today's date after its hour had passed.
+- **Gate on `69da375`:** lint, check, migrations, deploy-check, migration-scope (6 added, all additive),
+  pip-audit PASS; SQLite 2927 passed, 6 skipped; PostgreSQL 2922 passed, 11 deselected. Browser gate on
+  the final tree: OK, community flow 484 checks, 0 problems (three earlier runs failed on journey steps
+  that still used wording and markup from before the polish round; the steps were corrected, not the product).
+- **Not verified:** two real connections racing on PostgreSQL (locks are tested with stale copies and call
+  order); the switcher in a browser journey (the seed has no account in two churches; 45 unit tests cover
+  it); a real calendar client subscribing to the feed; anything on a host. Most new screens were looked at
+  by the builders; the integrator looked at the series screen and the clash form at 390 and the pastor's
+  review at 1440.
+- **Known limits, on purpose:** the discipleship-era screens (settings, users, paths, invitations) follow the
+  account's first church and answer 404 in another; an administrator can invite a pastor, so the separation
+  of duties holds only while administration does not appoint itself; event screens wear the reader's theme.
+- **Deploy notes, when a host is updated:** `migrate`; recreate `web` and `scheduler` (two new jobs run inside
+  `run_scheduled_jobs`); a pastor approves the content listed as published before approvals existed.
+
 ## 2026-11-18, afternoon — Public notices of an event (issue #96, first slice; branch `v2/issue-96-public-event-notices`)
 
 The owner's roadmap review (#90, merged as #100) chose, for parents without an account (#59), notices

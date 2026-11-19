@@ -437,12 +437,12 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   await member.page.setViewportSize(PHONE);
   await Promise.all([member.page.waitForNavigation(), row.locator("a:has-text('Ver las otras fechas')").click()]);
   const seriesPage = member.page.url();
-  const listed = () => member.page.locator("main ul.dates > li").count();
+  const listed = () => member.page.locator("main ul.rows > li").count();
   expect(await listed() === dates, `the member reads every date of the series: ${await listed()} of ${dates}`);
   await audit(member.page, "miembro-serie");
   // The second date is called off: it leaves the member's list, and comes back with "Sí hay".
   await admin.page.goto(seriesUrl);
-  const offDay = (await coming.nth(1).locator(".row__title").innerText()).trim().toLowerCase();
+  const offDay = (await coming.nth(1).locator(".row__title").innerText()).trim().toLowerCase().replace(/ de \d{4}/, "");  // the member's list says the day without its year
   await Promise.all([admin.page.waitForNavigation(), coming.nth(1).locator("button:has-text('Este día no hay')").click()]);
   expect(await coming.nth(1).locator(".status, .badge, [class*=status]").getByText("Este día no hay").count() > 0 || await coming.nth(1).locator("button:has-text('Sí hay')").count() === 1, "the date is marked «Este día no hay»");
   await audit(admin.page, "admin-serie-dia-sin");
@@ -529,6 +529,8 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   await Promise.all([pastor.page.waitForNavigation(), pastor.page.click(`main li:has-text('${title}') a:has-text('Revisar')`)]);
   expect(await pastor.page.locator("main").getByText("Texto de prueba para la aprobación pastoral.").count() === 1, "the pastor reads the whole text before deciding");
   await audit(pastor.page, "pastor-aprobacion-revisar");
+  await pastor.page.click("main details summary:has-text('No lo apruebo')");
+  await audit(pastor.page, "pastor-aprobacion-devolver");
   await pastor.page.fill("textarea[name=reason]", "Falta decir de qué versículos se trata.");
   await Promise.all([pastor.page.waitForNavigation(), pastor.page.click("main button:has-text('Devolver sin aprobar')")]);
   expect(await pastor.page.getByText(`Devolviste «${title}».`).count() > 0, "returning it is said back to the pastor");
@@ -603,7 +605,7 @@ const handPost = (from, path, fields = {}) => from.evaluate(async ([url, data]) 
   expect(await admin.page.locator("main").getByText("Nada cambia hasta que confirmes.").count() === 1, "the preview says nothing changes yet");
   expect(await admin.page.locator("input[name=elige_phone]").count() === 2, "the administrator chooses which of the two phones stays");
   await audit(admin.page, "admin-duplicados-vista-previa");
-  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Sí, son la misma persona: unirlas')")]);
+  await Promise.all([admin.page.waitForNavigation(), admin.page.click("main button:has-text('Unir estos registros')")]);
   expect(await admin.page.getByText("Uniste los dos registros.").count() > 0, "the join is said back");
   const merge = admin.page.url();
   await audit(admin.page, "admin-union");
