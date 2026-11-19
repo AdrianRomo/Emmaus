@@ -1,29 +1,34 @@
 {% extends "base.html" %}
-{% load community %}
+{% load emmaus community shell %}
 {% block page_title %}Formularios{% endblock %}
 {% block content %}
-{% comment %}The forms of the church a person can answer today (formularios.views.member_list). Nothing about who answered.{% endcomment %}
+{% comment %}
+  The forms of the church a person can answer today (formularios.views.member_list): what it is (the way in), what
+  the church wants it for, and until when; one already answered today says so with the «done» mark. Nothing about
+  who answered. Who reads answers or administers forms gets the door to them beside the title.
+{% endcomment %}
 <div class="narrow forms">
-  {% url 'community:home' as back %}{% url 'formularios:manage' as manage %}
+  {% url 'formularios:manage' as manage %}
   {% if can_manage %}
-    {% include "events/rotulo/_page_head.html" with title="Formularios" lede="Lo que tu iglesia te pide responder en estos días." back_url=back back_label="Volver a Mi iglesia" secondary_url=manage secondary_label="Ver respuestas y formularios" %}
+    {% include "events/rotulo/_page_head.html" with title="Formularios" secondary_url=manage secondary_label="Ver respuestas y formularios" %}
   {% else %}
-    {% include "events/rotulo/_page_head.html" with title="Formularios" lede="Lo que tu iglesia te pide responder en estos días." back_url=back back_label="Volver a Mi iglesia" %}
+    {% include "events/rotulo/_page_head.html" with title="Formularios" %}
   {% endif %}
   {% if forms %}
     <ul class="rows">
       {% for form in forms %}
-        <li class="row row--stack">
+        <li class="row row--lead">
+          <span class="hoy__icono" aria-hidden="true">{% icon "lista" %}</span>
           <div class="row__main">
             <p class="row__title"><a href="{% url 'formularios:fill' form.pk %}">{{ form.current_version.title }}</a></p>
             <p class="row__meta">{{ form.current_version.purpose }}</p>
-            <p class="row__meta">Puedes responder hasta el {{ form.closes_on|weekday_date }}.{% if form.answered %} Ya respondiste hoy.{% endif %}</p>
+            <p class="row__meta row__meta--con-marca">{% if form.answered %}{% status "completada" "Ya respondiste hoy" %}{% endif %}<span>Puedes responder hasta el {{ form.closes_on|weekday_date }}.</span></p>
           </div>
         </li>
       {% endfor %}
     </ul>
   {% else %}
-    <p class="empty-line">Tu iglesia no tiene formularios abiertos por ahora.</p>
+    {% include "partials/ui/empty.html" with title="Sin formularios por ahora" text="Cuando tu iglesia te pida responder algo, aparece aquí." %}
   {% endif %}
 </div>
 {% endblock %}

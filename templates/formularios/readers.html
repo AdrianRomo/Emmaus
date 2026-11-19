@@ -1,42 +1,49 @@
 {% extends "base.html" %}
+{% load shell %}
 {% block page_title %}Quién lee las respuestas{% endblock %}
 {% block content %}
 {% comment %}
   The readers of one form (formularios.views.readers): a scope that already exists (who guides one group, who
   coordinates one team), never a list of names. When the person stops guiding or coordinating, the reading ends.
+  Who reads today as rows (the administration first, always, with no action); «Quitar» is a quiet removal that asks
+  first and says what it does; adding one is the page's one filled action.
 {% endcomment %}
 <div class="narrow forms">
   {% url 'formularios:detail' form_row.pk as back %}
-  {% include "events/rotulo/_page_head.html" with title="Quién lee las respuestas" lede=form_row.title back_url=back back_label="Volver al formulario" %}
-  <p>La administración de la iglesia siempre las lee. Aquí puedes sumar a quien guía un grupo o coordina un equipo: verá las respuestas de este formulario y nada más, mientras tenga ese cargo. Los pastores no las leen por ser pastores.</p>
-  {% if readers %}
-    <ul class="rows">
-      {% for reader in readers %}
-        <li class="row row--stack">
-          <div class="row__main"><p class="row__title">{% if reader.active %}{{ reader.label }}{% else %}Un grupo o equipo que ya no está activo{% endif %}</p>{% if not reader.active %}<p class="row__meta">No le da acceso a nadie.</p>{% endif %}</div>
-          <form class="row__end" method="post">
-            {% csrf_token %}
-            <button class="btn btn--secondary btn--small" type="submit" name="quitar" value="{{ reader.row.pk }}">Quitar<span class="visually-hidden">: {{ reader.label }}</span></button>
-          </form>
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p class="empty-line">Solo la administración lee las respuestas de este formulario.</p>
-  {% endif %}
+  {% include "events/rotulo/_page_head.html" with title="Quién lee las respuestas" meta=form_row.title back_url=back back_label="Volver al formulario" %}
+  <ul class="rows">
+    <li class="row row--lead">
+      <span class="hoy__icono" aria-hidden="true">{% icon "ajustes" %}</span>
+      <div class="row__main"><p class="row__title">La administración de la iglesia</p><p class="row__meta">Siempre las lee.</p></div>
+    </li>
+    {% for reader in readers %}
+      <li class="row row--lead row--stack">
+        <span class="hoy__icono" aria-hidden="true">{% icon "guia" %}</span>
+        <div class="row__main"><p class="row__title">{% if reader.active %}{{ reader.label }}{% else %}Un grupo o equipo que ya no está activo{% endif %}</p><p class="row__meta">{% if reader.active %}Mientras tenga ese cargo.{% else %}No le da acceso a nadie.{% endif %}</p></div>
+        <form class="row__end" method="post">
+          {% csrf_token %}
+          <button class="btn btn--link btn--quieto" type="submit" name="quitar" value="{{ reader.row.pk }}" data-confirm="¿Quitar este lector? Deja de leer las respuestas de este formulario y los pendientes que tenía de él quedan sin responsable.">Quitar<span class="visually-hidden">: {{ reader.label }}</span></button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+  <p class="aside-note">Quien guía un grupo o coordina un equipo ve las respuestas de este formulario y nada más, mientras tenga ese cargo. Los pastores no las leen por ser pastores.</p>
   {% if choices %}
-  <form method="post" class="block">
+  <form method="post" class="block form-section" aria-labelledby="f-lector">
     {% csrf_token %}
+    <h2 id="f-lector" class="form-section__title">Agregar un lector</h2>
     <div class="field">
-      <label class="label" for="lector">Agregar un lector</label>
+      <label class="label" for="lector">Quién más las lee</label>
       <select class="input" id="lector" name="lector" required>
         <option value="">Elige un grupo o un equipo</option>
         {% for value, label in choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
       </select>
     </div>
-    <div class="step__actions"><button class="btn btn--primary" type="submit">Agregar lector</button></div>
+    <div class="form-actions"><button class="btn btn--primary" type="submit">Agregar lector</button></div>
+    <p class="aside-note">Emmaus no le avisa a nadie que ahora lee estas respuestas: avísale tú.</p>
   </form>
+  {% else %}
+    <p class="aside-note">Emmaus no le avisa a nadie que ahora lee estas respuestas: avísale tú.</p>
   {% endif %}
-  <p class="aside-note">Emmaus no le avisa a nadie que ahora lee estas respuestas: avísale tú.</p>
 </div>
 {% endblock %}

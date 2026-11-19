@@ -2,31 +2,45 @@
 {% block page_title %}{% if form.errors %}Error: {% endif %}{% if form_row %}Editar el formulario{% else %}Crear un formulario{% endif %}{% endblock %}
 {% block content %}
 {% comment %}
-  What a form is (formularios.views.create and edit): title, purpose, who answers, the days, the retention, the task
-  rule. The questions are written on the form's own page. The warning about what not to ask is always on this screen.
+  What a form is (formularios.views.create and edit), in three groups: what the person reads (title, purpose), who
+  answers and when, and what happens with the answers (how long they are kept, the task rule). The questions are
+  written on the form's own page. The warning about what not to ask is always on this screen. Every field of the
+  form is drawn in exactly one group (the names are matched whole: no field's name is part of another's).
 {% endcomment %}
 <div class="narrow forms">
   {% include "partials/ui/error_summary.html" with form=form %}
   {% if form_row %}
     {% url 'formularios:detail' form_row.pk as back %}
-    {% include "events/rotulo/_page_head.html" with title="Editar el formulario" back_url=back back_label="Volver al formulario" %}
+    {% include "events/rotulo/_page_head.html" with title="Editar el formulario" meta=form_row.title back_url=back back_label="Volver al formulario" %}
   {% else %}
     {% url 'formularios:manage' as back %}
-    {% include "events/rotulo/_page_head.html" with title="Crear un formulario" lede="Primero di qué es y para qué. Las preguntas se agregan después, y nadie lo ve hasta que lo publiques." back_url=back back_label="Volver a los formularios" %}
+    {% include "events/rotulo/_page_head.html" with title="Crear un formulario" back_url=back back_label="Volver a los formularios" %}
   {% endif %}
   <div class="notice notice--warning">
     <p><strong>Qué no preguntar.</strong> {{ warning }}</p>
     <p>{{ minors }}</p>
   </div>
-  {% if published %}<div class="notice notice--quiet"><p>Este formulario ya se publicó. El título y «Para qué lo pedimos» que cambies aquí se quedan en el borrador hasta que publiques otra vez. Los días, el tiempo de guardado y los pendientes valen desde que guardes. Ya no se puede cambiar quién responde ni alargar el tiempo de guardado.</p></div>{% endif %}
+  {% if published %}<div class="notice"><p>Este formulario ya se publicó. El título y «Para qué lo pedimos» que cambies aquí se quedan en el borrador hasta que publiques otra vez. Los días, el tiempo de guardado y los pendientes valen desde que guardes. Ya no se puede cambiar quién responde ni alargar el tiempo de guardado.</p></div>{% endif %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {% include "partials/ui/fields.html" with form=form %}
-    <div class="step__actions">
+    {% for field in form.hidden_fields %}{{ field }}{% endfor %}
+    <section class="form-section" aria-labelledby="f-lee">
+      <h2 id="f-lee" class="form-section__title">Lo que lee quien responde</h2>
+      {% for field in form.visible_fields %}{% if field.name == "title" or field.name == "purpose" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    </section>
+    <section class="form-section" aria-labelledby="f-quien">
+      <h2 id="f-quien" class="form-section__title">Quién responde y cuándo</h2>
+      {% for field in form.visible_fields %}{% if field.name == "audience" or field.name == "opens_on" or field.name == "closes_on" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    </section>
+    <section class="form-section" aria-labelledby="f-respuestas">
+      <h2 id="f-respuestas" class="form-section__title">Las respuestas</h2>
+      {% for field in form.visible_fields %}{% if field.name != "title" and field.name != "purpose" and field.name != "audience" and field.name != "opens_on" and field.name != "closes_on" %}{% include "partials/ui/field.html" with field=field %}{% endif %}{% endfor %}
+    </section>
+    <div class="form-actions">
       <button class="btn btn--primary" type="submit">{% if form_row %}Guardar cambios{% else %}Crear el borrador{% endif %}</button>
       <a class="btn btn--link" href="{{ back }}">Cancelar</a>
     </div>
   </form>
-  {% if not form_row %}<p class="aside-note">Quién da seguimiento a cada respuesta y quién más lee las respuestas se eligen después, en la página del formulario.</p>{% endif %}
+  {% if not form_row %}<p class="aside-note">Las preguntas se agregan después, y nadie lo ve hasta que lo publiques. Quién da seguimiento a cada respuesta y quién más lee las respuestas también se eligen después, en la página del formulario.</p>{% endif %}
 </div>
 {% endblock %}
