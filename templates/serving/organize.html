@@ -28,7 +28,7 @@
               <input class="input" id="rol-nombre-{{ role.pk }}" type="text" name="nombre" value="{{ role.name }}" maxlength="60" required>
               <label class="check" for="rol-adultos-{{ role.pk }}"><input id="rol-adultos-{{ role.pk }}" type="checkbox" name="solo_adultos" value="si"{% if role.adults_only %} checked{% endif %}><span class="check__text">Solo personas adultas</span></label>
               <span class="role-edit__end">
-                <button class="btn btn--secondary btn--small" type="submit">Guardar<span class="visually-hidden"> el rol {{ role.name }}</span></button>
+                <button class="btn btn--link" type="submit">Guardar<span class="visually-hidden"> el rol {{ role.name }}</span></button>
                 <button class="btn btn--link btn--quieto" type="submit" formaction="{% url 'serving:role_retire' team.pk role.pk %}" formnovalidate>Ya no se usa<span class="visually-hidden">: {{ role.name }}</span></button>
               </span>
             </form>

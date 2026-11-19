@@ -46,7 +46,7 @@
             <p class="row__title">Nadie sirve el {% if day.date.month == today.month %}{{ day.date|date:"l j"|lower }}{% else %}{{ day.date|weekday_date }}{% endif %}</p>
             <p class="row__meta">{{ day.what }}{% if day.starts_at %}, {{ day.starts_at|time:"H:i" }}{% endif %}. {% if day.people|length == 1 %}{{ day.people.0.person.first_name }} dijo que no puede.{% else %}Las {{ day.people|length }} personas a quienes se pidió dijeron que no pueden.{% endif %}</p>
           </div>
-          <div class="row__end"><a class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" href="{% url 'serving:date_detail' day.pk %}#quien-sirve">Pedir a alguien<span class="visually-hidden"> para el {{ day.date|weekday_date }}</span></a></div>
+          <div class="row__end"><a class="btn {% if forloop.first %}btn--primary btn--small{% else %}btn--link{% endif %}" href="{% url 'serving:date_detail' day.pk %}#quien-sirve">Pedir a alguien<span class="visually-hidden"> para el {{ day.date|weekday_date }}</span></a></div>
         </li>
       {% endfor %}
       {% for swap in to_approve %}{% with day=swap.assignment.service_date %}
@@ -109,13 +109,12 @@
     <h2 id="cambios-titulo" class="heading">Cambios de fecha</h2>
     <ul class="dates rows">
       {% for swap in swaps %}{% with day=swap.assignment.service_date %}
-        <li class="row row--lead row--stack">
+        <li class="row row--lead">
           {% date_block day.date %}
           <div class="row__main">
             <p class="row__title">{{ swap.from_person.full_name }} → {{ swap.to_person.full_name }}</p>
-            <p class="row__meta">{{ day.what }}, {{ day.date|weekday_date }}{% if swap.assignment.role %} ({{ swap.assignment.role.name }}){% endif %}. {% if swap.status == "hecha" %}Con el cambio, la fecha ya es de {{ swap.to_person.first_name }}.{% else %}Espera respuesta de {{ swap.to_person.first_name }}.{% endif %}</p>
+            <p class="row__meta row__meta--con-marca">{% if swap.status == "hecha" %}{% status "completada" "Hecho" %}{% else %}{% status "por_evaluar" "Por responder" %}{% endif %}<span>{{ day.what }}, {{ day.date|weekday_date }}{% if swap.assignment.role %} ({{ swap.assignment.role.name }}){% endif %}. {% if swap.status == "hecha" %}Con el cambio, la fecha ya es de {{ swap.to_person.first_name }}.{% else %}Espera respuesta de {{ swap.to_person.first_name }}.{% endif %}</span></p>
           </div>
-          <div class="row__end">{% if swap.status == "hecha" %}{% status "completada" "Hecho" %}{% else %}{% status "por_evaluar" "Por responder" %}{% endif %}</div>
         </li>
       {% endwith %}{% endfor %}
     </ul>
@@ -141,9 +140,9 @@
                 <input type="hidden" name="persona" value="{{ membership.person_id }}">
                 <a class="btn btn--link btn--quieto" href="{% url 'serving:member_remove' team.pk membership.pk %}">Quitar<span class="visually-hidden"> a {{ membership.person.full_name }}</span></a>
                 {% if membership.is_coordinator %}
-                  <button class="btn btn--secondary btn--small" type="submit" name="rol" value="sirve">Que solo sirva<span class="visually-hidden">: {{ membership.person.full_name }}</span></button>
+                  <button class="btn btn--link" type="submit" name="rol" value="sirve">Que solo sirva<span class="visually-hidden">: {{ membership.person.full_name }}</span></button>
                 {% else %}
-                  <button class="btn btn--secondary btn--small" type="submit" name="rol" value="coordina">Que coordine<span class="visually-hidden">: {{ membership.person.full_name }}</span></button>
+                  <button class="btn btn--link" type="submit" name="rol" value="coordina">Que coordine<span class="visually-hidden">: {{ membership.person.full_name }}</span></button>
                 {% endif %}
               </form>
             {% endif %}
@@ -177,8 +176,8 @@
               <form class="row__end" method="post" action="{% url 'serving:member_add' team.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="persona" value="{{ person.pk }}">
-                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="sirve">Agregar<span class="visually-hidden"> al equipo a {{ person.full_name }}</span></button>
-                <button class="btn btn--secondary btn--small" type="submit" name="rol" value="coordina">Para coordinar<span class="visually-hidden"> el equipo: {{ person.full_name }}</span></button>
+                <button class="btn btn--link" type="submit" name="rol" value="sirve">Agregar<span class="visually-hidden"> al equipo a {{ person.full_name }}</span></button>
+                <button class="btn btn--link" type="submit" name="rol" value="coordina">Para coordinar<span class="visually-hidden"> el equipo: {{ person.full_name }}</span></button>
               </form>
             </li>
           {% endfor %}

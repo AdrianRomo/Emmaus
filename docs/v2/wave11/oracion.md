@@ -25,7 +25,7 @@ Branch `v2/wave-11-oracion`. A design and front-end pass over `templates/oracion
   reading size, the state as a word with its mark («Todavía no la han leído», «Leída el …», «Hablaron en persona»),
   the reply behind a rule, the retention note and a quiet «Borrarla ahora». «Hoy nadie la puede leer» is a vela
   notice (it blocks). Module off: the old markup, byte for byte (first branch of the template).
-- **`inbox`**: the writer's circle in the 48px lead; an unread name is heavier; the state word at the end; the
+- **`inbox`**: the writer's circle in the 48px lead; an unread name is heavier; the state word leading the meta line (`CONSISTENCY.md`, rule 1); the
   door to the switch is a row with a chevron. The lists' full width (`oracion--lista`).
 - **`read`**: the writer's circle beside the name; the words; `#atendida` holds the states and the two marks,
   which act in place; the reply form is outside that region so a draft is never replaced.

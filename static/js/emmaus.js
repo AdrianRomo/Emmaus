@@ -1155,6 +1155,30 @@
       });
     });
 
+    // A rail longer than its screen scrolls (santuario.css, .rail__nav): this page's place is brought into view at
+    // once, without motion, so the rail never opens on a list that hides where the person is; and the edges where
+    // the list is cut are named (data-corte), so a hairline says there is more that way.
+    (function () {
+      var nav = $(".rail__nav");
+      if (!nav) return;
+      var here = nav.querySelector("[aria-current='page']");
+      if (here && nav.scrollHeight > nav.clientHeight) {
+        var box = nav.getBoundingClientRect(), at = here.getBoundingClientRect();
+        if (at.bottom > box.bottom) nav.scrollTop += at.bottom - box.bottom + 8;
+        else if (at.top < box.top) nav.scrollTop -= box.top - at.top + 8;
+      }
+      function cut() {
+        var edges = [];
+        if (nav.scrollTop > 1) edges.push("arriba");
+        if (nav.scrollTop + nav.clientHeight < nav.scrollHeight - 1) edges.push("abajo");
+        if (edges.length) nav.setAttribute("data-corte", edges.join(" ")); else nav.removeAttribute("data-corte");
+      }
+      cut();
+      nav.addEventListener("scroll", cut, { passive: true });
+      nav.addEventListener("toggle", cut, true);  // a fold of the rail opens or closes
+      window.addEventListener("resize", cut);
+    })();
+
     // A link or a form that takes more than a quarter of a second to answer draws a thin line at the top, so a
     // slow connection never looks like a press that did nothing. It goes away with the page.
     var progressTimer = null;

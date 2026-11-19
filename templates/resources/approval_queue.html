@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus community %}
 {% block page_title %}Aprobación pastoral{% endblock %}
 {% block content %}
 {% comment %}
@@ -23,7 +23,7 @@
             {% include "resources/_approval_mark.html" with key=entry.kind.key %}
             <div class="row__main">
               <p class="row__title"><a href="{{ entry.url }}">{{ entry.title }}</a></p>
-              <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }}{% if entry.row.requested_at %} Se pidió el {{ entry.row.requested_at|date:"j \d\e F"|lower }}.{% endif %} Todavía no se ve.</p>
+              <p class="row__meta">{{ entry.kind.label }}. {{ entry.line }}{% if entry.row.requested_at %} Se pidió el {{ entry.row.requested_at|day_month }}.{% endif %} Todavía no se ve.</p>
             </div>
           </li>
         {% endfor %}

@@ -3,8 +3,8 @@
 {% block page_title %}Peticiones de oración{% endblock %}
 {% block content %}
 {% comment %}
-  The requests a pastor may read (oracion.views.inbox): who wrote (a circle and the name) and when, with its state as
-  a word; one not read yet keeps its heavier name. The words are one page each: none of them is here. No totals, no
+  The requests a pastor may read (oracion.views.inbox): who wrote (a circle and the name) and, on one line under it, its state as a
+  word and when; one not read yet keeps its heavier name. The words are one page each: none of them is here. No totals, no
   trends, no export. Below: the pastor's own e-mail choice and the door to the church's switch.
 {% endcomment %}
 <div class="narrow oracion oracion--lista">
@@ -20,14 +20,11 @@
   {% if prayers %}
     <ul class="rows">
       {% for prayer in prayers %}
-        <li class="row row--lead row--stack">
+        <li class="row row--lead">
           {% monogram prayer.writer_name %}
           <div class="row__main">
             <p class="row__title{% if prayer.state != "sin_leer" %} row__title--leido{% endif %}"><a href="{% url 'oracion:read' prayer.pk %}">{{ prayer.writer_name }}</a></p>
-            <p class="row__meta">La escribió el {{ prayer.created_at|day_and_hour }}.{% if prayer.restricted %} Solo para ti.{% endif %} Emmaus la borra el {{ prayer.expires_at|long_date }}.</p>
-          </div>
-          <div class="row__end">
-            {% if prayer.state == "sin_leer" %}{% status "revisar" "Sin leer" %}{% elif prayer.state == "leida" %}{% status "completada" "Leída" %}{% elif prayer.state == "respondida" %}{% status "completada" "Respondida" %}{% else %}{% status "completada" "Hablaron en persona" %}{% endif %}
+            <p class="row__meta row__meta--con-marca">{% if prayer.state == "sin_leer" %}{% status "revisar" "Sin leer" %}{% elif prayer.state == "leida" %}{% status "completada" "Leída" %}{% elif prayer.state == "respondida" %}{% status "completada" "Respondida" %}{% else %}{% status "completada" "Hablaron en persona" %}{% endif %}<span>La escribió el {{ prayer.created_at|day_and_hour }}.{% if prayer.restricted %} Solo para ti.{% endif %} Emmaus la borra el {{ prayer.expires_at|long_date }}.</span></p>
           </div>
         </li>
       {% endfor %}

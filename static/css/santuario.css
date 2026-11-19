@@ -1936,8 +1936,9 @@ p.sitio__leaves { margin-top: var(--s-2); }
   .page--app .comparar tr:first-child td { align-items: center; min-height: 2.75rem; }
 }
 .page--app .table-wrap + .aside-note { margin-top: var(--s-4); }
-.comparar__cambiar { margin-top: var(--s-4); font-size: var(--t-small); }
-.page--app .comparar__cambiar a { display: inline-block; padding-block: 0.75rem; margin-block: -0.75rem; font-weight: 600; color: var(--petroleo); }
+/* «Dejar mejor a…» is a way that stands alone: a text action, its words on the column's edge */
+.comparar__cambiar { margin-top: var(--s-2); }
+:root[data-ui="2"] .comparar__cambiar > .btn--link { margin-left: -0.75rem; padding-block: var(--s-2); white-space: normal; text-align: left; }  /* it carries a name: it wraps */
 .page--app .heading + .hint { margin-top: var(--s-1); }
 .page--app .hint + .table-wrap, .page--app .hint + .summary-list { margin-top: var(--s-3); }
 /* How many rows of each kind move: one per line, the number first, so they are read down a column */
@@ -2017,6 +2018,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 /* A state beside its facts (manage.html, submissions.html): the word keeps its line and the facts wrap beside it */
 :root[data-ui="2"] .forms .row__meta--con-marca { flex-wrap: nowrap; align-items: baseline; }
 :root[data-ui="2"] .forms .row__meta--con-marca > span:not(.status) { min-width: 0; }
+/* (the same rule for the other areas of wave 11 is in "consistencia", below) */
 /* A row that also has an action at its end is opened by its title alone: the title is a 44px target that moves no line */
 :root[data-ui="2"] .forms .rows > .row:has(.row__end :is(a, button)) .row__title a { display: inline-block; padding-block: 0.6875rem; margin-block: -0.6875rem; }
 /* Under the text on a phone, a row's text action starts on the text's column (its words, not its padding) */
@@ -2084,7 +2086,7 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] .serving .sign__actions--pair .btn { padding-inline: var(--s-3); }
 :root[data-ui="2"] .serving .sign + .aside-note { margin-top: var(--s-4); }
 /* A text action that wraps under its row starts where the row's words start */
-@container (max-width: 38rem) { :root[data-ui="2"] .serving .row--stack > .row__end > .btn--link:first-child { margin-left: -0.75rem; } }
+@container (max-width: 38rem) { :root[data-ui="2"] .serving .row--stack > .row__end > :is(.btn--link:first-child, input[type="hidden"] + .btn--link) { margin-left: -0.75rem; } }  /* a form's hidden fields come first */
 /* === fin servir === */
 
 /* === agenda (wave 11) === */
@@ -2292,6 +2294,27 @@ p.sitio__leaves { margin-top: var(--s-2); }
 :root[data-ui="2"] :is(.input, .textarea, select, .field input, .field textarea):focus-visible { border-color: var(--ink); outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px var(--surface); }
 :root[data-ui="2"] .sign--lead :focus-visible { outline-color: var(--ink); }
 :root[data-ui="2"] .messages.is-toast :focus-visible, :root[data-ui="2"] .skip-link:focus-visible { outline-color: #ffffff; box-shadow: none; }
+
+/* === consistencia (wave 11): one hand over the seven areas (docs/v2/wave11/CONSISTENCY.md) === */
+/* A state beside its facts: the word keeps its line and the facts wrap beside it, never under it (CRAFT §6:
+   metadata wraps). Formularios drew it first; Servir, Espacios, Oración, Personas and the series follow. */
+:root[data-ui="2"] :is(.serving, .spaces, .oracion, .serie-admin, .personas-lista) .row__meta--con-marca { flex-wrap: nowrap; align-items: baseline; }
+:root[data-ui="2"] :is(.serving, .spaces, .oracion, .serie-admin, .personas-lista) .row__meta--con-marca > span:not(.status) { min-width: 0; }
+/* The comparison of two records is read, not pressed: its rules stay inside the column and its words start on it */
+.page--app .table-wrap:has(> .comparar) { margin-inline: 0; }
+.page--app .comparar :is(th, td):first-child { padding-left: 0; }
+.page--app .comparar :is(th, td):last-child { padding-right: 0; }
+@container (max-width: 44rem) { :root[data-ui="2"] .comparar.table--stack tbody tr { padding-inline: 0; } }
+/* A moment's fields end as every form does: what saves, then the quiet removal, on one line */
+:root[data-ui="2"] .serving .plan__edit > .form-actions { margin-top: var(--s-2); }
+:root[data-ui="2"] .serving .choice-line > .btn--link { margin-left: -0.75rem; }
+/* A rail longer than its screen (the administration's places): the list scrolls, and a hairline on the edge where
+   it is cut says there is more that way; it leaves when that end is reached. emmaus.js names the cut edges
+   (data-corte) and brings this page's place into view. */
+.rail__nav[data-corte="abajo"] { box-shadow: inset 0 -1px 0 var(--line-strong); }
+.rail__nav[data-corte="arriba"] { box-shadow: inset 0 1px 0 var(--line-strong); }
+.rail__nav[data-corte="arriba abajo"] { box-shadow: inset 0 1px 0 var(--line-strong), inset 0 -1px 0 var(--line-strong); }
+/* === fin consistencia === */
 
 /* ---------- 18. Whole things are the way in ------------------------------ */
 /* Today's gathering: the whole block opens it; its action stays on top */

@@ -159,8 +159,8 @@ class PersonTagTests(TagFixture):
         self.assertContains(page, "1 resultado")
         page = self.client.get(url, {"etapa": "miembro"})
         self.assertContains(page, "Gala")
-        self.assertContains(page, '<p class="row__meta">Miembro</p>')  # the stage under the name; the access is the row's state word
-        self.assertContains(page, "Con acceso")
+        # One meta line under the name: the access (the row's state word) leads it, the stage follows; nothing at the row's end
+        self.assertRegex(page.content.decode(), r'<p class="row__meta row__meta--con-marca"><span class="status[^"]*"><span class="status__mark" aria-hidden="true"></span>Con acceso</span><span>Miembro</span></p>\s*</div>\s*</li>')
         self.assertNotContains(page, "Diego")
         page = self.client.get(url, {"etapa": "sin-anotar", "q": "diego"})
         self.assertContains(page, "Diego")

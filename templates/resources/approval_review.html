@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load emmaus %}
+{% load emmaus community %}
 {% block page_title %}{% if approve_form.errors or return_form.errors %}Error: {% endif %}{{ title }}: aprobación pastoral{% endblock %}
 {% block content %}
 {% comment %}
@@ -29,7 +29,7 @@
     <div class="notice notice--success"><p>{% if published %}Aprobado y publicado.{% else %}Aprobado. Hoy no está publicado: la administración lo retiró.{% endif %}</p></div>
   {% elif row.is_returned %}
     <div class="notice notice--warning">
-      <p>Un pastor lo devolvió sin aprobarlo{% if row.returned_at %} el {{ row.returned_at|date:"j \d\e F"|lower }}{% endif %}. No está publicado. Lo que hay que corregir:</p>
+      <p>Un pastor lo devolvió sin aprobarlo{% if row.returned_at %} el {{ row.returned_at|day_month }}{% endif %}. No está publicado. Lo que hay que corregir:</p>
       <p>{{ row.return_reason }}</p>
     </div>
   {% elif row.is_changed %}

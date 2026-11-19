@@ -5,7 +5,8 @@
 {% comment %}
   The church's people, for its administration (people.views.person_list). A person is here whether or not they
   have an account, and whether or not they went to an event. Each row is the person's circle and name, the way into
-  their page, their stage when somebody wrote it down, and whether they can sign in. The list's tools as every list
+  their page and, on one line under it, whether they can sign in (the row's state word) and their stage when
+  somebody wrote it down. The list's tools as every list
   of the redesign has them (DESIGN_SYSTEM.md §8): the search as a capsule, the stage as views with their count, and
   the tags, a secondary filter, folded under one line («Etiqueta: todas»). After the list, the four places where
   the list itself is cared for (duplicates, tags, import, download), as rows that open.
@@ -43,9 +44,8 @@
             {% monogram person.full_name %}
             <div class="row__main">
               <p class="row__title"><a href="{% url 'people:detail' person.pk %}">{{ person.full_name }}</a></p>
-              {% if person.stage %}<p class="row__meta">{{ person.get_stage_display }}</p>{% endif %}
+              <p class="row__meta row__meta--con-marca">{% if person.user_id %}{% status "completada" "Con acceso" %}{% else %}{% status "pendiente" "Sin acceso" %}{% endif %}{% if person.stage %}<span>{{ person.get_stage_display }}</span>{% endif %}</p>
             </div>
-            <div class="row__end">{% if person.user_id %}{% status "completada" "Con acceso" %}{% else %}{% status "pendiente" "Sin acceso" %}{% endif %}</div>
           </li>
         {% endfor %}
       </ul>

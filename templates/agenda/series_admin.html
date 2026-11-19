@@ -11,7 +11,7 @@
   Eventos and the public calendar, and that who signed up must be told by the administration. The dates Emmaus did
   not change and the ones the series left behind are regions of their own (#serie-revisar, #serie-fuera), because
   «Sí hay» can move a date into them. The one filled action is «Cambiar la serie», in the head. Ending or resuming
-  the series is a step of its own, never in place.
+  the series is a step of its own, never in place; ending is quiet text, because the series can be resumed.
 {% endcomment %}
 {% now "Y-m-d" as today_iso %}
 <div class="narrow serie-admin">
@@ -119,7 +119,7 @@
   <section class="block" aria-labelledby="terminar">
     <h2 id="terminar" class="heading">Terminar la serie</h2>
     <p>Terminar la serie deja de agregar fechas. Las que ya existen siguen como están, y la puedes reanudar después.</p>
-    <form class="form-actions serie-admin__terminar" method="post" action="{% url 'agenda:series_end' series.pk %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Terminar la serie</button></form>
+    <form class="serie-admin__terminar quitar" method="post" action="{% url 'agenda:series_end' series.pk %}">{% csrf_token %}<button class="btn btn--link btn--quieto" type="submit">Terminar la serie</button></form>
   </section>
   {% endif %}
 </div>

@@ -6,7 +6,8 @@
   The order of one date (serving.rota_views.plan): moments in order, each with its number in the row's leading slot,
   its minutes in a column at the end and, if somebody is in charge, their name. Read by who serves that date; changed
   by who coordinates the team, who sees the same list as it will be read: each moment opens «Cambiar» (a fold with
-  its three fields and «Guardar») and has its order and «Quitar» beside it. Every change here is sent as a page (the
+  its three fields, «Guardar» and the quiet «Quitar») and ends in its place in the order, «Subir» / «Bajar», and
+  nothing else (docs/v2/wave11/CONSISTENCY.md, rule 2). Every change here is sent as a page (the
   editor has fields). Names only: no contact data.
   Who is in charge is decided when the page is read (rotas.plan_items): somebody who left the team, whose record was
   joined to another or whose record says they are a minor is not named, here or in the coordinator's list.
@@ -48,19 +49,21 @@
                       {% for person in people %}<option value="{{ person.pk }}"{% if person.pk == item.responsible_id %} selected{% endif %}>{{ person.full_name }}</option>{% endfor %}
                     </select>
                   </div>
-                  <button class="btn btn--secondary btn--small" type="submit" name="accion" value="guardar">Guardar<span class="visually-hidden"> {{ item.title }}</span></button>
+                  <div class="form-actions">
+                    <button class="btn btn--secondary" type="submit" name="accion" value="guardar">Guardar<span class="visually-hidden"> {{ item.title }}</span></button>
+                    <button class="btn btn--link btn--quieto" type="submit" name="accion" value="quitar" formnovalidate>Quitar<span class="visually-hidden"> {{ item.title }}</span></button>
+                  </div>
                 </form>
               </details>
               {% endif %}
             </div>
-            {% if manages %}
+            {% if manages %}{% if items|length > 1 %}
               <form class="row__end" method="post" action="{% url 'serving:plan_item' day.pk item.pk %}">
                 {% csrf_token %}
                 {% if not forloop.first %}<button class="btn btn--link" type="submit" name="accion" value="subir">Subir<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
                 {% if not forloop.last %}<button class="btn btn--link" type="submit" name="accion" value="bajar">Bajar<span class="visually-hidden"> {{ item.title }}</span></button>{% endif %}
-                <button class="btn btn--link btn--quieto" type="submit" name="accion" value="quitar">Quitar<span class="visually-hidden"> {{ item.title }}</span></button>
               </form>
-            {% else %}
+            {% endif %}{% else %}
               <p class="row__end plan__min">{{ item.minutes }} min<span class="visually-hidden">utos</span></p>
             {% endif %}
           </li>

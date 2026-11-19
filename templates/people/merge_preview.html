@@ -96,7 +96,7 @@
       </table>
     </div>
     <p class="aside-note">Una unión nunca escribe ni confirma una fecha de nacimiento. {% if preview.account == "moves" %}La cuenta con la que hoy entra {{ absorbed.full_name }} pasa a {{ survivor.full_name }}: seguirá entrando con el mismo correo y la misma contraseña.{% elif preview.account == "survivor" %}{{ survivor.full_name }} sigue entrando con su cuenta de siempre.{% else %}Ninguno de los dos registros tiene acceso. La unión no crea una cuenta.{% endif %}</p>
-    <p class="comparar__cambiar"><a href="{% url 'people:merge_preview' absorbed.pk survivor.pk %}">Dejar mejor a {{ absorbed.full_name }} como el registro que se queda</a></p>
+    <p class="comparar__cambiar"><a class="btn btn--link" href="{% url 'people:merge_preview' absorbed.pk survivor.pk %}">Dejar mejor a {{ absorbed.full_name }} como el registro que se queda</a></p>
   </section>
 
   {% if not preview.allowed %}

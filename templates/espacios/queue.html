@@ -8,7 +8,8 @@
   Approving a request that overlaps nothing acts in place (data-inline="solicitudes": the row leaves, a line keeps
   the trace, the counts follow). One that overlaps is sent as a page, because its answer is the clash page; and if a
   clash appears between the list and the press, the server answers with that page and the browser shows it.
-  Rejecting has a field: its own page.
+  Rejecting has a field: its own page. The two answers are a row's small capsules, the yes first; only the first
+  row's «Aprobar» is filled (the screen's one filled action).
 {% endcomment %}
 <div class="narrow spaces">
   {% url 'espacios:list' as back %}
@@ -35,8 +36,8 @@
             <form class="row__end" method="post" action="{% url 'espacios:approve' booking.pk %}"{% if not booking.clashes %} data-inline="solicitudes"{% endif %}>
               {% csrf_token %}
               <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
-              <a class="btn btn--secondary btn--small" href="{% url 'espacios:reject' booking.pk %}">Rechazar<span class="visually-hidden">: {{ booking.title }}, {{ booking.day|weekday_date }}</span></a>
               <button class="btn {% if forloop.first %}btn--primary{% else %}btn--secondary{% endif %} btn--small" type="submit">Aprobar<span class="visually-hidden">: {{ booking.title }}, {{ booking.day|weekday_date }}</span></button>
+              <a class="btn btn--secondary btn--small" href="{% url 'espacios:reject' booking.pk %}">Rechazar<span class="visually-hidden">: {{ booking.title }}, {{ booking.day|weekday_date }}</span></a>
             </form>
           </li>
         {% endif %}

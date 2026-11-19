@@ -1165,7 +1165,13 @@ const mainText = async (target) => (await target.locator("main").innerText()).re
   await rosa.ctx.close();
   await tomas.ctx.close();
   // Back to the seed: no moments, nobody asked, the need at 0 and the role out of use.
-  for (let left = 2; left > 0; left -= 1) await go(p, "main button:has-text('Quitar Momento de prueba') >> nth=0");
+  // «Quitar» lives where a moment is changed (inside «Cambiar»); a row of the order ends in «Subir» / «Bajar» only.
+  expect(await p.locator("main .plan > li > .row__end button").count() === 2 && await p.locator("main .plan > li > .row__end .btn--quieto").count() === 0, "a moment's row ends in its place in the order, nothing else");
+  for (let left = 2; left > 0; left -= 1) {
+    const moment = p.locator("main li:has-text('Momento de prueba')").first();
+    if (!(await moment.locator("details").evaluate((fold) => fold.open))) await moment.locator("details > summary").click();  // the first one is still open from above
+    await Promise.all([p.waitForNavigation(), moment.locator("button:has-text('Quitar Momento de prueba')").click()]);
+  }
   expect(await p.locator("main input[name=titulo][value^='Momento de prueba']").count() === 0, "the moments are taken out");
   await p.goto(BASE + datePath);
   for (const box of await p.locator("main input[name=sirve]:checked").all()) await box.uncheck();

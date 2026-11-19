@@ -27,10 +27,10 @@ approve, "ya no puede cubrir este rol", a 70-character name, a 50-character team
   with `.ask` blocks, as on «Mi iglesia»). While one waits it carries the filled button and the first pending date of
   «Tus fechas» is outlined; when none waits the first pending date is filled, as before.
 - **Team**: a swap that waits for the coordinator is one more row of «Esperan tu decisión» (with its count); the
-  other swaps are the record «Cambios de fecha», with the state as a word at the end of the row.
+  other swaps are the record «Cambios de fecha», with the state as a word leading the row's meta line (`CONSISTENCY.md`, rule 1).
 - **Order of a date**: the coordinator sees the list as it is read; a moment's fields open under it («Cambiar»);
-  «Subir», «Bajar» and «Quitar» stay visible at the end of the row (three text actions: more than DS §5's one, kept
-  because reordering behind a fold costs three presses per step).
+  «Subir» and «Bajar» stay visible at the end of the row (reordering behind a fold costs three presses per step);
+  «Quitar» is inside «Cambiar», beside «Guardar» (`CONSISTENCY.md`, rules 2 and 7).
 - **In place** (`data-inline`, no change to `emmaus.js`): a teammate's answer (region: that request; `also`: «Tus
   fechas» and the other requests), withdrawing a request (region: «Cambios que pediste»; `also`: «Tus fechas»), the
   coordinator's yes/no (region: «Esperan tu decisión»; `also`: the record and the head's buttons), the reminder

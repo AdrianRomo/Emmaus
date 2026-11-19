@@ -156,7 +156,7 @@
             <div class="row__main"><p class="row__title">{{ day.date|weekday_date|capfirst }}</p></div>
             <form class="row__end" method="post" action="{% url 'serving:unavailable_remove' day.pk %}" data-inline="dias">
               {% csrf_token %}
-              <button class="btn btn--secondary btn--small" type="submit">Quitar<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
+              <button class="btn btn--link btn--quieto" type="submit">Quitar<span class="visually-hidden"> el {{ day.date|weekday_date }}</span></button>
             </form>
           </li>
         {% endfor %}
@@ -172,10 +172,10 @@
       {% csrf_token %}
       {% if reminders_on %}
         {% status "completada" "Encendidos" %}
-        <button class="btn btn--secondary btn--small" type="submit" name="recordatorios" value="no" data-inline-focus>No quiero recordatorios</button>
+        <button class="btn btn--link" type="submit" name="recordatorios" value="no" data-inline-focus>No quiero recordatorios</button>
       {% else %}
         {% status "descartada" "Apagados" %}
-        <button class="btn btn--secondary btn--small" type="submit" name="recordatorios" value="si" data-inline-focus>Quiero recordatorios</button>
+        <button class="btn btn--link" type="submit" name="recordatorios" value="si" data-inline-focus>Quiero recordatorios</button>
       {% endif %}
     </form>
     <p class="aside-note">{% if reminders_on %}Algún equipo tuyo envía un correo unos días antes de cada fecha. El correo solo dice que tienes un servicio próximo y trae el enlace a esta página; llega al correo de «Mis datos», si la iglesia tiene el correo configurado.{% else %}Apagaste los recordatorios: no te enviaremos correos sobre tus fechas.{% endif %}</p>
