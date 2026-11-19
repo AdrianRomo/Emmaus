@@ -203,8 +203,7 @@ def landing(request):
         return redirect("initial_setup")
     if request.user.is_authenticated:
         return redirect("dashboard")
-    church = Church.objects.filter(active=True).order_by("created_at").first()
-    return render(request, "core/landing.html", {"church": church})
+    return render(request, "core/landing.html", {"church": tenancy.current_church(request)})
 
 
 def initial_setup(request):

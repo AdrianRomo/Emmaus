@@ -4,7 +4,7 @@
 {% block title %}{% block page_title %}{% endblock %} · {{ event.name }} · {% brand_name event.church %}{% endblock %}
 {% block body_attrs %}{% staff_idle_attrs %}{% endblock %}
 {% block body %}
-{% if shell %}{# The redesigned shell (partials/ui/shell.html): the event is a place in the rail, with the role's links under it #}{% url 'events:ayuda' event.slug as shell_help_url %}{% include "partials/ui/shell.html" %}
+{% if shell %}{# The redesigned shell (partials/ui/shell.html): the event is a place in the rail, with the role's links under it #}{% url 'events:ayuda' event.slug as shell_help_url %}{% include "partials/ui/shell.html" with brand_church=event.church %}
 <main id="contenido" class="page page--app page--app-wide" tabindex="-1">{% else %}{% url 'events:home' event.slug as bar_home_url %}{% url 'events:list' as bar_events_url %}{% url 'events:ayuda' event.slug as bar_help_url %}
 {% if access.is_admin and theme_church.discipleship_enabled %}{% url 'church_dashboard' as bar_discipleship_url %}{% endif %}
 {% if event_nav|length > 4 %}{% firstof "bar--leader bar--stacked" as bar_modifiers %}{% else %}{% firstof "bar--leader" as bar_modifiers %}{% endif %}
@@ -13,5 +13,5 @@
   {% include "partials/ui/messages.html" %}
   {% block content %}{% endblock %}
 </main>{% if shell %}
-{% include "partials/ui/shell_end.html" %}{% endif %}
+{% include "partials/ui/shell_end.html" with brand_church=event.church %}{% endif %}
 {% endblock %}
