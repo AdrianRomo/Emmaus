@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import data_views, merge_views, views
+from . import data_views, import_views, merge_views, views
 
 app_name = "people"
 
@@ -17,6 +17,10 @@ urlpatterns = [
     path("uniones/<int:merge_id>/", merge_views.merge_detail, name="merge_detail"),
     path("uniones/<int:merge_id>/deshacer/", merge_views.merge_undo, name="merge_undo"),
     path("exportar/", data_views.people_export, name="export"),
+    path("importar/", import_views.people_import, name="import"),
+    path("importar/ejemplo.csv", import_views.people_import_sample, name="import_sample"),
+    path("importaciones/<int:import_id>/", import_views.people_import_detail, name="import_detail"),
+    path("importaciones/<int:import_id>/deshacer/", import_views.people_import_undo, name="import_undo"),
     path("etiquetas/", data_views.tag_list, name="tags"),
     path("etiquetas/<int:tag_id>/borrar/", data_views.tag_delete, name="tag_delete"),
     path("<int:person_id>/", views.person_detail, name="detail"),

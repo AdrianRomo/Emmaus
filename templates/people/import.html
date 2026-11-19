@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load community %}
+{% block page_title %}{% if form.errors or problems %}Error: {% endif %}Importar personas{% endblock %}
+{% block content %}
+{% comment %}
+  "Importar personas" (people.import_views.people_import): the file, how to prepare it, what an import never does,
+  and the last imports with the door to undo them. Nothing is written from this screen: the preview comes next.
+{% endcomment %}
+<div class="narrow">
+  {% url 'people:list' as back %}
+  {% if problems %}<div class="error-summary" role="alert"><h2>Hay un problema con el archivo</h2><ul>{% for problem in problems %}<li>{{ problem }}</li>{% endfor %}</ul></div>{% endif %}
+  {% include "partials/ui/error_summary.html" with form=form %}
+  {% include "events/rotulo/_page_head.html" with title="Importar personas" lede="Sube la lista que ya tienes en una hoja de cálculo. Primero verás qué pasaría con cada fila: nada se guarda hasta que confirmes." back_url=back back_label="Volver a Personas" %}
+
+  <section class="block" aria-labelledby="archivo">
+    <h2 id="archivo" class="heading">El archivo</h2>
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% include "partials/ui/field.html" with field=form.file %}
+      <div class="step__actions"><button class="btn btn--primary" type="submit">Revisar el archivo</button></div>
+    </form>
+  </section>
+
+  <section class="block" aria-labelledby="preparar">
+    <h2 id="preparar" class="heading">Cómo preparar el archivo</h2>
+    <div class="prose">
+      <p>En Excel o Google Sheets, pon en la primera fila los nombres de las columnas: {{ columns|join:", " }}. Solo Nombre es obligatoria. Guárdalo como CSV, con hasta {{ max_rows }} filas y 1 MB.</p>
+      <p>La fecha de nacimiento va como día/mes/año, por ejemplo 14/03/2009. La etapa es una de estas: {{ stages|join:", "|lower }}. Las etiquetas van separadas por punto y coma, y tienen que existir ya en <a href="{% url 'people:tags' %}">Etiquetas</a>.</p>
+      <p><a href="{% url 'people:import_sample' %}">Descargar un archivo de ejemplo</a></p>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="nunca">
+    <h2 id="nunca" class="heading">Lo que una importación no hace</h2>
+    <div class="prose">
+      <p>No le da acceso a Emmaus a nadie ni envía correos. No cambia a las personas que ya tienes: si una fila es de alguien que ya está en la lista (mismo correo, mismo teléfono, o mismo nombre con la misma fecha de nacimiento), esa fila no se registra.</p>
+      <p>Una fecha de nacimiento del archivo queda sin confirmar, igual que si la escribieras a mano. Emmaus no guarda el archivo.</p>
+    </div>
+  </section>
+
+  {% if recent %}
+  <section class="block" aria-labelledby="recientes">
+    <h2 id="recientes" class="heading">Importaciones recientes</h2>
+    <ul class="rows">
+      {% for record in recent %}
+        <li class="row">
+          <div class="row__main">
+            <p class="row__title">{{ record.imported_at|day_and_hour }}</p>
+            <p class="row__meta">{% if record.created_count == 1 %}1 persona{% else %}{{ record.created_count }} personas{% endif %}. {% if record.is_undone %}Se deshizo el {{ record.undone_at|day_and_hour }}.{% elif record.can_undo %}Todavía se puede deshacer.{% else %}Ya no se puede deshacer.{% endif %}</p>
+          </div>
+          <a class="btn btn--secondary btn--small" href="{% url 'people:import_detail' record.pk %}">Abrir<span class="visually-hidden"> la importación del {{ record.imported_at|day_and_hour }}</span></a>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="aside-note">Una importación se puede deshacer durante {{ undo_hours }} horas.</p>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

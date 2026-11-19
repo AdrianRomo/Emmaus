@@ -104,6 +104,8 @@ ACTION_LABELS = {
     "etiqueta_borrada": "Borró una etiqueta de las personas",
     "persona_etiquetas": "Cambió las etiquetas de una persona",
     "personas_exportadas": "Descargó la lista de personas de la iglesia",
+    "personas_importadas": "Importó personas desde un archivo",
+    "personas_importacion_deshecha": "Deshizo una importación de personas",
 }
 
 # Keys a caller may pass as metadata: identifiers and closed vocabulary only, never contact data or free text.
@@ -122,6 +124,8 @@ ALLOWED_METADATA = frozenset({
     "permitted_use",
     # People data quality (people.tags, people.exchange): a tag by its id, never its name; how many rows.
     "tag_id", "count",
+    # An import of people (people.imports), by its id; and how many of its people an undo left in place.
+    "import_id", "kept",
 })
 
 

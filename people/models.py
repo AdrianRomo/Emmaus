@@ -30,6 +30,7 @@ class Person(models.Model):
         BACKFILL = "backfill", "Cuentas existentes"
         MANUAL = "manual", "Registro manual"
         EVENT = "event", "Un evento"
+        IMPORT = "import", "Archivo importado"
 
     class BirthDateMethod(models.TextChoices):
         """How the team verified a date of birth (decision 0015). The method is all that is kept: no
@@ -92,6 +93,11 @@ class Person(models.Model):
     )
     merged_into = models.ForeignKey(
         "self", verbose_name="Unida a", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    # The file that created this row, if one did (``people.imports``): what its undo may delete, and nothing else.
+    imported_in = models.ForeignKey(
+        "people.PeopleImport", verbose_name="Importación", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="people", editable=False,
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -435,3 +441,34 @@ class PersonTag(models.Model):
 
     def __str__(self) -> str:
         return f"{self.person_id}/{self.tag_id}"
+
+
+class PeopleImport(models.Model):
+    """One confirmed import of people from a file (``people.imports.apply``, the one write path).
+
+    The file is never stored, and neither is its name or any of its cells: this row says who
+    imported, when and how many people it created; ``Person.imported_in`` says which. For
+    ``people.imports.UNDO_HOURS`` the import can be undone: exactly the rows it created are deleted,
+    except the ones that gained something since (``undo_report`` counts both, never a name).
+    """
+
+    church = models.ForeignKey(Church, verbose_name="Iglesia", on_delete=models.CASCADE, related_name="people_imports")
+    imported_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    imported_at = models.DateTimeField("Fecha de la importación", default=timezone.now)
+    created_count = models.PositiveIntegerField("Personas creadas", default=0)
+    undone_at = models.DateTimeField("Fecha en que se deshizo", null=True, blank=True)
+    undone_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    undo_report = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name = "importación de personas"
+        verbose_name_plural = "importaciones de personas"
+        ordering = ["-imported_at", "-id"]
+        indexes = [models.Index(fields=["church", "-imported_at"], name="people_import_recent_idx")]
+
+    def __str__(self) -> str:
+        return f"Importación {self.pk}"
+
+    @property
+    def is_undone(self) -> bool:
+        return self.undone_at is not None
