@@ -900,6 +900,9 @@
       var box = row ? row.getBoundingClientRect() : null;
       var title = row ? row.querySelector(".row__title a[href], a.row__link[href]") : null;
       var titleHref = title ? title.getAttribute("href") : "";
+      // A value written inside a quoted attribute selector: the backslash first, then the quote, so an address with
+      // either one stays one value and never breaks the selector.
+      function inQuotes(value) { return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"'); }
       function swap() {
         var said = $all(".messages .notice", fresh).map(function (n) { return n.textContent.replace(/\s+/g, " ").trim(); }).join(" ");
         var problem = fresh.querySelector(".messages .notice--danger, .messages .notice--warning");
@@ -907,8 +910,8 @@
         // it stays (an event signed up for, a day read, an answer that can change), its new state says it. The line
         // takes the row's place and height, so nothing moves under the finger that pressed.
         // A row is known by its title's link (forms of a list often share one action); without one, by its form
-        var stayed = titleHref && next && next.querySelector('a[href="' + titleHref.replace(/"/g, '\\"') + '"]');
-        var left = (row && row !== region && titleHref) ? !stayed : (action && !(next && next.querySelector('form[action="' + action + '"]')));
+        var stayed = titleHref && next && next.querySelector('a[href="' + inQuotes(titleHref) + '"]');
+        var left = (row && row !== region && titleHref) ? !stayed : (action && !(next && next.querySelector('form[action="' + inQuotes(action) + '"]')));
         var rowLeft = row && row !== region && left;
         var trace = null;
         if (!problem && (note || (said && left && (rowLeft || !row)))) {
