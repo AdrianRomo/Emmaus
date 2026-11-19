@@ -231,6 +231,8 @@ def home(request):
         a.can_change = a.status != serving_services.PENDING and a.service_date.date > today  # until the day before
         a.just_answered = str(a.pk) == answered_now
     asked = {a.pk for a in asks_pending}
+    # A date of a team this person coordinates where nobody serves: it blocks the date, so it waits here too
+    uncovered = serving_services.uncovered_dates(person, today)
     # A suggestion (find a group) is not something that waits for an answer: it goes with the groups, unraised.
     suggestion = sign if sign and sign["action"] == "Ver los grupos" else None
     if suggestion:
@@ -256,6 +258,7 @@ def home(request):
         "groups/home.html",
         {
             "asks_pending": asks_pending,
+            "uncovered": uncovered,
             "suggestion": suggestion,
             "today_rows": today_rows,
             "later_rows": later_rows,

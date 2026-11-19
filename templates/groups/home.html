@@ -26,7 +26,7 @@
 </section>
 {% endfor %}
 
-{% if asks_pending or sign %}
+{% if asks_pending or sign or uncovered %}
 {% comment %}
   What waits for this person: the one raised surface of the page, with only what is still unanswered. A serving
   date is answered in place: the main column is the region that changes (data-inline="principal"), so the date
@@ -52,6 +52,19 @@
       </form>
     </div>
     {% endfor %}
+    {% for d in uncovered %}{# A date of a team this person coordinates where everyone asked said no: it blocks the date #}
+    <div class="ask">
+      <div class="sign__who">
+        {% date_block d.date %}
+        <div>
+          <p class="sign__kind">Equipo {{ d.team.name }}</p>
+          <h3 class="sign__title">Nadie sirve el {% if d.date.month == today.month %}{{ d.date|date:"l j"|lower }}{% else %}{{ d.date|weekday_date }}{% endif %}</h3>
+          <p class="sign__text">{% if d.asked == 1 %}Quien pediste dijo que no puede{% else %}Los {{ d.asked }} que pediste dijeron que no pueden{% endif %}.</p>
+        </div>
+      </div>
+      <div class="sign__actions"><a class="btn {% if forloop.first and not asks_pending %}btn--primary{% else %}btn--secondary{% endif %} btn--large" href="{% url 'serving:date_detail' d.pk %}#quien-sirve">Pedir a alguien<span class="visually-hidden"> para el {{ d.date|weekday_date }}</span></a></div>
+    </div>
+    {% endfor %}
     {% if sign.requests %}{% for r in sign.requests %}
     <div class="ask">
       <div class="sign__who">
@@ -61,7 +74,7 @@
       <form class="sign__actions sign__actions--pair" method="post" action="{{ r.decide }}" data-inline="principal">
         {% csrf_token %}<input type="hidden" name="siguiente" value="{{ request.path }}">
         <button class="btn btn--secondary btn--large" type="submit" name="decision" value="declinar" data-confirm="¿No aceptar a {{ r.who }} en {{ r.group }}? Lo verá en su inicio, sin el motivo." data-confirm-label="No aceptar">No aceptar<span class="visually-hidden"> a {{ r.who }}</span></button>
-        <button class="btn {% if forloop.first and not asks_pending %}btn--primary{% else %}btn--secondary{% endif %} btn--large" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ r.who }}</span></button>
+        <button class="btn {% if forloop.first and not asks_pending and not uncovered %}btn--primary{% else %}btn--secondary{% endif %} btn--large" type="submit" name="decision" value="aceptar">Aceptar<span class="visually-hidden"> a {{ r.who }}</span></button>
       </form>
       <p class="sign__aparte"><a class="btn btn--link btn--small" href="{{ r.url }}">Ver solicitud<span class="visually-hidden"> de {{ r.who }}</span></a></p>
     </div>

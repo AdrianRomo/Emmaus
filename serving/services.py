@@ -137,6 +137,27 @@ def pending_count(person, today=None) -> int:
     return _upcoming(person, today).filter(status=PENDING).count()
 
 
+def uncovered_dates(person, today=None, limit: int = 3) -> list[ServiceDate]:
+    """The coming dates of the active teams this person coordinates where nobody serves: somebody was asked and every
+    one asked said no (none confirmed, none still to answer: a pending answer may still be a yes) — the team page's
+    «Nadie sirve el …», raised on the coordinator's «Mi iglesia» too (a decision taken under the owner's delegation)."""
+    from django.db.models import Count, Q
+
+    today = today or timezone.localdate()
+    teams = TeamMembership.objects.filter(person=person, role=COORDINATOR, status=ACTIVE, team__status=Team.Status.ACTIVE).values("team_id")
+    return list(
+        ServiceDate.objects.filter(team_id__in=teams, date__gte=today)
+        .annotate(
+            asked=Count("assignments"),
+            confirmed=Count("assignments", filter=Q(assignments__status=ACCEPTED)),
+            waiting=Count("assignments", filter=Q(assignments__status=PENDING)),
+        )
+        .filter(asked__gt=0, confirmed=0, waiting=0)
+        .select_related("team")
+        .order_by("date", "pk")[:limit]
+    )
+
+
 def has_teams(person) -> bool:
     """The person is an active member of any active team."""
     return TeamMembership.objects.filter(person=person, status=ACTIVE, team__status=Team.Status.ACTIVE).exists()
