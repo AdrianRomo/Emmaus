@@ -1,55 +1,72 @@
 {% extends "base.html" %}
-{% load emmaus community %}
+{% load emmaus community shell %}
 {% block page_title %}{% if form.errors %}Error: {% endif %}Petición de oración{% endblock %}
 {% block content %}
 {% comment %}
-  One request, for a pastor it is addressed to (oracion.views.read): the words, and the three things a reader can do:
-  mark it as read, answer once, or mark that they talked in person. No thread. With the church's switch off: read only.
+  One request, for a pastor it is addressed to (oracion.views.read): who wrote it (the circle and the name), the
+  words on the ground at reading size, and the three things a reader can do. «Lo leí» and «Hablamos en persona» are
+  one press each and act in place (#atendida; their views return to this page): the region becomes the state with
+  its date, the count in the rail drops, and what is announced is the view's fixed sentence, never a word of the
+  request. The reply has a field, so it is a form of its own outside that region (what is being typed is never
+  replaced). No thread. With the church's switch off: read only.
 {% endcomment %}
-<div class="narrow">
-  {% url 'oracion:inbox' as back %}
-  {% include "events/rotulo/_page_head.html" with title=prayer.writer_name lede="Petición de oración." back_url=back back_label="Volver a Peticiones de oración" %}
+<div class="narrow oracion">
+  <a class="back-link" href="{% url 'oracion:inbox' %}">Volver a Peticiones de oración</a>
+  <header class="page-head">
+    <div class="group-head">
+      {% monogram prayer.writer_name "lg" %}
+      <div class="page-head__text">
+        <h1 class="voice page-head__title">{{ prayer.writer_name }}</h1>
+        <p class="page-head__meta">Petición de oración.</p>
+      </div>
+    </div>
+  </header>
   {% include "partials/ui/error_summary.html" %}
-  <section class="block stack" aria-labelledby="peticion">
-    <h2 id="peticion" class="heading">Lo que escribió el {{ prayer.created_at|day_and_hour }}</h2>
-    <p class="prose-block">{{ prayer.body|linebreaksbr }}</p>
+  <section class="block oracion__peticion" aria-labelledby="peticion">
+    <h2 id="peticion" class="oracion__cuando">Lo que escribió el {{ prayer.created_at|day_and_hour }}</h2>
+    <p class="oracion__palabras">{{ prayer.body|linebreaksbr }}</p>
     <p class="aside-note">{% if prayer.restricted %}Te eligió solo a ti: nadie más la puede leer. {% endif %}Emmaus la borra el {{ prayer.expires_at|long_date }}, o antes si quien la escribió la borra.</p>
   </section>
 
-  <section class="block stack" aria-labelledby="estado">
+  <section class="block" id="atendida" aria-labelledby="estado">
     <h2 id="estado" class="heading">Lo que se ha hecho</h2>
-    {% if prayer.read_at %}<p>Leída el {{ prayer.read_at|long_date }}.</p>{% else %}<p>Nadie la ha marcado como leída.</p>{% endif %}
-    {% if prayer.talked_at %}<p>Hablaron en persona: se marcó el {{ prayer.talked_at|long_date }}.</p>{% endif %}
-    {% if prayer.replied_at %}
-    <div>{# a second fact, apart from the first: .stack would pull it close #}
-      <div class="stack mt-8">
-        <h3 class="heading">La respuesta, del {{ prayer.replied_at|long_date }}</h3>
-        <p class="prose-block">{{ prayer.reply|linebreaksbr }}</p>
-      </div>
-    </div>
-    {% endif %}
+    <ul class="oracion__hechos" data-inline-focus tabindex="-1">
+      <li class="oracion__estado">{% if prayer.read_at %}{% status "completada" "Leída" %}<span>el {{ prayer.read_at|long_date }}.</span>{% else %}{% status "pendiente" "Nadie la ha marcado como leída" %}{% endif %}</li>
+      {% if prayer.talked_at %}<li class="oracion__estado">{% status "completada" "Hablaron en persona" %}<span>se marcó el {{ prayer.talked_at|long_date }}.</span></li>{% endif %}
+    </ul>
     {% if on %}
-    <div class="step__actions">
+    {% if not prayer.read_at or not prayer.talked_at %}
+    <div class="form-actions oracion__marcar">
       {% if not prayer.read_at %}
-      <form method="post" action="{% url 'oracion:mark_read' prayer.pk %}">{% csrf_token %}<button class="btn btn--primary" type="submit">Lo leí</button></form>
+      <form method="post" action="{% url 'oracion:mark_read' prayer.pk %}" data-inline="atendida">{% csrf_token %}<button class="btn btn--primary" type="submit">Lo leí</button></form>
       {% endif %}
       {% if not prayer.talked_at %}
-      <form method="post" action="{% url 'oracion:mark_talked' prayer.pk %}">{% csrf_token %}<button class="btn btn--secondary" type="submit">Hablamos en persona</button></form>
+      <form method="post" action="{% url 'oracion:mark_talked' prayer.pk %}" data-inline="atendida">{% csrf_token %}<button class="btn btn--secondary" type="submit">Hablamos en persona</button></form>
       {% endif %}
     </div>
+    {% endif %}
     <p class="aside-note">Quien la escribió ve «Leída» o «Hablaron en persona» con la fecha{% if not prayer.restricted %}, no quién lo marcó{% endif %}. Emmaus no le manda correo.</p>
     {% else %}
     <p class="aside-note">Tu iglesia apagó las peticiones de oración: esta se puede leer hasta su fecha, pero ya no se marca ni se responde.</p>
     {% endif %}
   </section>
 
+  {% if prayer.replied_at %}
+  <section class="block oracion__peticion" aria-labelledby="respuesta">
+    <h2 id="respuesta" class="oracion__cuando">La respuesta, del {{ prayer.replied_at|long_date }}</h2>
+    <p class="oracion__palabras">{{ prayer.reply|linebreaksbr }}</p>
+  </section>
+  {% endif %}
+
   {% if on and not prayer.replied_at %}
   <section class="block" aria-labelledby="responder">
     <h2 id="responder" class="heading">Responder</h2>
     <form method="post" action="{% url 'oracion:reply' prayer.pk %}" novalidate>
       {% csrf_token %}
-      {% include "partials/ui/fields.html" %}
-      <div class="step__actions"><button class="btn btn--secondary" type="submit">Enviar mi respuesta</button></div>
+      <div class="form-section">
+        {% include "partials/ui/fields.html" %}
+      </div>
+      <div class="form-actions"><button class="btn btn--secondary" type="submit">Enviar mi respuesta</button></div>
     </form>
   </section>
   {% endif %}
