@@ -47,14 +47,16 @@ FORM_ANSWERS = "respuestas_formularios"
 SUBSCRIPTIONS = "suscripciones_evento"
 SERVING_REMINDERS = "recordatorios_servir"
 PRAYER_RETENTION = "oracion_retencion"
+VISITOR_SIGNUPS = "inscripciones_visitas"
 JOBS = (CUTOFFS, NOTICE_MAIL, WAITING_OFFERS, SERIES, PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS,
-        SERVING_REMINDERS, PRAYER_RETENTION)
+        SERVING_REMINDERS, PRAYER_RETENTION, VISITOR_SIGNUPS)
 # The jobs that only DELETE what the product promised to delete (a prayer request past its date, an address
 # nobody confirmed, the answers of a form past its time, the contact values of a merge that can no longer be
 # undone). They run on every pass whatever ``EMMAUS_SCHEDULED_COMMUNITY_JOBS``, ``EMMAUS_V2_MODULES`` and each
 # church's module flags say: a switch stops Emmaus from acting for a church, never from keeping its word.
-# ``SUBSCRIPTIONS`` is both: with the switches off only its deletions run.
-DELETING_JOBS = (PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS, PRAYER_RETENTION)
+# ``SUBSCRIPTIONS`` is both: with the switches off only its deletions run. So is ``VISITOR_SIGNUPS`` (the requests
+# to sign up without an account that nobody confirmed, and what a sign-up answered once the event's time is over).
+DELETING_JOBS = (PERSON_MERGES, FORM_ANSWERS, SUBSCRIPTIONS, PRAYER_RETENTION, VISITOR_SIGNUPS)
 # A job that has not ended well for this long is not running: three passes of 300 seconds.
 STALE_MINUTES = 15
 

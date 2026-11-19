@@ -46,6 +46,11 @@ when a job of the pass failed, after running all of them, as ``run_report_cutoff
    (``oracion.services.prune``, what ``prune_prayer_requests --apply`` runs), in every church whatever its module
    flags and whatever its own switch: it only deletes. The count it logs is one number for the whole server.
 
+10. ``inscripciones_visitas``: signing up for an event without an account (``agenda.visitors.run_pass``). Its
+    deletions run in every church whatever is switched off: the requests nobody confirmed 48 hours after their
+    e-mail, and what a sign-up answered once the event's own retention is over. Its e-mails (the one that asks to
+    confirm) only with the community jobs on, ``EMMAUS_PUBLIC_BASE_URL`` and a mail backend that delivers.
+
 Two classes of work (``core.scheduler.DELETING_JOBS``):
 
 * 2, 3, 4, 8 and the e-mails of 7 ACT for a church (send, generate, move a list). They are the community jobs:
@@ -145,6 +150,20 @@ def event_subscriptions_verdict(done: dict) -> str:
     from agenda import subscriptions
 
     return subscriptions.verdict(done)
+
+
+def visitor_signups() -> dict:
+    """Signing up without an account (``agenda.visitors``): the deletions always; the e-mails that ask to confirm
+    only while the community jobs are on."""
+    from agenda import visitors
+
+    return visitors.run_pass(budget_seconds=SUBSCRIPTION_BUDGET_SECONDS, acting=scheduler.community_jobs_enabled())
+
+
+def visitor_signups_verdict(done: dict) -> str:
+    from agenda import visitors
+
+    return visitors.verdict(done)
 
 
 def send_serving_reminders() -> dict:
@@ -259,6 +278,19 @@ class Command(BaseCommand):
             return False, "peticiones de oración: error"
         return True, f"peticiones de oración: {run.counts['deleted']} vencidas borradas"
 
+    def visitor_signups_summary(self) -> tuple[bool, str]:
+        run = scheduler.run_job(scheduler.VISITOR_SIGNUPS, visitor_signups, verdict=visitor_signups_verdict)
+        done = run.counts
+        if done is None:
+            return False, "inscripciones sin cuenta: error"
+        line = f"inscripciones sin cuenta: {done['requests']} solicitudes vencidas borradas, {done['answers']} respuestas borradas"
+        if not scheduler.community_jobs_enabled():
+            return True, f"{line}, sin correos (los trabajos de comunidad están apagados)"
+        if done["not_configured"]:
+            return True, f"{line}, sin correos (falta la dirección pública o el correo)"
+        line += f", {done['confirmations']} correos enviados, {done['failed']} fallidos, {done['left']} pendientes"
+        return run.ok, line if run.ok else f"{line} (ningún correo está saliendo)"
+
     def run_once(self) -> bool:
         """One pass. False when a job of it failed."""
         stamp = f"{timezone.localtime(timezone.now()):%Y-%m-%d %H:%M}"
@@ -272,6 +304,7 @@ class Command(BaseCommand):
             (self.notice_mail_summary, acting), (self.waiting_offers_summary, acting), (self.series_summary, acting),
             (self.person_merges_summary, True), (self.form_answers_summary, True), (self.event_subscriptions_summary, True),
             (self.serving_reminders_summary, acting), (self.prayer_retention_summary, True),
+            (self.visitor_signups_summary, True),
         ]
         for job, runs in jobs:
             if not runs:
