@@ -116,6 +116,34 @@ stale at `509b596` and predates the community module). A detached checkout of it
 share migrations and seeds, so one seeded database copied twice gives an identical before/after
 (`REVIEW_2026-11-18.md`, «Acceptance review»).
 
+## Final review round (2026-11-18): security review and browser QA
+
+Three independent passes over the finished branch: a security review of the server-side changes, a browser QA of every
+role's journeys (184 paths at 390 and 1280 px, axe, overflow, one h1, focus, console), and a documentation refresh
+(merged `05e000e`). What they found, and the fix (each with a test; no migration):
+
+| Found | Fix |
+|---|---|
+| A retired event notice still showed under its event for up to 7 days | `8a2cd04` (excludes retired notices) |
+| An event named «En curso» would have been unreachable behind `/eventos/en-curso/` | `8a2cd04` (slug reserved) |
+| On a free or expired claim, another person took the interview before «Sí, es …» | `58ce6d9` (check first, everywhere) |
+| «a cargo de» compared names, not accounts | `58ce6d9`, then `12f69b0` |
+| A changed decision's reason (free text about a campero) on every list | `78a2004` (task page and record only) |
+| A follow-up could be given to someone who could not open it | `31e07b0` (`forms.assignable`) |
+| The record's first line named the wrong computer and repeated names | `12f69b0` |
+| Marked camperos were lost by a search or by leaving, without a word | `ec58078` |
+| A comma starting a line, a duplicated region name (axe), two wordings for «Nadie sirve», one group's requests only | `8c1f9c0` |
+| «Retomar» went back to a question skipped on purpose | `c282c2d` (merged in the commit after `ce9d11a`) |
+| A computer whose campero was reassigned got a 404 | `33a6a9a` |
+| An administración without confidential access could take an interview she could not continue | `33a6a9a` |
+
+Not changed: three module-off camp screens have axe `color-contrast` at 1280 px; `rotulo.css` is unchanged from
+`v2/foundation`, so it predates this branch (left for a separate change, not to touch the old screens here).
+
+Worktrees of this round (detached or merged; remove when no longer needed, `git worktree remove <path>`, and
+`git branch -D v2/docs-final v2/qa-entrevista` once reviewed): `../Emmaus.worktrees/docs-final`,
+`../Emmaus.worktrees/qa-entrevista`, `../Emmaus.worktrees/rc-critic`, `../Emmaus.worktrees/rc-verify`.
+
 ## Left running / scratch
 
 - Dev servers used during the work were stopped; the review and critique servers on 8880–8882 are scratch
