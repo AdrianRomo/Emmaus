@@ -1064,21 +1064,63 @@ def review_rows(access, interview: Interview, *, during_capture: bool = False, f
     return rows
 
 
+# Who took the interview in hand, in the activity log: started it, resumed it, took control, recovered the computer.
+HOLDER_ACTIONS = ("entrevista_iniciada", "entrevista_retomada", "entrevista_control", "captura_desbloqueada")
+
+
+def _interview_rows(interview: Interview, actions):
+    return AuditEvent.objects.filter(
+        event_id=interview.event_id, object_type="Interview", object_id=str(interview.public_id), action__in=actions
+    ).order_by("created_at", "id")
+
+
+def interview_people(interview: Interview) -> dict:
+    """The people of an interview, for staff (owner decision: a resumed interview shows both):
+
+    - ``confirmed``: who ticked «Sí, es {nombre}» when it started, and when (``{"by", "at"}``; None for an interview
+      started before «Antes de empezar» asked it);
+    - ``reverified``: each other staff member who ticked it again to continue it, and when (``audit.IDENTITY_VERIFIED``);
+    - ``holder``: «Entrevista a cargo de …», the last person who took it in hand in the activity log (``HOLDER_ACTIONS``),
+      else the person who started it.
+    """
+    rows = list(_interview_rows(interview, (*HOLDER_ACTIONS, audit.IDENTITY_VERIFIED)))
+    started = next((r for r in rows if r.action == "entrevista_iniciada" and r.metadata.get("identity_confirmed")), None)
+    holders = [r for r in rows if r.action in HOLDER_ACTIONS]
+    holder = holders[-1].actor_label if holders else (interview.conducted_by.get_full_name() if interview.conducted_by else "")
+    return {
+        "confirmed": {"by": started.actor_label, "at": started.created_at} if started else None,
+        "reverified": [{"by": r.actor_label, "at": r.created_at} for r in rows if r.action == audit.IDENTITY_VERIFIED],
+        "holder": holder,
+    }
+
+
 def identity_confirmation(interview: Interview) -> dict | None:
-    """Who confirmed «Sí, es {nombre}» when the interview started, and when: ``{"by": name, "at": datetime}``, from
-    the start's audit row. None for an interview started before «Antes de empezar» asked it (nothing to say)."""
-    row = (
-        AuditEvent.objects.filter(
-            event_id=interview.event_id,
-            action="entrevista_iniciada",
-            object_type="Interview",
-            object_id=str(interview.public_id),
-            metadata__identity_confirmed=True,
+    """Who confirmed «Sí, es {nombre}» when the interview started, and when (``interview_people``'s ``confirmed``)."""
+    return interview_people(interview)["confirmed"]
+
+
+def needs_identity_check(interview: Interview, user) -> bool:
+    """True when ``user`` is about to continue an interview in progress they did not start and has not yet ticked
+    «Sí, es {nombre}» for it (owner decision). The person who started it (``conducted_by``, who ticked the box on
+    «Antes de empezar») is never asked again, nor anyone who already checked it once."""
+    if interview.status != Interview.Status.IN_PROGRESS or user is None or not getattr(user, "is_authenticated", False):
+        return False
+    if interview.conducted_by_id == user.id:
+        return False
+    return not _interview_rows(interview, (audit.IDENTITY_VERIFIED,)).filter(actor=user).exists()
+
+
+def record_identity_check(access, interview: Interview) -> None:
+    """«Sí, es {nombre}» ticked by someone continuing the interview: its own audit row (who, when, which interview), so
+    the confirmation at the start stays as it was."""
+    if needs_identity_check(interview, access.user):
+        audit.record(
+            access.user,
+            interview.event,
+            audit.IDENTITY_VERIFIED,
+            f"Verificó la identidad del campero #{interview.participant.code} para continuar su entrevista",
+            interview,
         )
-        .order_by("created_at", "id")
-        .first()
-    )
-    return {"by": row.actor_label, "at": row.created_at} if row else None
 
 
 def visible_question_ids(access, interview: Interview, *, during_capture: bool = False) -> set[int]:

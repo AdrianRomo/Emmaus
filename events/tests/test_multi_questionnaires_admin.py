@@ -735,6 +735,9 @@ class ConfidentialLevelTests(AdminHelpers, CampFixture):
         self.answer(interview, "apoyo", "familia")
         Interview.objects.filter(pk=interview.pk).update(lock_token_hash="", lock_holder=None, lock_expires_at=None, station=None)
         client = self.login(self.admin, Client())
+        # Someone else picking it up checks «Sí, es {nombre}» first (owner decision), then reads the review.
+        self.assertRedirects(client.get(self.url("interview_review", interview.public_id)), self.url("interview_conflict", interview.public_id), fetch_redirect_response=False)
+        client.post(self.url("interview_conflict", interview.public_id), {"identity": "on"})
         response = client.get(self.url("interview_review", interview.public_id))
         self.assertEqual(response.status_code, 200)
         tags = self.hidden_tags(response.content.decode())
