@@ -374,6 +374,9 @@ def page_edit(request, slug: str):
             "schedule_count": EventScheduleItem.objects.filter(event=event).count(),
             "question_count": EventQuestion.objects.filter(event=event).count(),
             "headcount": EventHeadcount.objects.filter(event=event).first(),
+            # The option is on and this server cannot send the e-mail that confirms a visitor: the public page does
+            # not offer the form (agenda.visitors.offered_page), and the administration reads why, in plain words.
+            "visitors_not_sending": subscriptions.reason_words() if page is not None and page.visitor_signup else "",
             "series_row": series.occurrence_of(event),
         },
     )

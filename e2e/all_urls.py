@@ -72,11 +72,24 @@ pages["@comunidad"] = {
      ["k-formularios", r("formularios:manage")], ["k-formulario-nuevo", r("formularios:create")], ["k-pendientes-sin-responsable", r("formularios:loose_tasks")],
      ["k-eventos-administrar", r("agenda:admin_list")], ["k-serie-nueva", r("agenda:series_create")],
      ["k-devocionales", r("resources:devotional_admin")], ["k-planes", r("resources:plan_admin")], ["k-aprobaciones-admin", r("resources:approval_queue")],
-     ["k-equipos", r("serving:team_admin")], ["k-cuenta", r("account")]],
-  "pastor.iglesia@demo.invalid": [["k-aprobaciones", r("resources:approval_queue")], ["k-oracion-recibidas", r("oracion:inbox")], ["k-oracion-politica", r("oracion:terms")]],
+     ["k-equipos", r("serving:team_admin")], ["k-cuenta", r("account")],
+     # Wave 12. The gate seeds --directorio --repeticion --visitas before this review, so these have rows.
+     ["k-directorio", r("directorio:list")], ["k-quien-puede-que", r("cuenta_datos:powers")], ["k-solicitudes-datos", r("cuenta_datos:requests")],
+     ["k-admin-mis-datos", r("cuenta_datos:home")], ["k-panorama", r("overview:panorama")],
+     ["k-visitas-inscritos", r("agenda:registrations", args=["desayuno-de-bienvenida-demo"])],
+     ["k-visitas-preguntas", r("agenda:questions", args=["desayuno-de-bienvenida-demo"])],
+     ["k-visitas-pagina", r("agenda:page_edit", args=["desayuno-de-bienvenida-demo"])]],
+  "pastor.iglesia@demo.invalid": [["k-aprobaciones", r("resources:approval_queue")], ["k-oracion-recibidas", r("oracion:inbox")], ["k-oracion-politica", r("oracion:terms")],
+     ["k-directorio-politica", r("directorio:policy")], ["k-pastor-quien-puede-que", r("cuenta_datos:powers")], ["k-pastor-panorama", r("overview:panorama")]],
   "guia.grupo@demo.invalid": [["k-guia-espacios", r("espacios:list")], ["k-guia-servir", r("serving:home")], ["k-guia-formularios", r("formularios:list")],
-     ["k-guia-pendientes", r("formularios:queue")], ["k-guia-oracion", r("oracion:mine")], ["k-guia-oracion-nueva", r("oracion:new")]],
+     ["k-guia-pendientes", r("formularios:queue")], ["k-guia-oracion", r("oracion:mine")], ["k-guia-oracion-nueva", r("oracion:new")],
+     ["k-guia-mis-datos", r("cuenta_datos:home")], ["k-guia-descargar", r("cuenta_datos:download")], ["k-guia-pedir-borrado", r("cuenta_datos:ask_removal")]],
   "rosa.rotas@demo.invalid": [["k-sirve-servir", r("serving:home")]],
-  "valeria.soto@demo.invalid": [["k-miembro-espacios", r("espacios:list")], ["k-miembro-eventos", r("agenda:list")], ["k-miembro-pendientes", r("formularios:queue")]],
+  "valeria.soto@demo.invalid": [["k-miembro-espacios", r("espacios:list")], ["k-miembro-eventos", r("agenda:list")], ["k-miembro-pendientes", r("formularios:queue")],
+     ["k-miembro-servir", r("serving:home")], ["k-menor-mis-datos", r("cuenta_datos:home")]],
+  # --directorio: who chose to appear, and who has not.
+  "fernanda.directorio@demo.invalid": [["k-directorio-miembro", r("directorio:list")], ["k-directorio-como-aparezco", r("directorio:mine")],
+     ["k-directorio-mis-datos", r("community:profile")], ["k-directorio-mis-datos-en-emmaus", r("cuenta_datos:home")]],
+  "julia.directorio@demo.invalid": [["k-directorio-aparecer", r("directorio:mine")]],
 }
 print(json.dumps(pages))

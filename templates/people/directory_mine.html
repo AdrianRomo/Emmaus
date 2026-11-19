@@ -10,7 +10,8 @@
 {% endcomment %}
 <div class="narrow directorio">
   {% url 'community:profile' as back %}
-  {% include "events/rotulo/_page_head.html" with title="Aparecer en el directorio" meta="El directorio es la lista de personas de tu iglesia que eligieron aparecer. Tú decides si estás y qué muestras; nadie lo elige por ti." back_url=back back_label="Volver a Mis datos" %}
+  {% include "events/rotulo/_page_head.html" with title="Aparecer en el directorio" meta="Tú decides si estás y qué muestras; nadie lo elige por ti." back_url=back back_label="Volver a Mis datos" %}
+  <p class="aside-note">El directorio es la lista de personas de tu iglesia que eligieron aparecer.</p>
   {% if row %}
   <section class="block" aria-labelledby="hoy">
     <h2 id="hoy" class="heading">Así te ven hoy</h2>

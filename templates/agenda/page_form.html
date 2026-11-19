@@ -62,6 +62,7 @@
     </section>
     <section class="form-section" aria-labelledby="seccion-visitas">
       <h2 id="seccion-visitas" class="form-section__title">Quien no tiene cuenta</h2>
+      {% if visitors_not_sending %}<div class="notice notice--warning"><p>La inscripción para quien no tiene cuenta está encendida para este evento, pero la página pública no la ofrece: {{ visitors_not_sending }}. Sin el correo que confirma, nadie podría terminar de inscribirse.</p></div>{% endif %}
       {% include "partials/ui/field.html" with field=form.visitor_signup %}
       {% include "partials/ui/field.html" with field=form.visitor_phone %}
     </section>

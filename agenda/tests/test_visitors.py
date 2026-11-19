@@ -118,6 +118,21 @@ class OfferTests(VisitorFixture):
         self.assertEqual(self.client.get("/evento/no-existe/inscribirme/").status_code, 404)
         self.assertFalse(VisitorRequest.objects.exists())
 
+    def test_where_the_server_cannot_send_the_administration_reads_that_the_form_is_not_offered_and_why(self):
+        """The option on and no e-mail that confirms: the public page offers nothing, and the event's page says so."""
+        admin = Client()
+        admin.force_login(self.admin)
+        page_url = reverse("agenda:page_edit", args=[self.retiro.slug])
+        self.assertNotContains(admin.get(page_url), "la página pública no la ofrece")
+        ask = "Pide a quien administra el servidor que lo revise"
+        with self.settings(EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend", EMMAUS_PUBLIC_BASE_URL=""):
+            page = admin.get(page_url)
+            self.assertContains(page, "pero la página pública no la ofrece: falta configurar el correo del sistema y la dirección "
+                                      f"pública de Emmaus. {ask}.")
+            self.assertNotContains(page, "EMMAUS_")
+            services.save_page(self.retiro, self.admin, visitor_signup=False)
+            self.assertNotContains(admin.get(page_url), "la página pública no la ofrece")  # off: nothing to explain
+
     def test_the_form_asks_for_the_statement_of_age_and_a_phone_only_when_the_event_asks(self):
         page = self.client.get(form_url(self.retiro))
         self.assertContains(page, "<h1", count=1)

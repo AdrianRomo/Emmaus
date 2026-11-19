@@ -734,7 +734,9 @@ class Command(BaseCommand):
         weekly = EventSeries.objects.get(church=church, name="Reunión general")
         today = timezone.localdate()
         room = Space.objects.filter(church=church, name="Salón 2").first()
-        if room is not None and not BookingSeries.objects.filter(space__church=church).exists():
+        # By their own titles: a series somebody else asked for (the browser journey leaves one, ended) is not these two.
+        seeded = ("Ensayo del grupo de alabanza", "Clase de nuevos miembros")
+        if room is not None and not BookingSeries.objects.filter(space__church=church, title__in=seeded).exists():
             admin_person = Person.objects.get(church=church, user=admin)
             repeticion.request_series(
                 room, leader, leader.user, title="Ensayo del grupo de alabanza", starts_on=today + timedelta(days=4),

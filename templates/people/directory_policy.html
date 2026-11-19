@@ -9,7 +9,8 @@
   whole church can see.
 {% endcomment %}
 <div class="narrow directorio">
-  {% if state.enabled %}{% url 'directorio:list' as back %}{% include "events/rotulo/_page_head.html" with title="Lo que ofrece tu iglesia" meta="Directorio entre miembros. Solo quien tiene el rol de pastor puede encenderlo o apagarlo; la administración no." back_url=back back_label="Volver al Directorio" %}{% else %}{% url 'community:home' as back %}{% include "events/rotulo/_page_head.html" with title="Lo que ofrece tu iglesia" meta="Directorio entre miembros. Solo quien tiene el rol de pastor puede encenderlo o apagarlo; la administración no." back_url=back back_label="Volver a Mi iglesia" %}{% endif %}
+  {% if state.enabled %}{% url 'directorio:list' as back %}{% include "events/rotulo/_page_head.html" with title="Lo que ofrece tu iglesia" meta="Directorio entre miembros" back_url=back back_label="Volver al Directorio" %}{% else %}{% url 'community:home' as back %}{% include "events/rotulo/_page_head.html" with title="Lo que ofrece tu iglesia" meta="Directorio entre miembros" back_url=back back_label="Volver a Mi iglesia" %}{% endif %}
+  <p class="aside-note">Solo quien tiene el rol de pastor puede encenderlo o apagarlo; la administración no.</p>
   {% include "partials/ui/error_summary.html" %}
   {% if state.enabled %}
     <div class="notice notice--success"><p>Está encendido: quien eligió aparecer se ve en el directorio.</p></div>
