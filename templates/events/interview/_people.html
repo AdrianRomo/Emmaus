@@ -1,0 +1,5 @@
+{% load emmaus %}{% comment %}
+  The people of an interview, for staff (owner decision; services.interviews.interview_people): who confirmed the campero's
+  identity when it started, who checked it again to continue it in someone else's place, and who has it now. Each
+  sentence starts with a space, so it can follow another one.
+{% endcomment %}{% if people.confirmed %} Identidad confirmada por {{ people.confirmed.by }}, {{ people.confirmed.at|fecha_corta }}.{% endif %}{% for check in people.reverified %} Identidad verificada de nuevo por {{ check.by }}, {{ check.at|fecha_corta }}.{% endfor %}{% if people.holder %} Entrevista a cargo de {{ people.holder }}.{% endif %}

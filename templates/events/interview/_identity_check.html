@@ -1,0 +1,6 @@
+{% load emmaus %}{% comment %}
+  «Sí, es {nombre}» again, for someone who did not start the interview and is about to continue it (owner decision;
+  forms.IdentityCheckForm, views.interview.interview_conflict): who the campero is, as on «Antes de empezar», and the box.
+{% endcomment %}<p class="checks__nombre">{{ participant.full_name }}</p>
+<p class="hint">{{ participant.age }} años{% if participant.is_minor %}, menor de edad{% endif %}. {{ participant.room|cuarto }}. {{ participant.church_group }}.</p>
+{% include "partials/ui/field.html" with field=identity_form.identity %}

@@ -604,7 +604,7 @@ class BlankConfidentialQuestionFinalizesTests(CampFixture):
         EventMembership.objects.create(event=self.event, user=self.admin, role=MembershipRole.ADMIN, can_view_sensitive=True)
         care = self.login(self.admin, Client())
         self.choose_station(care, number=2)
-        care.post(self.url("interview_conflict", self.interview.public_id))  # "Tomar el control aquí"
+        care.post(self.url("interview_conflict", self.interview.public_id), {"identity": "on"})  # "Tomar el control aquí", «Sí, es …»
         self.interview.refresh_from_db()
         step_url = self.url("interview_step", self.interview.public_id, self.step("impedimento").number)
         self.assertEqual(care.get(step_url).status_code, 200)

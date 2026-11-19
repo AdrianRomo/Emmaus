@@ -270,6 +270,17 @@ class ParticipantAdminForm(ParticipantForm):
         labels = {"full_name": "Nombre completo", "is_active": "Sigue participando en el evento"}
 
 
+class IdentityCheckForm(forms.Form):
+    """«Sí, es {nombre}» again, for someone who did not start the interview and is about to continue it with the
+    campero (owner decision): the same box as on «Antes de empezar», checked on the server."""
+
+    identity = forms.BooleanField(required=True, error_messages={"required": "Para continuar, confirma que es la persona correcta."})
+
+    def __init__(self, *args, participant_name: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["identity"].label = f"Sí, es {participant_name}"
+
+
 class InterviewStartForm(forms.Form):
     mode = forms.ChoiceField(
         label="¿Cómo se va a responder?",

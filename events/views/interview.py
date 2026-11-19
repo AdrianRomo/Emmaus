@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils.http import urlencode
 from django.views.decorators.http import require_http_methods
 
-from ..forms import DiscardForm, FollowUpDecisionChangeForm, InterviewStartForm, SafetyReportForm
+from ..forms import DiscardForm, FollowUpDecisionChangeForm, IdentityCheckForm, InterviewStartForm, SafetyReportForm
 from ..models import FollowUp, FollowUpDecisionChange, Interview, InterviewStatus, Question
 from ..services import audit
 from ..services import event_questionnaires as eq
@@ -294,24 +294,47 @@ def interview_conflict(request, event, access, public_id):
     interview = _scoped_interview(access, public_id)
     if not access.can_interview(interview.participant):
         raise PermissionDenied
-    if request.method == "POST":
-        try:
-            svc.claim(access, interview, request.session, take_over=True, station=current_station(request, event))
-        except svc.InterviewError as exc:
-            messages.error(request, exc.message)
-            return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
-        messages.success(request, "Ahora esta computadora tiene el control de la entrevista.")
+    participant = interview.participant
+    # Someone who did not start it, about to continue it with the campero, ticks «Sí, es {nombre}» first (owner
+    # decision), here: before taking it from another computer, or, already holding it (a free or expired claim picked
+    # up, the computer recovered after an «Entrevista a solas»), before going on (``_identity_check``).
+    check = svc.needs_identity_check(interview, request.user)
+    posted = request.POST if request.method == "POST" else None  # bound even when nothing was ticked
+    form = IdentityCheckForm(posted, participant_name=participant.full_name) if check else None
+    holds_it = interview.lock_matches(svc.session_claim_token(request.session, interview))
+    if request.method == "POST" and (form is None or form.is_valid()):
+        if not holds_it:
+            try:
+                svc.claim(access, interview, request.session, take_over=True, station=current_station(request, event))
+            except svc.InterviewError as exc:
+                messages.error(request, exc.message)
+                return redirect("events:coord_home" if access.is_coordinator else "events:admin_home", slug=event.slug)
+        if check:
+            svc.record_identity_check(access, interview)
+        if not holds_it:
+            messages.success(request, "Ahora esta computadora tiene el control de la entrevista.")
         return redirect("events:interview_resume", slug=event.slug, public_id=interview.public_id)
     return render(
         request,
         "events/interview/conflict.html",
         {
             "interview": interview,
-            "participant": interview.participant,
+            "participant": participant,
             # Nobody else has it: "Liberar" stopped this browser. The page must not say "otra computadora".
             "released": svc.claim_released_here(interview, request.session),
+            "identity_form": form,
+            # This browser already holds it: nothing to take over, only the identity to check.
+            "verify_only": holds_it and check,
         },
     )
+
+
+def _identity_check(request, access, interview: Interview):
+    """Someone other than the person who started it, continuing it with the campero: «Sí, es {nombre}» first (on the
+    page of ``interview_conflict``). The person who started it, or who already checked it, goes on."""
+    if svc.needs_identity_check(interview, request.user):
+        return redirect("events:interview_conflict", slug=access.event.slug, public_id=interview.public_id)
+    return None
 
 
 # ---- steps --------------------------------------------------------------------------------------
@@ -334,6 +357,9 @@ def interview_step(request, event, access, public_id, number):
             return response
         interview.refresh_from_db()
         token = svc.session_claim_token(request.session, interview)
+    response = _identity_check(request, access, interview)
+    if response:
+        return response
     step = _step_or_404(interview, number)
     answers = load_answers(interview)
     if step.number not in [s.number for s in visible_steps(interview.version, answers)]:
@@ -404,6 +430,9 @@ def interview_review(request, event, access, public_id):
             return response
         interview.refresh_from_db()
         token = svc.session_claim_token(request.session, interview)
+    response = _identity_check(request, access, interview)
+    if response:
+        return response
     error = None
     if request.method == "POST":
         decision = request.POST.get("follow_up_decision", "")
@@ -437,9 +466,9 @@ def interview_review(request, event, access, public_id):
             "selected_decision": request.POST.get("follow_up_decision") or (Interview.FollowUpDecision.REQUIRED if suggestions else ""),
             "error": error,
             "has_hidden": any(not r["visible"] for r in rows),
-            # «Sí, es {nombre}», confirmed once when it started: resuming, taking control or recovering the computer
-            # never asks again, and the confirmation stays with the interview.
-            "identity": svc.identity_confirmation(interview),
+            # «Identidad confirmada por …» (at the start), «verificada de nuevo por …» (whoever continued it in someone
+            # else's place) and «Entrevista a cargo de …» (who has it now): svc.interview_people.
+            "people": svc.interview_people(interview),
         },
     )
 
@@ -485,6 +514,9 @@ def interview_handoff(request, event, access, public_id):
         if response:
             return response
         interview.refresh_from_db()
+    response = _identity_check(request, access, interview)  # before handing the computer to the campero
+    if response:
+        return response
     if request.method == "POST" and request.POST.get("action") == "asistida":
         try:
             svc.switch_to_assisted(access, interview, session=request.session)
@@ -571,9 +603,9 @@ def interview_detail(request, event, access, public_id):
             "can_continue": interview.status == Interview.Status.IN_PROGRESS and access.can_interview(interview.participant),
             "revisions": interview.answer_revisions.select_related("question", "changed_by")[:20] if access.can_view_sensitive else [],
             "has_hidden": any(not r["visible"] for r in rows),
-            # «Sí, es {nombre}», confirmed once when it started: resuming, taking control or recovering the computer
-            # never asks again, and the confirmation stays with the interview.
-            "identity": svc.identity_confirmation(interview),
+            # «Identidad confirmada por …» (at the start), «verificada de nuevo por …» (whoever continued it in someone
+            # else's place) and «Entrevista a cargo de …» (who has it now): svc.interview_people.
+            "people": svc.interview_people(interview),
             # «Cambiar decisión de seguimiento» and its history (services.follow_up_decision), for whoever sees the record.
             "can_change_decision": access.can_correct(interview) and interview.follow_up_decision in decision_svc.DECIDED,
             "decision_changes": interview.follow_up_decision_changes.select_related("changed_by"),
